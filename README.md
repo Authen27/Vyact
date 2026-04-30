@@ -29,7 +29,7 @@ cd budget-app
 # Run the v5 vanilla shell
 python -m http.server 8000  # then open http://localhost:8000
 
-# Or the v6/v7 React consumer app
+# Or the v4.1+v6+v7 React consumer app (local-only mode)
 cd react && npm install && npm run dev
 
 # Or the v8 admin backend (separate terminal)
@@ -37,6 +37,17 @@ cd admin && npm install && npm run dev
 ```
 
 The consumer (`:5173`) and admin (`:5174`) can run side-by-side.
+
+### Cloud sync (optional)
+
+The React consumer app at `react/` runs in pure-localStorage mode by default. To enable **v4.1 cloud features** (auth, multi-device sync, multi-household with invitations, realtime, role permissions):
+
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Run `db/schema.sql` in the Supabase SQL Editor (sets up tables, RLS policies, and the `accept_invitation` / `transfer_ownership` / `leave_household` RPCs)
+3. Copy your project URL + anon key into `react/.env.local` (template at `react/.env.example`)
+4. Restart the dev server
+
+When env vars are present, the app picks `HybridAdapter` (cache + cloud + write queue) automatically; otherwise it falls back to `LocalStorageAdapter`. Same `DataAdapter` interface either way — no other code changes needed.
 
 ## Roadmap
 

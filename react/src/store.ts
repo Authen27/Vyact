@@ -8,9 +8,14 @@ import type {
   Profile, ExchangeRates, HouseholdMeta, Theme,
   RecurringSchedule, Notification, NotificationPrefs, PartPaymentChoice,
 } from './types';
+import type { Session } from '@supabase/supabase-js';
 import { LocalStorageAdapter, type DataAdapter } from './lib/dataAdapter';
+import { HybridAdapter } from './lib/hybridAdapter';
 import { buildSeed } from './lib/seed';
 import { DEFAULT_RATES } from './constants';
+import { isCloudEnabled, supabase } from './lib/supabase';
+import { highestRole } from './lib/permissions';
+import type { AppRole } from './types';
 import { applyPayment } from './lib/amortization';
 import {
   dueSchedules, generateTransaction, advanceSchedule,
@@ -40,6 +45,12 @@ interface Store {
   recurringSchedules: RecurringSchedule[];
   notifications: Notification[];
   notificationPrefs: NotificationPrefs;
+
+  // ── v4.1: cloud + auth ───────────────────────────────────────
+  cloudEnabled: boolean;
+  session: Session | null;
+  sessionLoaded: boolean;
+  myRole: AppRole | undefined;          // role in active household
 
   // ── ui ──────────────────────────────────────────────────────
   theme: Theme;
@@ -86,6 +97,11 @@ interface Store {
   // v7 — debt payment with re-amortisation
   recordDebtPayment: (debtId: string, amount: number, choice?: PartPaymentChoice) => Promise<{ message: string; debt: Debt | null }>;
 
+  // v4.1 — auth lifecycle
+  setSession: (session: Session | null, loaded?: boolean) => void;
+  refreshHouseholds: () => Promise<void>;
+  subscribeRealtime: (householdId: string) => () => void;
+
   // theme + toast
   setTheme: (t: Theme) => void;
   toast: (text: string, type?: ToastMsg['type']) => void;
@@ -98,13 +114,25 @@ const defaultProfile: Profile = {
   payoffStrategy: 'avalanche', extraPayment: 0,
 };
 
+// Adapter selector: HybridAdapter when cloud env is set, otherwise LocalStorageAdapter.
+// The store calls adapter methods; the rest of the app doesn't know which is in use.
+const initialAdapter: DataAdapter = (isCloudEnabled() && supabase)
+  ? new HybridAdapter(supabase)
+  : new LocalStorageAdapter();
+
 export const useStore = create<Store>((set, get) => ({
-  adapter: new LocalStorageAdapter(),
+  adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
   transactions: [], budgets: [], goals: [], members: [], debts: [], assets: [],
   profile: defaultProfile,
   rates: { ...DEFAULT_RATES },
+
+  // v4.1
+  cloudEnabled: isCloudEnabled(),
+  session: null,
+  sessionLoaded: !isCloudEnabled(),     // local-only mode: instantly "loaded"
+  myRole: undefined,
 
   recurringSchedules: JSON.parse(localStorage.getItem('ff_recurring') || '[]'),
   notifications: JSON.parse(localStorage.getItem('ff_notifications') || '[]'),
@@ -115,16 +143,24 @@ export const useStore = create<Store>((set, get) => ({
   toasts: [],
 
   init: async () => {
-    const { adapter } = get();
+    const { adapter, cloudEnabled, session } = get();
     set({ loading: true });
+    // In cloud mode, only initialise data if we have a session.
+    // Otherwise the AuthGate will route to sign-in and call init again post-auth.
+    if (cloudEnabled && !session) {
+      set({ loading: false });
+      return;
+    }
     const households = await adapter.listHouseholds();
-    const active = await adapter.getActiveHousehold();
+    const active = households.length
+      ? (households.find(h => h.id === (await adapter.getActiveHousehold()))?.id || households[0].id)
+      : 'local';
     set({ households, currentHouseholdId: active });
     await get().refresh();
 
-    // First-run seed
+    // First-run seed (local mode only — cloud users get an empty household)
     const { transactions, budgets, members } = get();
-    if (!transactions.length && !budgets.length && !members.length && active === 'local') {
+    if (!cloudEnabled && !transactions.length && !budgets.length && !members.length && active === 'local') {
       const seed = buildSeed();
       await adapter.replaceAll('transactions', active, seed.transactions);
       await adapter.replaceAll('budgets',      active, seed.budgets);
@@ -429,6 +465,56 @@ export const useStore = create<Store>((set, get) => ({
       });
     }
     return { message: result.message, debt: result.debt };
+  },
+
+  // ── v4.1: AUTH + REALTIME ───────────────────────────────────
+  setSession: (session, loaded = true) => {
+    const wasSignedIn = Boolean(get().session);
+    const isSignedIn = Boolean(session);
+    set({ session, sessionLoaded: loaded });
+    if (!wasSignedIn && isSignedIn) {
+      // Just signed in — load households + data
+      get().init();
+    } else if (wasSignedIn && !isSignedIn) {
+      // Just signed out — clear in-memory cloud state
+      set({
+        households: [], currentHouseholdId: 'local',
+        transactions: [], budgets: [], goals: [], members: [],
+        debts: [], assets: [], myRole: undefined,
+      });
+    }
+  },
+
+  refreshHouseholds: async () => {
+    const { adapter, currentHouseholdId } = get();
+    const households = await adapter.listHouseholds();
+    set({ households });
+    // Compute my role in the active household by reading the memberships table
+    // for the current user. The membership.role column carries the AppRole.
+    if (supabase && get().session?.user) {
+      try {
+        const { data } = await supabase.from('memberships')
+          .select('role')
+          .eq('household_id', currentHouseholdId)
+          .eq('user_id', get().session!.user.id)
+          .maybeSingle();
+        set({ myRole: (data?.role as AppRole) || undefined });
+      } catch { /* offline — keep last known */ }
+    } else {
+      set({ myRole: 'owner' });   // local-only: you own everything
+    }
+    void highestRole; // suppress unused
+  },
+
+  subscribeRealtime: (householdId) => {
+    if (!supabase) return () => {/* noop */};
+    const channel = supabase
+      .channel(`hh:${householdId}`)
+      .on('postgres_changes',
+          { event: '*', schema: 'public', filter: `household_id=eq.${householdId}` },
+          () => { get().refresh(); })
+      .subscribe();
+    return () => { supabase!.removeChannel(channel); };
   },
 
   setTheme: (theme) => {

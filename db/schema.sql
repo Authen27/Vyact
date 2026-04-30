@@ -373,6 +373,140 @@ create or replace view household_summary as
 grant select on my_households, household_summary to authenticated;
 
 -- ════════════════════════════════════════════════════════════════
+-- 9. RPCs — invitation acceptance, ownership transfer, leave household
+-- ════════════════════════════════════════════════════════════════
+
+-- Accept an invitation by token. Caller must be authenticated.
+-- Validates: token exists, not expired, not already accepted, email matches caller.
+-- Atomically: creates membership, marks invitation accepted, writes audit entry.
+create or replace function accept_invitation(invite_token text)
+returns jsonb
+language plpgsql
+security definer
+as $$
+declare
+  inv record;
+  caller_email text;
+  new_membership_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Must be signed in to accept an invitation';
+  end if;
+
+  select email into caller_email from auth.users where id = auth.uid();
+  select * into inv from invitations
+    where token = invite_token and accepted_at is null
+    limit 1;
+
+  if inv is null then raise exception 'Invitation not found or already accepted'; end if;
+  if inv.expires_at < now() then raise exception 'Invitation expired'; end if;
+  if lower(inv.invited_email) <> lower(caller_email) then
+    raise exception 'Invitation was sent to %, but you are signed in as %', inv.invited_email, caller_email;
+  end if;
+  -- Already a member?
+  if exists (select 1 from memberships where household_id = inv.household_id and user_id = auth.uid()) then
+    update invitations set accepted_at = now() where id = inv.id;
+    return jsonb_build_object('household_id', inv.household_id, 'already_member', true);
+  end if;
+
+  insert into memberships (household_id, user_id, role, display_name, household_role)
+  values (inv.household_id, auth.uid(), inv.role,
+          coalesce((select display_name from profiles where id = auth.uid()),
+                   split_part(caller_email, '@', 1)),
+          inv.household_role)
+  returning id into new_membership_id;
+
+  update invitations set accepted_at = now() where id = inv.id;
+
+  insert into activity_log (household_id, actor_id, action, entity_type, entity_id)
+  values (inv.household_id, auth.uid(), 'accepted', 'invitation', inv.id);
+
+  return jsonb_build_object(
+    'household_id', inv.household_id,
+    'membership_id', new_membership_id,
+    'role', inv.role
+  );
+end;
+$$;
+
+grant execute on function accept_invitation(text) to authenticated;
+
+-- Transfer ownership of a household. Only an existing owner may call.
+-- Promotes target to owner, demotes caller to admin.
+create or replace function transfer_ownership(h_id uuid, to_user uuid)
+returns boolean
+language plpgsql
+security definer
+as $$
+declare
+  caller_role text;
+  target_membership uuid;
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+
+  select role into caller_role from memberships
+    where household_id = h_id and user_id = auth.uid();
+  if caller_role <> 'owner' then
+    raise exception 'Only the owner can transfer ownership';
+  end if;
+
+  select id into target_membership from memberships
+    where household_id = h_id and user_id = to_user;
+  if target_membership is null then
+    raise exception 'Target user is not a member of this household';
+  end if;
+
+  -- Atomic role swap
+  update memberships set role = 'owner' where id = target_membership;
+  update memberships set role = 'admin' where household_id = h_id and user_id = auth.uid();
+
+  insert into activity_log (household_id, actor_id, action, entity_type, entity_id, changes)
+  values (h_id, auth.uid(), 'transferred', 'membership', target_membership,
+          jsonb_build_object('to_user', to_user));
+
+  return true;
+end;
+$$;
+
+grant execute on function transfer_ownership(uuid, uuid) to authenticated;
+
+-- Leave a household. Owner cannot leave if they are the sole owner —
+-- must transfer ownership first.
+create or replace function leave_household(h_id uuid)
+returns boolean
+language plpgsql
+security definer
+as $$
+declare
+  caller_role text;
+  owner_count int;
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+
+  select role into caller_role from memberships
+    where household_id = h_id and user_id = auth.uid();
+  if caller_role is null then raise exception 'Not a member of this household'; end if;
+
+  if caller_role = 'owner' then
+    select count(*) into owner_count from memberships
+      where household_id = h_id and role = 'owner';
+    if owner_count <= 1 then
+      raise exception 'Sole owner cannot leave — transfer ownership first or delete the household';
+    end if;
+  end if;
+
+  delete from memberships where household_id = h_id and user_id = auth.uid();
+
+  insert into activity_log (household_id, actor_id, action, entity_type)
+  values (h_id, auth.uid(), 'removed', 'membership');
+
+  return true;
+end;
+$$;
+
+grant execute on function leave_household(uuid) to authenticated;
+
+-- ════════════════════════════════════════════════════════════════
 -- DONE.  Next step:
 --   1. In Supabase: create an Edge Function for sending invite emails
 --   2. In your app: drop in @supabase/supabase-js and start migrating

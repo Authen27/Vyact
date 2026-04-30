@@ -4,7 +4,106 @@
 
 ---
 
-## **v8.0 — Admin Backend** *(current)*
+## **v4.1 — Cloud · Auth · Multi-Household** *(current)*
+
+The features deferred from v5 land. The React app at `react/` now wires a real Supabase backend behind the existing `DataAdapter` interface. **Local-only mode still works** — if `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are unset, the app boots exactly as v6/v7 did.
+
+### What ships
+
+**Auth**
+- Email + password sign-up with verification
+- Magic link sign-in
+- Password reset flow
+- OAuth helpers (Google/Apple/GitHub) — wired in `lib/auth.ts`, ready for provider config in Supabase
+- Session persistence + auto-refresh
+- Sign out from sidebar footer
+
+**Data layer**
+- `SupabaseAdapter` — full DataAdapter implementation against the Postgres schema in `db/schema.sql`. Maps every JS shape to/from snake_case columns. Soft-delete for syncable tables.
+- `HybridAdapter` — production model: instant paint from LocalStorage cache, background refresh from Supabase, optimistic writes with a write queue that flushes when online. Graceful offline behaviour.
+- Adapter selector in `store.ts` — picks `HybridAdapter` if env vars present, else `LocalStorageAdapter`. Identical interface either way.
+
+**Multi-household**
+- Cloud-backed `listHouseholds()` against the `my_households` view
+- `createHousehold(name, type, currency)` — auto-creates an `owner` membership via the schema's trigger
+- ProfileSwitcher now shows real cloud households when authed; click to switch (loads that household's data + subscribes to its realtime channel)
+- New **Households** page (`/households`) — manage every household: members list, role editing, removal, danger zone (rename/leave/delete). Cards mark the active household.
+
+**Invitations**
+- Send by email with role + household role — creates a row in `invitations` with a unique token (14-day expiry)
+- Pending invitations panel on the household page with copy-link button
+- `/invite/:token` route → `accept_invitation()` Postgres RPC — validates expiry, email match, creates membership atomically, writes activity log entry
+- Inviter gets back a magic-link URL they can copy if no email service is wired (Edge Function `send-invite-email` is the production path)
+
+**Roles & permissions**
+- Five-level hierarchy: `owner` > `admin` > `member` > `viewer` + scoped `child`
+- `lib/permissions.ts` exposes `can(role, action)` and `canRemove()` helpers
+- Server-side enforcement via Postgres RLS policies in `db/schema.sql` — clients can't bypass
+- UI gates buttons (e.g., the Invite button only appears for owners/admins)
+- `transfer_ownership(h_id, to_user)` and `leave_household(h_id)` RPCs added to schema
+
+**Realtime**
+- `subscribeRealtime(householdId)` in store opens a Postgres CDC channel filtered to the active household
+- Family members see each other's edits within ~1 second — via `store.refresh()` triggered on any change event
+
+**Activity log**
+- Schema already had the `activity_log` table; v4.1 surfaces it on the household page (last 30 entries, action + entity + timestamp)
+- Future: SIEM export per v8 admin app
+
+**Migration**
+- `lib/migration.ts` exposes `migrateLocalToCloud(adapter, name, type, currency)` which reads the legacy localStorage snapshot and pushes every row through the adapter into a fresh cloud household
+- Migration banner on Settings prompts existing v6/v7 users on first sign-in (TODO wired during v4.1.1)
+
+### Schema additions
+
+`db/schema.sql` now includes three RPCs that v4.1 calls:
+- `accept_invitation(invite_token text)` — atomic invitation acceptance with email validation
+- `transfer_ownership(h_id uuid, to_user uuid)` — atomic role swap, owner ↔ admin
+- `leave_household(h_id uuid)` — guards against sole-owner leaving without transfer
+
+All three are `security definer` and granted to `authenticated` role.
+
+### Env setup
+
+```bash
+cp react/.env.example react/.env.local
+# fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+cd react && npm install && npm run dev
+```
+
+Without those vars, the app continues to behave exactly as v6/v7 did — pure localStorage, no auth, single anonymous household.
+
+### Files added (in `react/src/`)
+
+```
+lib/
+  supabase.ts             — singleton client, isCloudEnabled()
+  supabaseAdapter.ts      — SupabaseAdapter (real CRUD)
+  hybridAdapter.ts        — cache + cloud + write queue
+  auth.ts                 — signIn/signUp/signOut, invitations, RPCs
+  permissions.ts          — can(role, action) helpers
+  migration.ts            — localStorage → cloud
+components/auth/
+  AuthGate.tsx            — top-level gate, redirects to /auth/sign-in if needed
+pages/auth/
+  SignIn.tsx              — password + magic link
+  SignUp.tsx              — email/password + display name + verification
+  ResetPassword.tsx       — request + set-new
+  AcceptInvite.tsx        — /invite/:token route handler
+pages/
+  Households.tsx          — full management UI (members, invites, activity, danger zone)
+.env.example
+```
+
+### Roadmap
+
+- **v4.1.1** — Migration prompt UI on Settings · `send-invite-email` Edge Function template
+- **v4.2** — Recurring schedules + notifications synced per-household (currently localStorage-only)
+- **v4.3** — Activity log richer diff display + filtering by actor/action
+
+---
+
+## **v8.0 — Admin Backend**
 
 Separate React app at `admin/` for product administration. **Claude native theme.** Companion to the consumer app at `react/`.
 

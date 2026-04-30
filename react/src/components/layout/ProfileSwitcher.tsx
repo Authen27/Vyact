@@ -1,14 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Plus, Settings as SettingsIcon, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, Plus, Settings as SettingsIcon, Check, Cloud, CloudOff } from 'lucide-react';
 import { useStore } from '../../store';
 import { PROFILE_TYPES } from '../../constants';
 
 export default function ProfileSwitcher() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const households = useStore(s => s.households);
   const currentId  = useStore(s => s.currentHouseholdId);
   const switchHousehold = useStore(s => s.switchHousehold);
+  const cloudEnabled = useStore(s => s.cloudEnabled);
+  const session = useStore(s => s.session);
   const active = households.find(h => h.id === currentId);
   const meta = PROFILE_TYPES[active?.type || 'family'];
 
@@ -56,11 +60,19 @@ export default function ProfileSwitcher() {
             );
           })}
           <div className="h-px bg-line my-1" />
-          <div className="flex items-center gap-2 px-3.5 py-2.5 cursor-pointer hover:bg-bg3 text-coral font-mono text-[0.65rem] tracking-wider uppercase">
-            <Plus size={14} /> Create new profile
+          <div onClick={() => { setOpen(false); navigate('/households'); }}
+            className="flex items-center gap-2 px-3.5 py-2.5 cursor-pointer hover:bg-bg3 text-coral font-mono text-[0.65rem] tracking-wider uppercase">
+            <Plus size={14} /> {cloudEnabled ? 'Create or join household' : 'Create new profile'}
           </div>
-          <div className="flex items-center gap-2 px-3.5 py-2.5 cursor-pointer hover:bg-bg3 text-coral font-mono text-[0.65rem] tracking-wider uppercase">
-            <SettingsIcon size={14} /> Manage profiles
+          <div onClick={() => { setOpen(false); navigate('/households'); }}
+            className="flex items-center gap-2 px-3.5 py-2.5 cursor-pointer hover:bg-bg3 text-coral font-mono text-[0.65rem] tracking-wider uppercase">
+            <SettingsIcon size={14} /> Manage households
+          </div>
+          <div className="px-3.5 py-2 border-t border-line mt-1 flex items-center gap-2 font-mono text-[0.6rem] tracking-wider uppercase">
+            {cloudEnabled
+              ? <><Cloud size={11} className="text-sage" /><span className="text-sage">Cloud sync · {session?.user?.email}</span></>
+              : <><CloudOff size={11} className="text-ink-dim" /><span className="text-ink-dim">Local-only mode</span></>
+            }
           </div>
         </div>
       )}

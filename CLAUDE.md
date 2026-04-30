@@ -1,11 +1,13 @@
-# FinFlow — Family Finance OS  ·  v8.0
+# FinFlow — Family Finance OS  ·  v4.1 / v8.0
 
 ## Project Overview
 Three parallel deliverables exist in this repo:
 
 - **v5 vanilla shell** at the root — plain HTML+CSS+JS, no build step. Opens `index.html` directly. All 6 v5 features fully working.
-- **v6/v7/v7.5 React app** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. Smart Onboarding, EMI re-amortisation, Recurring + Notifications, rules-based Planner, AI Chatbot (stub backend until v8.1).
+- **v4.1 + v6 + v7 + v7.5 React app** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **v4.1 cloud features now wired**: Supabase auth (email/password + magic link + reset), `HybridAdapter` (cache + cloud + write queue), multi-household with invitations, role-based permissions, realtime subscriptions, activity log. Plus all earlier features: Smart Onboarding, EMI re-amortisation, Recurring + Notifications, rules-based Planner, AI Chatbot.
 - **v8 Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme** (cream / terracotta / Source Serif 4 / Inter). Three role tiers, NorthStar dashboard, mock data layer ready to swap to Supabase.
+
+**Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app continues to run as v6/v7 did (localStorage only, single anonymous household, no auth screens).
 
 > **v6.0 status:** Modern frontend rebuild on a real toolchain. Dashboard, Reports, Transactions all work in React with **Recharts** integrated for interactive charts. Remaining pages link back to v5 vanilla until ported. The data layer, calculations, theme system, and routing are all in place — porting each remaining page is now a contained UI task.
 

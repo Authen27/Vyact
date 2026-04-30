@@ -2,9 +2,10 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ArrowLeftRight, Target, Wallet, Repeat,
   TrendingUp, Users, Banknote, Scale, BarChart3, Sparkles, MessageCircle,
-  Settings, HelpCircle,
+  Home, Settings, HelpCircle, LogOut,
   Sun, Moon, Monitor, Download, Trash2, X,
 } from 'lucide-react';
+import { signOut as authSignOut } from '../../lib/auth';
 import { useStore } from '../../store';
 import ProfileSwitcher from './ProfileSwitcher';
 import { useTranslation } from '../../hooks';
@@ -34,15 +35,20 @@ const navGroups = [
     { to: '/planner', key: 'planner', page: 'planner', icon: Sparkles },
     { to: '/chat',    key: 'chat',    page: 'chat',    icon: MessageCircle },
   ]},
+  { label: 'ACCOUNT', items: [
+    { to: '/households', key: 'households', page: 'households', icon: Home },
+  ]},
 ];
 
 export default function Sidebar({ open, onClose }: Props) {
   const theme = useStore(s => s.theme);
   const setTheme = useStore(s => s.setTheme);
   const template = useStore(s => s.profile.template);
+  const cloudEnabled = useStore(s => s.cloudEnabled);
+  const session = useStore(s => s.session);
   const visible = pagesForTemplate(template);
   // Always show new v7+ pages even outside template (they're additive ANALYZE tools)
-  ['recurring','planner','chat'].forEach(p => visible.add(p));
+  ['recurring','planner','chat','households'].forEach(p => visible.add(p));
   const { t } = useTranslation();
 
   return (
@@ -136,6 +142,20 @@ export default function Sidebar({ open, onClose }: Props) {
           <button className="w-full flex items-center gap-1.5 px-3 py-2 text-[0.6rem] tracking-[0.1em] uppercase font-mono text-ink-mid border border-line rounded-md hover:border-terra hover:text-terra hover:bg-coral-tint/60">
             <Trash2 size={12} /> Clear Data
           </button>
+          {cloudEnabled && session && (
+            <button
+              onClick={async () => {
+                if (confirm('Sign out of FinFlow?')) {
+                  try { await authSignOut(); }
+                  catch { /* even on error, the auth listener clears state */ }
+                }
+              }}
+              className="w-full flex items-center gap-1.5 px-3 py-2 text-[0.6rem] tracking-[0.1em] uppercase font-mono text-ink-mid border border-line rounded-md hover:border-coral hover:text-coral"
+              title={session.user?.email || ''}
+            >
+              <LogOut size={12} /> Sign Out
+            </button>
+          )}
         </div>
       </aside>
     </>

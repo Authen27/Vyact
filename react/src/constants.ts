@@ -198,7 +198,7 @@ export const LOCALES: Record<string, { name: string; strings: Record<string, str
   en: { name: 'English', strings: {
     'dashboard':'Dashboard','transactions':'Transactions','budgets':'Budgets','goals':'Goals',
     'splits':'Splits','debts':'Debts','networth':'Net Worth','reports':'Reports',
-    'recurring':'Recurring','planner':'Planner','chat':'Chat',
+    'recurring':'Recurring','planner':'Planner','chat':'Chat','households':'Households',
     'settings':'Settings','help':'Help & Guide',
     'add-transaction':'Add Transaction',
     'total-balance':'Total Balance','monthly-income':'Monthly Income','monthly-expenses':'Monthly Expenses','savings-rate':'Savings Rate',
