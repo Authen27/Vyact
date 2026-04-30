@@ -152,8 +152,9 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
     const households = await adapter.listHouseholds();
+    const activeHouseholdId = await adapter.getActiveHousehold();
     const active = households.length
-      ? (households.find(h => h.id === (await adapter.getActiveHousehold()))?.id || households[0].id)
+      ? (households.find(h => h.id === activeHouseholdId)?.id || households[0].id)
       : 'local';
     set({ households, currentHouseholdId: active });
     await get().refresh();

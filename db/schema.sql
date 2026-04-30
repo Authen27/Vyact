@@ -23,7 +23,7 @@ create table if not exists profiles (
 
 -- Auto-create profile on user signup
 create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into profiles (id, display_name)
   values (new.id, coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)));
@@ -70,7 +70,7 @@ create index if not exists memberships_user_idx on memberships(user_id);
 
 -- Auto-create owner membership when a household is created
 create or replace function handle_new_household()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into memberships (household_id, user_id, role, display_name, household_role)
   values (
@@ -114,7 +114,7 @@ create table if not exists transactions (
   household_id      uuid not null references households(id) on delete cascade,
   created_by        uuid references auth.users(id),
   member_id         uuid references memberships(id) on delete set null,
-  type              text not null check (type in ('income','expense')),
+  type              text not null check (type in ('income','expense','investment','transfer')),
   amount            numeric(15,2) not null check (amount > 0),
   currency          text not null default 'USD',
   date              date not null,
@@ -123,6 +123,7 @@ create table if not exists transactions (
   note              text,
   recurring         text check (recurring in ('','weekly','monthly','yearly')),
   attachment_url    text,
+  extras            jsonb,                     -- v5+ extensions (paymentMethod, excluded, split, …)
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   deleted_at        timestamptz   -- soft delete for sync
@@ -176,6 +177,7 @@ create table if not exists debts (
   minimum_payment   numeric(15,2) not null check (minimum_payment >= 0),
   due_date          date,
   currency          text not null default 'USD',
+  extras            jsonb,                     -- tenureMonths, remainingMonths, paymentLog
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   deleted_at        timestamptz
@@ -223,7 +225,7 @@ create index if not exists activity_household_time_idx on activity_log(household
 -- 6. updated_at TRIGGERS
 -- ════════════════════════════════════════════════════════════════
 create or replace function set_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin new.updated_at = now(); return new; end;
 $$;
 
@@ -244,13 +246,13 @@ end$$;
 
 -- Helper function: is the current user a member of this household?
 create or replace function is_member(h_id uuid)
-returns boolean language sql security definer stable as $$
+returns boolean language sql security definer stable set search_path = public as $$
   select exists (select 1 from memberships where household_id = h_id and user_id = auth.uid());
 $$;
 
 -- Helper: get current user's role in this household (null if not a member)
 create or replace function role_in(h_id uuid)
-returns text language sql security definer stable as $$
+returns text language sql security definer stable set search_path = public as $$
   select role from memberships where household_id = h_id and user_id = auth.uid() limit 1;
 $$;
 
@@ -318,24 +320,31 @@ create policy "owners and admins send invitations"
 create policy "owners and admins revoke invitations"
   on invitations for delete using (role_in(household_id) in ('owner','admin'));
 
--- ── TRANSACTIONS / BUDGETS / GOALS / DEBTS / ASSETS ──────────
--- Pattern: read = members; write = non-viewers; child can only edit own
+-- ── TRANSACTIONS POLICIES (child can edit their own) ────────
+-- Only transactions has a `created_by` column, so children's
+-- "edit-your-own" rule applies only here.
+create policy "transactions_read"   on transactions for select using (is_member(household_id));
+create policy "transactions_insert" on transactions for insert with check (role_in(household_id) in ('owner','admin','member','child'));
+create policy "transactions_update" on transactions for update using (
+  role_in(household_id) in ('owner','admin','member')
+  or (role_in(household_id) = 'child' and created_by = auth.uid())
+);
+create policy "transactions_delete" on transactions for delete using (
+  role_in(household_id) in ('owner','admin','member')
+  or (role_in(household_id) = 'child' and created_by = auth.uid())
+);
+
+-- ── BUDGETS / GOALS / DEBTS / ASSETS POLICIES (member-and-above) ─
+-- These tables are managed at household-level, not per-user, so children
+-- can read but not write.
 do $$
 declare tbl text;
 begin
-  foreach tbl in array array['transactions','budgets','goals','debts','assets'] loop
-    execute format('
-      create policy "%1$s_read" on %1$s for select using (is_member(household_id));
-      create policy "%1$s_insert" on %1$s for insert with check (role_in(household_id) in (''owner'',''admin'',''member'',''child''));
-      create policy "%1$s_update" on %1$s for update using (
-        role_in(household_id) in (''owner'',''admin'',''member'')
-        or (role_in(household_id) = ''child'' and created_by = auth.uid())
-      );
-      create policy "%1$s_delete" on %1$s for delete using (
-        role_in(household_id) in (''owner'',''admin'',''member'')
-        or (role_in(household_id) = ''child'' and created_by = auth.uid())
-      );
-    ', tbl);
+  foreach tbl in array array['budgets','goals','debts','assets'] loop
+    execute format($p$create policy "%1$s_read"   on %1$s for select using (is_member(household_id))$p$, tbl);
+    execute format($p$create policy "%1$s_insert" on %1$s for insert with check (role_in(household_id) in ('owner','admin','member'))$p$, tbl);
+    execute format($p$create policy "%1$s_update" on %1$s for update using (role_in(household_id) in ('owner','admin','member'))$p$, tbl);
+    execute format($p$create policy "%1$s_delete" on %1$s for delete using (role_in(household_id) in ('owner','admin','member'))$p$, tbl);
   end loop;
 end$$;
 
@@ -352,14 +361,16 @@ create policy "log_read"   on activity_log for select using (is_member(household
 -- ════════════════════════════════════════════════════════════════
 
 -- A user's households with their role
-create or replace view my_households as
+-- security_invoker = true so RLS on underlying tables is enforced for the
+-- querying user (not the view creator).
+create or replace view my_households with (security_invoker = true) as
   select h.*, m.role, m.display_name as my_display_name, m.household_role
   from households h
   join memberships m on m.household_id = h.id
   where m.user_id = auth.uid();
 
 -- Household summary (counts + totals) for the dashboard
-create or replace view household_summary as
+create or replace view household_summary with (security_invoker = true) as
   select
     h.id as household_id,
     (select count(*) from memberships where household_id = h.id) as member_count,
@@ -383,6 +394,7 @@ create or replace function accept_invitation(invite_token text)
 returns jsonb
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   inv record;
@@ -437,6 +449,7 @@ create or replace function transfer_ownership(h_id uuid, to_user uuid)
 returns boolean
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   caller_role text;
@@ -476,6 +489,7 @@ create or replace function leave_household(h_id uuid)
 returns boolean
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   caller_role text;
@@ -505,6 +519,25 @@ end;
 $$;
 
 grant execute on function leave_household(uuid) to authenticated;
+
+-- ════════════════════════════════════════════════════════════════
+-- 10. Security hardening — revoke broad grants
+-- ════════════════════════════════════════════════════════════════
+
+-- Internal helpers (only invoked from within RLS policies / triggers).
+-- Never callable as RPCs.
+revoke execute on function handle_new_user()      from anon, authenticated, public;
+revoke execute on function handle_new_household() from anon, authenticated, public;
+revoke execute on function is_member(uuid)        from anon, authenticated, public;
+revoke execute on function role_in(uuid)          from anon, authenticated, public;
+
+-- Public-facing RPCs — explicitly limited to authenticated only.
+revoke all on function accept_invitation(text)        from public;
+revoke all on function transfer_ownership(uuid, uuid) from public;
+revoke all on function leave_household(uuid)          from public;
+grant execute on function accept_invitation(text)        to authenticated;
+grant execute on function transfer_ownership(uuid, uuid) to authenticated;
+grant execute on function leave_household(uuid)          to authenticated;
 
 -- ════════════════════════════════════════════════════════════════
 -- DONE.  Next step:

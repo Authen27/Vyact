@@ -95,10 +95,30 @@ pages/
 .env.example
 ```
 
+### Live Supabase project
+
+A FinFlow Supabase project is now provisioned and serves as the canonical reference deployment for v4.1:
+
+| Detail | Value |
+|---|---|
+| Project ID | `dmxqkvploojokffuhxnz` |
+| Region | `eu-west-2` (London) |
+| URL | `https://dmxqkvploojokffuhxnz.supabase.co` |
+| Plan | Free (0 USD/mo) |
+| Tables | 11 (all RLS-enabled) |
+| RPCs | 3 (`accept_invitation`, `transfer_ownership`, `leave_household`) |
+| Migrations applied | 4 (initial schema · RLS+RPCs · security hardening · revoke public execute) |
+
+**Security review:** all ERROR-level advisor findings cleared. The 3 remaining WARN findings are intentional and reviewed:
+- `accept_invitation` / `transfer_ownership` / `leave_household` — must be `SECURITY DEFINER` to atomically write to `memberships` + `activity_log` while enforcing their own auth checks. The advisor flags these as "manual review needed" — review confirmed correct.
+- `pg_trgm` extension in `public` schema — used for future search; can be moved to `extensions` schema in v4.2 if needed.
+
+The `react/.env.local` file (gitignored) is wired to this project and ready for `npm run dev`.
+
 ### Roadmap
 
 - **v4.1.1** — Migration prompt UI on Settings · `send-invite-email` Edge Function template
-- **v4.2** — Recurring schedules + notifications synced per-household (currently localStorage-only)
+- **v4.2** — Recurring schedules + notifications synced per-household (currently localStorage-only) · Move `pg_trgm` to `extensions` schema
 - **v4.3** — Activity log richer diff display + filtering by actor/action
 
 ---

@@ -382,5 +382,3 @@ export class SupabaseAdapter implements DataAdapter {
   // the adapter focused on data CRUD. Subscriptions for realtime are also
   // separate — see lib/realtime.ts.
 }
-
-void RowOf; // suppress unused type
