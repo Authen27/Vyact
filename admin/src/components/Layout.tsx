@@ -3,14 +3,16 @@ import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Home, CreditCard, FileText,
   ScrollText, Settings, Sun, Moon, Search, ChevronDown, LogOut,
+  HelpCircle,
 } from 'lucide-react';
 import { useAdminStore } from '../store';
+import { signOut } from '../lib/auth';
 import type { AdminRole } from '../types';
 
 const ROLE_PAGES: Record<AdminRole, string[]> = {
-  super:   ['dashboard','users','households','subscriptions','content','audit','settings'],
-  roles:   ['dashboard','users','households','audit'],
-  content: ['dashboard','content'],
+  super:   ['dashboard','users','households','subscriptions','content','audit','settings','help'],
+  roles:   ['dashboard','users','households','audit','help'],
+  content: ['dashboard','content','help'],
 };
 
 const NAV = [
@@ -21,18 +23,22 @@ const NAV = [
   { to: '/content',       page: 'content',       label: 'Content',       icon: FileText },
   { to: '/audit',         page: 'audit',         label: 'Audit Log',     icon: ScrollText },
   { to: '/settings',      page: 'settings',      label: 'Settings',      icon: Settings },
+  { to: '/help',          page: 'help',          label: 'Help & Manual', icon: HelpCircle },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const role = useAdminStore(s => s.role);
-  const setRole = useAdminStore(s => s.setRole);
-  const dark = useAdminStore(s => s.darkMode);
-  const toggleDark = useAdminStore(s => s.toggleDark);
-  const query = useAdminStore(s => s.query);
-  const setQuery = useAdminStore(s => s.setQuery);
+  const role        = useAdminStore(s => s.role);
+  const serverRole  = useAdminStore(s => s.serverRole);
+  const session     = useAdminStore(s => s.session);
+  const setRole     = useAdminStore(s => s.setRole);
+  const dark        = useAdminStore(s => s.darkMode);
+  const toggleDark  = useAdminStore(s => s.toggleDark);
+  const query       = useAdminStore(s => s.query);
+  const setQuery    = useAdminStore(s => s.setQuery);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
 
   const visible = new Set(ROLE_PAGES[role]);
+  const canSwitchRole = serverRole === 'super';
 
   return (
     <div className="min-h-screen flex">
@@ -71,16 +77,21 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="px-3 py-3 border-t border-line space-y-2">
           <div className="relative">
             <button
-              onClick={() => setRoleMenuOpen(o => !o)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-elev border border-line rounded-md hover:bg-sunken transition"
+              onClick={() => canSwitchRole && setRoleMenuOpen(o => !o)}
+              disabled={!canSwitchRole}
+              className={`w-full flex items-center justify-between px-3 py-2 bg-elev border border-line rounded-md transition ${
+                canSwitchRole ? 'hover:bg-sunken cursor-pointer' : 'cursor-not-allowed opacity-80'
+              }`}
             >
               <div className="text-left">
-                <div className="font-mono text-[0.54rem] tracking-[0.16em] uppercase text-ink-dim">Acting as</div>
+                <div className="font-mono text-[0.54rem] tracking-[0.16em] uppercase text-ink-dim">
+                  {canSwitchRole ? 'Previewing as' : 'Acting as'}
+                </div>
                 <div className="text-[0.84rem] font-semibold text-ink capitalize">{role} Admin</div>
               </div>
-              <ChevronDown size={14} className="text-ink-dim" />
+              {canSwitchRole && <ChevronDown size={14} className="text-ink-dim" />}
             </button>
-            {roleMenuOpen && (
+            {roleMenuOpen && canSwitchRole && (
               <div className="absolute bottom-full mb-1 inset-x-0 bg-surface border border-line2 rounded-md shadow-2 py-1 z-30">
                 {(['super','roles','content'] as AdminRole[]).map(r => (
                   <button
@@ -94,10 +105,16 @@ export default function Layout({ children }: { children: ReactNode }) {
               </div>
             )}
           </div>
+          {session?.user?.email && (
+            <div className="px-3 py-1 text-center font-mono text-[0.58rem] tracking-wider text-ink-dim truncate">
+              {session.user.email}
+            </div>
+          )}
           <button onClick={toggleDark} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-line rounded-md text-ink-mid hover:bg-sunken transition font-mono text-[0.62rem] tracking-wider uppercase">
             {dark ? <Sun size={12} /> : <Moon size={12} />} {dark ? 'Light' : 'Dark'} mode
           </button>
-          <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-line rounded-md text-ink-dim hover:border-danger hover:text-danger transition font-mono text-[0.62rem] tracking-wider uppercase">
+          <button onClick={() => signOut()}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-line rounded-md text-ink-dim hover:border-danger hover:text-danger transition font-mono text-[0.62rem] tracking-wider uppercase">
             <LogOut size={12} /> Sign out
           </button>
         </div>

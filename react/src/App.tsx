@@ -5,6 +5,7 @@ import { useTheme } from './hooks';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
 import AuthGate from './components/auth/AuthGate';
+import TransactionFormModal from './components/transactions/TransactionFormModal';
 
 import Dashboard    from './pages/Dashboard';
 import Transactions from './pages/Transactions';
@@ -21,6 +22,7 @@ import Debts        from './pages/Debts';
 import NetWorth     from './pages/NetWorth';
 import Splits       from './pages/Splits';
 import Help         from './pages/Help';
+import Insights     from './pages/Insights';
 
 import SignIn        from './pages/auth/SignIn';
 import SignUp        from './pages/auth/SignUp';
@@ -31,6 +33,7 @@ export default function App() {
   return (
     <AuthGate>
       <AppShell />
+      <TransactionFormModal />
       <ToastHost />
     </AuthGate>
   );
@@ -110,6 +113,7 @@ function AppShell() {
         <Route path="/networth"     element={<NetWorth />} />
         <Route path="/settings"     element={<Settings />} />
         <Route path="/help"         element={<Help />} />
+        <Route path="/insights"     element={<Insights />} />
         <Route path="/onboarding"   element={<Onboarding />} />
         <Route path="*"             element={<Navigate to="/dashboard" replace />} />
       </Routes>

@@ -4,7 +4,114 @@
 
 ---
 
-## **v6.2.2 — Add-Transaction wiring + GA4** *(current — 2026-05-10)*
+## **v6.3 — Content module + admin↔Supabase + global Add-Txn modal** *(current — 2026-05-10)*
+
+### Add Transaction button — actually fixed this time
+
+The previous v6.2.2 wired the button on the *Transactions* page only. There is a **second** Add Transaction button on the **Dashboard** that was still a no-op stub. Both are now fixed via a single store-controlled modal hoisted to App root.
+
+What changed:
+
+- **Store** ([`react/src/store.ts`](react/src/store.ts)) — new `txnModalOpen` / `editingTxn` state + `openAddTxn()` / `openEditTxn()` / `closeTxnModal()` actions. Any page can trigger the modal without prop-drilling.
+- **App.tsx** — `<TransactionFormModal />` mounted once at the root, alongside `<ToastHost />`. The modal binds to store state by default; explicit `open` / `initial` / `onClose` props are still supported for ad-hoc usage.
+- **Dashboard.tsx** — Add Transaction button wired to `openAddTxn()`.
+- **Transactions.tsx** — local modal state removed; both the page-level button and the per-row Edit button now route through the store.
+- **Browser-verified end-to-end** via Claude in Chrome MCP: clicked the Dashboard button → modal opened → filled `description=Test, amount=42.50` → Add → transaction appeared in `/transactions` list as `−$42.50, Food & Dining` → clicked Edit → modal re-opened pre-populated. Screenshot saved.
+
+### Content module — admin authors, consumers read
+
+A dynamic, searchable, favoritable content surface that connects the admin and consumer apps via shared Supabase tables.
+
+**DB migration `content_items_and_user_favorites` applied:**
+
+- `public.admin_roles (user_id, role, granted_by, granted_at)` — server-side source of truth for who is an admin (super / roles / content). RLS allows self-read only. Granted `uday.kr27@gmail.com` the `super` tier.
+- `public.is_admin(min_role text)` — `SECURITY DEFINER STABLE` helper. Bypasses RLS to check the calling user's tier. Granted EXECUTE to `authenticated`.
+- `public.content_items (id, slug, title, summary, body, topic, status, author_name, read_minutes, cover_emoji, published_at, created_at, updated_at)` — articles. Indexed on `(status, published_at DESC)` and `topic`. RLS:
+  - SELECT — anyone authenticated reads `status='published'`; admins read all
+  - INSERT / UPDATE / DELETE — `is_admin('content')` only
+- `public.content_favorites (user_id, content_id, created_at)` — per-user reading list. RLS scoped to `user_id = auth.uid()` for all operations.
+- `touch_updated_at()` trigger on `content_items`.
+- 5 starter articles seeded (savings, debt, retirement, budgeting, tax).
+
+**Admin app — `admin/`:**
+
+- New [`admin/src/lib/supabase.ts`](admin/src/lib/supabase.ts) — singleton client pointing at the same `dmxqkvploojokffuhxnz` project as the consumer.
+- New [`admin/src/lib/auth.ts`](admin/src/lib/auth.ts) — `signIn()`, `signOut()`, `fetchMyAdminRole()` reading from `admin_roles`.
+- New [`admin/src/lib/contentApi.ts`](admin/src/lib/contentApi.ts) — `listAllContent()`, `upsertContent()`, `deleteContent()`, `slugify()`.
+- New [`admin/src/components/AuthGate.tsx`](admin/src/components/AuthGate.tsx) — top-level gate. Four states: loading / not-signed-in / signed-in-but-not-admin / signed-in-and-admin.
+- Store extended with `session`, `serverRole`, `setSession()`. The role-switcher in the sidebar is now a **preview-only override** for Super Admins (lower-tier admins see their server role locked).
+- [`admin/src/pages/Content.tsx`](admin/src/pages/Content.tsx) — fully rewritten to read from real Supabase. New article form modal (title auto-generates slug; topic, status, read-minutes, cover emoji). Edit + delete from the row.
+
+**Consumer app — `react/`:**
+
+- New [`react/src/lib/insightsApi.ts`](react/src/lib/insightsApi.ts) — `listPublishedContent()`, `listFavoriteIds()`, `addFavorite()`, `removeFavorite()`.
+- New [`react/src/pages/Insights.tsx`](react/src/pages/Insights.tsx) — card grid of published articles. Features:
+  - Topic chip + read-minute estimate per card.
+  - Search across title / summary / body / topic.
+  - Topic filter row (`debt · tax · investment · budgeting · savings · retirement`).
+  - **Favorite (♡)** toggle per card with optimistic update + rollback on error. Favorites are user-scoped, not household-scoped.
+  - **Favorites-only filter** to view your reading list.
+  - **Reader modal** with full body text, summary as a coral block-quote, and an in-modal favorite button.
+  - Local-only mode shows a graceful "cloud required" empty state.
+- Sidebar nav item under ANALYZE → "insights" with a `BookOpen` icon.
+- New `/insights` route registered in `App.tsx`.
+
+**Browser-verified end-to-end:** loaded `/insights`, all 5 seeded articles rendered with topic chips. Clicked ♡ on "Emergency fund: 3 months or 6 months?" → favorite saved. Opened the article → reader modal showed the full body. SQL query against `content_favorites` confirmed the row landed in the database.
+
+### Admin Help / User Manual
+
+New [`admin/src/pages/Help.tsx`](admin/src/pages/Help.tsx) and `/help` route, accessible to all three tiers (Super, Roles, Content). 17 topics organised by audience badge. Filter chips: `mine` (auto-selects topics relevant to your current role), per-tier filters, and `all`. Three top-of-page tier cards explain the privileges of each role with the user's own tier highlighted.
+
+### What's *not* yet wired to Supabase (intentional, called out)
+
+The admin app's Users / Households / Subscriptions / Audit / Dashboard KPIs pages still read from `admin/src/lib/mockData.ts`. Wiring each entity end-to-end (read + write + RLS + UI) is meaningful work and warrants its own release. Content was prioritised because it's the first cross-app feature where admin-authored data shows up in the consumer experience — the rest of the admin entities are pure read-only reports against tables that already exist.
+
+Roadmap entry adjusted: **v6.3.1** to wire Users + Households + Audit Log to the live `auth.users` / `households` / `activity_log` tables.
+
+### Files changed
+
+```
+admin/.env.local                                      — Supabase env (already present)
+admin/package.json                                    — added @supabase/supabase-js
+admin/src/vite-env.d.ts                               — NEW (vite/client types)
+admin/src/lib/supabase.ts                             — NEW
+admin/src/lib/auth.ts                                 — NEW
+admin/src/lib/contentApi.ts                           — NEW
+admin/src/components/AuthGate.tsx                     — NEW
+admin/src/components/Layout.tsx                       — sign-out wired, role-switch gated to super, Help nav item
+admin/src/store.ts                                    — session + serverRole hydration
+admin/src/App.tsx                                     — AuthGate wrap, /help route
+admin/src/pages/Content.tsx                           — rewritten to use Supabase
+admin/src/pages/Help.tsx                              — NEW
+
+react/src/store.ts                                    — global txnModalOpen + actions
+react/src/App.tsx                                     — global modal mount, /insights route
+react/src/pages/Dashboard.tsx                         — Add Transaction onClick
+react/src/pages/Transactions.tsx                      — store-driven modal
+react/src/components/transactions/TransactionFormModal.tsx — store fallback bindings
+react/src/components/layout/Sidebar.tsx               — Insights nav item
+react/src/lib/insightsApi.ts                          — NEW
+react/src/pages/Insights.tsx                          — NEW
+
+db/migration: content_items_and_user_favorites        — applied to dmxqkvploojokffuhxnz
+```
+
+### Validated scenarios
+
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Click Add Transaction on **Dashboard** | Modal opens (was no-op before) |
+| 2 | Submit Add form | Transaction persists to Supabase, shows in `/transactions` list |
+| 3 | Click Edit on a transaction row | Modal re-opens pre-populated with values |
+| 4 | Load `/insights` as authed consumer user | 5 published articles render with topic chips |
+| 5 | Click ♡ on an article | Favorite saved to `content_favorites`; SQL confirmed |
+| 6 | Click Read | Reader modal shows full body text |
+| 7 | Build admin app | `tsc -b && vite build` clean |
+| 8 | Build consumer app | `tsc -b && vite build` clean |
+
+---
+
+## **v6.2.2 — Add-Transaction wiring + GA4** *(2026-05-10)*
 
 A small but user-blocking patch on top of v6.2. Two follow-ups landed in the same day after v6.2 ship:
 

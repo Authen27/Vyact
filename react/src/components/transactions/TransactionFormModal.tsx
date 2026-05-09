@@ -14,9 +14,11 @@ import {
 import type { Transaction, TxnType, Recurrence } from '../../types';
 
 interface Props {
-  open: boolean;
+  /** Optional override props — when omitted, the modal binds to the global store
+   *  state (txnModalOpen / editingTxn / closeTxnModal). Used at App root. */
+  open?: boolean;
   initial?: Transaction | null;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 interface FormState {
@@ -53,12 +55,20 @@ function categoriesFor(type: TxnType) {
   return ALL_CATEGORIES;
 }
 
-export default function TransactionFormModal({ open, initial, onClose }: Props) {
+export default function TransactionFormModal(props: Props) {
   const profile          = useStore(s => s.profile);
   const members          = useStore(s => s.members);
   const upsertTransaction = useStore(s => s.upsertTransaction);
   const removeTransaction = useStore(s => s.removeTransaction);
   const toast            = useStore(s => s.toast);
+
+  // Bind to the global store unless explicit props are passed
+  const storeOpen     = useStore(s => s.txnModalOpen);
+  const storeInitial  = useStore(s => s.editingTxn);
+  const storeClose    = useStore(s => s.closeTxnModal);
+  const open          = props.open    ?? storeOpen;
+  const initial       = props.initial ?? storeInitial;
+  const onClose       = props.onClose ?? storeClose;
 
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);

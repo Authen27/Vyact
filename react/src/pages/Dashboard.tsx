@@ -27,6 +27,7 @@ export default function Dashboard() {
   const profile = useStore(s => s.profile);
   const rates   = useStore(s => s.rates);
   const baseCur = profile.baseCurrency;
+  const openAddTxn = useStore(s => s.openAddTxn);
 
   const mk = nowMonthKey();
   const month = monthlyData(txns, mk, baseCur, rates);
@@ -54,7 +55,7 @@ export default function Dashboard() {
             Family Finance Overview · {monthName(mk)}
           </p>
         </div>
-        <Button>
+        <Button onClick={openAddTxn}>
           <Plus size={14} /> {t('add-transaction')}
         </Button>
       </div>

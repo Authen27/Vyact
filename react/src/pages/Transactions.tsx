@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation, useShortcuts } from '../hooks';
@@ -7,15 +7,15 @@ import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
 import TxnRow from '../components/transactions/TxnRow';
-import TransactionFormModal from '../components/transactions/TransactionFormModal';
 import { ALL_CATEGORIES } from '../constants';
 import { getMonthKey, monthName } from '../lib/format';
-import type { Transaction } from '../types';
 
 export default function Transactions() {
   const { t } = useTranslation();
   const txns    = useStore(s => s.transactions);
   const members = useStore(s => s.members);
+  const openAddTxn  = useStore(s => s.openAddTxn);
+  const openEditTxn = useStore(s => s.openEditTxn);
 
   const [search,   setSearch]   = useState('');
   const [type,     setType]     = useState<'all'|'income'|'expense'|'investment'|'transfer'>('all');
@@ -23,13 +23,7 @@ export default function Transactions() {
   const [month,    setMonth]    = useState('all');
   const [memberId, setMemberId] = useState('all');
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing,   setEditing]   = useState<Transaction | null>(null);
-
-  const openAdd  = useCallback(() => { setEditing(null);  setModalOpen(true); }, []);
-  const openEdit = useCallback((t: Transaction) => { setEditing(t); setModalOpen(true); }, []);
-
-  useShortcuts({ n: openAdd, N: openAdd });
+  useShortcuts({ n: openAddTxn, N: openAddTxn });
 
   const months = useMemo(
     () => [...new Set(txns.map(t => getMonthKey(t.date)))].sort().reverse(),
@@ -62,7 +56,7 @@ export default function Transactions() {
             All household income, expenses, investments &amp; transfers
           </p>
         </div>
-        <Button onClick={openAdd}>
+        <Button onClick={openAddTxn}>
           <Plus size={14} /> {t('add-transaction')}
         </Button>
       </div>
@@ -95,15 +89,9 @@ export default function Transactions() {
 
         {filtered.length === 0
           ? <EmptyState icon="🔍" message="No transactions found" />
-          : filtered.map(t => <TxnRow key={t.id} txn={t} showActions onEdit={openEdit} />)
+          : filtered.map(t => <TxnRow key={t.id} txn={t} showActions onEdit={openEditTxn} />)
         }
       </Panel>
-
-      <TransactionFormModal
-        open={modalOpen}
-        initial={editing}
-        onClose={() => { setModalOpen(false); setEditing(null); }}
-      />
     </div>
   );
 }

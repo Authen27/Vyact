@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ArrowLeftRight, Target, Wallet, Repeat,
   TrendingUp, Users, Banknote, Scale, BarChart3, Sparkles, MessageCircle,
-  Home, Settings, HelpCircle, LogOut,
+  Home, Settings, HelpCircle, LogOut, BookOpen,
   Sun, Moon, Monitor, Download, Trash2, X,
 } from 'lucide-react';
 import { signOut as authSignOut } from '../../lib/auth';
@@ -31,9 +31,10 @@ const navGroups = [
     { to: '/networth', key: 'networth', page: 'networth', icon: Scale },
   ]},
   { label: 'ANALYZE', items: [
-    { to: '/reports', key: 'reports', page: 'reports', icon: BarChart3 },
-    { to: '/planner', key: 'planner', page: 'planner', icon: Sparkles },
-    { to: '/chat',    key: 'chat',    page: 'chat',    icon: MessageCircle },
+    { to: '/reports',  key: 'reports',  page: 'reports',  icon: BarChart3 },
+    { to: '/planner',  key: 'planner',  page: 'planner',  icon: Sparkles },
+    { to: '/chat',     key: 'chat',     page: 'chat',     icon: MessageCircle },
+    { to: '/insights', key: 'insights', page: 'insights', icon: BookOpen },
   ]},
   { label: 'ACCOUNT', items: [
     { to: '/households', key: 'households', page: 'households', icon: Home },
@@ -48,7 +49,7 @@ export default function Sidebar({ open, onClose }: Props) {
   const session = useStore(s => s.session);
   const visible = pagesForTemplate(template);
   // Always show new v7+ pages even outside template (they're additive ANALYZE tools)
-  ['recurring','planner','chat','households'].forEach(p => visible.add(p));
+  ['recurring','planner','chat','insights','households'].forEach(p => visible.add(p));
   const { t } = useTranslation();
 
   return (

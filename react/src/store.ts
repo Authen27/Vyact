@@ -57,6 +57,15 @@ interface Store {
   loading: boolean;
   toasts: ToastMsg[];
 
+  // ── v6.2.3: global transaction modal ────────────────────────
+  // Mounted once at App root so any page (Dashboard, Transactions, sidebar
+  // shortcut N) can trigger it via the store without prop-drilling.
+  txnModalOpen: boolean;
+  editingTxn: Transaction | null;
+  openAddTxn: () => void;
+  openEditTxn: (t: Transaction) => void;
+  closeTxnModal: () => void;
+
   // ── actions ─────────────────────────────────────────────────
   init: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -141,6 +150,13 @@ export const useStore = create<Store>((set, get) => ({
   theme: (localStorage.getItem('ff_theme') as Theme) || 'warm',
   loading: true,
   toasts: [],
+
+  // v6.2.3 — global transaction modal
+  txnModalOpen: false,
+  editingTxn: null,
+  openAddTxn:    () => set({ editingTxn: null, txnModalOpen: true }),
+  openEditTxn:   (t) => set({ editingTxn: t, txnModalOpen: true }),
+  closeTxnModal: () => set({ txnModalOpen: false, editingTxn: null }),
 
   init: async () => {
     const { adapter, cloudEnabled, session } = get();
