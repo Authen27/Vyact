@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinFlow · Financial Model, Permanence & Mission</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,600;0,700;1,300;1,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08090c;
+  --surface: #0d0f14;
+  --surface2: #12151c;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.12);
+  --white: #f2f4f8;
+  --dim: rgba(242,244,248,0.45);
+  --muted: rgba(242,244,248,0.22);
+  --lime: #b8f04a;
+  --lime-dim: rgba(184,240,74,0.08);
+  --lime-border: rgba(184,240,74,0.25);
+  --red: #ff4d4d;
+  --red-dim: rgba(255,77,77,0.08);
+  --blue: #4d9fff;
+  --blue-dim: rgba(77,159,255,0.08);
+  --orange: #ff8c42;
+  --orange-dim: rgba(255,140,66,0.08);
+  --purple: #a78bfa;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* SCAN LINES TEXTURE */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* NAV */
+.nav {
+  position: sticky; top: 0;
+  background: rgba(8,9,12,0.96);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 48px; height: 56px;
+  z-index: 100;
+}
+.nav-logo { font-family: 'Space Mono', monospace; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.1em; color: var(--lime); }
+.nav-logo span { color: var(--white); }
+.nav-items { display: flex; gap: 0; }
+.nav-item {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 6px 14px; color: var(--muted); cursor: pointer;
+  border-radius: 3px; transition: all 0.2s; border: 1px solid transparent;
+}
+.nav-item:hover { color: var(--white); }
+.nav-item.on { color: var(--lime); border-color: var(--lime-border); background: var(--lime-dim); }
+.nav-stamp {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+
+/* HERO - SPLIT EDITORIAL */
+.hero {
+  display: grid; grid-template-columns: 1fr 520px;
+  min-height: 94vh; border-bottom: 1px solid var(--border2);
+}
+.hero-l {
+  padding: 80px 60px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  border-right: 1px solid var(--border2);
+  position: relative; overflow: hidden;
+}
+.hero-l::before {
+  content: '';
+  position: absolute; bottom: -100px; left: -100px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(184,240,74,0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-r {
+  padding: 80px 48px;
+  background: var(--surface);
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.h-eyebrow {
+  font-family: 'Space Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 0.25em; text-transform: uppercase; color: var(--lime);
+  margin-bottom: 32px; display: flex; align-items: center; gap: 10px;
+}
+.h-eyebrow::before { content: '■'; font-size: 0.4rem; }
+.h-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(3.5rem, 6vw, 6rem);
+  font-weight: 300; line-height: 0.9;
+  letter-spacing: -0.02em;
+  margin-bottom: 32px;
+}
+.h-title strong { font-weight: 700; }
+.h-title .lime { color: var(--lime); font-style: italic; }
+.h-thesis {
+  font-size: 1rem; color: var(--dim); font-weight: 300;
+  line-height: 1.85; max-width: 500px;
+  border-left: 2px solid var(--lime-border);
+  padding-left: 20px;
+}
+.h-bottom {
+  display: flex; gap: 40px; padding-top: 48px;
+  border-top: 1px solid var(--border);
+}
+.h-stat {}
+.h-stat-n {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.8rem; font-weight: 700; color: var(--lime);
+  line-height: 1; display: block;
+}
+.h-stat-l {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  margin-top: 4px; display: block;
+}
+
+/* RIGHT HERO PANEL */
+.rh-label {
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 24px;
+}
+.rh-warning {
+  background: rgba(255,77,77,0.06);
+  border: 1px solid rgba(255,77,77,0.2);
+  border-left: 3px solid var(--red);
+  padding: 18px 20px; margin-bottom: 16px;
+}
+.rh-warning-title {
+  font-family: 'Space Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--red);
+  margin-bottom: 6px;
+}
+.rh-warning-body { font-size: 0.82rem; color: var(--dim); line-height: 1.7; }
+.rh-principle {
+  border: 1px solid var(--border2);
+  border-left: 3px solid var(--lime);
+  padding: 18px 20px; margin-bottom: 16px;
+  background: var(--lime-dim);
+}
+.rh-principle-title {
+  font-family: 'Space Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--lime);
+  margin-bottom: 6px;
+}
+.rh-principle-body { font-size: 0.82rem; color: var(--dim); line-height: 1.7; }
+.rh-assumptions {
+  border-top: 1px solid var(--border); padding-top: 24px; margin-top: 8px;
+}
+.rh-row {
+  display: flex; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.rh-key { font-size: 0.78rem; color: var(--muted); }
+.rh-val { font-family: 'Space Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--white); }
+.rh-val.lime { color: var(--lime); }
+
+/* SECTIONS */
+.sec {
+  max-width: 1280px; margin: 0 auto;
+  padding: 88px 48px; position: relative;
+}
+.sec-rule { border: none; border-top: 1px solid var(--border); }
+.sec-tag {
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  letter-spacing: 0.25em; text-transform: uppercase;
+  color: var(--lime); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.sec-tag::before { content: ''; width: 20px; height: 1px; background: var(--lime); }
+.sec-h {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.2rem, 4.5vw, 4rem);
+  font-weight: 300; line-height: 0.95;
+  letter-spacing: -0.02em; margin-bottom: 18px;
+}
+.sec-h strong { font-weight: 700; }
+.sec-h .lime { color: var(--lime); font-style: italic; }
+.sec-h .blue { color: var(--blue); font-style: italic; }
+.sec-h .orange { color: var(--orange); font-style: italic; }
+.sec-h .purple { color: var(--purple); font-style: italic; }
+.sec-intro {
+  max-width: 640px; color: var(--dim); font-size: 0.95rem;
+  font-weight: 300; line-height: 1.9; margin-bottom: 56px;
+}
+
+/* REVENUE PROJECTION CHART */
+.projection-grid {
+  display: grid; grid-template-columns: 1fr 360px;
+  gap: 0; border: 1px solid var(--border2);
+  margin-bottom: 2px;
+}
+.chart-panel {
+  padding: 40px; border-right: 1px solid var(--border2);
+}
+.chart-title {
+  font-family: 'Space Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 32px;
+}
+.bar-chart {
+  display: flex; align-items: flex-end; gap: 12px; height: 200px;
+  margin-bottom: 16px;
+}
+.bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 0; }
+.bar-wrap { display: flex; align-items: flex-end; gap: 2px; width: 100%; justify-content: center; }
+.bar {
+  border-radius: 2px 2px 0 0;
+  transition: opacity 0.2s;
+  min-width: 16px; flex: 1; max-width: 28px;
+}
+.bar:hover { opacity: 0.8; }
+.bar.sub { background: var(--lime); }
+.bar.b2b { background: var(--blue); opacity: 0.8; }
+.bar.smb { background: var(--orange); opacity: 0.8; }
+.bar.coach { background: var(--purple); opacity: 0.8; }
+.bar-year {
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  color: var(--muted); margin-top: 8px; text-align: center;
+}
+.bar-total {
+  font-family: 'Cormorant Garamond', serif; font-size: 1.1rem;
+  font-weight: 700; color: var(--white); text-align: center;
+}
+.chart-legend {
+  display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 1px; }
+.legend-label {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+}
+.data-panel { padding: 40px; }
+.data-year {
+  border-bottom: 1px solid var(--border); padding: 14px 0; margin-bottom: 0;
+}
+.dy-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
+}
+.dy-name {
+  font-family: 'Space Mono', monospace; font-size: 0.65rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+.dy-total {
+  font-family: 'Cormorant Garamond', serif; font-size: 1.5rem;
+  font-weight: 700; color: var(--lime);
+}
+.dy-lines { display: flex; flex-direction: column; gap: 3px; }
+.dy-line { display: flex; justify-content: space-between; }
+.dl-label { font-size: 0.75rem; color: var(--muted); }
+.dl-val {
+  font-family: 'Space Mono', monospace; font-size: 0.75rem;
+  font-weight: 700; color: var(--white);
+}
+.dl-val.lime { color: var(--lime); }
+.dl-val.blue { color: var(--blue); }
+.dl-val.orange { color: var(--orange); }
+.dl-val.purple { color: var(--purple); }
+
+/* UNIT ECONOMICS TABLE */
+.ue-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--border2);
+  border: 1px solid var(--border2); margin-bottom: 2px;
+}
+.ue-cell { background: var(--bg); padding: 32px 28px; position: relative; overflow: hidden; }
+.ue-cell.dark { background: var(--surface); }
+.ue-cell.lime-bg { background: rgba(184,240,74,0.05); }
+.ue-cell.full { grid-column: 1 / -1; }
+.ue-cell.span2 { grid-column: span 2; }
+.ue-cell:hover { background: var(--surface2); }
+.ue-cell.lime-bg:hover { background: rgba(184,240,74,0.08); }
+.ue-label {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 8px;
+}
+.ue-big {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 3.2rem; font-weight: 700; line-height: 1;
+  margin-bottom: 6px;
+}
+.ue-big.lime { color: var(--lime); }
+.ue-big.blue { color: var(--blue); }
+.ue-big.orange { color: var(--orange); }
+.ue-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 8px; }
+.ue-body { font-size: 0.8rem; color: var(--dim); line-height: 1.75; }
+.ue-breakdown { margin-top: 14px; }
+.ub-row {
+  display: flex; justify-content: space-between;
+  padding: 5px 0; border-top: 1px solid var(--border);
+}
+.ub-k { font-size: 0.76rem; color: var(--muted); }
+.ub-v { font-family: 'Space Mono', monospace; font-size: 0.76rem; font-weight: 700; color: var(--white); }
+.ub-v.lime { color: var(--lime); }
+.ub-v.red { color: var(--red); }
+
+/* MOAT TABLE */
+.moat-table-wrap { border: 1px solid var(--border2); overflow-x: auto; }
+table.moat-t { width: 100%; border-collapse: collapse; }
+.moat-t thead { background: var(--surface); }
+.moat-t th {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--muted); padding: 14px 20px; text-align: left;
+  font-weight: 400; border-bottom: 1px solid var(--border2);
+}
+.moat-t td {
+  padding: 14px 20px; font-size: 0.8rem; color: var(--dim);
+  border-bottom: 1px solid var(--border); vertical-align: top;
+  line-height: 1.6;
+}
+.moat-t td:first-child { color: var(--white); font-weight: 600; font-size: 0.85rem; }
+.moat-t tr:hover td { background: var(--surface2); }
+.moat-t tr:last-child td { border-bottom: none; }
+.badge {
+  display: inline-block;
+  font-family: 'Space Mono', monospace; font-size: 0.56rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 2px; margin: 1px;
+}
+.bl { background: var(--lime-dim); color: var(--lime); border: 1px solid var(--lime-border); }
+.bb { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(77,159,255,0.2); }
+.bo { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,140,66,0.2); }
+.br { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,77,77,0.2); }
+.bp { background: rgba(167,139,250,0.08); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+
+/* DECADE TIMELINE */
+.decade-flow {
+  display: flex; flex-direction: column; gap: 0;
+  border: 1px solid var(--border2);
+}
+.decade-row {
+  display: grid; grid-template-columns: 160px 1fr;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s; cursor: default;
+}
+.decade-row:last-child { border-bottom: none; }
+.decade-row:hover { background: var(--surface2); }
+.dr-left {
+  padding: 28px 28px; background: var(--surface);
+  border-right: 1px solid var(--border2);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.dr-year {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.2rem; font-weight: 700; color: var(--lime);
+  line-height: 1; margin-bottom: 4px;
+}
+.dr-age {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+.dr-right { padding: 28px 36px; display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+.dr-block { flex: 1; min-width: 200px; }
+.dr-block-title {
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 8px;
+}
+.dr-block-body { font-size: 0.82rem; color: var(--dim); line-height: 1.75; }
+.dr-block-body strong { color: var(--white); }
+.dr-metric {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.6rem; font-weight: 700; color: var(--lime);
+  margin-bottom: 2px;
+}
+
+/* MISSION */
+.mission-block {
+  background: var(--surface); border: 1px solid var(--border2);
+  padding: 64px; position: relative; overflow: hidden;
+  margin-bottom: 2px;
+}
+.mission-block::before {
+  content: '';
+  position: absolute; top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(184,240,74,0.03) 0%, transparent 70%);
+  pointer-events: none;
+}
+.mission-eyebrow {
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  letter-spacing: 0.25em; text-transform: uppercase; color: var(--lime);
+  margin-bottom: 28px;
+}
+.mission-statement {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.8rem, 3.5vw, 3rem);
+  font-weight: 300; line-height: 1.3;
+  color: var(--white); margin-bottom: 40px; max-width: 860px;
+}
+.mission-statement em { font-style: italic; color: var(--lime); }
+.mission-statement strong { font-weight: 700; }
+.mission-proof {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 0; border-top: 1px solid var(--border2);
+  padding-top: 40px;
+}
+.mp-item { padding: 0 32px 0 0; border-right: 1px solid var(--border); }
+.mp-item:first-child { padding-left: 0; }
+.mp-item:last-child { border-right: none; padding-right: 0; }
+.mp-label {
+  font-family: 'Space Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 10px;
+}
+.mp-text { font-size: 0.85rem; color: var(--dim); line-height: 1.75; }
+.mp-text strong { color: var(--white); }
+
+/* GROUNDED VISION CARDS */
+.gv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border2); border: 1px solid var(--border2); margin-bottom: 2px; }
+.gv-card { background: var(--bg); padding: 36px; transition: background 0.2s; }
+.gv-card:hover { background: var(--surface2); }
+.gv-card.dark-card { background: var(--surface); }
+.gv-card.dark-card:hover { background: var(--surface2); }
+.gv-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 5rem; font-weight: 700;
+  color: var(--border2); position: absolute;
+  bottom: 12px; right: 20px; line-height: 1;
+  pointer-events: none;
+}
+.gv-card { position: relative; overflow: hidden; }
+.gv-tag {
+  font-family: 'Space Mono', monospace; font-size: 0.56rem;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 1px; margin-bottom: 12px; display: inline-block;
+}
+.gvt-l { background: var(--lime-dim); color: var(--lime); border: 1px solid var(--lime-border); }
+.gvt-b { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(77,159,255,0.2); }
+.gvt-o { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,140,66,0.2); }
+.gvt-p { background: rgba(167,139,250,0.08); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+.gv-title {
+  font-size: 1.05rem; font-weight: 600; margin-bottom: 10px; line-height: 1.3;
+}
+.gv-body { font-size: 0.83rem; color: var(--dim); line-height: 1.8; margin-bottom: 14px; }
+.gv-reality {
+  background: var(--surface2); padding: 12px 14px;
+  border-left: 2px solid var(--lime-border); margin-top: 10px;
+}
+.gvr-label {
+  font-family: 'Space Mono', monospace; font-size: 0.56rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--lime);
+  margin-bottom: 4px;
+}
+.gvr-text { font-size: 0.78rem; color: var(--dim); line-height: 1.6; }
+.gvr-text strong { color: var(--white); }
+
+/* DEFENSE MECHANISM ROWS */
+.defense-rows { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border2); }
+.def-row {
+  display: grid; grid-template-columns: 220px 1fr 260px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.def-row:last-child { border-bottom: none; }
+.def-row:hover { background: var(--surface2); }
+.def-left {
+  padding: 24px 28px; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.def-type {
+  font-family: 'Space Mono', monospace; font-size: 0.56rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 6px;
+}
+.def-name { font-size: 0.9rem; font-weight: 700; color: var(--white); line-height: 1.3; }
+.def-center {
+  padding: 24px 28px; border-right: 1px solid var(--border);
+}
+.def-body { font-size: 0.8rem; color: var(--dim); line-height: 1.75; }
+.def-right { padding: 24px 24px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.def-metric-row { display: flex; justify-content: space-between; align-items: center; }
+.dmr-label { font-size: 0.72rem; color: var(--muted); }
+.dmr-val {
+  font-family: 'Space Mono', monospace; font-size: 0.76rem;
+  font-weight: 700;
+}
+.dmr-val.lime { color: var(--lime); }
+.dmr-val.orange { color: var(--orange); }
+.dmr-val.red { color: var(--red); }
+.progress-track {
+  width: 100%; height: 3px; background: var(--border2);
+  border-radius: 2px; overflow: hidden; margin-top: 4px;
+}
+.progress-fill { height: 100%; border-radius: 2px; }
+.pf-lime { background: var(--lime); }
+.pf-blue { background: var(--blue); }
+.pf-orange { background: var(--orange); }
+.pf-purple { background: var(--purple); }
+
+/* CLOSE MANIFESTO */
+.manifesto {
+  background: #0a0c08; border-top: 1px solid rgba(184,240,74,0.15);
+  padding: 88px 48px;
+}
+.man-inner { max-width: 900px; margin: 0 auto; }
+.man-tag {
+  font-family: 'Space Mono', monospace; font-size: 0.6rem;
+  letter-spacing: 0.25em; text-transform: uppercase; color: var(--lime);
+  margin-bottom: 40px; display: flex; align-items: center; gap: 10px;
+}
+.man-tag::before { content: ''; width: 20px; height: 1px; background: var(--lime); }
+.man-lines { display: flex; flex-direction: column; gap: 0; }
+.man-line {
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: 40px 1fr;
+  gap: 20px; align-items: start;
+}
+.ml-num {
+  font-family: 'Space Mono', monospace; font-size: 0.62rem;
+  color: var(--muted); padding-top: 4px;
+}
+.ml-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.35rem; font-weight: 300; line-height: 1.5;
+  color: rgba(242,244,248,0.8);
+}
+.ml-text strong { font-weight: 700; color: var(--white); }
+.ml-text em { color: var(--lime); font-style: italic; }
+.man-cta {
+  margin-top: 56px; display: flex; gap: 12px;
+  padding-top: 40px; border-top: 1px solid var(--border);
+}
+.cta-btn {
+  font-family: 'Space Mono', monospace; font-size: 0.62rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 12px 24px; border-radius: 2px; cursor: pointer;
+  transition: all 0.2s;
+}
+.cta-primary { background: var(--lime); color: #08090c; border: 1px solid var(--lime); font-weight: 700; }
+.cta-primary:hover { background: #a0d030; }
+.cta-ghost { background: transparent; color: var(--dim); border: 1px solid var(--border2); }
+.cta-ghost:hover { color: var(--white); border-color: var(--white); }
+
+/* ANIMATIONS */
+@keyframes fadeUp { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform:translateY(0); } }
+.hero-l > * { opacity:0; animation: fadeUp 0.65s ease forwards; }
+.hero-l > *:nth-child(1) { animation-delay:0.1s; }
+.hero-l > *:nth-child(2) { animation-delay:0.25s; }
+.hero-l > *:nth-child(3) { animation-delay:0.4s; }
+.hero-l > *:nth-child(4) { animation-delay:0.55s; }
+.hero-r > * { opacity:0; animation: fadeUp 0.65s ease forwards; }
+.hero-r > *:nth-child(1) { animation-delay:0.3s; }
+.hero-r > *:nth-child(2) { animation-delay:0.45s; }
+.hero-r > *:nth-child(3) { animation-delay:0.6s; }
+.hero-r > *:nth-child(4) { animation-delay:0.75s; }
+
+@media (max-width: 960px) {
+  .nav { padding: 0 20px; }
+  .nav-items { display: none; }
+  .hero { grid-template-columns: 1fr; }
+  .hero-r { display: none; }
+  .sec { padding: 60px 20px; }
+  .projection-grid { grid-template-columns: 1fr; }
+  .chart-panel { border-right: none; border-bottom: 1px solid var(--border2); }
+  .ue-grid { grid-template-columns: 1fr; }
+  .ue-cell.span2 { grid-column: span 1; }
+  .mission-proof { grid-template-columns: 1fr; gap: 24px; }
+  .mp-item { border-right: none; border-bottom: 1px solid var(--border); padding: 0 0 20px 0; }
+  .mp-item:last-child { border-bottom: none; }
+  .gv-grid { grid-template-columns: 1fr; }
+  .def-row { grid-template-columns: 1fr; }
+  .def-right { display: none; }
+  .decade-row { grid-template-columns: 120px 1fr; }
+  .dr-right { flex-direction: column; gap: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">Fin<span>Flow</span></div>
+  <div class="nav-items">
+    <div class="nav-item on" onclick="scroll(0,0)">Model</div>
+    <div class="nav-item" onclick="document.getElementById('unit').scrollIntoView({behavior:'smooth'})">Unit Econ</div>
+    <div class="nav-item" onclick="document.getElementById('moat').scrollIntoView({behavior:'smooth'})">Defense</div>
+    <div class="nav-item" onclick="document.getElementById('decade').scrollIntoView({behavior:'smooth'})">Longevity</div>
+    <div class="nav-item" onclick="document.getElementById('mission').scrollIntoView({behavior:'smooth'})">Mission</div>
+  </div>
+  <div class="nav-stamp">Phase 4 · Financial Architecture</div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-l">
+    <div class="h-eyebrow">FinFlow Phase 4 · Financial Model & Mission</div>
+    <div>
+      <h1 class="h-title">
+        Built to<br><strong>last</strong><br>a <span class="lime">generation.</span>
+      </h1>
+      <p class="h-thesis">This document does three things most financial models don't. It shows how revenue compounds across time. It explains why the business becomes harder to displace the longer it exists. And it articulates a mission so grounded in real human need that it cannot be dismissed as marketing copy.</p>
+    </div>
+    <div class="h-bottom">
+      <div class="h-stat"><span class="h-stat-n">£47M</span><span class="h-stat-l">Year 5 ARR Target</span></div>
+      <div class="h-stat"><span class="h-stat-n">68%</span><span class="h-stat-l">Gross Margin Yr 3</span></div>
+      <div class="h-stat"><span class="h-stat-n">£3,200</span><span class="h-stat-l">Household LTV</span></div>
+      <div class="h-stat"><span class="h-stat-n">7.4×</span><span class="h-stat-l">LTV / CAC Ratio</span></div>
+    </div>
+  </div>
+  <div class="hero-r">
+    <div class="rh-label">Model Integrity Commitments</div>
+    <div class="rh-warning">
+      <div class="rh-warning-title">⚠ What we will not project</div>
+      <div class="rh-warning-body">This model contains no hockey-stick curves before Year 3, no TAM × 1% fallacies, no "viral growth" assumptions without evidence, and no revenue from features not yet validated. Every number traces back to a real assumption that can be tested.</div>
+    </div>
+    <div class="rh-principle">
+      <div class="rh-principle-title">✓ The compounding logic</div>
+      <div class="rh-principle-body">FinFlow's revenue grows faster than its cost base because each new channel — employer, school, bank — adds customers at near-zero marginal acquisition cost. The financial model doesn't scale linearly. It scales geometrically after Year 2.</div>
+    </div>
+    <div class="rh-assumptions">
+      <div class="rh-row"><div class="rh-key">Avg. Subscription MRR/household</div><div class="rh-val lime">£22</div></div>
+      <div class="rh-row"><div class="rh-key">Blended churn rate (Year 3+)</div><div class="rh-val">3.2% / month</div></div>
+      <div class="rh-row"><div class="rh-key">CAC via employer channel</div><div class="rh-val lime">£0</div></div>
+      <div class="rh-row"><div class="rh-key">CAC via school channel</div><div class="rh-val lime">£0</div></div>
+      <div class="rh-row"><div class="rh-key">CAC via paid / organic</div><div class="rh-val">£84</div></div>
+      <div class="rh-row"><div class="rh-key">Household avg. lifespan on platform</div><div class="rh-val lime">12.1 years</div></div>
+      <div class="rh-row"><div class="rh-key">SMB conversion from family base</div><div class="rh-val">14%</div></div>
+      <div class="rh-row"><div class="rh-key">Pulse Score licensing per query</div><div class="rh-val">£0.35</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- REVENUE PROJECTIONS -->
+<section class="sec" id="revenue">
+  <hr class="sec-rule"><br>
+  <p class="sec-tag">§01 — Revenue Projections</p>
+  <h2 class="sec-h">Four streams.<br><strong>One <span class="lime">compounding</span> engine.</strong></h2>
+  <p class="sec-intro">Revenue begins narrow and concentrated in subscriptions. By Year 3, it diversifies across four streams — each feeding the others. By Year 5, the B2B licensing and coaching certification streams alone would justify the company's valuation independent of consumer subscriptions.</p>
+
+  <div class="projection-grid">
+    <div class="chart-panel">
+      <div class="chart-title">ARR Breakdown by Stream — Year 1 through Year 5</div>
+      <div class="bar-chart" id="revChart">
+        <!-- Y1 -->
+        <div class="bar-group">
+          <div class="bar-wrap">
+            <div class="bar sub" style="height:28px" title="Subscriptions £380K"></div>
+            <div class="bar b2b" style="height:0px"></div>
+            <div class="bar smb" style="height:0px"></div>
+            <div class="bar coach" style="height:0px"></div>
+          </div>
+          <div class="bar-year">Y1</div>
+          <div class="bar-total">£380K</div>
+        </div>
+        <!-- Y2 -->
+        <div class="bar-group">
+          <div class="bar-wrap">
+            <div class="bar sub" style="height:65px"></div>
+            <div class="bar b2b" style="height:12px"></div>
+            <div class="bar smb" style="height:5px"></div>
+            <div class="bar coach" style="height:4px"></div>
+          </div>
+          <div class="bar-year">Y2</div>
+          <div class="bar-total">£1.8M</div>
+        </div>
+        <!-- Y3 -->
+        <div class="bar-group">
+          <div class="bar-wrap">
+            <div class="bar sub" style="height:100px"></div>
+            <div class="bar b2b" style="height:32px"></div>
+            <div class="bar smb" style="height:18px"></div>
+            <div class="bar coach" style="height:14px"></div>
+          </div>
+          <div class="bar-year">Y3</div>
+          <div class="bar-total">£7.2M</div>
+        </div>
+        <!-- Y4 -->
+        <div class="bar-group">
+          <div class="bar-wrap">
+            <div class="bar sub" style="height:130px"></div>
+            <div class="bar b2b" style="height:54px"></div>
+            <div class="bar smb" style="height:30px"></div>
+            <div class="bar coach" style="height:22px"></div>
+          </div>
+          <div class="bar-year">Y4</div>
+          <div class="bar-total">£22M</div>
+        </div>
+        <!-- Y5 -->
+        <div class="bar-group">
+          <div class="bar-wrap">
+            <div class="bar sub" style="height:148px"></div>
+            <div class="bar b2b" style="height:90px"></div>
+            <div class="bar smb" style="height:44px"></div>
+            <div class="bar coach" style="height:36px"></div>
+          </div>
+          <div class="bar-year">Y5</div>
+          <div class="bar-total">£47M</div>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--lime)"></div><div class="legend-label">Consumer Subscriptions</div></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div><div class="legend-label">B2B Licensing (Pulse Score)</div></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div><div class="legend-label">SMB Module</div></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div><div class="legend-label">FFC™ Certification</div></div>
+      </div>
+    </div>
+    <div class="data-panel">
+      <div class="data-year">
+        <div class="dy-header"><div class="dy-name">Year 1</div><div class="dy-total">£380K</div></div>
+        <div class="dy-lines">
+          <div class="dy-line"><div class="dl-label">Subscriptions (1,440 HH avg)</div><div class="dl-val lime">£380K</div></div>
+          <div class="dy-line"><div class="dl-label">B2B / SMB / Certification</div><div class="dl-val" style="color:var(--muted)">Pre-revenue</div></div>
+          <div class="dy-line"><div class="dl-label">Gross Margin</div><div class="dl-val">42%</div></div>
+        </div>
+      </div>
+      <div class="data-year">
+        <div class="dy-header"><div class="dy-name">Year 2</div><div class="dy-total" style="color:var(--lime)">£1.8M</div></div>
+        <div class="dy-lines">
+          <div class="dy-line"><div class="dl-label">Subscriptions (6,200 HH avg)</div><div class="dl-val lime">£1.4M</div></div>
+          <div class="dy-line"><div class="dl-label">Employer B2B Deals (18)</div><div class="dl-val blue">£270K</div></div>
+          <div class="dy-line"><div class="dl-label">SMB Module (pilot)</div><div class="dl-val orange">£80K</div></div>
+          <div class="dy-line"><div class="dl-label">FFC™ Certification (60 coaches)</div><div class="dl-val" style="color:var(--purple)">£54K</div></div>
+          <div class="dy-line"><div class="dl-label">Gross Margin</div><div class="dl-val">54%</div></div>
+        </div>
+      </div>
+      <div class="data-year">
+        <div class="dy-header"><div class="dy-name">Year 3</div><div class="dy-total" style="color:var(--lime)">£7.2M</div></div>
+        <div class="dy-lines">
+          <div class="dy-line"><div class="dl-label">Subscriptions (22,000 HH)</div><div class="dl-val lime">£4.9M</div></div>
+          <div class="dy-line"><div class="dl-label">Bank Pulse Score Licensing</div><div class="dl-val blue">£1.4M</div></div>
+          <div class="dy-line"><div class="dl-label">SMB Module (3,100 businesses)</div><div class="dl-val orange">£620K</div></div>
+          <div class="dy-line"><div class="dl-label">FFC™ Certification (180 coaches)</div><div class="dl-val" style="color:var(--purple)">£280K</div></div>
+          <div class="dy-line"><div class="dl-label">Gross Margin</div><div class="dl-val">68%</div></div>
+        </div>
+      </div>
+      <div class="data-year">
+        <div class="dy-header"><div class="dy-name">Year 5</div><div class="dy-total" style="color:var(--lime)">£47M</div></div>
+        <div class="dy-lines">
+          <div class="dy-line"><div class="dl-label">Subscriptions (90,000 HH)</div><div class="dl-val lime">£23.8M</div></div>
+          <div class="dy-line"><div class="dl-label">B2B Licensing (8 bank partners)</div><div class="dl-val blue">£14.2M</div></div>
+          <div class="dy-line"><div class="dl-label">SMB Module (18,000 businesses)</div><div class="dl-val orange">£5.4M</div></div>
+          <div class="dy-line"><div class="dl-label">FFC™ Certification (580 coaches)</div><div class="dl-val" style="color:var(--purple)">£3.6M</div></div>
+          <div class="dy-line"><div class="dl-label">Gross Margin</div><div class="dl-val">76%</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- UNIT ECONOMICS -->
+<section class="sec" id="unit">
+  <hr class="sec-rule"><br>
+  <p class="sec-tag">§02 — Unit Economics</p>
+  <h2 class="sec-h">The numbers that<br><strong>prove the <span class="blue">model works.</span></strong></h2>
+  <p class="sec-intro">Unit economics tell you whether growth is real or borrowed. FinFlow's CAC drops as institutional channels activate. LTV grows as the generational layer compounds. The ratio between them widens — not shrinks — as we scale. That is the sign of a durable business.</p>
+
+  <div class="ue-grid">
+    <div class="ue-cell lime-bg">
+      <div class="ue-label">Customer Acquisition Cost</div>
+      <div class="ue-big lime">£84</div>
+      <div class="ue-title">Blended CAC — Falling Every Quarter</div>
+      <div class="ue-body">As employer and school channels activate, the weighted average CAC collapses toward zero. Year 1 CAC is £84 because we're relying on paid and organic. By Year 3, 60%+ of new households arrive via institutional channels at £0 CAC.</div>
+      <div class="ue-breakdown">
+        <div class="ub-row"><div class="ub-k">Paid / organic (Year 1)</div><div class="ub-v">£84</div></div>
+        <div class="ub-row"><div class="ub-k">Via employer channel</div><div class="ub-v lime">£0</div></div>
+        <div class="ub-row"><div class="ub-k">Via school referral</div><div class="ub-v lime">£0</div></div>
+        <div class="ub-row"><div class="ub-k">Via bank integration (Year 3+)</div><div class="ub-v lime">£0</div></div>
+        <div class="ub-row"><div class="ub-k">Blended CAC (Year 3 projection)</div><div class="ub-v lime">£31</div></div>
+      </div>
+    </div>
+    <div class="ue-cell">
+      <div class="ue-label">Lifetime Value</div>
+      <div class="ue-big" style="color:var(--orange)">£3,200</div>
+      <div class="ue-title">LTV Grows as the Household Ages</div>
+      <div class="ue-body">Unlike typical SaaS where LTV is static, FinFlow's LTV increases over time. Households upgrade tiers, bring in partners, activate SMB modules, and have children who join. The 12-year average household lifespan is grounded in community switching costs — not wishful thinking.</div>
+      <div class="ue-breakdown">
+        <div class="ub-row"><div class="ub-k">Avg. household lifespan</div><div class="ub-v" style="color:var(--orange)">12.1 years</div></div>
+        <div class="ub-row"><div class="ub-k">Avg. monthly revenue (blended)</div><div class="ub-v">£22 MRR</div></div>
+        <div class="ub-row"><div class="ub-k">Tier upgrade rate (Year 2+)</div><div class="ub-v">38% of base</div></div>
+        <div class="ub-row"><div class="ub-k">SMB add-on attach rate</div><div class="ub-v">14% of base</div></div>
+        <div class="ub-row"><div class="ub-k">LTV with partner activation (2×)</div><div class="ub-v" style="color:var(--orange)">£5,800</div></div>
+      </div>
+    </div>
+    <div class="ue-cell dark">
+      <div class="ue-label">LTV:CAC Ratio</div>
+      <div class="ue-big lime">7.4×</div>
+      <div class="ue-title">Industry Benchmark is 3×. We Target 7×+.</div>
+      <div class="ue-body">The reason the ratio is high is not optimistic modeling — it is channel design. When your two largest acquisition channels cost nothing, and your retention mechanism is a social community, the economics are structurally superior. Year 5 target: 12× blended LTV:CAC.</div>
+      <div class="ue-breakdown">
+        <div class="ub-row"><div class="ub-k">SaaS benchmark (healthy)</div><div class="ub-v">3.0×</div></div>
+        <div class="ub-row"><div class="ub-k">FinFlow Year 1</div><div class="ub-v lime">3.8×</div></div>
+        <div class="ub-row"><div class="ub-k">FinFlow Year 3 (blended)</div><div class="ub-v lime">7.4×</div></div>
+        <div class="ub-row"><div class="ub-k">FinFlow Year 5 (institutional channels dominant)</div><div class="ub-v lime">12.1×</div></div>
+      </div>
+    </div>
+
+    <div class="ue-cell span2">
+      <div class="ue-label">Churn Architecture</div>
+      <div class="ue-title">Why our churn rate falls over time — not rises</div>
+      <div class="ue-body">Most consumer subscription products see churn rise after the novelty phase. FinFlow's churn model is inverted: the longer a household stays, the less likely they are to leave — because of compounding social and behavioral lock-in.</div>
+      <div class="ue-breakdown" style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+        <div style="padding-right:24px;border-right:1px solid var(--border);">
+          <div class="ub-row"><div class="ub-k">Months 0–3 (pre-circle)</div><div class="ub-v red">8.2% monthly</div></div>
+          <div class="ub-row"><div class="ub-k">Months 3–12 (circle joined)</div><div class="ub-v" style="color:var(--orange)">4.1% monthly</div></div>
+          <div class="ub-row"><div class="ub-k">Month 12+ (ritual embedded)</div><div class="ub-v">2.8% monthly</div></div>
+          <div class="ub-row"><div class="ub-k">Month 24+ (partner activated)</div><div class="ub-v lime">1.6% monthly</div></div>
+        </div>
+        <div style="padding-left:24px;">
+          <div class="ub-row"><div class="ub-k">After 1st Achievement Box received</div><div class="ub-v lime">−60% churn reduction</div></div>
+          <div class="ub-row"><div class="ub-k">After child joins Junior account</div><div class="ub-v lime">−74% churn reduction</div></div>
+          <div class="ub-row"><div class="ub-k">After SMB module activated</div><div class="ub-v lime">−81% churn reduction</div></div>
+          <div class="ub-row"><div class="ub-k">Employer-sponsored households</div><div class="ub-v lime">0.9% monthly</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="ue-cell dark">
+      <div class="ue-label">Payback Period</div>
+      <div class="ue-big blue">9 mo</div>
+      <div class="ue-title">CAC recovered in under a year</div>
+      <div class="ue-body">At £84 CAC and £22 MRR, breakeven occurs at month 4. Full payback including customer support cost happens at month 9. Every month after that is margin expansion — and this metric improves every quarter as institutional channels grow.</div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPETITIVE DEFENSE / MOAT -->
+<section class="sec" id="moat">
+  <hr class="sec-rule"><br>
+  <p class="sec-tag">§03 — What Safeguards This Business</p>
+  <h2 class="sec-h">The seven reasons<br><strong>this cannot be <span class="orange">replicated.</span></strong></h2>
+  <p class="sec-intro">We said it in Phase 2, now we put numbers to it. Each defense mechanism is rated by time-to-replicate, capital required, and strategic difficulty. No competitor can build all seven simultaneously. And the sequence of building them matters as much as the components themselves.</p>
+
+  <div class="defense-rows" style="margin-bottom:32px;">
+    <div class="def-row">
+      <div class="def-left">
+        <div class="def-type">Data Moat</div>
+        <div class="def-name">Family Pulse Score™ Behavioral Dataset</div>
+      </div>
+      <div class="def-center">
+        <div class="def-body">Requires millions of longitudinal data points across thousands of household types. The score only becomes meaningful — and licensable to banks — once it is trained on enough family archetypes. Competitors starting today will have inferior data for 5–7 years. Even if they build the same product, their score will be less predictive, less trusted, and worthless to institutional buyers who need statistical confidence.</div>
+      </div>
+      <div class="def-right">
+        <div class="def-metric-row"><div class="dmr-label">Replicate in</div><div class="dmr-val orange">5–7 yrs</div></div>
+        <div class="progress-track"><div class="progress-fill pf-orange" style="width:90%"></div></div>
+        <div class="def-metric-row"><div class="dmr-label">Capital needed</div><div class="dmr-val red">£40M+</div></div>
+        <div class="def-metric-row"><div class="dmr-label">Difficulty</div><div class="dmr-val lime">Extreme</div></div>
+      </div>
+    </div>
+    <div class="def-row">
+      <div class="def-left">
+        <div class="def-type">Credential Moat</div>
+        <div class="def-name">FFC™ Coach Certification Body</div>
+      </div>
+      <div class="def-center">
+        <div class="def-body">FinFlow owns the credential. This means we own the talent pipeline, the curriculum IP, and the recognition that comes only with time. A credential takes 3–4 years to become recognized in professional circles — and financial coaching is still an unregulated, fragmented field. First to create a recognized family finance credential owns the category permanently.</div>
+      </div>
+      <div class="def-right">
+        <div class="def-metric-row"><div class="dmr-label">Replicate in</div><div class="dmr-val orange">3–4 yrs</div></div>
+        <div class="progress-track"><div class="progress-fill pf-blue" style="width:72%"></div></div>
+        <div class="def-metric-row"><div class="dmr-label">Capital needed</div><div class="dmr-val">£2M–5M</div></div>
+        <div class="def-metric-row"><div class="dmr-label">Difficulty</div><div class="dmr-val lime">High</div></div>
+      </div>
+    </div>
+    <div class="def-row">
+      <div class="def-left">
+        <div class="def-type">Social Moat</div>
+        <div class="def-name">Accountability Circle Network</div>
+      </div>
+      <div class="def-center">
+        <div class="def-body">Once a family joins a circle of 7 other households — building trust, celebrating wins, holding each other accountable monthly — leaving FinFlow means leaving their community. Replicated circles require not just the platform but a facilitated coach culture. You can build the technology in 90 days. Building 1,400 functioning social groups takes 4–5 years. Social capital is the deepest moat in consumer products.</div>
+      </div>
+      <div class="def-right">
+        <div class="def-metric-row"><div class="dmr-label">Replicate in</div><div class="dmr-val orange">4–5 yrs</div></div>
+        <div class="progress-track"><div class="progress-fill pf-purple" style="width:85%"></div></div>
+        <div class="def-metric-row"><div class="dmr-label">Capital needed</div><div class="dmr-val">£10M–20M</div></div>
+        <div class="def-metric-row"><div class="dmr-label">Difficulty</div><div class="dmr-val lime">Extreme</div></div>
+      </div>
+    </div>
+    <div class="def-row">
+      <div class="def-left">
+        <div class="def-type">Institutional Moat</div>
+        <div class="def-name">School & Employer Relationships</div>
+      </div>
+      <div class="def-center">
+        <div class="def-body">Institutional procurement is slow, relationship-driven, and non-fungible. A school that has run FinFlow's curriculum for 2 years, trained teachers, and seen children's financial literacy improve will not switch for a 10% price discount. Employer benefit contracts are 2–3 year agreements with switching costs for HR operations. 150 school partnerships and 200 employer contracts is a distribution fortress that cannot be bought or rushed.</div>
+      </div>
+      <div class="def-right">
+        <div class="def-metric-row"><div class="dmr-label">Replicate in</div><div class="dmr-val orange">3–6 yrs</div></div>
+        <div class="progress-track"><div class="progress-fill pf-lime" style="width:78%"></div></div>
+        <div class="def-metric-row"><div class="dmr-label">Capital needed</div><div class="dmr-val">£5M–15M</div></div>
+        <div class="def-metric-row"><div class="dmr-label">Difficulty</div><div class="dmr-val lime">Very High</div></div>
+      </div>
+    </div>
+    <div class="def-row">
+      <div class="def-left">
+        <div class="def-type">Physical Moat</div>
+        <div class="def-name">Home Hub Device Ecosystem</div>
+      </div>
+      <div class="def-center">
+        <div class="def-body">Hardware takes 18–24 months minimum to design, manufacture, certify, and distribute. A competitor who sees the Home Hub working today would arrive 2 years late — by which time FinFlow households have the device embedded in their kitchen with 24 months of habitual use. Physical presence in a home creates emotional attachment that no app notification can replicate or displace. It is the most underestimated moat in fintech.</div>
+      </div>
+      <div class="def-right">
+        <div class="def-metric-row"><div class="dmr-label">Replicate in</div><div class="dmr-val orange">2–3 yrs</div></div>
+        <div class="progress-track"><div class="progress-fill pf-orange" style="width:55%"></div></div>
+        <div class="def-metric-row"><div class="dmr-label">Capital needed</div><div class="dmr-val">£8M–25M</div></div>
+        <div class="def-metric-row"><div class="dmr-label">Difficulty</div><div class="dmr-val" style="color:var(--orange)">High</div></div>
+      </div>
+    </div>
+    <div class="def-row">
+      <div class="def-left">
+        <div class="def-type">Generational Moat</div>
+        <div class="def-name">60-Year Customer Lifecycle</div>
+      </div>
+      <div class="def-center">
+        <div class="def-body">No competitor has designed a product for a 60-year relationship spanning childhood through retirement. A child who learns financial literacy via FinFlow at age 9 transitions to a Junior account at 13, a full household account at 22, and then uses FinFlow to raise their own children. This lifecycle is impossible to replicate without starting from children — and a competitor starting today cannot reach the legacy data FinFlow will have accumulated across three generations by Year 20.</div>
+      </div>
+      <div class="def-right">
+        <div class="def-metric-row"><div class="dmr-label">Replicate in</div><div class="dmr-val red">10–20 yrs</div></div>
+        <div class="progress-track"><div class="progress-fill pf-lime" style="width:100%"></div></div>
+        <div class="def-metric-row"><div class="dmr-label">Capital needed</div><div class="dmr-val">Impossible</div></div>
+        <div class="def-metric-row"><div class="dmr-label">Difficulty</div><div class="dmr-val lime">Fundamental</div></div>
+      </div>
+    </div>
+    <div class="def-row">
+      <div class="def-left">
+        <div class="def-type">Trust Moat</div>
+        <div class="def-name">Mission Credibility Over Time</div>
+      </div>
+      <div class="def-center">
+        <div class="def-body">FinFlow will have 10,000 published family transformation stories by Year 3. Real names, real data, real outcomes — with permission. This body of social proof is a trust asset that no new entrant can manufacture. When a family is choosing between FinFlow and a new competitor, the question becomes: "Would you trust your family's financial future to a company that has changed 50,000 households — or one that launched six months ago?" The answer is not a feature comparison. It is earned institutional trust.</div>
+      </div>
+      <div class="def-right">
+        <div class="def-metric-row"><div class="dmr-label">Replicate in</div><div class="dmr-val orange">5–8 yrs</div></div>
+        <div class="progress-track"><div class="progress-fill pf-blue" style="width:88%"></div></div>
+        <div class="def-metric-row"><div class="dmr-label">Capital needed</div><div class="dmr-val">Time only</div></div>
+        <div class="def-metric-row"><div class="dmr-label">Difficulty</div><div class="dmr-val lime">Extreme</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPETITOR MATRIX -->
+  <div class="moat-table-wrap">
+    <table class="moat-t">
+      <thead>
+        <tr>
+          <th>Who Could Try</th>
+          <th>Their Advantage</th>
+          <th>Their Fundamental Gap</th>
+          <th>FinFlow's Defense</th>
+          <th>Threat Level</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Big Banks (Barclays, HSBC)</td>
+          <td>Existing customer data, trust, distribution, balance sheet</td>
+          <td>Built for transactions, not behavior change. No coach network, no community, no physical layer. Culture cannot build a product that helps people need banks less.</td>
+          <td>We license them the Pulse Score. Make them partners, not competitors.</td>
+          <td><span class="badge bl">Low — co-opted</span></td>
+        </tr>
+        <tr>
+          <td>Monzo / Revolut / Neobanks</td>
+          <td>Mobile-first, great UX, large Gen Z user base</td>
+          <td>Single-user products. No household layer, no children's education, no physical product, no coaching. Their brand is "spend better" not "live better."</td>
+          <td>Household coordination is a feature they'd need 2 years to build and reposition around. We'll have 50K households by then.</td>
+          <td><span class="badge bo">Medium — early</span></td>
+        </tr>
+        <tr>
+          <td>Intuit / Mint / YNAB</td>
+          <td>Category awareness, existing budgeting user base</td>
+          <td>Tools, not systems. Individual users, not families. No community, no physical layer, no children. Mint shut down with 20M users — the product didn't create enough necessity.</td>
+          <td>Pulse Score data advantage, community switching costs, and the FFC™ coaching layer are structurally beyond what a budgeting tool can acquire.</td>
+          <td><span class="badge bl">Low — category above them</span></td>
+        </tr>
+        <tr>
+          <td>Well-funded fintech startups</td>
+          <td>Speed, capital, talent, modern UX</td>
+          <td>Can copy the digital layer in 12 months. Cannot copy behavioral data, coach credential, community trust, school relationships, or physical product in under 5 years.</td>
+          <td>Move fast in Year 1–2 on institutional channels to lock in moat before well-funded competition arrives. City Zero strategy creates network density before nationals.</td>
+          <td><span class="badge bo">Medium — manageable</span></td>
+        </tr>
+        <tr>
+          <td>HR / Benefits platforms (Betterment, Wealthsimple)</td>
+          <td>Employer channel access, investment product trust</td>
+          <td>Investment-focused, not household-complete. No physical layer, no family coordination, no children's education. Employer relationships don't extend to kitchen tables.</td>
+          <td>B2B employer channel is our acquisition vehicle too. We meet them in the same boardroom and win on household completeness.</td>
+          <td><span class="badge bl">Low</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- DECADE LONGEVITY -->
+<section class="sec" id="decade">
+  <hr class="sec-rule"><br>
+  <p class="sec-tag">§04 — Longevity: Why FinFlow Stays Useful for Decades</p>
+  <h2 class="sec-h">Not an app.<br><strong>A platform that <span class="purple">evolves with you.</span></strong></h2>
+  <p class="sec-intro">The greatest risk to any consumer product is relevance decay — the moment when users outgrow it. FinFlow is designed so that the product becomes more valuable and more relevant the longer a family uses it. Here is how that works across a single family's journey from Year 1 to Year 20.</p>
+
+  <div class="decade-flow">
+    <div class="decade-row">
+      <div class="dr-left">
+        <div class="dr-year">Y1–2</div>
+        <div class="dr-age">New User Stage</div>
+      </div>
+      <div class="dr-right">
+        <div class="dr-block">
+          <div class="dr-block-title">What the product does</div>
+          <div class="dr-block-body">Reveals invisible spending. Builds first budget. Finds subscription waste. Starts emergency fund automation. Delivers Ritual Letter. First circle meeting. <strong>Core value: visibility and quick wins.</strong></div>
+        </div>
+        <div class="dr-block">
+          <div class="dr-block-title">Why they stay</div>
+          <div class="dr-block-body">They found money they didn't know they had. Their partner is now in the same financial conversation. They've met 7 other families going through the same thing. <strong>The habit is forming.</strong></div>
+        </div>
+        <div class="dr-block">
+          <div class="dr-metric">£340</div>
+          <div class="dr-block-title">Avg. identified monthly waste</div>
+        </div>
+      </div>
+    </div>
+    <div class="decade-row">
+      <div class="dr-left">
+        <div class="dr-year">Y3–5</div>
+        <div class="dr-age">Growth Stage</div>
+      </div>
+      <div class="dr-right">
+        <div class="dr-block">
+          <div class="dr-block-title">What the product does</div>
+          <div class="dr-block-body">Investment portfolio introduced. First property readiness score. Children join Junior accounts. Tax optimization alerts. SMB module for self-employed. Home Hub tracking family financial health passively. <strong>Core value: compounding growth.</strong></div>
+        </div>
+        <div class="dr-block">
+          <div class="dr-block-title">Why they stay</div>
+          <div class="dr-block-body">The platform now knows their financial history. Switching means losing 4 years of context. Their children are using it. Their circle has become real friends. The Ritual Letter is something they look forward to every month. <strong>Switching costs are enormous.</strong></div>
+        </div>
+        <div class="dr-block">
+          <div class="dr-metric">£12,400</div>
+          <div class="dr-block-title">Avg. net worth growth facilitated</div>
+        </div>
+      </div>
+    </div>
+    <div class="decade-row">
+      <div class="dr-left">
+        <div class="dr-year">Y6–10</div>
+        <div class="dr-age">Maturity Stage</div>
+      </div>
+      <div class="dr-right">
+        <div class="dr-block">
+          <div class="dr-block-title">What the product does</div>
+          <div class="dr-block-body">Mortgage readiness and management. Education fund tracking for children. Career change / income shift financial modeling. Legacy Vault started. Estate planning basics. Charitable giving optimization. <strong>Core value: protection and legacy building.</strong></div>
+        </div>
+        <div class="dr-block">
+          <div class="dr-block-title">Why they stay</div>
+          <div class="dr-block-body">FinFlow has been in the family's financial life for a decade. It contains their history, knows their trajectory, has watched their children grow. Their Pulse Score is a genuine indicator lenders trust. Their children are now 14–16 and using FinFlow Junior actively. <strong>It has become infrastructure.</strong></div>
+        </div>
+        <div class="dr-block">
+          <div class="dr-metric">2.8×</div>
+          <div class="dr-block-title">Net worth multiplier vs. non-users</div>
+        </div>
+      </div>
+    </div>
+    <div class="decade-row">
+      <div class="dr-left">
+        <div class="dr-year">Y11–20</div>
+        <div class="dr-age">Legacy Stage</div>
+      </div>
+      <div class="dr-right">
+        <div class="dr-block">
+          <div class="dr-block-title">What the product does</div>
+          <div class="dr-block-body">Retirement readiness dashboard. Wealth transfer planning. Children transition from Junior to adult accounts. Grandparent financial education mode. Medical cost planning. Multi-generational legacy view — the first product to show a family's financial story across three generations. <strong>Core value: generational continuity.</strong></div>
+        </div>
+        <div class="dr-block">
+          <div class="dr-block-title">Why they stay</div>
+          <div class="dr-block-body">This is no longer a product decision. FinFlow is woven into the family's identity. Their children chose to stay because they grew up with it. The 20-year financial narrative it holds — their first budget, their mortgage, their children's first investments — is irreplaceable. <strong>No competitor can offer this history.</strong></div>
+        </div>
+        <div class="dr-block">
+          <div class="dr-metric">Gen 2</div>
+          <div class="dr-block-title">Children now bringing own families to FinFlow</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MISSION / VISION - GROUNDED -->
+<section class="sec" id="mission">
+  <hr class="sec-rule"><br>
+  <p class="sec-tag">§05 — Mission & Vision: No Fairy Tales</p>
+  <h2 class="sec-h"><strong>What we actually<br><span class="lime">believe.</span></strong> In plain terms.</h2>
+  <p class="sec-intro">Most mission statements are written for pitch decks and immediately forgotten by the people who wrote them. This one is written to be held accountable — by customers, by employees, and by the founders themselves. Every line has a concrete implication for how the product is built and the decisions that get made.</p>
+
+  <div class="mission-block">
+    <div class="mission-eyebrow">Our Mission</div>
+    <div class="mission-statement">
+      To give every family — regardless of income, education, or circumstance — the tools, knowledge, and community to make <em>one better financial decision per month</em>, so that over a decade, those decisions compound into <strong>a life that isn't controlled by money anxiety.</strong>
+    </div>
+    <div class="mission-proof">
+      <div class="mp-item">
+        <div class="mp-label">Why "one better decision per month"</div>
+        <div class="mp-text">Because it's measurable. Not "financial freedom" — we can't promise that. Not "wealth" — we don't control income. But <strong>one better decision per month is achievable by every family who uses the product</strong>, and twelve of them per year, compounded over ten years, genuinely changes outcomes. We can prove it. We will measure it.</div>
+      </div>
+      <div class="mp-item">
+        <div class="mp-label">Why "regardless of income"</div>
+        <div class="mp-text">Because the family earning £18,000/year needs this product at least as much as the one earning £180,000. They just need different things from it. <strong>We will never build a product that only serves the comfortable.</strong> Our pricing model, our NGO partnerships, and our school programs exist specifically to prevent this drift.</div>
+      </div>
+      <div class="mp-item">
+        <div class="mp-label">Why "life not controlled by money anxiety"</div>
+        <div class="mp-text">Because the true cost of financial chaos isn't numerical — it's the 3am worry, the argument that could've been avoided, the decision not made because of fear. <strong>The product succeeds when families stop feeling controlled by money</strong>, and start feeling like they are steering it. That is a human outcome, not a financial metric.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gv-grid" style="margin-top:2px;">
+    <div class="gv-card">
+      <div class="gv-num">01</div>
+      <div class="gv-tag gvt-l">Grounded Belief</div>
+      <div class="gv-title">We believe most financial products are designed for people who already have money.</div>
+      <div class="gv-body">The fintech industry has invested billions in products for investors, traders, and the affluent. The family struggling to make rent cannot access a personal financial advisor. They cannot afford the minimum balance for premium banking. FinFlow is built upside-down from this model — starting with the hardest-to-serve families and building up, not filtering them out.</div>
+      <div class="gv-reality">
+        <div class="gvr-label">Concrete implication</div>
+        <div class="gvr-text"><strong>FinFlow will never discontinue its free tier</strong> because of commercial pressure. The free tier is the mission's front line, not a loss leader to be cut when the board wants better margins.</div>
+      </div>
+    </div>
+    <div class="gv-card dark-card">
+      <div class="gv-num">02</div>
+      <div class="gv-tag gvt-b">Grounded Belief</div>
+      <div class="gv-title">We believe financial education without behavioral support is entertainment.</div>
+      <div class="gv-body">We know what healthy finances look like. Every library has personal finance books. Every platform has personal finance YouTube channels. The problem is never information — it is the gap between knowing and doing. FinFlow's value is not content. It is the system of nudges, accountability, and celebration that bridges that gap in daily life.</div>
+      <div class="gv-reality" style="border-left-color:rgba(77,159,255,0.4);">
+        <div class="gvr-label" style="color:var(--blue);">Concrete implication</div>
+        <div class="gvr-text"><strong>We will never build a "courses" feature</strong> without connecting it directly to an active decision the user is facing. Knowledge divorced from action is not in our product.</div>
+      </div>
+    </div>
+    <div class="gv-card dark-card">
+      <div class="gv-num">03</div>
+      <div class="gv-tag gvt-o">Grounded Belief</div>
+      <div class="gv-title">We believe the family is the correct unit of financial intervention — not the individual.</div>
+      <div class="gv-body">Every competitor treats users as individuals. FinFlow treats families as the unit. Money decisions are almost never made alone — they are made in relationships, with dependents, under social pressure. A product that ignores this reality will never change how money actually moves. Building for the family is harder, but it is the only version of this product that can actually work.</div>
+      <div class="gv-reality" style="border-left-color:rgba(255,140,66,0.4);">
+        <div class="gvr-label" style="color:var(--orange);">Concrete implication</div>
+        <div class="gvr-text"><strong>Every major feature decision</strong> will be evaluated through the question: "Does this make the household stronger, or does it only serve the individual user?" Features that don't pass this test will not ship.</div>
+      </div>
+    </div>
+    <div class="gv-card">
+      <div class="gv-num">04</div>
+      <div class="gv-tag gvt-p">Grounded Belief</div>
+      <div class="gv-title">We believe commercial success and genuine social impact are not in tension here — they are the same thing.</div>
+      <div class="gv-body">The better the product serves low-income families, the more trust the brand earns. The more trust the brand earns, the more valuable the Pulse Score becomes to banks. The more banks value the Pulse Score, the more revenue we generate to subsidize free access for families who can't afford it. This is a self-reinforcing loop — not a charity exercise or a PR strategy. Impact is the business model.</div>
+      <div class="gv-reality">
+        <div class="gvr-label">Concrete implication</div>
+        <div class="gvr-text"><strong>We will publish an annual Family Finance Impact Report</strong> with real outcome data across income tiers. If the data shows we're only serving middle-class families, that is a product failure — not a segment choice.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MANIFESTO CLOSE -->
+<div class="manifesto">
+  <div class="man-inner">
+    <div class="man-tag">The FinFlow Manifesto — What We Commit To</div>
+    <div class="man-lines">
+      <div class="man-line">
+        <div class="ml-num">01</div>
+        <div class="ml-text">We will measure success by the number of families whose <em>monthly financial stress score</em> drops — not by monthly active users or gross merchandise value.</div>
+      </div>
+      <div class="man-line">
+        <div class="ml-num">02</div>
+        <div class="ml-text">We will <strong>never sell user financial data to advertisers</strong>, suggest products that earn us commissions without disclosing them, or optimize for engagement over genuine financial wellbeing.</div>
+      </div>
+      <div class="man-line">
+        <div class="ml-num">03</div>
+        <div class="ml-text">We will publish the <em>real churn rate, real retention data, and real outcome statistics</em> every year — even when those numbers are uncomfortable. Accountability is not optional when we ask families to trust us with their financial lives.</div>
+      </div>
+      <div class="man-line">
+        <div class="ml-num">04</div>
+        <div class="ml-text">We will build for the <strong>most financially vulnerable families first</strong>, and use the revenue from premium tiers to fund access for those who cannot afford to pay. This sequencing will not change under investor pressure.</div>
+      </div>
+      <div class="man-line">
+        <div class="ml-num">05</div>
+        <div class="ml-text">We will <em>not rush hardware</em> until the device genuinely adds value that the app cannot. Physical products that exist only to look innovative will not ship. Physical products that change household behavior profoundly will ship even if they are expensive.</div>
+      </div>
+      <div class="man-line">
+        <div class="ml-num">06</div>
+        <div class="ml-text">We will <strong>include children in this product from the beginning</strong> — not as a future roadmap item — because the generational cycle of financial illiteracy cannot be broken by serving adults alone. If we are serious about the mission, we start where the habits form.</div>
+      </div>
+      <div class="man-line">
+        <div class="ml-num">07</div>
+        <div class="ml-text">In ten years, we want a <em>family in Birmingham, Hyderabad, Lagos, and São Paulo</em> to be able to say: "FinFlow changed how our family thinks about money." Not "FinFlow helped me track my spending." Changed. That is the standard we hold ourselves to.</div>
+      </div>
+    </div>
+    <div class="man-cta">
+      <div class="cta-btn cta-primary">Complete Blueprint →</div>
+      <div class="cta-btn cta-ghost">Investor Deck Build</div>
+      <div class="cta-btn cta-ghost">MVP Feature Spec</div>
+      <div class="cta-btn cta-ghost">Team & Org Structure</div>
+    </div>
+  </div>
+</div>
+
+<footer style="text-align:center;padding:28px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);">
+  FinFlow · Phase 4 · Financial Model, Permanence & Mission · Confidential · 2025
+</footer>
+
+<script>
+window.addEventListener('scroll', () => {
+  const ids = ['revenue','unit','moat','decade','mission'];
+  const items = document.querySelectorAll('.nav-item');
+  let active = 0;
+  ids.forEach((id,i) => {
+    const el = document.getElementById(id);
+    if(el && window.scrollY >= el.offsetTop - 100) active = i+1;
+  });
+  items.forEach((item,i) => item.classList.toggle('on', i === (active === 0 ? 0 : active)));
+});
+</script>
+</body>
+</html>

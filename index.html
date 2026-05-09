@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="warm">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#F5EFE6" />
+  <title>FinFlow — Family Finance OS</title>
+
+  <!-- Google tag (gtag.js) — GA4 measurement -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-E3XKWZP850"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-E3XKWZP850');
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400;1,6..72,600&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Mobile top bar -->
+  <header class="mobile-bar">
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="mobile-logo">Fin<span>Flow</span></div>
+    <button class="theme-toggle-mini" id="themeToggleMini" aria-label="Theme">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    </button>
+  </header>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 36 36" width="32" height="32"><defs><radialGradient id="logo-grad" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#logo-grad)" stroke="#2A2522" stroke-width="1.2"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width="0.8"/></svg>
+      </div>
+      <div class="logo-text">Fin<span>Flow</span></div>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Profile switcher (v5) — replaces the plan-badge -->
+    <div class="profile-switcher" id="profileSwitcher" onclick="toggleProfileMenu()">
+      <span class="profile-switcher-icon" id="profileSwitcherIcon">👤</span>
+      <span class="profile-switcher-name" id="profileSwitcherName">My Household</span>
+      <span class="profile-switcher-caret">▾</span>
+    </div>
+    <div class="profile-menu" id="profileMenu" style="display:none">
+      <div class="profile-menu-list" id="profileMenuList"></div>
+      <div class="profile-menu-divider"></div>
+      <div class="profile-menu-item action" onclick="openCreateProfileModal()">+ Create new profile</div>
+      <div class="profile-menu-item action" onclick="openManageProfilesModal()">⚙ Manage profiles</div>
+    </div>
+
+    <nav>
+      <div class="nav-group-label" data-i18n="nav-track">TRACK</div>
+      <a href="#" class="nav-item active" data-page="dashboard"><span class="nav-icon" data-icon="dashboard"></span><span data-i18n="dashboard">Dashboard</span></a>
+      <a href="#" class="nav-item" data-page="transactions"><span class="nav-icon" data-icon="transactions"></span><span data-i18n="transactions">Transactions</span></a>
+      <a href="#" class="nav-item" data-page="budgets"><span class="nav-icon" data-icon="budgets"></span><span data-i18n="budgets">Budgets</span></a>
+
+      <div class="nav-group-label" data-i18n="nav-plan">PLAN</div>
+      <a href="#" class="nav-item" data-page="goals"><span class="nav-icon" data-icon="goals"></span><span data-i18n="goals">Goals</span></a>
+      <a href="#" class="nav-item" data-page="splits"><span class="nav-icon" data-icon="splits"></span><span data-i18n="splits">Splits</span></a>
+      <a href="#" class="nav-item" data-page="debts"><span class="nav-icon" data-icon="debts"></span><span data-i18n="debts">Debts</span></a>
+      <a href="#" class="nav-item" data-page="networth"><span class="nav-icon" data-icon="networth"></span><span data-i18n="networth">Net Worth</span></a>
+
+      <div class="nav-group-label" data-i18n="nav-analyze">ANALYZE</div>
+      <a href="#" class="nav-item" data-page="reports"><span class="nav-icon" data-icon="reports"></span><span data-i18n="reports">Reports</span></a>
+
+      <div class="nav-divider"></div>
+
+      <a href="#" class="nav-item" data-page="settings"><span class="nav-icon" data-icon="settings"></span><span data-i18n="settings">Settings</span></a>
+      <a href="#" class="nav-item" data-page="help"><span class="nav-icon" data-icon="help"></span><span data-i18n="help">Help &amp; Guide</span></a>
+    </nav>
+
+    <div class="sidebar-members" id="sidebarMembers"></div>
+
+    <div class="sidebar-footer">
+      <div class="theme-toggle-row" id="themeToggleRow">
+        <button class="theme-btn" data-theme-set="warm" title="Paper Warm (default)">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </button>
+        <button class="theme-btn" data-theme-set="dark" title="Dark">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button class="theme-btn" data-theme-set="system" title="System">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </button>
+      </div>
+      <button class="btn-ghost" id="exportBtn">↓ <span data-i18n="export-csv">Export CSV</span></button>
+      <button class="btn-ghost danger" id="clearDataBtn">⊘ <span data-i18n="clear-data">Clear All Data</span></button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ─────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- ════════════════════════ DASHBOARD ════════════════════════ -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div>
+          <h1 data-i18n="dashboard">Dashboard</h1>
+          <p class="subtitle"><span data-i18n="dash-sub">Family Finance Overview</span> · <span id="dashMonth"></span></p>
+        </div>
+        <button class="btn-primary" id="addTxnBtn">+ <span data-i18n="add-transaction">Add Transaction</span></button>
+      </div>
+
+      <div class="dash-top">
+        <div class="pulse-widget">
+          <div class="pulse-label-top">FAMILY PULSE SCORE™</div>
+          <div class="pulse-ring-wrap">
+            <div class="pulse-ring" id="pulseRing">
+              <div class="pulse-inner">
+                <div class="pulse-score" id="pulseScore">--</div>
+                <div class="pulse-status" id="pulseStatus">·····</div>
+              </div>
+            </div>
+          </div>
+          <div class="pulse-breakdown" id="pulseBreakdown"></div>
+        </div>
+        <div class="cards-grid">
+          <div class="card card-balance"><div class="card-label" data-i18n="total-balance">Total Balance</div><div class="card-value" id="totalBalance">—</div><div class="card-sub" id="balanceTrend"></div></div>
+          <div class="card card-income"><div class="card-label" data-i18n="monthly-income">Monthly Income</div><div class="card-value" id="monthlyIncome">—</div><div class="card-sub" data-i18n="this-month">This month</div></div>
+          <div class="card card-expense"><div class="card-label" data-i18n="monthly-expenses">Monthly Expenses</div><div class="card-value" id="monthlyExpenses">—</div><div class="card-sub" data-i18n="this-month">This month</div></div>
+          <div class="card card-savings"><div class="card-label" data-i18n="savings-rate">Savings Rate</div><div class="card-value" id="savingsRate">0%</div><div class="card-sub" data-i18n="of-income-saved">of income saved</div></div>
+        </div>
+      </div>
+
+      <div class="insights-bar" id="insightsBar"></div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="budget-progress">Budget Progress</h2><a href="#" class="link" data-nav="budgets" data-i18n="view-all">View all →</a></div>
+          <div id="dashboardBudgets"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="recent-transactions">Recent Transactions</h2><a href="#" class="link" data-nav="transactions" data-i18n="view-all">View all →</a></div>
+          <div id="recentTransactions"></div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="active-goals">Active Goals</h2><a href="#" class="link" data-nav="goals" data-i18n="view-all">View all →</a></div>
+          <div id="dashboardGoals"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="spending-by-category">Spending by Category</h2><span class="panel-sub" data-i18n="this-month">This month</span></div>
+          <div id="categoryChart"></div>
+        </div>
+      </div>
+
+      <!-- Net worth + Debt summary on dashboard -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="net-worth-snapshot">Net Worth Snapshot</h2><a href="#" class="link" data-nav="networth" data-i18n="view-details">View details →</a></div>
+          <div id="dashboardNetWorth"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="debt-overview">Debt Overview</h2><a href="#" class="link" data-nav="debts" data-i18n="view-details">View details →</a></div>
+          <div id="dashboardDebts"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ TRANSACTIONS ══════════════════════ -->
+    <div id="page-transactions" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="transactions">Transactions</h1><p class="subtitle" data-i18n="all-household-flows">All household income &amp; expenses</p></div>
+        <button class="btn-primary" onclick="openTxnModal()">+ <span data-i18n="add-transaction">Add Transaction</span></button>
+      </div>
+      <div class="panel">
+        <div class="filters-row">
+          <input type="text" id="searchTxn" class="input" placeholder="Search…" oninput="filterAndRender()">
+          <select id="filterType" class="input" onchange="filterAndRender()"><option value="all" data-i18n="all-types">All Types</option><option value="income" data-i18n="income">Income</option><option value="expense" data-i18n="expense">Expense</option></select>
+          <select id="filterCategory" class="input" onchange="filterAndRender()"><option value="all" data-i18n="all-categories">All Categories</option></select>
+          <select id="filterMonth" class="input" onchange="filterAndRender()"><option value="all" data-i18n="all-months">All Months</option></select>
+          <select id="filterMember" class="input" onchange="filterAndRender()"><option value="all" data-i18n="all-members">All Members</option></select>
+        </div>
+        <div id="transactionsList"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════ BUDGETS ═══════════════════════ -->
+    <div id="page-budgets" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="budgets">Budgets</h1><p class="subtitle" data-i18n="monthly-limits">Monthly spending limits by category</p></div>
+        <button class="btn-primary" onclick="openBudgetModal()">+ <span data-i18n="add-budget">Add Budget</span></button>
+      </div>
+      <div class="budgets-grid" id="budgetsList"></div>
+    </div>
+
+    <!-- ════════════════════════════ GOALS ════════════════════════ -->
+    <div id="page-goals" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="goals">Goals</h1><p class="subtitle" data-i18n="family-milestones">Your family's financial milestones</p></div>
+        <button class="btn-primary" onclick="openGoalModal()">+ <span data-i18n="add-goal">Add Goal</span></button>
+      </div>
+      <div class="goals-grid" id="goalsList"></div>
+    </div>
+
+    <!-- ════════════════════════════ SPLITS (v5) ══════════════════ -->
+    <div id="page-splits" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="splits">Splits</h1><p class="subtitle">Group bills · who paid · who owes</p></div>
+        <button class="btn-primary" onclick="openSplitTxnFromPage()">+ New Split</button>
+      </div>
+
+      <div class="cards-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:14px;">
+        <div class="card">
+          <div class="card-label">Owed to You</div>
+          <div class="card-value text-sage" id="splits-owedToYou">—</div>
+          <div class="card-sub" id="splits-owedToYou-count">From 0 people</div>
+        </div>
+        <div class="card">
+          <div class="card-label">You Owe</div>
+          <div class="card-value text-terra" id="splits-youOwe">—</div>
+          <div class="card-sub" id="splits-youOwe-count">To 0 people</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><h2>Outstanding — Owed to You</h2></div>
+          <div id="splits-owedList"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h2>Outstanding — You Owe</h2></div>
+          <div id="splits-youOweList"></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <div class="panel-header"><h2>All Split Payments</h2></div>
+        <div id="splits-all"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════ DEBTS ════════════════════════ -->
+    <div id="page-debts" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="debts">Debts</h1><p class="subtitle" data-i18n="debt-sub">Loans, credit cards &amp; payoff strategy</p></div>
+        <button class="btn-primary" onclick="openDebtModal()">+ <span data-i18n="add-debt">Add Debt</span></button>
+      </div>
+
+      <!-- Debt summary cards -->
+      <div class="cards-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+        <div class="card"><div class="card-label" data-i18n="total-debt">Total Debt</div><div class="card-value text-terra" id="debt-total">—</div><div class="card-sub" id="debt-count">0 accounts</div></div>
+        <div class="card"><div class="card-label" data-i18n="monthly-payments">Monthly Payments</div><div class="card-value text-honey" id="debt-monthly">—</div><div class="card-sub" data-i18n="minimum-due">Minimum due</div></div>
+        <div class="card"><div class="card-label" data-i18n="debt-to-income">Debt-to-Income</div><div class="card-value" id="debt-dti">—</div><div class="card-sub" id="debt-dti-status">—</div></div>
+        <div class="card"><div class="card-label" data-i18n="payoff-eta">Payoff ETA</div><div class="card-value text-sage" id="debt-payoff">—</div><div class="card-sub" id="debt-strategy-display">Avalanche</div></div>
+      </div>
+
+      <!-- Strategy selector -->
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-header">
+          <h2 data-i18n="payoff-strategy">Payoff Strategy</h2>
+          <div class="period-selector" id="debtStrategy">
+            <button class="period-btn" data-strategy="avalanche" title="Highest interest first" data-i18n="avalanche">Avalanche</button>
+            <button class="period-btn" data-strategy="snowball" title="Smallest balance first" data-i18n="snowball">Snowball</button>
+          </div>
+        </div>
+        <div class="strategy-explainer" id="strategyExplainer"></div>
+      </div>
+
+      <!-- Debt list -->
+      <div class="debts-grid" id="debtsList"></div>
+
+      <!-- Payoff schedule -->
+      <div class="panel" style="margin-top:14px;">
+        <div class="panel-header"><h2 data-i18n="payoff-schedule">Payoff Order &amp; Schedule</h2><span class="panel-sub" data-i18n="based-on-strategy">Based on selected strategy</span></div>
+        <div id="payoffSchedule"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ NET WORTH / BALANCE SHEET ════════ -->
+    <div id="page-networth" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="net-worth">Net Worth</h1><p class="subtitle" data-i18n="balance-sheet-sub">Balance sheet · Assets minus Liabilities</p></div>
+        <button class="btn-primary" onclick="openAssetModal()">+ <span data-i18n="add-asset">Add Asset</span></button>
+      </div>
+
+      <!-- Net worth headline -->
+      <div class="networth-hero">
+        <div class="networth-main">
+          <div class="networth-label" data-i18n="net-worth">NET WORTH</div>
+          <div class="networth-value" id="networth-value">—</div>
+          <div class="networth-trend" id="networth-trend"></div>
+        </div>
+        <div class="networth-formula">
+          <div class="formula-row">
+            <div class="formula-label" data-i18n="total-assets">Total Assets</div>
+            <div class="formula-val text-sage" id="nw-assets">—</div>
+          </div>
+          <div class="formula-op">−</div>
+          <div class="formula-row">
+            <div class="formula-label" data-i18n="total-liabilities">Total Liabilities</div>
+            <div class="formula-val text-terra" id="nw-liabilities">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial ratios -->
+      <div class="cards-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+        <div class="card"><div class="card-label" data-i18n="liquidity-ratio">Liquidity Ratio</div><div class="card-value" id="ratio-liquidity">—</div><div class="card-sub" id="ratio-liquidity-status">—</div></div>
+        <div class="card"><div class="card-label" data-i18n="debt-asset-ratio">Debt-to-Asset</div><div class="card-value" id="ratio-debt-asset">—</div><div class="card-sub" id="ratio-debt-asset-status">—</div></div>
+        <div class="card"><div class="card-label" data-i18n="emergency-coverage">Emergency Coverage</div><div class="card-value" id="ratio-emergency">—</div><div class="card-sub" data-i18n="months-of-expenses">months of expenses</div></div>
+        <div class="card"><div class="card-label" data-i18n="savings-ratio">Savings Ratio</div><div class="card-value" id="ratio-savings">—</div><div class="card-sub" data-i18n="of-monthly-income">of monthly income</div></div>
+      </div>
+
+      <!-- Balance sheet split: Assets / Liabilities -->
+      <div class="balance-sheet">
+        <div class="panel sheet-panel sheet-assets">
+          <div class="panel-header">
+            <h2 data-i18n="assets">Assets</h2>
+            <span class="panel-sub text-sage" id="assetsTotal">—</span>
+          </div>
+          <div id="assetsList"></div>
+        </div>
+        <div class="panel sheet-panel sheet-liabilities">
+          <div class="panel-header">
+            <h2 data-i18n="liabilities">Liabilities</h2>
+            <span class="panel-sub text-terra" id="liabilitiesTotal">—</span>
+          </div>
+          <div id="liabilitiesList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════ REPORTS ═══════════════════════ -->
+    <div id="page-reports" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="reports">Reports</h1><p class="subtitle" data-i18n="performance-over-time">Financial performance over time</p></div>
+        <div class="period-selector" id="periodSelector">
+          <button class="period-btn" data-period="day" data-i18n="day">Day</button>
+          <button class="period-btn" data-period="week" data-i18n="week">Week</button>
+          <button class="period-btn active" data-period="month" data-i18n="month">Month</button>
+          <button class="period-btn" data-period="quarter" data-i18n="quarter">Quarter</button>
+          <button class="period-btn" data-period="year" data-i18n="year">Year</button>
+        </div>
+      </div>
+      <div class="cards-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+        <div class="card"><div class="card-label" data-i18n="all-time-income">All-Time Income</div><div class="card-value text-sage" id="rpt-totalIncome">—</div></div>
+        <div class="card"><div class="card-label" data-i18n="all-time-expenses">All-Time Expenses</div><div class="card-value text-terra" id="rpt-totalExpense">—</div></div>
+        <div class="card"><div class="card-label" data-i18n="net-flow">Net Flow</div><div class="card-value" id="rpt-netWorth">—</div></div>
+        <div class="card"><div class="card-label">Avg <span id="rpt-avgPeriodLabel" data-i18n="monthly">Monthly</span> Net</div><div class="card-value" id="rpt-avgSavings">—</div></div>
+      </div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-header"><h2 id="lineChartTitle" data-i18n="income-vs-expenses">Income vs Expenses Trend</h2><span class="panel-sub" id="lineChartSub" data-i18n="monthly">Monthly</span></div>
+        <div id="lineChart"></div>
+      </div>
+      <div class="two-col" style="margin-bottom:14px;">
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="net-by-period">Net by Period</h2></div>
+          <div id="netBarChart"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="category-breakdown">Category Breakdown</h2><span class="panel-sub" data-i18n="this-period">This period</span></div>
+          <div id="donutChart"></div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="period-summary">Period Summary</h2></div>
+          <div id="periodReport"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h2 data-i18n="top-expenses">Top Expense Categories</h2></div>
+          <div id="topCategories"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════ SETTINGS ══════════════════════ -->
+    <div id="page-settings" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="settings">Settings</h1><p class="subtitle" data-i18n="settings-sub">Profile · Preferences · Data sync</p></div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="panel settings-section">
+          <div class="panel-header"><h2 data-i18n="profile">Profile</h2></div>
+          <div class="settings-body">
+            <div class="profile-head">
+              <div class="profile-avatar" id="profileAvatar">??</div>
+              <div class="profile-meta">
+                <div class="profile-name-display" id="profileNameDisplay">Set your name</div>
+                <div class="profile-email-display" id="profileEmailDisplay">—</div>
+              </div>
+            </div>
+            <div class="form-row two-inputs">
+              <div><label data-i18n="full-name">Full Name</label><input type="text" id="profileName" class="input" placeholder="e.g. Alex Morgan"></div>
+              <div><label data-i18n="email">Email</label><input type="email" id="profileEmail" class="input" placeholder="you@example.com"></div>
+            </div>
+            <div class="form-row two-inputs">
+              <div><label data-i18n="household-type">Household Type</label>
+                <select id="profileHousehold" class="input">
+                  <option value="single">Single</option>
+                  <option value="couple">Young Couple</option>
+                  <option value="family">Growing Family</option>
+                  <option value="multigen">Multi-Generation</option>
+                  <option value="single-parent">Single Parent</option>
+                  <option value="business">Small Business</option>
+                </select>
+              </div>
+              <div><label data-i18n="date-format">Date Format</label>
+                <select id="profileDateFormat" class="input">
+                  <option value="us">MMM D, YYYY (US)</option>
+                  <option value="eu">D MMM YYYY (EU)</option>
+                  <option value="iso">YYYY-MM-DD (ISO)</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn-primary" onclick="saveProfile()" data-i18n="save-profile">Save Profile</button>
+          </div>
+        </div>
+
+        <!-- Localization & Currency -->
+        <div class="panel settings-section">
+          <div class="panel-header"><h2 data-i18n="localization">Localization &amp; Currency</h2></div>
+          <div class="settings-body">
+            <div class="form-row two-inputs">
+              <div><label data-i18n="language">Language</label>
+                <select id="profileLanguage" class="input" onchange="setLanguage(this.value)"></select>
+              </div>
+              <div><label data-i18n="base-currency">Base Currency</label>
+                <select id="profileCurrency" class="input" onchange="setBaseCurrency(this.value)"></select>
+              </div>
+            </div>
+            <p class="settings-note" data-i18n="currency-note">Transactions, budgets, debts and assets store their original currency. Reports convert everything to your base currency using rates below.</p>
+
+            <div class="rates-table-wrap">
+              <div class="rates-header">
+                <span data-i18n="exchange-rates">Exchange Rates</span>
+                <span class="rates-base">vs <strong id="ratesBaseLabel">USD</strong></span>
+              </div>
+              <div class="rates-grid" id="ratesGrid"></div>
+              <button class="btn-ghost" onclick="resetRates()" style="margin-top:10px;width:auto" data-i18n="reset-rates">Reset to defaults</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Theme -->
+        <div class="panel settings-section">
+          <div class="panel-header"><h2 data-i18n="appearance">Appearance</h2></div>
+          <div class="settings-body">
+            <div class="theme-cards">
+              <div class="theme-card" data-theme-card="warm">
+                <div class="theme-preview theme-preview-warm"><div class="tp-bar"></div><div class="tp-blocks"><div></div><div></div><div></div></div></div>
+                <div class="theme-card-name">Paper Warm</div>
+                <div class="theme-card-sub">Default · Coral &amp; Cream</div>
+              </div>
+              <div class="theme-card" data-theme-card="dark">
+                <div class="theme-preview theme-preview-dark"><div class="tp-bar"></div><div class="tp-blocks"><div></div><div></div><div></div></div></div>
+                <div class="theme-card-name">Dark Mode</div>
+                <div class="theme-card-sub">Power user · Low light</div>
+              </div>
+              <div class="theme-card" data-theme-card="system">
+                <div class="theme-preview theme-preview-system"><div class="tp-bar"></div><div class="tp-blocks"><div></div><div></div><div></div></div></div>
+                <div class="theme-card-name">System</div>
+                <div class="theme-card-sub">Follow OS preference</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Debt strategy -->
+        <div class="panel settings-section">
+          <div class="panel-header"><h2 data-i18n="debt-preferences">Debt Preferences</h2></div>
+          <div class="settings-body">
+            <div class="form-row">
+              <label data-i18n="default-payoff-strategy">Default Payoff Strategy</label>
+              <select id="profileStrategy" class="input">
+                <option value="avalanche">Avalanche — highest interest first (saves money)</option>
+                <option value="snowball">Snowball — smallest balance first (motivation)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label data-i18n="extra-monthly-payment">Extra Monthly Payment Capacity ($)</label>
+              <input type="number" id="profileExtraPayment" class="input" min="0" step="10" placeholder="0">
+            </div>
+            <p class="settings-note">This amount will be applied to the priority debt in your selected strategy, accelerating payoff.</p>
+            <button class="btn-primary" onclick="saveDebtPrefs()">Save Preferences</button>
+          </div>
+        </div>
+
+        <!-- Sync -->
+        <div class="panel settings-section settings-full">
+          <div class="panel-header"><h2 data-i18n="data-sync">Data Sync &amp; Backup</h2><span class="panel-sub" id="syncStatus">Local only</span></div>
+          <div class="settings-body">
+            <p class="settings-desc" data-i18n="sync-desc">Your data is stored locally on this device. Use backup files to sync between devices, share with your accountant, or migrate.</p>
+
+            <div class="cloud-banner">
+              <div class="cloud-banner-icon">☁️</div>
+              <div class="cloud-banner-body">
+                <div class="cloud-banner-title">Cloud sync &amp; multi-household — coming soon</div>
+                <div class="cloud-banner-text">Sign in to sync across devices, invite family members, and join multiple households or businesses. The data layer is already adapter-routed; flipping the switch to Supabase is a one-line change. <a href="ARCHITECTURE.md" target="_blank">See architecture →</a></div>
+              </div>
+              <button class="btn-ghost" disabled style="width:auto;text-align:center;opacity:.6">Sign In · Beta</button>
+            </div>
+
+            <div class="sync-actions">
+              <div class="sync-action">
+                <div class="sync-action-info">
+                  <div class="sync-action-title">📦 Download Full Backup</div>
+                  <div class="sync-action-sub">Transactions, budgets, goals, debts, assets, members &amp; profile as JSON</div>
+                </div>
+                <button class="btn-primary" onclick="downloadBackup()">Download .json</button>
+              </div>
+              <div class="sync-action">
+                <div class="sync-action-info">
+                  <div class="sync-action-title">📥 Restore from Backup</div>
+                  <div class="sync-action-sub">Replace current data with a previous backup file</div>
+                </div>
+                <label class="btn-primary" style="display:inline-block;cursor:pointer;margin:0">
+                  Choose .json
+                  <input type="file" accept=".json,application/json" id="restoreFile" style="display:none" onchange="restoreBackup(event)">
+                </label>
+              </div>
+              <div class="sync-action">
+                <div class="sync-action-info">
+                  <div class="sync-action-title">📊 Export Transactions CSV</div>
+                  <div class="sync-action-sub">For Excel, Google Sheets, accountants</div>
+                </div>
+                <button class="btn-primary" onclick="exportCSV()">Download .csv</button>
+              </div>
+              <div class="sync-action">
+                <div class="sync-action-info">
+                  <div class="sync-action-title">📋 Balance Sheet Report</div>
+                  <div class="sync-action-sub">Assets, liabilities, ratios as a printable report</div>
+                </div>
+                <button class="btn-primary" onclick="exportBalanceSheet()">Download .csv</button>
+              </div>
+              <div class="sync-action">
+                <div class="sync-action-info">
+                  <div class="sync-action-title">⏰ Last Backup</div>
+                  <div class="sync-action-sub" id="lastBackupTime">Never</div>
+                </div>
+                <button class="btn-ghost" style="width:auto;text-align:center" onclick="copyToClipboard()">Copy as Text</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="panel settings-section settings-full">
+          <div class="panel-header"><h2 data-i18n="account-stats">Account Stats</h2></div>
+          <div class="settings-body">
+            <div class="stats-row" id="accountStats"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════ HELP ══════════════════════════ -->
+    <div id="page-help" class="page">
+      <div class="page-header">
+        <div><h1 data-i18n="help-title">Help &amp; Guide</h1><p class="subtitle" data-i18n="help-sub">Everything you need to master FinFlow</p></div>
+        <input type="text" id="helpSearch" class="input help-search" placeholder="Search help…" oninput="filterHelp()">
+      </div>
+      <div class="help-grid" id="helpGrid"></div>
+    </div>
+
+  </main>
+
+  <!-- ═══════════════════ TRANSACTION MODAL ═════════════════════ -->
+  <div class="modal-overlay" id="txnModal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="txnModalTitle">Add Transaction</h3><button class="modal-close" onclick="closeTxnModal()">✕</button></div>
+      <form id="txnForm" onsubmit="saveTxn(event)">
+        <input type="hidden" id="txnId">
+        <input type="hidden" id="txnType" value="expense">
+        <div class="type-toggle four-way">
+          <button type="button" class="type-btn active" data-type="expense"    onclick="setTxnType('expense')">Expense</button>
+          <button type="button" class="type-btn"        data-type="income"     onclick="setTxnType('income')">Income</button>
+          <button type="button" class="type-btn"        data-type="investment" onclick="setTxnType('investment')">Invest</button>
+          <button type="button" class="type-btn"        data-type="transfer"   onclick="setTxnType('transfer')">Transfer</button>
+        </div>
+        <div class="form-row two-inputs">
+          <div><label>Amount</label><input type="number" id="txnAmount" class="input" step="0.01" min="0.01" placeholder="0.00" required></div>
+          <div><label>Currency</label><select id="txnCurrency" class="input"></select></div>
+        </div>
+        <div class="form-row two-inputs">
+          <div><label>Date</label><input type="date" id="txnDate" class="input" required></div>
+          <div><label>Category</label><select id="txnCat" class="input"></select></div>
+        </div>
+        <div class="form-row"><label>Description</label><input type="text" id="txnDesc" class="input" placeholder="What was this for?" required></div>
+        <div class="form-row two-inputs">
+          <div><label>Payment Method</label><select id="txnPaymentMethod" class="input"></select></div>
+          <div><label>Member</label><select id="txnMember" class="input"></select></div>
+        </div>
+        <div class="form-row two-inputs">
+          <div><label>Recurring</label><select id="txnRecurring" class="input"><option value="">One-time</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+          <div><label>Note</label><input type="text" id="txnNote" class="input" placeholder="Optional…"></div>
+        </div>
+
+        <!-- Investment-specific: link to asset -->
+        <div class="form-row" id="txnAssetRow" style="display:none">
+          <label>Link to Asset <span style="color:var(--text-dim)">(auto-updates value)</span></label>
+          <select id="txnLinkedAsset" class="input"></select>
+        </div>
+
+        <!-- Toggles -->
+        <div class="form-toggles">
+          <label class="toggle-row">
+            <input type="checkbox" id="txnExcluded">
+            <span>🔒 Private — exclude from reports &amp; charts</span>
+          </label>
+          <label class="toggle-row" id="txnSplitToggle">
+            <input type="checkbox" id="txnIsSplit" onchange="onSplitToggle()">
+            <span>👥 Split this with others</span>
+          </label>
+        </div>
+
+        <!-- Split details panel -->
+        <div class="split-panel" id="txnSplitPanel" style="display:none">
+          <div class="split-panel-head">
+            <strong>Split this expense</strong>
+            <span class="split-panel-sub">Only your share counts as expense in reports</span>
+          </div>
+          <div class="form-row two-inputs">
+            <div><label>Total Bill</label><input type="number" id="txnSplitTotal" class="input" step="0.01" min="0.01" placeholder="0.00"></div>
+            <div><label>Paid By</label>
+              <select id="txnSplitPaidBy" class="input">
+                <option value="me">I paid (others owe me)</option>
+                <option value="external">Someone else paid (I owe them)</option>
+              </select>
+            </div>
+          </div>
+          <div class="participants-list" id="participantsList"></div>
+          <button type="button" class="btn-ghost" style="width:auto;margin-top:8px" onclick="addParticipantRow()">+ Add Participant</button>
+          <div class="split-summary" id="splitSummary"></div>
+        </div>
+
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeTxnModal()">Cancel</button><button type="submit" class="btn-primary">Save</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════════════════ BUDGET MODAL ═════════════════════════ -->
+  <div class="modal-overlay" id="budgetModal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="budgetModalTitle">Add Budget</h3><button class="modal-close" onclick="closeBudgetModal()">✕</button></div>
+      <form id="budgetForm" onsubmit="saveBudget(event)">
+        <input type="hidden" id="budgetId">
+        <div class="form-row"><label>Category</label><select id="budgetCat" class="input"></select></div>
+        <div class="form-row two-inputs">
+          <div><label>Monthly Limit</label><input type="number" id="budgetLimit" class="input" step="0.01" min="1" placeholder="0.00" required></div>
+          <div><label>Currency</label><select id="budgetCurrency" class="input"></select></div>
+        </div>
+        <div class="form-row"><label>Colour</label><input type="hidden" id="budgetColor"><div class="color-picker" id="budgetColorPicker"></div></div>
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeBudgetModal()">Cancel</button><button type="submit" class="btn-primary">Save Budget</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ GOAL MODAL ═════════════════════════ -->
+  <div class="modal-overlay" id="goalModal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="goalModalTitle">Add Goal</h3><button class="modal-close" onclick="closeGoalModal()">✕</button></div>
+      <form id="goalForm" onsubmit="saveGoal(event)">
+        <input type="hidden" id="goalId">
+        <div class="form-row"><label>Goal Type</label>
+          <select id="goalType" class="input" onchange="onGoalTypeChange()">
+            <option value="emergency">🛡️ Emergency Fund</option><option value="savings">💰 Savings Target</option>
+            <option value="debt">⬇️ Debt Payoff</option><option value="investment">📈 Investment Goal</option>
+            <option value="purchase">🎯 Major Purchase</option><option value="custom">✨ Custom Goal</option>
+          </select>
+        </div>
+        <div class="form-row"><label>Goal Name</label><input type="text" id="goalName" class="input" placeholder="e.g. 6-month emergency fund" required></div>
+        <div class="form-row two-inputs">
+          <div><label>Target Amount</label><input type="number" id="goalTarget" class="input" step="0.01" min="1" placeholder="0.00" required></div>
+          <div><label>Currency</label><select id="goalCurrency" class="input"></select></div>
+        </div>
+        <div class="form-row two-inputs">
+          <div><label>Current Progress</label><input type="number" id="goalCurrent" class="input" step="0.01" min="0" placeholder="0.00" value="0"></div>
+          <div><label>Target Date <span style="color:var(--text-dim)">(opt)</span></label><input type="date" id="goalDeadline" class="input"></div>
+        </div>
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeGoalModal()">Cancel</button><button type="submit" class="btn-primary">Save Goal</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════════════════ DEBT MODAL ═══════════════════════════ -->
+  <div class="modal-overlay" id="debtModal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="debtModalTitle">Add Debt</h3><button class="modal-close" onclick="closeDebtModal()">✕</button></div>
+      <form id="debtForm" onsubmit="saveDebt(event)">
+        <input type="hidden" id="debtId">
+        <div class="form-row two-inputs">
+          <div><label>Debt Type</label>
+            <select id="debtType" class="input">
+              <option value="credit_card">💳 Credit Card</option>
+              <option value="mortgage">🏠 Mortgage</option>
+              <option value="auto_loan">🚗 Auto Loan</option>
+              <option value="student_loan">🎓 Student Loan</option>
+              <option value="personal_loan">📝 Personal Loan</option>
+              <option value="business_loan">🏢 Business Loan</option>
+              <option value="line_of_credit">💼 Line of Credit</option>
+              <option value="medical">🏥 Medical Debt</option>
+              <option value="family">👪 Family Loan</option>
+              <option value="other">📦 Other</option>
+            </select>
+          </div>
+          <div><label>Currency</label><select id="debtCurrency" class="input"></select></div>
+        </div>
+        <div class="form-row"><label>Debt Name</label><input type="text" id="debtName" class="input" placeholder="e.g. Chase Sapphire Card" required></div>
+        <div class="form-row two-inputs">
+          <div><label>Lender / Bank</label><input type="text" id="debtLender" class="input" placeholder="e.g. Chase Bank"></div>
+          <div><label>Account # (last 4)</label><input type="text" id="debtAccount" class="input" placeholder="••••" maxlength="4"></div>
+        </div>
+        <div class="form-row two-inputs">
+          <div><label>Original Amount</label><input type="number" id="debtPrincipal" class="input" step="0.01" min="0" placeholder="0.00"></div>
+          <div><label>Current Balance</label><input type="number" id="debtBalance" class="input" step="0.01" min="0" placeholder="0.00" required></div>
+        </div>
+        <div class="form-row two-inputs">
+          <div><label>Interest Rate (% APR)</label><input type="number" id="debtRate" class="input" step="0.01" min="0" max="100" placeholder="0.00" required oninput="updateEmiPreview()"></div>
+          <div><label>Min / EMI Monthly Payment</label><input type="number" id="debtMinPayment" class="input" step="0.01" min="0" placeholder="0.00" required oninput="updateEmiPreview()"></div>
+        </div>
+        <div class="form-row two-inputs">
+          <div><label>Tenure (months) <span style="color:var(--text-dim)">(opt)</span></label><input type="number" id="debtTenure" class="input" min="0" placeholder="e.g. 360" oninput="updateEmiPreview()"></div>
+          <div><label>Next Due Date <span style="color:var(--text-dim)">(opt)</span></label><input type="date" id="debtDueDate" class="input"></div>
+        </div>
+        <div id="emiPreview" class="emi-preview" style="display:none"></div>
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeDebtModal()">Cancel</button><button type="submit" class="btn-primary">Save Debt</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════════════════ DEBT PAYMENT MODAL ═══════════════════ -->
+  <div class="modal-overlay" id="debtPayModal">
+    <div class="modal">
+      <div class="modal-header"><h3>Record Payment</h3><button class="modal-close" onclick="closeDebtPayModal()">✕</button></div>
+      <form id="debtPayForm" onsubmit="saveDebtPayment(event)">
+        <input type="hidden" id="payDebtId">
+        <div id="payDebtInfo" class="pay-debt-info"></div>
+        <div class="form-row two-inputs">
+          <div><label>Payment Amount</label><input type="number" id="payAmount" class="input" step="0.01" min="0.01" required></div>
+          <div><label>Date</label><input type="date" id="payDate" class="input" required></div>
+        </div>
+        <div class="form-row"><label>Note <span style="color:var(--text-dim)">(opt)</span></label><input type="text" id="payNote" class="input" placeholder="Extra principal, etc."></div>
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeDebtPayModal()">Cancel</button><button type="submit" class="btn-primary">Record Payment</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════════════════ ASSET MODAL ══════════════════════════ -->
+  <div class="modal-overlay" id="assetModal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="assetModalTitle">Add Asset</h3><button class="modal-close" onclick="closeAssetModal()">✕</button></div>
+      <form id="assetForm" onsubmit="saveAsset(event)">
+        <input type="hidden" id="assetId">
+        <div class="form-row two-inputs">
+          <div><label>Asset Type</label>
+            <select id="assetType" class="input">
+              <option value="cash">💵 Cash</option>
+              <option value="checking">🏦 Checking Account</option>
+              <option value="savings">💰 Savings Account</option>
+              <option value="investment">📈 Investment / Brokerage</option>
+              <option value="retirement">🏛️ Retirement (401k/IRA)</option>
+              <option value="real_estate">🏠 Real Estate</option>
+              <option value="vehicle">🚗 Vehicle</option>
+              <option value="business">🏢 Business Equity</option>
+              <option value="receivable">📋 Money Owed To You</option>
+              <option value="collectible">💎 Collectibles / Other</option>
+            </select>
+          </div>
+          <div><label>Currency</label><select id="assetCurrency" class="input"></select></div>
+        </div>
+        <div class="form-row"><label>Asset Name</label><input type="text" id="assetName" class="input" placeholder="e.g. Vanguard Brokerage" required></div>
+        <div class="form-row two-inputs">
+          <div><label>Current Value</label><input type="number" id="assetValue" class="input" step="0.01" min="0" placeholder="0.00" required></div>
+          <div><label>Liquidity</label>
+            <select id="assetLiquidity" class="input">
+              <option value="liquid">Liquid (cash-equivalent)</option>
+              <option value="short">Short-term (under 1 year)</option>
+              <option value="long">Long-term (over 1 year)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row"><label>Note <span style="color:var(--text-dim)">(opt)</span></label><input type="text" id="assetNote" class="input" placeholder="Account number, address, etc."></div>
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeAssetModal()">Cancel</button><button type="submit" class="btn-primary">Save Asset</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════════════════ MEMBER MODAL ═════════════════════════ -->
+  <div class="modal-overlay" id="memberModal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="memberModalTitle">Add Member</h3><button class="modal-close" onclick="closeMemberModal()">✕</button></div>
+      <form id="memberForm" onsubmit="saveMember(event)">
+        <input type="hidden" id="memberId">
+        <div class="form-row"><label>Name</label><input type="text" id="memberName" class="input" placeholder="e.g. Alex" required></div>
+        <div class="form-row"><label>Role</label>
+          <select id="memberRole" class="input">
+            <option value="primary">Primary</option><option value="partner">Partner</option>
+            <option value="child">Child</option><option value="elder">Elder</option>
+          </select>
+        </div>
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeMemberModal()">Cancel</button><button type="submit" class="btn-primary">Save Member</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════════════════ CREATE PROFILE MODAL (v5) ═══════════ -->
+  <div class="modal-overlay" id="createProfileModal">
+    <div class="modal">
+      <div class="modal-header"><h3>Create Profile</h3><button class="modal-close" onclick="closeCreateProfileModal()">✕</button></div>
+      <form id="createProfileForm" onsubmit="saveNewProfile(event)">
+        <div class="form-row"><label>Profile Name</label><input type="text" id="newProfileName" class="input" placeholder="e.g. Acme Consulting" required></div>
+        <div class="form-row">
+          <label>Profile Type</label>
+          <div class="profile-type-grid" id="profileTypeGrid"></div>
+          <input type="hidden" id="newProfileType" value="personal">
+        </div>
+        <div class="form-row">
+          <label>Base Currency</label>
+          <select id="newProfileCurrency" class="input"></select>
+        </div>
+        <p class="settings-note">Profiles are isolated — each has its own transactions, budgets, debts, and assets. Switch anytime from the sidebar.</p>
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeCreateProfileModal()">Cancel</button><button type="submit" class="btn-primary">Create &amp; Switch</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════════════════════ MANAGE PROFILES MODAL (v5) ══════════ -->
+  <div class="modal-overlay" id="manageProfilesModal">
+    <div class="modal">
+      <div class="modal-header"><h3>Manage Profiles</h3><button class="modal-close" onclick="closeManageProfilesModal()">✕</button></div>
+      <div style="padding:20px 22px 22px">
+        <div id="manageProfilesList"></div>
+        <p class="settings-note" style="margin-top:14px">Deleting a profile permanently removes all its data on this device. Export a backup first if you might need it.</p>
+        <div class="form-actions"><button type="button" class="btn-ghost" onclick="closeManageProfilesModal()" style="width:100%">Close</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════ SETTLE SPLIT MODAL (v5) ═════════════ -->
+  <div class="modal-overlay" id="settleSplitModal">
+    <div class="modal">
+      <div class="modal-header"><h3>Settle Split Payment</h3><button class="modal-close" onclick="closeSettleSplitModal()">✕</button></div>
+      <div id="settleSplitContent" style="padding:20px 22px 22px"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Data layer (LocalStorageAdapter today; SupabaseAdapter when cloud is wired) -->
+  <script src="src/dataAdapter.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

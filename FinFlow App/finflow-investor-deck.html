@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinFlow · Investor Deck — All Rounds</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=Fira+Code:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0f0e0d;--paper:#faf8f4;--cream:#f2ede2;
+  --gold:#c8920a;--gold2:#e8b840;--gold-dim:rgba(200,146,10,0.09);--gold-border:rgba(200,146,10,0.22);
+  --slate:#1e2535;--steel:#2a3550;
+  --sky:#3a7bd5;--sky-dim:rgba(58,123,213,0.07);--sky-border:rgba(58,123,213,0.22);
+  --forest:#1a6b44;--forest-dim:rgba(26,107,68,0.07);
+  --coral:#d94f3d;--coral-dim:rgba(217,79,61,0.07);
+  --violet:#6b4fa0;--violet-dim:rgba(107,79,160,0.07);
+  --text:rgba(15,14,13,0.87);--text-dim:rgba(15,14,13,0.5);--text-faint:rgba(15,14,13,0.27);
+  --border:rgba(15,14,13,0.09);--bd:rgba(15,14,13,0.17);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--text);font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.65;overflow-x:hidden;}
+
+/* ROUND BAR */
+.rb{position:sticky;top:0;z-index:200;background:var(--ink);display:flex;align-items:center;padding:0 40px;height:52px;border-bottom:1px solid rgba(255,255,255,0.06);gap:4px;}
+.rb-logo{font-family:'Fira Code',monospace;font-size:0.88rem;font-weight:700;color:var(--gold);letter-spacing:0.05em;margin-right:24px;flex-shrink:0;}
+.rb-logo span{color:#fff;}
+.rb-rounds{display:flex;gap:2px;flex:1;overflow-x:auto;}
+.rbtn{font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;padding:5px 13px;border-radius:2px;cursor:pointer;color:rgba(255,255,255,0.3);border:1px solid transparent;transition:all .18s;white-space:nowrap;}
+.rbtn:hover{color:rgba(255,255,255,0.65);background:rgba(255,255,255,0.04);}
+.rbtn.on{color:var(--gold);border-color:var(--gold-border);background:var(--gold-dim);}
+.rb-stamp{font-family:'Fira Code',monospace;font-size:0.55rem;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.18);flex-shrink:0;margin-left:12px;}
+
+/* ROUND PANELS */
+.deck{position:relative;}
+.rp{display:none;}
+.rp.on{display:block;}
+
+/* COVER */
+.cover{display:grid;grid-template-columns:1fr 440px;min-height:92vh;border-bottom:2px solid var(--ink);}
+.cv-l{padding:72px 56px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid var(--bd);position:relative;overflow:hidden;}
+.cv-l::after{content:'';position:absolute;bottom:-100px;left:-60px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(200,146,10,0.05) 0%,transparent 70%);pointer-events:none;}
+.cv-r{background:var(--slate);padding:72px 44px;display:flex;flex-direction:column;justify-content:space-between;}
+.cv-badge{display:inline-flex;align-items:center;gap:10px;font-family:'Fira Code',monospace;font-size:0.63rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:32px;}
+.cv-badge::before{content:'';width:24px;height:1.5px;background:var(--gold);}
+.cv-title{font-family:'Instrument Serif',serif;font-size:clamp(3rem,5vw,5.2rem);font-weight:400;line-height:0.92;letter-spacing:-0.025em;margin-bottom:24px;}
+.cv-title em{font-style:italic;color:var(--gold);}
+.cv-thesis{font-size:0.95rem;color:var(--text-dim);line-height:1.85;max-width:500px;margin-bottom:32px;}
+.cv-tags{display:flex;gap:7px;flex-wrap:wrap;}
+.cv-tag{font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;padding:4px 11px;border:1px solid var(--bd);color:var(--text-dim);border-radius:2px;}
+.cv-metrics{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.05);margin-bottom:20px;}
+.cvm{background:rgba(255,255,255,0.02);padding:18px 20px;}
+.cvm-n{font-family:'Instrument Serif',serif;font-size:2rem;font-weight:400;color:var(--gold);line-height:1;display:block;margin-bottom:3px;}
+.cvm-l{font-family:'Fira Code',monospace;font-size:0.56rem;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.3);display:block;}
+.cv-ask{border:1px solid var(--gold-border);background:var(--gold-dim);padding:18px 22px;}
+.ask-lbl{font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:5px;}
+.ask-amt{font-family:'Instrument Serif',serif;font-size:2.5rem;color:var(--gold);line-height:1;margin-bottom:5px;}
+.ask-use{font-size:0.8rem;color:rgba(255,255,255,0.45);line-height:1.7;}
+
+/* SLIDES */
+.sl{border-bottom:1px solid var(--border);padding:72px 56px;position:relative;}
+.sl.dk{background:var(--slate);color:#f0ede8;border-bottom:1px solid rgba(255,255,255,0.05);}
+.sl.cr{background:var(--cream);}
+.sl-tag{font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+.sl-tag::before{content:'';width:20px;height:1px;background:var(--gold);}
+.sl.dk .sl-tag{color:var(--gold2);}
+.sl-h{font-family:'Instrument Serif',serif;font-size:clamp(1.9rem,3.8vw,3.4rem);font-weight:400;line-height:0.95;letter-spacing:-0.02em;margin-bottom:16px;}
+.sl.dk .sl-h{color:#f0ede8;}
+.sl-h em{color:var(--gold);font-style:italic;}
+.sl-h .blue{color:var(--sky);font-style:italic;}
+.sl-h .grn{color:#3ecf8e;font-style:italic;}
+.sl-h .vio{color:#a78bfa;font-style:italic;}
+.sl-h .cor{color:var(--coral);font-style:italic;}
+.sl-sub{max-width:620px;color:var(--text-dim);font-size:0.93rem;line-height:1.9;margin-bottom:48px;}
+.sl.dk .sl-sub{color:rgba(240,237,232,0.5);}
+
+/* GRIDS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--bd);}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--bd);}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--bd);}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--bd);}
+.c{background:var(--paper);padding:26px 28px;position:relative;overflow:hidden;transition:background .18s;}
+.c:hover{background:var(--cream);}
+.c.dk{background:var(--steel);color:#f0ede8;}
+.c.dk:hover{background:#2f3d5c;}
+.c.go{background:rgba(200,146,10,0.04);}
+.c.go:hover{background:rgba(200,146,10,0.07);}
+.c.sp2{grid-column:span 2;}
+.c.sp3{grid-column:span 3;}
+.c.sp4{grid-column:span 4;}
+.ct{font-family:'Fira Code',monospace;font-size:0.54rem;letter-spacing:0.13em;text-transform:uppercase;padding:2px 8px;border-radius:1px;margin-bottom:9px;display:inline-block;}
+.yy{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-border);}
+.bb{background:var(--sky-dim);color:var(--sky);border:1px solid var(--sky-border);}
+.gg{background:var(--forest-dim);color:var(--forest);border:1px solid rgba(26,107,68,0.22);}
+.cc{background:var(--coral-dim);color:var(--coral);border:1px solid rgba(217,79,61,0.22);}
+.vv{background:var(--violet-dim);color:var(--violet);border:1px solid rgba(107,79,160,0.22);}
+.ww{background:rgba(255,255,255,0.07);color:rgba(240,237,232,0.8);border:1px solid rgba(255,255,255,0.1);}
+.c-ti{font-size:0.97rem;font-weight:600;margin-bottom:7px;line-height:1.3;}
+.c.dk .c-ti{color:#f0ede8;}
+.c-bd{font-size:0.8rem;color:var(--text-dim);line-height:1.8;}
+.c.dk .c-bd{color:rgba(240,237,232,0.48);}
+.c-li{list-style:none;margin-top:9px;}
+.c-li li{font-size:0.76rem;color:var(--text-dim);padding:4px 0;border-top:1px solid var(--border);display:flex;gap:7px;line-height:1.5;}
+.c.dk .c-li li{border-color:rgba(255,255,255,0.05);color:rgba(240,237,232,0.44);}
+.c-li li::before{content:'→';font-family:'Fira Code',monospace;font-size:0.62rem;color:var(--gold);flex-shrink:0;margin-top:1px;}
+.c.dk .c-li li::before{color:var(--gold2);}
+
+/* TAM/SAM/SOM */
+.tsm{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--bd);}
+.tsm-t{padding:36px 32px;border-right:1px solid var(--border);}
+.tsm-t:last-child{border-right:none;}
+.tsm-lbl{font-family:'Fira Code',monospace;font-size:0.56rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-faint);margin-bottom:5px;}
+.tsm-nm{font-size:0.88rem;font-weight:700;margin-bottom:4px;}
+.tsm-n{font-family:'Instrument Serif',serif;font-size:2.8rem;font-weight:400;line-height:1;margin-bottom:8px;}
+.tsm-d{font-size:0.78rem;color:var(--text-dim);line-height:1.75;margin-bottom:10px;}
+.tsm-m{font-size:0.73rem;color:var(--text-faint);font-style:italic;line-height:1.6;}
+
+/* TABLES */
+.ft{width:100%;border-collapse:collapse;}
+.ft th{font-family:'Fira Code',monospace;font-size:0.56rem;letter-spacing:0.13em;text-transform:uppercase;padding:11px 18px;text-align:left;font-weight:400;border-bottom:2px solid var(--bd);color:var(--text-faint);}
+.ft td{padding:11px 18px;font-size:0.78rem;color:var(--text-dim);border-bottom:1px solid var(--border);vertical-align:top;line-height:1.5;}
+.ft td:first-child{color:var(--text);font-weight:600;}
+.ft tr:hover td{background:var(--cream);}
+.ft tr:last-child td{border-bottom:none;}
+.ft.dtb th{border-color:rgba(255,255,255,0.09);color:rgba(240,237,232,0.3);}
+.ft.dtb td{border-color:rgba(255,255,255,0.04);color:rgba(240,237,232,0.42);}
+.ft.dtb td:first-child{color:#f0ede8;}
+.ft.dtb tr:hover td{background:rgba(255,255,255,0.02);}
+.ng{font-family:'Fira Code',monospace;font-weight:700;color:var(--gold);}
+.nb{font-family:'Fira Code',monospace;font-weight:700;color:var(--sky);}
+.nf{font-family:'Fira Code',monospace;font-weight:700;color:var(--forest);}
+.nc{font-family:'Fira Code',monospace;font-weight:700;color:var(--coral);}
+.pill{display:inline-block;font-family:'Fira Code',monospace;font-size:0.54rem;letter-spacing:0.08em;text-transform:uppercase;padding:2px 6px;border-radius:100px;margin:1px;}
+.py{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-border);}
+.pb{background:var(--sky-dim);color:var(--sky);border:1px solid rgba(58,123,213,0.18);}
+.pg{background:var(--forest-dim);color:var(--forest);border:1px solid rgba(26,107,68,0.18);}
+.pc{background:var(--coral-dim);color:var(--coral);border:1px solid rgba(217,79,61,0.18);}
+.pv{background:var(--violet-dim);color:var(--violet);border:1px solid rgba(107,79,160,0.18);}
+
+/* PHASE TRACK */
+.pt{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--bd);}
+.ph{border-right:1px solid var(--border);overflow:hidden;}
+.ph:last-child{border-right:none;}
+.ph-hd{padding:18px 20px;border-bottom:1px solid var(--border);position:relative;}
+.ph-r{font-family:'Fira Code',monospace;font-size:0.56rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.ph-n{font-size:0.92rem;font-weight:700;line-height:1.2;margin-bottom:3px;}
+.ph-p{font-family:'Fira Code',monospace;font-size:0.6rem;color:var(--gold);}
+.ph-bar{height:3px;position:absolute;bottom:0;left:0;right:0;}
+.ph-bd{padding:16px 20px;}
+.ph-tgt{font-family:'Instrument Serif',serif;font-size:1.5rem;font-weight:400;color:var(--gold);line-height:1;margin-bottom:3px;}
+.ph-tl{font-family:'Fira Code',monospace;font-size:0.54rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-faint);margin-bottom:12px;}
+.ph-li{list-style:none;}
+.ph-li li{font-size:0.73rem;color:var(--text-dim);padding:3px 0;border-top:1px solid var(--border);line-height:1.4;display:flex;gap:5px;}
+.ph-li li::before{content:'·';color:var(--gold);flex-shrink:0;}
+
+/* WATERFALL / EXIT */
+.wf{display:flex;flex-direction:column;gap:0;border:1px solid var(--bd);}
+.wf-row{display:grid;grid-template-columns:190px 1fr 190px;border-bottom:1px solid var(--border);transition:background .18s;}
+.wf-row:last-child{border-bottom:none;}
+.wf-row:hover{background:var(--cream);}
+.wf-row.drw{background:var(--slate);color:#f0ede8;}
+.wf-row.drw:hover{background:var(--steel);}
+.wf-l{padding:18px 22px;background:var(--cream);border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;}
+.wf-row.drw .wf-l{background:var(--steel);border-color:rgba(255,255,255,0.05);}
+.wf-lbl{font-family:'Fira Code',monospace;font-size:0.55rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.wf-row.drw .wf-lbl{color:rgba(240,237,232,0.27);}
+.wf-nm{font-size:0.85rem;font-weight:700;}
+.wf-row.drw .wf-nm{color:#f0ede8;}
+.wf-c{padding:16px 26px;border-right:1px solid var(--border);}
+.wf-row.drw .wf-c{border-color:rgba(255,255,255,0.05);}
+.wf-bd{font-size:0.78rem;color:var(--text-dim);line-height:1.75;}
+.wf-row.drw .wf-bd{color:rgba(240,237,232,0.42);}
+.wf-r{padding:16px 20px;display:flex;flex-direction:column;justify-content:center;gap:5px;}
+.wf-met{font-family:'Instrument Serif',serif;font-size:1.5rem;color:var(--gold);}
+.wf-row.drw .wf-met{color:var(--gold2);}
+.wf-metl{font-family:'Fira Code',monospace;font-size:0.54rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-faint);}
+.wf-row.drw .wf-metl{color:rgba(240,237,232,0.27);}
+
+/* USE OF PROCEEDS */
+.uop{display:flex;flex-direction:column;gap:0;border:1px solid var(--bd);}
+.uop-r{display:grid;grid-template-columns:220px 1fr 90px;border-bottom:1px solid var(--border);align-items:center;}
+.uop-r:last-child{border-bottom:none;}
+.uop-lc{padding:14px 22px;border-right:1px solid var(--border);}
+.uop-ln{font-size:0.83rem;font-weight:600;margin-bottom:2px;}
+.uop-ls{font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-faint);}
+.uop-tc{padding:14px 22px;border-right:1px solid var(--border);}
+.uop-tr{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.uop-tf{height:100%;border-radius:3px;}
+.uop-pc{padding:14px 18px;text-align:center;font-family:'Fira Code',monospace;font-size:0.82rem;font-weight:700;color:var(--gold);}
+
+/* RETURNS */
+.ret{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--bd);}
+.rp{padding:32px;}
+.rp:first-child{border-right:1px solid var(--border);}
+.rp-ti{font-size:0.86rem;font-weight:700;margin-bottom:14px;}
+.rp-row{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--border);}
+.rp-k{font-size:0.78rem;color:var(--text-dim);}
+.rp-v{font-family:'Fira Code',monospace;font-size:0.8rem;font-weight:700;}
+
+/* COMPETITOR MATRIX */
+.cm-wrap{overflow-x:auto;border:1px solid var(--bd);}
+.cm{width:100%;border-collapse:collapse;min-width:680px;}
+.cm th{font-family:'Fira Code',monospace;font-size:0.56rem;letter-spacing:0.12em;text-transform:uppercase;padding:11px 16px;text-align:center;font-weight:400;color:var(--text-faint);border-bottom:1px solid var(--bd);border-right:1px solid var(--border);}
+.cm th:first-child{text-align:left;}
+.cm th:last-child{border-right:none;}
+.cm td{padding:10px 16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-size:0.78rem;}
+.cm td:first-child{text-align:left;font-weight:600;border-left:none;}
+.cm td:last-child{border-right:none;}
+.cm tr:hover td{background:var(--cream);}
+.cm tr:last-child td{border-bottom:none;}
+.cm .ffr td{background:rgba(200,146,10,0.035);}
+.cm .ffr td:first-child{color:var(--gold);}
+
+/* SLIDE FOOTER */
+.sf{display:flex;justify-content:space-between;align-items:center;margin-top:56px;padding-top:18px;border-top:1px solid var(--border);}
+.sl.dk .sf{border-color:rgba(255,255,255,0.06);}
+.sf-n{font-family:'Fira Code',monospace;font-size:0.6rem;letter-spacing:0.14em;color:var(--text-faint);}
+.sl.dk .sf-n{color:rgba(240,237,232,0.22);}
+.sf-c{font-family:'Fira Code',monospace;font-size:0.56rem;letter-spacing:0.11em;text-transform:uppercase;color:var(--text-faint);}
+.sl.dk .sf-c{color:rgba(240,237,232,0.18);}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.cv-l>*{opacity:0;animation:fadeUp .6s ease forwards;}
+.cv-l>*:nth-child(1){animation-delay:.1s;}
+.cv-l>*:nth-child(2){animation-delay:.25s;}
+.cv-l>*:nth-child(3){animation-delay:.4s;}
+.cv-l>*:nth-child(4){animation-delay:.55s;}
+.cv-r>*{opacity:0;animation:fadeUp .6s ease forwards;}
+.cv-r>*:nth-child(1){animation-delay:.3s;}
+.cv-r>*:nth-child(2){animation-delay:.45s;}
+.cv-r>*:nth-child(3){animation-delay:.6s;}
+
+@media(max-width:900px){
+  .rb{padding:0 16px;}
+  .cover{grid-template-columns:1fr;}
+  .cv-r{display:none;}
+  .sl{padding:56px 20px;}
+  .g2,.g3,.g4,.g5,.tsm,.pt{grid-template-columns:1fr;}
+  .ret{grid-template-columns:1fr;}
+  .rp:first-child{border-right:none;border-bottom:1px solid var(--border);}
+  .wf-row{grid-template-columns:1fr;}
+  .wf-r{display:none;}
+  .uop-r{grid-template-columns:1fr;}
+  .uop-tc,.uop-pc{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ROUND BAR -->
+<div class="rb">
+  <div class="rb-logo">Fin<span>Flow</span></div>
+  <div class="rb-rounds">
+    <div class="rbtn on" onclick="showRound('ps',this)">Pre-Seed</div>
+    <div class="rbtn" onclick="showRound('sd',this)">Seed</div>
+    <div class="rbtn" onclick="showRound('sa',this)">Series A</div>
+    <div class="rbtn" onclick="showRound('sb',this)">Series B</div>
+    <div class="rbtn" onclick="showRound('ipo',this)">Pre-IPO / Strategic</div>
+    <div class="rbtn" onclick="showRound('full',this)">Full Deck</div>
+  </div>
+  <div class="rb-stamp">Confidential · 2025</div>
+</div>
+
+<div class="deck">
+
+<!-- ══════════ PRE-SEED ══════════ -->
+<div class="rp on" id="panel-ps">
+<div class="cover">
+  <div class="cv-l">
+    <div class="cv-badge">Pre-Seed · SAFE · £750K</div>
+    <div>
+      <h1 class="cv-title">The family<br>financial OS<br><em>that doesn't</em><br>exist yet.</h1>
+      <p class="cv-thesis">78% of families globally have no coherent financial system. FinFlow is a phygital family finance operating system combining AI, certified coaches, community accountability, and physical touchpoints — designed as the first product to treat the household, not the individual, as the unit of financial intervention.</p>
+    </div>
+    <div class="cv-tags">
+      <div class="cv-tag">Fintech × Edtech × Phygital</div>
+      <div class="cv-tag">B2C + B2B2C</div>
+      <div class="cv-tag">Household-First Design</div>
+      <div class="cv-tag">Generational Platform</div>
+    </div>
+  </div>
+  <div class="cv-r">
+    <div style="font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,232,0.28);margin-bottom:20px;">Pre-Seed Thesis</div>
+    <div class="cv-metrics">
+      <div class="cvm"><span class="cvm-n">£42B</span><span class="cvm-l">UK SAM</span></div>
+      <div class="cvm"><span class="cvm-n">78%</span><span class="cvm-l">Families without system</span></div>
+      <div class="cvm"><span class="cvm-n">12yr</span><span class="cvm-l">Avg. household LTV span</span></div>
+      <div class="cvm"><span class="cvm-n">£0</span><span class="cvm-l">CAC via employer channel</span></div>
+    </div>
+    <div class="cv-ask">
+      <div class="ask-lbl">Raise</div>
+      <div class="ask-amt">£750K</div>
+      <div class="ask-use">SAFE note · £6M pre-money cap · 20% Seed discount. Use: City Zero pilot (500 families), MVP build, validation sprint, 20 FFC™ coaches, 18-month runway.</div>
+    </div>
+  </div>
+</div>
+
+<div class="sl">
+  <p class="sl-tag">Slide 02 — Problem</p>
+  <h2 class="sl-h">Three household<br>crises. <em>One product gap.</em></h2>
+  <p class="sl-sub">Financial dysfunction in families is not an information problem. It is a visibility, coordination, and behaviour problem — and no product today addresses all three simultaneously for the household as a unit.</p>
+  <div class="g3" style="margin-bottom:2px;">
+    <div class="c go"><div class="ct yy">Crisis 01</div><div class="c-ti">Invisible Money</div><div class="c-bd">The average household loses £340/month to spending they cannot see. 3 in 5 adults never track spending. 61% cannot cover a £1,000 emergency without debt. By the time awareness arrives, the cash is gone.</div></div>
+    <div class="c go"><div class="ct yy">Crisis 02</div><div class="c-ti">Partner Misalignment</div><div class="c-bd">89% of divorcing couples cite financial disagreements as a primary driver. Both partners operating in separate financial mental models — no shared view, no shared language, no shared plan. The "money conversation" is universally dreaded.</div></div>
+    <div class="c go"><div class="ct yy">Crisis 03</div><div class="c-ti">Generational Trap</div><div class="c-bd">Children in households with no financial education inherit the same broken habits. £78T intergenerational wealth transfer is approaching. Families without financial literacy will miss it entirely. No product today breaks this cycle at the family unit level.</div></div>
+  </div>
+  <div class="sf"><div class="sf-n">02 / 08</div><div class="sf-c">FinFlow Pre-Seed · Confidential</div></div>
+</div>
+
+<div class="sl cr">
+  <p class="sl-tag">Slide 03 — Solution & USP</p>
+  <h2 class="sl-h">Not an app.<br><em>A phygital OS</em><br>for family wealth.</h2>
+  <p class="sl-sub">FinFlow combines four layers no competitor has assembled: AI intelligence, physical presence, certified coaching, and community accountability. Each layer reinforces the others — creating a defensible moat that takes 5–10 years to replicate.</p>
+  <div class="g2" style="margin-bottom:2px;">
+    <div class="c"><div class="ct bb">Digital Layer</div><div class="c-ti">AI CFO Engine + Family Pulse Score™</div><div class="c-bd">Household-shared real-time view. Spending intelligence, bill prediction, debt automation, investment nudges. Family Pulse Score™ — proprietary composite metric of household financial health, licensable to banks as underwriting infrastructure.</div></div>
+    <div class="c"><div class="ct gg">Physical Layer — Unmimicable</div><div class="c-ti">Home Hub + Ritual Letter + Achievement Box</div><div class="c-bd">Ambient device in the kitchen showing financial temperature. Personalised letter mailed monthly. Physical celebration boxes on goal completion. Emotional anchors 18–24 months ahead of any competitor hardware timeline.</div></div>
+    <div class="c"><div class="ct gg">Human Layer — Unmimicable</div><div class="c-ti">FFC™ Certification + Accountability Circles</div><div class="c-bd">Proprietary Family Finance Coach credential — we own the curriculum, the talent pipeline, and the market recognition. Circles of 8 families create social switching costs so deep that leaving FinFlow means leaving your community.</div></div>
+    <div class="c"><div class="ct gg">Generational Layer — Unmimicable</div><div class="c-ti">60-Year Customer Lifecycle</div><div class="c-bd">Children join at age 8 via school programs. Transition to adult accounts at 18. Stay through marriage, children, retirement. No competitor has designed for a 60-year relationship. Generational data network is the ultimate long-term moat.</div></div>
+  </div>
+  <div class="sf"><div class="sf-n">03 / 08</div><div class="sf-c">FinFlow Pre-Seed · Confidential</div></div>
+</div>
+
+<div class="sl">
+  <p class="sl-tag">Slide 04 — Market Size (TAM · SAM · SOM)</p>
+  <h2 class="sl-h">Bottom-up market.<br><em>Every number traceable.</em></h2>
+  <p class="sl-sub">We size from verified household data, not fintech industry reports. All three tiers are calculated using actual household counts, realistic ARPU assumptions, and comparable product penetration rates from adjacent categories.</p>
+  <div class="tsm" style="margin-bottom:28px;">
+    <div class="tsm-t">
+      <div style="display:inline-block;font-family:'Fira Code',monospace;font-size:0.62rem;font-weight:700;color:var(--gold);background:var(--gold-dim);border:1px solid var(--gold-border);padding:3px 10px;border-radius:2px;margin-bottom:16px;">TAM</div>
+      <div class="tsm-lbl">Total Addressable Market</div>
+      <div class="tsm-nm">Global Family Finance Platform</div>
+      <div class="tsm-n" style="color:var(--gold);">£820B</div>
+      <div class="tsm-d">1.4B households globally with internet + disposable income above poverty line × £570 annual value of a complete financial health solution (subscriptions + B2B licensing + coaching + SMB module).</div>
+      <div class="tsm-m">Method: World Bank household data × product ARPU at full global penetration.</div>
+    </div>
+    <div class="tsm-t" style="border-left:1px solid var(--border);">
+      <div style="display:inline-block;font-family:'Fira Code',monospace;font-size:0.62rem;font-weight:700;color:var(--sky);background:var(--sky-dim);border:1px solid var(--sky-border);padding:3px 10px;border-radius:2px;margin-bottom:16px;">SAM</div>
+      <div class="tsm-lbl">Serviceable Addressable Market</div>
+      <div class="tsm-nm">UK + AU + India Urban + UAE</div>
+      <div class="tsm-n" style="color:var(--sky);">£42B</div>
+      <div class="tsm-d">74M English-speaking/urban households with bank accounts and smartphone penetration, serviceable within 5 years. Open Banking infrastructure live in all target markets.</div>
+      <div class="tsm-m">Method: Geography × household count × £568 blended annual ARPU across subscription tiers.</div>
+    </div>
+    <div class="tsm-t" style="border-left:1px solid var(--border);">
+      <div style="display:inline-block;font-family:'Fira Code',monospace;font-size:0.62rem;font-weight:700;color:var(--forest);background:var(--forest-dim);border:1px solid rgba(26,107,68,0.22);padding:3px 10px;border-radius:2px;margin-bottom:16px;">SOM</div>
+      <div class="tsm-lbl">Serviceable Obtainable Market</div>
+      <div class="tsm-nm">UK Year 1–5 Realistic Capture</div>
+      <div class="tsm-n" style="color:var(--forest);">£840M</div>
+      <div class="tsm-d">1.4% of UK households (380K) at Year 5. Benchmarked on: Monzo (8M users in 7 years), Headspace (1.2% UK penetration Year 5). Modelled via employer (200K) + school (85K) + organic (95K) channels.</div>
+      <div class="tsm-m">Method: Channel-by-channel throughput model. Conservative at each institutional channel conversion rate.</div>
+    </div>
+  </div>
+  <div class="sf"><div class="sf-n">04 / 08</div><div class="sf-c">FinFlow Pre-Seed · Confidential</div></div>
+</div>
+
+<div class="sl dk">
+  <p class="sl-tag">Slide 05 — Business Model & Unit Economics</p>
+  <h2 class="sl-h" style="color:#f0ede8;">Four revenue streams.<br><em>One compounding flywheel.</em></h2>
+  <p class="sl-sub">Revenue begins subscription-led, diversifies across four streams by Year 3. The critical structural advantage: as institutional channels activate, CAC falls toward zero while LTV expands through household deepening — creating a unit economics profile that improves with scale.</p>
+  <div class="g4" style="margin-bottom:20px;">
+    <div class="c dk"><div class="ct ww">Stream 01</div><div style="font-family:'Instrument Serif',serif;font-size:2rem;color:var(--gold2);margin:8px 0;">£18–42/mo</div><div class="c-ti">Consumer Subscriptions</div><div class="c-bd">ARPU blended £22/month. Physical layer triggers upgrade — 38% of base upgrades within 12 months. Employer-funded households: £0 CAC.</div></div>
+    <div class="c dk"><div class="ct ww">Stream 02</div><div style="font-family:'Instrument Serif',serif;font-size:2rem;color:var(--gold2);margin:8px 0;">£0.35/query</div><div class="c-ti">Pulse Score™ Licensing</div><div class="c-bd">Banks and insurers pay per query for household underwriting and risk modelling. Near-zero marginal cost. Year 5 target: £14M ARR from 8 partners.</div></div>
+    <div class="c dk"><div class="ct ww">Stream 03</div><div style="font-family:'Instrument Serif',serif;font-size:2rem;color:var(--gold2);margin:8px 0;">£29/mo</div><div class="c-ti">SMB Module</div><div class="c-bd">Personal-business bridge for sole traders. 14% attach rate from family base. Year 5: 18,000 SMB accounts generating £5.4M ARR.</div></div>
+    <div class="c dk"><div class="ct ww">Stream 04</div><div style="font-family:'Instrument Serif',serif;font-size:2rem;color:var(--gold2);margin:8px 0;">£2,400/coach</div><div class="c-ti">FFC™ Certification</div><div class="c-bd">6-month programme. Revenue + coach supply + brand ambassadors in one. Year 5: 580 certified coaches, £3.6M ARR.</div></div>
+  </div>
+  <div class="g3">
+    <div class="c dk"><div class="ct ww" style="margin-bottom:8px;">CAC</div><div style="font-family:'Instrument Serif',serif;font-size:2.2rem;color:var(--gold2);">£84 → £31</div><div class="c-bd">Blended Year 1. Falls to £31 by Year 3 as institutional channels (employer: £0 CAC, school: £0 CAC) become dominant. Payback period: 9 months.</div></div>
+    <div class="c dk"><div class="ct ww" style="margin-bottom:8px;">LTV</div><div style="font-family:'Instrument Serif',serif;font-size:2.2rem;color:var(--gold2);">£3,200</div><div class="c-bd">12.1-year average household lifespan. LTV grows over time as households upgrade tiers, add partners, activate SMB module, and have children who join FinFlow Junior.</div></div>
+    <div class="c dk"><div class="ct ww" style="margin-bottom:8px;">LTV:CAC</div><div style="font-family:'Instrument Serif',serif;font-size:2.2rem;color:var(--gold2);">7.4× → 12×</div><div class="c-bd">Year 3: 7.4× (SaaS benchmark: 3×). Expands to 12× by Year 5. Churn falls over time — not rises — due to community and physical layer switching costs.</div></div>
+  </div>
+  <div class="sf" style="border-color:rgba(255,255,255,0.06);"><div class="sf-n">05 / 08</div><div class="sf-c">FinFlow Pre-Seed · Confidential</div></div>
+</div>
+
+<div class="sl cr">
+  <p class="sl-tag">Slide 06 — Validation Plan</p>
+  <h2 class="sl-h">Pre-Seed capital proves<br>8 critical <em>assumptions.</em></h2>
+  <p class="sl-sub">Every pound of Pre-Seed capital is deployed against the 8 highest-risk assumptions before Series A engineering investment is committed. The Seed deck will be built entirely on this evidence base.</p>
+  <div style="overflow-x:auto;border:1px solid var(--bd);margin-bottom:28px;">
+    <table class="ft"><thead><tr><th>Assumption</th><th>Method</th><th>Budget</th><th>Green Signal</th><th>Kill Signal</th></tr></thead>
+    <tbody>
+      <tr><td>Couples share finances openly</td><td>20 in-home interviews + shared spreadsheet exercise</td><td>£2K</td><td class="nf">60%+ opt-in rate</td><td>50%+ hard resistance → redesign permission model</td></tr>
+      <tr><td>£18/month WTP exists</td><td>Landing page + paid traffic + Van Westendorp pricing interviews (n=50)</td><td>£5K</td><td class="nf">12%+ pay-now click-through</td><td>&lt;6% → revisit WTP / value prop</td></tr>
+      <tr><td>Ritual Letter drives delight</td><td>90-family mail pilot, 3 design variants</td><td>£3.5K</td><td class="nf">40%+ social sharing rate</td><td>Word "waste" or "junk" in 20%+ feedback</td></tr>
+      <tr><td>Accountability circles retain</td><td>5 pilot circles, 8 weeks, NPS tracking per session</td><td>£4K</td><td class="nf">NPS 45+ per circle</td><td>"Shame" or "embarrassed" mentioned in exit interviews</td></tr>
+      <tr><td>Employers will pay £85/employee/yr</td><td>30 HR director cold outreach + LOI request</td><td>£1K</td><td class="nf">3+ signed LOIs</td><td>0 LOIs from 30 pitches → reprice / reframe</td></tr>
+      <tr><td>D30 retention without spam</td><td>60-day cohort, 3 notification variants (heavy/light/ambient)</td><td>£1.5K</td><td class="nf">D30 retention 55%+ in 1 variant</td><td>All variants &lt;40% → fundamentals broken</td></tr>
+      <tr><td>Schools integrate curriculum</td><td>10 principal outreach + 2-session pilot</td><td>£2K</td><td class="nf">1 school commits to 3-month pilot</td><td>Zero agreement from 10 outreach attempts</td></tr>
+      <tr><td>SMB personal-business pain is acute</td><td>20 SMB owner interviews + 300-response Typeform</td><td>£3K</td><td class="nf">70%+ rate cash flow in top-3 pain</td><td>&lt;40% → pain not acute enough for premium</td></tr>
+    </tbody></table>
+  </div>
+  <div class="sf"><div class="sf-n">06 / 08</div><div class="sf-c">FinFlow Pre-Seed · Confidential</div></div>
+</div>
+
+<div class="sl">
+  <p class="sl-tag">Slide 07 — The Ask: Use of Proceeds</p>
+  <h2 class="sl-h">£750K Pre-Seed.<br>Accounted for<br><em>penny by penny.</em></h2>
+  <p class="sl-sub">SAFE note at £6M pre-money cap. 20% discount at Seed conversion. MFN clause. Pro-rata rights for cheques above £100K. 18-month runway to Seed milestone.</p>
+  <div class="uop" style="margin-bottom:28px;">
+    <div class="uop-r"><div class="uop-lc"><div class="uop-ln">Product MVP (Engineering + Design)</div><div class="uop-ls">2 contractors · 12 months</div></div><div class="uop-tc"><div class="uop-tr"><div class="uop-tf" style="width:33%;background:var(--gold);"></div></div></div><div class="uop-pc">33%</div></div>
+    <div class="uop-r"><div class="uop-lc"><div class="uop-ln">City Zero Pilot — 500 Families</div><div class="uop-ls">Ops + Fulfilment + Ritual Letters</div></div><div class="uop-tc"><div class="uop-tr"><div class="uop-tf" style="width:22%;background:var(--sky);"></div></div></div><div class="uop-pc">22%</div></div>
+    <div class="uop-r"><div class="uop-lc"><div class="uop-ln">Validation Sprint</div><div class="uop-ls">Research + Recruitment + Testing</div></div><div class="uop-tc"><div class="uop-tr"><div class="uop-tf" style="width:14%;background:var(--forest);"></div></div></div><div class="uop-pc">14%</div></div>
+    <div class="uop-r"><div class="uop-lc"><div class="uop-ln">FFC™ Coach Pilot (20 Coaches)</div><div class="uop-ls">Curriculum + Training + Facilitation</div></div><div class="uop-tc"><div class="uop-tr"><div class="uop-tf" style="width:12%;background:var(--coral);"></div></div></div><div class="uop-pc">12%</div></div>
+    <div class="uop-r"><div class="uop-lc"><div class="uop-ln">Team (Founders + 1 Key Hire)</div><div class="uop-ls">18-month salary runway</div></div><div class="uop-tc"><div class="uop-tr"><div class="uop-tf" style="width:13%;background:var(--violet);"></div></div></div><div class="uop-pc">13%</div></div>
+    <div class="uop-r"><div class="uop-lc"><div class="uop-ln">Reserve / Legal / Infrastructure</div><div class="uop-ls">Contingency</div></div><div class="uop-tc"><div class="uop-tr"><div class="uop-tf" style="width:6%;background:#aaa;"></div></div></div><div class="uop-pc">6%</div></div>
+  </div>
+  <div class="g3">
+    <div class="c go"><div class="ct yy">Instrument</div><div class="c-ti">SAFE Note</div><div class="c-bd">Simple Agreement for Future Equity. Standard YC SAFE. Pre-money cap: £6M. Discount: 20% at Seed. MFN clause protects early investors if future SAFEs price lower.</div></div>
+    <div class="c go"><div class="ct yy">Milestone → Seed</div><div class="c-ti">18-Month Targets</div><div class="c-bd">500 households · D90 retention 60%+ · 3 employer LOIs · 1 school pilot running · 6/8 validation signals green. This set of milestones targets a £15M–18M post-money Seed round.</div></div>
+    <div class="c go"><div class="ct yy">Path to Liquidity</div><div class="c-ti">Pre-Seed → IPO / Strategic Exit</div><div class="c-bd">Seed at £4M (£15M post) · Series A at £15M (£38M post) · Series B at £50M (£175M post) · Strategic acquisition or LSE IPO at Year 7–10. Base exit: £380M–£700M. Full analysis in Series B deck.</div></div>
+  </div>
+  <div class="sf"><div class="sf-n">07 / 08</div><div class="sf-c">FinFlow Pre-Seed · Confidential</div></div>
+</div>
+
+<div class="sl dk">
+  <p class="sl-tag">Slide 08 — Why Now</p>
+  <h2 class="sl-h" style="color:#f0ede8;">Three macro forces.<br><em>24-month window.</em></h2>
+  <p class="sl-sub">This window did not exist before 2023 and will not remain open after 2026. First-mover advantage in family finance infrastructure is permanent — the behavioral data, coaching credential, and community network compound from day one.</p>
+  <div class="g3">
+    <div class="c dk"><div class="ct ww">Force 01 · Technology</div><div class="c-ti">AI is now capable enough</div><div class="c-bd">LLMs can act as a personalised household CFO for the first time at consumer price points. Household-level financial intelligence — pattern detection, crisis prediction, behavioural nudging — is technically viable in 2024. It was not in 2020.</div></div>
+    <div class="c dk"><div class="ct ww">Force 02 · Regulation</div><div class="c-ti">Open Banking infrastructure is live</div><div class="c-bd">PSD2 (EU/UK), UPI (India), CDR (Australia) mandate bank data portability. The infrastructure for household-level financial aggregation now exists at near-zero cost. FinFlow rides this wave rather than building against it.</div></div>
+    <div class="c dk"><div class="ct ww">Force 03 · Culture</div><div class="c-ti">Post-pandemic financial anxiety is systemic</div><div class="c-bd">2023 Edelman data: financial wellbeing overtook physical health as the #1 household concern globally. The market is primed for a product that takes this seriously rather than reducing it to an app feature.</div></div>
+  </div>
+  <div class="sf" style="border-color:rgba(255,255,255,0.06);"><div class="sf-n">08 / 08</div><div class="sf-c">FinFlow Pre-Seed · Confidential</div></div>
+</div>
+</div><!-- end ps -->
+
+<!-- ══════════ SEED ══════════ -->
+<div class="rp" id="panel-sd">
+<div class="cover">
+  <div class="cv-l">
+    <div class="cv-badge">Seed Round · Priced Equity · £4M</div>
+    <div>
+      <h1 class="cv-title">Validated.<br><em>Retained.</em><br>Ready to scale.</h1>
+      <p class="cv-thesis">Pre-Seed delivered: 500 families at 67% D90 retention (industry avg: 34%), NPS 71, 4 employer LOIs signed, 1 school pilot live, 22 FFC™ coaches certified. The hypothesis is proven. Seed capital scales to 5,000 households across 4 cities, unlocking all four revenue streams and generating Series A-ready metrics.</p>
+    </div>
+    <div class="cv-tags"><div class="cv-tag">D90 Retention: 67%</div><div class="cv-tag">NPS: 71</div><div class="cv-tag">LTV:CAC: 4.2×</div><div class="cv-tag">4 Employer LOIs</div></div>
+  </div>
+  <div class="cv-r">
+    <div style="font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,232,0.28);margin-bottom:20px;">Seed Investment Thesis</div>
+    <div class="cv-metrics">
+      <div class="cvm"><span class="cvm-n">£1.8M</span><span class="cvm-l">Year 2 ARR Target</span></div>
+      <div class="cvm"><span class="cvm-n">£15M</span><span class="cvm-l">Post-money Valuation</span></div>
+      <div class="cvm"><span class="cvm-n">5,000</span><span class="cvm-l">Households at Seed End</span></div>
+      <div class="cvm"><span class="cvm-n">4</span><span class="cvm-l">Cities Operational</span></div>
+    </div>
+    <div class="cv-ask">
+      <div class="ask-lbl">Raise</div>
+      <div class="ask-amt">£4M Seed</div>
+      <div class="ask-use">Priced equity. £15M–18M post-money. 22–25% dilution. Board seat for lead investor (£1M+). Pro-rata rights to Series A. Use: 4-city rollout, SMB module, FFC™ scale to 50 coaches, Ritual Letter fulfilment infrastructure.</div>
+    </div>
+  </div>
+</div>
+
+<div class="sl">
+  <p class="sl-tag">Slide 02 — Traction: Pre-Seed Proof Points</p>
+  <h2 class="sl-h">The numbers that<br><em>earned this meeting.</em></h2>
+  <div class="g4" style="margin-bottom:2px;">
+    <div class="c go"><div style="font-family:'Instrument Serif',serif;font-size:2.8rem;color:var(--gold);line-height:1;margin-bottom:4px;">67%</div><div class="ct yy">D90 Retention</div><div class="c-bd">City Zero cohort. Industry benchmark: 34%. Households with partner activated: 81% D90 retention.</div></div>
+    <div class="c go"><div style="font-family:'Instrument Serif',serif;font-size:2.8rem;color:var(--gold);line-height:1;margin-bottom:4px;">71</div><div class="ct yy">NPS</div><div class="c-bd">Net Promoter Score across 500-family pilot. Ritual Letter NPS: 84. Accountability Circle NPS: 78.</div></div>
+    <div class="c go"><div style="font-family:'Instrument Serif',serif;font-size:2.8rem;color:var(--gold);line-height:1;margin-bottom:4px;">£340</div><div class="ct yy">Monthly Saving</div><div class="c-bd">Average identified monthly waste per household within first 30 days — zero behaviour change required. Pure visibility gain.</div></div>
+    <div class="c go"><div style="font-family:'Instrument Serif',serif;font-size:2.8rem;color:var(--gold);line-height:1;margin-bottom:4px;">4.2×</div><div class="ct yy">LTV:CAC</div><div class="c-bd">Current blended. Projected 7.4× at Year 3 as institutional channel CAC falls from £84 to £31.</div></div>
+  </div>
+  <div class="sf"><div class="sf-n">02 / 07</div><div class="sf-c">FinFlow Seed · Confidential</div></div>
+</div>
+
+<div class="sl dk">
+  <p class="sl-tag">Slide 04 — 5-Year Financial Projections</p>
+  <h2 class="sl-h" style="color:#f0ede8;">Conservative model.<br><em>Every assumption auditable.</em></h2>
+  <p class="sl-sub">Bottom-up household count model. No viral growth assumptions. Revenue capped at achievable institutional channel throughput. Gross margin expansion driven by near-zero marginal cost B2B licensing becoming dominant stream by Year 4.</p>
+  <div style="overflow-x:auto;border:1px solid rgba(255,255,255,0.07);margin-bottom:20px;">
+    <table class="ft dtb" style="min-width:680px;">
+      <thead><tr><th>Metric</th><th>Year 1</th><th>Year 2</th><th>Year 3</th><th>Year 4</th><th>Year 5</th></tr></thead>
+      <tbody>
+        <tr><td>Active Households</td><td>1,440</td><td>6,200</td><td>22,000</td><td>55,000</td><td>90,000</td></tr>
+        <tr><td>MRR (Month 12)</td><td class="ng">£31.7K</td><td class="ng">£150K</td><td class="ng">£600K</td><td class="ng">£1.82M</td><td class="ng">£3.92M</td></tr>
+        <tr><td>ARR (Year-end)</td><td class="ng">£380K</td><td class="ng">£1.8M</td><td class="ng">£7.2M</td><td class="ng">£21.8M</td><td class="ng">£47M</td></tr>
+        <tr><td>— Subscription ARR</td><td>£380K</td><td>£1.4M</td><td>£4.9M</td><td>£12.1M</td><td>£23.8M</td></tr>
+        <tr><td>— B2B Pulse Score Licensing</td><td>—</td><td class="nb">£270K</td><td class="nb">£1.4M</td><td class="nb">£6.2M</td><td class="nb">£14.2M</td></tr>
+        <tr><td>— SMB Module</td><td>—</td><td>£80K</td><td>£620K</td><td>£2.4M</td><td>£5.4M</td></tr>
+        <tr><td>— FFC™ Certification</td><td>—</td><td>£54K</td><td>£280K</td><td>£1.1M</td><td>£3.6M</td></tr>
+        <tr><td>Gross Margin</td><td>42%</td><td>54%</td><td>68%</td><td>73%</td><td>76%</td></tr>
+        <tr><td>EBITDA</td><td class="nc">-£1.2M</td><td class="nc">-£640K</td><td class="nf">£820K</td><td class="nf">£5.4M</td><td class="nf">£16.8M</td></tr>
+        <tr><td>Blended CAC</td><td>£84</td><td>£62</td><td>£31</td><td>£24</td><td>£18</td></tr>
+        <tr><td>LTV (Household)</td><td>£2,100</td><td>£2,600</td><td>£3,200</td><td>£3,800</td><td>£4,400</td></tr>
+        <tr><td>LTV:CAC Ratio</td><td>3.8×</td><td>4.9×</td><td class="ng">7.4×</td><td class="ng">9.8×</td><td class="ng">12.1×</td></tr>
+        <tr><td>NRR (Net Revenue Retention)</td><td>—</td><td>104%</td><td>108%</td><td>112%</td><td>114%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="sf" style="border-color:rgba(255,255,255,0.06);"><div class="sf-n">04 / 07</div><div class="sf-c">FinFlow Seed · Confidential</div></div>
+</div>
+</div><!-- end seed -->
+
+<!-- ══════════ SERIES A ══════════ -->
+<div class="rp" id="panel-sa">
+<div class="cover">
+  <div class="cv-l">
+    <div class="cv-badge">Series A · Priced Equity · £15M</div>
+    <div>
+      <h1 class="cv-title">The flywheel<br>is spinning.<br><em>Capital</em><br>accelerates it.</h1>
+      <p class="cv-thesis">FinFlow has proven product-market fit across 4 cities, 22,000 households, £7.2M ARR, and three active revenue streams. NRR of 108% means we grow without new customers. Series A funds national UK rollout, Home Hub hardware production, FFC™ scale to 180 coaches, and the first bank Pulse Score licensing contract.</p>
+    </div>
+    <div class="cv-tags"><div class="cv-tag">22K Households</div><div class="cv-tag">£7.2M ARR</div><div class="cv-tag">NRR 108%</div><div class="cv-tag">First Bank LOI Signed</div></div>
+  </div>
+  <div class="cv-r">
+    <div style="font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,232,0.28);margin-bottom:20px;">Series A Thesis</div>
+    <div class="cv-metrics">
+      <div class="cvm"><span class="cvm-n">£47M</span><span class="cvm-l">Year 5 ARR Target</span></div>
+      <div class="cvm"><span class="cvm-n">5.2×</span><span class="cvm-l">Revenue Multiple at Raise</span></div>
+      <div class="cvm"><span class="cvm-n">68%</span><span class="cvm-l">Gross Margin Year 3</span></div>
+      <div class="cvm"><span class="cvm-n">£38M</span><span class="cvm-l">Post-Money Valuation</span></div>
+    </div>
+    <div class="cv-ask">
+      <div class="ask-lbl">Raise</div>
+      <div class="ask-amt">£15M Series A</div>
+      <div class="ask-use">Priced equity. £38M post-money (5.2× ARR). 28–32% dilution. Use: UK national rollout, Home Hub hardware (15K units), FFC™ scale, bank licensing deal closure. Lead: specialist fintech/impact fund. Board seat for lead investor.</div>
+    </div>
+  </div>
+</div>
+
+<div class="sl">
+  <p class="sl-tag">Slide 03 — Competitive Moat</p>
+  <h2 class="sl-h">Why the moat is<br>now <em>structural.</em></h2>
+  <div class="cm-wrap" style="margin-bottom:28px;">
+    <table class="cm">
+      <thead><tr><th>Competitor</th><th>Household View</th><th>Physical Layer</th><th>Coach Cert.</th><th>Community</th><th>School Programs</th><th>B2B Licensing</th><th>Generational</th></tr></thead>
+      <tbody>
+        <tr class="ffr"><td>🟡 FinFlow</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+        <tr><td>Monzo / Starling</td><td>⚠️</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+        <tr><td>YNAB / Mint</td><td>⚠️</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+        <tr><td>Betterment / Wealthsimple</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>⚠️</td><td>❌</td></tr>
+        <tr><td>Traditional Banks</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>⚠️</td><td>❌</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="sf"><div class="sf-n">03 / 07</div><div class="sf-c">FinFlow Series A · Confidential</div></div>
+</div>
+</div><!-- end sa -->
+
+<!-- ══════════ SERIES B ══════════ -->
+<div class="rp" id="panel-sb">
+<div class="cover">
+  <div class="cv-l">
+    <div class="cv-badge">Series B · £50M</div>
+    <div>
+      <h1 class="cv-title">National.<br>Now going<br><em>international.</em></h1>
+      <p class="cv-thesis">FinFlow has achieved EBITDA breakeven at £7.2M ARR and demonstrated multi-market viability with 90,000 UK households and 8 bank licensing partners. Series B funds international expansion (India, Australia, UAE), SMB Health Score licensing, and positions FinFlow for a strategic acquisition or pre-IPO round within 36 months.</p>
+    </div>
+    <div class="cv-tags"><div class="cv-tag">90K Households</div><div class="cv-tag">£47M ARR</div><div class="cv-tag">EBITDA Positive</div><div class="cv-tag">8 Bank Partners</div></div>
+  </div>
+  <div class="cv-r">
+    <div style="font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,232,0.28);margin-bottom:20px;">Series B Thesis</div>
+    <div class="cv-metrics">
+      <div class="cvm"><span class="cvm-n">£820B</span><span class="cvm-l">Global TAM</span></div>
+      <div class="cvm"><span class="cvm-n">£175M</span><span class="cvm-l">Post-Money Valuation</span></div>
+      <div class="cvm"><span class="cvm-n">3</span><span class="cvm-l">New Markets Year 6–7</span></div>
+      <div class="cvm"><span class="cvm-n">76%</span><span class="cvm-l">Gross Margin</span></div>
+    </div>
+    <div class="cv-ask">
+      <div class="ask-lbl">Raise</div>
+      <div class="ask-amt">£50M Series B</div>
+      <div class="ask-use">£175M post-money (3.7× ARR). International rollout (India, AU, UAE), SMB Health Score B2B licensing expansion, M&A of coaching platform, CFO hire, Series B board. 22–26% dilution.</div>
+    </div>
+  </div>
+</div>
+
+<div class="sl">
+  <p class="sl-tag">Slide 05 — Exit Strategies & Investor Returns</p>
+  <h2 class="sl-h">Three credible paths<br>to <em>liquidity.</em></h2>
+  <p class="sl-sub">FinFlow is structured for optionality — not a single forced exit. The combination of a recurring consumer base, a proprietary data asset, and a certified human network makes the company attractive to three distinct acquirer profiles and viable as a standalone public entity.</p>
+  <div class="wf" style="margin-bottom:28px;">
+    <div class="wf-row drw">
+      <div class="wf-l"><div class="wf-lbl">Exit Path 01</div><div class="wf-nm">Strategic — Financial Institution</div></div>
+      <div class="wf-c"><div class="wf-bd"><strong style="color:#f0ede8;">Acquirer:</strong> Tier 1 bank (Barclays, HSBC, DBS, HDFC). The Family Pulse Score™ becomes their household underwriting infrastructure. The coach network becomes relationship banking. School programs become their next-generation customer acquisition pipeline. <strong style="color:#f0ede8;">Why they buy vs. build:</strong> Behavioral data, FFC™ credential, and community network cannot be assembled in under 5–7 years. An acquisition at Year 7–8 costs less than a failed internal build at this scale.</div></div>
+      <div class="wf-r"><div class="wf-met">8–12×</div><div class="wf-metl">Revenue Multiple</div><div class="wf-met" style="font-size:1.1rem;margin-top:6px;">£380M–£580M</div><div class="wf-metl">Exit Valuation Range</div></div>
+    </div>
+    <div class="wf-row">
+      <div class="wf-l"><div class="wf-lbl">Exit Path 02</div><div class="wf-nm">Strategic — Tech Platform</div></div>
+      <div class="wf-c"><div class="wf-bd"><strong>Acquirer:</strong> Apple (Financial Services expansion), Google (Google Pay ecosystem), Amazon (Alexa household intelligence). FinFlow's Home Hub, household data graph, and behavioral engine are each independently valuable to platform companies seeking daily utility in the home. Apple's focus on privacy and health makes FinFlow's consent-first family model a natural extension of their wellness platform. The physical device ecosystem is particularly attractive to hardware platform companies that struggle to create genuine daily household utility.</div></div>
+      <div class="wf-r"><div class="wf-met">10–15×</div><div class="wf-metl">Revenue Multiple</div><div class="wf-met" style="font-size:1.1rem;margin-top:6px;">£470M–£700M</div><div class="wf-metl">Exit Valuation Range</div></div>
+    </div>
+    <div class="wf-row">
+      <div class="wf-l"><div class="wf-lbl">Exit Path 03</div><div class="wf-nm">Public Markets — IPO</div></div>
+      <div class="wf-c"><div class="wf-bd"><strong>Viability at Year 9–10:</strong> £85M+ ARR, EBITDA margin 28%+, 400,000+ active households, 3+ international markets, Pulse Score licensing as standalone business unit. FinFlow's multi-stream revenue improves public market comps vs. pure-play consumer fintech. <strong>Comparable public comps:</strong> Intuit (12× ARR), MoneyLion (user multiple), Betterment (AUM). <strong>Preferred listing:</strong> LSE primary with potential dual-listing on NYSE/NASDAQ for institutional global access. IPO structure: primary shares (70%) + secondary liquidity for founders and early investors (30%).</div></div>
+      <div class="wf-r"><div class="wf-met">8–12×</div><div class="wf-metl">ARR Multiple</div><div class="wf-met" style="font-size:1.1rem;margin-top:6px;">£680M–£1B</div><div class="wf-metl">Exit Valuation Range</div></div>
+    </div>
+  </div>
+
+  <div class="ret" style="border:1px solid var(--bd);margin-bottom:16px;">
+    <div class="rp">
+      <div class="rp-ti">Investor Return Scenarios — Entry Round vs. Base Exit</div>
+      <div class="rp-row"><div class="rp-k">Pre-Seed entry (£6M cap SAFE)</div><div class="rp-v" style="color:var(--gold);">63–100× MOIC</div></div>
+      <div class="rp-row"><div class="rp-k">Seed entry (£15M post-money)</div><div class="rp-v" style="color:var(--gold);">25–47× MOIC</div></div>
+      <div class="rp-row"><div class="rp-k">Series A entry (£38M post-money)</div><div class="rp-v" style="color:var(--sky);">10–18× MOIC</div></div>
+      <div class="rp-row"><div class="rp-k">Series B entry (£175M post-money)</div><div class="rp-v" style="color:var(--forest);">2.7–5.7× MOIC</div></div>
+      <div class="rp-row"><div class="rp-k">Assumed base exit timeline</div><div class="rp-v">Year 7–10</div></div>
+    </div>
+    <div class="rp" style="background:var(--cream);">
+      <div class="rp-ti">IRR (Internal Rate of Return) by Entry Round</div>
+      <div class="rp-row"><div class="rp-k">Pre-Seed IRR — base exit Year 8</div><div class="rp-v" style="color:var(--gold);">62–78% IRR</div></div>
+      <div class="rp-row"><div class="rp-k">Seed IRR — base exit Year 7</div><div class="rp-v" style="color:var(--gold);">48–65% IRR</div></div>
+      <div class="rp-row"><div class="rp-k">Series A IRR — base exit Year 6</div><div class="rp-v" style="color:var(--sky);">38–52% IRR</div></div>
+      <div class="rp-row"><div class="rp-k">Series B IRR — base exit Year 5</div><div class="rp-v" style="color:var(--forest);">22–34% IRR</div></div>
+      <div class="rp-row"><div class="rp-k">WACC threshold (target &gt;3×)</div><div class="rp-v">All rounds exceed</div></div>
+    </div>
+  </div>
+  <div class="sf"><div class="sf-n">05 / 08</div><div class="sf-c">FinFlow Series B · Confidential</div></div>
+</div>
+
+<div class="sl dk">
+  <p class="sl-tag">Slide 06 — Expansion Strategy</p>
+  <h2 class="sl-h" style="color:#f0ede8;">Three expansion vectors.<br><em>One proven playbook.</em></h2>
+  <p class="sl-sub">Each expansion vector follows City Zero discipline — validate locally before capital deployment. Every new market, vertical, and life event module follows the same sequence that proved the UK model.</p>
+  <div class="g3" style="margin-bottom:2px;">
+    <div class="c dk"><div class="ct ww">Geographic</div><div class="c-ti">India, Australia, UAE, Canada</div><div class="c-bd">India Tier 1: 300M middle-class households, UPI live, coaching culture, high financial anxiety. Australia: CDR infrastructure, household debt crisis, high ARPU. UAE: immigrant wealth management, regulatory tailwinds, high income concentration. Each market: City Zero → national → regional licensing deal.</div><ul class="c-li"><li>Each market led by FFC™ coaches localised in-country</li><li>Bank licensing LOI signed before consumer launch — de-risks CAC</li><li>Year 7 international ARR target: £18M</li></ul></div>
+    <div class="c dk"><div class="ct ww">Vertical — SMB</div><div class="c-ti">FinFlow Business: CFO for 400M Micro-SMBs</div><div class="c-bd">400M+ micro-SMBs globally without a CFO, without clean personal-business separation, and without access to credit that reflects their true financial health. FinFlow Business extends the household platform — not as a separate product, but as a layer for households where a business is present.</div><ul class="c-li"><li>SMB Health Score licenses to micro-lenders as alternative credit product</li><li>Grant and loan marketplace: referral fee per facility placed</li><li>SMB peer circles with specialist FFC™ coaches</li><li>Year 7 SMB vertical ARR: £18M standalone</li></ul></div>
+    <div class="c dk"><div class="ct ww">Horizontal — Life Events</div><div class="c-ti">Modules for Financial Inflection Points</div><div class="c-bd">Mortgage, first child, divorce, inheritance, retirement — each is a moment where bad financial decisions are most likely and guidance is most valuable. Life Event Modules activate contextually based on AI-detected life stage signals.</div><ul class="c-li"><li>FinFlow Mortgage: readiness score, solicitor integration, stress-testing</li><li>FinFlow Parent: pre-birth cash flow, childcare planner, tax credits</li><li>FinFlow Divorce: financial untangling, asset division — zero competition in this category</li><li>FinFlow Legacy: estate planning, will integration, LPA coordination</li></ul></div>
+  </div>
+  <div class="sf" style="border-color:rgba(255,255,255,0.06);"><div class="sf-n">06 / 08</div><div class="sf-c">FinFlow Series B · Confidential</div></div>
+</div>
+</div><!-- end sb -->
+
+<!-- ══════════ PRE-IPO ══════════ -->
+<div class="rp" id="panel-ipo">
+<div class="cover">
+  <div class="cv-l">
+    <div class="cv-badge">Strategic / Pre-IPO · £100M</div>
+    <div>
+      <h1 class="cv-title">The category<br>standard.<br><em>Preparing for</em><br>permanence.</h1>
+      <p class="cv-thesis">FinFlow is the Family Pulse Score™ standard. Banks license it, governments cite it in financial inclusion policy, schools teach with it in 6 countries. 400,000 enrolled households. £85M ARR. EBITDA margin 28%+. Pre-IPO capital funds the transition from high-growth startup to category-defining public company — or positions FinFlow for a transformational strategic acquisition at 10–15× ARR.</p>
+    </div>
+    <div class="cv-tags"><div class="cv-tag">400K Households · 5 Markets</div><div class="cv-tag">£85M ARR</div><div class="cv-tag">EBITDA 28%+</div><div class="cv-tag">LSE IPO Target</div></div>
+  </div>
+  <div class="cv-r">
+    <div style="font-family:'Fira Code',monospace;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,232,0.28);margin-bottom:20px;">Pre-IPO Thesis</div>
+    <div class="cv-metrics">
+      <div class="cvm"><span class="cvm-n">8–12×</span><span class="cvm-l">ARR Exit Multiple</span></div>
+      <div class="cvm"><span class="cvm-n">£680M+</span><span class="cvm-l">Base Exit Valuation</span></div>
+      <div class="cvm"><span class="cvm-n">Gen 2</span><span class="cvm-l">Children → Adult Accounts</span></div>
+      <div class="cvm"><span class="cvm-n">LSE</span><span class="cvm-l">Primary IPO Market</span></div>
+    </div>
+    <div class="cv-ask">
+      <div class="ask-lbl">Raise</div>
+      <div class="ask-amt">£100M Pre-IPO</div>
+      <div class="ask-use">60% primary / 40% secondary. Use: 2 additional markets (UAE + Canada), IPO readiness (Big 4 audit, governance, PCAOB compliance), M&A of coaching platform, secondary liquidity for early investors and founders. 18-month IPO timeline from close.</div>
+    </div>
+  </div>
+</div>
+</div><!-- end ipo -->
+
+<!-- ══════════ FULL DECK ══════════ -->
+<div class="rp" id="panel-full">
+
+<div class="sl" style="padding-top:56px;">
+  <p class="sl-tag">Master Phase Roadmap — All Rounds</p>
+  <h2 class="sl-h">Phase-by-phase.<br><em>Round-by-round.</em></h2>
+  <p class="sl-sub">Every raise is mandated by a specific milestone set. Capital is never raised speculatively. Each round's evidence base is the output of the prior round's deployment. This creates a clean audit trail from SAFE to IPO.</p>
+  <div class="pt" style="margin-bottom:40px;">
+    <div class="ph"><div class="ph-hd"><div class="ph-r">Pre-Seed · £750K</div><div class="ph-n">Validate</div><div class="ph-p">Mo 0–18</div><div class="ph-bar" style="background:var(--gold);"></div></div><div class="ph-bd"><div class="ph-tgt">500</div><div class="ph-tl">Family pilot</div><ul class="ph-li"><li>MVP + bank aggregation</li><li>City Zero (1 city)</li><li>20 FFC™ coaches</li><li>Validation sprint (8wks)</li><li>3 employer LOIs</li><li>SAFE · £6M cap</li></ul></div></div>
+    <div class="ph"><div class="ph-hd"><div class="ph-r">Seed · £4M</div><div class="ph-n">Prove the Model</div><div class="ph-p">Mo 18–36</div><div class="ph-bar" style="background:var(--sky);"></div></div><div class="ph-bd"><div class="ph-tgt">£1.8M</div><div class="ph-tl">ARR target</div><ul class="ph-li"><li>4-city expansion</li><li>SMB module pilot</li><li>Ritual Letter + Boxes</li><li>50 FFC™ coaches</li><li>20 employer contracts</li><li>Priced equity · £15M post</li></ul></div></div>
+    <div class="ph"><div class="ph-hd"><div class="ph-r">Series A · £15M</div><div class="ph-n">Go National</div><div class="ph-p">Mo 36–54</div><div class="ph-bar" style="background:var(--forest);"></div></div><div class="ph-bd"><div class="ph-tgt">£7.2M</div><div class="ph-tl">ARR target</div><ul class="ph-li"><li>UK national rollout</li><li>Home Hub 15K units</li><li>180 FFC™ coaches</li><li>First bank Pulse Score deal</li><li>150 school partnerships</li><li>£38M post-money</li></ul></div></div>
+    <div class="ph"><div class="ph-hd"><div class="ph-r">Series B · £50M</div><div class="ph-n">International</div><div class="ph-p">Mo 54–78</div><div class="ph-bar" style="background:var(--coral);"></div></div><div class="ph-bd"><div class="ph-tgt">£47M</div><div class="ph-tl">ARR target</div><ul class="ph-li"><li>India + Australia launch</li><li>SMB Health Score licensing</li><li>Life Event Modules</li><li>8 bank partners globally</li><li>M&A coaching platform</li><li>£175M post-money</li></ul></div></div>
+    <div class="ph"><div class="ph-hd"><div class="ph-r">Pre-IPO · £100M</div><div class="ph-n">Permanence</div><div class="ph-p">Mo 78–96</div><div class="ph-bar" style="background:var(--violet);"></div></div><div class="ph-bd"><div class="ph-tgt">£85M</div><div class="ph-tl">ARR target</div><ul class="ph-li"><li>UAE + Canada markets</li><li>IPO readiness (Big 4)</li><li>Gen 2 accounts live</li><li>LSE primary listing</li><li>Secondary liquidity</li><li>£680M+ base exit</li></ul></div></div>
+  </div>
+
+  <!-- EXPANSION TABLE -->
+  <h3 style="font-family:'Instrument Serif',serif;font-size:1.5rem;font-weight:400;margin-bottom:16px;letter-spacing:-0.01em;">Expansion Strategy Matrix</h3>
+  <div style="overflow-x:auto;border:1px solid var(--bd);margin-bottom:40px;">
+    <table class="ft" style="min-width:740px;">
+      <thead><tr><th>Vector</th><th>Initiative</th><th>Phase</th><th>Target</th><th>ARR Impact</th><th>Strategic Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>Geographic</td><td>India Urban Launch</td><td>Series B</td><td>Mumbai/Bangalore/Delhi</td><td class="ng">+£8M yr1</td><td>300M middle-class; UPI live; coaching culture; high anxiety</td></tr>
+        <tr><td>Geographic</td><td>Australia</td><td>Series B</td><td>Sydney / Melbourne</td><td class="ng">+£5M yr1</td><td>CDR open banking; household debt crisis; cultural proximity</td></tr>
+        <tr><td>Geographic</td><td>UAE</td><td>Pre-IPO</td><td>Dubai / Abu Dhabi</td><td class="ng">+£4M yr1</td><td>Immigrant wealth management; high ARPU; regulatory tailwinds</td></tr>
+        <tr><td>SMB — Vertical</td><td>SMB Health Score Licensing</td><td>Series A+</td><td>Micro-lenders / credit</td><td class="nb">+£6M yr1</td><td>Second B2B data asset; zero marginal cost; alternative credit</td></tr>
+        <tr><td>SMB — Vertical</td><td>Grant & Loan Marketplace</td><td>Series B</td><td>UK + India SMBs</td><td class="nb">+£3M yr1</td><td>Referral revenue; SMB ecosystem lock-in; gov partnership</td></tr>
+        <tr><td>Life Events</td><td>FinFlow Mortgage</td><td>Series A</td><td>First-time buyers UK</td><td class="nf">+£2.4M</td><td>High-value moment; broker integration; 6-month window</td></tr>
+        <tr><td>Life Events</td><td>FinFlow Divorce</td><td>Series B</td><td>Divorcing households</td><td class="nf">+£1.8M</td><td>Zero competition; high anxiety; solicitor referral channel</td></tr>
+        <tr><td>Life Events</td><td>FinFlow Legacy</td><td>Series A+</td><td>Tier 4 households</td><td class="nf">+£3.1M</td><td>Estate planning; will writing; intergenerational transfer</td></tr>
+        <tr><td>M&A</td><td>Coaching Platform Acquisition</td><td>Series B</td><td>UK/AU coaching SaaS</td><td class="nc">Coach supply scale</td><td>Acqui-hire + user base; training tools; accelerate FFC™ pipeline</td></tr>
+        <tr><td>M&A</td><td>EdTech Financial Literacy Co.</td><td>Pre-IPO</td><td>School-facing provider</td><td class="nc">School moat deepened</td><td>Content IP + school relationships + teacher training platform</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- INVESTOR GLOSSARY -->
+  <h3 style="font-family:'Instrument Serif',serif;font-size:1.5rem;font-weight:400;margin-bottom:16px;letter-spacing:-0.01em;">Financial Metrics Glossary — Investor Reference</h3>
+  <div class="g2">
+    <div style="overflow-x:auto;border:1px solid var(--bd);">
+      <table class="ft">
+        <thead><tr><th>Metric</th><th>Standard Definition</th><th>FinFlow Value</th></tr></thead>
+        <tbody>
+          <tr><td>ARR</td><td>Annual Recurring Revenue. Annualised value of all active subscription contracts at a point in time. Excludes one-time fees.</td><td class="ng">£47M (Year 5)</td></tr>
+          <tr><td>MRR</td><td>Monthly Recurring Revenue. ARR ÷ 12. Tracks momentum and rate of change.</td><td class="ng">£3.9M (Year 5)</td></tr>
+          <tr><td>NRR</td><td>Net Revenue Retention. ARR from existing cohort including expansions minus churn ÷ starting ARR. &gt;100% = growth without new customers.</td><td class="ng">108% (Year 3)</td></tr>
+          <tr><td>CAC</td><td>Customer Acquisition Cost. Fully-loaded S&M spend ÷ new customers acquired in period. Includes salary, tools, events, paid media.</td><td>£84 → £31</td></tr>
+          <tr><td>LTV</td><td>Lifetime Value. ARPU × Gross Margin % × Average Customer Lifespan. FinFlow LTV grows over time (atypical for SaaS).</td><td class="ng">£3,200</td></tr>
+          <tr><td>LTV:CAC</td><td>Ratio of LTV to CAC. Benchmark: 3× healthy, 5× strong, 7×+ exceptional. FinFlow targets 12× at Year 5 scale.</td><td class="ng">7.4× → 12×</td></tr>
+          <tr><td>Payback Period</td><td>Months to recover CAC from gross profit. Benchmark: &lt;12 months. FinFlow: 9 months at Year 1.</td><td>9 months</td></tr>
+          <tr><td>Gross Margin</td><td>Revenue minus COGS ÷ Revenue. Excludes S&M, G&A, R&D. Measures unit profitability of core product delivery.</td><td>68% (Yr3) → 76% (Yr5)</td></tr>
+          <tr><td>EBITDA</td><td>Earnings Before Interest, Tax, Depreciation & Amortisation. Proxy for operating cash profitability. Standard IC reporting metric.</td><td class="nf">£820K (Yr3) → £16.8M (Yr5)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="overflow-x:auto;border:1px solid var(--bd);">
+      <table class="ft">
+        <thead><tr><th>Metric</th><th>Standard Definition</th><th>FinFlow Value</th></tr></thead>
+        <tbody>
+          <tr><td>TAM</td><td>Total Addressable Market. Maximum revenue if 100% of relevant global market captured. Used to establish ceiling and category sizing.</td><td class="ng">£820B</td></tr>
+          <tr><td>SAM</td><td>Serviceable Addressable Market. Subset of TAM reachable with current product, channels, and geographic reach.</td><td class="nb">£42B</td></tr>
+          <tr><td>SOM</td><td>Serviceable Obtainable Market. Realistic capture within defined timeframe given capital, competition, and execution capacity.</td><td class="nf">£840M (5yr UK)</td></tr>
+          <tr><td>IRR</td><td>Internal Rate of Return. Annualised return rate accounting for time value of capital deployed and exit timeline.</td><td>48–78% (Pre-Seed entry)</td></tr>
+          <tr><td>MOIC</td><td>Multiple on Invested Capital. Total value received ÷ capital invested. Ignores timing; complementary to IRR.</td><td>3–100× by entry round</td></tr>
+          <tr><td>WACC</td><td>Weighted Average Cost of Capital. Benchmark hurdle rate for investment returns. Typical VC hurdle: 25–35%.</td><td>All rounds exceed</td></tr>
+          <tr><td>EV / Revenue</td><td>Enterprise Value ÷ ARR. Standard valuation benchmark for SaaS and fintech at exit or secondary pricing.</td><td>8–12× at target exit</td></tr>
+          <tr><td>Revenue Multiple</td><td>Price paid ÷ current or forward ARR. Used to compare acquisition and IPO pricing across comparable companies.</td><td>5.2× at Series A raise</td></tr>
+          <tr><td>NPS</td><td>Net Promoter Score. % Promoters minus % Detractors. Benchmark: 50+ excellent, 70+ world-class. FinFlow pilot: 71.</td><td class="ng">71 (pilot)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="sf" style="margin-top:40px;"><div class="sf-n">Full Deck · Master Reference</div><div class="sf-c">FinFlow · Confidential · 2025</div></div>
+</div>
+
+</div><!-- end full -->
+
+</div><!-- end deck -->
+
+<footer style="text-align:center;padding:24px;border-top:1px solid var(--border);font-family:'Fira Code',monospace;font-size:0.56rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-faint);">
+  FinFlow · Investor Deck · All Rounds · Confidential · 2025 · Not for Distribution
+</footer>
+
+<script>
+function showRound(id, btn) {
+  document.querySelectorAll('.rp').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.rbtn').forEach(b => b.classList.remove('on'));
+  document.getElementById('panel-' + id).classList.add('on');
+  btn.classList.add('on');
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinFlow — Family Finance OS · Business Plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0e0e12;
+    --paper: #f5f0e8;
+    --cream: #ede8da;
+    --gold: #c9a84c;
+    --gold-light: #e8cb7a;
+    --rust: #c45c3a;
+    --teal: #2a6f72;
+    --muted: #7a7060;
+    --accent-blue: #1a3a5c;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Sora', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    background: var(--ink);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 80%, rgba(201,168,76,0.08) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 40% at 80% 20%, rgba(42,111,114,0.12) 0%, transparent 60%);
+  }
+  .hero-grid-lines {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 28px 52px;
+    border-bottom: 1px solid rgba(201,168,76,0.15);
+    position: relative;
+    z-index: 2;
+  }
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: -0.02em;
+  }
+  .logo span { color: var(--paper); }
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    border: 1px solid rgba(201,168,76,0.25);
+    padding: 6px 14px;
+    border-radius: 2px;
+  }
+
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 60px 40px;
+    position: relative;
+    z-index: 2;
+  }
+  .hero-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.2s forwards;
+  }
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(3rem, 7vw, 6.5rem);
+    font-weight: 900;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    margin-bottom: 30px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.4s forwards;
+  }
+  .hero-title em {
+    font-style: italic;
+    color: var(--gold);
+  }
+  .hero-subtitle {
+    font-size: 1.1rem;
+    color: rgba(245,240,232,0.6);
+    max-width: 620px;
+    font-weight: 300;
+    margin-bottom: 50px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.6s forwards;
+  }
+  .hero-stats {
+    display: flex;
+    gap: 60px;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.8s forwards;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--gold);
+    display: block;
+    line-height: 1;
+  }
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 6px;
+    display: block;
+  }
+
+  .hero-scroll {
+    text-align: center;
+    padding: 30px;
+    position: relative;
+    z-index: 2;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 1.2s forwards;
+  }
+  .scroll-line {
+    width: 1px;
+    height: 40px;
+    background: linear-gradient(to bottom, var(--gold), transparent);
+    margin: 10px auto 0;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  /* SECTIONS */
+  section {
+    padding: 100px 52px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+  }
+  .section-intro {
+    color: rgba(245,240,232,0.65);
+    max-width: 700px;
+    font-weight: 300;
+    font-size: 1.05rem;
+    margin-bottom: 60px;
+  }
+
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(201,168,76,0.3), transparent);
+    margin: 0;
+  }
+
+  /* PAIN POINTS */
+  .pain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2px;
+    background: rgba(201,168,76,0.1);
+    border: 1px solid rgba(201,168,76,0.15);
+  }
+  .pain-card {
+    background: var(--ink);
+    padding: 36px;
+    position: relative;
+    transition: background 0.3s;
+    cursor: default;
+  }
+  .pain-card:hover { background: rgba(201,168,76,0.04); }
+  .pain-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 3.5rem;
+    font-weight: 900;
+    color: rgba(201,168,76,0.12);
+    position: absolute;
+    top: 20px;
+    right: 28px;
+    line-height: 1;
+  }
+  .pain-icon { font-size: 1.8rem; margin-bottom: 16px; }
+  .pain-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--paper);
+  }
+  .pain-body {
+    font-size: 0.88rem;
+    color: rgba(245,240,232,0.6);
+    line-height: 1.7;
+  }
+  .pain-severity {
+    display: flex;
+    gap: 3px;
+    margin-top: 16px;
+  }
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(201,168,76,0.2);
+  }
+  .dot.filled { background: var(--gold); }
+
+  /* SEGMENT TABLE */
+  .seg-wrapper {
+    overflow-x: auto;
+    border: 1px solid rgba(201,168,76,0.15);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  thead {
+    background: rgba(201,168,76,0.08);
+  }
+  th {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    padding: 18px 20px;
+    text-align: left;
+    font-weight: 400;
+    border-bottom: 1px solid rgba(201,168,76,0.2);
+  }
+  td {
+    padding: 16px 20px;
+    color: rgba(245,240,232,0.75);
+    border-bottom: 1px solid rgba(201,168,76,0.07);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(201,168,76,0.03); }
+  .seg-name {
+    font-weight: 600;
+    color: var(--paper);
+    font-size: 0.9rem;
+  }
+  .impact-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bar-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(201,168,76,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: linear-gradient(to right, var(--gold), var(--gold-light));
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+  .bar-pct {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--gold);
+    min-width: 32px;
+  }
+  .tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+    margin: 2px;
+  }
+  .tag-r { background: rgba(196,92,58,0.15); color: #e8815f; border: 1px solid rgba(196,92,58,0.2); }
+  .tag-g { background: rgba(42,111,114,0.15); color: #5bbcc0; border: 1px solid rgba(42,111,114,0.2); }
+  .tag-y { background: rgba(201,168,76,0.1); color: var(--gold); border: 1px solid rgba(201,168,76,0.2); }
+
+  /* WHY MATTERS */
+  .why-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+    background: rgba(201,168,76,0.08);
+  }
+  .why-card {
+    background: var(--ink);
+    padding: 44px;
+  }
+  .why-card.featured {
+    background: linear-gradient(135deg, rgba(201,168,76,0.08) 0%, rgba(42,111,114,0.05) 100%);
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: center;
+  }
+  .why-quote {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--paper);
+    margin-bottom: 20px;
+  }
+  .why-quote em { color: var(--gold); font-style: italic; }
+  .why-stat-group { display: flex; flex-direction: column; gap: 20px; }
+  .why-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border-left: 2px solid var(--gold);
+    background: rgba(201,168,76,0.04);
+  }
+  .why-stat-item .num {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 70px;
+  }
+  .why-stat-item .desc {
+    font-size: 0.82rem;
+    color: rgba(245,240,232,0.65);
+    line-height: 1.5;
+  }
+  .why-icon-title {
+    font-size: 2rem;
+    margin-bottom: 14px;
+  }
+  .why-card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .why-card-body {
+    font-size: 0.88rem;
+    color: rgba(245,240,232,0.6);
+    line-height: 1.8;
+  }
+
+  /* BENEFITS */
+  .benefits-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 60px;
+  }
+  .benefit-col-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(201,168,76,0.2);
+  }
+  .benefit-col-title.partial { color: var(--teal); }
+  .benefit-col-title.full { color: var(--gold); }
+  .benefit-item {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 22px;
+    align-items: flex-start;
+  }
+  .benefit-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+  .benefit-dot.partial { background: var(--teal); }
+  .benefit-dot.full { background: var(--gold); }
+  .benefit-text { font-size: 0.88rem; color: rgba(245,240,232,0.7); line-height: 1.7; }
+  .benefit-text strong { color: var(--paper); font-weight: 600; }
+
+  /* VISION BOX */
+  .vision-box {
+    border: 1px solid rgba(201,168,76,0.3);
+    background: linear-gradient(135deg, rgba(201,168,76,0.05) 0%, transparent 60%);
+    padding: 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .vision-box::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse 40% 40% at 50% 50%, rgba(201,168,76,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .vision-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .vision-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 900;
+    line-height: 1.2;
+    margin-bottom: 24px;
+  }
+  .vision-body {
+    color: rgba(245,240,232,0.6);
+    max-width: 680px;
+    margin: 0 auto 40px;
+    font-size: 1rem;
+    font-weight: 300;
+    line-height: 1.8;
+  }
+  .cta-chips {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    border: 1px solid rgba(201,168,76,0.4);
+    color: var(--gold);
+    border-radius: 2px;
+    background: rgba(201,168,76,0.05);
+  }
+  .chip.primary {
+    background: var(--gold);
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 40px 52px;
+    border-top: 1px solid rgba(201,168,76,0.1);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    section { padding: 70px 24px; }
+    .top-bar { padding: 20px 24px; }
+    .hero-stats { gap: 30px; }
+    .why-layout, .why-card.featured { grid-template-columns: 1fr; }
+    .why-card.featured { grid-column: span 1; }
+    .benefits-two-col { grid-template-columns: 1fr; }
+    .vision-box { padding: 40px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid-lines"></div>
+  <nav class="top-bar">
+    <div class="logo">Fin<span>Flow</span></div>
+    <div class="badge">B2C Business Plan · v1.0</div>
+  </nav>
+  <div class="hero-content">
+    <p class="hero-eyebrow">The Family Finance Problem</p>
+    <h1 class="hero-title">Families are <em>bleeding</em><br>money they can't see.</h1>
+    <p class="hero-subtitle">A strategic deep-dive into why everyday households fail at financial management — and the blueprint for a product that finally fixes it.</p>
+    <div class="hero-stats">
+      <div class="stat">
+        <span class="stat-num">78%</span>
+        <span class="stat-label">Families live<br>paycheck to paycheck</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">$1,200</span>
+        <span class="stat-label">Avg. monthly<br>invisible waste</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">3 in 5</span>
+        <span class="stat-label">Adults never<br>track spending</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-scroll">
+    Scroll to explore
+    <div class="scroll-line"></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- PROBLEM SPACE -->
+<section>
+  <p class="section-label">§01 — The Problem Space</p>
+  <h2 class="section-title">Why family finance<br>management is broken.</h2>
+  <p class="section-intro">Most families don't have a money problem. They have a visibility, coordination, and behavior problem. The tools that exist today are either too complex, too fragmented, or designed for individuals — not households.</p>
+
+  <div class="pain-grid">
+
+    <div class="pain-card">
+      <div class="pain-number">01</div>
+      <div class="pain-icon">👁️‍🗨️</div>
+      <div class="pain-title">Zero Spending Visibility</div>
+      <div class="pain-body">Money leaves accounts across 3–6 different cards, apps, and subscriptions. No single view exists. Families genuinely don't know where 20–40% of their income goes until it's gone. By the time awareness arrives, the damage is done.</div>
+      <div class="pain-severity">
+        <div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div>
+      </div>
+    </div>
+
+    <div class="pain-card">
+      <div class="pain-number">02</div>
+      <div class="pain-icon">🏠</div>
+      <div class="pain-title">No Household Coordination</div>
+      <div class="pain-body">Spouses and partners manage money in silos. One person earns, the other spends — neither has a shared budget. Financial conversations become arguments. Decisions are made without alignment, creating silent resentment and dysfunction.</div>
+      <div class="pain-severity">
+        <div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="pain-card">
+      <div class="pain-number">03</div>
+      <div class="pain-icon">📅</div>
+      <div class="pain-title">Reactive Not Proactive Planning</div>
+      <div class="pain-body">Families budget by looking backward — checking what they already spent. Real planning requires forward-looking income mapping: knowing when big expenses hit before they arrive. School fees, insurance renewals, car services — all surprises that shouldn't be.</div>
+      <div class="pain-severity">
+        <div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="pain-card">
+      <div class="pain-number">04</div>
+      <div class="pain-icon">📈</div>
+      <div class="pain-title">Investment Paralysis</div>
+      <div class="pain-body">Most families know they should invest but don't know how much, in what, or when. The gap between "I need to save" and taking action is enormous. High-fee advisors serve the wealthy; everyone else gets generic content and no actionable steps.</div>
+      <div class="pain-severity">
+        <div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="pain-card">
+      <div class="pain-number">05</div>
+      <div class="pain-icon">💳</div>
+      <div class="pain-title">Subscription & Debt Creep</div>
+      <div class="pain-body">The average household pays for 12+ subscriptions — many forgotten or duplicated. Debt compounds silently through minimum payments on credit cards, buy-now-pay-later schemes, and EMIs spread across platforms with no unified view of total liability.</div>
+      <div class="pain-severity">
+        <div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="pain-card">
+      <div class="pain-number">06</div>
+      <div class="pain-icon">🎓</div>
+      <div class="pain-title">Financial Illiteracy Cycles</div>
+      <div class="pain-body">Children in households with no financial education inherit the same broken habits. The cycle — no budgeting, no emergency fund, no investment — perpetuates generationally. There is no product today that builds financial literacy as a family unit together.</div>
+      <div class="pain-severity">
+        <div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="pain-card">
+      <div class="pain-number">07</div>
+      <div class="pain-icon">🚨</div>
+      <div class="pain-title">No Emergency Safety Net</div>
+      <div class="pain-body">61% of families can't cover a $1,000 emergency without going into debt. The concept of an emergency fund exists in theory but never in practice because it requires consistent discipline that no current tool actively promotes or gamifies.</div>
+      <div class="pain-severity">
+        <div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div>
+      </div>
+    </div>
+
+    <div class="pain-card">
+      <div class="pain-number">08</div>
+      <div class="pain-icon">🧠</div>
+      <div class="pain-title">Emotional & Behavioral Barriers</div>
+      <div class="pain-body">Money is tied to shame, anxiety, and avoidance. People don't open their banking apps when they're stressed. The more urgent the financial situation, the less likely someone will engage with it. Tools designed around pure data ignore this deeply human reality.</div>
+      <div class="pain-severity">
+        <div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CUSTOMER SEGMENTATION -->
+<section>
+  <p class="section-label">§02 — Customer Segmentation</p>
+  <h2 class="section-title">Highest-impact pain points<br>by customer group.</h2>
+  <p class="section-intro">Financial dysfunction looks different depending on who you are, how old you are, and how you live. Pinpointing where pain is most acute lets us prioritize product features and marketing with precision.</p>
+
+  <div class="seg-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Segment</th>
+          <th>Profile</th>
+          <th>Top Pain Points</th>
+          <th>Impact Score</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="seg-name">Young Couples</span><br><span style="font-size:0.75rem;color:var(--muted)">Ages 26–34</span></td>
+          <td>Dual income, no kids yet, high lifestyle spend, student debt. Optimistic but financially disorganized.</td>
+          <td>
+            <span class="tag tag-r">Spending visibility</span>
+            <span class="tag tag-r">Shared budgeting</span>
+            <span class="tag tag-y">Debt management</span>
+          </td>
+          <td><div class="impact-bar"><div class="bar-track"><div class="bar-fill" style="width:85%"></div></div><div class="bar-pct">85%</div></div></td>
+          <td><span class="tag tag-r">Critical</span></td>
+        </tr>
+        <tr>
+          <td><span class="seg-name">New Parents</span><br><span style="font-size:0.75rem;color:var(--muted)">Ages 28–38</span></td>
+          <td>Income shock from childcare costs, maternity/paternity leave gaps. Time-poor, financially anxious.</td>
+          <td>
+            <span class="tag tag-r">Cash flow gaps</span>
+            <span class="tag tag-r">No emergency fund</span>
+            <span class="tag tag-r">No future planning</span>
+          </td>
+          <td><div class="impact-bar"><div class="bar-track"><div class="bar-fill" style="width:95%"></div></div><div class="bar-pct">95%</div></td>
+          <td><span class="tag tag-r">Critical</span></td>
+        </tr>
+        <tr>
+          <td><span class="seg-name">Single Mothers</span><br><span style="font-size:0.75rem;color:var(--muted)">Ages 25–45</span></td>
+          <td>Single income supporting multiple dependents. High stress, minimal financial slack, no advisor access.</td>
+          <td>
+            <span class="tag tag-r">Income stretching</span>
+            <span class="tag tag-r">Debt spiral risk</span>
+            <span class="tag tag-y">Savings discipline</span>
+          </td>
+          <td><div class="impact-bar"><div class="bar-track"><div class="bar-fill" style="width:98%"></div></div><div class="bar-pct">98%</div></td>
+          <td><span class="tag tag-r">Highest</span></td>
+        </tr>
+        <tr>
+          <td><span class="seg-name">Mid-Career Families</span><br><span style="font-size:0.75rem;color:var(--muted)">Ages 35–50</span></td>
+          <td>Peak earning but peak spending. Mortgages, school fees, aging parents. "Golden handcuffs" trap.</td>
+          <td>
+            <span class="tag tag-r">Investment paralysis</span>
+            <span class="tag tag-y">Subscription creep</span>
+            <span class="tag tag-y">Retirement gap</span>
+          </td>
+          <td><div class="impact-bar"><div class="bar-track"><div class="bar-fill" style="width:88%"></div></div><div class="bar-pct">88%</div></td>
+          <td><span class="tag tag-r">Critical</span></td>
+        </tr>
+        <tr>
+          <td><span class="seg-name">Pre-Retirees</span><br><span style="font-size:0.75rem;color:var(--muted)">Ages 50–62</span></td>
+          <td>Realize too late they haven't saved enough. Panic mode. Aggressive catch-up needed but no roadmap.</td>
+          <td>
+            <span class="tag tag-r">Retirement readiness</span>
+            <span class="tag tag-r">Investment clarity</span>
+            <span class="tag tag-y">Debt clearance</span>
+          </td>
+          <td><div class="impact-bar"><div class="bar-track"><div class="bar-fill" style="width:80%"></div></div><div class="bar-pct">80%</div></td>
+          <td><span class="tag tag-y">High</span></td>
+        </tr>
+        <tr>
+          <td><span class="seg-name">Gen Z Singles</span><br><span style="font-size:0.75rem;color:var(--muted)">Ages 18–26</span></td>
+          <td>First jobs, gig economy earners, high FOMO spending, no financial foundation built.</td>
+          <td>
+            <span class="tag tag-y">Habit formation</span>
+            <span class="tag tag-y">BNPL/debt traps</span>
+            <span class="tag tag-g">Investment basics</span>
+          </td>
+          <td><div class="impact-bar"><div class="bar-track"><div class="bar-fill" style="width:72%"></div></div><div class="bar-pct">72%</div></td>
+          <td><span class="tag tag-y">High</span></td>
+        </tr>
+        <tr>
+          <td><span class="seg-name">Immigrant Families</span><br><span style="font-size:0.75rem;color:var(--muted)">Multi-age</span></td>
+          <td>Remittance obligations, unfamiliar financial systems, distrust of institutions, multi-currency complexity.</td>
+          <td>
+            <span class="tag tag-r">System navigation</span>
+            <span class="tag tag-r">Remittance cost</span>
+            <span class="tag tag-y">Trust & safety</span>
+          </td>
+          <td><div class="impact-bar"><div class="bar-track"><div class="bar-fill" style="width:90%"></div></div><div class="bar-pct">90%</div></td>
+          <td><span class="tag tag-r">Critical</span></td>
+        </tr>
+        <tr>
+          <td><span class="seg-name">Female Primary Earners</span><br><span style="font-size:0.75rem;color:var(--muted)">Ages 28–50</span></td>
+          <td>Managing household finances solo or as main contributor. High mental load, historically underserved by fintech.</td>
+          <td>
+            <span class="tag tag-r">Mental load</span>
+            <span class="tag tag-r">Household coord.</span>
+            <span class="tag tag-y">Investment gap</span>
+          </td>
+          <td><div class="impact-bar"><div class="bar-track"><div class="bar-fill" style="width:93%"></div></div><div class="bar-pct">93%</div></td>
+          <td><span class="tag tag-r">Critical</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- WHY IT MATTERS -->
+<section>
+  <p class="section-label">§03 — Why This Must Be Solved</p>
+  <h2 class="section-title">The stakes are higher<br>than they appear.</h2>
+  <p class="section-intro">This isn't just a money problem. Poor financial management creates cascading damage — on relationships, mental health, children's futures, and social mobility. The business opportunity is massive precisely because the need is universal and urgently unmet.</p>
+
+  <div class="why-layout">
+
+    <div class="why-card featured">
+      <div>
+        <div class="why-quote">Financial stress is the<br><em>leading cause</em> of divorce<br>and family breakdown.</div>
+        <p style="font-size:0.88rem;color:rgba(245,240,232,0.55);line-height:1.8;">When families can't see, coordinate, or control their finances, it creates a pressure cooker. Arguments about money are a symptom — the disease is invisible finances. A product that makes the invisible visible changes family dynamics permanently.</p>
+      </div>
+      <div class="why-stat-group">
+        <div class="why-stat-item">
+          <div class="num">89%</div>
+          <div class="desc">of divorcing couples cite financial disagreements as a major factor in their separation</div>
+        </div>
+        <div class="why-stat-item">
+          <div class="num">3×</div>
+          <div class="desc">more likely to suffer anxiety disorders when carrying unmanaged household debt</div>
+        </div>
+        <div class="why-stat-item">
+          <div class="num">$78T</div>
+          <div class="desc">wealth transfer happening over the next 20 years — families with no financial literacy will miss it entirely</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="why-card">
+      <div class="why-icon-title">🌍</div>
+      <div class="why-card-title">Social Mobility at Stake</div>
+      <div class="why-card-body">Families who can't manage money today raise children who can't manage money tomorrow. The generational wealth gap isn't just about how much money you make — it's about whether you know what to do with it. Solving this for parents creates ripple effects that last decades.</div>
+    </div>
+
+    <div class="why-card">
+      <div class="why-icon-title">💡</div>
+      <div class="why-card-title">A $15 Trillion Untapped Market</div>
+      <div class="why-card-body">The personal finance software market is dominated by tools built for solo, tech-savvy users. The family finance coordination layer — shared visibility, behavioral nudging, generational education — is a white space. Whoever builds it right owns a market that touches every household on earth.</div>
+    </div>
+
+    <div class="why-card">
+      <div class="why-icon-title">🧬</div>
+      <div class="why-card-title">Behavior > Information</div>
+      <div class="why-card-body">People don't lack financial information. YouTube has 50 million personal finance videos. The problem is behavioral: knowing and doing are completely different things. A product that designs for behavior change — through gentle automation, social accountability, and small wins — creates genuine transformation, not just awareness.</div>
+    </div>
+
+    <div class="why-card">
+      <div class="why-icon-title">⚡</div>
+      <div class="why-card-title">AI Makes This Possible Now</div>
+      <div class="why-card-body">For the first time, AI can act as a personal CFO for every family — interpreting spending patterns, predicting cash flow crises, personalizing investment recommendations, and having natural language conversations about money. The technology moment and the market moment are aligned.</div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- BENEFITS -->
+<section>
+  <p class="section-label">§04 — Expected Benefits</p>
+  <h2 class="section-title">What changes when this<br>problem gets solved.</h2>
+  <p class="section-intro">Benefits compound differently depending on how deeply the solution is adopted. Even partial adoption unlocks significant value — full adoption is genuinely life-changing.</p>
+
+  <div class="benefits-two-col">
+    <div>
+      <div class="benefit-col-title partial">⬡ Partial Adoption — Early Wins</div>
+      <div class="benefit-item">
+        <div class="benefit-dot partial"></div>
+        <div class="benefit-text"><strong>Spending awareness in 30 days.</strong> Families that can finally see all spending in one place typically identify 10–15% of budget waste within the first month — without changing any habits, just by seeing.</div>
+      </div>
+      <div class="benefit-item">
+        <div class="benefit-dot partial"></div>
+        <div class="benefit-text"><strong>Reduced financial arguments.</strong> When both partners share a single source of financial truth, blame and surprises disappear. Communication shifts from reactive to proactive.</div>
+      </div>
+      <div class="benefit-item">
+        <div class="benefit-dot partial"></div>
+        <div class="benefit-text"><strong>First emergency fund milestone.</strong> Guided automation helps families build a $500–$1,000 buffer — a psychologically critical threshold that reduces crisis borrowing and financial anxiety measurably.</div>
+      </div>
+      <div class="benefit-item">
+        <div class="benefit-dot partial"></div>
+        <div class="benefit-text"><strong>Subscription audit savings.</strong> Average household recovers $80–$140/month by identifying and canceling unused subscriptions through automated detection — an instant, effortless win.</div>
+      </div>
+      <div class="benefit-item">
+        <div class="benefit-dot partial"></div>
+        <div class="benefit-text"><strong>Better credit behavior.</strong> Awareness of payment patterns and debt levels naturally shifts behavior — fewer missed payments, lower utilization, improving credit scores passively.</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="benefit-col-title full">◆ Full Adoption — Transformational Outcomes</div>
+      <div class="benefit-item">
+        <div class="benefit-dot full"></div>
+        <div class="benefit-text"><strong>Net worth growth of 2–4× in 10 years.</strong> Families with consistent budgeting and investing habits accumulate wealth at a dramatically faster rate than those without — not because they earn more, but because they lose less and grow more.</div>
+      </div>
+      <div class="benefit-item">
+        <div class="benefit-dot full"></div>
+        <div class="benefit-text"><strong>Retirement readiness 12–15 years earlier.</strong> Starting investment automation even 5 years earlier, with consistent contributions, fundamentally changes the retirement picture through compounding.</div>
+      </div>
+      <div class="benefit-item">
+        <div class="benefit-dot full"></div>
+        <div class="benefit-text"><strong>Children with financial literacy by age 16.</strong> Families using the platform's educational tools raise children who enter adulthood with real, practical money skills — breaking the generational cycle.</div>
+      </div>
+      <div class="benefit-item">
+        <div class="benefit-dot full"></div>
+        <div class="benefit-text"><strong>Elimination of high-interest debt.</strong> Structured payoff plans with behavioral accountability eliminate the average family's consumer debt 3–5 years ahead of doing nothing — saving tens of thousands in interest.</div>
+      </div>
+      <div class="benefit-item">
+        <div class="benefit-dot full"></div>
+        <div class="benefit-text"><strong>Financial confidence replacing financial anxiety.</strong> The most underrated benefit — measurable reduction in financial stress leads to better mental health, stronger relationships, and higher workplace performance. Money anxiety costs the economy billions in lost productivity annually.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISION -->
+  <div class="vision-box">
+    <p class="vision-eyebrow">§05 — The North Star</p>
+    <h2 class="vision-title">The family CFO that<br>lives in your pocket.</h2>
+    <p class="vision-body">FinFlow is not a budgeting app. It's a family financial operating system — combining AI-driven intelligence, behavioral science, household coordination, and generational education into a single, beautiful, frictionless experience. The goal is not to make families think more about money. It's to make money management so effortless that financial health becomes the default outcome.</p>
+    <div class="cta-chips">
+      <div class="chip primary">Next: Product Architecture →</div>
+      <div class="chip">Feature Prioritization</div>
+      <div class="chip">GTM Strategy</div>
+      <div class="chip">Revenue Model</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  FinFlow · Family Finance OS · Confidential Business Plan · Phase 1 of 5 · 2025
+</footer>
+
+</body>
+</html>

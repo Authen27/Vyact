@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinFlow · Product Architecture & Unmimicable USP</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=Mulish:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050810;
+  --panel: #0b0f1a;
+  --border: rgba(100,180,255,0.12);
+  --border-active: rgba(100,180,255,0.35);
+  --electric: #4a9eff;
+  --amber: #f0a500;
+  --amber-dim: rgba(240,165,0,0.15);
+  --green: #3ecf8e;
+  --red-soft: #ff6b5b;
+  --text: #d4ddf0;
+  --text-dim: rgba(212,221,240,0.45);
+  --text-mid: rgba(212,221,240,0.7);
+  --white: #f0f4ff;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Mulish', sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* BLUEPRINT GRID BACKGROUND */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(74,158,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74,158,255,0.03) 1px, transparent 1px),
+    linear-gradient(rgba(74,158,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74,158,255,0.015) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── NAVIGATION ── */
+.topnav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  height: 60px;
+  background: rgba(5,8,16,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+}
+.nav-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  color: var(--electric);
+}
+.nav-logo span { color: var(--amber); }
+.nav-tabs {
+  display: flex;
+  gap: 2px;
+}
+.nav-tab {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 6px 16px;
+  color: var(--text-dim);
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+.nav-tab:hover { color: var(--text); background: rgba(74,158,255,0.05); }
+.nav-tab.active {
+  color: var(--electric);
+  border-color: var(--border-active);
+  background: rgba(74,158,255,0.08);
+}
+.nav-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  color: var(--amber);
+  text-transform: uppercase;
+}
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 80px 48px 60px;
+  position: relative;
+  z-index: 1;
+}
+.hero-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.3em;
+  color: var(--electric);
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.2s forwards;
+}
+.hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3.5rem, 8vw, 8rem);
+  letter-spacing: 0.02em;
+  line-height: 0.9;
+  color: var(--white);
+  margin-bottom: 8px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.35s forwards;
+}
+.hero-title .accent { color: var(--amber); }
+.hero-title .electric { color: var(--electric); }
+.hero-subtitle-big {
+  font-family: 'Libre Baskerville', serif;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-style: italic;
+  color: var(--text-mid);
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.5s forwards;
+}
+.hero-desc {
+  max-width: 640px;
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  font-weight: 300;
+  margin-bottom: 56px;
+  line-height: 1.8;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.65s forwards;
+}
+
+/* MOAT CALLOUT */
+.moat-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid rgba(240,165,0,0.3);
+  background: rgba(240,165,0,0.05);
+  padding: 16px 28px;
+  border-radius: 2px;
+  margin-bottom: 64px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.8s forwards;
+}
+.moat-box-icon { font-size: 1.4rem; }
+.moat-box-text { text-align: left; }
+.moat-box-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 3px;
+}
+.moat-box-body { font-size: 0.82rem; color: var(--text-mid); }
+
+/* ARCHITECTURE OVERVIEW DIAGRAM */
+.arch-diagram {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  opacity: 0;
+  animation: fadeUp 0.8s ease 1s forwards;
+}
+.arch-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.arch-layer {
+  display: grid;
+  border: 1px solid var(--border);
+  transition: border-color 0.3s;
+}
+.arch-layer:hover { border-color: var(--border-active); }
+.arch-layer.l1 { grid-template-columns: 120px 1fr; }
+.arch-layer.l2 { grid-template-columns: 120px repeat(3, 1fr); }
+.arch-layer.l3 { grid-template-columns: 120px repeat(4, 1fr); }
+.arch-layer.l4 { grid-template-columns: 120px repeat(2, 1fr); }
+.arch-layer.l5 { grid-template-columns: 120px 1fr; }
+
+.arch-label {
+  background: var(--panel);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid var(--border);
+}
+.arch-label-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+.arch-label-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.6rem;
+  color: var(--border-active);
+  line-height: 1;
+}
+.arch-cell {
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+  background: rgba(11,15,26,0.7);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  transition: background 0.2s;
+}
+.arch-cell:last-child { border-right: none; }
+.arch-cell:hover { background: rgba(74,158,255,0.06); }
+.arch-cell.highlight { background: rgba(240,165,0,0.06); }
+.arch-cell.highlight:hover { background: rgba(240,165,0,0.1); }
+.arch-cell.core { background: rgba(62,207,142,0.05); }
+.arch-cell.core:hover { background: rgba(62,207,142,0.09); }
+.cell-icon { font-size: 1rem; flex-shrink: 0; }
+.cell-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--white);
+  display: block;
+}
+.cell-sub {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+.conn-line {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.conn-line::before {
+  content: '';
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, var(--border-active), transparent);
+  display: block;
+  margin: 0 auto;
+}
+
+/* ── SECTION WRAPPER ── */
+.section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 100px 48px;
+  position: relative;
+  z-index: 1;
+}
+.section-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(74,158,255,0.2), transparent);
+}
+.sec-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--electric);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sec-eyebrow::before {
+  content: '';
+  width: 30px;
+  height: 1px;
+  background: var(--electric);
+}
+.sec-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  color: var(--white);
+  margin-bottom: 16px;
+}
+.sec-title .a { color: var(--amber); }
+.sec-title .e { color: var(--electric); }
+.sec-intro {
+  max-width: 680px;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  font-weight: 300;
+  margin-bottom: 64px;
+  line-height: 1.9;
+}
+
+/* ── PILLAR CARDS ── */
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+.pillars.two { grid-template-columns: repeat(2, 1fr); }
+.pillar {
+  background: var(--bg);
+  padding: 36px;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition: background 0.3s;
+}
+.pillar::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--electric);
+  transform: scaleX(0);
+  transition: transform 0.3s;
+  transform-origin: left;
+}
+.pillar:hover { background: rgba(74,158,255,0.04); }
+.pillar:hover::after { transform: scaleX(1); }
+.pillar.amber-accent::after { background: var(--amber); }
+.pillar.green-accent::after { background: var(--green); }
+.pillar.amber-accent:hover { background: rgba(240,165,0,0.04); }
+.pillar.green-accent:hover { background: rgba(62,207,142,0.04); }
+.pillar.full { grid-column: 1 / -1; }
+.pillar.span2 { grid-column: span 2; }
+
+.pillar-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 5rem;
+  color: rgba(74,158,255,0.06);
+  position: absolute;
+  top: 10px; right: 20px;
+  line-height: 1;
+}
+.pillar.amber-accent .pillar-num { color: rgba(240,165,0,0.07); }
+.pillar.green-accent .pillar-num { color: rgba(62,207,142,0.07); }
+
+.pillar-icon { font-size: 2rem; margin-bottom: 16px; display: block; }
+.pillar-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 1px;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+.pt-electric { background: rgba(74,158,255,0.12); color: var(--electric); border: 1px solid rgba(74,158,255,0.25); }
+.pt-amber { background: rgba(240,165,0,0.1); color: var(--amber); border: 1px solid rgba(240,165,0,0.25); }
+.pt-green { background: rgba(62,207,142,0.1); color: var(--green); border: 1px solid rgba(62,207,142,0.25); }
+.pt-red { background: rgba(255,107,91,0.1); color: var(--red-soft); border: 1px solid rgba(255,107,91,0.25); }
+
+.pillar-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.pillar-body {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
+.pillar-details {
+  list-style: none;
+}
+.pillar-details li {
+  font-size: 0.8rem;
+  color: var(--text-mid);
+  padding: 5px 0;
+  border-top: 1px solid rgba(74,158,255,0.06);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.6;
+}
+.pillar-details li::before {
+  content: '→';
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--electric);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.pillar.amber-accent .pillar-details li::before { color: var(--amber); }
+.pillar.green-accent .pillar-details li::before { color: var(--green); }
+
+/* USP MOAT SECTION */
+.moat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 48px;
+}
+.moat-card {
+  border: 1px solid var(--border);
+  padding: 28px;
+  background: var(--panel);
+  position: relative;
+}
+.moat-card::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 20px; right: 20px;
+  height: 2px;
+  background: var(--amber);
+}
+.moat-years {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem;
+  color: rgba(240,165,0,0.2);
+  line-height: 1;
+  position: absolute;
+  top: 16px; right: 20px;
+}
+.moat-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 8px;
+}
+.moat-body { font-size: 0.78rem; color: var(--text-dim); line-height: 1.7; margin-bottom: 14px; }
+.moat-time {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  text-transform: uppercase;
+}
+
+/* FLYWHEEL */
+.flywheel-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+  gap: 0;
+}
+.flywheel-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem;
+  letter-spacing: 0.05em;
+  color: var(--white);
+  text-align: center;
+  margin-bottom: 6px;
+}
+.flywheel-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--electric);
+  text-align: center;
+  margin-bottom: 48px;
+}
+.flywheel {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  max-width: 900px;
+  width: 100%;
+}
+.fw-step {
+  padding: 28px 20px;
+  border-right: 1px solid var(--border);
+  text-align: center;
+  position: relative;
+  background: var(--panel);
+}
+.fw-step:last-child { border-right: none; }
+.fw-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  color: var(--electric);
+  opacity: 0.3;
+  display: block;
+  margin-bottom: 8px;
+}
+.fw-icon { font-size: 1.5rem; margin-bottom: 10px; display: block; }
+.fw-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 6px;
+}
+.fw-desc { font-size: 0.7rem; color: var(--text-dim); line-height: 1.6; }
+.fw-arrow {
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  background: var(--electric);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  z-index: 2;
+}
+.fw-step:last-child .fw-arrow { display: none; }
+
+/* REVENUE MODEL */
+.rev-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.rev-tier {
+  background: var(--bg);
+  padding: 32px 24px;
+  position: relative;
+}
+.rev-tier.featured { background: rgba(74,158,255,0.04); }
+.rev-tier.featured::before {
+  content: 'RECOMMENDED';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--electric);
+  background: var(--bg);
+  padding: 3px 10px;
+  border: 1px solid var(--border-active);
+  border-top: none;
+}
+.rev-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.05em;
+  color: var(--white);
+  margin-bottom: 4px;
+}
+.rev-price {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.6rem;
+  color: var(--electric);
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+.rev-price span { font-size: 0.8rem; color: var(--text-dim); }
+.rev-features { list-style: none; }
+.rev-features li {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  padding: 5px 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.rev-features li span.on { color: var(--green); }
+.rev-features li span.off { color: rgba(212,221,240,0.2); }
+
+/* PHASE ROADMAP */
+.roadmap {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.phase {
+  background: var(--bg);
+  padding: 32px 24px;
+}
+.phase-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 4rem;
+  color: rgba(74,158,255,0.08);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.phase-period {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 6px;
+}
+.phase-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 14px;
+}
+.phase-items { list-style: none; }
+.phase-items li {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  line-height: 1.6;
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .topnav { padding: 0 20px; }
+  .nav-tabs { display: none; }
+  .pillars { grid-template-columns: 1fr; }
+  .pillars.two { grid-template-columns: 1fr; }
+  .moat-grid { grid-template-columns: 1fr; }
+  .flywheel { grid-template-columns: 1fr 1fr; }
+  .rev-grid { grid-template-columns: 1fr 1fr; }
+  .roadmap { grid-template-columns: 1fr 1fr; }
+  .arch-layer { grid-template-columns: 1fr !important; }
+  .arch-label { border-right: none; border-bottom: 1px solid var(--border); }
+  .section { padding: 70px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="topnav">
+  <div class="nav-logo">Fin<span>Flow</span></div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="scrollTo(0,0)">Architecture</div>
+    <div class="nav-tab" onclick="document.getElementById('phygital').scrollIntoView({behavior:'smooth'})">Phygital Layer</div>
+    <div class="nav-tab" onclick="document.getElementById('usp').scrollIntoView({behavior:'smooth'})">USP Moat</div>
+    <div class="nav-tab" onclick="document.getElementById('flywheel').scrollIntoView({behavior:'smooth'})">Flywheel</div>
+    <div class="nav-tab" onclick="document.getElementById('revenue').scrollIntoView({behavior:'smooth'})">Revenue</div>
+    <div class="nav-tab" onclick="document.getElementById('roadmap').scrollIntoView({behavior:'smooth'})">Roadmap</div>
+  </div>
+  <div class="nav-badge">Phase 2 · Product Architecture</div>
+</nav>
+
+<!-- HERO -->
+<div class="hero" style="padding-top:120px;">
+  <p class="hero-tag">FinFlow · Product Architecture v2.0</p>
+  <h1 class="hero-title">
+    BEYOND THE<br>
+    <span class="accent">APP.</span>
+  </h1>
+  <p class="hero-subtitle-big">A phygital family finance OS built on unmimicable moats.</p>
+  <p class="hero-desc">Most fintechs build software. We build a system — one where AI, physical objects, certified humans, and community rituals combine into something no competitor can replicate even if they understand the blueprint.</p>
+
+  <div class="moat-box">
+    <div class="moat-box-icon">🏰</div>
+    <div class="moat-box-text">
+      <div class="moat-box-title">The Core Thesis</div>
+      <div class="moat-box-body">Digital alone can be copied in 90 days. Behavior, community, trust, and physical ritual take <strong>5–10 years</strong> to replicate.</div>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE DIAGRAM -->
+  <div class="arch-diagram">
+    <div class="arch-layers">
+
+      <div class="arch-layer l5">
+        <div class="arch-label">
+          <div class="arch-label-name">Layer 5</div>
+          <div class="arch-label-num">USR</div>
+        </div>
+        <div class="arch-cell highlight" style="justify-content:center;">
+          <div class="cell-icon">👨‍👩‍👧‍👦</div>
+          <div><span class="cell-name">The Family Unit</span><span class="cell-sub">Every household member has a role — primary, partner, child, elder</span></div>
+        </div>
+      </div>
+
+      <div class="conn-line"></div>
+
+      <div class="arch-layer l4">
+        <div class="arch-label">
+          <div class="arch-label-name">Layer 4</div>
+          <div class="arch-label-num">PHY</div>
+        </div>
+        <div class="arch-cell highlight">
+          <div class="cell-icon">🏠</div>
+          <div><span class="cell-name">Physical Home Hub</span><span class="cell-sub">Ambient device · always-on financial temperature</span></div>
+        </div>
+        <div class="arch-cell highlight">
+          <div class="cell-icon">✉️</div>
+          <div><span class="cell-name">Monthly Ritual Mail</span><span class="cell-sub">Tangible summary · family review letter</span></div>
+        </div>
+      </div>
+
+      <div class="conn-line"></div>
+
+      <div class="arch-layer l3">
+        <div class="arch-label">
+          <div class="arch-label-name">Layer 3</div>
+          <div class="arch-label-num">HUM</div>
+        </div>
+        <div class="arch-cell">
+          <div class="cell-icon">🎓</div>
+          <div><span class="cell-name">Certified Coaches</span><span class="cell-sub">Family Finance Coaches (FFC™)</span></div>
+        </div>
+        <div class="arch-cell">
+          <div class="cell-icon">🤝</div>
+          <div><span class="cell-name">Accountability Circles</span><span class="cell-sub">Peer groups · local or virtual</span></div>
+        </div>
+        <div class="arch-cell">
+          <div class="cell-icon">🏫</div>
+          <div><span class="cell-name">School Programs</span><span class="cell-sub">Children's curriculum integration</span></div>
+        </div>
+        <div class="arch-cell">
+          <div class="cell-icon">🏢</div>
+          <div><span class="cell-name">Employer Partnerships</span><span class="cell-sub">Workplace wellness · payroll integration</span></div>
+        </div>
+      </div>
+
+      <div class="conn-line"></div>
+
+      <div class="arch-layer l2">
+        <div class="arch-label">
+          <div class="arch-label-name">Layer 2</div>
+          <div class="arch-label-num">INT</div>
+        </div>
+        <div class="arch-cell core">
+          <div class="cell-icon">🧬</div>
+          <div><span class="cell-name">Family Pulse Score™</span><span class="cell-sub">Proprietary composite wellness metric</span></div>
+        </div>
+        <div class="arch-cell core">
+          <div class="cell-icon">🤖</div>
+          <div><span class="cell-name">AI CFO Engine</span><span class="cell-sub">Predictive · behavioral · personalized</span></div>
+        </div>
+        <div class="arch-cell core">
+          <div class="cell-icon">🔗</div>
+          <div><span class="cell-name">Bank / Gov Integrations</span><span class="cell-sub">Open banking · UPI · payroll APIs</span></div>
+        </div>
+      </div>
+
+      <div class="conn-line"></div>
+
+      <div class="arch-layer l1">
+        <div class="arch-label">
+          <div class="arch-label-name">Layer 1</div>
+          <div class="arch-label-num">APP</div>
+        </div>
+        <div class="arch-cell" style="justify-content:flex-start;flex-wrap:wrap;gap:20px;padding:16px 20px;">
+          <div style="display:flex;align-items:center;gap:8px;"><span>📱</span><div><span class="cell-name">Mobile App</span><span class="cell-sub">iOS · Android</span></div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span>💻</span><div><span class="cell-name">Web Dashboard</span><span class="cell-sub">Family overview</span></div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span>⌚</span><div><span class="cell-name">Wearable Nudges</span><span class="cell-sub">Watch alerts</span></div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span>💳</span><div><span class="cell-name">Smart Family Card</span><span class="cell-sub">Physical + digital</span></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- PHYGITAL LAYER -->
+<section class="section" id="phygital">
+  <p class="sec-eyebrow">§01 — The Phygital Layer</p>
+  <h2 class="sec-title">WHAT LIVES<br><span class="a">OUTSIDE</span> THE SCREEN</h2>
+  <p class="sec-intro">Physical touchpoints create emotional attachment, habitual ritual, and household-wide engagement that no purely digital product can achieve. These aren't accessories — they are core delivery channels.</p>
+
+  <div class="pillars" style="margin-bottom:2px;">
+
+    <div class="pillar amber-accent">
+      <div class="pillar-num">01</div>
+      <div class="pillar-icon">📡</div>
+      <div class="pillar-tag pt-amber">Physical Device</div>
+      <div class="pillar-title">The FinFlow Home Hub™</div>
+      <div class="pillar-body">A sleek, palm-sized ambient display device — like a Nest thermostat, but for your family's financial health. It sits in the kitchen or living room. No phone needed to understand your financial status.</div>
+      <ul class="pillar-details">
+        <li>E-ink or low-power screen showing <strong>Family Pulse Score</strong> in real time</li>
+        <li>Color temperature shifts: green (on track) → amber (drifting) → red (action needed)</li>
+        <li>One-tap "Family Finance Check-In" button to trigger a shared weekly review</li>
+        <li>Subtle ambient sound design — a soft chime when a goal is hit</li>
+        <li>No login, no phone, no friction — financial health is always visible to everyone</li>
+      </ul>
+    </div>
+
+    <div class="pillar amber-accent">
+      <div class="pillar-num">02</div>
+      <div class="pillar-icon">✉️</div>
+      <div class="pillar-tag pt-amber">Physical Mail</div>
+      <div class="pillar-title">The Monthly Ritual Letter</div>
+      <div class="pillar-body">A beautifully designed, personalized physical letter mailed to every household every month. In a world of notifications and dashboards, receiving something real — addressed to your family — is radical and memorable.</div>
+      <ul class="pillar-details">
+        <li>Custom-printed with your family's actual data, goals, and progress this month</li>
+        <li>One page: wins, one thing to improve, and one action this week</li>
+        <li>Designed to be left on the fridge — a visible monthly commitment artifact</li>
+        <li>Children's version included: illustrated, age-appropriate financial lesson</li>
+        <li>Premium: gold-seal envelope, letterpress feel — aspiration-grade aesthetics</li>
+      </ul>
+    </div>
+
+    <div class="pillar amber-accent">
+      <div class="pillar-num">03</div>
+      <div class="pillar-icon">💳</div>
+      <div class="pillar-tag pt-amber">Physical Card</div>
+      <div class="pillar-title">The FinFlow Family Card™</div>
+      <div class="pillar-body">A single smart card tied to the household account — not a bank card, but a spending coordination layer. When you tap it, it shows real-time budget status on the point-of-sale terminal or your watch.</div>
+      <ul class="pillar-details">
+        <li>Spend alerts sent simultaneously to both partners within 3 seconds of any transaction</li>
+        <li>Built-in "impulse pause" — purchases over a threshold trigger a 2-hour family review window</li>
+        <li>Category-locked versions for kids: only works at approved merchants</li>
+        <li>Monthly card spend visualized in the Ritual Letter and app in identical format</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="pillars two" style="margin-bottom:2px;">
+
+    <div class="pillar amber-accent">
+      <div class="pillar-num">04</div>
+      <div class="pillar-icon">📓</div>
+      <div class="pillar-tag pt-amber">Physical Product</div>
+      <div class="pillar-title">The Family Finance Journal</div>
+      <div class="pillar-body">A guided, beautifully designed annual journal — half financial planner, half family gratitude book. Shipped to subscribers at the start of each year. Includes 12 monthly templates for family financial conversations, goal pages, and "money memory" entries for children.</div>
+      <ul class="pillar-details">
+        <li>12 monthly family money meeting templates with structured conversation prompts</li>
+        <li>Goal tracker pages: short-term, annual, and 5-year family vision board section</li>
+        <li>Children's "money diary" — weekly spending and savings log for ages 8–16</li>
+        <li>QR codes on each page link to relevant AI-guided exercises in the app</li>
+        <li>Becomes a keepsake — families report keeping these for decades</li>
+      </ul>
+    </div>
+
+    <div class="pillar amber-accent">
+      <div class="pillar-num">05</div>
+      <div class="pillar-icon">🎁</div>
+      <div class="pillar-tag pt-amber">Physical Reward</div>
+      <div class="pillar-title">The Achievement Box</div>
+      <div class="pillar-body">When a family hits a major milestone — emergency fund complete, first investment made, debt-free — FinFlow mails a surprise "Achievement Box." A physical, branded celebration of a real financial win. This is behavioral science in a box.</div>
+      <ul class="pillar-details">
+        <li>Milestone-specific contents: e.g., a small gold coin for "First Investment," a fireproof document wallet for "Estate Plan Complete"</li>
+        <li>Handwritten note from the family's coach</li>
+        <li>Shareable on social — creates organic earned media and peer motivation</li>
+        <li>Children receive special items: a savings jar, a "junior investor" certificate</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- HUMAN LAYER -->
+<section class="section">
+  <p class="sec-eyebrow">§02 — The Human Layer</p>
+  <h2 class="sec-title">AI AMPLIFIED BY<br><span class="e">REAL HUMANS</span></h2>
+  <p class="sec-intro">AI can analyze and recommend. But trust, accountability, and behavior change happen in relationships. The human layer is the product's most defensible moat — because building a certified coach network takes years, not months.</p>
+
+  <div class="pillars">
+
+    <div class="pillar">
+      <div class="pillar-num">01</div>
+      <div class="pillar-icon">🎓</div>
+      <div class="pillar-tag pt-electric">Certification Program</div>
+      <div class="pillar-title">Certified Family Finance Coach (FFC™)</div>
+      <div class="pillar-body">FinFlow creates and owns a proprietary certification program for family financial coaches — blending financial planning, behavioral psychology, and relationship dynamics into one credential the market doesn't yet have.</div>
+      <ul class="pillar-details">
+        <li>6-month training in FinFlow methodology, behavioral finance, and family systems theory</li>
+        <li>Coaches are available via the app for video sessions — tiered access by subscription</li>
+        <li>Each coach is assigned a "family roster" of 40–80 households they track longitudinally</li>
+        <li>Coaches feed qualitative insights back into the AI engine — a human-in-the-loop model</li>
+        <li>The FFC™ credential becomes independently valuable — coaches pay for training</li>
+      </ul>
+    </div>
+
+    <div class="pillar">
+      <div class="pillar-num">02</div>
+      <div class="pillar-icon">🤝</div>
+      <div class="pillar-tag pt-electric">Community Layer</div>
+      <div class="pillar-title">Neighborhood Accountability Circles</div>
+      <div class="pillar-body">Groups of 6–8 families who meet monthly — in-person or virtual — to share financial progress, hold each other accountable, and celebrate wins. Facilitated by a certified coach. This is the "Weight Watchers" model applied to family finance.</div>
+      <ul class="pillar-details">
+        <li>Matched by life stage, not geography alone: new parents circle, school-age families circle</li>
+        <li>Anonymous financial data sharing creates benchmarks: "your family vs. your circle"</li>
+        <li>Circles create switching costs so powerful that leaving FinFlow means leaving your community</li>
+        <li>Circle leaders (volunteer ambassadors) earn credits for coaching hours and premium features</li>
+        <li>In-person circles hosted at libraries, community centres, schools — zero rent distribution</li>
+      </ul>
+    </div>
+
+    <div class="pillar">
+      <div class="pillar-num">03</div>
+      <div class="pillar-icon">🏫</div>
+      <div class="pillar-tag pt-green">Institutional</div>
+      <div class="pillar-title">School Integration Program</div>
+      <div class="pillar-body">FinFlow partners directly with schools to embed financial literacy into curriculum from age 8. Children learn with FinFlow's tools in class, then bring the work home — creating a parental pull-through that no consumer marketing can match.</div>
+      <ul class="pillar-details">
+        <li>Age-graded curriculum: 8–10 (money basics), 11–13 (budgeting), 14–16 (investing & credit)</li>
+        <li>Teachers receive dashboard to track class financial literacy progress</li>
+        <li>Family "homework" assignments link to the parent's FinFlow app — bridging school and home</li>
+        <li>Annual "Family Finance Fair" events at schools — community building + acquisition engine</li>
+        <li>Student accounts graduate to full family accounts at 18 — a zero-cost customer acquisition</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="pillars" style="margin-top:2px;">
+
+    <div class="pillar">
+      <div class="pillar-num">04</div>
+      <div class="pillar-icon">🏢</div>
+      <div class="pillar-tag pt-electric">B2B2C Channel</div>
+      <div class="pillar-title">Employer Financial Wellness</div>
+      <div class="pillar-body">Employers offer FinFlow as a workplace benefit — like health insurance but for financial health. The company pays the subscription; employees get full access. This is the lowest-cost, highest-trust acquisition channel available.</div>
+      <ul class="pillar-details">
+        <li>HR dashboard: aggregate (anonymized) team financial wellness score for benefits benchmarking</li>
+        <li>Payroll integration: automatic savings allocation and budget sync on every payday</li>
+        <li>Emergency loan alternative program — financial safety net as a company benefit</li>
+        <li>Proven ROI: employers see lower absenteeism and higher productivity from financially secure staff</li>
+      </ul>
+    </div>
+
+    <div class="pillar">
+      <div class="pillar-num">05</div>
+      <div class="pillar-icon">🏦</div>
+      <div class="pillar-tag pt-green">Partnership</div>
+      <div class="pillar-title">Bank & Insurance White-Label</div>
+      <div class="pillar-body">FinFlow licenses its Family Pulse Score™ and behavioral engine to banks and insurers — who use it to power better products for their existing customers. This creates a B2B revenue stream without competing with partners.</div>
+      <ul class="pillar-details">
+        <li>Banks use Family Pulse Score for mortgage pre-qualification — a "whole household" view</li>
+        <li>Insurers use spending data for dynamic, behavior-adjusted premium pricing</li>
+        <li>FinFlow data becomes the standard for family financial health — like a credit bureau but behavioral</li>
+        <li>Revenue share model: FinFlow earns per score query, per product opened via integration</li>
+      </ul>
+    </div>
+
+    <div class="pillar">
+      <div class="pillar-num">06</div>
+      <div class="pillar-icon">🌍</div>
+      <div class="pillar-tag pt-amber">Community</div>
+      <div class="pillar-title">Government & NGO Partnerships</div>
+      <div class="pillar-body">Governments and NGOs desperately need financial literacy solutions at scale. FinFlow partners for subsidized access in underserved communities — gaining mission alignment, media coverage, and a distribution engine in markets competitors ignore.</div>
+      <ul class="pillar-details">
+        <li>Subsidized "FinFlow Basic" tier funded by government financial inclusion programs</li>
+        <li>NGO-deployed family circles in refugee, immigrant, and low-income communities</li>
+        <li>Government endorsement creates institutional trust that no marketing budget can buy</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- THE UNMIMICABLE USP -->
+<section class="section" id="usp">
+  <p class="sec-eyebrow">§03 — The Unmimicable Moat</p>
+  <h2 class="sec-title">WHY THIS CANNOT<br><span class="a">BE COPIED.</span></h2>
+  <p class="sec-intro">The honest answer: each individual feature can be copied. The moat is the combination — and the sequence in which these components compound. By the time a competitor understands what to build, FinFlow will have 5 years of behavioral data, a certified coach network, and community circles embedded in thousands of schools.</p>
+
+  <div class="moat-grid">
+    <div class="moat-card">
+      <div class="moat-years">5+</div>
+      <div class="pillar-tag pt-amber" style="margin-bottom:10px;">Proprietary Data</div>
+      <div class="moat-title">The Family Pulse Score™</div>
+      <div class="moat-body">A composite household financial wellness score — not just a credit score, but a behavioral, relational, and aspirational metric unique to FinFlow. It requires years of data across thousands of family types to be meaningful and trustworthy. You cannot build this in a lab.</div>
+      <div class="moat-time">⏱ 5–7 years to replicate meaningfully</div>
+    </div>
+    <div class="moat-card">
+      <div class="moat-years">3+</div>
+      <div class="pillar-tag pt-electric" style="margin-bottom:10px;">Human Capital</div>
+      <div class="moat-title">The FFC™ Coach Certification</div>
+      <div class="moat-body">A proprietary certification program means FinFlow owns the credential, the curriculum, and the talent pipeline. Competitors would need to build their own certification body from scratch — and then wait years for it to gain recognition. The coaches themselves become brand ambassadors.</div>
+      <div class="moat-time">⏱ 3–4 years to build credibly</div>
+    </div>
+    <div class="moat-card">
+      <div class="moat-years">4+</div>
+      <div class="pillar-tag pt-green" style="margin-bottom:10px;">Social Capital</div>
+      <div class="moat-title">Community Accountability Circles</div>
+      <div class="moat-body">Once a family is embedded in a circle of 7 other households — sharing goals, celebrating wins, building relationships — leaving FinFlow means losing your community. Social switching costs are the deepest moats in consumer products. These take years to seed, grow, and root.</div>
+      <div class="moat-time">⏱ 4–5 years of critical mass to replicate</div>
+    </div>
+    <div class="moat-card">
+      <div class="moat-years">3+</div>
+      <div class="pillar-tag pt-amber" style="margin-bottom:10px;">Institutional</div>
+      <div class="moat-title">School & Employer Integrations</div>
+      <div class="moat-body">School curriculum approvals, teacher training programs, and employer benefit agreements are slow, relationship-driven, and not scalable by brute force. Each partnership takes 12–18 months to close and activate. First-mover advantage in institutional distribution is enormous and durable.</div>
+      <div class="moat-time">⏱ 3–6 years of relationship-building</div>
+    </div>
+    <div class="moat-card">
+      <div class="moat-years">2+</div>
+      <div class="pillar-tag pt-electric" style="margin-bottom:10px;">Behavioral</div>
+      <div class="moat-title">Physical Ritual Layer</div>
+      <div class="moat-body">The Home Hub, Ritual Letter, and Achievement Box create emotional anchors that software cannot replicate. A family that has received 24 monthly letters, displayed a hub in their kitchen for 2 years, and opened three Achievement Boxes together has an emotional attachment no app can replicate or displace.</div>
+      <div class="moat-time">⏱ 2–3 years of habit formation</div>
+    </div>
+    <div class="moat-card">
+      <div class="moat-years">10+</div>
+      <div class="pillar-tag pt-amber" style="margin-bottom:10px;">Generational</div>
+      <div class="moat-title">The Generational Lock-In</div>
+      <div class="moat-body">A child who learns financial literacy through FinFlow at age 10, grows up with a FinFlow Junior account, then transitions to a full household account at 22 — is a customer for 60+ years. No other product in fintech has designed for this span. The generational data network becomes the ultimate moat: FinFlow knows what financial habits skip generations and which compound positively.</div>
+      <div class="moat-time">⏱ Fundamentally impossible to replicate</div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- FLYWHEEL -->
+<section class="section" id="flywheel">
+  <p class="sec-eyebrow">§04 — The Growth Engine</p>
+  <h2 class="sec-title">THE SELF-REINFORCING<br><span class="e">FLYWHEEL</span></h2>
+  <p class="sec-intro">Each component of FinFlow feeds the next. More families means more data. More data means a better Pulse Score. A better score attracts more banks. More bank partnerships means more families. The flywheel, once spinning, accelerates without additional energy input.</p>
+
+  <div class="flywheel-container">
+    <div class="flywheel">
+      <div class="fw-step">
+        <div class="fw-arrow"></div>
+        <span class="fw-num">01</span>
+        <span class="fw-icon">🏫</span>
+        <div class="fw-name">Families Join via Schools & Employers</div>
+        <div class="fw-desc">Low-cost, high-trust distribution channels seed the network</div>
+      </div>
+      <div class="fw-step">
+        <div class="fw-arrow"></div>
+        <span class="fw-num">02</span>
+        <span class="fw-icon">📊</span>
+        <div class="fw-name">Behavioral Data Accumulates</div>
+        <div class="fw-desc">Every action — spend, save, invest — refines the AI engine and Pulse Score</div>
+      </div>
+      <div class="fw-step">
+        <div class="fw-arrow"></div>
+        <span class="fw-num">03</span>
+        <span class="fw-icon">🧬</span>
+        <div class="fw-name">Pulse Score Gets Smarter</div>
+        <div class="fw-desc">Proprietary benchmark data makes FinFlow's scoring the industry standard</div>
+      </div>
+      <div class="fw-step">
+        <div class="fw-arrow"></div>
+        <span class="fw-num">04</span>
+        <span class="fw-icon">🏦</span>
+        <div class="fw-name">Banks & Insurers License the Score</div>
+        <div class="fw-desc">B2B revenue stream funds growth while extending distribution</div>
+      </div>
+      <div class="fw-step">
+        <span class="fw-num">05</span>
+        <span class="fw-icon">🔄</span>
+        <div class="fw-name">More Reach → More Families</div>
+        <div class="fw-desc">Bank distribution acquires customers at zero marginal cost. Loop repeats.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- REVENUE MODEL -->
+<section class="section" id="revenue">
+  <p class="sec-eyebrow">§05 — Revenue Architecture</p>
+  <h2 class="sec-title">FOUR STREAMS.<br><span class="a">ONE ECOSYSTEM.</span></h2>
+  <p class="sec-intro">FinFlow is not a single-product subscription business. It is an ecosystem with four distinct, compounding revenue streams that serve different customer types at different price points.</p>
+
+  <div class="rev-grid" style="margin-bottom:32px;">
+    <div class="rev-tier">
+      <div class="rev-name">Seed</div>
+      <div class="rev-price">Free <span>/ household</span></div>
+      <ul class="rev-features">
+        <li><span class="on">✓</span> Basic spending tracker</li>
+        <li><span class="on">✓</span> 1 bank connection</li>
+        <li><span class="on">✓</span> Family Pulse Score (basic)</li>
+        <li><span class="on">✓</span> 1 accountability circle view</li>
+        <li><span class="off">–</span> No physical layer</li>
+        <li><span class="off">–</span> No coach access</li>
+        <li><span class="off">–</span> No AI recommendations</li>
+      </ul>
+    </div>
+    <div class="rev-tier featured">
+      <div class="rev-name">Family</div>
+      <div class="rev-price">$18 <span>/ month</span></div>
+      <ul class="rev-features">
+        <li><span class="on">✓</span> Full spending intelligence</li>
+        <li><span class="on">✓</span> Unlimited bank connections</li>
+        <li><span class="on">✓</span> Full Pulse Score + history</li>
+        <li><span class="on">✓</span> Accountability circle membership</li>
+        <li><span class="on">✓</span> Monthly Ritual Letter</li>
+        <li><span class="on">✓</span> AI CFO recommendations</li>
+        <li><span class="on">✓</span> Family Finance Journal (annual)</li>
+      </ul>
+    </div>
+    <div class="rev-tier">
+      <div class="rev-name">Premium</div>
+      <div class="rev-price">$42 <span>/ month</span></div>
+      <ul class="rev-features">
+        <li><span class="on">✓</span> Everything in Family</li>
+        <li><span class="on">✓</span> Home Hub device (included)</li>
+        <li><span class="on">✓</span> 2 coach sessions / month</li>
+        <li><span class="on">✓</span> Investment automation</li>
+        <li><span class="on">✓</span> Estate planning tools</li>
+        <li><span class="on">✓</span> Legacy Vault™</li>
+        <li><span class="on">✓</span> Priority Achievement Boxes</li>
+      </ul>
+    </div>
+    <div class="rev-tier">
+      <div class="rev-name">Enterprise</div>
+      <div class="rev-price">Custom <span>/ company</span></div>
+      <ul class="rev-features">
+        <li><span class="on">✓</span> All Premium per employee</li>
+        <li><span class="on">✓</span> HR wellness dashboard</li>
+        <li><span class="on">✓</span> Payroll integration</li>
+        <li><span class="on">✓</span> Dedicated coach cohort</li>
+        <li><span class="on">✓</span> School partnership linking</li>
+        <li><span class="on">✓</span> Annual financial wellness audit</li>
+        <li><span class="on">✓</span> API access for HR systems</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pillars two">
+    <div class="pillar green-accent">
+      <div class="pillar-icon">🏦</div>
+      <div class="pillar-tag pt-green">Revenue Stream 3</div>
+      <div class="pillar-title">Family Pulse Score™ Licensing</div>
+      <div class="pillar-body">Banks, insurance companies, and mortgage lenders pay per-query to access FinFlow's household behavioral scores for underwriting, product personalization, and risk modeling. As this score becomes the industry standard, licensing becomes the highest-margin revenue line — potentially larger than all subscriptions combined.</div>
+    </div>
+    <div class="pillar green-accent">
+      <div class="pillar-icon">🎓</div>
+      <div class="pillar-tag pt-green">Revenue Stream 4</div>
+      <div class="pillar-title">FFC™ Coach Certification Program</div>
+      <div class="pillar-body">Financial advisors, therapists, and social workers pay to complete the FinFlow Family Finance Coach certification. The 6-month program generates direct training revenue while building the supply side of our coach network. As the FFC™ becomes a recognized credential, demand and pricing power compound over time.</div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ROADMAP -->
+<section class="section" id="roadmap">
+  <p class="sec-eyebrow">§06 — Build Sequence</p>
+  <h2 class="sec-title">THE SEQUENCE<br><span class="e">MATTERS.</span></h2>
+  <p class="sec-intro">The temptation is to build everything at once. The discipline is to build in the right order — digital layer first to validate, then human layer to deepen, then physical layer to embed, then institutional layer to scale.</p>
+
+  <div class="roadmap">
+    <div class="phase">
+      <div class="phase-num">01</div>
+      <div class="phase-period">Months 1–6</div>
+      <div class="phase-title">The Core Digital Product</div>
+      <ul class="phase-items">
+        <li>Mobile app + web dashboard</li>
+        <li>Bank aggregation (open banking / UPI)</li>
+        <li>Household shared view (2+ members)</li>
+        <li>Basic Pulse Score v1</li>
+        <li>AI spending categorization</li>
+        <li>Goal-setting framework</li>
+        <li>Beta: 500 families, 3 cities</li>
+      </ul>
+    </div>
+    <div class="phase">
+      <div class="phase-num">02</div>
+      <div class="phase-period">Months 6–18</div>
+      <div class="phase-title">Human & Community Layer</div>
+      <ul class="phase-items">
+        <li>FFC™ certification program launch</li>
+        <li>First 50 certified coaches trained</li>
+        <li>Accountability circles pilot (20 groups)</li>
+        <li>Monthly Ritual Letter launch</li>
+        <li>Family Finance Journal (Year 1)</li>
+        <li>First 3 employer partnerships</li>
+        <li>First school curriculum pilot</li>
+      </ul>
+    </div>
+    <div class="phase">
+      <div class="phase-num">03</div>
+      <div class="phase-period">Months 18–36</div>
+      <div class="phase-title">Physical & Institutional Layer</div>
+      <ul class="phase-items">
+        <li>Home Hub device (MVP hardware)</li>
+        <li>FinFlow Family Card launch</li>
+        <li>Achievement Box program live</li>
+        <li>25 school partnerships</li>
+        <li>50 employer partnerships</li>
+        <li>First bank Pulse Score licensing deal</li>
+        <li>Legacy Vault™ feature</li>
+      </ul>
+    </div>
+    <div class="phase">
+      <div class="phase-num">04</div>
+      <div class="phase-period">Months 36–60</div>
+      <div class="phase-title">Ecosystem & Scale</div>
+      <ul class="phase-items">
+        <li>Pulse Score becomes industry standard</li>
+        <li>500+ certified FFC™ coaches</li>
+        <li>1,000+ accountability circles globally</li>
+        <li>Government partnerships (3+ countries)</li>
+        <li>B2B licensing to 10+ banks/insurers</li>
+        <li>FinFlow for Kids standalone product</li>
+        <li>$100M ARR target</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- CLOSING STATEMENT -->
+  <div style="margin-top:64px;border:1px solid rgba(240,165,0,0.25);background:rgba(240,165,0,0.04);padding:48px;text-align:center;">
+    <p style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--amber);margin-bottom:16px;">The Bottom Line</p>
+    <h3 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(1.8rem,4vw,3rem);letter-spacing:0.02em;color:var(--white);margin-bottom:20px;">Any one part of FinFlow can be built.<br>All of it, together, cannot be bought.</h3>
+    <p style="color:var(--text-dim);max-width:620px;margin:0 auto 32px;font-size:0.9rem;font-weight:300;line-height:1.9;">The Family Pulse Score requires 5 years of behavioral data. The coach network requires 3 years of certification. The circles require 4 years of community building. The school and employer relationships require 3 years of trust. <strong style="color:var(--text);">A competitor starting today would arrive 10 years too late.</strong></p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;padding:10px 22px;border:1px solid var(--amber);color:var(--amber);background:rgba(240,165,0,0.07);">Next: GTM Strategy →</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;padding:10px 22px;border:1px solid var(--border-active);color:var(--electric);background:rgba(74,158,255,0.07);">MVP Definition</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;padding:10px 22px;border:1px solid var(--border);color:var(--text-dim);background:transparent;">Financial Model</div>
+    </div>
+  </div>
+</section>
+
+<footer style="text-align:center;padding:32px;border-top:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim);position:relative;z-index:1;">
+  FinFlow · Product Architecture Phase 2 · Confidential · 2025
+</footer>
+
+<script>
+  // Active nav tab tracking on scroll
+  const sections = ['phygital','usp','flywheel','revenue','roadmap'];
+  window.addEventListener('scroll', () => {
+    const tabs = document.querySelectorAll('.nav-tab');
+    let current = -1;
+    sections.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el && window.scrollY >= el.offsetTop - 120) current = i + 1;
+    });
+    tabs.forEach((t, i) => t.classList.toggle('active', i === (current === -1 ? 0 : current)));
+  });
+</script>
+</body>
+</html>

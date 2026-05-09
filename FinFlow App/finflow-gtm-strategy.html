@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinFlow · GTM, Launch & Validation Strategy</title>
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Sentient:ital,wght@0,400;0,700;1,400&family=Azeret+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f3ec;
+  --ink: #1a1510;
+  --panel: #eeead f;
+  --warm: #f0ebe0;
+  --border: rgba(26,21,16,0.1);
+  --border-dark: rgba(26,21,16,0.2);
+  --terra: #c2521a;
+  --terra-dim: rgba(194,82,26,0.1);
+  --green: #1a6e4a;
+  --green-dim: rgba(26,110,74,0.1);
+  --gold: #c9900a;
+  --gold-dim: rgba(201,144,10,0.1);
+  --blue: #1a3f8f;
+  --blue-dim: rgba(26,63,143,0.1);
+  --purple: #6b2fa0;
+  --purple-dim: rgba(107,47,160,0.1);
+  --text: #1a1510;
+  --text-mid: rgba(26,21,16,0.6);
+  --text-dim: rgba(26,21,16,0.4);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Cabinet Grotesk', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* PAPER TEXTURE */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* NAV */
+.topnav {
+  position: sticky;
+  top: 0;
+  background: rgba(247,243,236,0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 52px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+}
+.nav-logo {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--terra);
+}
+.nav-logo span { color: var(--ink); }
+.nav-pills {
+  display: flex;
+  gap: 4px;
+}
+.nav-pill {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 100px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.nav-pill:hover { color: var(--text); background: var(--warm); }
+.nav-pill.active { color: var(--terra); background: var(--terra-dim); border-color: rgba(194,82,26,0.2); }
+.nav-right {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* HERO */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 92vh;
+  border-bottom: 2px solid var(--ink);
+  position: relative;
+  z-index: 1;
+}
+.hero-left {
+  padding: 72px 60px;
+  border-right: 1px solid var(--border-dark);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.hero-right {
+  padding: 72px 52px;
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.phase-tag {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--terra);
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.phase-tag::before { content: ''; width: 24px; height: 1.5px; background: var(--terra); }
+
+.hero-title {
+  font-size: clamp(3rem, 6vw, 6rem);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  margin-bottom: 32px;
+}
+.hero-title .accent { color: var(--terra); }
+.hero-body {
+  font-size: 1rem;
+  color: var(--text-mid);
+  font-weight: 400;
+  line-height: 1.8;
+  max-width: 420px;
+  margin-bottom: 40px;
+}
+.hero-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.htag {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 1px solid var(--border-dark);
+  border-radius: 2px;
+  color: var(--text-mid);
+}
+.hero-right-title {
+  font-family: 'Sentient', serif;
+  font-size: 1.15rem;
+  font-style: italic;
+  color: rgba(247,243,236,0.5);
+  margin-bottom: 32px;
+}
+.hero-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hm-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid rgba(247,243,236,0.08);
+}
+.hm-label {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247,243,236,0.4);
+}
+.hm-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f7f3ec;
+}
+.hm-val .em { color: var(--terra); }
+
+.hero-beliefs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.belief {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.belief-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--terra);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.belief-text {
+  font-size: 0.85rem;
+  color: rgba(247,243,236,0.65);
+  line-height: 1.7;
+}
+.belief-text strong { color: #f7f3ec; }
+
+/* SECTION WRAPPER */
+.sec {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 90px 52px;
+  position: relative;
+  z-index: 1;
+}
+.sec-rule { width: 100%; height: 1px; background: var(--border); }
+.sec-label {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--terra);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sec-label::before { content: ''; width: 20px; height: 1px; background: var(--terra); }
+.sec-h {
+  font-size: clamp(2rem, 4.5vw, 4rem);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  margin-bottom: 20px;
+}
+.sec-h .a { color: var(--terra); }
+.sec-h .g { color: var(--green); }
+.sec-h .b { color: var(--blue); }
+.sec-h .p { color: var(--purple); }
+.sec-intro {
+  max-width: 640px;
+  color: var(--text-mid);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.85;
+  margin-bottom: 60px;
+}
+
+/* GRID PRIMITIVES */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border-dark); }
+.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border-dark); }
+.g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border-dark); }
+
+.card {
+  background: var(--bg);
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s;
+}
+.card:hover { background: var(--warm); }
+.card.dark { background: var(--ink); color: #f7f3ec; }
+.card.dark:hover { background: #221e18; }
+.card.terra { background: var(--terra); color: #fff; }
+.card.span2 { grid-column: span 2; }
+.card.span3 { grid-column: span 3; }
+
+.card-num {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 3.5rem;
+  font-weight: 500;
+  color: var(--border);
+  position: absolute;
+  bottom: 16px;
+  right: 20px;
+  line-height: 1;
+}
+.card-icon { font-size: 1.8rem; margin-bottom: 14px; display: block; }
+.card-tag {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 1px;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+.ct { background: var(--terra-dim); color: var(--terra); border: 1px solid rgba(194,82,26,0.2); }
+.cg { background: var(--green-dim); color: var(--green); border: 1px solid rgba(26,110,74,0.2); }
+.cb { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(26,63,143,0.2); }
+.cp { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(107,47,160,0.2); }
+.cgo { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(201,144,10,0.2); }
+.cw { background: rgba(247,243,236,0.15); color: #f7f3ec; border: 1px solid rgba(247,243,236,0.2); }
+
+.card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.card-body {
+  font-size: 0.84rem;
+  color: var(--text-mid);
+  line-height: 1.8;
+  margin-bottom: 14px;
+}
+.card.dark .card-body { color: rgba(247,243,236,0.55); }
+.card.terra .card-body { color: rgba(255,255,255,0.75); }
+
+.card-list { list-style: none; }
+.card-list li {
+  font-size: 0.8rem;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  color: var(--text-mid);
+  line-height: 1.6;
+}
+.card.dark .card-list li { border-color: rgba(247,243,236,0.08); color: rgba(247,243,236,0.55); }
+.card-list li::before {
+  content: '↗';
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--terra);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.card.green-accent .card-list li::before { color: var(--green); }
+.card.blue-accent .card-list li::before { color: var(--blue); }
+
+/* VALIDATION EXPERIMENT TABLE */
+.exp-table { width: 100%; border-collapse: collapse; }
+.exp-table thead tr { background: var(--ink); }
+.exp-table th {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(247,243,236,0.5);
+  padding: 14px 20px;
+  text-align: left;
+  font-weight: 400;
+}
+.exp-table td {
+  padding: 14px 20px;
+  font-size: 0.82rem;
+  color: var(--text-mid);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  line-height: 1.6;
+}
+.exp-table td:first-child { font-weight: 700; color: var(--text); }
+.exp-table tr:hover td { background: var(--warm); }
+.metric-pill {
+  display: inline-block;
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 100px;
+  margin: 1px;
+}
+.mp-g { background: var(--green-dim); color: var(--green); }
+.mp-t { background: var(--terra-dim); color: var(--terra); }
+.mp-b { background: var(--blue-dim); color: var(--blue); }
+.status-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+.sd-g { background: var(--green); }
+.sd-y { background: var(--gold); }
+.sd-b { background: var(--blue); }
+
+/* DAILY SURVIVAL — HABIT LOOP */
+.habit-loop {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  position: relative;
+  border: 1px solid var(--border-dark);
+  overflow: hidden;
+}
+.habit-step {
+  padding: 28px 22px;
+  border-right: 1px solid var(--border);
+  position: relative;
+  text-align: center;
+  background: var(--bg);
+  transition: background 0.2s;
+}
+.habit-step:last-child { border-right: none; }
+.habit-step:hover { background: var(--warm); }
+.habit-step.anchor { background: var(--ink); color: #f7f3ec; }
+.habit-step.anchor:hover { background: #2a2218; }
+.hs-time {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--terra);
+  margin-bottom: 10px;
+}
+.habit-step.anchor .hs-time { color: rgba(247,243,236,0.4); }
+.hs-icon { font-size: 1.6rem; margin-bottom: 10px; display: block; }
+.hs-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.habit-step.anchor .hs-title { color: #f7f3ec; }
+.hs-body {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.habit-step.anchor .hs-body { color: rgba(247,243,236,0.4); }
+.hs-connector {
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  background: var(--terra);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  font-size: 0.55rem;
+  color: white;
+  font-weight: 700;
+}
+.habit-step:last-child .hs-connector { display: none; }
+
+/* INCOME TIER SPECTRUM */
+.income-spectrum {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--border-dark);
+  overflow: hidden;
+}
+.tier {
+  padding: 32px 26px;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+.tier:last-child { border-right: none; }
+.tier-accent {
+  height: 4px;
+  position: absolute;
+  top: 0; left: 0; right: 0;
+}
+.tier-range {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+  margin-bottom: 6px;
+  margin-top: 8px;
+}
+.tier-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-bottom: 14px;
+  letter-spacing: -0.02em;
+}
+.tier-need {
+  font-family: 'Sentient', serif;
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--text-mid);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.tier-features { list-style: none; }
+.tier-features li {
+  font-size: 0.76rem;
+  padding: 5px 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-mid);
+  display: flex;
+  gap: 7px;
+  line-height: 1.5;
+}
+.tier-features li::before { content: '·'; color: var(--terra); flex-shrink: 0; }
+
+/* SMB EXPANSION */
+.smb-split {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 0;
+  border: 1px solid var(--border-dark);
+}
+.smb-left {
+  background: var(--ink);
+  padding: 44px;
+  color: #f7f3ec;
+  border-right: 1px solid rgba(247,243,236,0.1);
+}
+.smb-right {
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+}
+.smb-card {
+  background: var(--bg);
+  padding: 28px;
+  transition: background 0.2s;
+}
+.smb-card:hover { background: var(--warm); }
+.smb-card-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.smb-card-body {
+  font-size: 0.78rem;
+  color: var(--text-mid);
+  line-height: 1.7;
+}
+
+/* ONBOARDING FLOW */
+.onboard-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-dark);
+}
+.onboard-step {
+  display: grid;
+  grid-template-columns: 80px 1fr 300px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.onboard-step:last-child { border-bottom: none; }
+.onboard-step:hover { background: var(--warm); }
+.os-num {
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Azeret Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: rgba(247,243,236,0.25);
+  border-right: 1px solid var(--border-dark);
+}
+.os-content {
+  padding: 22px 28px;
+  border-right: 1px solid var(--border);
+}
+.os-moment {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--terra);
+  margin-bottom: 6px;
+}
+.os-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.os-body {
+  font-size: 0.8rem;
+  color: var(--text-mid);
+  line-height: 1.7;
+}
+.os-meta {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+}
+.os-meta-row {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.os-meta-key {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green);
+  flex-shrink: 0;
+  min-width: 50px;
+}
+
+/* LAUNCH WAVES */
+.launch-timeline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--border-dark);
+}
+.wave {
+  border-right: 1px solid var(--border);
+  padding: 36px;
+}
+.wave:last-child { border-right: none; }
+.wave-num {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.wave-period {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--terra);
+  margin-bottom: 4px;
+}
+.wave-name {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+  line-height: 1.1;
+}
+.wave-targets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.wt {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  background: var(--terra-dim);
+  color: var(--terra);
+  border: 1px solid rgba(194,82,26,0.2);
+  border-radius: 1px;
+}
+.wt.g { background: var(--green-dim); color: var(--green); border-color: rgba(26,110,74,0.2); }
+.wt.b { background: var(--blue-dim); color: var(--blue); border-color: rgba(26,63,143,0.2); }
+.wave-goal {
+  font-family: 'Sentient', serif;
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--text-mid);
+  margin-bottom: 18px;
+  line-height: 1.6;
+}
+.wave-actions { list-style: none; }
+.wave-actions li {
+  font-size: 0.78rem;
+  color: var(--text-mid);
+  padding: 5px 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 7px;
+  line-height: 1.5;
+}
+.wave-actions li::before {
+  content: '→';
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--terra);
+  flex-shrink: 0;
+}
+.wave-metric {
+  margin-top: 20px;
+  padding: 14px;
+  background: var(--ink);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.wm-label {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247,243,236,0.4);
+}
+.wm-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f7f3ec;
+}
+
+/* KNOWLEDGE LAYER */
+.knowledge-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0;
+  border: 1px solid var(--border-dark);
+  margin-bottom: 2px;
+}
+.knowledge-left {
+  padding: 44px;
+  border-right: 1px solid var(--border);
+}
+.knowledge-right {
+  padding: 36px;
+  background: var(--warm);
+}
+.kl-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+  letter-spacing: -0.02em;
+}
+.kl-body {
+  font-size: 0.85rem;
+  color: var(--text-mid);
+  margin-bottom: 24px;
+  line-height: 1.8;
+}
+.knowledge-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.kf {
+  background: var(--bg);
+  padding: 20px;
+  transition: background 0.2s;
+}
+.kf:hover { background: var(--warm); }
+.kf-icon { font-size: 1.1rem; margin-bottom: 8px; }
+.kf-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
+.kf-desc { font-size: 0.76rem; color: var(--text-mid); line-height: 1.6; }
+.kr-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.story-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.story-card {
+  background: var(--bg);
+  padding: 14px 16px;
+  border-left: 3px solid var(--terra);
+}
+.sc-name { font-size: 0.8rem; font-weight: 700; margin-bottom: 3px; }
+.sc-desc { font-size: 0.73rem; color: var(--text-mid); line-height: 1.5; }
+.sc-tag {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-top: 5px;
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hero-left > * { opacity: 0; animation: fadeUp 0.6s ease forwards; }
+.hero-left > *:nth-child(1) { animation-delay: 0.1s; }
+.hero-left > *:nth-child(2) { animation-delay: 0.25s; }
+.hero-left > *:nth-child(3) { animation-delay: 0.4s; }
+.hero-left > *:nth-child(4) { animation-delay: 0.55s; }
+.hero-right > * { opacity: 0; animation: fadeUp 0.6s ease forwards; }
+.hero-right > *:nth-child(1) { animation-delay: 0.35s; }
+.hero-right > *:nth-child(2) { animation-delay: 0.5s; }
+.hero-right > *:nth-child(3) { animation-delay: 0.65s; }
+
+/* CLOSE STATEMENT */
+.close-banner {
+  background: var(--ink);
+  color: #f7f3ec;
+  padding: 72px 52px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.cb-left {}
+.cb-title {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  margin-bottom: 20px;
+}
+.cb-title span { color: var(--terra); }
+.cb-body {
+  font-size: 0.9rem;
+  color: rgba(247,243,236,0.55);
+  line-height: 1.9;
+  margin-bottom: 28px;
+  max-width: 420px;
+}
+.cb-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cba {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 12px 22px;
+  border: 1px solid rgba(247,243,236,0.2);
+  color: rgba(247,243,236,0.7);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cba:hover { background: rgba(247,243,236,0.07); color: #f7f3ec; }
+.cba.primary { background: var(--terra); border-color: var(--terra); color: #fff; }
+.cba.primary:hover { background: #a84318; }
+.cb-right {}
+.north-star {
+  border: 1px solid rgba(247,243,236,0.12);
+  padding: 32px;
+}
+.ns-label {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--terra);
+  margin-bottom: 16px;
+}
+.ns-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.ns-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid rgba(247,243,236,0.07);
+}
+.ns-key {
+  font-size: 0.82rem;
+  color: rgba(247,243,236,0.45);
+}
+.ns-val {
+  font-weight: 700;
+  color: #f7f3ec;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 900px) {
+  .topnav { padding: 0 20px; }
+  .nav-pills { display: none; }
+  .hero { grid-template-columns: 1fr; }
+  .hero-right { min-height: 0; padding: 40px 24px; }
+  .sec { padding: 60px 20px; }
+  .g2, .g3, .g4 { grid-template-columns: 1fr; }
+  .income-spectrum { grid-template-columns: 1fr 1fr; }
+  .habit-loop { grid-template-columns: 1fr 1fr; }
+  .launch-timeline { grid-template-columns: 1fr; }
+  .onboard-step { grid-template-columns: 60px 1fr; }
+  .os-meta { display: none; }
+  .smb-split { grid-template-columns: 1fr; }
+  .smb-right { grid-template-columns: 1fr; }
+  .knowledge-grid { grid-template-columns: 1fr; }
+  .close-banner { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="topnav">
+  <div class="nav-logo">Fin<span>Flow</span></div>
+  <div class="nav-pills">
+    <div class="nav-pill active" onclick="document.getElementById('validate').scrollIntoView({behavior:'smooth'})">Validate</div>
+    <div class="nav-pill" onclick="document.getElementById('daily').scrollIntoView({behavior:'smooth'})">Daily Use</div>
+    <div class="nav-pill" onclick="document.getElementById('income').scrollIntoView({behavior:'smooth'})">Income Tiers</div>
+    <div class="nav-pill" onclick="document.getElementById('knowledge').scrollIntoView({behavior:'smooth'})">Knowledge</div>
+    <div class="nav-pill" onclick="document.getElementById('smb').scrollIntoView({behavior:'smooth'})">SMB</div>
+    <div class="nav-pill" onclick="document.getElementById('gtm').scrollIntoView({behavior:'smooth'})">GTM Launch</div>
+    <div class="nav-pill" onclick="document.getElementById('onboard').scrollIntoView({behavior:'smooth'})">Onboarding</div>
+  </div>
+  <div class="nav-right">Phase 3 · Go-to-Market</div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-left">
+    <div class="phase-tag">FinFlow Phase 3 · GTM & Validation</div>
+    <div>
+      <h1 class="hero-title">From idea<br>to <span class="accent">daily habit.</span></h1>
+      <p class="hero-body">The best financial product in history is worthless if families open it once and forget it. This phase answers the hardest question: how do we earn our way into daily life — across every income level, life stage, and aspiration — and never let go?</p>
+    </div>
+    <div class="hero-tags">
+      <div class="htag">Idea Validation</div>
+      <div class="htag">GTM Launch</div>
+      <div class="htag">Onboarding</div>
+      <div class="htag">Daily Habit Design</div>
+      <div class="htag">SMB Expansion</div>
+      <div class="htag">Knowledge Layer</div>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="hero-right-title">Three principles we will not compromise.</div>
+    <div class="hero-beliefs">
+      <div class="belief">
+        <div class="belief-dot"></div>
+        <div class="belief-text"><strong>If it doesn't touch daily life, it will die.</strong> Mint had 20M users and shut down. Every budgeting app that requires users to "remember to open it" has failed. FinFlow must be woven into moments that already happen — not create new ones.</div>
+      </div>
+      <div class="belief">
+        <div class="belief-dot"></div>
+        <div class="belief-text"><strong>Income level determines need type, not importance.</strong> A family earning $15K/year needs FinFlow as urgently as one earning $150K — but for completely different reasons. The product must speak to both without condescension or irrelevance.</div>
+      </div>
+      <div class="belief">
+        <div class="belief-dot"></div>
+        <div class="belief-text"><strong>Knowledge without application is entertainment.</strong> Courses, articles, and videos don't change behavior. What changes behavior is the right nudge, at the right moment, tied to a real decision the family is facing right now.</div>
+      </div>
+    </div>
+    <div class="hero-metrics">
+      <div class="hm-row">
+        <div class="hm-label">Year 1 Target Households</div>
+        <div class="hm-val"><span class="em">10,000</span></div>
+      </div>
+      <div class="hm-row">
+        <div class="hm-label">Target D90 Retention</div>
+        <div class="hm-val"><span class="em">68%</span></div>
+      </div>
+      <div class="hm-row">
+        <div class="hm-label">Validation Budget</div>
+        <div class="hm-val"><span class="em">$80K</span></div>
+      </div>
+      <div class="hm-row">
+        <div class="hm-label">Break-even Households</div>
+        <div class="hm-val"><span class="em">3,200</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IDEA VALIDATION -->
+<section class="sec" id="validate">
+  <div class="sec-rule"></div><br>
+  <p class="sec-label">§01 — Idea Validation</p>
+  <h2 class="sec-h">TEST BEFORE<br>YOU <span class="a">BUILD.</span></h2>
+  <p class="sec-intro">Every assumption in this plan must be tested cheaply before a single dollar of engineering is spent. Here are the 8 riskiest assumptions — ranked by impact — and exactly how to validate or kill each one in under 60 days.</p>
+
+  <div class="g2" style="margin-bottom:2px;">
+    <div class="card">
+      <div class="card-num">01</div>
+      <span class="card-tag ct">Critical Risk</span>
+      <div class="card-title">Will families actually share financial data with each other on one platform?</div>
+      <div class="card-body">Financial secrecy within couples is one of the most underestimated barriers. Shared visibility requires both partners to opt in — which requires trust in the product before they trust the product.</div>
+      <ul class="card-list">
+        <li>Run 20 in-home interviews with couples — ask them to attempt combining finances using a spreadsheet. Observe resistance points.</li>
+        <li>Survey: "Would you share all spending with your partner in real time?" — measure gap between aspiration and willingness</li>
+        <li><strong>Kill signal:</strong> If &gt;50% of couples in interviews express hard resistance to real-time spend sharing, redesign the permission model</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-num">02</div>
+      <span class="card-tag ct">Critical Risk</span>
+      <div class="card-title">Will people pay $18/month when free alternatives exist?</div>
+      <div class="card-body">Mint was free and still failed to retain users. The question is whether the physical layer, coach access, and household-first design creates enough perceived value to unlock willingness to pay.</div>
+      <ul class="card-list">
+        <li>Build a landing page describing the full product with pricing. Drive 500 visitors via paid social. Measure email sign-up (interest) vs. "pay now" click (intent).</li>
+        <li>Conduct 15 price-sensitivity interviews using Van Westendorp method</li>
+        <li><strong>Kill signal:</strong> If less than 12% of landing page visitors click "pay now," pricing or value proposition needs rethinking</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="g3" style="margin-bottom:2px;">
+    <div class="card green-accent">
+      <span class="card-tag cg">Medium Risk</span>
+      <div class="card-title">Will the physical Ritual Letter drive engagement or annoyance?</div>
+      <div class="card-body">Physical mail is either nostalgic and delightful or intrusive and wasteful. We need to know before we build a print operation.</div>
+      <ul class="card-list">
+        <li>Create 3 versions of the Ritual Letter (minimal, rich, illustrated). Mail to 90 beta families (30 each). Track open rates, photographing, sharing on social.</li>
+        <li><strong>Green signal:</strong> 40%+ of recipients share a photo on social media within 1 week</li>
+      </ul>
+    </div>
+    <div class="card green-accent">
+      <span class="card-tag cg">Medium Risk</span>
+      <div class="card-title">Does the Accountability Circle format create retention or social pressure?</div>
+      <div class="card-body">Peer accountability can go two ways — motivating or shame-inducing. The format, facilitation, and anonymity level need testing.</div>
+      <ul class="card-list">
+        <li>Run 5 pilot circles for 8 weeks each. Measure attendance rate, NPS after each session, and self-reported behavior change.</li>
+        <li><strong>Kill signal:</strong> If any participant uses the word "shame" or "embarrassed" more than once in exit interviews</li>
+      </ul>
+    </div>
+    <div class="card green-accent">
+      <span class="card-tag cg">Medium Risk</span>
+      <div class="card-title">Will employers pay for this as a benefit?</div>
+      <div class="card-body">Employee financial wellness is a growing HR category but budget allocation varies wildly. We need a live LOI (letter of intent) before building the B2B dashboard.</div>
+      <ul class="card-list">
+        <li>Pitch 30 HR directors with a one-pager and pricing. Target: 3 signed LOIs at $2K–5K/year before writing any B2B code.</li>
+        <li><strong>Kill signal:</strong> Zero LOIs from 30 pitches — revisit pricing and ICP</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;border:1px solid var(--border-dark);margin-bottom:2px;">
+    <table class="exp-table">
+      <thead>
+        <tr>
+          <th>Assumption</th>
+          <th>Test Method</th>
+          <th>Timeline</th>
+          <th>Budget</th>
+          <th>Success Signal</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Couples will share finances openly</td>
+          <td>20 in-home couple interviews + spreadsheet exercise</td>
+          <td>Week 1–2</td>
+          <td>$2,000</td>
+          <td><span class="metric-pill mp-g">60%+ opt-in willingness</span></td>
+          <td><span class="status-dot sd-y"></span>Queued</td>
+        </tr>
+        <tr>
+          <td>$18/month willingness to pay</td>
+          <td>Landing page + paid traffic A/B test + price interviews</td>
+          <td>Week 1–3</td>
+          <td>$5,000</td>
+          <td><span class="metric-pill mp-t">12%+ pay-now click rate</span></td>
+          <td><span class="status-dot sd-y"></span>Queued</td>
+        </tr>
+        <tr>
+          <td>Physical letter drives delight, not annoyance</td>
+          <td>90-family mail pilot, 3 variants</td>
+          <td>Week 2–4</td>
+          <td>$3,500</td>
+          <td><span class="metric-pill mp-g">40%+ social sharing rate</span></td>
+          <td><span class="status-dot sd-y"></span>Queued</td>
+        </tr>
+        <tr>
+          <td>Accountability circles retain members</td>
+          <td>5 pilot circles, 8 weeks, NPS tracking</td>
+          <td>Week 2–10</td>
+          <td>$4,000</td>
+          <td><span class="metric-pill mp-g">NPS 45+ per circle</span></td>
+          <td><span class="status-dot sd-y"></span>Queued</td>
+        </tr>
+        <tr>
+          <td>Employers will pay for financial wellness</td>
+          <td>30 HR director cold outreach + LOI ask</td>
+          <td>Week 1–4</td>
+          <td>$1,000</td>
+          <td><span class="metric-pill mp-t">3+ signed LOIs</span></td>
+          <td><span class="status-dot sd-y"></span>Queued</td>
+        </tr>
+        <tr>
+          <td>Schools will integrate into curriculum</td>
+          <td>Outreach to 10 school principals + 2-session pilot</td>
+          <td>Week 3–8</td>
+          <td>$2,000</td>
+          <td><span class="metric-pill mp-b">1 school agrees to 3-month pilot</span></td>
+          <td><span class="status-dot sd-y"></span>Queued</td>
+        </tr>
+        <tr>
+          <td>SMB owners see value in "launch finance" tools</td>
+          <td>20 SMB owner interviews + Typeform survey (300 responses)</td>
+          <td>Week 2–5</td>
+          <td>$3,000</td>
+          <td><span class="metric-pill mp-g">70%+ rate cash flow visibility as top-3 pain</span></td>
+          <td><span class="status-dot sd-y"></span>Queued</td>
+        </tr>
+        <tr>
+          <td>Daily habit can be formed without push notification spam</td>
+          <td>60-day cohort test with 3 notification strategies (heavy / light / ambient)</td>
+          <td>Week 4–12</td>
+          <td>$1,500</td>
+          <td><span class="metric-pill mp-g">D30 retention 55%+ in at least 1 variant</span></td>
+          <td><span class="status-dot sd-y"></span>Queued</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- DAILY SURVIVAL -->
+<section class="sec" id="daily">
+  <div class="sec-rule"></div><br>
+  <p class="sec-label">§02 — Daily Habit Architecture</p>
+  <h2 class="sec-h">BECOME<br><span class="g">ESSENTIAL</span> DAILY.</h2>
+  <p class="sec-intro">The app must earn its place in the home screen — not through notifications but through genuine daily utility. We design for 5 micro-moments that already exist in a family's day. FinFlow attaches to those moments, not creates new ones.</p>
+
+  <div class="habit-loop" style="margin-bottom:48px;">
+    <div class="habit-step anchor">
+      <span class="hs-time">7:00 AM</span>
+      <span class="hs-icon">☀️</span>
+      <div class="hs-title">Morning Pulse</div>
+      <div class="hs-body">30-second "financial weather" glance on the Hub or widget. Green / amber / red. No decisions needed. Just awareness.</div>
+      <div class="hs-connector">→</div>
+    </div>
+    <div class="habit-step">
+      <span class="hs-time">12:30 PM</span>
+      <span class="hs-icon">☕</span>
+      <div class="hs-title">Lunch Nudge</div>
+      <div class="hs-body">One smart insight: "You've eaten out 4 times this week vs. 2 last week. That's +$38." No lecture. Just a mirror.</div>
+      <div class="hs-connector">→</div>
+    </div>
+    <div class="habit-step anchor">
+      <span class="hs-time">At Checkout</span>
+      <span class="hs-icon">💳</span>
+      <div class="hs-title">Smart Card Tap</div>
+      <div class="hs-body">Family Card tapped. Both partners see it in 3 seconds. Budget bar updates. The act of spending becomes a shared, visible moment.</div>
+      <div class="hs-connector">→</div>
+    </div>
+    <div class="habit-step">
+      <span class="hs-time">7:00 PM</span>
+      <span class="hs-icon">🍽️</span>
+      <div class="hs-title">Evening Check-In</div>
+      <div class="hs-body">1-tap family summary over dinner. "Today you spent X. You're Y% through your weekly budget. One thing to know: your electricity bill hits Friday." Done.</div>
+      <div class="hs-connector">→</div>
+    </div>
+    <div class="habit-step anchor">
+      <span class="hs-time">Sunday</span>
+      <span class="hs-icon">📋</span>
+      <div class="hs-title">Weekly Family Review</div>
+      <div class="hs-body">10-minute structured family check-in. Wins, one worry, one action. Kids participate. The Hub button triggers it. Physical ritual, digital record.</div>
+    </div>
+  </div>
+
+  <div class="g3" style="margin-bottom:2px;">
+    <div class="card blue-accent">
+      <span class="card-icon">🔕</span>
+      <span class="card-tag cb">Anti-Notification Design</span>
+      <div class="card-title">We send 1 notification per day. Maximum.</div>
+      <div class="card-body">Every fintech spams. FinFlow's radical discipline — one daily signal, chosen by the AI as the highest-relevance moment — makes each notification feel like advice from a trusted friend, not noise from an app.</div>
+    </div>
+    <div class="card blue-accent">
+      <span class="card-icon">🧲</span>
+      <span class="card-tag cb">Ambient Presence</span>
+      <div class="card-title">The Home Hub does the work users won't.</div>
+      <div class="card-body">When a physical device sits in your kitchen showing your family's financial temperature, the app doesn't need to fight for phone time. The product is present even when the phone is down. Ambient visibility = daily engagement without daily effort.</div>
+    </div>
+    <div class="card blue-accent">
+      <span class="card-icon">🎯</span>
+      <span class="card-tag cb">Progressive Disclosure</span>
+      <div class="card-title">Show only what matters today. Nothing more.</div>
+      <div class="card-body">New users see 3 things: their spending, their goal progress, and one action. Advanced features unlock only when a user demonstrates readiness. The app never overwhelms — it meets families where they are, then gently expands.</div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card dark">
+      <span class="card-tag cw">Survival Utility — The Non-Negotiables</span>
+      <div class="card-title" style="color:#f7f3ec;">These 4 features must work perfectly from Day 1 — or nothing else matters.</div>
+      <div class="card-body">No family will build a habit around an app that fails at the basics. Before any premium feature ships, these four are bulletproof.</div>
+      <ul class="card-list">
+        <li><strong style="color:#f7f3ec;">Instant spend visibility:</strong> Every transaction appears within 60 seconds. No exceptions. No "pending" ambiguity.</li>
+        <li><strong style="color:#f7f3ec;">Budget status always visible:</strong> Without opening the app. Widget, Hub, wearable — the number is always one glance away.</li>
+        <li><strong style="color:#f7f3ec;">Bill prediction calendar:</strong> "Your next 30 days" view. When money leaves, how much, for what. Families stop being surprised.</li>
+        <li><strong style="color:#f7f3ec;">Partner sync under 3 seconds:</strong> When one partner spends, the other sees it before they've left the checkout. Shared awareness in real time.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="card-tag ct">Behavioral Triggers</span>
+      <div class="card-title">The psychology behind habit formation — applied.</div>
+      <div class="card-body">We use BJ Fogg's Tiny Habits model: anchor existing behaviors, make new behaviors tiny, and celebrate every win immediately.</div>
+      <ul class="card-list">
+        <li><strong>Cue:</strong> Morning coffee → Hub shows financial weather → no action needed, just awareness</li>
+        <li><strong>Routine:</strong> Every card tap → automatic categorization → partner notified</li>
+        <li><strong>Reward:</strong> Goal hit → Achievement notification + Hub glows green + physical box dispatched</li>
+        <li><strong>Social accountability:</strong> Circle meeting every month → public commitment to one action this week</li>
+        <li><strong>Streak mechanics:</strong> "Your family has logged spending for 14 days straight" — visible to children too</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- INCOME TIERS -->
+<section class="sec" id="income">
+  <div class="sec-rule"></div><br>
+  <p class="sec-label">§03 — Income, Goals & Aspiration Spectrum</p>
+  <h2 class="sec-h">EVERY FAMILY.<br><span class="a">EVERY LEVEL.</span></h2>
+  <p class="sec-intro">FinFlow is not a product for the financially comfortable. The families who need it most earn the least. The product must be radically useful at every income level — not through watered-down tiers but through intelligently different experiences that respect each family's specific reality.</p>
+
+  <div class="income-spectrum" style="margin-bottom:48px;">
+    <div class="tier">
+      <div class="tier-accent" style="background: #d4380d;"></div>
+      <div class="tier-range" style="color:#d4380d;">Tier 1 · Under $30K/yr</div>
+      <div class="tier-name">Survive &amp; Stabilize</div>
+      <div class="tier-need">"I just need to make it to the next paycheck without an emergency destroying everything."</div>
+      <ul class="tier-features">
+        <li>Emergency fund builder — automated micro-savings ($1–5/day)</li>
+        <li>Bill timing optimizer — never miss a payment due to timing</li>
+        <li>Government benefits eligibility checker — surface unclaimed entitlements</li>
+        <li>Debt triage — which debt to tackle first to save the most</li>
+        <li>Free food &amp; utility assistance locator via local NGO database</li>
+        <li>FinFlow Basic: subsidized or free via NGO/gov partnerships</li>
+        <li>Community circle matched with similar-income families — destigmatized</li>
+      </ul>
+    </div>
+    <div class="tier">
+      <div class="tier-accent" style="background: var(--gold);"></div>
+      <div class="tier-range" style="color:var(--gold);">Tier 2 · $30K–$75K/yr</div>
+      <div class="tier-name">Build &amp; Grow</div>
+      <div class="tier-need">"I'm covering the basics but I feel like I'm always behind. I want to start building something real."</div>
+      <ul class="tier-features">
+        <li>1-month emergency fund → 3-month fund progression path</li>
+        <li>Debt snowball / avalanche automation with weekly progress</li>
+        <li>First investment nudge: "You have $47 spare this month. Here's how to start."</li>
+        <li>Family Finance Journal + Monthly Letter — builds aspiration</li>
+        <li>School program access for children</li>
+        <li>Accountability circle — peer comparison with similar households</li>
+        <li>Starter Kit Program: curated 90-day plan for first-time budgeters</li>
+      </ul>
+    </div>
+    <div class="tier">
+      <div class="tier-accent" style="background: var(--green);"></div>
+      <div class="tier-range" style="color:var(--green);">Tier 3 · $75K–$150K/yr</div>
+      <div class="tier-name">Optimise &amp; Invest</div>
+      <div class="tier-need">"We earn well but somehow can't seem to get ahead. I know we're wasting money somewhere but can't see it."</div>
+      <ul class="tier-features">
+        <li>Full Pulse Score with monthly improvement roadmap</li>
+        <li>Investment portfolio tracker + AI-guided rebalancing suggestions</li>
+        <li>Tax optimisation alerts — use allowances before year-end</li>
+        <li>Property readiness score: "You're 18 months from a deposit"</li>
+        <li>Children's investment account automation</li>
+        <li>Monthly Ritual Letter + quarterly coach session</li>
+        <li>Subscription audit (avg. saves $110/month)</li>
+      </ul>
+    </div>
+    <div class="tier">
+      <div class="tier-accent" style="background: var(--blue);"></div>
+      <div class="tier-range" style="color:var(--blue);">Tier 4 · $150K+/yr</div>
+      <div class="tier-name">Legacy &amp; Impact</div>
+      <div class="tier-need">"I want to build generational wealth and make sure my kids don't start from zero like I did."</div>
+      <ul class="tier-features">
+        <li>Legacy Vault™ — estate planning, will integration, asset mapping</li>
+        <li>Generational wealth dashboard: family net worth trajectory over 20 years</li>
+        <li>Children's financial education roadmap from age 8–18</li>
+        <li>Charitable giving optimization and impact tracking</li>
+        <li>Business / SMB financial health integration (expansion module)</li>
+        <li>Dedicated FFC™ coach — monthly strategy sessions</li>
+        <li>Home Hub Premium device + Priority Achievement Boxes</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <span class="card-tag ct">The Aspiration Escalator</span>
+      <div class="card-title">FinFlow moves families up the tiers — that's the product's success metric.</div>
+      <div class="card-body">We don't segment families into tiers and leave them there. The entire product is designed to help a Tier 1 family become Tier 2, and so on. Progress is visible, celebrated, and shared. When a family crosses an income milestone — their experience upgrades automatically.</div>
+      <ul class="card-list">
+        <li>Annual "Financial Health Upgrade" notification when household trajectory improves significantly</li>
+        <li>Tier advancement celebrated with a special Achievement Box and a new Family Pulse Score badge</li>
+        <li>Circle matching updates to reflect current life stage — you grow with new peers</li>
+        <li>Coach sessions shift focus automatically: from debt management → investment planning → legacy</li>
+      </ul>
+    </div>
+    <div class="card dark">
+      <span class="card-tag cw">Goals Architecture</span>
+      <div class="card-title" style="color:#f7f3ec;">Financial goals have three levels. FinFlow works on all three simultaneously.</div>
+      <div class="card-body">Most apps target one goal type and ignore the others. FinFlow's AI connects all three layers and shows how they interact.</div>
+      <ul class="card-list">
+        <li><strong style="color:#f7f3ec;">Immediate goals (30–90 days):</strong> Clear a credit card, build $500 buffer, cut subscriptions by $80/month. Quick wins that build confidence.</li>
+        <li><strong style="color:#f7f3ec;">Annual goals (12 months):</strong> Family holiday fund, 3-month emergency fund, first investment account. Visible progress bars. Monthly Letter tracks them.</li>
+        <li><strong style="color:#f7f3ec;">Generational goals (10–30 years):</strong> Property ownership, children's university fund, retirement readiness, family legacy. The 20-year trajectory view. Only FinFlow shows this.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- KNOWLEDGE & EXPERIENCE LAYER -->
+<section class="sec" id="knowledge">
+  <div class="sec-rule"></div><br>
+  <p class="sec-label">§04 — Knowledge, Starter Kits & Experience Sharing</p>
+  <h2 class="sec-h">KNOWLEDGE THAT<br><span class="g">CHANGES BEHAVIOUR.</span></h2>
+  <p class="sec-intro">We reject the idea that more information creates better financial decisions. Instead, FinFlow delivers contextual knowledge — the right insight, tied to a real decision happening right now — and wraps it in peer stories that make the lesson feel earned and possible.</p>
+
+  <div class="knowledge-grid" style="margin-bottom:2px;">
+    <div class="knowledge-left">
+      <div class="kl-title">The Starter Kit Programs</div>
+      <div class="kl-body">Every new family begins with a 90-day Starter Kit matched to their income tier, life stage, and primary pain point. Not generic financial education — a highly specific, sequenced playbook that gets a family their first win within 7 days.</div>
+      <div class="knowledge-features">
+        <div class="kf">
+          <div class="kf-icon">🚀</div>
+          <div class="kf-name">The Survival Kit</div>
+          <div class="kf-desc">For Tier 1 families. Day-by-day for 30 days. Week 1: visibility only. Week 2: one spending cut. Week 3: micro-savings start. Week 4: first circle meeting.</div>
+        </div>
+        <div class="kf">
+          <div class="kf-icon">🏗️</div>
+          <div class="kf-name">The Builder Kit</div>
+          <div class="kf-desc">For Tier 2 families. 90-day debt-to-savings transition. Includes the Ritual Letter, goal-setting workshop, and first investment account setup walkthrough.</div>
+        </div>
+        <div class="kf">
+          <div class="kf-icon">📈</div>
+          <div class="kf-name">The Optimizer Kit</div>
+          <div class="kf-desc">For Tier 3. Finds the 20% of their spending causing 80% of their financial drag. Tax calendar integration. First portfolio review with AI CFO.</div>
+        </div>
+        <div class="kf">
+          <div class="kf-icon">🏛️</div>
+          <div class="kf-name">The Legacy Kit</div>
+          <div class="kf-desc">For Tier 4. Estate and will basics, Legacy Vault setup, 20-year wealth trajectory, children's financial education roadmap, and an SMB health check if applicable.</div>
+        </div>
+        <div class="kf">
+          <div class="kf-icon">👨‍💼</div>
+          <div class="kf-name">The SMB Launch Kit</div>
+          <div class="kf-desc">For small business owners. Separates personal and business cash flow. Identifies launch capital gaps. Connects to micro-lenders, grants, and peer SMB networks.</div>
+        </div>
+        <div class="kf">
+          <div class="kf-icon">👶</div>
+          <div class="kf-name">The Parent Kit</div>
+          <div class="kf-desc">For new parents facing their first income shock. Month-by-month cash flow projection for the first year of parenthood. Childcare cost planner and tax credits optimizer.</div>
+        </div>
+      </div>
+    </div>
+    <div class="knowledge-right">
+      <div class="kr-title">Real Family Stories</div>
+      <div class="story-cards">
+        <div class="story-card">
+          <div class="sc-name">Priya &amp; Arjun, New Parents · Tier 2</div>
+          <div class="sc-desc">"We had no idea childcare would wipe out Priya's salary. FinFlow's Parent Kit showed us we'd need to cut £340/month elsewhere before the baby arrived. We did it. We didn't go into overdraft."</div>
+          <div class="sc-tag">↑ Emergency fund hit in 4 months</div>
+        </div>
+        <div class="story-card">
+          <div class="sc-name">Fatima, Single Mother · Tier 1</div>
+          <div class="sc-desc">"The Survival Kit told me I qualified for a council tax reduction I never knew about. That's £62/month back. The circle made me feel like I wasn't alone. First time I've felt in control of money."</div>
+          <div class="sc-tag">↑ First £500 emergency fund in 11 weeks</div>
+        </div>
+        <div class="story-card">
+          <div class="sc-name">Marcus, SMB Owner · Tier 3</div>
+          <div class="sc-desc">"I was mixing personal and business money in one account. FinFlow's SMB Kit showed me I was technically profitable but personally broke because of timing. Changed my life in 2 weeks."</div>
+          <div class="sc-tag">↑ Business cash flow positive in 60 days</div>
+        </div>
+        <div class="story-card">
+          <div class="sc-name">The Hendersons · Tier 3→4 Journey</div>
+          <div class="sc-desc">"We were Tier 3 when we joined. FinFlow tracked our trajectory and told us we could reach our deposit goal in 14 months if we made 3 changes. We did. We bought our home."</div>
+          <div class="sc-tag">↑ Advanced from Tier 3 to Tier 4 in 22 months</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g3">
+    <div class="card">
+      <span class="card-icon">🎙️</span>
+      <span class="card-tag cg">Experience Sharing</span>
+      <div class="card-title">The FinFlow Story Feed</div>
+      <div class="card-body">An in-app feed of anonymized real family milestones. Not influencer content — real, messy, relatable moments from families on the same journey. "A family like yours just paid off their car loan. Here's how they did it."</div>
+      <ul class="card-list">
+        <li>Milestone moments auto-generated: first investment, emergency fund complete, debt-free date</li>
+        <li>Families can opt to make milestones shareable — with permission controls</li>
+        <li>Circle-level sharing: your 8-family circle sees each other's wins in real time</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="card-icon">🏆</span>
+      <span class="card-tag cg">Contextual Learning</span>
+      <div class="card-title">Knowledge delivered at the decision point.</div>
+      <div class="card-body">No courses. No videos to sit through. When a family is about to make a financially significant decision — buy a car, open a credit card, take out a loan — FinFlow surfaces the exact knowledge they need in that moment.</div>
+      <ul class="card-list">
+        <li>"You're about to spend £400 on a TV. Here's what that costs your retirement, and a 0% finance alternative."</li>
+        <li>Pre-mortgage checklist surfaces 3 months before a family's predicted purchase window</li>
+        <li>Tax season guide appears in March. Investment rebalancing guide appears in December.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="card-icon">📚</span>
+      <span class="card-tag cg">Children's Education</span>
+      <div class="card-title">Financial literacy is a gift you give at age 8, not 28.</div>
+      <div class="card-body">FinFlow's children's module teaches through doing — not videos or worksheets. Kids have their own "FinFlow Junior" dashboard showing their pocket money, savings goal, and a simple challenge each week.</div>
+      <ul class="card-list">
+        <li>Weekly "Family Money Mission" — one thing the whole family does together, including children</li>
+        <li>Kids earn "Financial Wisdom" badges visible on the family dashboard — positive reinforcement</li>
+        <li>Parents set challenges: "Save for 4 weeks and we'll double it." App tracks and reminds.</li>
+        <li>At 18, FinFlow Junior transitions automatically to a full household account</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- SMB EXPANSION -->
+<section class="sec" id="smb">
+  <div class="sec-rule"></div><br>
+  <p class="sec-label">§05 — SMB Expansion Layer</p>
+  <h2 class="sec-h">THE BUSINESS<br><span class="p">BEHIND THE HOME.</span></h2>
+  <p class="sec-intro">In many families, personal and business finances are dangerously entangled. The small business owner who can't make payroll is also the parent who can't pay school fees. FinFlow bridges personal and business financial health in one unified view — a layer no bank, accountant, or fintech offers today.</p>
+
+  <div class="smb-split" style="margin-bottom:2px;">
+    <div class="smb-left">
+      <span class="card-tag cw" style="margin-bottom:20px;">The Core SMB Problem</span>
+      <div style="font-size:1.1rem;font-weight:700;color:#f7f3ec;margin-bottom:16px;line-height:1.3;">82% of small business failures are caused by cash flow problems — not bad products or bad ideas.</div>
+      <p style="font-size:0.85rem;color:rgba(247,243,236,0.55);line-height:1.8;margin-bottom:24px;">SMB owners are also family members. They face the same household finance chaos — amplified by irregular income, unknown tax liabilities, missing payroll, and the psychological terror of mixing love-money (family savings) with risk-money (business capital).</p>
+      <p style="font-size:0.85rem;color:rgba(247,243,236,0.55);line-height:1.8;margin-bottom:24px;">FinFlow doesn't become an accounting tool. It becomes the bridge between the kitchen table and the office desk — showing how business health and family health connect, and what to fix first.</p>
+      <div style="border-top:1px solid rgba(247,243,236,0.1);padding-top:20px;">
+        <div style="font-family:'Azeret Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:rgba(247,243,236,0.35);margin-bottom:12px;">SMB market opportunity</div>
+        <div style="font-size:1.8rem;font-weight:800;color:#f7f3ec;">400M+</div>
+        <div style="font-size:0.8rem;color:rgba(247,243,236,0.4);">SMEs globally — 90% without access to a CFO, financial advisor, or cash flow tool that works for their scale</div>
+      </div>
+    </div>
+    <div class="smb-right">
+      <div class="smb-card">
+        <span class="card-tag cp" style="margin-bottom:10px;">Feature</span>
+        <div class="smb-card-title">Business / Personal Firewall</div>
+        <div class="smb-card-body">Automatic separation of personal and business transactions. One dashboard shows both — clearly labeled — so owners finally see where business problems bleed into family finances and vice versa.</div>
+      </div>
+      <div class="smb-card">
+        <span class="card-tag cp" style="margin-bottom:10px;">Feature</span>
+        <div class="smb-card-title">Cash Flow Runway Indicator</div>
+        <div class="smb-card-body">Shows how many weeks the business can survive at current burn rate. Updated daily. Alerts before a crisis — not during one. The #1 thing every SMB owner wishes they had seen earlier.</div>
+      </div>
+      <div class="smb-card">
+        <span class="card-tag cp" style="margin-bottom:10px;">Feature</span>
+        <div class="smb-card-title">Launch Capital Gap Finder</div>
+        <div class="smb-card-body">For pre-launch or early-stage SMBs: shows exactly what capital is needed, what grants and micro-loans are available locally, and what personal savings can be safely used vs. protected.</div>
+      </div>
+      <div class="smb-card">
+        <span class="card-tag cp" style="margin-bottom:10px;">Feature</span>
+        <div class="smb-card-title">SMB Peer Network</div>
+        <div class="smb-card-body">A dedicated accountability circle format for SMB owners. Monthly meetings focused on cash flow benchmarks, pricing decisions, and cost structures — facilitated by an FFC™ coach with SMB specialization.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g3">
+    <div class="card">
+      <span class="card-tag cp">SMB Roadmap</span>
+      <div class="card-title">Phase 1: Personal-Business Bridge (Month 18)</div>
+      <div class="card-body">Launch the SMB module as an add-on to existing Family Premium. Target: existing FinFlow households where one member runs a sole trader or side business. No new acquisition needed — unlock the SMB layer for the existing base.</div>
+    </div>
+    <div class="card">
+      <span class="card-tag cp">SMB Roadmap</span>
+      <div class="card-title">Phase 2: SMB Starter Kit (Month 24)</div>
+      <div class="card-body">A standalone onboarding path for SMB-first users who come for business tools and get family finance as a bonus. Target: food business owners, freelancers, micro-retailers, immigrant entrepreneurs — underserved by both fintech and traditional accounting tools.</div>
+    </div>
+    <div class="card">
+      <span class="card-tag cp">SMB Roadmap</span>
+      <div class="card-title">Phase 3: SMB Financial Health Score (Month 36)</div>
+      <div class="card-body">Extend the Family Pulse Score to include business health metrics. License to micro-lenders and grant bodies as an alternative credit assessment for businesses without trading history. A second data asset that compounds the moat.</div>
+    </div>
+  </div>
+</section>
+
+<!-- GTM LAUNCH STRATEGY -->
+<section class="sec" id="gtm">
+  <div class="sec-rule"></div><br>
+  <p class="sec-label">§06 — GTM Launch Strategy</p>
+  <h2 class="sec-h">THREE WAVES.<br><span class="a">ONE CITY FIRST.</span></h2>
+  <p class="sec-intro">We don't launch globally. We launch in one city and make it undeniable. The discipline of geographic concentration creates network effects, media coverage, word-of-mouth, and circle density that no spray-and-pray launch can replicate. We prove it locally, then replicate.</p>
+
+  <div class="launch-timeline" style="margin-bottom:48px;">
+    <div class="wave">
+      <div class="wave-num">Wave 01</div>
+      <div class="wave-period">Months 1–6</div>
+      <div class="wave-name">City Zero.<br>Make It Undeniable.</div>
+      <div class="wave-targets">
+        <div class="wt">1 City</div>
+        <div class="wt">500 Families</div>
+        <div class="wt g">Word of Mouth Only</div>
+      </div>
+      <div class="wave-goal">"We don't need everyone. We need 500 families who can't stop talking about us."</div>
+      <ul class="wave-actions">
+        <li>Select one mid-size city with high immigrant + young family density (e.g. Birmingham, Houston, Hyderabad)</li>
+        <li>Partner with 3 schools — give them free curriculum in exchange for parent access</li>
+        <li>Partner with 5 employers — offer free 6-month trial as staff benefit</li>
+        <li>Seed 10 accountability circles with FFC™ coaches — in-person weekly</li>
+        <li>Mail the Ritual Letter to all 500 families in Month 1 — before the app even launches</li>
+        <li>Recruit 20 "Family Finance Champions" — early adopters who recruit their networks for perks</li>
+        <li>Media: pitch local press with "The family that paid off £12K of debt in 6 months" story</li>
+      </ul>
+      <div class="wave-metric">
+        <div class="wm-label">D90 Retention Target</div>
+        <div class="wm-val">72%</div>
+      </div>
+    </div>
+    <div class="wave">
+      <div class="wave-num">Wave 02</div>
+      <div class="wave-period">Months 6–18</div>
+      <div class="wave-name">Proof to Scale.<br>Three More Cities.</div>
+      <div class="wave-targets">
+        <div class="wt">4 Cities</div>
+        <div class="wt">5,000 Families</div>
+        <div class="wt b">Employer + School Push</div>
+      </div>
+      <div class="wave-goal">"We now have case studies, retention data, and coach supply. Time to replicate the model — not reinvent it."</div>
+      <ul class="wave-actions">
+        <li>Employer channel: close 50 company accounts at £2–5K/year — guaranteed volume</li>
+        <li>School channel: 25 school partnerships across 4 cities — parent funnel built in</li>
+        <li>PR: publish the "FinFlow City Zero Report" — data on financial health improvement of cohort</li>
+        <li>Launch referral program: families earn free months for every household they bring in</li>
+        <li>Open FFC™ certification to the public: creates coach supply AND brand advocates</li>
+        <li>Launch SMB module — target self-employed parents in existing base as first users</li>
+        <li>First bank white-label pilot — Family Pulse Score licensing deal signed</li>
+      </ul>
+      <div class="wave-metric">
+        <div class="wm-label">ARR Target</div>
+        <div class="wm-val">£1.8M</div>
+      </div>
+    </div>
+    <div class="wave">
+      <div class="wave-num">Wave 03</div>
+      <div class="wave-period">Months 18–36</div>
+      <div class="wave-name">Ecosystem Lock-In.<br>National + Beyond.</div>
+      <div class="wave-targets">
+        <div class="wt">National</div>
+        <div class="wt">50,000 Families</div>
+        <div class="wt g">B2B + Gov Channels</div>
+      </div>
+      <div class="wave-goal">"The flywheel is spinning. Bank partnerships, government programs, and community circles are acquiring families at near-zero marginal cost."</div>
+      <ul class="wave-actions">
+        <li>Bank distribution: 2+ banks surface FinFlow to their customers via app integration</li>
+        <li>Government pilot: subsidized FinFlow Basic for financial inclusion programs</li>
+        <li>Home Hub device ships to all Premium subscribers — physical layer fully active</li>
+        <li>FinFlow for Kids standalone product in schools — creates 5-year pipeline to adult product</li>
+        <li>First international city selected based on existing organic demand signals</li>
+        <li>Series A raise: use Wave 01–02 retention data as the proof point</li>
+        <li>Pulse Score licensing revenue target: £500K ARR from B2B alone</li>
+      </ul>
+      <div class="wave-metric">
+        <div class="wm-label">ARR Target</div>
+        <div class="wm-val">£12M</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g4">
+    <div class="card">
+      <span class="card-tag ct">Channel 1</span>
+      <div class="card-title" style="font-size:0.95rem;">Schools</div>
+      <div class="card-body">CAC: £0. Parental pull-through is the most trusted referral channel that exists. A child who comes home excited about money concepts is the best salesperson FinFlow will ever have.</div>
+    </div>
+    <div class="card">
+      <span class="card-tag ct">Channel 2</span>
+      <div class="card-title" style="font-size:0.95rem;">Employers</div>
+      <div class="card-body">CAC: £0 for employees. Employers fund the subscription and do the distribution via internal comms. One employer deal = 200+ household accounts activated in 30 days.</div>
+    </div>
+    <div class="card">
+      <span class="card-tag ct">Channel 3</span>
+      <div class="card-title" style="font-size:0.95rem;">Community Circles</div>
+      <div class="card-body">Each circle of 8 families has a natural NPS of 60+ because social proof is built in. Circles become self-recruiting: one new family needs a circle; existing circles welcome them.</div>
+    </div>
+    <div class="card">
+      <span class="card-tag ct">Channel 4</span>
+      <div class="card-title" style="font-size:0.95rem;">Bank Distribution</div>
+      <div class="card-body">Banks reach millions of existing customers at zero incremental FinFlow marketing cost. As the Pulse Score becomes valuable for underwriting, banks are incentivized to push adoption.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ONBOARDING FLOW -->
+<section class="sec" id="onboard">
+  <div class="sec-rule"></div><br>
+  <p class="sec-label">§07 — Onboarding Strategy</p>
+  <h2 class="sec-h">FIRST WIN IN<br><span class="b">7 DAYS.</span></h2>
+  <p class="sec-intro">The goal of onboarding is not to teach. It is to deliver one tangible win within 7 days that the family couldn't have achieved without FinFlow. Everything in the first 30 days is designed around that singular objective. Complexity is hidden until trust is earned.</p>
+
+  <div class="onboard-flow" style="margin-bottom:48px;">
+    <div class="onboard-step">
+      <div class="os-num">01</div>
+      <div class="os-content">
+        <div class="os-moment">Day 0 · 8 Minutes</div>
+        <div class="os-title">The Family Profile — Who are you, really?</div>
+        <div class="os-body">Not a sign-up form. A guided conversation. We ask 7 questions that feel personal, not clinical: "What's your biggest money worry right now?" "Who manages finances in your home?" "Do you and your partner discuss money openly?" The answers route the family to the right Starter Kit and pre-configure their experience. No bank connection required yet — that comes later when trust exists.</div>
+      </div>
+      <div class="os-meta">
+        <div class="os-meta-row"><div class="os-meta-key">Goal</div>Understand the family's true starting point and emotional relationship with money</div>
+        <div class="os-meta-row"><div class="os-meta-key">Drop risk</div>Low — conversational format reduces abandonment vs. form fill</div>
+        <div class="os-meta-row"><div class="os-meta-key">Output</div>Starter Kit assigned + Pulse Score baseline calculated</div>
+      </div>
+    </div>
+    <div class="onboard-step">
+      <div class="os-num">02</div>
+      <div class="os-content">
+        <div class="os-moment">Day 0 · 3 Minutes</div>
+        <div class="os-title">The First Win Promise — We make a commitment.</div>
+        <div class="os-body">FinFlow explicitly says: "In 7 days, we will show you exactly where £X of your money is going that you didn't know about. No action required from you today." This sets an expectation, creates anticipation, and removes the pressure to do anything immediately. The user leaves onboarding having done nothing — and still feeling progress.</div>
+      </div>
+      <div class="os-meta">
+        <div class="os-meta-row"><div class="os-meta-key">Goal</div>Create forward momentum without requiring immediate action</div>
+        <div class="os-meta-row"><div class="os-meta-key">Drop risk</div>Very low — "you don't have to do anything yet" reduces friction</div>
+        <div class="os-meta-row"><div class="os-meta-key">Output</div>User commitment to return in 7 days for their first insight</div>
+      </div>
+    </div>
+    <div class="onboard-step">
+      <div class="os-num">03</div>
+      <div class="os-content">
+        <div class="os-moment">Day 1–2 · Optional</div>
+        <div class="os-title">Connect One Account — Just One.</div>
+        <div class="os-body">We ask for one bank connection — the primary account. Not all accounts, not credit cards, not investments. One. We explain exactly what we access (read-only transaction data), exactly what we don't (passwords, ability to move money), and why. For families who are not ready to connect, we offer a manual entry mode — slower, but the experience still works.</div>
+      </div>
+      <div class="os-meta">
+        <div class="os-meta-row"><div class="os-meta-key">Goal</div>Lower the trust barrier for the most anxiety-inducing step</div>
+        <div class="os-meta-row"><div class="os-meta-key">Drop risk</div>Medium — bank connection is the highest-friction moment in fintech onboarding</div>
+        <div class="os-meta-row"><div class="os-meta-key">Output</div>First data flowing in — spending visible within hours</div>
+      </div>
+    </div>
+    <div class="onboard-step">
+      <div class="os-num">04</div>
+      <div class="os-content">
+        <div class="os-moment">Day 3 · Push Notification</div>
+        <div class="os-title">The Reveal — Your money, made visible.</div>
+        <div class="os-body">"We found something interesting. You spent £340 on subscriptions last month — but £87 of that was for services you haven't used in over 60 days. Want to see them?" This is the "aha moment." It arrives without the user doing anything. It is specific, personal, and immediately actionable. This moment must happen within 72 hours of bank connection or churn risk spikes dramatically.</div>
+      </div>
+      <div class="os-meta">
+        <div class="os-meta-row"><div class="os-meta-key">Goal</div>Deliver the promised first win before Day 7</div>
+        <div class="os-meta-row"><div class="os-meta-key">Drop risk</div>Very low — this is the most engaging moment of the entire product</div>
+        <div class="os-meta-row"><div class="os-meta-key">Output</div>NPS spike · first action taken · partner invited</div>
+      </div>
+    </div>
+    <div class="onboard-step">
+      <div class="os-num">05</div>
+      <div class="os-content">
+        <div class="os-moment">Day 5 · In-App</div>
+        <div class="os-title">Invite Your Partner — Make it a household.</div>
+        <div class="os-body">After the first win, the user is at peak engagement. This is the moment to introduce the household layer: "FinFlow works 3× better when your partner joins. Here's a 2-tap invite." We share a specific data point: "Couples who use FinFlow together save 34% more per year than solo users." The partner invite is the single most important activation event in the product — it doubles retention and doubles LTV.</div>
+      </div>
+      <div class="os-meta">
+        <div class="os-meta-row"><div class="os-meta-key">Goal</div>Convert single-user to household — 2× retention, 2× LTV</div>
+        <div class="os-meta-row"><div class="os-meta-key">Drop risk</div>Low — user is at peak trust after the Day 3 reveal</div>
+        <div class="os-meta-row"><div class="os-meta-key">Output</div>Household activated · first shared budget view</div>
+      </div>
+    </div>
+    <div class="onboard-step">
+      <div class="os-num">06</div>
+      <div class="os-content">
+        <div class="os-moment">Day 7 · Milestone</div>
+        <div class="os-title">Your First Weekly Review — The ritual begins.</div>
+        <div class="os-body">A guided 10-minute session: what happened this week, one win, one thing to improve, one action for next week. If the Home Hub is active, the Hub button triggers this on Sunday evening. For app users, a Sunday 6pm notification. For letter users, a prompt is included in the first Ritual Letter. The ritual is established in Week 1 and anchored into Sunday — a low-activity, reflective day for most families.</div>
+      </div>
+      <div class="os-meta">
+        <div class="os-meta-row"><div class="os-meta-key">Goal</div>Establish the Sunday ritual that drives 52× annual engagement</div>
+        <div class="os-meta-row"><div class="os-meta-key">Drop risk</div>Low — structured, short, and immediately valuable</div>
+        <div class="os-meta-row"><div class="os-meta-key">Output</div>Habit loop established · D30 retention rate prediction improves 40%</div>
+      </div>
+    </div>
+    <div class="onboard-step">
+      <div class="os-num">07</div>
+      <div class="os-content">
+        <div class="os-moment">Day 14 · Email + App</div>
+        <div class="os-title">Your Circle Invitation — Join your people.</div>
+        <div class="os-body">Two weeks in, the family has seen value. Now we introduce the community layer: "There are 7 other families in your city at exactly the same life stage. They meet monthly. Your coach Priya runs the sessions. Want to join?" Framing is critical — it's not a "support group," it's a "financial mastermind." First circle meeting is low-stakes: a shared goal-setting session over video or in-person.</div>
+      </div>
+      <div class="os-meta">
+        <div class="os-meta-row"><div class="os-meta-key">Goal</div>Activate the deepest retention mechanism — community</div>
+        <div class="os-meta-row"><div class="os-meta-key">Drop risk</div>Medium — social commitment requires more activation energy</div>
+        <div class="os-meta-row"><div class="os-meta-key">Output</div>Circle joined · social switching cost created · churn risk drops 60%</div>
+      </div>
+    </div>
+    <div class="onboard-step">
+      <div class="os-num">08</div>
+      <div class="os-content">
+        <div class="os-moment">Day 30 · Physical</div>
+        <div class="os-title">The Ritual Letter Arrives — The product becomes real.</div>
+        <div class="os-body">The first monthly Ritual Letter arrives in the post. Personalized with their actual data: how much they identified in hidden spending, how much their Pulse Score improved, and one thing to focus on in Month 2. It ends: "Leave this on your fridge. It belongs there." This physical moment marks the transition from "app I'm trying" to "system my family uses." Open rate: near 100%. It's their data, it's beautiful, and it came in the post.</div>
+      </div>
+      <div class="os-meta">
+        <div class="os-meta-row"><div class="os-meta-key">Goal</div>Cement the emotional commitment — from digital trial to physical ritual</div>
+        <div class="os-meta-row"><div class="os-meta-key">Drop risk</div>Very low — physical mail creates obligation and delight simultaneously</div>
+        <div class="os-meta-row"><div class="os-meta-key">Output</div>D30 retention target met · first upgrade consideration triggered</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- CLOSE -->
+<div class="close-banner">
+  <div class="cb-left">
+    <h2 class="cb-title">An app dies.<br>A <span>system</span><br>compounds.</h2>
+    <p class="cb-body">Every decision in this GTM plan — from the City Zero strategy to the Day 7 ritual — is designed to make FinFlow irreplaceable. Not because we lock families in, but because we make their lives measurably better in ways they can see, feel, and share. That's the only retention strategy that lasts.</p>
+    <div class="cb-actions">
+      <div class="cba primary">Next: Financial Model →</div>
+      <div class="cba">Unit Economics</div>
+      <div class="cba">Investor Deck</div>
+    </div>
+  </div>
+  <div class="cb-right">
+    <div class="north-star">
+      <div class="ns-label">North Star Metrics — Year 3</div>
+      <div class="ns-metrics">
+        <div class="ns-row"><div class="ns-key">Active Households</div><div class="ns-val">50,000</div></div>
+        <div class="ns-row"><div class="ns-key">D90 Retention Rate</div><div class="ns-val">68%</div></div>
+        <div class="ns-row"><div class="ns-key">Avg. Household LTV</div><div class="ns-val">£3,200</div></div>
+        <div class="ns-row"><div class="ns-key">Accountability Circles</div><div class="ns-val">1,400+</div></div>
+        <div class="ns-row"><div class="ns-key">Certified FFC™ Coaches</div><div class="ns-val">320</div></div>
+        <div class="ns-row"><div class="ns-key">School Partnerships</div><div class="ns-val">150</div></div>
+        <div class="ns-row"><div class="ns-key">SMB Households</div><div class="ns-val">8,200</div></div>
+        <div class="ns-row"><div class="ns-key">ARR</div><div class="ns-val">£12M+</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer style="text-align:center;padding:28px;border-top:1px solid var(--border);font-family:'Azeret Mono',monospace;font-size:0.58rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim);position:relative;z-index:1;">
+  FinFlow · Phase 3 · GTM, Validation & Onboarding Strategy · Confidential · 2025
+</footer>
+
+<script>
+window.addEventListener('scroll', () => {
+  const sections = ['validate','daily','income','knowledge','smb','gtm','onboard'];
+  const pills = document.querySelectorAll('.nav-pill');
+  let active = 0;
+  sections.forEach((id,i) => {
+    const el = document.getElementById(id);
+    if(el && window.scrollY >= el.offsetTop - 120) active = i;
+  });
+  pills.forEach((p,i) => p.classList.toggle('active', i === active));
+});
+</script>
+</body>
+</html>

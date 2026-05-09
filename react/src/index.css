@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════════
+   Theme tokens — HSL triplets so Tailwind colors interpolate cleanly.
+   Default = Paper Warm (from FinFlow Designs wireframes).
+   ════════════════════════════════════════════════════════════════ */
+
+:root, [data-theme="warm"] {
+  --bg:        37 35% 94%;     /* #F5EFE6 cream */
+  --bg2:       38 50% 96%;     /* #FBF7EE bone */
+  --bg3:       39 30% 88%;     /* #EDE5D6 paper-3 */
+  --bg4:       40 24% 85%;     /* #E5DCC9 paper-4 */
+  --ink:        15 12% 15%;    /* #2A2522 */
+  --ink-mid:    20  8% 39%;    /* #6B635C */
+  --ink-dim:    20  6% 55%;
+  --coral:       9 71% 62%;    /* #E26D5C */
+  --coral-tint:  9 71% 90%;
+  --terra:       6 58% 49%;    /* #C44536 */
+  --honey:      24 71% 70%;    /* #E8A87C */
+  --butter:     45 84% 72%;    /* #F4D27A */
+  --sage:      127 18% 59%;    /* #85A88A */
+  --olive:      83 20% 41%;    /* #6B7C53 */
+  --denim:     217 38% 47%;    /* #4A6FA5 */
+  --plum:      336 23% 35%;    /* #6E4555 */
+  --line:       15 12% 15% / .10;
+  --line2:      15 12% 15% / .20;
+  --shadow:     15 12% 15%;
+  --primary-text: 0 0% 100%;
+}
+
+[data-theme="dark"] {
+  --bg:         24 17%  9%;   /* #1A1612 */
+  --bg2:        20 17% 11%;   /* #221C17 */
+  --bg3:        18 15% 14%;
+  --bg4:        18 14% 18%;
+  --ink:        37 35% 94%;
+  --ink-mid:    37 35% 94% / .65;
+  --ink-dim:    37 35% 94% / .38;
+  --coral:       8 84% 70%;
+  --coral-tint:  8 84% 70% / .14;
+  --terra:       9 71% 62%;
+  --honey:      24 71% 70%;
+  --butter:     45 84% 72%;
+  --sage:      127 23% 68%;
+  --olive:      83 31% 67%;
+  --denim:     217 47% 60%;
+  --plum:      336 30% 55%;
+  --line:       38 50% 96% / .08;
+  --line2:      38 50% 96% / .18;
+  --shadow:      0  0%  0%;
+  --primary-text: 24 17%  9%;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: hsl(var(--bg));
+  color: hsl(var(--ink));
+  font-family: 'Inter Tight', system-ui, sans-serif;
+  font-size: 14px;
+  letter-spacing: -0.005em;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .3s, color .3s;
+  overflow-x: hidden;
+}
+
+/* Blueprint grid backdrop */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(hsl(var(--ink) / .025) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--ink) / .025) 1px, transparent 1px),
+    linear-gradient(hsl(var(--ink) / .012) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--ink) / .012) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--line2)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--ink-dim)); }
+
+/* Recharts — match theme */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+.recharts-default-tooltip {
+  background: hsl(var(--bg2)) !important;
+  border: 1px solid hsl(var(--line2)) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 20px hsl(var(--shadow) / .15) !important;
+  font-family: 'Inter Tight', system-ui, sans-serif !important;
+  padding: 8px 12px !important;
+}
+.recharts-tooltip-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 0.62rem !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: hsl(var(--ink-dim)) !important;
+  margin-bottom: 4px !important;
+}
+.recharts-tooltip-item {
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 0.78rem !important;
+  color: hsl(var(--ink)) !important;
+  padding: 2px 0 !important;
+}
+.recharts-cartesian-axis-tick-value {
+  fill: hsl(var(--ink-dim)) !important;
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 10px !important;
+}
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: hsl(var(--line)) !important;
+}
+.recharts-legend-item-text {
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 0.6rem !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: hsl(var(--ink-mid)) !important;
+}
+
+/* Component layer */
+@layer components {
+  .display-italic {
+    font-family: 'Newsreader', Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+  .mono-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--ink-mid));
+  }
+  .panel {
+    background: hsl(var(--bg2));
+    border: 1px solid hsl(var(--line));
+    border-radius: 8px;
+    box-shadow: 0 2px 6px hsl(var(--shadow) / .06);
+  }
+}

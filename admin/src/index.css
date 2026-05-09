@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════════
+   Claude Native Theme
+   Inspired by claude.ai's warm-paper aesthetic.
+   Background: cream off-white. Primary: terracotta. Text: warm dark.
+   Default = light. Dark mode flips via .dark class.
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Light · Claude default */
+  --bg:        45  35% 96%;     /* #FAF9F5 cream paper */
+  --surface:    0   0% 100%;    /* white card */
+  --elev:      45  20% 98%;
+  --sunken:    40  18% 92%;     /* sunken / hover */
+  --ink:        15  9% 13%;     /* #251F1A warm dark */
+  --ink-mid:    20  6% 38%;     /* #6B6258 */
+  --ink-dim:    20  5% 55%;
+  --claude:     14 64% 56%;     /* #D97757 terracotta — Anthropic Claude orange */
+  --claude-2:   14 70% 64%;
+  --tan:        30 35% 78%;
+  --positive:  142 47% 38%;     /* sage green */
+  --warn:       30 80% 50%;
+  --danger:    354 65% 50%;
+  --info:      210 50% 48%;
+  --line:       15  9% 13% / .08;
+  --line2:      15  9% 13% / .16;
+  --shadow:     15  9% 13%;
+}
+
+.dark {
+  /* Dark · Claude */
+  --bg:         28 12%  9%;
+  --surface:    25 11% 12%;
+  --elev:       25 11% 14%;
+  --sunken:     25 11% 16%;
+  --ink:        45 35% 96%;
+  --ink-mid:    45 25% 78%;
+  --ink-dim:    45 15% 60%;
+  --claude:     14 70% 65%;
+  --claude-2:   14 75% 72%;
+  --tan:        30 30% 60%;
+  --positive:  142 40% 55%;
+  --warn:       30 75% 60%;
+  --danger:    354 65% 60%;
+  --info:      210 60% 65%;
+  --line:       45 35% 96% / .08;
+  --line2:      45 35% 96% / .18;
+  --shadow:      0  0%  0%;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: hsl(var(--bg));
+  color: hsl(var(--ink));
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .25s, color .25s;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--line2)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--ink-dim)); }
+
+/* Recharts — match Claude theme */
+.recharts-tooltip-wrapper { outline: none !important; }
+.recharts-default-tooltip {
+  background: hsl(var(--surface)) !important;
+  border: 1px solid hsl(var(--line2)) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px hsl(var(--shadow) / .10) !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  padding: 8px 12px !important;
+}
+.recharts-tooltip-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 0.62rem !important;
+  letter-spacing: 0.06em !important;
+  color: hsl(var(--ink-dim)) !important;
+  margin-bottom: 4px !important;
+}
+.recharts-tooltip-item {
+  font-size: 0.84rem !important;
+  color: hsl(var(--ink)) !important;
+}
+.recharts-cartesian-axis-tick-value {
+  fill: hsl(var(--ink-dim)) !important;
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 10px !important;
+}
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: hsl(var(--line)) !important;
+}
+
+@layer components {
+  .display-serif {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-weight: 600;
+    letter-spacing: -0.018em;
+  }
+  .mono-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: hsl(var(--ink-mid));
+  }
+  .panel {
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--line));
+    border-radius: 10px;
+    box-shadow: 0 1px 3px hsl(var(--shadow) / 0.04);
+  }
+  .row-hover {
+    transition: background 0.15s;
+  }
+  .row-hover:hover {
+    background: hsl(var(--sunken));
+  }
+}

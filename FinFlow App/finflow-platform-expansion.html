@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinFlow Platform · Architecture Reuse Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:      #0c0f14;
+    --paper:    #f7f4ef;
+    --cream:    #ede9e1;
+    --teal:     #0a7c72;
+    --teal-lt:  #12a99c;
+    --amber:    #c8820a;
+    --amber-lt: #f0a930;
+    --coral:    #c94040;
+    --purple:   #6b3fa0;
+    --green:    #1a7a45;
+    --slate:    #4a5568;
+    --muted:    #8a9ab0;
+    --card:     #ffffff;
+    --border:   rgba(10,124,114,0.12);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1000;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+    opacity: 0.6;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 80px 5vw;
+    position: relative;
+    background:
+      radial-gradient(ellipse 70% 50% at 20% 50%, rgba(10,124,114,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 60% at 80% 30%, rgba(200,130,10,0.07) 0%, transparent 60%),
+      var(--ink);
+  }
+
+  .hero-inner {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+  }
+
+  .hero-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.28em;
+    color: var(--teal-lt);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeUp 0.7s ease 0.2s forwards;
+  }
+
+  .hero-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.8rem, 5vw, 4.2rem);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.7s ease 0.35s forwards;
+  }
+
+  .hero-title em {
+    color: var(--amber-lt);
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .hero-body {
+    color: var(--muted);
+    font-size: 1rem;
+    max-width: 480px;
+    line-height: 1.75;
+    opacity: 0;
+    animation: fadeUp 0.7s ease 0.5s forwards;
+  }
+
+  .hero-body strong { color: var(--paper); font-weight: 500; }
+
+  /* ── ARCHITECTURE CORE DISPLAY ── */
+  .arch-box {
+    background: rgba(10,124,114,0.06);
+    border: 1px solid rgba(10,124,114,0.2);
+    border-radius: 2px;
+    padding: 32px;
+    opacity: 0;
+    animation: fadeUp 0.7s ease 0.6s forwards;
+  }
+
+  .arch-box-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: var(--teal-lt);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .arch-component {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .arch-component:last-child { border-bottom: none; }
+
+  .arch-num {
+    font-family: 'Fraunces', serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--teal-lt);
+    line-height: 1;
+    min-width: 32px;
+    opacity: 0.4;
+  }
+
+  .arch-name {
+    font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--paper);
+    margin-bottom: 3px;
+  }
+
+  .arch-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ── SECTION ── */
+  .section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 100px 5vw;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    margin-bottom: 64px;
+  }
+
+  .section-num {
+    font-family: 'Fraunces', serif;
+    font-size: 4rem;
+    font-weight: 900;
+    color: rgba(255,255,255,0.04);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  .section-title em {
+    color: var(--amber-lt);
+    font-style: italic;
+  }
+
+  /* ── DOMAIN GRID ── */
+  .domain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 2px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .domain-card {
+    background: var(--ink);
+    padding: 0;
+    cursor: pointer;
+    transition: background 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .domain-card:hover { background: rgba(10,124,114,0.06); }
+
+  .domain-card.active {
+    background: rgba(10,124,114,0.1);
+  }
+
+  .domain-card-inner {
+    padding: 28px 28px 24px;
+  }
+
+  .domain-accent {
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    transition: height 0.3s;
+  }
+
+  .domain-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .domain-tag-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .domain-name {
+    font-family: 'Fraunces', serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+
+  .domain-hook {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.55;
+    margin-bottom: 14px;
+  }
+
+  .domain-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .meta-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted);
+  }
+
+  /* ── DETAIL PANEL ── */
+  .detail-panel {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    margin-top: 2px;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .detail-panel.open { max-height: 900px; }
+
+  .detail-inner {
+    padding: 44px 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 40px;
+  }
+
+  .detail-col-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--teal-lt);
+    margin-bottom: 16px;
+  }
+
+  .detail-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .detail-bullet {
+    width: 3px;
+    min-height: 16px;
+    flex-shrink: 0;
+    margin-top: 4px;
+    border-radius: 2px;
+  }
+
+  .detail-text {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  .detail-text strong { color: var(--paper); font-weight: 500; }
+
+  .reuse-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .reuse-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .reuse-chip-icon {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .reuse-chip-text {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .reuse-chip-text strong { color: var(--paper); }
+
+  /* ── WHAT CHANGES ── */
+  .delta-section {
+    background: rgba(200,130,10,0.04);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 80px 5vw;
+  }
+
+  .delta-grid {
+    max-width: 1200px;
+    margin: 48px auto 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+  }
+
+  .delta-col {
+    padding: 36px;
+  }
+
+  .delta-col-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .delta-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .delta-bar {
+    width: 3px;
+    height: 100%;
+    min-height: 18px;
+    flex-shrink: 0;
+    margin-top: 3px;
+    border-radius: 2px;
+  }
+
+  .delta-label {
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--teal-lt);
+    letter-spacing: 0.1em;
+    margin-bottom: 2px;
+  }
+
+  .delta-body { font-size: 0.85rem; color: var(--muted); line-height: 1.55; }
+  .delta-body strong { color: var(--paper); }
+
+  .delta-stays { background: rgba(10,124,114,0.06); }
+  .delta-changes { background: rgba(200,130,10,0.06); }
+
+  /* ── CLOSE STATEMENT ── */
+  .close-section {
+    padding: 120px 5vw;
+    text-align: center;
+    background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(10,124,114,0.08), transparent);
+  }
+
+  .close-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 900;
+    margin-bottom: 20px;
+    line-height: 1.1;
+  }
+
+  .close-title em { color: var(--amber-lt); font-style: italic; }
+
+  .close-body {
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto 48px;
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  .close-stats {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    flex-wrap: wrap;
+  }
+
+  .close-stat { text-align: center; }
+
+  .close-stat-num {
+    font-family: 'Fraunces', serif;
+    font-size: 2.4rem;
+    font-weight: 900;
+    color: var(--teal-lt);
+    display: block;
+    line-height: 1;
+  }
+
+  .close-stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 6px;
+    display: block;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ── DIVIDER ── */
+  .rule {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    margin: 0;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 32px 5vw;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--teal-lt);
+  }
+
+  .footer-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+  }
+
+  /* ── FILTER NAV ── */
+  .filter-nav {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+
+  .filter-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--teal-lt);
+    color: var(--teal-lt);
+    background: rgba(10,124,114,0.08);
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HERO ─────────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-eyebrow">FinFlow · Architecture Reuse Map</div>
+      <h1 class="hero-title">One platform.<br><em>Many problems.</em></h1>
+      <p class="hero-body">
+        Strip away the financial data and the score engine.
+        What remains is <strong>a shared household dashboard, a daily habit loop,
+        peer accountability circles, and a zero-CAC institutional channel.</strong>
+        <br><br>
+        That four-component architecture solves an entirely different set of
+        problems in every industry where households make decisions together under stress.
+      </p>
+    </div>
+    <div class="arch-box">
+      <div class="arch-box-label">The Core Architecture · Unchanged Across All Verticals</div>
+      <div class="arch-component">
+        <div class="arch-num">01</div>
+        <div>
+          <div class="arch-name">Shared Household Dashboard</div>
+          <div class="arch-desc">Both decision-makers see one live view. Real-time sync. Partner invite. Solo mode with delayed join. Privacy controls per item.</div>
+        </div>
+      </div>
+      <div class="arch-component">
+        <div class="arch-num">02</div>
+        <div>
+          <div class="arch-name">Daily Habit Loop</div>
+          <div class="arch-desc">Morning signal → midday nudge → evening check-in → weekly review. One notification per day maximum. Anchored to existing moments.</div>
+        </div>
+      </div>
+      <div class="arch-component">
+        <div class="arch-num">03</div>
+        <div>
+          <div class="arch-name">Accountability Circle</div>
+          <div class="arch-desc">8-unit peer groups matched by life stage. Monthly facilitated sessions. Social commitment mechanism. Churn drops 80% on join.</div>
+        </div>
+      </div>
+      <div class="arch-component">
+        <div class="arch-num">04</div>
+        <div>
+          <div class="arch-name">Institutional Channel</div>
+          <div class="arch-desc">Employer or school distributes the product at zero CAC. One contract = 200+ users activated in 30 days. The moat no competitor can copy.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ── DOMAIN EXPLORER ─────────────────────────────────────────────────────── -->
+<section class="section">
+  <div class="section-header reveal">
+    <div class="section-num">—</div>
+    <h2 class="section-title">Eight verticals.<br><em>Same four components.</em> Different data.</h2>
+  </div>
+
+  <div class="filter-nav reveal">
+    <button class="filter-btn active" onclick="filterDomains('all')">All Industries</button>
+    <button class="filter-btn" onclick="filterDomains('health')">Health</button>
+    <button class="filter-btn" onclick="filterDomains('care')">Care</button>
+    <button class="filter-btn" onclick="filterDomains('learning')">Learning</button>
+    <button class="filter-btn" onclick="filterDomains('work')">Work</button>
+    <button class="filter-btn" onclick="filterDomains('legal')">Legal / Life Events</button>
+    <button class="filter-btn" onclick="filterDomains('consumer')">Consumer</button>
+  </div>
+
+  <div class="domain-grid" id="domainGrid"></div>
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-inner" id="detailInner"></div>
+  </div>
+</section>
+
+<!-- ── WHAT STAYS / WHAT CHANGES ──────────────────────────────────────────── -->
+<section class="delta-section">
+  <div style="max-width:1200px; margin:0 auto;">
+    <div style="margin-bottom:8px;">
+      <span style="font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--amber-lt);">The Reuse Thesis</span>
+    </div>
+    <h2 class="section-title" style="font-family:'Fraunces',serif; font-size:clamp(1.8rem,3vw,2.6rem);">Replatforming is a <em>frontend decision,</em><br>not a rebuild.</h2>
+  </div>
+
+  <div class="delta-grid">
+    <div class="delta-col delta-stays">
+      <div class="delta-col-title" style="color:var(--teal-lt);">✓ Stays Identical · Zero Re-Engineering</div>
+
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--teal);"></div>
+        <div>
+          <div class="delta-label">Auth + Household Creation</div>
+          <div class="delta-body">User registration, partner invite, household account model. <strong>Copy-paste to any vertical.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--teal);"></div>
+        <div>
+          <div class="delta-label">Real-Time Partner Sync</div>
+          <div class="delta-body">WebSocket infrastructure that updates both screens in under 3 seconds. <strong>Domain-agnostic.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--teal);"></div>
+        <div>
+          <div class="delta-label">Notification Engine</div>
+          <div class="delta-body">One-per-day rule. AI selects highest-relevance signal. Morning / midday / evening slots. <strong>Swap the content, not the system.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--teal);"></div>
+        <div>
+          <div class="delta-label">Circle Matching Algorithm</div>
+          <div class="delta-body">8-unit peer group formation by life stage + geography + shared context. <strong>Parameter changes, engine stays.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--teal);"></div>
+        <div>
+          <div class="delta-label">Weekly Review Flow</div>
+          <div class="delta-body">10-minute guided structured session. Wins → worry → one action. <strong>Template variables swap per domain.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--teal);"></div>
+        <div>
+          <div class="delta-label">Employer / School Portal</div>
+          <div class="delta-body">Admin dashboard, aggregate engagement metrics, billing. <strong>Relabel "employer" per channel partner.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--teal);"></div>
+        <div>
+          <div class="delta-label">Goal Setting + Progress Bars</div>
+          <div class="delta-body">Target → milestone → celebration mechanic. <strong>Change the target type, keep the dopamine loop.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--teal);"></div>
+        <div>
+          <div class="delta-label">Onboarding Flow (7 Questions)</div>
+          <div class="delta-body">Conversational intake that routes to right starter kit. <strong>Rewrite questions, keep the routing logic.</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="delta-col delta-changes">
+      <div class="delta-col-title" style="color:var(--amber-lt);">↻ Changes Per Vertical · Frontend + Data Layer Only</div>
+
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--amber);"></div>
+        <div>
+          <div class="delta-label">Dashboard Data Points</div>
+          <div class="delta-body">Financial transactions → health logs / learning records / care tasks. <strong>Data schema changes. UI layout identical.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--amber);"></div>
+        <div>
+          <div class="delta-label">Third-Party API Integrations</div>
+          <div class="delta-body">TrueLayer → NHS API / school MIS / wearable SDK / HR system. <strong>One integration swap per vertical.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--amber);"></div>
+        <div>
+          <div class="delta-label">Notification Copy + Triggers</div>
+          <div class="delta-body">"You spent £340 on subscriptions" → "Your child missed 3 homework deadlines." <strong>Content layer only.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--amber);"></div>
+        <div>
+          <div class="delta-label">Circle Matching Parameters</div>
+          <div class="delta-body">Income tier + life stage → diagnosis type + care load + school year group. <strong>Parameters change, algorithm stays.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--amber);"></div>
+        <div>
+          <div class="delta-label">Channel Partner Type</div>
+          <div class="delta-body">Employer / school → NHS surgery / housing association / law firm / hospice. <strong>Same portal, different partner logo.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--amber);"></div>
+        <div>
+          <div class="delta-label">Visual Language + Branding</div>
+          <div class="delta-body">Colour palette, iconography, terminology. <strong>Design tokens swap. Component library stays.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--amber);"></div>
+        <div>
+          <div class="delta-label">Regulatory Compliance Layer</div>
+          <div class="delta-body">FCA → CQC / Ofsted / ICO / SRA depending on domain. <strong>Compliance wrapper changes. Data model mostly reusable.</strong></div>
+        </div>
+      </div>
+      <div class="delta-item">
+        <div class="delta-bar" style="background:var(--amber);"></div>
+        <div>
+          <div class="delta-label">Starter Kit Content</div>
+          <div class="delta-body">90-day financial plan → 90-day care plan / school readiness plan. <strong>Content swap, not structure.</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CLOSE ──────────────────────────────────────────────────────────────── -->
+<section class="close-section reveal">
+  <h2 class="close-title">The architecture is the <em>moat.</em></h2>
+  <p class="close-body">
+    FinFlow's engineering investment doesn't depreciate across verticals — it compounds.
+    Every new deployment on the same infrastructure lowers the marginal cost of the next one.
+    The household OS gets cheaper to build and harder to replicate with every domain added.
+  </p>
+  <div class="close-stats">
+    <div class="close-stat">
+      <span class="close-stat-num">8</span>
+      <span class="close-stat-label">Verticals Mapped</span>
+    </div>
+    <div class="close-stat">
+      <span class="close-stat-num">~5%</span>
+      <span class="close-stat-label">New Code Per Vertical</span>
+    </div>
+    <div class="close-stat">
+      <span class="close-stat-num">95%</span>
+      <span class="close-stat-label">Architecture Reused</span>
+    </div>
+    <div class="close-stat">
+      <span class="close-stat-num">£0</span>
+      <span class="close-stat-label">CAC via Institutional Channel</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">FinFlow</div>
+  <div class="footer-note">Architecture Reuse Map · Confidential · 2025</div>
+</footer>
+
+<script>
+// ── DOMAIN DATA ──────────────────────────────────────────────────────────────
+const domains = [
+  {
+    id: 1,
+    name: "Family Health Tracker",
+    tag: "Health",
+    tagKey: "health",
+    color: "#c94040",
+    hook: "Two parents managing a child's chronic condition — asthma, diabetes, ADHD — with no shared view of medications, appointments, and symptoms.",
+    tam: "£280B",
+    readiness: "High",
+    channel: "GP Surgeries",
+    whatChanges: [
+      { label: "Data Layer", text: "<strong>Wearable + NHS API</strong> replaces Open Banking. Glucose readings, peak flow scores, medication logs, appointment history." },
+      { label: "Dashboard", text: "<strong>Symptom timeline + medication adherence</strong> replaces spending tracker. Same dual-partner view, same real-time sync." },
+      { label: "Daily Signal", text: "<strong>'Medication not logged today'</strong> or 'Appointment in 3 days' replaces morning spend alert. Same one-per-day rule." },
+      { label: "Circles", text: "<strong>8 families with same diagnosis</strong>. Monthly sessions with a specialist nurse or patient advocate — not a financial coach." },
+    ],
+    whatStays: [
+      "Household dual-view dashboard architecture",
+      "Partner sync infrastructure (< 3s)",
+      "Weekly Review flow (swap financial questions for health questions)",
+      "Employer channel: large companies with occupational health programs",
+      "Onboarding 7-question flow (rewrite questions only)",
+      "Goal tracking (replace 'emergency fund' with 'symptom-free weeks')",
+    ],
+    channel_detail: "GP surgeries pay £3K/yr to surface the app to high-risk patient households. NHS social prescribing teams become the school channel equivalent. Employers with occupational health obligations are the B2B tier.",
+    tension: "One partner tracks, the other resists. Solo mode + delayed invite solves this identically to the finance case.",
+  },
+  {
+    id: 2,
+    name: "Sandwich Care Coordinator",
+    tag: "Care",
+    tagKey: "care",
+    color: "#c8820a",
+    hook: "Adult children in different cities coordinating care for an aging parent — medications, GP visits, meals, home safety — with WhatsApp as the only tool.",
+    tam: "£320B",
+    readiness: "High",
+    channel: "Hospices / NHS",
+    whatChanges: [
+      { label: "Data Layer", text: "<strong>Manual log + carer API</strong>. Medication given, meals eaten, falls logged, GP notes imported. No complex integration needed at MVP." },
+      { label: "Household Model", text: "<strong>Multi-member, not just couple.</strong> 3–5 adult children + primary carer share one dashboard. Architecture already supports N users per household." },
+      { label: "Daily Signal", text: "<strong>'Dad's medication not logged since yesterday'</strong> or 'Physio appointment missed'. Dispatched to the sibling who last checked in." },
+      { label: "Circles", text: "<strong>8 families in similar care situations</strong>. Monthly sessions facilitated by a social worker or carer charity rep. Reduces carer isolation — the #1 complaint." },
+    ],
+    whatStays: [
+      "Multi-user household dashboard (already supports N members)",
+      "Real-time sync between dispersed family members",
+      "Goal tracking: replace savings goal with 'care plan milestone'",
+      "Weekly Review: rename fields, keep flow",
+      "Employer channel: 1 in 8 employees is a carer — HR directors are the exact same buyer",
+      "Notification engine: same cadence, different triggers",
+    ],
+    channel_detail: "Carers UK, Age UK, local hospices and NHS discharge teams become channel partners. Employers pay because carer stress costs UK employers £3.3B/yr in lost productivity. Same B2B pitch, different employer pain point.",
+    tension: "One sibling does everything, others feel guilty and disengage. Circle structure and shared dashboard make invisible labour visible without blame.",
+  },
+  {
+    id: 3,
+    name: "Home Learning Dashboard",
+    tag: "Learning",
+    tagKey: "learning",
+    color: "#6b3fa0",
+    hook: "Parents who want to support their child's education at home but have no visibility into what's actually happening at school — homework, reading logs, teacher feedback.",
+    tam: "£180B",
+    readiness: "High",
+    channel: "Schools",
+    whatChanges: [
+      { label: "Data Layer", text: "<strong>School MIS API</strong> (SIMS, Arbor) replaces Open Banking. Attendance, homework completion, reading minutes, teacher comments." },
+      { label: "Dashboard", text: "<strong>Weekly learning snapshot</strong> for each child. Both parents see same view. Replaces spending dashboard with learning dashboard — same two-column layout." },
+      { label: "Daily Signal", text: "<strong>'Liam hasn't logged his reading today'</strong> or 'Maths test on Friday — 3 days to practice'. One per day, same rule." },
+      { label: "Circles", text: "<strong>8 parent households whose children are in the same year group.</strong> Monthly sessions facilitated by a teaching assistant or family liaison officer." },
+    ],
+    whatStays: [
+      "Household dashboard with dual-parent real-time view",
+      "Child profile model (FinFlow Junior → LearnFlow Junior, same component)",
+      "Goal tracking: replace 'emergency fund target' with 'reading level target'",
+      "School channel: already built by FinFlow — same principals, same pitch",
+      "Weekly Review: rename 'budget review' to 'learning review'",
+      "Referral mechanic: parents invite other parents in same class",
+    ],
+    channel_detail: "Schools are the channel partner — the same ones already signed by FinFlow. The pitch to the head teacher is identical: free curriculum tool in exchange for parent communications access. LearnFlow converts a FinFlow school into a paying LearnFlow school.",
+    tension: "Parents feel judged for their child's performance. Circle framing is 'family learning community' not 'accountability group'. Anonymised benchmarks, not league tables.",
+  },
+  {
+    id: 4,
+    name: "New Employee Onboarding OS",
+    tag: "Work",
+    tagKey: "work",
+    color: "#1a7a45",
+    hook: "New hires are overwhelmed in their first 90 days. HR sends a PDF. Line managers are too busy. Buddy programs are inconsistent. The company loses 20% of new starters within 12 months.",
+    tam: "£85B",
+    readiness: "Medium",
+    channel: "HR Departments",
+    whatChanges: [
+      { label: "Data Layer", text: "<strong>HR system API</strong> (Workday, BambooHR). Training completion, task checklist, manager check-in logs, peer introductions made." },
+      { label: "Household Model", text: "<strong>New hire + buddy + line manager</strong> replace couple. Three-way shared view of 90-day onboarding progress. All three see same dashboard." },
+      { label: "Daily Signal", text: "<strong>'You have 2 onboarding tasks due this week'</strong> or 'Your buddy hasn't checked in — tap to message.' Replaces spend alert." },
+      { label: "Circles", text: "<strong>8 new hires from same intake cohort</strong>. Monthly facilitated check-in with HR business partner. Cohort bond formed — retention driver." },
+    ],
+    whatStays: [
+      "Three-way household model (new hire + buddy + manager = couple + optional third)",
+      "Goal tracking: 90-day milestone plan replaces savings goal",
+      "Weekly Review: '90-day check-in' replaces Sunday financial review",
+      "Employer channel: HR director is literally the buyer and the distributor",
+      "Notification engine: task-based triggers replace spending triggers",
+      "Onboarding flow: 7 questions about role, team, goals replaces financial questions",
+    ],
+    channel_detail: "The employer IS the channel. HR pays for the platform and deploys it to every new hire cohort. CAC is structurally zero — same model as FinFlow employer channel. One enterprise contract = 500 new hire activations.",
+    tension: "New hires don't want to appear lost. Circle framing is 'peer learning group' not 'support group'. Progress is celebrated, not gaps.",
+  },
+  {
+    id: 5,
+    name: "Divorce Financial Untangler",
+    tag: "Legal / Life Events",
+    tagKey: "legal",
+    color: "#0a7c72",
+    hook: "Separating couples need to divide assets, coordinate child finances, and track shared obligations — but have no shared digital space that isn't their bank app or a WhatsApp group going toxic.",
+    tam: "£42B",
+    readiness: "Medium",
+    channel: "Family Law Firms",
+    whatChanges: [
+      { label: "Data Layer", text: "<strong>Open Banking (read-only, both accounts)</strong> — same TrueLayer API as FinFlow. Asset register, maintenance payment log, child expense tracker added on top." },
+      { label: "Household Model", text: "<strong>Separating couple in mediation mode.</strong> Shared view is now a legally-documented neutral record — not a collaboration tool but an evidence layer." },
+      { label: "Daily Signal", text: "<strong>'Maintenance payment due in 3 days'</strong> or 'School fees shared expense logged by Alex'. Replaces spending alert with co-parenting coordination." },
+      { label: "Circles", text: "<strong>8 individuals at same stage of separation</strong> (not couples). Facilitated by a family mediator or divorce coach. Emotional support + practical peer guidance." },
+    ],
+    whatStays: [
+      "Open Banking connection (same TrueLayer integration — no change)",
+      "Shared dashboard with privacy-per-item controls (critical in this context)",
+      "Goal tracking: 'divorce finalised by' date replaces savings target",
+      "Notification engine: legal deadline triggers replaces spending triggers",
+      "Solo mode (one partner joins without the other initially)",
+      "Solicitor as channel partner replaces employer — pays per client referred",
+    ],
+    channel_detail: "Family law firms pay a per-referral fee or annual subscription to surface the tool to divorcing clients. Mediators and CAFCASS (UK) are the school-equivalent channel. Market is underserved: 100,000+ UK divorces/year with no dedicated digital coordination tool.",
+    tension: "Shared dashboard in an adversarial relationship. Solution: legally-neutral read-only shared view, with private notes per user, and solicitor access mode. Each party sees the same data but has their own private workspace.",
+  },
+  {
+    id: 6,
+    name: "New Parent Survival OS",
+    tag: "Health",
+    tagKey: "health",
+    color: "#c94040",
+    hook: "First-time parents in the 0–12 month window are overwhelmed, sleep-deprived, and financially shocked. Health visitors see them once a month. The rest of the time they're on Reddit.",
+    tam: "£110B",
+    readiness: "High",
+    channel: "NHS / Midwives",
+    whatChanges: [
+      { label: "Data Layer", text: "<strong>Baby log + NHS Red Book digital API.</strong> Feeds, naps, weight, vaccinations, developmental milestones. Both parents see same log." },
+      { label: "Dashboard", text: "<strong>Today's feed/sleep/nappy summary</strong> at top. Week-on-week trend. Upcoming vaccinations. Replaces spending dashboard — same two-column layout." },
+      { label: "Daily Signal", text: "<strong>'Next vaccination due in 8 days'</strong> or 'Average sleep last week was 11.2 hours — up from 9.4'. One per day, same rule." },
+      { label: "Circles", text: "<strong>8 couples whose babies are within 4 weeks of same birth date</strong>. Monthly NCT-style session with health visitor. Reduces postnatal isolation — a clinical outcome." },
+    ],
+    whatStays: [
+      "Dual-parent real-time dashboard (both see same baby log simultaneously)",
+      "Partner sync: when one parent logs a feed, the other sees it instantly",
+      "Goal tracking: 'sleep through the night by week 16' replaces savings goal",
+      "NHS / midwifery channel: health visitors are the employer equivalent",
+      "Weekly Review: 'baby week in review' replaces Sunday financial review",
+      "Onboarding 7 questions: baby age, feeding method, primary concern, etc.",
+    ],
+    channel_detail: "NHS trusts pay per registered household to improve postnatal outcomes and reduce health visitor workload. Antenatal class providers (NCT, private hospitals) become the school equivalent. One NHS trust contract = 2,000+ new parent activations in a catchment.",
+    tension: "One parent does more at night, data reveals imbalance, resentment risk. Privacy-per-log-entry controls allow each parent to mark personal notes private. Same architecture as financial privacy controls.",
+  },
+  {
+    id: 7,
+    name: "Rental Household Manager",
+    tag: "Consumer",
+    tagKey: "consumer",
+    color: "#0a7c72",
+    hook: "Housemates in shared rentals argue about bills, chase each other for money, forget whose turn it is to clean, and manage landlord communications via 6 different apps.",
+    tam: "£28B",
+    readiness: "High",
+    channel: "Letting Agencies",
+    whatChanges: [
+      { label: "Data Layer", text: "<strong>Utility API + rent payment API.</strong> Shared bills split automatically. Landlord communications log. Maintenance request tracker. Inventory photos." },
+      { label: "Household Model", text: "<strong>2–5 housemates</strong> replace couple. N-user household model (already in architecture). Each person sees shared bills, chore rota, house fund balance." },
+      { label: "Daily Signal", text: "<strong>'Council tax due in 4 days — 3 of 4 have contributed'</strong> or 'Boiler inspection scheduled for Thursday'. Replaces spending alert." },
+      { label: "Circles", text: "<strong>8 shared households on same street or estate</strong>. Monthly session about neighbourhood issues — noise, landlord policies, tenant rights. Facilitated by council tenant association." },
+    ],
+    whatStays: [
+      "N-user household model (housemates replace partners)",
+      "Shared bill tracker (subset of FinFlow spending dashboard — simpler)",
+      "Goal tracking: 'house deposit fund' replaces 'emergency fund' for future leavers",
+      "Letting agency as channel partner: CAC £0, agency pays for tenant retention tool",
+      "Notification engine: bill and maintenance triggers replace spending triggers",
+      "Referral mechanic: housemate invites other housemates — viral within shared houses",
+    ],
+    channel_detail: "Letting agencies pay because tenant satisfaction reduces void periods (each void = £1,200 lost). One agency = 500+ households activated in a single town. Council housing associations become the NHS equivalent for social housing tenants.",
+    tension: "Power dynamics in shared houses — one person always chases the others. Shared dashboard makes 'who paid' visible to everyone without personal confrontation. Same function as FinFlow's partner transparency layer.",
+  },
+  {
+    id: 8,
+    name: "Chronic Illness Carer Companion",
+    tag: "Care",
+    tagKey: "care",
+    color: "#c8820a",
+    hook: "A partner or family member managing a spouse's chronic illness — MS, Parkinson's, cancer — has no tool that shows today's symptom picture, upcoming appointments, medication schedule, and carer mental health in one place.",
+    tam: "£160B",
+    readiness: "High",
+    channel: "NHS Specialist Teams",
+    whatChanges: [
+      { label: "Data Layer", text: "<strong>Patient-reported outcomes + NHS appointment API.</strong> Symptom diary, medication log, fatigue score, appointment calendar. Both patient and carer see same view." },
+      { label: "Dashboard", text: "<strong>Today's symptom score + week trend + upcoming appointments.</strong> Carer section shows carer's own wellbeing log — dual dashboard, not just patient-facing." },
+      { label: "Daily Signal", text: "<strong>'Pain score higher than average for 3 days — log a GP note?'</strong> or 'Your carer check-in: how are you doing today?' Sent to carer, not patient." },
+      { label: "Circles", text: "<strong>8 carer-patient pairs with same diagnosis</strong>. Monthly session with a specialist nurse or charity rep (MS Society, Parkinson's UK are natural facilitators)." },
+    ],
+    whatStays: [
+      "Dual-view household dashboard: patient view + carer view (separate privacy layers)",
+      "Privacy-per-item controls: patient marks certain symptoms private from carer",
+      "Weekly Review: 'this week's health summary' replaces financial review",
+      "NHS specialist team as institutional channel: oncology unit, MS clinic pay per enrolled patient",
+      "Goal tracking: 'complete 8-week physio program' replaces savings goal",
+      "Referral mechanic: carer refers other carers in same ward / support group",
+    ],
+    channel_detail: "NHS specialist teams (oncology, neurology, rheumatology) are the employer channel. One specialist unit contract = 300 patient-carer pairs enrolled with no marketing spend. Pharmaceutical companies become the B2B licensing tier — aggregate anonymised symptom data is valuable research signal.",
+    tension: "Carer burnout is invisible. Dashboard includes a carer wellbeing check-in that the patient cannot see — a privacy inversion of the FinFlow model, using the same privacy-per-item architecture.",
+  },
+];
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+let activeId = null;
+
+function renderDomains(filter) {
+  const grid = document.getElementById('domainGrid');
+  const filtered = filter === 'all' ? domains : domains.filter(d => d.tagKey === filter);
+  
+  grid.innerHTML = filtered.map(d => `
+    <div class="domain-card ${activeId === d.id ? 'active' : ''}" onclick="toggleDetail(${d.id})" data-tag="${d.tagKey}">
+      <div class="domain-accent" style="background:${d.color};"></div>
+      <div class="domain-card-inner">
+        <div class="domain-tag">
+          <div class="domain-tag-dot" style="background:${d.color};"></div>
+          <span style="color:${d.color};">${d.tag}</span>
+        </div>
+        <div class="domain-name">${d.name}</div>
+        <div class="domain-hook">${d.hook}</div>
+        <div class="domain-meta">
+          <span class="meta-chip">TAM ${d.tam}</span>
+          <span class="meta-chip">Readiness: ${d.readiness}</span>
+          <span class="meta-chip">Channel: ${d.channel}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterDomains(key) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  activeId = null;
+  document.getElementById('detailPanel').classList.remove('open');
+  renderDomains(key);
+}
+
+function toggleDetail(id) {
+  const domain = domains.find(d => d.id === id);
+  const panel = document.getElementById('detailPanel');
+  const inner = document.getElementById('detailInner');
+
+  if (activeId === id) {
+    activeId = null;
+    panel.classList.remove('open');
+    renderDomains('all');
+    return;
+  }
+
+  activeId = id;
+  renderDomains('all');
+
+  inner.innerHTML = `
+    <div>
+      <div class="detail-col-title">What Changes · Frontend + Data</div>
+      ${domain.whatChanges.map(w => `
+        <div class="detail-item">
+          <div class="detail-bullet" style="background:${domain.color};"></div>
+          <div class="detail-text"><strong>${w.label}:</strong><br>${w.text}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div>
+      <div class="detail-col-title">What Stays · Zero Re-Engineering</div>
+      <div class="reuse-chips">
+        ${domain.whatStays.map(s => `
+          <div class="reuse-chip">
+            <div class="reuse-chip-icon" style="background:var(--teal-lt);"></div>
+            <div class="reuse-chip-text">${s}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div>
+      <div class="detail-col-title">Channel Partner Model</div>
+      <div class="detail-item" style="margin-bottom:20px;">
+        <div class="detail-bullet" style="background:var(--amber);"></div>
+        <div class="detail-text">${domain.channel_detail}</div>
+      </div>
+      <div class="detail-col-title" style="margin-top:24px;">The Core Tension</div>
+      <div class="detail-item">
+        <div class="detail-bullet" style="background:${domain.color};"></div>
+        <div class="detail-text">${domain.tension}</div>
+      </div>
+    </div>
+  `;
+
+  panel.classList.add('open');
+
+  // Scroll panel into view
+  setTimeout(() => {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 50);
+}
+
+// ── SCROLL REVEAL ─────────────────────────────────────────────────────────
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+renderDomains('all');
+</script>
+</body>
+</html>

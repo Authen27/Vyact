@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Consumer app
+  - package-ecosystem: npm
+    directory: /react
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      react: { patterns: ['react', 'react-*', '@types/react*'] }
+      vite:  { patterns: ['vite', '@vitejs/*'] }
+      tailwind: { patterns: ['tailwindcss', 'autoprefixer', 'postcss'] }
+    labels: ['dependencies', 'consumer']
+
+  # Admin app
+  - package-ecosystem: npm
+    directory: /admin
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      react: { patterns: ['react', 'react-*', '@types/react*'] }
+      vite:  { patterns: ['vite', '@vitejs/*'] }
+    labels: ['dependencies', 'admin']
+
+  # GitHub Actions themselves
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    labels: ['dependencies', 'ci']
