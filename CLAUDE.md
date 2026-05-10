@@ -1,15 +1,23 @@
-# FinFlow — Family Finance OS  ·  v4.1 / v8.0
+# FinFlow — Family Finance OS
+
+## Versioning at a glance
+
+Three deployables, each on its own SemVer line. Authoritative changelogs:
+- Master index: [`VERSIONS.md`](VERSIONS.md)
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v6.3.1**
+- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.0.0**
+- Vanilla shell: legacy, **frozen at v5.0** — see master index
 
 ## Project Overview
 Three parallel deliverables exist in this repo:
 
-- **v5 vanilla shell** at the root — plain HTML+CSS+JS, no build step. Opens `index.html` directly. All 6 v5 features fully working.
-- **v4.1 + v6 + v7 + v7.5 React app** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **v4.1 cloud features now wired**: Supabase auth (email/password + magic link + reset), `HybridAdapter` (cache + cloud + write queue), multi-household with invitations, role-based permissions, realtime subscriptions, activity log. Plus all earlier features: Smart Onboarding, EMI re-amortisation, Recurring + Notifications, rules-based Planner, AI Chatbot.
-- **v8 Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme** (cream / terracotta / Source Serif 4 / Inter). Three role tiers, NorthStar dashboard, mock data layer ready to swap to Supabase.
+- **Consumer (vanilla shell, legacy)** at the root — plain HTML+CSS+JS, no build step. Opens `index.html` directly. All v5.0 features fully working. **Frozen** as of consumer v6.0; superseded by the React port in `react/`.
+- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v6.3.1**. Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. Live at https://react-taupe-xi.vercel.app.
+- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.0.0**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. Live at https://finflow-admin.vercel.app.
 
-**Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app continues to run as v6/v7 did (localStorage only, single anonymous household, no auth screens).
+**Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app falls back to localStorage-only mode (single anonymous household, no auth screens). Both modes share the same `DataAdapter` interface.
 
-> **v6.0 status:** Modern frontend rebuild on a real toolchain. Dashboard, Reports, Transactions all work in React with **Recharts** integrated for interactive charts. Remaining pages link back to v5 vanilla until ported. The data layer, calculations, theme system, and routing are all in place — porting each remaining page is now a contained UI task.
+> **Consumer v6.3.1 status:** All 10 pages ported to React (no more `<Stubs />` placeholder). Insights page reads admin-authored content from Supabase. Add Transaction modal hoisted to App root and reachable from Dashboard + Transactions + the `N` shortcut. Onboarding is opt-in (no forced wizard). See [`react/CHANGELOG.md`](react/CHANGELOG.md) for the per-version detail and roadmap.
 
 ## File Structure
 ```

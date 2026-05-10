@@ -2,13 +2,18 @@ import { Lock, Repeat, ArrowRightLeft, TrendingUp, Users } from 'lucide-react';
 import type { Transaction } from '../../types';
 import { useStore } from '../../store';
 import { getCat } from '../../constants';
-import { fmt, formatDate } from '../../lib/format';
+import { formatDate } from '../../lib/format';
 import PaymentMethodChip from './PaymentMethodChip';
 import Badge from '../ui/Badge';
+import Money from '../ui/Money';
 
-interface Props { txn: Transaction; showActions?: boolean; }
+interface Props {
+  txn: Transaction;
+  showActions?: boolean;
+  onEdit?: (t: Transaction) => void;
+}
 
-export default function TxnRow({ txn: t, showActions = false }: Props) {
+export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
   const members = useStore(s => s.members);
   const dateFormat = useStore(s => s.profile.dateFormat || 'us');
   const baseCurrency = useStore(s => s.profile.baseCurrency);
@@ -27,9 +32,7 @@ export default function TxnRow({ txn: t, showActions = false }: Props) {
               : isXfer              ? 'text-denim'
               :                       'text-terra';
 
-  const amount = isSplit
-    ? `${sign}${fmt(t.split!.yourShare, cur)}`
-    : `${sign}${fmt(t.amount, cur)}`;
+  const amount = isSplit ? t.split!.yourShare : t.amount;
 
   const wrapperBg = t.excluded ? 'opacity-65' : isInv ? 'bg-honey/[0.04]' : isXfer ? 'bg-denim/[0.03]' : '';
 
@@ -48,7 +51,10 @@ export default function TxnRow({ txn: t, showActions = false }: Props) {
           {cat.label} · {formatDate(t.date, dateFormat)}{t.note ? ' · ' + t.note : ''}
         </div>
       </div>
-      <div className={`font-mono text-[0.86rem] font-medium whitespace-nowrap ${amtCls}`}>{amount}</div>
+      <div className={`font-mono text-[0.86rem] font-medium whitespace-nowrap flex items-center gap-0.5 max-w-[40%] min-w-0 ${amtCls}`}>
+        <span aria-hidden>{sign}</span>
+        <Money amount={amount} currency={cur} maxChars={14} />
+      </div>
 
       <div className="hidden sm:flex flex-col gap-0.5 items-end flex-shrink-0">
         {t.excluded && <Badge tone="neutral"><Lock size={10}/> Private</Badge>}
@@ -60,9 +66,13 @@ export default function TxnRow({ txn: t, showActions = false }: Props) {
         {showCur    && <Badge tone="plum">{cur}</Badge>}
       </div>
 
-      {showActions && (
+      {showActions && onEdit && (
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button className="font-mono text-[0.56rem] tracking-wider uppercase px-2 py-1 rounded border border-line text-ink-mid hover:border-coral hover:text-coral hover:bg-coral-tint">
+          <button
+            type="button"
+            onClick={() => onEdit(t)}
+            className="font-mono text-[0.56rem] tracking-wider uppercase px-2 py-1 rounded border border-line text-ink-mid hover:border-coral hover:text-coral hover:bg-coral-tint"
+          >
             Edit
           </button>
         </div>

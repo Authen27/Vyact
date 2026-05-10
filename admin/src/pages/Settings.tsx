@@ -24,8 +24,11 @@ export default function Settings() {
 
         {/* Database */}
         <Section title="Database">
-          <Row label="Backend" hint="Currently mock data. Wires to Supabase in v8.1.">
-            <Status state="pending" label="Mock · will be Supabase" icon={<Database size={12} />} />
+          <Row label="Backend" hint="Live Supabase. All admin pages read live production data.">
+            <Status state="ok" label="Supabase · live" icon={<Database size={12} />} />
+          </Row>
+          <Row label="Project" hint="Supabase project ref.">
+            <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">dmxqkvploojokffuhxnz</code>
           </Row>
           <Row label="Region" hint="Production region for primary database.">
             <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">eu-west-2</code>
@@ -34,10 +37,11 @@ export default function Settings() {
 
         {/* Integrations */}
         <Section title="Integrations">
-          <Row label="Stripe" hint="Subscription, refunds, dunning."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
-          <Row label="PostHog" hint="Product analytics, cohort retention."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
-          <Row label="Intercom" hint="Customer support inbox + NPS."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
-          <Row label="Sentry" hint="Error monitoring."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
+          <Row label="Stripe" hint="Subscription, refunds, dunning. Wires in v1.1.0."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
+          <Row label="PostHog" hint="Product analytics, cohort retention. Wires in v1.1.0."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
+          <Row label="Intercom" hint="Customer support inbox + NPS. Wires in v1.2.0."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
+          <Row label="Sentry" hint="Error monitoring. Wires in v1.2.0."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
+          <Row label="GA4" hint="Pageviews via gtag.js."><Status state="ok" label="G-E3XKWZP850" icon={<KeyRound size={12} />} /></Row>
         </Section>
 
         {/* Email */}
@@ -48,7 +52,7 @@ export default function Settings() {
 
         {/* Security */}
         <Section title="Security">
-          <Row label="Admin SSO" hint="Google Workspace · IP allowlist."><Status state="pending" label="Required for v8.1" icon={<Shield size={12} />} /></Row>
+          <Row label="Admin SSO" hint="Google Workspace · IP allowlist. Planned for v1.3.0."><Status state="pending" label="Email/password (v1.0.0)" icon={<Shield size={12} />} /></Row>
           <Row label="Session timeout" hint="Auto sign-out after inactivity.">
             <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">30 min</code>
           </Row>
@@ -59,7 +63,7 @@ export default function Settings() {
       </div>
 
       <div className="mt-6 text-center font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-        Admin v8.0 · Connect integrations in v8.1
+        Admin v1.0.0 · Stripe + cohort events arrive in v1.1.0
       </div>
     </div>
   );

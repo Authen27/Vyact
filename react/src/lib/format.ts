@@ -43,8 +43,9 @@ export function fmt(amount: number, currency = 'USD'): string {
 export function fmtShort(amount: number, currency = 'USD'): string {
   const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
   const n = Math.abs(amount || 0);
-  if (n >= 1_000_000) return cur.symbol + (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 10_000)    return cur.symbol + (n / 1_000).toFixed(1) + 'K';
+  if (n >= 1_000_000_000) return cur.symbol + (n / 1_000_000_000).toFixed(1) + 'B';
+  if (n >= 1_000_000)     return cur.symbol + (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)         return cur.symbol + (n / 1_000).toFixed(1) + 'K';
   return cur.symbol + n.toLocaleString(cur.locale, { maximumFractionDigits: 0 });
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "finflow-react",
   "private": true,
-  "version": "6.0.0",
+  "version": "6.4.1",
   "type": "module",
   "description": "FinFlow — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.4",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
     "lucide-react": "^0.453.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -49,12 +49,21 @@ export interface Transaction {
   updated_at?: string;
 }
 
+export type BudgetPeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'annual' | 'custom';
+
 export interface Budget {
   id: string;
   category: string;
+  /** Budgeted amount for the entire `period` window (NOT per month).
+   *  When `period === 'monthly'` this matches the legacy meaning. */
   limit: number;
   currency: string;
   color?: string;
+  /** v6.4 — budgeting period. Defaults to 'monthly' for legacy rows. */
+  period?: BudgetPeriod;
+  /** v6.4 — only used when `period === 'custom'`. ISO YYYY-MM-DD. */
+  periodStart?: string;
+  periodEnd?: string;
 }
 
 export interface Goal {
@@ -207,7 +216,8 @@ export interface ExchangeRates {
 }
 
 export interface BackupV6 {
-  version: '6.0';
+  /** Semver string of the consumer app that produced this backup, e.g. "6.3.1". */
+  version: string;
   exported: string;
   profile: Profile;
   transactions: Transaction[];

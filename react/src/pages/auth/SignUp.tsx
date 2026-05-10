@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, Mail } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Input, Field } from '../../components/ui/Input';
-import { signUp } from '../../lib/auth';
+import { signUp, signIn } from '../../lib/auth';
 import { AuthShell } from './SignIn';
 import { useStore } from '../../store';
 
@@ -13,7 +13,7 @@ export default function SignUp() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [verifyEmailSent, setVerifyEmailSent] = useState(false);
+  const [verificationPending, setVerificationPending] = useState(false);
   const navigate = useNavigate();
   const toast = useStore(s => s.toast);
 
@@ -23,12 +23,26 @@ export default function SignUp() {
     setError(''); setSubmitting(true);
     try {
       const result = await signUp({ email, password, displayName: name });
-      if (result.user && !result.session) {
-        // Email verification required
-        setVerifyEmailSent(true);
-      } else {
+
+      // Path A — auto-confirm enabled (preferred): session is returned, log straight in.
+      if (result.session) {
         toast(`Welcome, ${name}!`, 'success');
-        navigate('/onboarding');
+        navigate('/dashboard');
+        return;
+      }
+
+      // Path B — email confirmation enabled but user can sign in with password
+      // anyway (no real gate). Try a password sign-in immediately so the user
+      // doesn't have to wait for a verification email that may never arrive.
+      try {
+        await signIn(email, password);
+        toast(`Welcome, ${name}! Your email is pending verification — check Settings to resend.`, 'success');
+        navigate('/dashboard');
+        return;
+      } catch {
+        // Path C — confirmation strictly required by the project.
+        // Show pending state but don't strand the user.
+        setVerificationPending(true);
       }
     } catch (e) {
       setError((e as Error).message);
@@ -37,19 +51,23 @@ export default function SignUp() {
     }
   }
 
-  if (verifyEmailSent) {
+  if (verificationPending) {
     return (
-      <AuthShell title="Verify your email">
+      <AuthShell title="Account created">
         <div className="text-center">
           <Mail size={48} className="mx-auto text-coral mb-4" />
           <p className="text-ink-mid mb-2">
-            We sent a verification link to <strong className="text-ink">{email}</strong>.
+            Your account for <strong className="text-ink">{email}</strong> is created.
           </p>
           <p className="text-ink-mid text-sm mb-5">
-            Click the link to activate your account.
+            Email verification is pending — you can still sign in below. We'll show
+            a "verification pending" badge in your Settings until you confirm.
           </p>
-          <Link to="/auth/sign-in" className="text-coral hover:underline text-sm font-medium">
-            Already verified? Sign in →
+          <Link
+            to={`/auth/sign-in?email=${encodeURIComponent(email)}`}
+            className="btn-primary inline-flex items-center"
+          >
+            Continue to sign in →
           </Link>
         </div>
       </AuthShell>
@@ -75,7 +93,8 @@ export default function SignUp() {
       </form>
 
       <p className="text-[0.74rem] text-ink-dim mt-4 leading-relaxed text-center">
-        By signing up you agree to our terms and privacy policy. Your financial data is encrypted at rest and never shared.
+        Email verification is optional — you'll get full access immediately. Verify
+        anytime from Settings to enable password recovery.
       </p>
 
       <div className="mt-5 pt-4 border-t border-line text-center text-sm text-ink-mid">

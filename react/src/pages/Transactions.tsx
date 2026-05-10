@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { useStore } from '../store';
-import { useTranslation } from '../hooks';
+import { useTranslation, useShortcuts } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
@@ -14,12 +14,16 @@ export default function Transactions() {
   const { t } = useTranslation();
   const txns    = useStore(s => s.transactions);
   const members = useStore(s => s.members);
+  const openAddTxn  = useStore(s => s.openAddTxn);
+  const openEditTxn = useStore(s => s.openEditTxn);
 
   const [search,   setSearch]   = useState('');
   const [type,     setType]     = useState<'all'|'income'|'expense'|'investment'|'transfer'>('all');
   const [cat,      setCat]      = useState('all');
   const [month,    setMonth]    = useState('all');
   const [memberId, setMemberId] = useState('all');
+
+  useShortcuts({ n: openAddTxn, N: openAddTxn });
 
   const months = useMemo(
     () => [...new Set(txns.map(t => getMonthKey(t.date)))].sort().reverse(),
@@ -52,7 +56,7 @@ export default function Transactions() {
             All household income, expenses, investments &amp; transfers
           </p>
         </div>
-        <Button>
+        <Button onClick={openAddTxn}>
           <Plus size={14} /> {t('add-transaction')}
         </Button>
       </div>
@@ -85,7 +89,7 @@ export default function Transactions() {
 
         {filtered.length === 0
           ? <EmptyState icon="🔍" message="No transactions found" />
-          : filtered.map(t => <TxnRow key={t.id} txn={t} showActions />)
+          : filtered.map(t => <TxnRow key={t.id} txn={t} showActions onEdit={openEditTxn} />)
         }
       </Panel>
     </div>

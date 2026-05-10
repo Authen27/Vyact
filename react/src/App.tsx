@@ -5,6 +5,12 @@ import { useTheme } from './hooks';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
 import AuthGate from './components/auth/AuthGate';
+import TransactionFormModal from './components/transactions/TransactionFormModal';
+import GoalFormModal from './components/goals/GoalFormModal';
+import GoalProgressModal from './components/goals/GoalProgressModal';
+import BudgetFormModal from './components/budgets/BudgetFormModal';
+import DebtFormModal from './components/debts/DebtFormModal';
+import AssetFormModal from './components/assets/AssetFormModal';
 
 import Dashboard    from './pages/Dashboard';
 import Transactions from './pages/Transactions';
@@ -14,7 +20,14 @@ import Planner      from './pages/Planner';
 import Chat         from './pages/Chat';
 import Onboarding   from './pages/Onboarding';
 import Households   from './pages/Households';
-import Stubs        from './pages/Stubs';
+import Settings     from './pages/Settings';
+import Budgets      from './pages/Budgets';
+import Goals        from './pages/Goals';
+import Debts        from './pages/Debts';
+import NetWorth     from './pages/NetWorth';
+import Splits       from './pages/Splits';
+import Help         from './pages/Help';
+import Insights     from './pages/Insights';
 
 import SignIn        from './pages/auth/SignIn';
 import SignUp        from './pages/auth/SignUp';
@@ -25,13 +38,18 @@ export default function App() {
   return (
     <AuthGate>
       <AppShell />
+      <TransactionFormModal />
+      <GoalFormModal />
+      <GoalProgressModal />
+      <BudgetFormModal />
+      <DebtFormModal />
+      <AssetFormModal />
       <ToastHost />
     </AuthGate>
   );
 }
 
 function AppShell() {
-  const profile = useStore(s => s.profile);
   const loading = useStore(s => s.loading);
   const cloudEnabled = useStore(s => s.cloudEnabled);
   const session = useStore(s => s.session);
@@ -82,11 +100,10 @@ function AppShell() {
     );
   }
 
-  // First-run gate: route to onboarding if no template assigned
-  // (only for local mode or after sign-up before household exists)
-  if (!profile.template && !profile.onboardedAt && !cloudEnabled) {
-    return <Onboarding />;
-  }
+  // Onboarding is opt-in. Existing or fresh users without preferences are NOT
+  // forced through the wizard — they land on the dashboard with empty state.
+  // The /onboarding route is reachable from Settings, the welcome banner, and
+  // the sign-up flow when the user explicitly opts in.
 
   return (
     <Layout>
@@ -99,13 +116,15 @@ function AppShell() {
         <Route path="/planner"      element={<Planner />} />
         <Route path="/chat"         element={<Chat />} />
         <Route path="/households"   element={<Households />} />
-        <Route path="/budgets"      element={<Stubs page="budgets" />} />
-        <Route path="/goals"        element={<Stubs page="goals" />} />
-        <Route path="/splits"       element={<Stubs page="splits" />} />
-        <Route path="/debts"        element={<Stubs page="debts" />} />
-        <Route path="/networth"     element={<Stubs page="networth" />} />
-        <Route path="/settings"     element={<Stubs page="settings" />} />
-        <Route path="/help"         element={<Stubs page="help" />} />
+        <Route path="/budgets"      element={<Budgets />} />
+        <Route path="/goals"        element={<Goals />} />
+        <Route path="/splits"       element={<Splits />} />
+        <Route path="/debts"        element={<Debts />} />
+        <Route path="/networth"     element={<NetWorth />} />
+        <Route path="/settings"     element={<Settings />} />
+        <Route path="/help"         element={<Help />} />
+        <Route path="/insights"     element={<Insights />} />
+        <Route path="/onboarding"   element={<Onboarding />} />
         <Route path="*"             element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>

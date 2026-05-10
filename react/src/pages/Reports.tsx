@@ -10,6 +10,7 @@ import {
   reportableTxns, effectiveAmount,
 } from '../lib/calculations';
 import { fmt, fmtSigned, getMonthKey } from '../lib/format';
+import Money from '../components/ui/Money';
 
 type Period = 'day' | 'week' | 'month' | 'quarter' | 'year';
 const PERIOD_LABELS: Record<Period, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
@@ -75,10 +76,10 @@ export default function Reports() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3.5">
-        <Card label="All-Time Income"   accent="sage"  value={<span className="text-sage">{fmt(allInc, baseCur)}</span>} />
-        <Card label="All-Time Expenses" accent="terra" value={<span className="text-terra">{fmt(allExp, baseCur)}</span>} />
-        <Card label="Net Flow"          accent="coral" value={<span className={allInc - allExp >= 0 ? 'text-sage' : 'text-terra'}>{fmt(allInc - allExp, baseCur)}</span>} />
-        <Card label={`Avg ${PERIOD_TITLE[period]} Net`} accent="honey" value={<span className={avgNet >= 0 ? 'text-sage' : 'text-terra'}>{fmt(avgNet, baseCur)}</span>} />
+        <Card label="All-Time Income"   accent="sage"  value={<Money amount={allInc} currency={baseCur} className="text-sage" maxChars={10} />} />
+        <Card label="All-Time Expenses" accent="terra" value={<Money amount={allExp} currency={baseCur} className="text-terra" maxChars={10} />} />
+        <Card label="Net Flow"          accent="coral" value={<Money amount={allInc - allExp} currency={baseCur} className={allInc - allExp >= 0 ? 'text-sage' : 'text-terra'} maxChars={10} />} />
+        <Card label={`Avg ${PERIOD_TITLE[period]} Net`} accent="honey" value={<Money amount={avgNet} currency={baseCur} className={avgNet >= 0 ? 'text-sage' : 'text-terra'} maxChars={10} />} />
       </div>
 
       {/* Income vs Expense area chart (Recharts) */}

@@ -35,7 +35,7 @@ export const supabase: SupabaseClient | null = isCloudEnabled()
       realtime: { params: { eventsPerSecond: 10 } },
       global: {
         headers: {
-          'X-Client-Info': `finflow/v4.1`,
+          'X-Client-Info': `finflow/v6.3.1`,
         },
       },
     })
@@ -62,7 +62,7 @@ Cloud is not enabled. This likely means Supabase env vars were not set during bu
 2. Add these variables (get values from https://supabase.com/dashboard):
    - VITE_SUPABASE_URL=https://your-project.supabase.co
    - VITE_SUPABASE_ANON_KEY=your-anon-key-here
-   - VITE_APP_URL=${VERCEL_URL} or your custom domain
+  - VITE_APP_URL=\${VERCEL_URL} or your custom domain
 3. Redeploy the project
 4. Check Supabase dashboard for CORS settings (allow your Vercel domain)
 5. Configure Auth Redirect URLs in Supabase

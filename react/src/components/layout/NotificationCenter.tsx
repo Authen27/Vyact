@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, Check, X } from 'lucide-react';
 import { useStore } from '../../store';
 import type { NotifType } from '../../types';
@@ -24,6 +25,9 @@ const TYPE_DOT: Record<NotifType, string> = {
 export default function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const notifications = useStore(s => s.notifications);
   const markRead = useStore(s => s.markNotificationRead);
   const dismiss = useStore(s => s.dismissNotification);
@@ -31,17 +35,57 @@ export default function NotificationCenter() {
   const active = notifications.filter(n => n.status !== 'dismissed');
   const unreadCount = active.filter(n => n.status === 'unread').length;
 
+  // v6.4: Compute popover position so it always stays inside the viewport.
+  // Previous implementation used `absolute right-0 w-80` inside the fixed
+  // sidebar, which clipped the popover on narrow desktops and made the
+  // notification text unreadable.
+  useEffect(() => {
+    if (!open) return;
+    const computePos = () => {
+      const btn = btnRef.current;
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const margin = 12;
+      const desiredWidth = Math.min(320, vw - margin * 2);
+      // Right-align with the bell where possible; clamp inside viewport.
+      let left = rect.right - desiredWidth;
+      if (left < margin) left = margin;
+      if (left + desiredWidth > vw - margin) left = vw - margin - desiredWidth;
+      const top = Math.min(rect.bottom + 4, vh - margin - 100);
+      const maxHeight = Math.max(220, vh - top - margin);
+      setPos({ top, left, width: desiredWidth, maxHeight: Math.min(maxHeight, 480) });
+    };
+    computePos();
+    window.addEventListener('resize', computePos);
+    window.addEventListener('scroll', computePos, true);
+    return () => {
+      window.removeEventListener('resize', computePos);
+      window.removeEventListener('scroll', computePos, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     const onClickAway = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      if (popRef.current?.contains(target)) return;
+      setOpen(false);
     };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', onClickAway);
-    return () => document.removeEventListener('mousedown', onClickAway);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onClickAway);
+      document.removeEventListener('keydown', onEsc);
+    };
   }, []);
 
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={btnRef}
         onClick={() => setOpen(o => !o)}
         className="relative p-2 rounded-md text-ink-mid hover:text-ink hover:bg-bg3 transition-colors"
         title="Notifications"
@@ -54,8 +98,12 @@ export default function NotificationCenter() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute top-full right-0 z-50 w-80 mt-1 bg-bg2 border border-line2 rounded-md shadow-2 max-h-[28rem] overflow-y-auto">
+      {open && pos && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={popRef}
+          className="fixed z-[100] bg-bg2 border border-line2 rounded-md shadow-2 overflow-y-auto"
+          style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
+        >
           <div className="px-3 py-2.5 border-b border-line flex justify-between items-center sticky top-0 bg-bg2">
             <span className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-mid font-medium">
               Notifications {unreadCount > 0 && `· ${unreadCount} unread`}
@@ -78,8 +126,8 @@ export default function NotificationCenter() {
                     <div className="font-mono text-[0.55rem] tracking-[0.1em] uppercase text-ink-dim mb-0.5">
                       {TYPE_LABEL[n.type]}
                     </div>
-                    <div className="text-[0.84rem] font-semibold text-ink leading-snug">{n.title}</div>
-                    <div className="text-[0.78rem] text-ink-mid leading-snug mt-0.5">{n.body}</div>
+                    <div className="text-[0.84rem] font-semibold text-ink leading-snug break-words">{n.title}</div>
+                    <div className="text-[0.78rem] text-ink-mid leading-snug mt-0.5 break-words">{n.body}</div>
                   </div>
                   <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100">
                     {n.status === 'unread' && (
@@ -95,7 +143,8 @@ export default function NotificationCenter() {
               ))}
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
