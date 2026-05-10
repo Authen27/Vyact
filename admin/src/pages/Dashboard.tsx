@@ -1,182 +1,240 @@
-// NorthStar Dashboard — KPIs from FinFlow v7 PRD §08
-// NorthStar metric: Active Households per Week (AHpW)
+// FinFlow Admin v8 — NorthStar Dashboard (live Supabase)
+// Every number on this page is computed live by the admin_dashboard_kpis()
+// SQL function or the admin_weekly_trend(weeks) trend RPC. Where a metric
+// requires event tracking we don't have yet (D7/D90 retention, Pulse-improved%,
+// NPS), the card shows "—" with a tooltip explaining what's needed.
 
+import { useEffect, useState } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine,
+  ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Activity, DollarSign, Heart } from 'lucide-react';
-import { CURRENT_KPI, PREVIOUS_KPI, MOCK_KPI_HISTORY } from '../lib/mockData';
+import { Users, Activity, FileText, Heart, RefreshCw } from 'lucide-react';
+import { fetchDashboardKpis, fetchWeeklyTrend, type DashboardKpis, type WeeklyTrendRow } from '../lib/adminApi';
 
 const hsl = (v: string) => `hsl(var(--${v}))`;
 
 export default function Dashboard() {
-  const c = CURRENT_KPI;
-  const p = PREVIOUS_KPI;
-  const ahpwDelta = ((c.activeHouseholdsPerWeek - p.activeHouseholdsPerWeek) / p.activeHouseholdsPerWeek * 100).toFixed(1);
-  const trendData = MOCK_KPI_HISTORY.map(k => ({
-    week: k.weekOf.slice(5),
-    ahpw: k.activeHouseholdsPerWeek,
-    signups: k.signups,
-    mrr: k.mrr,
-    nps: k.nps,
+  const [kpis,  setKpis]  = useState<DashboardKpis | null>(null);
+  const [trend, setTrend] = useState<WeeklyTrendRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setError('');
+      try {
+        const [k, t] = await Promise.all([fetchDashboardKpis(), fetchWeeklyTrend(12)]);
+        if (cancelled) return;
+        setKpis(k); setTrend(t);
+      } catch (e) {
+        if (cancelled) return;
+        setError((e as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [refreshTick]);
+
+  const trendData = trend.map(t => ({
+    week: t.week_start.slice(5),       // MM-DD
+    signups: t.signups,
+    active:  t.active_users,
+    txns:    t.new_txns,
   }));
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
-        <div className="font-mono text-[0.6rem] tracking-[0.18em] uppercase text-claude mb-1.5">NorthStar Metric</div>
-        <h1 className="display-serif text-4xl text-ink mb-1">Active Households per Week</h1>
-        <p className="text-ink-mid text-[0.92rem]">
-          A household where 2+ members logged in or recorded a transaction in the past 7 days.
-          Single-user accounts count as 0.5. <strong className="text-ink">This is the heartbeat.</strong>
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="font-mono text-[0.6rem] tracking-[0.18em] uppercase text-claude mb-1.5">NorthStar Metric</div>
+          <h1 className="display-serif text-4xl text-ink mb-1">Active Households per Week</h1>
+          <p className="text-ink-mid text-[0.92rem]">
+            A household with at least one transaction recorded in the past 7 days.
+            Live count from the production database — not seeded.
+          </p>
+        </div>
+        <button onClick={() => setRefreshTick(t => t + 1)}
+          className="font-mono text-[0.6rem] tracking-wider uppercase px-3 py-2 border border-line rounded-md hover:bg-elev transition flex items-center gap-1.5">
+          <RefreshCw size={11} className={loading ? 'animate-spin' : ''} /> Refresh
+        </button>
       </div>
 
-      {/* Hero metric */}
-      <div className="panel p-7 mb-5 relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-claude" />
+      {error && (
+        <div className="panel p-4 mb-5 border-danger/30 text-danger text-sm">
+          Could not load metrics: {error}
+        </div>
+      )}
+
+      {/* Hero */}
+      <div className="panel p-7 mb-5">
         <div className="grid lg:grid-cols-[280px_1fr] gap-7 items-center">
           <div>
-            <div className="display-serif text-[5.5rem] leading-none text-ink">
-              {c.activeHouseholdsPerWeek.toLocaleString()}
+            <div className="display-serif text-[5rem] leading-none text-claude mb-1">
+              {loading ? '…' : (kpis?.activeHouseholds7d ?? '—')}
             </div>
-            <div className={`flex items-center gap-1.5 mt-2 font-mono text-[0.78rem] ${parseFloat(ahpwDelta) >= 0 ? 'text-positive' : 'text-danger'}`}>
-              {parseFloat(ahpwDelta) >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-              {parseFloat(ahpwDelta) >= 0 ? '+' : ''}{ahpwDelta}% vs last week
+            <div className="font-mono text-[0.65rem] tracking-[0.18em] uppercase text-ink-dim">
+              Active households · last 7 days
             </div>
-            <div className="font-mono text-[0.62rem] tracking-[0.14em] uppercase text-ink-dim mt-3">
-              Week of {c.weekOf}
-            </div>
+            {kpis && (
+              <div className="mt-3 text-[0.78rem] text-ink-mid">
+                {kpis.activeHouseholds7d} of {kpis.totalHouseholds} total · {' '}
+                {kpis.totalHouseholds > 0
+                  ? Math.round((kpis.activeHouseholds7d / kpis.totalHouseholds) * 100)
+                  : 0}% activation
+              </div>
+            )}
           </div>
-          <div className="h-[160px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData} margin={{ top: 8, right: 0, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="ahpwGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor={hsl('claude')} stopOpacity={0.35} />
-                    <stop offset="100%" stopColor={hsl('claude')} stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="2 3" stroke={hsl('line')} vertical={false} />
-                <XAxis dataKey="week" stroke={hsl('ink-dim')} tick={{ fontSize: 10 }} />
-                <YAxis stroke={hsl('ink-dim')} tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Area type="monotone" dataKey="ahpw" stroke={hsl('claude')} strokeWidth={2.5} fill="url(#ahpwGrad)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* KPI grid */}
-      <div className="mb-6">
-        <h2 className="display-serif text-2xl text-ink mb-3">Module KPIs</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Kpi label="Time to first txn" value={`${c.timeToFirstTxnSec}s`} target="< 90s" good={c.timeToFirstTxnSec < 90} />
-          <Kpi label="Template completion" value={`${c.templateCompletionPct}%`} target="> 90%" good={c.templateCompletionPct > 90} />
-          <Kpi label="D7 retention" value={`${c.d7RetentionPct}%`} target="> 60%" good={c.d7RetentionPct > 60} />
-          <Kpi label="Sessions / user / wk" value={c.avgSessionsPerUser.toFixed(1)} target="> 4" good={c.avgSessionsPerUser > 4} />
-          <Kpi label="Multi-member %" value={`${c.multiMemberPct}%`} target="> 40%" good={c.multiMemberPct > 40} />
-          <Kpi label="D90 retention" value={`${c.d90RetentionPct}%`} target="> 50%" good={c.d90RetentionPct > 50} />
-          <Kpi label="Pulse improved 30d" value={`${c.pulseImproved30dPct}%`} target="> 70%" good={c.pulseImproved30dPct > 70} />
-          <Kpi label="Reminder confirmed" value={`${c.reminderConfirmedPct}%`} target="> 80%" good={c.reminderConfirmedPct > 80} />
-          <Kpi label="Recs followed" value={`${c.recsFollowedPct}%`} target="> 25%" good={c.recsFollowedPct > 25} />
-          <Kpi label="Chat satisfaction" value={`${c.avgChatSatisfaction.toFixed(2)} / 5`} target="> 4.2" good={c.avgChatSatisfaction > 4.2} />
-          <Kpi label="Free → Paid" value={`${c.freeToPaidPct.toFixed(1)}%`} target="> 8%" good={c.freeToPaidPct > 8} />
-          <Kpi label="NPS" value={c.nps} target="> 50" good={c.nps > 50} />
-        </div>
-      </div>
-
-      {/* Three-up: Signups · MRR · NPS trends */}
-      <div className="grid lg:grid-cols-3 gap-3">
-        <div className="panel">
-          <div className="px-4 py-3 border-b border-line flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Users size={14} className="text-info" />
-              <span className="mono-label">Weekly signups</span>
-            </div>
-            <span className="display-serif text-xl text-ink">{c.signups}</span>
-          </div>
-          <div className="h-[140px] p-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trendData}>
-                <Bar dataKey="signups" fill={hsl('info')} radius={[3, 3, 0, 0]} />
-                <XAxis dataKey="week" stroke={hsl('ink-dim')} tick={{ fontSize: 9 }} />
-                <Tooltip />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="px-4 py-3 border-b border-line flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <DollarSign size={14} className="text-positive" />
-              <span className="mono-label">Monthly recurring revenue</span>
-            </div>
-            <span className="display-serif text-xl text-ink">${(c.mrr / 1000).toFixed(1)}K</span>
-          </div>
-          <div className="h-[140px] p-3">
+          <div className="h-32">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendData}>
                 <defs>
-                  <linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={hsl('positive')} stopOpacity={0.4} />
-                    <stop offset="100%" stopColor={hsl('positive')} stopOpacity={0.02} />
+                  <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={hsl('claude')} stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor={hsl('claude')} stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <Area type="monotone" dataKey="mrr" stroke={hsl('positive')} strokeWidth={2} fill="url(#mrrGrad)" />
-                <XAxis dataKey="week" stroke={hsl('ink-dim')} tick={{ fontSize: 9 }} />
-                <Tooltip />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="px-4 py-3 border-b border-line flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Heart size={14} className="text-claude" />
-              <span className="mono-label">NPS</span>
-            </div>
-            <span className="display-serif text-xl text-ink">{c.nps}</span>
-          </div>
-          <div className="h-[140px] p-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="npsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={hsl('claude')} stopOpacity={0.35} />
-                    <stop offset="100%" stopColor={hsl('claude')} stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <Area type="monotone" dataKey="nps" stroke={hsl('claude')} strokeWidth={2} fill="url(#npsGrad)" />
-                <XAxis dataKey="week" stroke={hsl('ink-dim')} tick={{ fontSize: 9 }} />
-                <ReferenceLine y={50} stroke={hsl('warn')} strokeDasharray="2 3" label={{ value: 'Target', position: 'right', fontSize: 9, fill: hsl('warn') }} />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke={hsl('line')} />
+                <XAxis dataKey="week" tick={{ fontSize: 10, fill: hsl('ink-dim') }} />
+                <YAxis tick={{ fontSize: 10, fill: hsl('ink-dim') }} />
+                <Tooltip contentStyle={{ background: hsl('surface'), border: `1px solid ${hsl('line')}`, fontSize: 12 }} />
+                <Area type="monotone" dataKey="active" stroke={hsl('claude')} fill="url(#g1)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      <div className="mt-6 text-center font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-        <Activity size={12} className="inline mr-1" /> Mock data · Wires to PostHog + Stripe + Intercom in v8.1
+      {/* Live KPI grid — only what we can really compute */}
+      <h2 className="font-mono text-[0.62rem] tracking-[0.16em] uppercase text-ink-dim mb-2.5">Live metrics — production database</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <Kpi  label="Total users"        value={kpis?.totalUsers}       loading={loading} icon={Users} />
+        <Kpi  label="Total households"   value={kpis?.totalHouseholds}  loading={loading} icon={Users} />
+        <Kpi  label="Multi-member %"     value={kpis?.multiMemberPct}   loading={loading} suffix="%" />
+        <Kpi  label="Active 7d (users)"  value={kpis?.activeUsers7d}    loading={loading} icon={Activity} />
+        <Kpi  label="Signups · 7d"       value={kpis?.signups7d}        loading={loading} />
+        <Kpi  label="Signups · 30d"      value={kpis?.signups30d}       loading={loading} />
+        <Kpi  label="Transactions · 7d"  value={kpis?.transactions7d}   loading={loading} />
+        <Kpi  label="Total transactions" value={kpis?.totalTransactions} loading={loading} />
+        <Kpi  label="Published articles" value={kpis?.publishedArticles} loading={loading} icon={FileText} />
+        <Kpi  label="Content favorites"  value={kpis?.contentFavorites} loading={loading} icon={Heart} />
+        <Kpi  label="Paid subscriptions" value={kpis?.paidSubscriptions} loading={loading} />
+        <Kpi  label="MRR (USD)"          value={kpis?.mrr}              loading={loading} prefix="$" />
+      </div>
+
+      {/* Aspirational metrics — explicit unavailable state */}
+      <h2 className="font-mono text-[0.62rem] tracking-[0.16em] uppercase text-ink-dim mb-2.5">
+        Cohort metrics — require event tracking <span className="text-warn">(not wired yet)</span>
+      </h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <KpiUnavailable label="Time-to-first-txn"     hint="median seconds from sign-up to 1st transaction" />
+        <KpiUnavailable label="D7 retention %"        hint="users active 7 days after sign-up" />
+        <KpiUnavailable label="D90 retention %"       hint="users active 90 days after sign-up" />
+        <KpiUnavailable label="Pulse improved 30d %"  hint="users whose Pulse Score rose vs 30d ago" />
+        <KpiUnavailable label="Reminder confirmed %"  hint="recurring-transaction confirmations" />
+        <KpiUnavailable label="Recs followed %"       hint="Planner recommendations actioned" />
+        <KpiUnavailable label="Chat satisfaction"     hint="thumbs-up rate on AI chat answers" />
+        <KpiUnavailable label="NPS"                   hint="-100 to +100 from in-app survey" />
+      </div>
+
+      {/* Trend charts */}
+      <div className="grid lg:grid-cols-3 gap-3 mb-6">
+        <ChartCard title="Weekly signups">
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={hsl('line')} />
+              <XAxis dataKey="week" tick={{ fontSize: 10, fill: hsl('ink-dim') }} />
+              <YAxis tick={{ fontSize: 10, fill: hsl('ink-dim') }} />
+              <Tooltip contentStyle={{ background: hsl('surface'), border: `1px solid ${hsl('line')}`, fontSize: 12 }} />
+              <Bar dataKey="signups" fill={hsl('claude')} radius={[2,2,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Weekly active users">
+          <ResponsiveContainer width="100%" height={140}>
+            <AreaChart data={trendData}>
+              <defs>
+                <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={hsl('positive')} stopOpacity={0.4}/>
+                  <stop offset="95%" stopColor={hsl('positive')} stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={hsl('line')} />
+              <XAxis dataKey="week" tick={{ fontSize: 10, fill: hsl('ink-dim') }} />
+              <YAxis tick={{ fontSize: 10, fill: hsl('ink-dim') }} />
+              <Tooltip contentStyle={{ background: hsl('surface'), border: `1px solid ${hsl('line')}`, fontSize: 12 }} />
+              <Area type="monotone" dataKey="active" stroke={hsl('positive')} fill="url(#g2)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Weekly transactions">
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={hsl('line')} />
+              <XAxis dataKey="week" tick={{ fontSize: 10, fill: hsl('ink-dim') }} />
+              <YAxis tick={{ fontSize: 10, fill: hsl('ink-dim') }} />
+              <Tooltip contentStyle={{ background: hsl('surface'), border: `1px solid ${hsl('line')}`, fontSize: 12 }} />
+              <Bar dataKey="txns" fill={hsl('warn')} radius={[2,2,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      <p className="text-[0.7rem] text-ink-dim font-mono">
+        Computed at: {kpis?.computedAt ? new Date(kpis.computedAt).toISOString() : '—'} ·
+        Source: <code className="ml-1">public.admin_dashboard_kpis()</code>
+      </p>
+    </div>
+  );
+}
+
+interface KpiProps {
+  label:   string;
+  value?:  number | null;
+  loading: boolean;
+  prefix?: string;
+  suffix?: string;
+  // Lucide React icons are ForwardRefExoticComponent — accept anything
+  // renderable that takes a size + className.
+  icon?:   React.ComponentType<any>;
+}
+function Kpi({ label, value, loading, prefix, suffix, icon: Icon }: KpiProps) {
+  return (
+    <div className="panel p-4">
+      <div className="flex items-center justify-between mb-1">
+        <div className="mono-label">{label}</div>
+        {Icon && <Icon size={12} className="text-ink-dim" />}
+      </div>
+      <div className="display-serif text-[1.6rem] leading-none text-ink">
+        {loading ? <span className="text-ink-dim">…</span>
+          : value === null || value === undefined ? '—'
+          : `${prefix ?? ''}${typeof value === 'number' ? value.toLocaleString() : value}${suffix ?? ''}`}
       </div>
     </div>
   );
 }
 
-function Kpi({ label, value, target, good }: { label: string; value: string | number; target: string; good: boolean }) {
+function KpiUnavailable({ label, hint }: { label: string; hint: string }) {
+  return (
+    <div className="panel p-4 opacity-70" title={hint}>
+      <div className="mono-label mb-1">{label}</div>
+      <div className="display-serif text-[1.6rem] leading-none text-ink-dim">—</div>
+      <div className="text-[0.62rem] text-ink-dim mt-1 leading-snug">{hint}</div>
+    </div>
+  );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="panel p-4">
-      <div className="mono-label mb-1.5">{label}</div>
-      <div className="display-serif text-[1.6rem] leading-none text-ink mb-1">{value}</div>
-      <div className={`font-mono text-[0.62rem] tracking-wide ${good ? 'text-positive' : 'text-warn'}`}>
-        {good ? '✓' : '⚠'} target {target}
-      </div>
+      <div className="mono-label mb-2">{title}</div>
+      {children}
     </div>
   );
 }

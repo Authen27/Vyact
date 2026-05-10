@@ -4,7 +4,68 @@
 
 ---
 
-## **v6.3 — Content module + admin↔Supabase + global Add-Txn modal** *(current — 2026-05-10)*
+## **v6.3.1 — Admin dashboard sanitised: every page on live data** *(current — 2026-05-10)*
+
+The user flagged that the admin dashboard wasn't reflecting actual production data — KPIs, users, households, audit, subscriptions were all driven by a bundled `mockData.ts`. This release deletes the mock layer entirely and routes every admin page through the live Supabase project (`dmxqkvploojokffuhxnz`).
+
+### What's now live data (everything that can be computed)
+
+A new `admin_data_layer` migration adds:
+
+- **`public.subscriptions`** — full schema (tier · status · MRR · currency · Stripe sub id · failure count) with `updated_at` trigger and `is_admin('roles')` RLS. Empty in production until v6.4 wires Stripe webhooks; the page reflects this honestly with an explicit "billing not wired" callout instead of fake numbers.
+- **Admin-bypass `SELECT` RLS policies** on the seven previously household-scoped tables (`households`, `memberships`, `profiles`, `activity_log`, `transactions`, `budgets`, `goals`, `debts`, `assets`) gated by `is_admin('roles')`. Lower-tier consumers are unaffected; admins can now read across households for KPI computation.
+- **`public.admin_list_users()`** — `SECURITY DEFINER STABLE` RPC that joins `auth.users` with `profiles`, `memberships`, `admin_roles`. Returns email-confirmation status, household count, and admin-tier badge per user. Required because anon-key clients cannot read `auth.users` directly.
+- **`public.admin_dashboard_kpis()`** — single-row JSON RPC that returns 13 live metrics: total users / households / transactions, multi-member %, 7-day actives (users + households), 7-day & 30-day signups, 7-day & total transaction counts, published articles, content favourites, paid subscription count, MRR, computed-at timestamp. Authorised by `is_admin('roles')`.
+- **`public.admin_weekly_trend(weeks int default 12)`** — series RPC powering the Dashboard's three trend charts (signups · active users · new transactions).
+
+### Pages rewritten to live data
+
+- [`Dashboard.tsx`](admin/src/pages/Dashboard.tsx) — every number from `admin_dashboard_kpis()`. Three Recharts area/bar charts driven by `admin_weekly_trend()`. KPIs that require event tracking we don't have yet (D7/D90 retention, NPS, Pulse-improved%, recs-followed%, chat-satisfaction, time-to-first-txn) are rendered as `—` placeholders with hover-tooltips explaining what's needed. Refresh button. Computed-at footer.
+- [`Users.tsx`](admin/src/pages/Users.tsx) — list from `admin_list_users()` with verified-email badge, admin-tier shield, household count, joined date, last-seen date. Search + 4 KPI cards.
+- [`Households.tsx`](admin/src/pages/Households.tsx) — card grid from `households` joined with `memberships` count. Type colour-coded.
+- [`Subscriptions.tsx`](admin/src/pages/Subscriptions.tsx) — reads from `public.subscriptions`. Empty state shows the "billing not wired" callout pointing at v6.4 roadmap. MRR/ARR/active/failures tiles + tier-mix donut + row table — all driven by real columns, just zero rows currently.
+- [`Audit.tsx`](admin/src/pages/Audit.tsx) — last 200 rows from `activity_log` with collapsible JSON-diff and CSV export.
+- New [`admin/src/lib/adminApi.ts`](admin/src/lib/adminApi.ts) — all six fetchers (`fetchDashboardKpis`, `fetchWeeklyTrend`, `fetchAllUsers`, `fetchAllHouseholds`, `fetchAllSubscriptions`, `fetchActivityLog`).
+
+### What's gone
+
+- **Deleted** `admin/src/lib/mockData.ts`. Zero remaining references in the admin codebase (`grep -rn mockData` returns nothing).
+
+### Honest-by-design empty states
+
+- `subscriptions` empty → explicit "billing not wired" callout, not fake $X MRR.
+- Cohort metrics that need event-tracking infrastructure → `—` cards with an explainer for each, not invented numbers.
+- Audit log filterable by query string from the global search bar.
+
+### Validated
+
+- Smoke-tested the three new RPCs as `authenticated` user `uday.kr27@gmail.com` (super admin):
+  - `admin_dashboard_kpis()` → returns `{totalUsers:2, totalHouseholds:2, signups7d:1, publishedArticles:5, contentFavorites:1, ...}` (real numbers from production).
+  - `admin_list_users()` → returns 2 rows with the seeded users + their admin tiers.
+  - `admin_weekly_trend(4)` → returns 4 weekly buckets with non-zero `signups` and `active_users` for the current week.
+- `tsc -b && vite build` clean (`✓ 2431 modules transformed`).
+
+### Files changed
+
+```
+admin/src/lib/mockData.ts                             — DELETED
+admin/src/lib/adminApi.ts                             — NEW
+admin/src/pages/Dashboard.tsx                         — rewritten (live KPIs + trend RPC)
+admin/src/pages/Users.tsx                             — rewritten (admin_list_users)
+admin/src/pages/Households.tsx                        — rewritten (households + memberships)
+admin/src/pages/Subscriptions.tsx                     — rewritten (live + empty-state callout)
+admin/src/pages/Audit.tsx                             — rewritten (activity_log + CSV export)
+
+db/migration: admin_data_layer                        — applied to dmxqkvploojokffuhxnz
+```
+
+### Roadmap
+
+- **v6.4** — Stripe webhook → `subscriptions` (active billing). Event-tracking pipeline → unblocks the 8 cohort metrics currently rendered as `—`.
+
+---
+
+## **v6.3 — Content module + admin↔Supabase + global Add-Txn modal** *(2026-05-10)*
 
 ### Add Transaction button — actually fixed this time
 
