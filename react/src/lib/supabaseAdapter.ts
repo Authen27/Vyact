@@ -310,19 +310,21 @@ export class SupabaseAdapter implements DataAdapter {
     else throw new Error(`Unknown entity: ${entity}`);
 
     const tableName = entity === 'members' ? 'memberships' : entity;
-    // If id present → update; else → insert
-    if (row.id) {
-      const id = row.id as string;
-      delete row.id;
-      const { data, error } = await this.sb.from(tableName).update(row).eq('id', id).select().single();
-      if (error) throw error;
-      return this.mapRowBack(entity, data) as T & { id: string };
-    } else {
-      delete row.id;
-      const { data, error } = await this.sb.from(tableName).insert(row).select().single();
-      if (error) throw error;
-      return this.mapRowBack(entity, data) as T & { id: string };
-    }
+    // Use a real upsert (INSERT ... ON CONFLICT (id) DO UPDATE). The previous
+    // implementation branched on `row.id`: if an id was present it ran an
+    // UPDATE ... WHERE id = ?. But locally-created records ALWAYS carry a
+    // client-assigned id (the cache assigns one before queueing), so the very
+    // first sync of a new record took the UPDATE branch, matched zero rows,
+    // and `.single()` threw — the op then sat in the sync queue forever and
+    // the record never reached the cloud. `.upsert()` inserts when the row is
+    // new and updates when it already exists, which is exactly the queue's
+    // contract. Keep `row.id` so ON CONFLICT can resolve on the primary key.
+    if (!row.id) delete row.id;   // brand-new record with no id → let DB default it
+    const { data, error } = await this.sb.from(tableName)
+      .upsert(row, { onConflict: 'id' })
+      .select().single();
+    if (error) throw error;
+    return this.mapRowBack(entity, data) as T & { id: string };
   }
 
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {

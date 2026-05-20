@@ -4,8 +4,8 @@ Three deliverables in one repo, each independently runnable, each on its own Sem
 
 | Path | What | Current | Live | Stack | Run |
 |---|---|---|---|---|---|
-| `react/` | **Consumer (React)** | **v6.3.1** | [react-taupe-xi.vercel.app](https://react-taupe-xi.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Zustand · Supabase | `cd react && npm install && npm run dev` → `:5173` |
-| `admin/` | **Admin** | **v1.0.0** | [finflow-admin.vercel.app](https://finflow-admin.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Supabase | `cd admin && npm install && npm run dev` → `:5174` |
+| `react/` | **Consumer (React)** | **v6.4.2** | [react-taupe-xi.vercel.app](https://react-taupe-xi.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Zustand · Supabase | `cd react && npm install && npm run dev` → `:5173` |
+| `admin/` | **Admin** | **v1.0.1** | [finflow-admin.vercel.app](https://finflow-admin.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Supabase | `cd admin && npm install && npm run dev` → `:5174` |
 | `./` | Consumer legacy (vanilla shell) | **v5.0** *(frozen)* | local | HTML + CSS + JS, no build | open `index.html` |
 
 ## Changelogs

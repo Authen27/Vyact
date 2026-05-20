@@ -2,7 +2,7 @@
 // All pulse-score / aggregation / loan / split logic.
 // No React, no DOM. Easy to unit-test.
 
-import type { Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates } from '../types';
+import type { Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, BudgetPeriod } from '../types';
 import { convert, getMonthKey, nowMonthKey, clamp } from './format';
 
 // ── Multi-currency aware amount in BASE ────────────────────────
@@ -43,6 +43,66 @@ export function spendByCategory(transactions: Transaction[], monthKey: string, b
       acc[t.category] = (acc[t.category] || 0) + effectiveAmount(t, baseCurrency, rates);
       return acc;
     }, {});
+}
+
+// ── v6.4: Budget period windows + range-based aggregation ─────
+// `budgetWindow` returns the [start, end] inclusive ISO date range for the
+// active period of a budget, anchored at `today`. The window for monthly /
+// quarterly / half_yearly / annual budgets is calendar-aligned.
+export function budgetWindow(b: Pick<Budget, 'period'|'periodStart'|'periodEnd'>, today: Date = new Date()): { start: string; end: string } {
+  const period: BudgetPeriod = b.period || 'monthly';
+  const y = today.getFullYear();
+  const m = today.getMonth(); // 0-indexed
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const startOf = (year: number, month: number) => new Date(Date.UTC(year, month, 1));
+  const endOf   = (year: number, month: number) => new Date(Date.UTC(year, month + 1, 0));
+  if (period === 'custom') {
+    return {
+      start: b.periodStart || iso(startOf(y, m)),
+      end:   b.periodEnd   || iso(endOf(y, m)),
+    };
+  }
+  if (period === 'annual') {
+    return { start: iso(startOf(y, 0)), end: iso(endOf(y, 11)) };
+  }
+  if (period === 'half_yearly') {
+    const half = m < 6 ? 0 : 6;
+    return { start: iso(startOf(y, half)), end: iso(endOf(y, half + 5)) };
+  }
+  if (period === 'quarterly') {
+    const q = Math.floor(m / 3) * 3;
+    return { start: iso(startOf(y, q)), end: iso(endOf(y, q + 2)) };
+  }
+  // monthly
+  return { start: iso(startOf(y, m)), end: iso(endOf(y, m)) };
+}
+
+export function spendByCategoryInRange(
+  transactions: Transaction[],
+  start: string,
+  end: string,
+  baseCurrency: string,
+  rates: ExchangeRates,
+): Record<string, number> {
+  return reportableTxns(transactions)
+    .filter(t => t.type === 'expense' && t.date >= start && t.date <= end)
+    .reduce<Record<string, number>>((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + effectiveAmount(t, baseCurrency, rates);
+      return acc;
+    }, {});
+}
+
+/** How many calendar months the period covers (used to derive a per-month
+ *  view of an aggregated period limit). */
+export function periodMonths(period: BudgetPeriod | undefined): number {
+  switch (period) {
+    case 'annual':      return 12;
+    case 'half_yearly': return 6;
+    case 'quarterly':   return 3;
+    case 'monthly':
+    case undefined:     return 1;
+    case 'custom':      return 1; // approximation; UI shows literal dates
+  }
 }
 
 // ── BALANCE SHEET ──────────────────────────────────────────────

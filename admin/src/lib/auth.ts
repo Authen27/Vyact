@@ -29,15 +29,24 @@ export function onAuthStateChange(handler: (s: Session | null) => void): () => v
 }
 
 /** Reads the current user's row from public.admin_roles. Returns null if the
- *  user is not an admin (RLS will hide other rows even if the user is logged in). */
-export async function fetchMyAdminRole(): Promise<AdminRole | null> {
+ *  user is not an admin (RLS will hide other rows even if the user is logged in).
+ *
+ *  Pass `userId` when you already have it (e.g. from the session inside an
+ *  onAuthStateChange callback). This avoids calling `supabase.auth.getUser()`,
+ *  which contends for the GoTrue auth lock and deadlocks if invoked while the
+ *  lock is held (as it is inside onAuthStateChange). */
+export async function fetchMyAdminRole(userId?: string): Promise<AdminRole | null> {
   if (!supabase) return null;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  let uid = userId;
+  if (!uid) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    uid = user.id;
+  }
   const { data, error } = await supabase
     .from('admin_roles')
     .select('role')
-    .eq('user_id', user.id)
+    .eq('user_id', uid)
     .maybeSingle();
   if (error) {
     console.warn('[admin] fetchMyAdminRole error:', error.message);

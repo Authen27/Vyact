@@ -15,6 +15,7 @@ import {
   totalMonthlyDebtPayment,
 } from '../lib/calculations';
 import { fmt, fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
+import Money from '../components/ui/Money';
 import { getCat } from '../constants';
 
 export default function Dashboard() {
@@ -64,9 +65,9 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-[220px_1fr] gap-3.5 mb-3.5">
         <PulseGauge score={pulse} />
         <div className="grid grid-cols-2 gap-2">
-          <Card label={t('total-balance')}    accent="coral" value={<span className={balance >= 0 ? 'text-sage' : 'text-terra'}>{fmt(balance, baseCur)}</span>} sub={`Across all ${txns.length} transactions`} />
-          <Card label={t('monthly-income')}   accent="sage"  value={fmt(month.income, baseCur)}  sub={t('this-month')} />
-          <Card label={t('monthly-expenses')} accent="terra" value={fmt(month.expense, baseCur)} sub={t('this-month')} />
+          <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={10} />} sub={`Across all ${txns.length} transactions`} />
+          <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={10} />} sub={t('this-month')} />
+          <Card label={t('monthly-expenses')} accent="terra" value={<Money amount={month.expense} currency={baseCur} maxChars={10} />} sub={t('this-month')} />
           <Card label={t('savings-rate')}     accent="honey" value={<span className={rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}>{rate}%</span>} sub={t('of-income-saved')} />
         </div>
       </div>

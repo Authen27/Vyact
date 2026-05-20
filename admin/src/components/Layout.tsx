@@ -49,7 +49,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <div className="w-8 h-8 rounded-md bg-claude flex items-center justify-center text-white font-mono font-bold text-sm">FF</div>
             <div>
               <div className="display-serif text-lg leading-none">FinFlow</div>
-              <div className="font-mono text-[0.55rem] tracking-[0.18em] uppercase text-ink-dim mt-0.5">Admin · v8.0</div>
+              <div className="font-mono text-[0.55rem] tracking-[0.18em] uppercase text-ink-dim mt-0.5">Admin · v1.0.1</div>
             </div>
           </Link>
         </div>

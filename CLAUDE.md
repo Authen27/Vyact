@@ -4,51 +4,76 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v6.3.1**
-- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.0.0**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v6.4.2**
+- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.0.1**
 - Vanilla shell: legacy, **frozen at v5.0** — see master index
 
 ## Project Overview
 Three parallel deliverables exist in this repo:
 
 - **Consumer (vanilla shell, legacy)** at the root — plain HTML+CSS+JS, no build step. Opens `index.html` directly. All v5.0 features fully working. **Frozen** as of consumer v6.0; superseded by the React port in `react/`.
-- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v6.3.1**. Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. Live at https://react-taupe-xi.vercel.app.
-- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.0.0**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. Live at https://finflow-admin.vercel.app.
+- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v6.4.2**. Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. Live at https://react-taupe-xi.vercel.app.
+- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.0.1**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. Live at https://finflow-admin.vercel.app.
 
 **Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app falls back to localStorage-only mode (single anonymous household, no auth screens). Both modes share the same `DataAdapter` interface.
 
-> **Consumer v6.3.1 status:** All 10 pages ported to React (no more `<Stubs />` placeholder). Insights page reads admin-authored content from Supabase. Add Transaction modal hoisted to App root and reachable from Dashboard + Transactions + the `N` shortcut. Onboarding is opt-in (no forced wizard). See [`react/CHANGELOG.md`](react/CHANGELOG.md) for the per-version detail and roadmap.
+> **Consumer v6.4.1 status:** All 10 pages ported to React. The big v6.4 fix is **data persistence** — `HybridAdapter` no longer clobbers the local cache with an empty cloud response (per-`(household, entity)` sync sentinel + a store-level shrink guard), which was the root cause of "data lost on refresh / sign-out → sign-in". Other v6.4/v6.4.1 work: every CRUD entity (Transaction, Goal, Budget, Debt, Asset) now uses a store-driven modal mounted at App root; multi-period budgets (`BudgetPeriod`, stored per-device in `ff_budget_periods` until a v6.5 schema migration); adaptive `Money` component for billion-scale values; portal-rendered notification popover; Planner & Chat moved to floating action buttons; pip favicon + web manifest; sidebar logo links to Dashboard with Budgets→PLAN / Splits→TRACK. See [`react/CHANGELOG.md`](react/CHANGELOG.md) for the per-version detail and roadmap.
+
+> **Key architectural conventions added in v6.4:**
+> - **Global modals via store slots.** Each CRUD entity has `{entity}ModalOpen` / `editing{Entity}` state + `openAdd{Entity}` / `openEdit{Entity}` / `close{Entity}Modal` actions in `store.ts`. The modal component is mounted once in `App.tsx`. Pages call the store action instead of holding local modal state. Follow this pattern for any new CRUD surface.
+> - **Client-side overlays for un-migrated schema.** When a feature needs a column the production DB doesn't have yet (e.g. budget `period`), store it in a namespaced localStorage map (`budgetMeta.ts`) and merge it onto adapter results in `refresh()`. Document the per-device limitation and queue the migration for a later version. **Never** change the production schema mid-release without an explicit migration step.
+> - **Cache no-clobber.** `HybridAdapter.applyCloudList()` only trusts an empty cloud response once `ff_cloud_synced_<hid>_<entity>` proves a prior sync. `forceFullResync(hid)` clears the sentinel. Preserve this when touching the adapter.
 
 ## File Structure
 ```
 budget-app/
-├── index.html              — v5 vanilla shell (10 pages, 10 modals)
-├── style.css               — v5 paper-warm + dark themes
-├── app.js                  — v5 logic (3,500+ lines)
-├── src/dataAdapter.js      — v5 JS adapter
+├── index.html              — vanilla shell (legacy consumer, v5.0 frozen)
+├── style.css               — vanilla paper-warm + dark themes
+├── app.js                  — vanilla logic (3,500+ lines)
+├── src/dataAdapter.js      — vanilla JS adapter
 ├── db/schema.sql           — Postgres schema (Supabase-ready)
-├── VERSIONS.md             — Changelog v1 → v6
+├── VERSIONS.md             — MASTER changelog index (links to per-app CHANGELOGs)
 ├── ARCHITECTURE.md         — Cloud + auth + multi-household design
 ├── CLAUDE.md               — this file
-├── FinFlow App/            — Specs, GTM, design wireframes
-└── react/                  — v6 React migration
-    ├── package.json
-    ├── vite.config.ts
-    ├── tsconfig.json
-    ├── tailwind.config.ts
-    ├── postcss.config.js
-    ├── index.html
-    ├── README.md
+├── README.md               — repo overview + run instructions
+├── FinFlow App/            — Specs, GTM, design wireframes, PRDs
+├── react/                  — CONSUMER app (v6.4.2)
+│   ├── CHANGELOG.md         — consumer per-version history + roadmap
+│   ├── package.json, vite.config.ts, tsconfig.json, tailwind.config.ts
+│   ├── index.html, .env.local, README.md
+│   ├── public/              — favicon.svg (pip mascot), manifest.webmanifest
+│   └── src/
+│       ├── main.tsx, App.tsx, index.css
+│       ├── types.ts, constants.ts, store.ts, hooks.ts
+│       ├── lib/             — format, i18n, calculations, dataAdapter,
+│       │                      hybridAdapter, supabaseAdapter, auth, permissions,
+│       │                      migration, budgetMeta, templates, amortization,
+│       │                      recurring, notifications, plannerRules, aiSummary,
+│       │                      insightsApi, seed (all TS)
+│       ├── components/
+│       │   ├── ui/          — Button, Card, Modal, Input, Badge, Toast, Empty, Money
+│       │   ├── layout/      — Sidebar, MobileBar, ProfileSwitcher, Layout,
+│       │   │                  NotificationCenter, FloatingTools
+│       │   ├── charts/      — PulseGauge (custom SVG), Charts (Recharts)
+│       │   ├── transactions/— TxnRow, PaymentMethodChip, TransactionFormModal
+│       │   ├── goals/       — GoalFormModal, GoalProgressModal
+│       │   ├── budgets/     — BudgetFormModal
+│       │   ├── debts/       — DebtFormModal
+│       │   └── assets/      — AssetFormModal
+│       ├── components/auth/ — AuthGate
+│       └── pages/           — Dashboard, Transactions, Budgets, Goals, Splits,
+│                              Debts, NetWorth, Reports, Recurring, Planner, Chat,
+│                              Insights, Households, Settings, Help, Onboarding,
+│                              auth/{SignIn,SignUp,ResetPassword,AcceptInvite}
+└── admin/                  — ADMIN app (v1.0.1, separate product)
+    ├── CHANGELOG.md         — admin per-version history + roadmap
+    ├── package.json, vite.config.ts, .env.local
     └── src/
-        ├── main.tsx, App.tsx, index.css
-        ├── types.ts, constants.ts, store.ts, hooks.ts
-        ├── lib/             — format, i18n, calculations, dataAdapter, seed (all TS)
-        ├── components/
-        │   ├── ui/          — Button, Card, Modal, Input, Badge, Toast, Empty
-        │   ├── layout/      — Sidebar, MobileBar, ProfileSwitcher, Layout
-        │   ├── charts/      — PulseGauge (custom SVG), Charts (Recharts)
-        │   └── transactions/— TxnRow, PaymentMethodChip
-        └── pages/           — Dashboard, Reports, Transactions, Stubs (rest)
+        ├── App.tsx, store.ts, types.ts
+        ├── lib/             — supabase, auth, adminApi, contentApi
+        ├── components/      — Layout, AuthGate
+        └── pages/           — Dashboard, Users, Households, Subscriptions,
+                               Content, Audit, Settings, Help
 ```
 
 ## Tech Stack

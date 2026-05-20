@@ -70,7 +70,7 @@ export default function Planner() {
           <p className="text-[0.84rem] text-ink-mid leading-relaxed">
             <strong className="text-ink">These are guidelines based on your data, not financial advice.</strong> Every recommendation
             traces to a specific rule and a specific data point — no LLM, no hallucination. Consult a qualified financial adviser
-            for major decisions. The LLM-driven version with personalised tone arrives in v8.
+            for major decisions. The LLM-driven version with personalised tone arrives in v7.0.
           </p>
         </div>
       </div>

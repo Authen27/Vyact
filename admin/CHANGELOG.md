@@ -4,7 +4,7 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.0.0`**
+> **Current production version: `v1.0.1`**
 > **Live URL:** https://finflow-admin.vercel.app
 > **Next planned: `v1.1.0`** (see Roadmap at the bottom).
 
@@ -17,6 +17,22 @@ That scaffolding shipped with **mock data only** (220 fake users, fake KPIs, fak
 When the data layer was sanitised — every page rewritten to read from the live Supabase project — we treated that as the **first production release** of the admin app and reset the version line accordingly. The "v8.0" label is retired.
 
 > If you see references to `"version": "8.0.0"` in `admin/package.json` in older commits, or "v8 Admin" in `CLAUDE.md` history, that was the pre-1.0 scaffolding numbering. As of v1.0.0 the package version is `1.0.0`.
+
+---
+
+## v1.0.1 — AuthGate deadlock hotfix *(2026-05-20)*
+
+**Severity: critical (app unusable).** After the Supabase project was resumed from a pause, the admin app hung forever on the **"Checking session…"** screen — `sessionLoaded` never flipped, so no page ever rendered.
+
+### Root cause
+[`admin/src/components/AuthGate.tsx`](admin/src/components/AuthGate.tsx) registered an **`async`** `onAuthStateChange` callback that `await`ed `fetchMyAdminRole()`, which internally called `supabase.auth.getUser()`. supabase-js holds the GoTrue **auth lock** for the duration of an `onAuthStateChange` callback; any nested auth call that needs the same lock deadlocks. The lock never released, so `getSession()` also blocked → permanent "Checking session…". (The consumer app avoids this because its callback is synchronous.) It only surfaced now because there was a stored session to recover post-pause, and a deadlocked tab held the cross-tab Web Lock.
+
+### Fix
+- [`admin/src/lib/auth.ts`](admin/src/lib/auth.ts) — `fetchMyAdminRole(userId?)` now accepts the user id from the session, so it no longer calls `supabase.auth.getUser()`.
+- [`admin/src/components/AuthGate.tsx`](admin/src/components/AuthGate.tsx) — role resolution is deferred via `setTimeout(0)` so the auth lock is released first, and the `onAuthStateChange` callback never `await`s a Supabase call inline. Passes `session.user.id` straight through.
+
+### Verified
+After the fix + closing the deadlocked tab, the admin dashboard loads fully with live data (Total Users 3, Households 3, Articles 5, Favorites 1 — all matching the DB). Build green.
 
 ---
 

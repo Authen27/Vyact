@@ -6,6 +6,11 @@ import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
 import AuthGate from './components/auth/AuthGate';
 import TransactionFormModal from './components/transactions/TransactionFormModal';
+import GoalFormModal from './components/goals/GoalFormModal';
+import GoalProgressModal from './components/goals/GoalProgressModal';
+import BudgetFormModal from './components/budgets/BudgetFormModal';
+import DebtFormModal from './components/debts/DebtFormModal';
+import AssetFormModal from './components/assets/AssetFormModal';
 
 import Dashboard    from './pages/Dashboard';
 import Transactions from './pages/Transactions';
@@ -34,6 +39,11 @@ export default function App() {
     <AuthGate>
       <AppShell />
       <TransactionFormModal />
+      <GoalFormModal />
+      <GoalProgressModal />
+      <BudgetFormModal />
+      <DebtFormModal />
+      <AssetFormModal />
       <ToastHost />
     </AuthGate>
   );

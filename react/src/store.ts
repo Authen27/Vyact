@@ -17,6 +17,8 @@ import { isCloudEnabled, supabase } from './lib/supabase';
 import { highestRole } from './lib/permissions';
 import type { AppRole } from './types';
 import { applyPayment } from './lib/amortization';
+import { autoMigrateAnonToHousehold } from './lib/migration';
+import { hydrateBudgets, setBudgetMeta, deleteBudgetMeta } from './lib/budgetMeta';
 import {
   dueSchedules, generateTransaction, advanceSchedule,
 } from './lib/recurring';
@@ -65,6 +67,36 @@ interface Store {
   openAddTxn: () => void;
   openEditTxn: (t: Transaction) => void;
   closeTxnModal: () => void;
+
+  // ── v6.4: global goal & budget modals ───────────────────────
+  goalModalOpen: boolean;
+  editingGoal: Goal | null;
+  openAddGoal: () => void;
+  openEditGoal: (g: Goal) => void;
+  closeGoalModal: () => void;
+
+  goalProgressModalOpen: boolean;
+  progressGoal: Goal | null;
+  openGoalProgress: (g: Goal) => void;
+  closeGoalProgress: () => void;
+
+  budgetModalOpen: boolean;
+  editingBudget: Budget | null;
+  openAddBudget: () => void;
+  openEditBudget: (b: Budget) => void;
+  closeBudgetModal: () => void;
+
+  debtModalOpen: boolean;
+  editingDebt: Debt | null;
+  openAddDebt: () => void;
+  openEditDebt: (d: Debt) => void;
+  closeDebtModal: () => void;
+
+  assetModalOpen: boolean;
+  editingAsset: Asset | null;
+  openAddAsset: () => void;
+  openEditAsset: (a: Asset) => void;
+  closeAssetModal: () => void;
 
   // ── actions ─────────────────────────────────────────────────
   init: () => Promise<void>;
@@ -158,6 +190,36 @@ export const useStore = create<Store>((set, get) => ({
   openEditTxn:   (t) => set({ editingTxn: t, txnModalOpen: true }),
   closeTxnModal: () => set({ txnModalOpen: false, editingTxn: null }),
 
+  // v6.4 — goal & budget modals
+  goalModalOpen: false,
+  editingGoal: null,
+  openAddGoal:     () => set({ editingGoal: null, goalModalOpen: true }),
+  openEditGoal:    (g) => set({ editingGoal: g, goalModalOpen: true }),
+  closeGoalModal:  () => set({ goalModalOpen: false, editingGoal: null }),
+
+  goalProgressModalOpen: false,
+  progressGoal: null,
+  openGoalProgress:  (g) => set({ progressGoal: g, goalProgressModalOpen: true }),
+  closeGoalProgress: () => set({ goalProgressModalOpen: false, progressGoal: null }),
+
+  budgetModalOpen: false,
+  editingBudget: null,
+  openAddBudget:    () => set({ editingBudget: null, budgetModalOpen: true }),
+  openEditBudget:   (b) => set({ editingBudget: b, budgetModalOpen: true }),
+  closeBudgetModal: () => set({ budgetModalOpen: false, editingBudget: null }),
+
+  debtModalOpen: false,
+  editingDebt: null,
+  openAddDebt:    () => set({ editingDebt: null, debtModalOpen: true }),
+  openEditDebt:   (d) => set({ editingDebt: d, debtModalOpen: true }),
+  closeDebtModal: () => set({ debtModalOpen: false, editingDebt: null }),
+
+  assetModalOpen: false,
+  editingAsset: null,
+  openAddAsset:    () => set({ editingAsset: null, assetModalOpen: true }),
+  openEditAsset:   (a) => set({ editingAsset: a, assetModalOpen: true }),
+  closeAssetModal: () => set({ assetModalOpen: false, editingAsset: null }),
+
   init: async () => {
     const { adapter, cloudEnabled, session } = get();
     set({ loading: true });
@@ -169,10 +231,22 @@ export const useStore = create<Store>((set, get) => ({
     }
     const households = await adapter.listHouseholds();
     const activeHouseholdId = await adapter.getActiveHousehold();
+    // v6.4: Prefer the household the user was last viewing in cloud mode.
+    // ff_last_cloud_hid is set on sign-out so a fresh sign-in lands on the
+    // same household whose cache (ff_<hid>_*) we still hold locally.
+    const lastCloudHid = (cloudEnabled && typeof localStorage !== 'undefined')
+      ? localStorage.getItem('ff_last_cloud_hid')
+      : null;
+    const preferredId = lastCloudHid && households.some(h => h.id === lastCloudHid)
+      ? lastCloudHid
+      : activeHouseholdId;
     const active = households.length
-      ? (households.find(h => h.id === activeHouseholdId)?.id || households[0].id)
+      ? (households.find(h => h.id === preferredId)?.id || households[0].id)
       : 'local';
     set({ households, currentHouseholdId: active });
+    if (cloudEnabled && active !== 'local') {
+      try { localStorage.setItem('ff_last_cloud_hid', active); } catch { /* noop */ }
+    }
     await get().refresh();
 
     // First-run seed (local mode only — cloud users get an empty household)
@@ -190,6 +264,20 @@ export const useStore = create<Store>((set, get) => ({
         await adapter.upsertRate(active, code, rate);
       }
       await get().refresh();
+    }
+    // v6.4: One-shot anon → cloud migration when the user signs in for the
+    // first time on this device and lands on an empty cloud household.
+    if (cloudEnabled && active !== 'local') {
+      try {
+        const result = await autoMigrateAnonToHousehold(adapter, active);
+        if (result.ran && result.counts) {
+          const total = Object.values(result.counts).reduce((s, n) => s + n, 0);
+          get().toast(`Imported ${total} item${total === 1 ? '' : 's'} from local data`, 'success');
+          await get().refresh();
+        }
+      } catch (e) {
+        if (typeof console !== 'undefined') console.warn('[FinFlow] auto-migration failed', e);
+      }
     }
     // v7: run recurring + refresh notifications on every load
     await get().runRecurringEngine();
@@ -210,17 +298,42 @@ export const useStore = create<Store>((set, get) => ({
       adapter.getProfile(currentHouseholdId),
       adapter.getRates(currentHouseholdId),
     ]);
+    // v6.4: hydrate per-budget local period metadata (DB schema lacks an
+    // extras column on budgets so period info is a client-side overlay).
+    const hydratedBudgets = hydrateBudgets(budgets);
+    // v6.4: Defensive — if every entity comes back empty AND we previously
+    // had data in memory, the cloud is almost certainly degraded (RLS issue,
+    // schema not deployed, transient outage). Hold the last-known state and
+    // surface a warning instead of presenting a blank app to the user, who
+    // would otherwise assume their data has been deleted.
+    const prev = get();
+    const allEmpty = !transactions.length && !budgets.length && !goals.length &&
+      !members.length && !debts.length && !assets.length;
+    const prevHadData = (prev.transactions.length + prev.budgets.length + prev.goals.length +
+      prev.members.length + prev.debts.length + prev.assets.length) > 0;
+    if (allEmpty && prevHadData && prev.currentHouseholdId === currentHouseholdId) {
+      // Refresh in-memory profile + rates only; keep entity arrays as-is.
+      set({
+        profile: profile ? { ...defaultProfile, ...profile } : prev.profile,
+        rates: rates && Object.keys(rates).length ? rates : prev.rates,
+      });
+      prev.toast('Cloud sync looked empty — keeping local data. Use Force Resync if needed.', 'warning');
+      return;
+    }
     set({
-      transactions, budgets, goals, members, debts, assets,
+      transactions, budgets: hydratedBudgets, goals, members, debts, assets,
       profile: profile ? { ...defaultProfile, ...profile } : defaultProfile,
       rates,
     });
   },
 
   switchHousehold: async (id) => {
-    const { adapter } = get();
+    const { adapter, cloudEnabled } = get();
     await adapter.setActiveHousehold(id);
     set({ currentHouseholdId: id });
+    if (cloudEnabled && id !== 'local') {
+      try { localStorage.setItem('ff_last_cloud_hid', id); } catch { /* noop */ }
+    }
     await get().refresh();
     get().toast('Switched profile', 'success');
   },
@@ -268,13 +381,25 @@ export const useStore = create<Store>((set, get) => ({
   upsertBudget: async (b) => {
     const { adapter, currentHouseholdId, budgets } = get();
     const saved = await adapter.upsert('budgets', currentHouseholdId, b);
+    // v6.4: persist period metadata locally (cloud schema lacks an extras
+    // column on budgets; this is a non-destructive client-side overlay).
+    if (b.period || b.periodStart || b.periodEnd) {
+      setBudgetMeta(saved.id, {
+        period: b.period,
+        periodStart: b.periodStart,
+        periodEnd: b.periodEnd,
+      });
+    }
+    const merged: Budget = { ...(saved as Budget), period: b.period || (saved as Budget).period || 'monthly',
+      periodStart: b.periodStart, periodEnd: b.periodEnd };
     const idx = budgets.findIndex(x => x.id === saved.id);
-    set({ budgets: idx >= 0 ? budgets.map(x => x.id === saved.id ? saved as Budget : x) : [...budgets, saved as Budget] });
-    return saved as Budget;
+    set({ budgets: idx >= 0 ? budgets.map(x => x.id === saved.id ? merged : x) : [...budgets, merged] });
+    return merged;
   },
   removeBudget: async (id) => {
     const { adapter, currentHouseholdId, budgets } = get();
     await adapter.remove('budgets', currentHouseholdId, id);
+    deleteBudgetMeta(id);
     set({ budgets: budgets.filter(x => x.id !== id) });
   },
   upsertGoal: async (g) => {
@@ -493,6 +618,15 @@ export const useStore = create<Store>((set, get) => ({
       // Just signed in — load households + data
       get().init();
     } else if (wasSignedIn && !isSignedIn) {
+      // v6.4: Stash the last cloud household id BEFORE clearing state, so
+      // the next sign-in can land back on it (its cache is still in
+      // localStorage under ff_<hid>_*). Without this we'd default to the
+      // first household in the list, mis-key cache lookups, and the
+      // HybridAdapter "transient empty" path would kick in needlessly.
+      const cur = get().currentHouseholdId;
+      if (cur && cur !== 'local') {
+        try { localStorage.setItem('ff_last_cloud_hid', cur); } catch { /* noop */ }
+      }
       // Just signed out — clear in-memory cloud state
       set({
         households: [], currentHouseholdId: 'local',

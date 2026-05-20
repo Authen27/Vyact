@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import MobileBar from './MobileBar';
+import FloatingTools from './FloatingTools';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -13,6 +14,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           {children}
         </div>
       </main>
+      <FloatingTools />
     </div>
   );
 }

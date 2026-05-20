@@ -2,7 +2,26 @@
 import { CURRENCIES, DEFAULT_RATES } from '../constants';
 
 export const today = (): string => new Date().toISOString().split('T')[0];
-export const uid = (): string => Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+// IDs must be valid UUIDs: the cloud schema's primary-key columns are `uuid`,
+// so a non-UUID id (the old Date.toString(36)+Math.random() scheme) made every
+// locally-created record fail to sync to Supabase with `22P02 invalid input
+// syntax for type uuid`. crypto.randomUUID() is available in all modern
+// browsers in a secure context (incl. localhost); the manual fallback covers
+// the rare non-secure / old-runtime case and is still RFC-4122 v4 shaped.
+export const uid = (): string => {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch { /* fall through */ }
+  // RFC-4122 v4 fallback
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 export const escHtml = (s: string): string =>
   String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 export const clamp = (v: number, min: number, max: number): number => Math.max(min, Math.min(max, v));
@@ -43,8 +62,9 @@ export function fmt(amount: number, currency = 'USD'): string {
 export function fmtShort(amount: number, currency = 'USD'): string {
   const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
   const n = Math.abs(amount || 0);
-  if (n >= 1_000_000) return cur.symbol + (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 10_000)    return cur.symbol + (n / 1_000).toFixed(1) + 'K';
+  if (n >= 1_000_000_000) return cur.symbol + (n / 1_000_000_000).toFixed(1) + 'B';
+  if (n >= 1_000_000)     return cur.symbol + (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)         return cur.symbol + (n / 1_000).toFixed(1) + 'K';
   return cur.symbol + n.toLocaleString(cur.locale, { maximumFractionDigits: 0 });
 }
 

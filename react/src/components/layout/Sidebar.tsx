@@ -1,7 +1,7 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard, ArrowLeftRight, Target, Wallet, Repeat,
-  TrendingUp, Users, Banknote, Scale, BarChart3, Sparkles, MessageCircle,
+  TrendingUp, Users, Banknote, Scale, BarChart3,
   Home, Settings, HelpCircle, LogOut, BookOpen,
   Sun, Moon, Monitor, Download, Trash2, X,
 } from 'lucide-react';
@@ -21,19 +21,17 @@ const navGroups = [
   { label: 'TRACK', items: [
     { to: '/dashboard',    key: 'dashboard',    page: 'dashboard',    icon: LayoutDashboard },
     { to: '/transactions', key: 'transactions', page: 'transactions', icon: ArrowLeftRight },
-    { to: '/budgets',      key: 'budgets',      page: 'budgets',      icon: Wallet },
+    { to: '/splits',       key: 'splits',       page: 'splits',       icon: Users },
     { to: '/recurring',    key: 'recurring',    page: 'recurring',    icon: Repeat },
   ]},
   { label: 'PLAN', items: [
+    { to: '/budgets',  key: 'budgets',  page: 'budgets',  icon: Wallet },
     { to: '/goals',    key: 'goals',    page: 'goals',    icon: Target },
-    { to: '/splits',   key: 'splits',   page: 'splits',   icon: Users },
     { to: '/debts',    key: 'debts',    page: 'debts',    icon: Banknote },
     { to: '/networth', key: 'networth', page: 'networth', icon: Scale },
   ]},
   { label: 'ANALYZE', items: [
     { to: '/reports',  key: 'reports',  page: 'reports',  icon: BarChart3 },
-    { to: '/planner',  key: 'planner',  page: 'planner',  icon: Sparkles },
-    { to: '/chat',     key: 'chat',     page: 'chat',     icon: MessageCircle },
     { to: '/insights', key: 'insights', page: 'insights', icon: BookOpen },
   ]},
   { label: 'ACCOUNT', items: [
@@ -49,7 +47,7 @@ export default function Sidebar({ open, onClose }: Props) {
   const session = useStore(s => s.session);
   const visible = pagesForTemplate(template);
   // Always show new v7+ pages even outside template (they're additive ANALYZE tools)
-  ['recurring','planner','chat','insights','households'].forEach(p => visible.add(p));
+  ['recurring','insights','households'].forEach(p => visible.add(p));
   const { t } = useTranslation();
 
   return (
@@ -61,12 +59,20 @@ export default function Sidebar({ open, onClose }: Props) {
         />
       )}
       <aside className={`fixed top-0 left-0 bottom-0 w-[260px] lg:w-60 bg-bg2 border-r border-line z-50 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        {/* Logo */}
+        {/* Logo — click to return to Dashboard */}
         <div className="flex items-center gap-2.5 px-4 py-5 border-b border-line relative">
-          <Logo />
-          <div className="display-italic text-2xl text-ink leading-none flex-1">
-            Fin<span className="text-coral">Flow</span>
-          </div>
+          <Link
+            to="/dashboard"
+            onClick={() => { if (window.innerWidth < 1024) onClose(); }}
+            className="flex items-center gap-2.5 flex-1 min-w-0 group rounded-md -mx-1 px-1 py-1 transition-colors hover:bg-coral-tint/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral/40"
+            aria-label="FinFlow — go to dashboard"
+            title="Dashboard"
+          >
+            <Logo />
+            <div className="display-italic text-2xl text-ink leading-none flex-1 group-hover:text-ink">
+              Fin<span className="text-coral">Flow</span>
+            </div>
+          </Link>
           <div className="hidden lg:block"><NotificationCenter /></div>
           <button onClick={onClose} className="lg:hidden absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 border border-line rounded text-ink-mid hover:text-ink hover:border-line2 flex items-center justify-center">
             <X size={14} />

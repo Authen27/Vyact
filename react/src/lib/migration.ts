@@ -81,3 +81,78 @@ export async function migrateLocalToCloud(
 export function hasBeenMigrated(): boolean {
   return Boolean(localStorage.getItem('ff_migrated_at'));
 }
+
+// ────────────────────────────────────────────────────────────────
+// v6.4 — Automatic anon → cloud migration on first sign-in.
+//
+// Triggered by the store after a successful sign-in if (a) the user has
+// data in the anonymous (legacy `ff_*`) localStorage keys and (b) the
+// active cloud household is empty (no transactions/budgets/goals/etc.).
+// Idempotent via per-household local guard `ff_anon_migrated_<hid>`.
+//
+// NOTE: This is best-effort and same-device only. A server-side marker
+// (households.extras.anon_migrated_at) is planned for a follow-up to
+// prevent multi-device migration races.
+// ────────────────────────────────────────────────────────────────
+
+export interface AutoMigrationResult {
+  ran: boolean;
+  reason?: 'guard-set' | 'no-anon-data' | 'household-not-empty' | 'success';
+  counts?: MigrationResult['counts'];
+}
+
+const guardKey = (hid: string) => `ff_anon_migrated_${hid}`;
+
+export async function autoMigrateAnonToHousehold(
+  adapter: DataAdapter,
+  householdId: string,
+): Promise<AutoMigrationResult> {
+  if (!householdId || householdId === 'local') {
+    return { ran: false, reason: 'guard-set' };
+  }
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(guardKey(householdId))) {
+    return { ran: false, reason: 'guard-set' };
+  }
+  const snap = readLocalSnapshot();
+  if (!snap.hasData) {
+    try { localStorage.setItem(guardKey(householdId), '1'); } catch { /* noop */ }
+    return { ran: false, reason: 'no-anon-data' };
+  }
+  // Confirm the cloud household is genuinely empty before we duplicate
+  // data into it. Probes use the adapter so HybridAdapter's cache + cloud
+  // logic both apply.
+  const [txs, bs, gs, ms, ds, as_] = await Promise.all([
+    adapter.list<Transaction>('transactions', householdId),
+    adapter.list<Budget>     ('budgets',      householdId),
+    adapter.list<Goal>       ('goals',        householdId),
+    adapter.list<Member>     ('members',      householdId),
+    adapter.list<Debt>       ('debts',        householdId),
+    adapter.list<Asset>      ('assets',       householdId),
+  ]);
+  const cloudHasData = txs.length + bs.length + gs.length + ms.length + ds.length + as_.length > 0;
+  if (cloudHasData) {
+    try { localStorage.setItem(guardKey(householdId), '1'); } catch { /* noop */ }
+    return { ran: false, reason: 'household-not-empty' };
+  }
+  // Copy. We strip ids so the adapter mints fresh ones (avoids cross-tenant
+  // collisions and ensures the cloud is the source of truth for primary keys).
+  for (const m of snap.members)      await adapter.upsert('members',      householdId, { ...m, id: undefined });
+  for (const t of snap.transactions) await adapter.upsert('transactions', householdId, { ...t, id: undefined });
+  for (const b of snap.budgets)      await adapter.upsert('budgets',      householdId, { ...b, id: undefined });
+  for (const g of snap.goals)        await adapter.upsert('goals',        householdId, { ...g, id: undefined });
+  for (const d of snap.debts)        await adapter.upsert('debts',        householdId, { ...d, id: undefined });
+  for (const a of snap.assets)       await adapter.upsert('assets',       householdId, { ...a, id: undefined });
+  try { localStorage.setItem(guardKey(householdId), '1'); } catch { /* noop */ }
+  return {
+    ran: true,
+    reason: 'success',
+    counts: {
+      transactions: snap.transactions.length,
+      budgets:      snap.budgets.length,
+      goals:        snap.goals.length,
+      members:      snap.members.length,
+      debts:        snap.debts.length,
+      assets:       snap.assets.length,
+    },
+  };
+}

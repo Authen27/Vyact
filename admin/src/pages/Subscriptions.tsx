@@ -1,7 +1,7 @@
-// FinFlow Admin v8 — Subscriptions (live public.subscriptions)
+// FinFlow Admin — Subscriptions (live public.subscriptions)
 // The subscriptions table exists in production but is intentionally empty
-// until Stripe webhooks are wired in v6.4. This page reflects that honestly:
-// real query, real (zero) results, and a clear "billing not wired" callout.
+// until Stripe webhooks are wired in admin v1.1.0. This page reflects that
+// honestly: real query, real (zero) results, "billing not wired" callout.
 
 import { useEffect, useMemo, useState } from 'react';
 import { CreditCard, RefreshCw, Info } from 'lucide-react';
@@ -82,7 +82,7 @@ export default function Subscriptions() {
               <p className="text-[0.85rem] text-ink-mid leading-relaxed">
                 The <code className="font-mono">subscriptions</code> table exists in production with the
                 full schema (tier, status, MRR, Stripe sub id, failure count) but no Stripe
-                webhooks are configured to populate it. Roadmap entry <strong>v6.4</strong>: wire{' '}
+                webhooks are configured to populate it. Roadmap entry <strong>admin v1.1.0</strong>: wire{' '}
                 <code className="font-mono">stripe-webhook</code> Edge Function to insert / update
                 rows on <code className="font-mono">customer.subscription.*</code> events. No mock data
                 shown — the empty state IS the truth.
@@ -169,7 +169,7 @@ export default function Subscriptions() {
       </div>
 
       <p className="mt-3 text-[0.7rem] text-ink-dim font-mono">
-        Source: <code>public.subscriptions</code> · awaiting Stripe webhook integration (v6.4)
+        Source: <code>public.subscriptions</code> · awaiting Stripe webhook integration (admin v1.1.0)
       </p>
     </div>
   );

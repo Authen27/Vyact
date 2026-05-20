@@ -2,9 +2,10 @@ import { Lock, Repeat, ArrowRightLeft, TrendingUp, Users } from 'lucide-react';
 import type { Transaction } from '../../types';
 import { useStore } from '../../store';
 import { getCat } from '../../constants';
-import { fmt, formatDate } from '../../lib/format';
+import { formatDate } from '../../lib/format';
 import PaymentMethodChip from './PaymentMethodChip';
 import Badge from '../ui/Badge';
+import Money from '../ui/Money';
 
 interface Props {
   txn: Transaction;
@@ -31,9 +32,7 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
               : isXfer              ? 'text-denim'
               :                       'text-terra';
 
-  const amount = isSplit
-    ? `${sign}${fmt(t.split!.yourShare, cur)}`
-    : `${sign}${fmt(t.amount, cur)}`;
+  const amount = isSplit ? t.split!.yourShare : t.amount;
 
   const wrapperBg = t.excluded ? 'opacity-65' : isInv ? 'bg-honey/[0.04]' : isXfer ? 'bg-denim/[0.03]' : '';
 
@@ -52,7 +51,10 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
           {cat.label} · {formatDate(t.date, dateFormat)}{t.note ? ' · ' + t.note : ''}
         </div>
       </div>
-      <div className={`font-mono text-[0.86rem] font-medium whitespace-nowrap ${amtCls}`}>{amount}</div>
+      <div className={`font-mono text-[0.86rem] font-medium whitespace-nowrap flex items-center gap-0.5 max-w-[40%] min-w-0 ${amtCls}`}>
+        <span aria-hidden>{sign}</span>
+        <Money amount={amount} currency={cur} maxChars={14} />
+      </div>
 
       <div className="hidden sm:flex flex-col gap-0.5 items-end flex-shrink-0">
         {t.excluded && <Badge tone="neutral"><Lock size={10}/> Private</Badge>}

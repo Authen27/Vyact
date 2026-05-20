@@ -6,8 +6,8 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v6.3.1** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
-| **Admin** | `admin/` | **v1.0.0** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v6.4.2** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Admin** | `admin/` | **v1.0.1** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
 The three apps deploy independently and are versioned independently. The vanilla shell at the repo root is kept available as the *original* FinFlow app from before the React port; it shares no code with the admin app.
@@ -20,6 +20,10 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-05-20 | [Consumer](react/CHANGELOG.md#v642--critical-sync-fix-cloud-writes-never-persisted-2026-05-20) | **v6.4.2** | **Critical sync fix.** Cloud writes never persisted: non-UUID ids (22P02) + UPDATE-instead-of-INSERT left every locally-created record stuck in the queue. Fixed `uid()`→`crypto.randomUUID()`, adapter→real upsert, + queue guard for legacy poisoned ops. |
+| 2026-05-20 | [Admin](admin/CHANGELOG.md#v101--authgate-deadlock-hotfix-2026-05-20) | **v1.0.1** | **AuthGate deadlock hotfix.** App hung on "Checking session…" post-pause: an async `onAuthStateChange` callback awaited a nested `getUser()` and deadlocked the GoTrue auth lock. Deferred role resolution + pass session user id. |
+| 2026-05-10 | [Consumer](react/CHANGELOG.md#v641--sidebar-polish--debt--asset-form-parity-2026-05-10) | **v6.4.1** | Sidebar logo links to Dashboard. Budgets moved to PLAN, Splits moved to TRACK. Debt and Asset forms refactored to modals matching the Add Transaction / Budget / Goal pattern. |
+| 2026-05-10 | [Consumer](react/CHANGELOG.md#v64--blocker-sweep-persistence-form-parity-budget-periods-floating-tools-2026-05-10) | **v6.4** | 7-issue blocker sweep: cache no-clobber + sentinel persistence; Goal/Budget modal parity with Add Transaction; multi-period budgets with calendar windows; pip favicon + manifest; portal-rendered notification popover; adaptive `Money` component for billion-scale values; Planner & Chat moved to floating action buttons. |
 | 2026-05-10 | [Admin](admin/CHANGELOG.md#v100--production-data-layer--northstar-dashboard-2026-05-10) | **v1.0.0** | First production release. All 5 pages on live Supabase data. Mock layer deleted. Honest `—` placeholders for cohort metrics that need event-tracking. |
 | 2026-05-10 | [Consumer](react/CHANGELOG.md#v631--admin-dashboard-sanitised-every-page-on-live-data-2026-05-10) | v6.3.1 | Cross-ref of the admin v1.0 release. No consumer code changes. |
 | 2026-05-10 | [Consumer](react/CHANGELOG.md#v63--content-module--adminsupabase--global-add-txn-modal-2026-05-10) | v6.3 | Content module (admin authors → consumer reads with search + favorites). Global Add-Transaction modal hoisted to App root. New `/insights` page. |
@@ -47,9 +51,9 @@ Per-app detail in each `CHANGELOG.md` Roadmap section.
 
 | Up next | App | Version | Headline |
 |---|---|---|---|
-| **next** | [Consumer](react/CHANGELOG.md#v64--next-planned) | v6.4 | GA4 custom events. Goals "+ Progress" modal. Transactions pagination. Resend Edge Function for invitation emails. Bundle code-split. |
+| **next** | [Consumer](react/CHANGELOG.md#v65-planned) | v6.5 | Server-side budget-period storage (DB migration to add `extras jsonb` on `budgets`). GA4 custom events. Transactions pagination. Resend Edge Function for invitation emails. Bundle code-split. |
 | **next** | [Admin](admin/CHANGELOG.md#v110--next-planned) | v1.1.0 | Stripe billing wired to `subscriptions`. Event-tracking pipeline unlocks the 8 cohort metrics on the Dashboard. Audit-log JSON-diff viewer. |
-| later | [Consumer](react/CHANGELOG.md#v65-planned) | v6.5 | Stripe consumer Settings. Cohort-event tracking client-side hooks (matched to admin v1.1). |
+| later | [Consumer](react/CHANGELOG.md#v66-planned) | v6.6 | Stripe consumer Settings. Cohort-event tracking client-side hooks (matched to admin v1.1). |
 | later | [Admin](admin/CHANGELOG.md#v120-planned) | v1.2.0 | User suspend/reinstate. Invite admin tier from UI. SIEM audit export. |
 | later | [Admin](admin/CHANGELOG.md#v130-planned) | v1.3.0 | Google Workspace SSO. VPN / IP allowlist at Vercel edge. |
 | **future major** | [Consumer](react/CHANGELOG.md#v70--future-major) | v7.0 | LLM Chat backend (Claude Haiku via Edge Function). LLM-augmented Planner. Multi-device push. |

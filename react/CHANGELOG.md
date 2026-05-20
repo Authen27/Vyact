@@ -4,9 +4,9 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.3.1`**
+> **Current production version: `v6.4.2`**
 > **Live URL:** https://react-taupe-xi.vercel.app
-> **Next planned: `v6.4`** (see Roadmap at the bottom).
+> **Next planned: `v6.5`** (see Roadmap at the bottom).
 
 ## Version provenance & gaps
 
@@ -18,6 +18,163 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v6.4.2 — Critical sync fix: cloud writes never persisted *(2026-05-20)*
+
+**Severity: critical (data integrity).** Locally-created records — transactions, budgets, goals, debts, assets — were never reaching Supabase. They lived in the local cache and looked saved in the UI, but every cloud write silently failed and the record sat in the sync queue forever. This is why the admin dashboard reported `totalTransactions: 0` despite transactions being "added", and why a test transaction from a prior session was still stuck in the queue.
+
+### Two independent root causes
+
+**1. Non-UUID ids** — [`react/src/lib/format.ts`](react/src/lib/format.ts)
+`uid()` generated `Date.now().toString(36) + Math.random().toString(36)` (e.g. `mpe036yty4vnauz7yif`). The cloud schema's primary-key columns are `uuid`, so every insert was rejected with `22P02 invalid input syntax for type uuid`. Fixed to `crypto.randomUUID()` with an RFC-4122 v4 fallback for non-secure contexts.
+
+**2. UPDATE instead of INSERT** — [`react/src/lib/supabaseAdapter.ts`](react/src/lib/supabaseAdapter.ts)
+`SupabaseAdapter.upsert()` branched on `row.id`: when an id was present it ran `UPDATE … WHERE id = ?`. But the local cache *always* assigns a client-side id before queueing, so the very first sync of any new record took the UPDATE branch, matched **zero rows**, and `.single()` threw — the op then sat in the queue forever. Replaced the insert/update branch with a real `.upsert(row, { onConflict: 'id' })` (INSERT … ON CONFLICT (id) DO UPDATE), which is exactly the write-queue's contract.
+
+### Safeguard — [`react/src/lib/hybridAdapter.ts`](react/src/lib/hybridAdapter.ts)
+`flushQueue()` now drops queued ops carrying a non-UUID id (legacy records created before fix #1) instead of retrying them forever. A single poisoned op used to permanently jam the queue and block every later valid write; now it's dropped with a console warning and the queue drains.
+
+### Verified end-to-end (browser + DB)
+- Added a transaction → assigned a UUID → flushed → confirmed present in the `transactions` table via SQL; sync queue drained to 0.
+- Hard refresh → both test rows re-rendered from the cloud (full write → cloud → reload → cloud-read round-trip).
+- Legacy poisoned queue items auto-dropped, no longer jamming the queue.
+
+### Known limitation
+Records created in cloud mode *before* this fix have local-only, non-UUID ids and never synced. The safeguard stops them jamming the queue, but they won't retroactively sync — they must be re-saved. New records are unaffected.
+
+---
+
+## v6.4.1 — Sidebar polish + Debt & Asset form parity *(2026-05-10)*
+
+A small follow-up to v6.4 covering three minor UX requests.
+
+### Sidebar logo → Dashboard
+The FinFlow word-mark in the sidebar header is now a `<Link to="/dashboard">` with hover/focus styles and an `aria-label`. Previously it was static text. Mobile: the link also closes the open drawer, mirroring the existing `NavLink` behavior. File: [react/src/components/layout/Sidebar.tsx](react/src/components/layout/Sidebar.tsx).
+
+### Sidebar nav reorganised
+- **Budgets** moves from `TRACK` → `PLAN` (it sits next to Goals — both are forward-looking targets).
+- **Splits** moves from `PLAN` → `TRACK` (it records the past, not future planning).
+
+Resulting groups:
+- **TRACK** — Dashboard · Transactions · Splits · Recurring
+- **PLAN** — Budgets · Goals · Debts · Net Worth
+- **ANALYZE** — Reports · Insights
+- **ACCOUNT** — Households
+
+File: [react/src/components/layout/Sidebar.tsx](react/src/components/layout/Sidebar.tsx).
+
+### Debt and Asset form modal parity
+Both forms now match the `Add Transaction` / `Add Budget` / `Add Goal` modal style instead of the inline `Panel` form they used before. Same components (`Modal`, `Field`, `FieldRow`, `Input`, `Select`, `Button`), same store-driven open/close pattern, same Delete-link-bottom-left layout when editing.
+
+- New [react/src/components/debts/DebtFormModal.tsx](react/src/components/debts/DebtFormModal.tsx) — type, due date, name, lender, account, current balance + currency, original principal, interest rate, min monthly payment, tenure.
+- New [react/src/components/assets/AssetFormModal.tsx](react/src/components/assets/AssetFormModal.tsx) — type, liquidity, name, current value + currency, note.
+- [react/src/store.ts](react/src/store.ts) — new slots `debtModalOpen / editingDebt / openAddDebt / openEditDebt / closeDebtModal` and `assetModalOpen / editingAsset / openAddAsset / openEditAsset / closeAssetModal`.
+- Both modals mounted in [react/src/App.tsx](react/src/App.tsx) at the root.
+- [react/src/pages/Debts.tsx](react/src/pages/Debts.tsx) and [react/src/pages/NetWorth.tsx](react/src/pages/NetWorth.tsx) — inline `Panel` forms removed; Add/Edit buttons now call the store actions.
+
+### Verification — local build & preview *(2026-05-10)*
+
+| Check | Result |
+|---|---|
+| TypeScript strict (`tsc -b`) | ✅ 0 errors |
+| Vite production build | ✅ `built in 1m 18s` (exit 0) |
+| Vite preview server | ✅ Boots on `http://127.0.0.1:4173/` |
+| `GET /` | `200`, title `FinFlow — Family Finance OS` |
+| `GET /favicon.svg` | `200`, `image/svg+xml` |
+| `GET /manifest.webmanifest` | `200` |
+| Sidebar logo click | ✅ Navigates to `/dashboard` |
+| Sidebar order | ✅ TRACK = Dashboard / Transactions / Splits / Recurring; PLAN = Budgets / Goals / Debts / Net Worth |
+| Debt modal | ✅ Opens from page `+ Add Debt`, edits via row Edit, deletes via inline link, validates name + balance |
+| Asset modal | ✅ Opens from page `+ Add Asset`, edits via row ✎, validates name + value |
+
+---
+
+## v6.4 — Blocker sweep: persistence, form parity, budget periods, floating tools *(2026-05-10)*
+
+A targeted sweep that closes seven user-reported blockers spanning data integrity, form UX, layout robustness, and navigation. **No production database changes** — every fix is client-side and backward-compatible with the existing schema. A follow-up `extras jsonb` migration on `budgets` is queued for v6.5 to lift the per-device limitation noted under "Budget periods" below.
+
+### 1. Data persistence after refresh / sign-out → sign-in *(blocker)*
+
+**Symptom:** Households created or transactions added would silently disappear after a hard refresh, or after signing out and back in. Cache survived the page reload, but a transient empty cloud response on the next `list()` would clobber it.
+
+**Root cause:** `HybridAdapter.list()` unconditionally called `cache.replaceAll(entity, hid, fresh)` even when `fresh.length === 0`. RLS hiccups, slow propagation after a write, or a household-id mismatch on re-auth (sign-out reset `currentHouseholdId` to `local`, the next sign-in could land on a different cloud `hid` than the one whose `ff_<hid>_*` cache was held) all surfaced as data loss.
+
+**Fix:**
+- [react/src/lib/hybridAdapter.ts](react/src/lib/hybridAdapter.ts) — `applyCloudList()` helper plus a per-household-per-entity sentinel keyed `ff_cloud_synced_<hid>_<entity>`. An empty cloud response is now only trusted when the sentinel proves a prior successful sync. Sentinel is set after the first non-empty `list()` and after every successful `flushQueue()` write. Public `forceFullResync(hid)` API added for the upcoming Settings → Force Resync action.
+- [react/src/store.ts](react/src/store.ts) — persists the active household id to `ff_last_cloud_hid` on sign-out and on `switchHousehold`, and prefers it over the adapter's default in `init()`. The `refresh()` reducer also carries a defensive guard: when an entity array would shrink from non-empty → empty for the same `hid`, the in-memory copy is kept and a toast warns *"Cloud sync looked empty — keeping local data. Use Force Resync if needed."*
+- [react/src/lib/migration.ts](react/src/lib/migration.ts) — new `autoMigrateAnonToHousehold(adapter, hid)` runs after the first cloud refresh on a fresh sign-up. Probes 6 entities for cloud emptiness, then copies anon-cache rows up with fresh ids; guarded by `ff_anon_migrated_<hid>` so it cannot run twice.
+
+### 2. Goals & Budgets forms now match Add Transaction *(blocker)*
+
+**Symptom:** The Add Goal and Add Budget flows used inline forms (and `prompt()` for "+ Progress") that looked nothing like the polished Add Transaction modal.
+
+**Fix:** Three new modals built on the same `TransactionFormModal` foundation:
+- [react/src/components/goals/GoalFormModal.tsx](react/src/components/goals/GoalFormModal.tsx) — type, deadline, name, target+currency, current; validates name and target > 0.
+- [react/src/components/goals/GoalProgressModal.tsx](react/src/components/goals/GoalProgressModal.tsx) — replaces `prompt()`. Single amount field, Enter-to-save, auto-marks complete when `current >= target`.
+- [react/src/components/budgets/BudgetFormModal.tsx](react/src/components/budgets/BudgetFormModal.tsx) — category, period, limit+currency, color picker; validates limit > 0 and (for custom periods) start ≤ end.
+
+Wired through new store slots `goalModalOpen / editingGoal / openAddGoal / openEditGoal / closeGoalModal`, `goalProgressModalOpen / progressGoal / openGoalProgress / closeGoalProgress`, and `budgetModalOpen / editingBudget / openAddBudget / openEditBudget / closeBudgetModal`. All three are mounted once at App root in [react/src/App.tsx](react/src/App.tsx). [react/src/pages/Goals.tsx](react/src/pages/Goals.tsx) and [react/src/pages/Budgets.tsx](react/src/pages/Budgets.tsx) were rewritten to drop their inline forms and call the store actions.
+
+### 3. Multi-period budgets with calendar-aligned aggregation *(blocker)*
+
+**Symptom:** Budgets only supported a fixed monthly cycle. Quarterly, half-yearly, annual, and custom-window budgets were impossible.
+
+**Fix:**
+- [react/src/types.ts](react/src/types.ts) — `BudgetPeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'annual' | 'custom'`, plus optional `periodStart` / `periodEnd` for custom.
+- [react/src/lib/calculations.ts](react/src/lib/calculations.ts) — `budgetWindow(b, today)` returns the calendar-aligned `{start, end}` ISO range for the budget's period (Q1=Jan–Mar, H1=Jan–Jun, etc.); `spendByCategoryInRange()` aggregates only transactions inside that window, converted to base currency; `periodMonths()` powers the Period · Monthly view toggle so users can compare budgets normalised to a per-month rate.
+- [react/src/pages/Budgets.tsx](react/src/pages/Budgets.tsx) — new view-mode toggle, period label on each card, summary strip (Budgeted / Spent / Over budget).
+
+**Schema-compatibility note:** The production `budgets` table has `unique(household_id, category)` and no `extras jsonb` column. To avoid a DB migration this release, period metadata is held in a local-only overlay [react/src/lib/budgetMeta.ts](react/src/lib/budgetMeta.ts) keyed `ff_budget_periods`. Limitation: period choice does not roam across devices. The v6.5 milestone has a queued migration to add `extras jsonb` and lift this restriction.
+
+### 4. Pip favicon + manifest *(blocker)*
+
+The browser tab was using the default Vite icon. New assets:
+- [react/public/favicon.svg](react/public/favicon.svg) — the FinFlow pip (extracted from the inline `<Logo />` SVG in the sidebar) as a standalone SVG.
+- [react/public/manifest.webmanifest](react/public/manifest.webmanifest) — PWA manifest with brand colors.
+- [react/index.html](react/index.html) — adds `apple-touch-icon`, `manifest`, and updates `theme-color` to coral.
+
+### 5. Notification popover viewport-clamped *(blocker)*
+
+**Symptom:** On desktop, the notification popover anchored relative to the bell button could slide off the right edge of the viewport.
+
+**Fix:** [react/src/components/layout/NotificationCenter.tsx](react/src/components/layout/NotificationCenter.tsx) rewritten to render via `createPortal` to `document.body`. A `useEffect` computes `{top, left, width, maxHeight}` from the bell's bounding rect and clamps `width = min(320, viewportWidth - 24)` and `left` to keep the panel fully on-screen. Recomputes on `resize` and capture-phase `scroll`. Esc closes; click-away handles both the trigger and the portalled panel. Body and titles get `break-words` so very long notifications can no longer push the panel wider.
+
+### 6. Adaptive `Money` component for billion-scale values *(blocker)*
+
+**Symptom:** Very large currency values (e.g. ₹1,250,000,000) overflowed KPI cards and table cells, breaking the layout.
+
+**Fix:**
+- [react/src/components/ui/Money.tsx](react/src/components/ui/Money.tsx) — new component. Renders the full formatted value when it fits within `maxChars`; otherwise falls back to compact notation (`1.25B`, `42.5M`, `9.4K`). Always wraps in `<span class="tabular-nums truncate inline-block max-w-full">` and adds a `title` attribute with full precision so the hover always shows the exact number. Uses `−` (minus) for negatives and an optional `+` prefix when `signed`.
+- [react/src/lib/format.ts](react/src/lib/format.ts) — `fmtShort()` now handles billions (`B`) and lowers the K threshold to ≥ 1,000.
+- Applied across Dashboard, Reports, NetWorth, Budgets, Goals, and TxnRow with appropriate `maxChars` tuned per cell width.
+
+### 7. Planner & Chat → floating action buttons *(blocker)*
+
+**Symptom:** Planner and Ask FinFlow lived in the sidebar `ANALYZE` group. Both work conceptually as overlays on top of any page, so requiring a full route navigation to reach them felt buried.
+
+**Fix:** [react/src/components/layout/FloatingTools.tsx](react/src/components/layout/FloatingTools.tsx) — two stacked FABs in the bottom-right (offset above MobileBar on small screens). Clicking opens a right-side drawer (`w-[min(28rem,100vw)]`) hosting the existing Planner or Chat page. Esc and click-away close. Mounted in [react/src/components/layout/Layout.tsx](react/src/components/layout/Layout.tsx); removed from [react/src/components/layout/Sidebar.tsx](react/src/components/layout/Sidebar.tsx). The `/planner` and `/chat` routes are intentionally preserved for deep links.
+
+### Verification — local build & preview *(2026-05-10)*
+
+Verified locally on Windows + Node 22.20:
+
+| Check | Result |
+|---|---|
+| TypeScript strict (`tsc --noEmit` via `vite build`) | ✅ 0 errors |
+| Vite production build | ✅ `built in 1m 33s` (exit 0) |
+| Vite preview server | ✅ Boots clean on `http://localhost:4173/` |
+| Notification popover viewport clamp | ✅ Right-edge anchor stays fully on-screen at 1280, 1024, 768, and 360 px widths |
+| `<Money>` overflow guard | ✅ 1.25B value renders as `1.25B` with full-precision `title`; no KPI card overflow |
+| Goals + Budgets modal parity | ✅ Both modals open from page `+ Add` buttons and from store actions; close via Esc / Cancel / backdrop |
+| Budget period windows | ✅ `budgetWindow()` returns calendar-aligned ranges (Q1/Q2/Q3/Q4, H1/H2, FY); custom range honored |
+| Persistence sentinel | ✅ Empty cloud response no longer overwrites populated cache; `ff_cloud_synced_*` keys appear in `localStorage` after first non-empty sync |
+| Sign-out → sign-in identity | ✅ `ff_last_cloud_hid` round-trips; cache survives the cycle |
+| FloatingTools FABs | ✅ Open/close, Esc handler, drawer hosts Planner & Chat |
+| Favicon | ✅ Pip favicon resolves at `/favicon.svg`, manifest served at `/manifest.webmanifest` |
+
+Known build warnings (unchanged from v6.3): missing `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in the local shell (expected — local-only mode), and a chunk-size > 500 kB warning (deferred to v6.5 code-split task).
 
 ---
 

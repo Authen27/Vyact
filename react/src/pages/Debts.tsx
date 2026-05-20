@@ -2,21 +2,10 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, convert, today, uid } from '../lib/format';
+import { fmt, convert } from '../lib/format';
 import { computeEmi, splitEmiPortions, totalLiabilities, totalMonthlyDebtPayment } from '../lib/calculations';
-import { DEBT_TYPES, CURRENCIES } from '../constants';
+import { DEBT_TYPES } from '../constants';
 import type { Debt, PartPaymentChoice } from '../types';
-
-interface FormState {
-  type: string; name: string; lender: string; account: string;
-  principal: string; currentBalance: string; interestRate: string;
-  minimumPayment: string; tenureMonths: string; dueDate: string; currency: string;
-}
-const blank = (currency: string): FormState => ({
-  type: 'credit_card', name: '', lender: '', account: '',
-  principal: '', currentBalance: '', interestRate: '', minimumPayment: '',
-  tenureMonths: '', dueDate: '', currency,
-});
 
 export default function Debts() {
   const { t } = useTranslation();
@@ -24,15 +13,12 @@ export default function Debts() {
   const profile      = useStore(s => s.profile);
   const rates        = useStore(s => s.rates);
   const transactions = useStore(s => s.transactions);
-  const upsertDebt   = useStore(s => s.upsertDebt);
   const removeDebt   = useStore(s => s.removeDebt);
   const recordDebtPayment = useStore(s => s.recordDebtPayment);
   const toast        = useStore(s => s.toast);
+  const openAddDebt  = useStore(s => s.openAddDebt);
+  const openEditDebt = useStore(s => s.openEditDebt);
 
-  const [showForm, setShowForm]   = useState(false);
-  const [form, setForm]           = useState<FormState>(blank(profile.baseCurrency));
-  const [editId, setEditId]       = useState<string | null>(null);
-  const [saving, setSaving]       = useState(false);
   const [expandId, setExpandId]   = useState<string | null>(null);
   const [payDebtId, setPayDebtId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState('');
@@ -52,38 +38,8 @@ export default function Debts() {
     return b.interestRate - a.interestRate;
   });
 
-  function openAdd() { setEditId(null); setForm(blank(profile.baseCurrency)); setShowForm(true); }
-  function openEdit(d: Debt) {
-    setEditId(d.id);
-    setForm({
-      type: d.type, name: d.name, lender: d.lender || '', account: d.account || '',
-      principal: String(d.principal), currentBalance: String(d.currentBalance),
-      interestRate: String(d.interestRate), minimumPayment: String(d.minimumPayment),
-      tenureMonths: String(d.tenureMonths || ''), dueDate: d.dueDate || '', currency: d.currency,
-    });
-    setShowForm(true);
-  }
-
-  async function save() {
-    const p = parseFloat(form.principal), b = parseFloat(form.currentBalance);
-    const r = parseFloat(form.interestRate), m = parseFloat(form.minimumPayment);
-    if (!form.name || isNaN(b) || b < 0) { toast('Name and balance required', 'error'); return; }
-    setSaving(true);
-    try {
-      await upsertDebt({
-        id: editId || uid(), type: form.type, name: form.name,
-        lender: form.lender || undefined, account: form.account || undefined,
-        principal: isNaN(p) ? b : p, currentBalance: b,
-        interestRate: isNaN(r) ? 0 : r,
-        minimumPayment: isNaN(m) ? 0 : m,
-        tenureMonths: parseInt(form.tenureMonths) || undefined,
-        dueDate: form.dueDate || undefined, currency: form.currency,
-      });
-      toast(editId ? 'Debt updated' : 'Debt added', 'success');
-      setShowForm(false);
-    } catch { toast('Save failed', 'error'); }
-    finally { setSaving(false); }
-  }
+  function openAdd() { openAddDebt(); }
+  function openEdit(d: Debt) { openEditDebt(d); }
 
   async function del(id: string) {
     if (!confirm('Delete this debt?')) return;
@@ -142,64 +98,7 @@ export default function Debts() {
         </div>
       )}
 
-      {/* Add/Edit form */}
-      {showForm && (
-        <Panel title={editId ? 'Edit Debt' : 'New Debt'} className="mb-4">
-          <div className="p-5 grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="mono-label mb-1.5 block">Debt Type</label>
-              <select className="input w-full" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                {Object.entries(DEBT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Name</label>
-              <input className="input w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Chase Sapphire" />
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Lender (optional)</label>
-              <input className="input w-full" value={form.lender} onChange={e => setForm(f => ({ ...f, lender: e.target.value }))} placeholder="Bank name" />
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Account / Last 4 (optional)</label>
-              <input className="input w-full" value={form.account} onChange={e => setForm(f => ({ ...f, account: e.target.value }))} placeholder="••••1234" />
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Original Principal</label>
-              <div className="flex gap-2">
-                <select className="input w-24" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}>
-                  {Object.keys(CURRENCIES).map(c => <option key={c}>{c}</option>)}
-                </select>
-                <input className="input flex-1" type="number" min="0" value={form.principal} onChange={e => setForm(f => ({ ...f, principal: e.target.value }))} placeholder="10000" />
-              </div>
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Current Balance</label>
-              <input className="input w-full" type="number" min="0" value={form.currentBalance} onChange={e => setForm(f => ({ ...f, currentBalance: e.target.value }))} placeholder="8500" />
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Interest Rate (% p.a.)</label>
-              <input className="input w-full" type="number" min="0" step="0.01" value={form.interestRate} onChange={e => setForm(f => ({ ...f, interestRate: e.target.value }))} placeholder="18.99" />
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Min. Monthly Payment</label>
-              <input className="input w-full" type="number" min="0" value={form.minimumPayment} onChange={e => setForm(f => ({ ...f, minimumPayment: e.target.value }))} placeholder="250" />
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Tenure (months, optional)</label>
-              <input className="input w-full" type="number" min="1" value={form.tenureMonths} onChange={e => setForm(f => ({ ...f, tenureMonths: e.target.value }))} placeholder="36" />
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Due Date (optional)</label>
-              <input className="input w-full" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
-            </div>
-            <div className="sm:col-span-2 flex justify-end gap-2">
-              <button className="btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : editId ? 'Update' : 'Add'}</button>
-            </div>
-          </div>
-        </Panel>
-      )}
+      {/* Add/Edit form lives in <DebtFormModal /> mounted at App root */}
 
       {/* Debt list */}
       {debts.length === 0 ? (

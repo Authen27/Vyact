@@ -22,23 +22,28 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
     let cancelled = false;
-    (async () => {
-      const { data } = await supabase!.auth.getSession();
-      if (cancelled) return;
-      if (data.session) {
-        const role = await fetchMyAdminRole();
-        setSession(data.session, role, true);
-      } else {
-        setSession(null, null, true);
-      }
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
-      if (sess) {
-        const role = await fetchMyAdminRole();
-        setSession(sess, role, true);
-      } else {
-        setSession(null, null, true);
-      }
+
+    // Resolve the admin role for a session WITHOUT calling any Supabase auth
+    // method synchronously inside an onAuthStateChange callback. supabase-js
+    // holds the GoTrue auth lock for the duration of that callback; any nested
+    // auth/db call that needs the lock deadlocks. We therefore (a) pass the
+    // user id straight from the session so fetchMyAdminRole skips getUser(),
+    // and (b) defer the whole resolution to a microtask via setTimeout(0) so
+    // the lock is released first.
+    const resolve = (sess: import('@supabase/supabase-js').Session | null) => {
+      if (!sess) { if (!cancelled) setSession(null, null, true); return; }
+      setTimeout(async () => {
+        if (cancelled) return;
+        const role = await fetchMyAdminRole(sess.user.id);
+        if (!cancelled) setSession(sess, role, true);
+      }, 0);
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) resolve(data.session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      resolve(sess);
     });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, [setSession]);
@@ -95,7 +100,7 @@ function SignInPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-7">
           <div className="display-serif text-3xl text-claude leading-none">FinFlow</div>
-          <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-ink-dim mt-1.5">Admin Console · v8.0</div>
+          <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-ink-dim mt-1.5">Admin Console · v1.0.1</div>
         </div>
         <form onSubmit={onSubmit} className="panel p-6 space-y-3">
           <div>

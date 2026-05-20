@@ -18,7 +18,7 @@ export const supabase: SupabaseClient | null = isCloudEnabled()
         detectSessionInUrl: true,
         flowType: 'pkce',
       },
-      global: { headers: { 'X-Client-Info': 'finflow-admin/v8.0' } },
+      global: { headers: { 'X-Client-Info': 'finflow-admin/v1.0.1' } },
     })
   : null;
 
