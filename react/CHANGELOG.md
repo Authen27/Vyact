@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.4`**
+> **Current production version: `v6.4.5`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -18,6 +18,24 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v6.4.5 — Help page: real screenshots & interactive GIFs *(2026-05-21)*
+
+The Help page now teaches with **real captures of the live app**, not prose alone.
+
+### Help content consolidated
+- [`react/src/pages/Help.tsx`](react/src/pages/Help.tsx) — reduced from 17 fragmented topics to **8 focused, searchable topics**, each backed by a real screenshot or animated walkthrough. Images render in a `<figure>` with a caption and an `onError` fallback that hides the figure if an asset is ever missing (so the page never shows a broken-image icon).
+
+### Eight media assets shipped to `react/public/help/`
+A mix of **WEBP screenshots** and **animated GIFs**, all captured from the real React app (v6.4.x design — Pip mascot, FinFlow wordmark, coral buttons) seeded with representative family data:
+- `getting-started.webp`, `pulse.webp`, `budgets-goals.webp`, `debt-networth.webp`, `planner.webp`, `settings.webp` — full-screen WEBP (16–53 KB each, 1340 px wide).
+- `add-transaction.gif`, `split-bill.gif` — interactive walkthroughs showing the Add Transaction modal being filled in and a bill being split (≈ 220–250 KB each, 1080 px wide).
+
+### Reproducible capture pipeline
+- [`react/scripts/capture-help.mjs`](react/scripts/capture-help.mjs) — drives the locally-installed Chrome via `puppeteer-core` against a local-mode preview build (localStorage adapter, seeded demo data), screenshots each page/modal, and encodes the GIFs with `gifenc` + `pngjs` (pure-JS, no native deps). Static frames are converted PNG→WEBP and the GIFs downscaled via `sharp-cli`. Re-run with `BASE=<preview-url> node scripts/capture-help.mjs`.
+- Dev-only deps added: `puppeteer-core`, `gifenc`, `pngjs`. No impact on the production bundle.
 
 ---
 
