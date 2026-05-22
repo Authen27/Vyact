@@ -12,34 +12,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  consumer:
-    name: Consumer app (react/)
+  # Single source of truth for the static + unit + build gates. Runs the
+  # governed automation reporter, which writes a readable evidence folder
+  # (automation-runs/<ts>__<sha>/report.md) and fails the job on any gate failure.
+  # See docs/TEST_GOVERNANCE.md.
+  automation:
+    name: Automation gates (lint · unit · build) + report
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: react } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: react/package-lock.json
-      - run: npm ci
-      - name: Type-check
-        run: npm run lint
-      - name: Unit tests (vitest)
-        run: npm test
-      - name: Build
-        run: npm run build
-        env:
-          # Build verifies regardless of whether real Supabase env is provided —
-          # the app gracefully falls back to LocalStorageAdapter without these.
-          VITE_SUPABASE_URL: ''
-          VITE_SUPABASE_ANON_KEY: ''
-      - name: Upload build artifact
+          cache-dependency-path: '**/package-lock.json'
+      - name: Install consumer deps
+        working-directory: react
+        run: npm ci
+      - name: Install admin deps
+        working-directory: admin
+        run: npm ci
+      - name: Run automation gates + generate report
+        run: node scripts/automation-run.mjs
+      - name: Upload automation run report (governance evidence)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-run-report
+          path: automation-runs/
+          retention-days: 90
+      - name: Upload consumer build
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: consumer-dist
           path: react/dist
+          retention-days: 7
+      - name: Upload admin build
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-dist
+          path: admin/dist
           retention-days: 7
 
   e2e:
@@ -64,27 +78,4 @@ jobs:
         with:
           name: playwright-report
           path: react/playwright-report
-          retention-days: 7
-
-  admin:
-    name: Admin app (admin/)
-    runs-on: ubuntu-latest
-    defaults: { run: { working-directory: admin } }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: admin/package-lock.json
-      - run: npm ci
-      - name: Type-check
-        run: npm run lint
-      - name: Build
-        run: npm run build
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: admin-dist
-          path: admin/dist
           retention-days: 7

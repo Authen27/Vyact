@@ -8,7 +8,9 @@
 
 ## How to verify
 
-- [ ] CI green (consumer + admin builds)
+- [ ] CI green — **automation run report** (`automation-run-report` artifact) reviewed, per [`docs/TEST_GOVERNANCE.md`](../docs/TEST_GOVERNANCE.md)
+- [ ] New logic has unit tests; user-facing changes covered by E2E
+- [ ] CHANGELOG + VERSIONS updated and version bumped in code (if releasing)
 - [ ] Local `npm run dev` works in any affected app
 - [ ] If schema changed: ran `apply_migration` against staging Supabase project
 - [ ] If RLS changed: ran security advisor + reviewed warnings

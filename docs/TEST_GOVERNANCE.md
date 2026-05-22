@@ -1,0 +1,116 @@
+# FinFlow — Test Governance & Change Management
+
+> How automated quality gates are run, evidenced, and tied into change management.
+> Owner: Engineering. Last updated: 2026-05-22.
+
+This document is the single source of truth for **how change reaches production safely**: every
+change is exercised by automation, every run leaves a readable evidence trail, and merge/deploy are
+gated on that evidence.
+
+---
+
+## 1. Principles
+
+1. **No change without evidence.** Every commit that reaches `main` has at least one automation run
+   with a stored, readable report linked to its SHA.
+2. **Readable first.** Each run produces `report.md` a human can read in 30 seconds — verdict,
+   metadata, per-gate results — before anyone digs into raw logs.
+3. **Traceability.** A run is traceable to a *commit*, *branch*, *trigger*, and *author*; a change is
+   traceable to a *PR*, an *issue / TECH_DEBT id*, a *CHANGELOG entry*, and the *automation run* that
+   cleared it.
+4. **Gates are blocking.** A failed gate blocks merge and blocks deploy. Gates are never skipped to
+   "fix later".
+
+---
+
+## 2. The test pyramid
+
+| Layer | Tool | Scope | Where it runs |
+|---|---|---|---|
+| **Static** | `tsc --noEmit` (`npm run lint`) | Types, both apps | every run |
+| **Unit** | Vitest (`react/src/lib/__tests__`) | Pure logic: money, calculations, amortization, formatting | every run |
+| **Build** | Vite (`npm run build`) | Both apps compile & bundle (consumer also verified in local-only env) | every run |
+| **E2E** | Playwright (`react/e2e`) | Critical user journeys in a real browser, local-only mode | CI + on demand (`--e2e`) |
+
+New code SHOULD add the cheapest test that covers it (prefer unit over E2E). Pure functions in
+`react/src/lib` MUST have unit tests.
+
+---
+
+## 3. Every run produces a folder + readable report
+
+Run locally or in CI via the single entry point:
+
+```bash
+node scripts/automation-run.mjs          # static + unit + builds
+node scripts/automation-run.mjs --e2e    # also Playwright E2E
+```
+
+It writes `automation-runs/<UTC-timestamp>__<shortsha>/` containing `report.md` (readable),
+`summary.json` (machine-readable), `vitest.json`, and `logs/<gate>.log`, and appends the run to
+`automation-runs/INDEX.md` (the register). It exits non-zero if any gate fails.
+
+- **Locally:** the folder is generated on disk (gitignored) and the register row is kept.
+- **In CI:** the folder is uploaded as the **`automation-run-report`** artifact and is downloadable
+  from the run's summary page. The job fails (red ❌, blocking merge) if the script exits non-zero.
+
+---
+
+## 4. Change-management flow
+
+```
+issue / TECH_DEBT id
+        │
+        ▼
+   feature branch ──▶ Pull Request ──▶ CI automation run ──▶ report.md (evidence)
+        │                  │                   │
+        │            PR template          gate: must be green
+        │            checklist                 │
+        ▼                  ▼                    ▼
+  code + tests      reviewer approval     merge to main
+                                                │
+                                                ▼
+                                   Deploy workflow (deploy.yml)
+                                                │
+                                                ▼
+                                   production + CHANGELOG / VERSIONS bump
+```
+
+**Required for every change:**
+- A PR (no direct pushes to `main` for substantive change). The [PR template](../.github/PULL_REQUEST_TEMPLATE.md) checklist must be completed.
+- A **green CI automation run** (its `report.md` is the merge evidence).
+- A **CHANGELOG** entry in the affected app and a **VERSIONS.md** timeline row, with the version bumped in code (`package.json`, `X-Client-Info`, Settings export).
+- For schema/RLS changes: an additive migration applied to staging + the security advisor reviewed (see PR template).
+
+---
+
+## 5. Roles & ownership
+
+| Role | Responsibility |
+|---|---|
+| Author | Add tests for new logic; keep gates green; complete the PR checklist; bump version + CHANGELOG. |
+| Reviewer | Confirm the automation run is green and the report matches the claimed change before approving. |
+| Release owner | Ensure the deploy workflow ran and production smoke-tested (cloud config present, root 200). |
+
+---
+
+## 6. Retention
+
+| Evidence | Location | Retention |
+|---|---|---|
+| Run register (`INDEX.md`) | version control | permanent |
+| Per-run report + logs | CI artifact `automation-run-report` | 90 days |
+| Build artifacts (`*-dist`) | CI artifact | 7 days |
+| Playwright HTML report | CI artifact `playwright-report` | 7 days |
+| CHANGELOG / VERSIONS | version control | permanent |
+
+---
+
+## 7. What "done" means for a change
+
+- [ ] Static + unit gates green; new logic has unit tests.
+- [ ] Both apps build (consumer also in local-only env).
+- [ ] E2E green (CI) for user-facing changes.
+- [ ] Automation `report.md` linked on the PR.
+- [ ] CHANGELOG + VERSIONS updated; version bumped in code.
+- [ ] Deployed and smoke-tested (cloud config present on both live apps).

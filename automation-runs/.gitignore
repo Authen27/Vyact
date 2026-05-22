@@ -1,0 +1,7 @@
+# Per-run evidence folders are generated on every automation run and retained as
+# CI artifacts (see docs/TEST_GOVERNANCE.md). Don't commit the bulky run output;
+# keep only the register and this folder's README.
+*/
+!.gitignore
+!README.md
+!INDEX.md
