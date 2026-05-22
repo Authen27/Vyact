@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.6`**
+> **Current production version: `v6.4.7`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -21,6 +21,19 @@ The numbering history has some non-monotonic stretches that we keep documented h
 
 ---
 
+
+
+## v6.4.7 — Calendar view on Transactions page *(2026-05-22)*
+
+Added a calendar visualization to the Transactions page, showing which days of the selected month had expenses logged (highlighted) versus missed (unhighlighted). The calendar is always in sync with the user's transaction data, including backend/cloud and local changes.
+
+### Features
+- [`react/src/pages/Transactions.tsx`](react/src/pages/Transactions.tsx), [`react/src/components/transactions/TxnCalendar.tsx`](react/src/components/transactions/TxnCalendar.tsx):
+  - Calendar grid for the selected month, with each day showing if an expense was logged.
+  - Days with expenses are highlighted; missed days are dimmed.
+  - Works with all transaction filters and is always up to date with backend/local data.
+
+---
 
 ## v6.4.6 — Linked accounts, dynamic needs/wants, AI usage metrics, split-bill UX *(2026-05-21)*
 

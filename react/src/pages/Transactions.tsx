@@ -7,6 +7,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
 import TxnRow from '../components/transactions/TxnRow';
+import TxnCalendar from '../components/transactions/TxnCalendar';
 import { ALL_CATEGORIES } from '../constants';
 import { getMonthKey, monthName } from '../lib/format';
 
@@ -47,6 +48,13 @@ export default function Transactions() {
     return f.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   }, [txns, search, type, cat, month, memberId]);
 
+  // Filter transactions for the selected month (for calendar)
+  const calendarMonth = month === 'all' ? months[0] : month;
+  const monthTxns = useMemo(
+    () => txns.filter(t => getMonthKey(t.date) === calendarMonth),
+    [txns, calendarMonth]
+  );
+
   return (
     <div>
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
@@ -60,6 +68,14 @@ export default function Transactions() {
           <Plus size={14} /> {t('add-transaction')}
         </Button>
       </div>
+
+      {/* Calendar view for expense logging */}
+      {calendarMonth && (
+        <TxnCalendar
+          transactions={monthTxns}
+          month={calendarMonth}
+        />
+      )}
 
       <Panel>
         <div className="flex gap-2 px-4 py-3 border-b border-line flex-wrap">
