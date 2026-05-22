@@ -5,7 +5,7 @@
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
 - Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v6.4.9**
-- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.0.4**
+- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.0.5**
 - Vanilla shell: legacy, **frozen at v5.0** — see master index
 
 ## Project Overview
@@ -13,7 +13,7 @@ Three parallel deliverables exist in this repo:
 
 - **Consumer (vanilla shell, legacy)** at the root — plain HTML+CSS+JS, no build step. Opens `index.html` directly. All v5.0 features fully working. **Frozen** as of consumer v6.0; superseded by the React port in `react/`.
 - **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v6.4.9**. Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. Live at https://react-taupe-xi.vercel.app.
-- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.0.4**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. Live at https://finflow-admin.vercel.app.
+- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.0.5**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. Live at https://finflow-admin.vercel.app.
 
 **Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app falls back to localStorage-only mode (single anonymous household, no auth screens). Both modes share the same `DataAdapter` interface.
 
@@ -65,7 +65,7 @@ budget-app/
 │                              Debts, NetWorth, Reports, Recurring, Planner, Chat,
 │                              Insights, Households, Settings, Help, Onboarding,
 │                              auth/{SignIn,SignUp,ResetPassword,AcceptInvite}
-└── admin/                  — ADMIN app (v1.0.4, separate product)
+└── admin/                  — ADMIN app (v1.0.5, separate product)
     ├── CHANGELOG.md         — admin per-version history + roadmap
     ├── package.json, vite.config.ts, .env.local
     └── src/

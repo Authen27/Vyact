@@ -3,7 +3,7 @@ import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Home, CreditCard, FileText,
   ScrollText, Settings, Sun, Moon, Search, ChevronDown, LogOut,
-  HelpCircle, Brain,
+  HelpCircle, Brain, Menu, X,
 } from 'lucide-react';
 import { useAdminStore } from '../store';
 import { signOut } from '../lib/auth';
@@ -37,9 +37,30 @@ export default function Layout({ children }: { children: ReactNode }) {
   const query       = useAdminStore(s => s.query);
   const setQuery    = useAdminStore(s => s.setQuery);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const visible = new Set(ROLE_PAGES[role]);
   const canSwitchRole = serverRole === 'super';
+
+  const navLinks = (onNavigate?: () => void) =>
+    NAV.filter(n => visible.has(n.page)).map(n => (
+      <NavLink
+        key={n.to}
+        to={n.to}
+        end={n.to === '/'}
+        onClick={onNavigate}
+        className={({ isActive }) =>
+          `flex items-center gap-3 px-5 py-2.5 text-[0.86rem] font-medium border-l-2 transition ${
+            isActive
+              ? 'text-claude bg-claude/10 border-l-claude'
+              : 'text-ink-mid border-l-transparent hover:text-ink hover:bg-sunken'
+          }`
+        }
+      >
+        <n.icon size={16} />
+        {n.label}
+      </NavLink>
+    ));
 
   return (
     <div className="min-h-screen flex">
@@ -66,29 +87,13 @@ export default function Layout({ children }: { children: ReactNode }) {
               <div className="text-lg leading-none" style={{ fontFamily: 'var(--ff-serif, Georgia)', fontWeight: 500, letterSpacing: '-0.015em' }}>
                 Fin<span style={{ fontStyle: 'italic', color: '#E26D5C' }}>Flow</span>
               </div>
-              <div className="font-mono text-[0.55rem] tracking-[0.18em] uppercase text-ink-dim mt-0.5">Admin · v1.0.4</div>
+              <div className="font-mono text-[0.55rem] tracking-[0.18em] uppercase text-ink-dim mt-0.5">Admin · v1.0.5</div>
             </div>
           </Link>
         </div>
 
         <nav className="flex-1 py-3 overflow-y-auto">
-          {NAV.filter(n => visible.has(n.page)).map(n => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.to === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-5 py-2.5 text-[0.86rem] font-medium border-l-2 transition ${
-                  isActive
-                    ? 'text-claude bg-claude/10 border-l-claude'
-                    : 'text-ink-mid border-l-transparent hover:text-ink hover:bg-sunken'
-                }`
-              }
-            >
-              <n.icon size={16} />
-              {n.label}
-            </NavLink>
-          ))}
+          {navLinks()}
         </nav>
 
         <div className="px-3 py-3 border-t border-line space-y-2">
@@ -137,10 +142,47 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
+      {/* Mobile nav drawer (below lg) */}
+      {mobileNavOpen && (
+        <div className="lg:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileNavOpen(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-surface border-r border-line flex flex-col shadow-2">
+            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
+              <div className="text-lg leading-none" style={{ fontFamily: 'var(--ff-serif, Georgia)', fontWeight: 500, letterSpacing: '-0.015em' }}>
+                Fin<span style={{ fontStyle: 'italic', color: '#E26D5C' }}>Flow</span>
+                <span className="font-mono text-[0.5rem] tracking-[0.16em] uppercase text-ink-dim ml-2">Admin</span>
+              </div>
+              <button onClick={() => setMobileNavOpen(false)} aria-label="Close menu" className="text-ink-mid hover:text-ink">
+                <X size={18} />
+              </button>
+            </div>
+            <nav className="flex-1 py-3 overflow-y-auto">
+              {navLinks(() => setMobileNavOpen(false))}
+            </nav>
+            <div className="px-3 py-3 border-t border-line space-y-2">
+              <button onClick={toggleDark} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-line rounded-md text-ink-mid hover:bg-sunken transition font-mono text-[0.62rem] tracking-wider uppercase">
+                {dark ? <Sun size={12} /> : <Moon size={12} />} {dark ? 'Light' : 'Dark'} mode
+              </button>
+              <button onClick={() => signOut()}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-line rounded-md text-ink-dim hover:border-danger hover:text-danger transition font-mono text-[0.62rem] tracking-wider uppercase">
+                <LogOut size={12} /> Sign out
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-14 bg-surface border-b border-line flex items-center justify-between px-5 flex-shrink-0">
+        <header className="h-14 bg-surface border-b border-line flex items-center justify-between gap-3 px-4 sm:px-5 flex-shrink-0">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open menu"
+            className="lg:hidden flex-shrink-0 text-ink-mid hover:text-ink p-1 -ml-1"
+          >
+            <Menu size={20} />
+          </button>
           <div className="relative flex-1 max-w-md">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim" />
             <input
@@ -150,7 +192,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               className="w-full bg-elev border border-line rounded-md pl-8 pr-3 py-1.5 outline-none focus:border-claude text-[0.84rem]"
             />
           </div>
-          <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
+          <div className="hidden sm:block font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
             staging.finflow.app · admin
           </div>
         </header>

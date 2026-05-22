@@ -4,9 +4,17 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.0.4`**
+> **Current production version: `v1.0.5`**
 > **Live URL:** https://finflow-admin.vercel.app
 > **Next planned: `v1.1.0`** (see Roadmap at the bottom).
+
+---
+
+## v1.0.5 — Mobile navigation fix *(2026-05-22)*
+
+The admin sidebar was `hidden lg:flex` with **no mobile fallback** — below 1024px the navigation tabs disappeared entirely, leaving the app unusable on narrow viewports.
+
+- [`admin/src/components/Layout.tsx`](admin/src/components/Layout.tsx) — added a hamburger button in the top bar (shown below `lg`) that opens a slide-out **mobile nav drawer** with the full role-filtered nav, dark-mode toggle and sign-out. Nav links extracted into a shared `navLinks()` renderer used by both the desktop sidebar and the drawer; drawer closes on navigation. The "staging · admin" tag hides on the smallest screens to make room.
 
 ---
 

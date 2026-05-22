@@ -7,7 +7,7 @@
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
 | **Consumer (React)** | `react/` | **v6.4.9** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
-| **Admin** | `admin/` | **v1.0.4** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
+| **Admin** | `admin/` | **v1.0.5** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
 The three apps deploy independently and are versioned independently. The vanilla shell at the repo root is kept available as the *original* FinFlow app from before the React port; it shares no code with the admin app.
@@ -20,6 +20,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-05-22 | [Admin](admin/CHANGELOG.md#v105--mobile-navigation-fix-2026-05-22) | **v1.0.5** | **Mobile navigation fix.** Sidebar was desktop-only with no fallback; added a hamburger + slide-out nav drawer so tabs work below 1024px. |
 | 2026-05-22 | [Consumer](react/CHANGELOG.md#v649--calendar-all-months-recurring-projection-day-filter-on-demand-2026-05-22) | **v6.4.9** | **Calendar overhaul.** Navigable across all months, projects upcoming recurring payments (denim), tap a day to filter the list to that date, and it's now toggled on-demand via a Calendar icon. |
 | 2026-05-22 | [Consumer](react/CHANGELOG.md#v648--auto-even-split-shares-2026-05-22) | **v6.4.8** | **Auto-even split shares.** Bill splits default to an even split and rebalance as people are added; users only type a number to override. |
 | 2026-05-22 | [Consumer](react/CHANGELOG.md#v647--calendar-view-on-transactions-page-2026-05-22) | **v6.4.7** | **Calendar view on Transactions page.** Visualizes which days of the month had expenses logged vs missed. |
