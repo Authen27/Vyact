@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.7`**
+> **Current production version: `v6.4.8`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,17 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.8 — Auto-even split shares *(2026-05-22)*
+
+Splitting a bill no longer requires mental math.
+
+- [`react/src/components/transactions/TransactionFormModal.tsx`](react/src/components/transactions/TransactionFormModal.tsx):
+  - Split shares now **default to an even split** of the bill and **auto-rebalance** as participants are added/removed or the amount changes.
+  - The split stays in auto mode until you **type a share by hand** — then it respects your numbers and stops rebalancing (so manual amounts are never clobbered).
+  - The toolbar button shows the current mode (`⚖ Even (auto)` vs `⚖ Even split`) and one click resets to an even split. Editing a participant's *name* never disturbs shares.
+
+---
 
 ## v6.4.7 — Calendar view on Transactions page *(2026-05-22)*
 

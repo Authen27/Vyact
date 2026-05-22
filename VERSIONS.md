@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v6.4.7** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v6.4.8** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.0.4** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
@@ -20,6 +20,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-05-22 | [Consumer](react/CHANGELOG.md#v648--auto-even-split-shares-2026-05-22) | **v6.4.8** | **Auto-even split shares.** Bill splits default to an even split and rebalance as people are added; users only type a number to override. |
 | 2026-05-22 | [Consumer](react/CHANGELOG.md#v647--calendar-view-on-transactions-page-2026-05-22) | **v6.4.7** | **Calendar view on Transactions page.** Visualizes which days of the month had expenses logged vs missed. |
 | 2026-05-21 | [Admin](admin/CHANGELOG.md#v104--ai-assistant-intelligence-2026-05-21) | **v1.0.4** | **AI Assistant Intelligence** page — intent/sentiment distribution + per-user business segments from privacy-safe Ask-FinFlow usage (`admin_ai_usage_summary()` RPC). |
 | 2026-05-21 | [Consumer](react/CHANGELOG.md#v646--linked-accounts-dynamic-needswants-ai-usage-metrics-split-bill-ux-2026-05-21) | **v6.4.6** | **Linked accounts + dynamic needs/wants + AI usage metrics.** Payments now draw from Net Worth accounts (cash/bank/credit-card); needs/wants moved to an admin-editable DB table; Ask-FinFlow logs privacy-safe intent/sentiment. Plus split-bill UX and a build-stabilisation pass (two non-compiling files rebuilt). |

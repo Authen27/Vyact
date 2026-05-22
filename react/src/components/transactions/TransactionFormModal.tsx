@@ -45,6 +45,9 @@ interface FormState {
   splitEnabled: boolean;
   splitPaidBy: 'me' | 'external';
   splitParticipants: SplitParticipantForm[];
+  // When true, shares are kept auto-balanced to an even split; flips to false the
+  // moment the user edits a share by hand (so manual amounts are never clobbered).
+  splitAuto: boolean;
 }
 
 const defaultParticipants = (): SplitParticipantForm[] => ([
@@ -67,7 +70,18 @@ const blank = (currency: string): FormState => ({
   splitEnabled: false,
   splitPaidBy: 'me',
   splitParticipants: defaultParticipants(),
+  splitAuto: true,
 });
+
+// Even split of `bill` across `n` people; rounding remainder goes to the first.
+function evenShares(bill: number, n: number): string[] {
+  if (n < 1) return [];
+  const base = Math.floor((bill / n) * 100) / 100;
+  const shares = Array(n).fill(base);
+  const remainder = Math.round((bill - base * n) * 100) / 100;
+  shares[0] = Math.round((shares[0] + remainder) * 100) / 100;
+  return shares.map(s => (bill > 0 ? s.toFixed(2) : ''));
+}
 
 function categoriesFor(type: TxnType) {
   if (type === 'income')   return INCOME_CATEGORIES;
@@ -119,6 +133,9 @@ export default function TransactionFormModal(props: Props) {
         excluded: Boolean(initial.excluded),
         splitEnabled: Boolean(sp?.isSplit),
         splitPaidBy: sp?.paidBy ?? 'me',
+        // Existing splits keep their explicit shares (no auto-rebalance);
+        // a fresh split starts in auto-even mode.
+        splitAuto: !sp?.isSplit,
         splitParticipants: sp?.isSplit && sp.participants.length
           ? sp.participants.map(p => ({
               name: p.isYou ? 'You' : p.name,
@@ -145,26 +162,39 @@ export default function TransactionFormModal(props: Props) {
   }, [form.type]);
 
   // ── split helpers ──
-  function updateParticipant(i: number, patch: Partial<SplitParticipantForm>) {
-    setForm(f => ({ ...f, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, ...patch } : x) }));
+  function updateName(i: number, name: string) {
+    // Editing a name never disturbs auto-balanced shares.
+    setForm(f => ({ ...f, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, name } : x) }));
+  }
+  function editShare(i: number, share: string) {
+    // Manual edit → leave auto mode so we respect the user's numbers.
+    setForm(f => ({ ...f, splitAuto: false, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, share } : x) }));
   }
   function addParticipant() {
+    // Keep whatever mode we're in; the rebalance effect re-evens shares in auto mode.
     setForm(f => ({ ...f, splitParticipants: [...f.splitParticipants, { name: '', share: '', isYou: false, paid: false }] }));
   }
   function removeParticipant(i: number) {
     setForm(f => ({ ...f, splitParticipants: f.splitParticipants.filter((_, j) => j !== i) }));
   }
-  function autoEqualSplit() {
-    const n = form.splitParticipants.length;
-    const bill = parseFloat(form.amount) || 0;
-    if (n < 1 || bill <= 0) return;
-    // Distribute evenly, pushing rounding remainder onto the first participant.
-    const base = Math.floor((bill / n) * 100) / 100;
-    const shares = Array(n).fill(base);
-    const remainder = Math.round((bill - base * n) * 100) / 100;
-    shares[0] = Math.round((shares[0] + remainder) * 100) / 100;
-    setForm(f => ({ ...f, splitParticipants: f.splitParticipants.map((p, i) => ({ ...p, share: shares[i].toFixed(2) })) }));
+  function resetEvenSplit() {
+    setForm(f => ({ ...f, splitAuto: true }));
   }
+
+  // Auto-balance: while in auto mode, keep every share at an even split of the bill.
+  // Re-runs when the bill or the number of participants changes.
+  useEffect(() => {
+    if (!form.splitEnabled || !form.splitAuto) return;
+    const bill = parseFloat(form.amount) || 0;
+    const shares = evenShares(bill, form.splitParticipants.length);
+    setForm(f => {
+      if (!f.splitAuto) return f;
+      const changed = f.splitParticipants.some((p, i) => p.share !== shares[i]);
+      if (!changed) return f;
+      return { ...f, splitParticipants: f.splitParticipants.map((p, i) => ({ ...p, share: shares[i] })) };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.amount, form.splitEnabled, form.splitAuto, form.splitParticipants.length]);
 
   async function save() {
     const amount = parseFloat(form.amount);
@@ -370,7 +400,7 @@ export default function TransactionFormModal(props: Props) {
             <input
               type="checkbox"
               checked={form.splitEnabled}
-              onChange={e => setForm(f => ({ ...f, splitEnabled: e.target.checked }))}
+              onChange={e => setForm(f => ({ ...f, splitEnabled: e.target.checked, splitAuto: e.target.checked ? true : f.splitAuto }))}
             />
             <span>🤝 Split this bill with others</span>
           </label>
@@ -393,11 +423,11 @@ export default function TransactionFormModal(props: Props) {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={autoEqualSplit}
-                      className="font-mono text-[0.6rem] tracking-wider uppercase text-sage hover:underline"
-                      title="Split the bill equally"
+                      onClick={resetEvenSplit}
+                      className={`font-mono text-[0.6rem] tracking-wider uppercase hover:underline ${form.splitAuto ? 'text-sage' : 'text-ink-dim'}`}
+                      title="Reset to an even split"
                     >
-                      = Equal
+                      {form.splitAuto ? '⚖ Even (auto)' : '⚖ Even split'}
                     </button>
                     <button
                       type="button"
@@ -416,7 +446,7 @@ export default function TransactionFormModal(props: Props) {
                         value={p.isYou ? 'You' : p.name}
                         disabled={p.isYou}
                         placeholder="Name"
-                        onChange={e => updateParticipant(i, { name: e.target.value })}
+                        onChange={e => updateName(i, e.target.value)}
                         onKeyDown={e => {
                           if (!p.isYou && (e.key === 'Backspace' || e.key === 'Delete') && !p.name && form.splitParticipants.length > 2) {
                             e.preventDefault();
@@ -429,7 +459,7 @@ export default function TransactionFormModal(props: Props) {
                         type="number" min="0" step="0.01"
                         value={p.share}
                         placeholder="0.00"
-                        onChange={e => updateParticipant(i, { share: e.target.value })}
+                        onChange={e => editShare(i, e.target.value)}
                       />
                       {!p.isYou ? (
                         <button
@@ -460,8 +490,10 @@ export default function TransactionFormModal(props: Props) {
                   );
                 })()}
                 <p className="mt-1.5 text-[0.7rem] text-ink-dim leading-snug">
-                  The <strong>Amount</strong> above is the full bill. Only your share counts toward your
-                  expenses; the rest is tracked as IOUs on the Splits page.
+                  Shares default to an <strong>even split</strong> and rebalance as you add people —
+                  just type a number to override any share. The <strong>Amount</strong> above is the
+                  full bill; only your share counts toward your expenses, the rest is tracked as IOUs
+                  on the Splits page.
                 </p>
               </div>
             </div>
