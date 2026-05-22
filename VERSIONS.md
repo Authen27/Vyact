@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v6.4.8** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v6.4.9** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.0.4** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
@@ -20,6 +20,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-05-22 | [Consumer](react/CHANGELOG.md#v649--calendar-all-months-recurring-projection-day-filter-on-demand-2026-05-22) | **v6.4.9** | **Calendar overhaul.** Navigable across all months, projects upcoming recurring payments (denim), tap a day to filter the list to that date, and it's now toggled on-demand via a Calendar icon. |
 | 2026-05-22 | [Consumer](react/CHANGELOG.md#v648--auto-even-split-shares-2026-05-22) | **v6.4.8** | **Auto-even split shares.** Bill splits default to an even split and rebalance as people are added; users only type a number to override. |
 | 2026-05-22 | [Consumer](react/CHANGELOG.md#v647--calendar-view-on-transactions-page-2026-05-22) | **v6.4.7** | **Calendar view on Transactions page.** Visualizes which days of the month had expenses logged vs missed. |
 | 2026-05-21 | [Admin](admin/CHANGELOG.md#v104--ai-assistant-intelligence-2026-05-21) | **v1.0.4** | **AI Assistant Intelligence** page — intent/sentiment distribution + per-user business segments from privacy-safe Ask-FinFlow usage (`admin_ai_usage_summary()` RPC). |

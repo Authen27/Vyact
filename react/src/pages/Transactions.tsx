@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, CalendarDays, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation, useShortcuts } from '../hooks';
 import { Panel } from '../components/ui/Card';
@@ -9,12 +9,14 @@ import { Input, Select } from '../components/ui/Input';
 import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
 import { ALL_CATEGORIES } from '../constants';
-import { getMonthKey, monthName } from '../lib/format';
+import { getMonthKey, monthName, formatDate, nowMonthKey } from '../lib/format';
 
 export default function Transactions() {
   const { t } = useTranslation();
   const txns    = useStore(s => s.transactions);
   const members = useStore(s => s.members);
+  const schedules = useStore(s => s.recurringSchedules);
+  const profile = useStore(s => s.profile);
   const openAddTxn  = useStore(s => s.openAddTxn);
   const openEditTxn = useStore(s => s.openEditTxn);
 
@@ -23,6 +25,8 @@ export default function Transactions() {
   const [cat,      setCat]      = useState('all');
   const [month,    setMonth]    = useState('all');
   const [memberId, setMemberId] = useState('all');
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useShortcuts({ n: openAddTxn, N: openAddTxn });
 
@@ -33,9 +37,10 @@ export default function Transactions() {
 
   const filtered = useMemo(() => {
     let f = [...txns];
+    if (selectedDate)       f = f.filter(t => t.date === selectedDate);
     if (type !== 'all')     f = f.filter(t => t.type === type);
     if (cat !== 'all')      f = f.filter(t => t.category === cat);
-    if (month !== 'all')    f = f.filter(t => getMonthKey(t.date) === month);
+    if (!selectedDate && month !== 'all') f = f.filter(t => getMonthKey(t.date) === month);
     if (memberId !== 'all') f = f.filter(t => t.memberId === memberId);
     if (search) {
       const q = search.toLowerCase();
@@ -46,14 +51,12 @@ export default function Transactions() {
       );
     }
     return f.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  }, [txns, search, type, cat, month, memberId]);
+  }, [txns, search, type, cat, month, memberId, selectedDate]);
 
-  // Filter transactions for the selected month (for calendar)
-  const calendarMonth = month === 'all' ? months[0] : month;
-  const monthTxns = useMemo(
-    () => txns.filter(t => getMonthKey(t.date) === calendarMonth),
-    [txns, calendarMonth]
-  );
+  // Tapping a day filters the list to that date (and reveals the calendar if hidden).
+  function handleSelectDate(date: string) {
+    setSelectedDate(d => (d === date ? null : date));
+  }
 
   return (
     <div>
@@ -64,17 +67,46 @@ export default function Transactions() {
             All household income, expenses, investments &amp; transfers
           </p>
         </div>
-        <Button onClick={openAddTxn}>
-          <Plus size={14} /> {t('add-transaction')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCalendar(v => !v)}
+            aria-pressed={showCalendar}
+            title="Toggle expense calendar"
+            className={`h-[38px] px-3 rounded-[9px] border flex items-center gap-1.5 font-mono text-[0.62rem] tracking-wider uppercase transition-colors ${
+              showCalendar
+                ? 'bg-coral-tint border-coral/40 text-coral'
+                : 'bg-bg border-line text-ink-mid hover:bg-bg3'
+            }`}
+          >
+            <CalendarDays size={15} /> Calendar
+          </button>
+          <Button onClick={openAddTxn}>
+            <Plus size={14} /> {t('add-transaction')}
+          </Button>
+        </div>
       </div>
 
-      {/* Calendar view for expense logging */}
-      {calendarMonth && (
+      {/* Expense calendar — shown on demand via the Calendar button */}
+      {showCalendar && (
         <TxnCalendar
-          transactions={monthTxns}
-          month={calendarMonth}
+          transactions={txns}
+          schedules={schedules}
+          initialMonth={month !== 'all' ? month : nowMonthKey()}
+          selectedDate={selectedDate}
+          onSelectDate={handleSelectDate}
         />
+      )}
+
+      {/* Active day filter chip */}
+      {selectedDate && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 bg-coral-tint border border-coral/40 text-coral rounded-full px-3 py-1 text-[0.78rem]">
+            Showing {formatDate(selectedDate, profile.dateFormat)}
+            <button onClick={() => setSelectedDate(null)} aria-label="Clear date filter" className="hover:opacity-70">
+              <X size={13} />
+            </button>
+          </span>
+        </div>
       )}
 
       <Panel>

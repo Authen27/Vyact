@@ -35,7 +35,7 @@ export const supabase: SupabaseClient | null = isCloudEnabled()
       realtime: { params: { eventsPerSecond: 10 } },
       global: {
         headers: {
-          'X-Client-Info': `finflow/v6.4.8`,
+          'X-Client-Info': `finflow/v6.4.9`,
         },
       },
     })

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.8`**
+> **Current production version: `v6.4.9`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,18 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.9 — Calendar: all months, recurring projection, day filter, on-demand *(2026-05-22)*
+
+Reworked the Transactions expense calendar ([`react/src/components/transactions/TxnCalendar.tsx`](react/src/components/transactions/TxnCalendar.tsx)) from a single-month grid into a full navigable calendar.
+
+- **All months, with navigation.** ‹ / › step through any past or future month; a "Today" shortcut jumps back to the current month. Logged-expense days are highlighted across every month, not just the filtered one.
+- **Future recurring projection.** Upcoming days that a recurring **expense** schedule will fire on are shown in a distinct **denim** colour ("upcoming"), so you can see planned payments ahead. Past/today shows actual logged expenses (sage).
+- **Clickable days.** Tapping a day filters the transaction list to that exact date (with a clearable chip); tapping it again clears. Works on past, today and future days.
+- **On-demand.** The calendar is hidden by default and toggled by a new **Calendar** icon button beside *Add Transaction* — it no longer always occupies the top of the page.
+- Today is ringed; the selected day is outlined.
+
+---
 
 ## v6.4.8 — Auto-even split shares *(2026-05-22)*
 
