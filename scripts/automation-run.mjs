@@ -44,13 +44,15 @@ fs.mkdirSync(logsDir, { recursive: true });
 
 // ── Gates ──────────────────────────────────────────────────────────
 const gates = [
-  { id: 'consumer-lint',  name: 'Consumer · type-check', cwd: 'react', cmd: 'npm run lint' },
-  { id: 'consumer-unit',  name: 'Consumer · unit tests', cwd: 'react',
+  { id: 'consumer-lint',       name: 'Consumer · ESLint',     cwd: 'react', cmd: 'npm run lint' },
+  { id: 'consumer-typecheck',  name: 'Consumer · type-check', cwd: 'react', cmd: 'npm run typecheck' },
+  { id: 'consumer-unit',       name: 'Consumer · unit tests', cwd: 'react',
     cmd: `npm test -- --reporter=json --outputFile="${path.join(runDir, 'vitest.json')}"` },
-  { id: 'consumer-build', name: 'Consumer · build (local-only env)', cwd: 'react', cmd: 'npm run build',
+  { id: 'consumer-build',      name: 'Consumer · build (local-only env)', cwd: 'react', cmd: 'npm run build',
     env: { VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' } },
-  { id: 'admin-lint',     name: 'Admin · type-check', cwd: 'admin', cmd: 'npm run lint' },
-  { id: 'admin-build',    name: 'Admin · build', cwd: 'admin', cmd: 'npm run build' },
+  { id: 'admin-lint',          name: 'Admin · ESLint',        cwd: 'admin', cmd: 'npm run lint' },
+  { id: 'admin-typecheck',     name: 'Admin · type-check',    cwd: 'admin', cmd: 'npm run typecheck' },
+  { id: 'admin-build',         name: 'Admin · build',         cwd: 'admin', cmd: 'npm run build' },
 ];
 if (runE2E) {
   gates.push({ id: 'consumer-e2e', name: 'Consumer · E2E (Playwright)', cwd: 'react', cmd: 'npm run e2e' });

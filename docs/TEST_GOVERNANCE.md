@@ -27,7 +27,8 @@ gated on that evidence.
 
 | Layer | Tool | Scope | Where it runs |
 |---|---|---|---|
-| **Static** | `tsc --noEmit` (`npm run lint`) | Types, both apps | every run |
+| **Static · lint** | ESLint flat config (`npm run lint`) | Both apps. `react-hooks/rules-of-hooks` as error; `exhaustive-deps`, `no-unused-vars`, `no-explicit-any` as warnings (pre-existing debt, ratcheted to errors as TECH_DEBT items land) | every run |
+| **Static · types** | `tsc --noEmit` (`npm run typecheck`) | Types, both apps | every run |
 | **Unit** | Vitest (`react/src/lib/__tests__`) | Pure logic: money, calculations, amortization, formatting | every run |
 | **Build** | Vite (`npm run build`) | Both apps compile & bundle (consumer also verified in local-only env) | every run |
 | **E2E** | Playwright (`react/e2e`) | Critical user journeys in a real browser, local-only mode | CI + on demand (`--e2e`) |

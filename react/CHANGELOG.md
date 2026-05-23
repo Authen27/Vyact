@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.9`**
+> **Current production version: `v6.4.10`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,18 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.10 — ESLint floor (remediation PR #1) *(2026-05-23)*
+
+First real linter for the consumer app — the old `npm run lint` was `tsc --noEmit` (now preserved as `npm run typecheck`). Tooling-only, no user-visible change. Closes finding **N2** of the 2026-05-22 remediation assessment ("there is no real linter anywhere") and gives every later [`TECH_DEBT.md`](TECH_DEBT.md) PR a real `react-hooks/exhaustive-deps` and unused-vars signal.
+
+- [`react/eslint.config.js`](react/eslint.config.js) — new flat config: `@eslint/js` recommended, `typescript-eslint` recommended (non-type-checked, fast), `react-hooks` plugin. `rules-of-hooks` as error. `exhaustive-deps`, `no-unused-vars`, `no-explicit-any` as warnings — surfaces the pre-existing debt without blocking the gate, ratcheted to errors as the related TECH_DEBT items land.
+- [`react/package.json`](react/package.json) — `lint` now runs `eslint .`; added `typecheck` script for the previous `tsc --noEmit` behaviour. Added dev-deps: `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `globals`.
+- `e2e/` is ignored by ESLint (matches tsconfig); Playwright's fixture-injection `use` callback was being mis-flagged as a React hook.
+- [`react/src/pages/Households.tsx`](react/src/pages/Households.tsx) — the first real bug ESLint found: a `cond && fn()` short-circuit at statement position in the invite-sent handler (no-op as written). Rewritten as `if (cond) fn()`.
+- [`scripts/automation-run.mjs`](scripts/automation-run.mjs) — relabelled the existing `lint` gate to "ESLint" and split out a new "type-check" gate so both stay independently visible in `report.md`.
+
+---
 
 ## v6.4.9 — Calendar: all months, recurring projection, day filter, on-demand *(2026-05-22)*
 

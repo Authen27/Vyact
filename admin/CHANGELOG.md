@@ -4,9 +4,20 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.0.5`**
+> **Current production version: `v1.0.6`**
 > **Live URL:** https://finflow-admin.vercel.app
 > **Next planned: `v1.1.0`** (see Roadmap at the bottom).
+
+---
+
+## v1.0.6 — ESLint floor (remediation PR #1) *(2026-05-23)*
+
+First real linter for the admin app — the old `npm run lint` was `tsc --noEmit` (now preserved as `npm run typecheck`). Tooling-only, no user-visible change. Closes finding **N1/N2** of the 2026-05-22 remediation assessment (admin had zero tests *and* no linter despite being the privileged surface) for the linter half.
+
+- [`admin/eslint.config.js`](admin/eslint.config.js) — new flat config mirroring the consumer's (`@eslint/js` recommended + `typescript-eslint` recommended + `react-hooks`).
+- [`admin/package.json`](admin/package.json) — `lint` now runs `eslint .`; added `typecheck` script. Added matching dev-deps.
+- Admin source passes lint clean today (1 pre-existing `no-explicit-any` warning in `Dashboard.tsx`, no errors).
+- The shared `scripts/automation-run.mjs` gate now runs ESLint and type-check as separate admin gates.
 
 ---
 
