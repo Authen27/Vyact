@@ -22,7 +22,8 @@ export interface ContentRow {
   updated_at: string;
 }
 
-function rowToArticle(r: ContentRow): Article & { summary: string; body: string; readMinutes: number; coverEmoji: string } {
+// Exported for unit testing (ADM-UNIT-008..011); see docs/TEST_SCENARIOS.md.
+export function rowToArticle(r: ContentRow): Article & { summary: string; body: string; readMinutes: number; coverEmoji: string } {
   return {
     id: r.id,
     title: r.title,

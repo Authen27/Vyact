@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.10`**
+> **Current production version: `v6.4.11`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,17 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.11 — Test scenarios master catalog + per-scenario audit evidence (remediation PR #2) *(2026-05-23)*
+
+Tooling-only release, no user-visible change. Establishes a **master Test Scenarios catalog** and rebuilds the automation report so every run leaves durable, per-scenario evidence for both success and failure. Closes finding **N1** of the 2026-05-22 assessment for the consumer side by tagging every consumer test with a stable ID.
+
+- [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) — new master catalog. Every scenario in code is listed here with a stable `{APP}-{LAYER}-{NNN}` ID, the file it lives in, a description, and any TD link. Regression-managed: PRs adding / renaming / removing scenarios must update this file in the same commit.
+- [`scripts/test-scenarios-check.mjs`](scripts/test-scenarios-check.mjs) — CI reconciler. Walks `react/src/lib/__tests__`, `react/e2e/tests` (and admin's). Fails the gate on: orphan ID in code, orphan ID in doc, duplicate IDs, retired-ID reuse, or file-column drift.
+- Consumer tests now all carry their TS ID in the title: `CON-UNIT-001..039` across `format.test.ts` / `calculations.test.ts` / `amortization.test.ts`; `CON-E2E-001..004` in `smoke.spec.ts`. One characterization test pins TD-01: `CON-UNIT-006 · [TD-01] round-trip USD→EUR→USD does NOT return exactly the original`.
+- [`scripts/automation-run.mjs`](scripts/automation-run.mjs) — report rewrite. Every run's `report.md` now includes a **Test scenarios** section: per-app × per-layer pass/fail/total matrix, the catalog reconciler line, **Failure details** with the error message + stack excerpt per failed TS ID, and a complete **Pass register** capturing every passing TS ID + duration for audit. `summary.json` gains a `scenarios.records` array. The run register `automation-runs/INDEX.md` now includes a Scenarios cell on every row.
+
+---
 
 ## v6.4.10 — ESLint floor (remediation PR #1) *(2026-05-23)*
 

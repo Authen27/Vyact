@@ -7,6 +7,8 @@ import {
 import { DEFAULT_RATES } from '../../constants';
 import type { Transaction, Budget, Goal, Debt, Asset } from '../../types';
 
+// Test scenarios CON-UNIT-012..026. See docs/TEST_SCENARIOS.md.
+
 const R = DEFAULT_RATES;
 const USD = 'USD';
 
@@ -24,7 +26,7 @@ function txn(over: Partial<Transaction>): Transaction {
 }
 
 describe('reportableTxns', () => {
-  it('excludes private/excluded txns and isolates investment + transfer', () => {
+  it('CON-UNIT-012 · excludes private/excluded txns and isolates investment + transfer', () => {
     const txns = [
       txn({ type: 'income', amount: 100 }),
       txn({ type: 'expense', amount: 40 }),
@@ -40,17 +42,17 @@ describe('reportableTxns', () => {
 });
 
 describe('effectiveAmount', () => {
-  it('uses the full amount for non-split txns', () => {
+  it('CON-UNIT-013 · uses the full amount for non-split txns', () => {
     expect(effectiveAmount(txn({ amount: 100 }), USD, R)).toBeCloseTo(100, 10);
   });
-  it('uses only yourShare for a split txn', () => {
+  it('CON-UNIT-014 · uses only yourShare for a split txn', () => {
     const t = txn({
       amount: 120,
       split: { isSplit: true, totalAmount: 120, yourShare: 40, paidBy: 'me', participants: [] },
     });
     expect(effectiveAmount(t, USD, R)).toBeCloseTo(40, 10);
   });
-  it('converts a foreign-currency amount into base', () => {
+  it('CON-UNIT-015 · converts a foreign-currency amount into base', () => {
     // 92 EUR → USD = (92 / 0.92) * 1 = 100
     expect(effectiveAmount(txn({ amount: 92, currency: 'EUR' }), USD, R)).toBeCloseTo(100, 8);
   });
@@ -63,19 +65,19 @@ describe('monthlyData', () => {
     txn({ type: 'expense', amount: 800, date: '2026-05-20' }),
     txn({ type: 'expense', amount: 9999, date: '2026-04-30' }), // different month
   ];
-  it('sums income/expense within the month and computes net', () => {
+  it('CON-UNIT-016 · sums income/expense within the month and computes net', () => {
     const d = monthlyData(txns, '2026-05', USD, R);
     expect(d.income).toBeCloseTo(5000, 10);
     expect(d.expense).toBeCloseTo(2000, 10);
     expect(d.net).toBeCloseTo(3000, 10);
   });
-  it('ignores transactions outside the requested month', () => {
+  it('CON-UNIT-017 · ignores transactions outside the requested month', () => {
     expect(monthlyData(txns, '2026-05', USD, R).expense).not.toBeCloseTo(11999, 1);
   });
 });
 
 describe('totalBalance', () => {
-  it('income adds, expense subtracts', () => {
+  it('CON-UNIT-018 · income adds, expense subtracts', () => {
     const txns = [
       txn({ type: 'income', amount: 1000 }),
       txn({ type: 'expense', amount: 250 }),
@@ -86,7 +88,7 @@ describe('totalBalance', () => {
 });
 
 describe('spendByCategory', () => {
-  it('groups expense totals by category for the month', () => {
+  it('CON-UNIT-019 · groups expense totals by category for the month', () => {
     const txns = [
       txn({ category: 'food', amount: 100 }),
       txn({ category: 'food', amount: 50 }),
@@ -108,19 +110,19 @@ describe('balance sheet helpers', () => {
   const debts: Debt[] = [
     { id: 'd1', type: 'mortgage', name: 'Home loan', principal: 250000, currentBalance: 200000, interestRate: 5, minimumPayment: 1170, currency: 'USD' },
   ];
-  it('totalAssets sums all asset values', () => {
+  it('CON-UNIT-020 · totalAssets sums all asset values', () => {
     expect(totalAssets(assets, USD, R)).toBeCloseTo(310000, 10);
   });
-  it('liquidAssets sums only liquid assets', () => {
+  it('CON-UNIT-021 · liquidAssets sums only liquid assets', () => {
     expect(liquidAssets(assets, USD, R)).toBeCloseTo(10000, 10);
   });
-  it('totalLiabilities sums debt balances', () => {
+  it('CON-UNIT-022 · totalLiabilities sums debt balances', () => {
     expect(totalLiabilities(debts, USD, R)).toBeCloseTo(200000, 10);
   });
 });
 
 describe('computePulseScore', () => {
-  it('returns a total in [0,100] with all five components present', () => {
+  it('CON-UNIT-023 · returns a total in [0,100] with all five components present', () => {
     const txns = [
       txn({ type: 'income', amount: 5000, date: '2026-05-01' }),
       txn({ type: 'expense', amount: 2000, date: '2026-05-10' }),
@@ -133,7 +135,7 @@ describe('computePulseScore', () => {
     expect(p.total).toBeLessThanOrEqual(100);
     expect(Object.keys(p.components).sort()).toEqual(['budget', 'debt', 'goals', 'savings', 'trend']);
   });
-  it('higher debt-to-income lowers the debt component', () => {
+  it('CON-UNIT-024 · higher debt-to-income lowers the debt component', () => {
     const lowDtiTxns = [txn({ type: 'income', amount: 10000, date: '2026-05-01' })];
     const highDebt: Debt[] = [{ id: 'd', type: 'loan', name: 'L', principal: 0, currentBalance: 5000, interestRate: 10, minimumPayment: 6000, currency: 'USD' }];
     const noDebt: Debt[] = [];
@@ -144,7 +146,7 @@ describe('computePulseScore', () => {
 });
 
 describe('splitsOutstanding', () => {
-  it('tallies amounts owed TO you when you paid', () => {
+  it('CON-UNIT-025 · tallies amounts owed TO you when you paid', () => {
     const t = txn({
       amount: 120,
       split: {
@@ -161,7 +163,7 @@ describe('splitsOutstanding', () => {
     expect(r.youOwe).toBeCloseTo(0, 10);
     expect(r.owedDetails).toHaveLength(2);
   });
-  it('tallies what YOU owe when someone external paid', () => {
+  it('CON-UNIT-026 · tallies what YOU owe when someone external paid', () => {
     const t = txn({
       amount: 90,
       split: {

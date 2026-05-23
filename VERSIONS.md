@@ -6,8 +6,8 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v6.4.10** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
-| **Admin** | `admin/` | **v1.0.6** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v6.4.11** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Admin** | `admin/` | **v1.0.7** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
 The three apps deploy independently and are versioned independently. The vanilla shell at the repo root is kept available as the *original* FinFlow app from before the React port; it shares no code with the admin app.
@@ -20,6 +20,8 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-05-23 | [Consumer](react/CHANGELOG.md#v6411--test-scenarios-master-catalog--per-scenario-audit-evidence-remediation-pr-2-2026-05-23) | **v6.4.11** | **Test Scenarios master catalog + per-scenario audit evidence (remediation PR #2).** Every consumer test now carries a stable TS ID (`CON-UNIT-001..039`, `CON-E2E-001..004`) catalogued in `docs/TEST_SCENARIOS.md`. A reconciler gate refuses code↔doc drift. The automation report now captures per-app pass/fail counts, full failure details, and a complete pass register for audit on every run. |
+| 2026-05-23 | [Admin](admin/CHANGELOG.md#v107--first-admin-unit-tests--test-scenarios-catalog-remediation-pr-2-2026-05-23) | **v1.0.7** | **First admin unit tests + test scenarios catalog (remediation PR #2).** Closes the privileged-admin-app safety-net gap (N1). 11 ID-tagged unit tests (`ADM-UNIT-001..011`) covering `slugify` + `rowToArticle`; `admin-unit` now part of the gate. Caught one real slugify edge-case bug for follow-up. |
 | 2026-05-23 | [Consumer](react/CHANGELOG.md#v6410--eslint-floor-remediation-pr-1-2026-05-23) | **v6.4.10** | **ESLint floor (remediation PR #1).** First real linter; `npm run lint` now runs `eslint .`, `tsc --noEmit` preserved as `npm run typecheck`. Surfaces existing `exhaustive-deps` / unused-vars / `no-explicit-any` debt as warnings to be ratcheted by later TECH_DEBT PRs. One real bug fixed: short-circuit-as-statement in `Households.tsx`. |
 | 2026-05-23 | [Admin](admin/CHANGELOG.md#v106--eslint-floor-remediation-pr-1-2026-05-23) | **v1.0.6** | **ESLint floor (remediation PR #1).** Same lint floor for the privileged admin app (no tests + no linter was the highest-risk gap). Source passes lint clean today (1 pre-existing warning). |
 | 2026-05-22 | [Admin](admin/CHANGELOG.md#v105--mobile-navigation-fix-2026-05-22) | **v1.0.5** | **Mobile navigation fix.** Sidebar was desktop-only with no fallback; added a hamburger + slide-out nav drawer so tabs work below 1024px. |
