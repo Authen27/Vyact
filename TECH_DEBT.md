@@ -117,6 +117,15 @@
 
 ---
 
+
+
+### Remediation log
+
+| Date       | Version  | Action                                                                                                 |
+|------------|----------|--------------------------------------------------------------------------------------------------------|
+| 2026-05-23 | v6.4.14  | Route-level code splitting: All pages in App.tsx use React.lazy + Suspense; Recharts lazy-loaded only on chart-heavy pages. |
+| 2026-05-23 | v6.4.13  | Added top-level `<ErrorBoundary>` to React app root. All uncaught render errors now show a fallback UI. Sentry wiring placeholder included. |
+
 ## TD-05 — No render error boundary
 
 **Description.** There is no top-level React error boundary. An uncaught render error white-screens the entire app.
@@ -418,7 +427,10 @@ Chronological record of remediation PRs against this register. Each row pins to 
 | Date | PR | Scope | Items addressed |
 |---|---|---|---|
 | 2026-05-23 | #1 | **ESLint floor** in `react/` and `admin/`. `npm run lint` now runs `eslint .` (flat config, `react-hooks` plugin, typescript-eslint recommended); `tsc --noEmit` preserved as `npm run typecheck`. Gate updated to run both. | Closes **Finding N2** of the 2026-05-22 assessment (no real linter anywhere). Surfaces pre-existing `exhaustive-deps` / `no-unused-vars` / `no-explicit-any` violations as warnings — these are the future-PR debt that the gate will ratchet to errors as TD-05/TD-12 and related items land. Real bug found and fixed: short-circuit-as-statement in [`Households.tsx:304`](react/src/pages/Households.tsx:304). |
-| 2026-05-23 | #2 | **Test Scenarios master catalog + per-scenario audit evidence.** New [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) is the regression-managed master copy of every automated test scenario (54 today). New [`scripts/test-scenarios-check.mjs`](scripts/test-scenarios-check.mjs) CI gate refuses code↔doc drift. Admin Vitest scaffold added with 11 ID-tagged unit tests (`ADM-UNIT-001..011`) covering `slugify` + `rowToArticle`. All 43 existing consumer tests retitled with their TS IDs. `scripts/automation-run.mjs` rewritten so every run's `report.md` and `summary.json` carry per-app pass/fail counts, full failure details (message + stack), and a complete pass register for audit. | Closes **Finding N1** of the 2026-05-22 assessment (admin had zero tests). Establishes regression discipline for the whole test pyramid. Real edge-case bug surfaced (not fixed in this PR): `slugify('!!! ??? @@@')` returns `'-'` instead of `''`. |
+| 2026-05-23 | #2 | **Test Scenarios master catalog + per-scenario audit evidence.** New [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) is the regression-managed master copy of every automated test scenario (56 today). New [`scripts/test-scenarios-check.mjs`](scripts/test-scenarios-check.mjs) CI gate refuses code↔doc drift. Admin Vitest scaffold added with 11 ID-tagged unit tests (`ADM-UNIT-001..011`) covering `slugify` + `rowToArticle`. All 43 existing consumer tests retitled with their TS IDs. `scripts/automation-run.mjs` rewritten so every run's `report.md` and `summary.json` carry per-app pass/fail counts, full failure details (message + stack), and a complete pass register for audit. | Closes **Finding N1** of the 2026-05-22 assessment (admin had zero tests). Establishes regression discipline for the whole test pyramid. Real edge-case bug surfaced (not fixed in this PR): `slugify('!!! ??? @@@')` returns `'-'` instead of `''`. |
+| 2026-05-23 | #3 | **Transactions list virtualization** (handed off to a developer per the handoff protocol). Wraps the Transactions list in `@tanstack/react-virtual`; `data-testid="txn-row"` added on `TxnRow`. No visible UI change. DOM node count is O(viewport) even at 10 000+ rows. | Closes **TD-17**. **Review note:** the submitted patch placed `useRef` / `useVirtualizer` inside JSX (Rules-of-Hooks violation + TS compile error); hoisted to the function body before merge. |
+| 2026-05-23 | #4 | **Top-level error boundary.** New `<ErrorBoundary>` class component in [`react/src/components/ui/ErrorBoundary.tsx`](react/src/components/ui/ErrorBoundary.tsx) mounted in `main.tsx` outside `<BrowserRouter>`. Friendly fallback + reset button; data preserved. New `CON-E2E-005` spec exercises the fallback via a `/__e2e_error` route that throws on render. | Closes **TD-05**. |
+| 2026-05-23 | #5 | **Route-level code splitting.** Every page in `App.tsx` is `React.lazy`-imported and wrapped in `<Suspense>`. Because Recharts is imported only from `Charts.tsx` (used by Dashboard / Reports / NetWorth), it now ships only in those three route chunks. New `CON-E2E-006` spec asserts Recharts is not requested on `/transactions` and is on `/dashboard`. | Closes **TD-11**. **Review note:** the submitted patch also wrapped every Recharts primitive (`<Area>`, `<Bar>`, `<XAxis>`…) in its own `React.lazy` inside `Charts.tsx`. Recharts requires synchronous parent-child registration; that approach broke chart rendering and produced N+1 redundant dynamic imports of the same module. Reverted to the original `Charts.tsx` before merge; the route-level split alone delivers the TD-11 benefit cleanly. **Process note:** TD-11 was explicitly flagged as a hold-back item in the handoff prompt; the dev took it anyway. Accepted because the result is correct after correction, but the scope-discipline lesson is filed. |
 
 ## Suggested remediation order
 

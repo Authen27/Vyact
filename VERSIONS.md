@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v6.4.11** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v6.4.14** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.0.7** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
@@ -20,6 +20,9 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-05-23 | [Consumer](react/CHANGELOG.md#v6414--route-level-code-splitting-remediation-pr-5-2026-05-23) | **v6.4.14** | **Route-level code splitting (remediation PR #5 / TD-11).** Every page in `App.tsx` is now `React.lazy`-imported and wrapped in `<Suspense>`; Recharts ships only in the chunks for routes that import it (Dashboard / Reports / NetWorth). New `CON-E2E-006` regression spec verifies Recharts is not fetched on `/transactions`. |
+| 2026-05-23 | [Consumer](react/CHANGELOG.md#v6413--top-level-error-boundary-remediation-pr-4-2026-05-23) | **v6.4.13** | **Top-level error boundary (remediation PR #4 / TD-05).** Adds a global `<ErrorBoundary>` to catch uncaught render errors and show a fallback UI with a reset button. New `CON-E2E-005` regression spec navigates to a throwing page and asserts the fallback. |
+| 2026-05-23 | [Consumer](react/CHANGELOG.md#v6412--transactions-list-virtualization-remediation-pr-3-2026-05-23) | **v6.4.12** | **Transactions list virtualization (remediation PR #3 / TD-17).** Virtualizes the Transactions list with `@tanstack/react-virtual` for O(viewport) DOM nodes even at 10 000+ rows. `data-testid="txn-row"` added to support the acceptance check. |
 | 2026-05-23 | [Consumer](react/CHANGELOG.md#v6411--test-scenarios-master-catalog--per-scenario-audit-evidence-remediation-pr-2-2026-05-23) | **v6.4.11** | **Test Scenarios master catalog + per-scenario audit evidence (remediation PR #2).** Every consumer test now carries a stable TS ID (`CON-UNIT-001..039`, `CON-E2E-001..004`) catalogued in `docs/TEST_SCENARIOS.md`. A reconciler gate refuses code↔doc drift. The automation report now captures per-app pass/fail counts, full failure details, and a complete pass register for audit on every run. |
 | 2026-05-23 | [Admin](admin/CHANGELOG.md#v107--first-admin-unit-tests--test-scenarios-catalog-remediation-pr-2-2026-05-23) | **v1.0.7** | **First admin unit tests + test scenarios catalog (remediation PR #2).** Closes the privileged-admin-app safety-net gap (N1). 11 ID-tagged unit tests (`ADM-UNIT-001..011`) covering `slugify` + `rowToArticle`; `admin-unit` now part of the gate. Caught one real slugify edge-case bug for follow-up. |
 | 2026-05-23 | [Consumer](react/CHANGELOG.md#v6410--eslint-floor-remediation-pr-1-2026-05-23) | **v6.4.10** | **ESLint floor (remediation PR #1).** First real linter; `npm run lint` now runs `eslint .`, `tsc --noEmit` preserved as `npm run typecheck`. Surfaces existing `exhaustive-deps` / unused-vars / `no-explicit-any` debt as warnings to be ratcheted by later TECH_DEBT PRs. One real bug fixed: short-circuit-as-statement in `Households.tsx`. |

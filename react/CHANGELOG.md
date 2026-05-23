@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.11`**
+> **Current production version: `v6.4.14`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,38 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.14 — Route-level code splitting (remediation PR #5) *(2026-05-23)*
+
+Performance release. Addresses **TD-11** from the technical-debt register. All page imports in [`react/src/App.tsx`](react/src/App.tsx) now use `React.lazy` and the `<Routes>` blocks are wrapped in `<Suspense fallback={…}>`. Because Recharts is imported only from `components/charts/Charts.tsx` (used by Dashboard, Reports, NetWorth), the route-level split means Recharts ships only in those three route chunks — not in the initial bundle, and not on the Transactions / Budgets / Goals / Settings / Help paths. Faster first paint on mobile and low-bandwidth connections. No user-visible change.
+
+- [`react/src/App.tsx`](react/src/App.tsx) — every page import (consumer routes + auth routes + a new `__e2e_error` test route for `CON-E2E-005`) converted to `React.lazy`; `<Suspense>` boundary added inside `AppShell` and around the auth-only `<Routes>` block.
+- [`react/e2e/tests/code-splitting.spec.ts`](react/e2e/tests/code-splitting.spec.ts) — new spec **`CON-E2E-006`** observes network requests on `/transactions` (asserts no Recharts chunk is fetched), then on `/dashboard` (asserts it is). Catalogued in [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md).
+- **Review note (engineering):** the originally-submitted patch also tried to wrap every individual Recharts primitive (`<AreaChart>`, `<Area>`, `<XAxis>`, …) in its own `React.lazy`/`Suspense` inside `Charts.tsx`. Recharts requires its primitive children to register synchronously with their parent, so that approach broke chart rendering and produced N+1 redundant dynamic imports of the same module. Reverted to the original `Charts.tsx`; the route-level split above is the correct and sufficient implementation.
+
+---
+
+## v6.4.13 — Top-level error boundary (remediation PR #4) *(2026-05-23)*
+
+Resilience release. Addresses **TD-05**. A top-level `<ErrorBoundary>` now wraps `<BrowserRouter>` in [`react/src/main.tsx`](react/src/main.tsx). Any uncaught render error now shows a friendly fallback ("Something broke — Your data is safe locally") with a Try-Again button that resets the boundary state. No data loss; localStorage and the sync queue are untouched.
+
+- [`react/src/components/ui/ErrorBoundary.tsx`](react/src/components/ui/ErrorBoundary.tsx) — new class component using `getDerivedStateFromError` + `componentDidCatch`; Sentry wiring placeholder for a future PR.
+- [`react/src/main.tsx`](react/src/main.tsx) — boundary mounted at the React root, outside `<BrowserRouter>` so route errors are also caught.
+- [`react/src/pages/__e2e__ErrorTest.tsx`](react/src/pages/__e2e__ErrorTest.tsx) — tiny page that throws on render, mounted at `/__e2e_error` (added in v6.4.14's App route table) purely so the E2E test below can exercise the boundary.
+- [`react/e2e/tests/error-boundary.spec.ts`](react/e2e/tests/error-boundary.spec.ts) — new spec **`CON-E2E-005`** navigates to `/__e2e_error`, asserts the fallback, clicks Try Again, asserts recovery. Catalogued in [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md).
+
+---
+
+## v6.4.12 — Transactions list virtualization (remediation PR #3) *(2026-05-23)*
+
+Performance-only release. Addresses **TD-17**. The Transactions page list now uses `@tanstack/react-virtual`, so the DOM contains only O(viewport) row nodes even with 10 000+ transactions. Visible UI, filters, search, day-filter chip, calendar toggle, and row actions are all unchanged.
+
+- [`react/src/pages/Transactions.tsx`](react/src/pages/Transactions.tsx) — list block wrapped in a fixed-height scroll container driven by `useVirtualizer`. Estimate size 64 px (matches `TxnRow`'s `py-2.5` + 1px border); overscan 8 rows.
+- [`react/src/components/transactions/TxnRow.tsx`](react/src/components/transactions/TxnRow.tsx) — added `data-testid="txn-row"` so the acceptance check (`document.querySelectorAll('[data-testid="txn-row"]').length` ≤ ~40 at 10k rows) is reproducible.
+- [`react/package.json`](react/package.json) — added `@tanstack/react-virtual` dependency.
+- **Review note (engineering):** the originally-submitted patch placed the `useRef` and `useVirtualizer` calls *inside the JSX*, as raw `const …` statements between the `<EmptyState />` ternary and the closing `</Panel>`. That was a TypeScript compile error and a Rules-of-Hooks violation. Hoisted into the component body, after `filtered` is defined and before the JSX return.
+
+---
 
 ## v6.4.11 — Test scenarios master catalog + per-scenario audit evidence (remediation PR #2) *(2026-05-23)*
 

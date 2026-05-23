@@ -77,10 +77,10 @@ Counts as of 2026-05-23 (Remediation PR #2).
 | App | Layer | Tool | File(s) | Scenarios | TD-characterization |
 |---|---|---|---|---|---|
 | Consumer | Unit | Vitest | `react/src/lib/__tests__/*.test.ts` | **39** | 1 (`CON-UNIT-006` ↔ `TD-01`) |
-| Consumer | E2E  | Playwright | `react/e2e/tests/*.spec.ts` | **4** | 1 (`CON-E2E-004` regression-pins the v6.4 cache-no-clobber fix) |
+| Consumer | E2E  | Playwright | `react/e2e/tests/*.spec.ts` | **6** | 3 (`CON-E2E-004` pins the v6.4 cache-no-clobber fix; `CON-E2E-005` pins TD-05; `CON-E2E-006` pins TD-11) |
 | Admin | Unit | Vitest | `admin/src/lib/__tests__/*.test.ts` | **11** | 0 |
 | Admin | E2E  | Playwright | *(none yet)* | 0 | — |
-| **Total** | | | | **54** | 2 |
+| **Total** | | | | **56** | 4 |
 
 Known coverage gaps (tracked outside this file):
 
@@ -150,6 +150,8 @@ Known coverage gaps (tracked outside this file):
 | CON-E2E-002 | `react/e2e/tests/smoke.spec.ts` | does not render a cloud auth screen | Confirms local-only env. |
 | CON-E2E-003 | `react/e2e/tests/smoke.spec.ts` | seeded transactions are visible on the Transactions page | Seed fixture wiring. |
 | CON-E2E-004 | `react/e2e/tests/smoke.spec.ts` | seeded data survives a full page reload (persistence guard) | Regression guard for the v6.4 cache-no-clobber fix. |
+| CON-E2E-005 | `react/e2e/tests/error-boundary.spec.ts` | shows fallback UI when a child throws | Regression guard for **TD-05** (PR #4). Navigates to `/__e2e_error` (a page that throws on render) and asserts the boundary's fallback + reset. |
+| CON-E2E-006 | `react/e2e/tests/code-splitting.spec.ts` | Recharts lazy-loads only when chart pages are visited | Regression guard for **TD-11** (PR #5). Asserts Recharts is NOT requested on `/transactions` but IS requested after navigating to `/dashboard`. |
 
 ### 4.3 Admin · Unit (ADM-UNIT)
 
