@@ -33,6 +33,7 @@ gated on that evidence.
 | **Build** | Vite (`npm run build`) | Both apps compile & bundle (consumer also verified in local-only env) | every run |
 | **E2E** | Playwright (`react/e2e`) | Critical user journeys in a real browser, local-only mode | CI + on demand (`--e2e`) |
 | **Catalog** | `node scripts/test-scenarios-check.mjs` (reconciler) | Lock-step between [`docs/TEST_SCENARIOS.md`](TEST_SCENARIOS.md) (the master catalog) and the test titles in code. Fails on orphan IDs, duplicates, retired-ID reuse, or file-column drift. | every run |
+| **DB migrations** | `node scripts/db-migrations-check.mjs` | Validates `supabase/migrations/` (naming, unique timestamps, non-empty files) and refuses drift between the migrations and the generated `db/schema.sql` snapshot. See [`db/MIGRATIONS.md`](../db/MIGRATIONS.md). | every run |
 
 New code SHOULD add the cheapest test that covers it (prefer unit over E2E). Pure functions in
 `react/src/lib` and `admin/src/lib` MUST have unit tests.

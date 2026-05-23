@@ -48,8 +48,8 @@ Consumer (`:5173`) and admin (`:5174`) can run side-by-side.
 The React consumer app runs in pure-localStorage mode by default. To enable cloud features (auth, multi-device sync, multi-household with invitations, realtime, role permissions, Insights content):
 
 1. Create a Supabase project at [supabase.com](https://supabase.com).
-2. Run `db/schema.sql` in the Supabase SQL Editor.
-3. Apply the migrations listed in [`react/CHANGELOG.md`](react/CHANGELOG.md) and [`admin/CHANGELOG.md`](admin/CHANGELOG.md) (auto-create-household trigger, RLS recursion fix, content_items, admin_data_layer).
+2. Apply the migrations in [`supabase/migrations/`](supabase/migrations/) in lexicographic order. For a fresh project the easiest path is to paste the contents of `supabase/migrations/00000000000000_initial_schema.sql` (the baseline) followed by every subsequent migration into the Supabase SQL Editor in order; for an existing project use the Supabase MCP `apply_migration` tool per [`db/MIGRATIONS.md`](db/MIGRATIONS.md). The single-file view at `db/schema.sql` is generated from these migrations and is useful for human review but **should not be re-pasted** once any individual migration has been applied.
+3. Apply any further migrations listed in [`react/CHANGELOG.md`](react/CHANGELOG.md) and [`admin/CHANGELOG.md`](admin/CHANGELOG.md) (auto-create-household trigger, RLS recursion fix, content_items, admin_data_layer) that are not yet in `supabase/migrations/` — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md) for the absorb-them-into-the-directory plan.
 4. Copy your project URL + anon key into `react/.env.local` and `admin/.env.local` (template at `react/.env.example`).
 5. Restart the dev servers.
 

@@ -70,6 +70,8 @@ const gates = [
   { id: 'admin-build',         name: 'Admin · build',         cwd: 'admin', cmd: 'npm run build' },
   { id: 'test-scenarios-doc',  name: 'Test scenarios catalog (code ↔ doc reconciler)', cwd: '.',
     cmd: 'node scripts/test-scenarios-check.mjs' },
+  { id: 'db-migrations',       name: 'DB migrations (naming + schema.sql snapshot in sync)', cwd: '.',
+    cmd: 'node scripts/db-migrations-check.mjs' },
 ];
 if (runE2E) {
   // --reporter=json prints to stdout; redirect to a file the report can parse.
