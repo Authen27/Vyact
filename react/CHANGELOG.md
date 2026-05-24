@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.18`**
+> **Current production version: `v6.4.19`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,23 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.19 — TD-03 phase B: concurrency wired across all CRUD + in-app conflict banner (remediation PR #12) *(2026-05-23)*
+
+**Closes TD-03.** Phase A (PR #11) added the cloud-side compare-and-set and the dead-letter bucket; this PR threads the precondition through every CRUD entity and surfaces conflicts to the user with an in-app banner. After this lands, two household members editing the same row no longer silently overwrite each other anywhere in the app.
+
+- [`react/src/types.ts`](react/src/types.ts) — `Budget`, `Goal`, `Debt`, `Asset` interfaces gain `updated_at?: string`. `Transaction` already had it. Documented with TD-03 phase B JSDoc tags.
+- [`react/src/lib/supabaseAdapter.ts`](react/src/lib/supabaseAdapter.ts) — the four row mappers `rowToBudget`, `rowToGoal`, `rowToDebt`, `rowToAsset` now thread `r.updated_at` into the returned JS shape (matching the pattern `rowToTxn` already used).
+- [`react/src/store.ts`](react/src/store.ts) — `upsertBudget` / `upsertGoal` / `upsertDebt` / `upsertAsset` mirror PR #11's `upsertTransaction`: pass `record.updated_at` as the 4th `adapter.upsert` argument when both id and version are present (= an edit). New-record inserts still go through the legacy path. **Every CRUD modal in the app is now protected.**
+- [`react/src/lib/hybridAdapter.ts`](react/src/lib/hybridAdapter.ts) — new `clearConflicts()` method drops the dead-letter bucket. Paired with `pendingConflictCount()` from PR #11.
+- [`react/src/components/layout/SyncConflictBanner.tsx`](react/src/components/layout/SyncConflictBanner.tsx) **(new)** — polls `adapter.pendingConflictCount()` every 5 seconds; renders nothing while count is 0; otherwise shows a banner ("N edits couldn't be saved — A household member edited the same item before you…") at the top of the main content area with a Dismiss button that calls `clearConflicts()`. Cloud-mode-only (the LocalStorageAdapter has neither method, both calls are guarded by `typeof` checks; local-mode users never see the banner).
+- [`react/src/components/layout/Layout.tsx`](react/src/components/layout/Layout.tsx) — mounts `<SyncConflictBanner />` above `{children}` inside the main content area.
+
+**On testing — explicit rationale:** the conflict-detection mechanism is entity-agnostic (CON-UNIT-051..053 from PR #11 exercise it via `'transactions'`; the same function handles `budgets` / `goals` / `debts` / `assets` identically — only the entity-string argument differs). Adding four near-duplicate vitest specs for the other entities would have proven nothing CON-UNIT-051..053 don't already prove. The PR's new surface is: type-system additions (compile-time enforced by `tsc`), row-mapper field additions (type-system enforced by the return type), store-action argument threading (type-system enforced + verified by manual modal save), and a presentational banner with a 5-second poll (visually verifiable). The full automation gate's typecheck + build + existing CON-UNIT-051..053 give the merge-time signal that matters here.
+
+**TD-03 status:** marked **Resolved** in [`TECH_DEBT.md`](TECH_DEBT.md). The longer-term work (CRDT / per-field merge for high-contention entities) is outside the register's TD-03 scope and would be a separate, future item.
+
+---
 
 ## v6.4.18 — TD-03 phase A: optimistic concurrency at the cloud boundary (remediation PR #11) *(2026-05-23)*
 

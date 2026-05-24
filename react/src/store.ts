@@ -387,7 +387,8 @@ export const useStore = create<Store>((set, get) => ({
   },
   upsertBudget: async (b) => {
     const { adapter, currentHouseholdId, budgets } = get();
-    const saved = await adapter.upsert('budgets', currentHouseholdId, b);
+    // TD-03 phase B (PR #12): thread the version precondition on edits.
+    const saved = await adapter.upsert('budgets', currentHouseholdId, b, b.id && b.updated_at ? b.updated_at : undefined);
     // v6.4: persist period metadata locally (cloud schema lacks an extras
     // column on budgets; this is a non-destructive client-side overlay).
     if (b.period || b.periodStart || b.periodEnd) {
@@ -411,7 +412,8 @@ export const useStore = create<Store>((set, get) => ({
   },
   upsertGoal: async (g) => {
     const { adapter, currentHouseholdId, goals } = get();
-    const saved = await adapter.upsert('goals', currentHouseholdId, g);
+    // TD-03 phase B (PR #12): thread the version precondition on edits.
+    const saved = await adapter.upsert('goals', currentHouseholdId, g, g.id && g.updated_at ? g.updated_at : undefined);
     const idx = goals.findIndex(x => x.id === saved.id);
     set({ goals: idx >= 0 ? goals.map(x => x.id === saved.id ? saved as Goal : x) : [...goals, saved as Goal] });
     return saved as Goal;
@@ -444,7 +446,8 @@ export const useStore = create<Store>((set, get) => ({
   },
   upsertDebt: async (d) => {
     const { adapter, currentHouseholdId, debts } = get();
-    const saved = await adapter.upsert('debts', currentHouseholdId, d);
+    // TD-03 phase B (PR #12): thread the version precondition on edits.
+    const saved = await adapter.upsert('debts', currentHouseholdId, d, d.id && d.updated_at ? d.updated_at : undefined);
     const idx = debts.findIndex(x => x.id === saved.id);
     set({ debts: idx >= 0 ? debts.map(x => x.id === saved.id ? saved as Debt : x) : [...debts, saved as Debt] });
     return saved as Debt;
@@ -456,7 +459,8 @@ export const useStore = create<Store>((set, get) => ({
   },
   upsertAsset: async (a) => {
     const { adapter, currentHouseholdId, assets } = get();
-    const saved = await adapter.upsert('assets', currentHouseholdId, a);
+    // TD-03 phase B (PR #12): thread the version precondition on edits.
+    const saved = await adapter.upsert('assets', currentHouseholdId, a, a.id && a.updated_at ? a.updated_at : undefined);
     const idx = assets.findIndex(x => x.id === saved.id);
     set({ assets: idx >= 0 ? assets.map(x => x.id === saved.id ? saved as Asset : x) : [...assets, saved as Asset] });
     return saved as Asset;

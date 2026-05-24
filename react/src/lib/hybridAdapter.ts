@@ -310,4 +310,13 @@ export class HybridAdapter implements DataAdapter {
       return raw ? (JSON.parse(raw) as QueueOp[]).length : 0;
     } catch { return 0; }
   }
+
+  /**
+   * Drop all dead-lettered conflict ops. Called from the UI's
+   * `SyncConflictBanner` "Dismiss" affordance after the user has been
+   * informed and (typically) re-applied any edits manually.
+   */
+  clearConflicts(): void {
+    try { localStorage.removeItem(CONFLICT_KEY); } catch { /* noop */ }
+  }
 }

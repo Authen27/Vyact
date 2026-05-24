@@ -91,6 +91,11 @@ export interface Budget {
   /** v6.4 — only used when `period === 'custom'`. ISO YYYY-MM-DD. */
   periodStart?: string;
   periodEnd?: string;
+  /** v6.4.19 — TD-03 optimistic-concurrency precondition. Mirrors the cloud row's
+   *  updated_at; threaded back to the adapter on edits so a concurrent
+   *  edit by another household member surfaces as a conflict instead of
+   *  silently overwriting. Undefined for never-synced local rows. */
+  updated_at?: string;
 }
 
 export interface Goal {
@@ -102,6 +107,8 @@ export interface Goal {
   currency: string;
   deadline?: string;
   completed: boolean;
+  /** v6.4.19 — TD-03 optimistic-concurrency precondition. See Budget.updated_at. */
+  updated_at?: string;
 }
 
 export interface Member {
@@ -126,6 +133,8 @@ export interface Debt {
   dueDate?: string;
   currency: string;
   paymentLog?: PaymentLogEntry[];
+  /** v6.4.19 — TD-03 optimistic-concurrency precondition. See Budget.updated_at. */
+  updated_at?: string;
 }
 
 export interface Asset {
@@ -137,6 +146,8 @@ export interface Asset {
   liquidity: Liquidity;
   note?: string;
   lastUpdated?: string;
+  /** v6.4.19 — TD-03 optimistic-concurrency precondition. See Budget.updated_at. */
+  updated_at?: string;
 }
 
 export type TemplateKey =

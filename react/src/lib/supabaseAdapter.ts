@@ -114,6 +114,7 @@ const budgetToRow = (b: Partial<Budget>, hid: string): Partial<BudgetRow> => ({
 const rowToBudget = (r: BudgetRow): Budget => ({
   id: r.id, category: r.category, limit: parseMoneyFromCloud(r.monthly_limit),
   currency: r.currency, color: r.color || undefined,
+  updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
 });
 
 const goalToRow = (g: Partial<Goal>, hid: string): Partial<GoalRow> => ({
@@ -127,6 +128,7 @@ const rowToGoal = (r: GoalRow): Goal => ({
   target: parseMoneyFromCloud(r.target_amount), current: parseMoneyFromCloud(r.current_amount),
   currency: r.currency, deadline: r.deadline || undefined,
   completed: r.completed,
+  updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
 });
 
 const debtToRow = (d: Partial<Debt>, hid: string): Partial<DebtRow> => ({
@@ -158,6 +160,7 @@ const rowToDebt = (r: DebtRow): Debt => ({
   tenureMonths: r.extras?.tenureMonths,
   remainingMonths: r.extras?.remainingMonths,
   paymentLog: r.extras?.paymentLog as Debt['paymentLog'],
+  updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
 });
 
 const assetToRow = (a: Partial<Asset>, hid: string): Partial<AssetRow> => ({
@@ -172,6 +175,7 @@ const rowToAsset = (r: AssetRow): Asset => ({
   liquidity: r.liquidity as Asset['liquidity'],
   note: r.note || undefined,
   lastUpdated: r.last_updated || undefined,
+  updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
 });
 
 const memberToRow = (m: Partial<Member>, hid: string): Partial<MembershipRow> => ({
