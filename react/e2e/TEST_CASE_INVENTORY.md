@@ -34,11 +34,30 @@
 
 ---
 
+## Progress Tracker
+
+> Update these counters in the same PR that lands or removes a test.
+> CI verifies the table sums match the body — drift will fail the lint job.
+
+| Metric | Count | % of Total |
+|---|---:|---:|
+| ✅ **Developed (in CI)** | **6** | **3.7 %** |
+| 🟡 Designed (awaiting build) | 157 | 96.3 % |
+| 🟠 Blocked on clarification | 8 | 4.9 % |
+| 🔴 Failing / quarantined | 0 | 0.0 % |
+| ⛔ Deprecated | 0 | — |
+| **Total in scope** | **163** | 100 % |
+
+**Burn-down target:** see §Effort Estimate at the bottom of this file for the
+phased delivery plan against this counter.
+
+---
+
 ## Summary
 
 | # | Functional Area | Prefix | Implemented | Designed | Total |
 |---:|---|---|---:|---:|---:|
-| 0 | Foundation & Smoke | CON-E2E | 6 | 3 | 9 |
+| 0 | Foundation & Smoke | CON-E2E | 5 | 3 | 8 |
 | 1 | Transaction Creation & Validation | TXN-FC | 0 | 9 | 9 |
 | 2 | Transaction Edit Propagation | TXN-EDIT-FC | 0 | 6 | 6 |
 | 3 | Transaction Deletion & Recovery | TXN-DEL-FC | 0 | 4 | 4 |
@@ -66,10 +85,11 @@
 | 25 | Responsive & Mobile Layout | RESP-FC | 0 | 4 | 4 |
 | 26 | Performance & Large Datasets | PERF-FC | 0 | 4 | 4 |
 | 27 | Error Resilience & Edge Cases | ERR-FC | 1 | 5 | 6 |
-|   | **TOTAL** | | **7** | **162** | **169** |
+|   | **TOTAL** | | **6** | **157** | **163** |
 
-> Implemented count differs from earlier drafts: CON-E2E-005 (error boundary)
-> is reclassified under §27 (ERR-FC) but retains its original ID.
+> CON-E2E-005 (error boundary) is listed under §27 (Error Resilience) but
+> retains its original ID. Foundation §0 therefore shows 5 implemented even
+> though the project has 6 implemented tests overall.
 
 ---
 
@@ -663,6 +683,105 @@ react-test
 > Replace `TBD` with the GitHub handles of the engineers accountable for
 > keeping each section honest. The quarterly audit (see Maintenance Rules)
 > is owned by these names.
+
+---
+
+## Effort Estimate
+
+Ballpark to take the inventory from **6 / 163 (3.7 %) to 100 %** on Playwright.
+Numbers assume one SDET familiar with Playwright + the FinFlow codebase
+(~6 months ramp). Adjust ±25 % for less-familiar engineers.
+
+### Per-test complexity rubric
+
+| Tier | Description | Hours / test | Examples |
+|---|---|---:|---|
+| **S — Simple** | Single screen, CRUD, validation, no time/cloud/perf concerns | **3 h** | TXN-FC-001/005/007, SEARCH-FC-*, PROFILE-FC-001 |
+| **M — Medium** | Cross-module assertions, calculations, multi-step flows | **6 h** | NWRT-FC-*, BDGT-FC-*, TXN-EDIT-FC-001..005, RPT-FC-* |
+| **C — Complex** | Time manipulation, cloud sync, conflict resolution, performance budgets, dinero math validation | **12 h** | RECUR-FC-*, SYNC-FC-*, PERF-FC-*, FX-FC-002, DEBT-FC-004/005, PULSE-FC-001 |
+
+### Test-build effort (157 designed tests)
+
+| Tier | Count | Hours each | Subtotal |
+|---|---:|---:|---:|
+| Simple | ~32 | 3 | 96 h |
+| Medium | ~86 | 6 | 516 h |
+| Complex | ~39 | 12 | 468 h |
+| **Test development subtotal** | **157** | | **~1 080 h** |
+
+### Infrastructure & enablement (one-time)
+
+| Item | Hours |
+|---|---:|
+| 12 new Page Objects (Budgets, Goals, Debts, Assets, Splits, NetWorth, Reports, Recurring, Notifications, Settings + 5 sub-sections, Auth, Onboarding, HouseholdSwitcher, SearchBar) | ~60 h |
+| Fixture extensions (`advanceClock`, `seedWith`, `mockExchangeRates`, `withCloud`, viewport presets) | ~32 h |
+| App-side test hooks (`/__e2e_*` routes, `window.__ff_clock`) | ~16 h |
+| Cloud test environment (Supabase mock or ephemeral branch via MCP) | ~24 h |
+| Designer clarifications + spec rework (5 open questions) | ~24 h |
+| CI integration (workflow, freshness gate, `@cloud` split, Slack reporter) | ~16 h |
+| Team documentation + onboarding | ~20 h |
+| **Infrastructure subtotal** | **~192 h** |
+
+### Ongoing overheads
+
+| Item | Hours |
+|---|---:|
+| Flake stabilisation (~15 % of test dev) | ~162 h |
+| App-bug triage surfaced by new coverage | ~40 h |
+| Code review for the SDET PRs | ~80 h |
+| **Overhead subtotal** | **~282 h** |
+
+### Grand total
+
+| Bucket | Hours |
+|---|---:|
+| Test development | 1 080 |
+| Infrastructure | 192 |
+| Overhead | 282 |
+| **TOTAL** | **~1 554 h** |
+
+Converted:
+
+| Capacity | Calendar time |
+|---|---|
+| 1 SDET, 100 % dedicated | **~9–10 months** |
+| 2 SDETs in parallel (some infra serialisation) | **~5–6 months** |
+| 3 SDETs (1 lead + 2 implementers) | **~3.5–4 months** |
+| Realistic team (1 lead + 2 SDETs with normal interruption) | **~6 months** |
+
+### Phased delivery (recommended — burn the counter down in chunks)
+
+| Phase | Scope | Tests added | Hours | Cum. Developed | Cum. % |
+|---:|---|---:|---:|---:|---:|
+| 0 | Today (already shipped) | — | — | 6 | 3.7 % |
+| 1 | Core CRUD + persistence: §0 finish, §1 TXN-FC, §2 EDIT, §3 DEL, §4 NWRT | ~32 | ~220 h | 38 | 23 % |
+| 2 | Major modules: §5 Budgets, §6 Goals, §7 Debts, §8 Assets, §9 Splits | ~33 | ~240 h | 71 | 44 % |
+| 3 | Time + state: §10 Recurring, §11 Notifications, §12 Reports, §13 Pulse | ~23 | ~200 h | 94 | 58 % |
+| 4 | Cloud + auth (gated `@cloud`): §14 Auth, §16 Households, §17 Sync, §18 Backup | ~26 | ~280 h | 120 | 74 % |
+| 5 | Cross-cutting features: §15 Profile, §19 Search, §20 Onboarding, §21 Privacy, §22 Investment, §23 FX | ~27 | ~190 h | 147 | 90 % |
+| 6 | Quality bars: §24 A11y, §25 Responsive, §26 Performance, §27 Error Resilience | ~16 | ~190 h | 163 | **100 %** |
+|   | **Total** | **~157** | **~1 320 h** test dev only (infra/overhead amortised across phases) | | |
+
+### Risk / sensitivity
+
+- **Clarifications #1–#5 unresolved** → 8 tests blocked; resolving these early
+  protects ~50 h of rework later.
+- **Cloud test infra choice** (Supabase mock vs ephemeral branch) swings
+  Phase 4 by ±60 h. Ephemeral branches via the connected Supabase MCP are
+  preferred — closer to production, but slower per-test.
+- **Test data seeding** is reused; once `seedWith()` lands, per-test S/M/C
+  hours can drop ~20 %.
+- **Designer rework** post-Phase 2 (if features change) typically costs
+  ~10 % of impacted tests' original build cost.
+
+### How to update this section
+
+When you ship test IDs:
+
+1. Bump the **Progress Tracker** counter at the top of this file.
+2. Flip the row's status icon from 🟡 to ✅ in its functional area.
+3. Note actual hours in your PR — quarterly we recalibrate the rubric against
+   real data and revise the per-tier hour estimates in this section.
 
 ---
 
