@@ -8,7 +8,7 @@
 |---|---|---|---|---|
 | **Consumer (React)** | `react/` | **v6.4.14** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.0.7** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
-| **Database (Supabase)** | `supabase/migrations/` | **migrations-init** | n/a — applied via Supabase MCP | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
+| **Database (Supabase)** | `supabase/migrations/` | **admin-roles-and-kpis** | n/a — applied via Supabase MCP | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
 The three apps deploy independently and are versioned independently. The vanilla shell at the repo root is kept available as the *original* FinFlow app from before the React port; it shares no code with the admin app.
@@ -21,6 +21,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-05-23 | [Database](db/MIGRATIONS.md) | **admin-roles-and-kpis** | **Admin privilege surface into migrations (remediation PR #7 / TD-04).** New migration `20260523060000_admin_roles_and_dashboard_kpis.sql` adds the `admin_role` enum, `admin_roles` table + RLS, `is_admin()` / `has_admin_role()` helpers, and the `admin_dashboard_kpis()` RPC. The privileged authorisation layer is no longer hand-run-only. `content_items` / `subscriptions` backed KPI fields return 0 until follow-up TD-04-extension migrations land them. |
 | 2026-05-23 | [Database](db/MIGRATIONS.md) | **migrations-init** | **DB migrations toolchain (remediation PR #6 / TD-18).** New `supabase/migrations/` directory is the source of truth; current schema is `00000000000000_initial_schema.sql`. `db/schema.sql` is now a generated snapshot kept in sync by a new `db-migrations` CI gate. Foundation for PR #7 (TD-04 admin schema). |
 | 2026-05-23 | [Consumer](react/CHANGELOG.md#v6414--route-level-code-splitting-remediation-pr-5-2026-05-23) | **v6.4.14** | **Route-level code splitting (remediation PR #5 / TD-11).** Every page in `App.tsx` is now `React.lazy`-imported and wrapped in `<Suspense>`; Recharts ships only in the chunks for routes that import it (Dashboard / Reports / NetWorth). New `CON-E2E-006` regression spec verifies Recharts is not fetched on `/transactions`. |
 | 2026-05-23 | [Consumer](react/CHANGELOG.md#v6413--top-level-error-boundary-remediation-pr-4-2026-05-23) | **v6.4.13** | **Top-level error boundary (remediation PR #4 / TD-05).** Adds a global `<ErrorBoundary>` to catch uncaught render errors and show a fallback UI with a reset button. New `CON-E2E-005` regression spec navigates to a throwing page and asserts the fallback. |
