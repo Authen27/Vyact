@@ -368,7 +368,14 @@ export const useStore = create<Store>((set, get) => ({
   // ── CRUD ─────────────────────────────────────────────────────
   upsertTransaction: async (t) => {
     const { adapter, currentHouseholdId, transactions } = get();
-    const saved = await adapter.upsert('transactions', currentHouseholdId, t);
+    // TD-03 phase A (PR #11): when this is an EDIT of an existing txn
+    // (we have both an id and a known updated_at from a prior read),
+    // pass the version as the optimistic-concurrency precondition so
+    // the cloud rejects the write if someone else has edited the same
+    // row in the meantime. New txns (no updated_at yet) keep the legacy
+    // last-write-wins insert path.
+    const expectedUpdatedAt = t.id && t.updated_at ? t.updated_at : undefined;
+    const saved = await adapter.upsert('transactions', currentHouseholdId, t, expectedUpdatedAt);
     const idx = transactions.findIndex(x => x.id === saved.id);
     set({ transactions: idx >= 0 ? transactions.map(x => x.id === saved.id ? saved as Transaction : x) : [...transactions, saved as Transaction] });
     return saved as Transaction;

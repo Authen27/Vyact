@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.17`**
+> **Current production version: `v6.4.18`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,24 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.18 — TD-03 phase A: optimistic concurrency at the cloud boundary (remediation PR #11) *(2026-05-23)*
+
+Begins **TD-03 (optimistic concurrency)**. The cloud adapter previously did last-write-wins on every upsert, so two members of a shared household editing the same row would silently overwrite each other. This PR adds the *plumbing* and *detection* — a guarded UPDATE with an `updated_at` precondition, a typed `ConcurrencyConflictError`, and a dead-letter bucket on the sync queue — and wires it through one real call site (Transactions edit) as the proof. Phases B (UI surfacing) and C (wire the other CRUD entities) are queued PRs.
+
+- [`react/src/lib/dataAdapter.ts`](react/src/lib/dataAdapter.ts) — `DataAdapter.upsert` interface gains an optional `expectedUpdatedAt?: string` 4th argument. LocalStorageAdapter accepts it for parity (single-user, no concurrency to enforce) and ignores it.
+- [`react/src/lib/supabaseAdapter.ts`](react/src/lib/supabaseAdapter.ts) — new exported `ConcurrencyConflictError` class. `upsert` splits into two paths: **guarded** when `expectedUpdatedAt` is supplied AND the record has an id, performs `.update(row).eq('id', id).eq('updated_at', expected).select().maybeSingle()`; zero rows matched ⇒ throws `ConcurrencyConflictError`. **Legacy** when no precondition is supplied — back-compat last-write-wins upsert. The `updated_at` field is stripped from the row body since the DB's `touch_*` trigger sets it on every UPDATE.
+- [`react/src/lib/hybridAdapter.ts`](react/src/lib/hybridAdapter.ts) — `QueueOp` carries the new `expectedUpdatedAt`. `flushQueue` catches `ConcurrencyConflictError` and moves the op to a new `ff_sync_conflicts` localStorage bucket (instead of pushing back into the main queue, which would jam every later op). New `pendingConflictCount()` method for TD-03 phase B's UI toast.
+- [`react/src/store.ts`](react/src/store.ts) — `upsertTransaction` now threads `t.updated_at` as the precondition whenever the record has both an `id` and an `updated_at` (i.e. an edit). New transactions (no version yet) still go through the legacy insert path. **First real call site exercising the concurrency path**; the other 4 CRUD entities (Budget, Goal, Debt, Asset) are wired in PR #12.
+-]  [`react/src/lib/__tests__/supabaseAdapter.test.ts`](react/src/lib/__tests__/supabaseAdapter.test.ts) **(new)** — 3 ID-tagged tests (`CON-UNIT-051..053`) using a minimal vitest-mocked Supabase client: happy-path guarded UPDATE returns the server row; `data: null` on stale precondition throws `ConcurrencyConflictError`; no-precondition path still uses the legacy `.upsert()`.
+
+**Out of scope (deferred to PR #12+):**
+
+- UI surfacing of conflicts (toast + "Review" affordance using `pendingConflictCount()`).
+- Threading `updated_at` through Budget / Goal / Debt / Asset store actions.
+- Auto-refetch and present-conflict-in-modal flows for user-driven merge.
+
+---
 
 ## v6.4.17 — TD-01 phases C+D: decimal money — amortisation + cloud boundary (remediation PR #10) *(2026-05-23)*
 

@@ -29,7 +29,19 @@ export interface DataAdapter {
 
   // generic domain CRUD
   list<T = unknown>(entity: Entity, householdId: string): Promise<T[]>;
-  upsert<T extends { id?: string } = { id?: string }>(entity: Entity, householdId: string, record: T): Promise<T & { id: string }>;
+  /**
+   * Insert-or-update a record.
+   *
+   * TD-03 (optimistic concurrency): when `expectedUpdatedAt` is supplied
+   * AND `record.id` is set, the cloud adapter performs a compare-and-set
+   * UPDATE — `WHERE id = ? AND updated_at = ?`. If zero rows match (a
+   * concurrent edit on the same row has bumped `updated_at` since the
+   * caller's read), the adapter throws `ConcurrencyConflictError` and
+   * the queue dead-letters the op for surfacing in the UI. When
+   * `expectedUpdatedAt` is omitted, behaviour is the legacy upsert
+   * (insert-or-replace by id) and last-write-wins.
+   */
+  upsert<T extends { id?: string } = { id?: string }>(entity: Entity, householdId: string, record: T, expectedUpdatedAt?: string): Promise<T & { id: string }>;
   remove(entity: Entity, householdId: string, id: string): Promise<void>;
   replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]>;
 
@@ -117,7 +129,10 @@ export class LocalStorageAdapter implements DataAdapter {
   async list<T = unknown>(entity: Entity, householdId: string): Promise<T[]> {
     return this.read<T[]>(entity, householdId, []);
   }
-  async upsert<T extends { id?: string } = { id?: string }>(entity: Entity, householdId: string, record: T): Promise<T & { id: string }> {
+  async upsert<T extends { id?: string } = { id?: string }>(entity: Entity, householdId: string, record: T, _expectedUpdatedAt?: string): Promise<T & { id: string }> {
+    // LocalStorageAdapter is single-user / single-tab; concurrency conflicts
+    // can't occur here, so `_expectedUpdatedAt` is accepted for interface
+    // parity with SupabaseAdapter and intentionally ignored.
     const list = this.read<(T & { id: string })[]>(entity, householdId, []);
     const id = record.id || uid();
     const next = { ...record, id, updated_at: new Date().toISOString() } as T & { id: string };

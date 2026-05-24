@@ -76,11 +76,11 @@ Counts as of 2026-05-23 (Remediation PR #2).
 
 | App | Layer | Tool | File(s) | Scenarios | TD-characterization |
 |---|---|---|---|---|---|
-| Consumer | Unit | Vitest | `react/src/lib/__tests__/*.test.ts` | **50** | 4 (`CON-UNIT-006` ↔ TD-01-A; `CON-UNIT-046` ↔ TD-01-B; `CON-UNIT-047` ↔ TD-01-C schedule drift; `CON-UNIT-048` ↔ TD-01-C currency quantisation) |
+| Consumer | Unit | Vitest | `react/src/lib/__tests__/*.test.ts` | **53** | 6 (`CON-UNIT-006` ↔ TD-01-A; `CON-UNIT-046` ↔ TD-01-B; `CON-UNIT-047` ↔ TD-01-C schedule drift; `CON-UNIT-048` ↔ TD-01-C currency quantisation; `CON-UNIT-051` ↔ TD-03 happy path; `CON-UNIT-052` ↔ TD-03 conflict) |
 | Consumer | E2E  | Playwright | `react/e2e/tests/*.spec.ts` | **6** | 3 (`CON-E2E-004` pins the v6.4 cache-no-clobber fix; `CON-E2E-005` pins TD-05; `CON-E2E-006` pins TD-11) |
 | Admin | Unit | Vitest | `admin/src/lib/__tests__/*.test.ts` | **11** | 0 |
 | Admin | E2E  | Playwright | *(none yet)* | 0 | — |
-| **Total** | | | | **67** | 7 |
+| **Total** | | | | **70** | 9 |
 
 Known coverage gaps (tracked outside this file):
 
@@ -152,6 +152,9 @@ Known coverage gaps (tracked outside this file):
 | CON-UNIT-048 | `react/src/lib/__tests__/amortization.test.ts` | [TD-01 phase C] currency-quantised interest is the exact native-minor-unit value | `splitPayment(200000, 5, 1170, 'GBP')` returns `interest === 833.33` strictly (not `833.333333…`); principal computed off the quantised interest is also exact (`336.67`). |
 | CON-UNIT-049 | `react/src/lib/__tests__/money.test.ts` | parseMoneyFromCloud accepts string, number, null, undefined, and empty without throwing | TD-01 phase D — pins the supabaseAdapter row-mapper boundary contract. |
 | CON-UNIT-050 | `react/src/lib/__tests__/money.test.ts` | parseMoneyFromCloud returns 0 for non-finite inputs (NaN, garbage strings) | Defensive contract: bad row data must not propagate NaN into the math layer. |
+| CON-UNIT-051 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | guarded UPDATE with matching updated_at returns the server row | **TD-03 phase A regression pin.** Happy-path compare-and-set. |
+| CON-UNIT-052 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | guarded UPDATE with no-rows-matched throws ConcurrencyConflictError | **TD-03 phase A regression pin.** Stale `updated_at` precondition → typed conflict, never silent overwrite. |
+| CON-UNIT-053 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | upsert without expectedUpdatedAt skips the guard and uses the legacy upsert path | Back-compat: new records (no version yet) and any not-yet-wired caller fall through to last-write-wins. |
 
 ### 4.2 Consumer · E2E (CON-E2E)
 

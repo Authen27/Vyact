@@ -186,6 +186,28 @@ const rowToMember = (r: MembershipRow): Member => ({
   appRole: r.role as Member['appRole'],
 });
 
+// ── TD-03 — optimistic concurrency ────────────────────────────
+//
+// Thrown by `upsert` when the caller supplied an `expectedUpdatedAt`
+// precondition that no longer matches the cloud row — i.e. someone else
+// (another household member, another tab) has edited the same row since
+// the caller read it. The HybridAdapter catches this, dead-letters the
+// op to a separate localStorage bucket, and exposes `pendingConflictCount`
+// so the consumer UI can surface a conflict toast (TD-03 phase B).
+//
+// Callers that don't pass `expectedUpdatedAt` see the legacy last-write-
+// wins behaviour — no breakage.
+export class ConcurrencyConflictError extends Error {
+  override readonly name = 'ConcurrencyConflictError';
+  constructor(
+    public readonly entity: Entity,
+    public readonly id: string,
+    public readonly expectedUpdatedAt: string,
+  ) {
+    super(`Concurrency conflict on ${entity}/${id}: expected updated_at=${expectedUpdatedAt}, server has changed since.`);
+  }
+}
+
 // ── Adapter ───────────────────────────────────────────────────
 export class SupabaseAdapter implements DataAdapter {
   constructor(private sb: SupabaseClient) {}
@@ -309,7 +331,7 @@ export class SupabaseAdapter implements DataAdapter {
     return [];
   }
 
-  async upsert<T extends { id?: string } = { id?: string }>(entity: Entity, householdId: string, record: T): Promise<T & { id: string }> {
+  async upsert<T extends { id?: string } = { id?: string }>(entity: Entity, householdId: string, record: T, expectedUpdatedAt?: string): Promise<T & { id: string }> {
     let row: Record<string, unknown>;
     if      (entity === 'transactions') row = txnToRow   (record as Partial<Transaction>, householdId);
     else if (entity === 'budgets')      row = budgetToRow(record as Partial<Budget>,      householdId);
@@ -320,16 +342,41 @@ export class SupabaseAdapter implements DataAdapter {
     else throw new Error(`Unknown entity: ${entity}`);
 
     const tableName = entity === 'members' ? 'memberships' : entity;
-    // Use a real upsert (INSERT ... ON CONFLICT (id) DO UPDATE). The previous
-    // implementation branched on `row.id`: if an id was present it ran an
-    // UPDATE ... WHERE id = ?. But locally-created records ALWAYS carry a
-    // client-assigned id (the cache assigns one before queueing), so the very
-    // first sync of a new record took the UPDATE branch, matched zero rows,
-    // and `.single()` threw — the op then sat in the sync queue forever and
-    // the record never reached the cloud. `.upsert()` inserts when the row is
-    // new and updates when it already exists, which is exactly the queue's
-    // contract. Keep `row.id` so ON CONFLICT can resolve on the primary key.
-    if (!row.id) delete row.id;   // brand-new record with no id → let DB default it
+
+    // TD-03 — optimistic-concurrency path. When the caller supplies an
+    // `expectedUpdatedAt` AND the record has an id (i.e. this is an edit,
+    // not a new insert), we run a guarded UPDATE — `WHERE id = ? AND
+    // updated_at = ?`. If zero rows match, someone else has bumped the row
+    // since the caller's read and we throw `ConcurrencyConflictError` rather
+    // than silently overwriting. `id` is preserved in the row body so the
+    // existing PK is found.
+    if (expectedUpdatedAt && row.id) {
+      // Don't try to write `updated_at` ourselves — the DB's `touch_*`
+      // trigger (schema.sql line 239) will set it to now() on every UPDATE.
+      delete (row as Record<string, unknown>).updated_at;
+      const { data, error } = await this.sb.from(tableName)
+        .update(row)
+        .eq('id', row.id as string)
+        .eq('updated_at', expectedUpdatedAt)
+        .select().maybeSingle();
+      if (error) throw error;
+      if (data === null) {
+        // Zero rows matched the version precondition → conflict.
+        throw new ConcurrencyConflictError(entity, row.id as string, expectedUpdatedAt);
+      }
+      return this.mapRowBack(entity, data) as T & { id: string };
+    }
+
+    // Legacy path (no version precondition supplied, or this is a new
+    // insert): keep the real upsert (INSERT ... ON CONFLICT (id) DO UPDATE)
+    // semantics. The previous implementation branched on `row.id` to do an
+    // UPDATE ... WHERE id = ?, but locally-created records ALWAYS carry a
+    // client-assigned id (the cache assigns one before queueing); the very
+    // first sync of a new record then matched zero rows, `.single()` threw,
+    // and the op sat in the sync queue forever. `.upsert()` inserts when
+    // the row is new and updates when it already exists — exactly what the
+    // queue contract needs.
+    if (!row.id) delete row.id;
     const { data, error } = await this.sb.from(tableName)
       .upsert(row, { onConflict: 'id' })
       .select().single();
