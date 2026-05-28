@@ -23,9 +23,9 @@ signature, audit-trigger coverage), **the baseline wins**.
 |---|---|---|
 | `00000000000000_initial_schema.sql` | PR #6 — first repo baseline (assumed clean prod) | Superseded; prod was already further along |
 | `20260523060000_admin_roles_and_dashboard_kpis.sql` | PR #7 — TD-04 admin roles + KPIs | Applied via Dashboard with a different KPI shape; baseline captures the live shape |
-| `20260524070000_budgets_add_period.sql` | PR #13 — TD-08 budget period column | Applied via Dashboard; reflected in baseline |
-| `20260524071000_audit_triggers.sql` | PR #13 — TD-08 server-side audit triggers | **Not in prod.** Re-land as a fresh additive migration after TD-20 closes |
-| `20260524073000_replace_all_rpc.sql` | PR #13 — TD-09 atomic bulk-import RPC | **Not in prod.** Re-land as a fresh additive migration after TD-20 closes |
+| `20260524070000_budgets_add_period.sql` | PR #13 — TD-13 budget period columns | **Was claimed applied; turned out not to be.** Re-landed in PR #20 as `20260529150000_td13_budgets_add_period.sql`. |
+| `20260524071000_audit_triggers.sql` | PR #13 — TD-08 server-side audit triggers | **Not in prod.** Re-landed in PR #20 as `20260529150500_td08_audit_triggers.sql`. |
+| `20260524073000_replace_all_rpc.sql` | PR #13 — TD-09 atomic bulk-import RPC | **Not in prod.** Re-landed in PR #20 as `20260529151000_td09_replace_all_rpcs.sql`. |
 | `20260524075000_subscriptions_table_and_kpis.sql` | PR #13 — admin subscriptions | Subscriptions table exists in prod with a different shape; baseline captures the live shape |
 | `20260524076000_content_items_table_and_kpis.sql` | PR #13 — admin content items | Applied via Dashboard; reflected in baseline |
 | `20260524077000_admin_rpcs.sql` | PR #13 — admin list/cancel RPCs | Different RPCs ended up in prod (`admin_list_users`, `admin_weekly_trend`, `admin_ai_usage_summary`); baseline captures the live set |

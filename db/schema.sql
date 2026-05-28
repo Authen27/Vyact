@@ -1015,3 +1015,307 @@ select 1;
 -- directory and the remote schema_migrations tracker in 1:1 sync.
 -- DO NOT add SQL here — it would re-run against fresh dev DBs.
 select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260529150000_td13_budgets_add_period.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-13 — server-side budget period columns.
+--
+-- Discovery during PR #20 prep: the previous SUPERSEDED README claimed
+-- this had been applied to prod via the Dashboard, but the captured
+-- baseline at 00000000000001_production_state_baseline.sql shows
+-- budgets has neither `period` nor `period_start`/`period_end` columns.
+-- So TD-13 was actually still on paper, like TD-08 and TD-09. This
+-- migration re-lands it as a fresh additive change through the now-
+-- validated `supabase db push` pipeline (PR #16 + hotfixes #17–#19).
+--
+-- Adds:
+--   period       text not null default 'monthly'
+--   period_start date null
+--   period_end   date null
+-- and a check constraint matching the consumer's BudgetPeriod enum.
+--
+-- Until this migration applies, the consumer falls back to per-device
+-- localStorage overlays (`budgetMeta.ts`, per the v6.4 convention in
+-- CLAUDE.md). After it applies, those overlays can fold into the cloud
+-- write path in a follow-up PR.
+
+begin;
+
+alter table budgets
+  add column if not exists period       text not null default 'monthly',
+  add column if not exists period_start date null,
+  add column if not exists period_end   date null;
+
+-- Constraint name mirrors the previous superseded migration so anyone
+-- diff-ing the two sees the equivalence.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'budgets_period_check'
+      and conrelid = 'public.budgets'::regclass
+  ) then
+    alter table budgets
+      add constraint budgets_period_check
+      check (period in ('monthly','quarterly','half_yearly','annual','custom'));
+  end if;
+end$$;
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260529150500_td08_audit_triggers.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-08 — server-side audit triggers on the six domain tables.
+--
+-- Populates `activity_log` whenever a row in `transactions`, `budgets`,
+-- `goals`, `debts`, `assets`, or `memberships` is inserted/updated/deleted.
+-- The pre-PR-#16 design intent for this lived at
+-- db/migrations-superseded/20260524071000_audit_triggers.sql but was
+-- never applied to prod (per TD-20's honest residual). This migration
+-- re-lands it through the validated auto-apply pipeline.
+--
+-- Two correctness details from the original review pass, preserved here:
+--   (a) the trigger list includes `memberships` (multi-household member
+--       changes are exactly the audit signal we need).
+--   (b) the SECURITY DEFINER function pins `search_path = public, pg_temp`
+--       so a hostile schema on the caller's search_path can't shadow
+--       `activity_log` or `auth.uid()` and tamper with the audit trail.
+
+begin;
+
+create or replace function public.log_domain_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  h       uuid;
+  act     text;
+  ent     text := tg_table_name;
+  ent_id  uuid;
+  ch      jsonb;
+begin
+  if tg_op = 'INSERT' then
+    act    := 'created';
+    h      := new.household_id;
+    ent_id := new.id;
+    ch     := to_jsonb(new);
+  elsif tg_op = 'UPDATE' then
+    act    := 'updated';
+    h      := new.household_id;
+    ent_id := new.id;
+    ch     := jsonb_build_object('old', to_jsonb(old), 'new', to_jsonb(new));
+  elsif tg_op = 'DELETE' then
+    act    := 'deleted';
+    h      := old.household_id;
+    ent_id := old.id;
+    ch     := to_jsonb(old);
+  else
+    return null;
+  end if;
+
+  insert into activity_log (household_id, actor_id, action, entity_type, entity_id, changes)
+  values (h, auth.uid(), act, ent, ent_id, ch);
+
+  return null;
+end;
+$$;
+
+-- Trigger names are stable so future migrations can drop/recreate them
+-- cleanly. `if not exists` would be ideal but Postgres doesn't support
+-- it on CREATE TRIGGER (yet), so we wrap in a DO block.
+do $$
+begin
+  if not exists (select 1 from pg_trigger where tgname = 'activity_txn_trigger') then
+    create trigger activity_txn_trigger
+      after insert or update or delete on transactions
+      for each row execute function public.log_domain_activity();
+  end if;
+
+  if not exists (select 1 from pg_trigger where tgname = 'activity_budgets_trigger') then
+    create trigger activity_budgets_trigger
+      after insert or update or delete on budgets
+      for each row execute function public.log_domain_activity();
+  end if;
+
+  if not exists (select 1 from pg_trigger where tgname = 'activity_goals_trigger') then
+    create trigger activity_goals_trigger
+      after insert or update or delete on goals
+      for each row execute function public.log_domain_activity();
+  end if;
+
+  if not exists (select 1 from pg_trigger where tgname = 'activity_debts_trigger') then
+    create trigger activity_debts_trigger
+      after insert or update or delete on debts
+      for each row execute function public.log_domain_activity();
+  end if;
+
+  if not exists (select 1 from pg_trigger where tgname = 'activity_assets_trigger') then
+    create trigger activity_assets_trigger
+      after insert or update or delete on assets
+      for each row execute function public.log_domain_activity();
+  end if;
+
+  if not exists (select 1 from pg_trigger where tgname = 'activity_memberships_trigger') then
+    create trigger activity_memberships_trigger
+      after insert or update or delete on memberships
+      for each row execute function public.log_domain_activity();
+  end if;
+end$$;
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260529151000_td09_replace_all_rpcs.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-09 — atomic `replace_<entity>(h uuid, rows jsonb)` RPCs for bulk import.
+--
+-- Each function soft-deletes existing rows for the household and inserts
+-- the provided rows in one transaction, returning the inserted set. Every
+-- RPC is SECURITY DEFINER and gated by:
+--   • auth.uid() must be set
+--   • is_member(h) must be true
+-- so a signed-in member of one household can't import into another.
+--
+-- The pre-PR-#16 design intent for this lived at
+-- db/migrations-superseded/20260524073000_replace_all_rpc.sql but was
+-- never applied to prod. This migration re-lands it through the
+-- validated auto-apply pipeline. It depends on TD-13's period columns
+-- (see 20260529150000_td13_budgets_add_period.sql which sorts first),
+-- so the budgets replace function can use them.
+
+begin;
+
+-- ── transactions ─────────────────────────────────────────────────
+create or replace function public.replace_transactions(h uuid, rows jsonb)
+returns setof transactions
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household'; end if;
+
+  update transactions set deleted_at = now() where household_id = h and deleted_at is null;
+
+  return query
+  insert into transactions (id, household_id, created_by, member_id, type, amount, currency, date, description, category, note, recurring, attachment_url, extras, created_at, updated_at, deleted_at)
+  select t.id::uuid, h, t.created_by::uuid, t.member_id::uuid, t.type, t.amount::numeric, t.currency, t.date::date, t.description, t.category, t.note, t.recurring, t.attachment_url, t.extras::jsonb, t.created_at::timestamptz, t.updated_at::timestamptz, t.deleted_at::timestamptz
+  from jsonb_populate_recordset(null::transactions, rows) as t;
+end;
+$$;
+grant execute on function public.replace_transactions(uuid, jsonb) to authenticated;
+
+-- ── budgets ──────────────────────────────────────────────────────
+create or replace function public.replace_budgets(h uuid, rows jsonb)
+returns setof budgets
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household'; end if;
+
+  update budgets set deleted_at = now() where household_id = h and deleted_at is null;
+
+  return query
+  insert into budgets (id, household_id, category, monthly_limit, currency, color, period, period_start, period_end, created_at, updated_at, deleted_at)
+  select t.id::uuid, h, t.category, t.monthly_limit::numeric, t.currency, t.color, t.period, t.period_start::date, t.period_end::date, t.created_at::timestamptz, t.updated_at::timestamptz, t.deleted_at::timestamptz
+  from jsonb_populate_recordset(null::budgets, rows) as t;
+end;
+$$;
+grant execute on function public.replace_budgets(uuid, jsonb) to authenticated;
+
+-- ── goals ────────────────────────────────────────────────────────
+create or replace function public.replace_goals(h uuid, rows jsonb)
+returns setof goals
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household'; end if;
+
+  update goals set deleted_at = now() where household_id = h and deleted_at is null;
+
+  return query
+  insert into goals (id, household_id, type, name, target_amount, current_amount, currency, deadline, completed, created_at, updated_at, deleted_at)
+  select t.id::uuid, h, t.type, t.name, t.target_amount::numeric, t.current_amount::numeric, t.currency, t.deadline::date, t.completed::boolean, t.created_at::timestamptz, t.updated_at::timestamptz, t.deleted_at::timestamptz
+  from jsonb_populate_recordset(null::goals, rows) as t;
+end;
+$$;
+grant execute on function public.replace_goals(uuid, jsonb) to authenticated;
+
+-- ── debts ────────────────────────────────────────────────────────
+create or replace function public.replace_debts(h uuid, rows jsonb)
+returns setof debts
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household'; end if;
+
+  update debts set deleted_at = now() where household_id = h and deleted_at is null;
+
+  return query
+  insert into debts (id, household_id, type, name, lender, account_last4, principal, current_balance, interest_rate, minimum_payment, due_date, currency, extras, created_at, updated_at, deleted_at)
+  select t.id::uuid, h, t.type, t.name, t.lender, t.account_last4, t.principal::numeric, t.current_balance::numeric, t.interest_rate::numeric, t.minimum_payment::numeric, t.due_date::date, t.currency, t.extras::jsonb, t.created_at::timestamptz, t.updated_at::timestamptz, t.deleted_at::timestamptz
+  from jsonb_populate_recordset(null::debts, rows) as t;
+end;
+$$;
+grant execute on function public.replace_debts(uuid, jsonb) to authenticated;
+
+-- ── assets ───────────────────────────────────────────────────────
+create or replace function public.replace_assets(h uuid, rows jsonb)
+returns setof assets
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household'; end if;
+
+  update assets set deleted_at = now() where household_id = h and deleted_at is null;
+
+  return query
+  insert into assets (id, household_id, type, name, value, currency, liquidity, note, last_updated, created_at, updated_at, deleted_at)
+  select t.id::uuid, h, t.type, t.name, t.value::numeric, t.currency, t.liquidity, t.note, t.last_updated::date, t.created_at::timestamptz, t.updated_at::timestamptz, t.deleted_at::timestamptz
+  from jsonb_populate_recordset(null::assets, rows) as t;
+end;
+$$;
+grant execute on function public.replace_assets(uuid, jsonb) to authenticated;
+
+-- ── memberships ──────────────────────────────────────────────────
+-- Memberships have no `deleted_at` column in the baseline (membership
+-- removal is a hard delete with cascade implications). We match that
+-- pattern instead of soft-deleting.
+create or replace function public.replace_memberships(h uuid, rows jsonb)
+returns setof memberships
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household'; end if;
+
+  delete from memberships where household_id = h;
+
+  return query
+  insert into memberships (id, household_id, user_id, role, display_name, household_role, joined_at)
+  select t.id::uuid, h, t.user_id::uuid, t.role, t.display_name, t.household_role, t.joined_at::timestamptz
+  from jsonb_populate_recordset(null::memberships, rows) as t;
+end;
+$$;
+grant execute on function public.replace_memberships(uuid, jsonb) to authenticated;
+
+commit;
