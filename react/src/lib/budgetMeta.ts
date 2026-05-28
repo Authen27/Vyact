@@ -1,5 +1,10 @@
 // FinFlow v6.4 — Budget period local metadata
 //
+// DEPRECATED: server-side `period` columns are being added in
+// `supabase/migrations/20260524070000_budgets_add_period.sql`. Keep this
+// file as a compatibility shim for a single release; it will be removed
+// once the migration is applied and `db/schema.sql` regenerated.
+//
 // The production Supabase schema does not have an `extras` jsonb column on
 // the `budgets` table, and we are committed to no production DB changes for
 // this release. To deliver the budget-period feature without a migration we

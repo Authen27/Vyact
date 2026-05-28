@@ -8,9 +8,58 @@
 //   Month 300: £5 interest, £1,165 principal
 //
 // Pre-v7 we incorrectly used a flat split. This file is the fix.
+//
+// TD-01 phase C (PR #10) — the amount-bearing pieces now go through
+// dinero in the debt's native currency, so:
+//   • per-payment interest splits are rounded to the currency's native
+//     minor unit (banker's), not left as e.g. 833.333333… pence,
+//   • the chained `outstanding -= principal` over up-to-300 iterations
+//     can't accumulate float drift,
+//   • interestSummary aggregates via the same integer-cents `add`
+//     as calculations.ts's sumDinero (TD-01 phase B).
+// computeEmi / computeRemainingMonths are kept as float derivations:
+// their outputs feed into the dinero-quantised layers below, which is
+// where currency-aware exactness lives.
 
 import type { Debt, AmortizationEntry, PartPaymentChoice, PaymentLogEntry } from '../types';
 import { uid, today } from './format';
+import { toDinero, fromDinero, sumDinero } from './money';
+import { dinero, multiply, subtract, toSnapshot, type Dinero, type DineroCurrency } from 'dinero.js';
+
+// ── Internal helpers ─────────────────────────────────────────────
+
+/**
+ * Re-quantise a Dinero to its currency's native exponent with banker's
+ * rounding. Used after `multiply` in amortisation chains so per-step
+ * drift can't accumulate across hundreds of iterations.
+ */
+function quantizeDinero(d: Dinero<number>): Dinero<number> {
+  const snap = toSnapshot(d);
+  const native = snap.currency.exponent as number;
+  if (snap.scale <= native) return d;
+  const factor = Math.pow(10, snap.scale - native);
+  const requantized = bankersRound(snap.amount / factor);
+  return dinero({ amount: requantized, currency: snap.currency as DineroCurrency<number> });
+}
+
+function bankersRound(n: number): number {
+  const trunc = Math.trunc(n);
+  const frac = n - trunc;
+  if (frac === 0.5)  return trunc % 2 === 0 ? trunc : trunc + 1;
+  if (frac === -0.5) return trunc % 2 === 0 ? trunc : trunc - 1;
+  return Math.round(n);
+}
+
+/**
+ * Express a JS float rate (e.g. 0.05 / 12 ≈ 0.004166666…) as the scaled
+ * factor dinero's `multiply` accepts. Scale 12 keeps ~12 digits of rate
+ * precision, well under JS's 2^53 ceiling for realistic balances.
+ */
+function rateAsScaled(rate: number, scale = 12): { amount: number; scale: number } {
+  return { amount: Math.round(rate * Math.pow(10, scale)), scale };
+}
+
+// ── EMI / tenure derivations (unchanged — float math, outputs feed quantised layers) ─
 
 // Compute the EMI from principal, annual rate %, tenure months
 export function computeEmi(principal: number, annualRate: number, tenureMonths: number): number {
@@ -31,28 +80,86 @@ export function computeRemainingMonths(outstanding: number, emi: number, annualR
   return Math.ceil(-Math.log(1 - (r * outstanding) / emi) / Math.log(1 + r));
 }
 
-// Full amortisation schedule from current outstanding forward
+// ── Per-payment interest / principal split (currency-quantised) ─
+
+/**
+ * Single-step interest/principal decomposition for one payment.
+ *
+ * The math is `interest = outstandingBefore * (annualRate/100/12)`, then
+ * `principal = max(0, payment - interest)`. When `currency` is supplied,
+ * the interest is computed in dinero (multiply + native-exponent banker's
+ * round) so it's a clean minor-unit number; principal is then `payment -
+ * interestRounded`. When `currency` is omitted the result is the legacy
+ * float behaviour, preserved for back-compat with any caller that
+ * doesn't (yet) thread currency through.
+ */
+export function splitPayment(
+  outstandingBefore: number,
+  annualRate: number,
+  paymentAmount: number,
+  currency?: string,
+): { interest: number; principal: number } {
+  if (currency) {
+    const outDinero = toDinero(outstandingBefore, currency);
+    const interestDinero = quantizeDinero(multiply(outDinero, rateAsScaled(annualRate / 100 / 12)));
+    const interest = fromDinero(interestDinero);
+    // Do the principal subtraction in dinero space too — otherwise the
+    // JS-number subtract (`payment - interest`) reintroduces drift on the
+    // very value the caller will store/display. e.g. 1170 - 833.33 was
+    // 336.66999999999996 instead of 336.67 before this line existed.
+    const principalDinero = subtract(toDinero(paymentAmount, currency), interestDinero);
+    const principalRaw = fromDinero(principalDinero);
+    const principal = principalRaw < 0 ? 0 : principalRaw;
+    return { interest, principal };
+  }
+  const r = annualRate / 100 / 12;
+  const interest = outstandingBefore * r;
+  const principal = Math.max(0, paymentAmount - interest);
+  return { interest, principal };
+}
+
+// ── Full amortisation schedule (chained, dinero outstanding) ─────
+
 export function calculateAmortizationSchedule(debt: Debt): AmortizationEntry[] {
   const out: AmortizationEntry[] = [];
   const annualRate = debt.interestRate;
   const monthsLeft = debt.remainingMonths ?? debt.tenureMonths ?? 0;
   if (monthsLeft <= 0) return out;
   const emi = debt.minimumPayment || computeEmi(debt.currentBalance, annualRate, monthsLeft);
+  const currency = debt.currency || 'USD';
+  const monthlyRateScaled = rateAsScaled(annualRate / 100 / 12);
 
-  let outstanding = debt.currentBalance;
+  // outstanding is carried as a Dinero in the debt's native currency
+  // across the entire iteration so drift can't accumulate.
+  let outstandingD = toDinero(debt.currentBalance, currency);
   const start = new Date(debt.dueDate || today());
-  for (let m = 1; m <= monthsLeft && outstanding > 0.01; m++) {
-    const r = annualRate / 100 / 12;
-    const interest = outstanding * r;
-    let principal = emi - interest;
-    if (principal > outstanding) principal = outstanding;
-    outstanding = Math.max(0, outstanding - principal);
+
+  for (let m = 1; m <= monthsLeft; m++) {
+    const outstandingBefore = fromDinero(outstandingD);
+    if (outstandingBefore <= 0.01) break;
+
+    // interest = outstanding * monthlyRate, quantised to the currency's
+    // native exponent (e.g. £833 not £833.333333… pence).
+    const interestD = quantizeDinero(multiply(outstandingD, monthlyRateScaled));
+    const interest = fromDinero(interestD);
+
+    // principal = min(EMI - interest, outstanding). We compute it as
+    // a number (the EMI input is already float) and quantise via the
+    // dinero path.
+    const principalRaw = Math.max(0, Math.min(emi - interest, outstandingBefore));
+    const principalD = toDinero(principalRaw, currency);
+    const principal = fromDinero(principalD);
+
+    // outstanding -= principal, done in dinero space.
+    outstandingD = subtract(outstandingD, principalD);
+    const outstanding = Math.max(0, fromDinero(outstandingD));
+
     const d = new Date(start);
     d.setMonth(d.getMonth() + (m - 1));
     out.push({
       month: m,
       date: d.toISOString().split('T')[0],
-      emi: emi,
+      emi,
       interest,
       principal,
       outstanding,
@@ -62,16 +169,8 @@ export function calculateAmortizationSchedule(debt: Debt): AmortizationEntry[] {
   return out;
 }
 
-// Compute the interest/principal portions for a single payment
-export function splitPayment(outstandingBefore: number, annualRate: number, paymentAmount: number): { interest: number; principal: number } {
-  const r = annualRate / 100 / 12;
-  const interest = outstandingBefore * r;
-  const principal = Math.max(0, paymentAmount - interest);
-  return { interest, principal };
-}
+// ── Apply a single payment (re-amortise with chosen strategy) ────
 
-// Apply a part-payment with the user's chosen re-amortisation strategy.
-// Returns the updated debt. Caller is responsible for persisting.
 export interface ApplyPaymentResult {
   debt: Debt;
   log: PaymentLogEntry;
@@ -86,11 +185,15 @@ export function applyPayment(
 ): ApplyPaymentResult {
   const annualRate = debt.interestRate;
   const emi = debt.minimumPayment;
+  const currency = debt.currency || 'USD';
   const isPartPayment = paymentAmount > emi * 1.05; // > 5% over EMI = considered "part-payment"
 
-  // Standard payment math: interest first, principal reduces balance
-  const { interest, principal } = splitPayment(debt.currentBalance, annualRate, paymentAmount);
-  const newOutstanding = Math.max(0, debt.currentBalance - principal);
+  // Standard payment math, currency-quantised via splitPayment.
+  const { interest, principal } = splitPayment(debt.currentBalance, annualRate, paymentAmount, currency);
+  // newOutstanding = currentBalance - principal, in dinero space, then
+  // back to a JS number for persistence.
+  const newOutstandingD = subtract(toDinero(debt.currentBalance, currency), toDinero(principal, currency));
+  const newOutstanding = Math.max(0, fromDinero(newOutstandingD));
 
   // Re-amortisation logic per user choice
   let newRemainingMonths = debt.remainingMonths ?? debt.tenureMonths ?? 0;
@@ -141,12 +244,21 @@ export function applyPayment(
   return { debt: updated, log, message };
 }
 
-// Aggregate total interest paid (lifetime + YTD)
+// ── Lifetime / YTD interest aggregation (dinero-space sum) ───────
+
 export function interestSummary(debt: Debt): { lifetime: number; ytd: number; principalPaid: number } {
   const log = debt.paymentLog || [];
   const yearStart = `${new Date().getFullYear()}-01-01`;
-  const lifetime = log.reduce((s, e) => s + e.interest, 0);
-  const ytd = log.filter(e => e.date >= yearStart).reduce((s, e) => s + e.interest, 0);
-  const principalPaid = log.reduce((s, e) => s + e.principal, 0);
+  const currency = debt.currency || 'USD';
+  // Each payment-log entry contributes an integer-cents value in the
+  // debt's currency; folding via sumDinero means no float drift across
+  // long payment histories.
+  const lifetime = fromDinero(sumDinero(log, e => toDinero(e.interest, currency), currency));
+  const principalPaid = fromDinero(sumDinero(log, e => toDinero(e.principal, currency), currency));
+  const ytd = fromDinero(sumDinero(
+    log.filter(e => e.date >= yearStart),
+    e => toDinero(e.interest, currency),
+    currency,
+  ));
   return { lifetime, ytd, principalPaid };
 }

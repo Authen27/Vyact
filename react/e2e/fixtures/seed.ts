@@ -15,6 +15,44 @@ export interface SeedData {
   assets?: unknown[];
   members?: unknown[];
   profile?: unknown;
+  // v6.5 — added for the feature-test scaffolding (PR #scaffold-1).
+  recurringSchedules?: unknown[];
+  notifications?: unknown[];
+  exchangeRates?: Record<string, number>;
+}
+
+/**
+ * Deep-merge a partial override onto the defaultSeed. Use this in journey
+ * tests that only need a small delta from the household-shaped baseline:
+ *
+ *   test.use({ seed: seedWith({ debts: [myDebt], profile: { baseCurrency: 'EUR' } }) });
+ *
+ * Arrays REPLACE the default — that's intentional; tests that want extra
+ * transactions on top of the seed should spread `defaultSeed.transactions`:
+ *
+ *   seedWith({ transactions: [...defaultSeed.transactions!, myExtra] })
+ *
+ * Objects (profile, exchangeRates) shallow-merge so you can override one key.
+ */
+export function seedWith(override: Partial<SeedData>): SeedData {
+  const out: SeedData = { ...defaultSeed };
+  for (const k of Object.keys(override) as (keyof SeedData)[]) {
+    const v = override[k];
+    if (v === undefined) continue;
+    if (Array.isArray(v)) {
+      // Arrays replace.
+      (out as Record<string, unknown>)[k] = v;
+    } else if (typeof v === 'object' && v !== null) {
+      // Objects shallow-merge.
+      (out as Record<string, unknown>)[k] = {
+        ...(out[k] as Record<string, unknown> | undefined),
+        ...(v as Record<string, unknown>),
+      };
+    } else {
+      (out as Record<string, unknown>)[k] = v;
+    }
+  }
+  return out;
 }
 
 // A small, realistic household used by journey tests. All amounts in USD.
@@ -39,6 +77,24 @@ export const defaultSeed: SeedData = {
   assets: [
     { id: '00000000-0000-4000-8000-0000000000d1', type: 'cash', name: 'E2E Checking', value: 8000, currency: 'USD', liquidity: 'liquid' },
   ],
+};
+
+/**
+ * A 30-day amortising debt used by the DEBT-FC suite (C-tier golden test).
+ * Numbers are chosen so interest/principal splits are non-trivial to compute
+ * by hand — forces tests to use dinero-precise expectations, not eyeballed ones.
+ */
+export const sampleCreditCardDebt = {
+  id: '00000000-0000-4000-8000-0000000000e1',
+  type: 'credit_card',
+  name: 'E2E Credit Card',
+  lender: 'TestBank',
+  principal: 5000,
+  currentBalance: 5000,
+  interestRate: 18.5,           // APR (%, annual)
+  minimumPayment: 150,
+  currency: 'USD',
+  paymentLog: [],
 };
 
 /**

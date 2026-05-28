@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Plus, CalendarDays, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation, useShortcuts } from '../hooks';
@@ -52,6 +53,18 @@ export default function Transactions() {
     }
     return f.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   }, [txns, search, type, cat, month, memberId, selectedDate]);
+
+  // TD-17 — virtualizer for the transactions list. Hooks must live in the
+  // function body, not inside JSX. The scroll container has a fixed pixel
+  // height; row height ~64px (TxnRow is `py-2.5` with a 1px border). Overscan
+  // gives a small buffer beyond the viewport so fast scrolls don't flash empty.
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 64,
+    overscan: 8,
+  });
 
   // Tapping a day filters the list to that date (and reveals the calendar if hidden).
   function handleSelectDate(date: string) {
@@ -135,10 +148,44 @@ export default function Transactions() {
           </Select>
         </div>
 
-        {filtered.length === 0
-          ? <EmptyState icon="🔍" message="No transactions found" />
-          : filtered.map(t => <TxnRow key={t.id} txn={t} showActions onEdit={openEditTxn} />)
-        }
+        {filtered.length === 0 ? (
+          <EmptyState icon="🔍" message="No transactions found" />
+        ) : (
+          <div
+            ref={parentRef}
+            style={{
+              height: '560px', // matches typical viewport for the list, adjust if needed
+              overflow: 'auto',
+              position: 'relative',
+            }}
+          >
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualizer.getVirtualItems().map(virtualRow => {
+                const t = filtered[virtualRow.index];
+                return (
+                  <div
+                    key={t.id}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`
+                    }}
+                  >
+                    <TxnRow txn={t} showActions onEdit={openEditTxn} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </Panel>
     </div>
   );

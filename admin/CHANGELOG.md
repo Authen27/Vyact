@@ -4,9 +4,38 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.0.5`**
+> **Current production version: `v1.0.8`**
 > **Live URL:** https://finflow-admin.vercel.app
 > **Next planned: `v1.1.0`** (see Roadmap at the bottom).
+
+---
+
+## v1.0.8 — Slug sanitiser edge-case fix (remediation PR #3) *(2026-05-24)*
+
+Bugfix release. Fixes an edge-case in the `slugify()` sanitiser where punctuation-only inputs (for example `'!!!  ???  @@@'`) collapsed to a single hyphen. `slugify()` now trims the intermediate result after stripping punctuation so whitespace-only inputs return the empty string as intended. Tests updated: `ADM-UNIT-006` now asserts the corrected behaviour. No user-visible UI changes.
+
+---
+
+## v1.0.7 — First admin unit tests + test scenarios catalog (remediation PR #2) *(2026-05-23)*
+
+Closes finding **N1** of the 2026-05-22 assessment ("the privileged admin app has no automated test safety net"). The admin app now has its own Vitest suite and an established pattern for growing it. Tooling-only, no user-visible change.
+
+- [`admin/src/lib/__tests__/contentApi.test.ts`](admin/src/lib/__tests__/contentApi.test.ts) — 11 ID-tagged unit tests (`ADM-UNIT-001..011`) covering `slugify()` (URL-slug sanitiser for published articles) and `rowToArticle()` (the Supabase-row → consumer-Article boundary mapper). All passing locally.
+- [`admin/src/lib/contentApi.ts`](admin/src/lib/contentApi.ts) — `rowToArticle` now exported so the boundary mapper is testable without going through Supabase.
+- [`admin/package.json`](admin/package.json) — added `vitest` dev-dep + `test` / `test:watch` scripts mirroring the consumer.
+- [`admin/tsconfig.json`](admin/tsconfig.json) — added `exclude` for `*.test.ts(x)` to match the consumer pattern.
+- The shared automation gate now runs an `admin-unit` step and surfaces admin scenarios in the per-app/per-layer evidence table; admin scenarios are catalogued in [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) and reconciled on every run by `scripts/test-scenarios-check.mjs`. Real bug noted (not fixed in this PR): `slugify('!!! ??? @@@')` returns `'-'` instead of `''` because the whitespace-only intermediate collapses to a single hyphen — logged for a follow-up.
+
+---
+
+## v1.0.6 — ESLint floor (remediation PR #1) *(2026-05-23)*
+
+First real linter for the admin app — the old `npm run lint` was `tsc --noEmit` (now preserved as `npm run typecheck`). Tooling-only, no user-visible change. Closes finding **N1/N2** of the 2026-05-22 remediation assessment (admin had zero tests *and* no linter despite being the privileged surface) for the linter half.
+
+- [`admin/eslint.config.js`](admin/eslint.config.js) — new flat config mirroring the consumer's (`@eslint/js` recommended + `typescript-eslint` recommended + `react-hooks`).
+- [`admin/package.json`](admin/package.json) — `lint` now runs `eslint .`; added `typecheck` script. Added matching dev-deps.
+- Admin source passes lint clean today (1 pre-existing `no-explicit-any` warning in `Dashboard.tsx`, no errors).
+- The shared `scripts/automation-run.mjs` gate now runs ESLint and type-check as separate admin gates.
 
 ---
 

@@ -10,40 +10,45 @@ import PulseGauge from '../components/charts/PulseGauge';
 import { CategoryDonut } from '../components/charts/Charts';
 import TxnRow from '../components/transactions/TxnRow';
 import {
-  computePulseScore, monthlyData, totalBalance,
-  spendByCategory, getInsights, totalAssets, totalLiabilities,
-  totalMonthlyDebtPayment,
-} from '../lib/calculations';
+  selectMonthlyData, selectTotalBalance, selectPulse, selectInsights,
+  selectSpendByCategory, selectRecentTxns, selectTotalAssets, selectTotalLiabilities,
+  selectMonthlyDebtPayment,
+} from '../lib/selectors';
 import { fmt, fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
 import Money from '../components/ui/Money';
 import { getCat } from '../constants';
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const txns    = useStore(s => s.transactions);
   const budgets = useStore(s => s.budgets);
-  const goals   = useStore(s => s.goals);
-  const debts   = useStore(s => s.debts);
-  const assets  = useStore(s => s.assets);
+  const goals = useStore(s => s.goals);
+  const debts = useStore(s => s.debts);
+  const assets = useStore(s => s.assets);
   const profile = useStore(s => s.profile);
-  const rates   = useStore(s => s.rates);
   const baseCur = profile.baseCurrency;
   const openAddTxn = useStore(s => s.openAddTxn);
+  // TD-12 review-fix (lead): the dev's selector refactor removed these two
+  // subscriptions but kept references to `txns.length` and `rates` later in
+  // the JSX. The selectors return derived values, not the raw collections
+  // — these need to stay live for the count and the per-row `convert()`
+  // calls in the budget/goal lists.
+  const txns = useStore(s => s.transactions);
+  const rates = useStore(s => s.rates);
 
   const mk = nowMonthKey();
-  const month = monthlyData(txns, mk, baseCur, rates);
-  const balance = totalBalance(txns, baseCur, rates);
+  const month = useStore(selectMonthlyData(mk));
+  const balance = useStore(selectTotalBalance);
   const rate = month.income > 0 ? Math.round((month.income - month.expense) / month.income * 100) : 0;
-  const pulse = useMemo(() => computePulseScore(txns, budgets, goals, debts, baseCur, rates), [txns, budgets, goals, debts, baseCur, rates]);
-  const insights = useMemo(() => getInsights(txns, budgets, goals, debts, assets, baseCur, rates), [txns, budgets, goals, debts, assets, baseCur, rates]);
-  const spend = spendByCategory(txns, mk, baseCur, rates);
+  const pulse = useStore(selectPulse);
+  const insights = useStore(selectInsights);
+  const spend = useStore(selectSpendByCategory(mk));
   const donutData = Object.entries(spend).map(([catId, amount]) => ({ catId, amount }));
-  const recent = useMemo(() => [...txns].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5), [txns]);
+  const recent = useStore(selectRecentTxns);
   const activeGoals = goals.filter(g => !g.completed).slice(0, 3);
 
-  const ta = totalAssets(assets, baseCur, rates);
-  const tl = totalLiabilities(debts, baseCur, rates);
-  const monthlyDebtPmt = totalMonthlyDebtPayment(debts, baseCur, rates);
+  const ta = useStore(selectTotalAssets);
+  const tl = useStore(selectTotalLiabilities);
+  const monthlyDebtPmt = useStore(selectMonthlyDebtPayment);
   const dti = month.income > 0 ? (monthlyDebtPmt / month.income) * 100 : 0;
 
   return (

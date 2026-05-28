@@ -7,6 +7,14 @@ import {
 import { DEFAULT_RATES } from '../../constants';
 import type { Transaction, Budget, Goal, Debt, Asset } from '../../types';
 
+// Test scenarios CON-UNIT-012..026, CON-UNIT-046. See docs/TEST_SCENARIOS.md.
+//
+// TD-01 phase B (PR #9) migrated every aggregator in `calculations.ts` to fold
+// in dinero space. Tests that used `toBeCloseTo(x, 10)` to tolerate the old
+// float drift are tightened here to strict `.toBe(x)` for cases where the
+// math is now exact. `CON-UNIT-046` is a new test that pins the specific
+// drift the migration eliminates.
+
 const R = DEFAULT_RATES;
 const USD = 'USD';
 
@@ -24,7 +32,7 @@ function txn(over: Partial<Transaction>): Transaction {
 }
 
 describe('reportableTxns', () => {
-  it('excludes private/excluded txns and isolates investment + transfer', () => {
+  it('CON-UNIT-012 · excludes private/excluded txns and isolates investment + transfer', () => {
     const txns = [
       txn({ type: 'income', amount: 100 }),
       txn({ type: 'expense', amount: 40 }),
@@ -40,19 +48,20 @@ describe('reportableTxns', () => {
 });
 
 describe('effectiveAmount', () => {
-  it('uses the full amount for non-split txns', () => {
-    expect(effectiveAmount(txn({ amount: 100 }), USD, R)).toBeCloseTo(100, 10);
+  it('CON-UNIT-013 · uses the full amount for non-split txns', () => {
+    expect(effectiveAmount(txn({ amount: 100 }), USD, R)).toBe(100);
   });
-  it('uses only yourShare for a split txn', () => {
+  it('CON-UNIT-014 · uses only yourShare for a split txn', () => {
     const t = txn({
       amount: 120,
       split: { isSplit: true, totalAmount: 120, yourShare: 40, paidBy: 'me', participants: [] },
     });
-    expect(effectiveAmount(t, USD, R)).toBeCloseTo(40, 10);
+    expect(effectiveAmount(t, USD, R)).toBe(40);
   });
-  it('converts a foreign-currency amount into base', () => {
-    // 92 EUR → USD = (92 / 0.92) * 1 = 100
-    expect(effectiveAmount(txn({ amount: 92, currency: 'EUR' }), USD, R)).toBeCloseTo(100, 8);
+  it('CON-UNIT-015 · converts a foreign-currency amount into base', () => {
+    // 92 EUR @ rate 0.92 → USD = exactly 100 with dinero + banker's rounding.
+    // (Pre-TD-01 phase A this was `~100.00...` via floats — now strict.)
+    expect(effectiveAmount(txn({ amount: 92, currency: 'EUR' }), USD, R)).toBe(100);
   });
 });
 
@@ -63,30 +72,43 @@ describe('monthlyData', () => {
     txn({ type: 'expense', amount: 800, date: '2026-05-20' }),
     txn({ type: 'expense', amount: 9999, date: '2026-04-30' }), // different month
   ];
-  it('sums income/expense within the month and computes net', () => {
+  it('CON-UNIT-016 · sums income/expense within the month and computes net', () => {
     const d = monthlyData(txns, '2026-05', USD, R);
-    expect(d.income).toBeCloseTo(5000, 10);
-    expect(d.expense).toBeCloseTo(2000, 10);
-    expect(d.net).toBeCloseTo(3000, 10);
+    expect(d.income).toBe(5000);
+    expect(d.expense).toBe(2000);
+    expect(d.net).toBe(3000);
   });
-  it('ignores transactions outside the requested month', () => {
-    expect(monthlyData(txns, '2026-05', USD, R).expense).not.toBeCloseTo(11999, 1);
+  it('CON-UNIT-017 · ignores transactions outside the requested month', () => {
+    expect(monthlyData(txns, '2026-05', USD, R).expense).not.toBe(11999);
   });
 });
 
 describe('totalBalance', () => {
-  it('income adds, expense subtracts', () => {
+  it('CON-UNIT-018 · income adds, expense subtracts', () => {
     const txns = [
       txn({ type: 'income', amount: 1000 }),
       txn({ type: 'expense', amount: 250 }),
       txn({ type: 'expense', amount: 250 }),
     ];
-    expect(totalBalance(txns, USD, R)).toBeCloseTo(500, 10);
+    expect(totalBalance(txns, USD, R)).toBe(500);
+  });
+
+  it('CON-UNIT-046 · [TD-01 phase B] repeated additions do not drift in float (0.1 problem)', () => {
+    // The canonical "0.1 + 0.2 !== 0.3" class of float bug, applied to
+    // FinFlow: summing many small same-currency expenses. Pre-phase B the
+    // reducer fell into `Number + Number` and accumulated drift; post-phase
+    // B the reduction happens in dinero (integer cents add) and is exact.
+    const ten = Array.from({ length: 10 }, () =>
+      txn({ type: 'expense', amount: 0.10 }),
+    );
+    // 10 expenses of $0.10 → balance = -$1.00 exactly. With pre-phase-B
+    // float math this would have produced something like -1.0000000000000002.
+    expect(totalBalance(ten, USD, R)).toBe(-1.00);
   });
 });
 
 describe('spendByCategory', () => {
-  it('groups expense totals by category for the month', () => {
+  it('CON-UNIT-019 · groups expense totals by category for the month', () => {
     const txns = [
       txn({ category: 'food', amount: 100 }),
       txn({ category: 'food', amount: 50 }),
@@ -94,8 +116,8 @@ describe('spendByCategory', () => {
       txn({ type: 'income', category: 'salary', amount: 5000 }), // not an expense
     ];
     const s = spendByCategory(txns, '2026-05', USD, R);
-    expect(s.food).toBeCloseTo(150, 10);
-    expect(s.rent).toBeCloseTo(900, 10);
+    expect(s.food).toBe(150);
+    expect(s.rent).toBe(900);
     expect(s.salary).toBeUndefined();
   });
 });
@@ -108,19 +130,19 @@ describe('balance sheet helpers', () => {
   const debts: Debt[] = [
     { id: 'd1', type: 'mortgage', name: 'Home loan', principal: 250000, currentBalance: 200000, interestRate: 5, minimumPayment: 1170, currency: 'USD' },
   ];
-  it('totalAssets sums all asset values', () => {
-    expect(totalAssets(assets, USD, R)).toBeCloseTo(310000, 10);
+  it('CON-UNIT-020 · totalAssets sums all asset values', () => {
+    expect(totalAssets(assets, USD, R)).toBe(310000);
   });
-  it('liquidAssets sums only liquid assets', () => {
-    expect(liquidAssets(assets, USD, R)).toBeCloseTo(10000, 10);
+  it('CON-UNIT-021 · liquidAssets sums only liquid assets', () => {
+    expect(liquidAssets(assets, USD, R)).toBe(10000);
   });
-  it('totalLiabilities sums debt balances', () => {
-    expect(totalLiabilities(debts, USD, R)).toBeCloseTo(200000, 10);
+  it('CON-UNIT-022 · totalLiabilities sums debt balances', () => {
+    expect(totalLiabilities(debts, USD, R)).toBe(200000);
   });
 });
 
 describe('computePulseScore', () => {
-  it('returns a total in [0,100] with all five components present', () => {
+  it('CON-UNIT-023 · returns a total in [0,100] with all five components present', () => {
     const txns = [
       txn({ type: 'income', amount: 5000, date: '2026-05-01' }),
       txn({ type: 'expense', amount: 2000, date: '2026-05-10' }),
@@ -133,7 +155,7 @@ describe('computePulseScore', () => {
     expect(p.total).toBeLessThanOrEqual(100);
     expect(Object.keys(p.components).sort()).toEqual(['budget', 'debt', 'goals', 'savings', 'trend']);
   });
-  it('higher debt-to-income lowers the debt component', () => {
+  it('CON-UNIT-024 · higher debt-to-income lowers the debt component', () => {
     const lowDtiTxns = [txn({ type: 'income', amount: 10000, date: '2026-05-01' })];
     const highDebt: Debt[] = [{ id: 'd', type: 'loan', name: 'L', principal: 0, currentBalance: 5000, interestRate: 10, minimumPayment: 6000, currency: 'USD' }];
     const noDebt: Debt[] = [];
@@ -144,7 +166,7 @@ describe('computePulseScore', () => {
 });
 
 describe('splitsOutstanding', () => {
-  it('tallies amounts owed TO you when you paid', () => {
+  it('CON-UNIT-025 · tallies amounts owed TO you when you paid', () => {
     const t = txn({
       amount: 120,
       split: {
@@ -157,11 +179,11 @@ describe('splitsOutstanding', () => {
       },
     });
     const r = splitsOutstanding([t], USD, R);
-    expect(r.owedToYou).toBeCloseTo(80, 10);
-    expect(r.youOwe).toBeCloseTo(0, 10);
+    expect(r.owedToYou).toBe(80);
+    expect(r.youOwe).toBe(0);
     expect(r.owedDetails).toHaveLength(2);
   });
-  it('tallies what YOU owe when someone external paid', () => {
+  it('CON-UNIT-026 · tallies what YOU owe when someone external paid', () => {
     const t = txn({
       amount: 90,
       split: {
@@ -173,7 +195,7 @@ describe('splitsOutstanding', () => {
       },
     });
     const r = splitsOutstanding([t], USD, R);
-    expect(r.youOwe).toBeCloseTo(30, 10);
-    expect(r.owedToYou).toBeCloseTo(0, 10);
+    expect(r.youOwe).toBe(30);
+    expect(r.owedToYou).toBe(0);
   });
 });

@@ -148,3 +148,35 @@ export async function listActivity(householdId: string, limit = 100) {
   if (error) throw error;
   return data;
 }
+
+// ── MFA helpers (TD-15) ─────────────────────────────────────
+// Small wrappers around Supabase's Auth MFA API so pages can enroll
+// and verify TOTP factors without depending on Supabase internals.
+export async function enrollMfaTotp(friendlyName?: string) {
+  const { data, error } = await sb().auth.mfa.enroll({ factorType: 'totp', friendlyName });
+  if (error) throw error;
+  return data;
+}
+
+export async function verifyMfaEnrolment(factorId: string, code: string) {
+  // For TOTP the Supabase SDK requires a challenge before verify; the
+  // convenience `challengeAndVerify` wraps both. The plain `.verify(...)`
+  // overload demands a `challengeId` which we don't have at enrolment-
+  // verification time. (Lead review: dev's original code used `.verify`
+  // and would not type-check.)
+  const { data, error } = await sb().auth.mfa.challengeAndVerify({ factorId, code });
+  if (error) throw error;
+  return data;
+}
+
+export async function listMfaFactors() {
+  const { data, error } = await sb().auth.mfa.listFactors();
+  if (error) throw error;
+  return data;
+}
+
+export async function unenrollMfaFactor(factorId: string) {
+  const { data, error } = await sb().auth.mfa.unenroll({ factorId });
+  if (error) throw error;
+  return data;
+}

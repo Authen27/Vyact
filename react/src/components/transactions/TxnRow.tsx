@@ -37,7 +37,7 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
   const wrapperBg = t.excluded ? 'opacity-65' : isInv ? 'bg-honey/[0.04]' : isXfer ? 'bg-denim/[0.03]' : '';
 
   return (
-    <div className={`group flex items-center gap-2.5 px-4 py-2.5 border-b border-line last:border-b-0 hover:bg-coral-tint/40 transition-colors ${wrapperBg}`}>
+    <div data-testid="txn-row" className={`group flex items-center gap-2.5 px-4 py-2.5 border-b border-line last:border-b-0 hover:bg-coral-tint/40 transition-colors ${wrapperBg}`}>
       <PaymentMethodChip id={t.paymentMethod} />
       <div
         className="w-[34px] h-[34px] rounded-md flex items-center justify-center text-base flex-shrink-0"

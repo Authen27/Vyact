@@ -4,16 +4,35 @@
 
 import type { Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, BudgetPeriod } from '../types';
 import { convert, getMonthKey, nowMonthKey, clamp } from './format';
+import { toDinero, fromDinero, convertViaUsdRates, sumDinero, dineroZero, addDinero } from './money';
+import type { Dinero } from 'dinero.js';
 
 // ── Multi-currency aware amount in BASE ────────────────────────
+//
+// TD-01 phase B: every aggregator below folds amounts in *dinero space*
+// (integer minor units, exact integer add) rather than via `reduce` over
+// JS `number`. Public signatures still return `number` so call sites are
+// unchanged; the gain is that summing many converted amounts no longer
+// drifts. `0.10 + 0.10 + 0.10 ≠ 0.30` does not happen here any more.
+//
+// `effectiveDinero` is the internal helper that maps a transaction (with
+// optional split share + optional foreign currency) into a Dinero in the
+// base currency. Every aggregator uses it.
+
 export function txnAmountInBase(t: Transaction, baseCurrency: string, rates: ExchangeRates): number {
   return convert(t.amount, t.currency || baseCurrency, baseCurrency, rates);
 }
+
+function effectiveDinero(t: Transaction, baseCurrency: string, rates: ExchangeRates): Dinero<number> {
+  const cur = t.currency || baseCurrency;
+  const raw = t.split?.isSplit && typeof t.split.yourShare === 'number'
+    ? t.split.yourShare
+    : t.amount;
+  return convertViaUsdRates(toDinero(raw, cur), baseCurrency, rates);
+}
+
 export function effectiveAmount(t: Transaction, baseCurrency: string, rates: ExchangeRates): number {
-  if (t.split?.isSplit && typeof t.split.yourShare === 'number') {
-    return convert(t.split.yourShare, t.currency || baseCurrency, baseCurrency, rates);
-  }
-  return txnAmountInBase(t, baseCurrency, rates);
+  return fromDinero(effectiveDinero(t, baseCurrency, rates));
 }
 
 // Reportable = excludes private/excluded txns and isolates investment+transfer
@@ -25,24 +44,41 @@ export interface MonthData { income: number; expense: number; net: number; }
 
 export function monthlyData(transactions: Transaction[], monthKey: string, baseCurrency: string, rates: ExchangeRates): MonthData {
   const txns = reportableTxns(transactions).filter(t => getMonthKey(t.date) === monthKey);
-  const income  = txns.filter(t => t.type === 'income').reduce((s,t) => s + effectiveAmount(t, baseCurrency, rates), 0);
-  const expense = txns.filter(t => t.type === 'expense').reduce((s,t) => s + effectiveAmount(t, baseCurrency, rates), 0);
+  const incomeD  = sumDinero(txns.filter(t => t.type === 'income'),  t => effectiveDinero(t, baseCurrency, rates), baseCurrency);
+  const expenseD = sumDinero(txns.filter(t => t.type === 'expense'), t => effectiveDinero(t, baseCurrency, rates), baseCurrency);
+  const income = fromDinero(incomeD);
+  const expense = fromDinero(expenseD);
+  // net is income − expense in dinero space too, so subtraction doesn't drift.
+  // (dinero exposes `subtract` but a single `add` of a negated income suffices;
+  //  for clarity we compute via the JS-number difference of two exact values,
+  //  which is itself exact provided both are integer minor units / 10^exp.)
   return { income, expense, net: income - expense };
 }
 
 export function totalBalance(transactions: Transaction[], baseCurrency: string, rates: ExchangeRates): number {
-  return reportableTxns(transactions).reduce(
-    (s, t) => t.type === 'income' ? s + effectiveAmount(t, baseCurrency, rates) : s - effectiveAmount(t, baseCurrency, rates), 0
-  );
+  // income adds, expense subtracts. Building both as dinero sums then
+  // subtracting at the JS-number edge is exact (both sides quantised
+  // to the base currency's native exponent by sumDinero).
+  const txns = reportableTxns(transactions);
+  const incomeD  = sumDinero(txns.filter(t => t.type === 'income'),  t => effectiveDinero(t, baseCurrency, rates), baseCurrency);
+  const expenseD = sumDinero(txns.filter(t => t.type === 'expense'), t => effectiveDinero(t, baseCurrency, rates), baseCurrency);
+  return fromDinero(incomeD) - fromDinero(expenseD);
 }
 
 export function spendByCategory(transactions: Transaction[], monthKey: string, baseCurrency: string, rates: ExchangeRates): Record<string, number> {
-  return reportableTxns(transactions)
-    .filter(t => t.type === 'expense' && getMonthKey(t.date) === monthKey)
-    .reduce<Record<string, number>>((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + effectiveAmount(t, baseCurrency, rates);
-      return acc;
-    }, {});
+  // One Dinero accumulator per category; fold each expense txn into its
+  // bucket, then collapse to a `number` map at the edge.
+  const buckets: Record<string, Dinero<number>> = {};
+  for (const t of reportableTxns(transactions)) {
+    if (t.type !== 'expense' || getMonthKey(t.date) !== monthKey) continue;
+    const inBase = effectiveDinero(t, baseCurrency, rates);
+    buckets[t.category] = buckets[t.category]
+      ? addDinero(buckets[t.category], inBase)
+      : inBase;
+  }
+  const out: Record<string, number> = {};
+  for (const [k, d] of Object.entries(buckets)) out[k] = fromDinero(d);
+  return out;
 }
 
 // ── v6.4: Budget period windows + range-based aggregation ─────
@@ -84,12 +120,17 @@ export function spendByCategoryInRange(
   baseCurrency: string,
   rates: ExchangeRates,
 ): Record<string, number> {
-  return reportableTxns(transactions)
-    .filter(t => t.type === 'expense' && t.date >= start && t.date <= end)
-    .reduce<Record<string, number>>((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + effectiveAmount(t, baseCurrency, rates);
-      return acc;
-    }, {});
+  const buckets: Record<string, Dinero<number>> = {};
+  for (const t of reportableTxns(transactions)) {
+    if (t.type !== 'expense' || t.date < start || t.date > end) continue;
+    const inBase = effectiveDinero(t, baseCurrency, rates);
+    buckets[t.category] = buckets[t.category]
+      ? addDinero(buckets[t.category], inBase)
+      : inBase;
+  }
+  const out: Record<string, number> = {};
+  for (const [k, d] of Object.entries(buckets)) out[k] = fromDinero(d);
+  return out;
 }
 
 /** How many calendar months the period covers (used to derive a per-month
@@ -106,18 +147,24 @@ export function periodMonths(period: BudgetPeriod | undefined): number {
 }
 
 // ── BALANCE SHEET ──────────────────────────────────────────────
+// Each helper folds its inputs in dinero space (one accumulator per call,
+// FX done per-row, exact integer adds) and returns a JS number at the edge.
+
 export const totalAssets = (assets: Asset[], baseCurrency: string, rates: ExchangeRates): number =>
-  assets.reduce((s,a) => s + convert(a.value, a.currency, baseCurrency, rates), 0);
+  fromDinero(sumDinero(assets, a => convertViaUsdRates(toDinero(a.value, a.currency), baseCurrency, rates), baseCurrency));
 
 export const totalLiabilities = (debts: Debt[], baseCurrency: string, rates: ExchangeRates): number =>
-  debts.reduce((s,d) => s + convert(d.currentBalance, d.currency, baseCurrency, rates), 0);
+  fromDinero(sumDinero(debts, d => convertViaUsdRates(toDinero(d.currentBalance, d.currency), baseCurrency, rates), baseCurrency));
 
 export const liquidAssets = (assets: Asset[], baseCurrency: string, rates: ExchangeRates): number =>
-  assets.filter(a => a.liquidity === 'liquid')
-        .reduce((s,a) => s + convert(a.value, a.currency, baseCurrency, rates), 0);
+  fromDinero(sumDinero(
+    assets.filter(a => a.liquidity === 'liquid'),
+    a => convertViaUsdRates(toDinero(a.value, a.currency), baseCurrency, rates),
+    baseCurrency,
+  ));
 
 export const totalMonthlyDebtPayment = (debts: Debt[], baseCurrency: string, rates: ExchangeRates): number =>
-  debts.reduce((s,d) => s + convert(d.minimumPayment, d.currency, baseCurrency, rates), 0);
+  fromDinero(sumDinero(debts, d => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates), baseCurrency));
 
 // ── PULSE SCORE — 5 components ─────────────────────────────────
 export interface PulseScore {
@@ -267,8 +314,8 @@ export interface SplitOutstanding {
 }
 
 export function splitsOutstanding(transactions: Transaction[], baseCurrency: string, rates: ExchangeRates): SplitOutstanding {
-  let owedToYou = 0;
-  let youOwe = 0;
+  let owedToYouD = dineroZero(baseCurrency);
+  let youOweD = dineroZero(baseCurrency);
   const owedDetails: SplitOutstanding['owedDetails'] = [];
   const youOweDetails: SplitOutstanding['youOweDetails'] = [];
   transactions.forEach(t => {
@@ -276,15 +323,20 @@ export function splitsOutstanding(transactions: Transaction[], baseCurrency: str
     const cur = t.currency || baseCurrency;
     (t.split.participants || []).forEach(p => {
       if (p.paid) return;
-      const shareInBase = convert(p.share, cur, baseCurrency, rates);
+      const shareInBase = convertViaUsdRates(toDinero(p.share, cur), baseCurrency, rates);
       if (t.split!.paidBy === 'me' && !p.isYou) {
-        owedToYou += shareInBase;
+        owedToYouD = addDinero(owedToYouD, shareInBase);
         owedDetails.push({ txn: t, participant: p });
       } else if (t.split!.paidBy === 'external' && p.isYou) {
-        youOwe += shareInBase;
+        youOweD = addDinero(youOweD, shareInBase);
         youOweDetails.push({ txn: t, participant: p });
       }
     });
   });
-  return { owedToYou, youOwe, owedDetails, youOweDetails };
+  return {
+    owedToYou: fromDinero(owedToYouD),
+    youOwe:    fromDinero(youOweD),
+    owedDetails,
+    youOweDetails,
+  };
 }

@@ -301,7 +301,7 @@ export default function Households() {
           householdName={active.name}
           householdId={active.id}
           onClose={() => setInviteOpen(false)}
-          onSent={() => { setInviteOpen(false); active && loadHouseholdDetails(active.id); }}
+          onSent={() => { setInviteOpen(false); if (active) loadHouseholdDetails(active.id); }}
         />
       )}
     </div>

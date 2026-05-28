@@ -1,5 +1,6 @@
 // Currency formatting · date formatting · misc
 import { CURRENCIES, DEFAULT_RATES } from '../constants';
+import { toDinero, fromDinero, convertViaUsdRates } from './money';
 
 export const today = (): string => new Date().toISOString().split('T')[0];
 
@@ -38,11 +39,21 @@ export function daysUntil(dateStr?: string): number | null {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
+/**
+ * Multi-currency conversion using a USD-base rate table.
+ *
+ * TD-01 phase A: this function previously did `(amount / rFrom) * rTo` on
+ * raw JS floats, which drifted across round-trips and across aggregations.
+ * It now routes the math through dinero.js — the input/output signature is
+ * unchanged (number → number, major units) so no caller needs to change,
+ * but the conversion itself is exact integer arithmetic with banker's
+ * rounding at the FX boundary. See `react/src/lib/money.ts` for the
+ * dinero plumbing and `CON-UNIT-006` for the regression test that pins
+ * the fixed behaviour.
+ */
 export function convert(amount: number, from: string, to: string, rates: Record<string, number> = DEFAULT_RATES): number {
   if (!amount || from === to) return amount;
-  const rFrom = rates[from] ?? 1;
-  const rTo = rates[to] ?? 1;
-  return (amount / rFrom) * rTo;
+  return fromDinero(convertViaUsdRates(toDinero(amount, from), to, rates));
 }
 
 export function fmt(amount: number, currency = 'USD'): string {

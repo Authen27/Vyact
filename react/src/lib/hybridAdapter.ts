@@ -14,7 +14,7 @@ import type {
 import {
   type DataAdapter, type Entity, LocalStorageAdapter,
 } from './dataAdapter';
-import { SupabaseAdapter } from './supabaseAdapter';
+import { SupabaseAdapter, ConcurrencyConflictError } from './supabaseAdapter';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface QueueOp {
@@ -26,9 +26,17 @@ interface QueueOp {
   id?: string;
   code?: string;
   rate?: number;
+  /**
+   * TD-03 (PR #11) — when set, the upsert is performed as a guarded
+   * UPDATE (`WHERE id = ? AND updated_at = expectedUpdatedAt`). If the
+   * cloud row has been touched since the caller's read, the op is moved
+   * to `ff_sync_conflicts` instead of being silently dropped or retried.
+   */
+  expectedUpdatedAt?: string;
 }
 
 const QUEUE_KEY = 'ff_sync_queue';
+const CONFLICT_KEY = 'ff_sync_conflicts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -123,9 +131,12 @@ export class HybridAdapter implements DataAdapter {
   }
 
   // ── Write path: cache + queue + try flush ──────────────────
-  async upsert<T extends { id?: string }>(entity: Entity, householdId: string, record: T): Promise<T & { id: string }> {
+  async upsert<T extends { id?: string }>(entity: Entity, householdId: string, record: T, expectedUpdatedAt?: string): Promise<T & { id: string }> {
+    // The cache write always succeeds — it's per-tab and not subject to
+    // cross-user concurrency. The version precondition only applies to
+    // the cloud leg, which is queued and flushed below.
     const local = await this.cache.upsert(entity, householdId, record);
-    this.enqueue({ ts: Date.now(), op: 'upsert', entity, householdId, payload: local });
+    this.enqueue({ ts: Date.now(), op: 'upsert', entity, householdId, payload: local, expectedUpdatedAt });
     this.flushQueue();
     return local;
   }
@@ -240,7 +251,7 @@ export class HybridAdapter implements DataAdapter {
           continue;
         }
         try {
-          if      (op.op === 'upsert')        await this.cloud.upsert(op.entity!, op.householdId, op.payload as { id?: string });
+          if      (op.op === 'upsert')        await this.cloud.upsert(op.entity!, op.householdId, op.payload as { id?: string }, op.expectedUpdatedAt);
           else if (op.op === 'remove')        await this.cloud.remove(op.entity!, op.householdId, op.id!);
           else if (op.op === 'replaceAll')    await this.cloud.replaceAll(op.entity!, op.householdId, op.payload as unknown[]);
           else if (op.op === 'updateProfile') await this.cloud.updateProfile(op.householdId, op.payload as Partial<Profile>);
@@ -249,7 +260,22 @@ export class HybridAdapter implements DataAdapter {
           // and RLS access to this (hid, entity); mark synced so subsequent
           // empty list responses are trusted, not treated as transient.
           if (op.entity) this.markSynced(op.entity, op.householdId);
-        } catch {
+        } catch (e) {
+          // TD-03 — concurrency conflict is a *terminal* outcome for this op,
+          // not a retryable transient failure. The local cache already
+          // reflects the user's intended edit; the cloud has a newer version
+          // from someone else's write. Retrying would keep failing because
+          // the precondition won't suddenly match again. Move the op to a
+          // separate dead-letter bucket so the UI can surface it (TD-03
+          // phase B will add the toast), and DO NOT push it back into the
+          // main queue (would jam every later op).
+          if (e instanceof ConcurrencyConflictError) {
+            this.recordConflict(op);
+            if (typeof console !== 'undefined') {
+              console.warn('[FinFlow sync] Concurrency conflict — op dead-lettered:', op.entity, e.id, 'expected', e.expectedUpdatedAt);
+            }
+            continue;
+          }
           remaining.push(op);
         }
       }
@@ -259,7 +285,38 @@ export class HybridAdapter implements DataAdapter {
     }
   }
 
+  private recordConflict(op: QueueOp): void {
+    try {
+      const raw = localStorage.getItem(CONFLICT_KEY);
+      const list: QueueOp[] = raw ? JSON.parse(raw) : [];
+      list.push(op);
+      localStorage.setItem(CONFLICT_KEY, JSON.stringify(list));
+    } catch { /* storage full — non-fatal */ }
+  }
+
   pendingOpCount(): number {
     return this.readQueue().length;
+  }
+
+  /**
+   * Number of ops that were rejected by the cloud due to a concurrency
+   * conflict and are now in the dead-letter bucket awaiting user review.
+   * UI surfaces this in TD-03 phase B (PR #12) as a "X edits couldn't be
+   * saved" toast with a "Review" affordance.
+   */
+  pendingConflictCount(): number {
+    try {
+      const raw = localStorage.getItem(CONFLICT_KEY);
+      return raw ? (JSON.parse(raw) as QueueOp[]).length : 0;
+    } catch { return 0; }
+  }
+
+  /**
+   * Drop all dead-lettered conflict ops. Called from the UI's
+   * `SyncConflictBanner` "Dismiss" affordance after the user has been
+   * informed and (typically) re-applied any edits manually.
+   */
+  clearConflicts(): void {
+    try { localStorage.removeItem(CONFLICT_KEY); } catch { /* noop */ }
   }
 }

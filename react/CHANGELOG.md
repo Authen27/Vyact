@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.9`**
+> **Current production version: `v6.4.25`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,239 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.25 — Lead review pass + TD-08 audit triggers + TD-04 extension catch-up (remediation PR #13 batch) *(2026-05-24)*
+
+This release is the lead engineer's review pass over the developer batch that landed v1.0.8 (admin slugify) and v6.4.20..v6.4.24 (consumer items). The batch was delivered as one large bag of working-tree changes rather than the 10 disciplined commits the handoff prompt specified; rather than send it back I've taken it forward, with corrections and the omitted items inline. The PR-number labels the developer applied to each sub-entry (#13/#14/#15/#16/#17) are kept for traceability but they are all part of a single PR #13 batch.
+
+**What the dev delivered cleanly (accepted as-is):**
+- v1.0.8 — admin `slugify()` returns `''` for entirely-stripped input (Trim moved after punctuation strip; `ADM-UNIT-006` flipped back to its original assertion).
+- v6.4.20 — TD-15: MFA enrolment wrappers in `react/src/lib/auth.ts` + Settings → Security subsection + new `docs/AUTH_HARDENING.md` runbook for the Supabase project-level config (out-of-repo).
+- v6.4.21 — TD-13: `budgets.period` / `period_start` / `period_end` columns via a new migration; `budgetMeta.ts` marked deprecated.
+- v6.4.22 — TD-09: Six entity-specific `replace_<entity>(h, rows)` RPCs (the dev wrote one per entity instead of the single generic `replace_all_atomic` the prompt requested — functionally equivalent, more verbose, accepted). Adapter `replaceAll` swapped to call the RPC.
+- v6.4.23 — TD-10: Sidebar-mounted sync-status badge with 5-state machine (`Local`/`Offline`/`Conflict(s)`/`Syncing`/`Synced`).
+- v6.4.24 — TD-12: Memoised selectors in `react/src/lib/selectors.ts` + Dashboard rewired to use them.
+
+**Lead corrections applied (this v6.4.25 entry):**
+
+- **TD-08 audit triggers — missing pieces fixed.** The submitted migration was missing the `memberships` table from the trigger loop (membership changes are exactly the multi-household audit signal we need) and missing `SET search_path = public, pg_temp` on the SECURITY DEFINER function (search-path injection risk). Both fixed in `supabase/migrations/20260524071000_audit_triggers.sql`.
+- **Filename case — `SyncStatusBadge.tsx`.** Submitted as `syncstatusbadge.tsx` (lowercase) with imports `'../ui/badge'`. Both would fail TypeScript build on Linux CI (case-sensitive). Renamed to PascalCase + updated `Sidebar.tsx` and Badge imports.
+- **Baseline `react/e2e/tests/` ID drift.** Three Playwright specs from the QA scaffolding stream (`TXN-FC-001`, `NWRT-FC-002`, `DEBT-FC-002`) used a parallel functional-case ID format the reconciler refused. Renamed in-place to `CON-E2E-007/008/009` with the FC reference preserved in brackets; catalogued in `docs/TEST_SCENARIOS.md`. Pre-existing issue, not the dev's fault, but blocked the gate.
+- **`db/schema.sql` regenerated.** Dev added 6 migrations but never ran `node scripts/db-migrations-check.mjs --fix`, so the snapshot drifted by ~27 KB.
+- **Extraneous artifacts removed.** `PR_CHECKLIST.md`, `PR_COMMIT_PLAN.md`, and `scripts/commit_and_validate.ps1` were dev process docs — not part of the deliverable.
+
+**TD-04 extension catch-up (this v6.4.25 entry):**
+
+- TD-04-ext-a (subscriptions table + `paidSubscriptions`/`mrr` KPI plug-in): **accepted** — clean migration, RLS, audit trigger.
+- TD-04-ext-b (content_items + content_favorites + KPI plug-in): **accepted**.
+- TD-04-ext-c: **scope deviation.** Prompt requested `admin_list_users` / `admin_weekly_trend` / `admin_ai_usage_summary` (which back the existing adminApi.ts fetchers). Dev delivered an entirely different RPC set — `admin_list_subscriptions`, `admin_cancel_subscription`, `admin_get_mrr_by_currency`, `admin_publish_content_item`, `admin_unpublish_content_item`. The work is functionally useful (admin subscription/content lifecycle management) so it's accepted, but the originally-requested 3 read RPCs **remain unaddressed and are re-queued on the lead's workstream.** Migration header comment documents this.
+
+**TD-12 quality note (not fixed in this PR):** the new `selectors.ts` uses `any[]` and `(...args: any[]) => any` extensively. The codebase has real entity types (`Transaction[]`, `Budget[]`, etc.); replacing the `any`s with proper generics is a quality follow-up. ESLint warns but does not error, so the gate passes.
+
+**TD-09 quality note (not fixed in this PR):** the prompt called for a new `CON-UNIT-054` test pinning the `replaceAll → rpc()` swap. Dev did not add it. The path is covered transitively by existing tests in `supabaseAdapter.test.ts`; adding the explicit pin is a follow-up.
+
+**Items resolved this batch (Summary-table marker flipped):** TD-08, TD-09, TD-10, TD-12, TD-13, TD-15, slugify (TD-01 follow-up). TD-04 remains partially resolved (extensions a + b in; admin RPCs c partially in but deviated).
+
+Local automation gate after corrections: PASS (10/10 gates). Catalog 73 ↔ 73 lock-step. db/schema.sql in sync at 8 migrations / ~64 KB.
+
+---
+
+## v6.4.24 — TD-12: Memoised selectors + Dashboard updates (remediation PR #17) *(2026-05-24)*
+
+Centralise and memoise expensive derived metrics used by the Dashboard. Introduces `lib/selectors.ts` which exposes memoized selectors for monthly aggregates, pulse score, insights, category spend, recent transactions, and balance-sheet totals. `Dashboard.tsx` now consumes these selectors to avoid redundant O(n) recomputation on unrelated state changes.
+
+- [`react/src/lib/selectors.ts`](react/src/lib/selectors.ts) — memoized selectors for derived metrics.
+- [`react/src/pages/Dashboard.tsx`](react/src/pages/Dashboard.tsx) — switched to the memoized selectors.
+
+**TD-12 status:** selectors added and Dashboard updated; run `node scripts/automation-run.mjs` locally before committing.
+
+## v6.4.23 — TD-10: Sync status badge + Sidebar mount (remediation PR #16) *(2026-05-24)*
+
+Adds a small sync status badge to the sidebar header to surface local/cloud sync state and queued operations. The badge reflects `Local`, `Offline`, `Syncing`, `Synced`, and `Conflict(s)` states by polling the adapter for pending queue and conflict counts.
+
+- [`react/src/components/layout/syncstatusbadge.tsx`](react/src/components/layout/syncstatusbadge.tsx) — new UI component showing adapter sync state.
+- [`react/src/components/layout/sidebar.tsx`](react/src/components/layout/sidebar.tsx) — mounts `SyncStatusBadge` next to the notification center in the sidebar header.
+
+**TD-10 status:** front-end badge added; validate UI and run `node scripts/automation-run.mjs` locally before committing release.
+
+## v6.4.22 — TD-09: Atomic replace_all RPC & adapter call (remediation PR #15) *(2026-05-24)*
+
+Adds server-side `replace_<entity>(h uuid, rows jsonb)` RPCs to perform atomic bulk-replace operations for domain tables (transactions, budgets, goals, debts, assets, members). The `SupabaseAdapter.replaceAll()` implementation now calls the appropriate RPC for improved performance and correctness during imports and initial syncs.
+
+- [`supabase/migrations/20260524073000_replace_all_rpc.sql`](supabase/migrations/20260524073000_replace_all_rpc.sql) — new RPCs: `replace_transactions`, `replace_budgets`, `replace_goals`, `replace_debts`, `replace_assets`, `replace_memberships`.
+- [`react/src/lib/supabaseAdapter.ts`](react/src/lib/supabaseAdapter.ts) — `replaceAll()` now invokes server RPCs and returns the inserted rows.
+
+**TD-09 status:** migration added; run `node scripts/db-migrations-check.mjs --fix` locally and then `node scripts/automation-run.mjs` to validate gates before committing release.
+
+## v6.4.21 — TD-13: Budgets period column migration (remediation PR #14) *(2026-05-24)*
+
+Schema migration release. Adds `period`, `period_start`, `period_end` to the `budgets` table (migration: `supabase/migrations/20260524070000_budgets_add_period.sql`). Client row mappers updated to read/write these columns; local `budgetMeta.ts` kept as a compatibility shim for one release and marked deprecated.
+
+- [`supabase/migrations/20260524070000_budgets_add_period.sql`](supabase/migrations/20260524070000_budgets_add_period.sql) — adds `period` (text default 'monthly'), `period_start` (date), and `period_end` (date) to `budgets` and a `CHECK` constraint over allowed period values.
+- [`react/src/lib/supabaseAdapter.ts`](react/src/lib/supabaseAdapter.ts) — row mappers `rowToBudget` / `budgetToRow` now include `period`, `period_start`, and `period_end`.
+- [`react/src/lib/budgetMeta.ts`](react/src/lib/budgetMeta.ts) — marked deprecated pending migration roll-out; the store still writes local period metadata for a single release to preserve UX during the migration window.
+
+**TD-13 status:** migration file added. Developer must run `node scripts/db-migrations-check.mjs --fix` locally to regenerate `db/schema.sql` before gating and release.
+
+## v6.4.20 — TD-15: MFA enrolment & Auth hardening (remediation PR #13) *(2026-05-24)*
+
+Security release. Adds client-side helpers and a Settings UI subsection to enrol and manage TOTP MFA factors via Supabase Auth. Also adds `docs/AUTH_HARDENING.md` with a short runbook and rollout recommendations.
+
+- [`react/src/lib/auth.ts`](react/src/lib/auth.ts) — new MFA helper wrappers: `enrollMfaTotp()`, `verifyMfaEnrolment()`, `listMfaFactors()`, `unenrollMfaFactor()` to keep pages decoupled from Supabase internals.
+- [`react/src/pages/Settings.tsx`](react/src/pages/Settings.tsx) — new **Security** panel: enable TOTP enrolment, QR provisioning, verification, and factor unenrolment. Cloud-mode only.
+- [`docs/AUTH_HARDENING.md`](docs/AUTH_HARDENING.md) — runbook for Supabase MFA, leaked-password protection, and recommended rate limits.
+
+**TD-15 status:** remediation started; Settings UI and helpers implemented. Rollout: opt-in enrolment exposed in Settings; enforcement TBD per policy.
+
+## v6.4.19 — TD-03 phase B: concurrency wired across all CRUD + in-app conflict banner (remediation PR #12) *(2026-05-23)*
+
+**Closes TD-03.** Phase A (PR #11) added the cloud-side compare-and-set and the dead-letter bucket; this PR threads the precondition through every CRUD entity and surfaces conflicts to the user with an in-app banner. After this lands, two household members editing the same row no longer silently overwrite each other anywhere in the app.
+
+- [`react/src/types.ts`](react/src/types.ts) — `Budget`, `Goal`, `Debt`, `Asset` interfaces gain `updated_at?: string`. `Transaction` already had it. Documented with TD-03 phase B JSDoc tags.
+- [`react/src/lib/supabaseAdapter.ts`](react/src/lib/supabaseAdapter.ts) — the four row mappers `rowToBudget`, `rowToGoal`, `rowToDebt`, `rowToAsset` now thread `r.updated_at` into the returned JS shape (matching the pattern `rowToTxn` already used).
+- [`react/src/store.ts`](react/src/store.ts) — `upsertBudget` / `upsertGoal` / `upsertDebt` / `upsertAsset` mirror PR #11's `upsertTransaction`: pass `record.updated_at` as the 4th `adapter.upsert` argument when both id and version are present (= an edit). New-record inserts still go through the legacy path. **Every CRUD modal in the app is now protected.**
+- [`react/src/lib/hybridAdapter.ts`](react/src/lib/hybridAdapter.ts) — new `clearConflicts()` method drops the dead-letter bucket. Paired with `pendingConflictCount()` from PR #11.
+- [`react/src/components/layout/SyncConflictBanner.tsx`](react/src/components/layout/SyncConflictBanner.tsx) **(new)** — polls `adapter.pendingConflictCount()` every 5 seconds; renders nothing while count is 0; otherwise shows a banner ("N edits couldn't be saved — A household member edited the same item before you…") at the top of the main content area with a Dismiss button that calls `clearConflicts()`. Cloud-mode-only (the LocalStorageAdapter has neither method, both calls are guarded by `typeof` checks; local-mode users never see the banner).
+- [`react/src/components/layout/Layout.tsx`](react/src/components/layout/Layout.tsx) — mounts `<SyncConflictBanner />` above `{children}` inside the main content area.
+
+**On testing — explicit rationale:** the conflict-detection mechanism is entity-agnostic (CON-UNIT-051..053 from PR #11 exercise it via `'transactions'`; the same function handles `budgets` / `goals` / `debts` / `assets` identically — only the entity-string argument differs). Adding four near-duplicate vitest specs for the other entities would have proven nothing CON-UNIT-051..053 don't already prove. The PR's new surface is: type-system additions (compile-time enforced by `tsc`), row-mapper field additions (type-system enforced by the return type), store-action argument threading (type-system enforced + verified by manual modal save), and a presentational banner with a 5-second poll (visually verifiable). The full automation gate's typecheck + build + existing CON-UNIT-051..053 give the merge-time signal that matters here.
+
+**TD-03 status:** marked **Resolved** in [`TECH_DEBT.md`](TECH_DEBT.md). The longer-term work (CRDT / per-field merge for high-contention entities) is outside the register's TD-03 scope and would be a separate, future item.
+
+---
+
+## v6.4.18 — TD-03 phase A: optimistic concurrency at the cloud boundary (remediation PR #11) *(2026-05-23)*
+
+Begins **TD-03 (optimistic concurrency)**. The cloud adapter previously did last-write-wins on every upsert, so two members of a shared household editing the same row would silently overwrite each other. This PR adds the *plumbing* and *detection* — a guarded UPDATE with an `updated_at` precondition, a typed `ConcurrencyConflictError`, and a dead-letter bucket on the sync queue — and wires it through one real call site (Transactions edit) as the proof. Phases B (UI surfacing) and C (wire the other CRUD entities) are queued PRs.
+
+- [`react/src/lib/dataAdapter.ts`](react/src/lib/dataAdapter.ts) — `DataAdapter.upsert` interface gains an optional `expectedUpdatedAt?: string` 4th argument. LocalStorageAdapter accepts it for parity (single-user, no concurrency to enforce) and ignores it.
+- [`react/src/lib/supabaseAdapter.ts`](react/src/lib/supabaseAdapter.ts) — new exported `ConcurrencyConflictError` class. `upsert` splits into two paths: **guarded** when `expectedUpdatedAt` is supplied AND the record has an id, performs `.update(row).eq('id', id).eq('updated_at', expected).select().maybeSingle()`; zero rows matched ⇒ throws `ConcurrencyConflictError`. **Legacy** when no precondition is supplied — back-compat last-write-wins upsert. The `updated_at` field is stripped from the row body since the DB's `touch_*` trigger sets it on every UPDATE.
+- [`react/src/lib/hybridAdapter.ts`](react/src/lib/hybridAdapter.ts) — `QueueOp` carries the new `expectedUpdatedAt`. `flushQueue` catches `ConcurrencyConflictError` and moves the op to a new `ff_sync_conflicts` localStorage bucket (instead of pushing back into the main queue, which would jam every later op). New `pendingConflictCount()` method for TD-03 phase B's UI toast.
+- [`react/src/store.ts`](react/src/store.ts) — `upsertTransaction` now threads `t.updated_at` as the precondition whenever the record has both an `id` and an `updated_at` (i.e. an edit). New transactions (no version yet) still go through the legacy insert path. **First real call site exercising the concurrency path**; the other 4 CRUD entities (Budget, Goal, Debt, Asset) are wired in PR #12.
+-]  [`react/src/lib/__tests__/supabaseAdapter.test.ts`](react/src/lib/__tests__/supabaseAdapter.test.ts) **(new)** — 3 ID-tagged tests (`CON-UNIT-051..053`) using a minimal vitest-mocked Supabase client: happy-path guarded UPDATE returns the server row; `data: null` on stale precondition throws `ConcurrencyConflictError`; no-precondition path still uses the legacy `.upsert()`.
+
+**Out of scope (deferred to PR #12+):**
+
+- UI surfacing of conflicts (toast + "Review" affordance using `pendingConflictCount()`).
+- Threading `updated_at` through Budget / Goal / Debt / Asset store actions.
+- Auto-refetch and present-conflict-in-modal flows for user-driven merge.
+
+---
+
+## v6.4.17 — TD-01 phases C+D: decimal money — amortisation + cloud boundary (remediation PR #10) *(2026-05-23)*
+
+**Closes TD-01.** Combined Phase C (amortisation engine) and Phase D (cloud boundary + types) into a single release. After this PR, the entire money-handling pipeline — FX boundary, aggregations, EMI / interest chains, and cloud row-mappers — runs through dinero-quantised math in the appropriate currency. Aggregation drift across long histories and 300-month amortisation schedules is gone.
+
+**Phase C — `react/src/lib/amortization.ts`:**
+
+- New internals: `quantizeDinero` (banker's-round to native currency exponent) + `rateAsScaled` (express a JS float rate as the scaled factor `dinero.multiply` accepts).
+- [`splitPayment`](react/src/lib/amortization.ts) now takes an **optional `currency`** parameter. When supplied, both interest *and* principal are computed in dinero (subtract in dinero space, then `fromDinero` at the edge), so `splitPayment(200000, 5, 1170, 'GBP')` returns exactly `{interest: 833.33, principal: 336.67}` — not the float-drift `336.66999999999996` you'd get from `1170 - 833.33` in raw JS. Default (no currency) preserves legacy float behaviour for back-compat.
+- [`calculateAmortizationSchedule`](react/src/lib/amortization.ts) carries the outstanding balance as a Dinero in `debt.currency` across the entire iteration (`subtract(outstandingD, principalD)`) so a 300-row schedule can't accumulate per-step drift. New regression pin `CON-UNIT-047` asserts `Σ row.principal ≈ debt.currentBalance` within £0.01.
+- [`applyPayment`](react/src/lib/amortization.ts) threads `debt.currency` into `splitPayment` and recomputes `newOutstanding` via dinero subtract. `CON-UNIT-036` tightened from `toBeCloseTo` to strict `.toBe`.
+- [`interestSummary`](react/src/lib/amortization.ts) reuses Phase B's `sumDinero` to fold lifetime / YTD / principalPaid in integer minor units. `CON-UNIT-039` tightened to strict `.toBe`.
+- `computeEmi` / `computeRemainingMonths` intentionally **stay as float derivations** — their outputs feed into the dinero-quantised layers above where currency-aware exactness lives.
+
+**Phase D — cloud boundary + types:**
+
+- [`react/src/lib/money.ts`](react/src/lib/money.ts) exports a new `parseMoneyFromCloud(v)` helper. Accepts string (the Supabase `numeric(15,2)` JSON serialisation), number, null, undefined, or empty. Returns 0 on null / undefined / empty / NaN. Centralises the cloud-boundary contract.
+- [`react/src/lib/supabaseAdapter.ts`](react/src/lib/supabaseAdapter.ts) row mappers (`rowToTxn`, `rowToBudget`, `rowToGoal`, `rowToDebt`, `rowToAsset`) replace inline `Number(r.amount)` casts with `parseMoneyFromCloud(...)`. Non-money decimals (interest_rate %, rate_to_usd) keep their plain `Number()` on purpose — different failure semantics. Two new tests `CON-UNIT-049/050` pin the contract.
+- [`react/src/types.ts`](react/src/types.ts) gains a header-level **"Money fields (TD-01 discipline)"** doc block that documents the dinero contract end-to-end and notes that a future `Money` opaque type will move the guarantee from runtime convention to the compiler.
+- **`Money` UI component** ([`react/src/components/ui/Money.tsx`](react/src/components/ui/Money.tsx)) was audited: it only calls `fmt()` / `fmtShort()` — pure formatting, no math. Unchanged.
+
+**Test catalog growth:** 4 new pins (`CON-UNIT-047/048/049/050`); 5 tightened from `toBeCloseTo` to strict `.toBe`. Coverage table updated to 50 consumer-unit / 67 total. [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) catalog in lock-step.
+
+**TD-01 status:** the `[TD-01]` entry can now be marked **Resolved** in `TECH_DEBT.md`. The remaining future-cleanup work (introducing a `Money` opaque type to move runtime convention into the compiler) is a separate, smaller PR — not part of TD-01's spec.
+
+---
+
+## v6.4.16 — TD-01 phase B: decimal money — aggregations in dinero space (remediation PR #9) *(2026-05-23)*
+
+Continues the TD-01 rollout. Phase A (PR #8) wired the FX boundary through dinero so each per-call `convert()` was exact. Phase B migrates every **aggregator** in [`react/src/lib/calculations.ts`](react/src/lib/calculations.ts) to fold in dinero space — integer-cents arithmetic with `add` — instead of using JS `+` on `number`. The reductions no longer accumulate float drift across many transactions.
+
+- [`react/src/lib/money.ts`](react/src/lib/money.ts) — exports `addDinero` (re-export of dinero's `add`), new `dineroZero(code)` for accumulator initial state, new generic `sumDinero(items, getDinero, baseCode)` helper.
+- [`react/src/lib/calculations.ts`](react/src/lib/calculations.ts) — internal-only `effectiveDinero(t, base, rates)` produces a Dinero in the base currency; every public aggregator (`monthlyData`, `totalBalance`, `spendByCategory`, `spendByCategoryInRange`, `totalAssets`, `totalLiabilities`, `liquidAssets`, `totalMonthlyDebtPayment`, `splitsOutstanding`) now sums Dineros and calls `fromDinero` only at the function edge. `effectiveAmount` is kept as a thin `number`-returning wrapper for callers that don't yet need Dinero. Public signatures unchanged — every existing call site works without any change.
+- Tests in [`calculations.test.ts`](react/src/lib/__tests__/calculations.test.ts) **tightened from `toBeCloseTo(x, 10)` to strict `.toBe(x)`** where exactness is now achievable (which is most of them — single-currency integer sums + the FX cases that are quantised at the boundary). The previously-tolerant assertions were a hedge against the very drift that's gone.
+- **New `CON-UNIT-046`** pins TD-01 phase B's signature improvement directly: summing 10 expenses of `$0.10` returns exactly `-1.00` via `totalBalance`. Before phase B, the reducer drifted into `-1.0000000000000002` because of the classic `0.1 + 0.2 ≠ 0.3` float problem.
+- `computeEmi` / `splitEmiPortions` (loan math) intentionally **not yet migrated** — they go to Phase C (PR #10) alongside the rest of `amortization.ts`.
+
+Phases C (PR #10) and D (PR #11) remain queued.
+
+---
+
+## v6.4.15 — TD-01 phase A: decimal money — dinero.js at the FX boundary (remediation PR #8) *(2026-05-23)*
+
+**TD-01 (decimal money) starts here.** Phase A of a phased rollout. The `convert()` FX function previously did `(amount / rFrom) * rTo` on raw JS floats, which drifted across round-trips and across aggregations — the canonical TD-01 example. This release wires `convert()` through **dinero.js v2** with banker's rounding at the FX boundary. The public signature is unchanged (number → number, major units), so no caller has to change today; the gain is that the conversion math is now exact integer arithmetic with currency-aware re-quantisation at the edge.
+
+- [`react/src/lib/money.ts`](react/src/lib/money.ts) — new boundary layer. `CURRENCY_REGISTRY` registers all 12 supported currencies with the `@dinero.js/currencies` definitions (JPY=0 decimals natively); `toDinero` / `fromDinero` scale into and out of integer minor units; `convertViaUsdRates` does the FX through USD as before but each leg is dinero-mediated. After every conversion the result is re-quantised to the target currency's native exponent using banker's (half-to-even) rounding, so sub-cent precision from `(amount × rateScaled)` does not bleed through to subsequent operations.
+- [`react/src/lib/format.ts`](react/src/lib/format.ts) — `convert()` body now delegates to `convertViaUsdRates(toDinero(...))` then `fromDinero(...)`. Same arguments, same return type, exact math in the middle.
+- [`react/src/lib/__tests__/money.test.ts`](react/src/lib/__tests__/money.test.ts) — six new ID-tagged unit tests (`CON-UNIT-040..045`) pinning the contract every later phase will lean on (registry coverage, fallback semantics, JPY zero-decimals, and the quantisation that fixed CON-UNIT-006).
+- [`react/src/lib/__tests__/format.test.ts`](react/src/lib/__tests__/format.test.ts) — **`CON-UNIT-006` flipped** from a TD-01 *characterization* test ("round-trip USD→EUR→USD does NOT return the original") to a positive assertion of the fixed behaviour using strict `.toBe(start)` rather than `toBeCloseTo`. The catalog row in [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) is updated to match.
+- New dev-deps: `dinero.js@^2.0.2` (stable) + `@dinero.js/currencies@^2.0.0-alpha.14`.
+
+**What this PR explicitly does *not* do** (planned for the next phases):
+
+- Phase B (PR #9): migrate `calculations.ts` aggregations to operate in dinero internally so sums no longer drift across `reduce`.
+- Phase C (PR #10): migrate `amortization.ts` (EMI/interest split/schedule/payment apply).
+- Phase D (PR #11): adapter row mappers, `Money` UI component, types.ts `Money` opaque type, charts.
+
+The bundle gains ~5 KB tree-shaken from dinero.js v2.
+
+---
+
+## v6.4.14 — Route-level code splitting (remediation PR #5) *(2026-05-23)*
+
+Performance release. Addresses **TD-11** from the technical-debt register. All page imports in [`react/src/App.tsx`](react/src/App.tsx) now use `React.lazy` and the `<Routes>` blocks are wrapped in `<Suspense fallback={…}>`. Because Recharts is imported only from `components/charts/Charts.tsx` (used by Dashboard, Reports, NetWorth), the route-level split means Recharts ships only in those three route chunks — not in the initial bundle, and not on the Transactions / Budgets / Goals / Settings / Help paths. Faster first paint on mobile and low-bandwidth connections. No user-visible change.
+
+- [`react/src/App.tsx`](react/src/App.tsx) — every page import (consumer routes + auth routes + a new `__e2e_error` test route for `CON-E2E-005`) converted to `React.lazy`; `<Suspense>` boundary added inside `AppShell` and around the auth-only `<Routes>` block.
+- [`react/e2e/tests/code-splitting.spec.ts`](react/e2e/tests/code-splitting.spec.ts) — new spec **`CON-E2E-006`** observes network requests on `/transactions` (asserts no Recharts chunk is fetched), then on `/dashboard` (asserts it is). Catalogued in [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md).
+- **Review note (engineering):** the originally-submitted patch also tried to wrap every individual Recharts primitive (`<AreaChart>`, `<Area>`, `<XAxis>`, …) in its own `React.lazy`/`Suspense` inside `Charts.tsx`. Recharts requires its primitive children to register synchronously with their parent, so that approach broke chart rendering and produced N+1 redundant dynamic imports of the same module. Reverted to the original `Charts.tsx`; the route-level split above is the correct and sufficient implementation.
+
+---
+
+## v6.4.13 — Top-level error boundary (remediation PR #4) *(2026-05-23)*
+
+Resilience release. Addresses **TD-05**. A top-level `<ErrorBoundary>` now wraps `<BrowserRouter>` in [`react/src/main.tsx`](react/src/main.tsx). Any uncaught render error now shows a friendly fallback ("Something broke — Your data is safe locally") with a Try-Again button that resets the boundary state. No data loss; localStorage and the sync queue are untouched.
+
+- [`react/src/components/ui/ErrorBoundary.tsx`](react/src/components/ui/ErrorBoundary.tsx) — new class component using `getDerivedStateFromError` + `componentDidCatch`; Sentry wiring placeholder for a future PR.
+- [`react/src/main.tsx`](react/src/main.tsx) — boundary mounted at the React root, outside `<BrowserRouter>` so route errors are also caught.
+- [`react/src/pages/__e2e__ErrorTest.tsx`](react/src/pages/__e2e__ErrorTest.tsx) — tiny page that throws on render, mounted at `/__e2e_error` (added in v6.4.14's App route table) purely so the E2E test below can exercise the boundary.
+- [`react/e2e/tests/error-boundary.spec.ts`](react/e2e/tests/error-boundary.spec.ts) — new spec **`CON-E2E-005`** navigates to `/__e2e_error`, asserts the fallback, clicks Try Again, asserts recovery. Catalogued in [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md).
+
+---
+
+## v6.4.12 — Transactions list virtualization (remediation PR #3) *(2026-05-23)*
+
+Performance-only release. Addresses **TD-17**. The Transactions page list now uses `@tanstack/react-virtual`, so the DOM contains only O(viewport) row nodes even with 10 000+ transactions. Visible UI, filters, search, day-filter chip, calendar toggle, and row actions are all unchanged.
+
+- [`react/src/pages/Transactions.tsx`](react/src/pages/Transactions.tsx) — list block wrapped in a fixed-height scroll container driven by `useVirtualizer`. Estimate size 64 px (matches `TxnRow`'s `py-2.5` + 1px border); overscan 8 rows.
+- [`react/src/components/transactions/TxnRow.tsx`](react/src/components/transactions/TxnRow.tsx) — added `data-testid="txn-row"` so the acceptance check (`document.querySelectorAll('[data-testid="txn-row"]').length` ≤ ~40 at 10k rows) is reproducible.
+- [`react/package.json`](react/package.json) — added `@tanstack/react-virtual` dependency.
+- **Review note (engineering):** the originally-submitted patch placed the `useRef` and `useVirtualizer` calls *inside the JSX*, as raw `const …` statements between the `<EmptyState />` ternary and the closing `</Panel>`. That was a TypeScript compile error and a Rules-of-Hooks violation. Hoisted into the component body, after `filtered` is defined and before the JSX return.
+
+---
+
+## v6.4.11 — Test scenarios master catalog + per-scenario audit evidence (remediation PR #2) *(2026-05-23)*
+
+Tooling-only release, no user-visible change. Establishes a **master Test Scenarios catalog** and rebuilds the automation report so every run leaves durable, per-scenario evidence for both success and failure. Closes finding **N1** of the 2026-05-22 assessment for the consumer side by tagging every consumer test with a stable ID.
+
+- [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) — new master catalog. Every scenario in code is listed here with a stable `{APP}-{LAYER}-{NNN}` ID, the file it lives in, a description, and any TD link. Regression-managed: PRs adding / renaming / removing scenarios must update this file in the same commit.
+- [`scripts/test-scenarios-check.mjs`](scripts/test-scenarios-check.mjs) — CI reconciler. Walks `react/src/lib/__tests__`, `react/e2e/tests` (and admin's). Fails the gate on: orphan ID in code, orphan ID in doc, duplicate IDs, retired-ID reuse, or file-column drift.
+- Consumer tests now all carry their TS ID in the title: `CON-UNIT-001..039` across `format.test.ts` / `calculations.test.ts` / `amortization.test.ts`; `CON-E2E-001..004` in `smoke.spec.ts`. One characterization test pins TD-01: `CON-UNIT-006 · [TD-01] round-trip USD→EUR→USD does NOT return exactly the original`.
+- [`scripts/automation-run.mjs`](scripts/automation-run.mjs) — report rewrite. Every run's `report.md` now includes a **Test scenarios** section: per-app × per-layer pass/fail/total matrix, the catalog reconciler line, **Failure details** with the error message + stack excerpt per failed TS ID, and a complete **Pass register** capturing every passing TS ID + duration for audit. `summary.json` gains a `scenarios.records` array. The run register `automation-runs/INDEX.md` now includes a Scenarios cell on every row.
+
+---
+
+## v6.4.10 — ESLint floor (remediation PR #1) *(2026-05-23)*
+
+First real linter for the consumer app — the old `npm run lint` was `tsc --noEmit` (now preserved as `npm run typecheck`). Tooling-only, no user-visible change. Closes finding **N2** of the 2026-05-22 remediation assessment ("there is no real linter anywhere") and gives every later [`TECH_DEBT.md`](TECH_DEBT.md) PR a real `react-hooks/exhaustive-deps` and unused-vars signal.
+
+- [`react/eslint.config.js`](react/eslint.config.js) — new flat config: `@eslint/js` recommended, `typescript-eslint` recommended (non-type-checked, fast), `react-hooks` plugin. `rules-of-hooks` as error. `exhaustive-deps`, `no-unused-vars`, `no-explicit-any` as warnings — surfaces the pre-existing debt without blocking the gate, ratcheted to errors as the related TECH_DEBT items land.
+- [`react/package.json`](react/package.json) — `lint` now runs `eslint .`; added `typecheck` script for the previous `tsc --noEmit` behaviour. Added dev-deps: `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `globals`.
+- `e2e/` is ignored by ESLint (matches tsconfig); Playwright's fixture-injection `use` callback was being mis-flagged as a React hook.
+- [`react/src/pages/Households.tsx`](react/src/pages/Households.tsx) — the first real bug ESLint found: a `cond && fn()` short-circuit at statement position in the invite-sent handler (no-op as written). Rewritten as `if (cond) fn()`.
+- [`scripts/automation-run.mjs`](scripts/automation-run.mjs) — relabelled the existing `lint` gate to "ESLint" and split out a new "type-check" gate so both stay independently visible in `report.md`.
+
+---
 
 ## v6.4.9 — Calendar: all months, recurring projection, day filter, on-demand *(2026-05-22)*
 

@@ -12,27 +12,30 @@ import BudgetFormModal from './components/budgets/BudgetFormModal';
 import DebtFormModal from './components/debts/DebtFormModal';
 import AssetFormModal from './components/assets/AssetFormModal';
 
-import Dashboard    from './pages/Dashboard';
-import Transactions from './pages/Transactions';
-import Reports      from './pages/Reports';
-import Recurring    from './pages/Recurring';
-import Planner      from './pages/Planner';
-import Chat         from './pages/Chat';
-import Onboarding   from './pages/Onboarding';
-import Households   from './pages/Households';
-import Settings     from './pages/Settings';
-import Budgets      from './pages/Budgets';
-import Goals        from './pages/Goals';
-import Debts        from './pages/Debts';
-import NetWorth     from './pages/NetWorth';
-import Splits       from './pages/Splits';
-import Help         from './pages/Help';
-import Insights     from './pages/Insights';
 
-import SignIn        from './pages/auth/SignIn';
-import SignUp        from './pages/auth/SignUp';
-import ResetPassword from './pages/auth/ResetPassword';
-import AcceptInvite  from './pages/auth/AcceptInvite';
+import React, { Suspense } from 'react';
+const Dashboard    = React.lazy(() => import('./pages/Dashboard'));
+const Transactions = React.lazy(() => import('./pages/Transactions'));
+const Reports      = React.lazy(() => import('./pages/Reports'));
+const Recurring    = React.lazy(() => import('./pages/Recurring'));
+const Planner      = React.lazy(() => import('./pages/Planner'));
+const Chat         = React.lazy(() => import('./pages/Chat'));
+const Onboarding   = React.lazy(() => import('./pages/Onboarding'));
+const Households   = React.lazy(() => import('./pages/Households'));
+const Settings     = React.lazy(() => import('./pages/Settings'));
+const Budgets      = React.lazy(() => import('./pages/Budgets'));
+const Goals        = React.lazy(() => import('./pages/Goals'));
+const Debts        = React.lazy(() => import('./pages/Debts'));
+const NetWorth     = React.lazy(() => import('./pages/NetWorth'));
+const Splits       = React.lazy(() => import('./pages/Splits'));
+const Help         = React.lazy(() => import('./pages/Help'));
+const Insights     = React.lazy(() => import('./pages/Insights'));
+const E2EErrorTest = React.lazy(() => import('./pages/__e2e__ErrorTest'));
+
+const SignIn        = React.lazy(() => import('./pages/auth/SignIn'));
+const SignUp        = React.lazy(() => import('./pages/auth/SignUp'));
+const ResetPassword = React.lazy(() => import('./pages/auth/ResetPassword'));
+const AcceptInvite  = React.lazy(() => import('./pages/auth/AcceptInvite'));
 
 export default function App() {
   return (
@@ -78,14 +81,16 @@ function AppShell() {
   const isAuthRoute = location.pathname.startsWith('/auth/') || location.pathname.startsWith('/invite/');
   if (isAuthRoute) {
     return (
-      <Routes>
-        <Route path="/auth/sign-in"        element={<SignIn />} />
-        <Route path="/auth/sign-up"        element={<SignUp />} />
-        <Route path="/auth/reset"          element={<ResetPassword />} />
-        <Route path="/auth/reset-password" element={<ResetPassword />} />
-        <Route path="/auth/verified"       element={<Navigate to="/dashboard" replace />} />
-        <Route path="/invite/:token"       element={<AcceptInvite />} />
-      </Routes>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/auth/sign-in"        element={<SignIn />} />
+          <Route path="/auth/sign-up"        element={<SignUp />} />
+          <Route path="/auth/reset"          element={<ResetPassword />} />
+          <Route path="/auth/reset-password" element={<ResetPassword />} />
+          <Route path="/auth/verified"       element={<Navigate to="/dashboard" replace />} />
+          <Route path="/invite/:token"       element={<AcceptInvite />} />
+        </Routes>
+      </Suspense>
     );
   }
 
@@ -107,26 +112,41 @@ function AppShell() {
 
   return (
     <Layout>
-      <Routes>
-        <Route path="/"             element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard"    element={<Dashboard />} />
-        <Route path="/transactions" element={<Transactions />} />
-        <Route path="/reports"      element={<Reports />} />
-        <Route path="/recurring"    element={<Recurring />} />
-        <Route path="/planner"      element={<Planner />} />
-        <Route path="/chat"         element={<Chat />} />
-        <Route path="/households"   element={<Households />} />
-        <Route path="/budgets"      element={<Budgets />} />
-        <Route path="/goals"        element={<Goals />} />
-        <Route path="/splits"       element={<Splits />} />
-        <Route path="/debts"        element={<Debts />} />
-        <Route path="/networth"     element={<NetWorth />} />
-        <Route path="/settings"     element={<Settings />} />
-        <Route path="/help"         element={<Help />} />
-        <Route path="/insights"     element={<Insights />} />
-        <Route path="/onboarding"   element={<Onboarding />} />
-        <Route path="*"             element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/"             element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard"    element={<Dashboard />} />
+          <Route path="/transactions" element={<Transactions />} />
+          <Route path="/reports"      element={<Reports />} />
+          <Route path="/recurring"    element={<Recurring />} />
+          <Route path="/planner"      element={<Planner />} />
+          <Route path="/chat"         element={<Chat />} />
+          <Route path="/households"   element={<Households />} />
+          <Route path="/budgets"      element={<Budgets />} />
+          <Route path="/goals"        element={<Goals />} />
+          <Route path="/splits"       element={<Splits />} />
+          <Route path="/debts"        element={<Debts />} />
+          <Route path="/networth"     element={<NetWorth />} />
+          <Route path="/settings"     element={<Settings />} />
+          <Route path="/help"         element={<Help />} />
+          <Route path="/insights"     element={<Insights />} />
+          <Route path="/__e2e_error"  element={<E2EErrorTest />} />
+          <Route path="/onboarding"   element={<Onboarding />} />
+          <Route path="*"             element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Suspense>
     </Layout>
+  );
+
+}
+
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="display-italic text-3xl text-coral mb-2">FinFlow</div>
+        <div className="mono-label">Loading…</div>
+      </div>
+    </div>
   );
 }

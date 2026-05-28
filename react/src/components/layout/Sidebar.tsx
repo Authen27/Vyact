@@ -11,6 +11,7 @@ import ProfileSwitcher from './ProfileSwitcher';
 import { useTranslation } from '../../hooks';
 import { pagesForTemplate } from '../../lib/templates';
 import NotificationCenter from './NotificationCenter';
+import SyncStatusBadge from './SyncStatusBadge';
 
 interface Props {
   open: boolean;
@@ -74,7 +75,10 @@ export default function Sidebar({ open, onClose }: Props) {
               Fin<span style={{ fontStyle: 'italic', color: 'var(--ff-coral)' }}>Flow</span>
             </div>
           </Link>
-          <div className="hidden lg:block"><NotificationCenter /></div>
+          <div className="hidden lg:flex items-center gap-2">
+            <NotificationCenter />
+            <SyncStatusBadge />
+          </div>
           <button onClick={onClose} className="lg:hidden absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 border border-line rounded text-ink-mid hover:text-ink hover:border-line2 flex items-center justify-center">
             <X size={14} />
           </button>
