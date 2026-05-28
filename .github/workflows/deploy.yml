@@ -38,8 +38,11 @@ jobs:
     environment: production-database
     steps:
       - uses: actions/checkout@v4
+      # NOTE: do NOT use `version: latest` — it hits the unauthenticated GitHub
+      # API to look up the latest release and gets rate-limited on shared
+      # runners. Pin a specific CLI version and bump it deliberately.
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        with: { version: 1.226.4 }
       - name: Validate migrations directory (CI-style gate)
         run: node scripts/db-migrations-check.mjs
       - name: Link project
