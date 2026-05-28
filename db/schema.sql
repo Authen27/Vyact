@@ -859,3 +859,159 @@ grant execute on function public.touch_updated_at()                  to authenti
 grant execute on function public.transfer_ownership(uuid, uuid)      to authenticated, anon, service_role;
 
 COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260430091553_finflow_v4_1_initial_schema.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260430091553_finflow_v4_1_initial_schema
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260430091805_finflow_v4_1_rls_and_rpcs.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260430091805_finflow_v4_1_rls_and_rpcs
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260430092019_finflow_v4_1_security_hardening.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260430092019_finflow_v4_1_security_hardening
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260430092130_finflow_v4_1_revoke_public_execute.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260430092130_finflow_v4_1_revoke_public_execute
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260509182543_fix_households_rls_and_rpcs_v2.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260509182543_fix_households_rls_and_rpcs_v2
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260509185002_auto_create_household_on_signup.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260509185002_auto_create_household_on_signup
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260509190651_fix_rls_recursion_via_security_definer_helpers.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260509190651_fix_rls_recursion_via_security_definer_helpers
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260509190713_grant_execute_on_rls_helpers.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260509190713_grant_execute_on_rls_helpers
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260509231217_content_items_and_user_favorites.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260509231217_content_items_and_user_favorites
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260509234110_admin_data_layer.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260509234110_admin_data_layer
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260522025804_v646_category_classifications.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260522025804_v646_category_classifications
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260522025815_v646_ai_usage.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260522025815_v646_ai_usage
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260522025837_v646_admin_ai_usage_summary.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-20 stub: 20260522025837_v646_admin_ai_usage_summary
+--
+-- Applied via Supabase Dashboard pre-PR-#16; cumulative effect is
+-- captured in 00000000000001_production_state_baseline.sql.
+-- This stub exists so 'supabase db push' sees the local migration
+-- directory and the remote schema_migrations tracker in 1:1 sync.
+-- DO NOT add SQL here — it would re-run against fresh dev DBs.
+select 1;
