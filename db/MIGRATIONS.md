@@ -8,6 +8,20 @@
 Owner: Engineering. Adopted: 2026-05-23 (Remediation PR #3 / **TD-18**).
 Governance: [`docs/TEST_GOVERNANCE.md`](../docs/TEST_GOVERNANCE.md).
 
+> ⚠ **Known gap (TD-20, 2026-05-28).** This repo's `supabase/migrations/` and the
+> migrations Supabase tracks for the production project are **two separate
+> histories**. PR #6 (TD-18) set up our repo-side toolchain and CI gate, but the
+> apply-step was never wired into deploy. Meanwhile, schema changes have
+> continued to land in production via the Supabase Dashboard's SQL editor,
+> recorded in `supabase_migrations.schema_migrations`. As a result, **none of
+> the migrations checked into this repo have ever actually been applied to
+> production**; production schema is shaped by the dashboard history, which
+> overlaps with our repo's intent but is not byte-equivalent. Until TD-20 is
+> closed, treat the workflow below as the *design discipline* — applying any
+> migration here to production currently requires a manual capture-and-reconcile
+> first. See the **TD-20** entry in [`TECH_DEBT.md`](../TECH_DEBT.md) for the
+> full picture and the four proposed solution approaches.
+
 ---
 
 ## 1. Why this exists
