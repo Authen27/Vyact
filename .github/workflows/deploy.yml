@@ -36,6 +36,12 @@ jobs:
     name: Apply Supabase migrations
     runs-on: ubuntu-latest
     environment: production-database
+    # Best-effort: a Supabase auth/link hiccup (e.g. a rotated
+    # SUPABASE_ACCESS_TOKEN) must NEVER block an app deploy. The app jobs
+    # depend on this with `if: always()` so they ship regardless; a failure
+    # here only means *pending* migrations weren't auto-applied (the apply
+    # step is idempotent and re-runs cleanly once the secret is refreshed).
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       # NOTE: do NOT use `version: latest` — it hits the unauthenticated GitHub
@@ -56,6 +62,7 @@ jobs:
 
   consumer:
     needs: db-migrations
+    if: always()   # deploy even if the best-effort db-migrations job errored
     name: Deploy consumer (react/)
     runs-on: ubuntu-latest
     environment:
@@ -92,6 +99,7 @@ jobs:
 
   admin:
     needs: db-migrations
+    if: always()   # deploy even if the best-effort db-migrations job errored
     name: Deploy admin (admin/)
     runs-on: ubuntu-latest
     environment:
