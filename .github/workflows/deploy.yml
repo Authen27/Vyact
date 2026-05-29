@@ -95,16 +95,14 @@ jobs:
           URL=$(vercel deploy --prebuilt --prod --token=$TOK)
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice title=Consumer deployed::$URL"
-          ann(){ echo "::$1 title=$2::$(echo "$3" | tr '\n\r' '  ' | sed 's/::/;/g' | head -c 700)"; }
-          # `vercel deploy --prod` does not reliably re-point the public
-          # production alias when the project is Git-connected. Try promote
-          # (canonical), then explicit alias; capture the REAL CLI output as
-          # annotations (readable via the API without log access) + dump
-          # domain/alias ownership so the correct target is unambiguous.
-          P=$(vercel promote "$URL" --token=$TOK 2>&1); ann notice "promote" "$P"
-          A=$(vercel alias set "$URL" react-taupe-xi.vercel.app --token=$TOK 2>&1); ann notice "alias-out" "$A"
-          ann notice "domains-ls" "$(vercel domains ls --token=$TOK 2>&1)"
-          ann notice "alias-ls" "$(vercel alias ls --token=$TOK 2>&1 | grep -i taupe || echo 'no-taupe-row')"
+          # Single combined diagnostic in ONE final annotation (GitHub drops
+          # extra job-level notices). `vercel inspect <domain>` reveals which
+          # PROJECT currently owns react-taupe-xi.vercel.app — the crux.
+          INSPECT=$(vercel inspect react-taupe-xi.vercel.app --token=$TOK 2>&1 | grep -iE "name|project|owner|aliases|id:" | head -c 500)
+          PROJECTS=$(vercel project ls --token=$TOK 2>&1 | head -c 400)
+          ALIAS=$(vercel alias set "$URL" react-taupe-xi.vercel.app --token=$TOK 2>&1 | head -c 300)
+          DIAG="INSPECT[$INSPECT] | ALIAS_TRY[$ALIAS] | PROJECTS[$PROJECTS]"
+          echo "::notice title=vercel-diag::$(echo "$DIAG" | tr '\n\r' '  ' | sed 's/::/;/g' | head -c 900)"
           exit 0
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
