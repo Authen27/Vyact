@@ -10,3 +10,4 @@
 | 2026-05-28T20:14:46.948Z | ✅ PASS | `td-08-td-09-fresh-migrations` | `e02b2b4` | local | 64/64 | [report](2026-05-28T20-07-53-241Z__e02b2b4/report.md) |
 | 2026-05-28T22:11:06.325Z | ❌ FAIL | `td-08-td-09-fresh-migrations` | `dd2891e` | local | 64/64 | [report](2026-05-28T22-02-21-599Z__dd2891e/report.md) |
 | 2026-05-29T06:07:50.563Z | ❌ FAIL | `design-money-typography-standardize` | `e02b2b4` | local | 64/64 | [report](2026-05-29T06-03-14-392Z__e02b2b4/report.md) |
+| 2026-05-29T13:23:44.856Z | ✅ PASS | `main` | `520ca8c` | local | 64/64 | [report](2026-05-29T13-21-30-717Z__520ca8c/report.md) |
