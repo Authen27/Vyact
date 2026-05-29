@@ -65,6 +65,8 @@ jobs:
     if: always()   # deploy even if the best-effort db-migrations job errored
     name: Deploy consumer (react/)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # allow the diagnostic step to push the vercel-diag branch
     environment:
       name: production-consumer
       url: ${{ steps.deploy.outputs.url }}
@@ -90,19 +92,33 @@ jobs:
       - name: Deploy
         id: deploy
         run: |
-          set +e   # never abort — we want every diagnostic to print
+          set +e   # never abort
           TOK=${{ secrets.VERCEL_TOKEN }}
           URL=$(vercel deploy --prebuilt --prod --token=$TOK)
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice title=Consumer deployed::$URL"
-          # Single combined diagnostic in ONE final annotation (GitHub drops
-          # extra job-level notices). `vercel inspect <domain>` reveals which
-          # PROJECT currently owns react-taupe-xi.vercel.app — the crux.
-          INSPECT=$(vercel inspect react-taupe-xi.vercel.app --token=$TOK 2>&1 | grep -iE "name|project|owner|aliases|id:" | head -c 500)
-          PROJECTS=$(vercel project ls --token=$TOK 2>&1 | head -c 400)
-          ALIAS=$(vercel alias set "$URL" react-taupe-xi.vercel.app --token=$TOK 2>&1 | head -c 300)
-          DIAG="INSPECT[$INSPECT] | ALIAS_TRY[$ALIAS] | PROJECTS[$PROJECTS]"
-          echo "::warning title=vercel-diag::$(echo "$DIAG" | tr '\n\r' '  ' | sed 's/::/;/g' | head -c 900)"
+          # Best-effort production-domain repoint.
+          PROMOTE=$(vercel promote "$URL" --token=$TOK --yes 2>&1)
+          ALIAS=$(vercel alias set "$URL" react-taupe-xi.vercel.app --token=$TOK 2>&1)
+          # Annotations get dropped; write the full topology to a file and
+          # push it to a throwaway `vercel-diag` branch (reliable to read).
+          {
+            echo "deployed_url: $URL"
+            echo "=== whoami ==="; vercel whoami --token=$TOK 2>&1
+            echo "=== teams ls ==="; vercel teams ls --token=$TOK 2>&1
+            echo "=== project ls ==="; vercel project ls --token=$TOK 2>&1
+            echo "=== domains ls ==="; vercel domains ls --token=$TOK 2>&1
+            echo "=== alias ls ==="; vercel alias ls --token=$TOK 2>&1
+            echo "=== inspect react-taupe-xi.vercel.app ==="; vercel inspect react-taupe-xi.vercel.app --token=$TOK 2>&1
+            echo "=== promote output ==="; echo "$PROMOTE"
+            echo "=== alias-set output ==="; echo "$ALIAS"
+          } > "$GITHUB_WORKSPACE/vercel-diag.txt" 2>&1
+          cd "$GITHUB_WORKSPACE"
+          git config user.email ci@finflow.local
+          git config user.name ci-diag
+          git add -f vercel-diag.txt
+          git commit -m "ci: vercel topology diag" 2>&1 | tail -1
+          git push -f origin HEAD:refs/heads/vercel-diag 2>&1 | tail -2
           exit 0
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
