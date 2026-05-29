@@ -31,6 +31,7 @@
 | TD-17 | No transaction list virtualization | Performance | Low | S |
 | TD-18 | Hand-run SQL file instead of a migrations tool | Technical / Process | Medium | S |
 | TD-19 | No end-to-end / browser test automation | Technical / Process / QA | High | M (phased) |
+| TD-21 | RLS performance: un-wrapped `auth.<fn>()` initplan + overlapping permissive policies | Performance / Scalability | Medium | S–M |
 
 ---
 
@@ -470,6 +471,31 @@ Concretely, surfaced during the attempted apply of PR #14 (2026-05-28):
 4. **Tracker pre-recorded.** Row `(version='00000000000001', name='production_state_baseline')` inserted into `supabase_migrations.schema_migrations` so the very first deploy after PR #16 is a verified no-op against prod; future migrations append cleanly.
 
 **Honest residuals.** TD-08 audit triggers and TD-09 atomic-import RPCs that were marked Resolved on paper in PR #13's batch are *still not in production* — the archived files at [`db/migrations-superseded/20260524071000_audit_triggers.sql`](db/migrations-superseded/20260524071000_audit_triggers.sql) and [`db/migrations-superseded/20260524073000_replace_all_rpc.sql`](db/migrations-superseded/20260524073000_replace_all_rpc.sql) capture the intent. Re-shipping them as fresh additive migrations on top of the new baseline is queued as a follow-up workstream.
+
+---
+
+## TD-21 — RLS performance: un-wrapped `auth.<fn>()` initplan + overlapping permissive policies
+
+**Description.** Surfaced by the Supabase performance advisor during the post-deploy poll for the v6.4.26 release (2026-05-29). Two schema-wide patterns, present since the production baseline (not introduced by any single PR):
+
+- **`auth_rls_initplan` (21 policies, WARN).** RLS policies call `auth.uid()` / `auth.<fn>()` / `current_setting()` directly in their `using` / `with check` expressions, so Postgres re-evaluates the function **once per row** instead of once per query. The fix is to wrap the call in a scalar subquery — `(select auth.uid())` — which the planner hoists to an InitPlan evaluated a single time.
+- **`multiple_permissive_policies` (51 findings, WARN).** Several tables have more than one *permissive* policy for the same role + action (e.g. `activity_log` / `budgets` SELECT for `anon`/`authenticated`). Postgres must evaluate **every** permissive policy and OR the results, so overlapping permissive policies multiply per-row policy cost.
+
+Also reported at INFO level (lower priority, bundled here): `unindexed_foreign_keys` (12 — e.g. `activity_log.actor_id`) and `unused_index` (8).
+
+**Impact — tech / architecture.** Per-row function re-evaluation and N-policy fan-out are O(rows × policies) overhead on every read. Invisible at today's data volumes; degrades as households accumulate transactions/activity — and it compounds with TD-06 (no pagination: the client pulls whole tables, so each full-table read pays the full RLS cost).
+
+**Impact — functional / business.** Slower queries and higher DB CPU at scale; raises Supabase compute cost and tail latency on the busiest tables (`transactions`, `activity_log`).
+
+**Effort.** S–M — mostly mechanical, but every policy change is security-sensitive and must be applied as additive migrations through the TD-20 pipeline with a `get_advisors` security re-check after each.
+
+**Possible solution approaches.**
+- Rewrite RLS predicates to `(select auth.uid())` / `(select auth.jwt())` etc. across all flagged policies.
+- Consolidate overlapping permissive policies per (role, action) into a single policy, or convert the narrower ones to `restrictive` where the intent is AND-composition.
+- Add covering indexes for the 12 flagged foreign keys; drop or justify the 8 unused indexes.
+- Re-run `get_advisors` (security **and** performance) after each migration; pair with TD-06 so pagination + RLS efficiency land together.
+
+**Justification.** Not a release blocker and not a regression — the v6.4.26 money-typography change is frontend-only and PR #20 added columns/functions/triggers, not new policies. Filed so the schema-wide RLS-efficiency debt is tracked in one place rather than rediscovered on each advisor poll. Best scheduled alongside TD-06 (delta sync / pagination), since both target read-path scalability.
 
 ---
 
