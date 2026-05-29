@@ -11,8 +11,20 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const URL  = import.meta.env.VITE_SUPABASE_URL  as string | undefined;
-const KEY  = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// PUBLIC client config. Prefer build-time env (VITE_SUPABASE_*). In a
+// PRODUCTION build, fall back to the known public project URL + publishable
+// key so the deployed app is ALWAYS DB-connected — even when the host's env
+// injection is empty or mis-ordered. (Root cause of the v6.4.26 "dummy data"
+// regression: `vercel pull` writes an empty .env.local that Vite ranks above
+// .env.production, so the committed values were silently overridden and the
+// build shipped in local-only mode.) These are public values; security is
+// enforced by Row-Level Security. NEVER hardcode the service_role/secret key.
+// In dev (no env, not PROD) the fallback is skipped so `npm run dev` stays in
+// local-only mode unless you provide .env.local.
+const FALLBACK_URL = 'https://dmxqkvploojokffuhxnz.supabase.co';
+const FALLBACK_KEY = 'sb_publishable_SpuQFPzUWOnKI3nRR6ghNw_ktWqrKCA';
+const URL  = (import.meta.env.VITE_SUPABASE_URL  as string | undefined) || (import.meta.env.PROD ? FALLBACK_URL : undefined);
+const KEY  = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || (import.meta.env.PROD ? FALLBACK_KEY : undefined);
 export const APP_URL = (import.meta.env.VITE_APP_URL as string | undefined) || (typeof window !== 'undefined' ? window.location.origin : '');
 
 export const isCloudEnabled = (): boolean => {

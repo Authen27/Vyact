@@ -5,8 +5,14 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const URL = import.meta.env.VITE_SUPABASE_URL  as string | undefined;
-const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// PUBLIC client config — prefer build-time env, fall back to the known public
+// project URL + publishable key in PRODUCTION builds so the deployed admin is
+// always DB-connected regardless of host env-injection quirks (see the
+// consumer supabase.ts note). Public values; RLS + admin_roles enforce access.
+const FALLBACK_URL = 'https://dmxqkvploojokffuhxnz.supabase.co';
+const FALLBACK_KEY = 'sb_publishable_SpuQFPzUWOnKI3nRR6ghNw_ktWqrKCA';
+const URL = (import.meta.env.VITE_SUPABASE_URL  as string | undefined) || (import.meta.env.PROD ? FALLBACK_URL : undefined);
+const KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || (import.meta.env.PROD ? FALLBACK_KEY : undefined);
 
 export const isCloudEnabled = (): boolean => Boolean(URL && KEY);
 
