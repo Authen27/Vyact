@@ -6,8 +6,10 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v6.4.26** | https://react-taupe-xi.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
-| **Admin** | `admin/` | **v1.0.8** | https://finflow-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v6.4.26** | https://react-three-puce-61.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Admin** | `admin/` | **v1.0.8** | https://admin-six-orpin-47.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
+
+> **Production URL note (2026-05-29):** the live URLs above are the production domains of the `react` / `admin` projects under the `bhushandandolus-projects` Vercel team that `deploy.yml` deploys to (verified serving the v6.4.26 build). The previously-documented `react-taupe-xi.vercel.app` / `finflow-admin.vercel.app` are **orphaned on a different Vercel account**, are not updated by CI, and serve stale builds — reclaiming those exact hostnames would require dashboard action on that other account.
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
