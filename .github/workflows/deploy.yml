@@ -102,7 +102,7 @@ jobs:
           PROJECTS=$(vercel project ls --token=$TOK 2>&1 | head -c 400)
           ALIAS=$(vercel alias set "$URL" react-taupe-xi.vercel.app --token=$TOK 2>&1 | head -c 300)
           DIAG="INSPECT[$INSPECT] | ALIAS_TRY[$ALIAS] | PROJECTS[$PROJECTS]"
-          echo "::notice title=vercel-diag::$(echo "$DIAG" | tr '\n\r' '  ' | sed 's/::/;/g' | head -c 900)"
+          echo "::warning title=vercel-diag::$(echo "$DIAG" | tr '\n\r' '  ' | sed 's/::/;/g' | head -c 900)"
           exit 0
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
