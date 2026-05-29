@@ -4,9 +4,19 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v6.4.9**
-- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.0.5**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v6.4.27**
+- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.0.8**
+- Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
 - Vanilla shell: legacy, **frozen at v5.0** — see master index
+
+> 🧭 **New session? Start with [`docs/HANDOFF.md`](docs/HANDOFF.md)** — the continuity brief:
+> live URLs, the Vercel/Supabase gotchas, how deploys really work, open work, and
+> the command cheatsheet. It's written to get a fresh context productive fast.
+
+**Live production (2026-05-30):** consumer **https://react-three-puce-61.vercel.app** ·
+admin **https://admin-six-orpin-47.vercel.app** (both on Vercel team `bhushandandolus-projects`).
+The older `react-taupe-xi` / `finflow-admin` URLs are **orphaned on a different
+account** — do not use. Every push to `main` deploys (see [`DEPLOY.md`](DEPLOY.md)).
 
 ## Project Overview
 Three parallel deliverables exist in this repo:

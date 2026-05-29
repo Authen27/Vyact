@@ -1,5 +1,8 @@
 # Deploying FinFlow
 
+> 🧭 New to this codebase / fresh session? Read [`docs/HANDOFF.md`](docs/HANDOFF.md)
+> first for the full continuity brief (live URLs, Vercel/Supabase gotchas, open work).
+
 > ⚠️ **Read this top section first — it is the authoritative, current description
 > of how production deploys actually work (2026-05-30). The "Step 1/2/3" guide
 > further down is the original one-time setup walkthrough and is kept for
