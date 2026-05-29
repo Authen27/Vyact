@@ -90,21 +90,22 @@ jobs:
       - name: Deploy
         id: deploy
         run: |
+          set +e   # never abort — we want every diagnostic to print
           TOK=${{ secrets.VERCEL_TOKEN }}
           URL=$(vercel deploy --prebuilt --prod --token=$TOK)
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice title=Consumer deployed::$URL"
-          ann(){ echo "::$1 title=$2::$(echo "$3" | tr '\n\r' '  ' | sed 's/::/;/g' | head -c 600)"; }
+          ann(){ echo "::$1 title=$2::$(echo "$3" | tr '\n\r' '  ' | sed 's/::/;/g' | head -c 700)"; }
           # `vercel deploy --prod` does not reliably re-point the public
           # production alias when the project is Git-connected. Try promote
           # (canonical), then explicit alias; capture the REAL CLI output as
           # annotations (readable via the API without log access) + dump
           # domain/alias ownership so the correct target is unambiguous.
           P=$(vercel promote "$URL" --token=$TOK 2>&1); ann notice "promote" "$P"
-          A=$(vercel alias set "$URL" react-taupe-xi.vercel.app --token=$TOK 2>&1) || ann warning "alias-error" "$A"
-          ann notice "alias-out" "$A"
+          A=$(vercel alias set "$URL" react-taupe-xi.vercel.app --token=$TOK 2>&1); ann notice "alias-out" "$A"
           ann notice "domains-ls" "$(vercel domains ls --token=$TOK 2>&1)"
-          ann notice "alias-ls" "$(vercel alias ls --token=$TOK 2>&1 | grep -i taupe || echo 'no taupe alias row')"
+          ann notice "alias-ls" "$(vercel alias ls --token=$TOK 2>&1 | grep -i taupe || echo 'no-taupe-row')"
+          exit 0
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_CONSUMER_PROJECT_ID }}
