@@ -143,6 +143,10 @@ export default function Help() {
           Something missing? Use the <span className="font-semibold text-ink">Planner</span> for personalised recommendations,
           or <span className="font-semibold text-ink">Ask FinFlow</span> for AI-powered answers about your data.
         </p>
+        {/* Version sub-note — sourced from package.json at build time */}
+        <p className="num mt-3 font-mono text-[0.6rem] tracking-[0.12em] uppercase text-ink-dim">
+          FinFlow Consumer · v{__APP_VERSION__}
+        </p>
       </div>
     </div>
   );

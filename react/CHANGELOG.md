@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.26`**
+> **Current production version: `v6.4.27`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,23 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.27 — Production DB-connection fix + deploy hardening + in-app version note *(2026-05-30)*
+
+Fixes a production defect where the live consumer showed **dummy / seeded data with no real auth** — it had silently shipped in localStorage-only mode.
+
+**Root cause.** The CI build never received `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, so `src/lib/supabase.ts` fell back to local-only mode. The Vercel consumer project lacked the env vars and `deploy.yml` injected them from GitHub secrets that were empty — and because **Vite gives shell env vars higher precedence than `.env` files**, the empty secret silently overrode everything. (Verified: the live main JS chunk contained zero occurrences of the Supabase project ref.)
+
+**Fix — self-contained, deterministic config.**
+- Committed `react/.env.production` (and `admin/.env.production`) with the **public** project URL + **publishable** key (`sb_publishable_…`). These are public client values by design — they already ship in the browser bundle, and Row-Level Security enforces access server-side. The `service_role`/secret key is never included.
+- Removed the `VITE_SUPABASE_*` / `VITE_APP_URL` injection from the `deploy.yml` build steps so the committed `.env.production` is authoritative and a missing/empty secret can never override it again.
+- Validated: a CI-equivalent build (no `.env.local`, only `.env.production`) now embeds the Supabase project ref → connects to the real database.
+
+**Deploy hardening (process).** Documented the authoritative deploy flow in `DEPLOY.md`: every push to `main` runs `deploy.yml`; `db-migrations` is best-effort (`continue-on-error`) and the `consumer`/`admin` jobs run with `if: always()`, so a Supabase-auth hiccup never blocks a frontend release. Corrected the documented live URLs to the real Vercel production domains (`react-three-puce-61.vercel.app` / `admin-six-orpin-47.vercel.app`); flagged the orphaned `react-taupe-xi` / `finflow-admin` URLs.
+
+**In-app version note.** The current app version (from `package.json`, inlined at build time via a Vite `define` as `__APP_VERSION__`) now shows as a small sub-note at the bottom of the **Help & Guide** page.
+
+No consumer feature/behaviour change beyond reconnecting the database and the Help footer note.
 
 ## v6.4.26 — Money typography standardisation: one canonical figure style across all sections *(2026-05-29)*
 
