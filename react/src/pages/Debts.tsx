@@ -142,7 +142,7 @@ export default function Debts() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-terra text-lg">{fmt(balBase, c)}</div>
+                      <div className="num font-semibold text-terra text-lg">{fmt(balBase, c)}</div>
                       <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">{d.interestRate}% APR</div>
                     </div>
                   </div>
@@ -157,11 +157,11 @@ export default function Debts() {
 
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     <div className="bg-bg3 border border-line rounded-md p-2 text-center">
-                      <div className="text-sm font-semibold text-ink">{fmt(convert(d.minimumPayment, d.currency, c, rates), c)}</div>
+                      <div className="num text-sm font-semibold text-ink">{fmt(convert(d.minimumPayment, d.currency, c, rates), c)}</div>
                       <div className="font-mono text-[0.58rem] tracking-wider text-ink-dim uppercase">Min pay</div>
                     </div>
                     <div className="bg-bg3 border border-line rounded-md p-2 text-center">
-                      <div className="text-sm font-semibold text-honey">{fmt(convert(interest, d.currency, c, rates), c)}</div>
+                      <div className="num text-sm font-semibold text-honey">{fmt(convert(interest, d.currency, c, rates), c)}</div>
                       <div className="font-mono text-[0.58rem] tracking-wider text-ink-dim uppercase">Interest</div>
                     </div>
                     <div className="bg-bg3 border border-line rounded-md p-2 text-center">
@@ -175,9 +175,9 @@ export default function Debts() {
                     <div className="bg-bg3 border border-line rounded-md p-3 mb-3 text-[0.82rem]">
                       <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-2">EMI Breakdown</div>
                       <div className="grid grid-cols-2 gap-y-1">
-                        <span className="text-ink-mid">Calculated EMI</span><span className="text-right font-semibold">{fmt(convert(emi, d.currency, c, rates), c)}</span>
-                        <span className="text-ink-mid">Interest portion</span><span className="text-right text-honey font-semibold">{fmt(convert(interest, d.currency, c, rates), c)}</span>
-                        <span className="text-ink-mid">Principal portion</span><span className="text-right text-sage font-semibold">{fmt(convert(prinPay, d.currency, c, rates), c)}</span>
+                        <span className="text-ink-mid">Calculated EMI</span><span className="num text-right font-semibold">{fmt(convert(emi, d.currency, c, rates), c)}</span>
+                        <span className="text-ink-mid">Interest portion</span><span className="num text-right text-honey font-semibold">{fmt(convert(interest, d.currency, c, rates), c)}</span>
+                        <span className="text-ink-mid">Principal portion</span><span className="num text-right text-sage font-semibold">{fmt(convert(prinPay, d.currency, c, rates), c)}</span>
                         <span className="text-ink-mid">Remaining months</span><span className="text-right font-semibold">{d.remainingMonths ?? d.tenureMonths}</span>
                       </div>
                     </div>

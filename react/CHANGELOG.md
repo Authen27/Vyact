@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.25`**
+> **Current production version: `v6.4.26`**
 > **Live URL:** https://react-taupe-xi.vercel.app
 > **Next planned: `v6.5`** (see Roadmap at the bottom).
 
@@ -22,6 +22,19 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.4.26 — Money typography standardisation: one canonical figure style across all sections *(2026-05-29)*
+
+Design-system consistency pass on how monetary/numeric values are rendered. Before this, the same "price" concept appeared in **four** different treatments depending on the screen — italic Newsreader serif (Dashboard KPI tiles, Net Worth hero, donut-chart centre, Dashboard mini balance-sheet), plain non-tabular sans (Splits totals & shares), JetBrains Mono (Transaction row amounts inherited a mono parent; Dashboard balance-sheet rows; Reports), and the tabular-sans `<Money>` component (Budgets, Goals). The mixed italic/serif/mono/sans figures read inconsistently, increased cognitive load, and risked overflow on mobile.
+
+**One canonical treatment.** New `.num` design-system class (`react/src/index.css`): **non-italic** Inter Tight with `tabular-nums` + `lining-nums` and tightened tracking. Every amount across Dashboard, Budgets, Splits, Transactions, Net Worth, Debts and Reports now uses it, so figures read identically everywhere, digits stay column-aligned (no reflow as values change), and the same class scales from a 0.8 rem row to a 3 rem hero without breaking mobile real-estate.
+
+- **`Money` component** now applies `.num` (was bare `tabular-nums`), so every `<Money>` is canonical regardless of any parent font — this alone re-bases Transaction-row amounts from mono to the standard sans.
+- **Converted off italic serif** (`display-italic` → `.num`): the shared KPI `Card` value (affects every KPI tile app-wide), Net Worth hero, the spend-donut centre total, and the Dashboard mini net-worth value.
+- **Converted off plain/mono sans** (`+ .num`): Splits totals & participant shares; Dashboard balance-sheet `Row`; Debts balance / min-payment / interest / EMI-breakdown figures; Net Worth asset & liability rows + totals; Reports needs/wants cards.
+- **Deliberately left as-is:** all page-title / section / panel / modal / brand headings keep `display-italic` (editorial intent — these are not numbers); original-currency micro sub-amounts and the Reports → Period Summary table stay in Mono (a self-contained, internally-consistent numeric table).
+
+No behavioural change — formatting/values are untouched; this is purely the figure *typeface/style*. Design-system note in `CLAUDE.md` updated so future amounts default to `<Money>` / `.num`.
 
 ## v6.4.25 — Lead review pass + TD-08 audit triggers + TD-04 extension catch-up (remediation PR #13 batch) *(2026-05-24)*
 

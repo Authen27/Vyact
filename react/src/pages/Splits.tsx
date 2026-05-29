@@ -71,7 +71,7 @@ export default function Splits() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <div className="font-semibold text-ink">{fmt(totalInBase, c)}</div>
+              <div className="num font-semibold text-ink">{fmt(totalInBase, c)}</div>
               {owedHere > 0 && <div className="font-mono text-[0.6rem] tracking-wider text-sage">+{fmt(owedHere, c)} owed to you</div>}
               {youOweHere > 0 && <div className="font-mono text-[0.6rem] tracking-wider text-terra">−{fmt(youOweHere, c)} you owe</div>}
             </div>
@@ -101,7 +101,7 @@ export default function Splits() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`font-semibold text-[0.9rem] ${p.paid ? 'text-sage' : 'text-ink'}`}>
+                    <span className={`num font-semibold text-[0.9rem] ${p.paid ? 'text-sage' : 'text-ink'}`}>
                       {fmt(shareBase, c)}
                     </span>
                     {!p.paid && !p.isYou && split.paidBy === 'me' && (
@@ -141,12 +141,12 @@ export default function Splits() {
         <div className="grid sm:grid-cols-2 gap-3 mb-5">
           <div className="bg-sage/8 border border-sage/20 rounded-xl p-5">
             <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">Owed to You</div>
-            <div className="text-3xl font-semibold text-sage">{fmt(owedToYou, c)}</div>
+            <div className="num text-3xl font-semibold text-sage">{fmt(owedToYou, c)}</div>
             <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim mt-1">{owedDetails.length} outstanding item{owedDetails.length !== 1 ? 's' : ''}</div>
           </div>
           <div className="bg-terra/8 border border-terra/20 rounded-xl p-5">
             <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">You Owe</div>
-            <div className="text-3xl font-semibold text-terra">{fmt(youOwe, c)}</div>
+            <div className="num text-3xl font-semibold text-terra">{fmt(youOwe, c)}</div>
             <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim mt-1">{youOweDetails.length} outstanding item{youOweDetails.length !== 1 ? 's' : ''}</div>
           </div>
         </div>

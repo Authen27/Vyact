@@ -1,7 +1,7 @@
 {
   "name": "finflow-react",
   "private": true,
-  "version": "6.4.25",
+  "version": "6.4.26",
   "type": "module",
   "description": "FinFlow — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {

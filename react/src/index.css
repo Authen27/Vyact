@@ -190,6 +190,27 @@ body::before {
     font-weight: 600;
     letter-spacing: -0.025em;
   }
+  /* Canonical money / numeric-figure treatment — the single source of truth
+     for every currency amount in the app (KPI tiles, list rows, section
+     totals, hero numbers). Deliberately NON-italic UI sans with tabular,
+     lining figures so:
+       • digits occupy equal width → columns align and a value never
+         reflows its neighbours as it changes (low cognitive load);
+       • the same amount reads identically on Dashboard, Budgets, Splits,
+         Transactions, Net Worth — one design language, not three fonts;
+       • it stays compact at any size from a 0.8rem row to a 3rem hero,
+         which protects mobile real-estate.
+     Size, weight and colour are applied per call-site via Tailwind
+     utilities; this class owns only the family / style / figure shaping.
+     The adaptive <Money> component applies this automatically; use the
+     `num` class directly when rendering a raw fmt() string. */
+  .num {
+    font-family: var(--ff-sans);
+    font-style: normal;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+    letter-spacing: -0.01em;
+  }
   .mono-label {
     font-family: var(--ff-mono);
     font-size: 10px;

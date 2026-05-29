@@ -123,7 +123,7 @@ export function CategoryDonut({ data, currency }: DonutProps) {
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <div className="display-italic text-[1.3rem] leading-none text-ink">{fmtShort(total, currency)}</div>
+          <div className="num font-semibold text-[1.3rem] leading-none text-ink">{fmtShort(total, currency)}</div>
           <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-ink-dim mt-0.5">Total</div>
         </div>
       </div>

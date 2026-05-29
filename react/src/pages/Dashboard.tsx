@@ -189,7 +189,7 @@ export default function Dashboard() {
               <Row label="Liabilities" value={fmt(tl, baseCur)} valueClass="text-terra" />
               <div className="border-t border-line pt-2 flex justify-between items-center">
                 <span className="display-italic text-[1.1rem] text-ink">Net Worth</span>
-                <span className={`display-italic text-[1.4rem] ${ta - tl >= 0 ? 'text-sage' : 'text-terra'}`}>
+                <span className={`num font-semibold text-[1.4rem] ${ta - tl >= 0 ? 'text-sage' : 'text-terra'}`}>
                   {fmt(ta - tl, baseCur)}
                 </span>
               </div>
@@ -224,7 +224,7 @@ function Row({ label, value, valueClass = '' }: { label: string; value: string; 
   return (
     <div className="flex justify-between items-center text-[0.84rem]">
       <span className="text-ink-mid">{label}</span>
-      <span className={`font-mono ${valueClass}`}>{value}</span>
+      <span className={`num ${valueClass}`}>{value}</span>
     </div>
   );
 }

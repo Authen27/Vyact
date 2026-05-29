@@ -40,7 +40,7 @@ export default function Money({ amount, currency = 'USD', compact, maxChars = 12
   const title = `${titleSign}${full.replace(/^-/, '')}`;
   return (
     <span
-      className={`tabular-nums truncate inline-block max-w-full ${className}`}
+      className={`num truncate inline-block max-w-full ${className}`}
       title={title}
     >
       {display}

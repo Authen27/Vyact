@@ -116,11 +116,11 @@ export default function Reports() {
           <div className="mt-4 flex gap-4 text-[0.98rem]">
             <div className="flex-1 bg-bg3 rounded-lg p-3 border border-line flex flex-col items-center">
               <div className="font-mono text-[0.7rem] tracking-wider uppercase text-ink-dim mb-1">Needs</div>
-              <div className="font-bold text-sage text-lg">{fmt(needsWants.needs, baseCur)}</div>
+              <div className="num font-bold text-sage text-lg">{fmt(needsWants.needs, baseCur)}</div>
             </div>
             <div className="flex-1 bg-bg3 rounded-lg p-3 border border-line flex flex-col items-center">
               <div className="font-mono text-[0.7rem] tracking-wider uppercase text-ink-dim mb-1">Wants</div>
-              <div className="font-bold text-honey text-lg">{fmt(needsWants.wants, baseCur)}</div>
+              <div className="num font-bold text-honey text-lg">{fmt(needsWants.wants, baseCur)}</div>
             </div>
           </div>
         </Panel>

@@ -85,7 +85,7 @@ export default function NetWorth() {
       {/* Net Worth hero */}
       <div className={`rounded-2xl p-7 mb-4 text-center border ${nw >= 0 ? 'bg-sage/8 border-sage/20' : 'bg-terra/8 border-terra/20'}`}>
         <div className="font-mono text-[0.65rem] tracking-[0.2em] uppercase text-ink-dim mb-2">Net Worth</div>
-        <div className={`display-italic text-5xl font-bold mb-1 ${nw >= 0 ? 'text-sage' : 'text-terra'}`}>
+        <div className={`text-5xl font-bold mb-1 ${nw >= 0 ? 'text-sage' : 'text-terra'}`}>
           <Money amount={nw} currency={c} maxChars={11} />
         </div>
         <div className="flex justify-center gap-8 mt-4 text-sm">
@@ -182,7 +182,7 @@ export default function NetWorth() {
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <div className="font-semibold text-sage text-[0.9rem]">{fmt(valBase, c)}</div>
+                              <div className="num font-semibold text-sage text-[0.9rem]">{fmt(valBase, c)}</div>
                               {a.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(a.value, a.currency)}</div>}
                             </div>
                             <div className="flex gap-1">
@@ -198,7 +198,7 @@ export default function NetWorth() {
               })}
               <div className="bg-sage/8 border border-sage/20 rounded-lg px-4 py-3 flex justify-between items-center">
                 <span className="font-semibold text-sage">Total Assets</span>
-                <span className="font-semibold text-sage text-lg">{fmt(ta, c)}</span>
+                <span className="num font-semibold text-sage text-lg">{fmt(ta, c)}</span>
               </div>
             </div>
           )}
@@ -228,7 +228,7 @@ export default function NetWorth() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-terra text-[0.9rem]">{fmt(balBase, c)}</div>
+                      <div className="num font-semibold text-terra text-[0.9rem]">{fmt(balBase, c)}</div>
                       {d.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(d.currentBalance, d.currency)}</div>}
                     </div>
                   </div>
@@ -236,7 +236,7 @@ export default function NetWorth() {
               })}
               <div className="bg-terra/8 border border-terra/20 rounded-lg px-4 py-3 flex justify-between items-center">
                 <span className="font-semibold text-terra">Total Liabilities</span>
-                <span className="font-semibold text-terra text-lg">{fmt(tl, c)}</span>
+                <span className="num font-semibold text-terra text-lg">{fmt(tl, c)}</span>
               </div>
             </div>
           )}
