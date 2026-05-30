@@ -5,7 +5,22 @@ import { readFileSync } from 'node:fs';
 // read package.json at build time and inline it as the global __APP_VERSION__.
 var pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 export default defineConfig({
-    plugins: [react()],
+    plugins: [
+        react(),
+        {
+            // Emit dist/version.json so the running app can detect when a newer
+            // build has been deployed (UpdateBanner polls it). Build-only; the dev
+            // server won't serve it, and the banner degrades to a no-op there.
+            name: 'finflow-version-json',
+            generateBundle: function () {
+                this.emitFile({
+                    type: 'asset',
+                    fileName: 'version.json',
+                    source: JSON.stringify({ version: pkg.version }),
+                });
+            },
+        },
+    ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     server: { port: 5173, host: true, open: true },
     build: { outDir: 'dist', sourcemap: true, target: 'esnext' },

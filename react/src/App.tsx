@@ -5,6 +5,7 @@ import { useTheme } from './hooks';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
 import AuthGate from './components/auth/AuthGate';
+import UpdateBanner from './components/layout/UpdateBanner';
 import TransactionFormModal from './components/transactions/TransactionFormModal';
 import GoalFormModal from './components/goals/GoalFormModal';
 import GoalProgressModal from './components/goals/GoalProgressModal';
@@ -48,6 +49,7 @@ export default function App() {
       <DebtFormModal />
       <AssetFormModal />
       <ToastHost />
+      <UpdateBanner />
     </AuthGate>
   );
 }

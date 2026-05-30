@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.5.0`**
+> **Current production version: `v6.5.1`**
 > **Live URL:** https://react-three-puce-61.vercel.app
 > **Next planned: see Roadmap at the bottom.**
 
@@ -22,6 +22,22 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.5.1 — In-app "new version available" update prompt *(2026-05-30)*
+
+Fixes the "users keep seeing an old build after a deploy" problem (the cause
+of the v6.4.27 → v6.5.0 footer-stuck confusion). The app has **no service
+worker**; hashed assets are `immutable`-cached and a long-lived tab never
+learns a newer build shipped.
+
+- **Build stamps `dist/version.json`** with `package.json`'s version (new
+  vite plugin in `vite.config.ts`).
+- **`UpdateBanner`** (mounted at App root) polls `/version.json` with
+  `cache: 'no-store'` on load, on tab focus/visibility, and every 15 min. When
+  the deployed version differs from the running `__APP_VERSION__`, it shows a
+  dismissible banner with a **Refresh** action. Degrades to a no-op in dev and
+  on any fetch error.
+- No change to data, money math, or existing UI; purely additive.
 
 ## v6.5.0 — E2E test automation foundation (Batch 1+2) + test-build cloud-leak fix *(2026-05-30)*
 
