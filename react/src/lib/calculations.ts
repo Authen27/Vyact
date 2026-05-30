@@ -168,8 +168,9 @@ export const totalMonthlyDebtPayment = (debts: Debt[], baseCurrency: string, rat
 
 // ── PULSE SCORE — 5 components ─────────────────────────────────
 export interface PulseScore {
-  total: number;
+  total: number | null;   // null = not enough data yet (honest empty state)
   components: { budget: number; savings: number; goals: number; trend: number; debt: number };
+  applicable: { budget: boolean; savings: boolean; goals: boolean; trend: boolean; debt: boolean };
 }
 
 export function computePulseScore(
@@ -179,48 +180,60 @@ export function computePulseScore(
   const mk = nowMonthKey();
   const { income, expense } = monthlyData(transactions, mk, baseCurrency, rates);
 
-  let budgetScore = 60;
-  if (budgets.length) {
+  // 1. Budget compliance — applicable only if budgets exist
+  const budgetApplicable = budgets.length > 0;
+  let budgetScore = 0;
+  if (budgetApplicable) {
     const spend = spendByCategory(transactions, mk, baseCurrency, rates);
     const compliance = budgets.map(b => {
       const limitBase = convert(b.limit, b.currency, baseCurrency, rates);
       const pct = limitBase > 0 ? (spend[b.category] || 0) / limitBase * 100 : 0;
       return clamp(100 - pct, 0, 100);
     });
-    budgetScore = compliance.reduce((s,v) => s+v, 0) / compliance.length;
+    budgetScore = compliance.reduce((s, v) => s + v, 0) / compliance.length;
   }
 
-  const rate = income > 0 ? (income - expense) / income * 100 : 0;
+  // 2. Savings rate — applicable only if there is income this month (target 20% => 100)
+  const savingsApplicable = income > 0;
+  const rate = savingsApplicable ? (income - expense) / income * 100 : 0;
   const savingsScore = clamp(rate * 5, 0, 100);
 
-  let goalScore = 60;
+  // 3. Goal progress — applicable only if there are active goals
   const activeGoals = goals.filter(g => !g.completed);
-  if (activeGoals.length) {
+  const goalsApplicable = activeGoals.length > 0;
+  let goalScore = 0;
+  if (goalsApplicable) {
     const progresses = activeGoals.map(g => {
       const tgt = convert(g.target, g.currency, baseCurrency, rates);
       const cur = convert(g.current, g.currency, baseCurrency, rates);
       return tgt > 0 ? clamp(cur / tgt * 100, 0, 100) : 0;
     });
-    goalScore = progresses.reduce((s,v) => s+v, 0) / progresses.length;
+    goalScore = progresses.reduce((s, v) => s + v, 0) / progresses.length;
   }
 
+  // 4. Expense trend — applicable only if there was spend last month to compare
   const [y, m] = mk.split('-').map(Number);
-  const prevMk = m === 1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2,'0')}`;
+  const prevMk = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
   const prevExp = monthlyData(transactions, prevMk, baseCurrency, rates).expense;
-  let trendScore = 70;
-  if (prevExp > 0) {
+  const trendApplicable = prevExp > 0;
+  let trendScore = 0;
+  if (trendApplicable) {
     const change = (expense - prevExp) / prevExp * 100;
-    if      (change <= 0)   trendScore = 100;
-    else if (change <= 10)  trendScore = 80;
-    else if (change <= 20)  trendScore = 60;
-    else if (change <= 40)  trendScore = 40;
-    else                    trendScore = 20;
+    if      (change <= 0)  trendScore = 100;
+    else if (change <= 10) trendScore = 80;
+    else if (change <= 20) trendScore = 60;
+    else if (change <= 40) trendScore = 40;
+    else                   trendScore = 20;
   }
 
-  let debtScore = 100;
-  if (debts.length) {
-    if (income === 0) debtScore = 40;
-    else {
+  // 5. Debt health (DTI). Applicable only if the household HAS debts —
+  //    debt-free is intentionally EXCLUDED (not gifted 100, not penalised).
+  const debtApplicable = debts.length > 0;
+  let debtScore = 0;
+  if (debtApplicable) {
+    if (income === 0) {
+      debtScore = 40; // debts but no income to compute DTI -> "watch"
+    } else {
       const dti = (totalMonthlyDebtPayment(debts, baseCurrency, rates) / income) * 100;
       if      (dti <= 15) debtScore = 100;
       else if (dti <= 25) debtScore = 85;
@@ -230,27 +243,41 @@ export function computePulseScore(
     }
   }
 
-  const total = Math.round(
-    budgetScore * 0.25 + savingsScore * 0.25 + goalScore * 0.15 + trendScore * 0.15 + debtScore * 0.20
-  );
+  // Renormalise the original weights over applicable components only.
+  const parts = [
+    { score: budgetScore,  weight: 0.25, ok: budgetApplicable  },
+    { score: savingsScore, weight: 0.25, ok: savingsApplicable },
+    { score: goalScore,    weight: 0.15, ok: goalsApplicable   },
+    { score: trendScore,   weight: 0.15, ok: trendApplicable   },
+    { score: debtScore,    weight: 0.20, ok: debtApplicable    },
+  ];
+  const totalWeight = parts.reduce((s, p) => s + (p.ok ? p.weight : 0), 0);
+  const total = totalWeight === 0
+    ? null
+    : clamp(Math.round(parts.reduce((s, p) => s + (p.ok ? p.score * p.weight : 0), 0) / totalWeight), 0, 100);
 
   return {
-    total: clamp(total, 0, 100),
+    total,
     components: {
-      budget: Math.round(budgetScore),
+      budget:  Math.round(budgetScore),
       savings: Math.round(savingsScore),
-      goals: Math.round(goalScore),
-      trend: Math.round(trendScore),
-      debt: Math.round(debtScore),
+      goals:   Math.round(goalScore),
+      trend:   Math.round(trendScore),
+      debt:    Math.round(debtScore),
+    },
+    applicable: {
+      budget: budgetApplicable, savings: savingsApplicable, goals: goalsApplicable,
+      trend: trendApplicable, debt: debtApplicable,
     },
   };
 }
 
-export function pulseStatus(score: number): { label: string; cssVar: string } {
-  if (score >= 80) return { label: 'Excellent',   cssVar: 'var(--sage)' };
-  if (score >= 65) return { label: 'Good',        cssVar: 'var(--coral)' };
-  if (score >= 45) return { label: 'Fair',        cssVar: 'var(--honey)' };
-  return                  { label: 'Needs Work',  cssVar: 'var(--terra)' };
+export function pulseStatus(score: number | null): { label: string; cssVar: string } {
+  if (score === null) return { label: 'No data yet', cssVar: 'hsl(var(--ink-dim))' };
+  if (score >= 80) return { label: 'Excellent',   cssVar: 'hsl(var(--sage))'  };
+  if (score >= 65) return { label: 'Good',        cssVar: 'hsl(var(--coral))' };
+  if (score >= 45) return { label: 'Fair',        cssVar: 'hsl(var(--honey))' };
+  return                  { label: 'Needs Work',  cssVar: 'hsl(var(--terra))' };
 }
 
 // ── INSIGHTS ───────────────────────────────────────────────────

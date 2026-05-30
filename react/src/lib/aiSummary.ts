@@ -22,7 +22,13 @@ export interface SafeSummary {
     type: string;
     members: number;
   };
-  pulseScore: { total: number; components: Record<string, number> };
+  // NOTE/TODO: `computePulseScore` now may return `total: number | null`.
+  // TODO(review): The handoff brief assumed `pulseScore.total` was always a
+  // number and that only the gauge consumed it. In this code the summary
+  // also includes the pulse. Accept `null` here and coerce to `0` in the
+  // consumer below. Senior review: confirm whether `null` should be
+  // represented differently in AI summaries.
+  pulseScore: { total: number | null; components: Record<string, number> };
   thisMonth: {
     monthKey: string;
     income: number;
@@ -74,6 +80,7 @@ const defaultStubAgent: SubAgent = {
   async handle(question, summary, history) {
     // Pattern-match common questions against the summary.
     const q = question.toLowerCase();
+    const total = summary.pulseScore.total ?? 0;
 
     if (/(spend|spent|spending).*month/.test(q) || /this month/.test(q)) {
       return `This month (${summary.thisMonth.monthKey}) you've spent ${formatMoney(summary.thisMonth.expense, summary.baseCurrency)} ` +
@@ -83,9 +90,9 @@ const defaultStubAgent: SubAgent = {
     }
     if (/pulse|score/.test(q)) {
       const c = summary.pulseScore.components;
-      return `Your Family Pulse Score is ${summary.pulseScore.total}/100. ` +
+      return `Your Family Pulse Score is ${total}/100. ` +
         `Components: Budgets ${c.budget}, Savings ${c.savings}, Goals ${c.goals}, Trend ${c.trend}, Debt ${c.debt}. ` +
-        `${summary.pulseScore.total >= 80 ? 'Excellent  keep it going.' : summary.pulseScore.total >= 65 ? 'Good  small wins compound.' : 'Room to improve. Check the Planner page for prioritised recommendations.'}`;
+        `${total >= 80 ? 'Excellent — keep it going.' : total >= 65 ? 'Good — small wins compound.' : 'Room to improve. Check the Planner page for prioritised recommendations.'}`;
     }
     if (/net.*worth|wealth/.test(q)) {
       return `Net worth: ${formatMoney(summary.netWorth.netWorth, summary.baseCurrency)}. ` +
@@ -121,7 +128,7 @@ const defaultStubAgent: SubAgent = {
     // Generic fallback summary
     return `(stub mode · backend not yet wired) ` +
       `This month: ${formatMoney(summary.thisMonth.income, summary.baseCurrency)} in, ${formatMoney(summary.thisMonth.expense, summary.baseCurrency)} out. ` +
-      `Pulse Score: ${summary.pulseScore.total}/100. ` +
+      `Pulse Score: ${total}/100. ` +
       `When the Supabase Edge Function lands in v8, this will route through Claude Haiku and answer richer questions.`;
   }
 };

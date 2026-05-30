@@ -68,7 +68,14 @@ export default function Dashboard() {
 
       {/* Top: Pulse + 4 metric cards */}
       <div className="grid lg:grid-cols-[220px_1fr] gap-3.5 mb-3.5">
-        <PulseGauge score={pulse} />
+        <div>
+          <PulseGauge score={pulse} />
+          {pulse.total === null && (
+            <p className="text-ink-mid text-[0.78rem] mt-2 text-center">
+              Building your Pulse — add income and a budget to begin.
+            </p>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={10} />} sub={`Across all ${txns.length} transactions`} />
           <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={10} />} sub={t('this-month')} />

@@ -4,6 +4,7 @@ import { LogIn, Mail, KeyRound } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Input, Field } from '../../components/ui/Input';
 import { signIn, signInMagicLink } from '../../lib/auth';
+import GoogleButton from '../../components/auth/GoogleButton';
 import { useStore } from '../../store';
 
 export default function SignIn() {
@@ -68,6 +69,8 @@ export default function SignIn() {
           {submitting ? 'Signing in…' : mode === 'password' ? <><LogIn size={14} /> Sign in</> : <><Mail size={14} /> Send magic link</>}
         </Button>
       </form>
+
+      <GoogleButton />
 
       <div className="my-4 flex items-center gap-3">
         <div className="flex-1 h-px bg-line" />

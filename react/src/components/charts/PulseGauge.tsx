@@ -11,16 +11,20 @@ interface Props { score: PulseScore; }
 export default function PulseGauge({ score }: Props) {
   const status = pulseStatus(score.total);
   const [animated, setAnimated] = useState(0);
+  const target = score.total ?? 0;        // null renders as an empty ring
+  const reduce = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
-    const t = setTimeout(() => setAnimated(score.total), 80);
+    if (reduce) { setAnimated(target); return; }
+    const t = setTimeout(() => setAnimated(target), 80);
     return () => clearTimeout(t);
-  }, [score.total]);
+  }, [target, reduce]);
 
   const deg = Math.round(animated / 100 * 360);
   const ringStyle: React.CSSProperties = {
     background: `conic-gradient(${status.cssVar} ${deg}deg, hsl(var(--bg3)) ${deg}deg)`,
-    transition: 'background 0.9s ease',
+    transition: reduce ? 'none' : 'background 0.9s ease',
   };
 
   return (
@@ -40,7 +44,7 @@ export default function PulseGauge({ score }: Props) {
               className="display-italic text-[2.5rem] leading-none"
               style={{ color: status.cssVar }}
             >
-              {score.total}
+              {score.total === null ? '—' : score.total}
             </div>
             <div className="font-mono text-[0.5rem] tracking-[0.14em] uppercase text-ink-dim mt-0.5">
               {status.label}
@@ -50,20 +54,19 @@ export default function PulseGauge({ score }: Props) {
       </div>
 
       <div className="flex flex-col gap-1">
-        {[
-          ['Budgets', score.components.budget],
-          ['Savings', score.components.savings],
-          ['Goals',   score.components.goals],
-          ['Trend',   score.components.trend],
-          ['Debt',    score.components.debt],
-        ].map(([label, val]) => {
-          const v = val as number;
-          const color = v >= 70 ? 'var(--sage)' : v >= 45 ? 'var(--honey)' : 'var(--terra)';
+        {([
+          ['Budgets', score.components.budget, score.applicable.budget],
+          ['Savings', score.components.savings, score.applicable.savings],
+          ['Goals',   score.components.goals,  score.applicable.goals],
+          ['Trend',   score.components.trend,  score.applicable.trend],
+          ['Debt',    score.components.debt,   score.applicable.debt],
+        ] as [string, number, boolean][]).map(([label, val, ok]) => {
+          const color = !ok ? 'var(--ink-dim)' : val >= 70 ? 'var(--sage)' : val >= 45 ? 'var(--honey)' : 'var(--terra)';
           return (
-            <div key={label as string} className="flex justify-between items-center">
+            <div key={label} className="flex justify-between items-center">
               <span className="font-mono text-[0.57rem] text-ink-mid tracking-wider">{label}</span>
               <span className="font-mono text-[0.62rem] font-medium" style={{ color: `hsl(${color})` }}>
-                {v}
+                {ok ? val : '—'}
               </span>
             </div>
           );

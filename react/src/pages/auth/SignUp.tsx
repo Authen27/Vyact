@@ -4,6 +4,7 @@ import { UserPlus, Mail } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Input, Field } from '../../components/ui/Input';
 import { signUp, signIn } from '../../lib/auth';
+import GoogleButton from '../../components/auth/GoogleButton';
 import { AuthShell } from './SignIn';
 import { useStore } from '../../store';
 
@@ -96,6 +97,14 @@ export default function SignUp() {
         Email verification is optional — you'll get full access immediately. Verify
         anytime from Settings to enable password recovery.
       </p>
+
+      <div className="my-4 flex items-center gap-3">
+        <div className="flex-1 h-px bg-line" />
+        <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">or</span>
+        <div className="flex-1 h-px bg-line" />
+      </div>
+
+      <GoogleButton />
 
       <div className="mt-5 pt-4 border-t border-line text-center text-sm text-ink-mid">
         Already have an account? <Link to="/auth/sign-in" className="text-coral font-medium hover:underline">Sign in</Link>

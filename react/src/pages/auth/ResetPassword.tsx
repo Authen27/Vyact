@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, KeyRound, CheckCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Input, Field } from '../../components/ui/Input';
-import { requestPasswordReset, updatePassword, getSession } from '../../lib/auth';
+import { requestPasswordReset, updatePassword, getSession, signInMagicLink } from '../../lib/auth';
+import { isCloudEnabled } from '../../lib/supabase';
+import GoogleButton from '../../components/auth/GoogleButton';
 import { AuthShell } from './SignIn';
 
 export default function ResetPassword() {
@@ -17,6 +19,7 @@ export default function ResetPassword() {
   // If we land here with an active recovery session (from the email link),
   // jump straight to "set new password".
   useEffect(() => {
+    if (!isCloudEnabled()) return;
     (async () => {
       const session = await getSession();
       if (session?.user) setStep('set');
@@ -78,6 +81,20 @@ export default function ResetPassword() {
     </AuthShell>
   );
 
+  if (!isCloudEnabled()) {
+    return (
+      <AuthShell title="Reset your password">
+        <p className="text-ink-mid text-sm text-center mb-4">
+          Password reset needs cloud mode. You can still sign in below.
+        </p>
+        <GoogleButton />
+        <div className="mt-5 pt-4 border-t border-line text-center text-sm text-ink-mid">
+          <Link to="/auth/sign-in" className="text-coral font-medium hover:underline">Back to sign in</Link>
+        </div>
+      </AuthShell>
+    );
+  }
+
   return (
     <AuthShell title="Reset your password">
       <form onSubmit={requestReset}>
@@ -92,6 +109,32 @@ export default function ResetPassword() {
           {submitting ? 'Sending…' : <><Mail size={14} /> Send reset link</>}
         </Button>
       </form>
+
+      <div className="my-4 flex items-center gap-3">
+        <div className="flex-1 h-px bg-line" />
+        <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">or</span>
+        <div className="flex-1 h-px bg-line" />
+      </div>
+
+      <GoogleButton />
+
+      <button
+        type="button"
+        onClick={async () => {
+          if (!email) { setError('Enter your email first, then use the magic link.'); return; }
+          setError('');
+          try { await signInMagicLink(email); setStep('sent'); }
+          catch (e) { setError((e as Error).message); }
+        }}
+        className="w-full text-center text-coral hover:underline text-sm font-medium mt-3"
+      >
+        Email me a one-time sign-in link instead
+      </button>
+
+      <p className="text-ink-dim text-[0.78rem] text-center mt-3">
+        Reset emails not arriving? Use Google or the one-time link above to get back in.
+      </p>
+
       <div className="mt-5 pt-4 border-t border-line text-center text-sm text-ink-mid">
         <Link to="/auth/sign-in" className="text-coral font-medium hover:underline">Back to sign in</Link>
       </div>

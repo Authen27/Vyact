@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.5.1`**
+> **Current production version: `v6.6.0`**
 > **Live URL:** https://react-three-puce-61.vercel.app
 > **Next planned: see Roadmap at the bottom.**
 
@@ -22,6 +22,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.6.0 — Earnable Pulse Score + Google sign-in + reset-without-email *(2026-05-30)*
+
+Three user-facing features from the solutioning epic (`docs/handoff-plans/`),
+implemented locally by a junior against the line-level brief
+(`docs/handoff-plans/JUNIOR_BRIEF_wave_safe.md`) and finalised in lead review.
+
+- **Pulse Score is now real and earnable (plan 09).** `computePulseScore` no
+  longer hands out arbitrary defaults (the old `budget=60 / goals=60 / trend=70 /
+  debt=100` that pinned every empty account at ~55). Each of the 5 components is
+  scored **only when it has data**; the remaining weights are **renormalised**,
+  so the number reflects what the household can actually act on. A data-less
+  account now returns `total: null` and the gauge shows **"— / No data yet"**
+  with a "Building your Pulse — add income and a budget to begin" prompt instead
+  of a misleading score. Debt-free is *excluded* (not gifted 100). `PulseGauge`
+  shows "—" for not-yet-applicable components and respects
+  `prefers-reduced-motion`. `pulseStatus(null)` added.
+- **Continue with Google (plan 11).** New `GoogleButton` (gated on
+  `isCloudEnabled`, so it never renders in local-only mode) wired into Sign In,
+  Sign Up, and the password-reset page. Uses the pre-existing
+  `signInOAuth('google')` helper. **Requires the Supabase Google provider +
+  redirect URLs to be configured before it functions** — that dashboard step is
+  tracked in plan 11 and is not part of this code release.
+- **Password reset no longer dead-ends without email (plan 07).** The reset page
+  now offers Google + magic-link fallbacks and a no-cloud guidance state, so a
+  user who never receives a reset email can still regain access. The existing
+  email recovery-link flow is unchanged.
+- **AI summary type-safety (review catch).** `aiSummary.ts` also consumed
+  `pulseScore.total`; it now accepts `number | null` and coerces to `0` for the
+  stub agent (flagged by the junior via a `TODO(review)` — confirmed acceptable
+  for the stub; revisit when the v8 chat backend lands).
+
+Verification: `npm run lint` clean (0 errors); `npm run build` succeeds;
+schema gate unchanged (no SQL in this release). The plan-10 recurring
+unification migration is **not** in this release — it ships separately as a
+review-gated DB change.
 
 ## v6.5.1 — In-app "new version available" update prompt *(2026-05-30)*
 

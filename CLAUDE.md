@@ -4,7 +4,7 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v6.5.1**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v6.6.0**
 - Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.0.8**
 - Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
 - Vanilla shell: legacy, **frozen at v5.0** — see master index
