@@ -75,7 +75,11 @@ export const defaultSeed: SeedData = {
   ],
   debts: [],
   assets: [
-    { id: '00000000-0000-4000-8000-0000000000d1', type: 'cash', name: 'E2E Checking', value: 8000, currency: 'USD', liquidity: 'liquid' },
+    // type 'checking' (not 'cash') so it surfaces as its OWN selectable
+    // account in the transaction form. A 'cash'-type asset is folded into
+    // the generic "Cash" option (see lib/accounts.ts:buildAccounts) and would
+    // not be selectable by name.
+    { id: '00000000-0000-4000-8000-0000000000d1', type: 'checking', name: 'E2E Checking', value: 8000, currency: 'USD', liquidity: 'liquid' },
   ],
 };
 
@@ -102,6 +106,12 @@ export const sampleCreditCardDebt = {
  * seed into localStorage so the app boots straight into a populated household.
  */
 export function seedScript(data: SeedData) {
+  // Idempotent: addInitScript runs on EVERY navigation/reload. Seeding only
+  // when the household is not yet present means (a) seeded data still loads on
+  // first boot, and (b) records the test ADDS during the run survive a reload
+  // instead of being clobbered back to the seed on every page load.
+  if (localStorage.getItem('ff_active_profile')) return;
+
   localStorage.setItem('ff_active_profile', 'local');
   localStorage.setItem('ff_profiles_list', JSON.stringify([{
     id: 'local', name: 'My Household', type: 'family',

@@ -41,17 +41,38 @@
 
 | Metric | Count | % of Total |
 |---|---:|---:|
-| ✅ **Developed (green in CI)** | **6** | **3.7 %** |
-| 🟣 Golden template landed (awaiting junior pass) | 3 | 1.8 % |
-| 🟡 Designed (awaiting build) | 154 | 94.5 % |
-| 🟠 Blocked on clarification | 8 | 4.9 % |
+| ✅ **Developed (green in CI)** | **20** | **12.3 %** |
+| 🟡 Designed (awaiting build) | 132 | 81.0 % |
+| 🟠 Blocked (clarification / app gap) | 11 | 6.7 % |
 | 🔴 Failing / quarantined | 0 | 0.0 % |
 | ⛔ Deprecated | 0 | — |
 | **Total in scope** | **163** | 100 % |
 
-**Golden templates landed in scaffolding PR:** `TXN-FC-001` (S tier),
-`NWRT-FC-002` (M tier), `DEBT-FC-002` (C tier). The junior turns each 🟣
-to ✅ once the test passes in CI on their first feature-area PR.
+**Developed (20):** foundation CON-E2E-001..006; §1 TXN-FC-001/002/004/005/007/008/009;
+§7 DEBT-FC-002; §5 BDGT-FC-001/002/004/005/006/007. Full suite: 20 passed,
+3 skipped/fixme on chromium.
+
+**Blocked (11):** the 8 clarification rows (Clarifications #1–#5) plus three
+surfaced during implementation —
+- **NWRT-FC-002** — needs Auto-Linking **Phase A** (verified: `upsertTransaction`
+  does not mutate `Asset.value`; no transaction→asset reflection exists yet).
+  Test is `fixme` with the Phase-A note, not a false-green.
+- **TXN-FC-003** (transfer) — the transaction modal has a single account
+  picker; a transfer needs source + target. `fixme` pending transfer UX.
+- **BDGT-FC-003** (threshold notification) — the `budget_threshold` notif type
+  exists but is not emitted on threshold crossing in local mode by viewing the
+  Budgets page. `fixme` pending notification-engine verification.
+
+**App fixes shipped to unblock testing (this PR):**
+- `Modal.tsx` — `role="dialog"` + `aria-modal` + `aria-labelledby` (a11y +
+  `getByRole('dialog')`).
+- `Input.tsx` `Field` — `<label htmlFor>`/`id` association (a11y + `getByLabel`).
+- `playwright.config.ts` — e2e server builds in `--mode test` so the dev-only
+  `window.__ff_store` oracle is available (never in real production).
+- `seed.ts` — idempotent seeding (records added mid-test now survive reload);
+  `E2E Checking` is a `checking` asset so it is a selectable linked account.
+- `__e2e__ErrorTest.tsx` + `ErrorBoundary.tsx` — deterministic throw/recover
+  so CON-E2E-005 "Try Again" actually recovers.
 
 **Burn-down target:** see §Effort Estimate at the bottom of this file for the
 phased delivery plan against this counter.
@@ -63,13 +84,13 @@ phased delivery plan against this counter.
 | # | Functional Area | Prefix | Implemented | Designed | Total |
 |---:|---|---|---:|---:|---:|
 | 0 | Foundation & Smoke | CON-E2E | 5 | 3 | 8 |
-| 1 | Transaction Creation & Validation | TXN-FC | 0 | 9 | 9 |
+| 1 | Transaction Creation & Validation | TXN-FC | 7 | 2 | 9 |
 | 2 | Transaction Edit Propagation | TXN-EDIT-FC | 0 | 6 | 6 |
 | 3 | Transaction Deletion & Recovery | TXN-DEL-FC | 0 | 4 | 4 |
 | 4 | NetWorth Module Impact | NWRT-FC | 0 | 6 | 6 |
-| 5 | Budgets Module | BDGT-FC | 0 | 8 | 8 |
+| 5 | Budgets Module | BDGT-FC | 6 | 2 | 8 |
 | 6 | Goals Tracking | GOAL-FC | 0 | 8 | 8 |
-| 7 | Debt Payment Cascading | DEBT-FC | 0 | 8 | 8 |
+| 7 | Debt Payment Cascading | DEBT-FC | 1 | 7 | 8 |
 | 8 | Asset Management | ASSET-FC | 0 | 5 | 5 |
 | 9 | Split Payments | SPLIT-FC | 0 | 6 | 6 |
 | 10 | Recurring Transactions | RECUR-FC | 0 | 7 | 7 |
@@ -90,7 +111,7 @@ phased delivery plan against this counter.
 | 25 | Responsive & Mobile Layout | RESP-FC | 0 | 4 | 4 |
 | 26 | Performance & Large Datasets | PERF-FC | 0 | 4 | 4 |
 | 27 | Error Resilience & Edge Cases | ERR-FC | 1 | 5 | 6 |
-|   | **TOTAL** | | **6** | **157** | **163** |
+|   | **TOTAL** | | **20** | **143** | **163** |
 
 > CON-E2E-005 (error boundary) is listed under §27 (Error Resilience) but
 > retains its original ID. Foundation §0 therefore shows 5 implemented even

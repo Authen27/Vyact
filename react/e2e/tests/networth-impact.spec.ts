@@ -7,48 +7,46 @@
 //   • Asserts a derived value (a total, not just row presence)
 //   • Uses `parseMoney()` to read formatted figures back to a number
 //
-// IMPORTANT BEHAVIOUR ASSUMPTION (today, pre-Phase A of the Auto-Linking
-// roadmap — see docs/ROADMAP_AUTO_LINKING.md): asset balances are
-// user-maintained. A standalone income transaction with NO `linkedAssetId`
-// does NOT change `Asset.value`. The cross-module assertion in this golden
-// test therefore goes through the `paymentMethod` → asset link that the
-// transaction form establishes for accounts that map to an asset.
+// ⚠️ STATUS: NWRT-FC-002 is BLOCKED until Auto-Linking Phase A.
 //
-// When Phase A ships and Asset Reflection becomes automatic, this test's
-// expected total will become a happy path — DO NOT change the test ID,
-// only update the Expected Result block in TEST_CASE_INVENTORY.md.
+// Verified against the current build (store.ts:upsertTransaction and
+// lib/accounts.ts): recording a transaction against an account does NOT
+// mutate Asset.value — there is no transaction → asset reflection code path
+// at all. So "income to an account raises NetWorth total assets" cannot pass
+// today; it is exactly the behaviour Phase A introduces
+// (docs/ROADMAP_AUTO_LINKING.md).
+//
+// This test is therefore `fixme` (the inventory row stays 🟡/🟠), NOT a
+// weakened assertion that would green on today's no-op behaviour and give
+// false confidence. When Phase A ships, delete the `.fixme`, keep the test
+// ID, and update the Expected Result in TEST_CASE_INVENTORY.md.
+//
+// The M-tier exemplar the junior should copy is NWRT-FC-003/004 (add an
+// asset/debt on the Net Worth page → the total moves) — those ARE implemented
+// today. Build one of those next as the live M-tier reference.
 // ──────────────────────────────────────────────────────────────────────────
 
 import { test, expect } from '../fixtures/app';
-import { seedWith, defaultSeed } from '../fixtures/seed';
+import { seedWith } from '../fixtures/seed';
 import { parseMoney } from '../pages/NetWorthPage';
 
-// The default seed already has 'E2E Checking' $8,000 — perfect baseline.
-// We just need a member who can be the linked-account payer.
 const seed = seedWith({});
 
 test.describe('§4 NWRT-FC · NetWorth Module Impact', () => {
   test.use({ seed });
 
-  test('CON-E2E-009 · [NWRT-FC-002] income to a linked account moves NetWorth total assets', async ({
+  test.fixme('CON-E2E-009 · [NWRT-FC-002] income to a linked account moves NetWorth total assets', async ({
     page, transactions, txnModal, networth,
   }) => {
-    // ── ARRANGE ─────────────────────────────────────────────────────────────
-    // Read the seeded "Total Assets" so the assertion is dynamic and survives
-    // future seed changes — we assert the DELTA, not a hard-coded total.
+    // ── ARRANGE — capture the baseline total (assert the DELTA, not a constant)
     await networth.goto();
     const totalBefore = await networth.readAmount(networth.totalAssetsRow);
     expect(totalBefore).toBeGreaterThan(0);   // seed sanity
 
-    // ── ACT ─────────────────────────────────────────────────────────────────
+    // ── ACT — record income against the seeded 'E2E Checking' account
     await transactions.goto();
     await transactions.openAdd();
     await txnModal.waitOpen();
-
-    // The seeded 'E2E Checking' asset is rendered in the Account dropdown.
-    // `selectOption` by VISIBLE label is the most stable cross-version
-    // option — the underlying value is the asset's derived id which can
-    // change when buildAccounts() in lib/accounts.ts is refactored.
     await txnModal.fill({
       type:        'income',
       amount:      1_000,
@@ -56,22 +54,16 @@ test.describe('§4 NWRT-FC · NetWorth Module Impact', () => {
       description: 'NWRT-FC-002 Freelance',
       category:    'salary',
     });
-    // Use the robust flexibleSelect helper so this works with native
-    // <select> controls and custom combobox widgets.
-    await txnModal.flexibleSelect(txnModal.accountSelect, 'E2E Checking');
+    await txnModal.selectByValueOrText(txnModal.accountSelect, 'E2E Checking');
     await txnModal.submit();
 
-    // ── ASSERT ──────────────────────────────────────────────────────────────
-    // Navigate back to NetWorth and read the updated total. Web-first
-    // matchers retry, so we don't need to wait for state propagation
-    // explicitly — the assertion will retry until the store rehydrates.
+    // ── ASSERT — total assets reflect the deposit (Phase-A behaviour)
     await networth.goto();
     await expect.poll(
       async () => networth.readAmount(networth.totalAssetsRow),
-      {
-        message: 'Total Assets should reflect the $1,000 deposit',
-        timeout: 5_000,
-      },
-    ).toBeGreaterThanOrEqual(totalBefore + 1_000 - 0.01);  // tolerate FX rounding
+      { message: 'Total Assets should reflect the $1,000 deposit', timeout: 5_000 },
+    ).toBeGreaterThanOrEqual(totalBefore + 1_000 - 0.01);
+    // `page` is used by the navigation calls above.
+    void page;
   });
 });

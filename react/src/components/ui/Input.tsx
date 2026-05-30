@@ -1,4 +1,7 @@
-import { type InputHTMLAttributes, type SelectHTMLAttributes, type ReactNode, forwardRef } from 'react';
+import {
+  type InputHTMLAttributes, type SelectHTMLAttributes, type ReactNode,
+  type ReactElement, forwardRef, useId, isValidElement, cloneElement,
+} from 'react';
 
 const baseClass =
   'w-full bg-bg3 border border-line text-ink rounded-md px-3 py-2.5 ' +
@@ -28,12 +31,29 @@ interface FieldProps {
 }
 
 export function Field({ label, hint, children }: FieldProps) {
+  // Associate the visible label with its control via htmlFor/id so the field
+  // is reachable by accessible name (screen readers + Playwright getByLabel).
+  // If the single child already carries an id we respect it; otherwise we
+  // inject a generated one. Non-element children fall back to an unassociated
+  // label (no regression vs. the previous markup).
+  const generatedId = useId();
+  const onlyChild = isValidElement(children)
+    ? (children as ReactElement<{ id?: string }>)
+    : null;
+  const controlId = onlyChild ? (onlyChild.props.id ?? generatedId) : undefined;
+  const control = onlyChild && onlyChild.props.id === undefined
+    ? cloneElement(onlyChild, { id: controlId })
+    : children;
+
   return (
     <div className="mb-3.5">
-      <label className="block font-mono text-[0.6rem] tracking-[0.12em] uppercase text-ink-mid mb-1.5 font-medium">
+      <label
+        htmlFor={controlId}
+        className="block font-mono text-[0.6rem] tracking-[0.12em] uppercase text-ink-mid mb-1.5 font-medium"
+      >
         {label}{hint && <span className="text-ink-dim ml-1.5">({hint})</span>}
       </label>
-      {children}
+      {control}
     </div>
   );
 }

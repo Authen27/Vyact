@@ -2,11 +2,12 @@ import type { Page, Locator } from '@playwright/test';
 
 /**
  * Page Object for `/budgets`. Add/Edit flows open the global BudgetFormModal
- * (mounted at App root). This POM only navigates and exposes locators —
- * fill the modal via a future BudgetFormModal POM (junior task) once
- * §5 BDGT-FC tests begin.
+ * (see pages/BudgetFormModal.ts).
  *
- * Shape mirrors GoalsPage / DebtsPage so the junior sees a single pattern.
+ * Each budget renders as a `.rounded-xl` card containing the category label,
+ * a progress bar, a "left"/"over" remainder, and "Edit"/"Del" buttons
+ * (src/pages/Budgets.tsx). Scope to the card so per-budget assertions don't
+ * collide when several budgets are present.
  */
 export class BudgetsPage {
   readonly page: Page;
@@ -22,14 +23,25 @@ export class BudgetsPage {
     await this.page.waitForURL('**/budgets');
   }
 
-  /** Row in the budgets list located by category label (e.g. "Food"). */
-  row(category: string): Locator {
-    return this.page.getByText(category, { exact: false });
+  /** The budget card whose text contains `label` (category display name). */
+  card(label: string): Locator {
+    return this.page.locator('div.rounded-xl').filter({ hasText: label });
+  }
+
+  /** Loose text match for "is this budget present at all". */
+  row(label: string): Locator {
+    return this.page.getByText(label, { exact: false });
   }
 
   async openAdd() { await this.addButton.click(); }
 
-  async openEdit(category: string) {
-    await this.row(category).click();
+  /** Open the edit modal by clicking a card's "Edit" button. */
+  async openEdit(label: string) {
+    await this.card(label).getByRole('button', { name: 'Edit' }).click();
+  }
+
+  /** Switch the period view (Monthly / Quarterly / …). */
+  async switchView(view: string) {
+    await this.page.getByRole('button', { name: new RegExp(`^${view}$`, 'i') }).click();
   }
 }

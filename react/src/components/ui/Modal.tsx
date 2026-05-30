@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useId } from 'react';
 import { X } from 'lucide-react';
 
 interface Props {
@@ -9,6 +9,8 @@ interface Props {
 }
 
 export default function Modal({ open, title, onClose, children }: Props) {
+  const titleId = useId();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -24,9 +26,17 @@ export default function Modal({ open, title, onClose, children }: Props) {
       style={{ background: 'hsl(var(--shadow) / 0.55)', backdropFilter: 'blur(4px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-bg2 border border-line2 rounded-lg w-full max-w-md max-h-[92vh] overflow-y-auto shadow-3 animate-modalIn">
+      {/* role/aria-modal/aria-labelledby give the overlay an accessible name
+          (its title), so assistive tech — and Playwright's
+          getByRole('dialog', { name }) — can target it unambiguously. */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="bg-bg2 border border-line2 rounded-lg w-full max-w-md max-h-[92vh] overflow-y-auto shadow-3 animate-modalIn"
+      >
         <div className="flex justify-between items-center px-5 py-4 border-b border-line">
-          <h3 className="display-italic text-[1.5rem] leading-none text-ink">{title}</h3>
+          <h3 id={titleId} className="display-italic text-[1.5rem] leading-none text-ink">{title}</h3>
           <button onClick={onClose} className="text-ink-dim hover:text-ink transition-colors p-1">
             <X size={18} />
           </button>

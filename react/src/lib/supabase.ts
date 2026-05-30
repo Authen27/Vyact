@@ -23,8 +23,14 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 // local-only mode unless you provide .env.local.
 const FALLBACK_URL = 'https://dmxqkvploojokffuhxnz.supabase.co';
 const FALLBACK_KEY = 'sb_publishable_SpuQFPzUWOnKI3nRR6ghNw_ktWqrKCA';
-const URL  = (import.meta.env.VITE_SUPABASE_URL  as string | undefined) || (import.meta.env.PROD ? FALLBACK_URL : undefined);
-const KEY  = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || (import.meta.env.PROD ? FALLBACK_KEY : undefined);
+// Apply the production fallback for REAL prod builds only. The e2e suite builds
+// with `--mode test` (import.meta.env.MODE === 'test') and must stay local-only
+// so journeys aren't gated behind the cloud auth screen — without this guard a
+// prod-style test build picks up the fallback creds and every route redirects
+// to /auth/sign-in. Real deploys (MODE === 'production') keep the fallback.
+const USE_FALLBACK = import.meta.env.PROD && import.meta.env.MODE !== 'test';
+const URL  = (import.meta.env.VITE_SUPABASE_URL  as string | undefined) || (USE_FALLBACK ? FALLBACK_URL : undefined);
+const KEY  = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || (USE_FALLBACK ? FALLBACK_KEY : undefined);
 export const APP_URL = (import.meta.env.VITE_APP_URL as string | undefined) || (typeof window !== 'undefined' ? window.location.origin : '');
 
 export const isCloudEnabled = (): boolean => {

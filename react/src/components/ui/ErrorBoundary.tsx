@@ -26,6 +26,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     // import * as Sentry from '@sentry/react';
     // Sentry.captureException(error, { extra: errorInfo });
     // console.error('ErrorBoundary caught:', error, errorInfo);
+
+    // E2E-only: the synthetic error page (pages/__e2e__ErrorTest.tsx) throws
+    // until this signal is set, so "Try Again" can recover it. Scoped strictly
+    // to that one marker message — real errors never set the flag.
+    if (error?.message === 'E2E-test-intentional-throw') {
+      (window as unknown as { __e2e_error_recovered?: boolean }).__e2e_error_recovered = true;
+    }
   }
 
   handleReset = () => {

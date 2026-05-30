@@ -88,18 +88,60 @@ export class TransactionFormModal {
    * `selectOption` works directly on the locator returned by `getByLabel`.
    */
   async fill(input: Partial<NewTransactionInput>) {
-    if (input.type !== undefined)        await this.typeSelect.selectOption(input.type);
+    // All <select> fields go through selectByValueOrText, which matches by
+    // value OR visible text and FAILS FAST on a bad value (a bare
+    // selectOption(value) retries until the test timeout if no option
+    // matches — a 30 s hang trap).
+    if (input.type !== undefined)        await this.selectByValueOrText(this.typeSelect, input.type);
     if (input.date !== undefined)        await this.dateInput.fill(input.date);
     if (input.description !== undefined) await this.descriptionInput.fill(input.description);
     if (input.amount !== undefined)      await this.amountInput.fill(String(input.amount));
-    if (input.currency !== undefined)    await this.currencySelect.selectOption(input.currency);
-    if (input.category !== undefined)    await this.categorySelect.selectOption(input.category);
-    if (input.member !== undefined)      await this.memberSelect.selectOption(input.member);
-    if (input.account !== undefined)     await this.accountSelect.selectOption(input.account);
-    if (input.recurring !== undefined)   await this.recurringSelect.selectOption(input.recurring);
+    if (input.currency !== undefined)    await this.selectByValueOrText(this.currencySelect, input.currency);
+    if (input.category !== undefined)    await this.selectByValueOrText(this.categorySelect, input.category);
+    if (input.member !== undefined)      await this.selectByValueOrText(this.memberSelect, input.member);
+    if (input.account !== undefined)     await this.selectByValueOrText(this.accountSelect, input.account);
+    if (input.recurring !== undefined)   await this.selectByValueOrText(this.recurringSelect, input.recurring);
     if (input.note !== undefined)        await this.noteInput.fill(input.note);
     if (input.excluded === true)         await this.excludedCheckbox.check();
     if (input.excluded === false)        await this.excludedCheckbox.uncheck();
+  }
+
+  /**
+   * Select an option on a native <select> by value OR by visible text
+   * (exact, then substring). Currency/account options carry an emoji/symbol
+   * prefix in their text (e.g. "🏦 E2E Checking", "$ USD"), so the caller can
+   * pass the bare name.
+   *
+   * IMPORTANT: we scan the existing <option> set and match in JS rather than
+   * calling `locator.selectOption(value)` speculatively. `selectOption` does
+   * NOT fail fast on a non-matching value — it RETRIES until the test timeout
+   * (30 s), so a try/catch cascade of selectOption calls would hang. Scanning
+   * the already-rendered options is instant and fails with a clear error.
+   */
+  async selectByValueOrText(locator: Locator, value: string | number) {
+    const v = String(value);
+    const options = locator.locator('option');
+    await options.first().waitFor({ state: 'attached' });
+    const count = await options.count();
+
+    let substringMatch: string | null | undefined;
+    for (let i = 0; i < count; i++) {
+      const opt = options.nth(i);
+      const [val, raw] = await Promise.all([opt.getAttribute('value'), opt.textContent()]);
+      const text = (raw ?? '').trim();
+      if (val === v || text === v) {                       // exact value or label
+        await locator.selectOption(val ?? { label: text });
+        return;
+      }
+      if (substringMatch === undefined && text.includes(v)) {
+        substringMatch = val;                              // remember first substring hit
+      }
+    }
+    if (substringMatch !== undefined) {
+      await locator.selectOption(substringMatch);
+      return;
+    }
+    throw new Error(`selectByValueOrText: no option matching "${v}"`);
   }
 
   /** Click Add/Update and wait for the modal to dismiss. */

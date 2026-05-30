@@ -55,7 +55,11 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run build && npm run preview -- --port 4173',
+    // Build in 'test' mode (not 'production') so import.meta.env.MODE is
+    // 'test'. This keeps the dev-only store exposure (window.__ff_store in
+    // store.ts, guarded by MODE !== 'production') available to tests that read
+    // derived state, WITHOUT exposing it in real production builds.
+    command: 'npm run build -- --mode test && npm run preview -- --port 4173',
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
