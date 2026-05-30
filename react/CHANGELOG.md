@@ -4,9 +4,9 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v6.4.27`**
-> **Live URL:** https://react-taupe-xi.vercel.app
-> **Next planned: `v6.5`** (see Roadmap at the bottom).
+> **Current production version: `v6.5.0`**
+> **Live URL:** https://react-three-puce-61.vercel.app
+> **Next planned: see Roadmap at the bottom.**
 
 ## Version provenance & gaps
 
@@ -22,6 +22,32 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v6.5.0 — E2E test automation foundation (Batch 1+2) + test-build cloud-leak fix *(2026-05-30)*
+
+**Non-functional release.** No change to runtime app behaviour or UI — this is a
+version marker for the QA-automation milestone plus one build-guard fix.
+
+- **Playwright E2E suite landed and green** — 20 passed / 3 skipped on chromium.
+  Covers §1 Transaction Creation (7), §5 Budgets (6), §7 Debt payment math (1),
+  plus the foundation/smoke set. Page Objects (`TransactionFormModal`,
+  `BudgetFormModal`, `BudgetsPage`, `NetWorthPage`, …), deterministic fixtures
+  (frozen clock, pinned UUID, `seedWith`), and the test-case inventory
+  (`react/e2e/TEST_CASE_INVENTORY.md`, now 20/163 developed) are the source of
+  truth for functional QA. The 3 skips are honest `fixme`s gated on
+  Auto-Linking Phase A (NWRT-FC-002), transfer UX (TXN-FC-003), and the
+  budget-threshold notification engine (BDGT-FC-003).
+- **Accessibility groundwork (also enables stable test locators):** `Modal`
+  now renders `role="dialog"` + `aria-modal` + `aria-labelledby`; `Field`
+  associates its `<label>` with the control via `htmlFor`/`id`. Pure a11y
+  addition — no visual change.
+- **Build fix — `lib/supabase.ts`:** the production `FALLBACK_URL/KEY` (added
+  in v6.4.27 to keep prod always DB-connected) was being applied on *any*
+  prod-style build, including the e2e `vite build --mode test` build — which
+  silently flipped the test app into cloud mode and gated every route behind
+  `/auth/sign-in`. The fallback is now skipped when
+  `import.meta.env.MODE === 'test'`. **Real production (`MODE === 'production'`)
+  is unchanged** — the deployed app still gets the fallback creds.
 
 ## v6.4.27 — Production DB-connection fix + deploy hardening + in-app version note *(2026-05-30)*
 
