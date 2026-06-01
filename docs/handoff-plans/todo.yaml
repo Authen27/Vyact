@@ -4,116 +4,133 @@
 # status:    done | in-progress | not-started | blocked
 # wave:      execution order (complete a wave before starting the next)
 # owner:     junior | senior | human | human+senior
-# safe:      yes = junior can execute alone with a brief
-#            review = junior implements, senior reviews before merge
-#            no = senior/human only — do NOT delegate to a junior
+# safe:      yes  = junior executes alone with the implementation brief
+#            review = junior implements, senior reviews diff before merge
+#            no   = senior or human only — do not delegate to a junior
 #
-# Current live state (2026-06-01):
-#   Consumer : v7.0.0 at https://vyact-twentyx.vercel.app
-#   Admin    : v1.1.0 at https://vyact-admin.vercel.app
+# Live state (2026-06-01):
+#   Consumer : v7.0.0  https://vyact-twentyx.vercel.app
+#   Admin    : v1.1.0  https://vyact-admin.vercel.app
 #   Supabase : dmxqkvploojokffuhxnz (eu-west-2), 18 migrations reconciled
-#   Repo     : Authen27/Vyact (renamed from Finflow 2026-06-01)
+#   Repo     : github.com/Authen27/Vyact
 # ════════════════════════════════════════════════════════════════
 
 tasks:
 
   # ── COMPLETED ──────────────────────────────────────────────────────────────
+
   - id: urgent_verification
     title: "Production verification & CI migration check"
-    priority: urgent
-    wave: 0
     status: done
-    owner: senior
-    safe: "no"
     shipped_in: "v6.4.27"
-    notes: "DB-connected build verified; deploy pipeline hardened."
 
   - id: secrets_runbook
     title: "Rotate the leaked Supabase access token"
-    priority: urgent
-    wave: 0
     status: done
-    owner: human
-    safe: "no"
-    notes: "Token rotated. GitHub secret SUPABASE_ACCESS_TOKEN updated."
-
-  - id: google_oauth_ui
-    title: "Wire Google OAuth button (UI + provider config)"
-    priority: high
-    wave: 1
-    status: done
-    owner: senior
-    safe: "yes"
-    shipped_in: "v6.6.0"
-    notes: >
-      GoogleButton component wired into SignIn/SignUp/ResetPassword.
-      CODE shipped. Supabase Google provider + redirect URL configuration
-      is still a HUMAN step — see open item google_oauth_provider below.
-
-  - id: password_reset_resilience
-    title: "Password reset no-SMTP fallbacks (Issue 1)"
-    priority: high
-    wave: 2
-    status: done
-    owner: senior
-    safe: "yes"
-    shipped_in: "v6.6.0"
-    notes: "Google + magic-link fallbacks; no-cloud guard. Reset never dead-ends."
 
   - id: pulse_score_definition
     title: "Earnable /100 Pulse Score + ring animation (Issue 3)"
-    priority: high
-    wave: 2
     status: done
-    owner: senior
-    safe: "yes"
     shipped_in: "v6.6.0"
-    notes: >
-      Weight renormalisation over applicable components only.
-      total: number|null; honest empty state; prefers-reduced-motion.
+
+  - id: password_reset_resilience
+    title: "Password reset no-SMTP fallbacks (Issue 1)"
+    status: done
+    shipped_in: "v6.6.0"
 
   - id: rebrand_vyact
     title: "Rebrand FinFlow -> Vyact across entire codebase"
+    status: done
+    shipped_in: "v7.0.0"
+
+  # ── WAVE 0 — SECURITY (DO FIRST, blocks Wave 1) ───────────────────────────
+
+  - id: admin_lockdown
+    title: "Role-based admin lockdown — least-privilege default for all new users"
     priority: urgent
     wave: 0
-    status: done
-    owner: senior
-    safe: "no"
-    shipped_in: "v7.0.0"
-    notes: >
-      Titles, meta, manifest, export filenames, env URLs, X-Client-Info.
-      localStorage migration: vt_ prefix + ff_ compat shim (localStorageCompat.ts).
-      319 source-file // FinFlow comments remain — cosmetic, cleaned progressively.
-
-  # ── WAVE 1 — AUTH & DATA FOUNDATION ───────────────────────────────────────
-  - id: admin_lockdown
-    title: "Role-based admin lockdown (keep consumer sign-ups working)"
-    priority: urgent
-    wave: 1
     status: not-started
     owner: senior
     safe: "no"
     notes: >
-      CRITICAL — do before Google OAuth provider is configured.
-      Ensure new OAuth signups default to lowest role.
-      RLS + SECURITY DEFINER RPCs only — do NOT disable sign-ups.
-      Files: supabase/migrations/, admin/src/components/AuthGate.tsx.
+      MUST ship before Google OAuth provider is configured (otherwise a new Google
+      user could self-escalate to admin).
+      What to do:
+        1. Verify handle_new_user() Postgres trigger grants NO elevated role to new
+           signups — check supabase/migrations/ and confirm via Supabase MCP execute_sql.
+        2. Verify admin_roles table RLS: only an existing super can insert a new row.
+        3. Verify admin app AuthGate rejects users with no admin_roles row server-side
+           (not just client-side redirect).
+        4. Run get_advisors (security + performance) after any policy change.
+      Files: supabase/migrations/, admin/src/components/AuthGate.tsx,
+             admin/src/lib/adminApi.ts.
+      Do NOT disable sign-ups — that would break the consumer product.
 
-  - id: google_oauth_provider
-    title: "Configure Google OAuth provider in Supabase + redirect URLs"
-    priority: high
+  # ── WAVE 1 — GOOGLE SSO (MANDATORY) ───────────────────────────────────────
+
+  - id: google_sso_mandatory
+    title: "Google SSO as primary sign-in — always visible, no feature flag"
+    priority: urgent
+    wave: 1
+    status: not-started
+    owner: junior
+    safe: "yes"
+    depends_on: [admin_lockdown]
+    brief: "docs/handoff-plans/BRIEF_google_sso_mandatory.md"
+    notes: >
+      Currently GoogleButton renders null when isCloudEnabled()=false (local dev only).
+      On production the button already shows because PROD fallback is always set.
+      Required changes — ALL in react/src/:
+        1. GoogleButton.tsx: remove the isCloudEnabled guard. Always render.
+           Add an error state so a misconfigured provider shows a message, not a crash.
+        2. SignIn.tsx: move GoogleButton ABOVE the email/password form as primary CTA.
+           Add a divider ("or sign in with email") below it.
+        3. SignUp.tsx: same — Google first, email form second.
+        4. ResetPassword.tsx: Google button already present; no layout change needed.
+      See BRIEF_google_sso_mandatory.md for the exact code to write.
+
+  - id: google_sso_provider_config
+    title: "Configure Google OAuth provider in Supabase + redirect URLs [HUMAN]"
+    priority: urgent
     wave: 1
     status: not-started
     owner: human
     safe: "no"
     depends_on: [admin_lockdown]
     notes: >
-      HUMAN STEP (dashboard, not code).
-      Google Cloud Console: OAuth consent screen + credentials.
-        Authorized redirect URI: https://dmxqkvploojokffuhxnz.supabase.co/auth/v1/callback
-      Supabase: Authentication -> Providers -> Google: paste Client ID + Secret.
-      Supabase: Authentication -> URL Configuration: add vyact-twentyx.vercel.app/auth/verified
-      Until done, the GoogleButton renders but errors on click (expected + documented).
+      HUMAN DASHBOARD STEP — cannot be done in code.
+      Do this AFTER admin_lockdown ships.
+
+      Step 1 — Google Cloud Console (console.cloud.google.com):
+        - Create/select a project named "Vyact"
+        - APIs & Services -> Credentials -> Create OAuth 2.0 Client ID
+        - Application type: Web application
+        - Name: Vyact Auth
+        - Authorised redirect URI (exact, one per line):
+            https://dmxqkvploojokffuhxnz.supabase.co/auth/v1/callback
+        - Copy the Client ID and Client Secret
+
+      Step 2 — Supabase dashboard (supabase.com/dashboard/project/dmxqkvploojokffuhxnz):
+        - Authentication -> Providers -> Google
+        - Toggle Enabled ON
+        - Paste Client ID and Client Secret
+        - Save
+
+      Step 3 — Supabase URL Configuration:
+        - Authentication -> URL Configuration -> Redirect URLs
+        - Add (one per line):
+            https://vyact-twentyx.vercel.app/auth/verified
+            https://vyact-admin.vercel.app/auth/verified
+            http://localhost:5173/auth/verified  (for local dev)
+        - Save
+
+      Step 4 — Verify:
+        - Open https://vyact-twentyx.vercel.app/auth/sign-in
+        - Click "Continue with Google"
+        - Should redirect to Google consent screen
+        - After consent, should land on /dashboard
+
+  # ── WAVE 1 — DATA FOUNDATION ──────────────────────────────────────────────
 
   - id: recurring_schedule_unification
     title: "Unify transaction.recurring with RecurringSchedule engine (Issue 4)"
@@ -123,16 +140,15 @@ tasks:
     owner: senior
     safe: "review"
     notes: >
-      Two overlapping mechanisms cause double-posting + double-counting.
-      Fix: RecurringSchedule is the single source of truth.
-      Requires additive DB migration (schedule_id, occurrence_date on transactions).
-      Migration already drafted: supabase/migrations/20260530000000_recurring_unification.sql
-      App-side: idempotency guard, autoConfirm honour, Planner count fix.
-      DB migration is review-gated (senior must apply + run get_advisors).
+      DB migration already drafted: supabase/migrations/20260530000000_recurring_unification.sql
+      Senior applies migration + runs get_advisors first.
+      Then junior implements app-side: idempotency guard in runRecurringEngine,
+      autoConfirm honour, Planner count fix.
 
   # ── WAVE 2 — PRODUCT FIXES ────────────────────────────────────────────────
+
   - id: notifications_realtime
-    title: "Real, deduplicated, lifecycle-managed notifications (Issue 2)"
+    title: "Real deduplicated notifications — bell shows live data (Issue 2)"
     priority: high
     wave: 2
     status: not-started
@@ -140,13 +156,9 @@ tasks:
     safe: "review"
     depends_on: [recurring_schedule_unification]
     notes: >
-      Engine exists (lib/notifications.ts) but is append-only — never expires
-      or reconciles, and fires on seeded demo data.
-      Fix: reconcile (add/expire/dedupe by deterministic id), not append.
-      MVP alerts: budget_threshold, upcoming_bill, missed_payment,
-      goal_milestone, low_balance.
-      The reconcile algorithm must be spec-level — not safe for junior to design.
-      Junior CAN implement if given exact pseudocode for the merge/expire logic.
+      Engine exists (lib/notifications.ts) but is append-only and fires on demo data.
+      Senior must spec the reconcile/dedupe/expire algorithm before junior touches it.
+      MVP alerts: budget_threshold, upcoming_bill, missed_payment, goal_milestone, low_balance.
 
   - id: rls_performance
     title: "TD-21: RLS performance — wrap auth.fn() + index 12 FKs"
@@ -156,122 +168,65 @@ tasks:
     owner: senior
     safe: "no"
     notes: >
-      Wrap auth.<fn>() in (select ...) in policies; consolidate overlapping
-      permissive policies; add indexes on 12 FKs flagged by get_advisors.
-      Pure additive migrations. Run get_advisors after each batch.
+      Additive migrations only. Run get_advisors after each batch.
+      Pair with TD-06 (pagination) — both affect query patterns.
 
-  # ── WAVE 3 — QUALITY & OPERATIONS ────────────────────────────────────────
+  # ── WAVE 3 — QUALITY & HOUSEKEEPING ──────────────────────────────────────
+
   - id: stabilize_e2e
-    title: "Stabilize E2E suite + cover new flows (Pulse/OAuth/Reset)"
+    title: "Stabilize E2E suite + cover new flows"
     priority: medium
     wave: 3
     status: not-started
     owner: junior
     safe: "yes"
-    depends_on: [notifications_realtime, pulse_score_definition, recurring_schedule_unification]
+    depends_on: [notifications_realtime, recurring_schedule_unification]
     notes: >
-      Resume from the 3 stashed e2e WIP branches (git stash list).
-      New flows to cover: Pulse empty state, GoogleButton render/hide in local mode,
-      reset-page fallback, vyact export filenames.
-      Every new spec needs a TS-ID and entry in docs/TEST_SCENARIOS.md.
+      Resume from git stash list (3 stashes). Cover: Pulse empty state,
+      Google button always-visible, reset fallbacks, vyact export filenames.
+      Every spec needs TS-ID + TEST_SCENARIOS.md entry.
       Gate: automation-run.mjs 10/10, all scenarios green.
 
   - id: operations_runbook
-    title: "Draft OPERATIONS.md — migrations, backup & restore"
+    title: "Write OPERATIONS.md — migrations, backup & restore"
     priority: medium
     wave: 3
     status: not-started
     owner: junior
     safe: "yes"
-    depends_on: [secrets_runbook]
     notes: >
-      Document: supabase db push --include-all (idempotent), db-migrations-check.mjs --fix,
+      Document: db-migrations-check.mjs --fix, supabase db push --include-all,
       pg_dump backup, restore to staging, pre/post-deploy checklist.
-      Include the recurring_unification migration as a worked example.
-      Produce: OPERATIONS.md committed to repo root.
-
-  - id: cleanup_tech_debt
-    title: "Reclaim orphaned Vercel URLs + prune stale branches + triage Dependabot"
-    priority: low
-    wave: 3
-    status: not-started
-    owner: junior
-    safe: "yes"
-    notes: >
-      react-taupe-xi / finflow-admin orphaned URLs: document deprecation or escalate.
-      Branches to prune (all merged): design-money-typography-standardize,
-      td-08-td-09-fresh-migrations, td-20-*, hotfix-*, release/consumer-v6.6.0.
-      ~10 Dependabot PRs open: triage + merge/close per group.
-      TD items to file as issues with estimates: TD-06 (pagination), TD-14 (IndexedDB),
-      TD-07 (AI backend), TD-16 (encrypted backups), TD-02 (test governance ratchet).
+      Output: OPERATIONS.md at repo root, committed.
 
   - id: source_comment_cleanup
-    title: "Clean up remaining 319 // FinFlow source-file comments"
+    title: "Clean up remaining // FinFlow source-file comments"
     priority: low
     wave: 3
     status: not-started
     owner: junior
     safe: "yes"
     notes: >
-      Cosmetic only — no functional impact. 319 // FinFlow vX.X comments remain
-      in source files (all are file-header version annotations).
-      Approach: sed/find-replace // FinFlow -> // Vyact in .ts/.tsx files only.
-      Do NOT touch VERSIONS.md or historical CHANGELOG entries.
-      Gate: npm run lint + build clean; no logic changed.
+      319 // FinFlow vX.X comments remain in .ts/.tsx file headers.
+      Replace // FinFlow -> // Vyact in source files only.
+      Do NOT touch VERSIONS.md, CHANGELOG entries, or history docs.
+      Gate: npm run lint + build clean.
 
-  # ── EXTERNAL / HUMAN-GATED ────────────────────────────────────────────────
-  - id: domain_registration
-    title: "Register vyact.com / vyact.app / vyact.io + defensive variants"
-    priority: urgent
-    wave: 0
+  - id: cleanup_tech_debt
+    title: "Prune merged branches + triage Dependabot PRs + file TD issues"
+    priority: low
+    wave: 3
     status: not-started
-    owner: human
-    safe: "no"
+    owner: junior
+    safe: "yes"
     notes: >
-      FOUNDER task. Blocks: custom domain deploy, email setup, 301 redirects,
-      landing page, App Store/Play Store submissions.
-      Register all three canonical domains regardless of which becomes primary.
-      Also register: getvyact.com, vyact.co, vyact.ai, vyact.finance,
-      common typos (vyacht.com, viact.com).
-
-  - id: trademark_clearance
-    title: "Trademark clearance + filing (§1.1 of VYACT_TRANSITION_CHECKLIST)"
-    priority: urgent
-    wave: 0
-    status: not-started
-    owner: human
-    safe: "no"
-    notes: >
-      Classes 9, 35, 36, 42. Markets: UK, US, India, EU, WIPO.
-      Do not launch publicly until at least knockout search is clear.
-
-  - id: email_setup
-    title: "Transactional email from @vyact.* + SPF/DKIM/DMARC"
-    priority: high
-    wave: 1
-    status: blocked
-    owner: human
-    safe: "no"
-    depends_on: [domain_registration]
-    notes: >
-      noreply@vyact.com or hello@vyact.com.
-      Update HTML email templates. Configure Resend/Loops/Mailchimp sender identity.
-      Until this ships: Supabase sends auth emails from their default domain.
-
-  - id: landing_page
-    title: "Vyact landing page + marketing site"
-    priority: high
-    wave: 2
-    status: not-started
-    owner: human
-    safe: "no"
-    depends_on: [domain_registration]
-    notes: >
-      301 redirect from vyact-twentyx.vercel.app -> vyact.* custom domain once registered.
-      App Store / Play Store copy when native app is ready.
+      Branches to prune: design-money-typography-standardize, td-08-td-09-*,
+      td-20-*, hotfix-*, release/consumer-v6.6.0.
+      ~10 Dependabot PRs open — merge/close per group.
+      File as GitHub Issues with estimates: TD-06, TD-14, TD-07, TD-16, TD-02.
 
   - id: ff_key_cleanup
-    title: "Hard-cut legacy ff_ localStorage keys (90-day window)"
+    title: "Hard-cut legacy ff_ localStorage keys (90-day window expires 2026-09-01)"
     priority: low
     wave: 3
     status: not-started
@@ -279,8 +234,32 @@ tasks:
     safe: "yes"
     due: "2026-09-01"
     notes: >
-      90-day safety window from v7.0.0 (2026-06-01) expires 2026-09-01.
-      Remove the legacy ff_ write-back in localStorageCompat.ts setString().
-      Verify: no existing user data is lost (the vt_ keys will have been
-      written alongside ff_ since v7.0.0, so all data is already migrated).
-      Ship as a minor version bump.
+      Remove the ff_ write-back in localStorageCompat.ts setString().
+      All user data already migrated to vt_ keys since v7.0.0.
+      Ship as a patch version bump.
+
+  # ── DEFERRED (not in immediate plan) ─────────────────────────────────────
+
+  - id: domain_registration
+    title: "Register vyact.com / vyact.app / vyact.io + defensive variants"
+    priority: deferred
+    status: not-started
+    owner: human
+    safe: "no"
+    notes: >
+      Moved out of immediate plan per founder decision (2026-06-01).
+      Not blocking any current engineering work.
+      Blocks: custom domain, email from @vyact.*, landing page, App Store submission.
+      When ready: register all 3 canonical + getvyact.com, vyact.co, vyact.ai,
+      vyact.finance, common typos (vyacht.com, viact.com).
+
+  - id: trademark_clearance
+    title: "Trademark clearance + filing (§1.1 VYACT_TRANSITION_CHECKLIST)"
+    priority: deferred
+    status: not-started
+    owner: human
+    safe: "no"
+    notes: >
+      Moved out of immediate plan per founder decision (2026-06-01).
+      Classes 9, 35, 36, 42. Markets: UK, US, India, EU, WIPO.
+      Do before any public product launch.
