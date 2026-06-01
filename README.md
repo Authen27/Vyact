@@ -1,12 +1,12 @@
-# FinFlow — Family Finance OS
+# Vyact — Family Finance OS
 
 Three deliverables in one repo, each independently runnable, each on its own SemVer line.
 
 | Path | What | Current | Live | Stack | Run |
 |---|---|---|---|---|---|
-| `react/` | **Consumer (React)** | **v6.4.4** | [react-taupe-xi.vercel.app](https://react-taupe-xi.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Zustand · Supabase | `cd react && npm install && npm run dev` → `:5173` |
-| `admin/` | **Admin** | **v1.0.3** | [finflow-admin.vercel.app](https://finflow-admin.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Supabase | `cd admin && npm install && npm run dev` → `:5174` |
-| `./` | Consumer legacy (vanilla shell) | **v5.0** *(frozen)* | local | HTML + CSS + JS, no build | open `index.html` |
+| `react/` | **Consumer (React)** | **v7.0.0** | [vyact-twentyx.vercel.app](https://vyact-twentyx.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Zustand · Supabase | `cd react && npm install && npm run dev` → `:5173` |
+| `admin/` | **Admin** | **v1.1.0** | [vyact-admin.vercel.app](https://vyact-admin.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Supabase | `cd admin && npm install && npm run dev` → `:5174` |
+| archived | Vanilla shell | **v5.0** *(final)* | git history only | removed from working tree | see `VERSIONS.md` |
 
 ## Changelogs
 
@@ -16,12 +16,10 @@ Three deliverables in one repo, each independently runnable, each on its own Sem
 
 ## What's where
 
-- **`index.html` · `style.css` · `app.js`** — vanilla shell (legacy consumer, v5.0 frozen). No tooling required.
-- **`src/dataAdapter.js`** — vanilla data adapter (LocalStorage / Supabase / Hybrid).
 - **`react/`** — the active consumer app. All 10 pages in React, Insights, Add Transaction, cloud sync, multi-household.
 - **`admin/`** — the admin backend. NorthStar dashboard with live KPIs from Supabase, three role tiers, content CMS.
 - **`db/schema.sql`** — Postgres schema for Supabase (auth, multi-household, RLS).
-- **`FinFlow App/`** — product specs, GTM strategy, financial model, design wireframes, PRDs.
+- **Vanilla shell (v1.0-v5.0)** — archived from the working tree in v7.0.1; preserved in git history.
 - **`ARCHITECTURE.md`** — cloud + auth + multi-household design doc.
 - **`CLAUDE.md`** — orientation for Claude Code agents working on this repo.
 
@@ -30,9 +28,6 @@ Three deliverables in one repo, each independently runnable, each on its own Sem
 ```bash
 git clone <this-repo>
 cd budget-app
-
-# Vanilla shell (legacy)
-python -m http.server 8000  # then open http://localhost:8000
 
 # Consumer React app (local-only mode out of the box)
 cd react && npm install && npm run dev   # http://localhost:5173

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v7.0.0`**
+> **Current production version: `v7.0.1`**
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Next planned: see Roadmap at the bottom.**
 
@@ -22,6 +22,21 @@ The numbering history has some non-monotonic stretches that we keep documented h
 ---
 
 
+
+## v7.0.1 — Archive vanilla shell + Google button (coming soon) *(2026-06-01)*
+
+**Vanilla shell archived.** Removed `index.html`, `app.js`, `style.css`,
+`src/dataAdapter.js`, `setup.sh`, `vercel-setup.sh`, `QUICKFIX.md`,
+`DEPLOYMENT.md`, and `Stubs.tsx` from the working tree. All pages are ported to
+the React app; `vercel.json` has always built from `react/` only. Source
+preserved in git history.
+
+**Google sign-in button — "Coming soon".** Button is now always visible and
+positioned as the primary CTA on Sign In and Sign Up (above the email form).
+Clicking it shows a toast: *"Google sign-in coming soon — use email for now."*
+No OAuth flow is triggered. Will be activated once the Supabase Google provider
++ redirect URLs are configured (tracked in `docs/handoff-plans/todo.yaml` as
+`google_sso_provider_config` — human step).
 
 ## v7.0.0 — Rebrand: FinFlow → Vyact *(2026-06-01)*
 

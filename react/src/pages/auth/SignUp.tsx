@@ -61,14 +61,14 @@ export default function SignUp() {
             Your account for <strong className="text-ink">{email}</strong> is created.
           </p>
           <p className="text-ink-mid text-sm mb-5">
-            Email verification is pending — you can still sign in below. We'll show
+            Email verification is pending — you can still sign in below. We will show
             a "verification pending" badge in your Settings until you confirm.
           </p>
           <Link
             to={`/auth/sign-in?email=${encodeURIComponent(email)}`}
             className="btn-primary inline-flex items-center"
           >
-            Continue to sign in →
+            Continue to sign in
           </Link>
         </div>
       </AuthShell>
@@ -77,6 +77,17 @@ export default function SignUp() {
 
   return (
     <AuthShell title="Create your account">
+
+      {/* Primary CTA — Google (coming soon) */}
+      <GoogleButton />
+
+      <div className="my-4 flex items-center gap-3">
+        <div className="flex-1 h-px bg-line" />
+        <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">or sign up with email</span>
+        <div className="flex-1 h-px bg-line" />
+      </div>
+
+      {/* Secondary — email form */}
       <form onSubmit={onSubmit}>
         <Field label="Full name">
           <Input type="text" value={name} onChange={e => setName(e.target.value)} required autoFocus placeholder="Alex Morgan" />
@@ -92,19 +103,6 @@ export default function SignUp() {
           {submitting ? 'Creating account…' : <><UserPlus size={14} /> Sign up</>}
         </Button>
       </form>
-
-      <p className="text-[0.74rem] text-ink-dim mt-4 leading-relaxed text-center">
-        Email verification is optional — you'll get full access immediately. Verify
-        anytime from Settings to enable password recovery.
-      </p>
-
-      <div className="my-4 flex items-center gap-3">
-        <div className="flex-1 h-px bg-line" />
-        <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">or</span>
-        <div className="flex-1 h-px bg-line" />
-      </div>
-
-      <GoogleButton />
 
       <div className="mt-5 pt-4 border-t border-line text-center text-sm text-ink-mid">
         Already have an account? <Link to="/auth/sign-in" className="text-coral font-medium hover:underline">Sign in</Link>

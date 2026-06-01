@@ -55,6 +55,17 @@ export default function SignIn() {
 
   return (
     <AuthShell title="Welcome back">
+
+      {/* Primary CTA — Google (coming soon) */}
+      <GoogleButton />
+
+      <div className="my-4 flex items-center gap-3">
+        <div className="flex-1 h-px bg-line" />
+        <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">or sign in with email</span>
+        <div className="flex-1 h-px bg-line" />
+      </div>
+
+      {/* Secondary — email / password */}
       <form onSubmit={onSubmit}>
         <Field label="Email">
           <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus placeholder="you@example.com" />
@@ -70,18 +81,10 @@ export default function SignIn() {
         </Button>
       </form>
 
-      <GoogleButton />
-
-      <div className="my-4 flex items-center gap-3">
-        <div className="flex-1 h-px bg-line" />
-        <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">or</span>
-        <div className="flex-1 h-px bg-line" />
-      </div>
-
       <button
         type="button"
         onClick={() => { setMode(m => m === 'password' ? 'magic' : 'password'); setError(''); }}
-        className="w-full text-center text-coral hover:underline text-sm font-medium"
+        className="w-full text-center text-coral hover:underline text-sm font-medium mt-3"
       >
         {mode === 'password' ? 'Sign in with magic link instead' : 'Sign in with password instead'}
       </button>

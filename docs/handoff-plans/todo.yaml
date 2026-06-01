@@ -177,9 +177,10 @@ tasks:
     title: "Archive and remove the v5 vanilla shell from the working tree"
     priority: medium
     wave: 3
-    status: not-started
+    status: done
     owner: junior
     safe: "yes"
+    shipped_in: "v7.0.1"
     brief: "docs/handoff-plans/BRIEF_deprecate_vanilla.md"
     notes: >
       The vanilla shell (index.html, app.js, style.css, src/dataAdapter.js at repo
@@ -187,7 +188,9 @@ tasks:
       react/ only). All 10 pages are ported to React. Zero cross-references from
       react/src/. Still branded FinFlow. ~275KB of untested, undeployed code.
       The git history preserves it forever regardless.
-      See BRIEF_deprecate_vanilla.md for exact steps.
+      Completed 2026-06-01: root vanilla files removed from the working tree;
+      README.md, CLAUDE.md, VERSIONS.md, and react/README.md updated to reflect
+      the archive status. Source preserved in git history.
 
   - id: stabilize_e2e
     title: "Stabilize E2E suite + cover new flows"

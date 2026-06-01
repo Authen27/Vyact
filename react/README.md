@@ -90,19 +90,7 @@ react/
 
 ## What's pending
 
-7 pages remain as stubs. The v5 vanilla shell at `../index.html` has them all working, so for any feature you can:
-
-1. Use the v5 page now via the parent app
-2. Port to React when needed — all the `lib/calculations.ts` functions already work for it; just need the UI
-
-Migration priority:
-1. **Settings** — profile form, theme cards, currency rates table, JSON sync
-2. **Net Worth** — balance sheet (assets / liabilities split), 4 ratio cards, trend
-3. **Debts** — list, strategy toggle, EMI preview, payment recording with interest/principal split
-4. **Goals** — card grid with inline progress updates
-5. **Budgets** — card grid with status pills (over/near/on-track)
-6. **Splits** — IOU panels (owed-to-you / you-owe), settlement flow
-7. **Help** — collapsible accordion sections
+The legacy vanilla shell has been archived from the working tree. React is now the only active consumer surface. Remaining work should be tracked against current roadmap items in `VERSIONS.md` and `react/CHANGELOG.md`, not against old v5 fallback pages.
 
 ## Roadmap (post-v6)
 
@@ -118,11 +106,6 @@ adapter: new LocalStorageAdapter(),                    // v6
 adapter: new HybridAdapter(supabase),                  // v7
 ```
 
-## Running alongside v5
+## Legacy shell
 
-The v5 vanilla shell is at the parent directory. To run both side-by-side:
-
-- v5: open `../index.html` directly in a browser, or serve with `python -m http.server`
-- v6: `npm run dev` → http://localhost:5173
-
-They share zero state — v5 uses `localStorage` keys at the document origin; v6 uses the same keys at its own origin. If served from the same origin (e.g. both at `localhost:5173/` and `localhost:5173/legacy/`) data would automatically migrate, since the LocalStorageAdapter uses the v5 key naming for the default profile.
+The v5 vanilla shell is no longer present in the working tree. If you need to inspect it for historical context, use git history before the v7.0.1 cleanup.

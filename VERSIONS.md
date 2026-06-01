@@ -6,14 +6,14 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v7.0.0** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v7.0.1** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.1.0** | https://vyact-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
-| **Vanilla shell (legacy consumer)** | `/` (root) | **v5.0** *(frozen)* | n/a — opens `index.html` directly | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
+| **Vanilla shell (archived)** | removed in v7.0.1 | **v5.0** *(final)* | archived — see git history | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
 > **Production URL note (updated 2026-05-30):** the live URLs above are the production domains of the `react` / `admin` projects under the `bhushandandolus-projects` Vercel team that `deploy.yml` deploys to. The previously-documented `react-taupe-xi.vercel.app` / `finflow-admin.vercel.app` are **orphaned on a different Vercel account**, are not updated by CI, and serve stale builds — reclaiming those exact hostnames needs dashboard action on that other account. See [`DEPLOY.md`](DEPLOY.md) for the authoritative deploy process.
 
-The three apps deploy independently and are versioned independently. The vanilla shell at the repo root is kept available as the *original* FinFlow app from before the React port; it shares no code with the admin app.
+The three apps deploy independently and are versioned independently. The vanilla shell was archived from the working tree in v7.0.1 after the React consumer became the only active app surface; its source remains available in git history.
 
 ---
 
@@ -23,6 +23,8 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-06-01 | [Consumer](react/CHANGELOG.md#v701--archive-vanilla-shell--google-button-coming-soon-2026-06-01) | **v7.0.1** | **Archive vanilla shell + Google button (coming soon).** Removes v5 vanilla shell files. Google sign-in button promoted to primary CTA on Sign In + Sign Up with "coming soon" toast until provider is configured. |
+| 2026-06-01 | Consumer (infra) | **v7.0.1 (prev entry)** | **Archive vanilla shell.** Removed `index.html`, `app.js`, `style.css`, `src/dataAdapter.js`, `setup.sh`, `vercel-setup.sh`, `QUICKFIX.md`, and `DEPLOYMENT.md` from the working tree. All pages are already ported to React; `vercel.json` already builds from `react/` only. Source preserved in git history. |
 | 2026-06-01 | [Consumer](react/CHANGELOG.md#v700--rebrand-finflow--vyact-2026-06-01) | **v7.0.0** | **Rebrand: FinFlow → Vyact.** Full consumer app rename — titles, meta, PWA manifest, localStorage keys (`vt_` prefix with `ff_` compat shim), export filenames, env URLs, X-Client-Info header. Repo renamed to Vyact on GitHub. Historical changelog entries preserved. No schema changes; no data migration required. |
 | 2026-06-01 | [Admin](admin/CHANGELOG.md) | **v1.1.0** | **Admin rebrand to Vyact.** Titles, meta, supabase client header updated. |
 | 2026-05-30 | [Consumer](react/CHANGELOG.md#v660--earnable-pulse-score--google-sign-in--reset-without-email-2026-05-30) | **v6.6.0** | **Earnable Pulse Score + Google sign-in + reset-without-email.** Pulse Score (plan 09) drops the arbitrary component defaults that pinned empty accounts at ~55: each component is scored only when it has data and the weights renormalise, so an empty account reads `null` → gauge shows "— / No data yet" instead of a fake number; `PulseGauge` respects `prefers-reduced-motion`. Adds a `GoogleButton` (plan 11, gated on `isCloudEnabled`) to Sign In / Sign Up / Reset — needs the Supabase Google provider configured before it works (dashboard step, not in this code release). Password reset (plan 07) gains Google + magic-link fallbacks + a no-cloud state so it never dead-ends without SMTP. `aiSummary.ts` widened to accept `pulseScore.total: number\|null`. Lint clean, build green; no schema change (plan-10 migration ships separately). |
@@ -111,7 +113,7 @@ Per-app detail in each `CHANGELOG.md` Roadmap section.
 
 ## Vanilla shell history (v1.0 – v5.0)
 
-The vanilla HTML+CSS+JS app at the repo root. All v5.0 features remain working — just open `index.html`. **No further releases planned**; the React app at `react/` (v6.0+) is the active consumer product.
+The vanilla HTML+CSS+JS app that ran from 2025 to 2026. Removed from the working tree in v7.0.1 after all product pages were ported to the React app (`react/`). Full source is preserved in git history. **Final version: v5.0.**
 
 ### v5.0 — Loans, Splits, Profiles & Privacy
 

@@ -6,10 +6,10 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v7.0.0**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v7.0.1**
 - Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.1.0**
 - Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
-- Vanilla shell: legacy, **frozen at v5.0** — see master index
+- Vanilla shell: archived from the working tree in **v7.0.1** — see master index and git history
 
 > 🧭 **New session? Start with [`docs/HANDOFF.md`](docs/HANDOFF.md)** — the continuity brief:
 > live URLs, the Vercel/Supabase gotchas, how deploys really work, open work, and
@@ -23,9 +23,9 @@ account** — do not use. Every push to `main` deploys (see [`DEPLOY.md`](DEPLOY
 ## Project Overview
 Three parallel deliverables exist in this repo:
 
-- **Consumer (vanilla shell, legacy)** at the root — plain HTML+CSS+JS, no build step. Opens `index.html` directly. All v5.0 features fully working. **Frozen** as of consumer v6.0; superseded by the React port in `react/`.
-- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v6.4.9**. Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** — this is the production URL of the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to. ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different Vercel account**, not updated by CI, and should not be relied on (it serves a stale build).
-- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.0.5**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. **Live (CI-deployed prod): https://vyact-admin.vercel.app** (the `admin` project under the same team). ⚠ The older `finflow-admin.vercel.app` is likewise orphaned on a different account.
+- **Consumer (vanilla shell, legacy)** — archived. The v1.0-v5.0 vanilla HTML/CSS/JS app was removed from the working tree in v7.0.1 (2026-06-01). It is preserved in git history at commits before that cleanup. The React app at `react/` (v6.0+) is the only active consumer product.
+- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v7.0.0**. Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** — this is the production URL of the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to. ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different Vercel account**, not updated by CI, and should not be relied on (it serves a stale build).
+- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.1.0**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. **Live (CI-deployed prod): https://vyact-admin.vercel.app** (the `admin` project under the same team). ⚠ The older `finflow-admin.vercel.app` is likewise orphaned on a different account.
 
 **Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app falls back to localStorage-only mode (single anonymous household, no auth screens). Both modes share the same `DataAdapter` interface.
 
@@ -39,17 +39,12 @@ Three parallel deliverables exist in this repo:
 ## File Structure
 ```
 budget-app/
-├── index.html              — vanilla shell (legacy consumer, v5.0 frozen)
-├── style.css               — vanilla paper-warm + dark themes
-├── app.js                  — vanilla logic (3,500+ lines)
-├── src/dataAdapter.js      — vanilla JS adapter
 ├── db/schema.sql           — Postgres schema (Supabase-ready)
 ├── VERSIONS.md             — MASTER changelog index (links to per-app CHANGELOGs)
 ├── ARCHITECTURE.md         — Cloud + auth + multi-household design
 ├── CLAUDE.md               — this file
 ├── README.md               — repo overview + run instructions
-├── FinFlow App/            — Specs, GTM, design wireframes, PRDs
-├── react/                  — CONSUMER app (v6.4.9)
+├── react/                  — CONSUMER app (v7.0.0)
 │   ├── CHANGELOG.md         — consumer per-version history + roadmap
 │   ├── package.json, vite.config.ts, tsconfig.json, tailwind.config.ts
 │   ├── index.html, .env.local, README.md
@@ -77,7 +72,7 @@ budget-app/
 │                              Debts, NetWorth, Reports, Recurring, Planner, Chat,
 │                              Insights, Households, Settings, Help, Onboarding,
 │                              auth/{SignIn,SignUp,ResetPassword,AcceptInvite}
-└── admin/                  — ADMIN app (v1.0.5, separate product)
+└── admin/                  — ADMIN app (v1.1.0, separate product)
     ├── CHANGELOG.md         — admin per-version history + roadmap
     ├── package.json, vite.config.ts, .env.local
     └── src/
@@ -104,60 +99,15 @@ budget-app/
 
 ## Running
 
-### v5 vanilla
-```bash
-# Just open index.html in a browser, or:
-python -m http.server 8000
-```
-
 ### v6 React
 ```bash
 cd react
 npm install
 npm run dev          # → http://localhost:5173
 ```
+## Vanilla Shell
 
-## v5 Feature Highlights
-- **🔒 Private (excluded) transactions** — flag any transaction to skip aggregation; visual stripe + 🔒 Private badge
-- **💳 Payment methods** — 30+ banks/cards/wallets; branded chip on every transaction row
-- **📈 Investment & Transfer types** — beyond income/expense; isolated from cash-flow totals; investments optionally auto-update Asset values
-- **👤 Multi-profile** — Personal/Family/Business/Multi-business/Shared profiles, each with isolated data; switcher in sidebar header
-- **🤝 Split payments** — group bills with N participants; only your share counts as expense; outstanding IOUs tracked in dedicated Splits page
-- **🏦 Loan tracker / EMI** — tenure & EMI fields, live amortization preview; payments split into interest (expense) + principal (transfer) automatically
-
-## Architecture
-
-### State (app.js)
-Seven persisted collections + profile:
-- `transactions[]` — every income/expense
-- `budgets[]`      — monthly category limits
-- `goals[]`        — financial milestones
-- `members[]`      — household members
-- `debts[]`        — loans, credit cards (NEW v4)
-- `assets[]`       — cash, investments, real estate (NEW v4)
-- `profile`        — name, email, baseCurrency, language, dateFormat, payoffStrategy, extraPayment
-- `exchangeRates`  — USD-base table (editable in Settings)
-
-### Data Shapes
-```js
-// Transaction — multi-currency
-{ id, type:'income'|'expense', amount, date:'YYYY-MM-DD',
-  description, category, note, memberId, recurring, currency }
-
-// Debt
-{ id, type, name, lender, account, principal, currentBalance,
-  interestRate, minimumPayment, dueDate, currency }
-
-// Asset
-{ id, type, name, value, liquidity:'liquid'|'short'|'long',
-  note, currency, lastUpdated }
-```
-
-### 9 Pages
-**TRACK** — Dashboard · Transactions · Budgets
-**PLAN** — Goals · **Debts** · **Net Worth**
-**ANALYZE** — Reports
-**Settings** · **Help & Guide**
+The legacy vanilla shell was archived from the working tree in **v7.0.1**. Its source is intentionally preserved in git history, but it is no longer a supported runtime surface or local run target.
 
 ## Design System v4 (from FinFlow Designs wireframes)
 
