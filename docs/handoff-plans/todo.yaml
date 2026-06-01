@@ -173,6 +173,22 @@ tasks:
 
   # ── WAVE 3 — QUALITY & HOUSEKEEPING ──────────────────────────────────────
 
+  - id: deprecate_vanilla_shell
+    title: "Archive and remove the v5 vanilla shell from the working tree"
+    priority: medium
+    wave: 3
+    status: not-started
+    owner: junior
+    safe: "yes"
+    brief: "docs/handoff-plans/BRIEF_deprecate_vanilla.md"
+    notes: >
+      The vanilla shell (index.html, app.js, style.css, src/dataAdapter.js at repo
+      root) is dead weight. vercel.json already ignores it entirely (builds from
+      react/ only). All 10 pages are ported to React. Zero cross-references from
+      react/src/. Still branded FinFlow. ~275KB of untested, undeployed code.
+      The git history preserves it forever regardless.
+      See BRIEF_deprecate_vanilla.md for exact steps.
+
   - id: stabilize_e2e
     title: "Stabilize E2E suite + cover new flows"
     priority: medium
