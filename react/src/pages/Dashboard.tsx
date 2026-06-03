@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useStore } from '../store';
@@ -7,7 +7,7 @@ import { Card, Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
 import PulseGauge from '../components/charts/PulseGauge';
-import { CategoryDonut } from '../components/charts/Charts';
+import { CategoryDonut } from '../components/charts/DonutCharts';
 import TxnRow from '../components/transactions/TxnRow';
 import {
   selectMonthlyData, selectTotalBalance, selectPulse, selectInsights,
@@ -53,10 +53,19 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Page header */}
+      {/* Page header — greeting (v7.4.0). The user's name (or a friendly
+          fallback) leads the page; the time-of-day prefix gives the dashboard
+          a kitchen-table feel rather than a clinical "Dashboard" label. */}
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
         <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('dashboard')}</h1>
+          <h1 className="display-italic text-4xl text-ink mb-1.5">
+            {(() => {
+              const h = new Date().getHours();
+              const greet = h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Good night';
+              const who = (profile.name || '').trim().split(/\s+/)[0];
+              return who ? `${greet}, ${who}` : greet;
+            })()}
+          </h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
             Family Finance Overview · {monthName(mk)}
           </p>
@@ -77,9 +86,9 @@ export default function Dashboard() {
           )}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={10} />} sub={`Across all ${txns.length} transactions`} />
-          <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={10} />} sub={t('this-month')} />
-          <Card label={t('monthly-expenses')} accent="terra" value={<Money amount={month.expense} currency={baseCur} maxChars={10} />} sub={t('this-month')} />
+          <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={8} />} sub={`Across all ${txns.length} transactions`} />
+          <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={8} />} sub={t('this-month')} />
+          <Card label={t('monthly-expenses')} accent="terra" value={<Money amount={month.expense} currency={baseCur} maxChars={8} />} sub={t('this-month')} />
           <Card label={t('savings-rate')}     accent="honey" value={<span className={rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}>{rate}%</span>} sub={t('of-income-saved')} />
         </div>
       </div>
@@ -192,13 +201,11 @@ export default function Dashboard() {
             <EmptyState icon="⚖️" message="No assets or debts tracked" />
           ) : (
             <div className="px-4 py-3 space-y-2">
-              <Row label="Assets"      value={fmt(ta, baseCur)} valueClass="text-sage" />
-              <Row label="Liabilities" value={fmt(tl, baseCur)} valueClass="text-terra" />
-              <div className="border-t border-line pt-2 flex justify-between items-center">
+              <Row label="Assets"      value={<Money amount={ta} currency={baseCur} maxChars={11} />}      valueClass="text-sage" />
+              <Row label="Liabilities" value={<Money amount={tl} currency={baseCur} maxChars={11} />}      valueClass="text-terra" />
+              <div className="border-t border-line pt-2 flex justify-between items-center min-w-0 gap-2">
                 <span className="display-italic text-[1.1rem] text-ink">Net Worth</span>
-                <span className={`num font-semibold text-[1.4rem] ${ta - tl >= 0 ? 'text-sage' : 'text-terra'}`}>
-                  {fmt(ta - tl, baseCur)}
-                </span>
+                <Money amount={ta - tl} currency={baseCur} maxChars={12} className={`font-semibold text-[1.4rem] ${ta - tl >= 0 ? 'text-sage' : 'text-terra'}`} />
               </div>
             </div>
           )}
@@ -212,8 +219,8 @@ export default function Dashboard() {
             <EmptyState icon="✓" message="Debt-free!" />
           ) : (
             <div className="px-4 py-3 space-y-2">
-              <Row label={`Total · ${debts.length} accounts`} value={fmt(tl, baseCur)} valueClass="text-terra" />
-              <Row label="Monthly minimum" value={fmt(monthlyDebtPmt, baseCur)} valueClass="text-honey" />
+              <Row label={`Total · ${debts.length} accounts`} value={<Money amount={tl} currency={baseCur} maxChars={11} />} valueClass="text-terra" />
+              <Row label="Monthly minimum" value={<Money amount={monthlyDebtPmt} currency={baseCur} maxChars={11} />} valueClass="text-honey" />
               <Row
                 label="Debt-to-income"
                 value={`${dti.toFixed(0)}%`}
@@ -227,10 +234,10 @@ export default function Dashboard() {
   );
 }
 
-function Row({ label, value, valueClass = '' }: { label: string; value: string; valueClass?: string }) {
+function Row({ label, value, valueClass = '' }: { label: string; value: ReactNode; valueClass?: string }) {
   return (
-    <div className="flex justify-between items-center text-[0.84rem]">
-      <span className="text-ink-mid">{label}</span>
+    <div className="flex justify-between items-center text-[0.84rem] gap-2 min-w-0">
+      <span className="text-ink-mid flex-shrink-0">{label}</span>
       <span className={`num ${valueClass}`}>{value}</span>
     </div>
   );

@@ -1,4 +1,4 @@
-// FinFlow v6.4 — GoalFormModal
+// Vyact v6.4 — GoalFormModal
 //
 // Modal-driven Goal create/edit form mirroring the pattern of
 // TransactionFormModal so the two surfaces feel consistent. Bound to the

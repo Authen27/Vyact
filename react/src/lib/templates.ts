@@ -1,4 +1,4 @@
-// FinFlow v7 — Profile Templates
+// Vyact v7 — Profile Templates
 // Six templates that configure: visible pages, pre-populated data,
 // and Pulse Score weighting. Driven entirely by Profile.template field.
 

@@ -1,5 +1,12 @@
-// Compatibility helpers for localStorage key prefix migration
-// Prefer `vt_` keys, fall back to legacy keys, and write both when setting.
+// Compatibility helpers for localStorage key prefix migration.
+// Prefer `vt_` keys, fall back to legacy keys on reads, and hard-cut legacy writes.
+//
+// TD-14: write failures (QuotaExceededError) are no longer swallowed
+// silently — they fan out through `storageEvents` so the UI can surface
+// "storage full" to the user. We still don't throw, to preserve the
+// pre-TD-14 contract that callers don't have to handle storage errors.
+
+import { emitStorageEvent, isQuotaError } from './storageEvents';
 
 const NEW_PREFIX = 'vt_';
 const LEGACY_PREFIX = (() => {
@@ -12,9 +19,14 @@ const LEGACY_PREFIX = (() => {
     }
   } catch { /* noop */ }
   try {
-    if (typeof Buffer !== 'undefined') {
+    const nodeBuffer = (globalThis as {
+      Buffer?: {
+        from(data: string, encoding: string): { toString(encoding: string): string };
+      };
+    }).Buffer;
+    if (nodeBuffer) {
       // Node fallback during SSR/build-time won't be evaluated in browser runtime.
-      return Buffer.from(b64, 'base64').toString('utf8');
+      return nodeBuffer.from(b64, 'base64').toString('utf8');
     }
   } catch { /* noop */ }
   // Last-resort: construct from char codes (should rarely be hit at runtime).
@@ -51,8 +63,13 @@ export function setString(key: string, value: string | null): void {
       return;
     }
     localStorage.setItem(n, value);
-    try { localStorage.setItem(l, value); } catch { /* noop */ }
-  } catch { /* noop */ }
+    try { localStorage.removeItem(l); } catch { /* noop */ }
+  } catch (err) {
+    if (isQuotaError(err)) {
+      emitStorageEvent({ kind: 'quota-exceeded', key: n, bytes: value?.length, error: err });
+    }
+    // Preserve the original non-throwing contract for callers.
+  }
 }
 
 export function readJson<T = any>(key: string): T | null {

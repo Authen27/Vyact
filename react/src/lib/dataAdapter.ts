@@ -1,18 +1,31 @@
-// FinFlow v6 — TypeScript DataAdapter
+// Vyact v6 — TypeScript DataAdapter
 // LocalStorageAdapter is the active impl; SupabaseAdapter is reserved
 // for the cloud phase. The interface lets us swap with one line in main.tsx.
 //
 // Backward-compat: anonymous-mode uses legacy v4/v5 storage keys so existing data survives.
 
 import type {
-  Transaction, Budget, Goal, Member, Debt, Asset,
+  Transaction, Budget, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
 } from '../types';
 import { DEFAULT_RATES } from '../constants';
 import { uid } from './format';
 import ls from './localStorageCompat';
+// TD-14 — bulk entity state lives in IndexedDB (kvStore) to escape the
+// ~5 MB localStorage ceiling. Small string keys (active_profile, theme,
+// migration sentinels) still go through `ls` directly: tiny payloads,
+// no quota risk, and they need synchronous access from constructor /
+// startup paths.
+import { kvGet, kvSet, kvRemove } from './kvStore';
 
-export type Entity = 'transactions' | 'budgets' | 'goals' | 'debts' | 'assets' | 'members';
+// v7.1.2 — `accounts` becomes a first-class entity. The cloud table
+// already exists (Money Map Phase 1 migration); the LocalStorage adapter
+// just gets its own bucket.
+// v7.3.0 — `savedViews` joins as a first-class entity (Money Map Item #4).
+//          Backed by `saved_views` table + `replace_saved_views` RPC.
+export type Entity =
+  | 'transactions' | 'budgets' | 'goals' | 'debts' | 'assets'
+  | 'members' | 'accounts' | 'savedViews';
 
 export interface DataAdapter {
   // households / profiles
@@ -48,6 +61,15 @@ export interface DataAdapter {
   // exchange rates (per-household)
   getRates(householdId: string): Promise<ExchangeRates>;
   upsertRate(householdId: string, code: string, rate: number): Promise<void>;
+
+  /** v7.3 — Money Map Item #8 read-path optimisation. Optional. When
+   *  the adapter exposes pre-aggregated `v_txn_by_member` /
+   *  `v_txn_by_account` views, callers can avoid downloading every txn
+   *  for breakout charts. Adapters that don't implement these (or fail
+   *  / are offline) return undefined and the caller folds client-side
+   *  as before. */
+  queryTxnByMember?(householdId: string): Promise<Array<{ member_id: string | null; type: string; currency: string; total: number; n: number }> | undefined>;
+  queryTxnByAccount?(householdId: string): Promise<Array<{ account_id: string | null; type: string; currency: string; total: number; n: number }> | undefined>;
 }
 
 const ANON = 'local';
@@ -59,23 +81,23 @@ export class LocalStorageAdapter implements DataAdapter {
     try { this.migrateAnonKeys(); } catch { /* noop */ }
   }
 
-  private read<T>(suffix: string, householdId: string, fallback: T): T {
+  private async read<T>(suffix: string, householdId: string, fallback: T): Promise<T> {
     try {
       const key = householdId === ANON ? suffix : `${householdId}_${suffix}`;
-      const v = ls.readJson<T>(key);
-      return v !== null ? v : fallback;
+      const v = await kvGet<T>(key);
+      return v !== null && v !== undefined ? v : fallback;
     } catch { return fallback; }
   }
-  private write<T>(suffix: string, householdId: string, value: T): void {
+  private async write<T>(suffix: string, householdId: string, value: T): Promise<void> {
     try {
       const key = householdId === ANON ? suffix : `${householdId}_${suffix}`;
-      ls.setJson(key, value);
-    } catch { /* noop */ }
+      await kvSet(key, value);
+    } catch { /* noop — kvSet already surfaces quota errors via storageEvents */ }
   }
-  private removeBoth(suffix: string, householdId: string): void {
+  private async removeBoth(suffix: string, householdId: string): Promise<void> {
     try {
       const key = householdId === ANON ? suffix : `${householdId}_${suffix}`;
-      ls.removeBoth(key);
+      await kvRemove(key);
     } catch { /* noop */ }
   }
 
@@ -107,13 +129,13 @@ export class LocalStorageAdapter implements DataAdapter {
 
   // ── households ────────────────────────────────────────────────
   async listHouseholds(): Promise<HouseholdMeta[]> {
-    const list = this.read<HouseholdMeta[]>('profiles_list', ANON, []);
+    const list = await this.read<HouseholdMeta[]>('profiles_list', ANON, []);
     if (!list || !Array.isArray(list) || list.length === 0) {
       const def: HouseholdMeta[] = [{
         id: ANON, name: 'My Household', type: 'family',
         baseCurrency: 'USD', createdAt: new Date().toISOString(),
       }];
-      this.write('profiles_list', ANON, def);
+      await this.write('profiles_list', ANON, def);
       return def;
     }
     return list;
@@ -125,7 +147,7 @@ export class LocalStorageAdapter implements DataAdapter {
       name, type, baseCurrency, createdAt: new Date().toISOString(),
     };
     list.push(meta);
-    this.write('profiles_list', ANON, list);
+    await this.write('profiles_list', ANON, list);
     return meta;
   }
   async updateHousehold(id: string, patch: Partial<HouseholdMeta>): Promise<HouseholdMeta> {
@@ -133,16 +155,17 @@ export class LocalStorageAdapter implements DataAdapter {
     const idx = list.findIndex(h => h.id === id);
     if (idx < 0) throw new Error('Household not found');
     list[idx] = { ...list[idx], ...patch };
-    this.write('profiles_list', ANON, list);
+    await this.write('profiles_list', ANON, list);
     return list[idx];
   }
   async deleteHousehold(id: string): Promise<void> {
     if (id === ANON) throw new Error('Cannot delete the default profile');
-    ['transactions','budgets','goals','members','debts','assets','rates','profile'].forEach(e =>
-      this.removeBoth(e, id)
+    await Promise.all(
+      ['transactions','budgets','goals','members','debts','assets','accounts','savedViews','rates','profile']
+        .map(e => this.removeBoth(e, id))
     );
     const list = (await this.listHouseholds()).filter(h => h.id !== id);
-    this.write('profiles_list', ANON, list);
+    await this.write('profiles_list', ANON, list);
   }
   async getActiveHousehold(): Promise<string> {
     try { const v = ls.readString('active_profile'); if (v) return v; } catch { /* noop */ }
@@ -163,7 +186,7 @@ export class LocalStorageAdapter implements DataAdapter {
       household: 'family', dateFormat: 'us', payoffStrategy: 'avalanche', extraPayment: 0,
     };
     const next = { ...cur, ...patch };
-    this.write('profile', householdId, next);
+    await this.write('profile', householdId, next);
     return next;
   }
 
@@ -175,31 +198,31 @@ export class LocalStorageAdapter implements DataAdapter {
     // LocalStorageAdapter is single-user / single-tab; concurrency conflicts
     // can't occur here, so `_expectedUpdatedAt` is accepted for interface
     // parity with SupabaseAdapter and intentionally ignored.
-    const list = this.read<(T & { id: string })[]>(entity, householdId, []);
+    const list = await this.read<(T & { id: string })[]>(entity, householdId, []);
     const id = record.id || uid();
     const next = { ...record, id, updated_at: new Date().toISOString() } as T & { id: string };
     const idx = list.findIndex(r => r.id === id);
     if (idx >= 0) list[idx] = next; else list.push(next);
-    this.write(entity, householdId, list);
+    await this.write(entity, householdId, list);
     return next;
   }
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
-    const list = this.read<{ id: string }[]>(entity, householdId, []);
-    this.write(entity, householdId, list.filter(r => r.id !== id));
+    const list = await this.read<{ id: string }[]>(entity, householdId, []);
+    await this.write(entity, householdId, list.filter(r => r.id !== id));
   }
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
-    this.write(entity, householdId, records);
+    await this.write(entity, householdId, records);
     return records;
   }
 
   // ── rates ────────────────────────────────────────────────────
   async getRates(householdId: string): Promise<ExchangeRates> {
-    return { ...DEFAULT_RATES, ...this.read<ExchangeRates>('rates', householdId, {}) };
+    return { ...DEFAULT_RATES, ...(await this.read<ExchangeRates>('rates', householdId, {})) };
   }
   async upsertRate(householdId: string, code: string, rate: number): Promise<void> {
-    const rates = this.read<ExchangeRates>('rates', householdId, {});
+    const rates = await this.read<ExchangeRates>('rates', householdId, {});
     rates[code] = rate;
-    this.write('rates', householdId, rates);
+    await this.write('rates', householdId, rates);
   }
 }
 
@@ -211,6 +234,8 @@ export interface TypedListers {
   listMembers(adapter: DataAdapter, h: string): Promise<Member[]>;
   listDebts(adapter: DataAdapter, h: string): Promise<Debt[]>;
   listAssets(adapter: DataAdapter, h: string): Promise<Asset[]>;
+  listAccounts(adapter: DataAdapter, h: string): Promise<Account[]>;
+  listSavedViews(adapter: DataAdapter, h: string): Promise<SavedView[]>;
 }
 
 export const typed: TypedListers = {
@@ -220,4 +245,6 @@ export const typed: TypedListers = {
   listMembers:      (a, h) => a.list<Member>('members', h),
   listDebts:        (a, h) => a.list<Debt>('debts', h),
   listAssets:       (a, h) => a.list<Asset>('assets', h),
+  listAccounts:     (a, h) => a.list<Account>('accounts', h),
+  listSavedViews:   (a, h) => a.list<SavedView>('savedViews', h),
 };

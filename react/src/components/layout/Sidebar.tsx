@@ -2,8 +2,8 @@ import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard, ArrowLeftRight, Target, Wallet, Repeat,
   TrendingUp, Users, Banknote, Scale, BarChart3,
-  Home, Settings, HelpCircle, LogOut, BookOpen,
-  Sun, Moon, Monitor, Download, Trash2, X,
+  Home, Settings, HelpCircle, LogOut, BookOpen, CreditCard,
+  Sun, Moon, Monitor, X,
 } from 'lucide-react';
 import { signOut as authSignOut } from '../../lib/auth';
 import { useStore } from '../../store';
@@ -12,6 +12,7 @@ import { useTranslation } from '../../hooks';
 import { pagesForTemplate } from '../../lib/templates';
 import NotificationCenter from './NotificationCenter';
 import SyncStatusBadge from './SyncStatusBadge';
+import { getMoneyMapMode } from '../../lib/featureFlags';
 
 interface Props {
   open: boolean;
@@ -30,6 +31,7 @@ const navGroups = [
     { to: '/goals',    key: 'goals',    page: 'goals',    icon: Target },
     { to: '/debts',    key: 'debts',    page: 'debts',    icon: Banknote },
     { to: '/networth', key: 'networth', page: 'networth', icon: Scale },
+    { to: '/accounts', key: 'accounts', page: 'accounts', icon: CreditCard },
   ]},
   { label: 'ANALYZE', items: [
     { to: '/reports',  key: 'reports',  page: 'reports',  icon: BarChart3 },
@@ -49,6 +51,9 @@ export default function Sidebar({ open, onClose }: Props) {
   const visible = pagesForTemplate(template);
   // Always show new v7+ pages even outside template (they're additive ANALYZE tools)
   ['recurring','insights','households'].forEach(p => visible.add(p));
+  // v7.1.3 — Accounts is gated on the Money Map flag rather than template,
+  // so the link only appears once a household has opted into Money Map.
+  if (getMoneyMapMode() !== 'off') visible.add('accounts');
   const { t } = useTranslation();
 
   return (
@@ -148,12 +153,6 @@ export default function Sidebar({ open, onClose }: Props) {
               </button>
             ))}
           </div>
-          <button className="w-full flex items-center gap-1.5 px-3 py-2 text-[0.6rem] tracking-[0.1em] uppercase font-mono text-ink-mid border border-line rounded-md hover:border-line2 hover:bg-bg3">
-            <Download size={12} /> Export CSV
-          </button>
-          <button className="w-full flex items-center gap-1.5 px-3 py-2 text-[0.6rem] tracking-[0.1em] uppercase font-mono text-ink-mid border border-line rounded-md hover:border-terra hover:text-terra hover:bg-coral-tint/60">
-            <Trash2 size={12} /> Clear Data
-          </button>
           {cloudEnabled && session && (
             <button
               onClick={async () => {

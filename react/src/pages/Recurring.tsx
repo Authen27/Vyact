@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { Plus, Repeat, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Repeat, Trash2, ToggleLeft, ToggleRight, Pencil } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
+import Money from '../components/ui/Money';
 import { Input, Select, Field, FieldRow } from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
-import { fmt, formatDate } from '../lib/format';
+import { formatDate } from '../lib/format';
 import { getCat, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants';
-import type { RecurrenceFreq } from '../types';
+import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import { computeNextDueDate } from '../lib/recurring';
 
 export default function Recurring() {
@@ -20,7 +21,7 @@ export default function Recurring() {
   const toast = useStore(s => s.toast);
 
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(null as null | any);
+  const [editing, setEditing] = useState<RecurringSchedule | null>(null);
   const [type, setType] = useState<'expense' | 'income'>('expense');
   const [freq, setFreq] = useState<RecurrenceFreq>('monthly');
   const [name, setName] = useState('');
@@ -97,14 +98,19 @@ export default function Recurring() {
                       {s.frequency.toUpperCase()} · next {formatDate(s.nextDueDate, dateFormat)} · {s.autoConfirm ? 'auto' : 'pending confirm'}
                     </div>
                   </div>
-                  <div className={`font-mono text-[0.86rem] font-medium ${s.transactionTemplate.type === 'income' ? 'text-sage' : 'text-terra'}`}>
-                    {s.transactionTemplate.type === 'income' ? '+' : '−'}{fmt(s.transactionTemplate.amount, s.transactionTemplate.currency)}
+                  <div className={`text-[0.86rem] font-medium ${s.transactionTemplate.type === 'income' ? 'text-sage' : 'text-terra'}`}>
+                    <Money
+                      amount={s.transactionTemplate.amount}
+                      currency={s.transactionTemplate.currency}
+                      className="font-medium"
+                      signed={s.transactionTemplate.type === 'income'}
+                    />
                   </div>
-                  <button onClick={() => upsert({ ...s, active: !s.active })} className="p-1.5 text-ink-mid hover:text-ink" title={s.active ? 'Pause' : 'Resume'}>
-                    {s.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                  <button onClick={() => upsert({ ...s, active: !s.active })} className="row-action" aria-label={s.active ? 'Pause schedule' : 'Resume schedule'} title={s.active ? 'Pause' : 'Resume'}>
+                    {s.active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                   </button>
-                  <button onClick={() => { if (confirm('Delete this schedule?')) { remove(s.id); toast('Schedule deleted', 'info'); } }} className="p-1.5 text-ink-mid hover:text-terra" title="Delete">
-                    <Trash2 size={14} />
+                  <button onClick={() => { if (confirm('Delete this schedule?')) { remove(s.id); toast('Schedule deleted', 'info'); } }} className="row-action danger" aria-label="Delete schedule" title="Delete">
+                    <Trash2 size={14} strokeWidth={1.6} />
                   </button>
                   <button onClick={() => {
                     setOpen(true);
@@ -117,8 +123,8 @@ export default function Recurring() {
                     setDayOfMonth(s.dayOfMonth ?? 1);
                     setAutoConfirm(s.autoConfirm);
                     setReminderLead(([1,3,7] as const).includes(s.reminderLeadDays as 1|3|7) ? (s.reminderLeadDays as 1|3|7) : 3);
-                  }} className="p-1.5 text-ink-mid hover:text-coral" title="Edit">
-                    ✎
+                  }} className="row-action" aria-label="Edit schedule" title="Edit">
+                    <Pencil size={14} strokeWidth={1.6} />
                   </button>
                 </div>
               );

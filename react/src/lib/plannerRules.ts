@@ -1,4 +1,4 @@
-// FinFlow v7.5 — Rules-based Finance Planner
+// Vyact v7.5 — Rules-based Finance Planner
 // Deterministic recommendation engine. NO LLM.
 // 30+ rules across 5 domains: Income, Expenses, Investments, Debt, Tax.
 //

@@ -20,19 +20,21 @@ export default function MobileBar({ onMenu }: Props) {
     <header className="lg:hidden sticky top-0 z-30 h-14 bg-bg2 border-b border-line flex items-center justify-between px-4 backdrop-blur">
       <button
         onClick={onMenu}
-        className="w-9 h-9 border border-line rounded-md text-ink hover:bg-bg3 hover:border-line2 flex items-center justify-center"
+        aria-label="Open navigation menu"
+        className="btn-icon btn-sm"
       >
         <Menu size={18} strokeWidth={1.5} />
       </button>
-      <div className="text-xl text-ink leading-none"
-           style={{ fontFamily: 'var(--ff-serif)', fontWeight: 500, letterSpacing: '-0.015em' }}>
-        Fin<span style={{ fontStyle: 'italic', color: 'var(--ff-coral)' }}>Flow</span>
+      <div className="text-2xl text-ink leading-none"
+           style={{ fontFamily: 'var(--ff-serif)', fontWeight: 300, letterSpacing: '-0.015em' }}>
+        Vyact
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <NotificationCenter />
         <button
           onClick={cycle}
-          className="w-9 h-9 border border-line rounded-md text-ink hover:bg-bg3 hover:border-line2 flex items-center justify-center"
+          aria-label="Toggle theme"
+          className="btn-icon btn-sm"
         >
           <Icon size={16} strokeWidth={1.5} />
         </button>

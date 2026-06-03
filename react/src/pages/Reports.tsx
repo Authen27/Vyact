@@ -1,17 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Card, Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
+import { CategoryDonut } from '../components/charts/DonutCharts';
 import {
-  IncomeExpenseArea, NetBarChart, CategoryDonut, CategoryBars,
-} from '../components/charts/Charts';
+  IncomeExpenseArea, NetBarChart, CategoryBars,
+} from '../components/charts/ReportCharts';
 import {
   reportableTxns, effectiveAmount,
 } from '../lib/calculations';
 import { fmt, fmtSigned, getMonthKey } from '../lib/format';
 import { useCategoryClassifications } from '../lib/categorization';
+import { getMoneyMapMode } from '../lib/featureFlags';
 import Money from '../components/ui/Money';
+import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 
 type Period = 'day' | 'week' | 'month' | 'quarter' | 'year';
 const PERIOD_LABELS: Record<Period, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
@@ -22,9 +25,14 @@ export default function Reports() {
   const txns = useStore(s => s.transactions);
   const profile = useStore(s => s.profile);
   const rates = useStore(s => s.rates);
+  const members = useStore(s => s.members);
+  const accounts = useStore(s => s.accounts);
   const baseCur = profile.baseCurrency;
   const classifications = useCategoryClassifications();
   const [period, setPeriod] = useState<Period>('month');
+  // v7.2 — Money Map breakouts. Hidden when the flag is off so existing
+  // households see the v7.1 layout unchanged.
+  const showBreakouts = getMoneyMapMode() !== 'off';
 
   // Build period buckets
   const data = useMemo(() => buildPeriodData(period, txns, baseCur, rates), [period, txns, baseCur, rates]);
@@ -63,6 +71,122 @@ export default function Reports() {
     return Object.entries(by).sort(([, a], [, b]) => b - a).slice(0, 8).map(([catId, amount]) => ({ catId, amount }));
   }, [txns, baseCur, rates]);
 
+  // v7.2 — By-member / By-account breakouts (Money Map item #8). When the
+  // flag is `on` AND the cloud adapter exposes pre-aggregated `v_txn_by_*`
+  // views we use them (saves downloading every txn). Otherwise we fold
+  // client-side over `reportableTxns` — still the correctness baseline.
+  const adapter = useStore(s => s.adapter);
+  const currentHouseholdId = useStore(s => s.currentHouseholdId);
+  const useCloudBreakouts = getMoneyMapMode() === 'on';
+  const [cloudByMember, setCloudByMember] = useState<Array<{ member_id: string | null; type: string; currency: string; total: number; n: number }> | null>(null);
+  const [cloudByAccount, setCloudByAccount] = useState<Array<{ account_id: string | null; type: string; currency: string; total: number; n: number }> | null>(null);
+  useEffect(() => {
+    if (!useCloudBreakouts || !showBreakouts) { setCloudByMember(null); setCloudByAccount(null); return; }
+    let alive = true;
+    void (async () => {
+      const [m, a] = await Promise.all([
+        adapter.queryTxnByMember?.(currentHouseholdId),
+        adapter.queryTxnByAccount?.(currentHouseholdId),
+      ]);
+      if (!alive) return;
+      setCloudByMember(m ?? null);
+      setCloudByAccount(a ?? null);
+    })();
+    return () => { alive = false; };
+  }, [adapter, currentHouseholdId, useCloudBreakouts, showBreakouts, txns.length]);
+
+  const byMember = useMemo(() => {
+    if (!showBreakouts) return [] as { id: string; name: string; income: number; expense: number; net: number }[];
+    if (cloudByMember) {
+      const map = new Map<string, { income: number; expense: number }>();
+      cloudByMember.forEach(r => {
+        const id = r.member_id || '';
+        const cur = map.get(id) || { income: 0, expense: 0 };
+        // Pre-agg view stores native-currency totals. Convert via rates so we
+        // can compare to the headline numbers, which are also rates-converted.
+        const amt = r.currency === baseCur ? r.total : r.total * (rates[r.currency] || 1) / (rates[baseCur] || 1);
+        if (r.type === 'income') cur.income += amt;
+        else if (r.type === 'expense') cur.expense += amt;
+        map.set(id, cur);
+      });
+      const rows = [...map.entries()].map(([id, v]) => ({
+        id,
+        name: members.find(m => m.id === id)?.name || (id ? '—' : 'Unassigned'),
+        income: v.income,
+        expense: v.expense,
+        net: v.income - v.expense,
+      }));
+      rows.sort((a, b) => b.expense - a.expense);
+      return rows;
+    }
+    const map = new Map<string, { income: number; expense: number }>();
+    reportableTxns(txns).forEach(tx => {
+      const key = tx.initiatedBy || tx.memberId || '';
+      const cur = map.get(key) || { income: 0, expense: 0 };
+      const amt = effectiveAmount(tx, baseCur, rates);
+      if (tx.type === 'income') cur.income += amt;
+      else if (tx.type === 'expense') cur.expense += amt;
+      map.set(key, cur);
+    });
+    const rows = [...map.entries()].map(([id, v]) => ({
+      id,
+      name: members.find(m => m.id === id)?.name || (id ? '—' : 'Unassigned'),
+      income: v.income,
+      expense: v.expense,
+      net: v.income - v.expense,
+    }));
+    rows.sort((a, b) => b.expense - a.expense);
+    return rows;
+  }, [txns, baseCur, rates, members, showBreakouts, cloudByMember]);
+
+  const byAccount = useMemo(() => {
+    if (!showBreakouts) return [] as { id: string; name: string; income: number; expense: number; net: number }[];
+    if (cloudByAccount) {
+      const map = new Map<string, { income: number; expense: number }>();
+      cloudByAccount.forEach(r => {
+        const id = r.account_id || '';
+        const cur = map.get(id) || { income: 0, expense: 0 };
+        const amt = r.currency === baseCur ? r.total : r.total * (rates[r.currency] || 1) / (rates[baseCur] || 1);
+        if (r.type === 'income') cur.income += amt;
+        else if (r.type === 'expense') cur.expense += amt;
+        map.set(id, cur);
+      });
+      const rows = [...map.entries()].map(([id, v]) => {
+        const acc = accounts.find(a => a.id === id);
+        return {
+          id,
+          name: acc?.name || (id ? '—' : 'No account'),
+          income: v.income,
+          expense: v.expense,
+          net: v.income - v.expense,
+        };
+      });
+      rows.sort((a, b) => b.expense - a.expense);
+      return rows;
+    }
+    const map = new Map<string, { income: number; expense: number }>();
+    reportableTxns(txns).forEach(tx => {
+      const key = tx.accountId || tx.linkedAssetId || '';
+      const cur = map.get(key) || { income: 0, expense: 0 };
+      const amt = effectiveAmount(tx, baseCur, rates);
+      if (tx.type === 'income') cur.income += amt;
+      else if (tx.type === 'expense') cur.expense += amt;
+      map.set(key, cur);
+    });
+    const rows = [...map.entries()].map(([id, v]) => {
+      const acc = accounts.find(a => a.id === id || a.assetId === id);
+      return {
+        id,
+        name: acc?.name || (id ? '—' : 'No account'),
+        income: v.income,
+        expense: v.expense,
+        net: v.income - v.expense,
+      };
+    });
+    rows.sort((a, b) => b.expense - a.expense);
+    return rows;
+  }, [txns, baseCur, rates, accounts, showBreakouts, cloudByAccount]);
+
   return (
     <div>
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
@@ -87,12 +211,24 @@ export default function Reports() {
         </div>
       </div>
 
+      <div className="mb-3 flex justify-end">
+        <SavedViewsBar
+          page="reports"
+          filters={{ period }}
+          onApply={f => {
+            if (typeof f.period === 'string' && ['day','week','month','quarter','year'].includes(f.period)) {
+              setPeriod(f.period as Period);
+            }
+          }}
+        />
+      </div>
+
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3.5">
-        <Card label="All-Time Income"   accent="sage"  value={<Money amount={allInc} currency={baseCur} className="text-sage" maxChars={10} />} />
-        <Card label="All-Time Expenses" accent="terra" value={<Money amount={allExp} currency={baseCur} className="text-terra" maxChars={10} />} />
-        <Card label="Net Flow"          accent="coral" value={<Money amount={allInc - allExp} currency={baseCur} className={allInc - allExp >= 0 ? 'text-sage' : 'text-terra'} maxChars={10} />} />
-        <Card label={`Avg ${PERIOD_TITLE[period]} Net`} accent="honey" value={<Money amount={avgNet} currency={baseCur} className={avgNet >= 0 ? 'text-sage' : 'text-terra'} maxChars={10} />} />
+        <Card label="All-Time Income"   accent="sage"  value={<Money amount={allInc} currency={baseCur} className="text-sage" maxChars={8} />} />
+        <Card label="All-Time Expenses" accent="terra" value={<Money amount={allExp} currency={baseCur} className="text-terra" maxChars={8} />} />
+        <Card label="Net Flow"          accent="coral" value={<Money amount={allInc - allExp} currency={baseCur} className={allInc - allExp >= 0 ? 'text-sage' : 'text-terra'} maxChars={8} />} />
+        <Card label={`Avg ${PERIOD_TITLE[period]} Net`} accent="honey" value={<Money amount={avgNet} currency={baseCur} className={avgNet >= 0 ? 'text-sage' : 'text-terra'} maxChars={8} />} />
       </div>
 
       {/* Income vs Expense area chart (Recharts) */}
@@ -114,13 +250,13 @@ export default function Reports() {
           <CategoryDonut data={donutData} currency={baseCur} />
           {/* Needs vs Wants breakdown */}
           <div className="mt-4 flex gap-4 text-[0.98rem]">
-            <div className="flex-1 bg-bg3 rounded-lg p-3 border border-line flex flex-col items-center">
+            <div className="flex-1 bg-bg3 rounded-lg p-3 border border-line flex flex-col items-center min-w-0">
               <div className="font-mono text-[0.7rem] tracking-wider uppercase text-ink-dim mb-1">Needs</div>
-              <div className="num font-bold text-sage text-lg">{fmt(needsWants.needs, baseCur)}</div>
+              <Money amount={needsWants.needs} currency={baseCur} maxChars={9} className="font-bold text-sage text-lg" />
             </div>
-            <div className="flex-1 bg-bg3 rounded-lg p-3 border border-line flex flex-col items-center">
+            <div className="flex-1 bg-bg3 rounded-lg p-3 border border-line flex flex-col items-center min-w-0">
               <div className="font-mono text-[0.7rem] tracking-wider uppercase text-ink-dim mb-1">Wants</div>
-              <div className="num font-bold text-honey text-lg">{fmt(needsWants.wants, baseCur)}</div>
+              <Money amount={needsWants.wants} currency={baseCur} maxChars={9} className="font-bold text-honey text-lg" />
             </div>
           </div>
         </Panel>
@@ -137,10 +273,10 @@ export default function Reports() {
                 </div>
                 {[...data].reverse().map((d, i) => (
                   <div key={i} className="grid grid-cols-4 gap-2 px-4 py-2 border-b border-line last:border-b-0 text-[0.78rem]">
-                    <div>{d.label}</div>
-                    <div className="font-mono text-right text-sage">{fmt(d.income, baseCur)}</div>
-                    <div className="font-mono text-right text-terra">{fmt(d.expense, baseCur)}</div>
-                    <div className={`font-mono text-right ${d.net >= 0 ? 'text-sage' : 'text-terra'}`}>{fmtSigned(d.net, baseCur)}</div>
+                    <div className="truncate min-w-0">{d.label}</div>
+                    <div className="text-right min-w-0"><Money amount={d.income} currency={baseCur} maxChars={8} className="text-sage" /></div>
+                    <div className="text-right min-w-0"><Money amount={d.expense} currency={baseCur} maxChars={8} className="text-terra" /></div>
+                    <div className="text-right min-w-0"><Money amount={d.net} currency={baseCur} maxChars={8} signed className={d.net >= 0 ? 'text-sage' : 'text-terra'} /></div>
                   </div>
                 ))}
               </div>
@@ -151,6 +287,43 @@ export default function Reports() {
           <CategoryBars data={topCats} currency={baseCur} />
         </Panel>
       </div>
+
+      {/* v7.2 Money Map — By member / By account breakouts. Flag-gated. */}
+      {showBreakouts && (byMember.length > 0 || byAccount.length > 0) && (
+        <div className="grid lg:grid-cols-2 gap-3.5 mt-3.5">
+          <Panel title="By member" sub="All-time, reportable">
+            <BreakoutTable rows={byMember} currency={baseCur} />
+          </Panel>
+          <Panel title="By account" sub="All-time, reportable">
+            <BreakoutTable rows={byAccount} currency={baseCur} />
+          </Panel>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BreakoutTable(props: {
+  rows: { id: string; name: string; income: number; expense: number; net: number }[];
+  currency: string;
+}) {
+  const { rows, currency } = props;
+  if (rows.length === 0) {
+    return <div className="px-4 py-6 text-center text-sm text-ink-dim">No data.</div>;
+  }
+  return (
+    <div>
+      <div className="grid grid-cols-4 gap-2 px-4 py-2.5 bg-bg3 border-b border-line2 font-mono text-[0.56rem] tracking-[0.1em] uppercase text-ink-dim">
+        <div>Name</div><div className="text-right">Income</div><div className="text-right">Expense</div><div className="text-right">Net</div>
+      </div>
+      {rows.map(r => (
+        <div key={r.id || 'unassigned'} className="grid grid-cols-4 gap-2 px-4 py-2 border-b border-line last:border-b-0 text-[0.78rem]">
+          <div className="truncate min-w-0">{r.name}</div>
+          <div className="text-right min-w-0"><Money amount={r.income} currency={currency} maxChars={8} className="text-sage" /></div>
+          <div className="text-right min-w-0"><Money amount={r.expense} currency={currency} maxChars={8} className="text-terra" /></div>
+          <div className="text-right min-w-0"><Money amount={r.net} currency={currency} maxChars={8} signed className={r.net >= 0 ? 'text-sage' : 'text-terra'} /></div>
+        </div>
+      ))}
     </div>
   );
 }

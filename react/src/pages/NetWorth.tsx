@@ -1,10 +1,11 @@
 import { useStore } from '../store';
 import { useEffect } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
-import { totalAssets, totalLiabilities, liquidAssets, totalMonthlyDebtPayment, monthlyData } from '../lib/calculations';
+import { totalAssets, totalLiabilities, totalReceivables, liquidAssets, totalMonthlyDebtPayment, monthlyData } from '../lib/calculations';
 import { ASSET_TYPES, DEBT_TYPES } from '../constants';
 import type { Asset } from '../types';
 
@@ -46,7 +47,12 @@ export default function NetWorth() {
   const c   = profile.baseCurrency;
   const ta  = totalAssets(assets, c, rates);
   const tl  = totalLiabilities(debts, c, rates);
-  const nw  = ta - tl;
+  // v7.1 Money Map — receivables (`direction === 'owed_to_me'`) are
+  // money owed back to the household. They count toward Net Worth but
+  // surface as a separate line item rather than being merged into
+  // Assets, per the spec's privacy / clarity requirement (U-3).
+  const tr  = totalReceivables(debts, c, rates);
+  const nw  = ta + tr - tl;
   const la  = liquidAssets(assets, c, rates);
   const tdp = totalMonthlyDebtPayment(debts, c, rates);
   const { income, expense } = monthlyData(transactions, nowMonthKey(), c, rates);
@@ -88,11 +94,20 @@ export default function NetWorth() {
         <div className={`text-5xl font-bold mb-1 ${nw >= 0 ? 'text-sage' : 'text-terra'}`}>
           <Money amount={nw} currency={c} maxChars={11} />
         </div>
-        <div className="flex justify-center gap-8 mt-4 text-sm">
+        <div className="flex justify-center gap-6 mt-4 text-sm flex-wrap">
           <div className="text-center">
             <div className="font-semibold text-sage"><Money amount={ta} currency={c} maxChars={11} /></div>
             <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase">Assets</div>
           </div>
+          {tr > 0 && (
+            <>
+              <div className="text-ink-dim self-center text-lg">+</div>
+              <div className="text-center">
+                <div className="font-semibold text-denim"><Money amount={tr} currency={c} maxChars={11} /></div>
+                <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase">Owed to me</div>
+              </div>
+            </>
+          )}
           <div className="text-ink-dim self-center text-lg">−</div>
           <div className="text-center">
             <div className="font-semibold text-terra"><Money amount={tl} currency={c} maxChars={11} /></div>
@@ -180,14 +195,18 @@ export default function NetWorth() {
                               {a.note && <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{a.note}</div>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <div className="num font-semibold text-sage text-[0.9rem]">{fmt(valBase, c)}</div>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="text-right min-w-0">
+                              <Money amount={valBase} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem]" />
                               {a.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(a.value, a.currency)}</div>}
                             </div>
                             <div className="flex gap-1">
-                              <button className="btn-ghost text-xs py-0.5 px-1.5" onClick={() => openEdit(a)}>✎</button>
-                              <button className="btn-ghost text-xs py-0.5 px-1.5 text-terra" onClick={() => del(a.id)}>✕</button>
+                              <button className="row-action" aria-label={`Edit ${a.name}`} title="Edit" onClick={() => openEdit(a)}>
+                                <Pencil size={14} strokeWidth={1.6} />
+                              </button>
+                              <button className="row-action danger" aria-label={`Delete ${a.name}`} title="Delete" onClick={() => del(a.id)}>
+                                <Trash2 size={14} strokeWidth={1.6} />
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -196,9 +215,9 @@ export default function NetWorth() {
                   </div>
                 );
               })}
-              <div className="bg-sage/8 border border-sage/20 rounded-lg px-4 py-3 flex justify-between items-center">
+              <div className="bg-sage/8 border border-sage/20 rounded-lg px-4 py-3 flex justify-between items-center min-w-0 gap-2">
                 <span className="font-semibold text-sage">Total Assets</span>
-                <span className="num font-semibold text-sage text-lg">{fmt(ta, c)}</span>
+                <Money amount={ta} currency={c} maxChars={12} className="font-semibold text-sage text-lg" />
               </div>
             </div>
           )}
@@ -215,29 +234,59 @@ export default function NetWorth() {
             </Panel>
           ) : (
             <div className="space-y-2">
-              {debts.map(d => {
+              {debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me').map(d => {
                 const { icon, label } = DEBT_TYPES[d.type] || DEBT_TYPES.other;
                 const balBase = convert(d.currentBalance, d.currency, c, rates);
                 return (
-                  <div key={d.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
+                  <div key={d.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <span>{icon}</span>
-                      <div>
-                        <div className="text-[0.84rem] font-semibold text-ink">{d.name}</div>
+                      <div className="min-w-0">
+                        <div className="text-[0.84rem] font-semibold text-ink truncate">{d.name}</div>
                         <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{label} · {d.interestRate}% APR</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="num font-semibold text-terra text-[0.9rem]">{fmt(balBase, c)}</div>
+                    <div className="text-right min-w-0">
+                      <Money amount={balBase} currency={c} maxChars={11} className="font-semibold text-terra text-[0.9rem]" />
                       {d.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(d.currentBalance, d.currency)}</div>}
                     </div>
                   </div>
                 );
               })}
-              <div className="bg-terra/8 border border-terra/20 rounded-lg px-4 py-3 flex justify-between items-center">
+              <div className="bg-terra/8 border border-terra/20 rounded-lg px-4 py-3 flex justify-between items-center min-w-0 gap-2">
                 <span className="font-semibold text-terra">Total Liabilities</span>
-                <span className="num font-semibold text-terra text-lg">{fmt(tl, c)}</span>
+                <Money amount={tl} currency={c} maxChars={12} className="font-semibold text-terra text-lg" />
               </div>
+
+              {/* v7.1 Money Map — receivables shown as a separate sub-list. */}
+              {tr > 0 && (
+                <>
+                  <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase px-1 mt-3 mb-1.5">
+                    Owed to me · {fmt(tr, c)}
+                  </div>
+                  {debts.filter(d => d.direction === 'owed_to_me').map(d => {
+                    const { icon, label } = DEBT_TYPES[d.type] || DEBT_TYPES.other;
+                    const balBase = convert(d.currentBalance, d.currency, c, rates);
+                    return (
+                      <div key={d.id} className="bg-bg border border-denim/30 rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span>{icon}</span>
+                          <div className="min-w-0">
+                            <div className="text-[0.84rem] font-semibold text-ink truncate">
+                              {d.name}{d.counterpartyName ? ` · ${d.counterpartyName}` : ''}
+                            </div>
+                            <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{label} · receivable</div>
+                          </div>
+                        </div>
+                        <div className="text-right min-w-0">
+                          <Money amount={balBase} currency={c} maxChars={11} className="font-semibold text-denim text-[0.9rem]" />
+                          {d.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(d.currentBalance, d.currency)}</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
         </div>

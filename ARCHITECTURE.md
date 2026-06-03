@@ -1,14 +1,16 @@
 # Vyact — Cloud, Auth & Multi-Household Architecture
 
-> Note: This architecture doc header was updated to reflect the product rename from FinFlow to Vyact (2026-06-01). Historical mentions remain for traceability.
+> Updated for the Vyact rename and current product state (2026-06-01).
 
-> Design doc for migrating FinFlow from single-tenant `localStorage` to a multi-tenant cloud platform with proper authentication, multi-household membership, and offline-first sync.
+> This document now serves two purposes: it captures the architecture Vyact uses today, and it preserves the original reasoning behind the move from a single-tenant local app to a multi-tenant cloud platform.
 
 ---
 
 ## 1 · The shift in one paragraph
 
-Today FinFlow is a **single-tenant, local-only** app — one browser, one dataset, no users. The new model is **multi-tenant**: a `User` is an authenticated identity; a `Household` is a workspace with its own data; a `Membership` is the join between them with a role. A user can belong to **many households** simultaneously (two nuclear families, three businesses, a friend's budget they help with). The active household is selected in the UI; all CRUD scopes to it; data lives in the cloud with a local cache for offline use.
+Vyact started as a **single-tenant, local-only** budgeting app: one browser, one dataset, no users. The current architecture is **multi-tenant**: a `User` is an authenticated identity; a `Household` is a workspace with its own data; a `Membership` is the join between them with a role. A user can belong to **many households** simultaneously. The active household is selected in the UI; all CRUD scopes to it; data lives in Supabase with a local cache for offline resilience.
+
+In the current repo this architecture is already implemented in the React consumer app at `react/`, with the `HybridAdapter` handling local cache + cloud sync and the admin app at `admin/` operating directly against the same cloud data model.
 
 ---
 
@@ -41,7 +43,7 @@ After comparing the realistic options, **Supabase** is the strongest fit:
 | Vendor lock-in | Low (it's Postgres) | High | None |
 | Time-to-MVP | **Days** | Days | Weeks |
 
-**Why Postgres matters for FinFlow specifically:** financial reports are aggregations across thousands of transactions — `SUM`, `GROUP BY month`, `JOIN debts ON household_id`. Firestore's NoSQL query model fights this; Postgres makes it trivial. The Net Worth and Pulse Score logic live happily in SQL views.
+**Why Postgres matters for Vyact specifically:** financial reports are aggregations across thousands of transactions — `SUM`, `GROUP BY month`, `JOIN debts ON household_id`. Firestore's NoSQL query model fights this; Postgres makes it trivial. Net worth, household KPIs, and admin reporting all fit naturally in SQL views and RPCs.
 
 **Alternative — local-first with CRDTs (Yjs/Automerge + sync server)** — better for collaborative real-time editing (Figma-style), but overkill for a finance app where edits are rare and conflict windows are seconds. We'd pay complexity tax for a benefit we don't need.
 
@@ -88,7 +90,7 @@ create table memberships (
   user_id         uuid not null references auth.users(id) on delete cascade,
   role            text not null check (role in ('owner','admin','member','viewer','child')),
   display_name    text,             -- "Dad" in family A, "Alex" in business B
-  household_role  text,             -- 'primary'|'partner'|'child'|'elder' (FinFlow's existing concept)
+  household_role  text,             -- 'primary'|'partner'|'child'|'elder' (legacy household role concept)
   joined_at       timestamptz default now(),
   unique(household_id, user_id)
 );
@@ -251,7 +253,7 @@ Same pattern for every domain table. Memberships table has special policies — 
 
 For family finance, edits are rare and rarely conflict (people edit different transactions). A full CRDT model is overkill. Use this instead:
 
-### 7.1 Local cache structure (replaces today's `localStorage`)
+### 7.1 Local cache structure
 
 ```
 ff_cache:<household_id>   { transactions:[], budgets:[], goals:[], ... }
@@ -259,6 +261,8 @@ ff_queue:<household_id>   [{ op, entity, id, payload, ts }, ...]
 ff_session                 { user_id, access_token, refresh_token }
 ff_active_household        <household_id>
 ```
+
+These keys remain relevant because the current `HybridAdapter` still uses a namespaced local cache and queue. Some `ff_*` prefixes remain from the pre-rename era for backward compatibility with existing local data.
 
 ### 7.2 Read path
 1. On render: paint from local cache **immediately** (fast, offline-resilient)
@@ -303,13 +307,13 @@ supabase
 | Email change | Verify both old and new email (Supabase built-in) |
 | Anonymous mode | **Keep working** — non-authed users use localStorage as today; sign-up offers to migrate |
 
-**Recommendation:** ship email + magic-link first. Add Google OAuth in week 2. Apple Sign-In is required for App Store later.
+**Current state:** email/password auth, password reset, household creation/join flows, and invitation acceptance are part of the shipped Supabase-backed experience. Consumer local-only mode still exists when Supabase env vars are absent; the admin app requires cloud auth.
 
 ---
 
 ## 9 · The household switcher (the multi-household UX)
 
-Replace today's plan badge in the sidebar header with:
+Vyact's household switcher belongs in the primary navigation and should behave like this:
 
 ```
 ┌──────────────────────────────┐
@@ -340,10 +344,10 @@ Owner ─[1]─► Settings → Members → "Invite by email"
                                     │
    ┌────────────────────────────────┘
    ▼
-Recipient's inbox: "Sam invited you to Smith Family on FinFlow"
+Recipient's inbox: "Sam invited you to Smith Family on Vyact"
                                     │
                                     ▼
-                         Click → finflow.app/invite/<token>
+                         Click → Vyact invite link / accept-invite route
                                     │
             ┌───────────────────────┴───────────────────────┐
             ▼                                               ▼
@@ -369,7 +373,7 @@ Recipient's inbox: "Sam invited you to Smith Family on FinFlow"
 
 ## 11 · Migration from local-only to cloud
 
-The existing `localStorage` users must not be broken. Migration path:
+This migration path was the basis for the React cloud rollout and remains relevant for understanding why anonymous mode still exists:
 
 ```
 First load after deploy
@@ -392,32 +396,32 @@ Show banner: "Save your data to the cloud — sign up to back it up and sync acr
        Future writes go to cloud, localStorage becomes the cache
 ```
 
-Anonymous mode stays — it's actually a competitive advantage for privacy-conscious users and demos.
+Anonymous mode stays. In the current product that means the consumer app can still run with a `LocalStorageAdapter` when Supabase env vars are not present, while cloud-enabled builds use the same `DataAdapter` contract through `HybridAdapter`.
 
 ---
 
-## 12 · Phased build plan
+## 12 · Implementation status
 
-| Phase | Scope | Time |
+| Area | Status | Notes |
 |---|---|---|
-| **0 · Refactor** | Wrap all current state mutations in a `dataAdapter` interface — `LocalStorageAdapter` is the only impl. App talks to adapter only. | 2 days |
-| **1 · Auth foundation** | Supabase project, schema, RLS, sign-up/sign-in modal, profile page, session management, anonymous mode preserved | 1 week |
-| **2 · Single-household cloud** | `SupabaseAdapter` impl, first-sign-in migration, all CRUD against cloud, realtime subscriptions | 1 week |
-| **3 · Multi-household** | Household switcher, create/join household, invitations CRUD + email | 1 week |
-| **4 · Roles & permissions** | UI gates, RLS verification, role change UI, ownership transfer, member removal | 4 days |
-| **5 · Sync hardening** | Offline queue, conflict resolution, optimistic UI, retry logic | 4 days |
-| **6 · Activity log + polish** | Audit log UI, "Sam added X" toasts, email notifications digest | 3 days |
+| `DataAdapter` abstraction | Implemented | Consumer app routes persistence through adapter implementations rather than direct storage access. |
+| Auth foundation | Implemented | Supabase auth, reset-password flow, profile bootstrap, and session handling are live. |
+| Single-household cloud CRUD | Implemented | Consumer and admin operate on the shared Supabase schema. |
+| Multi-household | Implemented | Household switching, memberships, invitations, and accept-invite flow are in the shipped app. |
+| Roles and permissions | Implemented baseline | RLS and role-gated UI exist; policy hardening and performance tuning remain ongoing work. |
+| Offline-first sync | Implemented baseline | `HybridAdapter` provides cache + cloud sync + queue semantics, with no-clobber safeguards added in v6.4. |
+| Activity and admin oversight | Implemented baseline | Audit-oriented admin surfaces and DB-side logging/triggers exist, with room for continued expansion. |
 
-**Total: 4–5 weeks for a single capable engineer.** Faster with a backend specialist.
+The architecture is no longer a greenfield plan. The highest-value work now is hardening: RLS performance, delta sync/pagination, IndexedDB migration for larger local caches, and continued schema discipline through `supabase/migrations/`.
 
 ---
 
-## 13 · The data-adapter abstraction (build this first)
+## 13 · The data-adapter abstraction
 
 Don't sprinkle Supabase calls throughout the codebase. Define one interface:
 
-```js
-// dataAdapter.js — interface
+```ts
+// dataAdapter.ts — interface shape
 class DataAdapter {
   async getHousehold(id) {}
   async listHouseholds() {}
@@ -440,7 +444,7 @@ class SupabaseAdapter   extends DataAdapter { /* cloud */ }
 class HybridAdapter     extends DataAdapter { /* localCache + supabase + queue */ }
 ```
 
-The rest of `app.js` calls `adapter.upsertTransaction(...)` and never touches storage directly. **This refactor unlocks everything else.**
+This abstraction is now one of the core architectural boundaries in the React app. Feature code should call the adapter or store actions that sit on top of it, not touch persistence directly. Preserve that boundary when adding new entities or sync behavior.
 
 ---
 
@@ -457,19 +461,19 @@ Self-hosting Supabase is realistic — it's open source, runs on AWS/Fly/Railway
 
 ---
 
-## 15 · What I'd ship in week 1
+## 15 · What is already live
 
-A concrete sliver to prove the architecture:
+A concrete slice of this architecture is already in production:
 
 1. ✅ Supabase project + schema + RLS
-2. ✅ `dataAdapter` interface with `LocalStorageAdapter` (refactor existing code)
-3. ✅ Sign-up / sign-in modal (Supabase Auth UI or custom)
+2. ✅ `DataAdapter` interface with local, cloud, and hybrid implementations
+3. ✅ Sign-up / sign-in / reset-password flows
 4. ✅ Profile page replaces "Profile" section in Settings
-5. ✅ Single-household creation on first sign-in
-6. ✅ `SupabaseAdapter` for transactions only (everything else still local)
-7. ✅ Manual migration button: "Push my local data to the cloud"
+5. ✅ Single-household bootstrap on first sign-in
+6. ✅ Cloud-backed CRUD across the main consumer entities
+7. ✅ Multi-household switching, invitations, and admin observability
 
-That's a clear demo: sign up, see your existing data sync to the cloud, log in from another device, see the same data. Once that's working, every subsequent collection (budgets, goals, debts, assets) is the same pattern repeated.
+The remaining work is mostly about hardening and scale rather than proving viability.
 
 ---
 
@@ -489,23 +493,22 @@ That's a clear demo: sign up, see your existing data sync to the cloud, log in f
 
 ## 17 · Recommended next concrete actions
 
-1. **Spin up a Supabase project** (free, ~5 min)
-2. **Run the schema** in the SQL editor (file: `db/schema.sql` — to be created)
-3. **Refactor `app.js`** to call a `dataAdapter` (no functional change, but unblocks everything)
-4. **Build `SupabaseAdapter` for transactions** only (proof of architecture)
-5. **Add the auth modal** (Supabase Auth UI is one component) and household switcher
-6. **Iterate** through every other collection on the same pattern
+1. **Keep schema changes additive** through `supabase/migrations/` and regenerate `db/schema.sql` from migrations rather than editing the snapshot first.
+2. **Preserve the no-clobber sync guarantees** in `HybridAdapter` when changing refresh, bootstrap, or sign-out/sign-in flows.
+3. **Treat the consumer app as dual-mode by design**: cloud-enabled when env vars are present, local-only when they are not.
+4. **Prioritize hardening work** around RLS performance, delta sync/pagination, and larger offline storage.
+5. **Keep new CRUD UI on the store-driven modal pattern** rather than introducing page-local modal state.
+6. **Use the admin app and audit surfaces as the operational lens** for diagnosing multi-household or permission issues.
 
-The current vanilla-JS / no-build-step constraint stays — Supabase has a UMD bundle (`@supabase/supabase-js`) that drops in via `<script>` tag. No bundler required.
+The old vanilla-JS / no-build-step constraint no longer applies to the active consumer product. The supported surface is the Vite + React + TypeScript app in `react/`; the vanilla shell is archival only.
 
 ---
 
 ## TL;DR
 
-- **Stack:** Supabase (Postgres + Auth + RLS + Realtime).
+- **Stack:** Supabase (Postgres + Auth + RLS + Realtime) behind React/TypeScript consumer and admin apps.
 - **Model:** `users ⟷ memberships ⟷ households` — many-to-many, role on the join.
 - **Data:** every domain row carries `household_id`; RLS enforces access.
-- **Sync:** local cache + write queue + Realtime — offline works, online is fast.
-- **Migration:** anonymous mode preserved; sign-up offers to push localStorage to the cloud.
-- **Build order:** adapter abstraction → auth → single household → multi-household → invites → roles → realtime polish.
-- **Time:** 4–5 weeks for an MVP that supports a user belonging to multiple families/businesses with proper auth, invitations, and cloud sync.
+- **Sync:** local cache + write queue + cloud reconciliation via `HybridAdapter`; offline mode remains a first-class constraint.
+- **Migration:** anonymous/local mode was preserved and still exists as the consumer fallback path.
+- **Status:** the architecture is implemented; current work is hardening, scale, and operational polish rather than initial migration.

@@ -1,8 +1,8 @@
-# FinFlow — Technical Debt Register
+# Vyact — Technical Debt Register
 
 > Source: independent engineering audit of `react/` (consumer v6.4.9), `admin/` (v1.0.4),
 > `db/schema.sql`, and the frozen legacy vanilla shell (v5.0).
-> Date: 2026-05-22.
+> Date: 2026-05-22 · last reconciled against code 2026-06-01.
 >
 > **Effort key:** XS ≤ ½ day · S ≈ 1–2 days · M ≈ 1 week · L ≈ 1–2 weeks.
 > **Severity:** Critical / High / Medium / Low.
@@ -12,26 +12,26 @@
 | ID | Title | Area | Severity | Effort |
 |----|-------|------|----------|--------|
 | TD-01 | ✅ Floating-point money arithmetic *(resolved · PR #8/9/10)* | Technical / Correctness | Critical | L |
-| TD-02 | Zero automated tests | Technical / Process | High | M |
+| TD-02 | ⚠ Automated-test breadth (was: zero tests) — unit + Lane‑A E2E in place; integration & Lane‑B open | Technical / Process | Medium | M |
 | TD-03 | ✅ No optimistic concurrency (lost updates) *(resolved · PR #11/12)* | Technical / Correctness | High | M |
 | TD-04 | ✅ Admin privilege schema not version-controlled *(resolved in prod via Supabase Dashboard migration `v646_admin_ai_usage_summary` 2026-05-22; partially mirrored in repo via PR #7 + PR #13 batch; see TD-20 for the parallel-history meta-bug)* | Security | High | S |
 | TD-20 | ✅ Repo's `supabase/migrations/` is decoupled from Supabase's actual applied migrations; no CI auto-apply step *(resolved · PR #16)* | Technical / Process / Infra | High | M |
-| TD-05 | No render error boundary | Functional / Resilience | High | XS |
-| TD-06 | Client pulls entire tables; no pagination/delta sync | Scalability | High | M–L |
-| TD-07 | AI Chat & Insights shipped as stubs | Functional / Product | High | M |
-| TD-08 | ✅ Audit trail not populated for financial CRUD *(resolved · PR #13 batch)* | Functional / Compliance | Medium | S |
-| TD-09 | ✅ Non-atomic, N+1 bulk import (`replaceAll`) *(resolved · PR #13 batch)* | Technical / Correctness | Medium | S |
-| TD-10 | ✅ Sync queue drops ops silently; no retry cap/visibility *(resolved · PR #13 batch)* | Technical / Reliability | Medium | S |
-| TD-11 | No route-level code splitting; heavy bundle | Performance | Medium | S |
-| TD-12 | ✅ Derived metrics recompute per render *(resolved · PR #13 batch)* | Performance | Medium | S–M |
-| TD-13 | ✅ Budget `period` is a per-device localStorage overlay *(resolved · PR #13 batch)* | Functional / Data integrity | Medium | S |
-| TD-14 | localStorage quota ceiling; failures swallowed | Scalability | Medium | S–M |
+| TD-05 | ✅ No render error boundary *(resolved · PR #4)* | Functional / Resilience | High | XS |
+| TD-06 | ✅ Client pulls entire tables; no pagination/delta sync *(resolved · 2026-06-01: SupabaseAdapter.listSince + HybridAdapter cursor + composite indexes)* | Scalability | High | M–L |
+| TD-07 | ✅ AI Chat shipped as stub *(resolved · 2026-06-01: GeminiChatBackend on Gemini 1.5 Flash free tier; falls back to stub when key absent)* | Functional / Product | High | M |
+| TD-08 | ✅ Audit trail not populated for financial CRUD *(resolved · PR #13 batch + PR #20 in prod)* | Functional / Compliance | Medium | S |
+| TD-09 | ✅ Non-atomic, N+1 bulk import (`replaceAll`) *(resolved · PR #13 batch + PR #20 in prod)* | Technical / Correctness | Medium | S |
+| TD-10 | ✅ Sync queue visibility + capped retry/backoff *(resolved · PR #13 batch surface + 2026-06-01 backoff)* | Technical / Reliability | Medium | S |
+| TD-11 | ✅ No route-level code splitting; heavy bundle *(resolved · PR #5)* | Performance | Medium | S |
+| TD-12 | ✅ Derived metrics recompute per render *(resolved · PR #13 batch; selectors retyped 2026-06-01)* | Performance | Medium | S–M |
+| TD-13 | ✅ Budget `period` is a per-device localStorage overlay *(resolved · PR #13 batch + PR #20 in prod; `budgetMeta.ts` removed 2026-06-01)* | Functional / Data integrity | Medium | S |
+| TD-14 | ✅ localStorage quota ceiling; failures swallowed *(resolved · 2026-06-01: kvStore IndexedDB substrate + storageEvents quota fan-out)* | Scalability | Medium | S–M |
 | TD-15 | ✅ No MFA / documented auth rate limiting *(resolved · PR #13 batch)* | Security | Medium | XS |
 | TD-16 | Backups/exports unencrypted at rest | Security / Privacy | Medium | S |
-| TD-17 | No transaction list virtualization | Performance | Low | S |
-| TD-18 | Hand-run SQL file instead of a migrations tool | Technical / Process | Medium | S |
-| TD-19 | No end-to-end / browser test automation | Technical / Process / QA | High | M (phased) |
-| TD-21 | RLS performance: un-wrapped `auth.<fn>()` initplan + overlapping permissive policies | Performance / Scalability | Medium | S–M |
+| TD-17 | ✅ No transaction list virtualization *(resolved · PR #3)* | Performance | Low | S |
+| TD-18 | ✅ Hand-run SQL file instead of a migrations tool *(resolved · PR #6)* | Technical / Process | Medium | S |
+| TD-19 | ⚠ E2E / browser test automation — Lane A (7 specs) shipped; Lane B (cloud + RLS isolation) open | Technical / Process / QA | High | M (phased) |
+| TD-21 | ✅ RLS performance: un-wrapped `auth.<fn>()` initplan + overlapping permissive policies *(resolved · 2026-06-01 migration)* | Performance / Scalability | Medium | S–M |
 
 ---
 
@@ -57,9 +57,11 @@
 
 ---
 
-## TD-02 — Zero automated tests
+## TD-02 — Automated-test breadth (was: zero automated tests)
 
-**Description.** Neither app has a test runner (no vitest/jest/playwright/testing-library in `package.json`). The `lint` script is only `tsc --noEmit`. The compute layer is explicitly designed to be "easy to unit-test" (`calculations.ts` header) but has no tests.
+**Status update (2026-06-01).** The original "zero tests" framing is obsolete. Vitest covers the pure compute layer in [`react/src/lib/__tests__/`](react/src/lib/__tests__/) (amortization, calculations, format, money, supabaseAdapter) and admin has its own Vitest scaffold (`ADM-UNIT-001..011`). Lane‑A Playwright covers 7 journeys in [`react/e2e/tests/`](react/e2e/tests/). The remaining gap is **integration breadth**: store ↔ adapter ↔ cache seams, cloud-mode flows, and RLS isolation. That gap is tracked operationally under **TD-19**; this entry is kept open at Medium severity for the missing component/integration layer between unit and E2E.
+
+**Description (original).** Neither app has a test runner (no vitest/jest/playwright/testing-library in `package.json`). The `lint` script is only `tsc --noEmit`. The compute layer is explicitly designed to be "easy to unit-test" (`calculations.ts` header) but has no tests.
 
 **Impact — tech / architecture.** No regression safety net; every refactor (especially TD-01) is high-risk. CI builds but verifies nothing about behaviour.
 
@@ -194,6 +196,14 @@
 - Or clearly label as "Beta / coming soon" until wired.
 
 **Justification.** The clean PII boundary is already done; finishing it is low-risk, but until then honest labelling protects trust.
+
+**Resolution (2026-06-01).** Wired the Chat surface to Google Gemini 1.5 Flash (free tier) keeping the existing `SafeSummary` PII contract intact.
+
+- **Backend.** New [`react/src/lib/geminiBackend.ts`](react/src/lib/geminiBackend.ts) implements `ChatBackend` by `POST`ing to `generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=...`. Conversation history is mapped onto Gemini's `user` / `model` role alternation; the current question is bundled with the `SafeSummary` JSON in the final user turn so role alternation stays clean. A short system instruction pins the coach persona, forbids invented numbers, and disallows regulated tax / investment / legal advice. Safety thresholds are nudged to `BLOCK_ONLY_HIGH` because Gemini's defaults over-trigger on common finance vocabulary (`debt`, `loan`, `owe`). HTTP / quota / safety-block errors are surfaced verbatim through the existing chat error path — users see `API key not valid` or `Quota exceeded` instead of a bare 4xx.
+- **Factory.** New `selectChatBackend()` in [`aiSummary.ts`](react/src/lib/aiSummary.ts) returns `GeminiChatBackend` when `VITE_GEMINI_API_KEY` is set at build time, otherwise the existing `StubChatBackend`. The stale `SupabaseChatBackend` placeholder is left in place (still throws) so any forgotten import surfaces immediately; new callers go through the factory.
+- **UI.** [`Chat.tsx`](react/src/pages/Chat.tsx) now uses the factory and swaps the `Beta` chip for a `Gemini` chip in sage tones when a real backend is wired; the Beta chip remains in stub mode so the expectation stays honest for users without a key. Privacy summary, history persistence, and the existing `logAiUsage()` metric are unchanged.
+- **Why client-side direct-to-Google (not an Edge Function).** Zero new server infra; the free tier (15 RPM / 1,500 RPD on Flash) is sufficient for personal use; Google supports per-key referrer / IP / HTTP-method allow-lists for browser-exposed keys, which is the documented operational mode for this plan tier. The `ChatBackend` interface is unchanged — a future Edge Function swap is a one-line factory change.
+- **Tests.** [`react/src/lib/__tests__/geminiBackend.test.ts`](react/src/lib/__tests__/geminiBackend.test.ts) (`CON-UNIT-060` / `061` / `062`) pins the request body shape (URL contains `gemini-1.5-flash-latest`; system instruction includes the coach persona; the user turn carries the SafeSummary JSON + question), the multi-turn `user` / `model` role mapping, the four error surfaces (non-OK API error, prompt-blocked, empty response, empty-key construction), and `isReal()` truthiness. 7/7 green; full suite 68/69 (the pre-existing `CON-UNIT-024` debt-component failure is unrelated and untouched this session).
 
 ---
 
@@ -330,6 +340,13 @@
 - Surface quota/cache failures instead of swallowing them.
 
 **Justification.** Pairs naturally with TD-06; required for the product to scale past a small family.
+
+**Resolution (2026-06-01).** Two-part fix shipped together.
+
+- **Substrate.** New [`react/src/lib/kvStore.ts`](react/src/lib/kvStore.ts) is an IndexedDB-backed promise key/value store (single `vyact.kv` object store, no new runtime dependency — ~120 LOC wrapping `indexedDB.open` directly). Fallback order is IDB → `localStorage` (via the existing `localStorageCompat`) → in-memory `Map`. IDB's per-origin quota is orders of magnitude larger than localStorage's ~5 MB ceiling on every modern browser, which lifts the TD-14 cap. `kvGet` performs a one-way **read-through migration** from legacy `vt_` / `ff_` localStorage keys, seeding IDB on the first read and deleting the localStorage copy on the next successful `kvSet`, so existing users transparently move to the new substrate without an explicit migration step.
+- **Surfacing.** New [`react/src/lib/storageEvents.ts`](react/src/lib/storageEvents.ts) is a tiny pub/sub plus an `isQuotaError(err)` cross-browser detector (handles `QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED`, legacy code `22` / `1014`, and message-substring match). [`localStorageCompat.setString`](react/src/lib/localStorageCompat.ts) and [`kvStore.kvSet`](react/src/lib/kvStore.ts) now emit a `{ kind: 'quota-exceeded' }` event before swallowing the throw — the non-throwing contract for callers is preserved, the silence is not. [`App.tsx`](react/src/App.tsx) subscribes via `onStorageEvent` and surfaces a toast (debounced 60 s so a burst of failed writes shows once).
+- **Adapter wiring.** [`LocalStorageAdapter`](react/src/lib/dataAdapter.ts)'s `read` / `write` / `removeBoth` helpers are converted to async and routed through `kvStore` instead of `ls.readJson` / `ls.setJson`. All 17 internal callers are updated with `await`. Small string keys (`active_profile`, `theme`, `migrated_v1`) stay on `localStorageCompat` directly — tiny payloads, no quota risk, sync access from constructor paths.
+- **Tests.** [`react/src/lib/__tests__/storage.test.ts`](react/src/lib/__tests__/storage.test.ts) (`CON-UNIT-057` / `058` / `059`) installs an in-process `MemStorage` polyfill on `globalThis.localStorage` and pins: JSON round-trip via the localStorage fallback path; quota-event fan-out when `setItem` throws (with all four `isQuotaError` shapes covered); legacy `ff_` key read-through migration including the `vt_` > `ff_` precedence tiebreak. 6/6 green. Full suite remains 61/62 (only the pre-existing CON-UNIT-024 debt-component failure, unrelated).
 
 ---
 
@@ -523,12 +540,30 @@ Chronological record of remediation PRs against this register. Each row pins to 
 | 2026-05-29 | #20 | **TD-08 / TD-09 / TD-13 actually in production** (Database `td-08-09-13-honest-residuals`). Four additive migrations: `20260529150000_td13_budgets_add_period.sql` adds `period` / `period_start` / `period_end` to `budgets` (so the consumer can stop faking it with `budgetMeta.ts`); `20260529150500_td08_audit_triggers.sql` installs `log_domain_activity()` SECURITY DEFINER with `search_path = public, pg_temp` lockdown and attaches `AFTER INSERT/UPDATE/DELETE` triggers on all six domain tables including `memberships`; `20260529151000_td09_replace_all_rpcs.sql` installs the six `replace_<entity>(h uuid, rows jsonb)` SECURITY DEFINER RPCs gated by `auth.uid()` and `is_member(h)`; `20260529151500_td08_td09_harden_execute_grants.sql` revokes the default PUBLIC execute grant after the security advisor flagged anon-exposure of the seven new functions. **Apply path:** the GitHub Actions browser-merge route was unavailable (flaky Chrome extension), so the four migrations were applied **directly to the prod project via the Supabase MCP `execute_sql` tool**, with the four `schema_migrations` tracker rows recorded to match the repo filenames 1:1 (same Phase-4 pattern TD-20 used for the baseline) — so the CI `db push` after PR #40 merges is a verified no-op. Verified post-apply: 3 tracker rows + 3 budget cols + 1 audit fn + 6 triggers + 6 RPCs present; security advisor shows zero anon-executable and zero mutable-`search_path` warnings on any PR #20 function. **Discovery during prep**, fixed in the same PR: the `db/migrations-superseded/README.md` claimed TD-13 had been applied to prod via the Dashboard; baseline grep showed otherwise. README updated to reflect what actually shipped vs. what was claimed. | **Closes TD-20's honest residuals for TD-08 / TD-09 / TD-13.** None of these was actually in prod despite the earlier "Resolved · PR #13 batch" markers. Their Summary-table entries remain ✅ Resolved (the *code-side* work was done in PR #13; this PR makes the *schema-side* match). First non-trivial schema change reconciled into the TD-20 migration discipline. |
 | 2026-05-23 | #12 | **TD-03 phase B — closes TD-03** (Consumer v6.4.19). `Budget` / `Goal` / `Debt` / `Asset` interfaces gain `updated_at?: string`. The four row mappers in `supabaseAdapter.ts` thread `r.updated_at` into the returned JS shape. The four corresponding store actions (`upsertBudget` / `upsertGoal` / `upsertDebt` / `upsertAsset`) pass `record.updated_at` as the precondition on edits, mirroring `upsertTransaction`. `HybridAdapter.clearConflicts()` added. New `SyncConflictBanner` (cloud-mode-only — guarded by `typeof` checks) mounted in `Layout` polls `pendingConflictCount()` every 5 s and shows a dismissible banner when count > 0. **Every CRUD modal in the app is now protected.** | **Closes TD-03.** Marked Resolved in the Summary table. **Testing note:** the conflict-detection mechanism is entity-agnostic; the four new wirings exercise the same path PR #11 already pinned in `CON-UNIT-051..053`. The PR's other new surface (`updated_at` field additions, store-action arg threading, presentational banner) is type-system-enforced + visually-verifiable; no new vitest specs were added because they would be near-duplicates of existing pins. The longer-term work (CRDT / per-field merge for high-contention entities) is outside the register's TD-03 scope and would be a separate, future item. |
 
-## Suggested remediation order
+## Suggested remediation order (refreshed 2026-06-01)
 
-1. **TD-02** (tests) — safety net and prerequisite for the rest.
-2. **TD-01** (decimal money) — the defining correctness fix.
-3. **TD-05, TD-04** (error boundary, admin schema into migrations) — small effort, removes a white-screen and a schema-drift/security landmine.
-4. **TD-03, TD-08** (concurrency, audit triggers) — correctness & auditability for the multi-household promise.
-5. **TD-06, TD-14, TD-11** (delta sync/pagination, IndexedDB, code splitting) — scale and load performance.
-6. **TD-15, TD-16, TD-07** (MFA, encrypted backups, AI backend) — productization & trust.
-7. **TD-09, TD-10, TD-12, TD-13, TD-17, TD-18** — reliability and polish, scheduled alongside related work.
+Only the genuinely-open items remain; closed entries are dropped from the order. Pairings reflect shared code paths.
+
+1. **TD-16** — passphrase-based WebCrypto AES‑GCM on JSON backups. XS/S effort, clear privacy win.
+2. **TD-19 Lane B** — disposable Supabase test project + a small (~5) RLS-isolation pack. The only place the security boundary is asserted end-to-end.
+3. **TD-02 (integration layer)** — close the unit↔E2E gap with store↔adapter↔cache integration tests.
+
+### Closed in this pass (2026-06-01, third wave)
+- **TD-07** — Chat wired to Google Gemini 1.5 Flash (free tier) via new [`geminiBackend.ts`](react/src/lib/geminiBackend.ts) + `selectChatBackend()` factory in [`aiSummary.ts`](react/src/lib/aiSummary.ts). `VITE_GEMINI_API_KEY` selects the real backend; absent key falls back to the deterministic stub so offline / no-key mode still works. Existing `SafeSummary` PII contract unchanged. Beta chip swaps to a sage “Gemini” chip when the real backend is active. New pins `CON-UNIT-060` / `061` / `062` cover request body shape, role mapping, error surfaces, and construction.
+
+### Closed in this pass (2026-06-01, second wave)
+- **TD-14** — substrate moved off localStorage onto IndexedDB via the new [`kvStore`](react/src/lib/kvStore.ts) module (zero new runtime deps, ~120 LOC), with legacy keys auto-migrated on first read. Quota failures are no longer swallowed silently — [`storageEvents`](react/src/lib/storageEvents.ts) fans them out and [`App.tsx`](react/src/App.tsx) shows a toast asking the user to export a backup. The [`LocalStorageAdapter`](react/src/lib/dataAdapter.ts) read/write helpers are now async and route through `kvStore`. New pins `CON-UNIT-057` / `058` / `059` exercise the localStorage-fallback path, quota fan-out, and legacy key read-through migration.
+
+### Closed in this pass (2026-06-01)
+- **TD-06 + TD-21** — paired delta-sync redesign + RLS initplan rewrite. Migration [`20260601120000_td06_td21_rls_perf_and_delta_sync_indexes.sql`](supabase/migrations/20260601120000_td06_td21_rls_perf_and_delta_sync_indexes.sql) consolidates overlapping permissive SELECT policies across all 6 domain tables (transactions/budgets/goals/debts/assets/exchange_rates) plus memberships/profiles/activity_log, wraps every remaining bare `auth.uid()` as `(select auth.uid())` for initplan caching, and adds the matching `(household_id, updated_at)` composite indexes on the four domain tables that lacked one. Client side: [`SupabaseAdapter.listSince()`](react/src/lib/supabaseAdapter.ts) implements `updated_at > cursor` paging including tombstones; [`HybridAdapter.list()`](react/src/lib/hybridAdapter.ts) seeds a per-`(hid, entity)` cursor on the first full pull and uses the incremental path on every subsequent refresh, merging tombstones into the cache. Test coverage: `CON-UNIT-055` / `CON-UNIT-056` pin the query shape and the live/tombstone partitioning.
+
+## Honest residuals / quality follow-ups (not first-class TDs)
+
+Small items surfaced during the 2026-06-01 reconciliation. None are release blockers; all should be picked up alongside related TD work.
+
+- ~~**Selector typing.**~~ ✅ *Closed 2026-06-01.* [`react/src/lib/selectors.ts`](react/src/lib/selectors.ts) now defines a local `StoreSlice` interface and threads concrete `Transaction[]` / `Budget[]` / `Goal[]` / `Debt[]` / `Asset[]` / `Profile` / `ExchangeRates` through every selector and `memoizeOne`. No `any` remains.
+- ~~**`budgetMeta.ts` removal.**~~ ✅ *Closed 2026-06-01.* The overlay module is deleted; [`store.ts`](react/src/store.ts) reads `period` / `periodStart` / `periodEnd` directly off the adapter row. The `BudgetFormModal` header comment is updated to reflect the schema source of truth.
+- ~~**TD-10 backoff.**~~ ✅ *Closed 2026-06-01.* [`hybridAdapter.ts`](react/src/lib/hybridAdapter.ts) `flushQueue` now tracks `attempts` per op with exponential backoff (2/4/8/16/32 s, capped at 60 s) and dead-letters into `vt_sync_failed` after `MAX_RETRIES = 5`. The summary row above is flipped to ✅.
+- ~~**`CON-UNIT-054` missing.**~~ ✅ *Added 2026-06-01.* [`supabaseAdapter.test.ts`](react/src/lib/__tests__/supabaseAdapter.test.ts) now pins `replaceAll → replace_<entity>` RPC routing across all six entity types (including the `members → replace_memberships` special case). Catalogued in [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md).
+- **TD-07 stub label.** ~~`Chat.tsx` carries a visible `Beta` chip~~ ✅ *Resolved 2026-06-01* — Chat is now wired to Gemini 1.5 Flash via [`geminiBackend.ts`](react/src/lib/geminiBackend.ts); the Beta chip remains only when no API key is configured.
+- **Admin read-RPC JSON wrappers (TD-04-ext-c).** The originally-requested `admin_list_users` / `admin_weekly_trend` / `admin_ai_usage_summary` JSON wrappers were swapped for subscription/content mutation RPCs in PR #13; the read wrappers remain re-queued on the lead's workstream.

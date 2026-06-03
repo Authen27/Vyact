@@ -7,6 +7,13 @@ import { signIn, signInMagicLink } from '../../lib/auth';
 import GoogleButton from '../../components/auth/GoogleButton';
 import { useStore } from '../../store';
 
+function getPostAuthPath(next: string | null): string {
+  const pendingInvite = sessionStorage.getItem('pending_invite_token');
+  if (next) return next;
+  if (pendingInvite) return `/invite/${encodeURIComponent(pendingInvite)}`;
+  return '/dashboard';
+}
+
 export default function SignIn() {
   const [mode, setMode] = useState<'password' | 'magic'>('password');
   const [email, setEmail] = useState('');
@@ -21,11 +28,12 @@ export default function SignIn() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(''); setSubmitting(true);
+    const next = params.get('next');
     try {
       if (mode === 'password') {
         await signIn(email, password);
         toast('Welcome back', 'success');
-        navigate(params.get('next') || '/dashboard');
+        navigate(getPostAuthPath(next));
       } else {
         await signInMagicLink(email);
         setMagicSent(true);
@@ -94,7 +102,7 @@ export default function SignIn() {
           <KeyRound size={12} /> Forgot password?
         </Link>
         <div className="mt-2.5">
-          New here? <Link to="/auth/sign-up" className="text-coral font-medium hover:underline">Create an account</Link>
+          New here? <Link to={params.get('next') ? `/auth/sign-up?next=${encodeURIComponent(params.get('next')!)}` : '/auth/sign-up'} className="text-coral font-medium hover:underline">Create an account</Link>
         </div>
       </div>
     </AuthShell>

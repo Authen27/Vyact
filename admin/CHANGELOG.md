@@ -1,11 +1,11 @@
-# FinFlow Admin App — Changelog
+# Vyact Admin App — Changelog
 
 > Versioning record for the admin React app at `admin/`. Newest first.
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
 > **Current production version: `v1.0.8`**
-> **Live URL:** https://finflow-admin.vercel.app
+> **Live URL:** https://vyact-admin.vercel.app
 > **Next planned: `v1.1.0`** (see Roadmap at the bottom).
 
 ---

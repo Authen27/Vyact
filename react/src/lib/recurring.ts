@@ -1,9 +1,54 @@
-// FinFlow v7 — Recurring schedule engine
+// Vyact v7 — Recurring schedule engine
 // Handles weekly / monthly / yearly / custom-day-of-month schedules.
 // Computes next-due-date and generates pending transactions when due.
 
 import type { RecurringSchedule, RecurrenceFreq, Transaction } from '../types';
 import { uid, today } from './format';
+
+const DAY_MS = 86_400_000;
+
+export function scheduleFiresOnDate(schedule: RecurringSchedule, date: string): boolean {
+  if (schedule.active === false) return false;
+  if (schedule.startDate && date < schedule.startDate) return false;
+
+  const [, startMonth, startDay] = (schedule.startDate || date).split('-').map(Number);
+  const [, viewMonth] = date.split('-').map(Number);
+  const dayOfMonth = Number(date.slice(-2));
+
+  switch (schedule.frequency) {
+    case 'weekly': {
+      const diff = Math.round((Date.parse(date) - Date.parse(schedule.startDate)) / DAY_MS);
+      return diff >= 0 && diff % 7 === 0;
+    }
+    case 'monthly':
+    case 'custom_day':
+      return dayOfMonth === (schedule.dayOfMonth || startDay);
+    case 'yearly':
+      return viewMonth === startMonth && dayOfMonth === startDay;
+    default:
+      return false;
+  }
+}
+
+export function projectRecurringTransactionsForDate(
+  schedules: RecurringSchedule[],
+  date: string,
+): Transaction[] {
+  return schedules
+    .filter(schedule => scheduleFiresOnDate(schedule, date))
+    .map((schedule) => {
+      const recurring = schedule.frequency === 'custom_day' ? 'monthly' : schedule.frequency;
+      return {
+        ...schedule.transactionTemplate,
+        id: `projected-${schedule.id}-${date}`,
+        date,
+        note: schedule.autoConfirm
+          ? 'Projected recurring transaction'
+          : 'Projected recurring transaction · pending confirm',
+        recurring,
+      };
+    });
+}
 
 export function computeNextDueDate(
   freq: RecurrenceFreq,
@@ -69,4 +114,79 @@ export function advanceSchedule(schedule: RecurringSchedule): RecurringSchedule 
       schedule.weekday,
     ),
   };
+}
+
+// v7.3 — Backfill RecurringSchedule rows from legacy transactions whose
+// `recurring` field is set but never produced a schedule (e.g. txns added
+// before v7.0 mirrored every recurring row into a schedule, or rows
+// imported from another tool). The Recurring page and the Transactions
+// calendar both read from `recurringSchedules`, not `transaction.recurring`,
+// so without this backfill those legacy rows show up nowhere as future cost.
+export interface BackfillResult {
+  schedules: RecurringSchedule[];
+  added: number;
+}
+
+export function backfillSchedulesFromTransactions(
+  transactions: Transaction[],
+  existing: RecurringSchedule[],
+  now = today(),
+): BackfillResult {
+  const sigOf = (t: { type?: string; description?: string; recurring?: string; currency?: string }) =>
+    `${t.type ?? ''}|${(t.description ?? '').trim().toLowerCase()}|${t.recurring ?? ''}|${t.currency ?? ''}`;
+
+  const seen = new Set<string>();
+  for (const s of existing) {
+    seen.add(sigOf({
+      type: s.transactionTemplate.type,
+      description: s.transactionTemplate.description,
+      recurring: s.frequency === 'custom_day' ? 'monthly' : s.frequency,
+      currency: s.transactionTemplate.currency,
+    }));
+  }
+
+  const buckets = new Map<string, Transaction[]>();
+  for (const t of transactions) {
+    if (!t.recurring) continue;
+    if (t.split?.isSplit) continue;
+    if (t.category === 'transfer') continue;
+    const sig = sigOf(t);
+    if (seen.has(sig)) continue;
+    const arr = buckets.get(sig) ?? [];
+    arr.push(t);
+    buckets.set(sig, arr);
+  }
+
+  const added: RecurringSchedule[] = [];
+  for (const [, group] of buckets) {
+    const sorted = [...group].sort((a, b) => a.date.localeCompare(b.date));
+    const earliest = sorted[0];
+    const latest = sorted[sorted.length - 1];
+    const freq = earliest.recurring as RecurrenceFreq;
+    if (freq !== 'weekly' && freq !== 'monthly' && freq !== 'yearly') continue;
+
+    const [, , dd] = earliest.date.split('-').map(Number);
+    const dayOfMonth = freq === 'monthly' ? dd : undefined;
+    let nextDue = computeNextDueDate(freq, earliest.date, latest.date, dayOfMonth);
+    while (nextDue <= now) {
+      nextDue = computeNextDueDate(freq, earliest.date, nextDue, dayOfMonth);
+    }
+
+    const { id: _id, date: _date, ...template } = earliest;
+    void _id; void _date;
+    added.push({
+      id: `bf-${earliest.id}`,
+      transactionTemplate: template,
+      frequency: freq,
+      dayOfMonth,
+      startDate: earliest.date,
+      nextDueDate: nextDue,
+      lastGenerated: latest.date,
+      autoConfirm: false,
+      active: true,
+      reminderLeadDays: 3,
+    });
+  }
+
+  return { schedules: [...existing, ...added], added: added.length };
 }

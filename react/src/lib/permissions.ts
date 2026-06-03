@@ -1,4 +1,4 @@
-// FinFlow v4.1 — Role-based permissions (client-side gating)
+// Vyact v4.1 — Role-based permissions (client-side gating)
 //
 // Authorization is ENFORCED server-side by Postgres RLS policies in
 // db/schema.sql. This module is purely UX — it hides actions the user

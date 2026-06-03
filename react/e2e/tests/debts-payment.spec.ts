@@ -19,16 +19,85 @@
 // ──────────────────────────────────────────────────────────────────────────
 
 import { test, expect } from '../fixtures/app';
-import { seedWith, sampleCreditCardDebt } from '../fixtures/seed';
+import { defaultSeed, seedWith, sampleCreditCardDebt } from '../fixtures/seed';
 
 const seed = seedWith({ debts: [sampleCreditCardDebt] });
 
-test.describe('§7 DEBT-FC · Debt Payment Cascading', () => {
-  test.use({ seed });
+async function debtSnapshot(page: Parameters<typeof test>[0]['page'], debtId: string) {
+  return page.evaluate((id: string) => {
+    const win = window as typeof window & {
+      __vt_store?: { getState(): { debts: Array<{ id: string; currentBalance: number; minimumPayment: number; remainingMonths?: number; paymentLog?: Array<{ partChoice?: string }> }> } };
+      __ff_store?: { getState(): { debts: Array<{ id: string; currentBalance: number; minimumPayment: number; remainingMonths?: number; paymentLog?: Array<{ partChoice?: string }> }> } };
+    };
+    const store = win.__vt_store ?? win.__ff_store;
+    if (!store) throw new Error('Store oracle unavailable');
+    const debt = store.getState().debts.find(d => d.id === id);
+    if (!debt) return null;
+    return {
+      currentBalance: debt.currentBalance,
+      minimumPayment: debt.minimumPayment,
+      remainingMonths: debt.remainingMonths ?? null,
+      paymentLogLength: debt.paymentLog?.length ?? 0,
+      lastPartChoice: debt.paymentLog?.at(-1)?.partChoice ?? null,
+    };
+  }, debtId);
+}
 
-  test('CON-E2E-008 · [DEBT-FC-002] payment splits interest and principal at the configured APR', async ({
-    page, debts,
-  }) => {
+test.describe('§7 DEBT-FC · Debt Payment Cascading', () => {
+  test.describe('creation flow', () => {
+    test.use({ seed: defaultSeed });
+
+    test('DEBT-FC-001 · create debt with principal, APR, minimum payment, and tenure', async ({
+      page, debts,
+    }) => {
+      await debts.goto();
+      await page.getByRole('button', { name: /add first debt|add debt/i }).first().click();
+
+      const dialog = page.getByRole('dialog', { name: /add debt/i });
+      await expect(dialog).toBeVisible();
+
+      await dialog.getByLabel('Name').fill('DEBT-FC-001 Loan');
+      await dialog.getByLabel('Lender').fill('Local Bank');
+      await dialog.getByLabel('Account').fill('1234');
+      await dialog.getByLabel('Current balance').fill('2400');
+      await dialog.getByLabel('Original principal').fill('3000');
+      await dialog.getByLabel('Interest rate').fill('12.5');
+      await dialog.getByLabel('Min. monthly payment').fill('180');
+      await dialog.getByLabel('Tenure').fill('18');
+      await dialog.getByLabel('Due date').fill('2026-06-15');
+      await dialog.getByRole('button', { name: /^Add$/ }).click();
+
+      await expect(dialog).toHaveCount(0);
+      await expect(debts.card('DEBT-FC-001 Loan')).toBeVisible();
+      await expect(page.getByText('12.5% APR')).toBeVisible();
+      await expect(page.getByText('$180.00').first()).toBeVisible();
+
+      const created = await page.evaluate(() => {
+        const win = window as typeof window & {
+          __vt_store?: { getState(): { debts: Array<{ name: string; principal: number; currentBalance: number; minimumPayment: number; tenureMonths?: number; dueDate?: string }> } };
+          __ff_store?: { getState(): { debts: Array<{ name: string; principal: number; currentBalance: number; minimumPayment: number; tenureMonths?: number; dueDate?: string }> } };
+        };
+        const store = win.__vt_store ?? win.__ff_store;
+        if (!store) throw new Error('Store oracle unavailable');
+        return store.getState().debts.find(d => d.name === 'DEBT-FC-001 Loan') ?? null;
+      });
+
+      expect(created).toMatchObject({
+        principal: 3000,
+        currentBalance: 2400,
+        minimumPayment: 180,
+        tenureMonths: 18,
+        dueDate: '2026-06-15',
+      });
+    });
+  });
+
+  test.describe('seeded debt payment flows', () => {
+    test.use({ seed });
+
+    test('CON-E2E-008 · [DEBT-FC-002] payment splits interest and principal at the configured APR', async ({
+      page, debts,
+    }) => {
     // ── ARRANGE ─────────────────────────────────────────────────────────────
     // Debt: $5,000 balance, 18.5% APR, $150 minimum payment.
     // Expected at the configured APR with monthly compounding:
@@ -89,6 +158,122 @@ test.describe('§7 DEBT-FC · Debt Payment Cascading', () => {
     // UI-formatting bug surfaces independently from a store-math bug.
     // (debts.card() resolves to the debt's name node; the balance lives
     // elsewhere in the card, so we assert at page level.)
-    await expect(page.getByText(/4,927/).first()).toBeVisible();
+      await expect(page.getByText(/4,927/).first()).toBeVisible();
+    });
+
+    test('DEBT-FC-003 · recording a payment writes linked debt transactions into the transaction list', async ({
+      page, debts, transactions,
+    }) => {
+      await debts.goto();
+      await expect(debts.card(sampleCreditCardDebt.name)).toBeVisible();
+
+      await page.evaluate(({ debtId, amount }) => {
+        const win = window as typeof window & {
+          __vt_store?: { getState(): { recordDebtPayment: (id: string, payment: number, choice?: string) => Promise<unknown> } };
+          __ff_store?: { getState(): { recordDebtPayment: (id: string, payment: number, choice?: string) => Promise<unknown> } };
+        };
+        const store = win.__vt_store ?? win.__ff_store;
+        if (!store) throw new Error('Store oracle unavailable');
+        return store.getState().recordDebtPayment(debtId, amount);
+      }, { debtId: sampleCreditCardDebt.id, amount: 150 });
+
+      await transactions.goto();
+      await expect(transactions.row('E2E Credit Card — interest')).toBeVisible();
+      await expect(transactions.row('E2E Credit Card — principal')).toBeVisible();
+
+      const linkedRows = await page.evaluate((debtId: string) => {
+        const win = window as typeof window & {
+          __vt_store?: { getState(): { transactions: Array<{ description: string; linkedDebtId?: string; linkedTxnId?: string; type: string }> } };
+          __ff_store?: { getState(): { transactions: Array<{ description: string; linkedDebtId?: string; linkedTxnId?: string; type: string }> } };
+        };
+        const store = win.__vt_store ?? win.__ff_store;
+        if (!store) throw new Error('Store oracle unavailable');
+        return store.getState().transactions
+          .filter(t => t.linkedDebtId === debtId)
+          .map(t => ({ description: t.description, linkedTxnId: t.linkedTxnId ?? null, type: t.type }));
+      }, sampleCreditCardDebt.id);
+
+      expect(linkedRows).toHaveLength(2);
+      expect(new Set(linkedRows.map(t => t.linkedTxnId)).size).toBe(1);
+      expect(linkedRows.map(t => t.description).sort()).toEqual([
+        'E2E Credit Card — interest',
+        'E2E Credit Card — principal',
+      ]);
+    });
+
+    test('DEBT-FC-006 · part-payment reduce_tenure shortens remaining months while keeping EMI flat', async ({
+      page, debts,
+    }) => {
+      await debts.goto();
+      const before = await debtSnapshot(page, sampleCreditCardDebt.id);
+      expect(before).not.toBeNull();
+
+      const result = await page.evaluate(({ debtId, amount }) => {
+        const win = window as typeof window & {
+          __vt_store?: { getState(): { recordDebtPayment: (id: string, payment: number, choice?: string) => Promise<{ message?: string }> } };
+          __ff_store?: { getState(): { recordDebtPayment: (id: string, payment: number, choice?: string) => Promise<{ message?: string }> } };
+        };
+        const store = win.__vt_store ?? win.__ff_store;
+        if (!store) throw new Error('Store oracle unavailable');
+        return store.getState().recordDebtPayment(debtId, amount, 'reduce_tenure');
+      }, { debtId: sampleCreditCardDebt.id, amount: 500 });
+
+      const after = await debtSnapshot(page, sampleCreditCardDebt.id);
+      expect(after).not.toBeNull();
+      expect(after!.remainingMonths).toBeLessThan(before!.remainingMonths ?? Number.MAX_SAFE_INTEGER);
+      expect(after!.minimumPayment).toBe(before!.minimumPayment);
+      expect(after!.lastPartChoice).toBe('reduce_tenure');
+      expect(result.message).toMatch(/Loan now ends in \d+ months/);
+    });
+
+    test('DEBT-FC-007 · part-payment reduce_emi lowers EMI while tenure ticks down by one month', async ({
+      page, debts,
+    }) => {
+      await debts.goto();
+      const before = await debtSnapshot(page, sampleCreditCardDebt.id);
+      expect(before).not.toBeNull();
+
+      const result = await page.evaluate(({ debtId, amount }) => {
+        const win = window as typeof window & {
+          __vt_store?: { getState(): { recordDebtPayment: (id: string, payment: number, choice?: string) => Promise<{ message?: string }> } };
+          __ff_store?: { getState(): { recordDebtPayment: (id: string, payment: number, choice?: string) => Promise<{ message?: string }> } };
+        };
+        const store = win.__vt_store ?? win.__ff_store;
+        if (!store) throw new Error('Store oracle unavailable');
+        return store.getState().recordDebtPayment(debtId, amount, 'reduce_emi');
+      }, { debtId: sampleCreditCardDebt.id, amount: 500 });
+
+      const after = await debtSnapshot(page, sampleCreditCardDebt.id);
+      expect(after).not.toBeNull();
+      expect(after!.minimumPayment).toBeLessThan(before!.minimumPayment);
+      expect(after!.remainingMonths).toBe((before!.remainingMonths ?? 0) - 1);
+      expect(after!.lastPartChoice).toBe('reduce_emi');
+      expect(result.message).toMatch(/EMI reduced to/);
+    });
+
+    test('DEBT-FC-009 · part-payment apply_advance covers future EMIs without changing the EMI amount', async ({
+      page, debts,
+    }) => {
+      await debts.goto();
+      const before = await debtSnapshot(page, sampleCreditCardDebt.id);
+      expect(before).not.toBeNull();
+
+      const result = await page.evaluate(({ debtId, amount }) => {
+        const win = window as typeof window & {
+          __vt_store?: { getState(): { recordDebtPayment: (id: string, payment: number, choice?: string) => Promise<{ message?: string }> } };
+          __ff_store?: { getState(): { recordDebtPayment: (id: string, payment: number, choice?: string) => Promise<{ message?: string }> } };
+        };
+        const store = win.__vt_store ?? win.__ff_store;
+        if (!store) throw new Error('Store oracle unavailable');
+        return store.getState().recordDebtPayment(debtId, amount, 'apply_advance');
+      }, { debtId: sampleCreditCardDebt.id, amount: 500 });
+
+      const after = await debtSnapshot(page, sampleCreditCardDebt.id);
+      expect(after).not.toBeNull();
+      expect(after!.minimumPayment).toBe(before!.minimumPayment);
+      expect(after!.remainingMonths).toBeLessThan((before!.remainingMonths ?? 0) - 1);
+      expect(after!.lastPartChoice).toBe('apply_advance');
+      expect(result.message).toMatch(/EMIs covered in advance/);
+    });
   });
 });

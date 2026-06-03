@@ -2,19 +2,22 @@ import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './store';
 import { useTheme } from './hooks';
+import { onStorageEvent } from './lib/storageEvents';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
 import AuthGate from './components/auth/AuthGate';
 import UpdateBanner from './components/layout/UpdateBanner';
-import TransactionFormModal from './components/transactions/TransactionFormModal';
-import GoalFormModal from './components/goals/GoalFormModal';
-import GoalProgressModal from './components/goals/GoalProgressModal';
-import BudgetFormModal from './components/budgets/BudgetFormModal';
-import DebtFormModal from './components/debts/DebtFormModal';
-import AssetFormModal from './components/assets/AssetFormModal';
+import InstallBanner from './components/layout/InstallBanner';
 
 
 import React, { Suspense } from 'react';
+const TransactionFormModal = React.lazy(() => import('./components/transactions/TransactionFormModal'));
+const GoalFormModal = React.lazy(() => import('./components/goals/GoalFormModal'));
+const GoalProgressModal = React.lazy(() => import('./components/goals/GoalProgressModal'));
+const BudgetFormModal = React.lazy(() => import('./components/budgets/BudgetFormModal'));
+const DebtFormModal = React.lazy(() => import('./components/debts/DebtFormModal'));
+const AssetFormModal = React.lazy(() => import('./components/assets/AssetFormModal'));
+const AccountFormModal = React.lazy(() => import('./components/accounts/AccountFormModal'));
 const Dashboard    = React.lazy(() => import('./pages/Dashboard'));
 const Transactions = React.lazy(() => import('./pages/Transactions'));
 const Reports      = React.lazy(() => import('./pages/Reports'));
@@ -28,6 +31,7 @@ const Budgets      = React.lazy(() => import('./pages/Budgets'));
 const Goals        = React.lazy(() => import('./pages/Goals'));
 const Debts        = React.lazy(() => import('./pages/Debts'));
 const NetWorth     = React.lazy(() => import('./pages/NetWorth'));
+const Accounts     = React.lazy(() => import('./pages/Accounts'));
 const Splits       = React.lazy(() => import('./pages/Splits'));
 const Help         = React.lazy(() => import('./pages/Help'));
 const Insights     = React.lazy(() => import('./pages/Insights'));
@@ -40,20 +44,53 @@ const SignIn        = React.lazy(() => import('./pages/auth/SignIn'));
 const SignUp        = React.lazy(() => import('./pages/auth/SignUp'));
 const ResetPassword = React.lazy(() => import('./pages/auth/ResetPassword'));
 const AcceptInvite  = React.lazy(() => import('./pages/auth/AcceptInvite'));
+const VerifiedAuth = React.lazy(() => import('./pages/auth/VerifiedAuth'));
 
 export default function App() {
   return (
     <AuthGate>
+      <ScrollToTop />
       <AppShell />
-      <TransactionFormModal />
-      <GoalFormModal />
-      <GoalProgressModal />
-      <BudgetFormModal />
-      <DebtFormModal />
-      <AssetFormModal />
+      <Suspense fallback={null}>
+        <RootModals />
+      </Suspense>
       <ToastHost />
       <UpdateBanner />
+      <InstallBanner />
     </AuthGate>
+  );
+}
+
+// v7.4.1 — Reset window scroll on every pathname change. Without this
+// react-router preserves the previous tab's scroll position, leaving
+// users mid-page when they jump to a new section.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
+  return null;
+}
+
+function RootModals() {
+  const txnModalOpen = useStore(s => s.txnModalOpen);
+  const goalModalOpen = useStore(s => s.goalModalOpen);
+  const goalProgressModalOpen = useStore(s => s.goalProgressModalOpen);
+  const budgetModalOpen = useStore(s => s.budgetModalOpen);
+  const debtModalOpen = useStore(s => s.debtModalOpen);
+  const assetModalOpen = useStore(s => s.assetModalOpen);
+  const accountModalOpen = useStore(s => s.accountModalOpen);
+
+  return (
+    <>
+      {txnModalOpen ? <TransactionFormModal /> : null}
+      {goalModalOpen ? <GoalFormModal /> : null}
+      {goalProgressModalOpen ? <GoalProgressModal /> : null}
+      {budgetModalOpen ? <BudgetFormModal /> : null}
+      {debtModalOpen ? <DebtFormModal /> : null}
+      {assetModalOpen ? <AssetFormModal /> : null}
+      {accountModalOpen ? <AccountFormModal /> : null}
+    </>
   );
 }
 
@@ -74,6 +111,25 @@ function AppShell() {
     return () => clearInterval(id);
   }, [runRecurring]);
 
+  // TD-14 — surface local-storage / IndexedDB quota failures as a toast.
+  // Without this the cache layer silently drops writes once the browser
+  // hits its quota and the user has no idea their data isn't persisting.
+  // Debounced via a sticky flag so a burst of failed writes shows once.
+  useEffect(() => {
+    let warned = false;
+    const unsub = onStorageEvent((e) => {
+      if (e.kind !== 'quota-exceeded' || warned) return;
+      warned = true;
+      useStore.getState().toast(
+        'Local storage is full. Export a backup from Settings and clear old data.',
+        'error',
+      );
+      // Allow another warning after a minute in case the user clears space.
+      setTimeout(() => { warned = false; }, 60_000);
+    });
+    return unsub;
+  }, []);
+
   // v4.1 — Realtime subscription on the active household
   useEffect(() => {
     if (!cloudEnabled || !session || !currentHouseholdId || currentHouseholdId === 'local') return;
@@ -92,8 +148,8 @@ function AppShell() {
           <Route path="/auth/sign-up"        element={<SignUp />} />
           <Route path="/auth/reset"          element={<ResetPassword />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
-          <Route path="/auth/verified"       element={<Navigate to="/dashboard" replace />} />
-          <Route path="/invite/:token"       element={<AcceptInvite />} />
+          <Route path="/auth/verified"       element={<VerifiedAuth />} />
+          <Route path="/invite/*"            element={<AcceptInvite />} />
         </Routes>
       </Suspense>
     );
@@ -132,6 +188,7 @@ function AppShell() {
           <Route path="/splits"       element={<Splits />} />
           <Route path="/debts"        element={<Debts />} />
           <Route path="/networth"     element={<NetWorth />} />
+          <Route path="/accounts"     element={<Accounts />} />
           <Route path="/settings"     element={<Settings />} />
           <Route path="/help"         element={<Help />} />
           <Route path="/insights"     element={<Insights />} />

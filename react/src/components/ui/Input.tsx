@@ -17,7 +17,7 @@ Input.displayName = 'Input';
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
   ({ className = '', children, ...rest }, ref) => (
-    <select ref={ref} className={`${baseClass} cursor-pointer pr-7 ${className}`} {...rest}>
+    <select ref={ref} className={`${baseClass} ff-select cursor-pointer ${className}`} {...rest}>
       {children}
     </select>
   )

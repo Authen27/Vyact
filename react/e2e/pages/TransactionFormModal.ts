@@ -16,6 +16,8 @@ export interface NewTransactionInput {
   type: TxnType;
   amount: number;
   date: string;            // YYYY-MM-DD
+  timeClock?: string;
+  timeMeridiem?: 'AM' | 'PM';
   description: string;
   category?: string;       // value (e.g. 'food'), not the display label
   currency?: string;
@@ -29,8 +31,11 @@ export interface NewTransactionInput {
 export class TransactionFormModal {
   readonly page: Page;
   readonly dialog: Locator;
+  readonly trackPicker: Locator;
   readonly typeSelect: Locator;
   readonly dateInput: Locator;
+  readonly timeClockInput: Locator;
+  readonly timeMeridiemSelect: Locator;
   readonly descriptionInput: Locator;
   readonly amountInput: Locator;
   readonly currencySelect: Locator;
@@ -49,11 +54,14 @@ export class TransactionFormModal {
     this.page = page;
     // Dialog with one of the two known titles — covers both create + edit modes.
     this.dialog = page.getByRole('dialog', { name: /add transaction|edit transaction/i });
+    this.trackPicker = this.dialog.locator('[data-testid="track-picker"]');
 
     // Field labels are defined in TransactionFormModal.tsx; using getByLabel
     // pierces the wrapper components and lands on the underlying input.
-    this.typeSelect       = this.dialog.getByLabel('Type');
+    this.typeSelect       = this.dialog.getByLabel('Track');
     this.dateInput        = this.dialog.getByLabel('Date');
+    this.timeClockInput   = this.dialog.getByPlaceholder('hh:mm');
+    this.timeMeridiemSelect = this.dialog.locator('input[placeholder="hh:mm"] ~ select');
     this.descriptionInput = this.dialog.getByLabel('Description');
     this.amountInput      = this.dialog.getByLabel('Amount');
     this.currencySelect   = this.dialog.getByLabel('Currency');
@@ -94,6 +102,8 @@ export class TransactionFormModal {
     // matches — a 30 s hang trap).
     if (input.type !== undefined)        await this.selectByValueOrText(this.typeSelect, input.type);
     if (input.date !== undefined)        await this.dateInput.fill(input.date);
+    if (input.timeClock !== undefined)   await this.timeClockInput.fill(input.timeClock);
+    if (input.timeMeridiem !== undefined) await this.selectByValueOrText(this.timeMeridiemSelect, input.timeMeridiem);
     if (input.description !== undefined) await this.descriptionInput.fill(input.description);
     if (input.amount !== undefined)      await this.amountInput.fill(String(input.amount));
     if (input.currency !== undefined)    await this.selectByValueOrText(this.currencySelect, input.currency);
@@ -154,6 +164,18 @@ export class TransactionFormModal {
   async cancel() {
     await this.cancelButton.click();
     await this.waitClosed();
+  }
+
+  trackPickButton(type: TxnType): Locator {
+    return this.dialog.locator(`[data-testid="track-pick-${type}"]`);
+  }
+
+  trackFieldValue(label: string): Locator {
+    return this.dialog.locator('div').filter({ has: this.dialog.getByText('Track', { exact: true }) }).getByText(label, { exact: true }).first();
+  }
+
+  get changeTrackButton(): Locator {
+    return this.dialog.getByRole('button', { name: /^Change$/ });
   }
 
   /**

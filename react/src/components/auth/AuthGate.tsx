@@ -1,4 +1,4 @@
-// FinFlow v4.1 — AuthGate
+// Vyact v4.1 — AuthGate
 //
 // Sits at the top of the route tree. Three modes:
 //   1. Cloud disabled (no env vars) — render children, app behaves as v6/v7 local-only.
@@ -10,7 +10,11 @@ import { useLocation, Navigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 
-const PUBLIC_ROUTES = ['/auth/sign-in', '/auth/sign-up', '/auth/reset', '/auth/verified'];
+const PUBLIC_ROUTES = ['/auth/sign-in', '/auth/sign-up', '/auth/reset-password', '/auth/verified'];
+// Routes that must remain reachable even when a session exists. The password
+// recovery link logs the user in (PASSWORD_RECOVERY event) before they've set
+// a new password — bouncing them to /dashboard would abandon the flow.
+const RECOVERY_ROUTES = ['/auth/reset-password'];
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const session = useStore(s => s.session);
@@ -60,8 +64,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     return <Navigate to={`/auth/sign-in?next=${next}`} replace />;
   }
 
-  // Signed in + on auth page → bounce to app
-  if (session && location.pathname.startsWith('/auth/')) {
+  // Signed in + on auth page → bounce to app (except recovery, which needs
+  // the user to stay so they can set a new password).
+  if (session && location.pathname.startsWith('/auth/') &&
+      !RECOVERY_ROUTES.some(p => location.pathname.startsWith(p))) {
     return <Navigate to="/dashboard" replace />;
   }
 

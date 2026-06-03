@@ -1,205 +1,136 @@
-# FinFlow × Supabase Configuration Checklist
+# Vyact × Supabase Configuration Checklist
 
-> **Status:** This checklist helps you configure Supabase for FinFlow deployment on Vercel.
-> Your project: https://supabase.com/dashboard/project/dmxqkvploojokffuhxnz/settings/integrations
+> **Status (2026-06-01):** Aligned with the authoritative deploy flow in [`DEPLOY.md`](DEPLOY.md). Supabase client config (URL + publishable key) is **committed** in `react/.env.production` and `admin/.env.production`. The Supabase dashboard items below are still required and must be configured per environment.
+>
+> Supabase project: https://supabase.com/dashboard/project/dmxqkvploojokffuhxnz
 
-## 1. API Configuration ✓
+## How this fits with DEPLOY.md
 
-**Location:** Supabase Dashboard → Settings → API
+| Setting | Lives in | Owner |
+|---|---|---|
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | committed in `react/.env.production` and `admin/.env.production` | repo |
+| Auth providers, redirect URLs, CORS, RLS, project keys | Supabase dashboard | Supabase admin |
+| `SUPABASE_*` deploy secrets for `db-migrations` | GitHub Actions secrets | repo admin |
 
-- [ ] Copy **Project URL** (e.g., `https://dmxqkvploojokffuhxnz.supabase.co`)
-- [ ] Copy **anon public key** (starts with `eyJ...`)
-- [ ] ⚠️ Do NOT use the `service_role` key in the frontend — it bypasses RLS
+Never put the `service_role` key in a frontend env file or in the repo.
 
-## 2. CORS Configuration ⚠️
+## 1. API configuration
 
-**Problem:** If you see `403 Forbidden` or CORS errors, this section is likely wrong.
+Supabase dashboard → Settings → API
 
-**Location:** Supabase Dashboard → Settings → API → CORS configuration
+- [ ] Confirm **Project URL** matches `https://dmxqkvploojokffuhxnz.supabase.co`
+- [ ] Confirm the **publishable** key matches the one committed in `react/.env.production` and `admin/.env.production`
+- [ ] Do NOT distribute the `service_role` key
 
-You need to allow your Vercel deployment domain:
+## 2. CORS configuration
 
-- [ ] Go to Settings → API
-- [ ] Under **CORS settings**, add your deployment:
-  - For production: `https://your-finflow.vercel.app`
-  - For preview/staging: `https://staging.vercel.app` or `https://preview-*.vercel.app`
-  - For local dev: `http://localhost:5173` (or your dev port)
-- [ ] Click "Save"
+Supabase dashboard → Settings → API → CORS
 
-**Common mistake:** Forgetting to include `https://` prefix.
+Allow the live production hosts and local dev:
 
-## 3. Auth Configuration ✓
+- [ ] `https://vyact-twentyx.vercel.app`
+- [ ] `https://vyact-admin.vercel.app`
+- [ ] `http://localhost:5173`
+- [ ] `http://localhost:5174`
 
-**Location:** Supabase Dashboard → Authentication → Providers
+Symptom of a missing entry: 403 / CORS errors in browser devtools.
 
-- [ ] Ensure **Email/Password** is enabled (default)
-- [ ] Optional: Enable OAuth (Google, GitHub, Apple) if you want social login
+## 3. Auth providers
 
-## 4. Auth Redirect URLs ⚠️
+Supabase dashboard → Authentication → Providers
 
-**Problem:** Auth redirects fail with "Invalid redirect_uri" or user stuck in redirect loop.
+- [ ] Email/Password enabled
+- [ ] Google provider configured per the human step in [`docs/handoff-plans/todo.yaml`](docs/handoff-plans/todo.yaml) (`google_sso_provider_config`)
 
-**Location:** Supabase Dashboard → Authentication → URL Configuration
+## 4. Auth redirect URLs
 
-Add all your deployment URLs under **Redirect URLs:**
-- [ ] `http://localhost:5173/auth/verified` (local dev)
-- [ ] `https://your-finflow.vercel.app/auth/verified` (production)
-- [ ] `https://your-finflow.vercel.app/auth/reset-password` (password reset)
+Supabase dashboard → Authentication → URL Configuration
 
-Format: One URL per line, include the **full path**.
+- [ ] Site URL: `https://vyact-twentyx.vercel.app`
+- [ ] Redirect URLs (one per line):
+  - `https://vyact-twentyx.vercel.app/auth/verified`
+  - `https://vyact-twentyx.vercel.app/auth/reset-password`
+  - `https://vyact-admin.vercel.app/auth/verified`
+  - `http://localhost:5173/auth/verified`
+  - `http://localhost:5173/auth/reset-password`
 
-## 5. Database Schema ✓
+Symptom of a missing entry: `Invalid redirect_uri` or a post-login redirect loop.
 
-**Location:** Supabase Dashboard → SQL Editor
+## 5. Database schema
 
-- [ ] Has schema been deployed? Run the SQL from `/db/schema.sql`:
-  1. Go to SQL Editor
-  2. Click "New query"
-  3. Paste contents of `/db/schema.sql`
-  4. Click "Run"
-  5. Wait for success (watch for errors about extensions or existing tables)
+Schema source of truth is `supabase/migrations/`. See [`db/MIGRATIONS.md`](db/MIGRATIONS.md) and [`OPERATIONS.md`](OPERATIONS.md).
 
-**Tables should exist:**
-- `profiles`
-- `households`
-- `memberships`
-- `transactions`
-- `budgets`
-- `goals`
-- `debts`
-- `assets`
-- `exchange_rates`
-- `activity_log`
+- [ ] CI deploy job `db-migrations` runs `supabase db push --include-all` on every push to `main`
+- [ ] For fresh environments, apply migrations in order with the Supabase MCP `apply_migration` tool
 
-Verify: SQL Editor → "Explore all tables" should list these.
+Expected core tables include: `profiles`, `households`, `memberships`, `transactions`, `budgets`, `goals`, `debts`, `assets`, `exchange_rates`, `activity_log`, `admin_roles`, `content_items`, `subscriptions`.
 
-## 6. Row Level Security (RLS) Policies ⚠️
+Verify in SQL Editor:
 
-**Problem:** "403" errors in browser console even though user is authenticated.
-
-**Location:** Supabase Dashboard → SQL Editor (verify policies exist)
-
-Run this query to check:
 ```sql
-SELECT schemaname, tablename, policyname, qual, with_check
-FROM pg_policies
-WHERE tablename IN ('households', 'transactions', 'profiles', 'memberships')
-ORDER BY tablename, policyname;
+select table_name
+from information_schema.tables
+where table_schema = 'public'
+order by table_name;
 ```
 
-Should see 20+ policies. If none, re-run `/db/schema.sql`.
+## 6. Row Level Security
 
-**Common RLS issues:**
-1. User is not in `memberships` table → add them manually or via invitation
-2. `role_in()` function returns NULL → user not a member of that household
-3. Policy uses wrong auth function → verify schema.sql was applied correctly
+Symptom: 403 in the browser when the user is signed in.
 
-## 7. Vercel Environment Variables ⚠️
+- [ ] Confirm policies exist for the core tables:
 
-**Location:** Vercel Dashboard → Project Settings → Environment Variables
+```sql
+select schemaname, tablename, policyname
+from pg_policies
+where schemaname = 'public'
+order by tablename, policyname;
+```
 
-These MUST be set BEFORE deployment:
+- [ ] If a signed-in user sees no data, confirm they are present in `memberships` for at least one household
+- [ ] After any DDL, run Supabase advisors (security and performance) and fix new warnings before release
 
-| Name | Value | Environments |
-|------|-------|--------------|
-| `VITE_SUPABASE_URL` | Your Supabase URL | Production, Preview, Development |
-| `VITE_SUPABASE_ANON_KEY` | Your anon key | Production, Preview, Development |
-| `VITE_APP_URL` | `https://$VERCEL_DOMAIN` or your domain | Production only (optional) |
+## 7. GitHub Actions secrets
 
-**Steps:**
-1. [ ] Go to https://vercel.com → Your project → Settings → Environment Variables
-2. [ ] Add the three variables above
-3. [ ] **IMPORTANT:** Click "Save" — this queues a new build
-4. [ ] Trigger redeployment:
-   - Option A: Push a new commit to your repo
-   - Option B: Go to Deployments → Click "Redeploy" on latest
+Required for the `db-migrations` job in `.github/workflows/deploy.yml`:
 
-**Why:** Vite env vars are baked into the JavaScript bundle at BUILD TIME. They're not injected at runtime like Node.js env vars.
+- [ ] `SUPABASE_ACCESS_TOKEN`
+- [ ] `SUPABASE_PROJECT_REF`
+- [ ] `SUPABASE_DB_PASSWORD`
 
-## 8. Testing Cloud Features
+The Vercel deploy jobs use `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_CONSUMER_PROJECT_ID`, and `VERCEL_ADMIN_PROJECT_ID`. There are no `VITE_SUPABASE_*` deploy secrets — the values come from the committed `.env.production` files.
 
-**In Local Dev:**
+## 8. Smoke tests after configuration changes
+
+Local:
+
 ```bash
-cd react
-npm install
-npm run dev
-# Open http://localhost:5173
-# Try: Sign up, Create household, Add transaction
+cd react && npm install && npm run dev   # http://localhost:5173
 ```
 
-**On Vercel (after deployment):**
-1. [ ] Open your deployed URL
-2. [ ] Try to **Sign up** with new email
-3. [ ] Check browser **DevTools Console** for errors:
-   - If you see `"Cloud not configured"` → env vars not set, re-do step 7
-   - If you see `403 Forbidden` → CORS or RLS issue, check steps 2 & 6
-4. [ ] Try to **Create a household** (after login)
-5. [ ] Try to **Add a transaction**
+Production verification (see [`DEPLOY.md`](DEPLOY.md) § "Verify a deploy actually reached production"):
 
-## 9. Debugging 403 Errors
+```bash
+JS=$(curl -s https://vyact-twentyx.vercel.app/ | grep -oE '/assets/index-[^" ]+\.js' | head -1)
+curl -s "https://vyact-twentyx.vercel.app$JS" | grep -c dmxqkvploojokffuhxnz
+```
 
-**Quick checklist if you see 403 in console:**
+A count greater than zero means the live bundle is connected to the real Supabase project.
 
-1. [ ] Check Vercel env vars are set (not `.env.local`)
-   ```bash
-   # In Vercel dashboard, can you see VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY?
-   ```
-2. [ ] Check Supabase CORS includes your domain
-   ```bash
-   # Supabase dashboard → Settings → API → CORS
-   # Should list https://your-finflow.vercel.app
-   ```
-3. [ ] Check Supabase logs
-   ```bash
-   # Supabase dashboard → Logs → API queries
-   # Look for 403 errors with details
-   ```
-4. [ ] Check user exists in Supabase
-   ```bash
-   # Supabase dashboard → Authentication → Users
-   # Is your test user listed?
-   ```
-5. [ ] Check RLS policies
-   ```bash
-   # Run as authenticated user (must be signed in):
-   # SELECT * FROM households LIMIT 1
-   # Should return results if you're in any household
-   ```
+## 9. Common failure modes
 
-## 10. Vercel Build Logs
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| App loads but shows seeded/dummy data | Build ran in local-only mode | Confirm `react/.env.production` is intact; no empty `VITE_SUPABASE_*` is being injected by CI |
+| 403 on API calls | CORS or RLS gap | Recheck §2 and §6 |
+| Auth redirect loop or `Invalid redirect_uri` | Missing redirect URL in Supabase | Add the exact URL in §4 |
+| Magic link / reset email lands at wrong host | Site URL wrong | Update Site URL in §4 |
+| User signs in but sees no household | Not yet a member | Create or join a household, or accept an invitation |
 
-**Location:** Vercel Dashboard → Project → Deployments → [Latest] → Build Logs
+## 10. Reference files
 
-Check for:
-- ✓ `VITE_SUPABASE_URL: ✓ set` (good)
-- ✗ `VITE_SUPABASE_URL: ✗ missing` (problem — re-do step 7)
-- Build errors related to TypeScript or missing deps
-
-## Troubleshooting Summary
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| "Cloud not configured" | Env vars not set or build happened before setting them | Re-add env vars in Vercel, redeploy |
-| 403 Forbidden (API calls) | CORS or RLS policy blocking | Check CORS domain and RLS policies |
-| Auth redirect loop | Redirect URL not in Supabase config | Add URL to Auth → URL Configuration |
-| "Invalid redirect_uri" | Typo in redirect URL | Exact match, include full path |
-| User can sign up but can't see data | Not in a household | Create household or accept invitation |
-| Empty dashboard (no data) | Using old Supabase project | Verify you're using the right project |
-
-## Next Steps
-
-1. **Set env vars in Vercel** (if not done)
-2. **Redeploy** — this triggers a new build with env vars included
-3. **Test** — go through section 8
-4. **Debug** — use section 9 if issues persist
-
-Once deployed and working, users can:
-- Sign up with email/password
-- Create households
-- Invite others via email
-- Share budgets, goals, debts, assets with household members
-- See real-time activity log of changes
-
----
-
-**Questions?** Check `/DEPLOYMENT.md` or `/CLAUDE.md` for more context.
+- [`DEPLOY.md`](DEPLOY.md)
+- [`OPERATIONS.md`](OPERATIONS.md)
+- [`docs/HANDOFF.md`](docs/HANDOFF.md)
+- [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
+- [`docs/AUTH_HARDENING.md`](docs/AUTH_HARDENING.md)

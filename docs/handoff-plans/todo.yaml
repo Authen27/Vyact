@@ -8,11 +8,16 @@
 #            review = junior implements, senior reviews diff before merge
 #            no   = senior or human only — do not delegate to a junior
 #
-# Live state (2026-06-01):
-#   Consumer : v7.0.0  https://vyact-twentyx.vercel.app
-#   Admin    : v1.1.0  https://vyact-admin.vercel.app
-#   Supabase : dmxqkvploojokffuhxnz (eu-west-2), 18 migrations reconciled
+# Live state (2026-06-02):
+#   Consumer : v7.2.0-rc  https://vyact-twentyx.vercel.app
+#   Admin    : v1.1.0     https://vyact-admin.vercel.app
+#   Supabase : dmxqkvploojokffuhxnz (eu-west-2), 20 migrations applied
+#              (last: 20260602130000_money_map_replace_accounts_rpc.sql)
 #   Repo     : github.com/Authen27/Vyact
+#   Money Map: flag default = 'shadow' on cloud builds (auto). Promotes to
+#              'on' in v7.2.1; flag retired in v7.3. See
+#              docs/SOLUTION_MONEY_MAP.md § Implementation status for the
+#              authoritative ledger.
 # ════════════════════════════════════════════════════════════════
 
 tasks:
@@ -42,6 +47,39 @@ tasks:
     title: "Rebrand FinFlow -> Vyact across entire codebase"
     status: done
     shipped_in: "v7.0.0"
+
+  - id: track_txn_modal
+    title: "Track-specific transaction modal (Spend / Income / Transfer / Investment)"
+    status: done
+    shipped_in: "v7.0.3"
+    notes: >
+      Zero-backend solution per docs/SOLUTION_TRACK_TXN_MODAL.md. Flag-gated
+      via vt_feature_track_picker (default OFF). Transfers expand into
+      paired __tg:<gid> rows that self-cancel in reports. linkedToAssetId
+      rides on existing extras JSON.
+
+  - id: money_map_phase1
+    title: "Money Map Phase 1 — accounts FK, debt direction, dual-write, RC surfaces"
+    status: done
+    shipped_in: "v7.1.0-rc -> v7.2.0-rc"
+    notes: >
+      Closes items #2, #3, #5 (partial), #8 (partial) from
+      docs/SOLUTION_MONEY_MAP.md. Authoritative ledger lives in that doc's
+      "Implementation status" table.
+      Shipped:
+        - Migration 20260602120000_money_map_phase1_accounts.sql (accounts
+          table, transactions FKs, debts.direction, v_txn_by_* views, RLS,
+          backfill).
+        - Migration 20260602130000_money_map_replace_accounts_rpc.sql
+          (TD-09 bulk-replace RPC).
+        - Consumer v7.1.0-rc (flag, types), v7.1.1 (cloud dual-write),
+          v7.1.2 (entity slice), v7.1.3 (Accounts page UI),
+          v7.2.0-rc (cloud-aware flag default 'shadow', Debts direction
+          tabs, Net Worth receivables, Reports By-member/By-account).
+        - totalLiabilities / totalMonthlyDebtPayment / DTI now exclude
+          receivables; new totalReceivables aggregator.
+      Shadow window is live; promote to 'on' in v7.2.1 once parity
+      dashboards are clean.
 
   # ── WAVE 0 — SECURITY (DO FIRST, blocks Wave 1) ───────────────────────────
 
@@ -181,7 +219,7 @@ tasks:
     owner: junior
     safe: "yes"
     shipped_in: "v7.0.1"
-    brief: "docs/handoff-plans/BRIEF_deprecate_vanilla.md"
+    brief: "docs/handoff-plans/archive/BRIEF_deprecate_vanilla.md"
     notes: >
       The vanilla shell (index.html, app.js, style.css, src/dataAdapter.js at repo
       root) is dead weight. vercel.json already ignores it entirely (builds from
@@ -196,7 +234,7 @@ tasks:
     title: "Stabilize E2E suite + cover new flows"
     priority: medium
     wave: 3
-    status: not-started
+    status: blocked
     owner: junior
     safe: "yes"
     depends_on: [notifications_realtime, recurring_schedule_unification]
@@ -210,9 +248,10 @@ tasks:
     title: "Write OPERATIONS.md — migrations, backup & restore"
     priority: medium
     wave: 3
-    status: not-started
+    status: done
     owner: junior
     safe: "yes"
+    shipped_in: "v7.0.2"
     notes: >
       Document: db-migrations-check.mjs --fix, supabase db push --include-all,
       pg_dump backup, restore to staging, pre/post-deploy checklist.
@@ -222,9 +261,10 @@ tasks:
     title: "Clean up remaining // FinFlow source-file comments"
     priority: low
     wave: 3
-    status: not-started
+    status: done
     owner: junior
     safe: "yes"
+    shipped_in: "v7.0.2"
     notes: >
       319 // FinFlow vX.X comments remain in .ts/.tsx file headers.
       Replace // FinFlow -> // Vyact in source files only.
@@ -235,7 +275,7 @@ tasks:
     title: "Prune merged branches + triage Dependabot PRs + file TD issues"
     priority: low
     wave: 3
-    status: not-started
+    status: blocked
     owner: junior
     safe: "yes"
     notes: >
@@ -248,14 +288,110 @@ tasks:
     title: "Hard-cut legacy ff_ localStorage keys (90-day window expires 2026-09-01)"
     priority: low
     wave: 3
-    status: not-started
+    status: done
     owner: junior
     safe: "yes"
     due: "2026-09-01"
+    shipped_in: "v7.0.2"
     notes: >
       Remove the ff_ write-back in localStorageCompat.ts setString().
       All user data already migrated to vt_ keys since v7.0.0.
       Ship as a patch version bump.
+
+  # ── DEFERRED (not in immediate plan) ─────────────────────────────────────
+
+  # ── MONEY MAP — open follow-ups (post v7.2.0-rc) ──────────────────────────
+
+  - id: money_map_promote_on
+    title: "v7.2.1 — promote vt_feature_money_map default from 'shadow' to 'on'"
+    priority: high
+    wave: 2
+    status: not-started
+    owner: senior
+    safe: "review"
+    depends_on: [money_map_phase1]
+    notes: >
+      Gate: a parity dashboard (counts + summed amounts) shows zero drift
+      between FK reads and legacy reads over a shadow-mode window of ≥ 7
+      days on prod. Then flip getMoneyMapMode() default to 'on' for cloud
+      builds. Files: react/src/lib/featureFlags.ts. After flip, FK is the
+      sole read path; legacy `linkedAssetId` stays as a fallback only.
+
+  - id: money_map_account_drawer
+    title: "Item #5 M-tier — AccountDrawer / multi-account split on transaction modal"
+    priority: medium
+    wave: 2
+    status: done
+    shipped_in: "v7.3.0"
+    owner: senior
+    safe: "review"
+    depends_on: [money_map_phase1]
+    notes: >
+      Shipped in v7.3.0. react/src/components/transactions/AccountDrawer.tsx
+      wired into TransactionFormModal for non-transfer txns when the
+      household has more than one account. Splits persist onto
+      transactions.extras.accountSplits; dedicated transaction_splits table
+      queued for v7.4.
+
+  - id: money_map_views_as_read_path
+    title: "Item #8 — wire v_txn_by_member / v_txn_by_account as Reports read path"
+    priority: medium
+    wave: 3
+    status: done
+    shipped_in: "v7.3.0"
+    owner: senior
+    safe: "review"
+    depends_on: [money_map_promote_on]
+    notes: >
+      Shipped in v7.3.0. Reports hydrates byMember/byAccount from
+      adapter.queryTxnByMember / queryTxnByAccount when getMoneyMapMode()
+      === 'on'; falls back transparently to client-side fold over
+      reportableTxns for shadow / off / local builds.
+
+  - id: money_map_education_progress
+    title: "Item #7 — Education progress (profiles.education_progress jsonb)"
+    priority: low
+    wave: 3
+    status: done
+    shipped_in: "v7.3.0"
+    owner: junior
+    safe: "yes"
+    notes: >
+      Shipped in v7.3.0. profiles.education_progress jsonb wired through
+      getProfile/updateProfile and a markEducation store action; new
+      WhyChip primitive auto-marks completed_at on open / dismissed_at on
+      close; lib/educationProgress.ts provides a 50-key LRU localStorage
+      fallback for local-only mode.
+
+  - id: money_map_saved_views
+    title: "Item #4 — Saved filter views (v7.3)"
+    priority: medium
+    wave: 3
+    status: done
+    shipped_in: "v7.3.0"
+    owner: senior
+    safe: "review"
+    notes: >
+      Shipped in v7.3.0. saved_views table + RLS + replace_saved_views RPC
+      (20260602140000_money_map_saved_views.sql); adapter entity slice
+      ('savedViews'); Zustand store wiring; SavedViewsBar UI on
+      Transactions, Reports, and Insights. Per-row is_shared opt-in for
+      household sharing; private filter keys (search, description, member
+      ids, txn ids) stripped before persisting.
+
+  - id: money_map_retire_flag
+    title: "v7.3 — retire vt_feature_money_map flag"
+    priority: low
+    wave: 3
+    status: not-started
+    owner: junior
+    safe: "yes"
+    depends_on: [money_map_promote_on, money_map_saved_views]
+    notes: >
+      Remove the flag read sites in featureFlags.ts, store.ts, and the
+      gating in Debts/NetWorth/Reports/Accounts pages. Legacy
+      linked_asset_id column stays in the DB for historical rows but is
+      no longer written.
 
   # ── DEFERRED (not in immediate plan) ─────────────────────────────────────
 

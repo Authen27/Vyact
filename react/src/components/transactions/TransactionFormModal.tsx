@@ -2,16 +2,22 @@ import { useEffect, useMemo, useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { Input, Select, Field, FieldRow } from '../ui/Input';
+import TrackPicker, { TRACKS } from './TrackPicker';
+import AccountDrawer from './AccountDrawer';
 import { useStore } from '../../store';
-import { uid, today } from '../../lib/format';
+import { normalizeTimeInput, nowTime, uid, today } from '../../lib/format';
 import {
-  ALL_CATEGORIES,
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
+  INVESTMENT_CATEGORIES,
+  CATEGORIES_BY_TYPE,
   CURRENCIES,
 } from '../../constants';
-import { buildAccounts, resolveAccount, ACCOUNT_REQUIRED_TYPES } from '../../lib/accounts';
-import type { Transaction, TxnType, Recurrence } from '../../types';
+import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED_TYPES } from '../../lib/accounts';
+import { computeNextDueDate } from '../../lib/recurring';
+import { isFlagOn, getMoneyMapMode } from '../../lib/featureFlags';
+import { trackFlagExposure } from '../../lib/analytics';
+import type { Transaction, TxnType, Recurrence, RecurrenceFreq, AccountSplit } from '../../types';
 
 interface Props {
   /** Optional override props — when omitted, the modal binds to the global store
@@ -34,11 +40,19 @@ interface FormState {
   amount: string;
   currency: string;
   date: string;
+  time: string;
   description: string;
   category: string;
   note: string;
   memberId: string;
   paymentMethod: string;
+  // v7.0.3 — destination account for transfer + investment tracks.
+  paymentMethodTo: string;
+  /** v7.3 — Money Map Item #5. When `splitAcrossAccounts` is true the
+   *  primary `paymentMethod` is treated as informational only; the actual
+   *  source-of-funds is the multi-account `accountSplitRows` array. */
+  splitAcrossAccounts: boolean;
+  accountSplitRows: { accountId: string; amount: number }[];
   recurring: Recurrence | '';
   excluded: boolean;
   // ── split ──
@@ -55,16 +69,42 @@ const defaultParticipants = (): SplitParticipantForm[] => ([
   { name: '',    share: '', isYou: false, paid: false },
 ]);
 
-const blank = (currency: string): FormState => ({
-  type: 'expense',
+const DEFAULT_CAT_BY_TYPE: Record<TxnType, string> = {
+  expense:    'food',
+  income:     'salary',
+  investment: 'investment_in',
+  transfer:   'transfer',
+};
+
+// v7.0.3 — remember the last track the user picked so the next add-modal
+// can skip the picker if they always go to the same place. Stored
+// per-household; falls back to 'expense' if absent or invalid.
+const LAST_TRACK_KEY = 'vt_last_track';
+const VALID_TRACKS: TxnType[] = ['expense', 'income', 'transfer', 'investment'];
+function readLastTrack(hid: string): TxnType | null {
+  try {
+    const raw = localStorage.getItem(`${LAST_TRACK_KEY}_${hid}`);
+    return VALID_TRACKS.includes(raw as TxnType) ? (raw as TxnType) : null;
+  } catch { return null; }
+}
+function writeLastTrack(hid: string, track: TxnType): void {
+  try { localStorage.setItem(`${LAST_TRACK_KEY}_${hid}`, track); } catch { /* quota — ignore */ }
+}
+
+const blank = (currency: string, memberId = '', type: TxnType = 'expense'): FormState => ({
+  type,
   amount: '',
   currency,
   date: today(),
+  time: nowTime(),
   description: '',
-  category: 'food',
+  category: DEFAULT_CAT_BY_TYPE[type],
   note: '',
-  memberId: '',
+  memberId,
   paymentMethod: '',
+  paymentMethodTo: '',
+  splitAcrossAccounts: false,
+  accountSplitRows: [],
   recurring: '',
   excluded: false,
   splitEnabled: false,
@@ -84,19 +124,57 @@ function evenShares(bill: number, n: number): string[] {
 }
 
 function categoriesFor(type: TxnType) {
-  if (type === 'income')   return INCOME_CATEGORIES;
-  if (type === 'expense')  return EXPENSE_CATEGORIES;
-  return ALL_CATEGORIES;
+  // Each track gets only its own category list (Item #9). Transfers are
+  // categorically self-evident — the row's `category` is hard-coded to
+  // 'transfer' downstream, no picker needed.
+  if (type === 'income')     return INCOME_CATEGORIES;
+  if (type === 'expense')    return EXPENSE_CATEGORIES;
+  if (type === 'investment') return INVESTMENT_CATEGORIES;
+  return CATEGORIES_BY_TYPE.transfer;
+}
+
+function deriveInitialTime(initial?: Transaction | null): string {
+  if (initial?.time) return initial.time;
+  if (initial?.created_at) {
+    const created = new Date(initial.created_at);
+    if (!Number.isNaN(created.getTime())) {
+      return `${String(created.getHours()).padStart(2, '0')}:${String(created.getMinutes()).padStart(2, '0')}`;
+    }
+  }
+  return nowTime();
+}
+
+type Meridiem = 'AM' | 'PM';
+
+interface TimeInputState {
+  clock: string;
+  meridiem: Meridiem;
+}
+
+function splitTimeForInput(value?: string | null): TimeInputState {
+  const normalized = normalizeTimeInput(value) ?? nowTime();
+  const [hoursRaw = '00', minutes = '00'] = normalized.split(':');
+  const hours24 = Number(hoursRaw);
+  const meridiem: Meridiem = hours24 >= 12 ? 'PM' : 'AM';
+  const hours12 = hours24 % 12 || 12;
+  return {
+    clock: `${String(hours12).padStart(2, '0')}:${minutes}`,
+    meridiem,
+  };
 }
 
 export default function TransactionFormModal(props: Props) {
   const profile           = useStore(s => s.profile);
   const members           = useStore(s => s.members);
+  const session           = useStore(s => s.session);
   const assets            = useStore(s => s.assets);
   const debts             = useStore(s => s.debts);
+  const accountsState     = useStore(s => s.accounts);
   const upsertTransaction = useStore(s => s.upsertTransaction);
   const removeTransaction = useStore(s => s.removeTransaction);
+  const upsertRecurring   = useStore(s => s.upsertRecurring);
   const toast             = useStore(s => s.toast);
+  const currentHouseholdId = useStore(s => s.currentHouseholdId);
 
   // Bind to the global store unless explicit props are passed
   const storeOpen     = useStore(s => s.txnModalOpen);
@@ -106,29 +184,84 @@ export default function TransactionFormModal(props: Props) {
   const initial       = props.initial ?? storeInitial;
   const onClose       = props.onClose ?? storeClose;
 
-  const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency));
-  const [saving, setSaving] = useState(false);
+  const defaultMemberId = useMemo(() => {
+    if (session?.user?.id) {
+      const mine = members.find(m => m.userId === session.user.id);
+      if (mine) return mine.id;
+    }
+    if (profile.name) {
+      const byName = members.find(m => m.name.trim().toLowerCase() === profile.name.trim().toLowerCase());
+      if (byName) return byName.id;
+    }
+    return members[0]?.id ?? '';
+  }, [members, profile.name, session?.user?.id]);
 
-  // Linked spending accounts derived from Net Worth (cash + bank assets + credit cards).
-  const accounts = useMemo(() => buildAccounts(assets, debts), [assets, debts]);
+  const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency, defaultMemberId));
+  const [saving, setSaving] = useState(false);
+  const [timeInput, setTimeInput] = useState<TimeInputState>(() => splitTimeForInput(nowTime()));
+  // v7.0.3 — track-picker step. When the flag is on and we're adding (not
+  // editing), the modal opens to a 4-card track picker first; choosing a
+  // track sets `pickedTrack` and the rest of the form renders.
+  const trackPickerEnabled = isFlagOn('track_picker');
+  const [pickedTrack, setPickedTrack] = useState<TxnType | null>(null);
+  const showPicker = trackPickerEnabled && !initial && !pickedTrack;
+
+  // Fire one feature_flag_exposure per session when the modal opens for an
+  // add (edits don't expose the user to the variant in any visible way).
+  useEffect(() => {
+    if (!open || initial) return;
+    trackFlagExposure('vt_feature_track_picker', trackPickerEnabled ? 'on' : 'off');
+  }, [open, initial, trackPickerEnabled]);
+
+  // Linked spending accounts. With `money_map` flag on (or in shadow) and
+  // a populated `accounts` store, source options from the canonical table;
+  // otherwise fall back to the legacy assets+debts derivation so off-mode
+  // and pre-backfill households keep working unchanged.
+  const useFirstClassAccounts = getMoneyMapMode() !== 'off' && accountsState.length > 0;
+  const accounts = useMemo(
+    () => useFirstClassAccounts
+      ? buildAccountsFromStore(accountsState)
+      : buildAccounts(assets, debts),
+    [useFirstClassAccounts, accountsState, assets, debts],
+  );
+  // For transfer + investment, the destination dropdown excludes the source
+  // so a user can't pick the same account on both sides.
+  const accountsTo = useMemo(
+    () => useFirstClassAccounts
+      ? buildAccountsFromStore(accountsState, { excludeId: form.paymentMethod || undefined })
+      : buildAccounts(assets, debts, { excludeId: form.paymentMethod || undefined }),
+    [useFirstClassAccounts, accountsState, assets, debts, form.paymentMethod],
+  );
   const accountRequired = ACCOUNT_REQUIRED_TYPES.includes(
     form.type as (typeof ACCOUNT_REQUIRED_TYPES)[number],
   );
+  const isTransfer   = form.type === 'transfer';
+  const isInvestment = form.type === 'investment';
+  const isIncome     = form.type === 'income';
+  const needsToAccount = isTransfer || isInvestment;
+  // Account-field label varies by track: expense flows out of an account,
+  // income lands in one, transfer/investment have both sides.
+  const accountLabel = needsToAccount ? 'From Account' : isIncome ? 'To Account' : 'Account';
 
   useEffect(() => {
     if (!open) return;
     if (initial) {
+      const initialTime = deriveInitialTime(initial);
       const sp = initial.split;
       setForm({
         type: initial.type,
         amount: String(sp?.isSplit ? sp.totalAmount : initial.amount),
         currency: initial.currency,
         date: initial.date,
+        time: initialTime,
         description: initial.description,
         category: initial.category,
         note: initial.note ?? '',
-        memberId: initial.memberId ?? '',
+        memberId: initial.memberId ?? defaultMemberId,
         paymentMethod: initial.paymentMethod ?? '',
+        paymentMethodTo: initial.linkedToAssetId ?? '',
+        splitAcrossAccounts: Boolean(initial.accountSplits && initial.accountSplits.length),
+        accountSplitRows: initial.accountSplits ? initial.accountSplits.map(s => ({ accountId: s.accountId, amount: s.amount })) : [],
         recurring: initial.recurring ?? '',
         excluded: Boolean(initial.excluded),
         splitEnabled: Boolean(sp?.isSplit),
@@ -146,10 +279,30 @@ export default function TransactionFormModal(props: Props) {
             }))
           : defaultParticipants(),
       });
+      setTimeInput(splitTimeForInput(initialTime));
+      // Edit mode skips the picker — track is locked to the row's type.
+      setPickedTrack(initial.type);
     } else {
-      setForm(blank(profile.baseCurrency));
+      // Pre-select the user's last-used track so repeat adds don't have to
+      // re-pick every time. The picker is still reachable via "Change".
+      const remembered = trackPickerEnabled ? readLastTrack(currentHouseholdId) : null;
+      const initialType: TxnType = remembered ?? 'expense';
+      const blankForm = blank(profile.baseCurrency, defaultMemberId, initialType);
+      setForm(blankForm);
+      setTimeInput(splitTimeForInput(blankForm.time));
+      setPickedTrack(trackPickerEnabled ? remembered : 'expense');
     }
-  }, [open, initial, profile.baseCurrency]);
+  }, [open, initial, profile.baseCurrency, defaultMemberId, trackPickerEnabled, currentHouseholdId]);
+
+  function pickTrack(type: TxnType) {
+    setPickedTrack(type);
+    writeLastTrack(currentHouseholdId, type);
+    setForm(f => ({
+      ...f,
+      type,
+      category: DEFAULT_CAT_BY_TYPE[type],
+    }));
+  }
 
   const cats = categoriesFor(form.type);
 
@@ -193,7 +346,6 @@ export default function TransactionFormModal(props: Props) {
       if (!changed) return f;
       return { ...f, splitParticipants: f.splitParticipants.map((p, i) => ({ ...p, share: shares[i] })) };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.amount, form.splitEnabled, form.splitAuto, form.splitParticipants.length]);
 
   async function save() {
@@ -202,19 +354,59 @@ export default function TransactionFormModal(props: Props) {
       toast('Enter a valid amount greater than 0', 'error');
       return;
     }
-    if (!form.description.trim()) {
+    if (!isTransfer && !form.description.trim()) {
       toast('Description is required', 'error');
+      return;
+    }
+    const normalizedTime = normalizeTimeInput(`${timeInput.clock} ${timeInput.meridiem}`);
+    if (!normalizedTime) {
+      toast('Enter time as hh:mm with AM or PM', 'error');
+      return;
+    }
+    if (!isTransfer && !form.memberId) {
+      toast('Choose a member for this transaction', 'error');
       return;
     }
     // ── Account required for money that moves in/out of an account ──
     if (accountRequired && !form.paymentMethod) {
-      toast('Choose an account (cash, bank or card) for this transaction', 'error');
+      toast('Choose an Account (cash, bank or card) for this transaction', 'error');
+      return;
+    }
+    // v7.0.3 — transfer + investment require a destination account too.
+    if (needsToAccount && !form.paymentMethodTo) {
+      toast(isTransfer ? 'Choose a destination Account' : 'Choose an Investment Vehicle', 'error');
+      return;
+    }
+    if (needsToAccount && form.paymentMethod && form.paymentMethodTo === form.paymentMethod) {
+      toast('Source and destination must be different accounts', 'error');
       return;
     }
 
-    // ── Build split info (expense only) ──
+    // v7.3 — multi-account split (Item #5). When enabled, the rows must
+    // pick a non-empty accountId each and sum to the txn total.
+    let accountSplits: AccountSplit[] | undefined;
+    if (form.splitAcrossAccounts && !isTransfer) {
+      const rows = form.accountSplitRows.filter(r => r.accountId && r.amount > 0);
+      if (rows.length < 2) {
+        toast('Account split needs at least two accounts', 'error');
+        return;
+      }
+      const ids = new Set(rows.map(r => r.accountId));
+      if (ids.size !== rows.length) {
+        toast('Each split row must use a different account', 'error');
+        return;
+      }
+      const sum = rows.reduce((s, r) => s + r.amount, 0);
+      if (Math.abs(sum - amount) > 0.01) {
+        toast(`Account split (${sum.toFixed(2)}) must equal the total (${amount.toFixed(2)})`, 'error');
+        return;
+      }
+      accountSplits = rows;
+    }
+
+    // ── Build split info (expense or income) ──
     let split: Transaction['split'] | undefined = undefined;
-    if (form.type === 'expense' && form.splitEnabled) {
+    if ((form.type === 'expense' || form.type === 'income') && form.splitEnabled) {
       const parts = form.splitParticipants
         .map(p => ({ ...p, shareNum: parseFloat(p.share) }))
         .filter(p => (p.isYou || p.name.trim()) && !isNaN(p.shareNum) && p.shareNum >= 0);
@@ -250,19 +442,51 @@ export default function TransactionFormModal(props: Props) {
         amount,
         currency: form.currency,
         date: form.date,
+        time: normalizedTime,
         description: form.description.trim(),
-        category: form.category,
+        category: isTransfer ? 'transfer' : form.category,
         note: form.note.trim() || undefined,
-        memberId: form.memberId || undefined,
+        memberId: form.memberId,
         paymentMethod: form.paymentMethod || undefined,
         recurring: form.recurring || undefined,
         excluded: form.excluded || undefined,
         linkedAssetId: initial?.linkedAssetId,
+        linkedToAssetId: needsToAccount ? form.paymentMethodTo || undefined : initial?.linkedToAssetId,
         linkedDebtId:  initial?.linkedDebtId,
         linkedTxnId:   initial?.linkedTxnId,
+        accountSplits,
         split,
       };
       await upsertTransaction(txn);
+
+      // Mirror a brand-new recurring txn into a RecurringSchedule so the
+      // Recurring page reflects it. Skip on edit (we don't track the link),
+      // on splits (per-split-share schedules are nonsensical), and when the
+      // user hasn't picked a frequency.
+      if (!initial && form.recurring && !split) {
+        const freq = form.recurring as RecurrenceFreq;
+        const [, , dd] = form.date.split('-').map(Number);
+        const dayOfMonth = freq === 'monthly' ? dd : undefined;
+        const nextDue = computeNextDueDate(freq, form.date, form.date, dayOfMonth);
+        const { id: _omitId, date: _omitDate, ...template } = txn;
+        try {
+          await upsertRecurring({
+            transactionTemplate: template,
+            frequency: freq,
+            dayOfMonth,
+            startDate: form.date,
+            nextDueDate: nextDue,
+            lastGenerated: form.date,   // suppress the seed-txn in upsertRecurring
+            autoConfirm: false,
+            active: true,
+            reminderLeadDays: 3,
+          });
+        } catch (err) {
+          // Non-fatal — the txn is already saved.
+          console.warn('Failed to mirror recurring schedule:', err);
+        }
+      }
+
       toast(initial ? 'Transaction updated' : 'Transaction added', 'success');
       onClose();
     } catch (e) {
@@ -287,29 +511,72 @@ export default function TransactionFormModal(props: Props) {
   // The current value may be a legacy method not in the derived list — keep it selectable.
   const currentAccount = resolveAccount(form.paymentMethod, assets, debts);
   const currentInList = accounts.some(a => a.value === form.paymentMethod);
+  const trackMeta = TRACKS.find(t => t.type === form.type);
+  const modalTitle = initial
+    ? `Edit ${trackMeta?.label ?? 'Transaction'}`
+    : showPicker
+      ? 'Add Transaction'
+      : `Add ${trackMeta?.label ?? 'Transaction'}`;
 
   return (
-    <Modal open={open} title={initial ? 'Edit Transaction' : 'Add Transaction'} onClose={onClose}>
-      <FieldRow>
-        <Field label="Type">
-          <Select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as TxnType }))}>
-            <option value="expense">Expense</option>
-            <option value="income">Income</option>
-            <option value="investment">Investment</option>
-            <option value="transfer">Transfer</option>
-          </Select>
+    <Modal open={open} title={modalTitle} onClose={onClose}>
+      {showPicker ? (
+        <TrackPicker onPick={pickTrack} onCancel={onClose} />
+      ) : (
+      <>
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2.5 mb-3.5">
+        <Field label="Track">
+          {initial || trackPickerEnabled ? (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-line bg-bg2">
+              <span className="text-[0.85rem] text-ink">{trackMeta?.label ?? form.type}</span>
+              {!initial && trackPickerEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setPickedTrack(null)}
+                  className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:underline"
+                >
+                  Change
+                </button>
+              )}
+            </div>
+          ) : (
+            <Select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as TxnType, category: DEFAULT_CAT_BY_TYPE[e.target.value as TxnType] }))}>
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+              <option value="investment">Investment</option>
+              <option value="transfer">Transfer</option>
+            </Select>
+          )}
         </Field>
         <Field label="Date">
           <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
         </Field>
-      </FieldRow>
+        <Field label="Time">
+          <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-2">
+            <Input
+              inputMode="numeric"
+              value={timeInput.clock}
+              onChange={e => setTimeInput(t => ({ ...t, clock: e.target.value }))}
+              placeholder="hh:mm"
+              maxLength={5}
+            />
+            <Select
+              value={timeInput.meridiem}
+              onChange={e => setTimeInput(t => ({ ...t, meridiem: e.target.value as Meridiem }))}
+            >
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </Select>
+          </div>
+        </Field>
+      </div>
 
-      <Field label="Description">
+      <Field label="Description" hint={isTransfer ? 'optional' : undefined}>
         <Input
           autoFocus
           value={form.description}
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-          placeholder="e.g. Tesco grocery run"
+          placeholder={isTransfer ? 'e.g. Move savings to brokerage' : 'e.g. Tesco grocery run'}
         />
       </Field>
 
@@ -333,20 +600,22 @@ export default function TransactionFormModal(props: Props) {
         </Field>
       </FieldRow>
 
-      <Field label="Category">
-        <Select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-          {cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
-        </Select>
-      </Field>
+      {!isTransfer && (
+        <Field label="Category">
+          <Select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+            {cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+          </Select>
+        </Field>
+      )}
 
       <FieldRow>
-        <Field label="Member" hint="optional">
+        <Field label="Member" hint={isTransfer ? 'optional' : undefined}>
           <Select value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}>
-            <option value="">— None —</option>
+            <option value="">{isTransfer ? '— None —' : '— Select a member —'}</option>
             {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </Select>
         </Field>
-        <Field label="Account" hint={accountRequired ? 'required' : 'optional'}>
+        <Field label={accountLabel} hint={accountRequired ? 'required' : 'optional'}>
           <Select value={form.paymentMethod} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}>
             <option value="">{accountRequired ? '— Select an account —' : '— None —'}</option>
             {accounts.map(a => (
@@ -363,11 +632,47 @@ export default function TransactionFormModal(props: Props) {
           </Select>
         </Field>
       </FieldRow>
+      {needsToAccount && (
+        <FieldRow>
+          <Field label={isTransfer ? 'To Account' : 'Investment Vehicle'} hint="required">
+            <Select value={form.paymentMethodTo} onChange={e => setForm(f => ({ ...f, paymentMethodTo: e.target.value }))}>
+              <option value="">{isTransfer ? '— Select destination —' : '— Select vehicle —'}</option>
+              {accountsTo.map(a => (
+                <option key={a.value} value={a.value}>
+                  {a.kind === 'card' ? '💳 ' : a.kind === 'bank' ? '🏦 ' : '💵 '}{a.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <span />
+        </FieldRow>
+      )}
       {accountRequired && accounts.length <= 1 && (
         <p className="-mt-2 mb-3 text-[0.7rem] text-ink-dim leading-snug">
           Tip: add your bank accounts and credit cards on the <strong>Net Worth</strong> page to
           spend from them here. Only Cash is available until then.
         </p>
+      )}
+
+      {/* v7.3 — Money Map Item #5: optional multi-account split. Hidden
+         on transfers (which already use a 2-account model). */}
+      {!isTransfer && accountRequired && accounts.length > 1 && (
+        <div className="mb-3">
+          <AccountDrawer
+            total={parseFloat(form.amount) || 0}
+            accounts={accounts}
+            splits={form.accountSplitRows}
+            onChange={rows => setForm(f => ({ ...f, accountSplitRows: rows }))}
+            enabled={form.splitAcrossAccounts}
+            onToggleEnabled={next => setForm(f => ({
+              ...f,
+              splitAcrossAccounts: next,
+              accountSplitRows: next && f.accountSplitRows.length === 0
+                ? [{ accountId: f.paymentMethod || '', amount: parseFloat(f.amount) || 0 }, { accountId: '', amount: 0 }]
+                : f.accountSplitRows,
+            }))}
+          />
+        </div>
       )}
 
       <FieldRow>
@@ -393,8 +698,8 @@ export default function TransactionFormModal(props: Props) {
         <span>🔒 Private — exclude from totals, charts and Pulse Score</span>
       </label>
 
-      {/* ── Split a bill (expense only) ── */}
-      {form.type === 'expense' && (
+      {/* ── Split a bill / shared income (expense + income) ── */}
+      {(form.type === 'expense' || form.type === 'income') && (
         <div className="mb-4 border border-line rounded-lg overflow-hidden">
           <label className="flex items-center gap-2 px-3 py-2.5 bg-bg3 text-[0.84rem] text-ink cursor-pointer select-none">
             <input
@@ -402,18 +707,27 @@ export default function TransactionFormModal(props: Props) {
               checked={form.splitEnabled}
               onChange={e => setForm(f => ({ ...f, splitEnabled: e.target.checked, splitAuto: e.target.checked ? true : f.splitAuto }))}
             />
-            <span>🤝 Split this bill with others</span>
+            <span>{form.type === 'income' ? '🤝 Share this income with others' : '🤝 Split this bill with others'}</span>
           </label>
 
           {form.splitEnabled && (
             <div className="p-3 space-y-3">
-              <Field label="Who paid the bill?">
+              <Field label={form.type === 'income' ? 'Who received the money?' : 'Who paid the bill?'}>
                 <Select
                   value={form.splitPaidBy}
                   onChange={e => setForm(f => ({ ...f, splitPaidBy: e.target.value as 'me' | 'external' }))}
                 >
-                  <option value="me">You paid — others owe you</option>
-                  <option value="external">Someone else paid — you owe your share</option>
+                  {form.type === 'income' ? (
+                    <>
+                      <option value="me">You received it — you'll forward each person their share</option>
+                      <option value="external">Someone else received it — they owe you your share</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="me">You paid — others owe you</option>
+                      <option value="external">Someone else paid — you owe your share</option>
+                    </>
+                  )}
                 </Select>
               </Field>
 
@@ -492,8 +806,9 @@ export default function TransactionFormModal(props: Props) {
                 <p className="mt-1.5 text-[0.7rem] text-ink-dim leading-snug">
                   Shares default to an <strong>even split</strong> and rebalance as you add people —
                   just type a number to override any share. The <strong>Amount</strong> above is the
-                  full bill; only your share counts toward your expenses, the rest is tracked as IOUs
-                  on the Splits page.
+                  full {form.type === 'income' ? 'incoming amount' : 'bill'}; only your share counts
+                  toward your {form.type === 'income' ? 'income' : 'expenses'}, the rest is tracked
+                  as IOUs on the Splits page.
                 </p>
               </div>
             </div>
@@ -518,6 +833,8 @@ export default function TransactionFormModal(props: Props) {
           </Button>
         </div>
       </div>
+      </>
+      )}
     </Modal>
   );
 }

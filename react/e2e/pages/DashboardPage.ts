@@ -9,7 +9,7 @@ export class DashboardPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.logoLink = page.getByLabel('FinFlow — go to dashboard');
+    this.logoLink = page.getByLabel('Vyact — go to dashboard');
   }
 
   async goto() {

@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, convert } from '../lib/format';
+import { fmt, convert, uid } from '../lib/format';
+import Money from '../components/ui/Money';
 import { splitsOutstanding } from '../lib/calculations';
-import type { Transaction, SplitParticipant } from '../types';
+import type { Transaction, SplitParticipant, Debt } from '../types';
 
 export default function Splits() {
   const { t } = useTranslation();
@@ -12,6 +13,7 @@ export default function Splits() {
   const profile       = useStore(s => s.profile);
   const rates         = useStore(s => s.rates);
   const upsertTransaction = useStore(s => s.upsertTransaction);
+  const upsertDebt    = useStore(s => s.upsertDebt);
   const toast         = useStore(s => s.toast);
 
   const c = profile.baseCurrency;
@@ -49,17 +51,66 @@ export default function Splits() {
     toast('All participants settled', 'success');
   }
 
+  // v7.3 — Convert a "you owe" split obligation into a real Debt row so it
+  // appears on the Debts page, gets included in liabilities + Net Worth, and
+  // can use the avalanche/snowball payoff engine. The corresponding split
+  // participant is left as-is (it stays the source-of-truth IOU); the new
+  // Debt links back via `linkedDebtId` on the transaction so we can dedupe
+  // later if needed.
+  async function convertSplitToDebt(txnId: string, participantName: string) {
+    const txn = transactions.find(tx => tx.id === txnId);
+    if (!txn?.split) return;
+    const part = txn.split.participants.find((p: SplitParticipant) =>
+      (p.isYou ? 'You' : p.name) === participantName,
+    );
+    if (!part) return;
+
+    const counterparty = txn.type === 'income'
+      ? (part.isYou ? 'External recipient' : part.name)
+      : (part.isYou ? 'External payer' : part.name);
+    const debt: Partial<Debt> = {
+      id: uid(),
+      type: 'personal',
+      name: `${txn.description} — ${counterparty}`,
+      lender: counterparty,
+      counterpartyName: counterparty,
+      principal: part.share,
+      currentBalance: part.share,
+      interestRate: 0,
+      minimumPayment: 0,
+      currency: txn.currency,
+      direction: 'owed_by_me',
+    };
+    const created = await upsertDebt(debt);
+    await upsertTransaction({ ...txn, linkedDebtId: created.id });
+    toast(`Tracked ${fmt(convert(part.share, txn.currency, c, rates), c)} as a debt`, 'success');
+  }
+
   function SplitRow({ txn }: { txn: Transaction }) {
     const [expanded, setExpanded] = useState(false);
     const split = txn.split!;
+    const isIncome = txn.type === 'income';
     const totalInBase = convert(split.totalAmount, txn.currency, c, rates);
     const yourShareBase = convert(split.yourShare, txn.currency, c, rates);
     const unsettled = split.participants.filter((p: SplitParticipant) => !p.paid && !p.isYou);
-    const owedHere = split.paidBy === 'me'
-      ? unsettled.reduce((s: number, p: SplitParticipant) => s + convert(p.share, txn.currency, c, rates), 0)
-      : 0;
-    const youOweHere = split.paidBy === 'external' && !split.participants.find((p: SplitParticipant) => p.isYou)?.paid
-      ? yourShareBase : 0;
+    // v7.3 — polarity inverts on income (see splitsOutstanding for the
+    // matching aggregator branches).
+    let owedHere = 0;
+    let youOweHere = 0;
+    if (!isIncome) {
+      owedHere = split.paidBy === 'me'
+        ? unsettled.reduce((s: number, p: SplitParticipant) => s + convert(p.share, txn.currency, c, rates), 0)
+        : 0;
+      youOweHere = split.paidBy === 'external' && !split.participants.find((p: SplitParticipant) => p.isYou)?.paid
+        ? yourShareBase : 0;
+    } else {
+      owedHere = split.paidBy === 'external' && !split.participants.find((p: SplitParticipant) => p.isYou)?.paid
+        ? yourShareBase : 0;
+      youOweHere = split.paidBy === 'me'
+        ? unsettled.reduce((s: number, p: SplitParticipant) => s + convert(p.share, txn.currency, c, rates), 0)
+        : 0;
+    }
+    const linkedDebtId = txn.linkedDebtId;
 
     return (
       <div className="bg-bg border border-line rounded-xl overflow-hidden">
@@ -69,13 +120,14 @@ export default function Splits() {
             <div className="font-semibold text-ink">{txn.description}</div>
             <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">{txn.date} · {split.participants.length} participants</div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="num font-semibold text-ink">{fmt(totalInBase, c)}</div>
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="text-right min-w-0">
+              <Money amount={totalInBase} currency={c} maxChars={11} className="font-semibold text-ink" />
               {owedHere > 0 && <div className="font-mono text-[0.6rem] tracking-wider text-sage">+{fmt(owedHere, c)} owed to you</div>}
               {youOweHere > 0 && <div className="font-mono text-[0.6rem] tracking-wider text-terra">−{fmt(youOweHere, c)} you owe</div>}
+              {linkedDebtId && <div className="font-mono text-[0.58rem] tracking-wider text-ink-dim">linked to a debt</div>}
             </div>
-            <span className="text-ink-dim text-sm">{expanded ? '▴' : '▾'}</span>
+            <span className="text-ink-dim text-sm flex-shrink-0">{expanded ? '▴' : '▾'}</span>
           </div>
         </button>
 
@@ -100,18 +152,32 @@ export default function Splits() {
                       {p.paid && p.paidOn && <div className="font-mono text-[0.58rem] tracking-wider text-sage">Settled {p.paidOn}</div>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`num font-semibold text-[0.9rem] ${p.paid ? 'text-sage' : 'text-ink'}`}>
-                      {fmt(shareBase, c)}
-                    </span>
-                    {!p.paid && !p.isYou && split.paidBy === 'me' && (
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Money amount={shareBase} currency={c} maxChars={10} className={`font-semibold text-[0.9rem] ${p.paid ? 'text-sage' : 'text-ink'}`} />
+                    {!p.paid && !p.isYou && ((!isIncome && split.paidBy === 'me') || (isIncome && split.paidBy === 'me')) && (
                       <button className="btn-secondary text-xs py-1 px-2.5" onClick={() => markPaid(txn.id, p.name)}>
                         Mark paid
                       </button>
                     )}
-                    {!p.paid && p.isYou && split.paidBy === 'external' && (
+                    {!p.paid && p.isYou && ((!isIncome && split.paidBy === 'external') || (isIncome && split.paidBy === 'external')) && (
                       <button className="btn-primary text-xs py-1 px-2.5" onClick={() => markPaid(txn.id, p.name)}>
                         Settle
+                      </button>
+                    )}
+                    {/* v7.3 — Convert "you owe" obligations into Debts. Shown
+                       on the participant row that represents your unpaid
+                       liability: expense + paidBy=external + isYou; or
+                       income + paidBy=me + !isYou (you owe each non-you). */}
+                    {!p.paid && !linkedDebtId && (
+                      (!isIncome && split.paidBy === 'external' && p.isYou) ||
+                      (isIncome && split.paidBy === 'me' && !p.isYou)
+                    ) && (
+                      <button
+                        className="btn-ghost text-xs py-1 px-2.5"
+                        title="Track this obligation as a Debt"
+                        onClick={() => convertSplitToDebt(txn.id, p.isYou ? 'You' : p.name)}
+                      >
+                        Track as debt
                       </button>
                     )}
                     {p.paid && <span className="text-sage text-base">✓</span>}
@@ -139,21 +205,25 @@ export default function Splits() {
       {/* IOU summary */}
       {(owedToYou > 0 || youOwe > 0) && (
         <div className="grid sm:grid-cols-2 gap-3 mb-5">
-          <div className="bg-sage/8 border border-sage/20 rounded-xl p-5">
+          <div className="bg-sage/8 border border-sage/20 rounded-xl p-5 min-w-0">
             <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">Owed to You</div>
-            <div className="num text-3xl font-semibold text-sage">{fmt(owedToYou, c)}</div>
+            <Money amount={owedToYou} currency={c} maxChars={11} className="text-3xl font-semibold text-sage" />
             <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim mt-1">{owedDetails.length} outstanding item{owedDetails.length !== 1 ? 's' : ''}</div>
           </div>
-          <div className="bg-terra/8 border border-terra/20 rounded-xl p-5">
+          <div className="bg-terra/8 border border-terra/20 rounded-xl p-5 min-w-0">
             <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">You Owe</div>
-            <div className="num text-3xl font-semibold text-terra">{fmt(youOwe, c)}</div>
+            <Money amount={youOwe} currency={c} maxChars={11} className="text-3xl font-semibold text-terra" />
             <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim mt-1">{youOweDetails.length} outstanding item{youOweDetails.length !== 1 ? 's' : ''}</div>
           </div>
         </div>
       )}
 
       <div className="bg-coral-tint border border-coral/20 rounded-md px-4 py-3 mb-5 text-[0.84rem] text-ink-mid">
-        <span className="font-semibold text-ink">Add split transactions</span> from the Transactions page — flag any transaction as a split and assign participants and shares.
+        <span className="font-semibold text-ink">Add split transactions</span> from the Transactions page —
+        flag any expense (a shared bill) <em>or</em> income (a shared payout) as a split and assign
+        participants and shares. Use <span className="font-semibold text-ink">Track as debt</span> on
+        a "you owe" row to convert the IOU into a real debt that shows up on the Debts page and Net
+        Worth.
       </div>
 
       {/* Split list */}

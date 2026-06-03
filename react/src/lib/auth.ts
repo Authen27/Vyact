@@ -1,4 +1,4 @@
-// FinFlow v4.1 — Auth helpers
+// Vyact v4.1 — Auth helpers
 // Thin wrappers around supabase-js so the store and pages can call signIn,
 // signUp, etc. without knowing about Supabase internals.
 
@@ -79,22 +79,29 @@ export function onAuthStateChange(handler: (session: Session | null) => void): (
 }
 
 // ── Invitations ─────────────────────────────────────────────
-export async function sendInvitation(
-  householdId: string, email: string, role: 'admin' | 'member' | 'viewer' | 'child', householdRole?: string,
+// Vyact uses shareable invite links rather than emailed invites — the
+// inviter copies the resulting URL and delivers it offline (Slack, SMS,
+// in-person, etc.). The `invitations.invited_email` column is NOT NULL in
+// the production schema, so when the inviter doesn't supply a label we
+// store a sentinel that the UI renders as "Shareable link".
+export const INVITE_LABEL_SENTINEL = '(shareable link)';
+
+export async function createInviteLink(
+  householdId: string,
+  role: 'admin' | 'member' | 'viewer' | 'child',
+  householdRole?: string,
+  label?: string,
 ) {
   const { data: { user } } = await sb().auth.getUser();
   if (!user) throw new Error('Not signed in');
   const { data, error } = await sb().from('invitations').insert({
     household_id: householdId,
-    invited_email: email,
+    invited_email: (label && label.trim()) || INVITE_LABEL_SENTINEL,
     invited_by: user.id,
     role,
     household_role: householdRole || null,
   }).select().single();
   if (error) throw error;
-  // Note: sending the actual email is the job of a Supabase Edge Function
-  // `send-invite-email` listening for new rows in the invitations table.
-  // Without it, the inviter can copy the magic link from `data.token`.
   return data;
 }
 
@@ -107,7 +114,7 @@ export async function listInvitations(householdId: string) {
 }
 
 export async function acceptInvitation(token: string) {
-  const { data, error } = await sb().rpc('accept_invitation', { invite_token: token });
+  const { data, error } = await sb().rpc('accept_invitation_link', { invite_token: token });
   if (error) throw error;
   return data as { household_id: string; membership_id?: string; role?: string; already_member?: boolean };
 }

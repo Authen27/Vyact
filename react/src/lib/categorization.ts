@@ -1,4 +1,4 @@
-// FinFlow v6.4.6 — Dynamic needs/wants categorisation.
+// Vyact v6.4.6 — Dynamic needs/wants categorisation.
 //
 // The need/want classification of each expense category is managed centrally in
 // the `category_classifications` table (editable by admins) so it can evolve

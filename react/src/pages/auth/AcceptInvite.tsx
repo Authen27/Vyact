@@ -7,7 +7,9 @@ import { AuthShell } from './SignIn';
 import { useStore } from '../../store';
 
 export default function AcceptInvite() {
-  const { token } = useParams<{ token: string }>();
+  const params = useParams<{ token?: string; '*': string }>();
+  const rawToken = params.token ?? params['*'] ?? new URLSearchParams(window.location.search).get('token') ?? '';
+  const token = rawToken ? decodeURIComponent(rawToken) : '';
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'need_signin' | 'success' | 'error'>('loading');
   const [error, setError] = useState('');
@@ -49,6 +51,7 @@ export default function AcceptInvite() {
   }
 
   if (status === 'need_signin') {
+    const next = encodeURIComponent(`/invite/${encodeURIComponent(token)}`);
     return (
       <AuthShell title="Sign in to accept">
         <div className="text-center">
@@ -57,10 +60,10 @@ export default function AcceptInvite() {
             You've been invited to join a household on Vyact. Sign in or create an account to accept.
           </p>
           <div className="space-y-2.5">
-            <Link to={`/auth/sign-in?next=/invite/${token}`}>
+            <Link to={`/auth/sign-in?next=${next}`}>
               <Button full>Sign in</Button>
             </Link>
-            <Link to="/auth/sign-up" className="block text-coral hover:underline text-sm font-medium">
+            <Link to={`/auth/sign-up?next=${next}`} className="block text-coral hover:underline text-sm font-medium">
               Don't have an account? Sign up
             </Link>
           </div>

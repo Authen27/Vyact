@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, X } from 'lucide-react';
+import { applyUpdate } from '../../lib/pwa';
 
 /**
  * SW-free "new version available" prompt.
@@ -21,6 +22,7 @@ const POLL_MS = 15 * 60 * 1000; // 15 minutes
 export default function UpdateBanner() {
   const [latest, setLatest] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [swWaiting, setSwWaiting] = useState(false);
 
   const check = useCallback(async () => {
     try {
@@ -37,17 +39,29 @@ export default function UpdateBanner() {
     check();
     const id = setInterval(check, POLL_MS);
     const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    const onSwUpdate = () => setSwWaiting(true);
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', check);
+    window.addEventListener('vyact:sw-update', onSwUpdate);
     return () => {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', check);
+      window.removeEventListener('vyact:sw-update', onSwUpdate);
     };
   }, [check]);
 
-  const updateAvailable = latest !== null && latest !== __APP_VERSION__;
+  const updateAvailable = swWaiting || (latest !== null && latest !== __APP_VERSION__);
   if (!updateAvailable || dismissed) return null;
+
+  function refresh() {
+    if (swWaiting) {
+      // Tell the waiting SW to take over; applyUpdate() reloads on 'controlling'.
+      void applyUpdate();
+    } else {
+      window.location.reload();
+    }
+  }
 
   return (
     <div
@@ -59,11 +73,11 @@ export default function UpdateBanner() {
     >
       <RefreshCw size={18} className="text-coral flex-shrink-0" />
       <div className="flex-1 min-w-0 text-[0.84rem] text-ink leading-snug">
-        A new version of Vyact (v{latest}) is available.
+        A new version of Vyact{latest ? ` (v${latest})` : ''} is available.
         <span className="text-ink-dim"> Refresh to update.</span>
       </div>
       <button
-        onClick={() => window.location.reload()}
+        onClick={refresh}
         className="btn-primary py-1.5 px-3 text-xs flex-shrink-0"
       >
         Refresh

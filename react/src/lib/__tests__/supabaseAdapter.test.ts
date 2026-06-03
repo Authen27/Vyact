@@ -100,3 +100,89 @@ describe('SupabaseAdapter.upsert · TD-03 optimistic concurrency', () => {
     expect(tableProxy.upsert).toHaveBeenCalled();
   });
 });
+
+describe('SupabaseAdapter.replaceAll · TD-09 RPC dispatch', () => {
+  // CON-UNIT-054 pins the RPC routing that backs replaceAll: each entity
+  // must call the matching `replace_<entity>` RPC (with the 'members' →
+  // 'replace_memberships' special case) and pass the household + rows
+  // payload unchanged. The RPC is the only mechanism that keeps a
+  // full-list replace transactional under RLS, so if the routing breaks
+  // partial writes can corrupt the household snapshot silently.
+  function mockSbRpc(): { sb: SupabaseClient; rpc: ReturnType<typeof vi.fn> } {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    return { sb: { rpc } as unknown as SupabaseClient, rpc };
+  }
+
+  it('CON-UNIT-054 · routes each entity to replace_<entity> and passes {h, rows}', async () => {
+    const cases: Array<[Parameters<SupabaseAdapter['replaceAll']>[0], string]> = [
+      ['transactions', 'replace_transactions'],
+      ['budgets',      'replace_budgets'],
+      ['goals',        'replace_goals'],
+      ['debts',        'replace_debts'],
+      ['assets',       'replace_assets'],
+      ['members',      'replace_memberships'], // special case
+    ];
+    for (const [entity, rpcName] of cases) {
+      const { sb, rpc } = mockSbRpc();
+      const adapter = new SupabaseAdapter(sb);
+      const rows = [{ id: '11111111-1111-1111-1111-111111111111' }];
+      await adapter.replaceAll(entity, 'h1', rows);
+      expect(rpc).toHaveBeenCalledTimes(1);
+      expect(rpc).toHaveBeenCalledWith(rpcName, expect.objectContaining({ h: 'h1', rows: expect.any(Array) }));
+    }
+  });
+});
+
+describe('SupabaseAdapter.listSince · TD-06 delta pull', () => {
+  // CON-UNIT-055/056 pin the incremental-list contract added for TD-06.
+  // The cloud query MUST be `select * .eq(household_id) .gt(updated_at,
+  // since) .order(updated_at asc) .limit(n)` and MUST NOT filter out
+  // soft-deleted rows — callers need the tombstones to remove rows from
+  // their local cache. The adapter splits the response into live rows vs
+  // tombstones and reports the max updated_at for the next cursor.
+
+  type ListSinceRow = { id: string; updated_at: string; deleted_at: string | null; household_id: string };
+
+  function mockSbList(rows: ListSinceRow[]): {
+    sb: SupabaseClient;
+    spies: { from: ReturnType<typeof vi.fn>; eq: ReturnType<typeof vi.fn>; gt: ReturnType<typeof vi.fn>; order: ReturnType<typeof vi.fn>; limit: ReturnType<typeof vi.fn> };
+  } {
+    const limit = vi.fn().mockResolvedValue({ data: rows, error: null });
+    const order = vi.fn().mockReturnValue({ limit });
+    const gt    = vi.fn().mockReturnValue({ order });
+    const eq    = vi.fn().mockReturnValue({ gt });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from  = vi.fn().mockReturnValue({ select });
+    return { sb: { from } as unknown as SupabaseClient, spies: { from, eq, gt, order, limit } };
+  }
+
+  it('CON-UNIT-055 · issues `.gt(updated_at, since).order(updated_at asc)` and does NOT filter deleted_at', async () => {
+    const { sb, spies } = mockSbList([]);
+    const adapter = new SupabaseAdapter(sb);
+    const result = await adapter.listSince('transactions', 'h1', '2026-05-30T00:00:00Z', 100);
+    expect(spies.from).toHaveBeenCalledWith('transactions');
+    expect(spies.eq).toHaveBeenCalledWith('household_id', 'h1');
+    expect(spies.gt).toHaveBeenCalledWith('updated_at', '2026-05-30T00:00:00Z');
+    expect(spies.order).toHaveBeenCalledWith('updated_at', { ascending: true });
+    expect(spies.limit).toHaveBeenCalledWith(100);
+    // Empty response → no rows, no tombstones, null cursor advance.
+    expect(result).toEqual({ rows: [], tombstones: [], maxUpdatedAt: null });
+  });
+
+  it('CON-UNIT-056 · partitions live rows vs tombstones and reports max(updated_at)', async () => {
+    const rows: ListSinceRow[] = [
+      { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', household_id: 'h1', updated_at: '2026-05-31T10:00:00Z', deleted_at: null },
+      { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', household_id: 'h1', updated_at: '2026-05-31T11:00:00Z', deleted_at: '2026-05-31T11:00:00Z' },
+      { id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', household_id: 'h1', updated_at: '2026-05-31T12:00:00Z', deleted_at: null },
+    ];
+    const { sb } = mockSbList(rows);
+    const adapter = new SupabaseAdapter(sb);
+    const result = await adapter.listSince<{ id: string }>('budgets', 'h1', '2026-05-30T00:00:00Z');
+    expect(result.tombstones).toEqual(['bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb']);
+    expect(result.rows.map(r => r.id).sort()).toEqual([
+      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    ]);
+    expect(result.maxUpdatedAt).toBe('2026-05-31T12:00:00Z');
+  });
+});

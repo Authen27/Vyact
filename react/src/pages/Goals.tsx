@@ -5,6 +5,7 @@ import { convert } from '../lib/format';
 import { GOAL_ICONS, GOAL_COLORS } from '../constants';
 import type { Goal } from '../types';
 import { useState } from 'react';
+import { Pencil, Trash2, Check, RotateCcw, Plus } from 'lucide-react';
 import Money from '../components/ui/Money';
 
 function daysLeft(deadline?: string) {
@@ -82,15 +83,21 @@ export default function Goals() {
           </div>
         )}
 
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1 items-center">
           {!g.completed && (
-            <button className="btn-secondary text-xs py-1 px-2.5" onClick={() => openGoalProgress(g)}>+ Progress</button>
+            <button className="row-action" onClick={() => openGoalProgress(g)} aria-label="Add progress" title="Add progress">
+              <Plus size={14} strokeWidth={1.8} />
+            </button>
           )}
-          <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => openEditGoal(g)}>Edit</button>
-          <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => toggleComplete(g)}>
-            {g.completed ? 'Reopen' : 'Mark done'}
+          <button className="row-action" onClick={() => openEditGoal(g)} aria-label="Edit goal" title="Edit">
+            <Pencil size={14} strokeWidth={1.6} />
           </button>
-          <button className="btn-ghost text-xs py-1 px-2.5 text-terra ml-auto" onClick={() => del(g.id)}>Del</button>
+          <button className="row-action" onClick={() => toggleComplete(g)} aria-label={g.completed ? 'Reopen goal' : 'Mark goal complete'} title={g.completed ? 'Reopen' : 'Mark done'}>
+            {g.completed ? <RotateCcw size={14} strokeWidth={1.6} /> : <Check size={14} strokeWidth={1.8} />}
+          </button>
+          <button className="row-action danger ml-auto" onClick={() => del(g.id)} aria-label="Delete goal" title="Delete">
+            <Trash2 size={14} strokeWidth={1.6} />
+          </button>
         </div>
       </div>
     );

@@ -131,6 +131,34 @@ export function seedScript(data: SeedData) {
   if (data.debts)        w('debts', data.debts);
   if (data.assets)       w('assets', data.assets);
   if (data.members)      w('members', data.members);
+  if (data.exchangeRates) w('rates', data.exchangeRates);
+}
+
+/**
+ * Legacy-only variant for the v7 brand-migration regression guard. This
+ * simulates a pre-v7 install where only `ff_*` keys exist and proves the
+ * compat read-path still boots the app before new writes move to `vt_*`.
+ */
+export function legacyOnlySeedScript(data: SeedData) {
+  if (localStorage.getItem('ff_active_profile') || localStorage.getItem('vt_active_profile')) return;
+
+  localStorage.setItem('ff_active_profile', 'local');
+  localStorage.setItem('ff_profiles_list', JSON.stringify([{
+    id: 'local', name: 'My Household', type: 'family',
+    baseCurrency: 'USD', createdAt: '2026-01-01T00:00:00.000Z',
+  }]));
+
+  const w = (k: string, v: unknown) => {
+    localStorage.setItem('ff_' + k, JSON.stringify(v));
+  };
+  if (data.profile)      w('profile', data.profile);
+  if (data.transactions) w('transactions', data.transactions);
+  if (data.budgets)      w('budgets', data.budgets);
+  if (data.goals)        w('goals', data.goals);
+  if (data.debts)        w('debts', data.debts);
+  if (data.assets)       w('assets', data.assets);
+  if (data.members)      w('members', data.members);
+  if (data.exchangeRates) w('rates', data.exchangeRates);
 }
 
 /**

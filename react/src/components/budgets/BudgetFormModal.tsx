@@ -1,12 +1,12 @@
-// FinFlow v6.4 — BudgetFormModal
+// Vyact v6.4 — BudgetFormModal
 //
 // Modal-driven Budget create/edit form. Mirrors TransactionFormModal /
 // GoalFormModal so the three creation surfaces feel consistent.
 //
-// New in v6.4: budget period selector (monthly / quarterly / half-yearly /
-// annual / custom). The period metadata is persisted client-side via
-// budgetMeta because the production schema does not have an extras column
-// on the budgets table — see lib/budgetMeta.ts.
+// Period selector (monthly / quarterly / half-yearly / annual / custom)
+// persists to the budgets.period / period_start / period_end columns
+// added in PR #20. The earlier client-side overlay (lib/budgetMeta.ts)
+// was removed on 2026-06-01 now that the schema carries the fields.
 
 import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';

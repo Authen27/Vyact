@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
@@ -80,13 +81,13 @@ export default function Budgets() {
 
       {/* Summary strip */}
       {rows.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           <div className="bg-bg border border-line rounded-lg p-4 text-center min-w-0">
-            <Money amount={totalBudgeted} currency={profile.baseCurrency} className="text-xl font-semibold text-ink" maxChars={11} />
+            <Money amount={totalBudgeted} currency={profile.baseCurrency} className="text-xl font-semibold text-ink" maxChars={9} />
             <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mt-0.5">Budgeted</div>
           </div>
           <div className="bg-bg border border-line rounded-lg p-4 text-center min-w-0">
-            <Money amount={totalSpent} currency={profile.baseCurrency} className="text-xl font-semibold text-terra" maxChars={11} />
+            <Money amount={totalSpent} currency={profile.baseCurrency} className="text-xl font-semibold text-terra" maxChars={9} />
             <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mt-0.5">Spent</div>
           </div>
           <div className="bg-bg border border-line rounded-lg p-4 text-center min-w-0">
@@ -152,9 +153,13 @@ export default function Budgets() {
                       <span>{remaining >= 0 ? 'left' : 'over'}</span>
                     </div>
                   </div>
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    <button onClick={() => openEditBudget(b)} className="btn-ghost py-1 px-2 text-xs">Edit</button>
-                    <button onClick={() => del(b.id)}        className="btn-ghost py-1 px-2 text-xs text-terra">Del</button>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button onClick={() => openEditBudget(b)} className="row-action" aria-label={`Edit ${cat.label} budget`} title="Edit">
+                      <Pencil size={14} strokeWidth={1.6} />
+                    </button>
+                    <button onClick={() => del(b.id)} className="row-action danger" aria-label={`Delete ${cat.label} budget`} title="Delete">
+                      <Trash2 size={14} strokeWidth={1.6} />
+                    </button>
                   </div>
                 </div>
               </div>

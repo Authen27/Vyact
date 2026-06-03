@@ -23,7 +23,7 @@ export const NEEDS_WANTS_MAP: Record<string, 'need' | 'want'> = {
 export function needsWantsForCategory(catId: string): 'need' | 'want' | undefined {
   return NEEDS_WANTS_MAP[catId];
 }
-// FinFlow v6 — All static lookup tables in one file.
+// Vyact v6 — All static lookup tables in one file.
 // Categories · Currencies · Payment methods · Profile types · Goal/Asset/Debt metadata · Locales
 
 import type { ProfileTypeKey, GoalType } from './types';
@@ -60,7 +60,17 @@ export const INCOME_CATEGORIES = [
   { id: 'other_inc',  label: 'Other Income',     icon: '💰', color: '#85A88A' },
 ] as const;
 
-export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
+// Track-specific categories (v7.0.3, Item #9). The track picker filters the
+// category list down to the chosen track; legacy rows still resolve via getCat.
+export const INVESTMENT_CATEGORIES = [
+  { id: 'investment_in',  label: 'Buy / Contribute', icon: '📈', color: '#E8A87C' },
+  { id: 'investment_out', label: 'Sell / Withdraw',  icon: '📉', color: '#E8A87C' },
+  { id: 'dividend',       label: 'Dividend',         icon: '💵', color: '#85A88A' },
+  { id: 'capital_gain',   label: 'Capital Gain',     icon: '🪙', color: '#6B7C53' },
+  { id: 'rebalance',      label: 'Rebalance',        icon: '⇄',  color: '#4A6FA5' },
+] as const;
+
+export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, ...INVESTMENT_CATEGORIES];
 export const BUDGET_COLORS = ['#E26D5C','#85A88A','#C44536','#E8A87C','#4A6FA5','#6E4555','#F4D27A','#6B7C53','#F4B6A8'];
 export const MEMBER_COLORS = ['#E26D5C','#85A88A','#E8A87C','#4A6FA5','#6E4555','#6B7C53'];
 
@@ -73,6 +83,13 @@ export interface CategoryMeta {
 
 export const getCat = (id: string): CategoryMeta =>
   (ALL_CATEGORIES.find(c => c.id === id) as CategoryMeta) ?? { id, label: id, icon: '📦', color: '#6B635C' };
+
+export const CATEGORIES_BY_TYPE = {
+  expense:    EXPENSE_CATEGORIES,
+  income:     INCOME_CATEGORIES,
+  investment: INVESTMENT_CATEGORIES,
+  transfer:   [] as ReadonlyArray<CategoryMeta>,
+} as const;
 
 // ── DEBT & ASSET TYPES ─────────────────────────────────────────
 export const DEBT_TYPES: Record<string, { icon: string; label: string; liquidity: 'short'|'long' }> = {
@@ -224,6 +241,7 @@ export const LOCALES: Record<string, { name: string; strings: Record<string, str
     'dashboard':'Dashboard','transactions':'Transactions','budgets':'Budgets','goals':'Goals',
     'splits':'Splits','debts':'Debts','networth':'Net Worth','reports':'Reports',
     'recurring':'Recurring','planner':'Planner','chat':'Chat','households':'Households',
+    'accounts':'Accounts','insights':'Insights',
     'settings':'Settings','help':'Help & Guide',
     'add-transaction':'Add Transaction',
     'total-balance':'Total Balance','monthly-income':'Monthly Income','monthly-expenses':'Monthly Expenses','savings-rate':'Savings Rate',

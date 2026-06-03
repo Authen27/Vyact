@@ -1,4 +1,4 @@
-// FinFlow v6 — Pure computation layer
+// Vyact v6 — Pure computation layer
 // All pulse-score / aggregation / loan / split logic.
 // No React, no DOM. Easy to unit-test.
 
@@ -35,9 +35,19 @@ export function effectiveAmount(t: Transaction, baseCurrency: string, rates: Exc
   return fromDinero(effectiveDinero(t, baseCurrency, rates));
 }
 
-// Reportable = excludes private/excluded txns and isolates investment+transfer
+// Reportable = excludes private/excluded txns and BOTH transfer encodings:
+//   • v7.0.3 paired rows  — each leg has type 'income'/'expense' but
+//     category === 'transfer'; the category filter drops them.
+//   • v7.2 single-row     — type === 'transfer'; the type filter drops it.
+// Money Map (v7.2) keeps both filters live throughout the dual-encoding
+// window so a household viewing a row written by either client gets
+// identical totals.
 export function reportableTxns(transactions: Transaction[]): Transaction[] {
-  return transactions.filter(t => !t.excluded && (t.type === 'income' || t.type === 'expense'));
+  return transactions.filter(t =>
+    !t.excluded
+    && (t.type === 'income' || t.type === 'expense')
+    && t.category !== 'transfer'
+  );
 }
 
 export interface MonthData { income: number; expense: number; net: number; }
@@ -153,8 +163,22 @@ export function periodMonths(period: BudgetPeriod | undefined): number {
 export const totalAssets = (assets: Asset[], baseCurrency: string, rates: ExchangeRates): number =>
   fromDinero(sumDinero(assets, a => convertViaUsdRates(toDinero(a.value, a.currency), baseCurrency, rates), baseCurrency));
 
+// v7.1 Money Map — only debts the household *owes* count as liabilities.
+// `direction === 'owed_to_me'` rows are receivables (money owed back to
+// the household) and surface as a separate Net Worth line item.
 export const totalLiabilities = (debts: Debt[], baseCurrency: string, rates: ExchangeRates): number =>
-  fromDinero(sumDinero(debts, d => convertViaUsdRates(toDinero(d.currentBalance, d.currency), baseCurrency, rates), baseCurrency));
+  fromDinero(sumDinero(
+    debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me'),
+    d => convertViaUsdRates(toDinero(d.currentBalance, d.currency), baseCurrency, rates),
+    baseCurrency,
+  ));
+
+export const totalReceivables = (debts: Debt[], baseCurrency: string, rates: ExchangeRates): number =>
+  fromDinero(sumDinero(
+    debts.filter(d => d.direction === 'owed_to_me'),
+    d => convertViaUsdRates(toDinero(d.currentBalance, d.currency), baseCurrency, rates),
+    baseCurrency,
+  ));
 
 export const liquidAssets = (assets: Asset[], baseCurrency: string, rates: ExchangeRates): number =>
   fromDinero(sumDinero(
@@ -163,8 +187,14 @@ export const liquidAssets = (assets: Asset[], baseCurrency: string, rates: Excha
     baseCurrency,
   ));
 
+// Receivables don't have a recurring minimum payment; only true liabilities
+// contribute to the household's monthly outflow.
 export const totalMonthlyDebtPayment = (debts: Debt[], baseCurrency: string, rates: ExchangeRates): number =>
-  fromDinero(sumDinero(debts, d => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates), baseCurrency));
+  fromDinero(sumDinero(
+    debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me'),
+    d => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates),
+    baseCurrency,
+  ));
 
 // ── PULSE SCORE — 5 components ─────────────────────────────────
 export interface PulseScore {
@@ -348,15 +378,29 @@ export function splitsOutstanding(transactions: Transaction[], baseCurrency: str
   transactions.forEach(t => {
     if (!t.split?.isSplit) return;
     const cur = t.currency || baseCurrency;
+    // v7.3 \u2014 Income splits invert polarity: when YOU received the total
+    // (paidBy === 'me'), each other participant has a share you'll forward
+    // to them, i.e. you owe them. When SOMEONE ELSE received the total
+    // (paidBy === 'external') and you haven't been paid out yet, they owe
+    // you. Expense splits keep their original meaning.
+    const isIncome = t.type === 'income';
     (t.split.participants || []).forEach(p => {
       if (p.paid) return;
       const shareInBase = convertViaUsdRates(toDinero(p.share, cur), baseCurrency, rates);
-      if (t.split!.paidBy === 'me' && !p.isYou) {
+      if (!isIncome && t.split!.paidBy === 'me' && !p.isYou) {
         owedToYouD = addDinero(owedToYouD, shareInBase);
         owedDetails.push({ txn: t, participant: p });
-      } else if (t.split!.paidBy === 'external' && p.isYou) {
+      } else if (!isIncome && t.split!.paidBy === 'external' && p.isYou) {
         youOweD = addDinero(youOweD, shareInBase);
         youOweDetails.push({ txn: t, participant: p });
+      } else if (isIncome && t.split!.paidBy === 'me' && !p.isYou) {
+        // You received the total \u2014 each other participant is owed by you.
+        youOweD = addDinero(youOweD, shareInBase);
+        youOweDetails.push({ txn: t, participant: p });
+      } else if (isIncome && t.split!.paidBy === 'external' && p.isYou) {
+        // External recipient hasn't forwarded your share yet.
+        owedToYouD = addDinero(owedToYouD, shareInBase);
+        owedDetails.push({ txn: t, participant: p });
       }
     });
   });

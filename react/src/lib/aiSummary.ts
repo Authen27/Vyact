@@ -1,4 +1,4 @@
-// FinFlow v7.5 — AI Summary
+// Vyact v7.5 — AI Summary
 // Privacy-safe aggregation for the Chatbot.
 // CRITICAL: this is the ONLY data shape that ever leaves the device for AI.
 // Per the v7 PRD: no merchant names, no transaction descriptions, no notes.
@@ -12,6 +12,7 @@ import {
   liquidAssets, totalMonthlyDebtPayment, spendByCategory, reportableTxns, effectiveAmount,
 } from './calculations';
 import { nowMonthKey, getMonthKey } from './format';
+import { GeminiChatBackend } from './geminiBackend';
 
 
 // The structure sent to the LLM. NO PII. NO descriptions.
@@ -255,4 +256,22 @@ export class SupabaseChatBackend implements ChatBackend {
     // TODO(v8): const { data, error } = await supabase.functions.invoke('ai-chat', { body: { question, summary, history } });
     throw new Error('SupabaseChatBackend not yet wired — use StubChatBackend until v8.');
   }
+}
+
+// TD-07 — backend factory. Selects the Gemini backend when a free-tier
+// API key is configured at build time (`VITE_GEMINI_API_KEY`), otherwise
+// falls back to the deterministic pattern-matching stub so the app still
+// works offline / without keys. Kept in this file so callers don't have
+// to know which concrete backend exists.
+export function selectChatBackend(): ChatBackend {
+  // `import.meta.env` is the Vite-injected env; guarded so unit tests in
+  // plain node (without a Vite transform) don't crash on the access.
+  let key: string | undefined;
+  try {
+    key = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_GEMINI_API_KEY;
+  } catch { /* import.meta not available — fall through to stub */ }
+  if (key && key.trim()) {
+    return new GeminiChatBackend(key.trim());
+  }
+  return new StubChatBackend();
 }

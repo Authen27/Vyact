@@ -1,4 +1,4 @@
-// FinFlow v6.4.1 — AssetFormModal
+// Vyact v6.4.1 — AssetFormModal
 //
 // Modal-driven Asset create/edit form. Mirrors TransactionFormModal /
 // GoalFormModal / BudgetFormModal / DebtFormModal so the creation

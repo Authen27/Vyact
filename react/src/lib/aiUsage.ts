@@ -1,4 +1,4 @@
-// FinFlow v6.4.6 — AI usage metrics (intent + sentiment).
+// Vyact v6.4.6 — AI usage metrics (intent + sentiment).
 //
 // Privacy-first: we NEVER persist the user's message text. We derive a coarse
 // intent and emotional sentiment locally and log only those signals plus the

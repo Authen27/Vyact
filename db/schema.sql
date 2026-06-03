@@ -1359,3 +1359,709 @@ revoke execute on function public.replace_assets(uuid, jsonb)       from public,
 revoke execute on function public.replace_memberships(uuid, jsonb)  from public, anon;
 
 commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260601120000_td06_td21_rls_perf_and_delta_sync_indexes.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- TD-21 (RLS performance) + TD-06 (delta-sync indexes) — paired migration.
+--
+-- Two Supabase Performance Advisor finding-classes are addressed here, plus
+-- the index prerequisite for the TD-06 client-side delta-sync redesign.
+--
+-- ─── TD-21a · auth_rls_initplan ──────────────────────────────────────────
+--   Several baseline policies call `auth.uid()` directly in the USING /
+--   WITH CHECK expression. Postgres treats that as a row-dependent function
+--   reference and re-evaluates it for every candidate row instead of caching
+--   it as an initplan. Wrapping it as `(select auth.uid())` lets the planner
+--   recognise it as a constant for the query and reduces RLS overhead from
+--   O(rows) to O(1).
+--
+-- ─── TD-21b · multiple_permissive_policies ───────────────────────────────
+--   Every domain table (transactions / budgets / goals / debts / assets)
+--   carries TWO permissive SELECT policies for `authenticated`:
+--     - "<table>_read"                         (household membership check)
+--     - "admins read all <table>"              (is_admin('roles'))
+--   Postgres OR-merges permissive policies, but each is still planned and
+--   evaluated. Consolidating into a single policy with an OR-ed predicate
+--   removes one full RLS evaluation per row per query. Same pattern is
+--   applied to `memberships`, `profiles`, `exchange_rates`, `subscriptions`,
+--   and `activity_log` which all carry overlapping select policies.
+--
+--   The new SELECT policies use the existing SECURITY DEFINER helpers
+--   (`is_member`, `is_admin`) which (a) already wrap `auth.uid()` cleanly,
+--   (b) are STABLE so the planner can memoise them, and (c) bypass RLS on
+--   the `memberships` lookup so the policy can't recurse. The old hand-
+--   inlined `exists (...)` form re-introduced the unwrapped `auth.uid()`
+--   problem on every row.
+--
+-- ─── TD-06 · delta-sync index prerequisite ───────────────────────────────
+--   The consumer adapter is moving from "pull the whole table" to "pull
+--   rows where `updated_at > cursor` ordered by `updated_at`". The
+--   transactions table already has `txns_updated_idx (household_id,
+--   updated_at)`; this migration adds the matching composite index to the
+--   other four domain tables so the new query path is index-served on day
+--   one.
+--
+-- Idempotency: every statement uses `drop policy if exists` and
+-- `create index if not exists`. Safe to re-run.
+
+BEGIN;
+
+-- ── transactions ─────────────────────────────────────────────────────────
+drop policy if exists "transactions_read"            on transactions;
+drop policy if exists "admins read all transactions" on transactions;
+create policy "transactions_read" on transactions for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+
+-- ── budgets ──────────────────────────────────────────────────────────────
+drop policy if exists "budgets_read"             on budgets;
+drop policy if exists "admins read all budgets"  on budgets;
+create policy "budgets_read" on budgets for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+
+-- ── goals ────────────────────────────────────────────────────────────────
+drop policy if exists "goals_read"               on goals;
+drop policy if exists "admins read all goals"    on goals;
+create policy "goals_read" on goals for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+
+-- ── debts ────────────────────────────────────────────────────────────────
+drop policy if exists "debts_read"               on debts;
+drop policy if exists "admins read all debts"    on debts;
+create policy "debts_read" on debts for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+
+-- ── assets ───────────────────────────────────────────────────────────────
+drop policy if exists "assets_read"              on assets;
+drop policy if exists "admins read all assets"   on assets;
+create policy "assets_read" on assets for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+
+-- ── exchange_rates ───────────────────────────────────────────────────────
+-- Replaces the inline `exists (... user_id = auth.uid())` membership check
+-- with the cached helper. Single SELECT policy already; just the RLS-init
+-- plan rewrite.
+drop policy if exists "rates_read" on exchange_rates;
+create policy "rates_read" on exchange_rates for select to authenticated
+  using (is_member(household_id));
+
+-- ── memberships ──────────────────────────────────────────────────────────
+-- Overlapping SELECT pair → single consolidated policy.
+drop policy if exists "members see other members"    on memberships;
+drop policy if exists "admins read all memberships"  on memberships;
+create policy "memberships_read" on memberships for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+
+-- "members leave; owners remove non-owners" uses bare auth.uid() — wrap.
+drop policy if exists "members leave; owners remove non-owners" on memberships;
+create policy "members leave; owners remove non-owners" on memberships for delete to authenticated
+  using (user_id = (select auth.uid())
+         or role_in(household_id) = 'owner'
+         or (role_in(household_id) = 'admin' and role <> 'owner'));
+
+-- ── profiles ─────────────────────────────────────────────────────────────
+-- Three overlapping SELECT policies + a self-update policy with bare
+-- auth.uid(). Consolidate the reads; wrap the writer.
+drop policy if exists "users read own profile"             on profiles;
+drop policy if exists "users read profiles of co-members"  on profiles;
+drop policy if exists "admins read all profiles"           on profiles;
+create policy "profiles_read" on profiles for select to authenticated
+  using (
+    id = (select auth.uid())
+    or is_admin('roles')
+    or id in (
+      select m2.user_id
+      from memberships m1
+      join memberships m2 on m1.household_id = m2.household_id
+      where m1.user_id = (select auth.uid())
+    )
+  );
+
+drop policy if exists "users update own profile" on profiles;
+create policy "users update own profile" on profiles for update to authenticated
+  using (id = (select auth.uid()));
+
+-- ── households ───────────────────────────────────────────────────────────
+-- "anyone create household" uses bare auth.uid() — wrap. The other
+-- households policies use the cached helpers; leave them alone.
+drop policy if exists "anyone create household" on households;
+create policy "anyone create household" on households for insert to authenticated
+  with check (created_by = (select auth.uid()));
+
+-- ── activity_log ─────────────────────────────────────────────────────────
+-- Overlapping SELECT pair + bare auth.uid() in the membership form.
+drop policy if exists "log_read"                  on activity_log;
+drop policy if exists "admins read all activity"  on activity_log;
+create policy "activity_log_read" on activity_log for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+
+-- ── admin_roles ──────────────────────────────────────────────────────────
+drop policy if exists "self read admin_roles" on admin_roles;
+create policy "self read admin_roles" on admin_roles for select to authenticated
+  using (user_id = (select auth.uid()));
+
+-- ── ai_usage ─────────────────────────────────────────────────────────────
+drop policy if exists "ai_usage_insert" on ai_usage;
+create policy "ai_usage_insert" on ai_usage for insert to authenticated
+  with check (is_member(household_id) and user_id = (select auth.uid()));
+
+-- ── content_favorites ────────────────────────────────────────────────────
+drop policy if exists "self favorites delete" on content_favorites;
+drop policy if exists "self favorites insert" on content_favorites;
+drop policy if exists "self favorites read"   on content_favorites;
+create policy "self favorites delete" on content_favorites for delete to authenticated
+  using (user_id = (select auth.uid()));
+create policy "self favorites insert" on content_favorites for insert to authenticated
+  with check (user_id = (select auth.uid()));
+create policy "self favorites read"   on content_favorites for select to authenticated
+  using (user_id = (select auth.uid()));
+
+-- ── subscriptions ────────────────────────────────────────────────────────
+drop policy if exists "self read subscriptions" on subscriptions;
+create policy "self read subscriptions" on subscriptions for select to authenticated
+  using (user_id = (select auth.uid()) or is_admin('roles'));
+
+-- ── invitations ──────────────────────────────────────────────────────────
+-- "owners and admins send invitations" embeds bare auth.uid().
+drop policy if exists "owners and admins send invitations" on invitations;
+create policy "owners and admins send invitations" on invitations for insert to authenticated
+  with check (role_in(household_id) in ('owner','admin') and invited_by = (select auth.uid()));
+
+-- ── TD-06 · composite indexes for `updated_at > cursor` delta pulls ──────
+create index if not exists budgets_household_updated_idx on budgets (household_id, updated_at);
+create index if not exists goals_household_updated_idx   on goals   (household_id, updated_at);
+create index if not exists debts_household_updated_idx   on debts   (household_id, updated_at);
+create index if not exists assets_household_updated_idx  on assets  (household_id, updated_at);
+-- transactions already has `txns_updated_idx (household_id, updated_at)`.
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260601153000_fix_shareable_invite_accept_rpc.sql
+-- ─────────────────────────────────────────────────────────────────────
+create or replace function public.accept_invitation_link(invite_token text)
+  returns jsonb
+  language plpgsql
+  security definer
+  set search_path to 'public'
+as $$
+declare
+  inv invitations%rowtype;
+  caller_email text;
+  existing memberships%rowtype;
+  new_membership_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Must be signed in to accept an invitation';
+  end if;
+
+  select email into caller_email from auth.users where id = auth.uid();
+
+  select * into inv
+  from invitations
+  where token = invite_token
+    and accepted_at is null
+    and expires_at > now();
+
+  if not found then
+    raise exception 'Invitation not found or expired';
+  end if;
+
+  select * into existing
+  from memberships
+  where household_id = inv.household_id
+    and user_id = auth.uid();
+
+  if found then
+    update invitations set accepted_at = now() where id = inv.id;
+    return jsonb_build_object(
+      'household_id', inv.household_id,
+      'membership_id', existing.id,
+      'role', existing.role,
+      'already_member', true
+    );
+  end if;
+
+  insert into memberships (household_id, user_id, role, display_name, household_role)
+  values (
+    inv.household_id,
+    auth.uid(),
+    inv.role,
+    coalesce((select display_name from profiles where id = auth.uid()), split_part(coalesce(caller_email, ''), '@', 1), 'member'),
+    coalesce(inv.household_role, 'member')
+  )
+  returning id into new_membership_id;
+
+  update invitations set accepted_at = now() where id = inv.id;
+
+  insert into activity_log (household_id, actor_id, action, entity_type, entity_id)
+  values (inv.household_id, auth.uid(), 'accepted', 'invitation', inv.id);
+
+  return jsonb_build_object(
+    'household_id', inv.household_id,
+    'membership_id', new_membership_id,
+    'role', inv.role,
+    'already_member', false
+  );
+end;
+$$;
+
+revoke all on function public.accept_invitation_link(text) from public;
+grant execute on function public.accept_invitation_link(text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260602120000_money_map_phase1_accounts.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Money Map · Phase 1 — first-class accounts + transaction FKs + debt direction
+--
+-- Spec: docs/SOLUTION_MONEY_MAP.md (v7.2 Migration A).
+-- Target rollout: shadow → on → cutover across v7.2.0-rc / v7.2.1 / v7.3.0.
+--
+-- Design rules:
+--   1. ADDITIVE ONLY. No DROP, no column type changes, no data destruction.
+--   2. Idempotent. `create … if not exists` / `add column if not exists` /
+--      `create or replace view`. Safe to re-run.
+--   3. RLS for new tables MIRRORS the existing transactions/debts/assets
+--      shape (`is_member` / `is_admin` helpers from TD-21) — no new
+--      auth surface, no new SECURITY DEFINER functions introduced here.
+--   4. Backfill is split into a separate file so this one can be applied
+--      without touching existing rows.
+--
+-- Pre-flight (manual):
+--   • Take a Supabase database backup (Dashboard → Database → Backups,
+--     or `pg_dump`). The migration is non-destructive but a known restore
+--     point is the safety net the spec recommends.
+--   • Verify the TD-21 helpers exist (`is_member(uuid)`, `is_admin(text)`)
+--     — they're prerequisites for the policy bodies below.
+
+BEGIN;
+
+-- ─── 1. accounts table (Items #2 + #5) ───────────────────────────────────
+
+create table if not exists accounts (
+  id            uuid primary key default gen_random_uuid(),
+  household_id  uuid not null references households(id) on delete cascade,
+  asset_id      uuid references assets(id) on delete set null,
+  kind          text not null check (kind in
+                  ('checking','savings','credit_card','cash',
+                   'investment','wallet','other')),
+  name          text not null,
+  currency      char(3) not null,
+  is_default    boolean not null default false,
+  is_archived   boolean not null default false,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  deleted_at    timestamptz
+);
+
+-- One default account per (household, currency) — only when active.
+create unique index if not exists accounts_default_per_currency
+  on accounts (household_id, currency)
+  where is_default and not is_archived and deleted_at is null;
+
+create index if not exists accounts_household
+  on accounts (household_id) where not is_archived and deleted_at is null;
+
+-- Delta-sync index (matches TD-06 pattern from other domain tables).
+create index if not exists accounts_updated_idx
+  on accounts (household_id, updated_at);
+
+-- ─── 2. transactions ↔ accounts FK columns (Item #5) ─────────────────────
+
+alter table transactions
+  add column if not exists account_id     uuid references accounts(id) on delete set null,
+  add column if not exists to_account_id  uuid references accounts(id) on delete set null,
+  add column if not exists initiated_by   uuid references memberships(id) on delete set null;
+
+create index if not exists transactions_account
+  on transactions (household_id, account_id) where account_id is not null;
+create index if not exists transactions_to_account
+  on transactions (household_id, to_account_id) where to_account_id is not null;
+create index if not exists transactions_initiated_by
+  on transactions (household_id, initiated_by) where initiated_by is not null;
+
+-- ─── 3. debt direction (Item #3 — bidirectional / lending) ──────────────
+
+alter table debts
+  add column if not exists direction text not null default 'owed_by_me'
+    check (direction in ('owed_by_me','owed_to_me')),
+  add column if not exists counterparty_name text;
+
+-- Active debts only — the partial index keeps it lean for the typical
+-- "what do I owe / who owes me" filter.
+create index if not exists debts_direction
+  on debts (household_id, direction) where deleted_at is null;
+
+-- ─── 4. server-side aggregates (Item #8) ────────────────────────────────
+--
+-- Views inherit RLS from the base table (Postgres 14+ — `security_invoker`
+-- is the default for views in pg14+). The `where excluded is not true`
+-- predicate matches client-side `reportableTxns` semantics so client and
+-- server reports stay byte-identical.
+--
+-- WARNING: every read of these views MUST scope by `household_id` so the
+-- planner can use `transactions_account` / `transactions_initiated_by`
+-- as the leading index. A bare `select * from v_txn_by_member` will
+-- table-scan; lint at PR review (per Sec-3 in the spec).
+
+create or replace view v_txn_by_member as
+  select t.household_id,
+         t.initiated_by                          as member_id,
+         date_trunc('month', t.date)             as period,
+         t.type,
+         t.currency,
+         sum(t.amount)                           as total,
+         count(*)                                as n
+    from transactions t
+   where t.deleted_at is null
+     and (t.extras is null or coalesce((t.extras->>'excluded')::boolean, false) = false)
+   group by 1, 2, 3, 4, 5;
+
+create or replace view v_txn_by_account as
+  select t.household_id,
+         t.account_id,
+         date_trunc('month', t.date)             as period,
+         t.type,
+         t.currency,
+         sum(t.amount)                           as total,
+         count(*)                                as n
+    from transactions t
+   where t.deleted_at is null
+     and (t.extras is null or coalesce((t.extras->>'excluded')::boolean, false) = false)
+   group by 1, 2, 3, 4, 5;
+
+-- ─── 5. RLS for new tables (mirrors transactions policy shape) ──────────
+
+alter table accounts enable row level security;
+
+drop policy if exists "accounts_read"   on accounts;
+drop policy if exists "accounts_insert" on accounts;
+drop policy if exists "accounts_update" on accounts;
+drop policy if exists "accounts_delete" on accounts;
+
+create policy "accounts_read" on accounts for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+
+create policy "accounts_insert" on accounts for insert to authenticated
+  with check (role_in(household_id) in ('owner','admin','member'));
+
+create policy "accounts_update" on accounts for update to authenticated
+  using (role_in(household_id) in ('owner','admin','member'))
+  with check (role_in(household_id) in ('owner','admin','member'));
+
+create policy "accounts_delete" on accounts for delete to authenticated
+  using (role_in(household_id) in ('owner','admin'));
+
+-- ─── 6. updated_at trigger (matches the convention on every other table) ─
+
+create or replace function set_updated_at_accounts()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_accounts_updated_at on accounts;
+create trigger trg_accounts_updated_at
+  before update on accounts
+  for each row execute function set_updated_at_accounts();
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260602120100_money_map_phase1_backfill.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Money Map · Phase 1 backfill — synthesise `accounts` rows from existing
+-- `assets` and link `transactions.account_id` to the new rows.
+--
+-- Spec: docs/SOLUTION_MONEY_MAP.md → "Backfill (idempotent, runs once per
+-- household)". Split out from the schema migration so it can be rerun
+-- safely without re-touching DDL, and so the schema can ship to staging
+-- without paying the backfill cost there.
+--
+-- Idempotency:
+--   • The accounts INSERT is gated by NOT EXISTS on (household_id, asset_id).
+--   • The transactions UPDATE only writes where `account_id IS NULL`.
+--   • Run twice → identical row counts (acceptance gate #3 of v7.2).
+--
+-- Operational guidance for large tenants:
+--   • Wrap each tenant in its own transaction by filtering on a single
+--     `household_id` if the global form holds locks too long. The default
+--     form below is fine up to ~1 M transaction rows.
+--   • Run during the v7.2.0-rc 'shadow' window — the app is still reading
+--     legacy `linked_asset_id` so any backfill correctness issue is
+--     observable in dual-read assertions before flipping to 'on'.
+
+BEGIN;
+
+-- ─── 1. accounts derived from spendable / liquid asset rows ─────────────
+--
+-- Only the four asset types that map to a real spending surface get an
+-- account synthesised. Investment / property / vehicle assets do NOT
+-- become accounts here — they remain assets and join the accounts table
+-- only when the user explicitly creates an "investment" account in the
+-- v7.2 UI. (Per spec U-2: keeps the account list bounded.)
+
+insert into accounts (household_id, asset_id, kind, name, currency, is_default)
+select a.household_id,
+       a.id,
+       case a.type
+         when 'checking'    then 'checking'
+         when 'savings'     then 'savings'
+         when 'credit_card' then 'credit_card'
+         when 'cash'        then 'cash'
+         else 'other'
+       end                                                            as kind,
+       a.name,
+       a.currency,
+       -- The largest-balance asset per (household, currency) wins
+       -- the is_default flag; ties broken by created_at desc.
+       (row_number() over (
+          partition by a.household_id, a.currency
+              order by a.value desc, a.created_at desc
+        ) = 1)                                                        as is_default
+  from assets a
+ where a.type in ('checking','savings','credit_card','cash')
+   and a.deleted_at is null
+   and not exists (
+     select 1 from accounts ac
+      where ac.household_id = a.household_id
+        and ac.asset_id     = a.id
+   );
+
+-- ─── 2. link existing transactions to the new account rows ──────────────
+--
+-- Reads `extras->>'linkedAssetId'` (the v7.0.3 client-side key) and
+-- `extras->>'linkedToAssetId'` (added in v7.0.3 for transfer / investment
+-- destinations). Resolves both to the matching account_id.
+
+update transactions t
+   set account_id = ac.id
+  from accounts ac
+ where ac.household_id = t.household_id
+   and ac.asset_id     = nullif(t.extras->>'linkedAssetId', '')::uuid
+   and t.account_id is null;
+
+update transactions t
+   set to_account_id = ac.id
+  from accounts ac
+ where ac.household_id = t.household_id
+   and ac.asset_id     = nullif(t.extras->>'linkedToAssetId', '')::uuid
+   and t.to_account_id is null;
+
+-- `member_id` already exists on transactions for the v7.0 work; copy it
+-- across to `initiated_by` so the new aggregate views see historical rows.
+update transactions
+   set initiated_by = member_id
+ where initiated_by is null
+   and member_id    is not null;
+
+-- ─── 3. debts direction default ────────────────────────────────────────
+-- Schema default is 'owed_by_me' (the existing semantic) so no UPDATE is
+-- needed. Counterparty_name is left null; users fill it in only when
+-- they create a new lending row in v7.2 UI.
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260602120200_money_map_education_progress.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Money Map · Phase 2 — education progress sync (Item #7)
+--
+-- Spec: docs/SOLUTION_MONEY_MAP.md → "v7.2 Migration B".
+-- Trivial additive jsonb column on `profiles`; inherits existing RLS.
+--
+-- Shape:
+--   { "<topic_id>": { "completed_at": iso8601, "dismissed_at": iso8601? } }
+--
+-- App caps the map at 50 keys (Risk S-3) and prunes on write.
+
+BEGIN;
+
+alter table profiles
+  add column if not exists education_progress jsonb not null default '{}'::jsonb;
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260602130000_money_map_replace_accounts_rpc.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Money Map · v7.2 — replace_accounts RPC.
+--
+-- Mirrors `replace_assets` (TD-09 pattern). Required by the
+-- `HybridAdapter.replaceAll('accounts', ...)` path so bulk import /
+-- restore works once accounts are first-class.
+--
+-- Idempotent (`create or replace`). Soft-delete + insert inside a single
+-- transaction so partial failures roll back. SECURITY DEFINER with the
+-- same `is_member` guard the other replace_* functions use.
+
+BEGIN;
+
+create or replace function public.replace_accounts(h uuid, rows jsonb)
+returns setof accounts
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household'; end if;
+
+  update accounts set deleted_at = now() where household_id = h and deleted_at is null;
+
+  return query
+  insert into accounts (
+    id, household_id, asset_id, kind, name, currency,
+    is_default, is_archived, created_at, updated_at, deleted_at
+  )
+  select
+    t.id::uuid, h, t.asset_id::uuid, t.kind, t.name, t.currency,
+    coalesce(t.is_default, false),
+    coalesce(t.is_archived, false),
+    coalesce(t.created_at::timestamptz, now()),
+    coalesce(t.updated_at::timestamptz, now()),
+    t.deleted_at::timestamptz
+  from jsonb_populate_recordset(null::accounts, rows) as t;
+end;
+$$;
+
+-- Lock down execute grants the same way TD-09 does for every other
+-- replace_* function (see 20260529151500_td08_td09_harden_execute_grants.sql).
+revoke execute on function public.replace_accounts(uuid, jsonb) from public, anon;
+grant  execute on function public.replace_accounts(uuid, jsonb) to authenticated;
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260602140000_money_map_saved_views.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Money Map · Phase 3 — saved filter views (Item #4)
+--
+-- Spec: docs/SOLUTION_MONEY_MAP.md → "v7.3 Migration C".
+-- Per-user, per-page filter snapshots that survive across devices.
+-- Sharing is opt-in at the row level (`is_shared = true`) and limited
+-- to the owner's household via the second policy.
+--
+-- Sec-2 (privacy): the `filters` jsonb is sanitised app-side before
+-- save — only filter parameters ever leak into a shared view, never
+-- transaction ids, member ids, or descriptions. The DB does not enforce
+-- the shape; the app does. This mirrors the `extras` discipline on
+-- `transactions`.
+--
+-- Run order: after 20260529151500_td08_td09_harden_execute_grants.sql
+-- (depends on `is_member` / `is_admin` helpers).
+
+BEGIN;
+
+-- ─── 1. Table ───────────────────────────────────────────────────────────
+create table if not exists saved_views (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  household_id  uuid not null references households(id) on delete cascade,
+  page          text not null check (page in ('transactions','reports','insights')),
+  name          text not null,
+  filters       jsonb not null default '{}'::jsonb,
+  is_shared     boolean not null default false,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  deleted_at    timestamptz
+);
+
+create index if not exists saved_views_user
+  on saved_views (user_id, page) where deleted_at is null;
+
+create index if not exists saved_views_household_shared
+  on saved_views (household_id, page)
+  where is_shared and deleted_at is null;
+
+-- ─── 2. updated_at trigger ──────────────────────────────────────────────
+create or replace function public.tg_saved_views_touch_updated_at()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists saved_views_touch_updated_at on saved_views;
+create trigger saved_views_touch_updated_at
+  before update on saved_views
+  for each row execute function public.tg_saved_views_touch_updated_at();
+
+-- ─── 3. RLS ─────────────────────────────────────────────────────────────
+alter table saved_views enable row level security;
+
+drop policy if exists "saved_views_self"             on saved_views;
+drop policy if exists "saved_views_household_shared" on saved_views;
+drop policy if exists "saved_views_insert"           on saved_views;
+drop policy if exists "saved_views_update"           on saved_views;
+drop policy if exists "saved_views_delete"           on saved_views;
+
+-- Owner sees their own rows always.
+create policy "saved_views_self" on saved_views for select to authenticated
+  using (user_id = auth.uid() or is_admin('roles'));
+
+-- Other household members see rows the owner explicitly shared.
+create policy "saved_views_household_shared" on saved_views for select to authenticated
+  using (is_shared and is_member(household_id));
+
+-- Owner-only writes. Members do NOT inherit edit rights on shared rows.
+create policy "saved_views_insert" on saved_views for insert to authenticated
+  with check (user_id = auth.uid() and is_member(household_id));
+
+create policy "saved_views_update" on saved_views for update to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy "saved_views_delete" on saved_views for delete to authenticated
+  using (user_id = auth.uid());
+
+-- ─── 4. replace_saved_views RPC (TD-09 family) ──────────────────────────
+-- Note: scoped to (household, user) — we never wipe another user's saved
+-- views. Bulk-replace stays per-owner.
+create or replace function public.replace_saved_views(h uuid, rows jsonb)
+returns setof saved_views
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Must be signed in';
+  end if;
+  if not is_member(h) then
+    raise exception 'Not a member of this household';
+  end if;
+
+  update saved_views
+     set deleted_at = now()
+   where household_id = h
+     and user_id = auth.uid()
+     and deleted_at is null;
+
+  return query
+  insert into saved_views (id, user_id, household_id, page, name, filters, is_shared, created_at, updated_at, deleted_at)
+  select coalesce(t.id, gen_random_uuid()),
+         auth.uid(),
+         h,
+         t.page,
+         t.name,
+         coalesce(t.filters, '{}'::jsonb),
+         coalesce(t.is_shared, false),
+         coalesce(t.created_at, now()),
+         coalesce(t.updated_at, now()),
+         t.deleted_at
+    from jsonb_populate_recordset(null::saved_views, rows) as t;
+end;
+$$;
+
+revoke execute on function public.replace_saved_views(uuid, jsonb) from public;
+revoke execute on function public.replace_saved_views(uuid, jsonb) from anon;
+grant  execute on function public.replace_saved_views(uuid, jsonb) to authenticated;
+
+COMMIT;

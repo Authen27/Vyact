@@ -32,9 +32,38 @@ const SECTIONS: Section[] = [
     media: { src: '/help/add-transaction.gif', alt: 'Adding a transaction step by step' },
   },
   {
-    q: 'Splitting a bill with others',
-    a: 'In the Add Transaction modal, tick "🤝 Split this bill" (expense only). Choose who paid (you or someone else), add each participant and their share — the shares must add up to the total bill. Only your share counts as your expense; the rest becomes IOUs tracked on the Splits page, where you Mark paid / Settle each balance and see total owed-to-you vs you-owe.',
+    q: 'Splitting a bill — and shared income',
+    a: 'In the Add Transaction modal, tick "🤝 Split this bill" on an expense (or "🤝 Share this income with others" on an income). Choose who paid (or received the money) and add each participant with their share — the shares must add up to the total. Only your share counts toward your own expenses or income; the rest is tracked as IOUs on the Splits page where you Mark paid / Settle each balance and see total owed-to-you vs you-owe. On a "you owe" row, click Track as debt to convert the IOU into a real Debt that shows up on the Debts page and reduces your Net Worth — useful when the obligation is going to outlive a quick reimbursement (e.g. a friend covered your half of a deposit).',
     media: { src: '/help/split-bill.gif', alt: 'Splitting a bill across participants' },
+  },
+  {
+    q: 'Saved Views — reusable filters on Transactions, Reports & Insights',
+    a: (
+      <div className="space-y-3">
+        <p>
+          Saved Views remember the filters you applied to Transactions, Reports, or Insights so you
+          can recall them in one click instead of re-picking month / category / track every time.
+          Use the <strong>Save view</strong> button on each page to capture the current filter set,
+          then pick it from the <strong>Views</strong> dropdown later.
+        </p>
+        <p className="text-[0.82rem]">
+          <strong>Common use cases:</strong> "Q1 dining out", "Salary by member", "Rent &
+          utilities", "This year's investments only", "Insights I've favourited".
+        </p>
+        <p className="text-[0.82rem]">
+          <strong>Sharing.</strong> Tick <em>Share with household</em> on save to make a view
+          visible to other members of the same household; leave it unchecked to keep it private to
+          your account. Either way, search terms, member ids, and transaction ids are
+          <strong> always stripped before saving</strong> — saved views can never leak free-text
+          notes or who-spent-what details to other people.
+        </p>
+        <p className="text-[0.82rem] text-ink-dim">
+          Saved Views require a cloud account (they're row-level-security scoped per household).
+          Local-only mode hides the bar entirely.
+        </p>
+      </div>
+    ),
+    media: { src: '/help/saved-views.webp', alt: 'Saved Views bar on the Reports page' },
   },
   {
     q: 'The Family Pulse Score',

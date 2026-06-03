@@ -1,4 +1,4 @@
-// FinFlow v6.4 — Money
+// Vyact v7.4.0 — Money
 //
 // Adaptive currency renderer that prevents very large or long values from
 // breaking adjacent layout (KPI tiles, transaction rows, budget cards).
@@ -6,20 +6,20 @@
 // Behaviour:
 //   • By default renders the full value via fmt() with tabular-nums.
 //   • If `compact` is requested or the rendered length exceeds `maxChars`,
-//     falls back to fmtShort() (e.g. $1.2M, $999K).
+//     falls back to fmtShort() honouring the user's number system
+//     (western K/M/B/T or indian K/L/Cr).
 //   • Always sets the `title` attribute to the precise value so hover
 //     reveals full precision.
-//   • Adds `truncate` so a constrained parent still clips gracefully.
-//
-// Important: the parent flex container should set `min-w-0` so `truncate`
-// can take effect inside flex layouts.
+//   • v7.4.0: NEVER truncates with an ellipsis. Tight containers must
+//     either widen or rely on the compact threshold; values like
+//     "10,234,543.00" are not allowed to render as "10,234…".
 
-import { fmt, fmtShort } from '../../lib/format';
+import { fmt, fmtShort, getNumberSystem } from '../../lib/format';
 
 interface Props {
   amount: number;
   currency?: string;
-  /** Force compact (K/M/B) rendering regardless of length. */
+  /** Force compact (K/M/B or K/L/Cr) rendering regardless of length. */
   compact?: boolean;
   /** Switch to compact when the full string exceeds this many characters. */
   maxChars?: number;
@@ -33,14 +33,15 @@ export default function Money({ amount, currency = 'USD', compact, maxChars = 12
   const n = Number(amount) || 0;
   const full = fmt(n, currency);
   const useShort = compact || full.length > maxChars;
-  const shown = useShort ? fmtShort(n, currency) : full;
+  const sys = getNumberSystem();
+  const shown = useShort ? fmtShort(n, currency, sys) : full;
   const sign = signed && n > 0 ? '+' : '';
   const display = (n < 0 ? '−' : sign) + shown.replace(/^-/, '');
   const titleSign = n < 0 ? '−' : sign;
   const title = `${titleSign}${full.replace(/^-/, '')}`;
   return (
     <span
-      className={`num truncate inline-block max-w-full ${className}`}
+      className={`num inline-block whitespace-nowrap ${className}`}
       title={title}
     >
       {display}

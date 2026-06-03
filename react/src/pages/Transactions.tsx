@@ -9,8 +9,18 @@ import Button from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
 import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
+import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import { ALL_CATEGORIES } from '../constants';
-import { getMonthKey, monthName, formatDate, nowMonthKey } from '../lib/format';
+import { getMonthKey, monthName, formatDate, nowMonthKey, today, transactionSortValue } from '../lib/format';
+import { projectRecurringTransactionsForDate } from '../lib/recurring';
+import type { Transaction, TxnType } from '../types';
+
+type TransactionListItem = {
+  txn: Transaction;
+  projected?: boolean;
+};
+
+type TxnFilter = 'all' | TxnType;
 
 export default function Transactions() {
   const { t } = useTranslation();
@@ -22,7 +32,7 @@ export default function Transactions() {
   const openEditTxn = useStore(s => s.openEditTxn);
 
   const [search,   setSearch]   = useState('');
-  const [type,     setType]     = useState<'all'|'income'|'expense'|'investment'|'transfer'>('all');
+  const [type,     setType]     = useState<TxnFilter>('all');
   const [cat,      setCat]      = useState('all');
   const [month,    setMonth]    = useState('all');
   const [memberId, setMemberId] = useState('all');
@@ -36,7 +46,7 @@ export default function Transactions() {
     [txns]
   );
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo<TransactionListItem[]>(() => {
     let f = [...txns];
     if (selectedDate)       f = f.filter(t => t.date === selectedDate);
     if (type !== 'all')     f = f.filter(t => t.type === type);
@@ -51,8 +61,37 @@ export default function Transactions() {
         t.category.toLowerCase().includes(q)
       );
     }
-    return f.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  }, [txns, search, type, cat, month, memberId, selectedDate]);
+    const rows: TransactionListItem[] = f.map(txn => ({ txn }));
+
+    if (selectedDate && selectedDate > today()) {
+      const projected = projectRecurringTransactionsForDate(schedules, selectedDate)
+        .map<TransactionListItem>(txn => ({
+          txn,
+          projected: true,
+        }))
+        .filter(({ txn }) => (type === 'all' ? true : txn.type === type))
+        .filter(({ txn }) => (cat === 'all' ? true : txn.category === cat))
+        .filter(({ txn }) => (memberId === 'all' ? true : txn.memberId === memberId))
+        .filter(({ txn }) => {
+          if (!search) return true;
+          const q = search.toLowerCase();
+          return txn.description.toLowerCase().includes(q)
+            || (txn.note || '').toLowerCase().includes(q)
+            || txn.category.toLowerCase().includes(q);
+        })
+        .filter(({ txn }) => !rows.some(existing =>
+          existing.txn.date === txn.date
+          && existing.txn.description === txn.description
+          && existing.txn.category === txn.category
+          && existing.txn.type === txn.type
+          && existing.txn.amount === txn.amount
+        ));
+
+      rows.push(...projected);
+    }
+
+    return rows.sort((a, b) => transactionSortValue(b.txn) - transactionSortValue(a.txn) || b.txn.id.localeCompare(a.txn.id));
+  }, [txns, schedules, search, type, cat, month, memberId, selectedDate]);
 
   // TD-17 — virtualizer for the transactions list. Hooks must live in the
   // function body, not inside JSX. The scroll container has a fixed pixel
@@ -99,6 +138,22 @@ export default function Transactions() {
         </div>
       </div>
 
+      {/* v7.3 — Saved Views: persist non-private filter combos per user. */}
+      <div className="mb-3 flex justify-end">
+        <SavedViewsBar
+          page="transactions"
+          filters={{ type, cat, month, selectedDate }}
+          onApply={f => {
+            if (typeof f.type === 'string') setType(f.type as TxnFilter);
+            else setType('all');
+            if (typeof f.cat === 'string') setCat(f.cat); else setCat('all');
+            if (typeof f.month === 'string') setMonth(f.month); else setMonth('all');
+            if (typeof f.selectedDate === 'string') setSelectedDate(f.selectedDate);
+            else setSelectedDate(null);
+          }}
+        />
+      </div>
+
       {/* Expense calendar — shown on demand via the Calendar button */}
       {showCalendar && (
         <TxnCalendar
@@ -107,6 +162,7 @@ export default function Transactions() {
           initialMonth={month !== 'all' ? month : nowMonthKey()}
           selectedDate={selectedDate}
           onSelectDate={handleSelectDate}
+          currency={profile.baseCurrency}
         />
       )}
 
@@ -125,7 +181,7 @@ export default function Transactions() {
       <Panel>
         <div className="flex gap-2 px-4 py-3 border-b border-line flex-wrap">
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" className="flex-1 min-w-[120px]" />
-          <Select value={type} onChange={e => setType(e.target.value as any)} className="flex-1 min-w-[110px]">
+          <Select value={type} onChange={e => setType(e.target.value as TxnFilter)} className="flex-1 min-w-[110px]">
             <option value="all">All Types</option>
             <option value="income">Income</option>
             <option value="expense">Expense</option>
@@ -167,10 +223,10 @@ export default function Transactions() {
               }}
             >
               {virtualizer.getVirtualItems().map(virtualRow => {
-                const t = filtered[virtualRow.index];
+                const item = filtered[virtualRow.index];
                 return (
                   <div
-                    key={t.id}
+                    key={item.txn.id}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -179,7 +235,7 @@ export default function Transactions() {
                       transform: `translateY(${virtualRow.start}px)`
                     }}
                   >
-                    <TxnRow txn={t} showActions onEdit={openEditTxn} />
+                    <TxnRow txn={item.txn} showActions={!item.projected} onEdit={openEditTxn} />
                   </div>
                 );
               })}

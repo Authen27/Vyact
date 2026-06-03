@@ -1,4 +1,4 @@
-// FinFlow v6.4 — FloatingTools
+// Vyact v6.4 — FloatingTools
 //
 // Planner and AI Chat used to live as sidebar entries, which (a) felt
 // buried for tools that work as overlays on top of any page, and (b)
@@ -9,10 +9,11 @@
 // Routing for /planner and /chat is preserved for deep links and external
 // references, but the primary access point is now the FAB.
 
-import { useState, useEffect, type ReactNode } from 'react';
+import React, { Suspense, useState, useEffect, type ReactNode } from 'react';
 import { Sparkles, MessageCircle, X } from 'lucide-react';
-import Planner from '../../pages/Planner';
-import Chat    from '../../pages/Chat';
+
+const Planner = React.lazy(() => import('../../pages/Planner'));
+const Chat = React.lazy(() => import('../../pages/Chat'));
 
 type Tool = 'planner' | 'chat' | null;
 
@@ -60,11 +61,17 @@ export default function FloatingTools() {
 
       {tool && (
         <Drawer onClose={() => setTool(null)} title={tool === 'planner' ? 'Planner' : 'Ask Vyact'}>
-          {tool === 'planner' ? <Planner /> : <Chat />}
+          <Suspense fallback={<DrawerLoadingState />}>
+            {tool === 'planner' ? <Planner /> : <Chat />}
+          </Suspense>
         </Drawer>
       )}
     </>
   );
+}
+
+function DrawerLoadingState() {
+  return <div className="mono-label">Loading…</div>;
 }
 
 interface FabProps {

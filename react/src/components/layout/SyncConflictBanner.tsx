@@ -1,4 +1,4 @@
-// FinFlow — TD-03 phase B
+// Vyact — TD-03 phase B
 //
 // Surfaces the HybridAdapter's dead-letter conflict bucket as an in-app
 // banner. When another household member edits the same row concurrently,

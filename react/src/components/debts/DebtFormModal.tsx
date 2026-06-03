@@ -1,4 +1,4 @@
-// FinFlow v6.4.1 — DebtFormModal
+// Vyact v6.4.1 — DebtFormModal
 //
 // Modal-driven Debt create/edit form. Mirrors TransactionFormModal /
 // GoalFormModal / BudgetFormModal so the creation surfaces feel

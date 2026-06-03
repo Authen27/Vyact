@@ -12,3 +12,4 @@
 | 2026-05-29T06:07:50.563Z | ❌ FAIL | `design-money-typography-standardize` | `e02b2b4` | local | 64/64 | [report](2026-05-29T06-03-14-392Z__e02b2b4/report.md) |
 | 2026-05-29T13:23:44.856Z | ✅ PASS | `main` | `520ca8c` | local | 64/64 | [report](2026-05-29T13-21-30-717Z__520ca8c/report.md) |
 | 2026-05-29T18:47:59.785Z | ✅ PASS | `main` | `a810fea` | local | 64/64 | [report](2026-05-29T18-39-20-636Z__a810fea/report.md) |
+| 2026-06-03T20:56:42.970Z | ❌ FAIL | `main` | `7878940` | local | — | [report](2026-06-03T20-56-38-647Z__7878940/report.md) |

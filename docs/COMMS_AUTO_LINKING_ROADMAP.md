@@ -1,15 +1,16 @@
 # Auto-Linking Roadmap — Socialization Pack
 
-> Drop the Slack post below into `#finflow-product` and `#finflow-eng-leads`.
-> The FAQ section is for the follow-on thread / Notion sync.
+> **Status (2026-06-01):** Historical socialization artifact, preserved for context. The brand has since been renamed from FinFlow to Vyact (channels and brand language below are updated to match). The canonical roadmap content has moved to [`ROADMAP_AUTO_LINKING.md`](./ROADMAP_AUTO_LINKING.md); update that file when the plan changes, not this one.
+
+> Drop the Slack post below into `#vyact-product` and `#vyact-eng-leads`. The FAQ section is for the follow-on thread / Notion sync.
 
 ---
 
 ## Slack post (copy-paste ready)
 
-📌 **FinFlow Auto-Linking — proposed roadmap, feedback by Fri 2026-06-05**
+📌 **Vyact Auto-Linking — proposed roadmap, feedback by end of socialization window**
 
-We're closing the biggest paper cut our households tell us about: FinFlow makes them re-do reconciliation in their head. Record an expense → asset balance doesn't move. Hit a savings milestone → goal progress doesn't update. Pay down debt → net worth still wrong until you manually edit the asset. The data model is flat; the user does the graph work.
+We're closing the biggest paper cut our households tell us about: Vyact makes them re-do reconciliation in their head. Record an expense → asset balance doesn't move. Hit a savings milestone → goal progress doesn't update. Pay down debt → net worth still wrong until you manually edit the asset. The data model is flat; the user does the graph work.
 
 The proposed fix is in [`docs/ROADMAP_AUTO_LINKING.md`](./ROADMAP_AUTO_LINKING.md) — 6 phases across 4 release cycles:
 
@@ -24,15 +25,15 @@ The proposed fix is in [`docs/ROADMAP_AUTO_LINKING.md`](./ROADMAP_AUTO_LINKING.m
 
 **Bonus:** this resolves 4 of the 5 open clarifications blocking our test automation suite (Clarifications #1, #2, #3, #5 in `react/e2e/TEST_CASE_INVENTORY.md`). Once Phase D ships, the 🟠-blocked counter in the test inventory drops to 1.
 
-**What I need from you by EOD Fri 2026-06-05:**
+**What I need from each channel before staffing Phase A:**
 
 1. ✅ / ❌ on the phase order and release-cycle mapping
 2. Answers (or "needs discussion") on the **4 open product questions** at the bottom of the roadmap doc — payment-method cardinality, closed-account semantics, goal "lock at peak", cross-profile surplus routing
 3. Any phase you'd reorder, kill, or fast-track
 
-Silence by the deadline = lazy consensus, I'll start staffing Phase A.
+Silence past the window = lazy consensus; staffing of Phase A begins.
 
-— Uday
+— Vyact eng
 
 ---
 
@@ -51,7 +52,7 @@ Silence by the deadline = lazy consensus, I'll start staffing Phase A.
   **A:** No — it builds on it. Every auto-propagation respects the same per-row `updated_at` precondition, so conflicting writes surface a banner rather than silently winning. Phase F explicitly extends the conflict UX to derived values (`openingBalance` on assets).
 
 - **Q:** What does this mean for the QA automation hand-off?
-  **A:** The scaffolding PR (commit `e881371`) is already in. The junior implementer proceeds against today's manual defaults; as each roadmap phase ships, ~25 test IDs get their Expected Results updated in-place (test IDs never change — only behaviour). Net new test cases per phase: ~3–5 each. We absorb that in the existing QA budget.
+  **A:** The scaffolding PR is already in. The junior implementer proceeds against today's manual defaults; as each roadmap phase ships, ~25 test IDs get their Expected Results updated in-place (test IDs never change — only behaviour). Net new test cases per phase: ~3–5 each. We absorb that in the existing QA budget.
 
 - **Q:** What's the rollback story if a phase has a bad migration?
   **A:** Each phase ships its localStorage migration in `lib/migration.ts` with an inverse path; cloud uses forward-only Supabase migrations but adds derived columns rather than rewriting existing ones, so a rollback is a flag flip, not a data restore.
@@ -63,8 +64,8 @@ Silence by the deadline = lazy consensus, I'll start staffing Phase A.
 
 ## Distribution checklist
 
-- [ ] Slack `#finflow-product`
-- [ ] Slack `#finflow-eng-leads`
+- [ ] Slack `#vyact-product`
+- [ ] Slack `#vyact-eng-leads`
 - [ ] Notion → *Roadmaps* → *Auto-Linking* (sync the FAQ section)
-- [ ] Calendar: 30-min review block on Mon 2026-06-08 to walk through any objections that landed in the thread
+- [ ] Calendar: 30-min review block to walk through any objections that landed in the thread
 - [ ] Engineering planning: tentatively reserve Phase A capacity (3–4 weeks) starting v6.5 cycle pending sign-off

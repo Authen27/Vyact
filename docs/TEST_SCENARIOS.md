@@ -1,12 +1,15 @@
-# FinFlow — Test Scenarios (Master Catalog)
+# Vyact — Test Scenarios (Master Catalog)
 
-> Single source of truth for every automated test scenario across all FinFlow
+> Single source of truth for every automated test scenario across all Vyact
 > apps and layers. This document is **regression-managed**: every PR that adds,
 > removes, or renames a scenario MUST update this file in the same commit, and
 > the [`test-scenarios-doc`](../scripts/test-scenarios-check.mjs) CI gate refuses
 > to merge any drift between this catalog and the code.
 >
-> Owner: Engineering. Last regenerated: 2026-05-23 (Remediation PR #2).
+> Owner: Engineering. Last regenerated: 2026-06-03 (inventory refresh plus
+> timebox doc sync; no new master-catalog ID-tagged scenarios were promoted in
+> this update, but additional FC-coded consumer E2E specs landed and remain
+> tracked in `react/e2e/TEST_CASE_INVENTORY.md` until `CON-E2E-NNN` promotion).
 > Governance: [`docs/TEST_GOVERNANCE.md`](TEST_GOVERNANCE.md).
 
 ---
@@ -72,7 +75,10 @@ document. Any mismatch fails the CI gate.
 
 ## 3. Coverage summary
 
-Counts as of 2026-05-23 (Remediation PR #2).
+Counts as of 2026-06-03. No new master-catalog ID-tagged tests were promoted
+into §4 in this doc refresh; the latest FC-coded consumer E2E additions are
+tracked in the functional inventory at `react/e2e/TEST_CASE_INVENTORY.md`
+until they are renumbered into stable `CON-E2E-NNN` roster entries.
 
 | App | Layer | Tool | File(s) | Scenarios | TD-characterization |
 |---|---|---|---|---|---|
@@ -86,9 +92,10 @@ Known coverage gaps (tracked outside this file):
 
 - Admin has no E2E coverage; the privileged surface (role tiers, KPIs) is
   unverified end-to-end. Folded into TD-19 expansion.
-- Consumer E2E covers only foundation smoke (boot + reload-persistence + seed
-  visibility). Journey tests (Add Transaction, Budgets, Debts, Splits,
-  Backup/Restore) are TD-19 Phase 2.
+- Consumer E2E roster in §4 is still foundation-heavy. Recent FC-coded local
+   additions (backup/export, structured search/day-filter, shortcut smoke, and
+   corrupt-localStorage boot) are documented in the functional inventory but are
+   not yet promoted into stable `CON-E2E-NNN` IDs here.
 
 ---
 
@@ -155,6 +162,15 @@ Known coverage gaps (tracked outside this file):
 | CON-UNIT-051 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | guarded UPDATE with matching updated_at returns the server row | **TD-03 phase A regression pin.** Happy-path compare-and-set. |
 | CON-UNIT-052 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | guarded UPDATE with no-rows-matched throws ConcurrencyConflictError | **TD-03 phase A regression pin.** Stale `updated_at` precondition → typed conflict, never silent overwrite. |
 | CON-UNIT-053 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | upsert without expectedUpdatedAt skips the guard and uses the legacy upsert path | Back-compat: new records (no version yet) and any not-yet-wired caller fall through to last-write-wins. |
+| CON-UNIT-054 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | replaceAll routes each entity to `replace_<entity>` RPC and passes `{h, rows}` payload (members → `replace_memberships`) | **TD-09 client-contract pin.** Pre-PR #20 the client did per-row upserts; PR #20 shipped the six atomic `replace_*` RPCs server-side. This test pins the client routing so a regression to per-row writes is caught at unit-test time. |
+| CON-UNIT-055 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | listSince issues `.gt(updated_at, since).order(updated_at asc).limit(n)` and does NOT filter `deleted_at` | **TD-06 client-contract pin.** The incremental list MUST include soft-deleted rows so the cache layer can propagate tombstones; ordering matters because the cursor advance relies on `max(updated_at)`. |
+| CON-UNIT-056 | `react/src/lib/__tests__/supabaseAdapter.test.ts` | listSince partitions live rows vs tombstones and reports `max(updated_at)` for the next cursor | **TD-06 partition pin.** Verifies the response splits cleanly into `{ rows, tombstones, maxUpdatedAt }` so callers can run `cache.upsert(rows) + cache.remove(tombstones)` and advance the cursor in one pass. |
+| CON-UNIT-057 | `react/src/lib/__tests__/storage.test.ts` | kvStore round-trips JSON via the localStorage fallback when IndexedDB is unavailable | **TD-14 substrate pin.** Locks the fallback path that runs in jsdom-less unit tests and on browsers/contexts without IDB; also exercises `kvRemove` and the read-after-delete null contract. |
+| CON-UNIT-058 | `react/src/lib/__tests__/storage.test.ts` | quota errors from `localStorage.setItem` fan out via `storageEvents`; `isQuotaError` recognises all four common shapes (`QuotaExceededError`, `NS_ERROR_DOM_QUOTA_REACHED`, legacy code `22`, message substring); a throwing listener does not break the writer | **TD-14 surfacing pin.** Pre-TD-14 every storage write was wrapped in `try { … } catch { /* noop */ }` so users never saw quota failures. This test pins the new fan-out so a regression to silent-swallow is caught immediately. |
+| CON-UNIT-059 | `react/src/lib/__tests__/storage.test.ts` | kvGet falls back to a legacy `ff_` key when no `vt_` value exists, and a `vt_` value beats a coexisting stale `ff_` value | **TD-14 migration pin.** Ensures the read-through migration from the v5 prefix to the v6 prefix works transparently and that downgrades cannot resurrect stale legacy data once a vt-prefixed write has happened. |
+| CON-UNIT-060 | `react/src/lib/__tests__/geminiBackend.test.ts` | GeminiChatBackend posts to the gemini-1.5-flash-latest endpoint with `key=…` in the URL, a coach system instruction, and a single user turn containing the SafeSummary JSON + question; multi-turn history maps `assistant→model`, `user→user` | **TD-07 request-shape pin.** Locks the wire contract with the free-tier Gemini REST API so a regression to a wrong model alias, missing system prompt, or broken role alternation is caught at unit-test time. |
+| CON-UNIT-061 | `react/src/lib/__tests__/geminiBackend.test.ts` | non-OK HTTP responses surface the `error.message` field; safety-blocked prompts throw with `blocked` in the message; empty-candidate responses report the `finishReason` | **TD-07 error-surface pin.** Pre-TD-07 the stub couldn't fail; the real backend can, and users need actionable messages (`API key not valid`, `Quota exceeded`, `SAFETY`) instead of `HTTP 400`. |
+| CON-UNIT-062 | `react/src/lib/__tests__/geminiBackend.test.ts` | empty API key throws at construction; `isReal()` returns true | **TD-07 construction pin.** Prevents the silent-misconfiguration mode where a missing env var would let the real backend instantiate and fail at request time. |
 
 ### 4.2 Consumer · E2E (CON-E2E)
 
@@ -194,3 +210,123 @@ Known coverage gaps (tracked outside this file):
 > this section are reserved and must not be reused.
 
 *(none yet — this section will grow as scenarios are retired.)*
+
+---
+
+## 6. Pending scenarios (v7.3.x revision)
+
+> Functional-case (FC) scenarios queued for v7.3.x. These are the source-of-truth
+> test cases that the QA stream will translate into ID-tagged unit / E2E specs
+> in subsequent PRs; once a spec lands in code, its row is **promoted** into
+> §4 with the next available `CON-UNIT-NNN` / `CON-E2E-NNN` ID and removed from
+> here. Rows in §6 are intentionally outside the doc/code reconciler's range
+> (the gate scopes itself between `## 4. Roster` and `## 5. Retired IDs`).
+>
+> Owner: Engineering (consumer). Tracks the v7.3.0 ship plus the v7.3.1
+> follow-up (Saved Views theme fix · Recurring schedule backfill · Income
+> splits · Track-as-debt · text time entry · Settings-only sensitive actions ·
+> sidebar label casing). Last updated: 2026-06-03.
+
+### 6.1 Splits — income polarity & debt linkage
+
+| FC ID | Layer | Target file | Description |
+|---|---|---|---|
+| SPLT-FC-001 | Unit | `react/src/lib/__tests__/calculations.test.ts` | `splitsOutstanding` on an **income** split with `paidBy: 'me'` adds each non-paid non-you participant share to **`youOwe`** (you collected the lump sum, you owe each forwardee their share). |
+| SPLT-FC-002 | Unit | `react/src/lib/__tests__/calculations.test.ts` | `splitsOutstanding` on an **income** split with `paidBy: 'external'` and your own row unpaid adds your share to **`owedToYou`** (the external recipient hasn't forwarded your cut). |
+| SPLT-FC-003 | Unit | `react/src/lib/__tests__/calculations.test.ts` | `splitsOutstanding` on an **expense** split keeps the legacy polarity unchanged (regression pin against the v7.3.1 income branch). |
+| SPLT-FC-004 | E2E | `react/e2e/tests/splits-income.spec.ts` | TransactionFormModal exposes the "🤝 Share this income with others" toggle on income; saving an even-split income with two non-you participants and `paidBy: 'me'` produces a Splits row whose summary shows two `you owe` IOUs. |
+| SPLT-FC-005 | E2E | `react/e2e/tests/splits-income.spec.ts` | The income-split "Who received the money?" select has the inverted-polarity copy (*"You received it — you'll forward each person their share"* / *"Someone else received it — they owe you your share"*); copy is the visible signal that downstream IOU semantics flipped. |
+| SPLT-FC-006 | E2E | `react/e2e/tests/splits-debt-conversion.spec.ts` | On an expense split with `paidBy: 'external'`, clicking **Track as debt** on the user's own unpaid row creates a Debt with `direction: 'owed_by_me'`, `principal === participant.share`, `currency === txn.currency`, and writes `linkedDebtId` back onto the source transaction. The new debt appears on `/debts` and counts toward Liabilities on `/networth`. |
+| SPLT-FC-007 | E2E | `react/e2e/tests/splits-debt-conversion.spec.ts` | After a successful Track-as-debt conversion, the Splits row exposes a *"linked to a debt"* hint and the **Track as debt** button is hidden for that participant — pin against double-tracking. |
+
+### 6.2 Recurring — backfill from legacy transactions
+
+| FC ID | Layer | Target file | Description |
+|---|---|---|---|
+| RECR-FC-001 | Unit | `react/src/lib/__tests__/recurring.test.ts` | `backfillSchedulesFromTransactions` synthesises a single `RecurringSchedule` for a group of legacy txns sharing `(type, normalised description, recurring, currency)`; uses the earliest occurrence as `startDate` and the latest as `lastGenerated`; computes `nextDueDate` past `now` so the schedule isn't instantly "due". |
+| RECR-FC-002 | Unit | `react/src/lib/__tests__/recurring.test.ts` | Backfill is a **no-op** for a signature already represented by an existing `RecurringSchedule` (idempotency pin — guards against duplicate schedules on every refresh). |
+| RECR-FC-003 | Unit | `react/src/lib/__tests__/recurring.test.ts` | Backfill ignores split rows (`split.isSplit`) and transfer rows (`category === 'transfer'`); pins the split-and-transfer carve-outs against scope creep. |
+| RECR-FC-004 | Unit | `react/src/lib/__tests__/recurring.test.ts` | Frequency `'custom_day'` and unknown frequencies are skipped by the backfill (only `weekly` / `monthly` / `yearly` are promoted). |
+| RECR-FC-005 | E2E | `react/e2e/tests/recurring-backfill.spec.ts` | A seeded fixture with weekly Rent transactions and an empty `recurringSchedules` localStorage key produces a schedule on first refresh; the schedule appears on `/recurring` and the projected-future overlay on the Transactions calendar shows the next due date. |
+| RECR-FC-006 | E2E | `react/e2e/tests/recurring-backfill.spec.ts` | The toast *"Recovered N recurring schedule(s) from existing transactions"* fires exactly once on the seeded refresh; a second refresh inside the same session is silent (idempotency surface). |
+
+### 6.3 Saved Views — theme tokens & sharing
+
+| FC ID | Layer | Target file | Description |
+|---|---|---|---|
+| SVWS-FC-001 | E2E | `react/e2e/tests/saved-views.spec.ts` | The Views dropdown and the Save-view popover render with **opaque** Vyact theme backgrounds (`bg-bg2` resolves to a non-zero alpha); regression pin for the v7.3.0 → v7.3.1 transparency fix where shadcn-style tokens (`bg-card`, `bg-background`) resolved to no fill. |
+| SVWS-FC-002 | E2E | `react/e2e/tests/saved-views.spec.ts` | Saving a view on `/transactions` with the **Share with household** checkbox unchecked persists `is_shared = false`; the row appears in the current user's Views dropdown and is invisible to a sibling household member's session. |
+| SVWS-FC-003 | E2E | `react/e2e/tests/saved-views.spec.ts` | Saving a view with **Share with household** checked persists `is_shared = true`; the row is visible to other members of the same household but invisible to members of a different household (RLS scope pin). |
+| SVWS-FC-004 | Unit | `react/src/lib/__tests__/savedViewsSanitize.test.ts` | The sanitizer strips every `PRIVATE_FILTER_KEYS` entry (`search`, `q`, `description`, `memberId`, `memberIds`, `txnId`, `transactionId`) regardless of the `is_shared` toggle; nullish / `'all'` values are also dropped; the remaining keys round-trip unmodified. |
+| SVWS-FC-005 | E2E | `react/e2e/tests/saved-views.spec.ts` | The bar is hidden in local-only mode (no `cloudEnabled`); guards against half-implemented persistence on builds without Supabase env vars. |
+
+### 6.4 Money Map — Account drawer & Reports views
+
+| FC ID | Layer | Target file | Description |
+|---|---|---|---|
+| NWRT-FC-007 | E2E | `react/e2e/tests/account-drawer.spec.ts` | TransactionFormModal's `AccountDrawer` (multi-account split) refuses to save when row sum ≠ txn total within ±0.01; the inline indicator flips from sage *Balanced* to honey *Out by …* and the Save button toasts an error. |
+| NWRT-FC-008 | E2E | `react/e2e/tests/account-drawer.spec.ts` | A balanced two-row split persists to `transactions.extras.accountSplits` (verified via the dev-tools backdoor that lists the saved row) and survives a full reload. |
+| NWRT-FC-009 | E2E | `react/e2e/tests/account-drawer.spec.ts` | The drawer is hidden on **Transfer** rows and on households with `accounts.length <= 1`; pins the gate against accidental exposure on a 1-account profile. |
+| RPRT-FC-001 | Unit | `react/src/lib/__tests__/hybridAdapter.test.ts` | `HybridAdapter.queryTxnByMember` returns `undefined` when the cloud method is absent or throws; pins the fall-back contract that lets `Reports` choose its read path without an `if (cloud)` branch. |
+| RPRT-FC-002 | E2E | `react/e2e/tests/reports-views.spec.ts` | With `getMoneyMapMode() === 'on'`, `/reports` renders the *By member* / *By account* panels using the cloud `v_txn_by_*` views (mocked at the network layer) and matches the values produced by the v7.2.0-rc client-side fold for the same fixture. |
+
+### 6.5 Education progress
+
+| FC ID | Layer | Target file | Description |
+|---|---|---|---|
+| EDUC-FC-001 | Unit | `react/src/lib/__tests__/educationProgress.test.ts` | `mergeProgress(base, topicId, patch)` writes the patch under the topic key, preserves unrelated keys, and prunes the **oldest** entries when `MAX_KEYS = 50` would be exceeded; ordering uses `completed_at`/`dismissed_at` falling back to `0`. |
+| EDUC-FC-002 | Unit | `react/src/lib/__tests__/educationProgress.test.ts` | `readLocalEducationProgress` returns `{}` for missing / malformed JSON and never throws; `writeLocalEducationProgress` is the inverse. |
+| EDUC-FC-003 | E2E | `react/e2e/tests/why-chip.spec.ts` | Opening a `WhyChip` marks `completed_at` on the topic in the user's `profile.educationProgress`; closing it via the X button marks `dismissed_at` and a `completed_at` fallback if not already present. Both flows survive a reload. |
+| EDUC-FC-004 | E2E | `react/e2e/tests/why-chip.spec.ts` | In local-only mode the same flow writes through to `localStorage['vt_education_progress']`; the LRU prune fires when more than 50 distinct topics are touched. |
+
+### 6.6 Help — Saved Views topic
+
+| FC ID | Layer | Target file | Description |
+|---|---|---|---|
+| HELP-FC-001 | E2E | `react/e2e/tests/help-search.spec.ts` | The Help page exposes a *"Saved Views — reusable filters on Transactions, Reports & Insights"* topic that is reachable via the search box (queries: "saved views", "reusable filters") and renders the privacy disclaimer about stripped search / member / transaction ids. |
+| HELP-FC-002 | E2E | `react/e2e/tests/help-search.spec.ts` | The *"Splitting a bill — and shared income"* topic mentions both expense and income splits and the **Track as debt** action; pins the v7.3.1 copy refresh against silent regression to the legacy "Splitting a bill with others" wording. |
+
+### 6.7 Timebox-landed FC-coded consumer E2E (awaiting `CON-E2E-NNN` promotion)
+
+> These specs now exist in code and are counted in the functional inventory,
+> but they were intentionally not promoted into §4 during the timebox because
+> they still use functional-case titles rather than stable master-catalog
+> `CON-E2E-NNN` IDs. The next cataloging pass should assign permanent IDs and
+> move them into the Consumer E2E roster.
+
+| FC ID | Layer | Target file | Description |
+|---|---|---|---|
+| CON-E2E-008 (inventory) | E2E | `react/e2e/tests/smoke.spec.ts` | App tolerates corrupt `vt_*` localStorage JSON payloads, boots without crashing, and falls back to clean defaults / empty state for the malformed entity. This is the revised local-only behaviour, not the older restore-toast flow. |
+| BACKUP-FC-001 | E2E | `react/e2e/tests/backup.spec.ts` | Downloaded JSON backup contains the current snapshot payload (`version`, `exported`, `profile`, `transactions`, `budgets`, `goals`, `members`, `debts`, `assets`, `exchangeRates`). |
+| BACKUP-FC-002 | E2E | `react/e2e/tests/backup.spec.ts` | Download Backup uses the shipped Vyact filename pattern and surfaces the success toast. |
+| BACKUP-FC-003 | E2E | `react/e2e/tests/backup.spec.ts` | Copy to Clipboard writes the full JSON snapshot and surfaces success feedback. |
+| BACKUP-FC-004 | E2E | `react/e2e/tests/backup.spec.ts` | CSV export contains the shipped transaction columns for the current dataset. |
+| BACKUP-FC-005 | E2E | `react/e2e/tests/backup.spec.ts` | Backup/export actions remain reachable in local-only mode. |
+| PROFILE-FC-008 | E2E | `react/e2e/tests/profile-settings.spec.ts` | Sensitive data actions remain surfaced only in Settings: the main drawer does not expose backup/export shortcuts, while Settings → Sync & Backup shows the warning callout plus the Download Backup / Export CSV / Copy to Clipboard actions. |
+| FX-FC-005 | E2E | `react/e2e/tests/profile-settings.spec.ts` | Switching base currency re-anchors the Reports datasets without drift: summary cards, the period-summary rows, and the category breakdown re-render to the target currency using the seeded USD-base FX table. |
+| SEARCH-FC-002 | E2E | `react/e2e/tests/search-filter.spec.ts` | Structured filters (`type`, `category`, `month`, `member`) narrow the Transactions list consistently. |
+| SEARCH-FC-003 | E2E | `react/e2e/tests/search-filter.spec.ts` | Calendar day selection narrows the Transactions list and surfaces a clearable date chip. |
+| A11Y-FC-001 | E2E | `react/e2e/tests/keyboard-accessibility.spec.ts` | The shipped keyboard shortcut contract works today: `N` opens Add Transaction and `Esc` closes the active modal. |
+| A11Y-FC-004 | E2E | `react/e2e/tests/keyboard-accessibility.spec.ts` | The current transaction form tab order is logical through the shipped controls: description, amount, currency, category, member, account, recurring, note, then the private checkbox. |
+| FX-FC-001 | E2E | `react/e2e/tests/profile-settings.spec.ts` | Editing an exchange rate re-renders converted totals on Dashboard and Reports for a foreign-currency seeded household. |
+| ONB-FC-002 | E2E | `react/e2e/tests/onboarding.spec.ts` | Using the onboarding skip action applies the shipped Family with Kids template and seeds the expected starter budgets, goals, debts, and profile template metadata. |
+| ONB-FC-003 | E2E | `react/e2e/tests/onboarding.spec.ts` | Completing the full onboarding flow persists the user-selected `primaryConcern` in profile metadata, overriding the template default when the user chooses a different concern. |
+| ONB-FC-004 | E2E | `react/e2e/tests/onboarding.spec.ts` | Fresh local users are not forced through onboarding: visiting `/` lands on the empty dashboard while the onboarding wizard remains opt-in via its explicit route. |
+| ONB-FC-005 | E2E | `react/e2e/tests/onboarding.spec.ts` | Completing onboarding sets `onboardedAt` and changes the Settings relaunch link from `Run onboarding wizard` to `Re-run onboarding wizard`. |
+| PROFILE-FC-004 | E2E | `react/e2e/tests/profile-settings.spec.ts` | Changing the household type in Settings persists to the profile store and survives reload; the current scope is persistence only, not feature gating. |
+| PRIV-FC-002 | E2E | `react/e2e/tests/privacy.spec.ts` | Editing a transaction to `excluded=true` removes it from transaction-derived aggregates consistently across Dashboard totals, Reports summaries, Budgets spend, and the visible Pulse score. |
+| RESP-FC-001 | E2E | `react/e2e/tests/responsive-mobile.spec.ts` | At desktop width, the full layout is rendered with the persistent sidebar navigation visible while the MobileBar remains hidden. |
+| RESP-FC-002 | E2E | `react/e2e/tests/responsive-mobile.spec.ts` | On a mobile viewport, the sidebar collapses behind the MobileBar hamburger trigger and the drawer navigation can still open Settings successfully. |
+| RESP-FC-004 | E2E | `react/e2e/tests/responsive-mobile.spec.ts` | On a mobile viewport, the floating Planner and Ask Vyact actions remain visible, clickable, and open their drawers. |
+| RESP-FC-005 | E2E | `react/e2e/tests/responsive-mobile.spec.ts` | With Money Map enabled on a mobile viewport, the drawer still renders `Accounts` and `Insights` as readable title-cased navigation labels rather than raw lowercase fallback keys. |
+| TXN-FC-003 | E2E | `react/e2e/tests/transactions-create.spec.ts` | With the track picker enabled, choosing the Transfer track writes the paired expense+income transfer rows with `category='transfer'` and a shared `__tg:<groupId>` note tag. |
+| TXN-FC-010 | E2E | `react/e2e/tests/transactions-create.spec.ts` | The track picker exposes all four tracks, narrows the Investment category list to the five investment ids, and hides the Category field entirely when Transfer is chosen. |
+| TXN-FC-011 | E2E | `react/e2e/tests/transactions-create.spec.ts` | Editing an existing transaction skips the track picker and opens directly with the stored track locked and no Change affordance. |
+| TXN-FC-012 | E2E | `react/e2e/tests/transactions-create.spec.ts` | With the track picker enabled, numeric shortcuts `1`–`4` choose Spend, Income, Transfer, and Investment respectively, and `Esc` closes the modal from the selected track form. |
+| TXN-FC-013 | E2E | `react/e2e/tests/transactions-create.spec.ts` | The shipped text time-entry surface rejects malformed `hh:mm` input, persists valid AM/PM entries as normalized 24-hour times, and sorts same-day rows by the later timestamp first after reload. |
+| DEBT-FC-001 | E2E | `react/e2e/tests/debts-payment.spec.ts` | Creating a debt through the Add Debt modal persists the configured principal, current balance, APR, minimum payment, tenure, and due date and renders the new debt card. |
+| DEBT-FC-003 | E2E | `react/e2e/tests/debts-payment.spec.ts` | Recording a debt payment writes the linked interest/principal transactions into the Transactions list and preserves the generated `linkedDebtId` and shared `linkedTxnId` metadata. |
+| DEBT-FC-006 | E2E | `react/e2e/tests/debts-payment.spec.ts` | A part-payment with `reduce_tenure` lowers `remainingMonths` while keeping the EMI unchanged. |
+| DEBT-FC-007 | E2E | `react/e2e/tests/debts-payment.spec.ts` | A part-payment with `reduce_emi` recalculates a lower EMI while the remaining tenure only advances by the current payment month. |
+| DEBT-FC-009 | E2E | `react/e2e/tests/debts-payment.spec.ts` | A part-payment with `apply_advance` covers future EMIs in advance, reducing `remainingMonths` by more than one month while leaving the EMI amount unchanged. |
+

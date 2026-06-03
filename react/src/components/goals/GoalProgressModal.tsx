@@ -1,4 +1,4 @@
-// FinFlow v6.4 — GoalProgressModal
+// Vyact v6.4 — GoalProgressModal
 //
 // Replaces the old `prompt()` flow used to add progress to a goal so that
 // the UX matches the rest of the app (Modal + Field + Button) and works on

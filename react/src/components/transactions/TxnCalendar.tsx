@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Transaction, RecurringSchedule } from '../../types';
-import { nowMonthKey, today, monthName } from '../../lib/format';
+import { nowMonthKey, today, monthName, fmtShort } from '../../lib/format';
+import { scheduleFiresOnDate } from '../../lib/recurring';
 
 interface TxnCalendarProps {
   transactions: Transaction[];          // all transactions (filtered to the viewed month internally)
@@ -9,11 +10,11 @@ interface TxnCalendarProps {
   initialMonth?: string;                // YYYY-MM to open on (defaults to current month)
   selectedDate?: string | null;         // currently selected day (YYYY-MM-DD)
   onSelectDate?: (date: string) => void;
+  currency?: string;                    // base currency for per-day totals (defaults to USD)
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const pad2 = (n: number) => String(n).padStart(2, '0');
-const DAY_MS = 86_400_000;
 
 function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split('-').map(Number);
@@ -21,31 +22,8 @@ function shiftMonth(month: string, delta: number): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
 }
 
-// Does a recurring schedule fire on the given day of the viewed month?
-function scheduleFiresOn(s: RecurringSchedule, dStr: string, dom: number, ym: string): boolean {
-  if (s.active === false) return false;
-  if (s.transactionTemplate?.type !== 'expense') return false; // calendar tracks payments
-  if (s.startDate && dStr < s.startDate) return false;
-  const [sy, sm, sd] = (s.startDate || dStr).split('-').map(Number);
-  switch (s.frequency) {
-    case 'weekly': {
-      const diff = Math.round((Date.parse(dStr) - Date.parse(s.startDate)) / DAY_MS);
-      return diff >= 0 && diff % 7 === 0;
-    }
-    case 'monthly':
-    case 'custom_day':
-      return dom === (s.dayOfMonth || sd);
-    case 'yearly': {
-      const [, vm] = ym.split('-').map(Number);
-      return vm === sm && dom === sd;
-    }
-    default:
-      return false;
-  }
-}
-
 export default function TxnCalendar({
-  transactions, schedules = [], initialMonth, selectedDate, onSelectDate,
+  transactions, schedules = [], initialMonth, selectedDate, onSelectDate, currency = 'USD',
 }: TxnCalendarProps) {
   const [viewMonth, setViewMonth] = useState(initialMonth || nowMonthKey());
   const todayStr = today();
@@ -58,26 +36,55 @@ export default function TxnCalendar({
     };
   }, [viewMonth]);
 
-  // Days in the viewed month that have a counted (non-private) expense.
-  const expenseDays = useMemo(() => {
-    const set = new Set<string>();
+  // Per-day income & expense totals for the viewed month (counted, non-private).
+  const dayTotals = useMemo(() => {
+    const map = new Map<string, { income: number; expense: number }>();
     for (const t of transactions) {
-      if (t.type === 'expense' && !t.excluded && t.date.startsWith(viewMonth + '-')) set.add(t.date);
+      if (t.excluded) continue;
+      if (!t.date.startsWith(viewMonth + '-')) continue;
+      if (t.type !== 'income' && t.type !== 'expense') continue;
+      const cur = map.get(t.date) ?? { income: 0, expense: 0 };
+      cur[t.type] += Math.abs(t.amount || 0);
+      map.set(t.date, cur);
     }
-    return set;
+    return map;
   }, [transactions, viewMonth]);
 
-  // Future days in the viewed month with a projected recurring payment.
-  const projectedDays = useMemo(() => {
+  const expenseDays = useMemo(() => {
     const set = new Set<string>();
+    for (const [d, v] of dayTotals) if (v.expense > 0) set.add(d);
+    return set;
+  }, [dayTotals]);
+
+  // Future days in the viewed month: projected recurring income & expense from schedules.
+  const projectedTotals = useMemo(() => {
+    const map = new Map<string, { income: number; expense: number }>();
     for (let d = 1; d <= daysInMonth; d++) {
       const dStr = `${viewMonth}-${pad2(d)}`;
-      if (dStr <= todayStr) continue;            // future only
-      if (expenseDays.has(dStr)) continue;       // already logged
-      if (schedules.some(s => scheduleFiresOn(s, dStr, d, viewMonth))) set.add(dStr);
+      if (dStr <= todayStr) continue; // future only
+      let income = 0;
+      let expense = 0;
+      for (const s of schedules) {
+        if (!scheduleFiresOnDate(s, dStr)) continue;
+        const tpl = s.transactionTemplate;
+        if (!tpl) continue;
+        const amt = Math.abs(tpl.amount || 0);
+        if (tpl.type === 'income') income += amt;
+        else if (tpl.type === 'expense') expense += amt;
+      }
+      if (income > 0 || expense > 0) map.set(dStr, { income, expense });
+    }
+    return map;
+  }, [schedules, daysInMonth, viewMonth, todayStr]);
+
+  const projectedDays = useMemo(() => {
+    const set = new Set<string>();
+    for (const [d, v] of projectedTotals) {
+      // Only mark as "projected" if there is no logged expense already.
+      if (!expenseDays.has(d) && (v.income > 0 || v.expense > 0)) set.add(d);
     }
     return set;
-  }, [schedules, daysInMonth, viewMonth, todayStr, expenseDays]);
+  }, [projectedTotals, expenseDays]);
 
   const loggedCount = expenseDays.size;
 
@@ -122,7 +129,7 @@ export default function TxnCalendar({
           </div>
         ))}
 
-        {Array.from({ length: leading }).map((_, i) => <div key={`b${i}`} className="h-9" />)}
+        {Array.from({ length: leading }).map((_, i) => <div key={`b${i}`} className="min-h-[3.25rem]" />)}
 
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const d = i + 1;
@@ -132,15 +139,23 @@ export default function TxnCalendar({
           const isToday = dStr === todayStr;
           const isSelected = dStr === selectedDate;
 
+          const totals = dayTotals.get(dStr);
+          const proj = projectedTotals.get(dStr);
+          const incomeAmt = totals?.income ?? 0;
+          const expenseAmt = totals?.expense ?? 0;
+          const projectedAmt = (proj?.expense ?? 0) + (proj?.income ?? 0);
+
           const tone = logged
             ? 'bg-sage/20 text-sage border-sage/40'
             : projected
               ? 'bg-denim/15 text-denim border-denim/40'
               : 'bg-bg text-ink-dim border-line';
 
-          const title = `${dStr}: ${
-            logged ? 'expense logged' : projected ? 'upcoming recurring payment' : 'no expense logged'
-          }`;
+          const parts: string[] = [];
+          if (incomeAmt > 0) parts.push(`+${fmtShort(incomeAmt, currency)} income`);
+          if (expenseAmt > 0) parts.push(`−${fmtShort(expenseAmt, currency)} expense`);
+          if (projectedAmt > 0) parts.push(`~${fmtShort(projectedAmt, currency)} upcoming`);
+          const title = `${dStr}${parts.length ? ' · ' + parts.join(' · ') : ': no activity'}`;
 
           return (
             <button
@@ -148,13 +163,18 @@ export default function TxnCalendar({
               type="button"
               onClick={() => onSelectDate?.(dStr)}
               title={title}
-              className={`h-9 flex items-center justify-center rounded font-mono text-[0.82rem] border transition-colors hover:brightness-95
+              className={`min-h-[3.25rem] flex flex-col items-center justify-start gap-0.5 px-1 pt-1 pb-0.5 rounded border transition-colors hover:brightness-95
                 ${tone}
                 ${isToday ? 'ring-1 ring-coral ring-offset-1 ring-offset-bg3' : ''}
                 ${isSelected ? 'outline outline-2 outline-coral' : ''}
               `}
             >
-              {d}
+              <span className="font-mono text-[0.82rem] leading-none">{d}</span>
+              <span className="flex flex-col items-center leading-tight font-mono text-[0.52rem] tabular-nums tracking-tight">
+                {incomeAmt > 0 && <span className="text-sage">+{fmtShort(incomeAmt, currency)}</span>}
+                {expenseAmt > 0 && <span className="text-terracotta">−{fmtShort(expenseAmt, currency)}</span>}
+                {projectedAmt > 0 && <span className="text-denim opacity-80">~{fmtShort(projectedAmt, currency)}</span>}
+              </span>
             </button>
           );
         })}

@@ -1,4 +1,4 @@
-// FinFlow v6.3 — Insights (consumer-facing readables / newsletters)
+// Vyact v6.3 — Insights (consumer-facing readables / newsletters)
 // Reads admin-authored content from public.content_items (published only).
 // Per-user favorites in public.content_favorites — NOT household-scoped.
 //
@@ -13,6 +13,7 @@ import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
+import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import { isCloudEnabled } from '../lib/supabase';
 import {
   listPublishedContent, listFavoriteIds,
@@ -147,6 +148,17 @@ export default function Insights() {
           <FilterChip active={showFavOnly} onClick={() => setShowFavOnly(v => !v)}>
             <Heart size={11} className={showFavOnly ? 'fill-current' : ''} /> Favorites
           </FilterChip>
+        </div>
+        <div className="ml-auto">
+          <SavedViewsBar
+            page="insights"
+            filters={{ topicFilter, showFavOnly }}
+            onApply={f => {
+              if (typeof f.topicFilter === 'string') setTopicFilter(f.topicFilter as typeof topicFilter);
+              else setTopicFilter('all');
+              setShowFavOnly(Boolean(f.showFavOnly));
+            }}
+          />
         </div>
       </div>
 

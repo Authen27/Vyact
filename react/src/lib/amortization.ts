@@ -1,4 +1,4 @@
-// FinFlow v7 — Amortisation engine
+// Vyact v7 — Amortisation engine
 // Properly computes interest/principal split per payment from the
 // outstanding balance — matches Bank of England standard PMT.
 //

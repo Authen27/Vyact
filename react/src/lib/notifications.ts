@@ -1,4 +1,4 @@
-// FinFlow v7 — Notification engine
+// Vyact v7 — Notification engine
 // Generates notifications from app state. Six types per the PRD.
 // Web Push is delegated to a service worker (public/sw.js).
 

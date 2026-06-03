@@ -1,4 +1,4 @@
-// FinFlow money primitives — the dinero.js v2 boundary layer.
+// Vyact money primitives — the dinero.js v2 boundary layer.
 //
 // TD-01 (decimal money) is being rolled out in phases. This module is the
 // foundation: every later phase migrates one more file from JS-number

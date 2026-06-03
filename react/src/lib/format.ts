@@ -1,8 +1,48 @@
 // Currency formatting · date formatting · misc
+import type { Transaction } from '../types';
 import { CURRENCIES, DEFAULT_RATES } from '../constants';
 import { toDinero, fromDinero, convertViaUsdRates } from './money';
 
 export const today = (): string => new Date().toISOString().split('T')[0];
+export const nowTime = (): string => {
+  const current = new Date();
+  return `${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`;
+};
+
+export function normalizeTimeInput(input?: string | null): string | null {
+  if (!input) return null;
+  const raw = input.trim();
+  if (!raw) return null;
+
+  const meridiemMatch = raw.match(/\s*(am|pm)$/i);
+  const meridiem = meridiemMatch?.[1]?.toUpperCase() as 'AM' | 'PM' | undefined;
+  const core = meridiemMatch ? raw.slice(0, meridiemMatch.index).trim() : raw;
+
+  let hours: string;
+  let minutes: string;
+
+  if (/^\d{1,2}:\d{1,2}$/.test(core)) {
+    [hours, minutes] = core.split(':');
+  } else if (/^\d{3,4}$/.test(core)) {
+    hours = core.slice(0, core.length - 2);
+    minutes = core.slice(-2);
+  } else {
+    return null;
+  }
+
+  let hh = Number(hours);
+  const mm = Number(minutes);
+  if (!Number.isInteger(hh) || !Number.isInteger(mm)) return null;
+  if (meridiem) {
+    if (hh < 1 || hh > 12) return null;
+    hh %= 12;
+    if (meridiem === 'PM') hh += 12;
+  } else if (hh < 0 || hh > 23) {
+    return null;
+  }
+  if (mm < 0 || mm > 59) return null;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
 
 // IDs must be valid UUIDs: the cloud schema's primary-key columns are `uuid`,
 // so a non-UUID id (the old Date.toString(36)+Math.random() scheme) made every
@@ -28,6 +68,24 @@ export const escHtml = (s: string): string =>
 export const clamp = (v: number, min: number, max: number): number => Math.max(min, Math.min(max, v));
 export const getMonthKey = (d: string): string => d.slice(0, 7);
 export const nowMonthKey = (): string => today().slice(0, 7);
+
+export function transactionSortValue(txn: Pick<Transaction, 'date' | 'time' | 'created_at'>): number {
+  const normalizedTime = normalizeTimeInput(txn.time);
+  if (txn.date && normalizedTime) {
+    const explicit = Date.parse(`${txn.date}T${normalizedTime}:00`);
+    if (!Number.isNaN(explicit)) return explicit;
+  }
+  if (txn.created_at) {
+    const created = Date.parse(txn.created_at);
+    if (!Number.isNaN(created)) return created;
+  }
+  const fallback = Date.parse(`${txn.date}T00:00:00`);
+  return Number.isNaN(fallback) ? 0 : fallback;
+}
+
+export function formatTime(time?: string): string {
+  return normalizeTimeInput(time) ?? '';
+}
 
 export function monthName(key: string): string {
   const [y, m] = key.split('-');
@@ -70,12 +128,31 @@ export function fmt(amount: number, currency = 'USD'): string {
   }
 }
 
-export function fmtShort(amount: number, currency = 'USD'): string {
+export type NumberSystem = 'western' | 'indian';
+
+/** v7.4.0 — module-scope number-system selection. The store calls
+ *  `setNumberSystem` whenever the active profile changes so that
+ *  non-React utilities (Money component, fmt-short usages in tooltips)
+ *  pick up the user's choice without prop-drilling. Defaults to western. */
+let _numberSystem: NumberSystem = 'western';
+export function setNumberSystem(s: NumberSystem) { _numberSystem = s; }
+export function getNumberSystem(): NumberSystem { return _numberSystem; }
+
+export function fmtShort(amount: number, currency = 'USD', system?: NumberSystem): string {
   const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
+  const sys = system ?? _numberSystem;
   const n = Math.abs(amount || 0);
-  if (n >= 1_000_000_000) return cur.symbol + (n / 1_000_000_000).toFixed(1) + 'B';
-  if (n >= 1_000_000)     return cur.symbol + (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000)         return cur.symbol + (n / 1_000).toFixed(1) + 'K';
+  const fix = (v: number) => v.toFixed(v >= 100 ? 0 : 1).replace(/\.0$/, '');
+  if (sys === 'indian') {
+    if (n >= 1_00_00_000) return cur.symbol + fix(n / 1_00_00_000) + 'Cr'; // 10M
+    if (n >= 1_00_000)    return cur.symbol + fix(n / 1_00_000) + 'L';      // 100K
+    if (n >= 1_000)       return cur.symbol + fix(n / 1_000) + 'K';
+    return cur.symbol + n.toLocaleString(cur.locale, { maximumFractionDigits: 0 });
+  }
+  if (n >= 1_000_000_000_000) return cur.symbol + fix(n / 1_000_000_000_000) + 'T';
+  if (n >= 1_000_000_000)     return cur.symbol + fix(n / 1_000_000_000) + 'B';
+  if (n >= 1_000_000)         return cur.symbol + fix(n / 1_000_000) + 'M';
+  if (n >= 1_000)             return cur.symbol + fix(n / 1_000) + 'K';
   return cur.symbol + n.toLocaleString(cur.locale, { maximumFractionDigits: 0 });
 }
 

@@ -1,10 +1,10 @@
-// FinFlow v6 — Zustand global store
+// Vyact v6 — Zustand global store
 // All state + every CRUD action goes through here.
 // CRUD actions persist via DataAdapter, then update in-memory state.
 
 import { create } from 'zustand';
 import type {
-  Transaction, Budget, Goal, Member, Debt, Asset,
+  Transaction, Budget, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, Theme,
   RecurringSchedule, Notification, NotificationPrefs, PartPaymentChoice,
 } from './types';
@@ -18,15 +18,18 @@ import { highestRole } from './lib/permissions';
 import type { AppRole } from './types';
 import { applyPayment } from './lib/amortization';
 import { autoMigrateAnonToHousehold } from './lib/migration';
-import { hydrateBudgets, setBudgetMeta, deleteBudgetMeta } from './lib/budgetMeta';
 import {
   dueSchedules, generateTransaction, advanceSchedule,
+  backfillSchedulesFromTransactions,
 } from './lib/recurring';
+import { uid, today, setNumberSystem } from './lib/format';
 import {
   upcomingBillNotifs, missedPaymentNotifs, budgetThresholdNotifs,
   goalMilestoneNotifs, DEFAULT_PREFS, isInQuietHours, showWebPush,
 } from './lib/notifications';
 import ls from './lib/localStorageCompat';
+import { getMoneyMapMode } from './lib/featureFlags';
+import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from './lib/educationProgress';
 
 interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
 
@@ -41,6 +44,14 @@ interface Store {
   members: Member[];
   debts: Debt[];
   assets: Asset[];
+  /** v7.1.2 — first-class accounts (Money Map). Populated for cloud
+   *  households that have run the Phase 1 backfill; empty in legacy
+   *  local-only mode. Consumers gate reads on `getMoneyMapMode()`. */
+  accounts: Account[];
+  /** v7.3 — per-user saved filter views (Money Map Item #4). Owner-
+   *  scoped on the server via RLS; the array here is whatever the
+   *  current user can see (their own + shared rows from household). */
+  savedViews: SavedView[];
   profile: Profile;
   rates: ExchangeRates;
 
@@ -99,6 +110,13 @@ interface Store {
   openEditAsset: (a: Asset) => void;
   closeAssetModal: () => void;
 
+  // v7.1.3 — global Account modal (Money Map)
+  accountModalOpen: boolean;
+  editingAccount: Account | null;
+  openAddAccount: () => void;
+  openEditAccount: (a: Account) => void;
+  closeAccountModal: () => void;
+
   // ── actions ─────────────────────────────────────────────────
   init: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -120,8 +138,16 @@ interface Store {
   removeDebt: (id: string) => Promise<void>;
   upsertAsset: (a: Partial<Asset>) => Promise<Asset>;
   removeAsset: (id: string) => Promise<void>;
+  upsertAccount: (a: Partial<Account>) => Promise<Account>;
+  removeAccount: (id: string) => Promise<void>;
+  upsertSavedView: (v: Partial<SavedView>) => Promise<SavedView>;
+  removeSavedView: (id: string) => Promise<void>;
 
   updateProfile: (patch: Partial<Profile>) => Promise<void>;
+  /** v7.3 — Money Map Migration B. Mark a topic completed/dismissed and
+   *  persist via the adapter. Caller passes either or both timestamps via
+   *  the patch shape `{ completed_at?, dismissed_at? }` (defaults to now). */
+  markEducation: (topicId: string, patch?: { completed_at?: string; dismissed_at?: string }) => Promise<void>;
   upsertRate: (code: string, rate: number) => Promise<void>;
   resetRates: () => Promise<void>;
 
@@ -152,7 +178,7 @@ interface Store {
 
 const defaultProfile: Profile = {
   name: '', email: '', baseCurrency: 'USD', language: 'en',
-  household: 'family', dateFormat: 'us',
+  household: 'family', dateFormat: 'us', numberSystem: 'western',
   payoffStrategy: 'avalanche', extraPayment: 0,
 };
 
@@ -196,7 +222,8 @@ export const useStore = create<Store>((set, get) => ({
   adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
-  transactions: [], budgets: [], goals: [], members: [], debts: [], assets: [],
+  transactions: [], budgets: [], goals: [], members: [], debts: [], assets: [], accounts: [],
+  savedViews: [],
   profile: defaultProfile,
   rates: { ...DEFAULT_RATES },
 
@@ -250,6 +277,12 @@ export const useStore = create<Store>((set, get) => ({
   openAddAsset:    () => set({ editingAsset: null, assetModalOpen: true }),
   openEditAsset:   (a) => set({ editingAsset: a, assetModalOpen: true }),
   closeAssetModal: () => set({ assetModalOpen: false, editingAsset: null }),
+
+  accountModalOpen: false,
+  editingAccount: null,
+  openAddAccount:    () => set({ editingAccount: null, accountModalOpen: true }),
+  openEditAccount:   (a) => set({ editingAccount: a, accountModalOpen: true }),
+  closeAccountModal: () => set({ accountModalOpen: false, editingAccount: null }),
 
   init: async () => {
     const { adapter, cloudEnabled, session } = get();
@@ -319,19 +352,24 @@ export const useStore = create<Store>((set, get) => ({
 
   refresh: async () => {
     const { adapter, currentHouseholdId } = get();
-    const [transactions, budgets, goals, members, debts, assets, profile, rates] = await Promise.all([
+    const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, profile, rates] = await Promise.all([
       adapter.list<Transaction>('transactions', currentHouseholdId),
       adapter.list<Budget>('budgets',           currentHouseholdId),
       adapter.list<Goal>('goals',               currentHouseholdId),
       adapter.list<Member>('members',           currentHouseholdId),
       adapter.list<Debt>('debts',               currentHouseholdId),
       adapter.list<Asset>('assets',             currentHouseholdId),
+      adapter.list<Account>('accounts',         currentHouseholdId),
+      adapter.list<SavedView>('savedViews',     currentHouseholdId).catch(() => [] as SavedView[]),
       adapter.getProfile(currentHouseholdId),
       adapter.getRates(currentHouseholdId),
     ]);
     // v6.4: hydrate per-budget local period metadata (DB schema lacks an
     // extras column on budgets so period info is a client-side overlay).
-    const hydratedBudgets = hydrateBudgets(budgets);
+    // Removed 2026-06-01: PR #20 added the real `period` / `period_start` /
+    // `period_end` columns to `budgets`; the adapter row mapper now returns
+    // them directly and the local overlay is dead code.
+    const hydratedBudgets = budgets;
     // v6.4: Defensive — if every entity comes back empty AND we previously
     // had data in memory, the cloud is almost certainly degraded (RLS issue,
     // schema not deployed, transient outage). Hold the last-known state and
@@ -352,10 +390,30 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
     set({
-      transactions, budgets: hydratedBudgets, goals, members, debts, assets,
-      profile: profile ? { ...defaultProfile, ...profile } : defaultProfile,
+      transactions, budgets: hydratedBudgets, goals, members, debts, assets, accounts, savedViews,
+      profile: profile
+        ? { ...defaultProfile, ...profile, educationProgress: profile.educationProgress ?? readLocalEducationProgress() }
+        : { ...defaultProfile, educationProgress: readLocalEducationProgress() },
       rates,
     });
+    setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
+
+    // v7.3 — Backfill RecurringSchedule rows for legacy txns whose
+    // `recurring` field is set but never produced a schedule. Without this,
+    // pre-v7.0 rent/salary rows are invisible to the Recurring page and the
+    // Transactions calendar's projected-future-cost overlay.
+    const beforeCount = get().recurringSchedules.length;
+    const { schedules: nextSchedules, added } = backfillSchedulesFromTransactions(
+      transactions,
+      get().recurringSchedules,
+    );
+    if (added > 0) {
+      setLocalJson('recurring', nextSchedules);
+      set({ recurringSchedules: nextSchedules });
+      get().toast(`Recovered ${added} recurring schedule${added === 1 ? '' : 's'} from existing transactions`, 'info');
+    } else {
+      void beforeCount;
+    }
   },
 
   switchHousehold: async (id) => {
@@ -399,6 +457,51 @@ export const useStore = create<Store>((set, get) => ({
   // ── CRUD ─────────────────────────────────────────────────────
   upsertTransaction: async (t) => {
     const { adapter, currentHouseholdId, transactions } = get();
+
+    // v7.0.3 — Transfer-track encoding. A transfer row carries a destination
+    // account in `linkedToAssetId`; we expand it into two linked txns (one
+    // expense from source, one income to dest), tagged with a __tg:<gid>
+    // group marker in `note` so deletion / reporting stays consistent.
+    // Reports filter `category === 'transfer'` so the pair self-cancels.
+    //
+    // v7.2 (Money Map) — once `money_map === 'on'` the schema has real
+    // `account_id` / `to_account_id` FK columns, so a single 'transfer'
+    // row is the canonical encoding. We skip the paired-row expansion in
+    // that mode; `reportableTxns` filters single-row transfers via the
+    // type check (it only keeps income/expense). 'shadow' keeps the
+    // legacy paired write so a v7.1 client still sees the transfer.
+    if (!t.id && t.type === 'transfer' && t.linkedToAssetId && t.paymentMethod
+        && getMoneyMapMode() !== 'on') {
+      const gid = uid();
+      const baseNote = (t.note ?? '').trim();
+      const tag = `__tg:${gid}`;
+      const groupNote = baseNote ? `${baseNote} ${tag}` : tag;
+      const out: Partial<Transaction> = {
+        ...t,
+        id: uid(),
+        type: 'expense',
+        category: 'transfer',
+        paymentMethod: t.paymentMethod,
+        linkedAssetId: t.paymentMethod,
+        linkedToAssetId: t.linkedToAssetId,
+        note: groupNote,
+      };
+      const inc: Partial<Transaction> = {
+        ...t,
+        id: uid(),
+        type: 'income',
+        category: 'transfer',
+        paymentMethod: t.linkedToAssetId,
+        linkedAssetId: t.linkedToAssetId,
+        linkedToAssetId: t.paymentMethod,
+        note: groupNote,
+      };
+      const savedOut = await adapter.upsert('transactions', currentHouseholdId, out);
+      const savedInc = await adapter.upsert('transactions', currentHouseholdId, inc);
+      set({ transactions: [...transactions, savedOut as Transaction, savedInc as Transaction] });
+      return savedOut as Transaction;
+    }
+
     // TD-03 phase A (PR #11): when this is an EDIT of an existing txn
     // (we have both an id and a known updated_at from a prior read),
     // pass the version as the optimistic-concurrency precondition so
@@ -413,6 +516,15 @@ export const useStore = create<Store>((set, get) => ({
   },
   removeTransaction: async (id) => {
     const { adapter, currentHouseholdId, transactions } = get();
+    // v7.0.3 — Transfer pair: deleting either half removes the other half too.
+    const target = transactions.find(x => x.id === id);
+    const tag = target?.note?.match(/__tg:[A-Za-z0-9_-]+/)?.[0];
+    if (tag) {
+      const pair = transactions.filter(x => x.note?.includes(tag));
+      await Promise.all(pair.map(p => adapter.remove('transactions', currentHouseholdId, p.id)));
+      set({ transactions: transactions.filter(x => !x.note?.includes(tag)) });
+      return;
+    }
     await adapter.remove('transactions', currentHouseholdId, id);
     set({ transactions: transactions.filter(x => x.id !== id) });
   },
@@ -420,17 +532,9 @@ export const useStore = create<Store>((set, get) => ({
     const { adapter, currentHouseholdId, budgets } = get();
     // TD-03 phase B (PR #12): thread the version precondition on edits.
     const saved = await adapter.upsert('budgets', currentHouseholdId, b, b.id && b.updated_at ? b.updated_at : undefined);
-    // v6.4: persist period metadata locally (cloud schema lacks an extras
-    // column on budgets; this is a non-destructive client-side overlay).
-    if (b.period || b.periodStart || b.periodEnd) {
-      setBudgetMeta(saved.id, {
-        period: b.period,
-        periodStart: b.periodStart,
-        periodEnd: b.periodEnd,
-      });
-    }
-    const merged: Budget = { ...(saved as Budget), period: b.period || (saved as Budget).period || 'monthly',
-      periodStart: b.periodStart, periodEnd: b.periodEnd };
+    // Period metadata now lives on the row itself (PR #20). The adapter's
+    // rowToBudget mapper returns `period` / `periodStart` / `periodEnd`.
+    const merged: Budget = { ...(saved as Budget), period: (saved as Budget).period || b.period || 'monthly' };
     const idx = budgets.findIndex(x => x.id === saved.id);
     set({ budgets: idx >= 0 ? budgets.map(x => x.id === saved.id ? merged : x) : [...budgets, merged] });
     return merged;
@@ -438,7 +542,6 @@ export const useStore = create<Store>((set, get) => ({
   removeBudget: async (id) => {
     const { adapter, currentHouseholdId, budgets } = get();
     await adapter.remove('budgets', currentHouseholdId, id);
-    deleteBudgetMeta(id);
     set({ budgets: budgets.filter(x => x.id !== id) });
   },
   upsertGoal: async (g) => {
@@ -501,11 +604,51 @@ export const useStore = create<Store>((set, get) => ({
     await adapter.remove('assets', currentHouseholdId, id);
     set({ assets: assets.filter(x => x.id !== id) });
   },
+  upsertAccount: async (a) => {
+    const { adapter, currentHouseholdId, accounts } = get();
+    const saved = await adapter.upsert('accounts', currentHouseholdId, a, a.id && a.updated_at ? a.updated_at : undefined);
+    const idx = accounts.findIndex(x => x.id === saved.id);
+    set({ accounts: idx >= 0 ? accounts.map(x => x.id === saved.id ? saved as Account : x) : [...accounts, saved as Account] });
+    return saved as Account;
+  },
+  removeAccount: async (id) => {
+    const { adapter, currentHouseholdId, accounts } = get();
+    await adapter.remove('accounts', currentHouseholdId, id);
+    set({ accounts: accounts.filter(x => x.id !== id) });
+  },
+  upsertSavedView: async (v) => {
+    const { adapter, currentHouseholdId, savedViews } = get();
+    const saved = await adapter.upsert('savedViews', currentHouseholdId, v, v.id && v.updated_at ? v.updated_at : undefined);
+    const idx = savedViews.findIndex(x => x.id === saved.id);
+    set({ savedViews: idx >= 0 ? savedViews.map(x => x.id === saved.id ? saved as SavedView : x) : [...savedViews, saved as SavedView] });
+    return saved as SavedView;
+  },
+  removeSavedView: async (id) => {
+    const { adapter, currentHouseholdId, savedViews } = get();
+    await adapter.remove('savedViews', currentHouseholdId, id);
+    set({ savedViews: savedViews.filter(x => x.id !== id) });
+  },
 
   updateProfile: async (patch) => {
     const { adapter, currentHouseholdId, profile } = get();
     const next = await adapter.updateProfile(currentHouseholdId, patch);
-    set({ profile: { ...profile, ...next } });
+    const merged = { ...profile, ...next };
+    set({ profile: merged });
+    setNumberSystem(merged.numberSystem === 'indian' ? 'indian' : 'western');
+  },
+  markEducation: async (topicId, patch) => {
+    const { profile, cloudEnabled } = get();
+    const ts = new Date().toISOString();
+    const topic = { ...(patch?.completed_at ? { completed_at: patch.completed_at } : { completed_at: ts }), ...(patch?.dismissed_at ? { dismissed_at: patch.dismissed_at } : {}) };
+    // If neither key was supplied, default to completed.
+    const finalTopic = patch && (patch.completed_at || patch.dismissed_at) ? patch : topic;
+    const nextProgress = mergeProgress(profile.educationProgress ?? {}, topicId, finalTopic);
+    set({ profile: { ...profile, educationProgress: nextProgress } });
+    if (cloudEnabled) {
+      try { await get().updateProfile({ educationProgress: nextProgress }); } catch { /* swallow — local copy already set */ }
+    } else {
+      writeLocalEducationProgress(nextProgress);
+    }
   },
   upsertRate: async (code, rate) => {
     const { adapter, currentHouseholdId, rates } = get();
@@ -523,6 +666,9 @@ export const useStore = create<Store>((set, get) => ({
   // ── v7: RECURRING ────────────────────────────────────────────
   upsertRecurring: async (s) => {
     const list = get().recurringSchedules;
+    const existingIdx = s.id ? list.findIndex(x => x.id === s.id) : -1;
+    const isNew = existingIdx < 0;
+
     const next: RecurringSchedule = {
       id: s.id || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
       transactionTemplate: s.transactionTemplate!,
@@ -536,10 +682,30 @@ export const useStore = create<Store>((set, get) => ({
       active: s.active ?? true,
       reminderLeadDays: s.reminderLeadDays,
     };
-    const idx = list.findIndex(x => x.id === next.id);
-    const updated = idx >= 0 ? list.map(x => x.id === next.id ? next : x) : [...list, next];
+
+    // Seed the first transaction so a freshly-created schedule shows up in Transactions
+    // immediately — unless the caller already produced one (e.g. the txn modal mirrored
+    // its just-saved row into a schedule and pre-set lastGenerated).
+    let seededTxn: Transaction | null = null;
+    if (isNew && !next.lastGenerated && next.active && next.startDate <= today()) {
+      seededTxn = {
+        ...(next.transactionTemplate as Omit<Transaction, 'id' | 'date'>),
+        id: uid(),
+        date: next.startDate,
+      } as Transaction;
+      try { await get().adapter.upsert('transactions', get().currentHouseholdId, seededTxn); }
+      catch { /* local fallback below still updates state */ }
+      next.lastGenerated = next.startDate;
+    }
+
+    const updated = existingIdx >= 0
+      ? list.map(x => x.id === next.id ? next : x)
+      : [...list, next];
     setLocalJson('recurring', updated);
-    set({ recurringSchedules: updated });
+    set({
+      recurringSchedules: updated,
+      transactions: seededTxn ? [...get().transactions, seededTxn] : get().transactions,
+    });
     return next;
   },
 
@@ -673,7 +839,7 @@ export const useStore = create<Store>((set, get) => ({
       set({
         households: [], currentHouseholdId: 'local',
         transactions: [], budgets: [], goals: [], members: [],
-        debts: [], assets: [], myRole: undefined,
+        debts: [], assets: [], accounts: [], savedViews: [], myRole: undefined,
       });
     }
   },
@@ -738,8 +904,8 @@ if (import.meta.env.MODE !== 'production') {
   // Use the localStorageCompat helper to avoid embedding legacy/global
   // names as string literals in the build output.
   try {
-    const legacyName = ls.legacyKey('store');
-    const newName = ls.newKey('store');
+    const legacyName = '__' + ls.legacyKey('store');
+    const newName = '__' + ls.newKey('store');
     (window as any)[legacyName] = useStore;
     (window as any)[newName] = useStore;
   } catch {

@@ -1,10 +1,10 @@
-// FinFlow v4.1 — Real SupabaseAdapter
+// Vyact v4.1 — Real SupabaseAdapter
 // Implements the DataAdapter interface against the Postgres schema in db/schema.sql.
 // All authorization is enforced server-side by RLS policies — clients can't bypass.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  Transaction, Budget, Goal, Member, Debt, Asset,
+  Transaction, Budget, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
 } from '../types';
 import type { DataAdapter, Entity } from './dataAdapter';
@@ -27,6 +27,8 @@ type RowOf<E extends Entity> =
   E extends 'goals'        ? GoalRow :
   E extends 'debts'        ? DebtRow :
   E extends 'assets'       ? AssetRow :
+  E extends 'accounts'     ? AccountRow :
+  E extends 'savedViews'   ? SavedViewRow :
   E extends 'members'      ? MembershipRow :
   never;
 
@@ -36,9 +38,16 @@ interface TransactionRow {
   description: string; category: string; note: string | null;
   recurring: string | null; attachment_url: string | null;
   created_at: string; updated_at: string; deleted_at: string | null;
+  // v7.1 Money Map — real FK columns. Optional in the typing because the
+  // production rows still come back without them set on legacy data.
+  account_id?: string | null;
+  to_account_id?: string | null;
+  initiated_by?: string | null;
   // v5+ extensions stored as JSON on the row (until columns are added)
-  extras?: { paymentMethod?: string; excluded?: boolean; linkedAssetId?: string;
-             linkedDebtId?: string; linkedTxnId?: string; split?: unknown } | null;
+  extras?: { time?: string; paymentMethod?: string; excluded?: boolean; linkedAssetId?: string;
+             linkedToAssetId?: string;
+             linkedDebtId?: string; linkedTxnId?: string; split?: unknown;
+             accountSplits?: unknown } | null;
 }
 
 interface BudgetRow {
@@ -62,6 +71,9 @@ interface DebtRow {
   principal: number | null; current_balance: number; interest_rate: number;
   minimum_payment: number; due_date: string | null; currency: string;
   updated_at: string; deleted_at: string | null;
+  // v7.1 Money Map — bidirectional debt support.
+  direction?: string | null;
+  counterparty_name?: string | null;
   extras?: { tenureMonths?: number; remainingMonths?: number; paymentLog?: unknown } | null;
 }
 
@@ -70,6 +82,24 @@ interface AssetRow {
   type: string; name: string; value: number; currency: string;
   liquidity: string; note: string | null; last_updated: string | null;
   updated_at: string; deleted_at: string | null;
+}
+
+// v7.1 Money Map — first-class accounts table.
+interface AccountRow {
+  id: string; household_id: string;
+  asset_id: string | null;
+  kind: string; name: string; currency: string;
+  is_default: boolean; is_archived: boolean;
+  created_at: string; updated_at: string; deleted_at: string | null;
+}
+
+// v7.3 Money Map — saved filter views (Item #4). Per-user, per-page.
+interface SavedViewRow {
+  id: string; user_id: string; household_id: string;
+  page: string; name: string;
+  filters: Record<string, unknown> | null;
+  is_shared: boolean;
+  created_at: string; updated_at: string; deleted_at: string | null;
 }
 
 interface MembershipRow {
@@ -85,25 +115,43 @@ const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<Transac
   date: t.date, description: t.description, category: t.category,
   note: t.note || null,
   recurring: t.recurring || null,
+  // v7.1 Money Map dual-write: populate FK columns from accountId/toAccountId
+  // if set, else fall back to legacy linkedAssetId (assets and accounts share
+  // asset_id after the v7.1 backfill). Legacy keys stay in extras so a v7.0.3
+  // client reading the same row still works (dual-encoding contract).
+  account_id:    t.accountId    ?? t.linkedAssetId   ?? null,
+  to_account_id: t.toAccountId  ?? t.linkedToAssetId ?? null,
+  initiated_by:  t.initiatedBy  ?? t.memberId        ?? null,
   extras: {
-    paymentMethod: t.paymentMethod, excluded: t.excluded,
-    linkedAssetId: t.linkedAssetId, linkedDebtId: t.linkedDebtId,
+    time: t.time, paymentMethod: t.paymentMethod, excluded: t.excluded,
+    linkedAssetId: t.linkedAssetId, linkedToAssetId: t.linkedToAssetId,
+    linkedDebtId: t.linkedDebtId,
     linkedTxnId: t.linkedTxnId, split: t.split,
+    // v7.3 — Money Map Item #5 (multi-account split). Stored on extras
+    // until a dedicated table lands in v7.4.
+    accountSplits: t.accountSplits,
   },
 });
 const rowToTxn = (r: TransactionRow): Transaction => ({
   id: r.id, type: r.type as Transaction['type'],
   amount: parseMoneyFromCloud(r.amount), currency: r.currency,
-  date: r.date, description: r.description, category: r.category,
+  date: r.date, time: r.extras?.time, description: r.description, category: r.category,
   note: r.note || undefined,
   memberId: r.member_id || undefined,
   recurring: (r.recurring as Transaction['recurring']) || undefined,
   paymentMethod: r.extras?.paymentMethod,
   excluded: r.extras?.excluded,
+  // v7.1 — prefer FK columns; fall back to legacy extras for rows written
+  // by a v7.0.3 client during the dual-write window.
+  accountId:   r.account_id    ?? r.extras?.linkedAssetId   ?? undefined,
+  toAccountId: r.to_account_id ?? r.extras?.linkedToAssetId ?? undefined,
+  initiatedBy: r.initiated_by  ?? r.member_id               ?? undefined,
   linkedAssetId: r.extras?.linkedAssetId,
+  linkedToAssetId: r.extras?.linkedToAssetId,
   linkedDebtId: r.extras?.linkedDebtId,
   linkedTxnId: r.extras?.linkedTxnId,
   split: r.extras?.split as Transaction['split'],
+  accountSplits: r.extras?.accountSplits as Transaction['accountSplits'],
   created_by: r.created_by || undefined,
   created_at: r.created_at, updated_at: r.updated_at,
 });
@@ -146,6 +194,9 @@ const debtToRow = (d: Partial<Debt>, hid: string): Partial<DebtRow> => ({
   minimum_payment: d.minimumPayment!,
   due_date: d.dueDate || null,
   currency: d.currency || 'USD',
+  // v7.1 Money Map — lending. Default keeps legacy semantics.
+  direction: d.direction || 'owed_by_me',
+  counterparty_name: d.counterpartyName || null,
   extras: {
     tenureMonths: d.tenureMonths,
     remainingMonths: d.remainingMonths,
@@ -162,6 +213,8 @@ const rowToDebt = (r: DebtRow): Debt => ({
   minimumPayment: parseMoneyFromCloud(r.minimum_payment),
   dueDate: r.due_date || undefined,
   currency: r.currency,
+  direction: (r.direction as Debt['direction']) || 'owed_by_me',
+  counterpartyName: r.counterparty_name || undefined,
   tenureMonths: r.extras?.tenureMonths,
   remainingMonths: r.extras?.remainingMonths,
   paymentLog: r.extras?.paymentLog as Debt['paymentLog'],
@@ -185,6 +238,7 @@ const rowToAsset = (r: AssetRow): Asset => ({
 
 const memberToRow = (m: Partial<Member>, hid: string): Partial<MembershipRow> => ({
   id: m.id, household_id: hid,
+  user_id: m.userId ?? null,
   display_name: m.name!,
   household_role: m.role || 'primary',
   role: m.appRole || 'member',
@@ -193,6 +247,47 @@ const rowToMember = (r: MembershipRow): Member => ({
   id: r.id, name: r.display_name,
   role: (r.household_role || 'primary') as Member['role'],
   appRole: r.role as Member['appRole'],
+  userId: r.user_id || undefined,
+});
+
+const accountToRow = (a: Partial<Account>, hid: string): Partial<AccountRow> => ({
+  id: a.id, household_id: hid,
+  asset_id: a.assetId || null,
+  kind: a.kind!,
+  name: a.name!,
+  currency: a.currency || 'USD',
+  is_default: a.isDefault ?? false,
+  is_archived: a.isArchived ?? false,
+});
+const rowToAccount = (r: AccountRow): Account => ({
+  id: r.id,
+  assetId: r.asset_id || undefined,
+  kind: r.kind as Account['kind'],
+  name: r.name,
+  currency: r.currency,
+  isDefault: r.is_default,
+  isArchived: r.is_archived,
+  updated_at: r.updated_at,
+});
+
+const savedViewToRow = (v: Partial<SavedView>, hid: string): Partial<SavedViewRow> => ({
+  id: v.id, household_id: hid,
+  // user_id is filled in by the DB default / RLS check on insert; the
+  // RPC and the column default come from auth.uid(). We don't supply it
+  // client-side to avoid the policy mismatch path.
+  page: v.page!,
+  name: v.name!,
+  filters: v.filters ?? {},
+  is_shared: v.isShared ?? false,
+});
+const rowToSavedView = (r: SavedViewRow): SavedView => ({
+  id: r.id,
+  userId: r.user_id,
+  page: r.page as SavedView['page'],
+  name: r.name,
+  filters: r.filters ?? {},
+  isShared: r.is_shared,
+  updated_at: r.updated_at,
 });
 
 // ── TD-03 — optimistic concurrency ────────────────────────────
@@ -282,7 +377,7 @@ export class SupabaseAdapter implements DataAdapter {
     const { data: { user } } = await this.sb.auth.getUser();
     if (!user) return null;
     const { data: prof } = await this.sb.from('profiles')
-      .select('display_name,default_currency,language,date_format')
+      .select('display_name,default_currency,language,date_format,education_progress')
       .eq('id', user.id).single();
     const { data: hh } = await this.sb.from('households')
       .select('name,type,base_currency,language,payoff_strategy,extra_payment')
@@ -297,6 +392,7 @@ export class SupabaseAdapter implements DataAdapter {
       dateFormat: (prof.date_format as Profile['dateFormat']) || 'us',
       payoffStrategy: (hh.payoff_strategy as Profile['payoffStrategy']) || 'avalanche',
       extraPayment: Number(hh.extra_payment) || 0,
+      educationProgress: (prof.education_progress as Profile['educationProgress']) || {},
     };
   }
   async updateProfile(householdId: string, patch: Partial<Profile>): Promise<Profile> {
@@ -307,6 +403,7 @@ export class SupabaseAdapter implements DataAdapter {
     if (patch.name        !== undefined) userPatch.display_name = patch.name;
     if (patch.dateFormat  !== undefined) userPatch.date_format = patch.dateFormat;
     if (patch.language    !== undefined) userPatch.language = patch.language;
+    if (patch.educationProgress !== undefined) userPatch.education_progress = patch.educationProgress;
     if (Object.keys(userPatch).length) {
       await this.sb.from('profiles').update(userPatch).eq('id', user.id);
     }
@@ -331,7 +428,7 @@ export class SupabaseAdapter implements DataAdapter {
       if (error) throw error;
       return (data || []).map(rowToMember) as unknown as T[];
     }
-    const { data, error } = await this.sb.from(entity)
+    const { data, error } = await this.sb.from(this.tableName(entity))
       .select('*').eq('household_id', householdId).is('deleted_at', null);
     if (error) throw error;
     const rows = data || [];
@@ -340,7 +437,55 @@ export class SupabaseAdapter implements DataAdapter {
     if (entity === 'goals')        return rows.map(rowToGoal) as unknown as T[];
     if (entity === 'debts')        return rows.map(rowToDebt) as unknown as T[];
     if (entity === 'assets')       return rows.map(rowToAsset) as unknown as T[];
+    if (entity === 'accounts')     return rows.map(rowToAccount) as unknown as T[];
+    if (entity === 'savedViews')   return rows.map(rowToSavedView) as unknown as T[];
     return [];
+  }
+
+  /**
+   * TD-06 — incremental list. Returns only rows whose `updated_at >
+   * since`, ordered ascending by `updated_at`, including soft-deleted
+   * rows so the caller can propagate tombstones into its local cache.
+   *
+   *   { rows }        — live rows (deleted_at is null), domain-mapped.
+   *   { tombstones }  — ids whose `deleted_at` is set; caller should
+   *                     remove them from its cache.
+   *   { maxUpdatedAt } — the largest `updated_at` observed in this
+   *                     page, suitable as the next cursor. Null when
+   *                     the response was empty.
+   *
+   * `members` is not supported (membership rows have no `updated_at`
+   * column and the table is tiny). Callers should keep using `list`
+   * for members.
+   *
+   * Requires the matching `(household_id, updated_at)` index added by
+   * the TD-21+TD-06 migration. Without the index the query is still
+   * correct but does a per-household seq-scan.
+   */
+  async listSince<T = unknown>(
+    entity: Exclude<Entity, 'members'>,
+    householdId: string,
+    since: string,
+    limit = 500,
+  ): Promise<{ rows: T[]; tombstones: string[]; maxUpdatedAt: string | null }> {
+    const { data, error } = await this.sb.from(this.tableName(entity))
+      .select('*')
+      .eq('household_id', householdId)
+      .gt('updated_at', since)
+      .order('updated_at', { ascending: true })
+      .limit(limit);
+    if (error) throw error;
+    const all = (data || []) as Array<{ id: string; updated_at: string; deleted_at: string | null }>;
+    const tombstones: string[] = [];
+    const liveRaw: typeof all = [];
+    let maxUpdatedAt: string | null = null;
+    for (const r of all) {
+      if (!maxUpdatedAt || r.updated_at > maxUpdatedAt) maxUpdatedAt = r.updated_at;
+      if (r.deleted_at) tombstones.push(r.id);
+      else liveRaw.push(r);
+    }
+    const rows = liveRaw.map(r => this.mapRowBack(entity, r)) as T[];
+    return { rows, tombstones, maxUpdatedAt };
   }
 
   async upsert<T extends { id?: string } = { id?: string }>(entity: Entity, householdId: string, record: T, expectedUpdatedAt?: string): Promise<T & { id: string }> {
@@ -350,10 +495,12 @@ export class SupabaseAdapter implements DataAdapter {
     else if (entity === 'goals')        row = goalToRow  (record as Partial<Goal>,        householdId);
     else if (entity === 'debts')        row = debtToRow  (record as Partial<Debt>,        householdId);
     else if (entity === 'assets')       row = assetToRow (record as Partial<Asset>,       householdId);
+    else if (entity === 'accounts')     row = accountToRow(record as Partial<Account>,    householdId);
+    else if (entity === 'savedViews')   row = savedViewToRow(record as Partial<SavedView>, householdId);
     else if (entity === 'members')      row = memberToRow(record as Partial<Member>,      householdId);
     else throw new Error(`Unknown entity: ${entity}`);
 
-    const tableName = entity === 'members' ? 'memberships' : entity;
+    const tableName = this.tableName(entity);
 
     // TD-03 — optimistic-concurrency path. When the caller supplies an
     // `expectedUpdatedAt` AND the record has an id (i.e. this is an edit,
@@ -397,7 +544,7 @@ export class SupabaseAdapter implements DataAdapter {
   }
 
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
-    const tableName = entity === 'members' ? 'memberships' : entity;
+    const tableName = this.tableName(entity);
     if (entity === 'members') {
       const { error } = await this.sb.from('memberships').delete().eq('id', id);
       if (error) throw error;
@@ -414,7 +561,10 @@ export class SupabaseAdapter implements DataAdapter {
     // TD-09: prefer atomic server-side replace RPC for performance and
     // correctness. Each `replace_<entity>` RPC soft-deletes existing rows
     // and inserts the provided set inside a single transaction.
-    const rpcName = entity === 'members' ? 'replace_memberships' : `replace_${entity}`;
+    const rpcName =
+      entity === 'members'    ? 'replace_memberships' :
+      entity === 'savedViews' ? 'replace_saved_views' :
+      `replace_${entity}`;
     const payload = { h: householdId, rows: records } as Record<string, unknown>;
     const { data, error } = await this.sb.rpc(rpcName, payload as Record<string, unknown>);
     if (error) throw error;
@@ -436,6 +586,32 @@ export class SupabaseAdapter implements DataAdapter {
     if (error) throw error;
   }
 
+  // ── v7.3 — Money Map Item #8 read-path optimisation ────────
+  async queryTxnByMember(householdId: string) {
+    const { data, error } = await this.sb.from('v_txn_by_member')
+      .select('member_id,type,currency,total,n').eq('household_id', householdId);
+    if (error) throw error;
+    return (data || []).map(r => ({
+      member_id: r.member_id as string | null,
+      type: String(r.type),
+      currency: String(r.currency),
+      total: Number(r.total),
+      n: Number(r.n),
+    }));
+  }
+  async queryTxnByAccount(householdId: string) {
+    const { data, error } = await this.sb.from('v_txn_by_account')
+      .select('account_id,type,currency,total,n').eq('household_id', householdId);
+    if (error) throw error;
+    return (data || []).map(r => ({
+      account_id: r.account_id as string | null,
+      type: String(r.type),
+      currency: String(r.currency),
+      total: Number(r.total),
+      n: Number(r.n),
+    }));
+  }
+
   // Private helper — convert a returned row back to its JS shape
   private mapRowBack(entity: Entity, row: unknown): unknown {
     if (entity === 'transactions') return rowToTxn   (row as TransactionRow);
@@ -443,8 +619,19 @@ export class SupabaseAdapter implements DataAdapter {
     if (entity === 'goals')        return rowToGoal  (row as GoalRow);
     if (entity === 'debts')        return rowToDebt  (row as DebtRow);
     if (entity === 'assets')       return rowToAsset (row as AssetRow);
+    if (entity === 'accounts')     return rowToAccount(row as AccountRow);
+    if (entity === 'savedViews')   return rowToSavedView(row as SavedViewRow);
     if (entity === 'members')      return rowToMember(row as MembershipRow);
     return row;
+  }
+
+  // Map an Entity to its actual Postgres table name. Most are 1:1; the
+  // exceptions are `members` -> `memberships` (legacy v4.1 naming) and
+  // `savedViews` -> `saved_views` (snake-case convention for new tables).
+  private tableName(entity: Entity): string {
+    if (entity === 'members')    return 'memberships';
+    if (entity === 'savedViews') return 'saved_views';
+    return entity;
   }
 
   // ── auth-adjacent helpers (used by store) ──────────────────

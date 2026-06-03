@@ -33,6 +33,18 @@
 import { test, expect } from '../fixtures/app';
 import { defaultSeed } from '../fixtures/seed';
 
+const TRACK_MEMBER = {
+  id: '00000000-0000-4000-8000-0000000000f1',
+  name: 'Test User',
+  role: 'primary',
+};
+
+const TRACK_PICKER_ASSETS = [
+  ...(defaultSeed.assets ?? []),
+  { id: '00000000-0000-4000-8000-0000000000f2', type: 'savings', name: 'E2E Savings', value: 2500, currency: 'USD', liquidity: 'liquid' },
+  { id: '00000000-0000-4000-8000-0000000000f3', type: 'investment', name: 'E2E Brokerage', value: 4000, currency: 'USD', liquidity: 'long_term' },
+];
+
 test.describe('§1 TXN-FC · Transaction Creation', () => {
   test.use({ seed: defaultSeed });
 
@@ -90,14 +102,6 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
     await expect(transactions.row('TXN-FC-002 Full')).toBeVisible();
     await page.reload();
     await expect(transactions.row('TXN-FC-002 Full')).toBeVisible();
-  });
-
-  test.fixme('CON-E2E-011 · [TXN-FC-003] transfer moves money between two assets', async () => {
-    // BLOCKED ON APP UX: the transaction modal exposes a single "Account"
-    // picker. A transfer needs a source AND a target account; that second
-    // picker does not exist yet. Leaving as fixme (row stays 🟡 in the
-    // inventory) rather than asserting a partial transfer. Revisit when the
-    // transfer UX lands (tracked alongside Auto-Linking Phase A).
   });
 
   test('CON-E2E-012 · [TXN-FC-004] investment records its type and account', async ({
@@ -242,5 +246,216 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
       return s?.getState().transactions.filter(t => t.description === d).length ?? -1;
     }, desc);
     expect(count).toBe(1);
+  });
+
+  test.describe('track picker and time entry', () => {
+    test.use({
+      seed: {
+        ...defaultSeed,
+        assets: TRACK_PICKER_ASSETS,
+        members: [TRACK_MEMBER],
+      },
+    });
+
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        window.localStorage.setItem('vt_feature_track_picker', '1');
+      });
+    });
+
+    test('TXN-FC-003 · transfer track creates the paired transfer rows between two accounts', async ({
+      page, transactions, txnModal,
+    }) => {
+      const desc = 'TXN-FC-003 Transfer';
+
+      await transactions.goto();
+      await transactions.openAdd();
+      await txnModal.waitOpen();
+
+      await txnModal.trackPickButton('transfer').click();
+      await expect(txnModal.trackPicker).toHaveCount(0);
+      await expect(txnModal.dialog.getByLabel('Category')).toHaveCount(0);
+
+      await txnModal.fill({
+        date: '2026-05-20',
+        amount: 125,
+        description: desc,
+      });
+      await txnModal.selectByValueOrText(txnModal.dialog.getByLabel('From Account'), 'E2E Checking');
+      await txnModal.selectByValueOrText(txnModal.dialog.getByLabel('To Account'), 'E2E Savings');
+      await txnModal.submit();
+
+      await expect(transactions.row(desc)).toHaveCount(2);
+
+      const pair = await page.evaluate((description: string) => {
+        const win = window as typeof window & {
+          __vt_store?: { getState(): { transactions: Array<{ description: string; type: string; category: string; note?: string; paymentMethod?: string; linkedToAssetId?: string }> } };
+          __ff_store?: { getState(): { transactions: Array<{ description: string; type: string; category: string; note?: string; paymentMethod?: string; linkedToAssetId?: string }> } };
+        };
+        const store = win.__vt_store ?? win.__ff_store;
+        if (!store) throw new Error('Store oracle unavailable');
+        return store.getState().transactions.filter(t => t.description === description).map(t => ({
+          type: t.type,
+          category: t.category,
+          note: t.note ?? '',
+          paymentMethod: t.paymentMethod ?? '',
+          linkedToAssetId: t.linkedToAssetId ?? '',
+        }));
+      }, desc);
+
+      expect(pair).toHaveLength(2);
+      expect(pair.map(t => t.type).sort()).toEqual(['expense', 'income']);
+      expect(pair.every(t => t.category === 'transfer')).toBe(true);
+      expect(pair.every(t => t.note.includes('__tg:'))).toBe(true);
+    });
+
+    test('TXN-FC-010 · track picker narrows investment categories and hides category for transfers', async ({
+      transactions, txnModal,
+    }) => {
+      await transactions.goto();
+      await transactions.openAdd();
+      await txnModal.waitOpen();
+
+      await expect(txnModal.trackPicker).toBeVisible();
+      await expect(txnModal.trackPickButton('expense')).toBeVisible();
+      await expect(txnModal.trackPickButton('income')).toBeVisible();
+      await expect(txnModal.trackPickButton('transfer')).toBeVisible();
+      await expect(txnModal.trackPickButton('investment')).toBeVisible();
+
+      await txnModal.trackPickButton('investment').click();
+      await expect(txnModal.trackFieldValue('Investment')).toBeVisible();
+      await expect(txnModal.changeTrackButton).toBeVisible();
+
+      const investmentOptions = await txnModal.categorySelect.locator('option').evaluateAll(options =>
+        options.map(option => (option as HTMLOptionElement).value),
+      );
+
+      expect(investmentOptions).toEqual([
+        'investment_in',
+        'investment_out',
+        'dividend',
+        'capital_gain',
+        'rebalance',
+      ]);
+      expect(investmentOptions).not.toContain('food');
+      expect(investmentOptions).not.toContain('salary');
+
+      await txnModal.changeTrackButton.click();
+      await expect(txnModal.trackPicker).toBeVisible();
+      await txnModal.trackPickButton('transfer').click();
+      await expect(txnModal.trackFieldValue('Transfer')).toBeVisible();
+      await expect(txnModal.dialog.getByLabel('Category')).toHaveCount(0);
+      await expect(txnModal.dialog.getByLabel('To Account')).toBeVisible();
+    });
+
+    test('TXN-FC-011 · edit mode opens directly with the track locked and no picker', async ({
+      transactions, txnModal,
+    }) => {
+      await transactions.goto();
+      await transactions.openEdit('E2E Salary');
+      await txnModal.waitOpen();
+
+      await expect(txnModal.trackPicker).toHaveCount(0);
+      await expect(txnModal.trackFieldValue('Income')).toBeVisible();
+      await expect(txnModal.changeTrackButton).toHaveCount(0);
+
+      await txnModal.cancel();
+      await expect(transactions.row('E2E Salary')).toBeVisible();
+    });
+
+    test('TXN-FC-012 · numeric shortcuts choose each track and Escape closes the modal', async ({
+      page, transactions, txnModal,
+    }) => {
+      const shortcuts = [
+        { key: '1', label: 'Spend' },
+        { key: '2', label: 'Income' },
+        { key: '3', label: 'Transfer' },
+        { key: '4', label: 'Investment' },
+      ] as const;
+
+      await transactions.goto();
+
+      for (const shortcut of shortcuts) {
+        await transactions.openAdd();
+        await txnModal.waitOpen();
+        await expect(txnModal.trackPicker).toBeVisible();
+
+        await page.keyboard.press(shortcut.key);
+        await expect(txnModal.trackFieldValue(shortcut.label)).toBeVisible();
+
+        await page.keyboard.press('Escape');
+        await txnModal.waitClosed();
+      }
+    });
+
+    test('TXN-FC-013 · text time entry rejects malformed input, persists, and sorts latest first', async ({
+      page, transactions, txnModal,
+    }) => {
+      await transactions.goto();
+      await transactions.openAdd();
+      await txnModal.waitOpen();
+
+      await txnModal.trackPickButton('expense').click();
+      await txnModal.fill({
+        date: '2026-05-20',
+        timeClock: '99:99',
+        timeMeridiem: 'AM',
+        amount: 20,
+        description: 'TXN-FC-013 Invalid',
+        category: 'food',
+      });
+      await txnModal.selectByValueOrText(txnModal.memberSelect, 'Test User');
+      await txnModal.selectByValueOrText(txnModal.dialog.getByLabel('Account'), 'E2E Checking');
+      await txnModal.submitButton.click();
+
+      await expect(txnModal.dialog).toBeVisible();
+      await expect(page.getByText('Enter time as hh:mm with AM or PM')).toBeVisible();
+      await txnModal.cancel();
+
+      const entries = [
+        { description: 'TXN-FC-013 Morning', timeClock: '09:15', timeMeridiem: 'AM' as const, expected: '09:15' },
+        { description: 'TXN-FC-013 Evening', timeClock: '06:45', timeMeridiem: 'PM' as const, expected: '18:45' },
+      ];
+
+      for (const entry of entries) {
+        await transactions.openAdd();
+        await txnModal.waitOpen();
+        await txnModal.trackPickButton('expense').click();
+        await txnModal.fill({
+          date: '2026-05-20',
+          timeClock: entry.timeClock,
+          timeMeridiem: entry.timeMeridiem,
+          amount: 20,
+          description: entry.description,
+          category: 'food',
+        });
+        await txnModal.selectByValueOrText(txnModal.memberSelect, 'Test User');
+        await txnModal.selectByValueOrText(txnModal.dialog.getByLabel('Account'), 'E2E Checking');
+        await txnModal.submit();
+      }
+
+      await page.reload();
+
+      await expect(transactions.row('TXN-FC-013 Morning')).toContainText('09:15');
+      await expect(transactions.row('TXN-FC-013 Evening')).toContainText('18:45');
+      await expect(page.locator('[data-testid="txn-row"]').first()).toContainText('TXN-FC-013 Evening');
+
+      const storedTimes = await page.evaluate(() => {
+        const win = window as typeof window & {
+          __vt_store?: { getState(): { transactions: Array<{ description: string; time?: string }> } };
+          __ff_store?: { getState(): { transactions: Array<{ description: string; time?: string }> } };
+        };
+        const store = win.__vt_store ?? win.__ff_store;
+        if (!store) throw new Error('Store oracle unavailable');
+        return store.getState().transactions
+          .filter(t => t.description.startsWith('TXN-FC-013 '))
+          .map(t => ({ description: t.description, time: t.time ?? null }));
+      });
+
+      expect(storedTimes).toEqual(expect.arrayContaining([
+        { description: 'TXN-FC-013 Morning', time: '09:15' },
+        { description: 'TXN-FC-013 Evening', time: '18:45' },
+      ]));
+    });
   });
 });

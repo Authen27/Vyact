@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Mail } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Input, Field } from '../../components/ui/Input';
@@ -7,6 +7,13 @@ import { signUp, signIn } from '../../lib/auth';
 import GoogleButton from '../../components/auth/GoogleButton';
 import { AuthShell } from './SignIn';
 import { useStore } from '../../store';
+
+function getPostAuthPath(next: string | null): string {
+  const pendingInvite = sessionStorage.getItem('pending_invite_token');
+  if (next) return next;
+  if (pendingInvite) return `/invite/${encodeURIComponent(pendingInvite)}`;
+  return '/dashboard';
+}
 
 export default function SignUp() {
   const [name, setName] = useState('');
@@ -16,19 +23,21 @@ export default function SignUp() {
   const [error, setError] = useState('');
   const [verificationPending, setVerificationPending] = useState(false);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const toast = useStore(s => s.toast);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setError(''); setSubmitting(true);
+    const next = params.get('next');
     try {
       const result = await signUp({ email, password, displayName: name });
 
       // Path A — auto-confirm enabled (preferred): session is returned, log straight in.
       if (result.session) {
         toast(`Welcome, ${name}!`, 'success');
-        navigate('/dashboard');
+        navigate(getPostAuthPath(next));
         return;
       }
 
@@ -38,7 +47,7 @@ export default function SignUp() {
       try {
         await signIn(email, password);
         toast(`Welcome, ${name}! Your email is pending verification — check Settings to resend.`, 'success');
-        navigate('/dashboard');
+        navigate(getPostAuthPath(next));
         return;
       } catch {
         // Path C — confirmation strictly required by the project.
@@ -65,7 +74,7 @@ export default function SignUp() {
             a "verification pending" badge in your Settings until you confirm.
           </p>
           <Link
-            to={`/auth/sign-in?email=${encodeURIComponent(email)}`}
+            to={`/auth/sign-in?email=${encodeURIComponent(email)}${params.get('next') ? `&next=${encodeURIComponent(params.get('next')!)}` : ''}`}
             className="btn-primary inline-flex items-center"
           >
             Continue to sign in
@@ -105,7 +114,7 @@ export default function SignUp() {
       </form>
 
       <div className="mt-5 pt-4 border-t border-line text-center text-sm text-ink-mid">
-        Already have an account? <Link to="/auth/sign-in" className="text-coral font-medium hover:underline">Sign in</Link>
+        Already have an account? <Link to={params.get('next') ? `/auth/sign-in?next=${encodeURIComponent(params.get('next')!)}` : '/auth/sign-in'} className="text-coral font-medium hover:underline">Sign in</Link>
       </div>
     </AuthShell>
   );

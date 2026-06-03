@@ -1,8 +1,8 @@
-import { Lock, Repeat, ArrowRightLeft, TrendingUp, Users } from 'lucide-react';
+import { Lock, Repeat, ArrowRightLeft, TrendingUp, Users, Pencil } from 'lucide-react';
 import type { Transaction } from '../../types';
 import { useStore } from '../../store';
 import { getCat } from '../../constants';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatTime } from '../../lib/format';
 import PaymentMethodChip from './PaymentMethodChip';
 import Badge from '../ui/Badge';
 import Money from '../ui/Money';
@@ -35,9 +35,17 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
   const amount = isSplit ? t.split!.yourShare : t.amount;
 
   const wrapperBg = t.excluded ? 'opacity-65' : isInv ? 'bg-honey/[0.04]' : isXfer ? 'bg-denim/[0.03]' : '';
+  const clickable = showActions && onEdit;
 
   return (
-    <div data-testid="txn-row" className={`group flex items-center gap-2.5 px-4 py-2.5 border-b border-line last:border-b-0 hover:bg-coral-tint/40 transition-colors ${wrapperBg}`}>
+    <div
+      data-testid="txn-row"
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={clickable ? () => onEdit!(t) : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit!(t); } } : undefined}
+      className={`group flex items-center gap-2.5 px-4 py-2.5 border-b border-line last:border-b-0 hover:bg-coral-tint/40 transition-colors ${clickable ? 'cursor-pointer' : ''} ${wrapperBg}`}
+    >
       <PaymentMethodChip id={t.paymentMethod} />
       <div
         className="w-[34px] h-[34px] rounded-md flex items-center justify-center text-base flex-shrink-0"
@@ -48,10 +56,10 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
       <div className="flex-1 min-w-0">
         <div className="text-[0.84rem] font-semibold text-ink truncate">{t.description}</div>
         <div className="font-mono text-[0.59rem] text-ink-dim mt-px">
-          {cat.label} · {formatDate(t.date, dateFormat)}{t.note ? ' · ' + t.note : ''}
+          {cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{t.note ? ' · ' + t.note : ''}
         </div>
       </div>
-      <div className={`font-mono text-[0.86rem] font-medium whitespace-nowrap flex items-center gap-0.5 max-w-[40%] min-w-0 ${amtCls}`}>
+      <div className={`font-mono text-[0.86rem] font-medium whitespace-nowrap flex items-center gap-0.5 ${amtCls}`}>
         <span aria-hidden>{sign}</span>
         <Money amount={amount} currency={cur} maxChars={14} />
       </div>
@@ -66,16 +74,16 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
         {showCur    && <Badge tone="plum">{cur}</Badge>}
       </div>
 
-      {showActions && onEdit && (
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            type="button"
-            onClick={() => onEdit(t)}
-            className="font-mono text-[0.56rem] tracking-wider uppercase px-2 py-1 rounded border border-line text-ink-mid hover:border-coral hover:text-coral hover:bg-coral-tint"
-          >
-            Edit
-          </button>
-        </div>
+      {clickable && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onEdit!(t); }}
+          aria-label={`Edit ${t.description}`}
+          title="Edit"
+          className="row-action flex-shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+        >
+          <Pencil size={14} strokeWidth={1.6} />
+        </button>
       )}
     </div>
   );

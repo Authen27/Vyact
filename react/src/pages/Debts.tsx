@@ -1,11 +1,16 @@
 import { useState } from 'react';
+import { Pencil, Trash2, ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, convert } from '../lib/format';
-import { computeEmi, splitEmiPortions, totalLiabilities, totalMonthlyDebtPayment } from '../lib/calculations';
+import Money from '../components/ui/Money';
+import { computeEmi, splitEmiPortions, totalLiabilities, totalReceivables, totalMonthlyDebtPayment } from '../lib/calculations';
 import { DEBT_TYPES } from '../constants';
+import { getMoneyMapMode } from '../lib/featureFlags';
 import type { Debt, PartPaymentChoice } from '../types';
+
+type DebtTab = 'all' | 'owed_by_me' | 'owed_to_me';
 
 export default function Debts() {
   const { t } = useTranslation();
@@ -24,15 +29,24 @@ export default function Debts() {
   const [payAmount, setPayAmount] = useState('');
   const [payChoice, setPayChoice] = useState<PartPaymentChoice>('reduce_tenure');
   const [paying, setPaying]       = useState(false);
+  // v7.2 — direction tabs are flag-gated. Off-mode households see the
+  // legacy single-list UI; Money Map exposes Owed-by-me / Owed-to-me.
+  const showDirectionTabs = getMoneyMapMode() !== 'off';
+  const [tab, setTab] = useState<DebtTab>('all');
 
   const c    = profile.baseCurrency;
   const totalDebt    = totalLiabilities(debts, c, rates);
+  const totalOwedToMe = totalReceivables(debts, c, rates);
   const totalMinPay  = totalMonthlyDebtPayment(debts, c, rates);
   const income       = transactions.filter(tx => tx.type === 'income')
     .reduce((s, tx) => s + convert(tx.amount, tx.currency, c, rates), 0) || 1;
   const dti          = (totalMinPay / (income / 12)) * 100;
 
-  const sorted = [...debts].sort((a, b) => {
+  const filtered = showDirectionTabs && tab !== 'all'
+    ? debts.filter(d => (d.direction || 'owed_by_me') === tab)
+    : debts;
+
+  const sorted = [...filtered].sort((a, b) => {
     if (profile.payoffStrategy === 'snowball')
       return convert(a.currentBalance, a.currency, c, rates) - convert(b.currentBalance, b.currency, c, rates);
     return b.interestRate - a.interestRate;
@@ -86,14 +100,36 @@ export default function Debts() {
       {debts.length > 0 && (
         <div className="grid grid-cols-3 gap-3 mb-4">
           {[
-            { label: 'Total Debt',     value: fmt(totalDebt, c),                   cls: 'text-terra' },
-            { label: 'Min. Monthly',   value: fmt(totalMinPay, c),                 cls: 'text-honey' },
-            { label: 'Debt-to-Income', value: `${dti.toFixed(1)}%`,               cls: dti > 36 ? 'text-terra' : dti > 25 ? 'text-honey' : 'text-sage' },
+            { label: 'Total Debt',     node: <Money amount={totalDebt} currency={c} maxChars={11} className="text-terra" />,                cls: 'text-terra' },
+            { label: 'Min. Monthly',   node: <Money amount={totalMinPay} currency={c} maxChars={11} className="text-honey" />,              cls: 'text-honey' },
+            { label: 'Debt-to-Income', node: <span>{`${dti.toFixed(1)}%`}</span>,                                                            cls: dti > 36 ? 'text-terra' : dti > 25 ? 'text-honey' : 'text-sage' },
           ].map(s => (
-            <div key={s.label} className="bg-bg border border-line rounded-lg p-4 text-center">
-              <div className={`text-xl font-semibold ${s.cls}`}>{s.value}</div>
+            <div key={s.label} className="bg-bg border border-line rounded-lg p-4 text-center min-w-0">
+              <div className={`text-xl font-semibold ${s.cls}`}>{s.node}</div>
               <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mt-0.5">{s.label}</div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* v7.2 Money Map — direction tabs. Hidden when the flag is off
+          to preserve the legacy single-list UX for un-migrated households. */}
+      {showDirectionTabs && debts.length > 0 && (
+        <div className="flex bg-bg3 border border-line rounded-md p-0.5 gap-px mb-4 w-fit">
+          {([
+            { k: 'all',         label: 'All' },
+            { k: 'owed_by_me',  label: 'Owe' },
+            { k: 'owed_to_me',  label: `Owed to me${totalOwedToMe > 0 ? ` · ${fmt(totalOwedToMe, c)}` : ''}` },
+          ] as { k: DebtTab; label: string }[]).map(opt => (
+            <button
+              key={opt.k}
+              onClick={() => setTab(opt.k)}
+              className={`font-mono text-[0.62rem] tracking-[0.1em] uppercase font-medium px-3.5 py-1.5 rounded transition-all ${
+                tab === opt.k ? 'bg-coral text-white shadow-1' : 'text-ink-mid hover:text-ink hover:bg-bg4'
+              }`}
+            >
+              {opt.label}
+            </button>
           ))}
         </div>
       )}
@@ -107,6 +143,16 @@ export default function Debts() {
             <div className="text-4xl mb-3 opacity-60">🏦</div>
             <p className="text-ink-mid mb-4">No debts tracked. Add one to see your payoff plan.</p>
             <button className="btn-primary" onClick={openAdd}>Add First Debt</button>
+          </div>
+        </Panel>
+      ) : sorted.length === 0 ? (
+        <Panel>
+          <div className="px-6 py-10 text-center">
+            <p className="text-ink-mid text-sm">
+              {tab === 'owed_to_me'
+                ? 'No one owes you money right now.'
+                : 'No debts in this view.'}
+            </p>
           </div>
         </Panel>
       ) : (
@@ -141,8 +187,8 @@ export default function Debts() {
                         {d.lender && <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">{d.lender}{d.account ? ` · ${d.account}` : ''}</div>}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="num font-semibold text-terra text-lg">{fmt(balBase, c)}</div>
+                    <div className="text-right min-w-0">
+                      <div className="text-lg font-semibold text-terra"><Money amount={balBase} currency={c} maxChars={12} /></div>
                       <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">{d.interestRate}% APR</div>
                     </div>
                   </div>
@@ -214,15 +260,21 @@ export default function Debts() {
                     </div>
                   )}
 
-                  <div className="flex gap-2 flex-wrap">
-                    <button className="btn-primary text-xs py-1.5 px-3" onClick={() => { setPayDebtId(d.id); setPayAmount(String(d.minimumPayment)); }}>
-                      Record Payment
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button className="btn-primary btn-sm" onClick={() => { setPayDebtId(d.id); setPayAmount(String(d.minimumPayment)); }}>
+                      <CreditCard size={13} strokeWidth={1.8} /> Record Payment
                     </button>
-                    <button className="btn-ghost text-xs py-1.5 px-3" onClick={() => setExpandId(expanded ? null : d.id)}>
-                      {expanded ? 'Less' : 'EMI Details'}
+                    <button className="btn-ghost btn-sm" onClick={() => setExpandId(expanded ? null : d.id)}>
+                      {expanded ? <><ChevronUp size={13} strokeWidth={1.8}/> Less</> : <><ChevronDown size={13} strokeWidth={1.8}/> EMI</>}
                     </button>
-                    <button className="btn-ghost text-xs py-1.5 px-3" onClick={() => openEdit(d)}>Edit</button>
-                    <button className="btn-ghost text-xs py-1.5 px-3 text-terra ml-auto" onClick={() => del(d.id)}>Del</button>
+                    <div className="ml-auto flex gap-1">
+                      <button className="row-action" onClick={() => openEdit(d)} aria-label={`Edit ${d.name}`} title="Edit">
+                        <Pencil size={14} strokeWidth={1.6} />
+                      </button>
+                      <button className="row-action danger" onClick={() => del(d.id)} aria-label={`Delete ${d.name}`} title="Delete">
+                        <Trash2 size={14} strokeWidth={1.6} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -184,11 +184,15 @@ body::before {
 @layer components {
   /* Design-system component classes — aligned to FinFlow Design System v2
      (lib.jsx FF.* specs). Use --ff-* tokens directly for exact fidelity. */
+  /* Display headings — Newsreader serif at light regular weight, NOT italic.
+     v7.4.0: italic display titles were replaced with a light upright treatment
+     after consistent feedback that the kerning of italic Newsreader at small
+     sizes was hurting scannability. Class name kept for callsite stability. */
   .display-italic {
     font-family: var(--ff-serif);
-    font-style: italic;
-    font-weight: 600;
-    letter-spacing: -0.025em;
+    font-style: normal;
+    font-weight: 300;
+    letter-spacing: -0.015em;
   }
   /* Canonical money / numeric-figure treatment — the single source of truth
      for every currency amount in the app (KPI tiles, list rows, section
@@ -205,10 +209,22 @@ body::before {
      The adaptive <Money> component applies this automatically; use the
      `num` class directly when rendering a raw fmt() string. */
   .num {
-    font-family: var(--ff-sans);
+    /* v7.4.1 — switched to JetBrains Mono so every row-level money
+       value (Transactions, Splits, Recurring, Budgets, Assets,
+       Liabilities) reads with the same dense tabular treatment used
+       by the Reports → Period Summary table. Display heroes can opt
+       back into Inter Tight via `.num-display` below. */
+    font-family: var(--ff-mono);
     font-style: normal;
     font-variant-numeric: tabular-nums lining-nums;
     font-feature-settings: 'tnum' 1, 'lnum' 1;
+    letter-spacing: 0;
+  }
+  /* Optional: preserve Inter Tight for hero / oversized amounts where
+     the mono rhythm starts to feel ledger-y. Add `.num-display` to a
+     Money component or a raw .num span. */
+  .num-display {
+    font-family: var(--ff-sans);
     letter-spacing: -0.01em;
   }
   .mono-label {
@@ -227,20 +243,25 @@ body::before {
     box-shadow: var(--ff-shadow-1);
   }
 
-  /* ── Buttons — FF.Button spec: radius 9, weight 600, 5 kinds ──── */
+  /* ── Buttons — FF.Button spec: radius 9, JetBrains Mono uppercase ──
+     v7.4.0: button label typography was unified across the app. All five
+     kinds (primary / ink / ghost / secondary/subtle / danger) share the
+     same height (38px), padding, mono font, uppercase casing and tracking
+     so a row of mixed-variant buttons reads as a single typographic unit. */
   .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .btn-ink, .btn-subtle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     white-space: nowrap;
-    font-family: var(--ff-sans);
-    font-weight: 600;
-    font-size: 13px;
-    letter-spacing: 0.01em;
+    font-family: var(--ff-mono);
+    font-weight: 500;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     line-height: 1;
     height: 38px;
-    padding: 0 14px;
+    padding: 0 16px;
     border-radius: 9px;
     border: 1px solid transparent;
     cursor: pointer;
@@ -271,8 +292,69 @@ body::before {
   .btn-danger { background: transparent; color: var(--ff-coral-deep); border-color: var(--ff-line-2); }
   .btn-danger:hover:not(:disabled) { background: var(--ff-coral-deep-tint); border-color: var(--ff-coral-deep); }
   /* size modifiers */
-  .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; gap: 6px; }
-  .btn-lg { height: 46px; padding: 0 18px; font-size: 14px; gap: 10px; }
+  .btn-sm { height: 30px; padding: 0 12px; font-size: 10.5px; gap: 6px; letter-spacing: 0.09em; }
+  .btn-lg { height: 46px; padding: 0 20px; font-size: 13px; gap: 10px; letter-spacing: 0.07em; }
+
+  /* Icon-only buttons — never crunched. Square, generous padding,
+     same hover/border treatment as ghost. Use for header / toolbar
+     actions where the label would be redundant (Theme toggle, Notifs,
+     close, sort, filter). */
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 9px;
+    border: 1px solid var(--ff-line-2);
+    background: transparent;
+    color: var(--ff-ink);
+    cursor: pointer;
+    transition: background var(--ff-dur-2) var(--ff-ease-out),
+                border-color var(--ff-dur-2) var(--ff-ease-out),
+                color var(--ff-dur-2) var(--ff-ease-out);
+  }
+  .btn-icon:hover:not(:disabled) {
+    background: var(--ff-surface-3);
+    border-color: var(--ff-line-strong);
+  }
+  .btn-icon.btn-sm { width: 32px; height: 32px; border-radius: 7px; }
+  .btn-icon.btn-lg { width: 46px; height: 46px; border-radius: 11px; }
+  .btn-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Row-level inline action — the canonical icon button for list rows
+     (Recurring / Transactions / Budgets / Goals / Debts). 32×32, soft
+     hover, no border by default so a tight row of 2-3 actions reads
+     as a discreet cluster rather than a toolbar. Add `.danger` for
+     destructive intent (terracotta on hover). */
+  .row-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ff-ink-2);
+    cursor: pointer;
+    transition: background 150ms var(--ff-ease-out),
+                color 150ms var(--ff-ease-out),
+                border-color 150ms var(--ff-ease-out);
+  }
+  .row-action:hover:not(:disabled) {
+    background: var(--ff-surface-3);
+    color: var(--ff-ink);
+    border-color: var(--ff-line);
+  }
+  .row-action.danger:hover:not(:disabled) {
+    color: var(--ff-coral-deep);
+    border-color: var(--ff-coral-deep);
+    background: var(--ff-coral-deep-tint);
+  }
+  .row-action:disabled { opacity: 0.4; cursor: not-allowed; }
 
   /* ── Inputs — FF.Input spec: h40, r8, surface, line-2 ────────── */
   .input {
@@ -290,6 +372,60 @@ body::before {
   }
   /* multi-line / select keep auto height */
   textarea.input, select.input { height: auto; min-height: 40px; padding-top: 9px; padding-bottom: 9px; }
+  /* every native <select class="input"> picks up the same chevron + rounded
+     treatment as <Select> via .ff-select — keeps Settings, Recurring filter,
+     onboarding etc. visually identical to in-modal selects (Inter Tight font
+     inherited from .input). */
+  select.input {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235C544D' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='5 8 10 13 15 8'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px 14px;
+    padding-right: 36px !important;
+    cursor: pointer;
+  }
+  [data-theme="dark"] select.input {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23B0A89E' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='5 8 10 13 15 8'/></svg>");
+  }
+  select.input::-ms-expand { display: none; }
+  select.input option {
+    background: var(--ff-surface);
+    color: var(--ff-ink);
+    border-radius: var(--ff-r-2);
+    padding: 8px 12px;
+    font-family: var(--ff-sans);
+  }
   .input::placeholder { color: var(--ff-ink-4); }
   .input:focus { border-color: var(--ff-coral); box-shadow: 0 0 0 2px var(--ff-coral-tint); }
+
+  /* ── Select — single canonical treatment app-wide ───────────────
+     Replaces the native browser arrow with an inline SVG chevron so
+     the dropdown reads identically across Chrome / Safari / Firefox
+     and across every page (filters in Transactions, Recurring,
+     Settings, every modal). The chevron sits 12px from the right
+     edge; padding-right is reserved at 36px to match. */
+  .ff-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235C544D' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='5 8 10 13 15 8'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px 14px;
+    padding-right: 36px !important;
+    border-radius: var(--ff-r-3);
+  }
+  [data-theme="dark"] .ff-select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23B0A89E' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='5 8 10 13 15 8'/></svg>");
+  }
+  .ff-select::-ms-expand { display: none; }
+  .ff-select option {
+    background: var(--ff-surface);
+    color: var(--ff-ink);
+    border-radius: var(--ff-r-2);
+    padding: 8px 12px;
+  }
 }

@@ -100,7 +100,7 @@
 |---|---|---|
 | **TD-21** | RLS performance: wrap `auth.<fn>()` in `(select …)`; consolidate overlapping permissive policies; index 12 FKs | filed in `TECH_DEBT.md`; pair with TD-06. Re-run `get_advisors` after each migration. |
 | **TD-02** | Test governance ratchet — coverage floor + "what must be tested" gate | docs + script; lowest-risk, high trust |
-| **TD-19 / Task #69** | E2E expansion + triage the flaky/uncatalogued specs | QA stream WIP is **stashed** (see §4) |
+| **TD-19 / Task #69** | E2E expansion + triage the flaky/uncatalogued specs | Inventory-first local wave is at **80 implemented / 97 open** after the transaction track-picker + debt-payment burst; next truthful cleanup rows are `ONB-FC-001`, `RESP-FC-003`, `PRIV-FC-003`. Older QA stream WIP is still **stashed** (see §4). |
 | **TD-06** | Pagination / delta sync (client pulls whole tables) | design doc + schema; scaling blocker |
 | **TD-14** | IndexedDB swap (localStorage quota) | pairs with TD-06 |
 | **TD-07** | AI Chat/Insights backend (currently stubs) | product decision needed (provider) |

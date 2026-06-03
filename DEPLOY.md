@@ -83,6 +83,12 @@ that `react/.env.production` exists and the build step does **not** override
 
 ## (Original one-time setup guide — historical)
 
+> ⚠️ **Superseded.** The current production flow is the section at the top of
+> this file. Treat what follows as a first-time bootstrap reference only.
+> Specific URLs, project names, env-var wiring, and "add it in the Vercel UI"
+> instructions below do **not** match the present setup — production now reads
+> Supabase config from the committed `.env.production` files.
+
 > Three steps. ~15 minutes total. You'll get a live consumer app URL, a live
 > admin app URL, and CI/CD that auto-deploys on every push to `main`.
 
@@ -92,10 +98,10 @@ that `react/.env.production` exists and the build step does **not** override
 └──────────────┘              └──────────────┘             └──────────────┘
                                                                   │
                                                                   ▼
-                                                       ┌─────────────────────┐
-                                                       │ finflow.vercel.app  │ (consumer)
-                                                       │ finflow-admin       │ (admin)
-                                                       └─────────────────────┘
+                                                       ┌──────────────────────────┐
+                                                       │ vyact-twentyx.vercel.app │ (consumer)
+                                                       │ vyact-admin.vercel.app   │ (admin)
+                                                       └──────────────────────────┘
                                                                   │
                                                                   ▼
                                                           ┌──────────────┐
@@ -127,23 +133,23 @@ You'll also need locally:
 winget install --id GitHub.cli
 gh auth login                    # follow the browser prompt
 
-cd C:/Users/U.Reddy/Downloads/budget-app
-gh repo create finflow --private --source=. --remote=origin --push
+cd C:/Users/U.Reddy/Downloads/Vyact-main/Vyact-main
+gh repo create vyact --private --source=. --remote=origin --push
 ```
 
-Done. The repo lives at `https://github.com/<your-username>/finflow`.
+Done. The repo lives at `https://github.com/<your-username>/vyact`.
 
 ### Option B — Web UI
 
 1. Go to https://github.com/new
-2. Name: `finflow` · Visibility: **Private** · **Don't** initialise with README
+2. Name: `vyact` · Visibility: **Private** · **Don't** initialise with README
 3. Click "Create repository"
 4. Copy the SSH or HTTPS URL it shows you
 5. Locally:
 
 ```bash
-cd C:/Users/U.Reddy/Downloads/budget-app
-git remote add origin git@github.com:<your-username>/finflow.git   # or https URL
+cd C:/Users/U.Reddy/Downloads/Vyact-main/Vyact-main
+git remote add origin git@github.com:<your-username>/vyact.git   # or https URL
 git push -u origin main
 ```
 
@@ -156,27 +162,26 @@ git push -u origin main
 For the **consumer app**:
 
 1. Go to https://vercel.com/new
-2. **Import Git Repository** → pick `finflow`
+2. **Import Git Repository** → pick `vyact`
 3. Configure:
-   - **Project name**: `finflow` (or whatever you want)
+   - **Project name**: `react` (or whatever you want — production uses `react`)
    - **Root Directory**: click "Edit" → select `react`
    - Framework: Vercel auto-detects Vite
-4. **Environment Variables** — add:
-   - `VITE_SUPABASE_URL` = `https://dmxqkvploojokffuhxnz.supabase.co`
-   - `VITE_SUPABASE_ANON_KEY` = `sb_publishable_SpuQFPzUWOnKI3nRR6ghNw_ktWqrKCA`
-   - `VITE_APP_URL` = (leave blank for now, Vercel will fill in the deploy URL)
+4. **Environment Variables** — leave empty. Supabase URL + publishable key are
+   committed in `react/.env.production`. Do **not** add `VITE_SUPABASE_*` here;
+   an empty value would override the committed file at build time.
 5. Click **Deploy**
 
-After ~90 seconds you'll get a URL like `https://finflow.vercel.app`.
+After ~90 seconds you'll get a URL like `https://vyact-twentyx.vercel.app`.
 
 For the **admin app** — repeat with:
-- **New project** → same `finflow` repo
-- **Project name**: `finflow-admin`
+- **New project** → same `vyact` repo
+- **Project name**: `admin`
 - **Root Directory**: `admin`
-- No env vars needed (mock data layer)
+- No env vars needed — `admin/.env.production` is committed
 - Deploy
 
-You'll get `https://finflow-admin.vercel.app`.
+You'll get `https://vyact-admin.vercel.app`.
 
 ### Through the Vercel CLI (alternative)
 
@@ -189,15 +194,15 @@ cd react
 vercel --prod
 # Answers when prompted:
 #   Set up and deploy? Yes
-#   Which scope? <pick>
+#   Which scope? <pick the bhushandandolus-projects team>
 #   Link to existing project? No
-#   Project name? finflow
+#   Project name? react
 #   Directory? . (current — Vercel reads root from vercel.json)
-# When it asks about env vars, paste the two from above
+# Skip env-var prompts — config is in the committed .env.production
 
 # Admin
 cd ../admin
-vercel --prod      # same flow, name it finflow-admin
+vercel --prod      # same flow, name it admin
 ```
 
 ---
@@ -225,24 +230,26 @@ The workflow at `.github/workflows/deploy.yml` will use them.
 
 ## After deployment
 
-### Update `VITE_APP_URL` on the consumer project
+### `VITE_APP_URL` is no longer needed
 
-Once you know the URL (e.g. `https://finflow.vercel.app`), edit it in Vercel:
-**Project → Settings → Environment Variables → `VITE_APP_URL` = `https://finflow.vercel.app`**
-
-This is the URL Supabase will use in invitation emails and password-reset links.
+The consumer app derives its public URL from `window.location` at runtime, so
+there is no `VITE_APP_URL` to set per environment. The Supabase **Site URL**
+(see below) is the value used inside invitation and password-reset emails.
 
 ### Configure Supabase auth redirects
 
 In your Supabase dashboard at https://supabase.com/dashboard/project/dmxqkvploojokffuhxnz:
 
 1. **Authentication → URL Configuration**
-2. **Site URL**: `https://finflow.vercel.app`
-3. **Redirect URLs** (allow list): add both
-   - `https://finflow.vercel.app/**`
-   - `http://localhost:5173/**` (for local dev)
+2. **Site URL**: `https://vyact-twentyx.vercel.app`
+3. **Redirect URLs** (allow list): add all of
+   - `https://vyact-twentyx.vercel.app/**`
+   - `https://vyact-admin.vercel.app/**`
+   - `http://localhost:5173/**` (for local consumer dev)
+   - `http://localhost:5174/**` (for local admin dev)
 
-Without these, magic-link and password-reset emails will redirect to the wrong host.
+For the canonical list, see [`SUPABASE_CONFIG.md`](SUPABASE_CONFIG.md) §4.
+Without these, magic-link and password-reset emails redirect to the wrong host.
 
 ### Lock down the admin app
 
@@ -257,10 +264,12 @@ The admin app is currently **publicly accessible**. Before you ship real data:
 
 Vercel → Project → Settings → Domains → Add. They auto-issue SSL.
 
-Recommended setup once you own a domain:
-- `app.finflow.io` → consumer
-- `admin.finflow.io` → admin (behind Cloudflare Access or Workspace SSO)
-- `finflow.io` → marketing site (separate)
+Recommended setup once a domain is registered (see
+[`VYACT_TRANSITION_CHECKLIST.md`](VYACT_TRANSITION_CHECKLIST.md) §1 for the
+trademark / domain gate):
+- `app.vyact.<tld>` → consumer
+- `admin.vyact.<tld>` → admin (behind Cloudflare Access or Workspace SSO)
+- `vyact.<tld>` → marketing site (separate)
 
 ---
 
@@ -268,11 +277,11 @@ Recommended setup once you own a domain:
 
 After the first deploy:
 
-1. Open the consumer URL → you should see the auth screen (because `VITE_SUPABASE_URL` is set)
+1. Open `https://vyact-twentyx.vercel.app` → you should see the auth screen (because the committed `VITE_SUPABASE_URL` is baked into the bundle)
 2. Sign up with a real email → check inbox for verification → click → you're in
 3. Create a household → switch to it → add a transaction
 4. Open the same URL on a different device, sign in → confirm same household + transaction is there ✓
-5. Open the admin URL → you should see the NorthStar dashboard with mock data
+5. Open `https://vyact-admin.vercel.app` → you should see the NorthStar dashboard with live KPIs
 
 If something doesn't work, check:
 - Vercel build logs for the failing deploy
@@ -288,7 +297,7 @@ If something doesn't work, check:
 | GitHub repo (private) | unlimited | — |
 | Vercel hosting | 100 GB bandwidth/mo, unlimited deploys | $20/mo Pro |
 | Supabase | 50K monthly active users, 500 MB DB, 1 GB file storage | $25/mo Pro |
-| **Total to ship FinFlow live** | **$0/mo** | $45/mo when you outgrow free tiers |
+| **Total to ship Vyact live** | **$0/mo** | $45/mo when you outgrow free tiers |
 
 You can comfortably run a closed beta with hundreds of users on the free tiers.
 

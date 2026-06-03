@@ -32,11 +32,10 @@ export default function Onboarding() {
   const [language, setLanguage] = useState<string>(() => navigator.language?.split('-')[0] in LOCALES ? navigator.language.split('-')[0] : 'en');
   const [submitting, setSubmitting] = useState(false);
 
-  async function complete() {
-    if (!template) return;
+  async function applyTemplate(selectedTemplate: TemplateKey, selectedConcern: Concern) {
     setSubmitting(true);
-    const meta = TEMPLATES[template];
-    const { budgets, goals, debts } = hydrateTemplate(template, currency);
+    const meta = TEMPLATES[selectedTemplate];
+    const { budgets, goals, debts } = hydrateTemplate(selectedTemplate, currency);
 
     // Pre-populate per template — first-run only
     for (const b of budgets) await adapter.upsert('budgets', currentHouseholdId, b);
@@ -44,8 +43,8 @@ export default function Onboarding() {
     for (const d of debts)   await adapter.upsert('debts',   currentHouseholdId, d);
 
     await updateProfile({
-      template,
-      primaryConcern: concern || meta.primaryConcern,
+      template: selectedTemplate,
+      primaryConcern: selectedConcern || meta.primaryConcern,
       baseCurrency: currency,
       language,
       household: meta.key === 'self_employed' ? 'business' : meta.key === 'family' ? 'family' : 'personal',
@@ -55,6 +54,11 @@ export default function Onboarding() {
     toast(`Welcome — ${meta.label} template applied`, 'success');
     navigate('/dashboard');
     setSubmitting(false);
+  }
+
+  async function complete() {
+    if (!template) return;
+    await applyTemplate(template, concern || TEMPLATES[template].primaryConcern);
   }
 
   return (
@@ -138,7 +142,7 @@ export default function Onboarding() {
               <div>
                 <label className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-ink-mid mb-1.5 block">Currency</label>
                 <select value={currency} onChange={e => setCurrency(e.target.value)}
-                  className="w-full bg-bg3 border border-line rounded-md px-3 py-2.5 font-ui">
+                  className="ff-select w-full bg-bg3 border border-line rounded-md px-3 py-2.5 font-ui cursor-pointer">
                   {Object.entries(CURRENCIES).map(([code, c]) =>
                     <option key={code} value={code}>{c.symbol} {code} — {c.name}</option>)}
                 </select>
@@ -146,7 +150,7 @@ export default function Onboarding() {
               <div>
                 <label className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-ink-mid mb-1.5 block">Language</label>
                 <select value={language} onChange={e => setLanguage(e.target.value)}
-                  className="w-full bg-bg3 border border-line rounded-md px-3 py-2.5 font-ui">
+                  className="ff-select w-full bg-bg3 border border-line rounded-md px-3 py-2.5 font-ui cursor-pointer">
                   {Object.entries(LOCALES).map(([code, l]) =>
                     <option key={code} value={code}>{l.name} ({code.toUpperCase()})</option>)}
                 </select>
@@ -178,7 +182,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        <button onClick={() => { setTemplate('family'); setConcern('spending'); complete(); }}
+        <button onClick={() => { void applyTemplate('family', 'spending'); }}
           className="font-mono text-[0.6rem] tracking-[0.1em] uppercase text-ink-dim hover:text-ink mt-12 block mx-auto">
           Skip — use Family with Kids template
         </button>

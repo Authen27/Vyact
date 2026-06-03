@@ -65,3 +65,11 @@ FinFlow App/_*/
 *.bak
 *.orig
 .cache/
+
+# CI/test scratch (do not commit)
+test-results/
+react/one-test.txt
+react/playwright-run.json
+react/playwright-run.stderr.txt
+rename-audit.txt
+.build.log

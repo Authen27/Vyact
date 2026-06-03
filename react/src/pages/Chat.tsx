@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import {
-  buildSafeSummary, StubChatBackend, type ChatMessage,
+  buildSafeSummary, selectChatBackend, type ChatMessage,
 } from '../lib/aiSummary';
 import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
@@ -18,7 +18,7 @@ const SUGGESTED = [
   'Tell me about my debts',
 ];
 
-const backend = new StubChatBackend();
+const backend = selectChatBackend();
 
 export default function Chat() {
   const txns    = useStore(s => s.transactions);
@@ -83,6 +83,12 @@ export default function Chat() {
         <div>
           <h1 className="display-italic text-4xl text-ink mb-1.5 flex items-center gap-2.5">
             <MessageCircle className="text-coral" /> Chat
+            {!backend.isReal() && (
+              <span className="inline-block text-[0.55rem] font-mono tracking-[0.14em] uppercase text-coral border border-coral/40 bg-coral-tint rounded px-1.5 py-0.5 align-middle" title="Beta — stub backend (TD-07). Set VITE_GEMINI_API_KEY to enable Gemini.">Beta</span>
+            )}
+            {backend.isReal() && (
+              <span className="inline-block text-[0.55rem] font-mono tracking-[0.14em] uppercase text-sage border border-sage/40 bg-sage/10 rounded px-1.5 py-0.5 align-middle" title="Powered by Google Gemini 1.5 Flash (free tier)">Gemini</span>
+            )}
           </h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
             Ask questions about your finances · Privacy-first

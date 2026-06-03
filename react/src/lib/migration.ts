@@ -1,4 +1,4 @@
-// FinFlow v4.1 — LocalStorage → Cloud migration
+// Vyact v4.1 — LocalStorage → Cloud migration
 //
 // Existing v6/v7 users have data in localStorage under legacy keys
 // (e.g. transactions, budgets, etc.). When they sign up, we offer to

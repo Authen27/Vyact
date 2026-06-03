@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Download, FileText, Clipboard, ShieldAlert, Cloud } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
@@ -44,6 +45,7 @@ export default function Settings() {
   const [email, setEmail]     = useState(profile.email);
   const [saving, setSaving]   = useState(false);
   const [rateEdits, setRateEdits] = useState<Record<string, string>>({});
+  const [ratesOpen, setRatesOpen] = useState(false);
   const [extraPay, setExtraPay] = useState(String(profile.extraPayment || 0));
 
   // MFA / Security state (TD-15)
@@ -250,36 +252,63 @@ export default function Settings() {
                 ))}
               </select>
             </div>
+            <div className="sm:col-span-2">
+              <label className="mono-label mb-1.5 block">Number System</label>
+              <select className="input w-full" value={profile.numberSystem ?? 'western'}
+                onChange={e => updateProfile({ numberSystem: e.target.value as 'western' | 'indian' })}>
+                <option value="western">Western — K (thousand) · M (million) · B (billion) · T (trillion)</option>
+                <option value="indian">Indian — K (thousand) · L (lakh = 1,00,000) · Cr (crore = 1,00,00,000)</option>
+              </select>
+              <p className="text-[0.74rem] text-ink-dim mt-1.5">
+                Used when large amounts are compacted (KPI tiles, summary rows, charts).
+              </p>
+            </div>
           </div>
         </Panel>
 
-        {/* ── Exchange Rates ───────────────────────────────── */}
-        <Panel title="Exchange Rates (USD base)">
-          <div className="p-4">
-            <p className="text-[0.84rem] text-ink-mid mb-4">
-              Rates relative to USD. All multi-currency amounts are converted through these.
-            </p>
-            <div className="grid sm:grid-cols-3 gap-2">
-              {Object.entries(CURRENCIES).filter(([c]) => c !== 'USD').map(([code]) => (
-                <div key={code} className="flex items-center gap-2 bg-bg3 border border-line rounded-md px-3 py-2">
-                  <span className="font-mono text-[0.7rem] text-ink-dim w-8 flex-shrink-0">{code}</span>
-                  <input
-                    className="input flex-1 text-right text-sm py-1 px-2"
-                    value={rateEdits[code] ?? String(rates[code] ?? DEFAULT_RATES[code] ?? '')}
-                    onChange={e => setRateEdits(r => ({ ...r, [code]: e.target.value }))}
-                    onBlur={() => applyRate(code)}
-                    onKeyDown={e => e.key === 'Enter' && applyRate(code)}
-                    placeholder={String(DEFAULT_RATES[code] ?? '')}
-                  />
-                </div>
-              ))}
+        {/* ── Exchange Rates (accordion, collapsed by default) ──── */}
+        <Panel>
+          <button
+            type="button"
+            onClick={() => setRatesOpen(o => !o)}
+            aria-expanded={ratesOpen}
+            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-bg3/40 transition-colors"
+          >
+            <div>
+              <div className="display-italic text-2xl text-ink leading-tight">Exchange Rates</div>
+              <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim mt-1">
+                USD base · {Object.keys(CURRENCIES).length - 1} currencies
+              </div>
             </div>
-            <div className="mt-3 flex justify-end">
-              <button className="btn-ghost text-sm" onClick={() => { resetRates(); toast('Rates reset to defaults', 'info'); }}>
-                Reset to defaults
-              </button>
+            <span className="text-ink-mid text-xl" aria-hidden>{ratesOpen ? '−' : '+'}</span>
+          </button>
+          {ratesOpen && (
+            <div className="px-4 pb-4 border-t border-line">
+              <p className="text-[0.84rem] text-ink-mid my-4">
+                Rates relative to USD. All multi-currency amounts are converted through these.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-2">
+                {Object.entries(CURRENCIES).filter(([c]) => c !== 'USD').map(([code]) => (
+                  <div key={code} className="flex items-center gap-2 bg-bg3 border border-line rounded-md px-3 py-2">
+                    <span className="font-mono text-[0.7rem] text-ink-dim w-8 flex-shrink-0">{code}</span>
+                    <input
+                      className="input flex-1 text-right text-sm py-1 px-2"
+                      value={rateEdits[code] ?? String(rates[code] ?? DEFAULT_RATES[code] ?? '')}
+                      onChange={e => setRateEdits(r => ({ ...r, [code]: e.target.value }))}
+                      onBlur={() => applyRate(code)}
+                      onKeyDown={e => e.key === 'Enter' && applyRate(code)}
+                      placeholder={String(DEFAULT_RATES[code] ?? '')}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex justify-end">
+                <button className="btn-ghost btn-sm" onClick={() => { resetRates(); toast('Rates reset to defaults', 'info'); }}>
+                  Reset to defaults
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </Panel>
 
         {/* ── Debt Preferences ─────────────────────────────── */}
@@ -306,29 +335,33 @@ export default function Settings() {
 
         {/* ── Sync & Backup ────────────────────────────────── */}
         <Panel title="Sync & Backup">
-          <div className="p-5 space-y-3">
+          <div className="p-5 space-y-4">
             {cloudEnabled && (
-              <div className="flex items-center gap-2 bg-sage/10 border border-sage/30 rounded-md px-4 py-3 mb-4">
-                <span className="text-sage">☁</span>
+              <div className="flex items-center gap-2.5 bg-sage/10 border border-sage/30 rounded-md px-4 py-3">
+                <Cloud size={16} className="text-sage flex-shrink-0" />
                 <span className="text-[0.84rem] text-ink">Cloud sync is active — data syncs automatically with Supabase.</span>
               </div>
             )}
+            <div className="flex items-start gap-2.5 rounded-md border border-honey/40 bg-honey/10 px-4 py-3 text-[0.82rem] leading-relaxed text-ink">
+              <ShieldAlert size={16} className="text-honey flex-shrink-0 mt-0.5" />
+              <span>Exported files can leave the app and any destructive data-reset workflow should be triggered only from Settings after an explicit review. Treat these actions as sensitive and verify the destination before continuing.</span>
+            </div>
             <div className="grid sm:grid-cols-3 gap-3">
-              <button className="btn-secondary flex flex-col items-center gap-1.5 py-4" onClick={downloadBackup}>
-                <span className="text-xl">⬇</span>
-                <span className="text-sm font-semibold">Download Backup</span>
-                <span className="font-mono text-[0.6rem] text-ink-dim uppercase tracking-widest">JSON snapshot</span>
+              <button className="btn-secondary flex flex-col items-center justify-center gap-2 py-5 h-auto" onClick={downloadBackup}>
+                <Download size={20} strokeWidth={1.6} />
+                <span className="font-mono text-[11px] tracking-[0.08em] uppercase">Download Backup</span>
+                <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">JSON snapshot</span>
               </button>
-              <button className="btn-secondary flex flex-col items-center gap-1.5 py-4" onClick={exportCSV}>
-                <span className="text-xl">📄</span>
-                <span className="text-sm font-semibold">Export CSV</span>
-                <span className="font-mono text-[0.6rem] text-ink-dim uppercase tracking-widest">Transactions</span>
+              <button className="btn-secondary flex flex-col items-center justify-center gap-2 py-5 h-auto" onClick={exportCSV}>
+                <FileText size={20} strokeWidth={1.6} />
+                <span className="font-mono text-[11px] tracking-[0.08em] uppercase">Export CSV</span>
+                <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">Transactions</span>
               </button>
-              <button className="btn-secondary flex flex-col items-center gap-1.5 py-4"
+              <button className="btn-secondary flex flex-col items-center justify-center gap-2 py-5 h-auto"
                 onClick={() => { navigator.clipboard.writeText(JSON.stringify({ profile, transactions, budgets, goals, debts, assets }, null, 2)); toast('Copied to clipboard', 'success'); }}>
-                <span className="text-xl">📋</span>
-                <span className="text-sm font-semibold">Copy to Clipboard</span>
-                <span className="font-mono text-[0.6rem] text-ink-dim uppercase tracking-widest">Full backup</span>
+                <Clipboard size={20} strokeWidth={1.6} />
+                <span className="font-mono text-[11px] tracking-[0.08em] uppercase">Copy to Clipboard</span>
+                <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">Full backup</span>
               </button>
             </div>
           </div>

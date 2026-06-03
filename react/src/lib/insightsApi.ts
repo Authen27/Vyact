@@ -1,4 +1,4 @@
-// FinFlow v6.3 — Insights / Content API (consumer side)
+// Vyact v6.3 — Insights / Content API (consumer side)
 // Reads from public.content_items (only published rows visible per RLS) and
 // manages user-scoped favorites in public.content_favorites.
 

@@ -1,4 +1,4 @@
-// FinFlow v6 — Type definitions
+// Vyact v6 — Type definitions
 // All data models in one place. Imported throughout the app.
 //
 // ── Money fields (TD-01 discipline) ─────────────────────────────
@@ -60,6 +60,7 @@ export interface Transaction {
   amount: number;
   currency: string;
   date: string;            // YYYY-MM-DD
+  time?: string;           // HH:MM local time
   description: string;
   category: string;
   note?: string;
@@ -68,12 +69,29 @@ export interface Transaction {
   paymentMethod?: string;
   excluded?: boolean;
   linkedAssetId?: string;
+  linkedToAssetId?: string;
   linkedDebtId?: string;
   linkedTxnId?: string;
+  /** v7.1 Money Map — FK to `accounts.id`. Dual-written alongside
+   *  `linkedAssetId` while flag is `'shadow'`; sole source once `'on'`. */
+  accountId?: string;
+  toAccountId?: string;
+  initiatedBy?: string;
+  /** v7.3 — Money Map Item #5 (multi-account split). When set, the txn's
+   *  total amount is divided across these accounts (e.g. partial debit +
+   *  partial credit-card). Sum of `amount` must equal `Transaction.amount`.
+   *  When unset, the single `accountId` is the source of funds. Persisted
+   *  on the transaction directly; v7.4 may move this to its own table. */
+  accountSplits?: AccountSplit[];
   split?: SplitInfo;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface AccountSplit {
+  accountId: string;
+  amount: number;
 }
 
 export type BudgetPeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'annual' | 'custom';
@@ -116,6 +134,7 @@ export interface Member {
   name: string;
   role: MemberRole;
   appRole?: AppRole;
+  userId?: string;
 }
 
 export interface Debt {
@@ -133,6 +152,11 @@ export interface Debt {
   dueDate?: string;
   currency: string;
   paymentLog?: PaymentLogEntry[];
+  /** v7.1 Money Map — bidirectional debt support. `'owed_by_me'` is a
+   *  liability (the legacy meaning); `'owed_to_me'` is a receivable shown
+   *  separately on Net Worth. Defaults to `'owed_by_me'` for legacy rows. */
+  direction?: 'owed_by_me' | 'owed_to_me';
+  counterpartyName?: string;
   /** v6.4.19 — TD-03 optimistic-concurrency precondition. See Budget.updated_at. */
   updated_at?: string;
 }
@@ -150,6 +174,39 @@ export interface Asset {
   updated_at?: string;
 }
 
+// ─── v7.1 Money Map — first-class accounts + saved views ──────────────────
+
+export type AccountKind =
+  | 'checking' | 'savings' | 'credit_card' | 'cash'
+  | 'investment' | 'wallet' | 'other';
+
+export interface Account {
+  id: string;
+  /** Legacy back-link to the asset this account was synthesised from. Set
+   *  by the Phase 1 backfill; null for accounts the user creates directly. */
+  assetId?: string;
+  kind: AccountKind;
+  name: string;
+  currency: string;
+  isDefault?: boolean;
+  isArchived?: boolean;
+  updated_at?: string;
+}
+
+export type SavedViewPage = 'transactions' | 'reports' | 'insights';
+
+export interface SavedView {
+  id: string;
+  userId: string;
+  page: SavedViewPage;
+  name: string;
+  /** Sanitised filter parameters only. NEVER store transaction ids, member
+   *  ids, or descriptions here — Sec-2 in SOLUTION_MONEY_MAP.md. */
+  filters: Record<string, unknown>;
+  isShared?: boolean;
+  updated_at?: string;
+}
+
 export type TemplateKey =
   | 'young_couple' | 'family' | 'single' | 'self_employed' | 'retiree' | 'student';
 
@@ -160,13 +217,28 @@ export interface Profile {
   language: string;
   household: ProfileTypeKey;
   dateFormat: 'us' | 'eu' | 'iso';
+  /** v7.4.0 — large-number compaction system. 'western' uses K/M/B/T,
+   *  'indian' uses K/L/Cr (lakh = 100K, crore = 10M). Defaults to 'western'. */
+  numberSystem?: 'western' | 'indian';
   payoffStrategy: PayoffStrategy;
   extraPayment: number;
   // v7
   template?: TemplateKey;
   primaryConcern?: 'spending' | 'debt' | 'savings' | 'retirement';
   onboardedAt?: string;
+  /** v7.3 — Money Map Migration B. Cloud-persisted education/onboarding
+   *  progress: completed-at / dismissed-at per topic id. App caps at 50
+   *  keys (Risk S-3) before pruning oldest by completed_at. */
+  educationProgress?: EducationProgress;
 }
+
+/** Per-topic education state. Topic ids are app-defined strings such as
+ *  `tour_v1`, `pulse_score`, `debt_strategy`. */
+export interface EducationTopicState {
+  completed_at?: string;
+  dismissed_at?: string;
+}
+export type EducationProgress = Record<string, EducationTopicState>;
 
 // v7 — Recurring schedules
 export type RecurrenceFreq = 'weekly' | 'monthly' | 'yearly' | 'custom_day';

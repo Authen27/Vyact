@@ -1,0 +1,203 @@
+# Vyact GA4 event catalog — single source of truth.
+#
+# Schema:
+#   name           snake_case, ≤ 32 chars
+#   description    one-line human summary
+#   added_in       semver tag of the release that introduces it
+#   params         map of param_name → { type, values?, required? }
+#                  type ∈ string | int | bool | enum
+#
+# Rules:
+#   - PII is forbidden. Money goes through bucketAmount() before send.
+#   - Adding/removing/renaming an event requires updating this file in the
+#     same PR as the track() callsite (CI lint MSR-001 — pending).
+#   - Keep alphabetised within each section for review-friendliness.
+
+version: 1
+property: G-E3XKWZP850
+
+events:
+
+  # ── Transaction track-picker (Item #1 / #9) ───────────────────────
+  - name: txn_modal_opened
+    description: User opened the Add/Edit Transaction modal.
+    added_in: v7.1
+    params:
+      surface:
+        type: enum
+        values: [add_button, keyboard_n, dashboard_cta, recurring, edit_row]
+      mode:
+        type: enum
+        values: [add, edit]
+
+  - name: txn_track_chosen
+    description: TrackPicker selection completed.
+    added_in: v7.1
+    params:
+      track:
+        type: enum
+        values: [expense, income, transfer, investment]
+        required: true
+      via:
+        type: enum
+        values: [click, keyboard]
+
+  - name: txn_saved
+    description: Transaction successfully written to the adapter.
+    added_in: v7.1
+    params:
+      track:
+        type: enum
+        values: [expense, income, transfer, investment]
+        required: true
+      currency: { type: string }            # ISO 4217
+      amount_bucket:
+        type: enum
+        values: ['0-10', '10-100', '100-1k', '1k-10k', '10k+']
+        required: true
+      category_id: { type: string }         # catalog id only
+      account_type:
+        type: enum
+        values: [checking, savings, credit_card, cash, investment, other]
+      has_member: { type: bool }
+      has_payment_method: { type: bool }
+      duration_ms: { type: int }            # modal_opened → saved
+
+  - name: txn_abandoned
+    description: Modal closed without save.
+    added_in: v7.1
+    params:
+      track: { type: enum, values: [expense, income, transfer, investment] }
+      reason:
+        type: enum
+        values: [esc, backdrop, cancel_btn, navigate_away]
+      duration_ms: { type: int }
+
+  - name: txn_edited
+    description: Existing row updated.
+    added_in: v7.1
+    params:
+      track: { type: enum, values: [expense, income, transfer, investment] }
+      fields_changed: { type: int }
+
+  - name: txn_deleted
+    description: Row deleted (after confirm).
+    added_in: v7.1
+    params:
+      track: { type: enum, values: [expense, income, transfer, investment] }
+
+  # ── Calculator (Item #6) ──────────────────────────────────────────
+  - name: calc_expression_used
+    description: Amount field evaluated an arithmetic expression.
+    added_in: v7.1
+    params:
+      operators: { type: int }              # count, NOT contents
+
+  # ── Filters & search (Item #4) ────────────────────────────────────
+  - name: filter_applied
+    description: User applied one or more filters on a list page.
+    added_in: v7.2
+    params:
+      page:
+        type: enum
+        values: [transactions, reports, insights]
+        required: true
+      facets: { type: int }                 # count of active facets
+      had_query: { type: bool }
+
+  - name: saved_view_created
+    description: User saved a filter combination as a named view.
+    added_in: v7.2
+
+  # ── Reports / insights (Item #8) ──────────────────────────────────
+  - name: report_period_changed
+    description: User switched the Reports period selector.
+    added_in: v7.1
+    params:
+      period:
+        type: enum
+        values: [day, week, month, quarter, year]
+        required: true
+
+  - name: report_drilldown_clicked
+    description: Click on a chart slice/bar that opens a filtered list.
+    added_in: v7.3
+    params:
+      chart:
+        type: enum
+        values: [donut, bar, line, sankey, member_donut]
+
+  - name: insight_dismissed
+    description: User dismissed a generated insight card.
+    added_in: v7.3
+    params:
+      insight_kind: { type: string }
+
+  - name: insight_actioned
+    description: User clicked the CTA on a generated insight card.
+    added_in: v7.3
+    params:
+      insight_kind: { type: string }
+      action: { type: string }
+
+  # ── Onboarding & education (Item #7) ──────────────────────────────
+  - name: onboarding_step_completed
+    description: User completed an onboarding step.
+    added_in: v7.4
+    params:
+      step: { type: string }
+      step_index: { type: int }
+
+  - name: help_tooltip_opened
+    description: User opened a contextual help tooltip.
+    added_in: v7.4
+    params:
+      topic: { type: string }
+
+  # ── Cross-cutting ─────────────────────────────────────────────────
+  - name: feature_flag_exposure
+    description: User encountered a flagged feature (fires once per session).
+    added_in: v7.1
+    params:
+      flag: { type: string, required: true }
+      variant:
+        type: enum
+        values: [on, off, control]
+        required: true
+
+  - name: app_error_boundary
+    description: ErrorBoundary fallback rendered.
+    added_in: v7.1
+    params:
+      route: { type: string }
+
+user_properties:
+  - name: cloud_enabled
+    type: bool
+    source: '!!import.meta.env.VITE_SUPABASE_URL'
+  - name: base_currency
+    type: string
+    source: profile.baseCurrency
+  - name: household_size
+    type: int
+    source: 'min(members.length, 5)'
+  - name: theme
+    type: enum
+    values: [warm, dark, system]
+    source: profile.theme
+  - name: app_version
+    type: string
+    source: package.json#version
+
+privacy:
+  forbidden_params:
+    - email
+    - name
+    - description
+    - note
+    - household_id
+    - member_id
+    - raw_amount
+    - account_number
+  bucketing:
+    amount: bucketAmount()                  # see react/src/lib/analytics.ts
