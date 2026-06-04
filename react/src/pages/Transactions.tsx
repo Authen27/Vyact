@@ -198,24 +198,26 @@ export default function Transactions() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={() => setShowCalendar(v => !v)}
-            aria-pressed={showCalendar}
-            title="Toggle expense calendar"
-            className={`h-[34px] px-3 rounded-md border flex items-center gap-1.5 font-mono text-[0.62rem] tracking-wider uppercase transition-colors ${
-              showCalendar
-                ? 'bg-coral-tint border-coral/40 text-coral'
-                : 'bg-bg border-line text-ink-mid hover:bg-bg3'
-            }`}
-          >
-            <CalendarDays size={14} /> Calendar
-          </button>
           <button className="btn-primary" onClick={() => openAddTxn()}>+ {t('add-transaction')}</button>
         </div>
       </div>
 
-      {/* v7.3 — Saved Views: persist non-private filter combos per user. */}
-      <div className="mb-3 flex justify-end">
+      {/* v7.4.5 — Calendar toggle moved off the title row to stop it from
+          overlapping the heading at narrow widths. Sits inline with the
+          Saved Views controls so the whole filter-toolbox lives on one row. */}
+      <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+        <button
+          onClick={() => setShowCalendar(v => !v)}
+          aria-pressed={showCalendar}
+          title="Toggle expense calendar"
+          className={`h-[34px] px-3 rounded-md border flex items-center gap-1.5 font-mono text-[0.62rem] tracking-wider uppercase transition-colors ${
+            showCalendar
+              ? 'bg-coral-tint border-coral/40 text-coral'
+              : 'bg-bg border-line text-ink-mid hover:bg-bg3'
+          }`}
+        >
+          <CalendarDays size={14} /> Calendar
+        </button>
         <SavedViewsBar
           page="transactions"
           filters={{ type, cat, month, selectedDate }}

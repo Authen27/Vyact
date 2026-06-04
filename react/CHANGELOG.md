@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v7.4.5`** (consumer)
+> **Current production version: `v7.4.6`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -120,6 +120,44 @@ Architecture:
 - `react/src/store.ts` (seedTxn slot)
 - `react/src/lib/askVyactIntents.ts` (new)
 - `TECH_DEBT.md` (TD-22)
+
+---
+## v7.4.6 — Transactions header overlap fix + one-click update refresh *(2026-06-05)*
+
+Two surgical follow-ups to v7.4.5, both reported the same day the v7.4.5
+build went live. No schema or migration changes.
+
+### Transactions header layout fix
+- The `<CalendarDays>` toggle button shared the title row with the
+  `+ Add Transaction` CTA, and on narrow widths the calendar pill
+  overlapped the heading text. Moved the Calendar toggle off the title
+  row onto the existing toolbox row that already hosts the Saved Views
+  controls. Calendar is now left-aligned, **Views** + **Save View** stay
+  right-aligned. `flex-wrap` on the toolbox row keeps it tidy on
+  phone widths.
+
+### One-click "Refresh to update"
+- Reports said the update banner needed 4–5 clicks before the new
+  version appeared. Root cause: `version.json` had drifted, but the
+  service worker was still serving precached HTML/JS, so a plain
+  `window.location.reload()` returned the *old* build. The banner
+  reappeared each time until the SW eventually self-updated.
+- New `forceReloadForUpdate()` helper in `lib/pwa.ts` makes a single
+  click decisive:
+  1. Calls `registration.update()` to force a network re-check for
+     `sw.js`. If a waiting worker materialises, message `SKIP_WAITING`
+     and reload on `controlling`.
+  2. Otherwise unregisters every service worker, purges Cache Storage,
+     then hard-reloads with a cache-busting `_v` query param so the
+     document and all subresources hit the network.
+- `UpdateBanner.tsx` calls the new helper, disables the button while
+  refreshing, and shows a spinning icon + "Refreshing…" label so the
+  user gets immediate feedback after the single click.
+
+### Files touched
+- `react/src/pages/Transactions.tsx` (header / toolbox row reshuffle)
+- `react/src/lib/pwa.ts` (`forceReloadForUpdate`)
+- `react/src/components/layout/UpdateBanner.tsx` (one-click flow + spinner)
 
 ---
 ## v7.4.4 — Settings password, dashboard navigation, txn click-to-edit, multi-entry Add, number-system fix *(2026-06-04)*

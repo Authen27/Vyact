@@ -73,6 +73,63 @@ export async function applyUpdate(): Promise<void> {
   await wb.messageSkipWaiting();
 }
 
+/**
+ * v7.4.5 — One-click "Refresh to update" path.
+ *
+ * The previous flow called `window.location.reload()` whenever only
+ * `version.json` had drifted. That's a no-op when a service worker is
+ * still serving the *old* precached HTML/JS — the user clicks, sees the
+ * same build, the banner reappears, repeat. Reports said it took 4–5
+ * tries. This helper guarantees a single click works:
+ *
+ *   1. Ask the SW registration for an update (pulls a new `sw.js` if one
+ *      shipped). If a `waiting` worker appears, message it `SKIP_WAITING`
+ *      and reload on `controlling`.
+ *   2. Otherwise (no SW update available, e.g. the build only changed
+ *      `version.json`), unregister every registration and purge the
+ *      Cache Storage so the next request goes to the network. Then
+ *      hard-reload.
+ *
+ * Either branch ends with a single page navigation — the user sees the
+ * new version after one click.
+ */
+export async function forceReloadForUpdate(): Promise<void> {
+  // Workbox path — preferred, gives us the proper SW lifecycle.
+  if (wb && 'serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      // Force the registration to recheck the network for sw.js.
+      await reg?.update().catch(() => undefined);
+      if (reg?.waiting) {
+        wb.addEventListener('controlling', () => window.location.reload());
+        await wb.messageSkipWaiting();
+        return;
+      }
+    } catch {
+      /* fall through to the nuclear path */
+    }
+  }
+  // No waiting worker — the precache is just stale. Wipe SW + caches and
+  // hard-reload. This is the only way to be sure the next paint is the
+  // new build.
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister().catch(() => false)));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k).catch(() => false)));
+    }
+  } catch {
+    /* best-effort — fall through to the reload either way */
+  }
+  // Cache-busting query param defeats any HTTP / memory cache for the doc.
+  const url = new URL(window.location.href);
+  url.searchParams.set('_v', Date.now().toString(36));
+  window.location.replace(url.toString());
+}
+
 export async function registerPwa(): Promise<void> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
   // Only register the production-built SW; dev SW is opt-in via vite.config.

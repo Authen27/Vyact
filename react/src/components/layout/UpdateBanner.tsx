@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, X } from 'lucide-react';
-import { applyUpdate } from '../../lib/pwa';
+import { applyUpdate, forceReloadForUpdate } from '../../lib/pwa';
 
 /**
  * SW-free "new version available" prompt.
@@ -23,6 +23,7 @@ export default function UpdateBanner() {
   const [latest, setLatest] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [swWaiting, setSwWaiting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const check = useCallback(async () => {
     try {
@@ -55,11 +56,18 @@ export default function UpdateBanner() {
   if (!updateAvailable || dismissed) return null;
 
   function refresh() {
+    if (refreshing) return;
+    setRefreshing(true);
     if (swWaiting) {
-      // Tell the waiting SW to take over; applyUpdate() reloads on 'controlling'.
+      // SW already had a waiting worker — message skipWaiting and reload
+      // on 'controlling'. This is the cleanest possible refresh path.
       void applyUpdate();
     } else {
-      window.location.reload();
+      // version.json drifted but the SW didn't notice yet. A plain
+      // window.location.reload() returns precached HTML/JS and the
+      // banner reappears (this is what made it feel like 4–5 clicks).
+      // Use the unified force-reload path instead.
+      void forceReloadForUpdate();
     }
   }
 
@@ -71,21 +79,23 @@ export default function UpdateBanner() {
                  bg-bg2 border border-line2 rounded-lg shadow-3 px-4 py-3
                  flex items-center gap-3 animate-modalIn"
     >
-      <RefreshCw size={18} className="text-coral flex-shrink-0" />
+      <RefreshCw size={18} className={`text-coral flex-shrink-0 ${refreshing ? 'animate-spin' : ''}`} />
       <div className="flex-1 min-w-0 text-[0.84rem] text-ink leading-snug">
         A new version of Vyact{latest ? ` (v${latest})` : ''} is available.
-        <span className="text-ink-dim"> Refresh to update.</span>
+        <span className="text-ink-dim"> {refreshing ? 'Refreshing…' : 'Refresh to update.'}</span>
       </div>
       <button
         onClick={refresh}
-        className="btn-primary py-1.5 px-3 text-xs flex-shrink-0"
+        disabled={refreshing}
+        className="btn-primary py-1.5 px-3 text-xs flex-shrink-0 disabled:opacity-60 disabled:cursor-wait"
       >
-        Refresh
+        {refreshing ? 'Refreshing…' : 'Refresh'}
       </button>
       <button
         onClick={() => setDismissed(true)}
         aria-label="Dismiss update notice"
-        className="text-ink-dim hover:text-ink p-1 flex-shrink-0"
+        disabled={refreshing}
+        className="text-ink-dim hover:text-ink p-1 flex-shrink-0 disabled:opacity-40"
       >
         <X size={16} />
       </button>
