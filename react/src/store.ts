@@ -23,6 +23,7 @@ import {
   backfillSchedulesFromTransactions,
 } from './lib/recurring';
 import { uid, today, setNumberSystem } from './lib/format';
+import { readNumberSystemPref, writeNumberSystemPref } from './lib/numberSystemPref';
 import {
   upcomingBillNotifs, missedPaymentNotifs, budgetThresholdNotifs,
   goalMilestoneNotifs, DEFAULT_PREFS, isInQuietHours, showWebPush,
@@ -382,18 +383,25 @@ export const useStore = create<Store>((set, get) => ({
       prev.members.length + prev.debts.length + prev.assets.length) > 0;
     if (allEmpty && prevHadData && prev.currentHouseholdId === currentHouseholdId) {
       // Refresh in-memory profile + rates only; keep entity arrays as-is.
+      const overlaidNs = readNumberSystemPref(currentHouseholdId);
+      const baseProfile = profile ? { ...defaultProfile, ...profile } : prev.profile;
+      const mergedProfile = overlaidNs ? { ...baseProfile, numberSystem: overlaidNs } : baseProfile;
       set({
-        profile: profile ? { ...defaultProfile, ...profile } : prev.profile,
+        profile: mergedProfile,
         rates: rates && Object.keys(rates).length ? rates : prev.rates,
       });
+      setNumberSystem(mergedProfile.numberSystem === 'indian' ? 'indian' : 'western');
       prev.toast('Cloud sync looked empty — keeping local data. Use Force Resync if needed.', 'warning');
       return;
     }
+    const overlaidNs = readNumberSystemPref(currentHouseholdId);
+    const baseProfile = profile
+      ? { ...defaultProfile, ...profile, educationProgress: profile.educationProgress ?? readLocalEducationProgress() }
+      : { ...defaultProfile, educationProgress: readLocalEducationProgress() };
+    const mergedProfile = overlaidNs ? { ...baseProfile, numberSystem: overlaidNs } : baseProfile;
     set({
       transactions, budgets: hydratedBudgets, goals, members, debts, assets, accounts, savedViews,
-      profile: profile
-        ? { ...defaultProfile, ...profile, educationProgress: profile.educationProgress ?? readLocalEducationProgress() }
-        : { ...defaultProfile, educationProgress: readLocalEducationProgress() },
+      profile: mergedProfile,
       rates,
     });
     setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
@@ -631,8 +639,21 @@ export const useStore = create<Store>((set, get) => ({
 
   updateProfile: async (patch) => {
     const { adapter, currentHouseholdId, profile } = get();
-    const next = await adapter.updateProfile(currentHouseholdId, patch);
-    const merged = { ...profile, ...next };
+    // v7.4.4 — numberSystem is not yet a DB column. Persist locally,
+    // strip from the cloud patch so the adapter doesn't drop other fields,
+    // and apply immediately.
+    let nsOverride: 'western' | 'indian' | undefined;
+    let cloudPatch: typeof patch = patch;
+    if (patch.numberSystem !== undefined) {
+      nsOverride = patch.numberSystem;
+      writeNumberSystemPref(currentHouseholdId, nsOverride);
+      const { numberSystem: _ns, ...rest } = patch;
+      cloudPatch = rest;
+    }
+    const next = Object.keys(cloudPatch).length
+      ? await adapter.updateProfile(currentHouseholdId, cloudPatch)
+      : profile;
+    const merged = { ...profile, ...next, ...(nsOverride ? { numberSystem: nsOverride } : {}) };
     set({ profile: merged });
     setNumberSystem(merged.numberSystem === 'indian' ? 'indian' : 'western');
   },

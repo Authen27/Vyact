@@ -7,7 +7,7 @@ import { Panel } from '../components/ui/Card';
 import { fmt, today } from '../lib/format';
 import { CURRENCIES, DEFAULT_RATES, LOCALES, PROFILE_TYPES } from '../constants';
 import { sb } from '../lib/supabase';
-import { enrollMfaTotp, verifyMfaEnrolment, listMfaFactors, unenrollMfaFactor } from '../lib/auth';
+import { enrollMfaTotp, verifyMfaEnrolment, listMfaFactors, unenrollMfaFactor, updatePassword } from '../lib/auth';
 import type { Profile, Theme } from '../types';
 
 const THEMES: { key: Theme; label: string; desc: string }[] = [
@@ -55,6 +55,25 @@ export default function Settings() {
   const [mfaEnrolling, setMfaEnrolling] = useState(false);
   const [mfaFactors, setMfaFactors] = useState<any[]>([]);
   const [loadingFactors, setLoadingFactors] = useState(false);
+
+  // Password change state (v7.4.4)
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwShow, setPwShow] = useState(false);
+
+  async function savePassword() {
+    if (pwNew.length < 8) { toast('Password must be at least 8 characters', 'error'); return; }
+    if (pwNew !== pwConfirm) { toast('Passwords do not match', 'error'); return; }
+    setPwSaving(true);
+    try {
+      await updatePassword(pwNew);
+      setPwNew(''); setPwConfirm(''); setPwShow(false);
+      toast('Password updated', 'success');
+    } catch (e) {
+      toast(`Could not update password: ${(e as Error).message}`, 'error');
+    } finally { setPwSaving(false); }
+  }
 
   async function saveProfile() {
     setSaving(true);
@@ -364,6 +383,61 @@ export default function Settings() {
                 <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">Full backup</span>
               </button>
             </div>
+          </div>
+        </Panel>
+
+        {/* ── Password ─────────────────────────────────────── */}
+        <Panel title="Password">
+          <div className="p-5">
+            {!cloudEnabled || !session ? (
+              <div className="bg-bg3 border border-line rounded-md p-4 text-sm text-ink-mid">
+                Password management requires cloud mode. Sign in with a cloud account to change your password.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-[0.9rem] text-ink-mid">
+                  Update the password for <span className="font-mono text-ink">{userEmail}</span>. You stay signed in on this device.
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="mono-label mb-1.5 block">New password</label>
+                    <input
+                      type={pwShow ? 'text' : 'password'}
+                      className="input w-full"
+                      value={pwNew}
+                      onChange={e => setPwNew(e.target.value)}
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                    />
+                  </div>
+                  <div>
+                    <label className="mono-label mb-1.5 block">Confirm new password</label>
+                    <input
+                      type={pwShow ? 'text' : 'password'}
+                      className="input w-full"
+                      value={pwConfirm}
+                      onChange={e => setPwConfirm(e.target.value)}
+                      autoComplete="new-password"
+                      placeholder="Re-enter"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <label className="flex items-center gap-2 text-[0.85rem] text-ink-mid select-none cursor-pointer">
+                    <input type="checkbox" checked={pwShow} onChange={e => setPwShow(e.target.checked)} />
+                    Show passwords
+                  </label>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={pwSaving || !pwNew || !pwConfirm}
+                    onClick={savePassword}
+                  >
+                    {pwSaving ? 'Saving…' : 'Update password'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </Panel>
 

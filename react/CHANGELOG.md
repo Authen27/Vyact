@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v7.4.2`** (consumer)
+> **Current production version: `v7.4.4`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,52 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+## v7.4.4 — Settings password, dashboard navigation, txn click-to-edit, multi-entry Add, number-system fix *(2026-06-04)*
+
+Four UX upgrades and one persistence bug fix bundled together.
+
+### Added
+- **Change-password card in Settings** ([Settings.tsx](react/src/pages/Settings.tsx)). New panel before MFA: enter new password, confirm, optional show-passwords toggle, Save. Reuses the existing `updatePassword()` helper in [auth.ts](react/src/lib/auth.ts). Validates length ≥ 8 and matching fields. Gated on `cloudEnabled && session`; local-only mode shows a muted hint instead. The user stays signed in on the current device after the update.
+- **Dashboard cards are now navigable** ([Dashboard.tsx](react/src/pages/Dashboard.tsx)). Whole-card click targets:
+  - **Pulse Score** → `/reports`
+  - **Total Balance** → `/networth`
+  - **Monthly Income** → `/transactions?type=income`
+  - **Monthly Expenses** → `/transactions?type=expense`
+  - **Savings Rate** → `/budgets`
+  - **Spending by Category** panel → `/reports`
+  Each wrapper carries a focus ring and `aria-label` for keyboard / screen-reader use.
+- **Deep-link filter seed in Transactions** ([Transactions.tsx](react/src/pages/Transactions.tsx)). The page now reads `?type=` and `?cat=` from the URL on mount and seeds the type / category selects. Params are stripped after seeding so a refresh respects user changes.
+- **Recent transactions on Dashboard are click-to-edit.** The recent-transactions list now passes `showActions` and `onEdit={openEditTxn}` to `<TxnRow>`, so a tap or Enter opens the same `TransactionFormModal` that the Transactions page uses.
+- **Always-available `AddFab`** — new component [AddFab.tsx](react/src/components/layout/AddFab.tsx). 56px coral primary FAB pinned to the bottom-right, respecting `env(safe-area-inset-bottom)` and sitting above the `MobileBar`. Auto-hides on scroll-down so it doesn't block content; reappears on scroll-up. Hidden on `/auth/*` routes.
+- **Speed-dial on the FAB.** Long-press (touch) or right-click (desktop) opens a small dial with **Add Goal**, **Add Budget**, **Add Debt**, **Add Asset**. Plain tap remains Add Transaction so the most-common action is one tap away. Esc and outside-click dismiss the dial.
+- **Global keyboard shortcuts** ([Layout.tsx](react/src/components/layout/Layout.tsx)). `n` / `g` / `b` / `d` / `a` (and uppercase variants) now open the matching add-modal from any page, not just Transactions. The existing typing-in-input guard still suppresses accidental triggers.
+- **`useScrollDirection` hook** ([hooks.ts](react/src/hooks.ts)) — small RAF-throttled helper consumed by `AddFab`; available for future scroll-aware UI.
+- **Bottom padding guard** — the main content area gained `pb-28 lg:pb-14` so the last list row is never hidden behind the FAB stack on mobile.
+
+### Fixed
+- **Number System dropdown couldn't be selected.** Picking "Indian — K / L / Cr" in Settings appeared to do nothing because [supabaseAdapter.updateProfile](react/src/lib/supabaseAdapter.ts) never mapped `numberSystem` to a column — the cloud round-trip returned `numberSystem: undefined`, the store merged `{ ...profile, ...next }`, and the just-picked value was overwritten. The `<select>` snapped back to **Western** instantly. New [numberSystemPref.ts](react/src/lib/numberSystemPref.ts) overlay persists the choice per-household in `localStorage` (key `vt_number_system_<householdId>`); [store.ts](react/src/store.ts) `refresh()` and `updateProfile()` now layer the overlay on top of the cloud profile, mirroring the documented "client-side overlay for un-migrated schema" pattern. No DB migration required; cross-device sync of the preference will arrive with a future schema bump.
+
+### Notes
+- `FloatingTools` (Planner / Ask Vyact) shifted to `bottom-[160px] lg:bottom-[88px]` so it stacks above the new `AddFab` without overlap.
+- The page-scoped `n` shortcut on the Transactions page was removed since Layout now registers it app-wide; `/` (focus search) remains page-scoped.
+
+---
+## v7.4.3 — Transactions: slim filter bar, active chips, result-count + net *(2026-06-04)*
+
+The Transactions page used to dedicate one full row to search and four full-width selects (Type / Category / Month / Member) on mobile — about 240px of vertical real estate before the first row even rendered. The bar now collapses to a single line on every screen size.
+
+### Changed
+- **Slim filter bar** ([Transactions.tsx](react/src/pages/Transactions.tsx)). Replaces the five-control row with: a single search input (inline `Search` icon, inline `X` to clear, `/` shortcut to focus) plus a `SlidersHorizontal` icon-button that opens a popover. The popover holds the four selects vertically and a **Reset** action.
+- **Active filter count badge** on the filter button — a coral pip with the active-filter count so users see at a glance that filters are applied even when the popover is closed.
+- **Active filter chip row** under the search bar — each non-default filter shows as a removable pill (`Type: expense ×`, `Category: Groceries ×`, etc.) with a **Clear all** link. One tap removes a single filter without re-opening the popover.
+- **Result count + filtered net** under the chips — `42 transactions · Net −$1,284.50`. Sage when positive, terra when negative; hidden when the type filter is set to investments / transfers (where a signed net would be misleading).
+- **Smarter empty state** — when the list is empty *with* filters active, the panel shows a focused "No transactions match your filters" message and a one-tap **Clear filters** button. When the list is empty with no filters, the message is the friendlier "add your first one" prompt instead of the generic "No transactions found".
+- **Popover dismissal** — click-outside and Escape both close the filter popover so it never traps users on mobile.
+- **`/` keyboard shortcut** to focus the search box (in addition to existing `n` / `N` for add). Honours the existing input-focus guard in `useShortcuts`.
+
+No schema change, no new dependencies. Typecheck clean.
 
 ---
 ## v7.4.2 — Fix: sidebar auto-close, body-scroll lock, Help default-closed *(2026-06-04)*

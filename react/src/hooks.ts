@@ -1,5 +1,5 @@
 // Lightweight custom hooks
-import { useEffect, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useStore } from './store';
 import { LOCALES } from './constants';
 
@@ -26,6 +26,34 @@ export function useShortcuts(handlers: Record<string, () => void>) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [handlers]);
+}
+
+// useScrollDirection — returns 'up' | 'down' | 'idle' based on window scroll.
+// Used by AddFab to hide while the user is reading down the page and re-show
+// the moment they scroll back up. Threshold filters out tiny scrolls.
+export function useScrollDirection(threshold = 6): 'up' | 'down' | 'idle' {
+  const [dir, setDir] = useState<'up' | 'down' | 'idle'>('idle');
+  useEffect(() => {
+    let last = window.scrollY;
+    let ticking = false;
+    function update() {
+      const y = window.scrollY;
+      const delta = y - last;
+      if (Math.abs(delta) > threshold) {
+        setDir(delta > 0 ? 'down' : 'up');
+        last = y;
+      }
+      // Treat the very top of the page as idle so the FAB always shows there.
+      if (y < 24) setDir('idle');
+      ticking = false;
+    }
+    function onScroll() {
+      if (!ticking) { window.requestAnimationFrame(update); ticking = true; }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+  return dir;
 }
 
 // useTheme — initialize theme on mount and listen for system changes

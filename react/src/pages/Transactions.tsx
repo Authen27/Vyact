@@ -1,6 +1,9 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Plus, CalendarDays, X } from 'lucide-react';
+import {
+  Plus, CalendarDays, X, Search, SlidersHorizontal, RotateCcw,
+} from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation, useShortcuts } from '../hooks';
 import { Panel } from '../components/ui/Card';
@@ -11,7 +14,7 @@ import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import { ALL_CATEGORIES } from '../constants';
-import { getMonthKey, monthName, formatDate, nowMonthKey, today, transactionSortValue } from '../lib/format';
+import { getMonthKey, monthName, formatDate, nowMonthKey, today, transactionSortValue, fmt } from '../lib/format';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
 import type { Transaction, TxnType } from '../types';
 
@@ -31,15 +34,58 @@ export default function Transactions() {
   const openAddTxn  = useStore(s => s.openAddTxn);
   const openEditTxn = useStore(s => s.openEditTxn);
 
+  // v7.4.4 — deep-link from Dashboard cards (?type=income/expense, ?cat=foo).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialType = (() => {
+    const t = searchParams.get('type');
+    return t === 'income' || t === 'expense' || t === 'investment' || t === 'transfer' ? t : 'all';
+  })();
+  const initialCat = searchParams.get('cat') || 'all';
+
   const [search,   setSearch]   = useState('');
-  const [type,     setType]     = useState<TxnFilter>('all');
-  const [cat,      setCat]      = useState('all');
+  const [type,     setType]     = useState<TxnFilter>(initialType as TxnFilter);
+  const [cat,      setCat]      = useState(initialCat);
   const [month,    setMonth]    = useState('all');
   const [memberId, setMemberId] = useState('all');
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const filterPopoverRef = useRef<HTMLDivElement>(null);
 
-  useShortcuts({ n: openAddTxn, N: openAddTxn });
+  // `/` focuses the search box. The `n` add-transaction shortcut is now
+  // registered app-wide in Layout (v7.4.4) so it works on every page.
+  useShortcuts({
+    '/': () => searchRef.current?.focus(),
+  });
+
+  // Strip URL params after seeding so a page refresh respects user changes.
+  useEffect(() => {
+    if (searchParams.get('type') || searchParams.get('cat')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('type'); next.delete('cat');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Esc closes the filter popover; click-outside dismisses it as well so it
+  // never traps the user on mobile.
+  useEffect(() => {
+    if (!showFilters) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowFilters(false); };
+    const onClick = (e: MouseEvent) => {
+      if (filterPopoverRef.current && !filterPopoverRef.current.contains(e.target as Node)) {
+        setShowFilters(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onClick);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onClick);
+    };
+  }, [showFilters]);
 
   const months = useMemo(
     () => [...new Set(txns.map(t => getMonthKey(t.date)))].sort().reverse(),
@@ -110,6 +156,39 @@ export default function Transactions() {
     setSelectedDate(d => (d === date ? null : date));
   }
 
+  // ---- Filter UX helpers (slim bar) -------------------------------------
+  const activeFilters = useMemo(() => {
+    const list: { key: string; label: string; clear: () => void }[] = [];
+    if (type !== 'all')     list.push({ key: 'type',  label: `Type: ${type}`, clear: () => setType('all') });
+    if (cat !== 'all') {
+      const c = ALL_CATEGORIES.find(x => x.id === cat);
+      list.push({ key: 'cat', label: `Category: ${c ? c.label : cat}`, clear: () => setCat('all') });
+    }
+    if (month !== 'all')    list.push({ key: 'month', label: `Month: ${monthName(month)}`, clear: () => setMonth('all') });
+    if (memberId !== 'all') {
+      const m = members.find(x => x.id === memberId);
+      list.push({ key: 'member', label: `Member: ${m ? m.name : memberId}`, clear: () => setMemberId('all') });
+    }
+    return list;
+  }, [type, cat, month, memberId, members]);
+  const hasFilters = activeFilters.length > 0 || search.length > 0 || selectedDate !== null;
+  function resetAllFilters() {
+    setSearch(''); setType('all'); setCat('all'); setMonth('all'); setMemberId('all'); setSelectedDate(null);
+  }
+
+  // Net of the *visible* (non-projected) rows so users see the impact of
+  // their filter on real data. Income & investment-sell add; expense &
+  // investment-buy & transfers do not contribute to net spend.
+  const filteredNet = useMemo(() => {
+    let net = 0;
+    for (const item of filtered) {
+      if (item.projected) continue;
+      if (item.txn.type === 'income') net += item.txn.amount;
+      else if (item.txn.type === 'expense') net -= item.txn.amount;
+    }
+    return net;
+  }, [filtered]);
+
   return (
     <div>
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
@@ -179,33 +258,164 @@ export default function Transactions() {
       )}
 
       <Panel>
-        <div className="flex gap-2 px-4 py-3 border-b border-line flex-wrap">
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" className="flex-1 min-w-[120px]" />
-          <Select value={type} onChange={e => setType(e.target.value as TxnFilter)} className="flex-1 min-w-[110px]">
-            <option value="all">All Types</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-            <option value="investment">Investment</option>
-            <option value="transfer">Transfer</option>
-          </Select>
-          <Select value={cat} onChange={e => setCat(e.target.value)} className="flex-1 min-w-[140px]">
-            <option value="all">All Categories</option>
-            {ALL_CATEGORIES.map(c => (
-              <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
-            ))}
-          </Select>
-          <Select value={month} onChange={e => setMonth(e.target.value)} className="flex-1 min-w-[140px]">
-            <option value="all">All Months</option>
-            {months.map(mk => <option key={mk} value={mk}>{monthName(mk)}</option>)}
-          </Select>
-          <Select value={memberId} onChange={e => setMemberId(e.target.value)} className="flex-1 min-w-[120px]">
-            <option value="all">All Members</option>
-            {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </Select>
+        {/* Slim filter bar: search + filter icon (with active-count badge).
+            Mobile-first — collapses heavy selects into a popover so the page
+            doesn't burn 5 select rows of vertical real estate by default. */}
+        <div className="px-3 sm:px-4 py-2.5 border-b border-line">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none"
+                aria-hidden
+              />
+              <Input
+                ref={searchRef}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search transactions…  ( / )"
+                aria-label="Search transactions"
+                className="!pl-9 !pr-9"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 row-action"
+                >
+                  <X size={13} strokeWidth={1.8} />
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowFilters(v => !v)}
+                aria-expanded={showFilters}
+                aria-haspopup="dialog"
+                title="Filters"
+                className={`relative h-[38px] w-[38px] rounded-[9px] border flex items-center justify-center transition-colors ${
+                  showFilters || activeFilters.length > 0
+                    ? 'bg-coral-tint border-coral/40 text-coral'
+                    : 'bg-bg border-line text-ink-mid hover:bg-bg3 hover:text-ink'
+                }`}
+              >
+                <SlidersHorizontal size={15} />
+                {activeFilters.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-coral text-white text-[0.58rem] font-mono font-semibold flex items-center justify-center leading-none">
+                    {activeFilters.length}
+                  </span>
+                )}
+              </button>
+              {showFilters && (
+                <div
+                  ref={filterPopoverRef}
+                  role="dialog"
+                  aria-label="Transaction filters"
+                  className="absolute right-0 top-[44px] z-30 w-[min(92vw,22rem)] bg-bg2 border border-line rounded-xl shadow-3 p-3.5 animate-[modalIn_180ms_ease-out]"
+                >
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
+                      Filters
+                    </div>
+                    <button
+                      onClick={resetAllFilters}
+                      disabled={!hasFilters}
+                      className="flex items-center gap-1 text-[0.72rem] text-ink-mid hover:text-coral disabled:opacity-40 disabled:hover:text-ink-mid"
+                    >
+                      <RotateCcw size={12} /> Reset
+                    </button>
+                  </div>
+                  <div className="space-y-2.5">
+                    <Select value={type} onChange={e => setType(e.target.value as TxnFilter)} aria-label="Type">
+                      <option value="all">All Types</option>
+                      <option value="income">Income</option>
+                      <option value="expense">Expense</option>
+                      <option value="investment">Investment</option>
+                      <option value="transfer">Transfer</option>
+                    </Select>
+                    <Select value={cat} onChange={e => setCat(e.target.value)} aria-label="Category">
+                      <option value="all">All Categories</option>
+                      {ALL_CATEGORIES.map(c => (
+                        <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
+                      ))}
+                    </Select>
+                    <Select value={month} onChange={e => setMonth(e.target.value)} aria-label="Month">
+                      <option value="all">All Months</option>
+                      {months.map(mk => <option key={mk} value={mk}>{monthName(mk)}</option>)}
+                    </Select>
+                    <Select value={memberId} onChange={e => setMemberId(e.target.value)} aria-label="Member">
+                      <option value="all">All Members</option>
+                      {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </Select>
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="btn-primary py-1.5 px-3 text-[0.74rem]"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Active filter chip row — lets users remove individual filters
+              one tap at a time without re-opening the popover. */}
+          {activeFilters.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {activeFilters.map(f => (
+                <span
+                  key={f.key}
+                  className="inline-flex items-center gap-1.5 bg-bg3 border border-line rounded-full pl-2.5 pr-1.5 py-0.5 text-[0.72rem] text-ink-mid"
+                >
+                  {f.label}
+                  <button onClick={f.clear} aria-label={`Clear ${f.key} filter`} className="text-ink-dim hover:text-coral">
+                    <X size={11} strokeWidth={2} />
+                  </button>
+                </span>
+              ))}
+              <button
+                onClick={resetAllFilters}
+                className="text-[0.7rem] text-ink-dim hover:text-coral underline-offset-2 hover:underline ml-1"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {/* Result count + filtered net — instant feedback on what the
+              filter actually returns. Hidden when the list is empty so it
+              doesn't compete with the empty state. */}
+          {filtered.length > 0 && (
+            <div className="mt-2 flex items-center justify-between text-[0.7rem] font-mono text-ink-dim">
+              <span>
+                {filtered.length} {filtered.length === 1 ? 'transaction' : 'transactions'}
+              </span>
+              {(type === 'all' || type === 'income' || type === 'expense') && (
+                <span className={filteredNet >= 0 ? 'text-sage' : 'text-terra'}>
+                  Net {filteredNet >= 0 ? '+' : ''}{fmt(filteredNet, profile.baseCurrency)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {filtered.length === 0 ? (
-          <EmptyState icon="🔍" message="No transactions found" />
+          hasFilters ? (
+            <div className="py-12 px-4 text-center">
+              <div className="text-3xl mb-2">🔍</div>
+              <div className="text-ink-mid mb-3">No transactions match your filters.</div>
+              <button onClick={resetAllFilters} className="btn-secondary text-[0.74rem] py-1.5 px-3 inline-flex items-center gap-1.5">
+                <RotateCcw size={13} /> Clear filters
+              </button>
+            </div>
+          ) : (
+            <EmptyState icon="📝" message="No transactions yet — add your first one to get started." />
+          )
         ) : (
           <div
             ref={parentRef}

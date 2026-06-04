@@ -27,6 +27,7 @@ export default function Dashboard() {
   const profile = useStore(s => s.profile);
   const baseCur = profile.baseCurrency;
   const openAddTxn = useStore(s => s.openAddTxn);
+  const openEditTxn = useStore(s => s.openEditTxn);
   // TD-12 review-fix (lead): the dev's selector refactor removed these two
   // subscriptions but kept references to `txns.length` and `rates` later in
   // the JSX. The selectors return derived values, not the raw collections
@@ -77,19 +78,27 @@ export default function Dashboard() {
 
       {/* Top: Pulse + 4 metric cards */}
       <div className="grid lg:grid-cols-[220px_1fr] gap-3.5 mb-3.5">
-        <div>
+        <Link to="/reports" aria-label="Open reports" className="block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">
           <PulseGauge score={pulse} />
           {pulse.total === null && (
             <p className="text-ink-mid text-[0.78rem] mt-2 text-center">
               Building your Pulse — add income and a budget to begin.
             </p>
           )}
-        </div>
+        </Link>
         <div className="grid grid-cols-2 gap-2">
-          <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={8} />} sub={`Across all ${txns.length} transactions`} />
-          <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={8} />} sub={t('this-month')} />
-          <Card label={t('monthly-expenses')} accent="terra" value={<Money amount={month.expense} currency={baseCur} maxChars={8} />} sub={t('this-month')} />
-          <Card label={t('savings-rate')}     accent="honey" value={<span className={rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}>{rate}%</span>} sub={t('of-income-saved')} />
+          <Link to="/networth" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View net worth">
+            <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={8} />} sub={`Across all ${txns.length} transactions`} />
+          </Link>
+          <Link to="/transactions?type=income" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View income transactions">
+            <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={8} />} sub={t('this-month')} />
+          </Link>
+          <Link to="/transactions?type=expense" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View expense transactions">
+            <Card label={t('monthly-expenses')} accent="terra" value={<Money amount={month.expense} currency={baseCur} maxChars={8} />} sub={t('this-month')} />
+          </Link>
+          <Link to="/budgets" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View budgets">
+            <Card label={t('savings-rate')}     accent="honey" value={<span className={rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}>{rate}%</span>} sub={t('of-income-saved')} />
+          </Link>
         </div>
       </div>
 
@@ -149,7 +158,7 @@ export default function Dashboard() {
           {recent.length === 0 ? (
             <EmptyState icon="⟺" message="No transactions yet" />
           ) : (
-            recent.map(t => <TxnRow key={t.id} txn={t} />)
+            recent.map(t => <TxnRow key={t.id} txn={t} showActions onEdit={openEditTxn} />)
           )}
         </Panel>
       </div>
@@ -183,12 +192,14 @@ export default function Dashboard() {
           )}
         </Panel>
 
-        <Panel title={t('spending-by-category')} sub={t('this-month')}>
-          {donutData.length === 0
-            ? <EmptyState icon="🥯" message="No expenses this month" />
-            : <CategoryDonut data={donutData} currency={baseCur} />
-          }
-        </Panel>
+        <Link to="/reports" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View reports">
+          <Panel title={t('spending-by-category')} sub={t('this-month')}>
+            {donutData.length === 0
+              ? <EmptyState icon="🥯" message="No expenses this month" />
+              : <CategoryDonut data={donutData} currency={baseCur} />
+            }
+          </Panel>
+        </Link>
       </div>
 
       {/* Net worth + Debt overview */}
