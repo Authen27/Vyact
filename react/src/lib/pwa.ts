@@ -34,7 +34,23 @@ export function isStandalone(): boolean {
 export function isIos(): boolean {
   if (typeof window === 'undefined') return false;
   const ua = window.navigator.userAgent;
-  return /iPad|iPhone|iPod/.test(ua) && !(window as { MSStream?: unknown }).MSStream;
+  // iPadOS 13+ reports as MacIntel; only the touch-point count gives it away.
+  const iPadOs =
+    window.navigator.platform === 'MacIntel' &&
+    (window.navigator as Navigator & { maxTouchPoints?: number }).maxTouchPoints! > 1;
+  return /iPad|iPhone|iPod/.test(ua) || iPadOs;
+}
+
+// True only for genuine Safari on iOS — the one browser engine that can
+// Add-to-Home-Screen. iOS Chrome (CriOS), Firefox (FxiOS), Edge (EdgiOS),
+// and in-app browsers (FBAN/FBAV/Instagram/Line/etc.) all wrap WebKit but
+// cannot install PWAs on iOS.
+export function isIosSafari(): boolean {
+  if (!isIos()) return false;
+  const ua = window.navigator.userAgent;
+  if (/CriOS|FxiOS|EdgiOS|OPiOS|YaBrowser|DuckDuckGo/.test(ua)) return false;
+  if (/FBAN|FBAV|Instagram|Line|MicroMessenger|Twitter|LinkedInApp/.test(ua)) return false;
+  return /Safari/.test(ua);
 }
 
 export function canPrompt(): boolean {

@@ -98,7 +98,7 @@ export default function SignIn() {
       </button>
 
       <div className="mt-5 pt-4 border-t border-line text-center text-sm text-ink-mid">
-        <Link to="/auth/reset" className="hover:underline flex items-center justify-center gap-1.5">
+        <Link to="/auth/reset-password" className="hover:underline flex items-center justify-center gap-1.5">
           <KeyRound size={12} /> Forgot password?
         </Link>
         <div className="mt-2.5">

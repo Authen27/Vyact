@@ -94,7 +94,7 @@ const SECTIONS: Section[] = [
 
 export default function Help() {
   const { t } = useTranslation();
-  const [open, setOpen]   = useState<number | null>(0);
+  const [open, setOpen]   = useState<number | null>(null);
   const [query, setQuery] = useState('');
 
   const filtered = query.trim()

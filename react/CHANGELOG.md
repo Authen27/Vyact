@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v7.4.0`** (consumer)
+> **Current production version: `v7.4.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,29 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+## v7.4.2 — Fix: sidebar auto-close, body-scroll lock, Help default-closed *(2026-06-04)*
+
+### Fixed
+- **Settings / Help links left the mobile sidebar open.** Every grouped nav item in [Sidebar.tsx](react/src/components/layout/Sidebar.tsx) called `onClose()` on click, but the footer `NavLink`s for Settings and Help skipped that handler — the drawer stayed up over the new page. Extracted a shared `closeOnMobile` helper and wired it to both footer links.
+- **Background scrolled while the mobile sidebar was open.** When the user swiped inside the drawer's `<nav>` and the scroll hit a boundary, the gesture chained to the page underneath. Added `document.body.style.overflow = 'hidden'` for the lifetime of an open mobile drawer plus `overscroll-contain` on the inner nav.
+- **Help page opened its first accordion by default.** Initial state changed from `useState<number | null>(0)` to `useState<number | null>(null)` so users land on a clean, fully collapsed list ([Help.tsx](react/src/pages/Help.tsx)).
+
+No schema change, no new dependencies. Typecheck clean.
+
+---
+## v7.4.1 — Fix: forgot-password loop + iOS install banner *(2026-06-04)*
+
+Two regressions from the v7.4.0 ship:
+
+### Fixed
+- **Forgot password was an infinite loop.** [SignIn.tsx](react/src/pages/auth/SignIn.tsx) linked to `/auth/reset` but [AuthGate.tsx](react/src/components/auth/AuthGate.tsx) only listed `/auth/reset-password` in `PUBLIC_ROUTES`, so unauthenticated users were redirected back to `/auth/sign-in?next=/auth/reset` — the page never loaded, so no reset email could be requested. Added `/auth/reset` to both `PUBLIC_ROUTES` and `RECOVERY_ROUTES` (both URLs render the same `ResetPassword` page), and pointed the SignIn link to the canonical `/auth/reset-password` so the redirect target matches the email link.
+- **iOS install banner showed a non-functional Install button.** Only Android / desktop Chrome / Edge fire `beforeinstallprompt`; iOS Safari has never supported it and `prompt()` is unavailable. Banner now never renders the Install button on iOS and instead shows the Share → Add to Home Screen instruction. Also fixed two iOS detection gaps: (1) iPadOS 13+ reports `navigator.platform === 'MacIntel'` — we now check `maxTouchPoints` so iPads are recognised; (2) iOS Chrome (CriOS), Firefox (FxiOS), Edge (EdgiOS), DuckDuckGo, and common in-app browsers (FBAN/Instagram/Line/Twitter/LinkedIn) cannot install at all — they get a dedicated "Open in Safari to install" message instead of the share hint.
+
+New helper: `isIosSafari()` in [pwa.ts](react/src/lib/pwa.ts) returns true only for real Safari on iOS / iPadOS.
+
+No schema change, no new dependencies. Typecheck clean.
 
 ---
 ## v7.4.0 — Installable PWA: service worker, install banner, iOS support *(2026-06-04)*

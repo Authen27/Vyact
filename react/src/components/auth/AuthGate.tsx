@@ -10,11 +10,11 @@ import { useLocation, Navigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 
-const PUBLIC_ROUTES = ['/auth/sign-in', '/auth/sign-up', '/auth/reset-password', '/auth/verified'];
+const PUBLIC_ROUTES = ['/auth/sign-in', '/auth/sign-up', '/auth/reset', '/auth/reset-password', '/auth/verified'];
 // Routes that must remain reachable even when a session exists. The password
 // recovery link logs the user in (PASSWORD_RECOVERY event) before they've set
 // a new password — bouncing them to /dashboard would abandon the flow.
-const RECOVERY_ROUTES = ['/auth/reset-password'];
+const RECOVERY_ROUTES = ['/auth/reset', '/auth/reset-password'];
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const session = useStore(s => s.session);

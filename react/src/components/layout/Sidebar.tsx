@@ -1,4 +1,5 @@
 import { NavLink, Link } from 'react-router-dom';
+import { useEffect } from 'react';
 import {
   LayoutDashboard, ArrowLeftRight, Target, Wallet, Repeat,
   TrendingUp, Users, Banknote, Scale, BarChart3,
@@ -56,6 +57,25 @@ export default function Sidebar({ open, onClose }: Props) {
   if (getMoneyMapMode() !== 'off') visible.add('accounts');
   const { t } = useTranslation();
 
+  // Lock body scroll while the mobile drawer is open. Without this, swiping
+  // on the (overflow:auto) <nav> bubbles to the page once the nav reaches
+  // its scroll boundary, so the page underneath drifts while the drawer is
+  // up. Desktop is unaffected because the drawer is always visible.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const isMobile = window.innerWidth < 1024;
+    if (open && isMobile) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [open]);
+
+  // Shared handler so every nav link — grouped or footer — closes the
+  // mobile drawer. The Settings / Help links at the footer used to skip
+  // this, leaving the drawer open over the new page.
+  const closeOnMobile = () => { if (window.innerWidth < 1024) onClose(); };
+
   return (
     <>
       {open && (
@@ -93,7 +113,7 @@ export default function Sidebar({ open, onClose }: Props) {
         <ProfileSwitcher />
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-2">
+        <nav className="flex-1 overflow-y-auto overscroll-contain py-2">
           {navGroups.map((group, gi) => (
             <div key={gi}>
               <div className="font-mono text-[0.56rem] tracking-[0.18em] uppercase text-ink-dim px-4 pt-3 pb-1.5">
@@ -121,12 +141,12 @@ export default function Sidebar({ open, onClose }: Props) {
 
           <div className="h-px bg-line mx-4 my-2.5" />
 
-          <NavLink to="/settings" className={({ isActive }) =>
+          <NavLink to="/settings" onClick={closeOnMobile} className={({ isActive }) =>
             `flex items-center gap-2.5 px-4 py-2 text-[0.86rem] font-medium border-l-2 transition-all ${isActive ? 'text-coral bg-coral-tint border-l-coral font-semibold' : 'text-ink-mid border-l-transparent hover:text-ink hover:bg-coral-tint/40'}`
           }>
             <Settings size={16} /> {t('settings')}
           </NavLink>
-          <NavLink to="/help" className={({ isActive }) =>
+          <NavLink to="/help" onClick={closeOnMobile} className={({ isActive }) =>
             `flex items-center gap-2.5 px-4 py-2 text-[0.86rem] font-medium border-l-2 transition-all ${isActive ? 'text-coral bg-coral-tint border-l-coral font-semibold' : 'text-ink-mid border-l-transparent hover:text-ink hover:bg-coral-tint/40'}`
           }>
             <HelpCircle size={16} /> {t('help')}
