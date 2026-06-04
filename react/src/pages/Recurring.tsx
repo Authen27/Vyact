@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Repeat, Trash2, ToggleLeft, ToggleRight, Pencil } from 'lucide-react';
+import { Repeat, Trash2, ToggleLeft, ToggleRight, Pencil } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
@@ -59,14 +59,14 @@ export default function Recurring() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
+      <div className="flex justify-between items-start mb-5 gap-4">
+        <div className="min-w-0">
           <h1 className="display-italic text-4xl text-ink mb-1.5">Recurring</h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
             Auto-generated bills, subscriptions &amp; salary · {schedules.length} schedule{schedules.length === 1 ? '' : 's'}
           </p>
         </div>
-        <Button onClick={() => {
+        <button className="btn-primary flex-shrink-0" onClick={() => {
           setOpen(true);
           setEditing(null);
           setType('expense');
@@ -77,9 +77,7 @@ export default function Recurring() {
           setDayOfMonth(1);
           setAutoConfirm(false);
           setReminderLead(3);
-        }}>
-          <Plus size={14} /> Add Schedule
-        </Button>
+        }}>+ Add Schedule</button>
       </div>
 
       <Panel title="Active Schedules">

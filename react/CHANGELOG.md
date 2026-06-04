@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v7.4.4`** (consumer)
+> **Current production version: `v7.4.5`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,104 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+## v7.4.5 — Mobile edge-swipe, header polish, FAB layering, iOS install suppression, Ask Vyact two-tap *(2026-06-05)*
+
+Six small but visible polish items requested after v7.4.4 shipped. No
+schema or migration changes; pure client/UX work.
+
+### Phase 1 — Mobile edge-swipe opens sidebar
+- `useEdgeSwipe()` hook in `hooks.ts` listens for left-edge touch starts
+  (`x < 24px`) followed by a >60px rightward drag inside 400ms with
+  vertical noise <40px. Wired into `Layout.tsx` to open the sidebar.
+  Gated to `window.innerWidth < 1024` so desktop pointer events are
+  untouched.
+- `useSwipeToClose()` mirror — left-swipe on the open mobile drawer
+  closes it. Attached to `Sidebar.tsx`'s `<aside>` ref. Active only when
+  `open === true`, so the gesture is dead during desktop docked state.
+
+### Phase 2 — Dashboard "Add Transaction" button removed
+- Per user request the Dashboard header CTA was redundant with the
+  global Add FAB. Removed the button + `Plus` icon import + `openAddTxn`
+  store subscription. Header collapses to greeting + subtitle.
+- `openEditTxn` retained — Recent Transactions click-to-edit still works.
+
+### Phase 3 — FAB stack desktop spacing
+- `FloatingTools.tsx` (Planner + Ask Vyact bubble) was at
+  `lg:bottom-[88px]`, overlapping the Add-FAB area on desktop. Moved to
+  `lg:bottom-[160px]` to match mobile. Visual gap of ~24px above the
+  Add-FAB (which sits at `safe-area + 80px`).
+
+### Phase 4 — Header normalisation
+Aligned Transactions, Recurring, and Budgets headers with the canonical
+Goals / Debts / Net Worth pattern.
+- Removed `flex-wrap` from the header row; added `min-w-0` to the title
+  block and `flex-shrink-0` to the right action group so the CTA stays
+  on the same line as the title at narrow widths.
+- Replaced `<Button variant="primary">+ Add ...</Button>` with the raw
+  `<button className="btn-primary">+ Add ...</button>` matching the
+  other pages.
+- Transactions: shrunk the calendar toggle to a compact `h-[34px]`
+  rounded-md icon button.
+- Budgets: hid the period/monthly view toggle on `< sm` so it doesn't
+  fight the CTA on phones.
+
+### Phase 5 — iOS install banner suppressed; **TD-22** filed
+- iOS Safari has no programmatic `beforeinstallprompt`, so the v7.3.4
+  banner showed an instructional "tap Share → Add to Home Screen"
+  message. User feedback: this is annoying noise. **Decision: pure
+  suppression on iOS.** `InstallBanner.tsx` early-returns when
+  `isIos()` is true. Android/desktop Chrome/Edge native prompt path is
+  unchanged.
+- During the audit we confirmed the "Push notifications" Settings
+  toggle is **only a stored preference** — there is no
+  `Notification.requestPermission`, no service-worker push handler, no
+  VAPID keys, no `push_subscriptions` table, no Edge Function. Filed
+  **TD-22** in `TECH_DEBT.md` with a 4-phase remediation plan
+  (foundation → subscribe → delivery → settings UI). The toggle still
+  surfaces because a future v7.5 ships the actual implementation.
+
+### Phase 6 — Ask Vyact two-tap quick actions
+Replaces the six hardcoded "Try asking" prompts with a bucketed,
+two-tap launcher:
+
+- **Capture** — Add expense / income / transfer / investment / goal /
+  budget / debt / asset. Add-expense and add-income expand to a tap-2
+  row of common categories (Groceries, Fuel, Eating out, Shopping,
+  Bills, Other for expenses; Salary, Freelance, Gift, Other for
+  income). The chosen chip seeds the global Add-Transaction modal with
+  `{ type, category }` so the user lands on a pre-filled form.
+- **Inquire** — Spend this month, Pulse Score, Net worth, Budgets at
+  risk, Top categories, Upcoming bills. These flow through the
+  existing `selectChatBackend()` pipeline (deterministic stub or
+  Gemini if `VITE_GEMINI_API_KEY` is configured).
+- **Plan** — Emergency fund, Debt strategy, Goal ETA. Same flow.
+- **Manage** — Open Budgets / Net Worth / Households (router push).
+
+Architecture:
+- New `lib/askVyactIntents.ts` exports a typed `Intent[]` registry +
+  `IntentAction` discriminated union (`open-modal | navigate | ask`).
+  All UI dispatching is one switch in `Chat.tsx`.
+- New store slot: `seedTxn: Partial<Transaction> | null` with
+  `openAddTxn(seed?)`, threaded through `closeTxnModal` to clear on
+  close. `TransactionFormModal.tsx` reads `storeSeed` and merges
+  `{type, category, amount, currency, description, note, date}` into
+  the blank form when not editing. Track-picker is bypassed when seed
+  carries a `type`.
+- Free-text input still routes to `backend.ask()` — power users keep
+  the long-form Q&A flow.
+- Telemetry: `console.debug('[ask-vyact-intent]', { id, taps })` —
+  privacy-safe (no message text).
+
+### Files touched
+- `react/src/hooks.ts` (added swipe hooks)
+- `react/src/components/layout/{Layout,Sidebar,FloatingTools,InstallBanner}.tsx`
+- `react/src/components/transactions/TransactionFormModal.tsx`
+- `react/src/pages/{Dashboard,Transactions,Recurring,Budgets,Chat}.tsx`
+- `react/src/store.ts` (seedTxn slot)
+- `react/src/lib/askVyactIntents.ts` (new)
+- `TECH_DEBT.md` (TD-22)
 
 ---
 ## v7.4.4 — Settings password, dashboard navigation, txn click-to-edit, multi-entry Add, number-system fix *(2026-06-04)*

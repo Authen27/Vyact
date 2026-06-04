@@ -1,5 +1,5 @@
 import { NavLink, Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   LayoutDashboard, ArrowLeftRight, Target, Wallet, Repeat,
   TrendingUp, Users, Banknote, Scale, BarChart3,
@@ -9,7 +9,7 @@ import {
 import { signOut as authSignOut } from '../../lib/auth';
 import { useStore } from '../../store';
 import ProfileSwitcher from './ProfileSwitcher';
-import { useTranslation } from '../../hooks';
+import { useTranslation, useSwipeToClose } from '../../hooks';
 import { pagesForTemplate } from '../../lib/templates';
 import NotificationCenter from './NotificationCenter';
 import SyncStatusBadge from './SyncStatusBadge';
@@ -76,6 +76,10 @@ export default function Sidebar({ open, onClose }: Props) {
   // this, leaving the drawer open over the new page.
   const closeOnMobile = () => { if (window.innerWidth < 1024) onClose(); };
 
+  // v7.4.5 — swipe-left on the open drawer closes it.
+  const asideRef = useRef<HTMLElement | null>(null);
+  useSwipeToClose(asideRef, onClose, open);
+
   return (
     <>
       {open && (
@@ -84,7 +88,7 @@ export default function Sidebar({ open, onClose }: Props) {
           onClick={onClose}
         />
       )}
-      <aside className={`fixed top-0 left-0 bottom-0 w-[260px] lg:w-60 bg-bg2 border-r border-line z-50 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <aside ref={asideRef} className={`fixed top-0 left-0 bottom-0 w-[260px] lg:w-60 bg-bg2 border-r border-line z-50 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         {/* Logo — click to return to Dashboard */}
         <div className="flex items-center gap-2.5 px-4 py-5 border-b border-line relative">
           <Link

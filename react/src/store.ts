@@ -77,7 +77,11 @@ interface Store {
   // shortcut N) can trigger it via the store without prop-drilling.
   txnModalOpen: boolean;
   editingTxn: Transaction | null;
-  openAddTxn: () => void;
+  /** v7.4.5 — Ask Vyact intent flow seeds the Add-Transaction modal with
+   *  partial values (e.g. `{ type: 'expense', category: 'groceries' }`)
+   *  so two taps in Chat finish at a pre-filled form. Cleared on close. */
+  seedTxn: Partial<Transaction> | null;
+  openAddTxn: (seed?: Partial<Transaction>) => void;
   openEditTxn: (t: Transaction) => void;
   closeTxnModal: () => void;
 
@@ -245,9 +249,10 @@ export const useStore = create<Store>((set, get) => ({
   // v6.2.3 — global transaction modal
   txnModalOpen: false,
   editingTxn: null,
-  openAddTxn:    () => set({ editingTxn: null, txnModalOpen: true }),
-  openEditTxn:   (t) => set({ editingTxn: t, txnModalOpen: true }),
-  closeTxnModal: () => set({ txnModalOpen: false, editingTxn: null }),
+  seedTxn: null,
+  openAddTxn:    (seed) => set({ editingTxn: null, seedTxn: seed ?? null, txnModalOpen: true }),
+  openEditTxn:   (t) => set({ editingTxn: t, seedTxn: null, txnModalOpen: true }),
+  closeTxnModal: () => set({ txnModalOpen: false, editingTxn: null, seedTxn: null }),
 
   // v6.4 — goal & budget modals
   goalModalOpen: false,

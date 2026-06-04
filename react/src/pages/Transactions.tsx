@@ -2,13 +2,12 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
-  Plus, CalendarDays, X, Search, SlidersHorizontal, RotateCcw,
+  CalendarDays, X, Search, SlidersHorizontal, RotateCcw,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation, useShortcuts } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
-import Button from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
 import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
@@ -191,29 +190,27 @@ export default function Transactions() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
+      <div className="flex justify-between items-start mb-5 gap-4">
+        <div className="min-w-0">
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('transactions')}</h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
             All household income, expenses, investments &amp; transfers
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => setShowCalendar(v => !v)}
             aria-pressed={showCalendar}
             title="Toggle expense calendar"
-            className={`h-[38px] px-3 rounded-[9px] border flex items-center gap-1.5 font-mono text-[0.62rem] tracking-wider uppercase transition-colors ${
+            className={`h-[34px] px-3 rounded-md border flex items-center gap-1.5 font-mono text-[0.62rem] tracking-wider uppercase transition-colors ${
               showCalendar
                 ? 'bg-coral-tint border-coral/40 text-coral'
                 : 'bg-bg border-line text-ink-mid hover:bg-bg3'
             }`}
           >
-            <CalendarDays size={15} /> Calendar
+            <CalendarDays size={14} /> Calendar
           </button>
-          <Button onClick={openAddTxn}>
-            <Plus size={14} /> {t('add-transaction')}
-          </Button>
+          <button className="btn-primary" onClick={() => openAddTxn()}>+ {t('add-transaction')}</button>
         </div>
       </div>
 

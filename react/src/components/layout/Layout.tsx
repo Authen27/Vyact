@@ -1,14 +1,18 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useCallback, type ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import MobileBar from './MobileBar';
 import FloatingTools from './FloatingTools';
 import AddFab from './AddFab';
 import SyncConflictBanner from './SyncConflictBanner';
-import { useShortcuts } from '../../hooks';
+import { useShortcuts, useEdgeSwipe } from '../../hooks';
 import { useStore } from '../../store';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+
+  // v7.4.5 — left-edge swipe opens the sidebar on touch devices.
+  const openSidebar = useCallback(() => setOpen(true), []);
+  useEdgeSwipe(openSidebar);
 
   // v7.4.4 — promote add-entity shortcuts to app-wide so they work on every
   // page, not just Transactions. `useShortcuts` already ignores keystrokes
@@ -19,7 +23,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const openAddDebt   = useStore(s => s.openAddDebt);
   const openAddAsset  = useStore(s => s.openAddAsset);
   useShortcuts({
-    n: openAddTxn,    N: openAddTxn,
+    n: () => openAddTxn(), N: () => openAddTxn(),
     g: openAddGoal,   G: openAddGoal,
     b: openAddBudget, B: openAddBudget,
     d: openAddDebt,   D: openAddDebt,

@@ -57,15 +57,15 @@ export default function Budgets() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
+      <div className="flex justify-between items-start mb-5 gap-4">
+        <div className="min-w-0">
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('budgets')}</h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
             Spending limits aggregated per budget period
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-bg3 border border-line rounded-md p-0.5 gap-px">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="hidden sm:flex bg-bg3 border border-line rounded-md p-0.5 gap-px">
             {(['period','monthly'] as ViewMode[]).map(v => (
               <button key={v} onClick={() => setView(v)}
                 className={`font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium px-3 py-1 rounded transition-all ${

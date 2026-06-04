@@ -179,6 +179,7 @@ export default function TransactionFormModal(props: Props) {
   // Bind to the global store unless explicit props are passed
   const storeOpen     = useStore(s => s.txnModalOpen);
   const storeInitial  = useStore(s => s.editingTxn);
+  const storeSeed     = useStore(s => s.seedTxn);
   const storeClose    = useStore(s => s.closeTxnModal);
   const open          = props.open    ?? storeOpen;
   const initial       = props.initial ?? storeInitial;
@@ -285,14 +286,28 @@ export default function TransactionFormModal(props: Props) {
     } else {
       // Pre-select the user's last-used track so repeat adds don't have to
       // re-pick every time. The picker is still reachable via "Change".
+      // v7.4.5 — `storeSeed` (from Ask Vyact's two-tap flow) wins over the
+      // remembered track when present, so the user lands on the right
+      // form pre-filled.
+      const seed = storeSeed ?? undefined;
       const remembered = trackPickerEnabled ? readLastTrack(currentHouseholdId) : null;
-      const initialType: TxnType = remembered ?? 'expense';
-      const blankForm = blank(profile.baseCurrency, defaultMemberId, initialType);
+      const initialType: TxnType = (seed?.type as TxnType) ?? remembered ?? 'expense';
+      const base = blank(profile.baseCurrency, defaultMemberId, initialType);
+      const blankForm: FormState = {
+        ...base,
+        amount: seed?.amount != null ? String(seed.amount) : base.amount,
+        currency: seed?.currency ?? base.currency,
+        description: seed?.description ?? base.description,
+        category: seed?.category ?? base.category,
+        note: seed?.note ?? base.note,
+        date: seed?.date ?? base.date,
+      };
       setForm(blankForm);
       setTimeInput(splitTimeForInput(blankForm.time));
-      setPickedTrack(trackPickerEnabled ? remembered : 'expense');
+      // When seeded, jump past the picker — the intent already named a track.
+      setPickedTrack(seed?.type ? (seed.type as TxnType) : trackPickerEnabled ? remembered : 'expense');
     }
-  }, [open, initial, profile.baseCurrency, defaultMemberId, trackPickerEnabled, currentHouseholdId]);
+  }, [open, initial, storeSeed, profile.baseCurrency, defaultMemberId, trackPickerEnabled, currentHouseholdId]);
 
   function pickTrack(type: TxnType) {
     setPickedTrack(type);

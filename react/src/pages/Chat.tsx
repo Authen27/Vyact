@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, MessageCircle, ShieldCheck, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Send, MessageCircle, ShieldCheck, Trash2, ChevronLeft } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -8,19 +9,16 @@ import {
 } from '../lib/aiSummary';
 import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
+import {
+  INTENTS, BUCKET_LABEL, intentsByBucket, type Bucket, type Intent, type IntentAction,
+} from '../lib/askVyactIntents';
 
-const SUGGESTED = [
-  'How much did I spend this month?',
-  "What's my Pulse Score and why?",
-  "What's my net worth?",
-  'How am I doing on my emergency fund?',
-  'Any budget warnings?',
-  'Tell me about my debts',
-];
+const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan', 'manage'];
 
 const backend = selectChatBackend();
 
 export default function Chat() {
+  const navigate = useNavigate();
   const txns    = useStore(s => s.transactions);
   const budgets = useStore(s => s.budgets);
   const goals   = useStore(s => s.goals);
@@ -30,6 +28,11 @@ export default function Chat() {
   const rates   = useStore(s => s.rates);
   const members = useStore(s => s.members);
   const householdId = useStore(s => s.currentHouseholdId);
+  const openAddTxn    = useStore(s => s.openAddTxn);
+  const openAddGoal   = useStore(s => s.openAddGoal);
+  const openAddBudget = useStore(s => s.openAddBudget);
+  const openAddDebt   = useStore(s => s.openAddDebt);
+  const openAddAsset  = useStore(s => s.openAddAsset);
 
   const [history, setHistory] = useState<ChatMessage[]>(() => {
     try { return ls.readJson<ChatMessage[]>('chat_history') || []; }
@@ -37,6 +40,9 @@ export default function Chat() {
   });
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
+  // v7.4.5 — when an intent has secondary chips, hold it here so the
+  // empty-state grid swaps to the tap-2 row.
+  const [expanded, setExpanded] = useState<Intent | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Privacy-safe summary built from current state — never includes merchant names or descriptions
@@ -50,6 +56,35 @@ export default function Chat() {
     ls.setJson('chat_history', history);
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [history]);
+
+  function dispatchAction(action: IntentAction, intentId: string, taps: 1 | 2) {
+    // Telemetry: privacy-safe — only the chip id + bucket + tap depth.
+    // eslint-disable-next-line no-console
+    console.debug('[ask-vyact-intent]', { id: intentId, taps });
+    if (action.kind === 'open-modal') {
+      switch (action.modal) {
+        case 'addTxn':    openAddTxn(action.seed); break;
+        case 'addGoal':   openAddGoal();   break;
+        case 'addBudget': openAddBudget(); break;
+        case 'addDebt':   openAddDebt();   break;
+        case 'addAsset':  openAddAsset();  break;
+      }
+      setExpanded(null);
+    } else if (action.kind === 'navigate') {
+      navigate(action.to);
+    } else if (action.kind === 'ask') {
+      void send(action.prompt);
+      setExpanded(null);
+    }
+  }
+
+  function pickIntent(intent: Intent) {
+    if (intent.secondary && intent.secondary.length) {
+      setExpanded(intent);
+      return;
+    }
+    if (intent.action) dispatchAction(intent.action, intent.id, 1);
+  }
 
   async function send(question: string) {
     if (!question.trim() || thinking) return;
@@ -91,7 +126,7 @@ export default function Chat() {
             )}
           </h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Ask questions about your finances · Privacy-first
+            Ask Vyact · Two taps to capture, inquire, plan, or navigate
           </p>
         </div>
         {history.length > 0 && (
@@ -117,17 +152,65 @@ export default function Chat() {
       <Panel>
         <div ref={scrollRef} className="px-4 py-4 space-y-3 max-h-[28rem] min-h-[20rem] overflow-y-auto">
           {history.length === 0 && (
-            <div className="text-center py-8">
-              <div className="text-3xl mb-3 opacity-60">💬</div>
-              <div className="font-mono text-[0.66rem] tracking-wider uppercase text-ink-dim mb-4">Try asking</div>
-              <div className="grid sm:grid-cols-2 gap-2 max-w-lg mx-auto">
-                {SUGGESTED.map(q => (
-                  <button key={q} onClick={() => send(q)}
-                    className="text-left p-3 bg-bg3 border border-line rounded-md hover:border-coral hover:bg-coral-tint transition text-[0.82rem] text-ink">
-                    {q}
-                  </button>
-                ))}
-              </div>
+            <div className="py-2">
+              {!expanded ? (
+                <>
+                  <div className="font-mono text-[0.66rem] tracking-wider uppercase text-ink-dim mb-3 text-center">
+                    Pick one — type a question, or tap to act
+                  </div>
+                  <div className="space-y-3">
+                    {BUCKETS.map(b => {
+                      const items = intentsByBucket(b);
+                      if (!items.length) return null;
+                      return (
+                        <div key={b}>
+                          <div className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-ink-dim mb-1.5 px-1">
+                            {BUCKET_LABEL[b]}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {items.map(intent => (
+                              <button
+                                key={intent.id}
+                                onClick={() => pickIntent(intent)}
+                                className="text-[0.78rem] px-3 py-1.5 bg-bg3 border border-line rounded-full hover:border-coral hover:bg-coral-tint hover:text-ink transition text-ink-mid"
+                              >
+                                {intent.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-3">
+                    <button
+                      onClick={() => setExpanded(null)}
+                      className="row-action"
+                      aria-label="Back to intents"
+                      title="Back"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <div className="font-mono text-[0.66rem] tracking-wider uppercase text-ink-dim">
+                      {expanded.label} — pick a category
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {expanded.secondary!.map((sub, i) => (
+                      <button
+                        key={i}
+                        onClick={() => dispatchAction(sub.action, expanded.id, 2)}
+                        className="text-[0.82rem] px-3.5 py-2 bg-bg3 border border-line rounded-md hover:border-coral hover:bg-coral-tint hover:text-ink transition text-ink"
+                      >
+                        {sub.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
           {history.map((m, i) => (

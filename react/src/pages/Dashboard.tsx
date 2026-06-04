@@ -1,11 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Card, Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
-import Button from '../components/ui/Button';
 import PulseGauge from '../components/charts/PulseGauge';
 import { CategoryDonut } from '../components/charts/DonutCharts';
 import TxnRow from '../components/transactions/TxnRow';
@@ -26,7 +24,6 @@ export default function Dashboard() {
   const assets = useStore(s => s.assets);
   const profile = useStore(s => s.profile);
   const baseCur = profile.baseCurrency;
-  const openAddTxn = useStore(s => s.openAddTxn);
   const openEditTxn = useStore(s => s.openEditTxn);
   // TD-12 review-fix (lead): the dev's selector refactor removed these two
   // subscriptions but kept references to `txns.length` and `rates` later in
@@ -56,24 +53,21 @@ export default function Dashboard() {
     <div>
       {/* Page header — greeting (v7.4.0). The user's name (or a friendly
           fallback) leads the page; the time-of-day prefix gives the dashboard
-          a kitchen-table feel rather than a clinical "Dashboard" label. */}
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">
-            {(() => {
-              const h = new Date().getHours();
-              const greet = h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Good night';
-              const who = (profile.name || '').trim().split(/\s+/)[0];
-              return who ? `${greet}, ${who}` : greet;
-            })()}
-          </h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Family Finance Overview · {monthName(mk)}
-          </p>
-        </div>
-        <Button onClick={openAddTxn}>
-          <Plus size={14} /> {t('add-transaction')}
-        </Button>
+          a kitchen-table feel rather than a clinical "Dashboard" label.
+          v7.4.5 — Add-Transaction button removed; the global AddFab is the
+          canonical entry, so the header stays clean. */}
+      <div className="mb-5">
+        <h1 className="display-italic text-4xl text-ink mb-1.5">
+          {(() => {
+            const h = new Date().getHours();
+            const greet = h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Good night';
+            const who = (profile.name || '').trim().split(/\s+/)[0];
+            return who ? `${greet}, ${who}` : greet;
+          })()}
+        </h1>
+        <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
+          Family Finance Overview · {monthName(mk)}
+        </p>
       </div>
 
       {/* Top: Pulse + 4 metric cards */}

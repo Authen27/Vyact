@@ -41,7 +41,7 @@ export default function FloatingTools() {
       {/* Stacked FABs in the bottom-right. Sit above the primary AddFab
           (v7.4.4) so the Add-Transaction button stays the most prominent
           action; offset above MobileBar (~56px) on small screens. */}
-      <div className="fixed right-4 bottom-[160px] lg:bottom-[88px] z-40 flex flex-col gap-2.5">
+      <div className="fixed right-4 bottom-[160px] lg:bottom-[160px] z-40 flex flex-col gap-2.5">
         <Fab
           label="Planner"
           tone="coral"
