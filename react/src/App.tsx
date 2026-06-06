@@ -3,6 +3,8 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './store';
 import { useTheme } from './hooks';
 import { onStorageEvent } from './lib/storageEvents';
+import { isOnboardingEnabled } from './config/features';
+import { shouldOnboard, migrateExistingHousehold } from './lib/onboardingState';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
 import AuthGate from './components/auth/AuthGate';
@@ -25,6 +27,7 @@ const Recurring    = React.lazy(() => import('./pages/Recurring'));
 const Planner      = React.lazy(() => import('./pages/Planner'));
 const Chat         = React.lazy(() => import('./pages/Chat'));
 const Onboarding   = React.lazy(() => import('./pages/Onboarding'));
+const NudgeBanner  = React.lazy(() => import('./components/onboarding/NudgeBanner'));
 const Households   = React.lazy(() => import('./pages/Households'));
 const Settings     = React.lazy(() => import('./pages/Settings'));
 const Budgets      = React.lazy(() => import('./pages/Budgets'));
@@ -57,6 +60,9 @@ export default function App() {
       <ToastHost />
       <UpdateBanner />
       <InstallBanner />
+      <Suspense fallback={null}>
+        <NudgeBanner />
+      </Suspense>
     </AuthGate>
   );
 }
@@ -103,7 +109,19 @@ function AppShell() {
   const refreshHouseholds = useStore(s => s.refreshHouseholds);
   const runRecurring = useStore(s => s.runRecurringEngine);
   const location = useLocation();
+  const profile = useStore(s => s.profile);
+  const transactions = useStore(s => s.transactions);
   useTheme();
+
+  // Per-household onboarding trigger (spec §2). A household that already has data
+  // or a recorded `onboardedAt` is an existing/returning one — migrate it to
+  // `skipped` so it is NEVER re-onboarded (spec §3.4). A genuinely fresh
+  // household with the flag on is sent through the flow once.
+  const hasExistingData = !loading && (transactions.length > 0 || !!profile.onboardedAt);
+  useEffect(() => {
+    if (loading || !isOnboardingEnabled() || !currentHouseholdId) return;
+    if (hasExistingData) migrateExistingHousehold(currentHouseholdId);
+  }, [loading, currentHouseholdId, hasExistingData]);
 
   // Periodic recurring + notifications check (every 60s while app open)
   useEffect(() => {
@@ -166,10 +184,14 @@ function AppShell() {
     );
   }
 
-  // Onboarding is opt-in. Existing or fresh users without preferences are NOT
-  // forced through the wizard — they land on the dashboard with empty state.
-  // The /onboarding route is reachable from Settings, the welcome banner, and
-  // the sign-up flow when the user explicitly opts in.
+  // Per-household onboarding (spec §2): a fresh household with the flag on is
+  // routed into the flow on first entry. Existing households (data present /
+  // onboardedAt set) are migrated to `skipped` above and fall through here. When
+  // the flag is off, shouldOnboard() is always false → app behaves as before.
+  const onOnboardingRoute = location.pathname.startsWith('/onboarding');
+  if (!hasExistingData && !onOnboardingRoute && shouldOnboard(currentHouseholdId)) {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   return (
     <Layout>

@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Transaction, Budget, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
+  WithProvenance, Confidence, ProvenanceSource,
 } from '../types';
 import type { DataAdapter, Entity } from './dataAdapter';
 import { parseMoneyFromCloud } from './money';
@@ -43,6 +44,11 @@ interface TransactionRow {
   account_id?: string | null;
   to_account_id?: string | null;
   initiated_by?: string | null;
+  // v8 — provenance columns (see ProvenanceRowCols / 20260606120000 migration).
+  confidence?: string | null;
+  source?: string | null;
+  estimated_at?: string | null;
+  confirmed_at?: string | null;
   // v5+ extensions stored as JSON on the row (until columns are added)
   extras?: { time?: string; paymentMethod?: string; excluded?: boolean; linkedAssetId?: string;
              linkedToAssetId?: string;
@@ -50,14 +56,22 @@ interface TransactionRow {
              accountSplits?: unknown } | null;
 }
 
-interface BudgetRow {
+// v8 — provenance columns shared by baseline-derived rows.
+interface ProvenanceRowCols {
+  confidence?: string | null;
+  source?: string | null;
+  estimated_at?: string | null;
+  confirmed_at?: string | null;
+}
+
+interface BudgetRow extends ProvenanceRowCols {
   id: string; household_id: string;
   category: string; monthly_limit: number; currency: string; color: string | null;
   period?: string | null; period_start?: string | null; period_end?: string | null;
   updated_at: string; deleted_at: string | null;
 }
 
-interface GoalRow {
+interface GoalRow extends ProvenanceRowCols {
   id: string; household_id: string;
   type: string; name: string;
   target_amount: number; current_amount: number; currency: string;
@@ -65,7 +79,7 @@ interface GoalRow {
   updated_at: string; deleted_at: string | null;
 }
 
-interface DebtRow {
+interface DebtRow extends ProvenanceRowCols {
   id: string; household_id: string;
   type: string; name: string; lender: string | null; account_last4: string | null;
   principal: number | null; current_balance: number; interest_rate: number;
@@ -77,7 +91,7 @@ interface DebtRow {
   extras?: { tenureMonths?: number; remainingMonths?: number; paymentLog?: unknown } | null;
 }
 
-interface AssetRow {
+interface AssetRow extends ProvenanceRowCols {
   id: string; household_id: string;
   type: string; name: string; value: number; currency: string;
   liquidity: string; note: string | null; last_updated: string | null;
@@ -108,8 +122,26 @@ interface MembershipRow {
   joined_at: string;
 }
 
+// ── v8 provenance columns (shared across baseline-derived entities) ──────────
+// confidence/source/estimated_at/confirmed_at columns added by
+// 20260606120000_v8_onboarding_state.sql. DB default is 'confirmed' / 'user', so
+// undefined here lets the column default own legacy + ordinary rows.
+const provToRow = (p: WithProvenance): ProvenanceRowCols => ({
+  confidence: p.confidence ?? undefined,
+  source: p.source ?? undefined,
+  estimated_at: p.estimatedAt ?? undefined,
+  confirmed_at: p.confirmedAt ?? undefined,
+});
+const rowToProv = (r: ProvenanceRowCols): WithProvenance => ({
+  confidence: (r.confidence as Confidence) || undefined,
+  source: (r.source as ProvenanceSource) || undefined,
+  estimatedAt: r.estimated_at || undefined,
+  confirmedAt: r.confirmed_at || undefined,
+});
+
 // ── Mappers ───────────────────────────────────────────────────
 const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<TransactionRow> => ({
+  ...provToRow(t),
   id: t.id, household_id: householdId, member_id: t.memberId || null,
   type: t.type, amount: t.amount, currency: t.currency || 'USD',
   date: t.date, description: t.description, category: t.category,
@@ -154,9 +186,11 @@ const rowToTxn = (r: TransactionRow): Transaction => ({
   accountSplits: r.extras?.accountSplits as Transaction['accountSplits'],
   created_by: r.created_by || undefined,
   created_at: r.created_at, updated_at: r.updated_at,
+  ...rowToProv(r),
 });
 
 const budgetToRow = (b: Partial<Budget>, hid: string): Partial<BudgetRow> => ({
+  ...provToRow(b),
   id: b.id, household_id: hid, category: b.category!,
   monthly_limit: b.limit!, currency: b.currency || 'USD', color: b.color || null,
   period: b.period || null, period_start: b.periodStart || null, period_end: b.periodEnd || null,
@@ -168,9 +202,11 @@ const rowToBudget = (r: BudgetRow): Budget => ({
   periodStart: r.period_start || undefined,
   periodEnd: r.period_end || undefined,
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
+  ...rowToProv(r),
 });
 
 const goalToRow = (g: Partial<Goal>, hid: string): Partial<GoalRow> => ({
+  ...provToRow(g),
   id: g.id, household_id: hid, type: g.type!, name: g.name!,
   target_amount: g.target!, current_amount: g.current ?? 0,
   currency: g.currency || 'USD', deadline: g.deadline || null,
@@ -182,9 +218,11 @@ const rowToGoal = (r: GoalRow): Goal => ({
   currency: r.currency, deadline: r.deadline || undefined,
   completed: r.completed,
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
+  ...rowToProv(r),
 });
 
 const debtToRow = (d: Partial<Debt>, hid: string): Partial<DebtRow> => ({
+  ...provToRow(d),
   id: d.id, household_id: hid, type: d.type!, name: d.name!,
   lender: d.lender || null,
   account_last4: d.account ? d.account.slice(-4) : null,
@@ -219,9 +257,11 @@ const rowToDebt = (r: DebtRow): Debt => ({
   remainingMonths: r.extras?.remainingMonths,
   paymentLog: r.extras?.paymentLog as Debt['paymentLog'],
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
+  ...rowToProv(r),
 });
 
 const assetToRow = (a: Partial<Asset>, hid: string): Partial<AssetRow> => ({
+  ...provToRow(a),
   id: a.id, household_id: hid, type: a.type!, name: a.name!,
   value: a.value!, currency: a.currency || 'USD',
   liquidity: a.liquidity!, note: a.note || null,
@@ -234,6 +274,7 @@ const rowToAsset = (r: AssetRow): Asset => ({
   note: r.note || undefined,
   lastUpdated: r.last_updated || undefined,
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
+  ...rowToProv(r),
 });
 
 const memberToRow = (m: Partial<Member>, hid: string): Partial<MembershipRow> => ({
@@ -320,12 +361,15 @@ export class SupabaseAdapter implements DataAdapter {
   async listHouseholds(): Promise<HouseholdMeta[]> {
     const { data, error } = await this.sb
       .from('my_households')
-      .select('id,name,type,base_currency,created_at')
+      .select('id,name,type,base_currency,created_at,onboarding')
       .order('created_at');
     if (error) throw error;
     return (data || []).map(r => ({
       id: r.id, name: r.name, type: r.type as ProfileTypeKey,
       baseCurrency: r.base_currency, createdAt: r.created_at,
+      // v8 — per-household onboarding state (jsonb). '{}' default → undefined.
+      onboarding: r.onboarding && Object.keys(r.onboarding).length
+        ? (r.onboarding as Record<string, unknown>) : undefined,
     }));
   }
 
@@ -345,11 +389,14 @@ export class SupabaseAdapter implements DataAdapter {
     if (patch.name !== undefined) update.name = patch.name;
     if (patch.type !== undefined) update.type = patch.type;
     if (patch.baseCurrency !== undefined) update.base_currency = patch.baseCurrency;
+    if (patch.onboarding !== undefined) update.onboarding = patch.onboarding;  // v8
     const { data, error } = await this.sb.from('households').update(update).eq('id', id)
-      .select('id,name,type,base_currency,created_at').single();
+      .select('id,name,type,base_currency,created_at,onboarding').single();
     if (error) throw error;
     return { id: data.id, name: data.name, type: data.type as ProfileTypeKey,
-             baseCurrency: data.base_currency, createdAt: data.created_at };
+             baseCurrency: data.base_currency, createdAt: data.created_at,
+             onboarding: data.onboarding && Object.keys(data.onboarding).length
+               ? (data.onboarding as Record<string, unknown>) : undefined };
   }
 
   async deleteHousehold(id: string): Promise<void> {

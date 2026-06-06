@@ -43,7 +43,15 @@ export type EventName =
   | 'insight_dismissed'
   | 'insight_actioned'
   // Onboarding & education (Item #7)
+  | 'onboarding_started'
   | 'onboarding_step_completed'
+  | 'onboarding_skipped'
+  | 'onboarding_completed'
+  | 'onboarding_nudge_shown'
+  | 'onboarding_nudge_dismissed'
+  | 'estimate_confirmed'
+  | 'confirmed_pct_milestone'
+  | 'bank_connect_offered'
   | 'help_tooltip_opened'
   // Cross-cutting
   | 'feature_flag_exposure'
@@ -82,6 +90,18 @@ export interface EventParams {
   variant?: 'on' | 'off' | 'control';
   route?: string;
   count?: number;
+  // Onboarding (spec §7)
+  segment?: 'individual' | 'household' | 'smb' | 'none';
+  flag_enabled?: boolean;
+  total_ms?: number;
+  baseline_count?: number;
+  confirmed_pct?: number;
+  nudge_kind?: 'check_in' | 'confirm_estimate' | 'bank_connect';
+  days_since?: number;
+  log_count?: number;
+  via_nudge?: boolean;
+  record_type?: string;
+  milestone?: number;
 }
 
 const isEnabled = (): boolean => {

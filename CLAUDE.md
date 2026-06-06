@@ -6,7 +6,7 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v7.4.7**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v8.0.1**
 - Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.1.0**
 - Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
 - Vanilla shell: archived from the working tree in **v7.0.1** — see master index and git history
@@ -24,7 +24,7 @@ account** — do not use. Every push to `main` deploys (see [`DEPLOY.md`](DEPLOY
 Three parallel deliverables exist in this repo:
 
 - **Consumer (vanilla shell, legacy)** — archived. The v1.0-v5.0 vanilla HTML/CSS/JS app was removed from the working tree in v7.0.1 (2026-06-01). It is preserved in git history at commits before that cleanup. The React app at `react/` (v6.0+) is the only active consumer product.
-- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v7.4.7**. Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** — this is the production URL of the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to. ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different Vercel account**, not updated by CI, and should not be relied on (it serves a stale build).
+- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v8.0.1**. Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** — this is the production URL of the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to. ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different Vercel account**, not updated by CI, and should not be relied on (it serves a stale build).
 - **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.1.0**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. **Live (CI-deployed prod): https://vyact-admin.vercel.app** (the `admin` project under the same team). ⚠ The older `finflow-admin.vercel.app` is likewise orphaned on a different account.
 
 **Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app falls back to localStorage-only mode (single anonymous household, no auth screens). Both modes share the same `DataAdapter` interface.
@@ -35,6 +35,14 @@ Three parallel deliverables exist in this repo:
 > - **Global modals via store slots.** Each CRUD entity has `{entity}ModalOpen` / `editing{Entity}` state + `openAdd{Entity}` / `openEdit{Entity}` / `close{Entity}Modal` actions in `store.ts`. The modal component is mounted once in `App.tsx`. Pages call the store action instead of holding local modal state. Follow this pattern for any new CRUD surface.
 > - **Client-side overlays for un-migrated schema.** When a feature needs a column the production DB doesn't have yet (e.g. budget `period`), store it in a namespaced localStorage map (`budgetMeta.ts`) and merge it onto adapter results in `refresh()`. Document the per-device limitation and queue the migration for a later version. **Never** change the production schema mid-release without an explicit migration step.
 > - **Cache no-clobber.** `HybridAdapter.applyCloudList()` only trusts an empty cloud response once `ff_cloud_synced_<hid>_<entity>` proves a prior sync. `forceFullResync(hid)` clears the sentinel. Preserve this when touching the adapter.
+
+> **Consumer v8.0.0 status — Onboarding & Activation module.** A new per-household onboarding surface built to [`vyact-onboarding-engineering-spec.md`](vyact-onboarding-engineering-spec.md) (the buildable contract). Six-step segment-driven flow (Welcome → Segment → Context → Snapshot → Forward Model → Reveal) capturing a minimal baseline (snapshot + recurring scaffold — never a bank statement) whose estimates converge to confirmed over a **21-day** window. Files: `config/features.ts` (the `FEATURES.onboarding` flag — the single toggle the whole feature hides behind), `lib/onboardingState.ts` (state machine + provenance + 21-day window), `lib/onboardingTemplates.ts` (per-segment content for individual/household/smb), `pages/Onboarding.tsx` (the flow), `components/ui/EstimatedTag.tsx` (honest-data tag), `lib/onboardingNudges.ts` + `components/onboarding/NudgeBanner.tsx` (progressive capture). Unit pins in `lib/__tests__/onboarding.test.ts` (`CON-UNIT-ONB-001..016`).
+
+> **Key architectural conventions added in v8.0.0:**
+> - **Single feature flag, OFF must be a clean no-op.** The whole module checks `isOnboardingEnabled()` (from `config/features.ts`) at every entry. With `enabled = false`: no UI renders, new households are created `skipped`, no estimates are seeded, no nudges fire, no "% confirmed" shows. This is the plug-n-play contract — keep it true. The flag object is also the swap-point for server-driven remote config later.
+> - **Onboarding is owned by the HOUSEHOLD, not the user/device — and it is cloud-synced (v8.0.1).** Two halves, two stores: the per-household **state machine** lives on `households.onboarding` (jsonb) with a localStorage *cache* in `onboardingState.ts` (write-through via `registerOnboardingSync`, hydrated by `hydrateOnboardingFromCloud` in `store.init()`); **record provenance** lives as normalized `confidence`/`source`/`estimated_at`/`confirmed_at` columns on the baseline-derived entity tables (`transactions`/`budgets`/`goals`/`debts`/`assets`), so it rides the existing entity sync + RLS and survives a cache clear or device switch. Migration: `20260606120000_v8_onboarding_state.sql`. `migrateExistingHousehold()` marks pre-feature/data-bearing households `skipped`; column defaults are `'confirmed'`/`'user'` so **existing data is never re-onboarded or re-tagged as an estimate.**
+> - **The trigger is auth-method-agnostic.** The `App.tsx` guard routes fresh households into the flow regardless of how the user signed in (email today, Google OAuth once the v7.0.1 stub is wired) because it keys off household state, not auth. Invited members of a `completed` household skip baseline capture.
+> - **Honest data is non-negotiable.** Any value with `confidence !== 'confirmed'` must render `<EstimatedTag/>`; never style an estimate as confirmed, never auto-overwrite a user value without an explicit tap.
 
 ## File Structure
 ```
@@ -52,13 +60,17 @@ budget-app/
 │   └── src/
 │       ├── main.tsx, App.tsx, index.css
 │       ├── types.ts, constants.ts, store.ts, hooks.ts
+│       ├── config/           — features.ts (FEATURES.onboarding flag, v8)
 │       ├── lib/             — format, i18n, calculations, dataAdapter,
 │       │                      hybridAdapter, supabaseAdapter, auth, permissions,
 │       │                      migration, budgetMeta, templates, amortization,
 │       │                      recurring, notifications, plannerRules, aiSummary,
-│       │                      insightsApi, seed (all TS)
+│       │                      insightsApi, analytics, featureFlags, seed,
+│       │                      onboardingState, onboardingTemplates,
+│       │                      onboardingNudges (v8) (all TS)
 │       ├── components/
-│       │   ├── ui/          — Button, Card, Modal, Input, Badge, Toast, Empty, Money
+│       │   ├── ui/          — Button, Card, Modal, Input, Badge, Toast, Empty, Money, EstimatedTag
+│       │   ├── onboarding/   — NudgeBanner (v8 progressive capture)
 │       │   ├── layout/      — Sidebar, MobileBar, ProfileSwitcher, Layout,
 │       │   │                  NotificationCenter, FloatingTools
 │       │   ├── charts/      — PulseGauge (custom SVG), Charts (Recharts)

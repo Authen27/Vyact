@@ -30,6 +30,10 @@ import {
 } from './lib/notifications';
 import ls from './lib/localStorageCompat';
 import { getMoneyMapMode } from './lib/featureFlags';
+import {
+  registerOnboardingSync, hydrateOnboardingFromCloud,
+  type HouseholdOnboarding,
+} from './lib/onboardingState';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from './lib/educationProgress';
 
 interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
@@ -314,6 +318,24 @@ export const useStore = create<Store>((set, get) => ({
       ? (households.find(h => h.id === preferredId)?.id || households[0].id)
       : 'local';
     set({ households, currentHouseholdId: active });
+
+    // v8 — onboarding cloud sync. In cloud mode, write-throughs persist the
+    // per-household state to `households.onboarding`; hydrate the local cache
+    // from the authoritative cloud value so a second device reflects it. In
+    // local-only mode the localStorage cache is already durable → no persister.
+    if (cloudEnabled) {
+      registerOnboardingSync((hid, rec) => {
+        if (hid === 'local') return;
+        void adapter.updateHousehold(hid, { onboarding: rec as unknown as Record<string, unknown> })
+          .catch(e => { if (typeof console !== 'undefined') console.warn('[Vyact] onboarding sync failed', e); });
+      });
+      for (const h of households) {
+        hydrateOnboardingFromCloud(h.id, h.onboarding as Partial<HouseholdOnboarding> | undefined);
+      }
+    } else {
+      registerOnboardingSync(null);
+    }
+
     if (cloudEnabled && active !== 'local') {
       try { setLocalString('last_cloud_hid', active); } catch { /* noop */ }
     }

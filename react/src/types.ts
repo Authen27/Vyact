@@ -54,7 +54,25 @@ export interface SplitInfo {
   participants: SplitParticipant[];
 }
 
-export interface Transaction {
+// v8 — Onboarding & Activation provenance (spec §3.2). Carried on every
+// baseline-derived record so honest-data rendering and the 21-day truing-up loop
+// work across devices (these are real, cloud-synced columns, not a local overlay).
+export type Confidence = 'estimated' | 'confirming' | 'confirmed';
+export type ProvenanceSource = 'onboarding' | 'user' | 'bank';
+
+/** Mixed onto baseline-derived entities (Transaction, Budget, Goal, Debt, Asset).
+ *  Absent / 'confirmed' + 'user' means a first-class, user-owned value. */
+export interface WithProvenance {
+  /** Defaults to 'confirmed' for normal user/legacy rows. */
+  confidence?: Confidence;
+  /** Defaults to 'user'. 'onboarding' marks a setup estimate. */
+  source?: ProvenanceSource;
+  /** When the estimate was captured / when it became confirmed. */
+  estimatedAt?: string;
+  confirmedAt?: string;
+}
+
+export interface Transaction extends WithProvenance {
   id: string;
   type: TxnType;
   amount: number;
@@ -96,7 +114,7 @@ export interface AccountSplit {
 
 export type BudgetPeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'annual' | 'custom';
 
-export interface Budget {
+export interface Budget extends WithProvenance {
   id: string;
   category: string;
   /** Budgeted amount for the entire `period` window (NOT per month).
@@ -116,7 +134,7 @@ export interface Budget {
   updated_at?: string;
 }
 
-export interface Goal {
+export interface Goal extends WithProvenance {
   id: string;
   type: GoalType;
   name: string;
@@ -137,7 +155,7 @@ export interface Member {
   userId?: string;
 }
 
-export interface Debt {
+export interface Debt extends WithProvenance {
   id: string;
   type: string;
   name: string;
@@ -161,7 +179,7 @@ export interface Debt {
   updated_at?: string;
 }
 
-export interface Asset {
+export interface Asset extends WithProvenance {
   id: string;
   type: string;
   name: string;
@@ -319,6 +337,10 @@ export interface HouseholdMeta {
   type: ProfileTypeKey;
   baseCurrency: string;
   createdAt: string;
+  /** v8 — per-household onboarding state machine record, cloud-persisted on the
+   *  `households.onboarding` jsonb column. Shape defined in lib/onboardingState.
+   *  Untyped here (Record) to avoid a types→lib import cycle; the lib casts it. */
+  onboarding?: Record<string, unknown>;
 }
 
 export interface ExchangeRates {

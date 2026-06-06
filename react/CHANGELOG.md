@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v7.4.7`** (consumer)
+> **Current production version: `v8.0.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,148 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.0.1 — Onboarding cloud persistence (multi-device) *(2026-06-06)*
+
+Closes the v8.0.0 gap where onboarding state lived only in browser-local overlays
+— which meant a second device or a cleared cache silently lost the "Estimated"
+tags, the "% confirmed" indicator, the 21-day window, and nudge bookkeeping. Both
+halves of the module are now cloud-persisted and follow the household across
+devices. Requires DB migration
+[`20260606120000_v8_onboarding_state.sql`](../supabase/migrations/20260606120000_v8_onboarding_state.sql).
+
+### (a) Per-household state → `households.onboarding` (jsonb)
+- New jsonb column on `households` holding the `HouseholdOnboarding` record
+  (state, segment, context, currentStep, completedAt, 21-day window), with a
+  `jsonb_typeof = 'object'` guard. Inherits the existing `households` RLS.
+- [`onboardingState.ts`](src/lib/onboardingState.ts) keeps a synchronous
+  localStorage **cache** (so the UI read API and offline / local-only mode keep
+  working) and adds a cloud **write-through**: `registerOnboardingSync()` (the
+  store registers an `updateHousehold({ onboarding })` persister in cloud mode, a
+  no-op in local mode) and `hydrateOnboardingFromCloud()` (seeds the cache from
+  the authoritative cloud value on load). [`supabaseAdapter.ts`](src/lib/supabaseAdapter.ts)
+  selects/maps `onboarding` in `listHouseholds` + `updateHousehold`; the
+  `my_households` view is `select h.*` so the column flows through automatically.
+  Wired in [`store.ts`](src/store.ts) `init()`.
+
+### (b) Record provenance → normalized columns on entity rows
+- Replaced the local provenance overlay with real `confidence` / `source` /
+  `estimated_at` / `confirmed_at` columns on every baseline-derived table
+  (`transactions`, `budgets`, `goals`, `debts`, `assets`), defaulting to
+  `'confirmed'` / `'user'` so **no backfill is needed and existing data is never
+  re-tagged** (spec §3.4). A partial index per table (`… where confidence <>
+  'confirmed'`) makes outstanding estimates cheap to find. Provenance now rides
+  the existing per-entity sync + RLS, survives a cache clear, and is queryable in
+  SQL.
+- `WithProvenance` mixed into `Transaction` / `Budget` / `Goal` / `Debt` / `Asset`
+  in [`types.ts`](src/types.ts); the adapter maps the columns via shared
+  `provToRow` / `rowToProv` helpers. [`Onboarding.tsx`](src/pages/Onboarding.tsx)
+  now stamps `onboardingProvenance()` directly onto seeded budgets/goals (so the
+  estimate state persists through the normal entity write).
+- Provenance helpers moved onto entity collections: `isEstimate`,
+  `unconfirmedEstimateCount`, `confirmedPctFromEntities` (materiality-weighted).
+  [`NudgeBanner.tsx`](src/components/onboarding/NudgeBanner.tsx) derives the nudge
+  stats from store entities; [`onboardingNudges.ts`](src/lib/onboardingNudges.ts)
+  takes `{ unconfirmedEstimates, confirmedPct }` as inputs.
+
+### Notes
+- The per-household onboarding *trigger* was already multi-device-safe via the
+  cloud-synced `profile.onboardedAt`; this release makes the *honest-data
+  lifecycle* equally durable.
+- Tests updated to the entity-based provenance APIs (`CON-UNIT-ONB-007..010`,
+  `011..016`). Typecheck clean; 16/16 onboarding tests green; full suite green
+  except one pre-existing, unrelated `calculations` debt-component assertion.
+
+## v8.0.0 — Onboarding & Activation module *(2026-06-06)*
+
+Major release. Ships the **per-household Onboarding & Activation** feature defined
+in [`vyact-onboarding-engineering-spec.md`](../vyact-onboarding-engineering-spec.md):
+a minimal baseline-capture flow (a snapshot + a recurring scaffold — **never** a
+bank statement) that renders a useful dashboard in under two minutes, with
+estimated values that converge to confirmed reality over a **21-day** window. The
+whole feature sits behind a single feature flag and is built so that turning it
+off is a clean no-op. Bumped to a major because this is a new product surface with
+its own state model, not a polish patch.
+
+### Feature flag (plug-n-play) — built first
+- New [`src/config/features.ts`](src/config/features.ts) `FEATURES.onboarding`
+  config object: `enabled` master switch, `perHousehold`, `confirmationWindowDays: 21`,
+  `skipAllowedFromStep: 2`, plus `isOnboardingEnabled()`. Single swap-point for a
+  server-driven remote-config service later (H2). With `enabled = false` no
+  onboarding UI renders, new households are created `skipped`, no estimated data
+  is seeded, no nudges fire, and no "% confirmed" indicator shows — the app is
+  indistinguishable from the pre-feature build.
+
+### Per-household state model + provenance
+- New [`src/lib/onboardingState.ts`](src/lib/onboardingState.ts): the per-household
+  state machine (`not_started → in_progress → completed / skipped`) with resume
+  support, the 21-day window (`confirmationWindowEndsAt = completedAt + 21d`), and
+  a record-level provenance overlay (`Confidence = estimated|confirming|confirmed`,
+  `Source = onboarding|user|bank`). `confirmRecord()` never auto-overwrites a value
+  (explicit tap only); `confirmedPct()` is materiality-weighted. Persisted as a
+  namespaced `localStorage` overlay per the documented "client-side overlay for
+  un-migrated schema" convention — **no Supabase schema change**.
+- **Existing households are safe:** `migrateExistingHousehold()` marks any
+  pre-feature / data-bearing household `skipped` and is idempotent; existing data
+  is treated as `confirmed` and **never** re-tagged as an estimate. No existing
+  user is ever re-onboarded.
+
+### The 6-step flow (segment-driven)
+- Rewrote [`src/pages/Onboarding.tsx`](src/pages/Onboarding.tsx) from the old
+  4-step template wizard to the spec's **six-step spine**: Welcome+Trust →
+  Segment Select (mandatory) → Context → Snapshot → Forward Model → Reveal. Steps
+  2–4 read content from a per-segment map and are skippable from step 2. Steps 2–4
+  are capped at ≤6 input interactions; **no bank-connect / statement / account-number
+  / card field anywhere** in the flow. Seeds provenance-tagged `estimated` budgets
+  and a debt goal (reusing existing entities, not parallel models).
+- New [`src/lib/onboardingTemplates.ts`](src/lib/onboardingTemplates.ts): the
+  per-segment content map for **individual / household / smb** — context questions,
+  snapshot fields, fixed-cost chips, visible modules, Pulse bias, and the signature
+  Reveal line.
+- The **Reveal** shows current position, monthly cash-flow shape, first Pulse
+  Score, 21-day outlook, the "% confirmed" indicator (starts ~40%), and one
+  suggested next action (partner-invite for households).
+
+### Per-household trigger — auth-method-agnostic
+- [`src/App.tsx`](src/App.tsx) routes a genuinely fresh household into the flow on
+  first entry and migrates existing households to `skipped`. The guard keys off
+  household state, **not** how the user authenticated — so email **and** Google
+  OAuth sign-ups (both land on `/auth/verified → /dashboard`) flow through
+  onboarding automatically. (Google SSO itself remains the v7.0.1 "coming soon"
+  stub until the provider is configured; no extra wiring needed when it lands.)
+  Invited members joining a `completed` household skip baseline capture (§6.4).
+
+### Honest-data rendering
+- New shared [`src/components/ui/EstimatedTag.tsx`](src/components/ui/EstimatedTag.tsx):
+  any value whose `confidence !== 'confirmed'` renders the tag, so an estimate
+  always looks like an estimate and is never styled as real/confirmed data.
+
+### Progressive-capture nudges
+- New [`src/lib/onboardingNudges.ts`](src/lib/onboardingNudges.ts) decision engine
+  + [`src/components/onboarding/NudgeBanner.tsx`](src/components/onboarding/NudgeBanner.tsx)
+  surface (mounted once at app root). One gentle, dismissible nudge at a time with
+  priority **check-in (day 7/14/21) → confirm-estimate → bank-connect**. Governance:
+  non-blocking, dismissals persist, **max one nudge per session**, active nudging
+  **tapers after the 21-day window**, and the **bank-connect offer never appears at
+  signup** — only after ≥5 real logs, once. Counts only real activity (onboarding
+  estimates excluded).
+
+### Instrumentation
+- [`src/lib/analytics.ts`](src/lib/analytics.ts): added `onboarding_started`,
+  `onboarding_skipped`, `onboarding_completed`, `onboarding_nudge_shown/dismissed`,
+  `estimate_confirmed`, `confirmed_pct_milestone`, `bank_connect_offered` events
+  and their privacy-safe params (segment, durations, baseline counts, days-since).
+
+### Tests
+- New [`src/lib/__tests__/onboarding.test.ts`](src/lib/__tests__/onboarding.test.ts)
+  — 16 unit tests (`CON-UNIT-ONB-001..016`) covering the state machine, the 21-day
+  window, the no-re-onboard guarantee, provenance + materiality-weighted "% confirmed",
+  and all nudge governance rules. Typecheck clean; production build clean; 16/16 green.
+
+### Deferred (follow-ups)
+- Dashboard-resident "% confirmed" widget and chart hatching for estimated-vs-confirmed
+  segments. The state + provenance data is in place; only the dashboard surfaces remain.
+- Real Google OAuth (gated on Supabase provider config, tracked since v7.0.1).
 
 ## v7.4.7 — User feedback & heatmap analytics integration *(2026-06-05)*
 
