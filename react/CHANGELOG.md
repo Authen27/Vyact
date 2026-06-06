@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.1.0`** (consumer)
+> **Current production version: `v8.1.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,69 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.1.2 — Realtime refresh race, currency-in-drawer, DB cleanup *(2026-06-06)*
+
+Three triaged fixes.
+
+### Dashboard totals froze after a couple of transactions (cloud mode)
+- **Root cause.** The realtime subscription fired `get().refresh()` on *every*
+  `postgres_changes` event with no debounce or ordering. A single user action can
+  emit a burst (e.g. a transfer's paired rows; rapid adds), spawning overlapping
+  full re-lists that resolved **out of order** — an older snapshot (a cloud read
+  that lagged a just-written row) could resolve last and overwrite newer state,
+  so income/expense totals stuck at a stale value.
+- **Fix** ([`store.ts`](src/store.ts)): (1) a module-scoped `refreshSeq` —
+  `refresh()` captures a sequence + the active household and **discards its result
+  if a newer refresh started or the household switched** mid-flight; (2) the
+  realtime handler is **debounced 400ms** so an event burst collapses into one
+  trailing refresh after the writes settle.
+
+### Currency change not reflected in the menu drawer
+- **Root cause.** `updateProfile({ baseCurrency })` wrote `households.base_currency`
+  and updated `store.profile` (so Dashboard and Reports reconvert correctly — they
+  read `profile.baseCurrency`), but it never updated the `households` array that
+  the profile switcher / menu drawer renders, so the drawer's `· {currency}` label
+  stayed stale until a full reload.
+- **Fix** ([`store.ts`](src/store.ts)): `updateProfile` now patches the active
+  `HouseholdMeta` in the in-memory `households` list when `baseCurrency`/`household`
+  type changes — no extra network call. Dashboard/Reports were already correct;
+  validated they recompute on `baseCur`.
+
+### DB cleanup — dropped dead `households.baseline_provenance`
+- Removed the legacy `households.baseline_provenance` jsonb column (residue from an
+  early v8 onboarding draft; the shipped design uses normalized
+  `confidence`/`source` columns on the entity tables and never read it). Migration
+  [`20260606140000_v8_drop_legacy_baseline_provenance.sql`](../supabase/migrations/20260606140000_v8_drop_legacy_baseline_provenance.sql)
+  drops + recreates `my_households` around the column drop; applied to production.
+  Audited `households`/`profiles`/entity tables — no other legacy onboarding
+  columns exist (`households.onboarding` and the entity provenance columns are
+  live). Typecheck + build clean; suite green (one pre-existing unrelated
+  `calculations` assertion).
+
+## v8.1.1 — Hotfix: my_households 400 blocked app load *(2026-06-06)*
+
+**Severity: app-blocking.** `GET /rest/v1/my_households?select=…,onboarding`
+returned **400** for all cloud users, failing `listHouseholds()` during `init()`
+and leaving the app stuck on load.
+
+**Root cause.** The v8 onboarding migration added `households.onboarding`, but the
+`my_households` view was created with an expanded column list — Postgres freezes
+`select h.*` into explicit columns at creation, so a new base-table column is
+**not** added to the view. Selecting `onboarding` from the view hit a non-existent
+column → 400.
+
+**Fix (two parts).**
+- **DB** — new migration
+  [`20260606130000_v8_fix_my_households_view.sql`](../supabase/migrations/20260606130000_v8_fix_my_households_view.sql)
+  drops and recreates `my_households` (no dependent views) so `h.*` re-expands to
+  include `onboarding`; `security_invoker` + `grant select` restored. Applied to
+  production immediately.
+- **Client (defense-in-depth)** — [`supabaseAdapter.ts`](src/lib/supabaseAdapter.ts)
+  `listHouseholds()` now selects `onboarding` and, on any error, **retries without
+  it** instead of throwing. An additive column that hasn't reached a given
+  environment's view can never again hard-block the whole app; `onboarding` simply
+  reads as `undefined` until the migration lands. Typecheck clean.
 
 ## v8.1.0 — Ask Vyact assistant (deterministic, no-LLM) *(2026-06-06)*
 

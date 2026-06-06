@@ -221,6 +221,11 @@ function removeLocal(suffix: string): void {
   try { ls.removeBoth(suffix); } catch { /* noop */ }
 }
 
+// v8.1.2 — monotonically increasing refresh sequence. Module-scoped (not store
+// state) so bumping it never triggers a re-render. refresh() uses it to discard
+// stale, out-of-order completions (see refresh()).
+let refreshSeq = 0;
+
 // Adapter selector: HybridAdapter when cloud env is set, otherwise LocalStorageAdapter.
 // The store calls adapter methods; the rest of the app doesn't know which is in use.
 const initialAdapter: DataAdapter = (isCloudEnabled() && supabase)
@@ -380,6 +385,15 @@ export const useStore = create<Store>((set, get) => ({
 
   refresh: async () => {
     const { adapter, currentHouseholdId } = get();
+    // v8.1.2 — realtime fires refresh() on every postgres change, so multiple
+    // refreshes can be in flight at once. Capture a sequence number + the active
+    // household; after the awaits, bail if a NEWER refresh has started or the
+    // household has switched. Without this, an older snapshot (e.g. a cloud read
+    // that lagged a just-written row) can resolve last and clobber newer state,
+    // which is what made the dashboard totals freeze after a couple of txns.
+    const seq = ++refreshSeq;
+    const seqHid = currentHouseholdId;
+    const isStale = () => seq !== refreshSeq || get().currentHouseholdId !== seqHid;
     const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, profile, rates] = await Promise.all([
       adapter.list<Transaction>('transactions', currentHouseholdId),
       adapter.list<Budget>('budgets',           currentHouseholdId),
@@ -397,6 +411,10 @@ export const useStore = create<Store>((set, get) => ({
     // Removed 2026-06-01: PR #20 added the real `period` / `period_start` /
     // `period_end` columns to `budgets`; the adapter row mapper now returns
     // them directly and the local overlay is dead code.
+    // Drop this result if a newer refresh superseded it (or the household
+    // switched) while our reads were in flight — applying it would overwrite
+    // fresher data with a stale snapshot.
+    if (isStale()) return;
     const hydratedBudgets = budgets;
     // v6.4: Defensive — if every entity comes back empty AND we previously
     // had data in memory, the cloud is almost certainly degraded (RLS issue,
@@ -681,7 +699,18 @@ export const useStore = create<Store>((set, get) => ({
       ? await adapter.updateProfile(currentHouseholdId, cloudPatch)
       : profile;
     const merged = { ...profile, ...next, ...(nsOverride ? { numberSystem: nsOverride } : {}) };
-    set({ profile: merged });
+    // v8.1.2 — household-level fields (base currency, type) also live on the
+    // HouseholdMeta list that the profile switcher / menu drawer reads. Keep that
+    // list in sync so the drawer's "· {currency}" label updates immediately
+    // instead of staying stale until the next full reload.
+    const households = (patch.baseCurrency !== undefined || patch.household !== undefined)
+      ? get().households.map(h => h.id === currentHouseholdId
+          ? { ...h,
+              baseCurrency: patch.baseCurrency ?? h.baseCurrency,
+              type: (patch.household ?? h.type) as HouseholdMeta['type'] }
+          : h)
+      : get().households;
+    set({ profile: merged, households });
     setNumberSystem(merged.numberSystem === 'indian' ? 'indian' : 'western');
   },
   markEducation: async (topicId, patch) => {
@@ -915,13 +944,22 @@ export const useStore = create<Store>((set, get) => ({
 
   subscribeRealtime: (householdId) => {
     if (!supabase) return () => {/* noop */};
+    // v8.1.2 — debounce: a single user action (e.g. a transfer's paired rows, or
+    // a quick succession of adds) emits a burst of postgres_changes events. Firing
+    // a full refresh() per event spawned overlapping reads that resolved out of
+    // order and clobbered just-written rows (dashboard totals froze). Collapse the
+    // burst into one trailing refresh after the writes settle.
+    let debounce: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel(`hh:${householdId}`)
       .on('postgres_changes',
           { event: '*', schema: 'public', filter: `household_id=eq.${householdId}` },
-          () => { get().refresh(); })
+          () => {
+            if (debounce) clearTimeout(debounce);
+            debounce = setTimeout(() => { debounce = null; void get().refresh(); }, 400);
+          })
       .subscribe();
-    return () => { supabase!.removeChannel(channel); };
+    return () => { if (debounce) clearTimeout(debounce); supabase!.removeChannel(channel); };
   },
 
   setTheme: (theme) => {

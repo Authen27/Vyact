@@ -359,16 +359,29 @@ export class SupabaseAdapter implements DataAdapter {
 
   // ── households ─────────────────────────────────────────────
   async listHouseholds(): Promise<HouseholdMeta[]> {
-    const { data, error } = await this.sb
-      .from('my_households')
-      .select('id,name,type,base_currency,created_at,onboarding')
-      .order('created_at');
-    if (error) throw error;
-    return (data || []).map(r => ({
-      id: r.id, name: r.name, type: r.type as ProfileTypeKey,
-      baseCurrency: r.base_currency, createdAt: r.created_at,
-      // v8 — per-household onboarding state (jsonb). '{}' default → undefined.
-      onboarding: r.onboarding && Object.keys(r.onboarding).length
+    // v8 — `onboarding` is an additive column. If the deployed DB's my_households
+    // view predates it (the view freezes its column list at creation), selecting
+    // it 400s and would block the WHOLE app on load. Degrade gracefully: retry
+    // without the column rather than letting household list fail. The companion
+    // migration (20260606130000) is the real fix; this keeps the app resilient to
+    // any environment where it hasn't landed yet.
+    const BASE = 'id,name,type,base_currency,created_at';
+    let rows: Record<string, unknown>[];
+    const withOnboarding = await this.sb
+      .from('my_households').select(`${BASE},onboarding`).order('created_at');
+    if (withOnboarding.error) {
+      const fallback = await this.sb
+        .from('my_households').select(BASE).order('created_at');
+      if (fallback.error) throw fallback.error;
+      rows = (fallback.data || []) as Record<string, unknown>[];
+    } else {
+      rows = (withOnboarding.data || []) as Record<string, unknown>[];
+    }
+    return rows.map(r => ({
+      id: r.id as string, name: r.name as string, type: r.type as ProfileTypeKey,
+      baseCurrency: r.base_currency as string, createdAt: r.created_at as string,
+      // per-household onboarding state (jsonb). '{}' default / absent → undefined.
+      onboarding: r.onboarding && Object.keys(r.onboarding as object).length
         ? (r.onboarding as Record<string, unknown>) : undefined,
     }));
   }
