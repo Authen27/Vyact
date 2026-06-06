@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v7.4.6`** (consumer)
+> **Current production version: `v7.4.7`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,38 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v7.4.7 — User feedback & heatmap analytics integration *(2026-06-05)*
+
+Two telemetry integrations for product insights and user feedback collection.
+No data exposure: financial data (transactions, budgets, balances) stays client-side
+in localStorage / cloud-encrypted. Third-party collectors only see behavioral signals
+(clicks, scrolls) and structured feedback from users.
+
+### Hotjar via ContentSquare (session heatmaps & recordings)
+- Injected heatmap tracking script `https://t.contentsquare.net/uxa/86f8fcfc0d114.js`
+  into `react/index.html` (production builds only).
+- Captures scroll depth, click/tap zones, mouse movement trails, and session video for
+  product research (which features get used, where users click, bounce patterns).
+- **No access to:** localStorage, form fields, sensitive data.
+- Heatmap data exported to admin dashboard for monthly product reviews.
+
+### Userback widget (user feedback + screenshot annotation)
+- `@userback/widget` npm package (`v0.3.12`) initialized in `src/main.tsx` at app startup
+  with project key `A-7Q0Mz7gfB3ECVu6ZsOIUew97E`.
+- Floating action button (lower-right) lets users screenshot the current page, annotate
+  with arrows/text, type a message, and submit to the support backlog.
+- Auto-attaches browser info (user agent, resolution), timestamp, page URL.
+- **No access to:** localStorage, console, network traffic, form data.
+- Feedback routed to #support-feedback Slack channel for triage.
+
+### Deployment
+- Both integrations are **no-op in local-only mode** (neither fires without cloud setup).
+- Vercel production builds will wire both automatically (no env-var gates needed).
+- No new dependencies besides `@userback/widget` (Hotjar is a third-party script).
+- No schema changes. Typecheck clean.
 
 ---
 ## v7.4.5 — Mobile edge-swipe, header polish, FAB layering, iOS install suppression, Ask Vyact two-tap *(2026-06-05)*

@@ -1,7 +1,7 @@
 {
   "name": "vyact-react",
   "private": true,
-  "version": "7.4.6",
+  "version": "7.4.7",
   "type": "module",
   "description": "Vyact — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
@@ -23,6 +23,7 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tanstack/react-virtual": "^3.13.25",
+    "@userback/widget": "^0.3.12",
     "@vercel/speed-insights": "^2.0.0",
     "dinero.js": "^2.0.2",
     "lucide-react": "^0.453.0",
