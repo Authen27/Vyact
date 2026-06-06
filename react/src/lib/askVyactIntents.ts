@@ -100,3 +100,91 @@ export const BUCKET_LABEL: Record<Bucket, string> = {
 export function intentsByBucket(bucket: Bucket): Intent[] {
   return INTENTS.filter(i => i.bucket === bucket);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v8.1 — Ask Vyact free-text intent taxonomy (engineering spec §3 stage 3).
+//
+// This is the rules implementation of `classifyIntent` — the FIRST of the two
+// seams a future LlmBackend swaps in (§3). It is a pure function over the parsed
+// entities + normalised text; it never computes money. Rule ORDER matters:
+//   • income is tested before expense (the "got paid salary" vs "spent" collision)
+//   • forecast goal vs runway: "save <amount>" → goal, "last / quit" → runway
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { ExtractedEntities } from './askVyactParser';
+
+export type AssistantBucket = 'capture' | 'interpret' | 'forecast';
+
+export type AssistantIntentId =
+  | 'capture.income' | 'capture.split' | 'capture.transfer' | 'capture.expense'
+  | 'interpret.status' | 'interpret.diagnostic' | 'interpret.lookup'
+  | 'forecast.affordability' | 'forecast.runway' | 'forecast.goal' | 'forecast.prescriptive'
+  | 'fallback';
+
+export interface IntentResult {
+  id: AssistantIntentId;
+  bucket: AssistantBucket | 'none';
+  /** 0–1 rough match strength, for telemetry + future LLM tie-breaks. */
+  confidence: number;
+  entities: ExtractedEntities;
+}
+
+const BUCKET_OF: Record<AssistantIntentId, AssistantBucket | 'none'> = {
+  'capture.income': 'capture', 'capture.split': 'capture',
+  'capture.transfer': 'capture', 'capture.expense': 'capture',
+  'interpret.status': 'interpret', 'interpret.diagnostic': 'interpret', 'interpret.lookup': 'interpret',
+  'forecast.affordability': 'forecast', 'forecast.runway': 'forecast',
+  'forecast.goal': 'forecast', 'forecast.prescriptive': 'forecast',
+  fallback: 'none',
+};
+
+interface IntentRule {
+  id: AssistantIntentId;
+  /** Tested in array order; first match wins. */
+  test: (e: ExtractedEntities) => boolean;
+  confidence?: number;
+}
+
+// Ordered rules — earlier entries win. Forecast & Interpret are tested before
+// Capture so a question ("how much…", "can I afford…") never seeds a transaction.
+const RULES: IntentRule[] = [
+  // ── Forecast (questions about the future) ───────────────────────────────────
+  { id: 'forecast.affordability', test: e => /\b(can i afford|afford|can i buy|should i buy|enough for)\b/.test(e.text) },
+  { id: 'forecast.runway',        test: e => /\b(if i (quit|lose|stop)|how (long|many months)|runway|last me|stretch|without (income|a job))\b/.test(e.text) },
+  { id: 'forecast.goal',          test: e => /\b(will i (hit|reach|make)|on track (for|to)|by (december|january|february|march|april|may|june|july|august|september|october|november|year[- ]?end|then)|save\b.*\bby\b|reach my goal)\b/.test(e.text) },
+  { id: 'forecast.prescriptive',  test: e => /\b(where (can|do) i cut|how (can|do) i save|need .* by|free up|trim|cut back|find \d)\b/.test(e.text) },
+
+  // ── Interpret (questions about current/past state) ──────────────────────────
+  { id: 'interpret.status',     test: e => /\b(pulse score|net worth|networth|my balance|how am i doing|am i ok|financial health)\b/.test(e.text) },
+  { id: 'interpret.diagnostic', test: e => /\b(why|where('?s| is| are)|what'?s eating|double[- ]?pay|paying twice|forgotten|leak|going wrong)\b/.test(e.text) },
+  { id: 'interpret.lookup',     test: e => /\b(how much|how many|show me|what did i|total|biggest|most|breakdown|list)\b/.test(e.text) },
+
+  // ── Capture (statements about something that happened) ──────────────────────
+  // Capture matches on verb/category even WITHOUT an amount — a missing amount
+  // is handled in resolve with a single clarifying chip ("how much?"), per §4.4,
+  // not by failing to classify. Interpret/Forecast are tested first (above), so a
+  // genuine question never falls through to Capture. Income before expense (§4).
+  { id: 'capture.income',   test: e => /\b(got paid|received|salary|paycheck|payday|income|invoice|client paid|refund|earned)\b/.test(e.text) },
+  { id: 'capture.split',    test: e => /\b(split|between|ways?|each of us|of us)\b/.test(e.text) },
+  { id: 'capture.transfer', test: e => /\b(moved|transfer|transferred|move)\b/.test(e.text) },
+  // expense: a spend verb OR a known category (with an amount when only a category).
+  { id: 'capture.expense',  test: e => /\b(spent|spend|bought|paid|cost)\b/.test(e.text) || (e.category != null && e.amount != null) },
+];
+
+/**
+ * Stage 3 — classify a parsed utterance into an assistant intent. Pure; no money.
+ * Returns `fallback` when nothing matches so the caller can offer a clarifying
+ * chip rather than erroring.
+ */
+export function classifyIntent(entities: ExtractedEntities): IntentResult {
+  for (const rule of RULES) {
+    if (rule.test(entities)) {
+      return { id: rule.id, bucket: BUCKET_OF[rule.id], confidence: rule.confidence ?? 0.9, entities };
+    }
+  }
+  // Bare "netflix 199" with a category but no verb still reads as an expense.
+  if (entities.amount != null && entities.category != null) {
+    return { id: 'capture.expense', bucket: 'capture', confidence: 0.6, entities };
+  }
+  return { id: 'fallback', bucket: 'none', confidence: 0, entities };
+}

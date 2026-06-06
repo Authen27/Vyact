@@ -12,10 +12,15 @@ import ls from '../lib/localStorageCompat';
 import {
   INTENTS, BUCKET_LABEL, intentsByBucket, type Bucket, type Intent, type IntentAction,
 } from '../lib/askVyactIntents';
+import { isAskVyactEnabled, FEATURES } from '../config/features';
+import {
+  runAssistant, proactiveInsight, selectAssistantBackend, type AssistantContext,
+} from '../lib/askVyactBackend';
 
 const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan', 'manage'];
 
 const backend = selectChatBackend();
+const assistantBackend = selectAssistantBackend();
 
 export default function Chat() {
   const navigate = useNavigate();
@@ -45,6 +50,10 @@ export default function Chat() {
   const [expanded, setExpanded] = useState<Intent | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Proactive "what to know" card (spec §5) — at most one per session, dismissible,
+  // only when the flag + bucket + proactiveInsight are on.
+  const [proactive, setProactive] = useState<{ text: string; chipPrompt?: string } | null>(null);
+
   // Privacy-safe summary built from current state — never includes merchant names or descriptions
   const summary = useMemo(() => {
     const s = buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates);
@@ -56,6 +65,23 @@ export default function Chat() {
     ls.setJson('chat_history', history);
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [history]);
+
+  // Surface one proactive insight on open (rate-limited to one per session).
+  useEffect(() => {
+    if (!isAskVyactEnabled() || !FEATURES.askVyact.proactiveInsight) return;
+    try { if (sessionStorage.getItem('askvyact_proactive_shown') === '1') return; } catch { /* noop */ }
+    const ctx: AssistantContext = {
+      summary, transactions: txns, budgets, goals, debts, assets,
+      profile, rates, baseCurrency: profile.baseCurrency,
+    };
+    const insight = proactiveInsight(ctx);
+    if (insight) {
+      setProactive(insight);
+      try { sessionStorage.setItem('askvyact_proactive_shown', '1'); } catch { /* noop */ }
+    }
+    // Run once on mount; summary is stable enough for a first-open insight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function dispatchAction(action: IntentAction, intentId: string, taps: 1 | 2) {
     // Telemetry: privacy-safe — only the chip id + bucket + tap depth.
@@ -97,6 +123,19 @@ export default function Chat() {
     void logAiUsage({ householdId, text: question, surface: 'chat' });
 
     try {
+      // Ask Vyact assistant (spec §3). When the flag is OFF this whole branch is
+      // skipped and the launcher behaves exactly as it did in v7.4.5.
+      if (isAskVyactEnabled()) {
+        const ctx: AssistantContext = {
+          summary, transactions: txns, budgets, goals, debts, assets,
+          profile, rates, baseCurrency: profile.baseCurrency,
+        };
+        const turn = runAssistant(question, ctx, assistantBackend);
+        // Capture intents seed the EXISTING TransactionFormModal — no parallel path.
+        if (turn.seed) openAddTxn(turn.seed);
+        setHistory(h => [...h, { role: 'assistant', content: turn.reply }]);
+        return;
+      }
       const answer = await backend.ask(question, summary, history);
       setHistory(h => [...h, { role: 'assistant', content: answer }]);
     } catch (e) {
@@ -151,6 +190,24 @@ export default function Chat() {
 
       <Panel>
         <div ref={scrollRef} className="px-4 py-4 space-y-3 max-h-[28rem] min-h-[20rem] overflow-y-auto">
+          {history.length === 0 && proactive && (
+            <div className="mb-4 bg-coral-tint border border-coral/30 rounded-md p-3 flex items-start gap-3">
+              <div className="flex-1 text-[0.84rem] text-ink leading-snug">{proactive.text}</div>
+              <div className="flex items-center gap-2 shrink-0">
+                {proactive.chipPrompt && (
+                  <button
+                    onClick={() => { const p = proactive.chipPrompt!; setProactive(null); void send(p); }}
+                    className="text-[0.72rem] font-semibold text-coral hover:underline"
+                  >
+                    Show me
+                  </button>
+                )}
+                <button onClick={() => setProactive(null)} className="text-ink-dim hover:text-ink text-[0.72rem]">
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
           {history.length === 0 && (
             <div className="py-2">
               {!expanded ? (

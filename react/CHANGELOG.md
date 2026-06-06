@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.0.1`** (consumer)
+> **Current production version: `v8.1.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,69 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.1.0 — Ask Vyact assistant (deterministic, no-LLM) *(2026-06-06)*
+
+Grows the existing Ask Vyact launcher into a real three-bucket assistant —
+**Capture, Interpret, Forecast** — using a deterministic, on-device, **no-LLM**
+pipeline in a warm human voice, behind a single feature flag, architected so a
+future LLM is a drop-in behind two function signatures. Built to
+[`vyact-ask-vyact-engineering-spec.md`](../vyact-ask-vyact-engineering-spec.md).
+**The assistant phrases; existing services compute** — no figure it says is ever
+produced by a template.
+
+### Feature flag (built first)
+- Extended [`src/config/features.ts`](src/config/features.ts) with
+  `FEATURES.askVyact` (`enabled`, per-bucket `capture`/`interpret`/`forecast`,
+  `proactiveInsight`, `backend: 'rules'|'llm'`) + `isAskVyactEnabled()` /
+  `isAskVyactBucketEnabled()`. **`enabled = false` reverts the launcher to its
+  exact v7.4.5 two-tap behaviour** — no free-text parsing, no buckets, no
+  proactive insight, no new events. Per-bucket flags allow staged rollout.
+
+### The five-stage pipeline (two seams for the future LLM)
+- [`lib/askVyactParser.ts`](src/lib/askVyactParser.ts) — stages 1–2 (`normalise`
+  + `entityExtract`): pure amount parsing (k / lakh / cr / grouped / currency),
+  a contained keyword→category map, split participant counts, and forecast
+  horizons. Model-agnostic; reused forever.
+- [`lib/askVyactIntents.ts`](src/lib/askVyactIntents.ts) — **extended** with the
+  free-text taxonomy + `classifyIntent()` (stage 3, the first LLM seam). Ordered
+  rules: Forecast/Interpret tested before Capture so a question never seeds a
+  transaction; income before expense; goal-vs-runway ordering.
+- [`lib/askVyactResponses.ts`](src/lib/askVyactResponses.ts) — `phraseResponse()`
+  (stage 5, the second seam) with **≥3 warm phrasing variants per intent+outcome**,
+  answer-first, never a dead end, honest about estimates.
+- [`lib/askVyactBackend.ts`](src/lib/askVyactBackend.ts) — `resolve()` (stage 4,
+  **never delegated to a model**) computes purely via existing services
+  (`spendByCategory`, `liquidAssets`, `monthlyData`, Planner-style affordability /
+  runway / goal / prescriptive). Ships `RulesBackend` and a stub `LlmBackend`
+  (inherits stages 1/2/4 unchanged); `selectAssistantBackend()` picks per flag;
+  `runAssistant()` orchestrates; `proactiveInsight()` surfaces one ranked card.
+
+### Buckets
+- **Capture** — "spent 45 on fuel", "got paid 85000", "split 3600 4 ways",
+  "moved 10k" → seeds the **existing** `TransactionFormModal` via `openAddTxn`;
+  missing amount → one clarifying chip, not a re-ask.
+- **Interpret** — lookups vs budget, status (Pulse / net worth / balance),
+  diagnostic (category vs rolling average). Numbers match the dashboard exactly;
+  estimate-derived figures are flagged in the phrasing (v8.0.1 provenance).
+- **Forecast** — affordability (liquid − emergency floor), runway (liquid ÷ burn),
+  goal pace vs deadline, prescriptive trims of discretionary categories. Always a
+  constructive alternative on "no"; no specific securities/products (guardrail).
+
+### Wiring + privacy
+- [`pages/Chat.tsx`](src/pages/Chat.tsx) routes free-text through `runAssistant`
+  when enabled (capture seeds the modal), shows one dismissible proactive card per
+  session, and keeps the privacy-safe `logAiUsage` event. All parsing is
+  on-device — no utterance leaves the client (there is no LLM call to make).
+
+### Tests
+- New [`lib/__tests__/askVyact.test.ts`](src/lib/__tests__/askVyact.test.ts) —
+  18 tests (`CON-UNIT-ASK-001..053`): the 11 capture + 8 forecast reference
+  phrasings, interpret routing, missing-amount clarify, figures traced to
+  services, provenance flagging, ≥3 variants per intent+outcome, fallback warmth,
+  and the `LlmBackend` stub-swap (identical stages 1/2/4). Typecheck + build
+  clean; 18/18 green (full suite green except one pre-existing, unrelated
+  `calculations` debt-component assertion).
 
 ## v8.0.1 — Onboarding cloud persistence (multi-device) *(2026-06-06)*
 
