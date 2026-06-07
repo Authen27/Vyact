@@ -18,7 +18,6 @@ import Money from '../components/ui/Money';
 import { Plus, Pencil, Star, Archive, ArchiveRestore, Link as LinkIcon, Scale, ChevronDown, ChevronRight } from 'lucide-react';
 import type { Account, AccountKind, Transaction } from '../types';
 import { getMoneyMapMode } from '../lib/featureFlags';
-import { FEATURES } from '../config/features';
 import { computeAccountBalance, accountValueOf, debitAccountOf, creditAccountOf } from '../lib/accountBalance';
 import { effectiveAmount } from '../lib/calculations';
 import { getCat } from '../constants';
@@ -50,9 +49,8 @@ export default function Accounts() {
   const mode = getMoneyMapMode();
   const flagOff = mode === 'off';
 
-  // Money-Model Epic 1 — balances/reconcile/ledger are flag-gated; OFF = the
-  // v7.1.3 page exactly (no balance column, no reconcile, no ledger).
-  const mm = FEATURES.moneyModel;
+  // Money-Model Epic 1 — computed balances, Fix-balance reconcile, and the
+  // per-account ledger are permanent.
   const baseCur = profile.baseCurrency;
   const balanceOf = (acc: Account): number =>
     computeAccountBalance(accountValueOf(acc), acc.openingBalance ?? 0, transactions, baseCur, rates);
@@ -147,14 +145,14 @@ export default function Accounts() {
                 key={acc.id}
                 acc={acc}
                 linkLabel={linkLabel(acc)}
-                balance={mm.openingBalance ? balanceOf(acc) : null}
+                balance={balanceOf(acc)}
                 baseCur={baseCur}
                 txns={transactions}
                 rates={rates}
                 onEdit={() => openEditAccount(acc)}
                 onArchive={() => toggleArchive(acc)}
-                onReconcile={mm.reconciliation ? (real) => handleReconcile(acc, real) : undefined}
-                ledgerEnabled={mm.ledger}
+                onReconcile={(real) => handleReconcile(acc, real)}
+                ledgerEnabled
               />
             ))}
           </div>

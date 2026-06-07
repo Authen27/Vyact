@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.8.0`** (consumer)
+> **Current production version: `v8.8.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,28 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.8.1 — Phase 5: freeze the Money-Model flags (code cleanup, no behaviour change) *(2026-06-07)*
+
+The v8.8.0 features were proven and are now permanent: the toggles were **removed**
+and the always-on behaviour inlined. No user-visible change.
+
+- **Removed** the `moneyModel`, `budgetsV2`, and `entryV2` flag objects from
+  [`config/features.ts`](src/config/features.ts). The account model (B1.1
+  cash-default enforcement, balances, reconcile, ledger), Budgets v2 (deterministic
+  colour — the colour picker is gone for good, history, Suggest/Copy, monthly/annual
+  hierarchy) and Entry v2 (no auto-focus, "More details" short form) are now
+  unconditional.
+- The only surviving preference is **`FEATURES.savedViews.show`** (default `false`
+  — Saved Views stay hidden, table/RPC dormant). `FEATURES` now holds just
+  `onboarding`, `askVyact`, and `savedViews`.
+- Inlined the checks in `store.ts`, `Accounts.tsx`, `Budgets.tsx`,
+  `BudgetFormModal.tsx`, `TransactionFormModal.tsx`, `SavedViewsBar.tsx`; dropped
+  the now-unused `FEATURES` imports and stale flag comments.
+- Typecheck 0 errors; suite 123/124 (pre-existing unrelated CON-UNIT-024); build clean.
+
+This completes the Money-Model execution program (all phases 1–5). Goals & Tax
+remain removed; recurring household/user sync is the next deferred item.
 
 ## v8.8.0 — Money-Model v2: goals/tax removed, two-number dashboard, Ask Vyact v2 + alpha-feedback fixes *(2026-06-07)*
 

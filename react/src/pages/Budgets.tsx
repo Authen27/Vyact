@@ -8,7 +8,6 @@ import { spendByCategoryInRange, budgetWindow, periodMonths } from '../lib/calcu
 import { BUDGET_COLORS, getCat, deterministicColor } from '../constants';
 import type { Budget, BudgetPeriod } from '../types';
 import Money from '../components/ui/Money';
-import { FEATURES } from '../config/features';
 import { budgetHistory, suggestBudget, budgetRollup, copyBudgets, type BudgetSuggestion } from '../lib/budgetIntel';
 import { uid } from '../lib/format';
 import { Sparkles } from 'lucide-react';
@@ -43,14 +42,14 @@ export default function Budgets() {
 
   const [view, setView] = useState<ViewMode>('period');
 
-  // Epic 2 (budgetsV2) — flag-gated. OFF → the v8.x Budgets page exactly.
-  const bv = FEATURES.budgetsV2;
+  // Budgets v2 — history, Suggest/Copy, and the monthly/annual hierarchy are
+  // permanent.
   const [suggestions, setSuggestions] = useState<BudgetSuggestion[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
 
   const history = useMemo(
-    () => (bv.history ? budgetHistory(transactions, budgets, profile.baseCurrency, rates, 6) : []),
-    [bv.history, transactions, budgets, profile.baseCurrency, rates],
+    () => budgetHistory(transactions, budgets, profile.baseCurrency, rates, 6),
+    [transactions, budgets, profile.baseCurrency, rates],
   );
 
   function generateSuggestions() {
@@ -133,22 +132,18 @@ export default function Budgets() {
               </button>
             ))}
           </div>
-          {bv.suggest && (
-            <>
-              <button className="btn-secondary inline-flex items-center gap-1" onClick={copyPrevious} title="Carry current budgets forward (editable)">
-                Copy
-              </button>
-              <button className="btn-secondary inline-flex items-center gap-1" onClick={generateSuggestions}>
-                <Sparkles size={13} /> Suggest
-              </button>
-            </>
-          )}
+          <button className="btn-secondary inline-flex items-center gap-1" onClick={copyPrevious} title="Carry current budgets forward (editable)">
+            Copy
+          </button>
+          <button className="btn-secondary inline-flex items-center gap-1" onClick={generateSuggestions}>
+            <Sparkles size={13} /> Suggest
+          </button>
           <button className="btn-primary" onClick={openAddBudget}>+ Add Budget</button>
         </div>
       </div>
 
       {/* B2.4 — suggested budget (editable proposal from recurring + debts + goals + history). */}
-      {bv.suggest && suggestions && (
+      {suggestions && (
         <Panel>
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
@@ -189,7 +184,7 @@ export default function Budgets() {
       )}
 
       {/* B2.2 — budget history & timeline (are we improving?). */}
-      {bv.history && history.length > 0 && (
+      {history.length > 0 && (
         <Panel>
           <div className="p-4">
             <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim mb-3">Budget vs actual · last {history.length} months</div>

@@ -3,7 +3,7 @@
 // Per principle A8, the only cross-entity "connection" worth building is READ-ONLY
 // inference over the truth. These helpers READ recurring + debts + goals to PROPOSE
 // a budget; they never write phantom money and add no new arithmetic beyond folding
-// existing values. Pure + unit-tested. UI gates behind FEATURES.budgetsV2.
+// existing values. Pure + unit-tested. Budgets v2 is a permanent part of the app.
 
 import type {
   Transaction, Budget, Debt, Goal, RecurringSchedule, ExchangeRates, BudgetPeriod,

@@ -8,8 +8,8 @@
 //
 // Pure functions over the existing transaction encoding (paymentMethod /
 // linkedToAssetId / account_id FK). No money is invented here — balances are a
-// fold over real transactions. Everything is gated by FEATURES.moneyModel at the
-// call sites; these helpers are pure and safe to import unconditionally.
+// fold over real transactions. These helpers are pure and the money model is now
+// a permanent part of the app.
 
 import type { Transaction, Account } from '../types';
 import { effectiveAmount } from './calculations';

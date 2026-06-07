@@ -39,10 +39,10 @@ export interface SavedViewsBarProps {
 
 // B4.4 (alpha item 3) — Saved Views hidden by default. This thin wrapper gates
 // the bar without conditionally calling hooks inside the inner component; the
-// saved_views table + RPC stay dormant (not deleted). Flip entryV2.showSavedViews
+// saved_views table + RPC stay dormant (not deleted). Flip FEATURES.savedViews.show
 // to restore for power users.
 export function SavedViewsBar(props: SavedViewsBarProps) {
-  if (!FEATURES.entryV2.showSavedViews) return null;
+  if (!FEATURES.savedViews.show) return null;
   return <SavedViewsBarInner {...props} />;
 }
 

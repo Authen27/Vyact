@@ -15,7 +15,6 @@ import { Input, Select, Field, FieldRow } from '../ui/Input';
 import { useStore } from '../../store';
 import { uid, today } from '../../lib/format';
 import { EXPENSE_CATEGORIES, BUDGET_COLORS, deterministicColor } from '../../constants';
-import { FEATURES } from '../../config/features';
 import type { Budget, BudgetPeriod } from '../../types';
 
 interface Props {
@@ -114,9 +113,8 @@ export default function BudgetFormModal(props: Props) {
         category: form.category,
         limit: lim,
         currency: form.currency,
-        // B2.1 — when the colour picker is removed, derive a stable colour from
-        // the category so it's consistent app-wide with zero user input.
-        color: FEATURES.budgetsV2.removeColorPicker ? deterministicColor(form.category) : form.color,
+        // B2.1 — stable colour derived from the category (no picker).
+        color: deterministicColor(form.category),
         period: form.period,
         periodStart: form.period === 'custom' ? form.periodStart : undefined,
         periodEnd:   form.period === 'custom' ? form.periodEnd   : undefined,
@@ -186,25 +184,8 @@ export default function BudgetFormModal(props: Props) {
         </FieldRow>
       )}
 
-      {/* B2.1 (alpha item 2) — colour picker removed by default; colour is derived
-          deterministically from the category. Flip budgetsV2.removeColorPicker to
-          restore the manual picker. */}
-      {!FEATURES.budgetsV2.removeColorPicker && (
-        <Field label="Colour">
-          <div className="flex gap-2 flex-wrap">
-            {BUDGET_COLORS.map(c => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setForm(f => ({ ...f, color: c }))}
-                className={`w-7 h-7 rounded-full border-2 transition-all ${form.color === c ? 'border-ink scale-110' : 'border-transparent'}`}
-                style={{ background: c }}
-                aria-label={`Choose colour ${c}`}
-              />
-            ))}
-          </div>
-        </Field>
-      )}
+      {/* B2.1 (alpha item 2) — no colour picker; colour is derived deterministically
+          from the category (consistent app-wide, zero user input). */}
 
       <div className="flex items-center justify-between gap-2 mt-2">
         {initial ? (

@@ -32,45 +32,19 @@ export const FEATURES = {
     backend: 'rules' as 'rules' | 'llm',
   },
 
-  // ── Money-Model Overhaul (vyact-money-model-execution-and-regression.md) ──────
-  // Phased program. Part D sequencing + the "build the flag, verify OFF first"
-  // discipline: with an epic's flag OFF the app is indistinguishable from v8.0.1.
-  //
-  // Epic 1 — "Money Feels Real" (B1.1–B1.6). The risky core (account enforcement,
-  // opening balances, reconciliation, ledger, migration). Staged behind these
-  // sub-flags, all OFF until the golden-file safety net + migration dry-run gate
-  // (Part C) pass. NOT YET BUILT — flag scaffolding + regression suites land first.
-  moneyModel: {
-    enabled: true,            // umbrella — OFF = current v8.0.1 money model
-    enforceAccount: true,     // B1.1 account-on-every-transaction (BLOCKING invariant)
-    openingBalance: true,     // B1.2 real, finite account balances
-    reconciliation: true,     // B1.3 "fix balance" → dated adjustment txn
-    ledger: true,             // B1.4 per-account ledger screen
-    // B1.5 scoped categories is now enforced at the data layer (no flag).
-  },
+  // ── Money-Model v2 (vyact-money-model-execution-and-regression.md) ────────────
+  // v8.8.0/Phase-5: the Money-Model (account enforcement, opening balances,
+  // reconciliation, ledger), Budgets v2 (deterministic colour, history, suggest,
+  // monthly/annual hierarchy) and Entry v2 (no auto-focus, short form) are now
+  // PERMANENT — their toggles were removed and the behaviour is inlined. B1.5
+  // scoped categories is enforced at the data layer. Goals & Tax were removed as
+  // modules. The only surviving surface preference here is Saved Views.
 
-  // Epic 2 — Budgets.
-  budgetsV2: {
-    enabled: true,
-    removeColorPicker: true,  // B2.1 quick win — deterministic colour, no picker
-    history: true,            // B2.2 budget history & timeline
-    suggest: true,            // B2.4 copy + suggested budget
-    // B2.3 sub-category allocations removed (decision c) — replaced by the
-    // monthly/annual → category roll-up view (budgetRollup).
-  },
-
-  // (Goals & Tax removed as modules — no flags. Pulse no longer scores goals;
-  //  Goals page/nav/modals and the goalsLens/taxNudge engines were deleted.)
-
-  // Epic 4 — Entry & surface polish. Quick wins B4.1 (no keypad auto-launch) and
-  // B4.4 (Saved Views hidden by default) are applied; the form reshape (B4.2/B4.3)
-  // stays OFF until built. `showSavedViews:false` = the B4.4 default-hidden state
-  // (the saved_views table + RPC stay dormant, not deleted).
-  entryV2: {
-    enabled: true,
-    stopAutofocus: true,      // B4.1 — no auto-focus on amount on open/edit
-    shortForm: true,          // B4.2/B4.3 — primary fields + "More details"
-    showSavedViews: false,    // B4.4 — Saved Views hidden (flip true to restore)
+  // B4.4 — Saved Views hidden by default. The saved_views table + RPC stay dormant
+  // (not deleted); flip to true to restore for power users. Kept as a preference,
+  // not a build flag.
+  savedViews: {
+    show: false,
   },
 } as const;
 

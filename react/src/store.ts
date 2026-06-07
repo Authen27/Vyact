@@ -34,7 +34,6 @@ import {
   registerOnboardingSync, hydrateOnboardingFromCloud,
   type HouseholdOnboarding,
 } from './lib/onboardingState';
-import { FEATURES } from './config/features';
 import {
   computeAccountBalance, accountValueOf,
   reconcileAccount as buildReconcileAdjustment,
@@ -520,10 +519,9 @@ export const useStore = create<Store>((set, get) => ({
   upsertTransaction: async (t) => {
     const { adapter, currentHouseholdId, transactions } = get();
 
-    // Money-Model B1.1 (A2) — no transaction without an account. When enforcement
-    // is on, default the funding source to the system Cash account so the rule
-    // never blocks fast entry. Flag OFF → unchanged v8.1.2 behaviour.
-    if (FEATURES.moneyModel.enforceAccount && !t.id) {
+    // Money-Model B1.1 (A2) — no transaction without an account. Default the
+    // funding source to the system Cash account so the rule never blocks fast entry.
+    if (!t.id) {
       if ((t.type === 'expense' || t.type === 'income' || t.type === 'transfer')
           && !t.accountId && !t.paymentMethod) {
         t = { ...t, accountId: 'cash', paymentMethod: 'cash' };

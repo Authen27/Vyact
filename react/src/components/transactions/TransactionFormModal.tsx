@@ -16,7 +16,6 @@ import {
 import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED_TYPES } from '../../lib/accounts';
 import { computeNextDueDate } from '../../lib/recurring';
 import { isFlagOn, getMoneyMapMode } from '../../lib/featureFlags';
-import { FEATURES } from '../../config/features';
 import { trackFlagExposure } from '../../lib/analytics';
 import type { Transaction, TxnType, Recurrence, RecurrenceFreq, AccountSplit } from '../../types';
 
@@ -242,10 +241,9 @@ export default function TransactionFormModal(props: Props) {
   const isInvestment = form.type === 'investment';
   const isIncome     = form.type === 'income';
   const needsToAccount = isTransfer || isInvestment;
-  // B4.2/B4.3 — shorten the form: secondary fields (time, recurring, note) collapse
-  // behind a "More details" disclosure; time defaults to now (B4.3). Flag OFF →
-  // the full form exactly as before.
-  const shortForm = FEATURES.entryV2.shortForm;
+  // B4.2/B4.3 — the form is short: secondary fields (time, recurring, note) live
+  // behind a "More details" disclosure; time defaults to now (B4.3).
+  const shortForm = true;
   const showSecondary = !shortForm || showMore;
   // Account-field label varies by track: expense flows out of an account,
   // income lands in one, transfer/investment have both sides.
@@ -600,7 +598,6 @@ export default function TransactionFormModal(props: Props) {
           auto-launches and edits can land on a non-amount field. */}
       <Field label="Description" hint={isTransfer ? 'optional' : undefined}>
         <Input
-          autoFocus={!FEATURES.entryV2.stopAutofocus}
           value={form.description}
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
           placeholder={isTransfer ? 'e.g. Move savings to brokerage' : 'e.g. Tesco grocery run'}
