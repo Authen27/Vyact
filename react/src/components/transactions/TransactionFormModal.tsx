@@ -16,6 +16,7 @@ import {
 import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED_TYPES } from '../../lib/accounts';
 import { computeNextDueDate } from '../../lib/recurring';
 import { isFlagOn, getMoneyMapMode } from '../../lib/featureFlags';
+import { FEATURES } from '../../config/features';
 import { trackFlagExposure } from '../../lib/analytics';
 import type { Transaction, TxnType, Recurrence, RecurrenceFreq, AccountSplit } from '../../types';
 
@@ -586,9 +587,11 @@ export default function TransactionFormModal(props: Props) {
         </Field>
       </div>
 
+      {/* B4.1 (alpha 11a) — no auto-focus on open/edit; the keypad no longer
+          auto-launches and edits can land on a non-amount field. */}
       <Field label="Description" hint={isTransfer ? 'optional' : undefined}>
         <Input
-          autoFocus
+          autoFocus={!FEATURES.entryV2.stopAutofocus}
           value={form.description}
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
           placeholder={isTransfer ? 'e.g. Move savings to brokerage' : 'e.g. Tesco grocery run'}

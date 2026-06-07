@@ -31,6 +31,49 @@ export const FEATURES = {
     proactiveInsight: true,   // the single "here's what to know" card on open (§5)
     backend: 'rules' as 'rules' | 'llm',
   },
+
+  // ── Money-Model Overhaul (vyact-money-model-execution-and-regression.md) ──────
+  // Phased program. Part D sequencing + the "build the flag, verify OFF first"
+  // discipline: with an epic's flag OFF the app is indistinguishable from v8.0.1.
+  //
+  // Epic 1 — "Money Feels Real" (B1.1–B1.6). The risky core (account enforcement,
+  // opening balances, reconciliation, ledger, migration). Staged behind these
+  // sub-flags, all OFF until the golden-file safety net + migration dry-run gate
+  // (Part C) pass. NOT YET BUILT — flag scaffolding + regression suites land first.
+  moneyModel: {
+    enabled: false,           // umbrella — OFF = current v8.0.1 money model
+    enforceAccount: false,    // B1.1 account-on-every-transaction (BLOCKING invariant)
+    openingBalance: false,    // B1.2 real, finite account balances
+    reconciliation: false,    // B1.3 "fix balance" → dated adjustment txn
+    ledger: false,            // B1.4 per-account ledger screen
+    scopedCategories: false,  // B1.5 categories scoped by txn type
+  },
+
+  // Epic 2 — Budgets. Quick win B2.1 (remove colour picker) is applied by default
+  // (reversible via the flag); the heavier items stay OFF until built.
+  budgetsV2: {
+    enabled: false,
+    removeColorPicker: true,  // B2.1 quick win — deterministic colour, no picker
+    history: false,           // B2.2 budget history & timeline
+    allocations: false,       // B2.3 category sub-limits roll-up
+    suggest: false,           // B2.4 copy + suggested budget
+  },
+
+  // Epic 3 — Goals & Tax as lenses. Modeling change; OFF until built + Net-Worth
+  // contamination guard (R3) is green.
+  goalsLens: { enabled: false },
+  taxNudge:  { enabled: false },
+
+  // Epic 4 — Entry & surface polish. Quick wins B4.1 (no keypad auto-launch) and
+  // B4.4 (Saved Views hidden by default) are applied; the form reshape (B4.2/B4.3)
+  // stays OFF until built. `showSavedViews:false` = the B4.4 default-hidden state
+  // (the saved_views table + RPC stay dormant, not deleted).
+  entryV2: {
+    enabled: false,
+    stopAutofocus: true,      // B4.1 — no auto-focus on amount on open/edit
+    shortForm: false,         // B4.2/B4.3 — primary fields + "More details"
+    showSavedViews: false,    // B4.4 — Saved Views hidden (flip true to restore)
+  },
 } as const;
 
 /** True when the onboarding feature is active. Every onboarding code path must

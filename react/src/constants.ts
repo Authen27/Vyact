@@ -84,6 +84,18 @@ export interface CategoryMeta {
 export const getCat = (id: string): CategoryMeta =>
   (ALL_CATEGORIES.find(c => c.id === id) as CategoryMeta) ?? { id, label: id, icon: '📦', color: '#6B635C' };
 
+/** Money-model B2.1 — deterministic budget/category colour from a stable string
+ *  hash into BUDGET_COLORS. Removes the colour picker (alpha item 2) while keeping
+ *  colours consistent app-wide with zero user input. Pure + stable: the same key
+ *  always maps to the same swatch. Prefers a known category's own colour. */
+export function deterministicColor(key: string): string {
+  const known = ALL_CATEGORIES.find(c => c.id === key);
+  if (known) return known.color;
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  return BUDGET_COLORS[Math.abs(h) % BUDGET_COLORS.length];
+}
+
 export const CATEGORIES_BY_TYPE = {
   expense:    EXPENSE_CATEGORIES,
   income:     INCOME_CATEGORIES,

@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { Bookmark, BookmarkPlus, Trash2, Users, ChevronDown, Check } from 'lucide-react';
 import type { SavedView, SavedViewPage } from '../../types';
 import { useStore } from '../../store';
+import { FEATURES } from '../../config/features';
 
 const PRIVATE_FILTER_KEYS = new Set(['search', 'q', 'description', 'memberId', 'memberIds', 'txnId', 'transactionId']);
 
@@ -36,7 +37,16 @@ export interface SavedViewsBarProps {
   onApply: (filters: Record<string, unknown>) => void;
 }
 
-export function SavedViewsBar({ page, filters, onApply }: SavedViewsBarProps) {
+// B4.4 (alpha item 3) — Saved Views hidden by default. This thin wrapper gates
+// the bar without conditionally calling hooks inside the inner component; the
+// saved_views table + RPC stay dormant (not deleted). Flip entryV2.showSavedViews
+// to restore for power users.
+export function SavedViewsBar(props: SavedViewsBarProps) {
+  if (!FEATURES.entryV2.showSavedViews) return null;
+  return <SavedViewsBarInner {...props} />;
+}
+
+function SavedViewsBarInner({ page, filters, onApply }: SavedViewsBarProps) {
   const savedViews   = useStore(s => s.savedViews);
   const upsertView   = useStore(s => s.upsertSavedView);
   const removeView   = useStore(s => s.removeSavedView);

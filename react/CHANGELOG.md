@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.1.2`** (consumer)
+> **Current production version: `v8.2.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,50 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.2.0 — Money-Model Overhaul: flags, regression safety net, quick wins *(2026-06-07)*
+
+First landing of the [Money-Model Overhaul program](../vyact-money-model-execution-and-regression.md).
+Follows the spec's own discipline: **build the flags + verify the OFF-state, lay
+down the mandated regression safety net (Part C) before Epic 1 touches the money
+model, and ship the three "extractable anytime" quick wins.** The risky Epic 1
+data-model + migration core (B1.1–B1.6) is scaffolded behind OFF flags and lands
+next, gated on this safety net.
+
+### Program flags (Part D) — `src/config/features.ts`
+- Added `moneyModel` (umbrella + `enforceAccount` / `openingBalance` /
+  `reconciliation` / `ledger` / `scopedCategories`), `budgetsV2`, `goalsLens`,
+  `taxNudge`, `entryV2` — all Epic cores default **OFF** (app indistinguishable
+  from v8.1.2). Quick-win sub-flags default to their improvement and are
+  individually reversible.
+
+### Regression safety net (Part C / C4) — `lib/__tests__/moneyModel.regression.test.ts`
+- **Golden-file** of the whole aggregation engine for a representative fixture
+  household (`monthlyData`, `totalBalance`, `spendByCategory`, `reportableTxns`,
+  Net Worth, Pulse components, `aiSummary`) — the v8.1.2 baseline every Epic-1 PR
+  must diff against (C4.1). Plus hand-computed assertions so the numbers are
+  human-checkable.
+- **Transfer invariant suite** (R1/C4.3): transfers — both the single-row model
+  and the legacy paired `__tg:` encoding — never move spend/income totals or Net
+  Worth. This is the critical-risk guard for the new From→To transfer model.
+
+### Quick wins (extractable anytime, no Epic-1 dependency)
+- **B2.1 (alpha 2) — colour picker removed.** `BudgetFormModal` no longer shows a
+  swatch picker; colour is derived deterministically from the category via new
+  `deterministicColor()` (stable hash → palette, known categories keep their own
+  colour). Reversible via `budgetsV2.removeColorPicker`.
+- **B4.1 (alpha 11a) — no keypad auto-launch.** `TransactionFormModal` drops
+  `autoFocus` on open/edit (gated by `entryV2.stopAutofocus`), so edits can land on
+  a non-amount field and the keypad no longer ambushes the user.
+- **B4.4 (alpha 3) — Saved Views hidden by default.** `SavedViewsBar` returns null
+  behind `entryV2.showSavedViews` (a thin wrapper, no conditional hooks). The
+  `saved_views` table + RPC stay **dormant, not deleted** — re-enableable for power
+  users, preserving the v7.3.0 work.
+
+### Notes
+- No schema change; no Epic-1 money-model behaviour shipped yet (flags OFF).
+- Typecheck + build clean; 6 new money-model tests green; full suite green except
+  one pre-existing, unrelated `calculations` debt-component assertion.
 
 ## v8.1.2 — Realtime refresh race, currency-in-drawer, DB cleanup *(2026-06-06)*
 
