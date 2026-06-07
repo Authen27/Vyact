@@ -36,8 +36,9 @@ export default function Planner() {
     evaluateRecommendations({
       transactions: txns, budgets, goals, debts, assets,
       baseCurrency: profile.baseCurrency, rates,
+      householdType: profile.household,   // #8 — advice adapts to household type
     }, 8),
-    [txns, budgets, goals, debts, assets, profile.baseCurrency, rates]
+    [txns, budgets, goals, debts, assets, profile.baseCurrency, rates, profile.household]
   );
 
   const grouped = recsByDomain(recs);
@@ -69,8 +70,8 @@ export default function Planner() {
           <Sparkles size={16} className="text-coral mt-0.5 flex-shrink-0" />
           <p className="text-[0.84rem] text-ink-mid leading-relaxed">
             <strong className="text-ink">These are guidelines based on your data, not financial advice.</strong> Every recommendation
-            traces to a specific rule and a specific data point — no LLM, no hallucination. Consult a qualified financial adviser
-            for major decisions. The LLM-driven version with personalised tone arrives in v7.0.
+            traces to a specific rule and a specific data point — no hallucination. Consult a qualified financial adviser
+            for major decisions.
           </p>
         </div>
       </div>

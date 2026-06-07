@@ -401,6 +401,17 @@ body::before {
   .input::placeholder { color: var(--ff-ink-4); }
   .input:focus { border-color: var(--ff-coral); box-shadow: 0 0 0 2px var(--ff-coral-tint); }
 
+  /* Userback #7830379 — checkboxes/radios had no themed styling, so the native
+     control rendered with the OS default accent and read as "dark / already
+     selected" in light mode. Pin the brand accent so unchecked is a clear empty
+     box and checked is coral, consistent across light + dark. */
+  input[type="checkbox"], input[type="radio"] {
+    accent-color: var(--ff-coral);
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+  }
+
   /* ── Select — single canonical treatment app-wide ───────────────
      Replaces the native browser arrow with an inline SVG chevron so
      the dropdown reads identically across Chrome / Safari / Firefox

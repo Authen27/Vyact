@@ -11,7 +11,7 @@
 // services compute.
 
 import type {
-  Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, SplitInfo, TxnType,
+  Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, SplitInfo, TxnType, RecurringSchedule,
 } from '../types';
 import {
   spendByCategory, monthlyData, liquidAssets, totalMonthlyDebtPayment,
@@ -38,6 +38,8 @@ export interface AssistantContext {
   profile: Profile;
   rates: ExchangeRates;
   baseCurrency: string;
+  /** Recurring schedules — for "upcoming bills". Optional; defaults to none. */
+  recurring?: RecurringSchedule[];
 }
 
 // ── The two-method seam (rules now, LLM later) ─────────────────────────────────
@@ -78,10 +80,8 @@ function monthlyBurn(ctx: AssistantContext): number {
   return ctx.summary.thisMonth.expense;
 }
 
-/** Emergency-fund floor: the emergency goal's target if set, else 3× monthly burn. */
+/** Emergency-fund floor: 3× monthly burn (goals are no longer a module). */
 function emergencyFloor(ctx: AssistantContext): number {
-  const eg = ctx.goals.find(g => g.type === 'emergency');
-  if (eg && eg.target > 0) return eg.target;
   return monthlyBurn(ctx) * 3;
 }
 
@@ -207,6 +207,40 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         detail: `your spending is tracking close to your normal pattern this month.`,
       } };
     }
+    case 'interpret.budgets': {
+      const over = ctx.summary.budgets.filter(b => b.spentPct > 100);
+      const near = ctx.summary.budgets.filter(b => b.spentPct > 80 && b.spentPct <= 100);
+      const detail = over.length
+        ? `${over.length} over: ${over.map(b => getCat(b.category).label).join(', ')}.`
+        : near.length
+          ? `${near.length} close to the limit: ${near.map(b => getCat(b.category).label).join(', ')}.`
+          : ctx.summary.budgets.length ? `all ${ctx.summary.budgets.length} budgets are on track.` : `you have no budgets yet.`;
+      return { kind: 'interpret', outcome: 'ok', vars: {
+        headline: over.length ? 'Some budgets need attention.' : near.length ? 'A couple of budgets are getting close.' : 'Budgets look healthy.',
+        detail,
+      } };
+    }
+    case 'interpret.debts': {
+      const d = ctx.summary.debts;
+      if (!d.length) return { kind: 'interpret', outcome: 'ok', vars: { headline: "You're debt-free.", detail: 'Nothing to pay down right now.' } };
+      const totalDebt = d.reduce((s, x) => s + x.balance, 0);
+      const top = [...d].sort((a, b) => b.aprPct - a.aprPct)[0];
+      return { kind: 'interpret', outcome: 'ok', vars: {
+        headline: `You owe ${money(totalDebt, ctx)} across ${d.length} debt${d.length === 1 ? '' : 's'}.`,
+        detail: `Highest rate: ${getCat(top.type).label || top.type} at ${top.aprPct}% — the avalanche method targets it first.`,
+      } };
+    }
+    case 'interpret.bills': {
+      const today = new Date();
+      const soon = (ctx.recurring ?? [])
+        .map(r => ({ r, due: new Date(r.nextDueDate) }))
+        .filter(x => x.due >= new Date(today.getFullYear(), today.getMonth(), today.getDate()))
+        .sort((a, b) => a.due.getTime() - b.due.getTime())
+        .slice(0, 3);
+      if (!soon.length) return { kind: 'interpret', outcome: 'ok', vars: { headline: 'No upcoming bills tracked.', detail: 'Add a recurring schedule to see what is due.' } };
+      const detail = soon.map(x => `${x.r.transactionTemplate.description || getCat(x.r.transactionTemplate.category).label} (${x.r.nextDueDate})`).join(', ');
+      return { kind: 'interpret', outcome: 'ok', vars: { headline: `Next up: ${soon.length} bill${soon.length === 1 ? '' : 's'}.`, detail } };
+    }
 
     // ── Forecast (Planner-grounded) ──────────────────────────────────────────────
     case 'forecast.affordability': {
@@ -229,25 +263,6 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       const burn = monthlyBurn(ctx) || (totalMonthlyDebtPayment(ctx.debts, cur(ctx), ctx.rates) + 1);
       const months = burn > 0 ? liquid / burn : 0;
       return { kind: 'forecast', outcome: 'ok', vars: { months: months.toFixed(1) } };
-    }
-    case 'forecast.goal': {
-      const goal = [...ctx.goals].filter(g => !g.completed && g.target > g.current)
-        .sort((a, b) => b.target - a.target)[0];
-      if (!goal) return { kind: 'forecast', outcome: 'ok', vars: { months: '0' } };
-      const remaining = goal.target - goal.current;
-      const pace = Math.max(0, ctx.summary.thisMonth.income - ctx.summary.thisMonth.expense);
-      const monthsToDeadline = goal.deadline
-        ? Math.max(1, Math.ceil((new Date(goal.deadline).getTime() - Date.now()) / (30 * 86400000))) : null;
-      const needed = monthsToDeadline ? remaining / monthsToDeadline : remaining;
-      if (pace > 0 && pace >= needed) {
-        const monthsAtPace = Math.ceil(remaining / pace);
-        const eta = new Date(Date.now() + monthsAtPace * 30 * 86400000)
-          .toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-        return { kind: 'forecast', outcome: 'on_track', vars: { goal: goal.name, eta } };
-      }
-      return { kind: 'forecast', outcome: 'behind', vars: {
-        goal: goal.name, needed: money(needed, ctx), pace: money(pace, ctx),
-      }, chip: { label: 'Where can I cut?', prompt: `I need ${Math.round(needed)} a month, where do I cut` } };
     }
     case 'forecast.prescriptive': {
       const target = e.amount;

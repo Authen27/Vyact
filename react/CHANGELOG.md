@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.7.1`** (consumer)
+> **Current production version: `v8.8.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,73 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.8.0 — Money-Model v2: goals/tax removed, two-number dashboard, Ask Vyact v2 + alpha-feedback fixes *(2026-06-07)*
+
+A large functional release consolidating four build phases from the Money-Model
+execution plan plus the round of Userback alpha feedback. Net effect: the money
+model is the spine, **Goals & Tax are gone as modules**, the dashboard leads with
+**two honest numbers**, budgets are a **period→category hierarchy**, and Ask Vyact
+answers more questions in a more human way. (Versioning was held across the phases
+and is consolidated here.)
+
+### Alpha-feedback fixes (Userback)
+- **Onboarding no longer seeds ₹0 budgets** (#7830377) — it stopped creating
+  zero-limit budget cards (and the debt goal); real budgets come from the Budgets
+  "Suggest"/"Copy" flow with actual amounts.
+- **Light-mode checkbox/input theming** (#7830379) — added a themed `accent-color`
+  so checkboxes read as clearly empty when unchecked (not "default-selected").
+- **Removed "stub mode / Beta / v8-wires-Claude / v7.0 LLM" copy** (#7830363) from
+  Chat + Planner — the deterministic engine is the product, not a stub.
+- **Ask Vyact chips no longer fall back** (#7830389) — "Which budgets are at
+  risk?", "upcoming bills", "my debts/payoff" now classify to real answers
+  (`interpret.budgets` / `interpret.bills` / `interpret.debts`) instead of a
+  clarifier; broadened `interpret.lookup`.
+
+### Goals & Tax removed as modules (e)
+- Pulse Score dropped Goal Progress → **4 components** (Budgets/Savings/Trend/Debt),
+  renormalised. Deleted the Goals route/page/modals, nav item, dashboard panel,
+  Add-FAB "Add goal" + `g` shortcut, Ask Vyact goal chips + `forecast.goal`,
+  `goalsLens`/`taxNudge` engines, and the tax-nudge card. Planner's dead `/goals`
+  links repointed to Net Worth. (`Goal` type/store kept dormant to avoid
+  destabilising seed/migration/backup.)
+
+### Dashboard & Pulse (a + #7)
+- New **two-number hero**: **Cash Flow** (flow — money in vs out this month) and
+  **Net Worth** (stock — assets − liabilities), with distinct visual treatment so
+  they never blur (A7). The Pulse gauge now always shows **one actionable next
+  step** pointing at the weakest applicable component (#7830375).
+
+### Categories & Budgets (b + c)
+- **B1.5 scoped categories — data-layer enforced**: `upsertTransaction` forces
+  `category: 'transfer'` on any transfer regardless of input path, so a transfer
+  can never carry a spend/earn category or double-count (R1). Inert flag removed.
+- **Budgets are a monthly/annual → category hierarchy (c)**: removed the v8.7.0
+  sub-category allocations (type/field/editor/`rollupAllocations`/flag/DB column,
+  migration [`20260607150000`](../supabase/migrations/20260607150000_v8_drop_budget_allocations.sql))
+  and replaced them with a **Monthly / Annual budget header** whose children are
+  the existing category budgets (`budgetRollup`, period-normalised).
+
+### Budgets intelligence, Reports, Planner, Ask Vyact (d, g, #8, #4, #6)
+- **Suggested budgets are editable before saving** + a **Copy** (carry-forward)
+  action (d).
+- **Reports By-member / By-account breakouts are permanent** (g, R6) — fold over
+  `reportableTxns` (transfers/adjustments excluded).
+- **Planner advice adapts to household type** (#8) — business households get tax-
+  reserve + cash-runway guidance (`PlannerContext.householdType`).
+- **Ask Vyact**: word-by-word **typing-stream** replies after a brief pause (#4),
+  and **voice input** via the Web Speech API where supported (#6).
+
+### Tests / provenance
+- R7 provenance-lifecycle test (estimated → confirmed). Pulse/golden/forecast
+  suites updated for the 4-component Pulse and goal-forecast removal.
+
+### Status
+- Typecheck 0 errors; suite 123/124 (the one failure is the long-standing,
+  unrelated `calculations` debt-component assertion, CON-UNIT-024); production
+  build clean. **Deferred:** recurring household/user sync (#7830371 — dedicated
+  pass). **Parked:** B4.5 re-theme. **Next (Phase 5):** make the surviving
+  `moneyModel.*` / `budgetsV2` / `entryV2` flags permanent (remove the toggles).
 
 ## v8.7.1 — Enable Money-Model Epic 1, Budgets V2, Entry V2 (config only) *(2026-06-07)*
 

@@ -46,29 +46,21 @@ export const FEATURES = {
     openingBalance: true,     // B1.2 real, finite account balances
     reconciliation: true,     // B1.3 "fix balance" → dated adjustment txn
     ledger: true,             // B1.4 per-account ledger screen
-    scopedCategories: true,   // B1.5 categories scoped by txn type
+    // B1.5 scoped categories is now enforced at the data layer (no flag).
   },
 
-  // Epic 2 — Budgets. Quick win B2.1 (remove colour picker) is applied by default
-  // (reversible via the flag); the heavier items stay OFF until built.
+  // Epic 2 — Budgets.
   budgetsV2: {
     enabled: true,
     removeColorPicker: true,  // B2.1 quick win — deterministic colour, no picker
     history: true,            // B2.2 budget history & timeline
-    allocations: true,        // B2.3 category sub-limits roll-up
     suggest: true,            // B2.4 copy + suggested budget
+    // B2.3 sub-category allocations removed (decision c) — replaced by the
+    // monthly/annual → category roll-up view (budgetRollup).
   },
 
-  // Goals feature master switch. Set false to REMOVE the goal concept for now —
-  // hides the Goals page/nav/dashboard section and drops Goal Progress from the
-  // Pulse Score (the score renormalises over the remaining components). Reversible:
-  // flip true to restore. Data model is preserved (nothing deleted).
-  goals: { enabled: false },
-
-  // Epic 3 — Goals & Tax as lenses. Modeling change; OFF until built + Net-Worth
-  // contamination guard (R3) is green.
-  goalsLens: { enabled: false },
-  taxNudge:  { enabled: false },
+  // (Goals & Tax removed as modules — no flags. Pulse no longer scores goals;
+  //  Goals page/nav/modals and the goalsLens/taxNudge engines were deleted.)
 
   // Epic 4 — Entry & surface polish. Quick wins B4.1 (no keypad auto-launch) and
   // B4.4 (Saved Views hidden by default) are applied; the form reshape (B4.2/B4.3)
@@ -86,12 +78,6 @@ export const FEATURES = {
  *  check this at its entry — no onboarding logic executes when the flag is off. */
 export function isOnboardingEnabled(): boolean {
   return FEATURES.onboarding.enabled === true;
-}
-
-/** True when the Goals feature is active. When false the goal concept is removed
- *  from the UI (page, nav, dashboard) and from the Pulse Score. */
-export function isGoalsEnabled(): boolean {
-  return Boolean(FEATURES.goals.enabled);
 }
 
 /** True when the Ask Vyact assistant is active. When false, the Chat launcher

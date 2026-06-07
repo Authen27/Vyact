@@ -9,7 +9,7 @@ import { BUDGET_COLORS, getCat, deterministicColor } from '../constants';
 import type { Budget, BudgetPeriod } from '../types';
 import Money from '../components/ui/Money';
 import { FEATURES } from '../config/features';
-import { budgetHistory, suggestBudget, type BudgetSuggestion } from '../lib/budgetIntel';
+import { budgetHistory, suggestBudget, budgetRollup, copyBudgets, type BudgetSuggestion } from '../lib/budgetIntel';
 import { uid } from '../lib/format';
 import { Sparkles } from 'lucide-react';
 
@@ -62,6 +62,21 @@ export default function Budgets() {
     setPicked(new Set(fresh.map(s => s.category)));
   }
 
+  // B2.4(a) — copy the current budgets as an editable proposal (carry forward).
+  function copyPrevious() {
+    const proposals: BudgetSuggestion[] = copyBudgets(budgets).map(b => ({
+      category: b.category, limit: Math.round(convert(b.limit, b.currency, profile.baseCurrency, rates)), basis: 'history',
+    }));
+    setSuggestions(proposals);
+    setPicked(new Set(proposals.map(s => s.category)));
+  }
+
+  // (d) — edit a suggested amount before saving.
+  function editSuggestion(category: string, value: string) {
+    const n = parseFloat(value) || 0;
+    setSuggestions(prev => prev ? prev.map(s => s.category === category ? { ...s, limit: n } : s) : prev);
+  }
+
   async function applySuggestions() {
     if (!suggestions) return;
     const chosen = suggestions.filter(s => picked.has(s.category));
@@ -85,6 +100,12 @@ export default function Budgets() {
   const totalBudgeted = rows.reduce((s, r) => s + r.limitBase, 0);
   const totalSpent    = rows.reduce((s, r) => s + r.spent, 0);
   const overCount     = rows.filter(r => r.spent > r.limitBase).length;
+
+  // (c) — category budgets roll up into monthly + annual parents.
+  const rollup = useMemo(
+    () => budgetRollup(rows.map(r => ({ category: r.b.category, limitBase: r.limitBase, period: r.b.period }))),
+    [rows],
+  );
 
   async function del(id: string) {
     if (!confirm('Delete this budget?')) return;
@@ -113,9 +134,14 @@ export default function Budgets() {
             ))}
           </div>
           {bv.suggest && (
-            <button className="btn-secondary inline-flex items-center gap-1" onClick={generateSuggestions}>
-              <Sparkles size={13} /> Suggest
-            </button>
+            <>
+              <button className="btn-secondary inline-flex items-center gap-1" onClick={copyPrevious} title="Carry current budgets forward (editable)">
+                Copy
+              </button>
+              <button className="btn-secondary inline-flex items-center gap-1" onClick={generateSuggestions}>
+                <Sparkles size={13} /> Suggest
+              </button>
+            </>
           )}
           <button className="btn-primary" onClick={openAddBudget}>+ Add Budget</button>
         </div>
@@ -144,7 +170,11 @@ export default function Budgets() {
                         <span className="text-lg">{cat.icon}</span>
                         <span className="flex-1 text-[0.86rem] text-ink">{cat.label}</span>
                         <span className="font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">{s.basis}</span>
-                        <Money amount={s.limit} currency={profile.baseCurrency} className="font-semibold text-ink" maxChars={8} />
+                        {/* (d) — amount editable before saving. */}
+                        <input type="number" inputMode="decimal" value={s.limit ? String(s.limit) : ''}
+                          onChange={e => editSuggestion(s.category, e.target.value)}
+                          onClick={e => e.preventDefault()}
+                          className="w-24 bg-bg3 border border-line rounded-md px-2 py-1 text-right num text-[0.84rem]" />
                       </label>
                     );
                   })}
@@ -180,6 +210,23 @@ export default function Budgets() {
             </div>
           </div>
         </Panel>
+      )}
+
+      {/* (c) — monthly / annual budget totals; the category budgets below are the
+          children that roll up into these parents. */}
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="bg-bg2 border border-line rounded-lg p-4">
+            <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">Monthly budget</div>
+            <Money amount={rollup.monthlyTotal} currency={profile.baseCurrency} className="text-2xl font-semibold text-ink" maxChars={10} />
+            <div className="text-[0.7rem] text-ink-dim mt-0.5">{rollup.children.length} categor{rollup.children.length === 1 ? 'y' : 'ies'}</div>
+          </div>
+          <div className="bg-ink/[0.03] border border-line rounded-lg p-4">
+            <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">Annual budget</div>
+            <Money amount={rollup.annualTotal} currency={profile.baseCurrency} className="text-2xl font-semibold text-ink" maxChars={10} />
+            <div className="text-[0.7rem] text-ink-dim mt-0.5">monthly × 12</div>
+          </div>
+        </div>
       )}
 
       {/* Summary strip */}

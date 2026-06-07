@@ -76,6 +76,21 @@ const VARIANTS: Record<VariantKey, string[]> = {
     "{headline} — {detail}",
     "Here's the read: {headline} {detail}",
   ],
+  'interpret.budgets.ok': [
+    "{headline} {detail}",
+    "{headline} — {detail}",
+    "Budgets: {detail}",
+  ],
+  'interpret.debts.ok': [
+    "{headline} {detail}",
+    "{headline} — {detail}",
+    "Debts: {headline} {detail}",
+  ],
+  'interpret.bills.ok': [
+    "{headline} {detail}",
+    "{headline} — {detail}",
+    "Upcoming: {detail}",
+  ],
   'interpret.diagnostic.found': [
     "{headline} {detail}",
     "Looks like {headline} {detail}",
@@ -102,16 +117,6 @@ const VARIANTS: Record<VariantKey, string[]> = {
     "About {months} months — that's your liquid savings divided by your usual monthly burn.",
     "You'd last roughly {months} months at your current spending.",
     "Around {months} months of runway as things stand.",
-  ],
-  'forecast.goal.on_track': [
-    "On track — at your current pace you'll hit {goal} around {eta}.",
-    "Looking good: {goal} is on pace for about {eta}.",
-    "Yes — {goal} should land near {eta} if you keep this up.",
-  ],
-  'forecast.goal.behind': [
-    "Bit behind — {goal} needs about {needed} a month to land on time; you're at {pace}.",
-    "To hit {goal} on schedule you'd need ~{needed}/mo (currently {pace}). Want a plan to close the gap?",
-    "{goal} is slipping — {needed}/mo gets you there. Shall I find the difference?",
   ],
   'forecast.prescriptive.suggest': [
     "To free up {target}, your easiest trim is {category} — it's running {over} above usual.",

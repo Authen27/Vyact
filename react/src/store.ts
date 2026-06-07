@@ -530,6 +530,14 @@ export const useStore = create<Store>((set, get) => ({
       }
     }
 
+    // B1.5 (A2/A8 hard rule) — a transfer is STRUCTURAL: it never carries a
+    // spend/earn category and never counts in spending/income totals. Enforce at
+    // the data layer so no input path (Ask Vyact, import, API) can leak a
+    // consumption/source category onto a transfer and cause a double-count (R1).
+    if (t.type === 'transfer' && t.category !== 'transfer') {
+      t = { ...t, category: 'transfer' };
+    }
+
     // v7.0.3 — Transfer-track encoding. A transfer row carries a destination
     // account in `linkedToAssetId`; we expand it into two linked txns (one
     // expense from source, one income to dest), tagged with a __tg:<gid>

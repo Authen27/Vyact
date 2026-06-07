@@ -1,7 +1,7 @@
 import { NavLink, Link } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import {
-  LayoutDashboard, ArrowLeftRight, Target, Wallet, Repeat,
+  LayoutDashboard, ArrowLeftRight, Wallet, Repeat,
   TrendingUp, Users, Banknote, Scale, BarChart3,
   Home, Settings, HelpCircle, LogOut, BookOpen, CreditCard,
   Sun, Moon, Monitor, X,
@@ -14,7 +14,6 @@ import { pagesForTemplate } from '../../lib/templates';
 import NotificationCenter from './NotificationCenter';
 import SyncStatusBadge from './SyncStatusBadge';
 import { getMoneyMapMode } from '../../lib/featureFlags';
-import { isGoalsEnabled } from '../../config/features';
 
 interface Props {
   open: boolean;
@@ -30,7 +29,6 @@ const navGroups = [
   ]},
   { label: 'PLAN', items: [
     { to: '/budgets',  key: 'budgets',  page: 'budgets',  icon: Wallet },
-    { to: '/goals',    key: 'goals',    page: 'goals',    icon: Target },
     { to: '/debts',    key: 'debts',    page: 'debts',    icon: Banknote },
     { to: '/networth', key: 'networth', page: 'networth', icon: Scale },
     { to: '/accounts', key: 'accounts', page: 'accounts', icon: CreditCard },
@@ -124,7 +122,7 @@ export default function Sidebar({ open, onClose }: Props) {
               <div className="font-mono text-[0.56rem] tracking-[0.18em] uppercase text-ink-dim px-4 pt-3 pb-1.5">
                 {group.label}
               </div>
-              {group.items.filter(item => visible.has(item.page) && (item.page !== 'goals' || isGoalsEnabled())).map(item => (
+              {group.items.filter(item => visible.has(item.page)).map(item => (
                 <NavLink
                   key={item.to}
                   to={item.to}

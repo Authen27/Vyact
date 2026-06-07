@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './store';
 import { useTheme } from './hooks';
 import { onStorageEvent } from './lib/storageEvents';
-import { isOnboardingEnabled, isGoalsEnabled } from './config/features';
+import { isOnboardingEnabled } from './config/features';
 import { shouldOnboard, migrateExistingHousehold } from './lib/onboardingState';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
@@ -14,8 +14,6 @@ import InstallBanner from './components/layout/InstallBanner';
 
 import React, { Suspense } from 'react';
 const TransactionFormModal = React.lazy(() => import('./components/transactions/TransactionFormModal'));
-const GoalFormModal = React.lazy(() => import('./components/goals/GoalFormModal'));
-const GoalProgressModal = React.lazy(() => import('./components/goals/GoalProgressModal'));
 const BudgetFormModal = React.lazy(() => import('./components/budgets/BudgetFormModal'));
 const DebtFormModal = React.lazy(() => import('./components/debts/DebtFormModal'));
 const AssetFormModal = React.lazy(() => import('./components/assets/AssetFormModal'));
@@ -31,7 +29,6 @@ const NudgeBanner  = React.lazy(() => import('./components/onboarding/NudgeBanne
 const Households   = React.lazy(() => import('./pages/Households'));
 const Settings     = React.lazy(() => import('./pages/Settings'));
 const Budgets      = React.lazy(() => import('./pages/Budgets'));
-const Goals        = React.lazy(() => import('./pages/Goals'));
 const Debts        = React.lazy(() => import('./pages/Debts'));
 const NetWorth     = React.lazy(() => import('./pages/NetWorth'));
 const Accounts     = React.lazy(() => import('./pages/Accounts'));
@@ -80,8 +77,6 @@ function ScrollToTop() {
 
 function RootModals() {
   const txnModalOpen = useStore(s => s.txnModalOpen);
-  const goalModalOpen = useStore(s => s.goalModalOpen);
-  const goalProgressModalOpen = useStore(s => s.goalProgressModalOpen);
   const budgetModalOpen = useStore(s => s.budgetModalOpen);
   const debtModalOpen = useStore(s => s.debtModalOpen);
   const assetModalOpen = useStore(s => s.assetModalOpen);
@@ -90,8 +85,6 @@ function RootModals() {
   return (
     <>
       {txnModalOpen ? <TransactionFormModal /> : null}
-      {goalModalOpen ? <GoalFormModal /> : null}
-      {goalProgressModalOpen ? <GoalProgressModal /> : null}
       {budgetModalOpen ? <BudgetFormModal /> : null}
       {debtModalOpen ? <DebtFormModal /> : null}
       {assetModalOpen ? <AssetFormModal /> : null}
@@ -206,7 +199,6 @@ function AppShell() {
           <Route path="/chat"         element={<Chat />} />
           <Route path="/households"   element={<Households />} />
           <Route path="/budgets"      element={<Budgets />} />
-          <Route path="/goals"        element={isGoalsEnabled() ? <Goals /> : <Navigate to="/dashboard" replace />} />
           <Route path="/splits"       element={<Splits />} />
           <Route path="/debts"        element={<Debts />} />
           <Route path="/networth"     element={<NetWorth />} />

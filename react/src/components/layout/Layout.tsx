@@ -6,7 +6,6 @@ import AddFab from './AddFab';
 import SyncConflictBanner from './SyncConflictBanner';
 import { useShortcuts, useEdgeSwipe } from '../../hooks';
 import { useStore } from '../../store';
-import { isGoalsEnabled } from '../../config/features';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -19,14 +18,11 @@ export default function Layout({ children }: { children: ReactNode }) {
   // page, not just Transactions. `useShortcuts` already ignores keystrokes
   // while typing in form fields.
   const openAddTxn    = useStore(s => s.openAddTxn);
-  const openAddGoal   = useStore(s => s.openAddGoal);
   const openAddBudget = useStore(s => s.openAddBudget);
   const openAddDebt   = useStore(s => s.openAddDebt);
   const openAddAsset  = useStore(s => s.openAddAsset);
   useShortcuts({
     n: () => openAddTxn(), N: () => openAddTxn(),
-    // 'g' (add goal) removed while the goals feature is off (FEATURES.goals).
-    ...(isGoalsEnabled() ? { g: openAddGoal, G: openAddGoal } : {}),
     b: openAddBudget, B: openAddBudget,
     d: openAddDebt,   D: openAddDebt,
     a: openAddAsset,  A: openAddAsset,

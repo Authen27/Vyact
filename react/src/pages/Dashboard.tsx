@@ -15,12 +15,27 @@ import {
 import { fmt, fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
 import Money from '../components/ui/Money';
 import { getCat } from '../constants';
-import { isGoalsEnabled } from '../config/features';
+import { ArrowDownRight, ArrowUpRight, Scale, ArrowRight } from 'lucide-react';
+import type { PulseScore } from '../lib/calculations';
+
+/** #7 — one actionable line under the Pulse: point at the weakest applicable
+ *  component so the user always knows what to do next. */
+function pulseAdvice(p: PulseScore): { text: string; to: string } {
+  if (p.total === null) return { text: 'Add income and a budget to start your Pulse.', to: '/budgets' };
+  const comps: [number, boolean, string, string][] = [
+    [p.components.budget,  p.applicable.budget,  'A budget is over — review and adjust it.', '/budgets'],
+    [p.components.savings, p.applicable.savings, 'Lift your savings rate — trim a discretionary category.', '/budgets'],
+    [p.components.trend,   p.applicable.trend,   'Spending is trending up — see what changed.', '/reports'],
+    [p.components.debt,    p.applicable.debt,    'Bring your debt-to-income down.', '/debts'],
+  ];
+  const weakest = comps.filter(c => c[1]).sort((a, b) => a[0] - b[0])[0];
+  if (!weakest || weakest[0] >= 80) return { text: "You're in good shape — keep it up.", to: '/reports' };
+  return { text: weakest[2], to: weakest[3] };
+}
 
 export default function Dashboard() {
   const { t } = useTranslation();
   const budgets = useStore(s => s.budgets);
-  const goals = useStore(s => s.goals);
   const debts = useStore(s => s.debts);
   const assets = useStore(s => s.assets);
   const profile = useStore(s => s.profile);
@@ -43,8 +58,6 @@ export default function Dashboard() {
   const spend = useStore(selectSpendByCategory(mk));
   const donutData = Object.entries(spend).map(([catId, amount]) => ({ catId, amount }));
   const recent = useStore(selectRecentTxns);
-  const goalsOn = isGoalsEnabled();
-  const activeGoals = goals.filter(g => !g.completed).slice(0, 3);
 
   const ta = useStore(selectTotalAssets);
   const tl = useStore(selectTotalLiabilities);
@@ -72,16 +85,51 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Top: Pulse + 4 metric cards */}
-      <div className="grid lg:grid-cols-[220px_1fr] gap-3.5 mb-3.5">
-        <Link to="/reports" aria-label="Open reports" className="block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">
-          <PulseGauge score={pulse} />
-          {pulse.total === null && (
-            <p className="text-ink-mid text-[0.78rem] mt-2 text-center">
-              Building your Pulse — add income and a budget to begin.
-            </p>
-          )}
+      {/* A7 — the two honest numbers. Cash Flow is a FLOW (money in vs out this
+          month); Net Worth is a STOCK (assets − liabilities right now). Distinct
+          treatment so they never blur. */}
+      <div className="grid sm:grid-cols-2 gap-3.5 mb-3.5">
+        <Link to="/transactions" aria-label="View cash flow" className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">
+          <div className="h-full bg-bg2 border border-line rounded-lg p-5">
+            <div className="flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-ink-dim mb-2">
+              <ArrowDownRight size={13} className="text-sage" /><ArrowUpRight size={13} className="text-terra" /> Cash Flow · {monthName(mk)}
+            </div>
+            <Money amount={month.income - month.expense} currency={baseCur} maxChars={12}
+              className={`num text-3xl font-semibold ${month.income - month.expense >= 0 ? 'text-sage' : 'text-terra'}`} />
+            <div className="flex gap-4 mt-2 text-[0.78rem]">
+              <span className="text-ink-mid">In <span className="num text-sage">{fmtShort(month.income, baseCur)}</span></span>
+              <span className="text-ink-mid">Out <span className="num text-terra">{fmtShort(month.expense, baseCur)}</span></span>
+            </div>
+          </div>
         </Link>
+        <Link to="/networth" aria-label="View net worth" className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">
+          <div className="h-full bg-ink/[0.03] border border-line rounded-lg p-5">
+            <div className="flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-ink-dim mb-2">
+              <Scale size={13} className="text-denim" /> Net Worth · today
+            </div>
+            <Money amount={ta - tl} currency={baseCur} maxChars={12}
+              className={`num text-3xl font-semibold ${ta - tl >= 0 ? 'text-ink' : 'text-terra'}`} />
+            <div className="flex gap-4 mt-2 text-[0.78rem]">
+              <span className="text-ink-mid">Assets <span className="num text-sage">{fmtShort(ta, baseCur)}</span></span>
+              <span className="text-ink-mid">Debts <span className="num text-terra">{fmtShort(tl, baseCur)}</span></span>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Pulse + supporting metric cards */}
+      <div className="grid lg:grid-cols-[220px_1fr] gap-3.5 mb-3.5">
+        <div className="block rounded-md">
+          <Link to="/reports" aria-label="Open reports" className="block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">
+            <PulseGauge score={pulse} />
+          </Link>
+          {/* #7 — always show one actionable next step under the Pulse. */}
+          {(() => { const a = pulseAdvice(pulse); return (
+            <Link to={a.to} className="mt-2 flex items-start gap-1.5 text-[0.76rem] text-ink-mid hover:text-ink px-1">
+              <span>{a.text}</span><ArrowRight size={13} className="text-coral shrink-0 mt-0.5" />
+            </Link>
+          ); })()}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Link to="/networth" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View net worth">
             <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={8} />} sub={`Across all ${txns.length} transactions`} />
@@ -159,38 +207,8 @@ export default function Dashboard() {
         </Panel>
       </div>
 
-      {/* Goals (when enabled) + Category donut. When goals are removed, the donut
-          spans full width. */}
-      <div className={`grid ${goalsOn ? 'lg:grid-cols-2' : ''} gap-3.5 mb-3.5`}>
-        {goalsOn && (
-        <Panel
-          title={t('active-goals')}
-          action={<Link to="/goals" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">{t('view-all')}</Link>}
-        >
-          {activeGoals.length === 0 ? (
-            <EmptyState icon="◇" message="No active goals" />
-          ) : (
-            activeGoals.map(g => {
-              const tgt = convert(g.target, g.currency, baseCur, rates);
-              const cur = convert(g.current, g.currency, baseCur, rates);
-              const pct = tgt > 0 ? Math.min(100, Math.round(cur / tgt * 100)) : 0;
-              return (
-                <div key={g.id} className="px-4 py-3 border-b border-line last:border-b-0">
-                  <div className="flex justify-between mb-1.5">
-                    <span className="text-[0.84rem] font-semibold text-ink">{g.name}</span>
-                    <span className="font-mono text-[0.68rem] text-ink-mid">{fmtShort(cur, baseCur)} / {fmtShort(tgt, baseCur)}</span>
-                  </div>
-                  <div className="bg-bg3 h-1.5 rounded-full overflow-hidden mb-1">
-                    <div className="h-full bg-coral rounded-full transition-[width] duration-500" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="font-mono text-[0.58rem] text-ink-dim">{pct}% complete</div>
-                </div>
-              );
-            })
-          )}
-        </Panel>
-        )}
-
+      {/* Category donut (goals panel removed — goals are no longer a module). */}
+      <div className="mb-3.5">
         <Link to="/reports" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View reports">
           <Panel title={t('spending-by-category')} sub={t('this-month')}>
             {donutData.length === 0

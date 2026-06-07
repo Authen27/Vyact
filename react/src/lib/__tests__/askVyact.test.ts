@@ -65,23 +65,20 @@ describe('classifyIntent — Capture (11/11)', () => {
   });
 });
 
-// ── Forecast — the 8 reference phrasings (spec §6 / §9) ─────────────────────────
-describe('classifyIntent — Forecast (8/8)', () => {
+// ── Forecast reference phrasings (goal forecasting removed with the goals module) ─
+describe('classifyIntent — Forecast', () => {
   const CASES: [string, AssistantIntentId][] = [
     ['can I afford a £1,200 flight next week?', 'forecast.affordability'],
     ['can I afford to buy a 50000 car?', 'forecast.affordability'],
     ['if I quit, how many months?', 'forecast.runway'],
     ['how many months would my savings last?', 'forecast.runway'],
-    ['will I hit my down-payment goal by December?', 'forecast.goal'],
-    ['will I reach my goal by year-end?', 'forecast.goal'],
     ['I need £500 by next month — where do I cut?', 'forecast.prescriptive'],
     ['where can I cut back to save 300?', 'forecast.prescriptive'],
   ];
-  it('CON-UNIT-ASK-020 · all 8 forecast phrasings classify correctly', () => {
+  it('CON-UNIT-ASK-020 · forecast phrasings classify correctly', () => {
     for (const [u, expected] of CASES) expect(clsOf(u), u).toBe(expected);
   });
-  it('CON-UNIT-ASK-021 · goal vs runway ordering ("save by" → goal, "quit/last" → runway)', () => {
-    expect(clsOf('will I save enough by december')).toBe('forecast.goal');
+  it('CON-UNIT-ASK-021 · runway ordering ("quit/last" → runway)', () => {
     expect(clsOf('how long can I last if I quit')).toBe('forecast.runway');
   });
 });

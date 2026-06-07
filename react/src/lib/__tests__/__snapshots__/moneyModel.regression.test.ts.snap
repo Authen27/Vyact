@@ -45,7 +45,6 @@ exports[`Money-Model regression — aggregation golden file (C4.1) > CON-UNIT-MM
   "pulseComponents": {
     "budget": 25,
     "debt": 100,
-    "goals": 0,
     "savings": 100,
     "trend": 0,
   },

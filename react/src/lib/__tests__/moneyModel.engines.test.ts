@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   computeAccountBalance, reconcileAccount, accountValueOf, ADJUSTMENT_CATEGORY,
 } from '../accountBalance';
-import { copyBudgets, suggestBudget, budgetHistory, rollupAllocations } from '../budgetIntel';
-import { goalProgress, goalContributesToNetWorth, GOAL_TAG } from '../goalsLens';
-import { computeTaxNudge } from '../taxNudge';
+import { copyBudgets, suggestBudget, budgetHistory, budgetRollup } from '../budgetIntel';
 import { reportableTxns, monthlyData } from '../calculations';
 import type {
   Transaction, Budget, Debt, Goal, Asset, Account, RecurringSchedule, ExchangeRates,
@@ -85,9 +83,15 @@ describe('budgetIntel — read-only inference (A8)', () => {
     expect(s.find(x => x.category === 'savings')?.basis).toBe('goal');
   });
 
-  it('CON-UNIT-MM-112 · rollupAllocations flags over-allocation transparently', () => {
-    expect(rollupAllocations(1000, [400, 300])).toEqual({ parentLimit: 1000, allocated: 700, unallocated: 300, overAllocated: false });
-    expect(rollupAllocations(1000, [700, 400]).overAllocated).toBe(true);
+  it('CON-UNIT-MM-112 · budgetRollup nests category budgets under monthly/annual totals', () => {
+    // a monthly 400 + an annual 1200 (→ 100/mo) roll up to 500/mo, 6000/yr.
+    const r = budgetRollup([
+      { category: 'food', limitBase: 400, period: 'monthly' },
+      { category: 'insurance', limitBase: 1200, period: 'annual' },
+    ]);
+    expect(r.monthlyTotal).toBe(500);
+    expect(r.annualTotal).toBe(6000);
+    expect(r.children.find(c => c.category === 'insurance')?.monthly).toBe(100);
   });
 
   it('CON-UNIT-MM-113 · budgetHistory reports budget vs actual per month', () => {
@@ -102,50 +106,22 @@ describe('budgetIntel — read-only inference (A8)', () => {
   });
 });
 
-// ── Epic 3: goals & tax as lenses ───────────────────────────────────────────────
-describe('goalsLens + taxNudge — lenses, not containers (A4/A5/R3)', () => {
-  const accounts: Account[] = [
-    { id: 'sav', kind: 'savings', name: 'Savings', currency: 'USD', assetId: 'sav', openingBalance: 2000 },
-  ];
+// (Epic 3 goals/tax-as-lenses tests removed — goals & tax are no longer modules.)
 
-  it('CON-UNIT-MM-120 · virtual goal counts tagged contributions, contributes 0 to Net Worth', () => {
-    const goal: Goal = { id: 'g1', type: 'savings', name: 'Trip', target: 1000, current: 0, currency: 'USD', completed: false };
-    const txns: Transaction[] = [
-      { id: 't1', type: 'expense', amount: 300, currency: 'USD', date: d('02'), description: '', category: 'savings', note: GOAL_TAG('g1') },
-    ];
-    const p = goalProgress(goal, txns, accounts, 'USD', R);
-    expect(p.current).toBe(300);
-    expect(p.backed).toBe(false);
-    expect(goalContributesToNetWorth(goal)).toBe(false);
-  });
-
-  it('CON-UNIT-MM-121 · real-backed goal reads the linked account balance and IS an asset', () => {
-    const goal = { id: 'g2', type: 'savings', name: 'House', target: 5000, current: 0, currency: 'USD', completed: false, linkedAccountId: 'sav' };
-    const txns: Transaction[] = [
-      { id: 't1', type: 'income', amount: 500, currency: 'USD', date: d('02'), description: '', category: 'salary', accountId: 'asset:sav' },
-    ];
-    const p = goalProgress(goal, txns, accounts, 'USD', R);
-    expect(p.current).toBe(2500);   // opening 2000 + 500 in
-    expect(p.backed).toBe(true);
-    expect(goalContributesToNetWorth(goal)).toBe(true);
-  });
-
-  it('CON-UNIT-MM-122 · tax nudge derives owed from income and reads reserve balance', () => {
-    const accts: Account[] = [{ id: 'tax', kind: 'savings', name: 'Tax Reserve', currency: 'USD', assetId: 'tax', openingBalance: 0 }];
-    const txns: Transaction[] = [
-      { id: 'i1', type: 'income', amount: 10000, currency: 'USD', date: d('01'), description: '', category: 'freelance' },
-      { id: 'r1', type: 'transfer', amount: 1500, currency: 'USD', date: d('02'), description: '', category: 'transfer', toAccountId: 'asset:tax' },
-    ];
-    const n = computeTaxNudge({ transactions: txns, accounts: accts, effectiveRate: 0.2, baseCurrency: 'USD', rates: R });
-    expect(n.estimated).toBe(2000);   // 10000 × 0.2
-    expect(n.reserved).toBe(1500);    // transfer into the reserve
-    expect(n.shortfall).toBe(500);
-    expect(n.hasReserve).toBe(true);
-  });
-
-  it('CON-UNIT-MM-123 · no tax reserve account → hasReserve false, reserved 0', () => {
-    const n = computeTaxNudge({ transactions: [], accounts: [], effectiveRate: 0.2, baseCurrency: 'USD', rates: R });
-    expect(n.hasReserve).toBe(false);
-    expect(n.reserved).toBe(0);
+// ── R7 — provenance lifecycle: estimated → confirmed ────────────────────────────
+describe('provenance lifecycle (R7/C4.4)', () => {
+  it('CON-UNIT-MM-130 · an estimate is flagged until confirmed; reconcile confirms it', async () => {
+    const { isEstimate, confirmedPctFromEntities, onboardingProvenance } = await import('../onboardingState');
+    const est = onboardingProvenance();                 // estimated / onboarding
+    expect(isEstimate(est)).toBe(true);
+    expect(confirmedPctFromEntities([est])).toBe(0);
+    // reconciliation marks the value confirmed (what the store does post-reconcile)
+    const confirmed = { confidence: 'confirmed' as const, source: 'user' as const, confirmedAt: new Date().toISOString() };
+    expect(isEstimate(confirmed)).toBe(false);
+    expect(confirmedPctFromEntities([confirmed])).toBe(100);
+    // a reconcile adjustment is itself a confirmed, user-sourced correction
+    const { adjustment } = reconcileAccount('cash', 1000, 1200, 'USD');
+    expect(adjustment?.confidence).toBe('confirmed');
+    expect(adjustment?.source).toBe('user');
   });
 });

@@ -6,9 +6,9 @@
 // existing values. Pure + unit-tested. UI gates behind FEATURES.budgetsV2.
 
 import type {
-  Transaction, Budget, Debt, Goal, RecurringSchedule, ExchangeRates,
+  Transaction, Budget, Debt, Goal, RecurringSchedule, ExchangeRates, BudgetPeriod,
 } from '../types';
-import { spendByCategory, monthlyData } from './calculations';
+import { spendByCategory, monthlyData, periodMonths } from './calculations';
 import { getMonthKey, nowMonthKey } from './format';
 
 // ── B2.4(a) — copy from previous month ─────────────────────────────────────────
@@ -123,19 +123,28 @@ export function budgetHistory(
   });
 }
 
-// ── B2.3 — category allocations roll-up ─────────────────────────────────────────
-export interface AllocationRollup {
-  parentLimit: number;
-  allocated: number;
-  unallocated: number;
-  /** true when sub-limits exceed the parent (the warning condition). */
-  overAllocated: boolean;
+// ── B2.3 (c) — period roll-up: category budgets are children of a monthly /
+//    annual total. monthlyEquivalent normalises each budget's limit to a month;
+//    the parent totals sum the children. ──────────────────────────────────────
+export interface BudgetRollup {
+  /** Sum of every budget's monthly-equivalent limit. */
+  monthlyTotal: number;
+  /** monthlyTotal × 12. */
+  annualTotal: number;
+  /** Per-category children with their monthly-equivalent contribution. */
+  children: { category: string; monthly: number }[];
 }
 
-/** Roll category sub-limits up to the parent budget with a transparent
- *  allocated/unallocated split (A1 discipline applied to budgets). */
-export function rollupAllocations(parentLimit: number, subLimits: number[]): AllocationRollup {
-  const allocated = Math.round(subLimits.reduce((s, n) => s + (n || 0), 0) * 100) / 100;
-  const unallocated = Math.round((parentLimit - allocated) * 100) / 100;
-  return { parentLimit, allocated, unallocated, overAllocated: allocated > parentLimit };
+/** Normalise a budget's window limit to a per-month figure. */
+export function monthlyEquivalent(limit: number, period: BudgetPeriod | undefined): number {
+  const months = periodMonths(period);
+  return months > 1 ? limit / months : limit;
+}
+
+/** Roll category budgets up into monthly + annual parents (decision c).
+ *  Currency conversion is the caller's responsibility (pass base-currency limits). */
+export function budgetRollup(budgets: { category: string; limitBase: number; period?: BudgetPeriod }[]): BudgetRollup {
+  const children = budgets.map(b => ({ category: b.category, monthly: Math.round(monthlyEquivalent(b.limitBase, b.period) * 100) / 100 }));
+  const monthlyTotal = Math.round(children.reduce((s, c) => s + c.monthly, 0) * 100) / 100;
+  return { monthlyTotal, annualTotal: Math.round(monthlyTotal * 12 * 100) / 100, children };
 }

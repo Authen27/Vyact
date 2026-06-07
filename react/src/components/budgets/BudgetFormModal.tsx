@@ -16,8 +16,6 @@ import { useStore } from '../../store';
 import { uid, today } from '../../lib/format';
 import { EXPENSE_CATEGORIES, BUDGET_COLORS, deterministicColor } from '../../constants';
 import { FEATURES } from '../../config/features';
-import { rollupAllocations } from '../../lib/budgetIntel';
-import type { BudgetAllocation } from '../../types';
 import type { Budget, BudgetPeriod } from '../../types';
 
 interface Props {
@@ -79,8 +77,6 @@ export default function BudgetFormModal(props: Props) {
 
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);
-  // B2.3 — category sub-limits (allocations). Held separate from the string form.
-  const [allocs, setAllocs] = useState<BudgetAllocation[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -94,10 +90,8 @@ export default function BudgetFormModal(props: Props) {
         periodStart: initial.periodStart || '',
         periodEnd: initial.periodEnd || '',
       });
-      setAllocs(initial.allocations ?? []);
     } else {
       setForm(blank(profile.baseCurrency));
-      setAllocs([]);
     }
   }, [open, initial, profile.baseCurrency]);
 
@@ -126,10 +120,6 @@ export default function BudgetFormModal(props: Props) {
         period: form.period,
         periodStart: form.period === 'custom' ? form.periodStart : undefined,
         periodEnd:   form.period === 'custom' ? form.periodEnd   : undefined,
-        // B2.3 — persist only valid, named sub-limits; undefined when none.
-        allocations: FEATURES.budgetsV2.allocations
-          ? (() => { const v = allocs.filter(a => a.category.trim() && a.limit > 0); return v.length ? v : undefined; })()
-          : initial?.allocations,
       });
       toast(initial ? 'Budget updated' : 'Budget added', 'success');
       onClose();
@@ -215,38 +205,6 @@ export default function BudgetFormModal(props: Props) {
           </div>
         </Field>
       )}
-
-      {/* B2.3 — category allocations that roll up to the parent limit, with a
-          transparent allocated / unallocated indicator and an over-allocation
-          warning (A1 discipline applied to budgets). */}
-      {FEATURES.budgetsV2.allocations && (() => {
-        const parent = parseFloat(form.limit) || 0;
-        const roll = rollupAllocations(parent, allocs.map(a => a.limit || 0));
-        return (
-          <Field label="Allocations (optional)">
-            <div className="space-y-2">
-              {allocs.map((a, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input placeholder="Sub-category" value={a.category}
-                    onChange={e => setAllocs(prev => prev.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} />
-                  <Input type="number" placeholder="0" value={a.limit ? String(a.limit) : ''} className="w-28"
-                    onChange={e => setAllocs(prev => prev.map((x, j) => j === i ? { ...x, limit: parseFloat(e.target.value) || 0 } : x))} />
-                  <button type="button" onClick={() => setAllocs(prev => prev.filter((_, j) => j !== i))}
-                    className="text-ink-dim hover:text-terra px-1" aria-label="Remove allocation">✕</button>
-                </div>
-              ))}
-              <button type="button" onClick={() => setAllocs(prev => [...prev, { category: '', limit: 0 }])}
-                className="font-mono text-[0.62rem] tracking-wider uppercase text-coral hover:underline">+ Add allocation</button>
-              {allocs.length > 0 && (
-                <div className={`flex justify-between font-mono text-[0.62rem] tracking-wider mt-1 ${roll.overAllocated ? 'text-terra' : 'text-ink-dim'}`}>
-                  <span>Allocated {Math.round(roll.allocated)} / {Math.round(parent)}</span>
-                  <span>{roll.overAllocated ? `Over by ${Math.round(roll.allocated - parent)}` : `${Math.round(roll.unallocated)} unallocated`}</span>
-                </div>
-              )}
-            </div>
-          </Field>
-        );
-      })()}
 
       <div className="flex items-center justify-between gap-2 mt-2">
         {initial ? (

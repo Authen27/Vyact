@@ -22,7 +22,7 @@ import {
   SEGMENTS, SEGMENT_ORDER, PRIMARY_CONCERNS,
 } from '../lib/onboardingTemplates';
 import {
-  markStarted, markSkipped, markCompleted, onboardingProvenance,
+  markStarted, markSkipped, markCompleted,
   type Segment, type OnboardingContext,
 } from '../lib/onboardingState';
 import { track } from '../lib/analytics';
@@ -39,8 +39,6 @@ const SEGMENT_TO_PROFILE: Record<Segment, 'personal' | 'family' | 'business'> = 
 export default function Onboarding() {
   const navigate = useNavigate();
   const householdId = useStore(s => s.currentHouseholdId);
-  const upsertBudget = useStore(s => s.upsertBudget);
-  const upsertGoal = useStore(s => s.upsertGoal);
   const updateProfile = useStore(s => s.updateProfile);
   const refresh = useStore(s => s.refresh);
   const toast = useStore(s => s.toast);
@@ -108,35 +106,11 @@ export default function Onboarding() {
       ...ctx,
     };
 
-    let baselineCount = 0;
-    const now = new Date().toISOString();
-    // Every onboarding-seeded record carries provenance ON THE ROW, so the
-    // "Estimated" state syncs across devices via the normal entity sync (spec §3.2).
-    const prov = onboardingProvenance(now);
-
-    // Snapshot → estimated debt goal (cash is informational on the Reveal; debt
-    // becomes a tracked, confirmable record). Reuse existing entities, do not
-    // duplicate (spec §3.3).
-    const debtAmt = Number(snapshot.debt);
-    if (debtAmt > 0) {
-      try {
-        await upsertGoal({
-          type: 'debt', name: 'Pay down debt', target: debtAmt,
-          current: 0, currency, completed: false, ...prov,
-        });
-        baselineCount++;
-      } catch { /* seeding is best-effort */ }
-    }
-
-    // Forward model → fixed-cost budgets, each tagged `estimated` on the row.
-    for (const key of fixedCosts) {
-      const chip = tpl?.fixedCostChips.find(c => c.key === key);
-      if (!chip) continue;
-      try {
-        await upsertBudget({ category: chip.label, limit: 0, currency, period: 'monthly', ...prov });
-        baselineCount++;
-      } catch { /* best-effort */ }
-    }
+    // Userback #7830377 — onboarding no longer seeds zero-limit budgets (they
+    // rendered as confusing ₹0/₹0 cards). It also no longer seeds a debt goal
+    // (goals are removed as a module). Onboarding now captures segment + context
+    // + snapshot only; real budgets are set later via the Budgets "Suggest" flow.
+    const baselineCount = 0;
 
     markCompleted(householdId, segment, context);
     await updateProfile({
@@ -144,7 +118,7 @@ export default function Onboarding() {
       primaryConcern: (['spending', 'debt', 'savings'].includes(context.primaryConcern)
         ? context.primaryConcern : 'spending') as 'spending' | 'debt' | 'savings',
       baseCurrency: currency,
-      onboardedAt: now,
+      onboardedAt: new Date().toISOString(),
     });
     await refresh();
 

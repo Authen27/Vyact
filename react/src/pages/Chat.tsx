@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, MessageCircle, ShieldCheck, Trash2, ChevronLeft } from 'lucide-react';
+import { Send, MessageCircle, ShieldCheck, Trash2, ChevronLeft, Mic } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -12,10 +12,18 @@ import ls from '../lib/localStorageCompat';
 import {
   INTENTS, BUCKET_LABEL, intentsByBucket, type Bucket, type Intent, type IntentAction,
 } from '../lib/askVyactIntents';
-import { isAskVyactEnabled, isGoalsEnabled, FEATURES } from '../config/features';
+import { isAskVyactEnabled, FEATURES } from '../config/features';
 import {
   runAssistant, proactiveInsight, selectAssistantBackend, type AssistantContext,
 } from '../lib/askVyactBackend';
+
+// Minimal Web Speech API shapes (lib.dom doesn't ship these in all TS configs).
+interface SpeechRecognitionEventLike { results: { [i: number]: { [j: number]: { transcript: string } } }; }
+interface SpeechRecognitionLike {
+  lang: string; interimResults: boolean; maxAlternatives: number;
+  onresult: (e: SpeechRecognitionEventLike) => void; onerror: () => void; onend: () => void;
+  start: () => void;
+}
 
 const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan', 'manage'];
 
@@ -32,9 +40,9 @@ export default function Chat() {
   const profile = useStore(s => s.profile);
   const rates   = useStore(s => s.rates);
   const members = useStore(s => s.members);
+  const recurring = useStore(s => s.recurringSchedules);
   const householdId = useStore(s => s.currentHouseholdId);
   const openAddTxn    = useStore(s => s.openAddTxn);
-  const openAddGoal   = useStore(s => s.openAddGoal);
   const openAddBudget = useStore(s => s.openAddBudget);
   const openAddDebt   = useStore(s => s.openAddDebt);
   const openAddAsset  = useStore(s => s.openAddAsset);
@@ -71,7 +79,7 @@ export default function Chat() {
     if (!isAskVyactEnabled() || !FEATURES.askVyact.proactiveInsight) return;
     try { if (sessionStorage.getItem('askvyact_proactive_shown') === '1') return; } catch { /* noop */ }
     const ctx: AssistantContext = {
-      summary, transactions: txns, budgets, goals, debts, assets,
+      summary, transactions: txns, budgets, goals, debts, assets, recurring,
       profile, rates, baseCurrency: profile.baseCurrency,
     };
     const insight = proactiveInsight(ctx);
@@ -90,7 +98,6 @@ export default function Chat() {
     if (action.kind === 'open-modal') {
       switch (action.modal) {
         case 'addTxn':    openAddTxn(action.seed); break;
-        case 'addGoal':   openAddGoal();   break;
         case 'addBudget': openAddBudget(); break;
         case 'addDebt':   openAddDebt();   break;
         case 'addAsset':  openAddAsset();  break;
@@ -127,13 +134,16 @@ export default function Chat() {
       // skipped and the launcher behaves exactly as it did in v7.4.5.
       if (isAskVyactEnabled()) {
         const ctx: AssistantContext = {
-          summary, transactions: txns, budgets, goals, debts, assets,
+          summary, transactions: txns, budgets, goals, debts, assets, recurring,
           profile, rates, baseCurrency: profile.baseCurrency,
         };
         const turn = runAssistant(question, ctx, assistantBackend);
         // Capture intents seed the EXISTING TransactionFormModal — no parallel path.
         if (turn.seed) openAddTxn(turn.seed);
-        setHistory(h => [...h, { role: 'assistant', content: turn.reply }]);
+        // #4 — human-like: a brief "thinking" pause, then stream word-by-word.
+        await new Promise(r => setTimeout(r, 600));
+        setThinking(false);
+        await streamReply(turn.reply);
         return;
       }
       const answer = await backend.ask(question, summary, history);
@@ -143,6 +153,45 @@ export default function Chat() {
     } finally {
       setThinking(false);
     }
+  }
+
+  // #4 — stream an assistant reply word-by-word (resolves when complete).
+  function streamReply(text: string): Promise<void> {
+    return new Promise(resolve => {
+      const words = text.split(' ');
+      setHistory(h => [...h, { role: 'assistant', content: '' }]);
+      let i = 0;
+      const id = setInterval(() => {
+        i += 1;
+        const partial = words.slice(0, i).join(' ');
+        setHistory(h => { const c = h.slice(); c[c.length - 1] = { role: 'assistant', content: partial }; return c; });
+        if (i >= words.length) { clearInterval(id); resolve(); }
+      }, 40);
+    });
+  }
+
+  // #6 — voice input via the Web Speech API (feature-detected; hidden if absent).
+  const [listening, setListening] = useState(false);
+  const SpeechRec = typeof window !== 'undefined'
+    ? (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+    : undefined;
+  function startVoice() {
+    if (!SpeechRec) return;
+    try {
+      const rec = new (SpeechRec as new () => SpeechRecognitionLike)();
+      rec.lang = navigator.language || 'en-US';
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      setListening(true);
+      rec.onresult = (ev: SpeechRecognitionEventLike) => {
+        const said = ev.results?.[0]?.[0]?.transcript ?? '';
+        if (said) setInput(said);
+      };
+      rec.onerror = () => setListening(false);
+      rec.onend = () => setListening(false);
+      rec.start();
+    } catch { setListening(false); }
   }
 
   function clearHistory() {
@@ -157,12 +206,6 @@ export default function Chat() {
         <div>
           <h1 className="display-italic text-4xl text-ink mb-1.5 flex items-center gap-2.5">
             <MessageCircle className="text-coral" /> Chat
-            {!backend.isReal() && (
-              <span className="inline-block text-[0.55rem] font-mono tracking-[0.14em] uppercase text-coral border border-coral/40 bg-coral-tint rounded px-1.5 py-0.5 align-middle" title="Beta — stub backend (TD-07). Set VITE_GEMINI_API_KEY to enable Gemini.">Beta</span>
-            )}
-            {backend.isReal() && (
-              <span className="inline-block text-[0.55rem] font-mono tracking-[0.14em] uppercase text-sage border border-sage/40 bg-sage/10 rounded px-1.5 py-0.5 align-middle" title="Powered by Google Gemini 1.5 Flash (free tier)">Gemini</span>
-            )}
           </h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
             Ask Vyact · Two taps to capture, inquire, plan, or navigate
@@ -179,12 +222,8 @@ export default function Chat() {
       <div className="bg-coral-tint border border-coral/30 rounded-md p-4 mb-3.5 flex items-start gap-3">
         <ShieldCheck size={20} className="text-terra flex-shrink-0 mt-0.5" />
         <div className="text-[0.84rem] text-ink-mid leading-relaxed">
-          <strong className="text-ink">Privacy by design.</strong> Only aggregated summaries leave your device — never merchant names,
-          transaction descriptions, or notes. {!backend.isReal() && (
-            <span className="block mt-2 font-mono text-[0.7rem] tracking-wide text-ink-dim">
-              Currently in <strong>stub mode</strong> — answers come from a local pattern-matcher. v8 wires Anthropic Claude via Supabase Edge Function with rate limiting.
-            </span>
-          )}
+          <strong className="text-ink">Private by design.</strong> Ask Vyact runs entirely on your device — your
+          questions and financial details never leave it.
         </div>
       </div>
 
@@ -217,8 +256,7 @@ export default function Chat() {
                   </div>
                   <div className="space-y-3">
                     {BUCKETS.map(b => {
-                      // Goal chips removed while the goals feature is off (FEATURES.goals).
-                      const items = intentsByBucket(b).filter(i => isGoalsEnabled() || (i.id !== 'add-goal' && i.id !== 'goal-eta'));
+                      const items = intentsByBucket(b);
                       if (!items.length) return null;
                       return (
                         <div key={b}>
@@ -300,9 +338,17 @@ export default function Chat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
-            placeholder="Ask about your spending, goals, debts…"
+            placeholder={listening ? 'Listening…' : 'Ask about your spending, debts…'}
             className="flex-1 bg-bg3 border border-line rounded-md px-3 py-2.5 outline-none focus:border-coral text-[0.86rem]"
           />
+          {Boolean(SpeechRec) && (
+            <button
+              type="button" onClick={startVoice} disabled={listening} aria-label="Voice input"
+              title="Speak"
+              className={`px-2.5 rounded-md border ${listening ? 'border-coral text-coral animate-pulse' : 'border-line text-ink-mid hover:text-ink hover:border-coral'}`}>
+              <Mic size={16} />
+            </button>
+          )}
           <Button onClick={() => send(input)} disabled={!input.trim() || thinking}>
             <Send size={14} /> Send
           </Button>

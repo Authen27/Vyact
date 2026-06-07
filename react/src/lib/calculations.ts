@@ -4,7 +4,6 @@
 
 import type { Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, BudgetPeriod } from '../types';
 import { convert, getMonthKey, nowMonthKey, clamp } from './format';
-import { isGoalsEnabled } from '../config/features';
 import { toDinero, fromDinero, convertViaUsdRates, sumDinero, dineroZero, addDinero } from './money';
 import type { Dinero } from 'dinero.js';
 
@@ -201,15 +200,18 @@ export const totalMonthlyDebtPayment = (debts: Debt[], baseCurrency: string, rat
     baseCurrency,
   ));
 
-// ── PULSE SCORE — 5 components ─────────────────────────────────
+// ── PULSE SCORE — 4 components ─────────────────────────────────
+// Goals were removed as a module, so Goal Progress is no longer a Pulse
+// component; the score is Budgets / Savings / Trend / Debt, renormalised over
+// whichever are applicable.
 export interface PulseScore {
   total: number | null;   // null = not enough data yet (honest empty state)
-  components: { budget: number; savings: number; goals: number; trend: number; debt: number };
-  applicable: { budget: boolean; savings: boolean; goals: boolean; trend: boolean; debt: boolean };
+  components: { budget: number; savings: number; trend: number; debt: number };
+  applicable: { budget: boolean; savings: boolean; trend: boolean; debt: boolean };
 }
 
 export function computePulseScore(
-  transactions: Transaction[], budgets: Budget[], goals: Goal[], debts: Debt[],
+  transactions: Transaction[], budgets: Budget[], _goals: Goal[], debts: Debt[],
   baseCurrency: string, rates: ExchangeRates,
 ): PulseScore {
   const mk = nowMonthKey();
@@ -233,20 +235,7 @@ export function computePulseScore(
   const rate = savingsApplicable ? (income - expense) / income * 100 : 0;
   const savingsScore = clamp(rate * 5, 0, 100);
 
-  // 3. Goal progress — applicable only if there are active goals AND the goals
-  //    feature is enabled. When goals are removed (FEATURES.goals.enabled=false)
-  //    this component drops out and the score renormalises over the rest.
-  const activeGoals = goals.filter(g => !g.completed);
-  const goalsApplicable = isGoalsEnabled() && activeGoals.length > 0;
-  let goalScore = 0;
-  if (goalsApplicable) {
-    const progresses = activeGoals.map(g => {
-      const tgt = convert(g.target, g.currency, baseCurrency, rates);
-      const cur = convert(g.current, g.currency, baseCurrency, rates);
-      return tgt > 0 ? clamp(cur / tgt * 100, 0, 100) : 0;
-    });
-    goalScore = progresses.reduce((s, v) => s + v, 0) / progresses.length;
-  }
+  // (Goal progress removed — goals are no longer a module.)
 
   // 4. Expense trend — applicable only if there was spend last month to compare
   const [y, m] = mk.split('-').map(Number);
@@ -284,7 +273,6 @@ export function computePulseScore(
   const parts = [
     { score: budgetScore,  weight: 0.25, ok: budgetApplicable  },
     { score: savingsScore, weight: 0.25, ok: savingsApplicable },
-    { score: goalScore,    weight: 0.15, ok: goalsApplicable   },
     { score: trendScore,   weight: 0.15, ok: trendApplicable   },
     { score: debtScore,    weight: 0.20, ok: debtApplicable    },
   ];
@@ -298,12 +286,11 @@ export function computePulseScore(
     components: {
       budget:  Math.round(budgetScore),
       savings: Math.round(savingsScore),
-      goals:   Math.round(goalScore),
       trend:   Math.round(trendScore),
       debt:    Math.round(debtScore),
     },
     applicable: {
-      budget: budgetApplicable, savings: savingsApplicable, goals: goalsApplicable,
+      budget: budgetApplicable, savings: savingsApplicable,
       trend: trendApplicable, debt: debtApplicable,
     },
   };

@@ -6,7 +6,7 @@
 // trigger (boolean function on PlannerContext), and a templated text.
 // Engine evaluates all, sorts by (severity × priority), returns top 5.
 
-import type { Transaction, Budget, Goal, Debt, Asset, ExchangeRates } from '../types';
+import type { Transaction, Budget, Goal, Debt, Asset, ExchangeRates, ProfileTypeKey } from '../types';
 import {
   monthlyData, totalAssets, totalLiabilities, liquidAssets,
   totalMonthlyDebtPayment, reportableTxns, effectiveAmount,
@@ -24,6 +24,14 @@ export interface PlannerContext {
   assets: Asset[];
   baseCurrency: string;
   rates: ExchangeRates;
+  /** #8 — Planner advice adapts to the household type (personal/family/business).
+   *  Defaults to 'personal' when unset. */
+  householdType?: ProfileTypeKey;
+}
+
+/** True for the business-flavoured household types. */
+function isBusiness(ctx: PlannerContext): boolean {
+  return ctx.householdType === 'business' || ctx.householdType === 'multi_biz';
 }
 
 export interface Recommendation {
@@ -81,7 +89,7 @@ const incomeRules: Rule[] = [
           severity: 'watch',
           title: 'Single income source — concentrated risk',
           body: 'All your income comes from one source. A redundancy or job loss leaves zero cash flow. Consider a 6-month emergency fund or a secondary income stream.',
-          action: { label: 'Review goals', route: '/goals' },
+          action: { label: 'Check net worth', route: '/networth' },
         },
       };
     },
@@ -324,8 +332,45 @@ const taxRules: Rule[] = [
 ];
 
 // ── ENGINE ─────────────────────────────────────────────────────
+// #8 — business-specific advice (only for SMB / multi-business households).
+const businessRules: Rule[] = [
+  {
+    id: 'smb.tax_reserve',
+    domain: 'tax',
+    priority: 4,
+    evaluate(ctx) {
+      if (!isBusiness(ctx)) return { match: false };
+      const income = monthlyIncomes(ctx, 3).reduce((s, v) => s + v, 0);
+      if (income <= 0) return { match: false };
+      return { match: true, rec: {
+        severity: 'watch',
+        title: 'Set aside for tax',
+        body: 'As a business, reserve ~25–30% of profit for tax in a dedicated account so a bill never catches you short. Transfer it the moment income lands.',
+        action: { label: 'Open accounts', route: '/accounts' },
+      } };
+    },
+  },
+  {
+    id: 'smb.runway',
+    domain: 'income',
+    priority: 3,
+    evaluate(ctx) {
+      if (!isBusiness(ctx)) return { match: false };
+      const burn = monthlyExpenses(ctx, 3);
+      const avgBurn = burn.length ? burn.reduce((s, v) => s + v, 0) / burn.length : 0;
+      if (avgBurn <= 0) return { match: false };
+      return { match: true, rec: {
+        severity: 'info',
+        title: 'Watch your cash runway',
+        body: 'Track how many months of burn your liquid cash covers. For a business, aim for 6+ months so a slow quarter is survivable.',
+        action: { label: 'Check net worth', route: '/networth' },
+      } };
+    },
+  },
+];
+
 export const ALL_RULES = [
-  ...incomeRules, ...expenseRules, ...investmentRules, ...debtRules, ...taxRules,
+  ...incomeRules, ...expenseRules, ...investmentRules, ...debtRules, ...taxRules, ...businessRules,
 ];
 
 export function evaluateRecommendations(ctx: PlannerContext, top = 5): Recommendation[] {

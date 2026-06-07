@@ -68,7 +68,6 @@ interface BudgetRow extends ProvenanceRowCols {
   id: string; household_id: string;
   category: string; monthly_limit: number; currency: string; color: string | null;
   period?: string | null; period_start?: string | null; period_end?: string | null;
-  allocations?: { category: string; limit: number }[] | null;   // Money-Model B2.3
   updated_at: string; deleted_at: string | null;
 }
 
@@ -196,7 +195,6 @@ const budgetToRow = (b: Partial<Budget>, hid: string): Partial<BudgetRow> => ({
   id: b.id, household_id: hid, category: b.category!,
   monthly_limit: b.limit!, currency: b.currency || 'USD', color: b.color || null,
   period: b.period || null, period_start: b.periodStart || null, period_end: b.periodEnd || null,
-  allocations: b.allocations ?? [],   // Money-Model B2.3
 });
 const rowToBudget = (r: BudgetRow): Budget => ({
   id: r.id, category: r.category, limit: parseMoneyFromCloud(r.monthly_limit),
@@ -204,9 +202,6 @@ const rowToBudget = (r: BudgetRow): Budget => ({
   period: (r.period as Budget['period']) || 'monthly',
   periodStart: r.period_start || undefined,
   periodEnd: r.period_end || undefined,
-  allocations: Array.isArray(r.allocations) && r.allocations.length
-    ? r.allocations.map(a => ({ category: a.category, limit: parseMoneyFromCloud(a.limit) }))
-    : undefined,
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
   ...rowToProv(r),
 });

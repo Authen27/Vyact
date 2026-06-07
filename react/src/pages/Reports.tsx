@@ -30,9 +30,10 @@ export default function Reports() {
   const baseCur = profile.baseCurrency;
   const classifications = useCategoryClassifications();
   const [period, setPeriod] = useState<Period>('month');
-  // v7.2 — Money Map breakouts. Hidden when the flag is off so existing
-  // households see the v7.1 layout unchanged.
-  const showBreakouts = getMoneyMapMode() !== 'off';
+  // R6 (g) — By-member / By-account breakouts are now a permanent part of Reports
+  // (the money model is permanent). They fold over `reportableTxns`, so transfers
+  // and balance adjustments are excluded and never skew the breakdowns.
+  const showBreakouts = true;
 
   // Build period buckets
   const data = useMemo(() => buildPeriodData(period, txns, baseCur, rates), [period, txns, baseCur, rates]);

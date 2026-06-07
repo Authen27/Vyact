@@ -22,7 +22,7 @@ import type { Transaction, TxnType } from '../types';
 export type Bucket = 'capture' | 'inquire' | 'plan' | 'manage';
 
 export type IntentAction =
-  | { kind: 'open-modal'; modal: 'addTxn' | 'addGoal' | 'addBudget' | 'addDebt' | 'addAsset'; seed?: Partial<Transaction> }
+  | { kind: 'open-modal'; modal: 'addTxn' | 'addBudget' | 'addDebt' | 'addAsset'; seed?: Partial<Transaction> }
   | { kind: 'navigate'; to: string }
   | { kind: 'ask'; prompt: string };
 
@@ -66,7 +66,6 @@ export const INTENTS: Intent[] = [
   { id: 'add-income',      bucket: 'capture', label: 'Add income',       secondary: INCOME_QUICK_CATS },
   { id: 'add-transfer',    bucket: 'capture', label: 'Add transfer',     action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'transfer' as TxnType, category: 'transfer' } } },
   { id: 'add-investment',  bucket: 'capture', label: 'Add investment',   action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'investment' as TxnType, category: 'investment_in' } } },
-  { id: 'add-goal',        bucket: 'capture', label: 'Add a goal',       action: { kind: 'open-modal', modal: 'addGoal' } },
   { id: 'add-budget',      bucket: 'capture', label: 'Add a budget',     action: { kind: 'open-modal', modal: 'addBudget' } },
   { id: 'add-debt',        bucket: 'capture', label: 'Add a debt',       action: { kind: 'open-modal', modal: 'addDebt' } },
   { id: 'add-asset',       bucket: 'capture', label: 'Add an asset',     action: { kind: 'open-modal', modal: 'addAsset' } },
@@ -82,7 +81,6 @@ export const INTENTS: Intent[] = [
   // ── Plan ────────────────────────────────────────────────────
   { id: 'emergency',       bucket: 'plan',    label: 'Emergency fund',   action: { kind: 'ask', prompt: 'How am I doing on my emergency fund?' } },
   { id: 'debts',           bucket: 'plan',    label: 'Debt strategy',    action: { kind: 'ask', prompt: 'Tell me about my debts and the best payoff strategy.' } },
-  { id: 'goal-eta',        bucket: 'plan',    label: 'Goal ETA',         action: { kind: 'ask', prompt: 'When will I reach my biggest goal?' } },
 
   // ── Manage / Navigate ───────────────────────────────────────
   { id: 'open-budgets',    bucket: 'manage',  label: 'Open Budgets',     action: { kind: 'navigate', to: '/budgets' } },
@@ -118,7 +116,8 @@ export type AssistantBucket = 'capture' | 'interpret' | 'forecast';
 export type AssistantIntentId =
   | 'capture.income' | 'capture.split' | 'capture.transfer' | 'capture.expense'
   | 'interpret.status' | 'interpret.diagnostic' | 'interpret.lookup'
-  | 'forecast.affordability' | 'forecast.runway' | 'forecast.goal' | 'forecast.prescriptive'
+  | 'interpret.budgets' | 'interpret.bills' | 'interpret.debts'
+  | 'forecast.affordability' | 'forecast.runway' | 'forecast.prescriptive'
   | 'fallback';
 
 export interface IntentResult {
@@ -133,8 +132,9 @@ const BUCKET_OF: Record<AssistantIntentId, AssistantBucket | 'none'> = {
   'capture.income': 'capture', 'capture.split': 'capture',
   'capture.transfer': 'capture', 'capture.expense': 'capture',
   'interpret.status': 'interpret', 'interpret.diagnostic': 'interpret', 'interpret.lookup': 'interpret',
+  'interpret.budgets': 'interpret', 'interpret.bills': 'interpret', 'interpret.debts': 'interpret',
   'forecast.affordability': 'forecast', 'forecast.runway': 'forecast',
-  'forecast.goal': 'forecast', 'forecast.prescriptive': 'forecast',
+  'forecast.prescriptive': 'forecast',
   fallback: 'none',
 };
 
@@ -151,13 +151,15 @@ const RULES: IntentRule[] = [
   // ── Forecast (questions about the future) ───────────────────────────────────
   { id: 'forecast.affordability', test: e => /\b(can i afford|afford|can i buy|should i buy|enough for)\b/.test(e.text) },
   { id: 'forecast.runway',        test: e => /\b(if i (quit|lose|stop)|how (long|many months)|runway|last me|stretch|without (income|a job))\b/.test(e.text) },
-  { id: 'forecast.goal',          test: e => /\b(will i (hit|reach|make)|on track (for|to)|by (december|january|february|march|april|may|june|july|august|september|october|november|year[- ]?end|then)|save\b.*\bby\b|reach my goal)\b/.test(e.text) },
   { id: 'forecast.prescriptive',  test: e => /\b(where (can|do) i cut|how (can|do) i save|need .* by|free up|trim|cut back|find \d)\b/.test(e.text) },
 
   // ── Interpret (questions about current/past state) ──────────────────────────
+  { id: 'interpret.budgets',    test: e => /\b(budgets?\b.*\b(risk|over|left|track|exceed)|which budgets|over budget|budget status)\b/.test(e.text) },
+  { id: 'interpret.bills',      test: e => /\b(upcoming bills?|bills? due|what bills|recurring|subscriptions?)\b/.test(e.text) },
+  { id: 'interpret.debts',      test: e => /\b(my debts?|payoff|pay off|avalanche|snowball|debt strategy|loans?|owe)\b/.test(e.text) },
   { id: 'interpret.status',     test: e => /\b(pulse score|net worth|networth|my balance|how am i doing|am i ok|financial health)\b/.test(e.text) },
   { id: 'interpret.diagnostic', test: e => /\b(why|where('?s| is| are)|what'?s eating|double[- ]?pay|paying twice|forgotten|leak|going wrong)\b/.test(e.text) },
-  { id: 'interpret.lookup',     test: e => /\b(how much|how many|show me|what did i|total|biggest|most|breakdown|list)\b/.test(e.text) },
+  { id: 'interpret.lookup',     test: e => /\b(how much|how many|show me|what did i|total|biggest|most|top|breakdown|list|spend|spending|categor)\b/.test(e.text) },
 
   // ── Capture (statements about something that happened) ──────────────────────
   // Capture matches on verb/category even WITHOUT an amount — a missing amount

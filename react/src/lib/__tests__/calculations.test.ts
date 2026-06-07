@@ -142,18 +142,17 @@ describe('balance sheet helpers', () => {
 });
 
 describe('computePulseScore', () => {
-  it('CON-UNIT-023 · returns a total in [0,100] with all five components present', () => {
+  it('CON-UNIT-023 · returns a total in [0,100] with the four components present (goals removed)', () => {
     const txns = [
       txn({ type: 'income', amount: 5000, date: '2026-05-01' }),
       txn({ type: 'expense', amount: 2000, date: '2026-05-10' }),
     ];
     const budgets: Budget[] = [{ id: 'b1', category: 'general', limit: 3000, currency: 'USD' }];
-    const goals: Goal[] = [{ id: 'g1', type: 'savings', name: 'Fund', target: 10000, current: 5000, currency: 'USD', completed: false }];
     const debts: Debt[] = [];
-    const p = computePulseScore(txns, budgets, goals, debts, USD, R);
+    const p = computePulseScore(txns, budgets, [], debts, USD, R);
     expect(p.total).toBeGreaterThanOrEqual(0);
     expect(p.total).toBeLessThanOrEqual(100);
-    expect(Object.keys(p.components).sort()).toEqual(['budget', 'debt', 'goals', 'savings', 'trend']);
+    expect(Object.keys(p.components).sort()).toEqual(['budget', 'debt', 'savings', 'trend']);
   });
   it('CON-UNIT-024 · higher debt-to-income lowers the debt component', () => {
     const lowDtiTxns = [txn({ type: 'income', amount: 10000, date: '2026-05-01' })];
