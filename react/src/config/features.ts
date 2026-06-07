@@ -41,22 +41,22 @@ export const FEATURES = {
   // sub-flags, all OFF until the golden-file safety net + migration dry-run gate
   // (Part C) pass. NOT YET BUILT — flag scaffolding + regression suites land first.
   moneyModel: {
-    enabled: false,           // umbrella — OFF = current v8.0.1 money model
-    enforceAccount: false,    // B1.1 account-on-every-transaction (BLOCKING invariant)
-    openingBalance: false,    // B1.2 real, finite account balances
-    reconciliation: false,    // B1.3 "fix balance" → dated adjustment txn
-    ledger: false,            // B1.4 per-account ledger screen
-    scopedCategories: false,  // B1.5 categories scoped by txn type
+    enabled: true,            // umbrella — OFF = current v8.0.1 money model
+    enforceAccount: true,     // B1.1 account-on-every-transaction (BLOCKING invariant)
+    openingBalance: true,     // B1.2 real, finite account balances
+    reconciliation: true,     // B1.3 "fix balance" → dated adjustment txn
+    ledger: true,             // B1.4 per-account ledger screen
+    scopedCategories: true,   // B1.5 categories scoped by txn type
   },
 
   // Epic 2 — Budgets. Quick win B2.1 (remove colour picker) is applied by default
   // (reversible via the flag); the heavier items stay OFF until built.
   budgetsV2: {
-    enabled: false,
+    enabled: true,
     removeColorPicker: true,  // B2.1 quick win — deterministic colour, no picker
-    history: false,           // B2.2 budget history & timeline
-    allocations: false,       // B2.3 category sub-limits roll-up
-    suggest: false,           // B2.4 copy + suggested budget
+    history: true,            // B2.2 budget history & timeline
+    allocations: true,        // B2.3 category sub-limits roll-up
+    suggest: true,            // B2.4 copy + suggested budget
   },
 
   // Goals feature master switch. Set false to REMOVE the goal concept for now —
@@ -75,9 +75,9 @@ export const FEATURES = {
   // stays OFF until built. `showSavedViews:false` = the B4.4 default-hidden state
   // (the saved_views table + RPC stay dormant, not deleted).
   entryV2: {
-    enabled: false,
+    enabled: true,
     stopAutofocus: true,      // B4.1 — no auto-focus on amount on open/edit
-    shortForm: false,         // B4.2/B4.3 — primary fields + "More details"
+    shortForm: true,          // B4.2/B4.3 — primary fields + "More details"
     showSavedViews: false,    // B4.4 — Saved Views hidden (flip true to restore)
   },
 } as const;

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.7.0`** (consumer)
+> **Current production version: `v8.7.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,35 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.7.1 — Enable Money-Model Epic 1, Budgets V2, Entry V2 (config only) *(2026-06-07)*
+
+Configuration-only patch — flips the previously-built features ON in
+[`src/config/features.ts`](src/config/features.ts). No code change; flag flips only
+(hence a patch bump, not a minor).
+
+**Turned ON:**
+- `moneyModel.enabled` + `enforceAccount` (B1.1), `openingBalance` (B1.2),
+  `reconciliation` (B1.3), `ledger` (B1.4), `scopedCategories` (B1.5) — Epic 1
+  account model now live (account-on-every-txn defaulting to Cash; account
+  balances, Fix-balance reconciliation, and per-account ledger on the Accounts page).
+- `budgetsV2.enabled` + `history` (B2.2), `allocations` (B2.3), `suggest` (B2.4)
+  — budget timeline, sub-limit editor, and suggested budgets now live (B2.1 was
+  already on).
+- `entryV2.enabled` + `shortForm` (B4.2/B4.3) — transaction form "+ More details"
+  disclosure now live (B4.1 already on).
+
+**Left OFF (unchanged):** `goals.enabled`, `goalsLens`, `taxNudge`,
+`entryV2.showSavedViews`.
+
+Typecheck + production build clean; suite 126/127 (the one failure is the
+pre-existing unrelated `calculations` assertion). The B1.6 backfill (v8.4.0) is
+already applied to prod, so the account model has compliant data to read.
+
+> ⚠ **QA note:** these surfaces were previously verified via typecheck/build/dev-
+> transform + unit tests only. This release makes them user-visible — do a browser
+> click-through (especially the transaction add/edit flow under `enforceAccount` +
+> `shortForm`, and the Accounts ledger/reconcile) to confirm runtime behaviour.
 
 ## v8.7.0 — Money-Model: budget allocations (B2.3) + form reshape (B4.2/B4.3) *(2026-06-07)*
 
