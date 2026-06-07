@@ -47,6 +47,10 @@ export function reportableTxns(transactions: Transaction[]): Transaction[] {
     !t.excluded
     && (t.type === 'income' || t.type === 'expense')
     && t.category !== 'transfer'
+    // Money-Model B1.3 — reconciliation Balance Adjustments move an account but
+    // are corrections, not spend/earn; they must never count in income/expense
+    // or category totals (mirrors the transfer exclusion).
+    && t.category !== 'balance_adjustment'
   );
 }
 

@@ -99,11 +99,12 @@ interface AssetRow extends ProvenanceRowCols {
 }
 
 // v7.1 Money Map — first-class accounts table.
-interface AccountRow {
+interface AccountRow extends ProvenanceRowCols {
   id: string; household_id: string;
   asset_id: string | null;
   kind: string; name: string; currency: string;
   is_default: boolean; is_archived: boolean;
+  opening_balance?: number | null;   // Money-Model B1.2
   created_at: string; updated_at: string; deleted_at: string | null;
 }
 
@@ -292,6 +293,7 @@ const rowToMember = (r: MembershipRow): Member => ({
 });
 
 const accountToRow = (a: Partial<Account>, hid: string): Partial<AccountRow> => ({
+  ...provToRow(a),
   id: a.id, household_id: hid,
   asset_id: a.assetId || null,
   kind: a.kind!,
@@ -299,6 +301,7 @@ const accountToRow = (a: Partial<Account>, hid: string): Partial<AccountRow> => 
   currency: a.currency || 'USD',
   is_default: a.isDefault ?? false,
   is_archived: a.isArchived ?? false,
+  opening_balance: a.openingBalance ?? 0,   // Money-Model B1.2
 });
 const rowToAccount = (r: AccountRow): Account => ({
   id: r.id,
@@ -308,7 +311,9 @@ const rowToAccount = (r: AccountRow): Account => ({
   currency: r.currency,
   isDefault: r.is_default,
   isArchived: r.is_archived,
+  openingBalance: r.opening_balance != null ? parseMoneyFromCloud(r.opening_balance) : 0,
   updated_at: r.updated_at,
+  ...rowToProv(r),
 });
 
 const savedViewToRow = (v: Partial<SavedView>, hid: string): Partial<SavedViewRow> => ({

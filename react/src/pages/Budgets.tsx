@@ -5,9 +5,13 @@ import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { convert } from '../lib/format';
 import { spendByCategoryInRange, budgetWindow, periodMonths } from '../lib/calculations';
-import { BUDGET_COLORS, getCat } from '../constants';
+import { BUDGET_COLORS, getCat, deterministicColor } from '../constants';
 import type { Budget, BudgetPeriod } from '../types';
 import Money from '../components/ui/Money';
+import { FEATURES } from '../config/features';
+import { budgetHistory, suggestBudget, type BudgetSuggestion } from '../lib/budgetIntel';
+import { uid } from '../lib/format';
+import { Sparkles } from 'lucide-react';
 
 function pct(spent: number, limit: number) { return limit > 0 ? Math.min((spent / limit) * 100, 100) : 0; }
 function status(p: number): { label: string; cls: string; bar: string } {
@@ -28,12 +32,45 @@ export default function Budgets() {
   const transactions = useStore(s => s.transactions);
   const profile      = useStore(s => s.profile);
   const rates        = useStore(s => s.rates);
+  const debts          = useStore(s => s.debts);
+  const goals          = useStore(s => s.goals);
+  const recurringSchedules = useStore(s => s.recurringSchedules);
   const openAddBudget  = useStore(s => s.openAddBudget);
   const openEditBudget = useStore(s => s.openEditBudget);
   const removeBudget   = useStore(s => s.removeBudget);
+  const upsertBudget   = useStore(s => s.upsertBudget);
   const toast          = useStore(s => s.toast);
 
   const [view, setView] = useState<ViewMode>('period');
+
+  // Epic 2 (budgetsV2) — flag-gated. OFF → the v8.x Budgets page exactly.
+  const bv = FEATURES.budgetsV2;
+  const [suggestions, setSuggestions] = useState<BudgetSuggestion[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+
+  const history = useMemo(
+    () => (bv.history ? budgetHistory(transactions, budgets, profile.baseCurrency, rates, 6) : []),
+    [bv.history, transactions, budgets, profile.baseCurrency, rates],
+  );
+
+  function generateSuggestions() {
+    const all = suggestBudget({ transactions, debts, goals, recurring: recurringSchedules, baseCurrency: profile.baseCurrency, rates });
+    // Only propose categories the user doesn't already budget for.
+    const have = new Set(budgets.map(b => b.category));
+    const fresh = all.filter(s => !have.has(s.category));
+    setSuggestions(fresh);
+    setPicked(new Set(fresh.map(s => s.category)));
+  }
+
+  async function applySuggestions() {
+    if (!suggestions) return;
+    const chosen = suggestions.filter(s => picked.has(s.category));
+    for (const s of chosen) {
+      await upsertBudget({ id: uid(), category: s.category, limit: s.limit, currency: profile.baseCurrency, period: 'monthly', color: deterministicColor(s.category) });
+    }
+    setSuggestions(null);
+    toast(`Added ${chosen.length} budget${chosen.length === 1 ? '' : 's'}`, 'success');
+  }
 
   // Pre-compute window + spend per budget so the cards stay cheap.
   const today = useMemo(() => new Date(), []);
@@ -75,9 +112,75 @@ export default function Budgets() {
               </button>
             ))}
           </div>
+          {bv.suggest && (
+            <button className="btn-secondary inline-flex items-center gap-1" onClick={generateSuggestions}>
+              <Sparkles size={13} /> Suggest
+            </button>
+          )}
           <button className="btn-primary" onClick={openAddBudget}>+ Add Budget</button>
         </div>
       </div>
+
+      {/* B2.4 — suggested budget (editable proposal from recurring + debts + goals + history). */}
+      {bv.suggest && suggestions && (
+        <Panel>
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-semibold text-ink text-[0.92rem]">Suggested budgets</div>
+              <button onClick={() => setSuggestions(null)} className="text-[0.72rem] text-ink-dim hover:text-ink">Dismiss</button>
+            </div>
+            {suggestions.length === 0 ? (
+              <p className="text-[0.84rem] text-ink-mid">You already budget for everything we'd suggest. Nice.</p>
+            ) : (
+              <>
+                <p className="text-[0.78rem] text-ink-dim mb-3">Each line comes from your real recurring bills, debts, goals, or recent spending — edit after adding.</p>
+                <div className="space-y-1.5 mb-4">
+                  {suggestions.map(s => {
+                    const cat = getCat(s.category);
+                    const on = picked.has(s.category);
+                    return (
+                      <label key={s.category} className="flex items-center gap-3 cursor-pointer py-1">
+                        <input type="checkbox" checked={on} onChange={() => setPicked(p => { const n = new Set(p); if (on) n.delete(s.category); else n.add(s.category); return n; })} />
+                        <span className="text-lg">{cat.icon}</span>
+                        <span className="flex-1 text-[0.86rem] text-ink">{cat.label}</span>
+                        <span className="font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">{s.basis}</span>
+                        <Money amount={s.limit} currency={profile.baseCurrency} className="font-semibold text-ink" maxChars={8} />
+                      </label>
+                    );
+                  })}
+                </div>
+                <button className="btn-primary" onClick={applySuggestions} disabled={picked.size === 0}>
+                  Add {picked.size} budget{picked.size === 1 ? '' : 's'}
+                </button>
+              </>
+            )}
+          </div>
+        </Panel>
+      )}
+
+      {/* B2.2 — budget history & timeline (are we improving?). */}
+      {bv.history && history.length > 0 && (
+        <Panel>
+          <div className="p-4">
+            <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim mb-3">Budget vs actual · last {history.length} months</div>
+            <div className="flex items-end gap-2 h-24">
+              {history.map(h => {
+                const max = Math.max(h.budgeted, h.actual, 1);
+                return (
+                  <div key={h.monthKey} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                    <div className="flex items-end gap-0.5 h-16">
+                      <div className="w-2.5 bg-line rounded-t" style={{ height: `${(h.budgeted / max) * 100}%` }} title={`Budgeted ${h.budgeted}`} />
+                      <div className={`w-2.5 rounded-t ${h.variance >= 0 ? 'bg-sage' : 'bg-terra'}`} style={{ height: `${(h.actual / max) * 100}%` }} title={`Actual ${h.actual}`} />
+                    </div>
+                    <span className="font-mono text-[0.5rem] text-ink-dim">{h.monthKey.slice(5)}</span>
+                    <span className={`font-mono text-[0.5rem] ${h.variance >= 0 ? 'text-sage' : 'text-terra'}`}>{h.variance >= 0 ? '+' : ''}{Math.round(h.variance)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Panel>
+      )}
 
       {/* Summary strip */}
       {rows.length > 0 && (

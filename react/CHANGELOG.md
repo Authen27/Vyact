@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.2.0`** (consumer)
+> **Current production version: `v8.5.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,132 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.5.0 — Money-Model Epics 2 & 3 UI (budgets, goals lens, tax nudge) *(2026-06-07)*
+
+Lands the user-facing surfaces for Epics 2 & 3 over the v8.3.0 engines, all gated
+by their epic flags (OFF → the pages are byte-for-byte the prior version).
+
+### Epic 2 — Budgets (`pages/Budgets.tsx`, `budgetsV2`)
+- **B2.4 suggested budgets** — a "Suggest" header action proposes budgets for
+  categories the user doesn't yet track, sourced from `suggestBudget()` (recurring
+  + debts + goals + 3-month history). Editable, checkbox-selectable proposal panel;
+  each line shows its basis; confirmed lines create real budgets with a
+  deterministic colour. Read-only inference, no phantom money (A8).
+- **B2.2 budget history** — a 6-month budget-vs-actual mini-timeline (`budgetHistory()`)
+  with per-month variance, answering "are we improving?" at a glance.
+
+### Epic 3 — Goals & Tax as lenses (`pages/Goals.tsx`, `goalsLens` / `taxNudge`)
+- **B3.1 goals-as-lens** — an explainer that goals track *progress toward a target*
+  with money never carved out of an account (A4); real-account backing is the
+  opt-in path (engine `goalsLens.ts` ready; needs a `Goal.linkedAccountId` field
+  to expose the link UI).
+- **B3.2 tax nudge** — a derived "you'll likely owe ~X; reserved Y" card from
+  `computeTaxNudge()` (income × a v1 flat rate) measured against a real **Tax
+  Reserve** account's balance. No tax entity, no phantom balance (A5).
+
+### Status
+- Typecheck + build clean; suite green except the one pre-existing unrelated
+  `calculations` assertion. Golden file + transfer invariant intact. All new UI
+  OFF by default.
+- **Remaining (deliberately deferred):** B2.3 category allocations (needs a budget
+  sub-limit schema field; `rollupAllocations()` engine ready) and B4.2/B4.3 txn-
+  form reshape (OFF-by-default UX polish inside the core entry modal — held to
+  avoid blind surgery on the critical add/edit flow). B4.5 re-theme PARKED per spec.
+
+## v8.4.0 — Money-Model Epic 1: B1.6 backfill + account ledger UI *(2026-06-07)*
+
+Completes the Epic 1 gate and lands its flagship UI over the v8.3.0 engine.
+
+### B1.6 — account backfill (the R2-gated migration), applied to prod
+- **Read-only dry-run first (R2 discipline):** confirmed 0 orphans after backfill,
+  1 accountless txn to repair, 2 households needing a system Cash account, and
+  `global_net = 193592.90` (the invariant the backfill must not change).
+- **Applied** [`20260607130000_v8_money_model_b16_account_backfill.sql`](../supabase/migrations/20260607130000_v8_money_model_b16_account_backfill.sql):
+  idempotent + amount-invariant — creates a system Cash account per household
+  (only setting `is_default` when no default exists for the currency, respecting
+  `accounts_default_per_currency`) and repairs accountless transactions to the
+  Cash funding source via `extras.paymentMethod`. **Post-apply verified:** 0
+  orphans, 2 cash accounts, `global_net` unchanged at 193592.90. (Full uuid-FK
+  normalization of `transactions.account_id` is intentionally deferred — the app
+  keys account membership off the encoded `paymentMethod` string the engine reads.)
+
+### Account ledger UI (B1.2/B1.3/B1.4) — `pages/Accounts.tsx`
+- Each account row now shows its **computed balance** (`computeAccountBalance`,
+  B1.2) with an `est` tag when provenance is unconfirmed; a **Fix balance**
+  inline action (B1.3) that calls the `reconcileAccount` store action → writes a
+  dated Balance Adjustment (never overwrites); and an expandable **per-account
+  ledger** (B1.4) — reverse-chronological entries with per-row impact + running
+  balance. All three gated by `moneyModel.openingBalance` / `reconciliation` /
+  `ledger` — **flags OFF → the v7.1.3 Accounts page exactly** (no balance column,
+  no reconcile, no ledger).
+
+### Status
+- Typecheck + build clean; suite green except one pre-existing unrelated
+  `calculations` assertion. Golden file + transfer invariant intact.
+- **Epic 1 is now functionally complete and gate-passed** (golden-file clean,
+  migration reconciled, transfer invariant green) — ready to enable behind
+  `moneyModel` after a live QA pass.
+- **Remaining (engines ready, UI pending):** budget timeline/allocations UI
+  (B2.2/B2.3), suggested-budget confirm flow (B2.4), goals-reframe + tax-nudge UI
+  (B3.1/B3.2), and the txn-form reshape (B4.2/B4.3). All behind their OFF flags.
+
+## v8.3.0 — Money-Model Overhaul: engines for all four epics *(2026-06-07)*
+
+Lands the tested, regression-critical **engine + data layer for Epics 1–4** of the
+[money-model program](../vyact-money-model-execution-and-regression.md), all behind
+OFF-by-default flags (app stays exactly v8.2.0 until each flag flips). Part A
+governs throughout: services compute, the assistant/UI only present; no phantom
+balances. The new heavy screens are now thin presentation over these engines.
+
+### Epic 1 — Money Feels Real (engine)
+- **DB (additive, applied):** `accounts.opening_balance` + provenance columns
+  (`confidence`/`source`/`estimated_at`/`confirmed_at`), migration
+  [`20260607120000_v8_money_model_account_opening_balance.sql`](../supabase/migrations/20260607120000_v8_money_model_account_opening_balance.sql);
+  mapped through `supabaseAdapter` account row mappers + the `Account` type.
+- **B1.2 real balances** — new [`lib/accountBalance.ts`](src/lib/accountBalance.ts):
+  `computeAccountBalance()` = opening + credits − debits over the real txn encoding
+  (income credits, expense debits, transfer debits source + credits dest).
+- **B1.3 reconciliation** — `reconcileAccount()` emits a dated **Balance Adjustment**
+  transaction for the delta (never a silent overwrite, R4) and marks the balance
+  `confirmed`; wired as a store action `reconcileAccount(account, realBalance)`.
+  Balance Adjustments are excluded from `reportableTxns` (they move an account but
+  are corrections, not spend/earn — they never pollute income/expense/category
+  totals) yet still move the account balance.
+- **B1.1 account-on-every-transaction** — `upsertTransaction` defaults the funding
+  source to the system Cash account when none is chosen (behind
+  `moneyModel.enforceAccount`), so the A2 invariant never blocks fast entry.
+
+### Epic 2 — Budgets (engine) — `lib/budgetIntel.ts`
+- B2.4(a) `copyBudgets()`, B2.4(b) `suggestBudget()` (read-only inference over
+  recurring + debts + goals + 3-month history, each line traceable to its basis —
+  A8, no phantom money, no LLM), B2.2 `budgetHistory()` (month-by-month budget vs
+  actual + variance), B2.3 `rollupAllocations()` (allocated/unallocated + over-
+  allocation warning, A1 transparency). B2.1 colour picker removal shipped in v8.2.0.
+
+### Epic 3 — Goals & Tax as lenses (engine) — `lib/goalsLens.ts`, `lib/taxNudge.ts`
+- B3.1 `goalProgress()` — virtual goals **count tagged contributions** (no sub-
+  balance carved from an account) and contribute **zero** to Net Worth (R3);
+  opt-in real-account-backed goals read the linked account's live balance and
+  count once as that asset. `goalContributesToNetWorth()` enforces R3.
+- B3.2 `computeTaxNudge()` — tax owed derived from income × rate, surfaced as a
+  nudge against a real **Tax Reserve** account's balance; no tax entity, no phantom
+  balance (A5).
+
+### Epic 4 — Entry & surface polish
+- B4.1 (no keypad auto-launch) + B4.4 (Saved Views hidden) shipped in v8.2.0.
+  B4.2/B4.3 (form reshape) remain staged behind `entryV2.shortForm` (pure
+  presentation). B4.5 re-theme PARKED per spec.
+
+### Safety
+- Aggregation **golden file stays green** — the `reportableTxns` adjustment-
+  exclusion is a no-op on existing data; transfer invariant intact (R1).
+- 18 new engine tests (`CON-UNIT-MM-100..123`) + the 6 baseline tests. Typecheck +
+  build clean; suite green except one pre-existing unrelated `calculations` assertion.
+- **All money-model behaviour is OFF by default.** Remaining before enabling in
+  prod: the per-account-balance UI/ledger screen, reconciliation modal, budget
+  timeline/allocation UI, goals-reframe + tax-nudge UI, and the B1.6 transaction
+  `account_id` backfill migration with a dry-run reconciliation (R2).
 
 ## v8.2.0 — Money-Model Overhaul: flags, regression safety net, quick wins *(2026-06-07)*
 

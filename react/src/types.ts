@@ -198,7 +198,7 @@ export type AccountKind =
   | 'checking' | 'savings' | 'credit_card' | 'cash'
   | 'investment' | 'wallet' | 'other';
 
-export interface Account {
+export interface Account extends WithProvenance {
   id: string;
   /** Legacy back-link to the asset this account was synthesised from. Set
    *  by the Phase 1 backfill; null for accounts the user creates directly. */
@@ -208,6 +208,10 @@ export interface Account {
   currency: string;
   isDefault?: boolean;
   isArchived?: boolean;
+  /** Money-Model B1.2 — opening balance captured at creation / onboarding.
+   *  Current balance = openingBalance + credits − debits. Provenance-tagged
+   *  `estimated` until reconciled (B1.3 confirms it). Defaults to 0. */
+  openingBalance?: number;
   updated_at?: string;
 }
 

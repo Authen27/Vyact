@@ -34,6 +34,11 @@ import {
   registerOnboardingSync, hydrateOnboardingFromCloud,
   type HouseholdOnboarding,
 } from './lib/onboardingState';
+import { FEATURES } from './config/features';
+import {
+  computeAccountBalance, accountValueOf,
+  reconcileAccount as buildReconcileAdjustment,
+} from './lib/accountBalance';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from './lib/educationProgress';
 
 interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
@@ -148,6 +153,10 @@ interface Store {
   upsertAsset: (a: Partial<Asset>) => Promise<Asset>;
   removeAsset: (id: string) => Promise<void>;
   upsertAccount: (a: Partial<Account>) => Promise<Account>;
+  /** Money-Model B1.3 — reconcile an account to a real balance by writing a dated
+   *  Balance Adjustment transaction (never a silent overwrite), then mark the
+   *  account balance confirmed. Returns the delta booked. */
+  reconcileAccount: (account: Account, realBalance: number) => Promise<number>;
   removeAccount: (id: string) => Promise<void>;
   upsertSavedView: (v: Partial<SavedView>) => Promise<SavedView>;
   removeSavedView: (id: string) => Promise<void>;
@@ -511,6 +520,16 @@ export const useStore = create<Store>((set, get) => ({
   upsertTransaction: async (t) => {
     const { adapter, currentHouseholdId, transactions } = get();
 
+    // Money-Model B1.1 (A2) — no transaction without an account. When enforcement
+    // is on, default the funding source to the system Cash account so the rule
+    // never blocks fast entry. Flag OFF → unchanged v8.1.2 behaviour.
+    if (FEATURES.moneyModel.enforceAccount && !t.id) {
+      if ((t.type === 'expense' || t.type === 'income' || t.type === 'transfer')
+          && !t.accountId && !t.paymentMethod) {
+        t = { ...t, accountId: 'cash', paymentMethod: 'cash' };
+      }
+    }
+
     // v7.0.3 — Transfer-track encoding. A transfer row carries a destination
     // account in `linkedToAssetId`; we expand it into two linked txns (one
     // expense from source, one income to dest), tagged with a __tg:<gid>
@@ -668,6 +687,16 @@ export const useStore = create<Store>((set, get) => ({
     const { adapter, currentHouseholdId, accounts } = get();
     await adapter.remove('accounts', currentHouseholdId, id);
     set({ accounts: accounts.filter(x => x.id !== id) });
+  },
+  reconcileAccount: async (account, realBalance) => {
+    const { transactions, profile, rates } = get();
+    const value = accountValueOf(account);
+    const computed = computeAccountBalance(value, account.openingBalance ?? 0, transactions, profile.baseCurrency, rates);
+    const { adjustment, delta } = buildReconcileAdjustment(value, computed, realBalance, account.currency || profile.baseCurrency);
+    if (adjustment) await get().upsertTransaction(adjustment);   // normal account-bound txn → shows in ledger (A2)
+    // Mark the balance confirmed (provenance lifecycle, R7) — never overwrite it.
+    await get().upsertAccount({ ...account, confidence: 'confirmed', source: 'user', confirmedAt: new Date().toISOString() });
+    return delta;
   },
   upsertSavedView: async (v) => {
     const { adapter, currentHouseholdId, savedViews } = get();

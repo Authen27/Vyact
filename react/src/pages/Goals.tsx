@@ -4,9 +4,11 @@ import { Panel } from '../components/ui/Card';
 import { convert } from '../lib/format';
 import { GOAL_ICONS, GOAL_COLORS } from '../constants';
 import type { Goal } from '../types';
-import { useState } from 'react';
-import { Pencil, Trash2, Check, RotateCcw, Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Pencil, Trash2, Check, RotateCcw, Plus, Landmark } from 'lucide-react';
 import Money from '../components/ui/Money';
+import { FEATURES } from '../config/features';
+import { computeTaxNudge } from '../lib/taxNudge';
 
 function daysLeft(deadline?: string) {
   if (!deadline) return null;
@@ -25,10 +27,23 @@ export default function Goals() {
   const openEditGoal     = useStore(s => s.openEditGoal);
   const openGoalProgress = useStore(s => s.openGoalProgress);
 
+  const transactions = useStore(s => s.transactions);
+  const accounts     = useStore(s => s.accounts);
+
   const [showCompleted, setShowCompleted] = useState(false);
 
   const active    = goals.filter(g => !g.completed);
   const completed = goals.filter(g => g.completed);
+
+  // Epic 3 (B3.2) — tax as a derived nudge against a real Tax Reserve account.
+  // v1 uses a flat estimated effective rate; never an entity/phantom balance (A5).
+  const TAX_RATE = 0.2;
+  const tax = useMemo(
+    () => (FEATURES.taxNudge.enabled
+      ? computeTaxNudge({ transactions, accounts, effectiveRate: TAX_RATE, baseCurrency: profile.baseCurrency, rates })
+      : null),
+    [transactions, accounts, profile.baseCurrency, rates],
+  );
 
   async function toggleComplete(g: Goal) {
     await upsertGoal({ ...g, completed: !g.completed });
@@ -114,6 +129,30 @@ export default function Goals() {
         </div>
         <button className="btn-primary" onClick={openAddGoal}>+ Add Goal</button>
       </div>
+
+      {/* B3.1 — goals are a lens over real money: progress is measured, never carved
+          out of an account. (Opt-in real-account backing needs a Goal.linkedAccountId
+          field — engine ready in lib/goalsLens.ts.) */}
+      {FEATURES.goalsLens.enabled && active.length > 0 && (
+        <div className="bg-bg2 border border-line rounded-md p-3 mb-4 text-[0.8rem] text-ink-mid">
+          Goals here track <span className="text-ink font-medium">progress toward a target</span> — the money stays in your accounts and is never locked away. Back a goal with a real savings account to see it in Net Worth.
+        </div>
+      )}
+
+      {/* B3.2 — tax nudge (derived, not an entity). */}
+      {tax && tax.estimated > 0 && (
+        <div className="bg-coral-tint border border-coral/30 rounded-md p-4 mb-4 flex items-start gap-3">
+          <Landmark size={18} className="text-terra mt-0.5 shrink-0" />
+          <div className="flex-1 text-[0.86rem] text-ink">
+            <span className="font-semibold">Tax set-aside.</span>{' '}
+            You'll likely owe about <Money amount={tax.estimated} currency={profile.baseCurrency} className="font-semibold" maxChars={9} />
+            {' '}(≈{Math.round(TAX_RATE * 100)}% of recent income).{' '}
+            {tax.hasReserve
+              ? <>You've reserved <Money amount={tax.reserved} currency={profile.baseCurrency} maxChars={9} />{tax.shortfall > 0 ? <> — about <Money amount={tax.shortfall} currency={profile.baseCurrency} maxChars={9} /> to go.</> : <> — you're covered. ✓</>}</>
+              : <span className="text-ink-mid">Create a “Tax Reserve” account and transfer into it to set money aside.</span>}
+          </div>
+        </div>
+      )}
 
       {active.length === 0 ? (
         <Panel>
