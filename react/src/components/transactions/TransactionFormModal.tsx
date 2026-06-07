@@ -200,6 +200,7 @@ export default function TransactionFormModal(props: Props) {
 
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency, defaultMemberId));
   const [saving, setSaving] = useState(false);
+  const [showMore, setShowMore] = useState(false);   // B4.2 — "More details" disclosure
   const [timeInput, setTimeInput] = useState<TimeInputState>(() => splitTimeForInput(nowTime()));
   // v7.0.3 — track-picker step. When the flag is on and we're adding (not
   // editing), the modal opens to a 4-card track picker first; choosing a
@@ -241,12 +242,18 @@ export default function TransactionFormModal(props: Props) {
   const isInvestment = form.type === 'investment';
   const isIncome     = form.type === 'income';
   const needsToAccount = isTransfer || isInvestment;
+  // B4.2/B4.3 — shorten the form: secondary fields (time, recurring, note) collapse
+  // behind a "More details" disclosure; time defaults to now (B4.3). Flag OFF →
+  // the full form exactly as before.
+  const shortForm = FEATURES.entryV2.shortForm;
+  const showSecondary = !shortForm || showMore;
   // Account-field label varies by track: expense flows out of an account,
   // income lands in one, transfer/investment have both sides.
   const accountLabel = needsToAccount ? 'From Account' : isIncome ? 'To Account' : 'Account';
 
   useEffect(() => {
     if (!open) return;
+    setShowMore(false);   // B4.2 — each open starts with secondary fields collapsed
     if (initial) {
       const initialTime = deriveInitialTime(initial);
       const sp = initial.split;
@@ -567,6 +574,7 @@ export default function TransactionFormModal(props: Props) {
         <Field label="Date">
           <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
         </Field>
+        {showSecondary && (
         <Field label="Time">
           <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-2">
             <Input
@@ -585,6 +593,7 @@ export default function TransactionFormModal(props: Props) {
             </Select>
           </div>
         </Field>
+        )}
       </div>
 
       {/* B4.1 (alpha 11a) — no auto-focus on open/edit; the keypad no longer
@@ -693,6 +702,16 @@ export default function TransactionFormModal(props: Props) {
         </div>
       )}
 
+      {/* B4.2 — "More details" disclosure: reveals the secondary fields (time
+          above, recurring + note here) only when the user wants them. */}
+      {shortForm && !showMore && (
+        <button type="button" onClick={() => setShowMore(true)}
+          className="font-mono text-[0.62rem] tracking-wider uppercase text-coral hover:underline mb-3">
+          + More details
+        </button>
+      )}
+
+      {showSecondary && (
       <FieldRow>
         <Field label="Recurring" hint="optional">
           <Select value={form.recurring} onChange={e => setForm(f => ({ ...f, recurring: e.target.value as Recurrence | '' }))}>
@@ -706,6 +725,7 @@ export default function TransactionFormModal(props: Props) {
           <Input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="" />
         </Field>
       </FieldRow>
+      )}
 
       <label className="flex items-center gap-2 mb-3 text-[0.84rem] text-ink-mid cursor-pointer select-none">
         <input

@@ -14,6 +14,7 @@ import { pagesForTemplate } from '../../lib/templates';
 import NotificationCenter from './NotificationCenter';
 import SyncStatusBadge from './SyncStatusBadge';
 import { getMoneyMapMode } from '../../lib/featureFlags';
+import { isGoalsEnabled } from '../../config/features';
 
 interface Props {
   open: boolean;
@@ -123,7 +124,7 @@ export default function Sidebar({ open, onClose }: Props) {
               <div className="font-mono text-[0.56rem] tracking-[0.18em] uppercase text-ink-dim px-4 pt-3 pb-1.5">
                 {group.label}
               </div>
-              {group.items.filter(item => visible.has(item.page)).map(item => (
+              {group.items.filter(item => visible.has(item.page) && (item.page !== 'goals' || isGoalsEnabled())).map(item => (
                 <NavLink
                   key={item.to}
                   to={item.to}

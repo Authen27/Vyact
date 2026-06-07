@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PulseScore } from '../../lib/calculations';
+import { isGoalsEnabled } from '../../config/features';
 import { pulseStatus } from '../../lib/calculations';
 
 interface Props { score: PulseScore; }
@@ -57,7 +58,8 @@ export default function PulseGauge({ score }: Props) {
         {([
           ['Budgets', score.components.budget, score.applicable.budget],
           ['Savings', score.components.savings, score.applicable.savings],
-          ['Goals',   score.components.goals,  score.applicable.goals],
+          // Goals row removed while the goals feature is off (FEATURES.goals).
+          ...(isGoalsEnabled() ? [['Goals', score.components.goals, score.applicable.goals]] as [string, number, boolean][] : []),
           ['Trend',   score.components.trend,  score.applicable.trend],
           ['Debt',    score.components.debt,   score.applicable.debt],
         ] as [string, number, boolean][]).map(([label, val, ok]) => {

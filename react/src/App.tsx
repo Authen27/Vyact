@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './store';
 import { useTheme } from './hooks';
 import { onStorageEvent } from './lib/storageEvents';
-import { isOnboardingEnabled } from './config/features';
+import { isOnboardingEnabled, isGoalsEnabled } from './config/features';
 import { shouldOnboard, migrateExistingHousehold } from './lib/onboardingState';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
@@ -206,7 +206,7 @@ function AppShell() {
           <Route path="/chat"         element={<Chat />} />
           <Route path="/households"   element={<Households />} />
           <Route path="/budgets"      element={<Budgets />} />
-          <Route path="/goals"        element={<Goals />} />
+          <Route path="/goals"        element={isGoalsEnabled() ? <Goals /> : <Navigate to="/dashboard" replace />} />
           <Route path="/splits"       element={<Splits />} />
           <Route path="/debts"        element={<Debts />} />
           <Route path="/networth"     element={<NetWorth />} />

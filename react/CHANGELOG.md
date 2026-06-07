@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.5.0`** (consumer)
+> **Current production version: `v8.7.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,70 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.7.0 — Money-Model: budget allocations (B2.3) + form reshape (B4.2/B4.3) *(2026-06-07)*
+
+Closes the previously-deferred money-model items.
+
+### B2.3 — Budget category allocations (`budgetsV2.allocations`)
+- **Schema:** `Budget.allocations?: BudgetAllocation[]` + additive `budgets.allocations`
+  jsonb column (migration [`20260607140000`](../supabase/migrations/20260607140000_v8_budgets_allocations.sql),
+  applied + verified) mapped through the adapter. Existing budgets default `[]`.
+- **UI:** `BudgetFormModal` gains a sub-limit editor (add/remove `{category, limit}`
+  rows) with a transparent **allocated / unallocated** indicator and an
+  **over-allocation warning** via the tested `rollupAllocations()` engine (A1).
+- *Deferred:* per-allocation actual-spend bars need allocation↔transaction
+  category matching (allocations are free-text labels) — a clean follow-up.
+
+### B4.2/B4.3 — Transaction form reshape (`entryV2.shortForm`)
+- Secondary fields (**Time**, **Recurring**, **Note**) collapse behind a
+  **"+ More details"** disclosure; Time defaults to now (B4.3 — no Material clock
+  dial added). Primary fields (amount, category, account, description) stay
+  visible; required-field validation is unaffected. Resets collapsed on each open.
+  Flag OFF → the full form exactly as before.
+
+### Goal real-account backing — explicitly deferred
+- Goals were removed in v8.6.0 (`FEATURES.goals.enabled = false`); building
+  real-account-backing UI for a disabled feature would be contradictory. The
+  `goalsLens` engine already supports it via a `GoalLensMeta` intersection (no
+  `Goal` schema change needed), so it's a clean increment for when goals return.
+
+### Validation
+- Typecheck 0 errors; suite 126/127 (pre-existing unrelated `calculations`
+  assertion); production build clean; **dev server booted (local-only)** and all
+  edited modules transform cleanly through Vite. All new behaviour OFF by default.
+  With this, **every actionable item in the money-model spec is built** (B4.5
+  re-theme remains PARKED per spec; goal-backing parked behind the goals removal).
+
+## v8.6.0 — Remove the Goal concept + its Pulse association (reversible) *(2026-06-07)*
+
+Removes goals from the product **for now**, behind a single master switch
+`FEATURES.goals.enabled = false` (flip to restore — no data deleted, models intact).
+
+- **Pulse Score** — Goal Progress (was 15%) is dropped: `computePulseScore` marks
+  the goals component non-applicable when the flag is off, and the score
+  **renormalises over the remaining components** (Budgets / Savings / Trend / Debt)
+  via the existing applicable-weight logic — no manual reweighting. `PulseGauge`
+  no longer renders the Goals row.
+- **UI surfaces gated** — Goals nav item (`Sidebar`), the `/goals` route (redirects
+  to dashboard), the Dashboard "Active goals" panel (donut now spans full width),
+  the Add-FAB "Add goal" + the `g` keyboard shortcut (`Layout`), and the Ask Vyact
+  goal chips (`Chat`). The Goals page, modals, and store actions remain in the
+  codebase, dormant.
+- **Regression** — the aggregation golden file was updated deliberately: the only
+  diff is the Pulse `goals` component (40 → 0), confirming nothing else shifted.
+  Transfer invariant intact.
+
+### Validation
+- Typecheck 0 errors; full suite 126/127 (the one failure is the pre-existing,
+  unrelated `calculations` debt assertion); production build clean.
+- **Ran the app in a local dev server** (Vite, local-only mode): boots and serves
+  HTTP 200, and all edited modules (`features`, `calculations`, `PulseGauge`,
+  `Dashboard`, `Goals`, `Budgets`, `Accounts`) transform cleanly through the dev
+  pipeline. (The only runtime log error is the unrelated third-party
+  `@userback/widget` init, which needs its network/key.) Full visual click-through
+  needs an interactive browser session not available in this environment — run
+  `cd react && npm run dev` locally to see it.
 
 ## v8.5.0 — Money-Model Epics 2 & 3 UI (budgets, goals lens, tax nudge) *(2026-06-07)*
 

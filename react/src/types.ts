@@ -114,6 +114,14 @@ export interface AccountSplit {
 
 export type BudgetPeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'annual' | 'custom';
 
+/** Money-Model B2.3 — a category sub-limit that rolls up to its parent budget. */
+export interface BudgetAllocation {
+  /** A label/sub-category for the allocation (free text or a category id). */
+  category: string;
+  /** Sub-limit amount in the budget's currency. */
+  limit: number;
+}
+
 export interface Budget extends WithProvenance {
   id: string;
   category: string;
@@ -122,6 +130,9 @@ export interface Budget extends WithProvenance {
   limit: number;
   currency: string;
   color?: string;
+  /** Money-Model B2.3 — optional category sub-limits that roll up to `limit`.
+   *  Empty/undefined = no allocations (the budget behaves as before). */
+  allocations?: BudgetAllocation[];
   /** v6.4 — budgeting period. Defaults to 'monthly' for legacy rows. */
   period?: BudgetPeriod;
   /** v6.4 — only used when `period === 'custom'`. ISO YYYY-MM-DD. */

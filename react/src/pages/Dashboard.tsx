@@ -15,6 +15,7 @@ import {
 import { fmt, fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
 import Money from '../components/ui/Money';
 import { getCat } from '../constants';
+import { isGoalsEnabled } from '../config/features';
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const spend = useStore(selectSpendByCategory(mk));
   const donutData = Object.entries(spend).map(([catId, amount]) => ({ catId, amount }));
   const recent = useStore(selectRecentTxns);
+  const goalsOn = isGoalsEnabled();
   const activeGoals = goals.filter(g => !g.completed).slice(0, 3);
 
   const ta = useStore(selectTotalAssets);
@@ -157,8 +159,10 @@ export default function Dashboard() {
         </Panel>
       </div>
 
-      {/* Two-col: Goals + Category donut */}
-      <div className="grid lg:grid-cols-2 gap-3.5 mb-3.5">
+      {/* Goals (when enabled) + Category donut. When goals are removed, the donut
+          spans full width. */}
+      <div className={`grid ${goalsOn ? 'lg:grid-cols-2' : ''} gap-3.5 mb-3.5`}>
+        {goalsOn && (
         <Panel
           title={t('active-goals')}
           action={<Link to="/goals" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">{t('view-all')}</Link>}
@@ -185,6 +189,7 @@ export default function Dashboard() {
             })
           )}
         </Panel>
+        )}
 
         <Link to="/reports" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View reports">
           <Panel title={t('spending-by-category')} sub={t('this-month')}>

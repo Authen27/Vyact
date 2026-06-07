@@ -6,6 +6,7 @@ import AddFab from './AddFab';
 import SyncConflictBanner from './SyncConflictBanner';
 import { useShortcuts, useEdgeSwipe } from '../../hooks';
 import { useStore } from '../../store';
+import { isGoalsEnabled } from '../../config/features';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -24,7 +25,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const openAddAsset  = useStore(s => s.openAddAsset);
   useShortcuts({
     n: () => openAddTxn(), N: () => openAddTxn(),
-    g: openAddGoal,   G: openAddGoal,
+    // 'g' (add goal) removed while the goals feature is off (FEATURES.goals).
+    ...(isGoalsEnabled() ? { g: openAddGoal, G: openAddGoal } : {}),
     b: openAddBudget, B: openAddBudget,
     d: openAddDebt,   D: openAddDebt,
     a: openAddAsset,  A: openAddAsset,

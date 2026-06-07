@@ -4,6 +4,7 @@
 
 import type { Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, BudgetPeriod } from '../types';
 import { convert, getMonthKey, nowMonthKey, clamp } from './format';
+import { isGoalsEnabled } from '../config/features';
 import { toDinero, fromDinero, convertViaUsdRates, sumDinero, dineroZero, addDinero } from './money';
 import type { Dinero } from 'dinero.js';
 
@@ -232,9 +233,11 @@ export function computePulseScore(
   const rate = savingsApplicable ? (income - expense) / income * 100 : 0;
   const savingsScore = clamp(rate * 5, 0, 100);
 
-  // 3. Goal progress — applicable only if there are active goals
+  // 3. Goal progress — applicable only if there are active goals AND the goals
+  //    feature is enabled. When goals are removed (FEATURES.goals.enabled=false)
+  //    this component drops out and the score renormalises over the rest.
   const activeGoals = goals.filter(g => !g.completed);
-  const goalsApplicable = activeGoals.length > 0;
+  const goalsApplicable = isGoalsEnabled() && activeGoals.length > 0;
   let goalScore = 0;
   if (goalsApplicable) {
     const progresses = activeGoals.map(g => {

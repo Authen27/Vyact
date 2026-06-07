@@ -12,7 +12,7 @@ import ls from '../lib/localStorageCompat';
 import {
   INTENTS, BUCKET_LABEL, intentsByBucket, type Bucket, type Intent, type IntentAction,
 } from '../lib/askVyactIntents';
-import { isAskVyactEnabled, FEATURES } from '../config/features';
+import { isAskVyactEnabled, isGoalsEnabled, FEATURES } from '../config/features';
 import {
   runAssistant, proactiveInsight, selectAssistantBackend, type AssistantContext,
 } from '../lib/askVyactBackend';
@@ -217,7 +217,8 @@ export default function Chat() {
                   </div>
                   <div className="space-y-3">
                     {BUCKETS.map(b => {
-                      const items = intentsByBucket(b);
+                      // Goal chips removed while the goals feature is off (FEATURES.goals).
+                      const items = intentsByBucket(b).filter(i => isGoalsEnabled() || (i.id !== 'add-goal' && i.id !== 'goal-eta'));
                       if (!items.length) return null;
                       return (
                         <div key={b}>

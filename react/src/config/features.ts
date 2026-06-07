@@ -59,6 +59,12 @@ export const FEATURES = {
     suggest: false,           // B2.4 copy + suggested budget
   },
 
+  // Goals feature master switch. Set false to REMOVE the goal concept for now —
+  // hides the Goals page/nav/dashboard section and drops Goal Progress from the
+  // Pulse Score (the score renormalises over the remaining components). Reversible:
+  // flip true to restore. Data model is preserved (nothing deleted).
+  goals: { enabled: false },
+
   // Epic 3 — Goals & Tax as lenses. Modeling change; OFF until built + Net-Worth
   // contamination guard (R3) is green.
   goalsLens: { enabled: false },
@@ -80,6 +86,12 @@ export const FEATURES = {
  *  check this at its entry — no onboarding logic executes when the flag is off. */
 export function isOnboardingEnabled(): boolean {
   return FEATURES.onboarding.enabled === true;
+}
+
+/** True when the Goals feature is active. When false the goal concept is removed
+ *  from the UI (page, nav, dashboard) and from the Pulse Score. */
+export function isGoalsEnabled(): boolean {
+  return Boolean(FEATURES.goals.enabled);
 }
 
 /** True when the Ask Vyact assistant is active. When false, the Chat launcher

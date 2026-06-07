@@ -13,6 +13,7 @@ import { useLocation } from 'react-router-dom';
 import { Plus, Target, Wallet, CreditCard, Briefcase, X } from 'lucide-react';
 import { useStore } from '../../store';
 import { useScrollDirection } from '../../hooks';
+import { isGoalsEnabled } from '../../config/features';
 
 export default function AddFab() {
   const location = useLocation();
@@ -78,7 +79,8 @@ export default function AddFab() {
   }
 
   const dialItems = [
-    { label: 'Add goal',   icon: <Target size={16} />,     onClick: () => pick(openAddGoal) },
+    // Goal entry removed while the goals feature is off (FEATURES.goals).
+    ...(isGoalsEnabled() ? [{ label: 'Add goal', icon: <Target size={16} />, onClick: () => pick(openAddGoal) }] : []),
     { label: 'Add budget', icon: <Wallet size={16} />,     onClick: () => pick(openAddBudget) },
     { label: 'Add debt',   icon: <CreditCard size={16} />, onClick: () => pick(openAddDebt) },
     { label: 'Add asset',  icon: <Briefcase size={16} />,  onClick: () => pick(openAddAsset) },
