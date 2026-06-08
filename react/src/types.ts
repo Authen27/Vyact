@@ -277,6 +277,11 @@ export interface RecurringSchedule {
   autoConfirm: boolean;
   active: boolean;
   reminderLeadDays?: number; // 0-7 — fires upcoming-bill notif this many days before
+  /** v8.9 — user who created the schedule (household + user attribution).
+   *  Set server-side from auth.uid() on insert; surfaced for display. */
+  createdBy?: string;
+  /** TD-03 optimistic-concurrency precondition (cloud round-trip). */
+  updated_at?: string;
 }
 
 // v7 — Notifications

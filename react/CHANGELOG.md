@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.8.1`** (consumer)
+> **Current production version: `v8.9.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,34 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v8.9.0 — Recurring schedules: household + user scoped (cloud-synced) *(2026-06-07)*
+
+Userback **#7830371** — recurring schedules were browser-local (`localStorage`),
+so they didn't follow the household across devices and weren't attributed to a
+user. They're now a **first-class, cloud-synced, household-scoped entity** with
+RLS and `created_by` attribution.
+
+- **DB:** new `recurring_schedules` table (migration
+  [`20260607160000`](../supabase/migrations/20260607160000_v89_recurring_schedules.sql))
+  — household-scoped RLS (read = member; insert/update/delete = owner/admin/member),
+  `created_by default auth.uid()`, `updated_at` trigger, delta-sync index. Mirrors
+  the accounts-table shape.
+- **Adapter:** added `'recurring'` to the `Entity` union with `RecurringRow` +
+  `recurringToRow`/`rowToRecurring` mappers, `list`/`upsert`/`mapRowBack`/`tableName`
+  branches; `HybridAdapter` syncs it like every other entity (cache + queue +
+  delta-sync + force-resync). `RecurringSchedule` gains `createdBy` + `updated_at`.
+- **Store:** `refresh()` loads recurring via the adapter; `upsertRecurring` /
+  `removeRecurring` / `runRecurringEngine` persist through the adapter (was
+  `localStorage`-only) with optimistic-concurrency on edits. The v7.3 backfill now
+  upserts recovered schedules to the cloud too.
+- **Migration of existing data:** a one-shot `init()` step moves any pre-cloud
+  `localStorage` `recurring` list into the household entity, then retires the
+  legacy key. Local-only mode keeps working via the `LocalStorageAdapter`.
+
+Typecheck 0 errors; suite 123/124 (pre-existing unrelated CON-UNIT-024); build
+clean. Live table verified (16 cols, 4 RLS policies). This clears the last
+deferred money-model item.
 
 ## v8.8.1 — Phase 5: freeze the Money-Model flags (code cleanup, no behaviour change) *(2026-06-07)*
 

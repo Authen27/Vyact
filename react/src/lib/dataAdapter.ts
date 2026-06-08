@@ -25,7 +25,7 @@ import { kvGet, kvSet, kvRemove } from './kvStore';
 //          Backed by `saved_views` table + `replace_saved_views` RPC.
 export type Entity =
   | 'transactions' | 'budgets' | 'goals' | 'debts' | 'assets'
-  | 'members' | 'accounts' | 'savedViews';
+  | 'members' | 'accounts' | 'savedViews' | 'recurring';
 
 export interface DataAdapter {
   // households / profiles

@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Transaction, Budget, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
-  WithProvenance, Confidence, ProvenanceSource,
+  WithProvenance, Confidence, ProvenanceSource, RecurringSchedule,
 } from '../types';
 import type { DataAdapter, Entity } from './dataAdapter';
 import { parseMoneyFromCloud } from './money';
@@ -336,6 +336,53 @@ const rowToSavedView = (r: SavedViewRow): SavedView => ({
   updated_at: r.updated_at,
 });
 
+// v8.9 — recurring schedules, household + user scoped. The template + small
+// scalar fields map 1:1; `transactionTemplate` rides as jsonb. `created_by` is
+// set server-side from auth.uid() on insert (user attribution).
+interface RecurringRow {
+  id: string; household_id: string; created_by: string | null;
+  txn_template: Record<string, unknown>;
+  frequency: string;
+  day_of_month: number | null;
+  weekday: number | null;
+  start_date: string;
+  next_due_date: string;
+  last_generated: string | null;
+  auto_confirm: boolean;
+  active: boolean;
+  reminder_lead_days: number | null;
+  created_at: string; updated_at: string; deleted_at: string | null;
+}
+const recurringToRow = (s: Partial<RecurringSchedule>, hid: string): Partial<RecurringRow> => ({
+  id: s.id, household_id: hid,
+  // created_by left to the DB default (auth.uid()) on insert; never overwritten.
+  txn_template: s.transactionTemplate as unknown as Record<string, unknown>,
+  frequency: s.frequency!,
+  day_of_month: s.dayOfMonth ?? null,
+  weekday: s.weekday ?? null,
+  start_date: s.startDate!,
+  next_due_date: s.nextDueDate!,
+  last_generated: s.lastGenerated ?? null,
+  auto_confirm: s.autoConfirm ?? false,
+  active: s.active ?? true,
+  reminder_lead_days: s.reminderLeadDays ?? null,
+});
+const rowToRecurring = (r: RecurringRow): RecurringSchedule => ({
+  id: r.id,
+  transactionTemplate: r.txn_template as unknown as RecurringSchedule['transactionTemplate'],
+  frequency: r.frequency as RecurringSchedule['frequency'],
+  dayOfMonth: r.day_of_month ?? undefined,
+  weekday: r.weekday ?? undefined,
+  startDate: r.start_date,
+  nextDueDate: r.next_due_date,
+  lastGenerated: r.last_generated ?? undefined,
+  autoConfirm: r.auto_confirm,
+  active: r.active,
+  reminderLeadDays: r.reminder_lead_days ?? undefined,
+  createdBy: r.created_by ?? undefined,
+  updated_at: r.updated_at,
+});
+
 // ── TD-03 — optimistic concurrency ────────────────────────────
 //
 // Thrown by `upsert` when the caller supplied an `expectedUpdatedAt`
@@ -504,6 +551,7 @@ export class SupabaseAdapter implements DataAdapter {
     if (entity === 'assets')       return rows.map(rowToAsset) as unknown as T[];
     if (entity === 'accounts')     return rows.map(rowToAccount) as unknown as T[];
     if (entity === 'savedViews')   return rows.map(rowToSavedView) as unknown as T[];
+    if (entity === 'recurring')    return rows.map(rowToRecurring) as unknown as T[];
     return [];
   }
 
@@ -562,6 +610,7 @@ export class SupabaseAdapter implements DataAdapter {
     else if (entity === 'assets')       row = assetToRow (record as Partial<Asset>,       householdId);
     else if (entity === 'accounts')     row = accountToRow(record as Partial<Account>,    householdId);
     else if (entity === 'savedViews')   row = savedViewToRow(record as Partial<SavedView>, householdId);
+    else if (entity === 'recurring')    row = recurringToRow(record as Partial<RecurringSchedule>, householdId);
     else if (entity === 'members')      row = memberToRow(record as Partial<Member>,      householdId);
     else throw new Error(`Unknown entity: ${entity}`);
 
@@ -686,6 +735,7 @@ export class SupabaseAdapter implements DataAdapter {
     if (entity === 'assets')       return rowToAsset (row as AssetRow);
     if (entity === 'accounts')     return rowToAccount(row as AccountRow);
     if (entity === 'savedViews')   return rowToSavedView(row as SavedViewRow);
+    if (entity === 'recurring')    return rowToRecurring(row as RecurringRow);
     if (entity === 'members')      return rowToMember(row as MembershipRow);
     return row;
   }
@@ -696,6 +746,7 @@ export class SupabaseAdapter implements DataAdapter {
   private tableName(entity: Entity): string {
     if (entity === 'members')    return 'memberships';
     if (entity === 'savedViews') return 'saved_views';
+    if (entity === 'recurring')  return 'recurring_schedules';
     return entity;
   }
 

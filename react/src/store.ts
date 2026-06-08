@@ -384,6 +384,21 @@ export const useStore = create<Store>((set, get) => ({
         if (typeof console !== 'undefined') console.warn('[Vyact] auto-migration failed', e);
       }
     }
+    // v8.9 — one-shot migration of the pre-cloud localStorage recurring list
+    // (legacy global `recurring` key) into the household-scoped synced entity.
+    // Runs only when the household has no recurring rows yet but legacy data
+    // exists; idempotent thereafter.
+    try {
+      const legacy = readLocalJson<RecurringSchedule[]>('recurring', []);
+      if (legacy.length && get().recurringSchedules.length === 0) {
+        for (const s of legacy) {
+          try { await adapter.upsert('recurring', active, s); } catch { /* best-effort */ }
+        }
+        removeLocal('recurring');             // retire the legacy global key after migrating
+        set({ recurringSchedules: await adapter.list<RecurringSchedule>('recurring', active) });
+      }
+    } catch { /* migration is best-effort */ }
+
     // v7: run recurring + refresh notifications on every load
     await get().runRecurringEngine();
     get().refreshNotifications();
@@ -402,7 +417,7 @@ export const useStore = create<Store>((set, get) => ({
     const seq = ++refreshSeq;
     const seqHid = currentHouseholdId;
     const isStale = () => seq !== refreshSeq || get().currentHouseholdId !== seqHid;
-    const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, profile, rates] = await Promise.all([
+    const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, recurringList, profile, rates] = await Promise.all([
       adapter.list<Transaction>('transactions', currentHouseholdId),
       adapter.list<Budget>('budgets',           currentHouseholdId),
       adapter.list<Goal>('goals',               currentHouseholdId),
@@ -411,6 +426,7 @@ export const useStore = create<Store>((set, get) => ({
       adapter.list<Asset>('assets',             currentHouseholdId),
       adapter.list<Account>('accounts',         currentHouseholdId),
       adapter.list<SavedView>('savedViews',     currentHouseholdId).catch(() => [] as SavedView[]),
+      adapter.list<RecurringSchedule>('recurring', currentHouseholdId).catch(() => [] as RecurringSchedule[]),
       adapter.getProfile(currentHouseholdId),
       adapter.getRates(currentHouseholdId),
     ]);
@@ -454,26 +470,27 @@ export const useStore = create<Store>((set, get) => ({
     const mergedProfile = overlaidNs ? { ...baseProfile, numberSystem: overlaidNs } : baseProfile;
     set({
       transactions, budgets: hydratedBudgets, goals, members, debts, assets, accounts, savedViews,
+      recurringSchedules: recurringList,
       profile: mergedProfile,
       rates,
     });
     setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
 
-    // v7.3 — Backfill RecurringSchedule rows for legacy txns whose
-    // `recurring` field is set but never produced a schedule. Without this,
-    // pre-v7.0 rent/salary rows are invisible to the Recurring page and the
-    // Transactions calendar's projected-future-cost overlay.
-    const beforeCount = get().recurringSchedules.length;
+    // v7.3 — Backfill RecurringSchedule rows for legacy txns whose `recurring`
+    // field is set but never produced a schedule. v8.9 — recurring is now a
+    // household-scoped, synced entity, so persist new rows through the adapter
+    // (was localStorage-only) so they reach the cloud + other devices.
     const { schedules: nextSchedules, added } = backfillSchedulesFromTransactions(
       transactions,
-      get().recurringSchedules,
+      recurringList,
     );
     if (added > 0) {
-      setLocalJson('recurring', nextSchedules);
+      const fresh = nextSchedules.filter(s => !recurringList.some(r => r.id === s.id));
+      for (const s of fresh) {
+        try { await adapter.upsert('recurring', currentHouseholdId, s); } catch { /* best-effort */ }
+      }
       set({ recurringSchedules: nextSchedules });
       get().toast(`Recovered ${added} recurring schedule${added === 1 ? '' : 's'} from existing transactions`, 'info');
-    } else {
-      void beforeCount;
     }
   },
 
@@ -810,25 +827,29 @@ export const useStore = create<Store>((set, get) => ({
       next.lastGenerated = next.startDate;
     }
 
+    // v8.9 — persist through the adapter so the schedule is household-scoped +
+    // synced (and attributed to the creating user server-side via created_by).
+    const saved = await get().adapter.upsert(
+      'recurring', get().currentHouseholdId, next,
+      next.id && next.updated_at ? next.updated_at : undefined,
+    ) as RecurringSchedule;
     const updated = existingIdx >= 0
-      ? list.map(x => x.id === next.id ? next : x)
-      : [...list, next];
-    setLocalJson('recurring', updated);
+      ? list.map(x => x.id === saved.id ? saved : x)
+      : [...list, saved];
     set({
       recurringSchedules: updated,
       transactions: seededTxn ? [...get().transactions, seededTxn] : get().transactions,
     });
-    return next;
+    return saved;
   },
 
   removeRecurring: async (id) => {
-    const updated = get().recurringSchedules.filter(s => s.id !== id);
-    setLocalJson('recurring', updated);
-    set({ recurringSchedules: updated });
+    await get().adapter.remove('recurring', get().currentHouseholdId, id);
+    set({ recurringSchedules: get().recurringSchedules.filter(s => s.id !== id) });
   },
 
   runRecurringEngine: async () => {
-    const { recurringSchedules, transactions } = get();
+    const { recurringSchedules, transactions, adapter, currentHouseholdId } = get();
     const due = dueSchedules(recurringSchedules);
     if (!due.length) { get().refreshNotifications(); return; }
     const newTxns: Transaction[] = [];
@@ -836,14 +857,15 @@ export const useStore = create<Store>((set, get) => ({
     for (const s of due) {
       if (s.autoConfirm) {
         const txn = generateTransaction(s);
-        await get().adapter.upsert('transactions', get().currentHouseholdId, txn);
+        await adapter.upsert('transactions', currentHouseholdId, txn);
         newTxns.push(txn);
       }
       const advanced = advanceSchedule(s);
       const idx = updated.findIndex(x => x.id === s.id);
       updated[idx] = advanced;
+      // Persist the advanced schedule (lastGenerated / nextDueDate moved on).
+      try { await adapter.upsert('recurring', currentHouseholdId, advanced); } catch { /* best-effort */ }
     }
-    setLocalJson('recurring', updated);
     set({
       recurringSchedules: updated,
       transactions: [...transactions, ...newTxns],

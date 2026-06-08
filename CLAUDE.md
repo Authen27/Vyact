@@ -6,7 +6,7 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v8.8.1**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v8.9.0**
 - Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.1.0**
 - Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
 - Vanilla shell: archived from the working tree in **v7.0.1** — see master index and git history
@@ -24,7 +24,7 @@ account** — do not use. Every push to `main` deploys (see [`DEPLOY.md`](DEPLOY
 Three parallel deliverables exist in this repo:
 
 - **Consumer (vanilla shell, legacy)** — archived. The v1.0-v5.0 vanilla HTML/CSS/JS app was removed from the working tree in v7.0.1 (2026-06-01). It is preserved in git history at commits before that cleanup. The React app at `react/` (v6.0+) is the only active consumer product.
-- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v8.8.1** (Money-Model v2 permanent — flags frozen/removed; **Goals & Tax removed as modules**; two-number dashboard; Ask Vyact v2). Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** — this is the production URL of the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to. ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different Vercel account**, not updated by CI, and should not be relied on (it serves a stale build).
+- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v8.9.0** (Money-Model v2 permanent; **Goals & Tax removed as modules**; two-number dashboard; Ask Vyact v2; **recurring schedules cloud-synced + household-scoped**). Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`. Local-only mode still works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** — this is the production URL of the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to. ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different Vercel account**, not updated by CI, and should not be relied on (it serves a stale build).
 - **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.1.0**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. **Live (CI-deployed prod): https://vyact-admin.vercel.app** (the `admin` project under the same team). ⚠ The older `finflow-admin.vercel.app` is likewise orphaned on a different account.
 
 **Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app falls back to localStorage-only mode (single anonymous household, no auth screens). Both modes share the same `DataAdapter` interface.
@@ -59,7 +59,8 @@ Three parallel deliverables exist in this repo:
 > - **Dashboard:** two-number hero (Cash Flow + Net Worth) + actionable Pulse guidance.
 > - **Reports:** By-member / By-account breakouts permanent (R6), fold over `reportableTxns`.
 > - **Ask Vyact v2:** new `interpret.budgets`/`bills`/`debts` intents (chips no longer fall back), typing-stream replies, voice input. Planner advice adapts to `householdType`.
-> - Regression net: `lib/__tests__/moneyModel.{regression,engines}.test.ts` (golden file + transfer invariant + engine + R7 provenance tests). **Deferred:** recurring household/user sync. **Parked:** B4.5 re-theme. The app can't be fully run here — validated via tsc + tests + build + dev-server boot; do a browser QA pass.
+> - **Recurring (v8.9.0):** schedules are a first-class, cloud-synced, household-scoped entity (`recurring_schedules` table + RLS + `created_by`; `'recurring'` adapter entity). The store loads/persists via the adapter (no longer localStorage-only); a one-shot `init()` migration moves legacy local data over. Local-only mode still works via `LocalStorageAdapter`.
+> - Regression net: `lib/__tests__/moneyModel.{regression,engines}.test.ts` (golden file + transfer invariant + engine + R7 provenance tests). **Parked:** B4.5 re-theme. The app can't be fully run here — validated via tsc + tests + build + dev-server boot; do a browser QA pass.
 
 > **Key conventions for the money-model program:**
 > - **Part A governs — if an implementation would make any number untrue, STOP.** No virtual sub-balance carved out of a real account (A4); no tax entity with a phantom balance (A5); transfers never carry a spend/earn category and never count in spend/income totals (B1.5/R1).
