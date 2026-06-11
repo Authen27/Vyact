@@ -28,7 +28,7 @@ export default function Recurring() {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('rent');
   const [dayOfMonth, setDayOfMonth] = useState<number | ''>(1);
-  const [autoConfirm, setAutoConfirm] = useState(false);
+  const [autoConfirm, setAutoConfirm] = useState(true);
   const [reminderLead, setReminderLead] = useState<1|3|7>(3);
 
   async function save() {
@@ -75,7 +75,7 @@ export default function Recurring() {
           setAmount('');
           setCategory('rent');
           setDayOfMonth(1);
-          setAutoConfirm(false);
+          setAutoConfirm(true);
           setReminderLead(3);
         }}>+ Add Schedule</button>
       </div>
@@ -194,7 +194,7 @@ export default function Recurring() {
             <Field label="Confirmation">
               <label className="flex items-center gap-2 mt-2.5 text-[0.84rem] text-ink cursor-pointer">
                 <input type="checkbox" checked={autoConfirm} onChange={e => setAutoConfirm(e.target.checked)} className="accent-coral" />
-                Auto-confirm (no manual approval)
+                Auto-approve transactions (uncheck to review manually)
               </label>
             </Field>
           </FieldRow>

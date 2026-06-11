@@ -831,7 +831,7 @@ export const useStore = create<Store>((set, get) => ({
       startDate: s.startDate || new Date().toISOString().split('T')[0],
       nextDueDate: s.nextDueDate || s.startDate || new Date().toISOString().split('T')[0],
       lastGenerated: s.lastGenerated,
-      autoConfirm: s.autoConfirm ?? false,
+      autoConfirm: s.autoConfirm ?? true,
       active: s.active ?? true,
       reminderLeadDays: s.reminderLeadDays,
     };

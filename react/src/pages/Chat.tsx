@@ -18,11 +18,17 @@ import {
 } from '../lib/askVyactBackend';
 
 // Minimal Web Speech API shapes (lib.dom doesn't ship these in all TS configs).
-interface SpeechRecognitionEventLike { results: { [i: number]: { [j: number]: { transcript: string } } }; }
+interface SpeechRecognitionEventLike {
+  results: { [i: number]: { [j: number]: { transcript: string }; isFinal?: boolean } };
+  resultIndex: number;
+}
+interface SpeechRecognitionErrorLike { error: string; }
 interface SpeechRecognitionLike {
-  lang: string; interimResults: boolean; maxAlternatives: number;
-  onresult: (e: SpeechRecognitionEventLike) => void; onerror: () => void; onend: () => void;
-  start: () => void;
+  lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number;
+  onresult: (e: SpeechRecognitionEventLike) => void;
+  onerror: (e: SpeechRecognitionErrorLike) => void;
+  onend: () => void;
+  start: () => void; stop: () => void;
 }
 
 const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan', 'manage'];
@@ -46,6 +52,7 @@ export default function Chat() {
   const openAddBudget = useStore(s => s.openAddBudget);
   const openAddDebt   = useStore(s => s.openAddDebt);
   const openAddAsset  = useStore(s => s.openAddAsset);
+  const toast         = useStore(s => s.toast);
 
   const [history, setHistory] = useState<ChatMessage[]>(() => {
     try { return ls.readJson<ChatMessage[]>('chat_history') || []; }
@@ -172,26 +179,85 @@ export default function Chat() {
 
   // #6 — voice input via the Web Speech API (feature-detected; hidden if absent).
   const [listening, setListening] = useState(false);
+  const [interimText, setInterimText] = useState('');
+  const recRef = useRef<SpeechRecognitionLike | null>(null);
+  const retryCount = useRef(0);
   const SpeechRec = typeof window !== 'undefined'
     ? (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition
       ?? (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
     : undefined;
+
+  function stopVoice() {
+    if (recRef.current) {
+      try { recRef.current.stop(); } catch { /* already stopped */ }
+      recRef.current = null;
+    }
+    setListening(false);
+    setInterimText('');
+    retryCount.current = 0;
+  }
+
   function startVoice() {
     if (!SpeechRec) return;
+    if (listening) { stopVoice(); return; }
     try {
       const rec = new (SpeechRec as new () => SpeechRecognitionLike)();
       rec.lang = navigator.language || 'en-US';
-      rec.interimResults = false;
+      rec.interimResults = true;
+      rec.continuous = true;
       rec.maxAlternatives = 1;
+      recRef.current = rec;
+      retryCount.current = 0;
       setListening(true);
+      setInterimText('');
+
       rec.onresult = (ev: SpeechRecognitionEventLike) => {
-        const said = ev.results?.[0]?.[0]?.transcript ?? '';
-        if (said) setInput(said);
+        let interim = '';
+        let final = '';
+        for (let i = ev.resultIndex; i < Object.keys(ev.results).length; i++) {
+          const result = ev.results[i];
+          const transcript = result?.[0]?.transcript ?? '';
+          if (result?.isFinal) {
+            final += transcript;
+          } else {
+            interim += transcript;
+          }
+        }
+        if (final) {
+          setInput(prev => (prev ? prev + ' ' : '') + final.trim());
+          setInterimText('');
+        } else {
+          setInterimText(interim);
+        }
       };
-      rec.onerror = () => setListening(false);
-      rec.onend = () => setListening(false);
+
+      rec.onerror = (ev: SpeechRecognitionErrorLike) => {
+        if (ev.error === 'no-speech' && retryCount.current < 2) {
+          retryCount.current += 1;
+          return;
+        }
+        const messages: Record<string, string> = {
+          'no-speech': 'No speech detected — tap the mic to try again',
+          'audio-capture': 'Microphone not available',
+          'not-allowed': 'Microphone permission denied — enable it in browser settings',
+          'aborted': '',
+        };
+        const msg = messages[ev.error] ?? `Voice error: ${ev.error}`;
+        if (msg) toast(msg, 'error');
+        stopVoice();
+      };
+
+      rec.onend = () => {
+        setListening(false);
+        setInterimText('');
+        recRef.current = null;
+      };
+
       rec.start();
-    } catch { setListening(false); }
+    } catch {
+      toast('Voice input not supported in this browser', 'error');
+      setListening(false);
+    }
   }
 
   function clearHistory() {
@@ -338,14 +404,14 @@ export default function Chat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
-            placeholder={listening ? 'Listening…' : 'Ask about your spending, debts…'}
+            placeholder={listening ? (interimText || 'Listening…') : 'Ask about your spending, goals, debts…'}
             className="flex-1 bg-bg3 border border-line rounded-md px-3 py-2.5 outline-none focus:border-coral text-[0.86rem]"
           />
           {Boolean(SpeechRec) && (
             <button
-              type="button" onClick={startVoice} disabled={listening} aria-label="Voice input"
-              title="Speak"
-              className={`px-2.5 rounded-md border ${listening ? 'border-coral text-coral animate-pulse' : 'border-line text-ink-mid hover:text-ink hover:border-coral'}`}>
+              type="button" onClick={listening ? stopVoice : startVoice} aria-label={listening ? 'Stop listening' : 'Voice input'}
+              title={listening ? 'Stop' : 'Speak'}
+              className={`px-2.5 rounded-md border transition-all ${listening ? 'border-coral text-coral bg-coral/10 shadow-[0_0_0_3px_rgba(229,115,115,0.25)] animate-pulse' : 'border-line text-ink-mid hover:text-ink hover:border-coral'}`}>
               <Mic size={16} />
             </button>
           )}

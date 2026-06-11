@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.0.0`** (consumer)
+> **Current production version: `v9.0.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,20 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v9.0.1 — UX improvements: debt count, auto-approve, pagination, voice-to-text *(2026-06-11)*
+
+Five targeted UX improvements on top of v9.0.0. No schema change.
+
+1. **Active debt count in Debts** — right-aligned count of active debts (balance > 0) displayed inside the filter tab row, matching the information-density pattern of other pages. (`Debts.tsx`)
+2. **Auto-approve ON by default for Recurring** — new recurring schedules now default to `autoConfirm: true` so transactions are generated automatically. The checkbox label is updated to "Auto-approve transactions (uncheck to review manually)". Changed in `Recurring.tsx`, `store.ts`, `TransactionFormModal.tsx`, and `lib/recurring.ts`. Existing schedules with an explicit `false` are not affected.
+3. **Household button position verified** — Create Household button was already correctly positioned in the top-right header, matching other pages. No code change needed.
+4. **Paginated activity trail** — the Households activity log now paginates at 10 entries per page with Previous / Next controls and a "Page N of M" indicator, replacing the old "show first 25 → show all" toggle. Page resets to 1 on filter change. (`Households.tsx`)
+5. **Voice-to-text overhaul** — Web Speech API implementation rewritten with `interimResults: true` and `continuous: true` for live transcript preview in the input placeholder; language auto-detected from `navigator.language`; error-specific toast messages (no-speech, audio-capture, not-allowed); up to 2 automatic retries on `no-speech`; tap-to-stop toggle on the mic button with a coral glow ring animation; final results append instead of overwrite. (`Chat.tsx`)
+
+Typecheck clean (`tsc --noEmit` — zero errors). No theme change.
 
 ---
 

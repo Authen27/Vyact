@@ -631,7 +631,8 @@ function ActivityPanel({
   activity, activityType, activityActor,
   setActivityType, setActivityActor, memberships, ctx,
 }: ActivityPanelProps) {
-  const [showAll, setShowAll] = useState(false);
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
 
   // Build an actor lookup ({ userId: name }) from the Membership rows so the
   // formatter can resolve actor_id → display_name without an extra fetch.
@@ -656,12 +657,16 @@ function ActivityPanel({
     });
   }, [activity, activityType, activityActor]);
 
-  const visible = showAll ? filtered : filtered.slice(0, 25);
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [activityType, activityActor]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <Panel
       title="Recent Activity"
-      sub={`${filtered.length} of ${activity.length} entries`}
+      sub={`${filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length} entries`}
     >
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-line">
@@ -714,13 +719,26 @@ function ActivityPanel({
               />
             ))}
           </div>
-          {filtered.length > 25 && !showAll && (
-            <button
-              onClick={() => setShowAll(true)}
-              className="w-full px-4 py-3 text-center font-mono text-[0.62rem] tracking-wider uppercase text-coral hover:bg-bg3 border-t border-line"
-            >
-              Show all {filtered.length} entries
-            </button>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-line">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="font-mono text-[0.62rem] tracking-wider uppercase text-coral hover:bg-bg3 px-2.5 py-1 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                ← Previous
+              </button>
+              <span className="font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="font-mono text-[0.62rem] tracking-wider uppercase text-coral hover:bg-bg3 px-2.5 py-1 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
           )}
         </>
       )}

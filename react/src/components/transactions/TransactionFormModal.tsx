@@ -528,7 +528,7 @@ export default function TransactionFormModal(props: Props) {
             startDate: form.date,
             nextDueDate: nextDue,
             lastGenerated: form.date,   // suppress the seed-txn in upsertRecurring
-            autoConfirm: false,
+            autoConfirm: true,
             active: true,
             reminderLeadDays: 3,
           });

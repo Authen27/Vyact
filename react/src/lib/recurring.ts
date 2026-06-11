@@ -182,7 +182,7 @@ export function backfillSchedulesFromTransactions(
       startDate: earliest.date,
       nextDueDate: nextDue,
       lastGenerated: latest.date,
-      autoConfirm: false,
+      autoConfirm: true,
       active: true,
       reminderLeadDays: 3,
     });

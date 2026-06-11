@@ -46,6 +46,8 @@ export default function Debts() {
     ? debts.filter(d => (d.direction || 'owed_by_me') === tab)
     : debts;
 
+  const activeCount = debts.filter(d => d.currentBalance > 0).length;
+
   const sorted = [...filtered].sort((a, b) => {
     if (profile.payoffStrategy === 'snowball')
       return convert(a.currentBalance, a.currency, c, rates) - convert(b.currentBalance, b.currency, c, rates);
@@ -115,7 +117,7 @@ export default function Debts() {
       {/* v7.2 Money Map — direction tabs. Hidden when the flag is off
           to preserve the legacy single-list UX for un-migrated households. */}
       {showDirectionTabs && debts.length > 0 && (
-        <div className="flex bg-bg3 border border-line rounded-md p-0.5 gap-px mb-4 w-fit">
+        <div className="flex items-center bg-bg3 border border-line rounded-md p-0.5 gap-px mb-4">
           {([
             { k: 'all',         label: 'All' },
             { k: 'owed_by_me',  label: 'Owe' },
@@ -131,6 +133,9 @@ export default function Debts() {
               {opt.label}
             </button>
           ))}
+          <span className="font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim ml-auto px-3">
+            {activeCount} active {activeCount === 1 ? 'debt' : 'debts'}
+          </span>
         </div>
       )}
 
