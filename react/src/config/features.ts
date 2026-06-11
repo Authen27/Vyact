@@ -40,6 +40,14 @@ export const FEATURES = {
   // scoped categories is enforced at the data layer. Goals & Tax were removed as
   // modules. The only surviving surface preference here is Saved Views.
 
+  // v9 — Transaction Forms & Categories Rebuild (txn-redesign spec, D4 big-bang).
+  // Gates the NEW four-form UI only; the data migration (20260608120000) is
+  // forward-only and NOT reversible by this flag. Defaults TRUE on release; flip
+  // false for a UI-only rollback if a non-data defect appears.
+  txnRedesign: {
+    enabled: true,
+  },
+
   // B4.4 — Saved Views hidden by default. The saved_views table + RPC stay dormant
   // (not deleted); flip to true to restore for power users. Kept as a preference,
   // not a build flag.

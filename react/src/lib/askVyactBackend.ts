@@ -100,21 +100,30 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
     // ── Capture ───────────────────────────────────────────────────────────────
     case 'capture.expense':
     case 'capture.income':
-    case 'capture.transfer': {
+    case 'capture.transfer':
+    case 'capture.investment': {
       if (e.amount == null) {
         return { kind: 'capture', outcome: 'missing_amount', vars: {}, chip: { label: 'Add details' } };
       }
       const type: TxnType = intent.id === 'capture.income' ? 'income'
-        : intent.id === 'capture.transfer' ? 'transfer' : 'expense';
-      const category = e.category
-        ?? (type === 'income' ? 'salary' : type === 'transfer' ? 'transfer' : 'other_exp');
+        : intent.id === 'capture.transfer' ? 'transfer'
+        : intent.id === 'capture.investment' ? 'investment' : 'expense';
+      // v9 §3 — transfer-class rows carry no category ('' → null at the adapter).
+      const transferClass = type === 'transfer' || type === 'investment';
+      const category = transferClass ? ''
+        : (e.category ?? (type === 'income' ? 'salary' : 'other_expense'));
       const seed: Partial<Transaction> = {
         type, amount: e.amount, category,
         description: e.merchant ? e.merchant.charAt(0).toUpperCase() + e.merchant.slice(1) : '',
       };
       return {
         kind: 'capture', outcome: 'seeded', seed,
-        vars: { amount: money(e.amount, ctx), category: getCat(category).label.toLowerCase() },
+        vars: {
+          amount: money(e.amount, ctx),
+          category: transferClass
+            ? (type === 'investment' ? 'investment' : 'transfer')
+            : getCat(category).label.toLowerCase(),
+        },
       };
     }
     case 'capture.split': {
@@ -130,7 +139,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         })),
       };
       const seed: Partial<Transaction> = {
-        type: 'expense', amount: e.amount, category: e.category ?? 'food',
+        type: 'expense', amount: e.amount, category: e.category ?? 'food_dining',
         description: e.merchant ? e.merchant.charAt(0).toUpperCase() + e.merchant.slice(1) : 'Split',
         split,
       };

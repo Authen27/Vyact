@@ -102,6 +102,9 @@ export interface Transaction extends WithProvenance {
    *  on the transaction directly; v7.4 may move this to its own table. */
   accountSplits?: AccountSplit[];
   split?: SplitInfo;
+  /** v9 §2.3/§6.3 — system-written EMI split for category=loan_emi rows.
+   *  Read-only to the user; only the interest portion counts as spend. */
+  emiSplit?: { interest: number; principal: number; debt_id: string };
   created_by?: string;
   created_at?: string;
   updated_at?: string;
@@ -194,9 +197,10 @@ export interface Asset extends WithProvenance {
 
 // ─── v7.1 Money Map — first-class accounts + saved views ──────────────────
 
-export type AccountKind =
-  | 'checking' | 'savings' | 'credit_card' | 'cash'
-  | 'investment' | 'wallet' | 'other';
+// v9 — strict kind enum (txn-redesign §2.2). 'checking'/'savings'/'wallet'/
+// 'other' were remapped to 'bank' by the 20260608120000 migration.
+// credit_card and loan are liabilities (negative to net worth).
+export type AccountKind = 'cash' | 'bank' | 'credit_card' | 'investment' | 'loan';
 
 export interface Account extends WithProvenance {
   id: string;
@@ -209,10 +213,25 @@ export interface Account extends WithProvenance {
   isDefault?: boolean;
   isArchived?: boolean;
   /** Money-Model B1.2 — opening balance captured at creation / onboarding.
-   *  Current balance = openingBalance + credits − debits. Provenance-tagged
-   *  `estimated` until reconciled (B1.3 confirms it). Defaults to 0. */
+   *  Current balance = openingBalance + credits − debits + reconciliationOffset.
+   *  Provenance-tagged `estimated` until reconciled. Defaults to 0. */
   openingBalance?: number;
+  /** v9 D2 — the "forgiveness" term: drift between computed and user-stated
+   *  balance, absorbed here (NOT as a transaction). Feeds net worth/balances;
+   *  NEVER read by spend/income aggregators. Investment value updates use the
+   *  same field. Defaults to 0. */
+  reconciliationOffset?: number;
+  /** v9 D2 — dated audit trail of reconciliations; shown in account history only. */
+  reconciliationLog?: ReconciliationEntry[];
   updated_at?: string;
+}
+
+/** v9 D2 — one quiet-log entry: "reconciled ±X on <date>". */
+export interface ReconciliationEntry {
+  at: string;                    // ISO timestamptz
+  delta: number;
+  kind: 'bank' | 'investment';
+  stated_value: number | null;
 }
 
 export type SavedViewPage = 'transactions' | 'reports' | 'insights';

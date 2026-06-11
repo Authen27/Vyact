@@ -36,7 +36,7 @@ type RowOf<E extends Entity> =
 interface TransactionRow {
   id: string; household_id: string; created_by: string | null; member_id: string | null;
   type: string; amount: number; currency: string; date: string;
-  description: string; category: string; note: string | null;
+  description: string; category: string | null; note: string | null;   // v9: null for transfer/investment
   recurring: string | null; attachment_url: string | null;
   created_at: string; updated_at: string; deleted_at: string | null;
   // v7.1 Money Map — real FK columns. Optional in the typing because the
@@ -53,7 +53,8 @@ interface TransactionRow {
   extras?: { time?: string; paymentMethod?: string; excluded?: boolean; linkedAssetId?: string;
              linkedToAssetId?: string;
              linkedDebtId?: string; linkedTxnId?: string; split?: unknown;
-             accountSplits?: unknown } | null;
+             accountSplits?: unknown;
+             emi_split?: unknown } | null;   // v9 §2.3 system EMI split
 }
 
 // v8 — provenance columns shared by baseline-derived rows.
@@ -104,7 +105,9 @@ interface AccountRow extends ProvenanceRowCols {
   asset_id: string | null;
   kind: string; name: string; currency: string;
   is_default: boolean; is_archived: boolean;
-  opening_balance?: number | null;   // Money-Model B1.2
+  opening_balance?: number | null;            // Money-Model B1.2
+  reconciliation_offset?: number | null;      // v9 D2
+  reconciliation_log?: unknown[] | null;      // v9 D2 quiet log
   created_at: string; updated_at: string; deleted_at: string | null;
 }
 
@@ -141,50 +144,57 @@ const rowToProv = (r: ProvenanceRowCols): WithProvenance => ({
 });
 
 // ── Mappers ───────────────────────────────────────────────────
-const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<TransactionRow> => ({
-  ...provToRow(t),
-  id: t.id, household_id: householdId, member_id: t.memberId || null,
-  type: t.type, amount: t.amount, currency: t.currency || 'USD',
-  date: t.date, description: t.description, category: t.category,
-  note: t.note || null,
-  recurring: t.recurring || null,
-  // v7.1 Money Map dual-write: populate FK columns from accountId/toAccountId
-  // if set, else fall back to legacy linkedAssetId (assets and accounts share
-  // asset_id after the v7.1 backfill). Legacy keys stay in extras so a v7.0.3
-  // client reading the same row still works (dual-encoding contract).
-  account_id:    t.accountId    ?? t.linkedAssetId   ?? null,
-  to_account_id: t.toAccountId  ?? t.linkedToAssetId ?? null,
-  initiated_by:  t.initiatedBy  ?? t.memberId        ?? null,
-  extras: {
-    time: t.time, paymentMethod: t.paymentMethod, excluded: t.excluded,
-    linkedAssetId: t.linkedAssetId, linkedToAssetId: t.linkedToAssetId,
-    linkedDebtId: t.linkedDebtId,
-    linkedTxnId: t.linkedTxnId, split: t.split,
-    // v7.3 — Money Map Item #5 (multi-account split). Stored on extras
-    // until a dedicated table lands in v7.4.
-    accountSplits: t.accountSplits,
-  },
-});
+// v9 — only a real uuid may reach the FK columns (the client sometimes carries
+// the legacy ENCODED account value like 'cash'/'asset:<id>' in these fields).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const fkOrNull = (v: string | undefined | null): string | null =>
+  v && UUID_RE.test(v) ? v : null;
+
+// v9 txn-redesign §2.4 — the per-type account matrix is enforced at the write
+// boundary so no caller can produce a row that violates CK_txn_accounts_by_type
+// or CK_txn_category_by_type.
+const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<TransactionRow> => {
+  const type = t.type as Transaction['type'];
+  const transferClass = type === 'transfer' || type === 'investment';
+  return {
+    ...provToRow(t),
+    id: t.id, household_id: householdId, member_id: t.memberId || null,
+    type, amount: t.amount, currency: t.currency || 'USD',
+    date: t.date, description: t.description,
+    category: transferClass ? null : (t.category || null),
+    note: t.note || null,
+    recurring: t.recurring || null,
+    account_id:    type === 'income' ? null : fkOrNull(t.accountId),
+    to_account_id: type === 'expense' ? null
+      : fkOrNull(t.toAccountId) ?? (type === 'income' ? fkOrNull(t.accountId) : null),
+    initiated_by:  t.initiatedBy  ?? t.memberId ?? null,
+    extras: {
+      time: t.time, paymentMethod: t.paymentMethod, excluded: t.excluded,
+      linkedDebtId: t.linkedDebtId,
+      linkedTxnId: t.linkedTxnId, split: t.split,
+      accountSplits: t.accountSplits,
+      emi_split: t.emiSplit,                      // §2.3 — system-written EMI split
+    },
+  };
+};
 const rowToTxn = (r: TransactionRow): Transaction => ({
   id: r.id, type: r.type as Transaction['type'],
   amount: parseMoneyFromCloud(r.amount), currency: r.currency,
-  date: r.date, time: r.extras?.time, description: r.description, category: r.category,
+  date: r.date, time: r.extras?.time, description: r.description,
+  category: r.category ?? '',          // transfers/investments carry none (v9)
   note: r.note || undefined,
   memberId: r.member_id || undefined,
   recurring: (r.recurring as Transaction['recurring']) || undefined,
   paymentMethod: r.extras?.paymentMethod,
   excluded: r.extras?.excluded,
-  // v7.1 — prefer FK columns; fall back to legacy extras for rows written
-  // by a v7.0.3 client during the dual-write window.
-  accountId:   r.account_id    ?? r.extras?.linkedAssetId   ?? undefined,
-  toAccountId: r.to_account_id ?? r.extras?.linkedToAssetId ?? undefined,
-  initiatedBy: r.initiated_by  ?? r.member_id               ?? undefined,
-  linkedAssetId: r.extras?.linkedAssetId,
-  linkedToAssetId: r.extras?.linkedToAssetId,
+  accountId:   r.account_id    ?? undefined,
+  toAccountId: r.to_account_id ?? undefined,
+  initiatedBy: r.initiated_by  ?? r.member_id ?? undefined,
   linkedDebtId: r.extras?.linkedDebtId,
   linkedTxnId: r.extras?.linkedTxnId,
   split: r.extras?.split as Transaction['split'],
   accountSplits: r.extras?.accountSplits as Transaction['accountSplits'],
+  emiSplit: r.extras?.emi_split as Transaction['emiSplit'],
   created_by: r.created_by || undefined,
   created_at: r.created_at, updated_at: r.updated_at,
   ...rowToProv(r),
@@ -301,7 +311,9 @@ const accountToRow = (a: Partial<Account>, hid: string): Partial<AccountRow> => 
   currency: a.currency || 'USD',
   is_default: a.isDefault ?? false,
   is_archived: a.isArchived ?? false,
-  opening_balance: a.openingBalance ?? 0,   // Money-Model B1.2
+  opening_balance: a.openingBalance ?? 0,                  // Money-Model B1.2
+  reconciliation_offset: a.reconciliationOffset ?? 0,      // v9 D2
+  reconciliation_log: (a.reconciliationLog ?? []) as unknown[],
 });
 const rowToAccount = (r: AccountRow): Account => ({
   id: r.id,
@@ -312,6 +324,8 @@ const rowToAccount = (r: AccountRow): Account => ({
   isDefault: r.is_default,
   isArchived: r.is_archived,
   openingBalance: r.opening_balance != null ? parseMoneyFromCloud(r.opening_balance) : 0,
+  reconciliationOffset: r.reconciliation_offset != null ? parseMoneyFromCloud(r.reconciliation_offset) : 0,
+  reconciliationLog: (r.reconciliation_log ?? []) as Account['reconciliationLog'],
   updated_at: r.updated_at,
   ...rowToProv(r),
 });

@@ -35,8 +35,8 @@ export const TEMPLATES: Record<TemplateKey, TemplateMeta> = {
     pages: ['dashboard','transactions','budgets','goals','splits','reports','settings','help'],
     pulseWeights: { budget: 0.25, savings: 0.30, goals: 0.25, trend: 0.15, debt: 0.05 },
     starterBudgets: [
-      { category: 'rent',          limit: 1800, color: '#C44536' },
-      { category: 'food',          limit: 600,  color: '#E8A87C' },
+      { category: 'rent_mortgage',          limit: 1800, color: '#C44536' },
+      { category: 'food_dining',          limit: 600,  color: '#E8A87C' },
       { category: 'utilities',     limit: 200,  color: '#F4D27A' },
       { category: 'entertainment', limit: 250,  color: '#6E4555' },
       { category: 'transport',     limit: 300,  color: '#4A6FA5' },
@@ -58,8 +58,8 @@ export const TEMPLATES: Record<TemplateKey, TemplateMeta> = {
     pages: ['dashboard','transactions','budgets','goals','splits','debts','networth','reports','settings','help'],
     pulseWeights: { budget: 0.30, savings: 0.20, goals: 0.15, trend: 0.15, debt: 0.20 },
     starterBudgets: [
-      { category: 'rent',          limit: 2400, color: '#C44536' },
-      { category: 'food',          limit: 850,  color: '#E8A87C' },
+      { category: 'rent_mortgage',          limit: 2400, color: '#C44536' },
+      { category: 'food_dining',          limit: 850,  color: '#E8A87C' },
       { category: 'childcare',     limit: 600,  color: '#F4B6A8' },
       { category: 'education',     limit: 300,  color: '#6B7C53' },
       { category: 'utilities',     limit: 280,  color: '#F4D27A' },
@@ -85,8 +85,8 @@ export const TEMPLATES: Record<TemplateKey, TemplateMeta> = {
     pages: ['dashboard','transactions','budgets','goals','debts','reports','settings','help'],
     pulseWeights: { budget: 0.35, savings: 0.20, goals: 0.25, trend: 0.15, debt: 0.05 },
     starterBudgets: [
-      { category: 'rent',          limit: 1200, color: '#C44536' },
-      { category: 'food',          limit: 450,  color: '#E8A87C' },
+      { category: 'rent_mortgage',          limit: 1200, color: '#C44536' },
+      { category: 'food_dining',          limit: 450,  color: '#E8A87C' },
       { category: 'utilities',     limit: 180,  color: '#F4D27A' },
       { category: 'transport',     limit: 200,  color: '#4A6FA5' },
       { category: 'childcare',     limit: 400,  color: '#F4B6A8' },
@@ -106,9 +106,9 @@ export const TEMPLATES: Record<TemplateKey, TemplateMeta> = {
     pages: ['dashboard','transactions','budgets','networth','debts','reports','settings','help'],
     pulseWeights: { budget: 0.20, savings: 0.25, goals: 0.15, trend: 0.20, debt: 0.20 },
     starterBudgets: [
-      { category: 'rent',          limit: 1500, color: '#C44536' },
+      { category: 'rent_mortgage',          limit: 1500, color: '#C44536' },
       { category: 'utilities',     limit: 250,  color: '#F4D27A' },
-      { category: 'food',          limit: 500,  color: '#E8A87C' },
+      { category: 'food_dining',          limit: 500,  color: '#E8A87C' },
       { category: 'insurance',     limit: 300,  color: '#6B635C' },
     ],
     starterGoals: [
@@ -128,8 +128,8 @@ export const TEMPLATES: Record<TemplateKey, TemplateMeta> = {
     pages: ['dashboard','transactions','networth','reports','goals','settings','help'],
     pulseWeights: { budget: 0.20, savings: 0.35, goals: 0.15, trend: 0.25, debt: 0.05 },
     starterBudgets: [
-      { category: 'rent',          limit: 1500, color: '#C44536' },
-      { category: 'food',          limit: 600,  color: '#E8A87C' },
+      { category: 'rent_mortgage',          limit: 1500, color: '#C44536' },
+      { category: 'food_dining',          limit: 600,  color: '#E8A87C' },
       { category: 'health',        limit: 500,  color: '#85A88A' },
       { category: 'utilities',     limit: 220,  color: '#F4D27A' },
       { category: 'travel',        limit: 400,  color: '#4A6FA5' },
@@ -150,8 +150,8 @@ export const TEMPLATES: Record<TemplateKey, TemplateMeta> = {
     pages: ['dashboard','transactions','budgets','goals','splits','debts','reports','settings','help'],
     pulseWeights: { budget: 0.35, savings: 0.25, goals: 0.25, trend: 0.10, debt: 0.05 },
     starterBudgets: [
-      { category: 'rent',          limit: 700,  color: '#C44536' },
-      { category: 'food',          limit: 250,  color: '#E8A87C' },
+      { category: 'rent_mortgage',          limit: 700,  color: '#C44536' },
+      { category: 'food_dining',          limit: 250,  color: '#E8A87C' },
       { category: 'education',     limit: 150,  color: '#6B7C53' },
       { category: 'transport',     limit: 80,   color: '#4A6FA5' },
       { category: 'entertainment', limit: 100,  color: '#6E4555' },

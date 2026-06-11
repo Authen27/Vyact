@@ -9,13 +9,13 @@ import { normalizeTimeInput, nowTime, uid, today } from '../../lib/format';
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
-  INVESTMENT_CATEGORIES,
   CATEGORIES_BY_TYPE,
   CURRENCIES,
 } from '../../constants';
 import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED_TYPES } from '../../lib/accounts';
 import { computeNextDueDate } from '../../lib/recurring';
 import { isFlagOn, getMoneyMapMode } from '../../lib/featureFlags';
+import { FEATURES } from '../../config/features';
 import { trackFlagExposure } from '../../lib/analytics';
 import type { Transaction, TxnType, Recurrence, RecurrenceFreq, AccountSplit } from '../../types';
 
@@ -48,6 +48,10 @@ interface FormState {
   paymentMethod: string;
   // v7.0.3 — destination account for transfer + investment tracks.
   paymentMethodTo: string;
+  // v9 §4.3 — investment direction ('added' = money in, 'withdrew' = money out).
+  direction: 'added' | 'withdrew';
+  // v9 §4.1 — the loan an EMI pays (required when category = loan_emi).
+  linkedDebtId: string;
   /** v7.3 — Money Map Item #5. When `splitAcrossAccounts` is true the
    *  primary `paymentMethod` is treated as informational only; the actual
    *  source-of-funds is the multi-account `accountSplitRows` array. */
@@ -69,11 +73,13 @@ const defaultParticipants = (): SplitParticipantForm[] => ([
   { name: '',    share: '', isYou: false, paid: false },
 ]);
 
+// v9 txn-redesign §3 — type-scoped defaults. Transfers and investments carry NO
+// category (CK_txn_category_by_type); '' is the client-side sentinel for null.
 const DEFAULT_CAT_BY_TYPE: Record<TxnType, string> = {
-  expense:    'food',
+  expense:    'food_dining',
   income:     'salary',
-  investment: 'investment_in',
-  transfer:   'transfer',
+  investment: '',
+  transfer:   '',
 };
 
 // v7.0.3 — remember the last track the user picked so the next add-modal
@@ -103,6 +109,8 @@ const blank = (currency: string, memberId = '', type: TxnType = 'expense'): Form
   memberId,
   paymentMethod: '',
   paymentMethodTo: '',
+  direction: 'added',
+  linkedDebtId: '',
   splitAcrossAccounts: false,
   accountSplitRows: [],
   recurring: '',
@@ -124,13 +132,11 @@ function evenShares(bill: number, n: number): string[] {
 }
 
 function categoriesFor(type: TxnType) {
-  // Each track gets only its own category list (Item #9). Transfers are
-  // categorically self-evident — the row's `category` is hard-coded to
-  // 'transfer' downstream, no picker needed.
-  if (type === 'income')     return INCOME_CATEGORIES;
-  if (type === 'expense')    return EXPENSE_CATEGORIES;
-  if (type === 'investment') return INVESTMENT_CATEGORIES;
-  return CATEGORIES_BY_TYPE.transfer;
+  // v9 §3 — type-scoped sets. Transfers AND investments carry no category
+  // (direction is a form control, not a category; INV-8).
+  if (type === 'income')  return INCOME_CATEGORIES;
+  if (type === 'expense') return EXPENSE_CATEGORIES;
+  return CATEGORIES_BY_TYPE.transfer;   // [] for transfer + investment
 }
 
 function deriveInitialTime(initial?: Transaction | null): string {
@@ -204,7 +210,9 @@ export default function TransactionFormModal(props: Props) {
   // v7.0.3 — track-picker step. When the flag is on and we're adding (not
   // editing), the modal opens to a 4-card track picker first; choosing a
   // track sets `pickedTrack` and the rest of the form renders.
-  const trackPickerEnabled = isFlagOn('track_picker');
+  // v9 (D3) — the track picker is retired under txn-redesign: the inline
+  // Track <Select> (incl. Investment) replaces the 4-card step.
+  const trackPickerEnabled = isFlagOn('track_picker') && !FEATURES.txnRedesign.enabled;
   const [pickedTrack, setPickedTrack] = useState<TxnType | null>(null);
   const showPicker = trackPickerEnabled && !initial && !pickedTrack;
 
@@ -233,6 +241,12 @@ export default function TransactionFormModal(props: Props) {
       ? buildAccountsFromStore(accountsState, { excludeId: form.paymentMethod || undefined })
       : buildAccounts(assets, debts, { excludeId: form.paymentMethod || undefined }),
     [useFirstClassAccounts, accountsState, assets, debts, form.paymentMethod],
+  );
+  // v9 §4.3 — the Investment form's destination picker shows ONLY
+  // kind='investment' accounts (value = the account uuid).
+  const investmentAccounts = useMemo(
+    () => accountsState.filter(a => a.kind === 'investment' && !a.isArchived),
+    [accountsState],
   );
   const accountRequired = ACCOUNT_REQUIRED_TYPES.includes(
     form.type as (typeof ACCOUNT_REQUIRED_TYPES)[number],
@@ -265,8 +279,10 @@ export default function TransactionFormModal(props: Props) {
         category: initial.category,
         note: initial.note ?? '',
         memberId: initial.memberId ?? defaultMemberId,
-        paymentMethod: initial.paymentMethod ?? '',
-        paymentMethodTo: initial.linkedToAssetId ?? '',
+        paymentMethod: initial.paymentMethod ?? initial.accountId ?? '',
+        paymentMethodTo: initial.toAccountId ?? initial.linkedToAssetId ?? '',
+        direction: 'added',   // edits show the stored from/to as-is
+        linkedDebtId: initial.emiSplit?.debt_id ?? initial.linkedDebtId ?? '',
         splitAcrossAccounts: Boolean(initial.accountSplits && initial.accountSplits.length),
         accountSplitRows: initial.accountSplits ? initial.accountSplits.map(s => ({ accountId: s.accountId, amount: s.amount })) : [],
         recurring: initial.recurring ?? '',
@@ -375,7 +391,9 @@ export default function TransactionFormModal(props: Props) {
       toast('Enter a valid amount greater than 0', 'error');
       return;
     }
-    if (!isTransfer && !form.description.trim()) {
+    // v9 F-VALIDATION — block save only on missing REQUIRED-primary fields.
+    // Description and member are 'More details' fields, never required.
+    if (!FEATURES.txnRedesign.enabled && !isTransfer && !form.description.trim()) {
       toast('Description is required', 'error');
       return;
     }
@@ -384,8 +402,14 @@ export default function TransactionFormModal(props: Props) {
       toast('Enter time as hh:mm with AM or PM', 'error');
       return;
     }
-    if (!isTransfer && !form.memberId) {
+    if (!FEATURES.txnRedesign.enabled && !isTransfer && !form.memberId) {
       toast('Choose a member for this transaction', 'error');
+      return;
+    }
+    // v9 §4.1 — loan_emi requires the linked loan (the system split needs it).
+    if (FEATURES.txnRedesign.enabled && form.type === 'expense'
+        && form.category === 'loan_emi' && !form.linkedDebtId) {
+      toast('Choose which loan this EMI pays', 'error');
       return;
     }
     // ── Account required for money that moves in/out of an account ──
@@ -457,6 +481,12 @@ export default function TransactionFormModal(props: Props) {
 
     setSaving(true);
     try {
+      // v9 §4.3 — investment direction maps the account matrix:
+      //   'added'    → from = cash side (paymentMethod), to = investment account
+      //   'withdrew' → from = investment account,        to = cash side
+      const swap = isInvestment && form.direction === 'withdrew';
+      const fromEncoded = swap ? form.paymentMethodTo : form.paymentMethod;
+      const toEncoded   = swap ? form.paymentMethod   : form.paymentMethodTo;
       const txn: Transaction = {
         id: initial?.id ?? uid(),
         type: form.type,
@@ -465,15 +495,15 @@ export default function TransactionFormModal(props: Props) {
         date: form.date,
         time: normalizedTime,
         description: form.description.trim(),
-        category: isTransfer ? 'transfer' : form.category,
+        // transfer-class rows carry no category ('' → null at the adapter).
+        category: (isTransfer || isInvestment) ? '' : form.category,
         note: form.note.trim() || undefined,
         memberId: form.memberId,
-        paymentMethod: form.paymentMethod || undefined,
+        paymentMethod: fromEncoded || undefined,
         recurring: form.recurring || undefined,
         excluded: form.excluded || undefined,
-        linkedAssetId: initial?.linkedAssetId,
-        linkedToAssetId: needsToAccount ? form.paymentMethodTo || undefined : initial?.linkedToAssetId,
-        linkedDebtId:  initial?.linkedDebtId,
+        linkedToAssetId: needsToAccount ? toEncoded || undefined : initial?.linkedToAssetId,
+        linkedDebtId: (form.category === 'loan_emi' ? form.linkedDebtId : undefined) ?? initial?.linkedDebtId,
         linkedTxnId:   initial?.linkedTxnId,
         accountSplits,
         split,
@@ -624,11 +654,41 @@ export default function TransactionFormModal(props: Props) {
         </Field>
       </FieldRow>
 
-      {!isTransfer && (
+      {/* v9 §3/INV-8 — only expense & income carry a category; transfers and
+          investments show none. */}
+      {!isTransfer && !isInvestment && (
         <Field label="Category">
           <Select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
             {cats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
           </Select>
+        </Field>
+      )}
+
+      {/* v9 §4.1 — loan_emi reveals the loan picker; the system books the
+          interest as spend and a principal transfer leg on save (R-AGG-6). */}
+      {form.type === 'expense' && form.category === 'loan_emi' && (
+        <Field label="Which loan?" hint="required">
+          <Select value={form.linkedDebtId} onChange={e => setForm(f => ({ ...f, linkedDebtId: e.target.value }))}>
+            <option value="">— Select a loan —</option>
+            {debts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </Select>
+        </Field>
+      )}
+
+      {/* v9 §4.3 — investment direction toggle (replaces buy/sell/dividend etc.). */}
+      {isInvestment && (
+        <Field label="Direction">
+          <div className="flex gap-2">
+            {(['added', 'withdrew'] as const).map(d => (
+              <button key={d} type="button"
+                onClick={() => setForm(f => ({ ...f, direction: d }))}
+                className={`flex-1 px-3 py-2 rounded-md border-2 text-[0.85rem] transition-all ${
+                  form.direction === d ? 'border-coral bg-coral-tint text-ink' : 'border-line bg-bg2 text-ink-mid hover:border-line2'
+                }`}>
+                {d === 'added' ? '↑ Added money' : '↓ Took money out'}
+              </button>
+            ))}
+          </div>
         </Field>
       )}
 
@@ -658,18 +718,28 @@ export default function TransactionFormModal(props: Props) {
       </FieldRow>
       {needsToAccount && (
         <FieldRow>
-          <Field label={isTransfer ? 'To Account' : 'Investment Vehicle'} hint="required">
+          <Field label={isTransfer ? 'To Account' : 'Investment account'} hint="required">
             <Select value={form.paymentMethodTo} onChange={e => setForm(f => ({ ...f, paymentMethodTo: e.target.value }))}>
-              <option value="">{isTransfer ? '— Select destination —' : '— Select vehicle —'}</option>
-              {accountsTo.map(a => (
-                <option key={a.value} value={a.value}>
-                  {a.kind === 'card' ? '💳 ' : a.kind === 'bank' ? '🏦 ' : '💵 '}{a.label}
-                </option>
-              ))}
+              <option value="">{isTransfer ? '— Select destination —' : '— Select investment account —'}</option>
+              {isInvestment
+                ? investmentAccounts.map(a => (
+                    <option key={a.id} value={a.id}>📈 {a.name}</option>
+                  ))
+                : accountsTo.map(a => (
+                    <option key={a.value} value={a.value}>
+                      {a.kind === 'card' ? '💳 ' : a.kind === 'bank' ? '🏦 ' : '💵 '}{a.label}
+                    </option>
+                  ))}
             </Select>
           </Field>
           <span />
         </FieldRow>
+      )}
+      {isInvestment && investmentAccounts.length === 0 && (
+        <p className="-mt-2 mb-3 text-[0.7rem] text-ink-dim leading-snug">
+          No investment accounts yet — add one on the <strong>Accounts</strong> page
+          (kind: Investment) to record contributions and track its value.
+        </p>
       )}
       {accountRequired && accounts.length <= 1 && (
         <p className="-mt-2 mb-3 text-[0.7rem] text-ink-dim leading-snug">

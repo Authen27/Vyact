@@ -22,14 +22,13 @@ import { computeAccountBalance, accountValueOf, debitAccountOf, creditAccountOf 
 import { effectiveAmount } from '../lib/calculations';
 import { getCat } from '../constants';
 
+// v9 — strict kind enum (txn-redesign §2.2).
 const KIND_LABEL: Record<AccountKind, string> = {
-  checking: 'Checking',
-  savings: 'Savings',
-  credit_card: 'Credit Card',
+  bank: 'Bank',
   cash: 'Cash',
+  credit_card: 'Credit Card',
   investment: 'Investment',
-  wallet: 'Wallet',
-  other: 'Other',
+  loan: 'Loan',
 };
 
 export default function Accounts() {
@@ -52,13 +51,15 @@ export default function Accounts() {
   // Money-Model Epic 1 — computed balances, Fix-balance reconcile, and the
   // per-account ledger are permanent.
   const baseCur = profile.baseCurrency;
+  // v9 R-AGG-4 — balance includes the reconciliation offset (D2).
   const balanceOf = (acc: Account): number =>
-    computeAccountBalance(accountValueOf(acc), acc.openingBalance ?? 0, transactions, baseCur, rates);
+    computeAccountBalance(acc, transactions, baseCur, rates);
 
   async function handleReconcile(acc: Account, real: number) {
     try {
       const delta = await reconcileAccount(acc, real);
-      toast(delta === 0 ? 'Already reconciled' : `Balance fixed (${delta > 0 ? '+' : ''}${delta})`, 'success');
+      const noun = acc.kind === 'investment' ? 'Value updated' : 'Balance fixed';
+      toast(delta === 0 ? 'Already up to date' : `${noun} (${delta > 0 ? '+' : ''}${delta})`, 'success');
     } catch (e) {
       toast(`Reconcile failed: ${(e as Error).message}`, 'error');
     }
@@ -258,7 +259,9 @@ function AccountRow(props: {
         )}
         {onReconcile && (
           <button type="button" onClick={() => { setFixing(f => !f); setFixVal(balance != null ? String(balance) : ''); }}
-            className="text-ink-mid hover:text-ink p-1.5 rounded hover:bg-bg3" aria-label="Fix balance" title="Fix balance">
+            className="text-ink-mid hover:text-ink p-1.5 rounded hover:bg-bg3"
+            aria-label={acc.kind === 'investment' ? 'Update value' : 'Fix balance'}
+            title={acc.kind === 'investment' ? 'Update value' : 'Fix balance'}>
             <Scale size={14} />
           </button>
         )}
@@ -273,10 +276,11 @@ function AccountRow(props: {
         </button>
       </div>
 
-      {/* B1.3 — Fix balance: enter the real balance → a dated adjustment is written. */}
+      {/* v9 D2 — reconcile: enter the real balance / current value → the drift is
+          absorbed into the account's reconciliation offset (no transaction). */}
       {fixing && onReconcile && (
         <div className="flex items-center gap-2 mt-2 pl-1">
-          <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">Real balance</span>
+          <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">{acc.kind === 'investment' ? 'Current value' : 'Real balance'}</span>
           <input
             type="number" inputMode="decimal" value={fixVal} onChange={e => setFixVal(e.target.value)}
             className="bg-bg3 border border-line rounded-md px-2 py-1 text-sm num w-32" placeholder="0" />
@@ -298,25 +302,40 @@ function AccountLedger(props: {
 }) {
   const { account, accountValue, txns, baseCur, rates } = props;
   const rows = useMemo(() => {
+    // v9 — match by account uuid OR the legacy encoded value; income credits the
+    // destination; transfer/investment touch both legs (R-AGG-4).
+    const hits = (v: string | undefined) => v === account.id || v === accountValue;
     const mine = txns
-      .filter(t => debitAccountOf(t) === accountValue || creditAccountOf(t) === accountValue)
       .map(t => {
         const amt = effectiveAmount(t, baseCur, rates);
         let impact = 0;
-        if (t.type === 'income' && debitAccountOf(t) === accountValue) impact = amt;
-        else if (t.type === 'expense' && debitAccountOf(t) === accountValue) impact = -amt;
-        else if (t.type === 'transfer') impact = (creditAccountOf(t) === accountValue ? amt : 0) - (debitAccountOf(t) === accountValue ? amt : 0);
+        if (t.type === 'income' && hits(creditAccountOf(t))) impact = amt;
+        else if (t.type === 'expense' && hits(debitAccountOf(t))) impact = -amt;
+        else if (t.type === 'transfer' || t.type === 'investment') {
+          impact = (hits(creditAccountOf(t)) ? amt : 0) - (hits(debitAccountOf(t)) ? amt : 0);
+        }
         return { t, impact };
       })
+      .filter(r => r.impact !== 0)
       .sort((a, b) => (a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0));
     // running balance newest→oldest, anchored at current computed balance
-    let running = computeAccountBalance(accountValue, account.openingBalance ?? 0, txns, baseCur, rates);
+    let running = computeAccountBalance(account, txns, baseCur, rates);
     return mine.map(r => { const at = running; running -= r.impact; return { ...r, runningAfter: at }; });
   }, [account, accountValue, txns, baseCur, rates]);
 
-  if (!rows.length) return <div className="mt-2 pl-1 text-[0.72rem] text-ink-dim">No entries yet.</div>;
+  const recon = (account.reconciliationLog ?? []).slice(-5).reverse();
+  if (!rows.length && !recon.length) return <div className="mt-2 pl-1 text-[0.72rem] text-ink-dim">No entries yet.</div>;
   return (
     <div className="mt-2 ml-1 border-l-2 border-line pl-3 space-y-1">
+      {/* §2.6 quiet log — reconciliations appear in account history ONLY, never in totals. */}
+      {recon.map((e, i) => (
+        <div key={`recon-${i}`} className="flex items-center gap-2 text-[0.74rem] text-ink-dim italic">
+          <span className="font-mono text-[0.62rem] w-[4.5rem] shrink-0">{e.at.slice(0, 10)}</span>
+          <span className="flex-1">
+            {e.kind === 'investment' ? 'Value updated' : 'Reconciled'} ({e.delta >= 0 ? '+' : ''}{Math.round(e.delta)})
+          </span>
+        </div>
+      ))}
       {rows.slice(0, 50).map(({ t, impact, runningAfter }) => (
         <div key={t.id} className="flex items-center gap-2 text-[0.78rem]">
           <span className="text-ink-dim font-mono text-[0.62rem] w-[4.5rem] shrink-0">{t.date}</span>

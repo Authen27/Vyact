@@ -8,7 +8,7 @@ import { spendByCategoryInRange, budgetWindow, periodMonths } from '../lib/calcu
 import { BUDGET_COLORS, getCat, deterministicColor } from '../constants';
 import type { Budget, BudgetPeriod } from '../types';
 import Money from '../components/ui/Money';
-import { budgetHistory, suggestBudget, budgetRollup, copyBudgets, type BudgetSuggestion } from '../lib/budgetIntel';
+import { budgetHistory, suggestBudget, budgetRollup, type BudgetSuggestion } from '../lib/budgetIntel';
 import { uid } from '../lib/format';
 import { Sparkles } from 'lucide-react';
 
@@ -61,14 +61,7 @@ export default function Budgets() {
     setPicked(new Set(fresh.map(s => s.category)));
   }
 
-  // B2.4(a) — copy the current budgets as an editable proposal (carry forward).
-  function copyPrevious() {
-    const proposals: BudgetSuggestion[] = copyBudgets(budgets).map(b => ({
-      category: b.category, limit: Math.round(convert(b.limit, b.currency, profile.baseCurrency, rates)), basis: 'history',
-    }));
-    setSuggestions(proposals);
-    setPicked(new Set(proposals.map(s => s.category)));
-  }
+
 
   // (d) — edit a suggested amount before saving.
   function editSuggestion(category: string, value: string) {
@@ -132,11 +125,8 @@ export default function Budgets() {
               </button>
             ))}
           </div>
-          <button className="btn-secondary inline-flex items-center gap-1" onClick={copyPrevious} title="Carry current budgets forward (editable)">
-            Copy
-          </button>
-          <button className="btn-secondary inline-flex items-center gap-1" onClick={generateSuggestions}>
-            <Sparkles size={13} /> Suggest
+          <button className="btn-secondary inline-flex items-center justify-center p-2" onClick={generateSuggestions} title="Suggest budgets">
+            <Sparkles size={15} />
           </button>
           <button className="btn-primary" onClick={openAddBudget}>+ Add Budget</button>
         </div>

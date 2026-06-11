@@ -115,6 +115,7 @@ export type AssistantBucket = 'capture' | 'interpret' | 'forecast';
 
 export type AssistantIntentId =
   | 'capture.income' | 'capture.split' | 'capture.transfer' | 'capture.expense'
+  | 'capture.investment'
   | 'interpret.status' | 'interpret.diagnostic' | 'interpret.lookup'
   | 'interpret.budgets' | 'interpret.bills' | 'interpret.debts'
   | 'forecast.affordability' | 'forecast.runway' | 'forecast.prescriptive'
@@ -131,6 +132,7 @@ export interface IntentResult {
 const BUCKET_OF: Record<AssistantIntentId, AssistantBucket | 'none'> = {
   'capture.income': 'capture', 'capture.split': 'capture',
   'capture.transfer': 'capture', 'capture.expense': 'capture',
+  'capture.investment': 'capture',
   'interpret.status': 'interpret', 'interpret.diagnostic': 'interpret', 'interpret.lookup': 'interpret',
   'interpret.budgets': 'interpret', 'interpret.bills': 'interpret', 'interpret.debts': 'interpret',
   'forecast.affordability': 'forecast', 'forecast.runway': 'forecast',
@@ -168,6 +170,9 @@ const RULES: IntentRule[] = [
   // genuine question never falls through to Capture. Income before expense (§4).
   { id: 'capture.income',   test: e => /\b(got paid|received|salary|paycheck|payday|income|invoice|client paid|refund|earned)\b/.test(e.text) },
   { id: 'capture.split',    test: e => /\b(split|between|ways?|each of us|of us)\b/.test(e.text) },
+  // v9 §8 — "put 10k in SIP" → investment contribution (tested before transfer
+  // so investment verbs don't fall through to a plain account move).
+  { id: 'capture.investment', test: e => /\b(sip|invested|invest|mutual fund|stocks?|brokerage|etf|put .* (in|into) (my )?(sip|fund|stocks?|investment))\b/.test(e.text) },
   { id: 'capture.transfer', test: e => /\b(moved|transfer|transferred|move)\b/.test(e.text) },
   // expense: a spend verb OR a known category (with an amount when only a category).
   { id: 'capture.expense',  test: e => /\b(spent|spend|bought|paid|cost)\b/.test(e.text) || (e.category != null && e.amount != null) },

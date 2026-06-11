@@ -1,23 +1,20 @@
 // Needs vs Wants mapping for expense categories
 export const NEEDS_WANTS_MAP: Record<string, 'need' | 'want'> = {
-  food: 'need',
+  // v9 type-scoped expense keys (txn-redesign §3)
+  food_dining: 'need',
+  groceries: 'need',
   transport: 'need',
-  shopping: 'want',
-  entertainment: 'want',
-  health: 'need',
+  rent_mortgage: 'need',
   utilities: 'need',
-  rent: 'need',
+  shopping: 'want',
+  health: 'need',
+  entertainment: 'want',
   education: 'need',
   travel: 'want',
   childcare: 'need',
   insurance: 'need',
-  debt_payment: 'need',
-  debt_interest: 'need',
-  debt_principal: 'need',
-  transfer: 'need', // ambiguous, treat as need for now
-  investment_in: 'want',
-  investment_out: 'want',
-  other_exp: 'want',
+  loan_emi: 'need',
+  other_expense: 'want',
 };
 
 export function needsWantsForCategory(catId: string): 'need' | 'want' | undefined {
@@ -28,49 +25,46 @@ export function needsWantsForCategory(catId: string): 'need' | 'want' | undefine
 
 import type { ProfileTypeKey, GoalType } from './types';
 
-// ── EXPENSE CATEGORIES ─────────────────────────────────────────
+// ── CATEGORIES — v9 type-scoped sets (txn-redesign spec §3, BINDING) ─────────
+// Expense = consumption only; income = source only. Transfers and investments
+// carry NO category (enforced by CK_txn_category_by_type in the DB). Debt
+// mechanics collapse into the single loan_emi expense category (system-split).
 export const EXPENSE_CATEGORIES = [
-  { id: 'food',           label: 'Food & Dining',    icon: '🍔', color: '#E8A87C' },
-  { id: 'transport',      label: 'Transport',         icon: '🚗', color: '#4A6FA5' },
-  { id: 'shopping',       label: 'Shopping',          icon: '🛍️', color: '#E26D5C' },
-  { id: 'entertainment',  label: 'Entertainment',     icon: '🎬', color: '#6E4555' },
-  { id: 'health',         label: 'Health & Wellness', icon: '💊', color: '#85A88A' },
-  { id: 'utilities',      label: 'Utilities',         icon: '⚡', color: '#F4D27A' },
-  { id: 'rent',           label: 'Rent / Mortgage',   icon: '🏠', color: '#C44536' },
-  { id: 'education',      label: 'Education',         icon: '📚', color: '#6B7C53' },
-  { id: 'travel',         label: 'Travel',            icon: '✈️', color: '#4A6FA5' },
-  { id: 'childcare',      label: 'Childcare',         icon: '👶', color: '#F4B6A8' },
-  { id: 'insurance',      label: 'Insurance',         icon: '🛡️', color: '#6B635C' },
-  { id: 'debt_payment',   label: 'Debt Payment',      icon: '⬇️', color: '#C44536' },
-  { id: 'debt_interest',  label: 'Debt Interest',     icon: '💸', color: '#C44536' },
-  { id: 'debt_principal', label: 'Debt Principal',    icon: '⬇️', color: '#85A88A' },
-  { id: 'transfer',       label: 'Transfer',          icon: '⇄',  color: '#4A6FA5' },
-  { id: 'investment_in',  label: 'Investment Buy',    icon: '📈', color: '#E8A87C' },
-  { id: 'investment_out', label: 'Investment Sell',   icon: '📉', color: '#E8A87C' },
-  { id: 'other_exp',      label: 'Other',             icon: '📦', color: '#6B635C' },
+  { id: 'food_dining',    label: 'Food & Dining',     icon: '🍽️', color: '#E8A87C' },
+  { id: 'groceries',      label: 'Groceries',          icon: '🛒', color: '#85A88A' },
+  { id: 'transport',      label: 'Transport',          icon: '🚗', color: '#4A6FA5' },
+  { id: 'rent_mortgage',  label: 'Rent / Mortgage',    icon: '🏠', color: '#C44536' },
+  { id: 'utilities',      label: 'Utilities',          icon: '⚡', color: '#F4D27A' },
+  { id: 'shopping',       label: 'Shopping',           icon: '🛍️', color: '#E26D5C' },
+  { id: 'health',         label: 'Health & Wellness',  icon: '💊', color: '#85A88A' },
+  { id: 'entertainment',  label: 'Entertainment',      icon: '🎬', color: '#6E4555' },
+  { id: 'education',      label: 'Education',          icon: '📚', color: '#6B7C53' },
+  { id: 'travel',         label: 'Travel',             icon: '✈️', color: '#4A6FA5' },
+  { id: 'childcare',      label: 'Childcare',          icon: '👶', color: '#F4B6A8' },
+  { id: 'insurance',      label: 'Insurance',          icon: '🛡️', color: '#6B635C' },
+  { id: 'loan_emi',       label: 'Loan / EMI payment', icon: '💳', color: '#C44536' }, // SYSTEM_SPLIT §6.3
+  { id: 'other_expense',  label: 'Other',              icon: '📦', color: '#6B635C' },
 ] as const;
 
 export const INCOME_CATEGORIES = [
-  { id: 'salary',     label: 'Salary',           icon: '💼', color: '#85A88A' },
-  { id: 'freelance',  label: 'Freelance',        icon: '💻', color: '#6B7C53' },
-  { id: 'investment', label: 'Investment Income',icon: '📈', color: '#E8A87C' },
-  { id: 'gift',       label: 'Gift / Bonus',     icon: '🎁', color: '#E26D5C' },
-  { id: 'rental',     label: 'Rental Income',    icon: '🏘️', color: '#4A6FA5' },
-  { id: 'business',   label: 'Business Revenue', icon: '🏢', color: '#6E4555' },
-  { id: 'other_inc',  label: 'Other Income',     icon: '💰', color: '#85A88A' },
+  { id: 'salary',           label: 'Salary',           icon: '💼', color: '#85A88A' },
+  { id: 'freelance',        label: 'Freelance',        icon: '💻', color: '#6B7C53' },
+  { id: 'gift_bonus',       label: 'Gift / Bonus',     icon: '🎁', color: '#E26D5C' },
+  { id: 'rental_income',    label: 'Rental income',    icon: '🏠', color: '#4A6FA5' },
+  { id: 'business_revenue', label: 'Business revenue', icon: '🏢', color: '#6E4555' },
+  { id: 'other_income',     label: 'Other income',     icon: '💰', color: '#85A88A' },
 ] as const;
 
-// Track-specific categories (v7.0.3, Item #9). The track picker filters the
-// category list down to the chosen track; legacy rows still resolve via getCat.
-export const INVESTMENT_CATEGORIES = [
-  { id: 'investment_in',  label: 'Buy / Contribute', icon: '📈', color: '#E8A87C' },
-  { id: 'investment_out', label: 'Sell / Withdraw',  icon: '📉', color: '#E8A87C' },
-  { id: 'dividend',       label: 'Dividend',         icon: '💵', color: '#85A88A' },
-  { id: 'capital_gain',   label: 'Capital Gain',     icon: '🪙', color: '#6B7C53' },
-  { id: 'rebalance',      label: 'Rebalance',        icon: '⇄',  color: '#4A6FA5' },
-] as const;
+// Legacy id aliases so PRE-migration local-only data still renders a sane label
+// (cloud data was migrated in 20260608120000; local caches may lag one session).
+export const LEGACY_CATEGORY_ALIASES: Record<string, string> = {
+  food: 'food_dining', rent: 'rent_mortgage', other_exp: 'other_expense',
+  gift: 'gift_bonus', rental: 'rental_income', business: 'business_revenue',
+  other_inc: 'other_income', investment: 'other_income',
+  debt_payment: 'loan_emi', debt_interest: 'loan_emi',
+};
 
-export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, ...INVESTMENT_CATEGORIES];
+export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
 export const BUDGET_COLORS = ['#E26D5C','#85A88A','#C44536','#E8A87C','#4A6FA5','#6E4555','#F4D27A','#6B7C53','#F4B6A8'];
 export const MEMBER_COLORS = ['#E26D5C','#85A88A','#E8A87C','#4A6FA5','#6E4555','#6B7C53'];
 
@@ -81,25 +75,31 @@ export interface CategoryMeta {
   color: string;
 }
 
-export const getCat = (id: string): CategoryMeta =>
-  (ALL_CATEGORIES.find(c => c.id === id) as CategoryMeta) ?? { id, label: id, icon: '📦', color: '#6B635C' };
+export const getCat = (id: string): CategoryMeta => {
+  const resolved = LEGACY_CATEGORY_ALIASES[id] ?? id;
+  return (ALL_CATEGORIES.find(c => c.id === resolved) as CategoryMeta)
+    ?? { id, label: id, icon: '📦', color: '#6B635C' };
+};
 
 /** Money-model B2.1 — deterministic budget/category colour from a stable string
  *  hash into BUDGET_COLORS. Removes the colour picker (alpha item 2) while keeping
  *  colours consistent app-wide with zero user input. Pure + stable: the same key
  *  always maps to the same swatch. Prefers a known category's own colour. */
 export function deterministicColor(key: string): string {
-  const known = ALL_CATEGORIES.find(c => c.id === key);
+  const resolved = LEGACY_CATEGORY_ALIASES[key] ?? key;
+  const known = ALL_CATEGORIES.find(c => c.id === resolved);
   if (known) return known.color;
   let h = 0;
-  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  for (let i = 0; i < resolved.length; i++) h = (h * 31 + resolved.charCodeAt(i)) | 0;
   return BUDGET_COLORS[Math.abs(h) % BUDGET_COLORS.length];
 }
 
+// v9 — transfers AND investments carry no category (spec §3/§2.4): direction is
+// a form control, the "kind" of a transfer is derived for display only.
 export const CATEGORIES_BY_TYPE = {
   expense:    EXPENSE_CATEGORIES,
   income:     INCOME_CATEGORIES,
-  investment: INVESTMENT_CATEGORIES,
+  investment: [] as ReadonlyArray<CategoryMeta>,
   transfer:   [] as ReadonlyArray<CategoryMeta>,
 } as const;
 

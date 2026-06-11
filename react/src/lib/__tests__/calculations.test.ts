@@ -155,12 +155,17 @@ describe('computePulseScore', () => {
     expect(Object.keys(p.components).sort()).toEqual(['budget', 'debt', 'savings', 'trend']);
   });
   it('CON-UNIT-024 · higher debt-to-income lowers the debt component', () => {
-    const lowDtiTxns = [txn({ type: 'income', amount: 10000, date: '2026-05-01' })];
+    // Date the income into the CURRENT month so the DTI ratio is actually
+    // exercised (pulse score reads nowMonthKey()); avoids calendar drift.
+    const curMonthDate = `${new Date().toISOString().slice(0, 7)}-01`;
+    const lowDtiTxns = [txn({ type: 'income', amount: 10000, date: curMonthDate })];
+    // Debt-free is intentionally EXCLUDED from the score, so compare two
+    // debt-bearing households: a crushing DTI must score below a light one.
     const highDebt: Debt[] = [{ id: 'd', type: 'loan', name: 'L', principal: 0, currentBalance: 5000, interestRate: 10, minimumPayment: 6000, currency: 'USD' }];
-    const noDebt: Debt[] = [];
+    const lowDebt: Debt[] = [{ id: 'd2', type: 'loan', name: 'L2', principal: 0, currentBalance: 1000, interestRate: 5, minimumPayment: 500, currency: 'USD' }];
     const high = computePulseScore(lowDtiTxns, [], [], highDebt, USD, R);
-    const none = computePulseScore(lowDtiTxns, [], [], noDebt, USD, R);
-    expect(high.components.debt).toBeLessThan(none.components.debt);
+    const low = computePulseScore(lowDtiTxns, [], [], lowDebt, USD, R);
+    expect(high.components.debt).toBeLessThan(low.components.debt);
   });
 });
 

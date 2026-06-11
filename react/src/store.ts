@@ -36,8 +36,9 @@ import {
 } from './lib/onboardingState';
 import {
   computeAccountBalance, accountValueOf,
-  reconcileAccount as buildReconcileAdjustment,
+  reconcileAccount as buildReconcileOffset,
 } from './lib/accountBalance';
+import { splitEmiPortions } from './lib/calculations';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from './lib/educationProgress';
 
 interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
@@ -534,7 +535,7 @@ export const useStore = create<Store>((set, get) => ({
 
   // ── CRUD ─────────────────────────────────────────────────────
   upsertTransaction: async (t) => {
-    const { adapter, currentHouseholdId, transactions } = get();
+    const { adapter, currentHouseholdId, transactions, accounts } = get();
 
     // Money-Model B1.1 (A2) — no transaction without an account. Default the
     // funding source to the system Cash account so the rule never blocks fast entry.
@@ -545,56 +546,62 @@ export const useStore = create<Store>((set, get) => ({
       }
     }
 
-    // B1.5 (A2/A8 hard rule) — a transfer is STRUCTURAL: it never carries a
-    // spend/earn category and never counts in spending/income totals. Enforce at
-    // the data layer so no input path (Ask Vyact, import, API) can leak a
-    // consumption/source category onto a transfer and cause a double-count (R1).
-    if (t.type === 'transfer' && t.category !== 'transfer') {
-      t = { ...t, category: 'transfer' };
+    // v9 §2.4 — resolve the encoded picker values ('cash' / 'asset:<id>' /
+    // 'debt:<id>') to real account uuids so the FK matrix holds. The encoded
+    // string stays in paymentMethod for display compatibility.
+    const resolveUuid = (v: string | undefined): string | undefined => {
+      if (!v) return undefined;
+      const acc = accounts.find(a => a.id === v || accountValueOf(a) === v);
+      return acc?.id;
+    };
+    const fromUuid = resolveUuid(t.accountId ?? t.paymentMethod);
+    const toUuid   = resolveUuid(t.toAccountId ?? t.linkedToAssetId);
+    if (t.type === 'expense') {
+      t = { ...t, accountId: fromUuid ?? t.accountId, toAccountId: undefined };
+    } else if (t.type === 'income') {
+      t = { ...t, accountId: undefined, toAccountId: toUuid ?? fromUuid ?? t.accountId };
+    } else if (t.type === 'transfer' || t.type === 'investment') {
+      // v9 D1 — transfers/investments are ONE row with both FKs; no category.
+      t = { ...t, category: '', accountId: fromUuid ?? t.accountId, toAccountId: toUuid ?? t.toAccountId };
+      // §4.4 guard: from ≠ to.
+      if (t.accountId && t.accountId === t.toAccountId) {
+        throw new Error('Transfer needs two different accounts');
+      }
     }
 
-    // v7.0.3 — Transfer-track encoding. A transfer row carries a destination
-    // account in `linkedToAssetId`; we expand it into two linked txns (one
-    // expense from source, one income to dest), tagged with a __tg:<gid>
-    // group marker in `note` so deletion / reporting stays consistent.
-    // Reports filter `category === 'transfer'` so the pair self-cancels.
-    //
-    // v7.2 (Money Map) — once `money_map === 'on'` the schema has real
-    // `account_id` / `to_account_id` FK columns, so a single 'transfer'
-    // row is the canonical encoding. We skip the paired-row expansion in
-    // that mode; `reportableTxns` filters single-row transfers via the
-    // type check (it only keeps income/expense). 'shadow' keeps the
-    // legacy paired write so a v7.1 client still sees the transfer.
-    if (!t.id && t.type === 'transfer' && t.linkedToAssetId && t.paymentMethod
-        && getMoneyMapMode() !== 'on') {
-      const gid = uid();
-      const baseNote = (t.note ?? '').trim();
-      const tag = `__tg:${gid}`;
-      const groupNote = baseNote ? `${baseNote} ${tag}` : tag;
-      const out: Partial<Transaction> = {
-        ...t,
-        id: uid(),
-        type: 'expense',
-        category: 'transfer',
-        paymentMethod: t.paymentMethod,
-        linkedAssetId: t.paymentMethod,
-        linkedToAssetId: t.linkedToAssetId,
-        note: groupNote,
-      };
-      const inc: Partial<Transaction> = {
-        ...t,
-        id: uid(),
-        type: 'income',
-        category: 'transfer',
-        paymentMethod: t.linkedToAssetId,
-        linkedAssetId: t.linkedToAssetId,
-        linkedToAssetId: t.paymentMethod,
-        note: groupNote,
-      };
-      const savedOut = await adapter.upsert('transactions', currentHouseholdId, out);
-      const savedInc = await adapter.upsert('transactions', currentHouseholdId, inc);
-      set({ transactions: [...transactions, savedOut as Transaction, savedInc as Transaction] });
-      return savedOut as Transaction;
+    // v9 §4.1/§6.3 — loan_emi SYSTEM_SPLIT: book the interest portion as the
+    // expense (counts as spend) and a system transfer leg for the principal
+    // (reduces the linked debt; excluded from spend). Best-effort sequential —
+    // the principal leg + debt update follow the expense write.
+    if (!t.id && t.type === 'expense' && t.category === 'loan_emi' && t.linkedDebtId && t.amount) {
+      const debt = get().debts.find(d => d.id === t.linkedDebtId);
+      if (debt) {
+        const { interest, principal } = splitEmiPortions(debt.currentBalance, debt.interestRate, t.amount);
+        const emiSplit = { interest, principal, debt_id: debt.id };
+        // 1) interest leg — the visible expense (only this counts as spend, R-AGG-6)
+        const expense = await adapter.upsert('transactions', currentHouseholdId, {
+          ...t, id: uid(), amount: interest, emiSplit,
+        });
+        // 2) principal leg — system transfer into the loan (liability) account
+        //    (display-kind loan_principal). Find-or-create a kind='loan' account
+        //    linked to the debt so the leg has a real destination.
+        let loanAcc = get().accounts.find(a => a.kind === 'loan' && a.assetId === debt.id);
+        if (!loanAcc) {
+          loanAcc = await get().upsertAccount({
+            id: uid(), kind: 'loan', name: debt.name, currency: debt.currency,
+            assetId: debt.id, isDefault: false, isArchived: false,
+          });
+        }
+        const principalLeg = await adapter.upsert('transactions', currentHouseholdId, {
+          ...t, id: uid(), type: 'transfer' as const, category: '', amount: principal,
+          toAccountId: loanAcc.id, description: `${t.description || 'EMI'} — principal`,
+          emiSplit, linkedTxnId: (expense as Transaction).id,
+        });
+        // 3) reduce the linked debt balance
+        await get().upsertDebt({ ...debt, currentBalance: Math.max(0, debt.currentBalance - principal) });
+        set({ transactions: [...get().transactions, expense as Transaction, principalLeg as Transaction] });
+        return expense as Transaction;
+      }
     }
 
     // TD-03 phase A (PR #11): when this is an EDIT of an existing txn
@@ -711,14 +718,31 @@ export const useStore = create<Store>((set, get) => ({
     await adapter.remove('accounts', currentHouseholdId, id);
     set({ accounts: accounts.filter(x => x.id !== id) });
   },
+  // v9 §2.6 (D2) — reconciliation is a BALANCE CORRECTION, never a transaction.
+  // The delta between the computed and the user-stated balance is absorbed into
+  // accounts.reconciliation_offset with a dated quiet-log entry. Same path for
+  // bank reconcile and investment value updates (kind switches the log entry).
   reconcileAccount: async (account, realBalance) => {
-    const { transactions, profile, rates } = get();
-    const value = accountValueOf(account);
-    const computed = computeAccountBalance(value, account.openingBalance ?? 0, transactions, profile.baseCurrency, rates);
-    const { adjustment, delta } = buildReconcileAdjustment(value, computed, realBalance, account.currency || profile.baseCurrency);
-    if (adjustment) await get().upsertTransaction(adjustment);   // normal account-bound txn → shows in ledger (A2)
-    // Mark the balance confirmed (provenance lifecycle, R7) — never overwrite it.
-    await get().upsertAccount({ ...account, confidence: 'confirmed', source: 'user', confirmedAt: new Date().toISOString() });
+    const { transactions, profile, rates, assets, debts } = get();
+    const computed = computeAccountBalance(account, transactions, profile.baseCurrency, rates);
+    const kind = account.kind === 'investment' ? 'investment' as const : 'bank' as const;
+    const { patch, delta } = buildReconcileOffset(account, computed, realBalance, kind);
+    const confirmedProv = { confidence: 'confirmed' as const, source: 'user' as const, confirmedAt: new Date().toISOString() };
+    await get().upsertAccount({ ...account, ...patch, ...confirmedProv });
+    // §6 R-AGG-5 / D2 — net worth folds over the Asset/Debt entities these
+    // accounts were synthesised from, so the stated value MUST flow through to
+    // the linked entity (else the offset would never reach net worth). The
+    // stated balance is the new truth; provenance becomes confirmed/user.
+    if (delta !== 0 && account.assetId) {
+      if (account.kind === 'credit_card' || account.kind === 'loan') {
+        const debt = debts.find(x => x.id === account.assetId);
+        // a liability's stated value is its outstanding balance (non-negative).
+        if (debt) await get().upsertDebt({ ...debt, currentBalance: Math.max(0, Math.abs(realBalance)), ...confirmedProv });
+      } else {
+        const asset = assets.find(x => x.id === account.assetId);
+        if (asset) await get().upsertAsset({ ...asset, value: realBalance, lastUpdated: confirmedProv.confirmedAt, ...confirmedProv });
+      }
+    }
     return delta;
   },
   upsertSavedView: async (v) => {

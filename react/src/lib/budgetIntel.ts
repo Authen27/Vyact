@@ -58,9 +58,9 @@ export function suggestBudget(input: {
     put(t.category, monthly, 'recurring');
   }
 
-  // Debt minimum payments → debt_payment category.
+  // Debt minimum payments → the v9 loan_emi category (txn-redesign §3).
   const debtMin = debts.reduce((s, d) => s + (d.minimumPayment || 0), 0);
-  if (debtMin > 0) put('debt_payment', debtMin, 'debt');
+  if (debtMin > 0) put('loan_emi', debtMin, 'debt');
 
   // Goal monthly pace → savings category.
   let goalMonthly = 0;

@@ -49,6 +49,11 @@ const VARIANTS: Record<VariantKey, string[]> = {
     "Moving {amount} — tap confirm and it's done.",
     "{amount} transfer ready to log. Confirm when it looks right.",
   ],
+  'capture.investment.seeded': [
+    "Nice — {amount} into your investments. Pick the account and confirm.",
+    "{amount} investment contribution ready — confirm to record it.",
+    "Logging {amount} toward your investments — check the account and confirm.",
+  ],
   'capture.split.seeded': [
     "Split {amount} {ways} ways — your share is {share}. Confirm to log it.",
     "Got it: {amount} across {ways}, you owe {share}. Check and confirm.",

@@ -38,18 +38,17 @@ interface FormState {
   isArchived: boolean;
 }
 
+// v9 txn-redesign §2.2 — strict kind enum. credit_card and loan are liabilities.
 const KINDS: { key: AccountKind; label: string }[] = [
-  { key: 'checking',    label: 'Checking' },
-  { key: 'savings',     label: 'Savings' },
-  { key: 'credit_card', label: 'Credit card' },
+  { key: 'bank',        label: 'Bank' },
   { key: 'cash',        label: 'Cash' },
+  { key: 'credit_card', label: 'Credit card' },
   { key: 'investment',  label: 'Investment' },
-  { key: 'wallet',      label: 'Wallet' },
-  { key: 'other',       label: 'Other' },
+  { key: 'loan',        label: 'Loan' },
 ];
 
 const blank = (currency: string): FormState => ({
-  kind: 'checking',
+  kind: 'bank',
   name: '',
   currency,
   isDefault: false,

@@ -146,6 +146,9 @@ export function buildAccountsFromStore(
   let hasCash = false;
   for (const acc of accounts) {
     if (acc.isArchived) continue;
+    // v9 — loan accounts are system-only (EMI principal legs land there);
+    // they are never a spend-from / deposit-to option.
+    if (acc.kind === 'loan') continue;
     const meta = kindToOption(acc.kind);
     let value: string;
     if (acc.kind === 'cash') {

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v8.9.0`** (consumer)
+> **Current production version: `v9.0.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,82 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.0.0 — Transaction forms & categories rebuild (txn-redesign) *(2026-06-11)*
+
+A ground-up rebuild of how transactions move money, built to the binding
+architect spec [`vyact-txn-redesign-architect-spec_1.md`](../vyact-txn-redesign-architect-spec_1.md).
+Single big-bang release behind `FEATURES.txnRedesign`; the data migration is
+forward-only (not flag-reversible). Governing money-model principles (A1–A9)
+and the R-AGG-1..7 aggregation rules are now pinned by an invariant test suite.
+
+**Locked decisions (spec §0):**
+- **D1 — transfers are a single row.** `type='transfer'` with both `account_id`
+  and `to_account_id` NOT NULL and `category` NULL. The old `__tg` paired-row
+  encoding is retired. Investments follow the same shape (`type='investment'`).
+- **D2 — reconciliation & investment-value updates are an account-level
+  `reconciliation_offset`, NEVER a transaction.** The drift between the computed
+  and the user-stated balance is absorbed into `accounts.reconciliation_offset`
+  with a dated quiet-log entry (`reconciliation_log` jsonb). The offset feeds net
+  worth / balances and is structurally invisible to every spend/income
+  aggregator. Investment "Update value" reuses the exact same mechanism.
+- **D3 — the v7.0.3 track picker is retired.**
+- **D4 — big-bang single release** behind one feature flag.
+- **D5 — Goals & Tax remain permanently absent.**
+
+**Schema & migration (`supabase/migrations/20260608120000_v9_txn_redesign.sql`):**
+- `accounts.kind` remapped to the strict enum `bank | cash | credit_card |
+  investment | loan`; `reconciliation_offset numeric NOT NULL DEFAULT 0` and
+  `reconciliation_log jsonb DEFAULT '[]'` added.
+- `transactions.category` is now nullable; per-type FK matrix backfilled via
+  `_v9_resolve_account()` (expense → `account_id`, income → `to_account_id`,
+  transfer/investment → both). Legacy category ids renamed (food→food_dining,
+  rent→rent_mortgage, debt_payment→loan_emi, etc.); goal_*/tax_* folded to
+  `other_expense`; `balance_adjustment` rows folded into the offset.
+- Constraints added **last** (after data cleaned): `CK_txn_type`,
+  `CK_txn_category_by_type`, `CK_txn_accounts_by_type`, `CK_account_kind`.
+- Backups (`_backup_v9_*`) taken before migration; INV-9 before/after
+  reconciliation passed on prod data (spend/income identical, 0 constraint
+  violations, 3 issues logged to `migration_issues`, never silently dropped).
+
+**Categories (§3):** type-scoped enums — no flat pool. Transfers and investments
+carry **no** category. `LEGACY_CATEGORY_ALIASES` keeps pre-migration local caches
+rendering sane labels/colours for one session; `deterministicColor` now resolves
+aliases too.
+
+**Forms (§4):** investment direction toggle (Added/Withdrew), loan picker for
+`loan_emi` (SYSTEM_SPLIT: interest = visible expense, principal = system transfer
+leg into a `kind='loan'` account, reducing the debt — atomic), category field
+hidden for transfer/investment.
+
+**Aggregation (§6):** net worth folds over the linked `Asset`/`Debt` entities, so
+the reconcile action now flows the stated value through to the linked entity
+(R-AGG-5) — the offset reaches net worth without double-counting in spend/income.
+
+**Invariant net (§7):** `lib/__tests__/moneyModel.invariants.test.ts` pins
+INV-1 (transfer neutral), INV-2 (investment neutral), INV-3/3b (value-update is
+an offset + quiet log, no transaction), INV-5 (exact EMI split), INV-6 (balance
+fold), INV-7 (net worth = assets − liabilities), INV-9 (type-scoped categories).
+Engine + regression + Ask Vyact suites updated to v9 semantics. 132 tests green;
+tsc clean; production build clean; dev server boots and serves the app.
+
+> The app can't be fully exercised here (no live browser) — validated via tsc +
+> 132 unit tests + production build + dev-server boot. Do a browser QA pass on
+> the new transaction/investment forms and the account reconcile flow.
+
+## v8.9.1 — Budgets toolbar cleanup: remove Copy, Suggest icon-only *(2026-06-10)*
+
+UI cleanup on the Budgets page toolbar.
+
+- **Removed the "Copy" button** — the carry-forward action (`copyPrevious()`) and
+  its `copyBudgets` import from `lib/budgetIntel` have been deleted. The function
+  duplicated current budgets as an editable proposal, but was redundant with the
+  Suggest flow.
+- **"Suggest" button is now icon-only** — renders the Sparkles icon (15px) with a
+  `title="Suggest budgets"` tooltip for accessibility. Text label removed to
+  declutter the header.
+
+No schema change; no data-layer change. Pure presentation cleanup.
 
 ## v8.9.0 — Recurring schedules: household + user scoped (cloud-synced) *(2026-06-07)*
 

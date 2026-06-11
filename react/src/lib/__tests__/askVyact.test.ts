@@ -32,7 +32,7 @@ describe('askVyactParser — amount + entities (spec §3 stage 2)', () => {
     expect(normalise('  Spent  45  ON  Fuel ')).toBe('spent 45 on fuel');
     expect(matchCategory('spent 45 on fuel')).toBe('transport');
     expect(matchCategory('netflix 199')).toBe('entertainment');
-    expect(matchCategory('how much on dining this month')).toBe('food');
+    expect(matchCategory('how much on dining this month')).toBe('food_dining');
   });
   it('CON-UNIT-ASK-003 · parses split participant counts', () => {
     expect(parseParticipantCount('split the 3600 dinner 4 ways')).toBe(4);
@@ -101,9 +101,9 @@ function makeCtx(over: Partial<AssistantContext> = {}): AssistantContext {
   const profile = { baseCurrency: 'GBP', household: 'individual', language: 'en' } as unknown as Profile;
   const rates = { GBP: 1 };
   const transactions = over.transactions ?? ([
-    { id: 't1', type: 'expense', amount: 420, currency: 'GBP', date: new Date().toISOString().slice(0, 10), description: '', category: 'food' },
+    { id: 't1', type: 'expense', amount: 420, currency: 'GBP', date: new Date().toISOString().slice(0, 10), description: '', category: 'food_dining' },
   ] as Transaction[]);
-  const budgets = over.budgets ?? ([{ id: 'b1', category: 'food', limit: 300, currency: 'GBP' }] as Budget[]);
+  const budgets = over.budgets ?? ([{ id: 'b1', category: 'food_dining', limit: 300, currency: 'GBP' }] as Budget[]);
   const goals = over.goals ?? ([] as Goal[]);
   const debts = over.debts ?? ([] as Debt[]);
   const assets = over.assets ?? ([{ id: 'a1', type: 'cash', name: 'Cash', value: 8000, currency: 'GBP', liquidity: 'liquid' }] as Asset[]);
@@ -145,7 +145,7 @@ describe('resolve + phrase — answers trace to services (spec §5/§6)', () => 
   });
   it('CON-UNIT-ASK-044 · estimated-derived figures are flagged in phrasing (provenance)', () => {
     const ctx = makeCtx({
-      budgets: [{ id: 'b1', category: 'food', limit: 300, currency: 'GBP', confidence: 'estimated', source: 'onboarding' }] as Budget[],
+      budgets: [{ id: 'b1', category: 'food_dining', limit: 300, currency: 'GBP', confidence: 'estimated', source: 'onboarding' }] as Budget[],
     });
     const intent = classifyIntent(parse('how much on dining this month'));
     const r = resolve(intent, ctx);

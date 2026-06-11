@@ -42,11 +42,15 @@ export interface ExtractedEntities {
 // Keyword → category id. Small, contained, and order-independent (longest
 // keyword wins on overlap). Mirrors the category ids in constants.ts. This is
 // the "reuse KEYWORD_MAP" hook from the spec; extend per launch market.
+// v9 — keys map to the type-scoped category ids in the txn-redesign spec §3.
 const KEYWORD_MAP: Record<string, string> = {
   // food & dining
-  coffee: 'food', lunch: 'food', dinner: 'food', breakfast: 'food', restaurant: 'food',
-  dining: 'food', groceries: 'food', grocery: 'food', food: 'food', eat: 'food', 'eating out': 'food',
-  starbucks: 'food', mcdonalds: 'food', swiggy: 'food', zomato: 'food', takeaway: 'food',
+  coffee: 'food_dining', lunch: 'food_dining', dinner: 'food_dining', breakfast: 'food_dining',
+  restaurant: 'food_dining', dining: 'food_dining', food: 'food_dining', eat: 'food_dining',
+  'eating out': 'food_dining', starbucks: 'food_dining', mcdonalds: 'food_dining',
+  swiggy: 'food_dining', zomato: 'food_dining', takeaway: 'food_dining',
+  // groceries (its own category in v9)
+  groceries: 'groceries', grocery: 'groceries', supermarket: 'groceries',
   // transport
   fuel: 'transport', petrol: 'transport', gas: 'transport', uber: 'transport', taxi: 'transport',
   cab: 'transport', ola: 'transport', train: 'transport', bus: 'transport', parking: 'transport',
@@ -61,7 +65,9 @@ const KEYWORD_MAP: Record<string, string> = {
   electricity: 'utilities', water: 'utilities', internet: 'utilities', phone: 'utilities',
   bill: 'utilities', bills: 'utilities', wifi: 'utilities', broadband: 'utilities',
   // housing
-  rent: 'rent', mortgage: 'rent',
+  rent: 'rent_mortgage', mortgage: 'rent_mortgage',
+  // loan / EMI — system-split category (§4.1)
+  emi: 'loan_emi', 'loan payment': 'loan_emi', loan: 'loan_emi',
   // education / childcare / travel / insurance
   school: 'education', course: 'education', tuition: 'education', books: 'education',
   childcare: 'childcare', daycare: 'childcare', nanny: 'childcare',
@@ -70,7 +76,7 @@ const KEYWORD_MAP: Record<string, string> = {
   // income
   salary: 'salary', paid: 'salary', payday: 'salary', wage: 'salary',
   freelance: 'freelance', client: 'freelance', invoice: 'freelance',
-  bonus: 'gift', gift: 'gift', refund: 'other_inc',
+  bonus: 'gift_bonus', gift: 'gift_bonus', refund: 'other_income',
 };
 
 const KEYWORDS_BY_LEN = Object.keys(KEYWORD_MAP).sort((a, b) => b.length - a.length);
