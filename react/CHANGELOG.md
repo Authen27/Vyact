@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.0.1`** (consumer)
+> **Current production version: `v9.1.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,64 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.1.0 — Feedback batch: budgets redesign, recurring RRULE, deep-links, account-split removal *(2026-06-12)*
+
+Built to [`vyact-v9-feedback-triage-and-solutions.md`](../vyact-v9-feedback-triage-and-solutions.md)
++ [`vyact-v9-developer-investigation-prompt.md`](../vyact-v9-developer-investigation-prompt.md).
+Migration `supabase/migrations/20260612120000_v91_budgets_recurring_receivables_deeplink.sql`
+(applied to prod; 4 legacy budgets → 2 month containers + 4 allocations).
+
+**§4 Budget redesign + Investigation A fix (cross-device divergence).** Root cause:
+`budgets` had no strict identity — only `category` + a fuzzy `period` — so two
+devices keyed "the monthly budget" differently and minted parallel rows. Fix is the
+data-model redesign: budgets now carry a **strict identity** (`scope` ∈
+month/annual/custom + `period_year` + `period_month`) with **unique constraints**
+(`uq_budget_month`, `uq_budget_annual`) — the same budget on every device. A budget
+is a **period container**; per-category limits live in a new cloud-synced
+`budget_allocations` **child table** (`budgetAllocations` adapter entity), not the
+v8.8-dropped jsonb. New form: scope picker, explicit identity (June 2026 / 2025 /
+"Maldives Trip"), per-category allocations with sum-check warnings, a read-only
+**recurring forecast** line ("₹X already committed via recurring", money-model A8),
+and a current-month create nudge. `budgetLines()` flattens container+allocations so
+Pulse/planner/notifications keep working.
+
+**§5 Recurring redesign.** Recurrence is now authored **only** in the Recurring
+section (removed from the Transaction form — single source of truth). Added an RFC
+5545 **RRULE** (`buildRRule`: daily/weekly/monthly/quarterly[=monthly-interval-3]/
+yearly + COUNT/UNTIL, mutually exclusive), an **owner** member field (flows to
+generated transactions' attribution), **investment** schedules (alongside
+expense/income), and an **Ends** condition (never / after N / on date). The
+meaningless **active/deactivate toggle is removed**. Materialised transactions link
+back via `transactions.recurring_schedule_id` and carry the owner.
+*(Noted gap: COUNT/UNTIL enforcement in the generation loop still rides the legacy
+`computeNextDueDate` driver; the RRULE is stored + drives the form. Full
+rrule-expansion in the generator is a follow-up.)*
+
+**§6 Debt receivables + Investigation B.** Finding: the `DebtFormModal` direction
+selector + counterparty field were **already present** in current code (the "stub"
+feedback was stale); the DB has `direction`/`counterparty_name` (v7.2.0). Creating an
+"Owed to me" receivable works and counts toward assets/net worth. Added the §8 debt
+drill-down for receivables.
+
+**§7 Account-split removal.** Removed the multi-account `AccountDrawer` from the
+transaction form; adapter stops round-tripping `extras.accountSplits`; the migration
+scrubs the key (0 rows affected; asserted clean). **People bill-splitting (SplitInfo)
+is untouched.**
+
+**§8 Unified transaction deep-link.** One query-param contract extends `?type`/`?cat`
+with `?month`, `?from&to`, `?budgetId` (→ period + allocation categories), and
+`?debtId` (→ payments/EMIs via `emi_split.debt_id`/`linkedDebtId`/`debt_id`). Wired:
+budget click, budget-category click, debt "Payments" button, and the dashboard
+month income/expense cards (now carry `&month`). A context chip reflects the active
+deep-link; Clear-all resets.
+
+**§3 Google SSO** shipped in the prior change (button un-stubbed).
+
+> Validated: tsc clean · vitest 147/147 (incl. new `v91.test.ts` + money INV-1..9) ·
+> production build · dev-server boot. The app can't be exercised in a live browser
+> here — do a QA pass on the budget create/edit + allocations, the recurring form,
+> and the three deep-links.
 
 ## v9.0.1 — UX improvements: debt count, auto-approve, pagination, voice-to-text *(2026-06-11)*
 

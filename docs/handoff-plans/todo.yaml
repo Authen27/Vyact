@@ -110,7 +110,7 @@ tasks:
     title: "Google SSO as primary sign-in — always visible, no feature flag"
     priority: urgent
     wave: 1
-    status: not-started
+    status: done   # 2026-06-11: GoogleButton un-stubbed (calls signInOAuth, inline error, always renders); SignIn/SignUp already Google-first. tsc + 132 tests + build + dev-boot green.
     owner: junior
     safe: "yes"
     depends_on: [admin_lockdown]
@@ -131,7 +131,7 @@ tasks:
     title: "Configure Google OAuth provider in Supabase + redirect URLs [HUMAN]"
     priority: urgent
     wave: 1
-    status: not-started
+    status: done   # 2026-06-11: human confirmed Google provider credentials configured in Supabase.
     owner: human
     safe: "no"
     depends_on: [admin_lockdown]

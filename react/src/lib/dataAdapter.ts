@@ -25,7 +25,8 @@ import { kvGet, kvSet, kvRemove } from './kvStore';
 //          Backed by `saved_views` table + `replace_saved_views` RPC.
 export type Entity =
   | 'transactions' | 'budgets' | 'goals' | 'debts' | 'assets'
-  | 'members' | 'accounts' | 'savedViews' | 'recurring';
+  | 'members' | 'accounts' | 'savedViews' | 'recurring'
+  | 'budgetAllocations';   // v9.1 §4 — cloud-synced budget sub-limits
 
 export interface DataAdapter {
   // households / profiles

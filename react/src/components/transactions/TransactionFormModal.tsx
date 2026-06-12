@@ -3,7 +3,6 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { Input, Select, Field, FieldRow } from '../ui/Input';
 import TrackPicker, { TRACKS } from './TrackPicker';
-import AccountDrawer from './AccountDrawer';
 import { useStore } from '../../store';
 import { normalizeTimeInput, nowTime, uid, today } from '../../lib/format';
 import {
@@ -427,28 +426,6 @@ export default function TransactionFormModal(props: Props) {
       return;
     }
 
-    // v7.3 — multi-account split (Item #5). When enabled, the rows must
-    // pick a non-empty accountId each and sum to the txn total.
-    let accountSplits: AccountSplit[] | undefined;
-    if (form.splitAcrossAccounts && !isTransfer) {
-      const rows = form.accountSplitRows.filter(r => r.accountId && r.amount > 0);
-      if (rows.length < 2) {
-        toast('Account split needs at least two accounts', 'error');
-        return;
-      }
-      const ids = new Set(rows.map(r => r.accountId));
-      if (ids.size !== rows.length) {
-        toast('Each split row must use a different account', 'error');
-        return;
-      }
-      const sum = rows.reduce((s, r) => s + r.amount, 0);
-      if (Math.abs(sum - amount) > 0.01) {
-        toast(`Account split (${sum.toFixed(2)}) must equal the total (${amount.toFixed(2)})`, 'error');
-        return;
-      }
-      accountSplits = rows;
-    }
-
     // ── Build split info (expense or income) ──
     let split: Transaction['split'] | undefined = undefined;
     if ((form.type === 'expense' || form.type === 'income') && form.splitEnabled) {
@@ -505,38 +482,12 @@ export default function TransactionFormModal(props: Props) {
         linkedToAssetId: needsToAccount ? toEncoded || undefined : initial?.linkedToAssetId,
         linkedDebtId: (form.category === 'loan_emi' ? form.linkedDebtId : undefined) ?? initial?.linkedDebtId,
         linkedTxnId:   initial?.linkedTxnId,
-        accountSplits,
         split,
       };
       await upsertTransaction(txn);
 
-      // Mirror a brand-new recurring txn into a RecurringSchedule so the
-      // Recurring page reflects it. Skip on edit (we don't track the link),
-      // on splits (per-split-share schedules are nonsensical), and when the
-      // user hasn't picked a frequency.
-      if (!initial && form.recurring && !split) {
-        const freq = form.recurring as RecurrenceFreq;
-        const [, , dd] = form.date.split('-').map(Number);
-        const dayOfMonth = freq === 'monthly' ? dd : undefined;
-        const nextDue = computeNextDueDate(freq, form.date, form.date, dayOfMonth);
-        const { id: _omitId, date: _omitDate, ...template } = txn;
-        try {
-          await upsertRecurring({
-            transactionTemplate: template,
-            frequency: freq,
-            dayOfMonth,
-            startDate: form.date,
-            nextDueDate: nextDue,
-            lastGenerated: form.date,   // suppress the seed-txn in upsertRecurring
-            autoConfirm: true,
-            active: true,
-            reminderLeadDays: 3,
-          });
-        } catch (err) {
-          // Non-fatal — the txn is already saved.
-          console.warn('Failed to mirror recurring schedule:', err);
-        }
-      }
+      // v9.1 §5 — recurrence is authored ONLY in the Recurring section now;
+      // the Transaction form no longer mirrors a schedule.
 
       toast(initial ? 'Transaction updated' : 'Transaction added', 'success');
       onClose();
@@ -748,26 +699,8 @@ export default function TransactionFormModal(props: Props) {
         </p>
       )}
 
-      {/* v7.3 — Money Map Item #5: optional multi-account split. Hidden
-         on transfers (which already use a 2-account model). */}
-      {!isTransfer && accountRequired && accounts.length > 1 && (
-        <div className="mb-3">
-          <AccountDrawer
-            total={parseFloat(form.amount) || 0}
-            accounts={accounts}
-            splits={form.accountSplitRows}
-            onChange={rows => setForm(f => ({ ...f, accountSplitRows: rows }))}
-            enabled={form.splitAcrossAccounts}
-            onToggleEnabled={next => setForm(f => ({
-              ...f,
-              splitAcrossAccounts: next,
-              accountSplitRows: next && f.accountSplitRows.length === 0
-                ? [{ accountId: f.paymentMethod || '', amount: parseFloat(f.amount) || 0 }, { accountId: '', amount: 0 }]
-                : f.accountSplitRows,
-            }))}
-          />
-        </div>
-      )}
+      {/* v9.1 §7 — multi-account split removed (rarely used). People-splitting
+         (the "Split this bill" section below) is unaffected. */}
 
       {/* B4.2 — "More details" disclosure: reveals the secondary fields (time
           above, recurring + note here) only when the user wants them. */}
@@ -779,19 +712,9 @@ export default function TransactionFormModal(props: Props) {
       )}
 
       {showSecondary && (
-      <FieldRow>
-        <Field label="Recurring" hint="optional">
-          <Select value={form.recurring} onChange={e => setForm(f => ({ ...f, recurring: e.target.value as Recurrence | '' }))}>
-            <option value="">— Not recurring —</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="yearly">Yearly</option>
-          </Select>
-        </Field>
         <Field label="Note" hint="optional">
           <Input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="" />
         </Field>
-      </FieldRow>
       )}
 
       <label className="flex items-center gap-2 mb-3 text-[0.84rem] text-ink-mid cursor-pointer select-none">

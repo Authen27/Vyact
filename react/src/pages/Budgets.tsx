@@ -1,103 +1,72 @@
-import { useMemo, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+// Vyact v9.1 §4 — Budgets page (rebuilt for the container + allocations model).
+// A budget renders its EXPLICIT identity (month+year / year / custom name), its
+// per-category allocation bars, and an overall bar. Clicking a budget (or a
+// category within it) deep-links to the pre-filtered Transactions view (§8).
+
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { convert } from '../lib/format';
-import { spendByCategoryInRange, budgetWindow, periodMonths } from '../lib/calculations';
-import { BUDGET_COLORS, getCat, deterministicColor } from '../constants';
-import type { Budget, BudgetPeriod } from '../types';
+import { spendByCategoryInRange } from '../lib/calculations';
+import { budgetHistory } from '../lib/budgetIntel';
+import { getCat } from '../constants';
 import Money from '../components/ui/Money';
-import { budgetHistory, suggestBudget, budgetRollup, type BudgetSuggestion } from '../lib/budgetIntel';
-import { uid } from '../lib/format';
-import { Sparkles } from 'lucide-react';
+import type { Budget } from '../types';
 
-function pct(spent: number, limit: number) { return limit > 0 ? Math.min((spent / limit) * 100, 100) : 0; }
-function status(p: number): { label: string; cls: string; bar: string } {
-  if (p >= 100) return { label: 'Over',    cls: 'text-terra bg-terra/10 border-terra/30',   bar: 'bg-terra' };
-  if (p >= 80)  return { label: 'Near',    cls: 'text-honey bg-honey/10 border-honey/30',   bar: 'bg-honey' };
-  return              { label: 'On track', cls: 'text-sage  bg-sage/10  border-sage/30',    bar: 'bg-sage' };
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function budgetTitle(b: Budget): string {
+  if (b.scope === 'annual') return `${b.periodYear}`;
+  if (b.scope === 'custom') return b.customName || 'Custom budget';
+  if (b.scope === 'month' && b.periodMonth) return `${MONTHS[b.periodMonth - 1]} ${b.periodYear}`;
+  // legacy fallback
+  return b.periodStart ? `${b.periodStart} → ${b.periodEnd}` : 'Budget';
 }
-
-const PERIOD_LABEL: Record<BudgetPeriod, string> = {
-  monthly: 'monthly', quarterly: 'quarterly', half_yearly: '6-month', annual: 'annual', custom: 'custom',
-};
-
-type ViewMode = 'period' | 'monthly';
+function pct(spent: number, limit: number) { return limit > 0 ? Math.min((spent / limit) * 100, 100) : 0; }
+function barCls(p: number) { return p >= 100 ? 'bg-terra' : p >= 80 ? 'bg-honey' : 'bg-sage'; }
 
 export default function Budgets() {
   const { t } = useTranslation();
-  const budgets      = useStore(s => s.budgets);
-  const transactions = useStore(s => s.transactions);
-  const profile      = useStore(s => s.profile);
-  const rates        = useStore(s => s.rates);
-  const debts          = useStore(s => s.debts);
-  const goals          = useStore(s => s.goals);
-  const recurringSchedules = useStore(s => s.recurringSchedules);
+  const navigate = useNavigate();
+  const budgets       = useStore(s => s.budgets);
+  const allocations   = useStore(s => s.budgetAllocations);
+  const transactions  = useStore(s => s.transactions);
+  const profile       = useStore(s => s.profile);
+  const rates         = useStore(s => s.rates);
   const openAddBudget  = useStore(s => s.openAddBudget);
   const openEditBudget = useStore(s => s.openEditBudget);
   const removeBudget   = useStore(s => s.removeBudget);
-  const upsertBudget   = useStore(s => s.upsertBudget);
   const toast          = useStore(s => s.toast);
 
-  const [view, setView] = useState<ViewMode>('period');
-
-  // Budgets v2 — history, Suggest/Copy, and the monthly/annual hierarchy are
-  // permanent.
-  const [suggestions, setSuggestions] = useState<BudgetSuggestion[] | null>(null);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const cur = profile.baseCurrency;
 
   const history = useMemo(
-    () => budgetHistory(transactions, budgets, profile.baseCurrency, rates, 6),
-    [transactions, budgets, profile.baseCurrency, rates],
+    () => budgetHistory(transactions, budgets, cur, rates, 6),
+    [transactions, budgets, cur, rates],
   );
 
-  function generateSuggestions() {
-    const all = suggestBudget({ transactions, debts, goals, recurring: recurringSchedules, baseCurrency: profile.baseCurrency, rates });
-    // Only propose categories the user doesn't already budget for.
-    const have = new Set(budgets.map(b => b.category));
-    const fresh = all.filter(s => !have.has(s.category));
-    setSuggestions(fresh);
-    setPicked(new Set(fresh.map(s => s.category)));
-  }
-
-
-
-  // (d) — edit a suggested amount before saving.
-  function editSuggestion(category: string, value: string) {
-    const n = parseFloat(value) || 0;
-    setSuggestions(prev => prev ? prev.map(s => s.category === category ? { ...s, limit: n } : s) : prev);
-  }
-
-  async function applySuggestions() {
-    if (!suggestions) return;
-    const chosen = suggestions.filter(s => picked.has(s.category));
-    for (const s of chosen) {
-      await upsertBudget({ id: uid(), category: s.category, limit: s.limit, currency: profile.baseCurrency, period: 'monthly', color: deterministicColor(s.category) });
-    }
-    setSuggestions(null);
-    toast(`Added ${chosen.length} budget${chosen.length === 1 ? '' : 's'}`, 'success');
-  }
-
-  // Pre-compute window + spend per budget so the cards stay cheap.
-  const today = useMemo(() => new Date(), []);
+  // per-budget resolved view: total, allocations with spend, overall spend.
   const rows = useMemo(() => budgets.map(b => {
-    const win = budgetWindow(b, today);
-    const limitBase = convert(b.limit, b.currency, profile.baseCurrency, rates);
-    const spendMap = spendByCategoryInRange(transactions, win.start, win.end, profile.baseCurrency, rates);
-    const spent = spendMap[b.category] || 0;
-    return { b, win, limitBase, spent };
-  }), [budgets, transactions, today, profile.baseCurrency, rates]);
+    const start = b.periodStart || '';
+    const end = b.periodEnd || '';
+    const spendMap = start && end ? spendByCategoryInRange(transactions, start, end, cur, rates) : {};
+    const allocs = allocations.filter(a => a.budgetId === b.id).map(a => ({
+      ...a,
+      limitBase: convert(a.amount, b.currency, cur, rates),
+      spent: spendMap[a.category] || 0,
+    }));
+    const totalBase = convert(b.limit, b.currency, cur, rates);
+    const spent = allocs.reduce((s, a) => s + a.spent, 0);
+    return { b, allocs, totalBase, spent };
+  }), [budgets, allocations, transactions, cur, rates]);
 
-  const totalBudgeted = rows.reduce((s, r) => s + r.limitBase, 0);
-  const totalSpent    = rows.reduce((s, r) => s + r.spent, 0);
-  const overCount     = rows.filter(r => r.spent > r.limitBase).length;
-
-  // (c) — category budgets roll up into monthly + annual parents.
-  const rollup = useMemo(
-    () => budgetRollup(rows.map(r => ({ category: r.b.category, limitBase: r.limitBase, period: r.b.period }))),
-    [rows],
-  );
+  // §4.2 — nudge: no budget for the CURRENT month.
+  const now = new Date();
+  const hasCurrentMonth = budgets.some(b => b.scope === 'month'
+    && b.periodYear === now.getFullYear() && b.periodMonth === now.getMonth() + 1);
 
   async function del(id: string) {
     if (!confirm('Delete this budget?')) return;
@@ -111,69 +80,24 @@ export default function Budgets() {
         <div className="min-w-0">
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('budgets')}</h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Spending limits aggregated per budget period
+            Month, annual &amp; custom plans · per-category allocations
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="hidden sm:flex bg-bg3 border border-line rounded-md p-0.5 gap-px">
-            {(['period','monthly'] as ViewMode[]).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={`font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium px-3 py-1 rounded transition-all ${
-                  view === v ? 'bg-coral text-white shadow-1' : 'text-ink-mid hover:text-ink hover:bg-bg4'
-                }`}>
-                {v === 'period' ? 'Period view' : 'Monthly view'}
-              </button>
-            ))}
-          </div>
-          <button className="btn-secondary inline-flex items-center justify-center p-2" onClick={generateSuggestions} title="Suggest budgets">
-            <Sparkles size={15} />
-          </button>
-          <button className="btn-primary" onClick={openAddBudget}>+ Add Budget</button>
-        </div>
+        <button className="btn-primary flex-shrink-0" onClick={openAddBudget}>+ Add Budget</button>
       </div>
 
-      {/* B2.4 — suggested budget (editable proposal from recurring + debts + goals + history). */}
-      {suggestions && (
-        <Panel>
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-semibold text-ink text-[0.92rem]">Suggested budgets</div>
-              <button onClick={() => setSuggestions(null)} className="text-[0.72rem] text-ink-dim hover:text-ink">Dismiss</button>
-            </div>
-            {suggestions.length === 0 ? (
-              <p className="text-[0.84rem] text-ink-mid">You already budget for everything we'd suggest. Nice.</p>
-            ) : (
-              <>
-                <p className="text-[0.78rem] text-ink-dim mb-3">Each line comes from your real recurring bills, debts, goals, or recent spending — edit after adding.</p>
-                <div className="space-y-1.5 mb-4">
-                  {suggestions.map(s => {
-                    const cat = getCat(s.category);
-                    const on = picked.has(s.category);
-                    return (
-                      <label key={s.category} className="flex items-center gap-3 cursor-pointer py-1">
-                        <input type="checkbox" checked={on} onChange={() => setPicked(p => { const n = new Set(p); if (on) n.delete(s.category); else n.add(s.category); return n; })} />
-                        <span className="text-lg">{cat.icon}</span>
-                        <span className="flex-1 text-[0.86rem] text-ink">{cat.label}</span>
-                        <span className="font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">{s.basis}</span>
-                        {/* (d) — amount editable before saving. */}
-                        <input type="number" inputMode="decimal" value={s.limit ? String(s.limit) : ''}
-                          onChange={e => editSuggestion(s.category, e.target.value)}
-                          onClick={e => e.preventDefault()}
-                          className="w-24 bg-bg3 border border-line rounded-md px-2 py-1 text-right num text-[0.84rem]" />
-                      </label>
-                    );
-                  })}
-                </div>
-                <button className="btn-primary" onClick={applySuggestions} disabled={picked.size === 0}>
-                  Add {picked.size} budget{picked.size === 1 ? '' : 's'}
-                </button>
-              </>
-            )}
-          </div>
-        </Panel>
+      {/* §4.2 — create nudge for the current month */}
+      {!hasCurrentMonth && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-coral/30 bg-coral/[0.06] px-4 py-3">
+          <span className="text-[0.86rem] text-ink">
+            <Sparkles size={14} className="inline mr-1.5 -mt-0.5 text-coral" />
+            No budget for {MONTHS[now.getMonth()]} {now.getFullYear()} yet.
+          </span>
+          <button className="btn-secondary text-sm" onClick={openAddBudget}>Create {MONTHS[now.getMonth()]} {now.getFullYear()}</button>
+        </div>
       )}
 
-      {/* B2.2 — budget history & timeline (are we improving?). */}
+      {/* budget-vs-actual timeline (scope-agnostic, last 6 months) */}
       {history.length > 0 && (
         <Panel>
           <div className="p-4">
@@ -188,7 +112,6 @@ export default function Budgets() {
                       <div className={`w-2.5 rounded-t ${h.variance >= 0 ? 'bg-sage' : 'bg-terra'}`} style={{ height: `${(h.actual / max) * 100}%` }} title={`Actual ${h.actual}`} />
                     </div>
                     <span className="font-mono text-[0.5rem] text-ink-dim">{h.monthKey.slice(5)}</span>
-                    <span className={`font-mono text-[0.5rem] ${h.variance >= 0 ? 'text-sage' : 'text-terra'}`}>{h.variance >= 0 ? '+' : ''}{Math.round(h.variance)}</span>
                   </div>
                 );
               })}
@@ -197,44 +120,6 @@ export default function Budgets() {
         </Panel>
       )}
 
-      {/* (c) — monthly / annual budget totals; the category budgets below are the
-          children that roll up into these parents. */}
-      {rows.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="bg-bg2 border border-line rounded-lg p-4">
-            <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">Monthly budget</div>
-            <Money amount={rollup.monthlyTotal} currency={profile.baseCurrency} className="text-2xl font-semibold text-ink" maxChars={10} />
-            <div className="text-[0.7rem] text-ink-dim mt-0.5">{rollup.children.length} categor{rollup.children.length === 1 ? 'y' : 'ies'}</div>
-          </div>
-          <div className="bg-ink/[0.03] border border-line rounded-lg p-4">
-            <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">Annual budget</div>
-            <Money amount={rollup.annualTotal} currency={profile.baseCurrency} className="text-2xl font-semibold text-ink" maxChars={10} />
-            <div className="text-[0.7rem] text-ink-dim mt-0.5">monthly × 12</div>
-          </div>
-        </div>
-      )}
-
-      {/* Summary strip */}
-      {rows.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-          <div className="bg-bg border border-line rounded-lg p-4 text-center min-w-0">
-            <Money amount={totalBudgeted} currency={profile.baseCurrency} className="text-xl font-semibold text-ink" maxChars={9} />
-            <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mt-0.5">Budgeted</div>
-          </div>
-          <div className="bg-bg border border-line rounded-lg p-4 text-center min-w-0">
-            <Money amount={totalSpent} currency={profile.baseCurrency} className="text-xl font-semibold text-terra" maxChars={9} />
-            <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mt-0.5">Spent</div>
-          </div>
-          <div className="bg-bg border border-line rounded-lg p-4 text-center min-w-0">
-            <div className={`text-xl font-semibold ${overCount > 0 ? 'text-terra' : 'text-sage'}`}>
-              {overCount} {overCount === 1 ? 'category' : 'categories'}
-            </div>
-            <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mt-0.5">Over budget</div>
-          </div>
-        </div>
-      )}
-
-      {/* Budget grid */}
       {rows.length === 0 ? (
         <Panel>
           <div className="px-6 py-14 text-center">
@@ -244,59 +129,58 @@ export default function Budgets() {
           </div>
         </Panel>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {rows.map(({ b, win, limitBase, spent }) => {
-            const period = b.period || 'monthly';
-            const months = periodMonths(period);
-            const displayLimit = view === 'monthly' && months > 1 ? limitBase / months : limitBase;
-            const displaySpent = view === 'monthly' && months > 1 ? spent / months : spent;
-            const p = pct(displaySpent, displayLimit);
-            const st = status(p);
-            const cat = getCat(b.category);
-            const remaining = displayLimit - displaySpent;
+        <div className="grid sm:grid-cols-2 gap-3 mt-3">
+          {rows.map(({ b, allocs, totalBase, spent }) => {
+            const overall = pct(spent, totalBase);
             return (
-              <div key={b.id} className="bg-bg border border-line rounded-xl p-4 hover:shadow-md transition-shadow min-w-0">
-                <div className="flex items-start justify-between mb-1.5 gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xl flex-shrink-0">{cat.icon}</span>
-                    <span className="font-semibold text-ink text-[0.9rem] truncate">{cat.label}</span>
-                  </div>
-                  <span className={`font-mono text-[0.6rem] tracking-widest px-2 py-0.5 rounded-full border flex-shrink-0 ${st.cls}`}>
-                    {st.label}
-                  </span>
-                </div>
-                <div className="font-mono text-[0.55rem] tracking-[0.12em] uppercase text-ink-dim mb-2.5">
-                  {view === 'monthly' && months > 1
-                    ? `${PERIOD_LABEL[period]} budget · per-month view`
-                    : period === 'custom'
-                      ? `${b.periodStart || '?'} → ${b.periodEnd || '?'}`
-                      : `${PERIOD_LABEL[period]} · ${win.start.slice(0, 7)}${months > 1 ? '…' + win.end.slice(0, 7) : ''}`}
-                </div>
-                {/* Progress bar */}
-                <div className="h-2 bg-bg3 rounded-full mb-3 overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${st.bar}`} style={{ width: `${p}%` }} />
-                </div>
-                <div className="flex justify-between items-end gap-2 min-w-0">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[0.8rem] text-ink-mid flex items-center gap-1 min-w-0">
-                      <Money amount={displaySpent} currency={profile.baseCurrency} className="font-semibold text-ink" maxChars={9} />
-                      <span className="text-ink-dim">/</span>
-                      <Money amount={displayLimit} currency={profile.baseCurrency} maxChars={9} />
-                    </div>
-                    <div className={`font-mono text-[0.62rem] tracking-wider mt-0.5 flex items-center gap-1 ${remaining >= 0 ? 'text-sage' : 'text-terra'}`}>
-                      <Money amount={Math.abs(remaining)} currency={profile.baseCurrency} maxChars={8} />
-                      <span>{remaining >= 0 ? 'left' : 'over'}</span>
-                    </div>
-                  </div>
+              <div key={b.id} className="bg-bg border border-line rounded-xl p-4 min-w-0">
+                <div className="flex items-start justify-between mb-2 gap-2">
+                  <button onClick={() => navigate(`/transactions?budgetId=${b.id}`)}
+                    className="font-semibold text-ink text-[0.95rem] truncate hover:text-coral text-left" title="View transactions">
+                    {budgetTitle(b)}
+                  </button>
                   <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={() => openEditBudget(b)} className="row-action" aria-label={`Edit ${cat.label} budget`} title="Edit">
-                      <Pencil size={14} strokeWidth={1.6} />
-                    </button>
-                    <button onClick={() => del(b.id)} className="row-action danger" aria-label={`Delete ${cat.label} budget`} title="Delete">
-                      <Trash2 size={14} strokeWidth={1.6} />
-                    </button>
+                    <button onClick={() => openEditBudget(b)} className="row-action" aria-label="Edit budget" title="Edit"><Pencil size={14} strokeWidth={1.6} /></button>
+                    <button onClick={() => del(b.id)} className="row-action danger" aria-label="Delete budget" title="Delete"><Trash2 size={14} strokeWidth={1.6} /></button>
                   </div>
                 </div>
+                {/* overall */}
+                <div className="flex justify-between items-center text-[0.8rem] mb-1">
+                  <span className="text-ink-mid">
+                    <Money amount={spent} currency={cur} className="font-semibold text-ink" maxChars={9} />
+                    <span className="text-ink-dim"> / </span>
+                    <Money amount={totalBase} currency={cur} maxChars={9} />
+                  </span>
+                  <span className={overall >= 100 ? 'text-terra font-medium' : 'text-ink-dim'}>{Math.round(overall)}%</span>
+                </div>
+                <div className="h-2 bg-bg3 rounded-full mb-3 overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${barCls(overall)}`} style={{ width: `${overall}%` }} />
+                </div>
+                {/* allocations */}
+                {allocs.length === 0 ? (
+                  <p className="text-[0.74rem] text-ink-dim">No category allocations — edit to add some.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {allocs.map(a => {
+                      const ap = pct(a.spent, a.limitBase);
+                      const c = getCat(a.category);
+                      return (
+                        <button key={a.id} onClick={() => navigate(`/transactions?budgetId=${b.id}&cat=${a.category}`)}
+                          className="w-full text-left group">
+                          <div className="flex justify-between items-center text-[0.74rem] mb-0.5">
+                            <span className="text-ink-mid group-hover:text-coral truncate">{c.icon} {c.label}</span>
+                            <span className="text-ink-dim flex-shrink-0">
+                              <Money amount={a.spent} currency={cur} maxChars={7} /> / <Money amount={a.limitBase} currency={cur} maxChars={7} />
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-bg3 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${barCls(ap)}`} style={{ width: `${ap}%` }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}

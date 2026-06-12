@@ -211,7 +211,7 @@ export class HybridAdapter implements DataAdapter {
    *  empty cloud responses as transient again. Call when you suspect
    *  cache corruption or want to re-trust the cloud. */
   forceFullResync(householdId: string): void {
-    const entities: Entity[] = ['transactions','budgets','goals','debts','assets','members','accounts','savedViews','recurring'];
+    const entities: Entity[] = ['transactions','budgets','goals','debts','assets','members','accounts','savedViews','recurring','budgetAllocations'];
     for (const e of entities) {
       try { ls.removeBoth(`cloud_synced_${householdId}_${e}`); } catch { /* noop */ }
       // TD-06: also drop the delta-sync cursor so the next list() refills it.

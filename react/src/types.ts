@@ -105,6 +105,12 @@ export interface Transaction extends WithProvenance {
   /** v9 §2.3/§6.3 — system-written EMI split for category=loan_emi rows.
    *  Read-only to the user; only the interest portion counts as spend. */
   emiSplit?: { interest: number; principal: number; debt_id: string };
+  /** v9.1 §5 — set on transactions MATERIALISED from a recurring schedule;
+   *  links the instance back to its template (drives the §8 'from recurring' drill). */
+  recurringScheduleId?: string;
+  /** v9.1 §8 — direct link to a debt for the debt drill-down (payments/EMIs,
+   *  receivable repayments). Nullable; backfilled from emiSplit.debt_id where present. */
+  debtId?: string;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
@@ -117,23 +123,45 @@ export interface AccountSplit {
 
 export type BudgetPeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'annual' | 'custom';
 
+// v9.1 §4 — a budget now has a STRICT identity (scope + year + month). This is
+// what makes it the SAME budget on every device (fixes the item-2 cross-device
+// divergence). A budget is a PERIOD CONTAINER whose total (`limit`) is split into
+// per-category `BudgetAllocation` child rows (a cloud-synced table, not jsonb).
+export type BudgetScope = 'month' | 'annual' | 'custom';
+
 export interface Budget extends WithProvenance {
   id: string;
-  category: string;
-  /** Budgeted amount for the entire `period` window (NOT per month).
-   *  When `period === 'monthly'` this matches the legacy meaning. */
+  /** Legacy per-category budgets carried a category; v9.1 container budgets do
+   *  not (categories live in BudgetAllocation). Optional for back-compat. */
+  category?: string;
+  /** The budget's TOTAL for the whole period window. Allocations sum to ≤ this. */
   limit: number;
   currency: string;
   color?: string;
-  /** v6.4 — budgeting period. Defaults to 'monthly' for legacy rows. */
+  /** v9.1 — strict identity. */
+  scope?: BudgetScope;
+  /** Set for month & annual; resolved year. */
+  periodYear?: number;
+  /** 1..12 — set for month only. */
+  periodMonth?: number;
+  /** Set for custom only, e.g. "Maldives Trip". */
+  customName?: string;
+  /** v6.4 legacy budgeting period (retained so older helpers compile). */
   period?: BudgetPeriod;
-  /** v6.4 — only used when `period === 'custom'`. ISO YYYY-MM-DD. */
+  /** RESOLVED range (TD-13 columns). Always set in v9.1; required for custom. */
   periodStart?: string;
   periodEnd?: string;
-  /** v6.4.19 — TD-03 optimistic-concurrency precondition. Mirrors the cloud row's
-   *  updated_at; threaded back to the adapter on edits so a concurrent
-   *  edit by another household member surfaces as a conflict instead of
-   *  silently overwriting. Undefined for never-synced local rows. */
+  /** v6.4.19 — TD-03 optimistic-concurrency precondition. */
+  updated_at?: string;
+}
+
+/** v9.1 §4 — a per-category sub-limit within a Budget. Cloud-synced child row. */
+export interface BudgetAllocation {
+  id: string;
+  budgetId: string;
+  category: string;
+  amount: number;
+  /** TD-03 optimistic-concurrency precondition. */
   updated_at?: string;
 }
 
@@ -281,7 +309,8 @@ export interface EducationTopicState {
 }
 export type EducationProgress = Record<string, EducationTopicState>;
 
-// v7 — Recurring schedules
+// v7 — Recurring schedules. v9.1 §5 adds RFC-5545 RRULE + owner; recurrence is
+// authored ONLY here (the Transaction form no longer captures recurrence).
 export type RecurrenceFreq = 'weekly' | 'monthly' | 'yearly' | 'custom_day';
 
 export interface RecurringSchedule {
@@ -290,14 +319,22 @@ export interface RecurringSchedule {
   frequency: RecurrenceFreq;
   dayOfMonth?: number;       // for monthly + custom_day
   weekday?: number;          // 0-6 for weekly
-  startDate: string;         // YYYY-MM-DD
+  startDate: string;         // YYYY-MM-DD (DTSTART)
   nextDueDate: string;
   lastGenerated?: string;
   autoConfirm: boolean;
+  /** Legacy lifecycle flag. v9.1 removes the on/off toggle from the UI; lifecycle
+   *  is COUNT/UNTIL exhaustion or deletion. Kept (defaults true) for back-compat. */
   active: boolean;
   reminderLeadDays?: number; // 0-7 — fires upcoming-bill notif this many days before
-  /** v8.9 — user who created the schedule (household + user attribution).
-   *  Set server-side from auth.uid() on insert; surfaced for display. */
+  /** v9.1 §5.2 — RFC 5545 RRULE string (the source of truth for recurrence).
+   *  When present, the generator expands this; frequency/dayOfMonth/weekday are
+   *  derived display hints. */
+  rrule?: string;
+  /** v9.1 §5.3 — the household member the generated transactions are attributed
+   *  to (flows to Transaction.memberId/initiatedBy). */
+  ownerMemberId?: string;
+  /** v8.9 — user who created the schedule. */
   createdBy?: string;
   /** TD-03 optimistic-concurrency precondition (cloud round-trip). */
   updated_at?: string;

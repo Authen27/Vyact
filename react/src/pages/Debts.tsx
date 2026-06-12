@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Pencil, Trash2, ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
@@ -14,6 +15,7 @@ type DebtTab = 'all' | 'owed_by_me' | 'owed_to_me';
 
 export default function Debts() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const debts        = useStore(s => s.debts);
   const profile      = useStore(s => s.profile);
   const rates        = useStore(s => s.rates);
@@ -271,6 +273,10 @@ export default function Debts() {
                     </button>
                     <button className="btn-ghost btn-sm" onClick={() => setExpandId(expanded ? null : d.id)}>
                       {expanded ? <><ChevronUp size={13} strokeWidth={1.8}/> Less</> : <><ChevronDown size={13} strokeWidth={1.8}/> EMI</>}
+                    </button>
+                    {/* §8 — debt drill-down: all payments/EMIs (or receivable repayments). */}
+                    <button className="btn-ghost btn-sm" onClick={() => navigate(`/transactions?debtId=${d.id}`)}>
+                      Payments
                     </button>
                     <div className="ml-auto flex gap-1">
                       <button className="row-action" onClick={() => openEdit(d)} aria-label={`Edit ${d.name}`} title="Edit">

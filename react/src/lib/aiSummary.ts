@@ -165,9 +165,9 @@ export function buildSafeSummary(
   // Budgets with usage % only — no spending detail
   const safeBudgets = budgets.map(b => {
     const limitBase = b.limit * ((rates[b.currency] || 1) / (rates[cur] || 1));
-    const spent = spend[b.category] || 0;
+    const spent = spend[b.category ?? ''] || 0;
     return {
-      category: b.category,
+      category: b.category ?? '',
       limit: round2(limitBase),
       spentPct: limitBase > 0 ? round2(spent / limitBase * 100) : 0,
     };

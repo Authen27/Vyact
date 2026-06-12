@@ -13,6 +13,7 @@ import {
   selectMonthlyDebtPayment,
 } from '../lib/selectors';
 import { fmt, fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
+import { budgetLines } from '../lib/calculations';
 import Money from '../components/ui/Money';
 import { getCat } from '../constants';
 import { ArrowDownRight, ArrowUpRight, Scale, ArrowRight } from 'lucide-react';
@@ -36,6 +37,7 @@ function pulseAdvice(p: PulseScore): { text: string; to: string } {
 export default function Dashboard() {
   const { t } = useTranslation();
   const budgets = useStore(s => s.budgets);
+  const budgetAllocations = useStore(s => s.budgetAllocations);
   const debts = useStore(s => s.debts);
   const assets = useStore(s => s.assets);
   const profile = useStore(s => s.profile);
@@ -63,6 +65,8 @@ export default function Dashboard() {
   const tl = useStore(selectTotalLiabilities);
   const monthlyDebtPmt = useStore(selectMonthlyDebtPayment);
   const dti = month.income > 0 ? (monthlyDebtPmt / month.income) * 100 : 0;
+  // v9.1 §4 — flatten container budgets + allocations into per-category lines.
+  const budgetView = useMemo(() => budgetLines(budgets, budgetAllocations), [budgets, budgetAllocations]);
 
   return (
     <div>
@@ -134,10 +138,10 @@ export default function Dashboard() {
           <Link to="/networth" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View net worth">
             <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={8} />} sub={`Across all ${txns.length} transactions`} />
           </Link>
-          <Link to="/transactions?type=income" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View income transactions">
+          <Link to={`/transactions?type=income&month=${mk}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View income transactions">
             <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={8} />} sub={t('this-month')} />
           </Link>
-          <Link to="/transactions?type=expense" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View expense transactions">
+          <Link to={`/transactions?type=expense&month=${mk}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View expense transactions">
             <Card label={t('monthly-expenses')} accent="terra" value={<Money amount={month.expense} currency={baseCur} maxChars={8} />} sub={t('this-month')} />
           </Link>
           <Link to="/budgets" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View budgets">
@@ -170,13 +174,13 @@ export default function Dashboard() {
           title={t('budget-progress')}
           action={<Link to="/budgets" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">{t('view-all')}</Link>}
         >
-          {budgets.length === 0 ? (
+          {budgetView.length === 0 ? (
             <EmptyState icon="◎" message="No budgets yet" />
           ) : (
-            budgets.slice(0, 5).map(b => {
-              const cat = getCat(b.category);
+            budgetView.slice(0, 5).map(b => {
+              const cat = getCat(b.category ?? '');
               const limitBase = convert(b.limit, b.currency, baseCur, rates);
-              const spent = spend[b.category] || 0;
+              const spent = spend[b.category ?? ''] || 0;
               const pct = limitBase > 0 ? Math.min(100, Math.round(spent / limitBase * 100)) : 0;
               const color = pct >= 100 ? 'hsl(var(--terra))' : pct >= 80 ? 'hsl(var(--honey))' : (b.color || 'hsl(var(--coral))');
               return (
