@@ -29,7 +29,7 @@
 // add a new money field, route it through the same primitives.
 
 export type TxnType = 'income' | 'expense' | 'investment' | 'transfer';
-export type Recurrence = '' | 'weekly' | 'monthly' | 'yearly';
+export type Recurrence = '' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type Theme = 'warm' | 'dark' | 'system';
 export type PayoffStrategy = 'avalanche' | 'snowball';
 export type Liquidity = 'liquid' | 'short' | 'long';
