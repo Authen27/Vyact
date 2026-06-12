@@ -413,6 +413,7 @@ export const useStore = create<Store>((set, get) => ({
 
   refresh: async () => {
     const { adapter, currentHouseholdId } = get();
+    const prevBudgetAllocations = get().budgetAllocations;
     // v8.1.2 — realtime fires refresh() on every postgres change, so multiple
     // refreshes can be in flight at once. Capture a sequence number + the active
     // household; after the awaits, bail if a NEWER refresh has started or the
@@ -432,7 +433,7 @@ export const useStore = create<Store>((set, get) => ({
       adapter.list<Account>('accounts',         currentHouseholdId),
       adapter.list<SavedView>('savedViews',     currentHouseholdId).catch(() => [] as SavedView[]),
       adapter.list<RecurringSchedule>('recurring', currentHouseholdId).catch(() => [] as RecurringSchedule[]),
-      adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId).catch(() => [] as BudgetAllocation[]),
+      adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId).catch(() => prevBudgetAllocations),
       adapter.getProfile(currentHouseholdId),
       adapter.getRates(currentHouseholdId),
     ]);

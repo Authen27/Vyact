@@ -12,7 +12,7 @@ import {
   selectSpendByCategory, selectRecentTxns, selectTotalAssets, selectTotalLiabilities,
   selectMonthlyDebtPayment,
 } from '../lib/selectors';
-import { fmt, fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
+import { fmt, fmtShort, monthName, localMonthKey, convert } from '../lib/format';
 import { budgetLines } from '../lib/calculations';
 import Money from '../components/ui/Money';
 import { getCat } from '../constants';
@@ -51,7 +51,7 @@ export default function Dashboard() {
   const txns = useStore(s => s.transactions);
   const rates = useStore(s => s.rates);
 
-  const mk = nowMonthKey();
+  const mk = localMonthKey();
   const month = useStore(selectMonthlyData(mk));
   const balance = useStore(selectTotalBalance);
   const rate = month.income > 0 ? Math.round((month.income - month.expense) / month.income * 100) : 0;
@@ -93,7 +93,7 @@ export default function Dashboard() {
           month); Net Worth is a STOCK (assets − liabilities right now). Distinct
           treatment so they never blur. */}
       <div className="grid sm:grid-cols-2 gap-3.5 mb-3.5">
-        <Link to="/transactions" aria-label="View cash flow" className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">
+        <Link to={`/transactions?month=${mk}`} aria-label="View cash flow" className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2">
           <div className="h-full bg-bg2 border border-line rounded-lg p-5">
             <div className="flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-ink-dim mb-2">
               <ArrowDownRight size={13} className="text-sage" /><ArrowUpRight size={13} className="text-terra" /> Cash Flow · {monthName(mk)}

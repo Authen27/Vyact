@@ -16,6 +16,10 @@ export function scheduleFiresOnDate(schedule: RecurringSchedule, date: string): 
   const dayOfMonth = Number(date.slice(-2));
 
   switch (schedule.frequency) {
+    case 'daily': {
+      const diff = Math.round((Date.parse(date) - Date.parse(schedule.startDate)) / DAY_MS);
+      return diff >= 0;
+    }
     case 'weekly': {
       const diff = Math.round((Date.parse(date) - Date.parse(schedule.startDate)) / DAY_MS);
       return diff >= 0 && diff % 7 === 0;
@@ -59,7 +63,9 @@ export function computeNextDueDate(
 ): string {
   const base = new Date(lastGenerated || startDate);
   const next = new Date(base);
-  if (freq === 'weekly') {
+  if (freq === 'daily') {
+    next.setDate(next.getDate() + 1);
+  } else if (freq === 'weekly') {
     next.setDate(next.getDate() + 7);
     if (weekday !== undefined) {
       const diff = (weekday - next.getDay() + 7) % 7;

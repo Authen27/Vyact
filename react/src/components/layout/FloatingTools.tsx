@@ -63,7 +63,7 @@ export default function FloatingTools() {
       {tool && (
         <Drawer onClose={() => setTool(null)} title={tool === 'planner' ? 'Planner' : 'Ask Vyact'}>
           <Suspense fallback={<DrawerLoadingState />}>
-            {tool === 'planner' ? <Planner /> : <Chat />}
+            {tool === 'planner' ? <Planner onNavigate={() => setTool(null)} /> : <Chat />}
           </Suspense>
         </Drawer>
       )}

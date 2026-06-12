@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel, Card } from '../components/ui/Card';
@@ -23,7 +23,12 @@ const DOMAIN_LABEL: Record<Domain, string> = {
   income: 'Income', expenses: 'Expenses', investments: 'Investments', debt: 'Debt', tax: 'Tax',
 };
 
-export default function Planner() {
+interface PlannerProps {
+  onNavigate?: () => void;
+}
+
+export default function Planner({ onNavigate }: PlannerProps = {}) {
+  const navigate = useNavigate();
   const txns    = useStore(s => s.transactions);
   const budgets = useStore(s => s.budgets);
   const goals   = useStore(s => s.goals);
@@ -101,9 +106,13 @@ export default function Planner() {
                         <div className="font-semibold text-ink mb-1">{r.title}</div>
                         <div className="text-[0.84rem] text-ink-mid leading-relaxed">{r.body}</div>
                         {r.action && (
-                          <Link to={r.action.route} className="inline-flex items-center gap-1 font-mono text-[0.66rem] tracking-wider uppercase text-coral hover:opacity-70 mt-2.5">
+                          <button
+                            type="button"
+                            onClick={() => { navigate(r.action!.route); onNavigate?.(); }}
+                            className="inline-flex items-center gap-1 font-mono text-[0.66rem] tracking-wider uppercase text-coral hover:opacity-70 mt-2.5"
+                          >
                             {r.action.label} <ArrowRight size={12} />
-                          </Link>
+                          </button>
                         )}
                       </div>
                     </div>

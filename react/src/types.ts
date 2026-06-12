@@ -311,7 +311,7 @@ export type EducationProgress = Record<string, EducationTopicState>;
 
 // v7 — Recurring schedules. v9.1 §5 adds RFC-5545 RRULE + owner; recurrence is
 // authored ONLY here (the Transaction form no longer captures recurrence).
-export type RecurrenceFreq = 'weekly' | 'monthly' | 'yearly' | 'custom_day';
+export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom_day';
 
 export interface RecurringSchedule {
   id: string;

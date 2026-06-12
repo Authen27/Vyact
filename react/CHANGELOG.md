@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.1.0`** (consumer)
+> **Current production version: `v9.1.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,35 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.1.1 — Cross-device consistency bugfixes *(2026-06-13)*
+
+Patch release focused on parity issues reported between desktop and mobile for
+Recurring and Dashboard surfaces. No schema change.
+
+1. **Recurring list order is now deterministic across devices.**
+   - The Recurring page now sorts schedules by `nextDueDate` ascending, then by
+     `updated_at` descending, then by `id` as a final tie-breaker before render.
+   - Cloud reads for `recurring` now apply explicit ordering
+     (`next_due_date asc`, `updated_at desc`) in the Supabase adapter.
+   - Result: both devices see the same schedule ordering instead of relying on
+     non-deterministic fetch order.
+
+2. **Dashboard month key now uses local calendar month.**
+   - Added `localMonthKey()` and switched Dashboard monthly selectors/links to
+     local month semantics.
+   - Result: reduced cross-device Cash Flow mismatches around UTC date/month
+     boundaries.
+
+3. **Budget progress no longer false-empties on allocation fetch failures.**
+   - `store.refresh()` now preserves the previous in-memory
+     `budgetAllocations` snapshot when the allocations fetch fails, instead of
+     replacing it with `[]`.
+   - Result: desktop/mobile no longer diverge into "empty budget progress" due
+     to transient allocation read errors.
+
+> Validated: file diagnostics clean; project typecheck completed clean via direct
+> `node .../typescript/bin/tsc --noEmit` invocation in this environment.
 
 ## v9.1.0 — Feedback batch: budgets redesign, recurring RRULE, deep-links, account-split removal *(2026-06-12)*
 

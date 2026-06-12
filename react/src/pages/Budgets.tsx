@@ -11,7 +11,7 @@ import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { convert } from '../lib/format';
 import { spendByCategoryInRange } from '../lib/calculations';
-import { budgetHistory } from '../lib/budgetIntel';
+
 import { getCat } from '../constants';
 import Money from '../components/ui/Money';
 import type { Budget } from '../types';
@@ -42,11 +42,6 @@ export default function Budgets() {
   const toast          = useStore(s => s.toast);
 
   const cur = profile.baseCurrency;
-
-  const history = useMemo(
-    () => budgetHistory(transactions, budgets, cur, rates, 6),
-    [transactions, budgets, cur, rates],
-  );
 
   // per-budget resolved view: total, allocations with spend, overall spend.
   const rows = useMemo(() => budgets.map(b => {
@@ -95,29 +90,6 @@ export default function Budgets() {
           </span>
           <button className="btn-secondary text-sm" onClick={openAddBudget}>Create {MONTHS[now.getMonth()]} {now.getFullYear()}</button>
         </div>
-      )}
-
-      {/* budget-vs-actual timeline (scope-agnostic, last 6 months) */}
-      {history.length > 0 && (
-        <Panel>
-          <div className="p-4">
-            <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim mb-3">Budget vs actual · last {history.length} months</div>
-            <div className="flex items-end gap-2 h-24">
-              {history.map(h => {
-                const max = Math.max(h.budgeted, h.actual, 1);
-                return (
-                  <div key={h.monthKey} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                    <div className="flex items-end gap-0.5 h-16">
-                      <div className="w-2.5 bg-line rounded-t" style={{ height: `${(h.budgeted / max) * 100}%` }} title={`Budgeted ${h.budgeted}`} />
-                      <div className={`w-2.5 rounded-t ${h.variance >= 0 ? 'bg-sage' : 'bg-terra'}`} style={{ height: `${(h.actual / max) * 100}%` }} title={`Actual ${h.actual}`} />
-                    </div>
-                    <span className="font-mono text-[0.5rem] text-ink-dim">{h.monthKey.slice(5)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </Panel>
       )}
 
       {rows.length === 0 ? (

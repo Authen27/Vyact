@@ -595,8 +595,11 @@ export class SupabaseAdapter implements DataAdapter {
       if (error) throw error;
       return (data || []).map(rowToMember) as unknown as T[];
     }
-    const { data, error } = await this.sb.from(this.tableName(entity))
+    const query = this.sb.from(this.tableName(entity))
       .select('*').eq('household_id', householdId).is('deleted_at', null);
+    const { data, error } = entity === 'recurring'
+      ? await query.order('next_due_date', { ascending: true }).order('updated_at', { ascending: false })
+      : await query;
     if (error) throw error;
     const rows = data || [];
     if (entity === 'transactions') return rows.map(rowToTxn) as unknown as T[];

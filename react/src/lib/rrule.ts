@@ -20,8 +20,10 @@ export type Freq = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 export interface RRule {
   freq: Freq;
   interval: number;          // ≥ 1
-  byDay?: number[];          // 0=SU..6=SA (WEEKLY)
-  byMonthDay?: number[];     // 1..31 (MONTHLY)
+  byDay?: number[];          // 0=SU..6=SA (WEEKLY or MONTHLY nth-weekday)
+  byMonthDay?: number[];     // 1..31 (MONTHLY day-of-month)
+  bySetPos?: number[];       // e.g. [2] = 2nd occurrence; [-1] = last (MONTHLY nth-weekday)
+  byMonth?: number[];        // 1..12 (YEARLY)
   count?: number;            // ends after N occurrences
   until?: string;            // YYYY-MM-DD inclusive (mutually exclusive with count)
 }
@@ -35,6 +37,8 @@ export function formatRRule(r: RRule): string {
   const parts: string[] = [`FREQ=${r.freq}`, `INTERVAL=${Math.max(1, r.interval)}`];
   if (r.byDay?.length) parts.push(`BYDAY=${r.byDay.map((d) => WD[d]).join(',')}`);
   if (r.byMonthDay?.length) parts.push(`BYMONTHDAY=${r.byMonthDay.join(',')}`);
+  if (r.bySetPos?.length) parts.push(`BYSETPOS=${r.bySetPos.join(',')}`);
+  if (r.byMonth?.length) parts.push(`BYMONTH=${r.byMonth.join(',')}`);
   if (r.count != null) parts.push(`COUNT=${r.count}`);
   else if (r.until) parts.push(`UNTIL=${r.until.replace(/-/g, '')}`);
   return parts.join(';');
@@ -51,6 +55,8 @@ export function parseRRule(s: string): RRule {
   const r: RRule = { freq, interval: Math.max(1, Number(map.INTERVAL) || 1) };
   if (map.BYDAY) r.byDay = map.BYDAY.split(',').map((d) => WD.indexOf(d)).filter((i) => i >= 0);
   if (map.BYMONTHDAY) r.byMonthDay = map.BYMONTHDAY.split(',').map(Number).filter((n) => n >= 1 && n <= 31);
+  if (map.BYSETPOS) r.bySetPos = map.BYSETPOS.split(',').map(Number).filter((n) => n !== 0);
+  if (map.BYMONTH) r.byMonth = map.BYMONTH.split(',').map(Number).filter((n) => n >= 1 && n <= 12);
   if (map.COUNT) r.count = Number(map.COUNT);
   else if (map.UNTIL) {
     const u = map.UNTIL.slice(0, 8);
@@ -128,22 +134,44 @@ export function expandRRule(rule: RRule, dtstart: string, from: string, to: stri
       if (stop) break;
     }
   } else if (rule.freq === 'MONTHLY') {
-    const startDom = start.getUTCDate();
-    const doms = rule.byMonthDay?.length ? [...rule.byMonthDay].sort((a, b) => a - b) : [startDom];
-    for (let m = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1)); iters < CAP; m = addMonths(m, interval), iters++) {
-      let stop = false;
-      for (const dom of doms) {
-        if (!monthHasDay(m.getUTCFullYear(), m.getUTCMonth(), dom)) continue;  // RFC: skip short months
-        const occ = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), dom));
+    // nth-weekday pattern: BYSETPOS + BYDAY (e.g. 2nd Friday, last Monday)
+    if (rule.bySetPos?.length && rule.byDay?.length) {
+      const wd = rule.byDay[0];   // take first weekday
+      const pos = rule.bySetPos[0]; // take first position (1-based; -1 = last)
+      for (let m = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1)); iters < CAP; m = addMonths(m, interval), iters++) {
+        const year = m.getUTCFullYear(); const month0 = m.getUTCMonth();
+        // collect all occurrences of `wd` in this month
+        const all: Date[] = [];
+        for (let d = 1; d <= 31; d++) {
+          if (!monthHasDay(year, month0, d)) break;
+          const c = new Date(Date.UTC(year, month0, d));
+          if (c.getUTCDay() === wd) all.push(c);
+        }
+        const idx = pos < 0 ? all.length + pos : pos - 1;
+        if (idx < 0 || idx >= all.length) continue;  // e.g. 5th weekday doesn't exist
+        const occ = all[idx];
         if (occ < start) continue;
-        if (occ > hardEnd && rule.count == null) { stop = true; break; }
-        if (!emit(occ)) { stop = true; break; }
+        if (occ > hardEnd && rule.count == null) break;
+        if (!emit(occ)) break;
       }
-      if (stop) break;
+    } else {
+      const startDom = start.getUTCDate();
+      const doms = rule.byMonthDay?.length ? [...rule.byMonthDay].sort((a, b) => a - b) : [startDom];
+      for (let m = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1)); iters < CAP; m = addMonths(m, interval), iters++) {
+        let stop = false;
+        for (const dom of doms) {
+          if (!monthHasDay(m.getUTCFullYear(), m.getUTCMonth(), dom)) continue;  // RFC: skip short months
+          const occ = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), dom));
+          if (occ < start) continue;
+          if (occ > hardEnd && rule.count == null) { stop = true; break; }
+          if (!emit(occ)) { stop = true; break; }
+        }
+        if (stop) break;
+      }
     }
-  } else { // YEARLY — anchor on start's month/day; skip Feb 29 in non-leap years
-    const mo = start.getUTCMonth();
-    const dom = start.getUTCDate();
+  } else { // YEARLY — honour BYMONTH + BYMONTHDAY when present, else anchor on start's month/day; skip Feb 29 in non-leap years
+    const mo  = rule.byMonth?.length    ? rule.byMonth[0] - 1 : start.getUTCMonth();
+    const dom = rule.byMonthDay?.length ? rule.byMonthDay[0]  : start.getUTCDate();
     for (let y = start.getUTCFullYear(); iters < CAP; y += interval, iters++) {
       if (!monthHasDay(y, mo, dom)) continue;       // Feb 29 in a common year → skip
       const occ = new Date(Date.UTC(y, mo, dom));

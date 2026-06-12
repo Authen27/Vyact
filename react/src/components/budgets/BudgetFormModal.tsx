@@ -7,12 +7,14 @@
 // already committed via recurring schedules over the period (money-model A8).
 
 import { useEffect, useMemo, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { Input, Select, Field, FieldRow } from '../ui/Input';
 import { useStore } from '../../store';
 import { uid, fmt } from '../../lib/format';
 import { resolveBudgetPeriod, recurringForecastByCategory } from '../../lib/calculations';
+import { suggestBudget } from '../../lib/budgetIntel';
 import { EXPENSE_CATEGORIES, getCat, deterministicColor } from '../../constants';
 import type { Budget, BudgetScope, BudgetAllocation } from '../../types';
 
@@ -53,6 +55,10 @@ export default function BudgetFormModal(props: Props) {
   const rates        = useStore(s => s.rates);
   const recurring    = useStore(s => s.recurringSchedules);
   const allocations  = useStore(s => s.budgetAllocations);
+  const budgets      = useStore(s => s.budgets);
+  const transactions = useStore(s => s.transactions);
+  const debts        = useStore(s => s.debts);
+  const goals        = useStore(s => s.goals);
   const upsertBudget = useStore(s => s.upsertBudget);
   const removeBudget = useStore(s => s.removeBudget);
   const setBudgetAllocations = useStore(s => s.setBudgetAllocations);
@@ -122,12 +128,37 @@ export default function BudgetFormModal(props: Props) {
     if (rows.length) setForm(f => ({ ...f, allocs: rows, limit: f.limit || String(Math.round(forecastTotal)) }));
   }
 
+  function applySuggestions() {
+    const suggestions = suggestBudget({ transactions, debts, goals, recurring, baseCurrency: form.currency, rates });
+    if (!suggestions.length) { toast('Not enough spending history to suggest yet', 'info'); return; }
+    const rows: AllocRow[] = suggestions.map(s => ({ category: s.category, amount: String(s.limit) }));
+    const suggestedTotal = suggestions.reduce((sum, s) => sum + s.limit, 0);
+    setForm(f => ({ ...f, allocs: rows, limit: f.limit || String(Math.round(suggestedTotal)) }));
+    toast('Allocations suggested from your spending history', 'info');
+  }
+
   async function save() {
     if (total <= 0) { toast('Enter a total greater than 0', 'error'); return; }
     if (form.scope === 'custom') {
       if (!form.customName.trim()) { toast('Name your custom budget', 'error'); return; }
       if (!form.customStart || !form.customEnd) { toast('Enter a start and end date', 'error'); return; }
       if (form.customStart > form.customEnd) { toast('Start must be before end', 'error'); return; }
+    }
+    // Uniqueness guard: prevent creating a duplicate budget for the same period.
+    if (!initial) {
+      if (form.scope === 'month') {
+        const dup = budgets.find(b => b.scope === 'month' && b.periodYear === Number(form.periodYear) && b.periodMonth === Number(form.periodMonth));
+        if (dup) {
+          toast(`A budget for ${MONTHS[Number(form.periodMonth) - 1]} ${form.periodYear} already exists`, 'error');
+          return;
+        }
+      } else if (form.scope === 'annual') {
+        const dup = budgets.find(b => b.scope === 'annual' && b.periodYear === Number(form.periodYear));
+        if (dup) {
+          toast(`An annual budget for ${form.periodYear} already exists`, 'error');
+          return;
+        }
+      }
     }
     // sum-check: warn (do not block) on over-allocation.
     if (allocSum > total + 0.001) {
@@ -241,7 +272,13 @@ export default function BudgetFormModal(props: Props) {
       <div className="mt-1">
         <div className="flex items-center justify-between mb-1.5">
           <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">Category allocations</span>
-          <button type="button" onClick={addAlloc} className="text-coral text-xs hover:underline">+ Add category</button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={applySuggestions} title="Suggest from spending history"
+              className="flex items-center gap-1 text-coral text-xs hover:opacity-70">
+              <Sparkles size={12} /> Suggest
+            </button>
+            <button type="button" onClick={addAlloc} className="text-coral text-xs hover:underline">+ Add category</button>
+          </div>
         </div>
         {form.allocs.map((r, i) => (
           <div key={i} className="flex items-center gap-2 mb-1.5">
