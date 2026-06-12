@@ -1,70 +1,61 @@
-// Vyact v6.4 — BudgetFormModal
+// Vyact v9.1 §4 — BudgetFormModal (rebuilt).
 //
-// Modal-driven Budget create/edit form. Mirrors TransactionFormModal /
-// GoalFormModal so the three creation surfaces feel consistent.
-//
-// Period selector (monthly / quarterly / half-yearly / annual / custom)
-// persists to the budgets.period / period_start / period_end columns
-// added in PR #20. The earlier client-side overlay (lib/budgetMeta.ts)
-// was removed on 2026-06-01 now that the schema carries the fields.
+// A budget now has a STRICT identity (scope + year + month) so it is the SAME
+// budget on every device (fixes the item-2 cross-device divergence). It is a
+// PERIOD CONTAINER whose total is split into per-category allocation child rows
+// (cloud-synced, not jsonb). A read-only recurring-forecast line shows what's
+// already committed via recurring schedules over the period (money-model A8).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { Input, Select, Field, FieldRow } from '../ui/Input';
 import { useStore } from '../../store';
-import { uid, today } from '../../lib/format';
-import { EXPENSE_CATEGORIES, BUDGET_COLORS, deterministicColor } from '../../constants';
-import type { Budget, BudgetPeriod } from '../../types';
+import { uid, fmt } from '../../lib/format';
+import { resolveBudgetPeriod, recurringForecastByCategory } from '../../lib/calculations';
+import { EXPENSE_CATEGORIES, getCat, deterministicColor } from '../../constants';
+import type { Budget, BudgetScope, BudgetAllocation } from '../../types';
 
-interface Props {
-  open?: boolean;
-  initial?: Budget | null;
-  onClose?: () => void;
-}
+interface Props { open?: boolean; initial?: Budget | null; onClose?: () => void; }
 
+interface AllocRow { id?: string; category: string; amount: string; }
 interface FormState {
-  category: string;
+  scope: BudgetScope;
+  periodYear: string;
+  periodMonth: string;     // '1'..'12'
+  customName: string;
+  customStart: string;
+  customEnd: string;
   limit: string;
   currency: string;
-  color: string;
-  period: BudgetPeriod;
-  periodStart: string;
-  periodEnd: string;
+  allocs: AllocRow[];
 }
 
-const blank = (currency: string): FormState => ({
-  category: 'food',
-  limit: '',
-  currency,
-  color: BUDGET_COLORS[0],
-  period: 'monthly',
-  periodStart: '',
-  periodEnd: '',
-});
-
-const PERIOD_LABELS: Record<BudgetPeriod, string> = {
-  monthly:     'Monthly',
-  quarterly:   'Quarterly (3 months)',
-  half_yearly: 'Half-yearly (6 months)',
-  annual:      'Annual (12 months)',
-  custom:      'Custom date range',
-};
-
-const PERIOD_HINT: Record<BudgetPeriod, string> = {
-  monthly:     'limit applies to the current calendar month',
-  quarterly:   'limit applies to the current calendar quarter',
-  half_yearly: 'limit applies to the current half-year',
-  annual:      'limit applies to the current calendar year',
-  custom:      'limit applies between your chosen dates',
-};
-
 const CURRENCIES = ['USD','EUR','GBP','INR','JPY','AUD','CAD','CHF','CNY','AED','SGD','BRL'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const blank = (currency: string): FormState => {
+  const now = new Date();
+  return {
+    scope: 'month',
+    periodYear: String(now.getFullYear()),
+    periodMonth: String(now.getMonth() + 1),
+    customName: '',
+    customStart: '', customEnd: '',
+    limit: '',
+    currency,
+    allocs: [],
+  };
+};
 
 export default function BudgetFormModal(props: Props) {
   const profile      = useStore(s => s.profile);
+  const rates        = useStore(s => s.rates);
+  const recurring    = useStore(s => s.recurringSchedules);
+  const allocations  = useStore(s => s.budgetAllocations);
   const upsertBudget = useStore(s => s.upsertBudget);
   const removeBudget = useStore(s => s.removeBudget);
+  const setBudgetAllocations = useStore(s => s.setBudgetAllocations);
   const toast        = useStore(s => s.toast);
 
   const storeOpen    = useStore(s => s.budgetModalOpen);
@@ -74,51 +65,93 @@ export default function BudgetFormModal(props: Props) {
   const initial = props.initial ?? storeInitial;
   const onClose = props.onClose ?? storeClose;
 
-  const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency));
+  const [form, setForm]     = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     if (initial) {
+      const rows = allocations.filter(a => a.budgetId === initial.id)
+        .map(a => ({ id: a.id, category: a.category, amount: String(a.amount) }));
       setForm({
-        category: initial.category,
-        limit: String(initial.limit),
+        scope: initial.scope ?? 'month',
+        periodYear: String(initial.periodYear ?? new Date().getFullYear()),
+        periodMonth: String(initial.periodMonth ?? new Date().getMonth() + 1),
+        customName: initial.customName ?? '',
+        customStart: initial.scope === 'custom' ? (initial.periodStart ?? '') : '',
+        customEnd:   initial.scope === 'custom' ? (initial.periodEnd ?? '') : '',
+        limit: String(initial.limit ?? ''),
         currency: initial.currency,
-        color: initial.color || BUDGET_COLORS[0],
-        period: initial.period || 'monthly',
-        periodStart: initial.periodStart || '',
-        periodEnd: initial.periodEnd || '',
+        allocs: rows,
       });
     } else {
       setForm(blank(profile.baseCurrency));
     }
-  }, [open, initial, profile.baseCurrency]);
+  }, [open, initial, profile.baseCurrency, allocations]);
+
+  // resolved period range for the current form state
+  const period = useMemo(
+    () => resolveBudgetPeriod(form.scope, Number(form.periodYear), Number(form.periodMonth), form.customStart, form.customEnd),
+    [form.scope, form.periodYear, form.periodMonth, form.customStart, form.customEnd],
+  );
+
+  const allocSum = form.allocs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+  const total = parseFloat(form.limit) || 0;
+  const remaining = total - allocSum;
+
+  // §4.2 — read-only recurring forecast: committed-by-recurring per category.
+  const forecast = useMemo(() => {
+    if (!period.periodStart || !period.periodEnd) return {} as Record<string, number>;
+    return recurringForecastByCategory(recurring, period.periodStart, period.periodEnd, form.currency, rates);
+  }, [recurring, period.periodStart, period.periodEnd, form.currency, rates]);
+  const forecastTotal = Object.values(forecast).reduce((s, n) => s + n, 0);
+
+  function setAlloc(i: number, patch: Partial<AllocRow>) {
+    setForm(f => ({ ...f, allocs: f.allocs.map((r, idx) => idx === i ? { ...r, ...patch } : r) }));
+  }
+  function addAlloc() {
+    const used = new Set(form.allocs.map(r => r.category));
+    const next = EXPENSE_CATEGORIES.find(c => !used.has(c.id))?.id ?? 'other_expense';
+    setForm(f => ({ ...f, allocs: [...f.allocs, { category: next, amount: '' }] }));
+  }
+  function removeAlloc(i: number) {
+    setForm(f => ({ ...f, allocs: f.allocs.filter((_, idx) => idx !== i) }));
+  }
+  function prefillFromForecast() {
+    const rows: AllocRow[] = Object.entries(forecast).map(([category, amount]) => ({ category, amount: String(Math.round(amount)) }));
+    if (rows.length) setForm(f => ({ ...f, allocs: rows, limit: f.limit || String(Math.round(forecastTotal)) }));
+  }
 
   async function save() {
-    const lim = parseFloat(form.limit);
-    if (!form.category) { toast('Choose a category', 'error'); return; }
-    if (isNaN(lim) || lim <= 0) { toast('Enter a limit greater than 0', 'error'); return; }
-    if (form.period === 'custom') {
-      if (!form.periodStart || !form.periodEnd) {
-        toast('Enter start and end dates for custom period', 'error'); return;
-      }
-      if (form.periodStart > form.periodEnd) {
-        toast('Start date must be before end date', 'error'); return;
-      }
+    if (total <= 0) { toast('Enter a total greater than 0', 'error'); return; }
+    if (form.scope === 'custom') {
+      if (!form.customName.trim()) { toast('Name your custom budget', 'error'); return; }
+      if (!form.customStart || !form.customEnd) { toast('Enter a start and end date', 'error'); return; }
+      if (form.customStart > form.customEnd) { toast('Start must be before end', 'error'); return; }
+    }
+    // sum-check: warn (do not block) on over-allocation.
+    if (allocSum > total + 0.001) {
+      if (!confirm(`Allocations (${fmt(allocSum, form.currency)}) exceed the total (${fmt(total, form.currency)}). Save anyway?`)) return;
     }
     setSaving(true);
     try {
+      const id = initial?.id ?? uid();
       await upsertBudget({
-        id: initial?.id ?? uid(),
-        category: form.category,
-        limit: lim,
+        id,
+        scope: form.scope,
+        periodYear: form.scope === 'custom' ? undefined : Number(form.periodYear),
+        periodMonth: form.scope === 'month' ? Number(form.periodMonth) : undefined,
+        customName: form.scope === 'custom' ? form.customName.trim() : undefined,
+        periodStart: period.periodStart,
+        periodEnd: period.periodEnd,
+        limit: total,
         currency: form.currency,
-        // B2.1 — stable colour derived from the category (no picker).
-        color: deterministicColor(form.category),
-        period: form.period,
-        periodStart: form.period === 'custom' ? form.periodStart : undefined,
-        periodEnd:   form.period === 'custom' ? form.periodEnd   : undefined,
+        color: deterministicColor(form.allocs[0]?.category ?? 'other_expense'),
       });
+      const rows: Partial<BudgetAllocation>[] = form.allocs
+        .filter(r => parseFloat(r.amount) > 0)
+        .map(r => ({ id: r.id, category: r.category, amount: parseFloat(r.amount) }));
+      await setBudgetAllocations(id, rows);
       toast(initial ? 'Budget updated' : 'Budget added', 'success');
       onClose();
     } catch (e) {
@@ -131,30 +164,71 @@ export default function BudgetFormModal(props: Props) {
   async function del() {
     if (!initial) return;
     if (!confirm('Delete this budget?')) return;
-    try {
-      await removeBudget(initial.id);
-      toast('Budget deleted', 'info');
-      onClose();
-    } catch (e) {
-      toast(`Delete failed: ${(e as Error).message}`, 'error');
-    }
+    try { await removeBudget(initial.id); toast('Budget deleted', 'info'); onClose(); }
+    catch (e) { toast(`Delete failed: ${(e as Error).message}`, 'error'); }
   }
+
+  const yearOpts = useMemo(() => {
+    const y = new Date().getFullYear();
+    return [y - 1, y, y + 1, y + 2];
+  }, []);
 
   return (
     <Modal open={open} title={initial ? 'Edit Budget' : 'Add Budget'} onClose={onClose}>
-      <Field label="Category">
-        <Select autoFocus value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-          {EXPENSE_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
-        </Select>
+      {/* §4.2 — scope leads the form */}
+      <Field label="Scope">
+        <div className="flex gap-2">
+          {(['month','annual','custom'] as BudgetScope[]).map(s => (
+            <button key={s} type="button" onClick={() => setForm(f => ({ ...f, scope: s }))}
+              className={`flex-1 py-2 rounded-md border text-sm capitalize transition-colors ${form.scope === s ? 'border-coral bg-coral/10 text-ink font-medium' : 'border-line text-ink-mid hover:bg-bg3'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
       </Field>
 
+      {form.scope === 'month' && (
+        <FieldRow>
+          <Field label="Month">
+            <Select value={form.periodMonth} onChange={e => setForm(f => ({ ...f, periodMonth: e.target.value }))}>
+              {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </Select>
+          </Field>
+          <Field label="Year">
+            <Select value={form.periodYear} onChange={e => setForm(f => ({ ...f, periodYear: e.target.value }))}>
+              {yearOpts.map(y => <option key={y} value={y}>{y}</option>)}
+            </Select>
+          </Field>
+        </FieldRow>
+      )}
+      {form.scope === 'annual' && (
+        <Field label="Year">
+          <Select value={form.periodYear} onChange={e => setForm(f => ({ ...f, periodYear: e.target.value }))}>
+            {yearOpts.map(y => <option key={y} value={y}>{y}</option>)}
+          </Select>
+        </Field>
+      )}
+      {form.scope === 'custom' && (
+        <>
+          <Field label="Name">
+            <Input value={form.customName} placeholder="Maldives Trip"
+              onChange={e => setForm(f => ({ ...f, customName: e.target.value }))} />
+          </Field>
+          <FieldRow>
+            <Field label="Start date">
+              <Input type="date" value={form.customStart} onChange={e => setForm(f => ({ ...f, customStart: e.target.value }))} />
+            </Field>
+            <Field label="End date">
+              <Input type="date" value={form.customEnd} min={form.customStart || undefined} onChange={e => setForm(f => ({ ...f, customEnd: e.target.value }))} />
+            </Field>
+          </FieldRow>
+        </>
+      )}
+
       <FieldRow>
-        <Field label="Limit">
-          <Input
-            type="number" min="0" step="0.01" value={form.limit}
-            onChange={e => setForm(f => ({ ...f, limit: e.target.value }))}
-            placeholder="500"
-          />
+        <Field label="Total">
+          <Input type="number" min="0" step="0.01" value={form.limit} placeholder="500"
+            onChange={e => setForm(f => ({ ...f, limit: e.target.value }))} />
         </Field>
         <Field label="Currency">
           <Select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}>
@@ -163,42 +237,54 @@ export default function BudgetFormModal(props: Props) {
         </Field>
       </FieldRow>
 
-      <Field label="Period" hint={PERIOD_HINT[form.period]}>
-        <Select value={form.period} onChange={e => setForm(f => ({ ...f, period: e.target.value as BudgetPeriod }))}>
-          {(Object.keys(PERIOD_LABELS) as BudgetPeriod[]).map(p => (
-            <option key={p} value={p}>{PERIOD_LABELS[p]}</option>
-          ))}
-        </Select>
-      </Field>
+      {/* §4.1/§4.2 — per-category allocations */}
+      <div className="mt-1">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">Category allocations</span>
+          <button type="button" onClick={addAlloc} className="text-coral text-xs hover:underline">+ Add category</button>
+        </div>
+        {form.allocs.map((r, i) => (
+          <div key={i} className="flex items-center gap-2 mb-1.5">
+            <Select value={r.category} onChange={e => setAlloc(i, { category: e.target.value })}>
+              {EXPENSE_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+            </Select>
+            <Input type="number" min="0" step="0.01" value={r.amount} placeholder="0"
+              onChange={e => setAlloc(i, { amount: e.target.value })} />
+            <button type="button" onClick={() => removeAlloc(i)} className="text-ink-dim hover:text-terra px-1">✕</button>
+          </div>
+        ))}
+        <div className={`text-[0.72rem] mt-1 ${remaining < -0.001 ? 'text-terra' : 'text-ink-mid'}`}>
+          Allocated {fmt(allocSum, form.currency)} of {fmt(total, form.currency)}
+          {remaining >= 0
+            ? ` · ${fmt(remaining, form.currency)} unallocated`
+            : ` · over by ${fmt(-remaining, form.currency)}`}
+        </div>
+      </div>
 
-      {form.period === 'custom' && (
-        <FieldRow>
-          <Field label="Start date">
-            <Input type="date" value={form.periodStart}
-              onChange={e => setForm(f => ({ ...f, periodStart: e.target.value }))} />
-          </Field>
-          <Field label="End date">
-            <Input type="date" value={form.periodEnd} min={form.periodStart || today()}
-              onChange={e => setForm(f => ({ ...f, periodEnd: e.target.value }))} />
-          </Field>
-        </FieldRow>
+      {/* §4.2 — recurring forecast (read-only, A8) */}
+      {forecastTotal > 0 && (
+        <div className="mt-2 rounded-md border border-line bg-bg2 px-3 py-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[0.78rem] text-ink-mid">
+              {fmt(forecastTotal, form.currency)} already committed via recurring this period
+            </span>
+            <button type="button" onClick={prefillFromForecast} className="text-coral text-[0.7rem] hover:underline">Use as allocations</button>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+            {Object.entries(forecast).map(([c, amt]) => (
+              <span key={c} className="text-[0.68rem] text-ink-dim">{getCat(c).icon} {fmt(amt, form.currency)}</span>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* B2.1 (alpha item 2) — no colour picker; colour is derived deterministically
-          from the category (consistent app-wide, zero user input). */}
-
-      <div className="flex items-center justify-between gap-2 mt-2">
+      <div className="flex items-center justify-between gap-2 mt-3">
         {initial ? (
-          <button type="button" onClick={del}
-            className="font-mono text-[0.62rem] tracking-wider uppercase text-terra hover:underline">
-            Delete
-          </button>
+          <button type="button" onClick={del} className="font-mono text-[0.62rem] tracking-wider uppercase text-terra hover:underline">Delete</button>
         ) : <span />}
         <div className="flex gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : initial ? 'Update' : 'Add'}
-          </Button>
+          <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : initial ? 'Update' : 'Add'}</Button>
         </div>
       </div>
     </Modal>

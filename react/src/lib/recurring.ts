@@ -97,7 +97,30 @@ export function generateTransaction(schedule: RecurringSchedule): Transaction {
     id: uid(),
     date: schedule.nextDueDate,
     recurring: schedule.frequency === 'custom_day' ? 'monthly' : schedule.frequency,
+    // v9.1 §5 — materialised instances link back to their template and are
+    // attributed to the schedule's owner member.
+    recurringScheduleId: schedule.id,
+    memberId: schedule.ownerMemberId ?? schedule.transactionTemplate.memberId,
+    initiatedBy: schedule.ownerMemberId ?? schedule.transactionTemplate.initiatedBy,
   } as Transaction;
+}
+
+// v9.1 §5.2 — compose an RFC-5545 RRULE string from the form's simple inputs.
+// quarterly is encoded as monthly-interval-3 (the standard). COUNT and UNTIL are
+// mutually exclusive; 'never' yields an open-ended rule.
+export function buildRRule(
+  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly',
+  ends: { kind: 'never' } | { kind: 'count'; count: number } | { kind: 'until'; date: string },
+): string {
+  const base =
+    frequency === 'daily'     ? 'FREQ=DAILY;INTERVAL=1' :
+    frequency === 'weekly'    ? 'FREQ=WEEKLY;INTERVAL=1' :
+    frequency === 'quarterly' ? 'FREQ=MONTHLY;INTERVAL=3' :
+    frequency === 'yearly'    ? 'FREQ=YEARLY;INTERVAL=1' :
+                                'FREQ=MONTHLY;INTERVAL=1';
+  if (ends.kind === 'count') return `${base};COUNT=${ends.count}`;
+  if (ends.kind === 'until') return `${base};UNTIL=${ends.date.replace(/-/g, '')}`;
+  return base;
 }
 
 // After generating, advance the schedule

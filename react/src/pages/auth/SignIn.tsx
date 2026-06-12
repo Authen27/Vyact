@@ -64,7 +64,7 @@ export default function SignIn() {
   return (
     <AuthShell title="Welcome back">
 
-      {/* Primary CTA — Google (coming soon) */}
+      {/* Primary CTA — Google SSO */}
       <GoogleButton />
 
       <div className="my-4 flex items-center gap-3">

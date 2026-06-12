@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import type {
-  Transaction, Budget, Goal, Member, Debt, Asset, Account, SavedView,
+  Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, Theme,
   RecurringSchedule, Notification, NotificationPrefs, PartPaymentChoice,
 } from './types';
@@ -50,6 +50,8 @@ interface Store {
   currentHouseholdId: string;
   transactions: Transaction[];
   budgets: Budget[];
+  /** v9.1 §4 — per-category sub-limits, keyed by budgetId. Cloud-synced child rows. */
+  budgetAllocations: BudgetAllocation[];
   goals: Goal[];
   members: Member[];
   debts: Debt[];
@@ -144,6 +146,8 @@ interface Store {
   removeTransaction: (id: string) => Promise<void>;
   upsertBudget: (b: Partial<Budget>) => Promise<Budget>;
   removeBudget: (id: string) => Promise<void>;
+  /** v9.1 §4 — replace a budget's per-category allocations. */
+  setBudgetAllocations: (budgetId: string, rows: Partial<BudgetAllocation>[]) => Promise<BudgetAllocation[]>;
   upsertGoal: (g: Partial<Goal>) => Promise<Goal>;
   removeGoal: (id: string) => Promise<void>;
   upsertMember: (m: Partial<Member>) => Promise<Member>;
@@ -245,7 +249,7 @@ export const useStore = create<Store>((set, get) => ({
   adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
-  transactions: [], budgets: [], goals: [], members: [], debts: [], assets: [], accounts: [],
+  transactions: [], budgets: [], budgetAllocations: [], goals: [], members: [], debts: [], assets: [], accounts: [],
   savedViews: [],
   profile: defaultProfile,
   rates: { ...DEFAULT_RATES },
@@ -418,7 +422,7 @@ export const useStore = create<Store>((set, get) => ({
     const seq = ++refreshSeq;
     const seqHid = currentHouseholdId;
     const isStale = () => seq !== refreshSeq || get().currentHouseholdId !== seqHid;
-    const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, recurringList, profile, rates] = await Promise.all([
+    const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, recurringList, budgetAllocations, profile, rates] = await Promise.all([
       adapter.list<Transaction>('transactions', currentHouseholdId),
       adapter.list<Budget>('budgets',           currentHouseholdId),
       adapter.list<Goal>('goals',               currentHouseholdId),
@@ -428,6 +432,7 @@ export const useStore = create<Store>((set, get) => ({
       adapter.list<Account>('accounts',         currentHouseholdId),
       adapter.list<SavedView>('savedViews',     currentHouseholdId).catch(() => [] as SavedView[]),
       adapter.list<RecurringSchedule>('recurring', currentHouseholdId).catch(() => [] as RecurringSchedule[]),
+      adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId).catch(() => [] as BudgetAllocation[]),
       adapter.getProfile(currentHouseholdId),
       adapter.getRates(currentHouseholdId),
     ]);
@@ -472,6 +477,7 @@ export const useStore = create<Store>((set, get) => ({
     set({
       transactions, budgets: hydratedBudgets, goals, members, debts, assets, accounts, savedViews,
       recurringSchedules: recurringList,
+      budgetAllocations,
       profile: mergedProfile,
       rates,
     });
@@ -642,9 +648,32 @@ export const useStore = create<Store>((set, get) => ({
     return merged;
   },
   removeBudget: async (id) => {
-    const { adapter, currentHouseholdId, budgets } = get();
+    const { adapter, currentHouseholdId, budgets, budgetAllocations } = get();
     await adapter.remove('budgets', currentHouseholdId, id);
-    set({ budgets: budgets.filter(x => x.id !== id) });
+    // Cascade allocations locally (DB cascades via FK on delete; soft-delete
+    // here just drops them from memory).
+    set({
+      budgets: budgets.filter(x => x.id !== id),
+      budgetAllocations: budgetAllocations.filter(a => a.budgetId !== id),
+    });
+  },
+  // v9.1 §4 — replace the full per-category allocation set for one budget.
+  setBudgetAllocations: async (budgetId, rows) => {
+    const { adapter, currentHouseholdId, budgetAllocations } = get();
+    const others = budgetAllocations.filter(a => a.budgetId !== budgetId);
+    const saved: BudgetAllocation[] = [];
+    // remove allocations the user dropped
+    const keepIds = new Set(rows.filter(r => r.id).map(r => r.id));
+    for (const a of budgetAllocations.filter(a => a.budgetId === budgetId)) {
+      if (!keepIds.has(a.id)) await adapter.remove('budgetAllocations', currentHouseholdId, a.id);
+    }
+    // upsert the current set
+    for (const r of rows) {
+      const row = await adapter.upsert('budgetAllocations', currentHouseholdId, { ...r, budgetId });
+      saved.push(row as BudgetAllocation);
+    }
+    set({ budgetAllocations: [...others, ...saved] });
+    return saved;
   },
   upsertGoal: async (g) => {
     const { adapter, currentHouseholdId, goals } = get();

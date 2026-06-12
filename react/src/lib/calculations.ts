@@ -2,7 +2,7 @@
 // All pulse-score / aggregation / loan / split logic.
 // No React, no DOM. Easy to unit-test.
 
-import type { Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, BudgetPeriod } from '../types';
+import type { Transaction, Budget, BudgetAllocation, Goal, Debt, Asset, Profile, ExchangeRates, BudgetPeriod } from '../types';
 import { convert, getMonthKey, nowMonthKey, clamp } from './format';
 import { toDinero, fromDinero, convertViaUsdRates, sumDinero, dineroZero, addDinero } from './money';
 import type { Dinero } from 'dinero.js';
@@ -92,6 +92,73 @@ export function spendByCategory(transactions: Transaction[], monthKey: string, b
   }
   const out: Record<string, number> = {};
   for (const [k, d] of Object.entries(buckets)) out[k] = fromDinero(d);
+  return out;
+}
+
+// v9.1 §4 — flatten budgets + their per-category allocations into concrete
+// category lines (the legacy {category, limit} shape). Category-level compliance
+// (Pulse, planner, notifications, summaries) reads these lines so it keeps working
+// against the new container-budget model. A legacy budget that still carries its
+// own `category` is emitted as a single line; a v9.1 container emits one line per
+// allocation, inheriting the parent's period window + currency.
+export function budgetLines(budgets: Budget[], allocations: BudgetAllocation[]): Budget[] {
+  const lines: Budget[] = [];
+  for (const b of budgets) {
+    const allocs = allocations.filter(a => a.budgetId === b.id);
+    if (allocs.length) {
+      for (const a of allocs) lines.push({
+        id: a.id, category: a.category, limit: a.amount, currency: b.currency,
+        period: b.period, periodStart: b.periodStart, periodEnd: b.periodEnd,
+        scope: b.scope, periodYear: b.periodYear, periodMonth: b.periodMonth,
+      });
+    } else if (b.category) {
+      lines.push(b);
+    }
+  }
+  return lines;
+}
+
+// v9.1 §4 — resolve a budget's scope+identity into a concrete [start, end] range.
+//   month  → first..last day of (year, month)
+//   annual → Jan 1 .. Dec 31 of year
+//   custom → the user-entered range
+export function resolveBudgetPeriod(
+  scope: 'month' | 'annual' | 'custom',
+  year: number, month: number,
+  customStart?: string, customEnd?: string,
+): { periodStart: string; periodEnd: string } {
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  if (scope === 'custom') return { periodStart: customStart || '', periodEnd: customEnd || '' };
+  if (scope === 'annual') return { periodStart: `${year}-01-01`, periodEnd: `${year}-12-31` };
+  // month — last day via day 0 of next month
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 0));
+  return { periodStart: iso(start), periodEnd: iso(end) };
+}
+
+// v9.1 §4.2 — read-only recurring FORECAST: sum each recurring EXPENSE schedule
+// over [periodStart, periodEnd], bucketed by category, in the target currency.
+// Approximate (period-length × per-period rate); informs the budget, writes nothing
+// (money-model A8). Transfers/investments/income are excluded from spend forecast.
+export function recurringForecastByCategory(
+  schedules: { transactionTemplate: { type?: string; amount?: number; currency?: string; category?: string }; frequency: string }[],
+  periodStart: string, periodEnd: string,
+  baseCurrency: string, rates: ExchangeRates,
+): Record<string, number> {
+  const start = new Date(periodStart + 'T00:00:00Z').getTime();
+  const end = new Date(periodEnd + 'T00:00:00Z').getTime();
+  const days = Math.max(0, (end - start) / 86_400_000 + 1);
+  const out: Record<string, number> = {};
+  for (const s of schedules) {
+    const t = s.transactionTemplate;
+    if (!t || t.type !== 'expense' || !t.amount || !t.category) continue;
+    const perPeriod =
+      s.frequency === 'weekly'  ? t.amount * (days / 7) :
+      s.frequency === 'yearly'  ? t.amount * (days / 365) :
+      /* monthly / custom_day */  t.amount * (days / 30.4375);
+    const inBase = convert(perPeriod, t.currency || baseCurrency, baseCurrency, rates);
+    out[t.category] = (out[t.category] || 0) + Math.round(inBase * 100) / 100;
+  }
   return out;
 }
 
@@ -224,7 +291,7 @@ export function computePulseScore(
     const spend = spendByCategory(transactions, mk, baseCurrency, rates);
     const compliance = budgets.map(b => {
       const limitBase = convert(b.limit, b.currency, baseCurrency, rates);
-      const pct = limitBase > 0 ? (spend[b.category] || 0) / limitBase * 100 : 0;
+      const pct = limitBase > 0 ? (spend[b.category ?? ''] || 0) / limitBase * 100 : 0;
       return clamp(100 - pct, 0, 100);
     });
     budgetScore = compliance.reduce((s, v) => s + v, 0) / compliance.length;
@@ -323,7 +390,7 @@ export function getInsights(
     else chips.push({ icon:'⚠️', text:`Low savings rate (${rate}%)`, cls:'chip-alert' });
   }
 
-  const over = budgets.filter(b => (spend[b.category] || 0) > convert(b.limit, b.currency, baseCurrency, rates));
+  const over = budgets.filter(b => (spend[b.category ?? ''] || 0) > convert(b.limit, b.currency, baseCurrency, rates));
   if (over.length) chips.push({ icon:'🚨', text:`${over.length} budget${over.length>1?'s':''} exceeded`, cls:'chip-alert' });
 
   if (debts.length) {

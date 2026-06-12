@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  Transaction, Budget, Goal, Member, Debt, Asset, Account, SavedView,
+  Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
   WithProvenance, Confidence, ProvenanceSource, RecurringSchedule,
 } from '../types';
@@ -31,6 +31,7 @@ type RowOf<E extends Entity> =
   E extends 'accounts'     ? AccountRow :
   E extends 'savedViews'   ? SavedViewRow :
   E extends 'members'      ? MembershipRow :
+  E extends 'budgetAllocations' ? BudgetAllocationRow :
   never;
 
 interface TransactionRow {
@@ -44,6 +45,9 @@ interface TransactionRow {
   account_id?: string | null;
   to_account_id?: string | null;
   initiated_by?: string | null;
+  // v9.1 — deep-link FKs (§5 materialisation, §8 debt drill).
+  recurring_schedule_id?: string | null;
+  debt_id?: string | null;
   // v8 — provenance columns (see ProvenanceRowCols / 20260606120000 migration).
   confidence?: string | null;
   source?: string | null;
@@ -67,9 +71,18 @@ interface ProvenanceRowCols {
 
 interface BudgetRow extends ProvenanceRowCols {
   id: string; household_id: string;
-  category: string; monthly_limit: number; currency: string; color: string | null;
+  category: string | null; monthly_limit: number; currency: string; color: string | null;
   period?: string | null; period_start?: string | null; period_end?: string | null;
+  // v9.1 §4 — strict identity columns.
+  scope?: string | null; period_year?: number | null; period_month?: number | null; custom_name?: string | null;
   updated_at: string; deleted_at: string | null;
+}
+
+// v9.1 §4 — budget sub-limits, a cloud-synced child table (not jsonb).
+interface BudgetAllocationRow {
+  id: string; budget_id: string; household_id: string;
+  category: string; amount: number;
+  created_at: string; updated_at: string; deleted_at: string | null;
 }
 
 interface GoalRow extends ProvenanceRowCols {
@@ -168,11 +181,13 @@ const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<Transac
     to_account_id: type === 'expense' ? null
       : fkOrNull(t.toAccountId) ?? (type === 'income' ? fkOrNull(t.accountId) : null),
     initiated_by:  t.initiatedBy  ?? t.memberId ?? null,
+    recurring_schedule_id: fkOrNull(t.recurringScheduleId),   // v9.1 §5
+    debt_id: fkOrNull(t.debtId),                              // v9.1 §8
     extras: {
       time: t.time, paymentMethod: t.paymentMethod, excluded: t.excluded,
       linkedDebtId: t.linkedDebtId,
       linkedTxnId: t.linkedTxnId, split: t.split,
-      accountSplits: t.accountSplits,
+      // v9.1 §7 — accountSplits removed; no longer written.
       emi_split: t.emiSplit,                      // §2.3 — system-written EMI split
     },
   };
@@ -190,10 +205,11 @@ const rowToTxn = (r: TransactionRow): Transaction => ({
   accountId:   r.account_id    ?? undefined,
   toAccountId: r.to_account_id ?? undefined,
   initiatedBy: r.initiated_by  ?? r.member_id ?? undefined,
+  recurringScheduleId: r.recurring_schedule_id ?? undefined,   // v9.1 §5
+  debtId: r.debt_id ?? undefined,                              // v9.1 §8
   linkedDebtId: r.extras?.linkedDebtId,
   linkedTxnId: r.extras?.linkedTxnId,
   split: r.extras?.split as Transaction['split'],
-  accountSplits: r.extras?.accountSplits as Transaction['accountSplits'],
   emiSplit: r.extras?.emi_split as Transaction['emiSplit'],
   created_by: r.created_by || undefined,
   created_at: r.created_at, updated_at: r.updated_at,
@@ -202,18 +218,37 @@ const rowToTxn = (r: TransactionRow): Transaction => ({
 
 const budgetToRow = (b: Partial<Budget>, hid: string): Partial<BudgetRow> => ({
   ...provToRow(b),
-  id: b.id, household_id: hid, category: b.category!,
+  id: b.id, household_id: hid, category: b.category ?? null,
   monthly_limit: b.limit!, currency: b.currency || 'USD', color: b.color || null,
   period: b.period || null, period_start: b.periodStart || null, period_end: b.periodEnd || null,
+  // v9.1 §4 — strict identity.
+  scope: b.scope ?? null,
+  period_year: b.periodYear ?? null,
+  period_month: b.periodMonth ?? null,
+  custom_name: b.customName ?? null,
 });
 const rowToBudget = (r: BudgetRow): Budget => ({
-  id: r.id, category: r.category, limit: parseMoneyFromCloud(r.monthly_limit),
+  id: r.id, category: r.category ?? undefined, limit: parseMoneyFromCloud(r.monthly_limit),
   currency: r.currency, color: r.color || undefined,
   period: (r.period as Budget['period']) || 'monthly',
   periodStart: r.period_start || undefined,
   periodEnd: r.period_end || undefined,
+  scope: (r.scope as Budget['scope']) || undefined,
+  periodYear: r.period_year ?? undefined,
+  periodMonth: r.period_month ?? undefined,
+  customName: r.custom_name ?? undefined,
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
   ...rowToProv(r),
+});
+
+const budgetAllocationToRow = (a: Partial<BudgetAllocation>, hid: string): Partial<BudgetAllocationRow> => ({
+  id: a.id, household_id: hid, budget_id: a.budgetId!,
+  category: a.category!, amount: a.amount ?? 0,
+});
+const rowToBudgetAllocation = (r: BudgetAllocationRow): BudgetAllocation => ({
+  id: r.id, budgetId: r.budget_id, category: r.category,
+  amount: parseMoneyFromCloud(r.amount),
+  updated_at: r.updated_at,
 });
 
 const goalToRow = (g: Partial<Goal>, hid: string): Partial<GoalRow> => ({
@@ -365,6 +400,8 @@ interface RecurringRow {
   auto_confirm: boolean;
   active: boolean;
   reminder_lead_days: number | null;
+  rrule?: string | null;              // v9.1 §5.2
+  owner_member_id?: string | null;    // v9.1 §5.3
   created_at: string; updated_at: string; deleted_at: string | null;
 }
 const recurringToRow = (s: Partial<RecurringSchedule>, hid: string): Partial<RecurringRow> => ({
@@ -380,6 +417,8 @@ const recurringToRow = (s: Partial<RecurringSchedule>, hid: string): Partial<Rec
   auto_confirm: s.autoConfirm ?? false,
   active: s.active ?? true,
   reminder_lead_days: s.reminderLeadDays ?? null,
+  rrule: s.rrule ?? null,
+  owner_member_id: s.ownerMemberId ?? null,
 });
 const rowToRecurring = (r: RecurringRow): RecurringSchedule => ({
   id: r.id,
@@ -393,6 +432,8 @@ const rowToRecurring = (r: RecurringRow): RecurringSchedule => ({
   autoConfirm: r.auto_confirm,
   active: r.active,
   reminderLeadDays: r.reminder_lead_days ?? undefined,
+  rrule: r.rrule ?? undefined,
+  ownerMemberId: r.owner_member_id ?? undefined,
   createdBy: r.created_by ?? undefined,
   updated_at: r.updated_at,
 });
@@ -566,6 +607,7 @@ export class SupabaseAdapter implements DataAdapter {
     if (entity === 'accounts')     return rows.map(rowToAccount) as unknown as T[];
     if (entity === 'savedViews')   return rows.map(rowToSavedView) as unknown as T[];
     if (entity === 'recurring')    return rows.map(rowToRecurring) as unknown as T[];
+    if (entity === 'budgetAllocations') return rows.map(rowToBudgetAllocation) as unknown as T[];
     return [];
   }
 
@@ -625,6 +667,7 @@ export class SupabaseAdapter implements DataAdapter {
     else if (entity === 'accounts')     row = accountToRow(record as Partial<Account>,    householdId);
     else if (entity === 'savedViews')   row = savedViewToRow(record as Partial<SavedView>, householdId);
     else if (entity === 'recurring')    row = recurringToRow(record as Partial<RecurringSchedule>, householdId);
+    else if (entity === 'budgetAllocations') row = budgetAllocationToRow(record as Partial<BudgetAllocation>, householdId);
     else if (entity === 'members')      row = memberToRow(record as Partial<Member>,      householdId);
     else throw new Error(`Unknown entity: ${entity}`);
 
@@ -686,6 +729,19 @@ export class SupabaseAdapter implements DataAdapter {
   }
 
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
+    // v9.1 — budgetAllocations has no server-side replace RPC. Do a client-side
+    // soft-delete-then-upsert (child table, not a hot path) to avoid an extra
+    // migration. Per-row upserts go through the normal mapper.
+    if (entity === 'budgetAllocations') {
+      await this.sb.from('budget_allocations')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('household_id', householdId).is('deleted_at', null);
+      const out: unknown[] = [];
+      for (const rec of records as Array<{ id?: string }>) {
+        out.push(await this.upsert(entity, householdId, rec));
+      }
+      return out as T[];
+    }
     // TD-09: prefer atomic server-side replace RPC for performance and
     // correctness. Each `replace_<entity>` RPC soft-deletes existing rows
     // and inserts the provided set inside a single transaction.
@@ -750,6 +806,7 @@ export class SupabaseAdapter implements DataAdapter {
     if (entity === 'accounts')     return rowToAccount(row as AccountRow);
     if (entity === 'savedViews')   return rowToSavedView(row as SavedViewRow);
     if (entity === 'recurring')    return rowToRecurring(row as RecurringRow);
+    if (entity === 'budgetAllocations') return rowToBudgetAllocation(row as BudgetAllocationRow);
     if (entity === 'members')      return rowToMember(row as MembershipRow);
     return row;
   }
@@ -761,6 +818,7 @@ export class SupabaseAdapter implements DataAdapter {
     if (entity === 'members')    return 'memberships';
     if (entity === 'savedViews') return 'saved_views';
     if (entity === 'recurring')  return 'recurring_schedules';
+    if (entity === 'budgetAllocations') return 'budget_allocations';
     return entity;
   }
 

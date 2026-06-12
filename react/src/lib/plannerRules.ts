@@ -152,7 +152,7 @@ const expenseRules: Rule[] = [
       for (const t of txns) spend[t.category] = (spend[t.category] || 0) + effectiveAmount(t, ctx.baseCurrency, ctx.rates);
       const over = ctx.budgets.filter(b => {
         const limitBase = b.limit * ((ctx.rates[b.currency] || 1) / (ctx.rates[ctx.baseCurrency] || 1));
-        return (spend[b.category] || 0) > limitBase;
+        return (spend[b.category ?? ''] || 0) > limitBase;
       });
       if (!over.length) return { match: false };
       return {

@@ -32,6 +32,9 @@ export default function Transactions() {
   const profile = useStore(s => s.profile);
   const openAddTxn  = useStore(s => s.openAddTxn);
   const openEditTxn = useStore(s => s.openEditTxn);
+  const budgets     = useStore(s => s.budgets);
+  const budgetAllocations = useStore(s => s.budgetAllocations);
+  const debts       = useStore(s => s.debts);
 
   // v7.4.4 — deep-link from Dashboard cards (?type=income/expense, ?cat=foo).
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,9 +61,12 @@ export default function Transactions() {
     '/': () => searchRef.current?.focus(),
   });
 
-  // Strip URL params after seeding so a page refresh respects user changes.
+  // Strip the legacy ?type/?cat seed params after seeding so a refresh respects
+  // user changes — but ONLY when no v9.1 §8 context param is present (budgetId /
+  // debtId / month / from / to drive a live context chip and must persist).
   useEffect(() => {
-    if (searchParams.get('type') || searchParams.get('cat')) {
+    const hasCtx = ['budgetId','debtId','month','from','to'].some(k => searchParams.get(k));
+    if (!hasCtx && (searchParams.get('type') || searchParams.get('cat'))) {
       const next = new URLSearchParams(searchParams);
       next.delete('type'); next.delete('cat');
       setSearchParams(next, { replace: true });
@@ -91,6 +97,42 @@ export default function Transactions() {
     [txns]
   );
 
+  // v9.1 §8 — unified deep-link context. One contract: budgetId resolves to the
+  // budget's period + its allocation categories; debtId resolves to that debt's
+  // payments/EMIs (incl. receivable repayments); month / from-to are date ranges.
+  const ctx = useMemo(() => {
+    const budgetId = searchParams.get('budgetId');
+    const debtId = searchParams.get('debtId');
+    const monthP = searchParams.get('month');
+    let from = searchParams.get('from') || undefined;
+    let to = searchParams.get('to') || undefined;
+    let cats: Set<string> | null = null;
+    let label = '';
+    if (budgetId) {
+      const b = budgets.find(x => x.id === budgetId);
+      if (b) {
+        from = b.periodStart; to = b.periodEnd;
+        const catParam = searchParams.get('cat');
+        const al = budgetAllocations.filter(a => a.budgetId === budgetId);
+        cats = new Set(catParam ? [catParam] : al.map(a => a.category));
+        const title = b.scope === 'annual' ? `${b.periodYear}`
+          : b.scope === 'custom' ? (b.customName || 'Custom')
+          : b.periodMonth ? `${b.periodYear}-${String(b.periodMonth).padStart(2,'0')}` : 'budget';
+        label = `Budget: ${title}${catParam ? ` · ${catParam}` : ''}`;
+      }
+    } else if (debtId) {
+      label = `Debt: ${debts.find(x => x.id === debtId)?.name ?? 'payments'}`;
+    } else if (monthP) {
+      from = `${monthP}-01`;
+      const [y, m] = monthP.split('-').map(Number);
+      to = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+      label = `Month: ${monthP}`;
+    } else if (from || to) {
+      label = `${from ?? '…'} → ${to ?? '…'}`;
+    }
+    return { budgetId, debtId, from, to, cats, label };
+  }, [searchParams, budgets, budgetAllocations, debts]);
+
   const filtered = useMemo<TransactionListItem[]>(() => {
     let f = [...txns];
     if (selectedDate)       f = f.filter(t => t.date === selectedDate);
@@ -98,6 +140,12 @@ export default function Transactions() {
     if (cat !== 'all')      f = f.filter(t => t.category === cat);
     if (!selectedDate && month !== 'all') f = f.filter(t => getMonthKey(t.date) === month);
     if (memberId !== 'all') f = f.filter(t => t.memberId === memberId);
+    // §8 deep-link context
+    if (ctx.from) f = f.filter(t => t.date >= ctx.from!);
+    if (ctx.to)   f = f.filter(t => t.date <= ctx.to!);
+    if (ctx.cats) f = f.filter(t => ctx.cats!.has(t.category));
+    if (ctx.debtId) f = f.filter(t =>
+      t.debtId === ctx.debtId || t.emiSplit?.debt_id === ctx.debtId || t.linkedDebtId === ctx.debtId);
     if (search) {
       const q = search.toLowerCase();
       f = f.filter(t =>
@@ -136,7 +184,7 @@ export default function Transactions() {
     }
 
     return rows.sort((a, b) => transactionSortValue(b.txn) - transactionSortValue(a.txn) || b.txn.id.localeCompare(a.txn.id));
-  }, [txns, schedules, search, type, cat, month, memberId, selectedDate]);
+  }, [txns, schedules, search, type, cat, month, memberId, selectedDate, ctx]);
 
   // TD-17 — virtualizer for the transactions list. Hooks must live in the
   // function body, not inside JSX. The scroll container has a fixed pixel
@@ -168,11 +216,14 @@ export default function Transactions() {
       const m = members.find(x => x.id === memberId);
       list.push({ key: 'member', label: `Member: ${m ? m.name : memberId}`, clear: () => setMemberId('all') });
     }
+    // §8 — deep-link context chip (budget / debt / month / range).
+    if (ctx.label) list.push({ key: 'ctx', label: ctx.label, clear: () => setSearchParams({}, { replace: true }) });
     return list;
-  }, [type, cat, month, memberId, members]);
+  }, [type, cat, month, memberId, members, ctx, setSearchParams]);
   const hasFilters = activeFilters.length > 0 || search.length > 0 || selectedDate !== null;
   function resetAllFilters() {
     setSearch(''); setType('all'); setCat('all'); setMonth('all'); setMemberId('all'); setSelectedDate(null);
+    setSearchParams({}, { replace: true });
   }
 
   // Net of the *visible* (non-projected) rows so users see the impact of

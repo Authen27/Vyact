@@ -108,7 +108,7 @@ export function budgetThresholdNotifs(
   const spend = spendByCategory(txns, mk, baseCurrency, rates);
   for (const b of budgets) {
     const limitBase = b.limit * (rates[b.currency] / rates[baseCurrency] || 1);
-    const spent = spend[b.category] || 0;
+    const spent = spend[b.category ?? ''] || 0;
     const pct = limitBase > 0 ? spent / limitBase : 0;
     const threshold: 80 | 100 | null = pct >= 1 ? 100 : pct >= 0.8 ? 80 : null;
     if (!threshold) continue;
