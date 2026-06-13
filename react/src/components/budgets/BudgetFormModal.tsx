@@ -25,9 +25,6 @@ interface FormState {
   scope: BudgetScope;
   periodYear: string;
   periodMonth: string;     // '1'..'12'
-  customName: string;
-  customStart: string;
-  customEnd: string;
   limit: string;
   currency: string;
   allocs: AllocRow[];
@@ -42,8 +39,6 @@ const blank = (currency: string): FormState => {
     scope: 'month',
     periodYear: String(now.getFullYear()),
     periodMonth: String(now.getMonth() + 1),
-    customName: '',
-    customStart: '', customEnd: '',
     limit: '',
     currency,
     allocs: [],
@@ -80,12 +75,10 @@ export default function BudgetFormModal(props: Props) {
       const rows = allocations.filter(a => a.budgetId === initial.id)
         .map(a => ({ id: a.id, category: a.category, amount: String(a.amount) }));
       setForm({
-        scope: initial.scope ?? 'month',
+        // Coerce any legacy 'custom' row to 'month' (custom budgets removed).
+        scope: initial.scope === 'annual' ? 'annual' : 'month',
         periodYear: String(initial.periodYear ?? new Date().getFullYear()),
         periodMonth: String(initial.periodMonth ?? new Date().getMonth() + 1),
-        customName: initial.customName ?? '',
-        customStart: initial.scope === 'custom' ? (initial.periodStart ?? '') : '',
-        customEnd:   initial.scope === 'custom' ? (initial.periodEnd ?? '') : '',
         limit: String(initial.limit ?? ''),
         currency: initial.currency,
         allocs: rows,
@@ -97,8 +90,8 @@ export default function BudgetFormModal(props: Props) {
 
   // resolved period range for the current form state
   const period = useMemo(
-    () => resolveBudgetPeriod(form.scope, Number(form.periodYear), Number(form.periodMonth), form.customStart, form.customEnd),
-    [form.scope, form.periodYear, form.periodMonth, form.customStart, form.customEnd],
+    () => resolveBudgetPeriod(form.scope, Number(form.periodYear), Number(form.periodMonth)),
+    [form.scope, form.periodYear, form.periodMonth],
   );
 
   const allocSum = form.allocs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -139,11 +132,6 @@ export default function BudgetFormModal(props: Props) {
 
   async function save() {
     if (total <= 0) { toast('Enter a total greater than 0', 'error'); return; }
-    if (form.scope === 'custom') {
-      if (!form.customName.trim()) { toast('Name your custom budget', 'error'); return; }
-      if (!form.customStart || !form.customEnd) { toast('Enter a start and end date', 'error'); return; }
-      if (form.customStart > form.customEnd) { toast('Start must be before end', 'error'); return; }
-    }
     // Uniqueness guard: prevent creating a duplicate budget for the same period.
     if (!initial) {
       if (form.scope === 'month') {
@@ -170,9 +158,8 @@ export default function BudgetFormModal(props: Props) {
       await upsertBudget({
         id,
         scope: form.scope,
-        periodYear: form.scope === 'custom' ? undefined : Number(form.periodYear),
+        periodYear: Number(form.periodYear),
         periodMonth: form.scope === 'month' ? Number(form.periodMonth) : undefined,
-        customName: form.scope === 'custom' ? form.customName.trim() : undefined,
         periodStart: period.periodStart,
         periodEnd: period.periodEnd,
         limit: total,
@@ -206,10 +193,10 @@ export default function BudgetFormModal(props: Props) {
 
   return (
     <Modal open={open} title={initial ? 'Edit Budget' : 'Add Budget'} onClose={onClose}>
-      {/* §4.2 — scope leads the form */}
+      {/* §4.2 — scope leads the form (monthly or annual) */}
       <Field label="Scope">
         <div className="flex gap-2">
-          {(['month','annual','custom'] as BudgetScope[]).map(s => (
+          {(['month','annual'] as BudgetScope[]).map(s => (
             <button key={s} type="button" onClick={() => setForm(f => ({ ...f, scope: s }))}
               className={`flex-1 py-2 rounded-md border text-sm capitalize transition-colors ${form.scope === s ? 'border-coral bg-coral/10 text-ink font-medium' : 'border-line text-ink-mid hover:bg-bg3'}`}>
               {s}
@@ -238,22 +225,6 @@ export default function BudgetFormModal(props: Props) {
             {yearOpts.map(y => <option key={y} value={y}>{y}</option>)}
           </Select>
         </Field>
-      )}
-      {form.scope === 'custom' && (
-        <>
-          <Field label="Name">
-            <Input value={form.customName} placeholder="Maldives Trip"
-              onChange={e => setForm(f => ({ ...f, customName: e.target.value }))} />
-          </Field>
-          <FieldRow>
-            <Field label="Start date">
-              <Input type="date" value={form.customStart} onChange={e => setForm(f => ({ ...f, customStart: e.target.value }))} />
-            </Field>
-            <Field label="End date">
-              <Input type="date" value={form.customEnd} min={form.customStart || undefined} onChange={e => setForm(f => ({ ...f, customEnd: e.target.value }))} />
-            </Field>
-          </FieldRow>
-        </>
       )}
 
       <FieldRow>

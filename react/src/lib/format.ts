@@ -68,8 +68,6 @@ export const escHtml = (s: string): string =>
 export const clamp = (v: number, min: number, max: number): number => Math.max(min, Math.min(max, v));
 export const getMonthKey = (d: string): string => d.slice(0, 7);
 export const nowMonthKey = (): string => today().slice(0, 7);
-export const localMonthKey = (d: Date = new Date()): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
 export function transactionSortValue(txn: Pick<Transaction, 'date' | 'time' | 'created_at'>): number {
   const normalizedTime = normalizeTimeInput(txn.time);

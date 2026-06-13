@@ -225,7 +225,7 @@ const budgetToRow = (b: Partial<Budget>, hid: string): Partial<BudgetRow> => ({
   scope: b.scope ?? null,
   period_year: b.periodYear ?? null,
   period_month: b.periodMonth ?? null,
-  custom_name: b.customName ?? null,
+  custom_name: null,   // custom budgets removed; always clear the legacy column
 });
 const rowToBudget = (r: BudgetRow): Budget => ({
   id: r.id, category: r.category ?? undefined, limit: parseMoneyFromCloud(r.monthly_limit),
@@ -236,7 +236,6 @@ const rowToBudget = (r: BudgetRow): Budget => ({
   scope: (r.scope as Budget['scope']) || undefined,
   periodYear: r.period_year ?? undefined,
   periodMonth: r.period_month ?? undefined,
-  customName: r.custom_name ?? undefined,
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
   ...rowToProv(r),
 });
@@ -595,11 +594,8 @@ export class SupabaseAdapter implements DataAdapter {
       if (error) throw error;
       return (data || []).map(rowToMember) as unknown as T[];
     }
-    const query = this.sb.from(this.tableName(entity))
+    const { data, error } = await this.sb.from(this.tableName(entity))
       .select('*').eq('household_id', householdId).is('deleted_at', null);
-    const { data, error } = entity === 'recurring'
-      ? await query.order('next_due_date', { ascending: true }).order('updated_at', { ascending: false })
-      : await query;
     if (error) throw error;
     const rows = data || [];
     if (entity === 'transactions') return rows.map(rowToTxn) as unknown as T[];

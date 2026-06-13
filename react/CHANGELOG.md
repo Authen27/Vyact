@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.1.1`** (consumer)
+> **Current production version: `v9.1.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -25,7 +25,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 
 ---
 
-## v9.1.1 — Cross-device consistency bugfixes *(2026-06-13)*
+## v9.1.2 — Budgets: monthly/annual only (remove custom) + Recurring build fix *(2026-06-13)*
+
+1. **Removed the "custom" budget scope.** Custom date-range budgets were dropped
+   from the Budgets module — they added confusion without a clear household use-case.
+   Budgeting is now **monthly or annual only**.
+   - `BudgetScope` is `'month' | 'annual'`; the `customName` field and the form's
+     Custom scope button + name/date-range inputs are gone. Legacy `custom` rows
+     opened for edit are coerced to `month`.
+   - `resolveBudgetPeriod` simplified (no custom branch); adapter clears the legacy
+     `custom_name` column on every save.
+   - **DB:** validated CHECK constraint `ck_budget_scope` (`scope IN ('month','annual')`)
+     so a stale client can't reintroduce custom — migration
+     `supabase/migrations/20260613120000_budget_scope_drop_custom.sql` (0 custom rows existed).
+2. **Fixed a build-breaking duplicate in `Recurring.tsx`.** A botched merge had
+   duplicated the entire component body, leaving a dangling block that failed
+   `tsc -b` (`TS1128` at EOF) and broke every production deploy. De-duplicated to
+   the single current RRULE-based component — no behaviour change.
+
+Validated: tsc clean · vitest 147/147 · production build · dev-boot HTTP 200.
+
+## v9.1.01 — Cross-device consistency bugfixes *(2026-06-13)*
 
 Patch release focused on parity issues reported between desktop and mobile for
 Recurring and Dashboard surfaces. No schema change.

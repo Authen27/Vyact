@@ -20,7 +20,6 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 function budgetTitle(b: Budget): string {
   if (b.scope === 'annual') return `${b.periodYear}`;
-  if (b.scope === 'custom') return b.customName || 'Custom budget';
   if (b.scope === 'month' && b.periodMonth) return `${MONTHS[b.periodMonth - 1]} ${b.periodYear}`;
   // legacy fallback
   return b.periodStart ? `${b.periodStart} → ${b.periodEnd}` : 'Budget';

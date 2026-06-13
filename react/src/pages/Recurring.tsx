@@ -22,19 +22,6 @@ const NTH_LABELS = ['1st', '2nd', '3rd', '4th', 'Last'];
 const NTH_VALUES = [1, 2, 3, 4, -1];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function recurringSortValue(s: RecurringSchedule): number {
-  const due = Date.parse(`${s.nextDueDate}T00:00:00`);
-  return Number.isNaN(due) ? Number.MAX_SAFE_INTEGER : due;
-}
-
-function compareRecurring(a: RecurringSchedule, b: RecurringSchedule): number {
-  const byDue = recurringSortValue(a) - recurringSortValue(b);
-  if (byDue !== 0) return byDue;
-  const byUpdated = (b.updated_at || '').localeCompare(a.updated_at || '');
-  if (byUpdated !== 0) return byUpdated;
-  return a.id.localeCompare(b.id);
-}
-
 function todayWeekday(): number { return new Date().getDay(); }
 function todayDom(): number { return new Date().getDate(); }
 function todayMonth(): number { return new Date().getMonth() + 1; }
@@ -193,7 +180,7 @@ export default function Recurring() {
       <Panel title="Active Schedules">
         {schedules.length === 0
           ? <EmptyState icon={<Repeat size={36} />} message="No recurring schedules yet — set up rent, salary, subscriptions" />
-          : [...schedules].sort(compareRecurring).map(s => {
+          : schedules.map(s => {
               const cat = getCat(s.transactionTemplate.category);
               return (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-3 border-b border-line last:border-b-0">

@@ -12,7 +12,7 @@ import {
   selectSpendByCategory, selectRecentTxns, selectTotalAssets, selectTotalLiabilities,
   selectMonthlyDebtPayment,
 } from '../lib/selectors';
-import { fmt, fmtShort, monthName, localMonthKey, convert } from '../lib/format';
+import { fmt, fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
 import { budgetLines } from '../lib/calculations';
 import Money from '../components/ui/Money';
 import { getCat } from '../constants';
@@ -51,7 +51,7 @@ export default function Dashboard() {
   const txns = useStore(s => s.transactions);
   const rates = useStore(s => s.rates);
 
-  const mk = localMonthKey();
+  const mk = nowMonthKey();
   const month = useStore(selectMonthlyData(mk));
   const balance = useStore(selectTotalBalance);
   const rate = month.income > 0 ? Math.round((month.income - month.expense) / month.income * 100) : 0;

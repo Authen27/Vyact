@@ -116,7 +116,6 @@ export default function Transactions() {
         const al = budgetAllocations.filter(a => a.budgetId === budgetId);
         cats = new Set(catParam ? [catParam] : al.map(a => a.category));
         const title = b.scope === 'annual' ? `${b.periodYear}`
-          : b.scope === 'custom' ? (b.customName || 'Custom')
           : b.periodMonth ? `${b.periodYear}-${String(b.periodMonth).padStart(2,'0')}` : 'budget';
         label = `Budget: ${title}${catParam ? ` · ${catParam}` : ''}`;
       }

@@ -121,14 +121,11 @@ export function budgetLines(budgets: Budget[], allocations: BudgetAllocation[]):
 // v9.1 §4 — resolve a budget's scope+identity into a concrete [start, end] range.
 //   month  → first..last day of (year, month)
 //   annual → Jan 1 .. Dec 31 of year
-//   custom → the user-entered range
 export function resolveBudgetPeriod(
-  scope: 'month' | 'annual' | 'custom',
+  scope: 'month' | 'annual',
   year: number, month: number,
-  customStart?: string, customEnd?: string,
 ): { periodStart: string; periodEnd: string } {
   const iso = (d: Date) => d.toISOString().slice(0, 10);
-  if (scope === 'custom') return { periodStart: customStart || '', periodEnd: customEnd || '' };
   if (scope === 'annual') return { periodStart: `${year}-01-01`, periodEnd: `${year}-12-31` };
   // month — last day via day 0 of next month
   const start = new Date(Date.UTC(year, month - 1, 1));

@@ -127,7 +127,9 @@ export type BudgetPeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'annual' | 
 // what makes it the SAME budget on every device (fixes the item-2 cross-device
 // divergence). A budget is a PERIOD CONTAINER whose total (`limit`) is split into
 // per-category `BudgetAllocation` child rows (a cloud-synced table, not jsonb).
-export type BudgetScope = 'month' | 'annual' | 'custom';
+// Household budgeting is monthly or annual only. (Custom date-range budgets were
+// removed — they added confusion without a clear use-case.)
+export type BudgetScope = 'month' | 'annual';
 
 export interface Budget extends WithProvenance {
   id: string;
@@ -138,17 +140,15 @@ export interface Budget extends WithProvenance {
   limit: number;
   currency: string;
   color?: string;
-  /** v9.1 — strict identity. */
+  /** Strict identity: month (year+month) or annual (year). */
   scope?: BudgetScope;
   /** Set for month & annual; resolved year. */
   periodYear?: number;
   /** 1..12 — set for month only. */
   periodMonth?: number;
-  /** Set for custom only, e.g. "Maldives Trip". */
-  customName?: string;
   /** v6.4 legacy budgeting period (retained so older helpers compile). */
   period?: BudgetPeriod;
-  /** RESOLVED range (TD-13 columns). Always set in v9.1; required for custom. */
+  /** RESOLVED range (TD-13 columns) — first..last day of the month/year. */
   periodStart?: string;
   periodEnd?: string;
   /** v6.4.19 — TD-03 optimistic-concurrency precondition. */

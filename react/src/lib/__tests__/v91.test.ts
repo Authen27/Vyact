@@ -9,12 +9,11 @@ import type { Budget, BudgetAllocation } from '../../types';
 const R = { USD: 1 };
 
 describe('v9.1 §4 — budget identity', () => {
-  it('resolveBudgetPeriod gives exact month / annual / custom ranges (incl. leap Feb)', () => {
-    expect(resolveBudgetPeriod('month', 2026, 6, '', '')).toEqual({ periodStart: '2026-06-01', periodEnd: '2026-06-30' });
+  it('resolveBudgetPeriod gives exact month / annual ranges (incl. leap Feb)', () => {
+    expect(resolveBudgetPeriod('month', 2026, 6)).toEqual({ periodStart: '2026-06-01', periodEnd: '2026-06-30' });
     // Feb in a leap year ends on the 29th
-    expect(resolveBudgetPeriod('month', 2028, 2, '', '')).toEqual({ periodStart: '2028-02-01', periodEnd: '2028-02-29' });
-    expect(resolveBudgetPeriod('annual', 2025, 1, '', '')).toEqual({ periodStart: '2025-01-01', periodEnd: '2025-12-31' });
-    expect(resolveBudgetPeriod('custom', 0, 0, '2026-09-01', '2026-09-14')).toEqual({ periodStart: '2026-09-01', periodEnd: '2026-09-14' });
+    expect(resolveBudgetPeriod('month', 2028, 2)).toEqual({ periodStart: '2028-02-01', periodEnd: '2028-02-29' });
+    expect(resolveBudgetPeriod('annual', 2025, 1)).toEqual({ periodStart: '2025-01-01', periodEnd: '2025-12-31' });
   });
 
   it('budgetLines flattens a container + allocations into concrete category lines', () => {
