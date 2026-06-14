@@ -23,6 +23,7 @@ import {
   backfillSchedulesFromTransactions, recurringInstanceId,
 } from './lib/recurring';
 import { uid, today, setNumberSystem } from './lib/format';
+import { budgetIdentityId } from './lib/budgetIdentity';
 import { readNumberSystemPref, writeNumberSystemPref } from './lib/numberSystemPref';
 import {
   upcomingBillNotifs, missedPaymentNotifs, budgetThresholdNotifs,
@@ -659,6 +660,14 @@ export const useStore = create<Store>((set, get) => ({
   },
   upsertBudget: async (b) => {
     const { adapter, currentHouseholdId, budgets } = get();
+    // v9.3.1 — cross-device convergence. A budget's identity is (household,
+    // scope, year, month); the DB enforces it via uq_budget_month/uq_budget_annual.
+    // A NEW container must take the DETERMINISTIC id for its slot so two devices
+    // creating the same period upsert the SAME row instead of minting two random
+    // ids that collide on the unique index (and dead-letter). Edits keep their id.
+    if (!b.id && b.scope && typeof b.periodYear === 'number') {
+      b = { ...b, id: budgetIdentityId(currentHouseholdId, b.scope, b.periodYear, b.periodMonth) };
+    }
     // TD-03 phase B (PR #12): thread the version precondition on edits.
     const saved = await adapter.upsert('budgets', currentHouseholdId, b, b.id && b.updated_at ? b.updated_at : undefined);
     // Period metadata now lives on the row itself (PR #20). The adapter's

@@ -12,7 +12,7 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { Input, Select, Field, FieldRow } from '../ui/Input';
 import { useStore } from '../../store';
-import { uid, fmt } from '../../lib/format';
+import { fmt } from '../../lib/format';
 import { resolveBudgetPeriod, recurringForecastByCategory } from '../../lib/calculations';
 import { suggestBudget } from '../../lib/budgetIntel';
 import { EXPENSE_CATEGORIES, getCat, deterministicColor } from '../../constants';
@@ -154,9 +154,11 @@ export default function BudgetFormModal(props: Props) {
     }
     setSaving(true);
     try {
-      const id = initial?.id ?? uid();
-      await upsertBudget({
-        id,
+      // v9.3.1 — for a NEW budget, do NOT mint a random id. Let the store assign
+      // the DETERMINISTIC container id for this (scope, year, month) slot so every
+      // device converges on the same row. Use the SAVED id for allocations.
+      const saved = await upsertBudget({
+        id: initial?.id,
         scope: form.scope,
         periodYear: Number(form.periodYear),
         periodMonth: form.scope === 'month' ? Number(form.periodMonth) : undefined,
@@ -169,7 +171,7 @@ export default function BudgetFormModal(props: Props) {
       const rows: Partial<BudgetAllocation>[] = form.allocs
         .filter(r => parseFloat(r.amount) > 0)
         .map(r => ({ id: r.id, category: r.category, amount: parseFloat(r.amount) }));
-      await setBudgetAllocations(id, rows);
+      await setBudgetAllocations(saved.id, rows);
       toast(initial ? 'Budget updated' : 'Budget added', 'success');
       onClose();
     } catch (e) {

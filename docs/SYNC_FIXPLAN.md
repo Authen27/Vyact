@@ -152,3 +152,35 @@ shared `updated_at`; then `delete_branch`. Only then ship the migration.
 - **No Web Push / server-side notification fan-out** — notifications recompute on
   refresh, acceptable per the product decision. *(Optional low-pri nicety: sync a
   per-household dismiss/"seen" state so a dismissed alert doesn't reappear.)*
+
+---
+
+## B-series — Budget multi-device convergence (v9.3.1)
+
+Separate root cause from R1–R5 (those were delta/tombstone/status plumbing; this
+is a budget **data-model** defect underneath them).
+
+- **B1 — deterministic budget container id** (`lib/budgetIdentity.ts`, wired in
+  `store.upsertBudget` + `BudgetFormModal`). A budget's identity is
+  `(household, scope, year, month)` enforced by `uq_budget_month`/`uq_budget_annual`,
+  but the client minted a random `uid()` per new budget → two devices, two PKs,
+  same slot → second INSERT violates the unique index and dead-letters (silent
+  cross-device loss). Now every device derives the same id → converge via
+  `ON CONFLICT (id)`. (Same idempotency principle as R2/`recurringInstanceId`.)
+- **B2 — DB defects** (`20260614130000_v931_budget_identity_convergence.sql`):
+  `replace_budgets` rewritten (was stripping `scope/period_year/period_month` on
+  restore and PK-colliding on same-id re-insert) → schema-correct + atomic upsert;
+  dropped the legacy competing `budgets_household_category_uniq` index.
+
+### Deferred follow-up (evidence-gated) — R-BUDGET-RPC: identity-merge upsert
+B1 converges all **fixed** clients. The one residual case is **rollout skew**: a
+fixed client (deterministic id) creating a slot that a *pre-fix* client already
+populated with a **random** id — `ON CONFLICT (id)` won't match → INSERT →
+unique-index violation → dead-letter (now surfaced by R5, not silent; self-heals
+once the stale client updates). Prod has **zero live budgets**, so there is no
+skew to reconcile today. If rollout telemetry shows residual budget dead-letters,
+add an `upsert_budget(h uuid, b jsonb)` RPC doing `INSERT … ON CONFLICT
+(household_id, period_year, period_month) WHERE scope=… AND deleted_at IS NULL DO
+UPDATE` (branch `scope` month/annual) and route the budgets new-insert path
+through it — making the DB the id-independent convergence authority. Not built now
+to keep the hot upsert path stable; gated behind evidence.

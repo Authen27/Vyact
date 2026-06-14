@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.3.0`** (consumer)
+> **Current production version: `v9.3.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,39 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.3.1 — Budget multi-device convergence (root-cause fix) *(2026-06-14)*
+
+Budgets were not syncing across a household's devices: one device's budgets
+vanished, another's never appeared, a third showed a budget matching neither.
+
+**Root cause.** A budget's business identity is `(household, scope, year, month)`,
+enforced in the DB by the partial unique indexes `uq_budget_month` /
+`uq_budget_annual`. But the client minted a **random `uid()`** for every new
+budget, so two devices creating the same period produced two different primary
+keys for the *same* identity slot. The first `INSERT` won; the second violated
+the unique index, was retried, and **dead-lettered** — silent cross-device loss.
+(Prod evidence: the June container was removed by a single-row `removeBudget`,
+while sibling-device creates for the same slot never persisted.)
+
+- **App — deterministic budget identity** (`lib/budgetIdentity.ts`): a new
+  container's id is now derived from its identity (same idempotency principle as
+  `recurringInstanceId`), so every device computes the **same** id for a slot and
+  the write `upsert`s one row (`ON CONFLICT (id)`) instead of colliding.
+  `store.upsertBudget` assigns it for new month/annual containers;
+  `BudgetFormModal` no longer mints `uid()` and uses the saved id for allocations.
+- **DB** (migration `20260614130000_v931_budget_identity_convergence.sql`):
+  - `replace_budgets` rewritten — it had **stripped** `scope/period_year/
+    period_month/custom_name` on every restore (destroying v9.1 identity) and
+    soft-deleted-then-plain-`INSERT`ed the same ids (PK collision on any real
+    backup-restore). Now schema-correct + `ON CONFLICT (id) DO UPDATE` (true
+    atomic replace).
+  - Dropped the legacy `budgets_household_category_uniq` index — the second,
+    competing identity model that coexisted with the v9.1 per-period indexes.
+- **Tests:** +CON-UNIT-065 (deterministic identity: stable, UUIDv8, slot-distinct,
+  annual-ignores-month). Suite 149 → 153 green; tsc + build clean.
+- **Recovery:** the affected budgets are *soft-deleted, not lost* (allocations
+  still sum to their container limit) and can be un-deleted surgically.
 
 ## v9.3.0 — WhatsApp Business integration: connection foundation *(2026-06-14)*
 
