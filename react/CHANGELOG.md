@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.1.2`** (consumer)
+> **Current production version: `v9.3.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,33 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.3.0 — WhatsApp Business integration: connection foundation *(2026-06-14)*
+
+The first slice of the WhatsApp integration — establishing the Meta ↔ Vyact
+connection and the per-user phone-link plug-in. Transaction-logging use-cases are
+deferred to a later phase. Built to the corrected design in
+`whatsapp-vyact-solutioning.md`; operational runbook in `whatsapp-connection-setup.md`.
+
+- **DB** (migration `20260614120000_whatsapp_connection_foundation.sql`):
+  `profiles.phone_number / phone_verified_at / whatsapp_household_id` (+ unique phone
+  index), and two **RLS-locked, service-role-only** tables —
+  `whatsapp_verification_otps` (hashed OTPs, attempt counter, TTL) and
+  `whatsapp_inbound_messages` (webhook idempotency + audit).
+- **Edge Functions** (`supabase/functions/`):
+  - `whatsapp-webhook` — Meta's GET verify-token handshake (the connection
+    validation) + constant-time HMAC signature check on POST + ack-first idempotent
+    inbound logging. Message *processing* is a stub until the use-case phase.
+  - `whatsapp-send-otp` / `whatsapp-verify-otp` — the authed phone-link handshake:
+    household-membership check, 60s resend cooldown, 5-attempt lockout, constant-time
+    compare, phone uniqueness. No secrets in code (all from Supabase secrets).
+- **App:** Settings → **WhatsApp** panel (`components/settings/WhatsAppLink.tsx`) —
+  send-code → verify → linked, cloud-only.
+- **CI:** `deploy-edge-functions` job (best-effort, `needs: db-migrations`).
+
+Validated: React tsc + 149 tests + build + dev-boot green; DB migration applied,
+RLS on. The Edge Functions are **dormant** until deployed and the Meta credentials /
+secrets / `phone_verification_otp` template / webhook are configured (see runbook).
 
 ## v9.2.0 — Sync hardening: refresh-based convergence (R1–R5) *(2026-06-13)*
 
