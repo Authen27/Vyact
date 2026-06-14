@@ -220,7 +220,11 @@ const budgetToRow = (b: Partial<Budget>, hid: string): Partial<BudgetRow> => ({
   ...provToRow(b),
   id: b.id, household_id: hid, category: b.category ?? null,
   monthly_limit: b.limit!, currency: b.currency || 'USD', color: b.color || null,
-  period: b.period || null, period_start: b.periodStart || null, period_end: b.periodEnd || null,
+  // `period` is a legacy NOT-NULL column (default 'monthly'). The v9.1 form is
+  // scope-based and never sends it, so writing an explicit null here violated the
+  // NOT NULL constraint — every NEW budget create threw and dead-lettered, never
+  // reaching the cloud (the "new July budget doesn't sync" bug). Default it.
+  period: b.period || 'monthly', period_start: b.periodStart || null, period_end: b.periodEnd || null,
   // v9.1 §4 — strict identity.
   scope: b.scope ?? null,
   period_year: b.periodYear ?? null,

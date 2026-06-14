@@ -190,6 +190,37 @@ describe('SupabaseAdapter.listSince · TD-06 delta pull', () => {
   });
 });
 
+describe('SupabaseAdapter.upsert · budget NOT-NULL period mapping', () => {
+  // CON-UNIT-066 pins the v9.3.2 fix: a NEW budget create must NOT send an
+  // explicit `period: null`. `period` is a legacy NOT-NULL column; the v9.1
+  // scope-based form never sends it, so the old `b.period || null` produced a
+  // NOT NULL violation that threw, dead-lettered, and never reached the cloud —
+  // the "new July budget doesn't sync to other devices" bug. The mapper must
+  // default it to 'monthly'.
+  const BUDGET_ROW_OK = {
+    id: '99999999-9999-9999-9999-999999999999', household_id: 'h1',
+    category: null, monthly_limit: 1000, currency: 'USD', color: null,
+    period: 'monthly', period_start: null, period_end: null,
+    scope: 'month', period_year: 2026, period_month: 7,
+    confidence: 'confirmed', source: 'user', estimated_at: null, confirmed_at: null,
+    created_at: '2026-07-01T00:00:00Z', updated_at: '2026-07-01T00:00:00Z', deleted_at: null,
+  };
+
+  it('CON-UNIT-066 · a new budget without `period` serializes period:"monthly", never null', async () => {
+    const sb = mockSb({ data: null, error: null }, { data: BUDGET_ROW_OK, error: null });
+    const adapter = new SupabaseAdapter(sb);
+    // Scope-based create exactly as BudgetFormModal sends it — no `period` field.
+    await adapter.upsert('budgets', 'h1', {
+      id: '99999999-9999-9999-9999-999999999999',
+      scope: 'month', periodYear: 2026, periodMonth: 7, limit: 1000, currency: 'USD',
+    });
+    const tableProxy = (sb.from as unknown as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+    const sentRow = tableProxy.upsert.mock.calls[0]![0] as Record<string, unknown>;
+    expect(sentRow.period).toBe('monthly');
+    expect(sentRow.period).not.toBeNull();
+  });
+});
+
 describe('SupabaseAdapter.remove · R1 tombstone propagation', () => {
   // CON-UNIT-063 pins the R1 sync fix: a soft-delete MUST bump `updated_at`
   // in the same write as `deleted_at`. The delta cursor is max(updated_at);

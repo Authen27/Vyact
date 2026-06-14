@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.3.1`** (consumer)
+> **Current production version: `v9.3.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,32 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.3.2 — Budget create reaches the cloud (NOT-NULL `period` fix) *(2026-06-14)*
+
+Follow-up to v9.3.1. With deterministic ids in place, a **newly created** budget
+(e.g. a July 2026 budget) still didn't appear on other devices — because the
+create never reached the cloud at all.
+
+**Root cause.** `budgets.period` is a legacy `NOT NULL DEFAULT 'monthly'` column.
+The v9.1 budget form is *scope*-based and never sends `period`, but
+`budgetToRow` mapped the missing value to an **explicit `null`**
+(`period: b.period || null`). Every new-budget `INSERT` therefore sent
+`period: null` → NOT NULL violation → the optimistic write threw, retried, and
+**dead-lettered**: it showed locally (optimistic cache) on the creating device
+but never persisted, so no other device could pull it. (v9.3.1's June budgets
+"worked" only because they were recovered server-side — the create path itself
+was never exercised post-fix.)
+
+- **App** ([supabaseAdapter.ts](react/src/lib/supabaseAdapter.ts) `budgetToRow`):
+  `period` now defaults to `'monthly'` instead of `null`, consistent with the
+  `rowToBudget` read default. (Provenance columns were already safe — `provToRow`
+  emits `undefined`, which is dropped from the payload so DB defaults apply.)
+- **Tests:** +CON-UNIT-066 (a scope-only budget serializes `period:'monthly'`,
+  never null). Suite 153 → 154 green; tsc + build clean.
+- **Healing:** any budget already stuck in the creating device's dead-letter
+  queue re-applies cleanly with this build — tap the sync badge → *Refresh &
+  re-apply* (or just re-save the budget).
 
 ## v9.3.1 — Budget multi-device convergence (root-cause fix) *(2026-06-14)*
 
