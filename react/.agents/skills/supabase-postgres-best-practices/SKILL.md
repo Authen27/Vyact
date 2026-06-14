@@ -45,6 +45,7 @@ Read individual rule files for detailed explanations and SQL examples:
 references/query-missing-indexes.md
 references/query-partial-indexes.md
 references/_sections.md
+references/vyact-identity-and-mapping-lessons.md   # Vyact addenda: DB-owned identity, NOT-NULL mappers, soft-delete revive, no-cost RPC validation
 ```
 
 Each rule file contains:
