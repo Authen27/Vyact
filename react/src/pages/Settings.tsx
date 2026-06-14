@@ -8,6 +8,7 @@ import { fmt, today } from '../lib/format';
 import { CURRENCIES, DEFAULT_RATES, LOCALES, PROFILE_TYPES } from '../constants';
 import { sb } from '../lib/supabase';
 import { enrollMfaTotp, verifyMfaEnrolment, listMfaFactors, unenrollMfaFactor, updatePassword } from '../lib/auth';
+import WhatsAppLink from '../components/settings/WhatsAppLink';
 import type { Profile, Theme } from '../types';
 
 const THEMES: { key: Theme; label: string; desc: string }[] = [
@@ -233,6 +234,9 @@ export default function Settings() {
             </div>
           </div>
         </Panel>
+
+        {/* ── WhatsApp link (cloud-only; renders nothing in local mode) ── */}
+        <WhatsAppLink />
 
         {/* ── Appearance ──────────────────────────────────── */}
         <Panel title="Appearance">
