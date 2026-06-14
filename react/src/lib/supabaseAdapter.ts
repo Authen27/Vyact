@@ -636,10 +636,15 @@ export class SupabaseAdapter implements DataAdapter {
     since: string,
     limit = 500,
   ): Promise<{ rows: T[]; tombstones: string[]; maxUpdatedAt: string | null }> {
+    // R1 (sync fix): use `>=`, not `>`. A strict `>` silently skips any row
+    // whose `updated_at` ties the cursor's exact millisecond — so a write
+    // that lands on the boundary timestamp is never pulled by other devices.
+    // `>=` re-reads only the boundary rows; applyCloudDelta upserts them
+    // idempotently, so the only cost is re-processing rows at the cursor ms.
     const { data, error } = await this.sb.from(this.tableName(entity))
       .select('*')
       .eq('household_id', householdId)
-      .gt('updated_at', since)
+      .gte('updated_at', since)
       .order('updated_at', { ascending: true })
       .limit(limit);
     if (error) throw error;
@@ -720,9 +725,18 @@ export class SupabaseAdapter implements DataAdapter {
       if (error) throw error;
       return;
     }
-    // Soft-delete for syncable tables
+    // Soft-delete for syncable tables.
+    // R1 (sync fix): bump `updated_at` in the SAME write as `deleted_at`.
+    // The delta-sync cursor is `max(updated_at)`; other devices pull deletes
+    // only as tombstones that fall inside `updated_at >= cursor`. If the
+    // delete write doesn't advance `updated_at` (i.e. no DB touch-trigger
+    // fires on a `deleted_at` update), the tombstone has a stale timestamp,
+    // never enters any other device's delta window, and the row lives on
+    // forever as a ghost (the case-7 net-worth bug). Setting it explicitly
+    // here guarantees tombstone propagation regardless of server triggers.
+    const nowIso = new Date().toISOString();
     const { error } = await this.sb.from(tableName)
-      .update({ deleted_at: new Date().toISOString() }).eq('id', id);
+      .update({ deleted_at: nowIso, updated_at: nowIso }).eq('id', id);
     if (error) throw error;
     void householdId;
   }
@@ -732,8 +746,13 @@ export class SupabaseAdapter implements DataAdapter {
     // soft-delete-then-upsert (child table, not a hot path) to avoid an extra
     // migration. Per-row upserts go through the normal mapper.
     if (entity === 'budgetAllocations') {
+      // R1 (sync fix): bump `updated_at` with `deleted_at` so the soft-deleted
+      // allocation rows ride other devices' delta window as tombstones (see
+      // remove()). Without this, replaced allocation limits never disappear on
+      // a second device — exactly the v9.1.01 "allocation fallback" class.
+      const nowIso = new Date().toISOString();
       await this.sb.from('budget_allocations')
-        .update({ deleted_at: new Date().toISOString() })
+        .update({ deleted_at: nowIso, updated_at: nowIso })
         .eq('household_id', householdId).is('deleted_at', null);
       const out: unknown[] = [];
       for (const rec of records as Array<{ id?: string }>) {

@@ -135,34 +135,37 @@ describe('SupabaseAdapter.replaceAll · TD-09 RPC dispatch', () => {
 
 describe('SupabaseAdapter.listSince · TD-06 delta pull', () => {
   // CON-UNIT-055/056 pin the incremental-list contract added for TD-06.
-  // The cloud query MUST be `select * .eq(household_id) .gt(updated_at,
+  // The cloud query MUST be `select * .eq(household_id) .gte(updated_at,
   // since) .order(updated_at asc) .limit(n)` and MUST NOT filter out
   // soft-deleted rows — callers need the tombstones to remove rows from
   // their local cache. The adapter splits the response into live rows vs
   // tombstones and reports the max updated_at for the next cursor.
+  // R1 (sync fix): the boundary predicate is `>=`, not `>`. A strict `>`
+  // silently skips any row whose updated_at ties the cursor's exact ms;
+  // applyCloudDelta re-upserts the boundary rows idempotently.
 
   type ListSinceRow = { id: string; updated_at: string; deleted_at: string | null; household_id: string };
 
   function mockSbList(rows: ListSinceRow[]): {
     sb: SupabaseClient;
-    spies: { from: ReturnType<typeof vi.fn>; eq: ReturnType<typeof vi.fn>; gt: ReturnType<typeof vi.fn>; order: ReturnType<typeof vi.fn>; limit: ReturnType<typeof vi.fn> };
+    spies: { from: ReturnType<typeof vi.fn>; eq: ReturnType<typeof vi.fn>; gte: ReturnType<typeof vi.fn>; order: ReturnType<typeof vi.fn>; limit: ReturnType<typeof vi.fn> };
   } {
     const limit = vi.fn().mockResolvedValue({ data: rows, error: null });
     const order = vi.fn().mockReturnValue({ limit });
-    const gt    = vi.fn().mockReturnValue({ order });
-    const eq    = vi.fn().mockReturnValue({ gt });
+    const gte   = vi.fn().mockReturnValue({ order });
+    const eq    = vi.fn().mockReturnValue({ gte });
     const select = vi.fn().mockReturnValue({ eq });
     const from  = vi.fn().mockReturnValue({ select });
-    return { sb: { from } as unknown as SupabaseClient, spies: { from, eq, gt, order, limit } };
+    return { sb: { from } as unknown as SupabaseClient, spies: { from, eq, gte, order, limit } };
   }
 
-  it('CON-UNIT-055 · issues `.gt(updated_at, since).order(updated_at asc)` and does NOT filter deleted_at', async () => {
+  it('CON-UNIT-055 · issues `.gte(updated_at, since).order(updated_at asc)` and does NOT filter deleted_at', async () => {
     const { sb, spies } = mockSbList([]);
     const adapter = new SupabaseAdapter(sb);
     const result = await adapter.listSince('transactions', 'h1', '2026-05-30T00:00:00Z', 100);
     expect(spies.from).toHaveBeenCalledWith('transactions');
     expect(spies.eq).toHaveBeenCalledWith('household_id', 'h1');
-    expect(spies.gt).toHaveBeenCalledWith('updated_at', '2026-05-30T00:00:00Z');
+    expect(spies.gte).toHaveBeenCalledWith('updated_at', '2026-05-30T00:00:00Z');
     expect(spies.order).toHaveBeenCalledWith('updated_at', { ascending: true });
     expect(spies.limit).toHaveBeenCalledWith(100);
     // Empty response → no rows, no tombstones, null cursor advance.
@@ -184,5 +187,27 @@ describe('SupabaseAdapter.listSince · TD-06 delta pull', () => {
       'cccccccc-cccc-cccc-cccc-cccccccccccc',
     ]);
     expect(result.maxUpdatedAt).toBe('2026-05-31T12:00:00Z');
+  });
+});
+
+describe('SupabaseAdapter.remove · R1 tombstone propagation', () => {
+  // CON-UNIT-063 pins the R1 sync fix: a soft-delete MUST bump `updated_at`
+  // in the same write as `deleted_at`. The delta cursor is max(updated_at);
+  // if the delete doesn't advance updated_at, the tombstone never enters
+  // another device's `updated_at >= cursor` window and the row lives on as a
+  // ghost (the case-7 net-worth bug). We assert both columns are set.
+  it('CON-UNIT-063 · soft-delete sets deleted_at AND bumps updated_at so the tombstone rides the delta window', async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ update });
+    const sb = { from } as unknown as SupabaseClient;
+    const adapter = new SupabaseAdapter(sb);
+    await adapter.remove('transactions', 'h1', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+    expect(from).toHaveBeenCalledWith('transactions');
+    const patch = update.mock.calls[0][0] as { deleted_at?: string; updated_at?: string };
+    expect(patch.deleted_at).toBeTruthy();
+    expect(patch.updated_at).toBeTruthy();
+    expect(patch.updated_at).toBe(patch.deleted_at);   // same instant
+    expect(eq).toHaveBeenCalledWith('id', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
   });
 });

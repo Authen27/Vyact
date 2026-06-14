@@ -447,4 +447,43 @@ export class HybridAdapter implements DataAdapter {
   clearConflicts(): void {
     try { ls.removeBoth('sync_conflicts'); } catch { /* noop */ }
   }
+
+  /**
+   * R4 (sync fix) — number of ops that exhausted their retries and are now in
+   * the `sync_failed` dead-letter bucket. Previously these vanished with NO
+   * user-facing signal (a money write could silently never reach the cloud);
+   * the sync-status UI now surfaces this so "all synced" can never be a lie.
+   */
+  pendingFailedCount(): number {
+    try {
+      const list = ls.readJson<QueueOp[]>('sync_failed') || [];
+      return list.length;
+    } catch { return 0; }
+  }
+
+  /** Drop the dead-lettered failed ops after the user has reviewed them. */
+  clearFailed(): void {
+    try { ls.removeBoth('sync_failed'); } catch { /* noop */ }
+  }
+
+  /**
+   * R5 (sync fix) — re-queue a dead-lettered op for another flush attempt.
+   * Used by the conflict/failed review UI's "Retry" affordance. For conflict
+   * ops we strip `expectedUpdatedAt` so the retry is an unconditional
+   * last-write-wins (the user has chosen to re-apply their edit on top of the
+   * newer server row); retry counters reset so it isn't instantly re-dropped.
+   */
+  retryDeadLettered(bucket: 'sync_conflicts' | 'sync_failed'): void {
+    try {
+      const list = ls.readJson<QueueOp[]>(bucket) || [];
+      if (!list.length) return;
+      const queue = this.readQueue();
+      for (const op of list) {
+        queue.push({ ...op, attempts: 0, nextRetryAt: undefined, expectedUpdatedAt: undefined });
+      }
+      this.writeQueue(queue);
+      ls.removeBoth(bucket);
+      this.flushQueue();
+    } catch { /* storage error — non-fatal */ }
+  }
 }

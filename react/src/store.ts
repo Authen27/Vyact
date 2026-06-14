@@ -20,7 +20,7 @@ import { applyPayment } from './lib/amortization';
 import { autoMigrateAnonToHousehold } from './lib/migration';
 import {
   dueSchedules, generateTransaction, advanceSchedule,
-  backfillSchedulesFromTransactions,
+  backfillSchedulesFromTransactions, recurringInstanceId,
 } from './lib/recurring';
 import { uid, today, setNumberSystem } from './lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from './lib/numberSystemPref';
@@ -191,6 +191,9 @@ interface Store {
   setSession: (session: Session | null, loaded?: boolean) => void;
   refreshHouseholds: () => Promise<void>;
   subscribeRealtime: (householdId: string) => () => void;
+  // R4 (sync fix) — refresh-based sync surface.
+  lastSyncedAt: number | null;       // epoch ms of the last successful pull
+  manualRefresh: () => Promise<void>; // full-sweep resync behind the Refresh button
 
   // theme + toast
   setTheme: (t: Theme) => void;
@@ -411,6 +414,23 @@ export const useStore = create<Store>((set, get) => ({
     set({ loading: false });
   },
 
+  lastSyncedAt: null,   // R4 (sync fix) — set by refresh() on success
+
+  // R4 (sync fix) — manual full-sweep resync behind the Refresh control.
+  // Clears the per-device delta cursors + synced sentinels (forceFullResync)
+  // so the next refresh does a FULL pull of every entity — this is also the
+  // R1 safety net that catches any tombstone a delta window might have missed
+  // (a deleted row whose timestamp somehow fell outside the cursor). Falls back
+  // to a plain refresh in local-only mode (no forceFullResync on the adapter).
+  manualRefresh: async () => {
+    const { adapter, currentHouseholdId } = get();
+    const fullSweep = (adapter as { forceFullResync?: (hid: string) => void }).forceFullResync;
+    if (typeof fullSweep === 'function' && currentHouseholdId) {
+      try { fullSweep.call(adapter, currentHouseholdId); } catch { /* noop */ }
+    }
+    await get().refresh();
+  },
+
   refresh: async () => {
     const { adapter, currentHouseholdId } = get();
     // v8.1.2 — realtime fires refresh() on every postgres change, so multiple
@@ -480,6 +500,7 @@ export const useStore = create<Store>((set, get) => ({
       budgetAllocations,
       profile: mergedProfile,
       rates,
+      lastSyncedAt: Date.now(),   // R4 (sync fix): drives "last synced" status
     });
     setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
 
@@ -909,9 +930,20 @@ export const useStore = create<Store>((set, get) => ({
     const updated = [...recurringSchedules];
     for (const s of due) {
       if (s.autoConfirm) {
-        const txn = generateTransaction(s);
-        await adapter.upsert('transactions', currentHouseholdId, txn);
-        newTxns.push(txn);
+        // R2 (sync fix): idempotency guard. Skip if this occurrence already
+        // exists locally (it may have been generated on another device and
+        // pulled in, or generated in a prior engine run before the schedule
+        // advance synced). The deterministic id makes the cloud upsert a no-op
+        // too, but this also avoids a transient in-memory duplicate.
+        const occId = recurringInstanceId(s.id, s.nextDueDate);
+        const exists = transactions.some(
+          t => t.id === occId || (t.recurringScheduleId === s.id && t.date === s.nextDueDate),
+        );
+        if (!exists) {
+          const txn = generateTransaction(s);
+          await adapter.upsert('transactions', currentHouseholdId, txn);
+          newTxns.push(txn);
+        }
       }
       const advanced = advanceSchedule(s);
       const idx = updated.findIndex(x => x.id === s.id);
@@ -1052,24 +1084,36 @@ export const useStore = create<Store>((set, get) => ({
     void highestRole; // suppress unused
   },
 
+  // R3 (sync fix): refresh-based sync, not real-time.
+  // Per the product decision, devices converge ON REFRESH rather than via a
+  // live socket. The previous `postgres_changes` subscription was also
+  // misconfigured (no `table`, one household filter for every table — it could
+  // not reliably deliver). We retire it and instead pull whenever the app is
+  // likely stale: the tab becomes visible, the window regains focus, the device
+  // comes back online, plus a gentle foreground poll. A trailing debounce
+  // collapses bursts and avoids overlapping reads clobbering each other.
   subscribeRealtime: (householdId) => {
-    if (!supabase) return () => {/* noop */};
-    // v8.1.2 — debounce: a single user action (e.g. a transfer's paired rows, or
-    // a quick succession of adds) emits a burst of postgres_changes events. Firing
-    // a full refresh() per event spawned overlapping reads that resolved out of
-    // order and clobbered just-written rows (dashboard totals froze). Collapse the
-    // burst into one trailing refresh after the writes settle.
+    void householdId;
+    if (typeof window === 'undefined') return () => {/* noop */};
     let debounce: ReturnType<typeof setTimeout> | null = null;
-    const channel = supabase
-      .channel(`hh:${householdId}`)
-      .on('postgres_changes',
-          { event: '*', schema: 'public', filter: `household_id=eq.${householdId}` },
-          () => {
-            if (debounce) clearTimeout(debounce);
-            debounce = setTimeout(() => { debounce = null; void get().refresh(); }, 400);
-          })
-      .subscribe();
-    return () => { if (debounce) clearTimeout(debounce); supabase!.removeChannel(channel); };
+    const trigger = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => { debounce = null; void get().refresh(); }, 400);
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') trigger(); };
+    // Foreground-only poll (90s) so a long-open tab still converges without a
+    // manual action; skipped while hidden to avoid waking a backgrounded tab.
+    const poll = setInterval(() => { if (document.visibilityState === 'visible') trigger(); }, 90_000);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', trigger);
+    window.addEventListener('online', trigger);
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', trigger);
+      window.removeEventListener('online', trigger);
+    };
   },
 
   setTheme: (theme) => {

@@ -25,6 +25,19 @@ The numbering history has some non-monotonic stretches that we keep documented h
 
 ---
 
+## v9.2.0 — Sync hardening: refresh-based convergence (R1–R5) *(2026-06-13)*
+
+Targeted fixes for the growing cross-account / cross-device / cross-browser sync gaps, built to the **refresh-based** product decision (devices converge on refresh, not a live socket). Full audit + plan in [`docs/SYNC_FIXPLAN.md`](../docs/SYNC_FIXPLAN.md).
+
+- **R1 — a refresh now actually converges.** Two delta-sync defects fixed in `supabaseAdapter.ts`: (1) `listSince` used a strict `.gt('updated_at', cursor)` which **silently skipped any row tying the cursor's exact millisecond** → now `.gte(...)` (boundary rows re-upsert idempotently); (2) `remove()` / the `budget_allocations` soft-delete set only `deleted_at`, never bumping `updated_at` — so a delete's tombstone kept a stale timestamp, **never entered another device's `updated_at >= cursor` window, and the row lived on as a ghost** (the Net-Worth case-7 bug). Soft-deletes now bump `updated_at` in the same write. Pinned by `CON-UNIT-055/063`.
+- **R2 — no duplicate recurring transactions across devices.** `generateTransaction` used a random id, so two devices materialising the same due occurrence each inserted a row. Instances now get a **deterministic UUIDv8 keyed on `(schedule, occurrence-date)`** (`recurringInstanceId`, cyrb128) so concurrent generation upserts the *same* row; `runRecurringEngine` also guards against an already-present occurrence. Pinned by `CON-UNIT-064`.
+- **R3 — refresh triggers, dead realtime retired.** The old `postgres_changes` subscription was misconfigured (no `table`, one household filter for every table — it couldn't reliably deliver) and is removed. `subscribeRealtime` now pulls on `visibilitychange→visible`, `focus`, `online`, plus a 90 s foreground poll (debounced 400 ms). App-init + post-write refreshes unchanged.
+- **R4 — honest sync status + manual refresh.** The `sync_failed` dead-letter (a write that exhausted retries) was **completely invisible** — a money write could vanish with no signal; the adapter now exposes `pendingFailedCount()` and the `SyncStatusBadge` is a **tap-to-refresh** button showing worst-of `{offline · N failed · N conflicts · syncing · synced "· 2m ago"}` driven by a new `lastSyncedAt`. The tap runs `manualRefresh()` — a full-sweep resync (clears delta cursors) that also catches any tombstone a delta window missed.
+- **R5 — no silent lost writes.** Conflicts/failed ops can now be **re-applied**: `retryDeadLettered()` re-queues them (retries reset, `expectedUpdatedAt` stripped for conflicts), and `SyncConflictBanner` surfaces both buckets with **"Refresh & re-apply"** (pull latest, then retry) / "Dismiss".
+- **R6 — atomic reconcile: deferred with a ready, column-verified RPC spec** (`docs/SYNC_FIXPLAN.md`). It self-heals on the next refresh under the refresh-based model, and a money-mutating SQL RPC shouldn't ship without a Supabase-branch test + invariant coverage — so it's specced, not rushed.
+
+No money-model change (INV-1..9 untouched). tsc clean · **149/149 tests** (`+CON-UNIT-063/064`) · build ✓ · dev-boot 200.
+
 ## v9.1.2 — Budgets: monthly/annual only (remove custom) + Recurring build fix *(2026-06-13)*
 
 1. **Removed the "custom" budget scope.** Custom date-range budgets were dropped

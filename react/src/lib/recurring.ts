@@ -3,9 +3,46 @@
 // Computes next-due-date and generates pending transactions when due.
 
 import type { RecurringSchedule, RecurrenceFreq, Transaction } from '../types';
-import { uid, today } from './format';
+import { today } from './format';
 
 const DAY_MS = 86_400_000;
+
+// R2 (sync fix): deterministic instance id.
+// A materialised recurring instance must get the SAME id on every device for a
+// given (schedule, occurrence-date) so that two devices generating the same due
+// occurrence upsert the SAME cloud row instead of inserting two — the multi-
+// device "duplicate transaction" bug. We derive a stable UUIDv8 from the seed
+// via cyrb128, so no randomness and no DB round-trip is needed.
+function cyrb128(str: string): [number, number, number, number] {
+  let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
+  for (let i = 0; i < str.length; i++) {
+    const k = str.charCodeAt(i);
+    h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+    h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+    h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+    h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+  }
+  h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+  h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+  h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+  h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+  return [(h1 ^ h2 ^ h3 ^ h4) >>> 0, h2 >>> 0, h3 >>> 0, h4 >>> 0];
+}
+/** Stable UUIDv8 (RFC 9562) derived from a seed string. Same seed → same id. */
+export function deterministicUuid(seed: string): string {
+  const [a, b, c, d] = cyrb128(seed);
+  const h = (n: number) => (n >>> 0).toString(16).padStart(8, '0');
+  let hex = h(a) + h(b) + h(c) + h(d);
+  // version 8 (custom) in the 13th nibble; RFC-4122 variant in the 17th.
+  hex = hex.slice(0, 12) + '8' + hex.slice(13);
+  const variant = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  hex = hex.slice(0, 16) + variant + hex.slice(17);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+/** The deterministic id a given schedule occurrence will always materialise as. */
+export function recurringInstanceId(scheduleId: string, occurrenceDate: string): string {
+  return deterministicUuid(`vyact:recur:${scheduleId}:${occurrenceDate}`);
+}
 
 export function scheduleFiresOnDate(schedule: RecurringSchedule, date: string): boolean {
   if (schedule.active === false) return false;
@@ -100,7 +137,9 @@ export function upcomingSchedules(schedules: RecurringSchedule[], leadDays = 3, 
 export function generateTransaction(schedule: RecurringSchedule): Transaction {
   return {
     ...schedule.transactionTemplate,
-    id: uid(),
+    // R2 (sync fix): deterministic id keyed on (schedule, occurrence-date) so a
+    // concurrent generation on another device upserts the same row, not a dupe.
+    id: recurringInstanceId(schedule.id, schedule.nextDueDate),
     date: schedule.nextDueDate,
     recurring: schedule.frequency === 'custom_day' ? 'monthly' : schedule.frequency,
     // v9.1 §5 — materialised instances link back to their template and are

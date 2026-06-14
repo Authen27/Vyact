@@ -4,6 +4,7 @@ import {
   computeNextDueDate,
   projectRecurringTransactionsForDate,
   scheduleFiresOnDate,
+  recurringInstanceId,
 } from '../recurring';
 
 function makeSchedule(overrides: Partial<RecurringSchedule> = {}): RecurringSchedule {
@@ -108,5 +109,22 @@ describe('projectRecurringTransactionsForDate', () => {
 describe('computeNextDueDate', () => {
   it('advances monthly schedules from the last generated date', () => {
     expect(computeNextDueDate('monthly', '2026-06-05', '2026-07-05', 5)).toBe('2026-08-05');
+  });
+});
+
+describe('recurringInstanceId · R2 idempotency', () => {
+  // CON-UNIT-064 pins the R2 sync fix: a materialised recurring instance gets a
+  // deterministic id keyed on (schedule, occurrence-date), so two devices that
+  // generate the same due occurrence upsert the SAME cloud row instead of
+  // inserting a duplicate. Same seed → same UUID; different date → different id.
+  it('CON-UNIT-064 · is deterministic per (schedule, date), distinct across dates, and a valid UUID', () => {
+    const a1 = recurringInstanceId('sched-1', '2026-07-05');
+    const a2 = recurringInstanceId('sched-1', '2026-07-05');
+    const b  = recurringInstanceId('sched-1', '2026-08-05');
+    const c  = recurringInstanceId('sched-2', '2026-07-05');
+    expect(a1).toBe(a2);             // stable across calls / devices
+    expect(a1).not.toBe(b);          // different occurrence-date → different id
+    expect(a1).not.toBe(c);          // different schedule → different id
+    expect(a1).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });
