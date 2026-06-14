@@ -23,7 +23,6 @@ import {
   backfillSchedulesFromTransactions, recurringInstanceId,
 } from './lib/recurring';
 import { uid, today, setNumberSystem } from './lib/format';
-import { budgetIdentityId } from './lib/budgetIdentity';
 import { readNumberSystemPref, writeNumberSystemPref } from './lib/numberSystemPref';
 import {
   upcomingBillNotifs, missedPaymentNotifs, budgetThresholdNotifs,
@@ -660,19 +659,23 @@ export const useStore = create<Store>((set, get) => ({
   },
   upsertBudget: async (b) => {
     const { adapter, currentHouseholdId, budgets } = get();
-    // v9.3.1 — cross-device convergence. A budget's identity is (household,
-    // scope, year, month); the DB enforces it via uq_budget_month/uq_budget_annual.
-    // A NEW container must take the DETERMINISTIC id for its slot so two devices
-    // creating the same period upsert the SAME row instead of minting two random
-    // ids that collide on the unique index (and dead-letter). Edits keep their id.
-    if (!b.id && b.scope && typeof b.periodYear === 'number') {
-      b = { ...b, id: budgetIdentityId(currentHouseholdId, b.scope, b.periodYear, b.periodMonth) };
+    // v9.3.3 — the DB owns budget identity (household, scope, period), enforced by
+    // uq_budget_month/uq_budget_annual. A NEW budget goes through the identity-aware
+    // create authority (`createBudgetChecked` → upsert_budget RPC): it assigns the
+    // id and rejects a duplicate slot — including another member's unsynced one —
+    // with BudgetExistsError, rather than minting a client id that collides and
+    // dead-letters. An EDIT keeps its id and uses the concurrency-safe update path.
+    // (The v9.3.1 deterministic-id approach was removed: coupling PK to identity
+    // broke delete+recreate and clashed with recovered random-id rows.)
+    let saved: Budget;
+    if (!b.id) {
+      saved = await adapter.createBudgetChecked(currentHouseholdId, b);
+    } else {
+      saved = await adapter.upsert('budgets', currentHouseholdId, b, b.updated_at ? b.updated_at : undefined) as Budget;
     }
-    // TD-03 phase B (PR #12): thread the version precondition on edits.
-    const saved = await adapter.upsert('budgets', currentHouseholdId, b, b.id && b.updated_at ? b.updated_at : undefined);
     // Period metadata now lives on the row itself (PR #20). The adapter's
     // rowToBudget mapper returns `period` / `periodStart` / `periodEnd`.
-    const merged: Budget = { ...(saved as Budget), period: (saved as Budget).period || b.period || 'monthly' };
+    const merged: Budget = { ...saved, period: saved.period || b.period || 'monthly' };
     const idx = budgets.findIndex(x => x.id === saved.id);
     set({ budgets: idx >= 0 ? budgets.map(x => x.id === saved.id ? merged : x) : [...budgets, merged] });
     return merged;

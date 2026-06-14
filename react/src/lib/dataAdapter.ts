@@ -17,6 +17,7 @@ import ls from './localStorageCompat';
 // no quota risk, and they need synchronous access from constructor /
 // startup paths.
 import { kvGet, kvSet, kvRemove } from './kvStore';
+import { BudgetExistsError } from './supabaseAdapter';
 
 // v7.1.2 — `accounts` becomes a first-class entity. The cloud table
 // already exists (Money Map Phase 1 migration); the LocalStorage adapter
@@ -58,6 +59,15 @@ export interface DataAdapter {
   upsert<T extends { id?: string } = { id?: string }>(entity: Entity, householdId: string, record: T, expectedUpdatedAt?: string): Promise<T & { id: string }>;
   remove(entity: Entity, householdId: string, id: string): Promise<void>;
   replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]>;
+  /**
+   * Create a budget for its identity slot (household, scope, period), enforcing
+   * one-per-slot at the source of truth. Throws `BudgetExistsError` when a live
+   * budget already exists for that period — including one another member just
+   * created that this device hasn't pulled. Unlike the optimistic `upsert`, this
+   * is an online, synchronous check (budgets are period singletons that need
+   * household-wide coordination). The DB assigns the id.
+   */
+  createBudgetChecked(householdId: string, budget: Partial<Budget>): Promise<Budget>;
 
   // exchange rates (per-household)
   getRates(householdId: string): Promise<ExchangeRates>;
@@ -210,6 +220,14 @@ export class LocalStorageAdapter implements DataAdapter {
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
     const list = await this.read<{ id: string }[]>(entity, householdId, []);
     await this.write(entity, householdId, list.filter(r => r.id !== id));
+  }
+  async createBudgetChecked(householdId: string, budget: Partial<Budget>): Promise<Budget> {
+    // Local mirror of the DB authority: reject a second budget for the same slot.
+    const list = await this.read<Budget[]>('budgets', householdId, []);
+    const clash = list.some(b => b.scope === budget.scope && b.periodYear === budget.periodYear
+      && (budget.scope === 'month' ? b.periodMonth === budget.periodMonth : true));
+    if (clash) throw new BudgetExistsError(`scope=${budget.scope} year=${budget.periodYear}${budget.scope === 'month' ? ` month=${budget.periodMonth}` : ''}`);
+    return await this.upsert('budgets', householdId, { ...budget, id: uid() }) as Budget;
   }
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
     await this.write(entity, householdId, records);

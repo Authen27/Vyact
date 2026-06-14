@@ -9,7 +9,7 @@
 // UI on every read; HybridAdapter is what FinFlow ships with.
 
 import type {
-  Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
+  Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey, Budget,
 } from '../types';
 import {
   type DataAdapter, type Entity, LocalStorageAdapter,
@@ -233,6 +233,15 @@ export class HybridAdapter implements DataAdapter {
     await this.cache.remove(entity, householdId, id);
     this.enqueue({ ts: Date.now(), op: 'remove', entity, householdId, id });
     this.flushQueue();
+  }
+  async createBudgetChecked(householdId: string, budget: Partial<Budget>): Promise<Budget> {
+    // Budgets are period singletons → create is an ONLINE, synchronous check
+    // against the DB authority (not the optimistic queue), so a duplicate (incl.
+    // another member's unsynced one) is rejected up front rather than silently
+    // dead-lettered. The returned, DB-id'd row is then written to cache.
+    const saved = await this.cloud.createBudgetChecked(householdId, budget);
+    try { await this.cache.upsert('budgets', householdId, saved); } catch { /* cache is best-effort */ }
+    return saved;
   }
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
     await this.cache.replaceAll(entity, householdId, records);

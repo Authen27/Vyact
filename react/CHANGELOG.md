@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.3.2`** (consumer)
+> **Current production version: `v9.3.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,44 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.3.3 — Budget identity owned by the database (the real fix) *(2026-06-14)*
+
+The definitive resolution of the budget multi-device saga. v9.3.1 made the budget
+id deterministic on the **client** — clever, but wrong: it coupled the primary key
+to the business identity and broke in two new ways. (a) Delete a month's budget
+then recreate it → the create landed on the soft-deleted **same-id** row via
+`ON CONFLICT (id)` and never cleared `deleted_at`, so the budget came back
+**invisible**. (b) Budgets recovered server-side kept their original random ids,
+so a fresh deterministic-id create **collided** on `uq_budget_month` and
+dead-lettered. Meanwhile goals/debts/assets "just worked" precisely because they
+mint a fresh random id per create and have no identity constraint — budgets were
+uniquely fragile *because of the client-side identity hack*.
+
+**Identity now lives in the database**, where it belongs, behind one writer that
+every entry point uses (the form today; Ask Vyact / WhatsApp / 3rd-party API next):
+
+- **DB** — new `upsert_budget(h, b, mode)` RPC
+  ([migration](../supabase/migrations/20260614140000_v933_upsert_budget_identity_authority.sql)).
+  `create` does `INSERT … ON CONFLICT (identity) WHERE deleted_at IS NULL DO NOTHING`;
+  if nothing inserts, the slot is taken → raises `BUDGET_EXISTS` (race-proof, and
+  it fires for **another member's not-yet-synced** budget too). `replace` does
+  `DO UPDATE …, deleted_at = NULL` (idempotent set / revive — for machine callers).
+  The DB assigns the id. Validated against the live function with an **auto-rollback
+  scenario harness** (create, duplicate-reject, delete+recreate, replace-converge,
+  replace-revive, annual) — all PASS, zero residue.
+- **App** — **removed** the deterministic-id helper. New budgets go through
+  `adapter.createBudgetChecked` (`store.upsertBudget` create branch) → the RPC; the
+  Budgets form surfaces `BudgetExistsError` as "a budget for July 2026 already
+  exists — refreshing to show it" and pulls fresh. Edits keep the concurrency-safe
+  update-by-id path. **Note:** creating a budget now requires being **online** —
+  it's the only honest way to check the whole household before creating (per the
+  "second member" rule); offline create gets a clear message, not a silent loss.
+- **Behavior** (product-confirmed): one budget per `(household, scope, period)`;
+  delete+recreate **replaces**; a second member is **told it exists** rather than
+  creating a duplicate.
+- **Tests:** −CON-UNIT-065 (deterministic-id helper removed) · +CON-UNIT-067/068
+  (RPC create routing + `BudgetExistsError` mapping). tsc · 152 tests · build green.
 
 ## v9.3.2 — Budget create reaches the cloud (NOT-NULL `period` fix) *(2026-06-14)*
 

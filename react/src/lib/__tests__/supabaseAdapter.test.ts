@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { SupabaseAdapter, ConcurrencyConflictError } from '../supabaseAdapter';
+import { SupabaseAdapter, ConcurrencyConflictError, BudgetExistsError } from '../supabaseAdapter';
 
 // Test scenarios CON-UNIT-051..053. TD-03 phase A (PR #11) — pins the
 // compare-and-set behaviour added to SupabaseAdapter.upsert so the
@@ -218,6 +218,42 @@ describe('SupabaseAdapter.upsert · budget NOT-NULL period mapping', () => {
     const sentRow = tableProxy.upsert.mock.calls[0]![0] as Record<string, unknown>;
     expect(sentRow.period).toBe('monthly');
     expect(sentRow.period).not.toBeNull();
+  });
+});
+
+describe('SupabaseAdapter.createBudgetChecked · v9.3.3 DB identity authority', () => {
+  // CON-UNIT-067/068 pin the create path that replaced the deterministic-id hack.
+  // A new budget routes through the upsert_budget RPC in create mode; the DB
+  // assigns the id and raises 23505/BUDGET_EXISTS when the slot is taken (incl.
+  // another member's unsynced budget), which the adapter surfaces as a typed
+  // BudgetExistsError instead of a silent dead-letter.
+  const BUDGET_ROW_OK = {
+    id: '99999999-9999-9999-9999-999999999999', household_id: 'h1',
+    category: null, monthly_limit: 1000, currency: 'USD', color: null,
+    period: 'monthly', period_start: null, period_end: null,
+    scope: 'month', period_year: 2026, period_month: 7,
+    confidence: 'confirmed', source: 'user', estimated_at: null, confirmed_at: null,
+    created_at: '2026-07-01T00:00:00Z', updated_at: '2026-07-01T00:00:00Z', deleted_at: null,
+  };
+
+  it('CON-UNIT-067 · routes to upsert_budget(create) without a client id and maps the row back', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [BUDGET_ROW_OK], error: null });
+    const adapter = new SupabaseAdapter({ rpc } as unknown as SupabaseClient);
+    const out = await adapter.createBudgetChecked('h1', { scope: 'month', periodYear: 2026, periodMonth: 7, limit: 1000, currency: 'USD' });
+    expect(rpc).toHaveBeenCalledWith('upsert_budget', expect.objectContaining({ h: 'h1', p_mode: 'create' }));
+    const payload = rpc.mock.calls[0]![1] as { b: Record<string, unknown> };
+    expect(payload.b.id).toBeUndefined();        // DB mints the id, client must not
+    expect(payload.b.period).toBe('monthly');    // NOT-NULL period default still applies
+    expect(out.id).toBe(BUDGET_ROW_OK.id);
+    expect(out.limit).toBe(1000);
+  });
+
+  it('CON-UNIT-068 · maps a 23505/BUDGET_EXISTS error to a typed BudgetExistsError', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: '23505', message: 'BUDGET_EXISTS', details: 'scope=month year=2026 month=7' } });
+    const adapter = new SupabaseAdapter({ rpc } as unknown as SupabaseClient);
+    await expect(
+      adapter.createBudgetChecked('h1', { scope: 'month', periodYear: 2026, periodMonth: 7, limit: 1000 }),
+    ).rejects.toBeInstanceOf(BudgetExistsError);
   });
 });
 

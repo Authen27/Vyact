@@ -463,6 +463,18 @@ export class ConcurrencyConflictError extends Error {
   }
 }
 
+// Thrown by `createBudgetChecked` when a LIVE budget already exists for the
+// target identity slot (household, scope, period). The DB raises this atomically
+// (ON CONFLICT … DO NOTHING → no row inserted), so it is race-proof: it also
+// fires when another member created the same-period budget that this device
+// hasn't pulled yet. The UI surfaces it as "a budget for <period> already exists".
+export class BudgetExistsError extends Error {
+  override readonly name = 'BudgetExistsError';
+  constructor(public readonly detail?: string) {
+    super(`A budget for this period already exists${detail ? ` (${detail})` : ''}.`);
+  }
+}
+
 // ── Adapter ───────────────────────────────────────────────────
 export class SupabaseAdapter implements DataAdapter {
   constructor(private sb: SupabaseClient) {}
@@ -720,6 +732,27 @@ export class SupabaseAdapter implements DataAdapter {
       .select().single();
     if (error) throw error;
     return this.mapRowBack(entity, data) as T & { id: string };
+  }
+
+  // v9.3.3 — the single budget-create authority. Routes through the
+  // `upsert_budget` RPC (mode='create'): the DB does INSERT ON CONFLICT(identity)
+  // DO NOTHING and raises BUDGET_EXISTS (errcode 23505) if the slot is already
+  // taken — race-proof and visible to every entry point (form, Ask Vyact,
+  // WhatsApp, API). The DB assigns the id, so the client never couples PK to
+  // identity (the v9.3.1 deterministic-id mistake).
+  async createBudgetChecked(householdId: string, budget: Partial<Budget>): Promise<Budget> {
+    const b = budgetToRow(budget, householdId);
+    delete (b as Record<string, unknown>).id;   // the DB mints the id
+    const { data, error } = await this.sb.rpc('upsert_budget', { h: householdId, b, p_mode: 'create' });
+    if (error) {
+      // errcode 23505 (or our BUDGET_EXISTS message) → typed, surfaceable conflict.
+      if (error.code === '23505' || /BUDGET_EXISTS/.test(error.message || '')) {
+        throw new BudgetExistsError(error.details || error.message);
+      }
+      throw error;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    return rowToBudget(row as BudgetRow);
   }
 
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {

@@ -57,6 +57,7 @@ export default function BudgetFormModal(props: Props) {
   const upsertBudget = useStore(s => s.upsertBudget);
   const removeBudget = useStore(s => s.removeBudget);
   const setBudgetAllocations = useStore(s => s.setBudgetAllocations);
+  const manualRefresh = useStore(s => s.manualRefresh);
   const toast        = useStore(s => s.toast);
 
   const storeOpen    = useStore(s => s.budgetModalOpen);
@@ -175,7 +176,17 @@ export default function BudgetFormModal(props: Props) {
       toast(initial ? 'Budget updated' : 'Budget added', 'success');
       onClose();
     } catch (e) {
-      toast(`Save failed: ${(e as Error).message}`, 'error');
+      // The DB authority rejected a duplicate slot — most often another member
+      // already created this period's budget and it hasn't synced here yet.
+      // Pull fresh so it appears, and tell the user plainly (no scary error).
+      if ((e as Error)?.name === 'BudgetExistsError') {
+        const label = form.scope === 'month' ? `${MONTHS[Number(form.periodMonth) - 1]} ${form.periodYear}` : `${form.periodYear}`;
+        toast(`A budget for ${label} already exists in this household — refreshing to show it.`, 'info');
+        try { await manualRefresh(); } catch { /* best-effort */ }
+        onClose();
+      } else {
+        toast(`Save failed: ${(e as Error).message}`, 'error');
+      }
     } finally {
       setSaving(false);
     }
