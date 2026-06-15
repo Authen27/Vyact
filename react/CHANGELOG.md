@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.3.3`** (consumer)
+> **Current production version: `v9.4.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,51 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.4.0 — Maintainability & observability release *(2026-06-15)*
+
+A behaviour-neutral hardening release that resolves the partner-review
+maintainability cluster (TECH_DEBT.md TD-23…TD-28). **No consumer behaviour
+change** — every item is internal refactor, observability, type-safety, docs, or
+CI. Verified throughout: tsc · ESLint · 161 unit tests (incl. the money-model
+invariant + golden-regression suites) · production build. SemVer minor for the
+size of the internal change surface, not because user-facing behaviour moved.
+
+**Reliability / observability**
+- **Fault taxonomy (TD-24).** New `lib/faults.ts` splits the app's offline-first
+  `catch {}` blocks into `expected()` (degraded path — quiet, ring-buffered) vs
+  `unexpected()`/`droppedWrite()` (contract violation / dropped write — one
+  structured record + pluggable transport, non-throwing). Instrumented the
+  silent-**write**-loss paths first: the sync queue's non-UUID drop, retry-
+  exhaustion, and queue-persist failures, plus the `kvStore` last-ditch persist
+  failure. This is the class of bug behind the v9.3.x budget dead-letters, now
+  observable. (Partial: the read/noop sweep + an in-app diagnostics view remain.)
+
+**Maintainability**
+- **Sync queue extracted (TD-26, closed).** The queue mechanics moved out of
+  `hybridAdapter.ts` (508→400) into `lib/sync/` — `backoff.ts`, `syncQueue.ts`
+  (persistence + uuid-PK guard), `deadLetter.ts` (conflict/failed buckets + R5
+  retry), and a pure `conflict.ts` (`classifyFlushError`). Byte-identical;
+  storage keys unchanged. `hybridAdapter` keeps the cache-first read/no-clobber
+  policy + a thin flush orchestrator.
+- **Store god-module → Zustand slices (TD-25, in progress).** Began the
+  `store.ts` split (1,167→861) with `store/slices/` (`modalSlice`,
+  `reconcileSlice`, `notifySlice`, `recurringSlice`), the shared `store/localJson.ts`
+  helpers, and a typed `store/testHooks.ts`. `useStore`'s public API is
+  byte-identical (slices folded in via `extends`). The coupled init/refresh/auth/
+  data/sync core + the `store/index.ts` rename remain for a dedicated pass.
+
+**Type-safety & docs**
+- **Risk-bearing `as any` removed (TD-27, closed).** Typed the money path
+  (`Reports.tsx` → `Transaction[]`) and the MFA/security path (`Settings.tsx` →
+  `Factor` + enrol-response narrowing); `store.ts` now has zero `as any`.
+- **Doc/version truth (TD-23, closed) + CI drift guard (TD-28).** README pinned
+  the real version; new `scripts/version-drift-check.mjs` (wired into the gate)
+  fails the build when README/VERSIONS/CHANGELOG drift from `package.json` —
+  permanently preventing the stale-version recurrence.
+
+**Tests.** +CON-UNIT-066…077 across budget mapping, the fault taxonomy, and the
+sync modules (incl. a seeded poisoned-op queue-replay regression). Suite 153→161.
 
 ## v9.3.3 — Budget identity owned by the database (the real fix) *(2026-06-14)*
 
