@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { createModalSlice, type ModalSlice } from './store/slices/modalSlice';
+import { createReconcileSlice, type ReconcileSlice } from './store/slices/reconcileSlice';
 import { exposeStoreForE2E } from './store/testHooks';
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
@@ -36,16 +37,13 @@ import {
   registerOnboardingSync, hydrateOnboardingFromCloud,
   type HouseholdOnboarding,
 } from './lib/onboardingState';
-import {
-  computeAccountBalance, accountValueOf,
-  reconcileAccount as buildReconcileOffset,
-} from './lib/accountBalance';
+import { accountValueOf } from './lib/accountBalance';
 import { splitEmiPortions } from './lib/calculations';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from './lib/educationProgress';
 
 interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
 
-export interface Store extends ModalSlice {
+export interface Store extends ModalSlice, ReconcileSlice {
   // ── data ────────────────────────────────────────────────────
   adapter: DataAdapter;
   households: HouseholdMeta[];
@@ -112,10 +110,7 @@ export interface Store extends ModalSlice {
   upsertAsset: (a: Partial<Asset>) => Promise<Asset>;
   removeAsset: (id: string) => Promise<void>;
   upsertAccount: (a: Partial<Account>) => Promise<Account>;
-  /** Money-Model B1.3 — reconcile an account to a real balance by writing a dated
-   *  Balance Adjustment transaction (never a silent overwrite), then mark the
-   *  account balance confirmed. Returns the delta booked. */
-  reconcileAccount: (account: Account, realBalance: number) => Promise<number>;
+  // reconcileAccount lives in ReconcileSlice (store/slices/reconcileSlice.ts, TD-25).
   removeAccount: (id: string) => Promise<void>;
   upsertSavedView: (v: Partial<SavedView>) => Promise<SavedView>;
   removeSavedView: (id: string) => Promise<void>;
@@ -694,33 +689,7 @@ export const useStore = create<Store>((set, get, api) => ({
     await adapter.remove('accounts', currentHouseholdId, id);
     set({ accounts: accounts.filter(x => x.id !== id) });
   },
-  // v9 §2.6 (D2) — reconciliation is a BALANCE CORRECTION, never a transaction.
-  // The delta between the computed and the user-stated balance is absorbed into
-  // accounts.reconciliation_offset with a dated quiet-log entry. Same path for
-  // bank reconcile and investment value updates (kind switches the log entry).
-  reconcileAccount: async (account, realBalance) => {
-    const { transactions, profile, rates, assets, debts } = get();
-    const computed = computeAccountBalance(account, transactions, profile.baseCurrency, rates);
-    const kind = account.kind === 'investment' ? 'investment' as const : 'bank' as const;
-    const { patch, delta } = buildReconcileOffset(account, computed, realBalance, kind);
-    const confirmedProv = { confidence: 'confirmed' as const, source: 'user' as const, confirmedAt: new Date().toISOString() };
-    await get().upsertAccount({ ...account, ...patch, ...confirmedProv });
-    // §6 R-AGG-5 / D2 — net worth folds over the Asset/Debt entities these
-    // accounts were synthesised from, so the stated value MUST flow through to
-    // the linked entity (else the offset would never reach net worth). The
-    // stated balance is the new truth; provenance becomes confirmed/user.
-    if (delta !== 0 && account.assetId) {
-      if (account.kind === 'credit_card' || account.kind === 'loan') {
-        const debt = debts.find(x => x.id === account.assetId);
-        // a liability's stated value is its outstanding balance (non-negative).
-        if (debt) await get().upsertDebt({ ...debt, currentBalance: Math.max(0, Math.abs(realBalance)), ...confirmedProv });
-      } else {
-        const asset = assets.find(x => x.id === account.assetId);
-        if (asset) await get().upsertAsset({ ...asset, value: realBalance, lastUpdated: confirmedProv.confirmedAt, ...confirmedProv });
-      }
-    }
-    return delta;
-  },
+  ...createReconcileSlice(set, get, api),
   upsertSavedView: async (v) => {
     const { adapter, currentHouseholdId, savedViews } = get();
     const saved = await adapter.upsert('savedViews', currentHouseholdId, v, v.id && v.updated_at ? v.updated_at : undefined);
