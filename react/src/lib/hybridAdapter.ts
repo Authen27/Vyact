@@ -7,6 +7,11 @@
 //
 // This is the production adapter. SupabaseAdapter alone works but blocks the
 // UI on every read; HybridAdapter is what FinFlow ships with.
+//
+// TD-26: the sync-queue mechanics (persistence, op-validity, dead-lettering,
+// backoff, conflict resolution) live in `./sync/*`. This file keeps the
+// cache-first read/no-clobber policy and a thin flush orchestrator that
+// delegates to those modules.
 
 import type {
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey, Budget,
@@ -16,57 +21,12 @@ import {
 } from './dataAdapter';
 import ls from './localStorageCompat';
 import { SupabaseAdapter, ConcurrencyConflictError } from './supabaseAdapter';
-import { expected, unexpected, droppedWrite } from './faults';
+import { droppedWrite } from './faults';
 import type { SupabaseClient } from '@supabase/supabase-js';
-
-interface QueueOp {
-  ts: number;
-  op: 'upsert' | 'remove' | 'replaceAll' | 'updateProfile' | 'upsertRate';
-  entity?: Entity;
-  householdId: string;
-  payload?: unknown;
-  id?: string;
-  code?: string;
-  rate?: number;
-  /**
-   * TD-03 (PR #11) — when set, the upsert is performed as a guarded
-   * UPDATE (`WHERE id = ? AND updated_at = expectedUpdatedAt`). If the
-   * cloud row has been touched since the caller's read, the op is moved
-  * to `vt_sync_conflicts` (compat: legacy `sync_conflicts`) instead of being
-  * silently dropped or retried.
-   */
-  expectedUpdatedAt?: string;
-  /**
-   * TD-10 (2026-06-01) — bounded retry. Transient failures (network blip,
-   * 5xx) re-queue with an exponential backoff (`nextRetryAt`) and a hard
-   * cap (`MAX_RETRIES`). Past the cap the op is moved to the
-   * `vt_sync_failed` dead-letter bucket so it stops jamming flushes.
-   */
-  attempts?: number;
-  nextRetryAt?: number;
-}
-
-const MAX_RETRIES = 5;
-// Exponential backoff in ms: 2s, 4s, 8s, 16s, 32s.
-function backoffMs(attempts: number): number {
-  return Math.min(60_000, 1000 * 2 ** attempts);
-}
-
-// queue/conflict keys are managed via localStorageCompat helper (vt_ / legacy prefix)
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// A queued op is syncable only if any id it carries is a valid UUID (cloud PK
-// columns are uuid). Ops without an id (updateProfile, upsertRate, replaceAll)
-// are always allowed; the entity-row ops (upsert/remove) must carry a UUID.
-function isQueueOpIdValid(op: QueueOp): boolean {
-  if (op.op === 'remove') return typeof op.id === 'string' && UUID_RE.test(op.id);
-  if (op.op === 'upsert') {
-    const id = (op.payload as { id?: string } | undefined)?.id;
-    return typeof id === 'string' && UUID_RE.test(id);
-  }
-  return true;
-}
+import type { QueueOp } from './sync/types';
+import * as syncQueue from './sync/syncQueue';
+import * as deadLetter from './sync/deadLetter';
+import { classifyFlushError } from './sync/conflict';
 
 export class HybridAdapter implements DataAdapter {
   cache: LocalStorageAdapter;
@@ -226,13 +186,13 @@ export class HybridAdapter implements DataAdapter {
     // cross-user concurrency. The version precondition only applies to
     // the cloud leg, which is queued and flushed below.
     const local = await this.cache.upsert(entity, householdId, record);
-    this.enqueue({ ts: Date.now(), op: 'upsert', entity, householdId, payload: local, expectedUpdatedAt });
+    syncQueue.enqueue({ ts: Date.now(), op: 'upsert', entity, householdId, payload: local, expectedUpdatedAt });
     this.flushQueue();
     return local;
   }
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
     await this.cache.remove(entity, householdId, id);
-    this.enqueue({ ts: Date.now(), op: 'remove', entity, householdId, id });
+    syncQueue.enqueue({ ts: Date.now(), op: 'remove', entity, householdId, id });
     this.flushQueue();
   }
   async createBudgetChecked(householdId: string, budget: Partial<Budget>): Promise<Budget> {
@@ -246,20 +206,20 @@ export class HybridAdapter implements DataAdapter {
   }
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
     await this.cache.replaceAll(entity, householdId, records);
-    this.enqueue({ ts: Date.now(), op: 'replaceAll', entity, householdId, payload: records });
+    syncQueue.enqueue({ ts: Date.now(), op: 'replaceAll', entity, householdId, payload: records });
     this.flushQueue();
     return records;
   }
   async upsertRate(householdId: string, code: string, rate: number): Promise<void> {
     await this.cache.upsertRate(householdId, code, rate);
-    this.enqueue({ ts: Date.now(), op: 'upsertRate', householdId, code, rate });
+    syncQueue.enqueue({ ts: Date.now(), op: 'upsertRate', householdId, code, rate });
     this.flushQueue();
   }
 
   // Profile is per-user in cloud; cache it locally per-household for parity.
   async updateProfile(householdId: string, patch: Partial<Profile>): Promise<Profile> {
     await this.cache.updateProfile(householdId, patch);
-    this.enqueue({ ts: Date.now(), op: 'updateProfile', householdId, payload: patch });
+    syncQueue.enqueue({ ts: Date.now(), op: 'updateProfile', householdId, payload: patch });
     this.flushQueue();
     return (await this.getProfile(householdId))!;
   }
@@ -330,29 +290,16 @@ export class HybridAdapter implements DataAdapter {
     return this.cloud.setActiveHousehold(id);
   }
 
-  // ── Queue management ───────────────────────────────────────
-  private enqueue(op: QueueOp): void {
-    const queue = this.readQueue();
-    queue.push(op);
-    this.writeQueue(queue);
-  }
-  private readQueue(): QueueOp[] {
-    try {
-      return ls.readJson<QueueOp[]>('sync_queue') || [];
-    } catch { return []; }
-  }
-  private writeQueue(q: QueueOp[]): void {
-    // TD-24: failing to persist the queue loses pending writes on reload — that
-    // is silent data loss, not a best-effort noop. Classify it as unexpected.
-    try { ls.setJson('sync_queue', q); } catch (e) { unexpected(e, 'sync.writeQueue:persist'); }
-  }
-
+  // ── Flush orchestrator ─────────────────────────────────────
+  // The queue mechanics live in ./sync/*; this loop drives them: skip ops
+  // inside their backoff window, drop un-syncable ops, perform the cloud write,
+  // and route a thrown error through classifyFlushError → dead-letter or retry.
   async flushQueue(): Promise<void> {
     if (this.flushing) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     this.flushing = true;
     try {
-      const queue = this.readQueue();
+      const queue = syncQueue.readQueue();
       const remaining: QueueOp[] = [];
       const now = Date.now();
       for (const op of queue) {
@@ -366,7 +313,7 @@ export class HybridAdapter implements DataAdapter {
         // which the uuid PK columns reject with 22P02. Retrying them forever
         // permanently jams the queue and blocks all later (valid) ops from
         // flushing. We drop them with a warning rather than retain them.
-        if (!isQueueOpIdValid(op)) {
+        if (!syncQueue.isQueueOpIdValid(op)) {
           // TD-24: this is a user write the contract can't honour (non-UUID id) —
           // it is permanently DROPPED. Record exactly one structured fault rather
           // than a mute console.warn, so silent write-loss is observable.
@@ -384,124 +331,70 @@ export class HybridAdapter implements DataAdapter {
           // empty list responses are trusted, not treated as transient.
           if (op.entity) this.markSynced(op.entity, op.householdId);
         } catch (e) {
-          // TD-03 — concurrency conflict is a *terminal* outcome for this op,
-          // not a retryable transient failure. The local cache already
-          // reflects the user's intended edit; the cloud has a newer version
-          // from someone else's write. Retrying would keep failing because
-          // the precondition won't suddenly match again. Move the op to a
-          // separate dead-letter bucket so the UI can surface it (TD-03
-          // phase B will add the toast), and DO NOT push it back into the
-          // main queue (would jam every later op).
-          if (e instanceof ConcurrencyConflictError) {
-            this.recordConflict(op);
+          const outcome = classifyFlushError(e, op);
+          if (outcome.kind === 'conflict') {
+            // TD-03 — terminal: dead-letter to sync_conflicts; the UI surfaces it.
+            deadLetter.recordConflict(op);
             if (typeof console !== 'undefined') {
-              console.warn('[Vyact sync] Concurrency conflict — op dead-lettered:', op.entity, e.id, 'expected', e.expectedUpdatedAt);
+              const cc = e as ConcurrencyConflictError;
+              console.warn('[Vyact sync] Concurrency conflict — op dead-lettered:', op.entity, cc.id, 'expected', cc.expectedUpdatedAt);
             }
             continue;
           }
-          // TD-10: bounded retry with exponential backoff. After MAX_RETRIES
-          // the op moves to the `vt_sync_failed` dead-letter so it stops
-          // blocking subsequent flushes.
-          const attempts = (op.attempts ?? 0) + 1;
-          if (attempts >= MAX_RETRIES) {
-            this.recordFailed(op, e);
+          if (outcome.kind === 'failed') {
+            // TD-10 — retries exhausted: dead-letter to sync_failed.
+            deadLetter.recordFailed(op, e);
             if (typeof console !== 'undefined') {
               console.warn('[Vyact sync] Op exhausted retries — moved to dead-letter:', op.op, op.entity, e);
             }
             continue;
           }
-          remaining.push({ ...op, attempts, nextRetryAt: Date.now() + backoffMs(attempts) });
+          remaining.push(outcome.op);
         }
       }
-      this.writeQueue(remaining);
+      syncQueue.writeQueue(remaining);
     } finally {
       this.flushing = false;
     }
   }
 
-  private recordConflict(op: QueueOp): void {
-    // A concurrency conflict is a normal, surfaced outcome (the banner reads
-    // sync_conflicts) — degraded path, classify expected.
-    try {
-      const list = ls.readJson<QueueOp[]>('sync_conflicts') || [];
-      list.push(op);
-      try { ls.setJson('sync_conflicts', list); } catch (e) { expected(e, 'sync.recordConflict:persist'); }
-    } catch (e) { expected(e, 'sync.recordConflict'); }
-  }
-
-  private recordFailed(op: QueueOp, error: unknown): void {
-    // TD-24: a write that exhausted its retries failed to reach the cloud — an
-    // unexpected fault, in addition to the dead-letter bucket the UI surfaces.
-    unexpected(error, `sync.flushQueue:exhausted-retries:${op.op}:${op.entity ?? ''}`);
-    try {
-      const list = ls.readJson<Array<QueueOp & { error?: string }>>('sync_failed') || [];
-      list.push({ ...op, error: error instanceof Error ? error.message : String(error) });
-      try { ls.setJson('sync_failed', list); } catch (e) { expected(e, 'sync.recordFailed:persist'); }
-    } catch (e) { expected(e, 'sync.recordFailed'); }
-  }
-
+  // ── Queue / dead-letter surface (delegated to ./sync/*) ─────
   pendingOpCount(): number {
-    return this.readQueue().length;
+    return syncQueue.readQueue().length;
   }
 
   /**
-   * Number of ops that were rejected by the cloud due to a concurrency
-   * conflict and are now in the dead-letter bucket awaiting user review.
-   * UI surfaces this in TD-03 phase B (PR #12) as a "X edits couldn't be
-   * saved" toast with a "Review" affordance.
+   * Number of ops dead-lettered due to a concurrency conflict, awaiting user
+   * review. Surfaced by the SyncConflictBanner (TD-03 phase B).
    */
   pendingConflictCount(): number {
-    try {
-      const list = ls.readJson<QueueOp[]>('sync_conflicts') || [];
-      return list.length;
-    } catch { return 0; }
+    return deadLetter.pendingConflictCount();
   }
 
-  /**
-   * Drop all dead-lettered conflict ops. Called from the UI's
-   * `SyncConflictBanner` "Dismiss" affordance after the user has been
-   * informed and (typically) re-applied any edits manually.
-   */
+  /** Drop all dead-lettered conflict ops (SyncConflictBanner "Dismiss"). */
   clearConflicts(): void {
-    try { ls.removeBoth('sync_conflicts'); } catch { /* noop */ }
+    deadLetter.clearConflicts();
   }
 
   /**
    * R4 (sync fix) — number of ops that exhausted their retries and are now in
-   * the `sync_failed` dead-letter bucket. Previously these vanished with NO
-   * user-facing signal (a money write could silently never reach the cloud);
-   * the sync-status UI now surfaces this so "all synced" can never be a lie.
+   * the `sync_failed` dead-letter bucket, surfaced so "all synced" can't lie.
    */
   pendingFailedCount(): number {
-    try {
-      const list = ls.readJson<QueueOp[]>('sync_failed') || [];
-      return list.length;
-    } catch { return 0; }
+    return deadLetter.pendingFailedCount();
   }
 
   /** Drop the dead-lettered failed ops after the user has reviewed them. */
   clearFailed(): void {
-    try { ls.removeBoth('sync_failed'); } catch { /* noop */ }
+    deadLetter.clearFailed();
   }
 
   /**
-   * R5 (sync fix) — re-queue a dead-lettered op for another flush attempt.
-   * Used by the conflict/failed review UI's "Retry" affordance. For conflict
-   * ops we strip `expectedUpdatedAt` so the retry is an unconditional
-   * last-write-wins (the user has chosen to re-apply their edit on top of the
-   * newer server row); retry counters reset so it isn't instantly re-dropped.
+   * R5 (sync fix) — re-queue a dead-lettered op for another flush attempt
+   * (conflict/failed review UI's "Retry"). Conflict ops retry as unconditional
+   * last-write-wins; the flush is kicked off once the bucket is drained.
    */
   retryDeadLettered(bucket: 'sync_conflicts' | 'sync_failed'): void {
-    try {
-      const list = ls.readJson<QueueOp[]>(bucket) || [];
-      if (!list.length) return;
-      const queue = this.readQueue();
-      for (const op of list) {
-        queue.push({ ...op, attempts: 0, nextRetryAt: undefined, expectedUpdatedAt: undefined });
-      }
-      this.writeQueue(queue);
-      ls.removeBoth(bucket);
-      this.flushQueue();
-    } catch { /* storage error — non-fatal */ }
+    deadLetter.retryDeadLettered(bucket, () => this.flushQueue());
   }
 }
