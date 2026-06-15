@@ -14,6 +14,7 @@ import { fmt, fmtSigned, getMonthKey } from '../lib/format';
 import { useCategoryClassifications } from '../lib/categorization';
 import { getMoneyMapMode } from '../lib/featureFlags';
 import Money from '../components/ui/Money';
+import type { Transaction } from '../types';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 
 type Period = 'day' | 'week' | 'month' | 'quarter' | 'year';
@@ -332,7 +333,7 @@ function BreakoutTable(props: {
 // ── Period bucketing ─────────────────────────────────────────
 interface Bucket { label: string; start: string; end: string; income: number; expense: number; net: number; }
 
-function buildPeriodData(period: Period, txns: typeof reportableTxns extends (a: infer T) => infer R ? T : never[], baseCur: string, rates: Record<string, number>): Bucket[] {
+function buildPeriodData(period: Period, txns: Transaction[], baseCur: string, rates: Record<string, number>): Bucket[] {
   const data: Bucket[] = [];
   const counts: Record<Period, number> = { day: 30, week: 12, month: 12, quarter: 8, year: 5 };
   const count = counts[period];
@@ -371,11 +372,11 @@ function buildPeriodData(period: Period, txns: typeof reportableTxns extends (a:
       start = `${y}-01-01`; end = `${y}-12-31`;
       label = String(y);
     }
-    const filtered = (txns as Array<{ type: string; date: string; excluded?: boolean; amount: number; currency: string; split?: { isSplit?: boolean; yourShare?: number } }>)
+    const filtered = txns
       .filter(t => !t.excluded && (t.type === 'income' || t.type === 'expense') && t.date >= start && t.date <= end);
     let income = 0, expense = 0;
     for (const t of filtered) {
-      const amt = effectiveAmount(t as any, baseCur, rates);
+      const amt = effectiveAmount(t, baseCur, rates);
       if (t.type === 'income') income += amt;
       else                     expense += amt;
     }

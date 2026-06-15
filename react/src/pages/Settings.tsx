@@ -10,6 +10,7 @@ import { sb } from '../lib/supabase';
 import { enrollMfaTotp, verifyMfaEnrolment, listMfaFactors, unenrollMfaFactor, updatePassword } from '../lib/auth';
 import WhatsAppLink from '../components/settings/WhatsAppLink';
 import type { Profile, Theme } from '../types';
+import type { Factor } from '@supabase/supabase-js';
 
 const THEMES: { key: Theme; label: string; desc: string }[] = [
   { key: 'warm',   label: 'Paper Warm', desc: 'Cream & coral — default' },
@@ -54,7 +55,7 @@ export default function Settings() {
   const [mfaFactorId, setMfaFactorId] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaEnrolling, setMfaEnrolling] = useState(false);
-  const [mfaFactors, setMfaFactors] = useState<any[]>([]);
+  const [mfaFactors, setMfaFactors] = useState<Factor[]>([]);
   const [loadingFactors, setLoadingFactors] = useState(false);
 
   // Password change state (v7.4.4)
@@ -144,7 +145,7 @@ export default function Settings() {
     setLoadingFactors(true);
     try {
       const factors = await listMfaFactors();
-      setMfaFactors((factors as any)?.all || (factors as any) || []);
+      setMfaFactors(factors?.all ?? []);
     } catch (e) {
       // ignore — best-effort UI
       setMfaFactors([]);
@@ -460,9 +461,10 @@ export default function Settings() {
                     setMfaEnrolling(true);
                     try {
                       const enrolled = await enrollMfaTotp('Vyact TOTP');
-                      const otpauth = (enrolled as any)?.otpauth_url || (enrolled as any)?.otp_url || (enrolled as any)?.otpauth || null;
+                      // Supabase TOTP enrol returns { id, type:'totp', totp:{ uri, qr_code, secret } }.
+                      const otpauth = enrolled?.type === 'totp' ? enrolled.totp.uri : null;
                       if (otpauth) setMfaQr(`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(otpauth)}`);
-                      setMfaFactorId((enrolled as any)?.id || (enrolled as any)?.factor_id || '');
+                      setMfaFactorId(enrolled?.id ?? '');
                       await fetchMfaFactors();
                     } catch (e) {
                       toast(`MFA enrolment failed: ${(e as Error).message}`, 'error');

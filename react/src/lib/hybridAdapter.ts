@@ -16,6 +16,7 @@ import {
 } from './dataAdapter';
 import ls from './localStorageCompat';
 import { SupabaseAdapter, ConcurrencyConflictError } from './supabaseAdapter';
+import { expected, unexpected, droppedWrite } from './faults';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface QueueOp {
@@ -341,7 +342,9 @@ export class HybridAdapter implements DataAdapter {
     } catch { return []; }
   }
   private writeQueue(q: QueueOp[]): void {
-    try { ls.setJson('sync_queue', q); } catch { /* noop */ }
+    // TD-24: failing to persist the queue loses pending writes on reload — that
+    // is silent data loss, not a best-effort noop. Classify it as unexpected.
+    try { ls.setJson('sync_queue', q); } catch (e) { unexpected(e, 'sync.writeQueue:persist'); }
   }
 
   async flushQueue(): Promise<void> {
@@ -364,9 +367,10 @@ export class HybridAdapter implements DataAdapter {
         // permanently jams the queue and blocks all later (valid) ops from
         // flushing. We drop them with a warning rather than retain them.
         if (!isQueueOpIdValid(op)) {
-          if (typeof console !== 'undefined') {
-            console.warn('[Vyact sync] Dropping un-syncable queued op with non-UUID id', op.op, op.entity, (op.payload as { id?: string })?.id ?? op.id);
-          }
+          // TD-24: this is a user write the contract can't honour (non-UUID id) —
+          // it is permanently DROPPED. Record exactly one structured fault rather
+          // than a mute console.warn, so silent write-loss is observable.
+          droppedWrite('sync.flushQueue', `${op.op} ${op.entity ?? ''} id=${(op.payload as { id?: string })?.id ?? op.id ?? '?'}`);
           continue;
         }
         try {
@@ -416,19 +420,24 @@ export class HybridAdapter implements DataAdapter {
   }
 
   private recordConflict(op: QueueOp): void {
+    // A concurrency conflict is a normal, surfaced outcome (the banner reads
+    // sync_conflicts) — degraded path, classify expected.
     try {
       const list = ls.readJson<QueueOp[]>('sync_conflicts') || [];
       list.push(op);
-      try { ls.setJson('sync_conflicts', list); } catch { /* noop */ }
-    } catch { /* storage full — non-fatal */ }
+      try { ls.setJson('sync_conflicts', list); } catch (e) { expected(e, 'sync.recordConflict:persist'); }
+    } catch (e) { expected(e, 'sync.recordConflict'); }
   }
 
   private recordFailed(op: QueueOp, error: unknown): void {
+    // TD-24: a write that exhausted its retries failed to reach the cloud — an
+    // unexpected fault, in addition to the dead-letter bucket the UI surfaces.
+    unexpected(error, `sync.flushQueue:exhausted-retries:${op.op}:${op.entity ?? ''}`);
     try {
       const list = ls.readJson<Array<QueueOp & { error?: string }>>('sync_failed') || [];
       list.push({ ...op, error: error instanceof Error ? error.message : String(error) });
-      try { ls.setJson('sync_failed', list); } catch { /* noop */ }
-    } catch { /* storage full — non-fatal */ }
+      try { ls.setJson('sync_failed', list); } catch (e) { expected(e, 'sync.recordFailed:persist'); }
+    } catch (e) { expected(e, 'sync.recordFailed'); }
   }
 
   pendingOpCount(): number {

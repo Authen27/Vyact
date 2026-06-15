@@ -2,10 +2,30 @@
 
 > Source: independent engineering audit of `react/` (consumer v6.4.9), `admin/` (v1.0.4),
 > `db/schema.sql`, and the frozen legacy vanilla shell (v5.0).
-> Date: 2026-05-22 · last reconciled against code 2026-06-01.
+> Date: 2026-05-22 · last reconciled against code 2026-06-01 · partner-review intake 2026-06-14 (TD-23…TD-28).
+>
+> **This file is the single source of truth for technical debt.** Standalone remediation
+> notes are folded in here and deleted — do not create parallel `*_REMEDIATION.md` files.
 >
 > **Effort key:** XS ≤ ½ day · S ≈ 1–2 days · M ≈ 1 week · L ≈ 1–2 weeks.
 > **Severity:** Critical / High / Medium / Low.
+
+## Status at a glance (2026-06-15)
+
+**28 items total — 20 ✅ resolved · 4 ⚠ partial · 4 ⬜ open.**
+
+| Bucket | IDs |
+|---|---|
+| ✅ **Resolved** (20) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-15, TD-17, TD-18, TD-20, TD-21, **TD-23**, **TD-27** |
+| ⚠ **Partial** (4) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane A shipped; Lane B/RLS-isolation open) · TD-28 (CI version-drift guard shipped — closes TD-23's recurrence; CLAUDE.md trim + README docs-map still open) · **TD-24** (fault taxonomy + silent-write-loss paths instrumented & tested; exhaustive read/noop classification + in-app diagnostics view open) |
+| ⬜ **Open** (4) | TD-16, TD-22, **TD-25, TD-26** |
+
+> **2026-06-15 maintainability pass.** Shipped the register's cheap front-runners: **TD-23** (README version truth-fix v7.0.2→v9.3.3 + source-of-truth note), **TD-27** (removed the money-path `as any` in `Reports.tsx` and the MFA-path `as any` in `Settings.tsx`; only the intentional E2E `window` shim remains), and the guard half of **TD-28** (`scripts/version-drift-check.mjs`, wired into the gate runner, fails the build on README/VERSIONS/CHANGELOG ↔ package.json drift — permanently prevents TD-23 from recurring). Next per the order: **TD-24** (error taxonomy — highest latent risk), then the **TD-25/26** extractions.
+
+> TD-23…TD-28 are the **maintainability cluster** from the 2026-06-14 external partner
+> review of Vyact consumer v9.3.x. Provenance, claim-by-claim validation, and the
+> analysis (including recommendations I declined) live in §TD-23…TD-28 below — they
+> superseded and absorbed the former `docs/MAINTAINABILITY_REMEDIATION.md`.
 
 ## Summary
 
@@ -33,6 +53,12 @@
 | TD-19 | ⚠ E2E / browser test automation — Lane A (7 specs) shipped; Lane B (cloud + RLS isolation) open | Technical / Process / QA | High | M (phased) |
 | TD-21 | ✅ RLS performance: un-wrapped `auth.<fn>()` initplan + overlapping permissive policies *(resolved · 2026-06-01 migration)* | Performance / Scalability | Medium | S–M |
 | TD-22 | PWA push notifications wired only as a stored preference; no actual subscription, service-worker handler, or backend fan-out | Functional / Product | Low | M |
+| TD-23 | ✅ Doc drift — README pinned stale consumer version *(resolved 2026-06-15: README v9.3.3 + source-of-truth note; guarded by TD-28 script)* | Technical / Process / Docs | Medium | XS |
+| TD-24 | ⚠ Error opacity — `lib/faults.ts` taxonomy + silent-write-loss paths (sync queue, persistence) instrumented & tested *(2026-06-15)*; exhaustive read/noop classification + in-app diagnostics view open | Technical / Reliability | High | M |
+| TD-25 | ⬜ Consumer `store.ts` (1,167 lines) is a god-module — split into Zustand domain slices | Technical / Maintainability | High | L |
+| TD-26 | ⬜ Sync-queue mechanics tangled into `hybridAdapter.ts` (498 lines) — extract `lib/sync/` | Technical / Maintainability | Medium | M |
+| TD-27 | ✅ Risk-bearing `as any` on money + MFA/security paths *(resolved 2026-06-15: `Reports.tsx` typed `Transaction[]`; `Settings.tsx` MFA typed via `Factor` + enrol-response narrowing)* | Technical / Type-safety | Medium | S |
+| TD-28 | ⚠ Doc-architecture: CI version-drift guard shipped *(2026-06-15)*; CLAUDE.md history trim + README docs-map still open | Technical / Process / Docs | Low | S |
 
 ---
 
@@ -544,6 +570,282 @@ What we ship today as "alerts" is therefore in-app only: the [`NotificationCente
 
 ---
 
+## TD-23 … TD-28 — Maintainability cluster (2026-06-14 partner review)
+
+**Provenance.** An external partner team ran a static review (no test suite run) of
+Vyact consumer **v9.3.x** and made six recommendations. This codebase is the matured
+descendant of the FinFlow v6.4.9 audit that opened TD-01…TD-22; ~18 of those are now
+resolved, so the partner correctly observed the dominant risk has shifted from
+**correctness** to **cognitive load / maintainability**. Every specific claim was
+verified against the working tree — all hold:
+
+| Partner claim | Verified | Evidence (current tree) |
+|---|---|---|
+| README pins consumer `v7.0.2` | ✅ | `README.md:7`; actual `9.3.3` (`react/package.json:4`, `VERSIONS.md:9`) |
+| `store.ts` ≈1,084 lines, owns too much | ✅ (now **1,167**) | init/refresh/onboarding/recurring/notifications/reconciliation/auth/sync in one file |
+| `hybridAdapter.ts` ≈462 / `supabaseAdapter.ts` ≈805 | ✅ (now **498 / 884**) | both grew since their snapshot |
+| `Reports.tsx` `as any` L378 | ✅ | `effectiveAmount(t as any, …)` — money path |
+| `Settings.tsx` `useState<any[]>` + MFA `as any` | ✅ | L57, 147, 463, 465, 503 — security path |
+| `store.ts` `window as any` E2E hooks | ✅ | L1161–1165 |
+| Many `catch {}` blur expected vs unexpected | ✅ | **118** `catch {` across `react/src` |
+| No root `changelog.md` | ✅ | `VERSIONS.md` + per-app CHANGELOGs (correct pattern — see note) |
+
+**Analyst adjustments to the partner's prioritisation.**
+- **Elevated:** the 118 `catch {}` (their #5) is *under-weighted*, not over-weighted —
+  in a money app a swallowed write is a correctness/trust bug, not "forgiving UX." → **TD-24, High.**
+- **Scoped down:** only 7 `as any` exist; judge by **location, not count**. Fix the money
+  + MFA paths; the E2E `window` hooks get one typed shim. → **TD-27, Med.**
+- **Declined:** *adding a root `changelog.md`.* That adds a doc surface to a repo already
+  criticised for sprawl. The correct fix is discoverability (README pointer + CI drift
+  guard), not a fourth changelog. → folded into **TD-23 / TD-28**.
+
+**Governing constraint for the whole cluster.** Every item is *subtraction of complexity*.
+TD-25/26 must leave the `useStore` public API and all user-visible behaviour
+**byte-identical**, landed as small reversible PRs under the existing test net
+([`docs/TEST_GOVERNANCE.md`](docs/TEST_GOVERNANCE.md): no merge without green unit +
+Lane-A E2E evidence tied to the SHA). Sequence: **TD-23 now → TD-24 (observability) →
+TD-25/26 (extractions) → TD-27/28 (polish + guardrails).**
+
+---
+
+## TD-23 — Doc drift: README pins a stale consumer version
+
+**Description.** `README.md:7` advertises consumer **v7.0.2**; the real version is **9.3.3**
+(`react/package.json`, `VERSIONS.md`). The one fact users and contributors check first is
+wrong, and the version is hand-maintained in more than one place.
+
+**Impact — tech / architecture.** Two hand-maintained version strings guarantee recurring drift.
+
+**Impact — functional.** Onboarding/readers are misled about what they're running.
+
+**Impact — business.** Sloppy-looking front door; undermines the otherwise-strong version discipline.
+
+**Effort.** XS (minutes), standalone PR — ship immediately.
+
+**Possible solution approaches.**
+- `README.md:7` → `v9.3.3`; add a one-line "version source of truth → `VERSIONS.md`" pointer
+  and stop hand-maintaining versions anywhere but `VERSIONS.md` + per-app CHANGELOGs.
+- Move historical/era detail out of README into `VERSIONS.md` / CHANGELOGs.
+- Pair with the CI drift guard in TD-28 so it can't recur.
+
+**Acceptance.** README shows current version; no second hand-maintained version string;
+`grep -r "v7.0.2"` returns nothing.
+
+**Justification.** Zero-risk truth fix; the cheapest credibility win in the register.
+
+**Resolution (2026-06-15).** `README.md:7` → **v9.3.3**; added a "**Version source of truth →
+`VERSIONS.md`**" note under the table pointing at `package.json` / CHANGELOGs and the new CI
+guard. `grep -r "v7.0.2"` is clean. Recurrence is now mechanically prevented by **TD-28**'s
+`scripts/version-drift-check.mjs` (a deliberately drifted README fails the gate — verified).
+
+---
+
+## TD-24 — Error opacity: expected fallback vs unexpected fault are indistinguishable
+
+**Description.** ~118 `catch {}` / best-effort blocks span the store, adapters, and persistence
+helpers. Offline-first UX deliberately swallows failures, but "offline cache read failed,
+continue" and "adapter contract violated / write silently dropped" share one code path. In an
+offline-first **money** app, a swallowed write failure can mean silent data loss.
+
+**Impact — tech / architecture.** No taxonomy or central sink for faults; the upcoming TD-25/26
+refactors would be done blind without it.
+
+**Impact — functional.** Unexpected faults (malformed data, dropped writes, integration breakage)
+are absorbed with no signal.
+
+**Impact — business.** "I entered it and it vanished" is the worst failure mode for a finance product.
+
+**Effort.** M.
+
+**Possible solution approaches.**
+- Introduce two helpers — `expected(err, ctx)` (degraded path: debug-log, continue) and
+  `unexpected(err, ctx)` (contract/data/dropped-write: central sink + breadcrumb).
+- Central sink: in-app ring buffer + dev console, pluggable transport (Sentry-style) behind an
+  interface; no user spam.
+- Sweep **adapters → sync queue → persistence helpers first** (the silent-loss paths); add a dev
+  assertion when a queued write is dropped (ties to TD-10's dead-letter surface). UI-cosmetic
+  catches may stay terse.
+
+**Acceptance.** Every `catch` in `lib/*Adapter.ts`, the sync module, and persistence helpers is
+classified; a forced adapter-contract violation produces exactly one structured record; the
+offline-happy path is unchanged (Lane-A E2E green).
+
+**Partial resolution (2026-06-15) — taxonomy + the silent-write-loss paths.** New
+[`react/src/lib/faults.ts`](react/src/lib/faults.ts) introduces the two classifiers the register
+called for: `expected(err, ctx)` (degraded path — bounded in-memory ring buffer + dev-only
+`console.debug`, never escalates) and `unexpected(err, ctx)` (contract violation / dropped write /
+corruption — one structured record + `console.error` + a pluggable `setFaultTransport` sink), plus a
+`droppedWrite(ctx, detail)` convenience. Both are non-throwing, so the offline-happy path is
+unchanged. **Instrumented the silent-WRITE-loss sites first** (the register's stated priority):
+- `hybridAdapter.flushQueue` — a non-UUID op (a write the contract can't honour) now records a
+  `droppedWrite` instead of a mute `console.warn`; retry-exhausted ops emit `unexpected`;
+  `writeQueue` persist-failure (loses pending writes on reload) is `unexpected`; the conflict /
+  dead-letter bucket persists are `expected` (already surfaced by the R5 banner).
+- `kvStore.kvSet` — a non-quota failure that reaches neither IndexedDB nor localStorage (memory-only,
+  lost on reload) is `unexpected`; quota stays surfaced via `storageEvents`.
+- `dataAdapter` read/write/removeBoth helpers classified `expected` (kvSet now owns its own surfacing).
+Tests: [`faults.test.ts`](react/src/lib/__tests__/faults.test.ts) `CON-UNIT-069/070/071` pin "exactly
+one structured record + one transport hand-off" for `unexpected`, transport-silence for `expected`,
+and `droppedWrite ⇒ unexpected`. tsc · 155 tests · build green.
+**Still open:** exhaustively classifying the remaining best-effort read/storage `catch {}` micro-sites
+across the six files (and the wider ~118 app-wide), a registered production transport, and an in-app
+diagnostics view over `getFaults()`. Kept ⚠ partial until the read/noop sweep + diagnostics land.
+
+**Justification.** Highest latent risk in the cluster, and the prerequisite that makes the
+store/sync extractions *observable* — land it before TD-25/26.
+
+---
+
+## TD-25 — Consumer `store.ts` is a god-module (1,167 lines)
+
+**Description.** `store.ts` owns init, refresh, onboarding hydration, recurring engine,
+notifications, reconciliation/net-worth bridge, auth/session transitions, sync coordination, and
+every global modal slot. It grew +83 lines since the partner's snapshot — the trend is the point.
+
+**Impact — tech / architecture.** A change in one concern requires reading ~1,000 lines of
+unrelated logic; high regression surface from "one more branch in the giant store."
+
+**Impact — functional.** Subtle behaviour changes (reconciliation, recurring) are hard to audit.
+
+**Impact — business.** Slows velocity and raises defect-escape rate as features accrete.
+
+**Effort.** L.
+
+**Possible solution approaches.** Zustand slice-composition; the public `useStore` hook stays
+identical (pure internal refactor). The seams already exist as comment-delimited regions:
+```
+react/src/store/
+  index.ts            // composes slices → useStore (unchanged external API)
+  slices/
+    dataSlice.ts      // entities + refresh + CRUD upserts/removes
+    modalSlice.ts     // all open*/close* global modal state
+    cloudAuthSlice.ts // session transitions, household switch, myRole
+    recurringSlice.ts // recurring schedules + runRecurringEngine
+    notifySlice.ts    // notifications refresh/read
+    reconcileSlice.ts // reconcileAccount + net-worth bridge
+    syncSlice.ts      // sync coordination (delegates to TD-26 module)
+  testHooks.ts        // single typed shim for the window E2E hooks (closes part of TD-27)
+```
+Extract slice-by-slice, each its own PR leaving `useStore`'s shape byte-identical.
+
+**Acceptance.** No file in `store/` > ~300 lines; `useStore` public type diff = ∅; unit + Lane-A
+E2E green after each slice PR.
+
+**Justification.** Top structural win; the test net now exists to make it safe. Do after TD-24.
+
+---
+
+## TD-26 — Sync-queue mechanics tangled into `hybridAdapter.ts` (498 lines)
+
+**Description.** `hybridAdapter.ts` conflates cache-first read policy with queue mechanics —
+serialization, dead-lettering, backoff, and optimistic-concurrency conflict handling (from TD-03).
+These are independently testable concerns currently hard to test in situ.
+
+**Impact — tech / architecture.** The data-integrity core is hard to reason about and audit.
+
+**Impact — functional.** Queue/conflict bugs are high-blast-radius and under-tested.
+
+**Impact — business.** Sync reliability is a headline promise of the multi-household product.
+
+**Effort.** M.
+
+**Possible solution approaches.**
+```
+react/src/lib/sync/
+  syncQueue.ts   // enqueue/serialize/persist
+  deadLetter.ts  // poison-op handling (existing logic, isolated)
+  backoff.ts     // retry/backoff policy (the TD-10 2/4/8/16/32s logic)
+  conflict.ts    // optimistic-concurrency resolution (the TD-03 ConcurrencyConflictError path)
+hybridAdapter.ts // keeps only cache no-clobber read policy; delegates writes to sync/
+```
+Add focused unit tests per extracted concern; require a queue-replay regression (seeded poisoned
+op) before/after.
+
+**Acceptance.** `hybridAdapter.ts` < ~250 lines; each `sync/*` file unit-tested; queue replay /
+dead-letter behaviour unchanged.
+
+**Justification.** Same maintainability thesis as TD-25, on the integrity-critical path. Parallel
+to TD-25's `syncSlice`.
+
+---
+
+## TD-27 — Risk-bearing `as any` on money + security paths
+
+**Description.** 7 `as any` total — small, but two sit where it matters: `Reports.tsx:378`
+(`effectiveAmount(t as any, …)` — money path) and `Settings.tsx` MFA (L57, 147, 463, 465, 503 —
+security path). The `store.ts` `window as any` E2E hooks (L1161–1165) are acceptable with a shim.
+
+**Impact — tech / architecture.** Type escape hatches on exactly the paths where regressions hide
+(money math, auth/MFA response parsing).
+
+**Impact — functional.** A shape change in the Supabase MFA response or the txn type is silently uncaught.
+
+**Impact — business.** Security/money correctness deserve the strict-TS guarantee the rest of the app has.
+
+**Effort.** S.
+
+**Possible solution approaches.**
+- `Reports.tsx:378` — type the `effectiveAmount` argument properly (no cast).
+- `Settings.tsx` MFA — a small `mfaTypes.ts` + runtime narrowing/decoder around the Supabase
+  factor/enroll responses.
+- E2E hooks — one typed shim in `store/testHooks.ts` (from TD-25), commented as intentional.
+
+**Acceptance.** `grep -rn "as any" react/src` ≤ the single E2E shim; MFA + report paths fully typed;
+tsc clean.
+
+**Resolution (2026-06-15).** Both risk-bearing paths typed; tsc clean, 152 tests + build green.
+- **Money path** — `Reports.tsx`: `buildPeriodData`'s `txns` param was a convoluted conditional
+  type that collapsed to `never[]`, forcing a structural re-cast and the `effectiveAmount(t as any …)`.
+  Retyped the param `Transaction[]`; dropped the inner structural cast and the `as any` — the loop
+  now passes a real `Transaction`.
+- **Security path** — `Settings.tsx`: `mfaFactors` is now `useState<Factor[]>` (imported from
+  `@supabase/supabase-js`); `listMfaFactors().all` is read directly; the enrol response is narrowed
+  by `enrolled.type === 'totp'` to read `enrolled.totp.uri` / `enrolled.id` instead of five `as any`
+  property guesses. **Residual:** the `store.ts` `window as any` E2E hooks remain (intentional) and
+  are folded into TD-25's `store/testHooks.ts` shim.
+
+**Justification.** Prioritise by blast radius, not count — fix the two that touch money and auth.
+
+---
+
+## TD-28 — Doc-architecture: CLAUDE.md history sprawl + no drift guard
+
+**Description.** `CLAUDE.md` (314 lines) mixes current operating state with long historical
+per-version narrative; the ~30-file `docs/` tree lacks an index; nothing in CI prevents the
+README/VERSIONS drift that TD-23 fixes by hand.
+
+**Impact — tech / architecture.** Provenance log and operating guide are conflated; onboarding
+reads archaeology to find current rules.
+
+**Impact — functional / business.** Higher ramp time; doc drift recurs without a guard.
+
+**Effort.** S.
+
+**Possible solution approaches.**
+- Trim `CLAUDE.md` to an operating guide (current state, architecture rules, contributor
+  instructions); move dated historical snapshots to `VERSIONS.md` / an `docs/HISTORY.md` archive.
+- Add a CI check: README/VERSIONS consumer version must equal `react/package.json` (fails build on
+  drift) — permanently closes TD-23's recurrence.
+- Add a one-paragraph "docs map" at the top of README (the doc *count* is fine; discoverability is
+  the gap). **Do not** add a root `changelog.md`.
+
+**Acceptance.** CLAUDE.md carries no dated historical narrative; CI fails on a deliberately
+mismatched README version; README has a docs index.
+
+**Partial resolution (2026-06-15) — the guardrail half.** New
+[`scripts/version-drift-check.mjs`](scripts/version-drift-check.mjs) makes `react/package.json` /
+`admin/package.json` the source of truth and asserts the consumer + admin versions match across
+`README.md`, `VERSIONS.md`, and `react/CHANGELOG.md`; wired as the `version-drift` gate in
+[`scripts/automation-run.mjs`](scripts/automation-run.mjs). Negative-tested: a deliberately drifted
+README version exits 1 with a precise report. This **permanently closes TD-23's recurrence**.
+**Still open:** trimming CLAUDE.md's dated historical narrative into `VERSIONS.md` / an
+`docs/HISTORY.md`, and adding the README docs-map index. Kept ⚠ partial until those land.
+
+**Justification.** Low-risk polish that also installs the guardrail preventing TD-23 from
+recurring. The partner's "trim CLAUDE.md" (#6) and "README entry point" (#1) land together here.
+
+---
+
 ## Remediation log
 
 Chronological record of remediation PRs against this register. Each row pins to the merge commit's automation run report (governance: [`docs/TEST_GOVERNANCE.md`](docs/TEST_GOVERNANCE.md)).
@@ -566,15 +868,25 @@ Chronological record of remediation PRs against this register. Each row pins to 
 | 2026-05-28 | #16 | **TD-20 reconciliation — closes TD-20** (Database `production-baseline`). Four-phase reconciliation of repo migrations with actual production schema. **(1)** Captured live prod schema as a new single baseline at `supabase/migrations/00000000000001_production_state_baseline.sql` (~46 KB; 3 extensions, 16 tables, 18 indexes, ~55 RLS policies, 15 functions including the live admin RPCs with TABLE return types, 12 triggers). **(2)** Moved the eight pre-#16 design-intent migrations to `db/migrations-superseded/` with a README and a SUPERSEDED banner on each, taking them out of the apply path while preserving git history. **(3)** Added a `db-migrations` job in `.github/workflows/deploy.yml` that runs `supabase db push --include-all` (gated before the `consumer` and `admin` deploy jobs) so the apply step is no longer manual; documented three new required GitHub Action secrets (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`). **(4)** Pre-recorded the baseline in `supabase_migrations.schema_migrations` so the first auto-apply after merge is verified no-op against prod. `db/MIGRATIONS.md` updated; the earlier "Known gap" warning replaced with a "Reconciliation landed" note. | **Closes TD-20.** Marked Resolved in the Summary table. **Honest residual:** TD-08's audit triggers and TD-09's `replace_all_*` RPCs that were marked Resolved-on-paper in PR #13's batch are *still not in production*; the archived files capture the intent and re-shipping them as fresh additive migrations on top of the new baseline is queued as a follow-up (PR #20). |
 | 2026-05-28 | #17 / #18 / #19 | **Auto-apply pipeline hotfixes**, in three quick follow-up PRs after the first post-merge Deploy run on PR #16's commit failed: **PR #17** pinned `supabase/setup-cli@v1` from `version: latest` to `version: 1.226.4` (the `latest` lookup hit GitHub's unauthenticated API and got rate-limited on shared runners). **PR #18** committed a minimal `supabase/config.toml` with just `project_id` (the CLI's `link` subcommand requires the config file even when `--project-ref` is passed on the command line). **PR #19** committed 13 single-statement (`select 1;`) stub migration files matching the prod-tracker versions for the pre-PR-#16 historical migrations (the CLI's `db push` requires `supabase/migrations/` and the remote tracker to be in 1:1 sync — `--include-all` does not override). After PR #19 merged, Deploy #26 went green end-to-end in 1m 16s: db-migrations no-op'd against prod (as designed by the baseline pre-record), both Vercel deploys completed. | Foundational follow-up to PR #16. None of the three is a TD on its own; together they make PR #16's auto-apply pipeline actually functional. |
 | 2026-05-29 | #20 | **TD-08 / TD-09 / TD-13 actually in production** (Database `td-08-09-13-honest-residuals`). Four additive migrations: `20260529150000_td13_budgets_add_period.sql` adds `period` / `period_start` / `period_end` to `budgets` (so the consumer can stop faking it with `budgetMeta.ts`); `20260529150500_td08_audit_triggers.sql` installs `log_domain_activity()` SECURITY DEFINER with `search_path = public, pg_temp` lockdown and attaches `AFTER INSERT/UPDATE/DELETE` triggers on all six domain tables including `memberships`; `20260529151000_td09_replace_all_rpcs.sql` installs the six `replace_<entity>(h uuid, rows jsonb)` SECURITY DEFINER RPCs gated by `auth.uid()` and `is_member(h)`; `20260529151500_td08_td09_harden_execute_grants.sql` revokes the default PUBLIC execute grant after the security advisor flagged anon-exposure of the seven new functions. **Apply path:** the GitHub Actions browser-merge route was unavailable (flaky Chrome extension), so the four migrations were applied **directly to the prod project via the Supabase MCP `execute_sql` tool**, with the four `schema_migrations` tracker rows recorded to match the repo filenames 1:1 (same Phase-4 pattern TD-20 used for the baseline) — so the CI `db push` after PR #40 merges is a verified no-op. Verified post-apply: 3 tracker rows + 3 budget cols + 1 audit fn + 6 triggers + 6 RPCs present; security advisor shows zero anon-executable and zero mutable-`search_path` warnings on any PR #20 function. **Discovery during prep**, fixed in the same PR: the `db/migrations-superseded/README.md` claimed TD-13 had been applied to prod via the Dashboard; baseline grep showed otherwise. README updated to reflect what actually shipped vs. what was claimed. | **Closes TD-20's honest residuals for TD-08 / TD-09 / TD-13.** None of these was actually in prod despite the earlier "Resolved · PR #13 batch" markers. Their Summary-table entries remain ✅ Resolved (the *code-side* work was done in PR #13; this PR makes the *schema-side* match). First non-trivial schema change reconciled into the TD-20 migration discipline. |
+| 2026-06-15 | TD-24 slice | **Error taxonomy + silent-write-loss instrumentation (TD-24 → ⚠ partial).** New `react/src/lib/faults.ts` with `expected` / `unexpected` / `droppedWrite` (ring buffer + pluggable transport, non-throwing). Instrumented the silent-WRITE-loss paths first: `hybridAdapter.flushQueue` (non-UUID drop → `droppedWrite`; retry-exhausted → `unexpected`; queue-persist failure → `unexpected`; conflict/dead-letter persists → `expected`), `kvStore.kvSet` (non-quota persist-failure → `unexpected`), `dataAdapter` helpers (→ `expected`). New `CON-UNIT-069/070/071` (`faults.test.ts`); removed the orphaned `CON-UNIT-065` catalog row (its `budgetIdentity.test.ts` was deleted in v9.3.3). tsc · 155 tests · drift + reconciler (my IDs clean) · build green. | **TD-24** → ⚠ partial (taxonomy + write-loss paths done; read/noop sweep + in-app diagnostics open). |
+| 2026-06-15 | maintainability pass | **Closes TD-23 + TD-27; ships TD-28's guard.** TD-23: `README.md` consumer version v7.0.2→**v9.3.3** + a "version source of truth" note. TD-27: removed the money-path `as any` in `Reports.tsx` (typed `buildPeriodData(txns: Transaction[])`, dropped the `never[]`-collapsing conditional type + structural recast) and the MFA-path `as any` in `Settings.tsx` (`useState<Factor[]>`, read `listFactors().all`, narrow the enrol response by `type==='totp'` for `.totp.uri`/`.id`); only the intentional `store.ts` E2E `window` shim remains. TD-28 (partial): new `scripts/version-drift-check.mjs` + `version-drift` gate in `automation-run.mjs` — fails the build when README/VERSIONS/CHANGELOG drift from `package.json`; negative-tested. Verified: drift gate green, tsc clean, 152 unit tests + build green. | Closes **TD-23, TD-27**; **TD-28** → ⚠ partial (guard shipped; CLAUDE.md trim + docs-map open). |
+| 2026-06-14 | intake | **Partner-review maintainability cluster filed (TD-23…TD-28).** External static review of consumer v9.3.x; six findings validated against the working tree (all confirmed — README v7.0.2 vs 9.3.3, `store.ts` 1,167 lines, `supabaseAdapter.ts` 884, 7 `as any`, 118 `catch {}`). Folded the standalone `docs/MAINTAINABILITY_REMEDIATION.md` into this register (§TD-23…TD-28) and **deleted** it to keep TECH_DEBT.md the single source of truth. Analyst adjustments: elevated error-handling to High (TD-24, silent-write-loss risk in a money app); scoped `as any` by path-risk not count (TD-27); declined the partner's implied "add a root changelog.md" (would worsen doc sprawl) in favour of a CI drift guard (TD-28). | Opens **TD-23, TD-24, TD-25, TD-26, TD-27, TD-28** (all ⬜ open). No code change in this intake. |
 | 2026-05-23 | #12 | **TD-03 phase B — closes TD-03** (Consumer v6.4.19). `Budget` / `Goal` / `Debt` / `Asset` interfaces gain `updated_at?: string`. The four row mappers in `supabaseAdapter.ts` thread `r.updated_at` into the returned JS shape. The four corresponding store actions (`upsertBudget` / `upsertGoal` / `upsertDebt` / `upsertAsset`) pass `record.updated_at` as the precondition on edits, mirroring `upsertTransaction`. `HybridAdapter.clearConflicts()` added. New `SyncConflictBanner` (cloud-mode-only — guarded by `typeof` checks) mounted in `Layout` polls `pendingConflictCount()` every 5 s and shows a dismissible banner when count > 0. **Every CRUD modal in the app is now protected.** | **Closes TD-03.** Marked Resolved in the Summary table. **Testing note:** the conflict-detection mechanism is entity-agnostic; the four new wirings exercise the same path PR #11 already pinned in `CON-UNIT-051..053`. The PR's other new surface (`updated_at` field additions, store-action arg threading, presentational banner) is type-system-enforced + visually-verifiable; no new vitest specs were added because they would be near-duplicates of existing pins. The longer-term work (CRDT / per-field merge for high-contention entities) is outside the register's TD-03 scope and would be a separate, future item. |
 
 ## Suggested remediation order (refreshed 2026-06-01)
 
-Only the genuinely-open items remain; closed entries are dropped from the order. Pairings reflect shared code paths.
+Only the genuinely-open items remain; closed entries are dropped from the order. Pairings reflect shared code paths. The maintainability cluster (TD-23…TD-28) was added 2026-06-14 and is interleaved by effort/risk.
 
-1. **TD-16** — passphrase-based WebCrypto AES‑GCM on JSON backups. XS/S effort, clear privacy win.
-2. **TD-19 Lane B** — disposable Supabase test project + a small (~5) RLS-isolation pack. The only place the security boundary is asserted end-to-end.
-3. **TD-02 (integration layer)** — close the unit↔E2E gap with store↔adapter↔cache integration tests.
+1. ~~**TD-23** — README version truth-fix.~~ ✅ *Closed 2026-06-15.*
+2. ~~**TD-27** — `as any` on money/security paths.~~ ✅ *Closed 2026-06-15.*
+3. **TD-28** — ⚠ *guard shipped 2026-06-15* (`version-drift-check.mjs`); remaining: CLAUDE.md trim + README docs-map.
+4. **TD-24** — error taxonomy + structured logging. High; makes TD-25/26 observable, so do it first among the refactors. **Next up.**
+5. **TD-25** — `store.ts` → Zustand slices. L; per-slice PRs under the test net, byte-identical `useStore`.
+6. **TD-26** — extract `lib/sync/`. M; parallel with TD-25's `syncSlice`; requires a queue-replay regression.
+7. **TD-16** — passphrase-based WebCrypto AES‑GCM on JSON backups. XS/S effort, clear privacy win.
+8. **TD-19 Lane B** — disposable Supabase test project + a small (~5) RLS-isolation pack. The only place the security boundary is asserted end-to-end.
+9. **TD-02 (integration layer)** — close the unit↔E2E gap with store↔adapter↔cache integration tests.
+10. **TD-22** — real PWA web-push (VAPID + SW handler + subscription table + Edge fan-out). Best after TD-06 deltas (already done).
 
 ### Closed in this pass (2026-06-01, third wave)
 - **TD-07** — Chat wired to Google Gemini 1.5 Flash (free tier) via new [`geminiBackend.ts`](react/src/lib/geminiBackend.ts) + `selectChatBackend()` factory in [`aiSummary.ts`](react/src/lib/aiSummary.ts). `VITE_GEMINI_API_KEY` selects the real backend; absent key falls back to the deterministic stub so offline / no-key mode still works. Existing `SafeSummary` PII contract unchanged. Beta chip swaps to a sage “Gemini” chip when the real backend is active. New pins `CON-UNIT-060` / `061` / `062` cover request body shape, role mapping, error surfaces, and construction.

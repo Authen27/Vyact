@@ -72,6 +72,8 @@ const gates = [
     cmd: 'node scripts/test-scenarios-check.mjs' },
   { id: 'db-migrations',       name: 'DB migrations (naming + schema.sql snapshot in sync)', cwd: '.',
     cmd: 'node scripts/db-migrations-check.mjs' },
+  { id: 'version-drift',       name: 'Version drift (README/VERSIONS/CHANGELOG vs package.json)', cwd: '.',
+    cmd: 'node scripts/version-drift-check.mjs' },
 ];
 if (runE2E) {
   // --reporter=json prints to stdout; redirect to a file the report can parse.

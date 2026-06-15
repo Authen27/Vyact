@@ -27,6 +27,7 @@
 
 import ls from './localStorageCompat';
 import { emitStorageEvent, isQuotaError } from './storageEvents';
+import { expected, unexpected } from './faults';
 
 const DB_NAME    = 'vyact';
 const DB_VERSION = 1;
@@ -103,6 +104,7 @@ export async function kvSet<T = unknown>(key: string, value: T): Promise<void> {
       return;
     } catch (err) {
       if (isQuotaError(err)) emitStorageEvent({ kind: 'quota-exceeded', key, error: err });
+      else expected(err, 'kvStore.kvSet:idb'); // recoverable — retries via localStorage below
       // Fall through to localStorage as a last-ditch retry path.
     }
   }
@@ -112,9 +114,14 @@ export async function kvSet<T = unknown>(key: string, value: T): Promise<void> {
     ls.setString(key, json);
   } catch (err) {
     if (isQuotaError(err)) emitStorageEvent({ kind: 'quota-exceeded', key, error: err });
+    // TD-24: a NON-quota failure here means the write reached neither IndexedDB
+    // nor localStorage — only the ephemeral memory map below, which is lost on
+    // reload. Quota is already surfaced as a toast; anything else is a genuine
+    // unexpected persistence fault.
+    else unexpected(err, 'kvStore.kvSet:persist-failed');
     // Memory fallback as the absolute last resort — ephemeral but
     // preserves the in-tab session.
-    try { memoryFallback.set(key, JSON.stringify(value)); } catch { /* noop */ }
+    try { memoryFallback.set(key, JSON.stringify(value)); } catch (e) { expected(e, 'kvStore.kvSet:memory'); }
   }
 }
 

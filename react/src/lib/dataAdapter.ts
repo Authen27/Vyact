@@ -18,6 +18,7 @@ import ls from './localStorageCompat';
 // startup paths.
 import { kvGet, kvSet, kvRemove } from './kvStore';
 import { BudgetExistsError } from './supabaseAdapter';
+import { expected } from './faults';
 
 // v7.1.2 — `accounts` becomes a first-class entity. The cloud table
 // already exists (Money Map Phase 1 migration); the LocalStorage adapter
@@ -97,19 +98,19 @@ export class LocalStorageAdapter implements DataAdapter {
       const key = householdId === ANON ? suffix : `${householdId}_${suffix}`;
       const v = await kvGet<T>(key);
       return v !== null && v !== undefined ? v : fallback;
-    } catch { return fallback; }
+    } catch (e) { expected(e, `localAdapter.read:${suffix}`); return fallback; }
   }
   private async write<T>(suffix: string, householdId: string, value: T): Promise<void> {
     try {
       const key = householdId === ANON ? suffix : `${householdId}_${suffix}`;
       await kvSet(key, value);
-    } catch { /* noop — kvSet already surfaces quota errors via storageEvents */ }
+    } catch (e) { expected(e, `localAdapter.write:${suffix}`); } // kvSet already classifies/surfaces its own failures
   }
   private async removeBoth(suffix: string, householdId: string): Promise<void> {
     try {
       const key = householdId === ANON ? suffix : `${householdId}_${suffix}`;
       await kvRemove(key);
-    } catch { /* noop */ }
+    } catch (e) { expected(e, `localAdapter.removeBoth:${suffix}`); }
   }
 
   // One-time migration for anonymous (local) keys from legacy -> vt_.
