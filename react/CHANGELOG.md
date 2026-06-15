@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.4.0`** (consumer)
+> **Current production version: `v9.4.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,26 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.4.1 — Store slice-composition: cloudAuth + sync *(2026-06-15)*
+
+Continues the TD-25 store decomposition (behaviour-neutral; no consumer change).
+Two more domain slices extracted **verbatim** from `store.ts`, folded into `Store`
+via `extends` so `useStore`'s public type/behaviour is byte-identical:
+- `store/slices/cloudAuthSlice.ts` — `cloudEnabled`/`session`/`sessionLoaded`/`myRole`
+  + `setSession` (sign-in/out transitions) + `refreshHouseholds` (role from memberships).
+- `store/slices/syncSlice.ts` — `theme`/`loading`/`toasts`/`lastSyncedAt` + `manualRefresh`,
+  `subscribeRealtime` (R3 refresh triggers), `setTheme`, `toast`, `dismissToast`.
+
+`store.ts` 861 → 718 (now zero lint warnings — also cleared the long-standing
+pre-existing `getMoneyMapMode` dead import). Housekeeping: git remote re-pointed to
+`Authen27/Vyact.git`. tsc · ESLint · 161 tests (incl. money-model invariants +
+golden regression) · build — all green.
+
+**Still open (TD-25):** the data core (`init`/`refresh`/all CRUD, ~620 lines) split
++ the `store.ts → store/index.ts` rename — the money/refresh path, deliberately
+sequenced as a dedicated careful pass. **TD-24** read/noop catch sweep + an in-app
+diagnostics view also remain.
 
 ## v9.4.0 — Maintainability & observability release *(2026-06-15)*
 

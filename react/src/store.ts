@@ -7,27 +7,25 @@ import { createModalSlice, type ModalSlice } from './store/slices/modalSlice';
 import { createReconcileSlice, type ReconcileSlice } from './store/slices/reconcileSlice';
 import { createNotifySlice, type NotifySlice } from './store/slices/notifySlice';
 import { createRecurringSlice, type RecurringSlice } from './store/slices/recurringSlice';
+import { createCloudAuthSlice, type CloudAuthSlice } from './store/slices/cloudAuthSlice';
+import { createSyncSlice, type SyncSlice } from './store/slices/syncSlice';
 import { readLocalJson, readLocalString, setLocalString, removeLocal } from './store/localJson';
 import { exposeStoreForE2E } from './store/testHooks';
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
-  Profile, ExchangeRates, HouseholdMeta, Theme,
+  Profile, ExchangeRates, HouseholdMeta,
   RecurringSchedule, PartPaymentChoice,
 } from './types';
-import type { Session } from '@supabase/supabase-js';
 import { LocalStorageAdapter, type DataAdapter } from './lib/dataAdapter';
 import { HybridAdapter } from './lib/hybridAdapter';
 import { buildSeed } from './lib/seed';
 import { DEFAULT_RATES } from './constants';
 import { isCloudEnabled, supabase } from './lib/supabase';
-import { highestRole } from './lib/permissions';
-import type { AppRole } from './types';
 import { applyPayment } from './lib/amortization';
 import { autoMigrateAnonToHousehold } from './lib/migration';
 import { backfillSchedulesFromTransactions } from './lib/recurring';
 import { uid, setNumberSystem } from './lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from './lib/numberSystemPref';
-import { getMoneyMapMode } from './lib/featureFlags';
 import {
   registerOnboardingSync, hydrateOnboardingFromCloud,
   type HouseholdOnboarding,
@@ -36,9 +34,7 @@ import { accountValueOf } from './lib/accountBalance';
 import { splitEmiPortions } from './lib/calculations';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from './lib/educationProgress';
 
-interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
-
-export interface Store extends ModalSlice, ReconcileSlice, NotifySlice, RecurringSlice {
+export interface Store extends ModalSlice, ReconcileSlice, NotifySlice, RecurringSlice, CloudAuthSlice, SyncSlice {
   // ── data ────────────────────────────────────────────────────
   adapter: DataAdapter;
   households: HouseholdMeta[];
@@ -65,19 +61,8 @@ export interface Store extends ModalSlice, ReconcileSlice, NotifySlice, Recurrin
   // ── v7: recurring + notifications ───────────────────────────
   // recurringSchedules + notifications/prefs live in RecurringSlice / NotifySlice (TD-25).
 
-  // ── v4.1: cloud + auth ───────────────────────────────────────
-  cloudEnabled: boolean;
-  session: Session | null;
-  sessionLoaded: boolean;
-  myRole: AppRole | undefined;          // role in active household
-
-  // ── ui ──────────────────────────────────────────────────────
-  theme: Theme;
-  loading: boolean;
-  toasts: ToastMsg[];
-
-  // Modal state (txn/goal/budget/debt/asset/account) lives in ModalSlice
-  // (store/slices/modalSlice.ts, TD-25) — folded in via `extends ModalSlice`.
+  // cloud/auth (CloudAuthSlice) + theme/loading/toasts (SyncSlice) folded in via extends (TD-25).
+  // Modal state (txn/goal/budget/debt/asset/account) lives in ModalSlice (TD-25).
 
   // ── actions ─────────────────────────────────────────────────
   init: () => Promise<void>;
@@ -125,18 +110,8 @@ export interface Store extends ModalSlice, ReconcileSlice, NotifySlice, Recurrin
   // v7 — debt payment with re-amortisation
   recordDebtPayment: (debtId: string, amount: number, choice?: PartPaymentChoice) => Promise<{ message: string; debt: Debt | null }>;
 
-  // v4.1 — auth lifecycle
-  setSession: (session: Session | null, loaded?: boolean) => void;
-  refreshHouseholds: () => Promise<void>;
-  subscribeRealtime: (householdId: string) => () => void;
-  // R4 (sync fix) — refresh-based sync surface.
-  lastSyncedAt: number | null;       // epoch ms of the last successful pull
-  manualRefresh: () => Promise<void>; // full-sweep resync behind the Refresh button
-
-  // theme + toast
-  setTheme: (t: Theme) => void;
-  toast: (text: string, type?: ToastMsg['type']) => void;
-  dismissToast: (id: string) => void;
+  // auth lifecycle (CloudAuthSlice) + sync surface / theme / toast (SyncSlice)
+  // are folded in via `extends` (TD-25).
 }
 
 const defaultProfile: Profile = {
@@ -164,6 +139,8 @@ export const useStore = create<Store>((set, get, api) => ({
   ...createReconcileSlice(set, get, api),
   ...createNotifySlice(set, get, api),
   ...createRecurringSlice(set, get, api),
+  ...createCloudAuthSlice(set, get, api),
+  ...createSyncSlice(set, get, api),
   adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
@@ -172,18 +149,8 @@ export const useStore = create<Store>((set, get, api) => ({
   profile: defaultProfile,
   rates: { ...DEFAULT_RATES },
 
-  // v4.1
-  cloudEnabled: isCloudEnabled(),
-  session: null,
-  sessionLoaded: !isCloudEnabled(),     // local-only mode: instantly "loaded"
-  myRole: undefined,
-
-
-  theme: (readLocalString('theme', 'warm') as Theme) || 'warm',
-  loading: true,
-  toasts: [],
-
-  // Modal slice (txn/goal/budget/debt/asset/account) composed via the spread above.
+  // cloud/auth state (CloudAuthSlice), theme/loading/toasts (SyncSlice), and the
+  // modal/reconcile/notify/recurring slices are composed via the spreads above.
 
   init: async () => {
     const { adapter, cloudEnabled, session } = get();
@@ -282,23 +249,6 @@ export const useStore = create<Store>((set, get, api) => ({
     get().refreshNotifications();
 
     set({ loading: false });
-  },
-
-  lastSyncedAt: null,   // R4 (sync fix) — set by refresh() on success
-
-  // R4 (sync fix) — manual full-sweep resync behind the Refresh control.
-  // Clears the per-device delta cursors + synced sentinels (forceFullResync)
-  // so the next refresh does a FULL pull of every entity — this is also the
-  // R1 safety net that catches any tombstone a delta window might have missed
-  // (a deleted row whose timestamp somehow fell outside the cursor). Falls back
-  // to a plain refresh in local-only mode (no forceFullResync on the adapter).
-  manualRefresh: async () => {
-    const { adapter, currentHouseholdId } = get();
-    const fullSweep = (adapter as { forceFullResync?: (hid: string) => void }).forceFullResync;
-    if (typeof fullSweep === 'function' && currentHouseholdId) {
-      try { fullSweep.call(adapter, currentHouseholdId); } catch { /* noop */ }
-    }
-    await get().refresh();
   },
 
   refresh: async () => {
@@ -754,106 +704,9 @@ export const useStore = create<Store>((set, get, api) => ({
     return { message: result.message, debt: result.debt };
   },
 
-  // ── v4.1: AUTH + REALTIME ───────────────────────────────────
-  setSession: (session, loaded = true) => {
-    const wasSignedIn = Boolean(get().session);
-    const isSignedIn = Boolean(session);
-    set({ session, sessionLoaded: loaded });
-    if (!wasSignedIn && isSignedIn) {
-      // Just signed in — load households + data
-      get().init();
-    } else if (wasSignedIn && !isSignedIn) {
-      // v6.4: Stash the last cloud household id BEFORE clearing state, so
-      // the next sign-in can land back on it (its cache is still in
-      // localStorage under legacy per-household keys). Without this we'd default to the
-      // first household in the list, mis-key cache lookups, and the
-      // HybridAdapter "transient empty" path would kick in needlessly.
-      const cur = get().currentHouseholdId;
-      if (cur && cur !== 'local') {
-        try { setLocalString('last_cloud_hid', cur); } catch { /* noop */ }
-      }
-      // Just signed out — clear in-memory cloud state
-      set({
-        households: [], currentHouseholdId: 'local',
-        transactions: [], budgets: [], goals: [], members: [],
-        debts: [], assets: [], accounts: [], savedViews: [], myRole: undefined,
-      });
-    }
-  },
-
-  refreshHouseholds: async () => {
-    const { adapter, currentHouseholdId } = get();
-    const households = await adapter.listHouseholds();
-    set({ households });
-    // Compute my role in the active household by reading the memberships table
-    // for the current user. The membership.role column carries the AppRole.
-    if (supabase && get().session?.user) {
-      try {
-        const { data } = await supabase.from('memberships')
-          .select('role')
-          .eq('household_id', currentHouseholdId)
-          .eq('user_id', get().session!.user.id)
-          .maybeSingle();
-        set({ myRole: (data?.role as AppRole) || undefined });
-      } catch { /* offline — keep last known */ }
-    } else {
-      set({ myRole: 'owner' });   // local-only: you own everything
-    }
-    void highestRole; // suppress unused
-  },
-
-  // R3 (sync fix): refresh-based sync, not real-time.
-  // Per the product decision, devices converge ON REFRESH rather than via a
-  // live socket. The previous `postgres_changes` subscription was also
-  // misconfigured (no `table`, one household filter for every table — it could
-  // not reliably deliver). We retire it and instead pull whenever the app is
-  // likely stale: the tab becomes visible, the window regains focus, the device
-  // comes back online, plus a gentle foreground poll. A trailing debounce
-  // collapses bursts and avoids overlapping reads clobbering each other.
-  subscribeRealtime: (householdId) => {
-    void householdId;
-    if (typeof window === 'undefined') return () => {/* noop */};
-    let debounce: ReturnType<typeof setTimeout> | null = null;
-    const trigger = () => {
-      if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => { debounce = null; void get().refresh(); }, 400);
-    };
-    const onVisible = () => { if (document.visibilityState === 'visible') trigger(); };
-    // Foreground-only poll (90s) so a long-open tab still converges without a
-    // manual action; skipped while hidden to avoid waking a backgrounded tab.
-    const poll = setInterval(() => { if (document.visibilityState === 'visible') trigger(); }, 90_000);
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', trigger);
-    window.addEventListener('online', trigger);
-    return () => {
-      if (debounce) clearTimeout(debounce);
-      clearInterval(poll);
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', trigger);
-      window.removeEventListener('online', trigger);
-    };
-  },
-
-  setTheme: (theme) => {
-    setLocalString('theme', theme);
-    set({ theme });
-    const root = document.documentElement;
-    if (theme === 'system') {
-      const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.classList.toggle('dark', dark);
-      root.dataset.theme = dark ? 'dark' : 'warm';
-    } else {
-      root.classList.toggle('dark', theme === 'dark');
-      root.dataset.theme = theme;
-    }
-  },
-
-  toast: (text, type = 'success') => {
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    set(s => ({ toasts: [...s.toasts, { id, text, type }] }));
-    setTimeout(() => get().dismissToast(id), 3200);
-  },
-  dismissToast: (id) => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })),
+  // auth lifecycle (setSession/refreshHouseholds), sync surface
+  // (manualRefresh/subscribeRealtime/lastSyncedAt), and theme/toast live in
+  // CloudAuthSlice / SyncSlice, composed via the spreads above (TD-25).
 }));
 
 // Expose store to E2E tests in non-production modes (read-only access).
