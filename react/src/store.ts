@@ -3,6 +3,8 @@
 // CRUD actions persist via DataAdapter, then update in-memory state.
 
 import { create } from 'zustand';
+import { createModalSlice, type ModalSlice } from './store/slices/modalSlice';
+import { exposeStoreForE2E } from './store/testHooks';
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, Theme,
@@ -43,7 +45,7 @@ import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress 
 
 interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
 
-interface Store {
+export interface Store extends ModalSlice {
   // ── data ────────────────────────────────────────────────────
   adapter: DataAdapter;
   households: HouseholdMeta[];
@@ -83,55 +85,8 @@ interface Store {
   loading: boolean;
   toasts: ToastMsg[];
 
-  // ── v6.2.3: global transaction modal ────────────────────────
-  // Mounted once at App root so any page (Dashboard, Transactions, sidebar
-  // shortcut N) can trigger it via the store without prop-drilling.
-  txnModalOpen: boolean;
-  editingTxn: Transaction | null;
-  /** v7.4.5 — Ask Vyact intent flow seeds the Add-Transaction modal with
-   *  partial values (e.g. `{ type: 'expense', category: 'groceries' }`)
-   *  so two taps in Chat finish at a pre-filled form. Cleared on close. */
-  seedTxn: Partial<Transaction> | null;
-  openAddTxn: (seed?: Partial<Transaction>) => void;
-  openEditTxn: (t: Transaction) => void;
-  closeTxnModal: () => void;
-
-  // ── v6.4: global goal & budget modals ───────────────────────
-  goalModalOpen: boolean;
-  editingGoal: Goal | null;
-  openAddGoal: () => void;
-  openEditGoal: (g: Goal) => void;
-  closeGoalModal: () => void;
-
-  goalProgressModalOpen: boolean;
-  progressGoal: Goal | null;
-  openGoalProgress: (g: Goal) => void;
-  closeGoalProgress: () => void;
-
-  budgetModalOpen: boolean;
-  editingBudget: Budget | null;
-  openAddBudget: () => void;
-  openEditBudget: (b: Budget) => void;
-  closeBudgetModal: () => void;
-
-  debtModalOpen: boolean;
-  editingDebt: Debt | null;
-  openAddDebt: () => void;
-  openEditDebt: (d: Debt) => void;
-  closeDebtModal: () => void;
-
-  assetModalOpen: boolean;
-  editingAsset: Asset | null;
-  openAddAsset: () => void;
-  openEditAsset: (a: Asset) => void;
-  closeAssetModal: () => void;
-
-  // v7.1.3 — global Account modal (Money Map)
-  accountModalOpen: boolean;
-  editingAccount: Account | null;
-  openAddAccount: () => void;
-  openEditAccount: (a: Account) => void;
-  closeAccountModal: () => void;
+  // Modal state (txn/goal/budget/debt/asset/account) lives in ModalSlice
+  // (store/slices/modalSlice.ts, TD-25) — folded in via `extends ModalSlice`.
 
   // ── actions ─────────────────────────────────────────────────
   init: () => Promise<void>;
@@ -248,7 +203,8 @@ const initialAdapter: DataAdapter = (isCloudEnabled() && supabase)
   ? new HybridAdapter(supabase)
   : new LocalStorageAdapter();
 
-export const useStore = create<Store>((set, get) => ({
+export const useStore = create<Store>((set, get, api) => ({
+  ...createModalSlice(set, get, api),
   adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
@@ -271,49 +227,7 @@ export const useStore = create<Store>((set, get) => ({
   loading: true,
   toasts: [],
 
-  // v6.2.3 — global transaction modal
-  txnModalOpen: false,
-  editingTxn: null,
-  seedTxn: null,
-  openAddTxn:    (seed) => set({ editingTxn: null, seedTxn: seed ?? null, txnModalOpen: true }),
-  openEditTxn:   (t) => set({ editingTxn: t, seedTxn: null, txnModalOpen: true }),
-  closeTxnModal: () => set({ txnModalOpen: false, editingTxn: null, seedTxn: null }),
-
-  // v6.4 — goal & budget modals
-  goalModalOpen: false,
-  editingGoal: null,
-  openAddGoal:     () => set({ editingGoal: null, goalModalOpen: true }),
-  openEditGoal:    (g) => set({ editingGoal: g, goalModalOpen: true }),
-  closeGoalModal:  () => set({ goalModalOpen: false, editingGoal: null }),
-
-  goalProgressModalOpen: false,
-  progressGoal: null,
-  openGoalProgress:  (g) => set({ progressGoal: g, goalProgressModalOpen: true }),
-  closeGoalProgress: () => set({ goalProgressModalOpen: false, progressGoal: null }),
-
-  budgetModalOpen: false,
-  editingBudget: null,
-  openAddBudget:    () => set({ editingBudget: null, budgetModalOpen: true }),
-  openEditBudget:   (b) => set({ editingBudget: b, budgetModalOpen: true }),
-  closeBudgetModal: () => set({ budgetModalOpen: false, editingBudget: null }),
-
-  debtModalOpen: false,
-  editingDebt: null,
-  openAddDebt:    () => set({ editingDebt: null, debtModalOpen: true }),
-  openEditDebt:   (d) => set({ editingDebt: d, debtModalOpen: true }),
-  closeDebtModal: () => set({ debtModalOpen: false, editingDebt: null }),
-
-  assetModalOpen: false,
-  editingAsset: null,
-  openAddAsset:    () => set({ editingAsset: null, assetModalOpen: true }),
-  openEditAsset:   (a) => set({ editingAsset: a, assetModalOpen: true }),
-  closeAssetModal: () => set({ assetModalOpen: false, editingAsset: null }),
-
-  accountModalOpen: false,
-  editingAccount: null,
-  openAddAccount:    () => set({ editingAccount: null, accountModalOpen: true }),
-  openEditAccount:   (a) => set({ editingAccount: a, accountModalOpen: true }),
-  closeAccountModal: () => set({ accountModalOpen: false, editingAccount: null }),
+  // Modal slice (txn/goal/budget/debt/asset/account) composed via the spread above.
 
   init: async () => {
     const { adapter, cloudEnabled, session } = get();
@@ -1151,17 +1065,5 @@ export const useStore = create<Store>((set, get) => ({
 }));
 
 // Expose store to E2E tests in non-production modes (read-only access).
-if (import.meta.env.MODE !== 'production') {
-  // Expose the Zustand hook so Playwright tests can inspect derived state.
-  // Use the localStorageCompat helper to avoid embedding legacy/global
-  // names as string literals in the build output.
-  try {
-    const legacyName = '__' + ls.legacyKey('store');
-    const newName = '__' + ls.newKey('store');
-    (window as any)[legacyName] = useStore;
-    (window as any)[newName] = useStore;
-  } catch {
-    // best-effort exposure only
-    (window as any).__vt_store = useStore;
-  }
-}
+// Extracted to store/testHooks.ts (TD-25) behind a single typed window shim.
+exposeStoreForE2E(useStore);
