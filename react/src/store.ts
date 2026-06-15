@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { createModalSlice, type ModalSlice } from './store/slices/modalSlice';
 import { createReconcileSlice, type ReconcileSlice } from './store/slices/reconcileSlice';
 import { createNotifySlice, type NotifySlice } from './store/slices/notifySlice';
+import { createRecurringSlice, type RecurringSlice } from './store/slices/recurringSlice';
 import { readLocalJson, readLocalString, setLocalString, removeLocal } from './store/localJson';
 import { exposeStoreForE2E } from './store/testHooks';
 import type {
@@ -23,11 +24,8 @@ import { highestRole } from './lib/permissions';
 import type { AppRole } from './types';
 import { applyPayment } from './lib/amortization';
 import { autoMigrateAnonToHousehold } from './lib/migration';
-import {
-  dueSchedules, generateTransaction, advanceSchedule,
-  backfillSchedulesFromTransactions, recurringInstanceId,
-} from './lib/recurring';
-import { uid, today, setNumberSystem } from './lib/format';
+import { backfillSchedulesFromTransactions } from './lib/recurring';
+import { uid, setNumberSystem } from './lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from './lib/numberSystemPref';
 import { getMoneyMapMode } from './lib/featureFlags';
 import {
@@ -40,7 +38,7 @@ import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress 
 
 interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
 
-export interface Store extends ModalSlice, ReconcileSlice, NotifySlice {
+export interface Store extends ModalSlice, ReconcileSlice, NotifySlice, RecurringSlice {
   // ── data ────────────────────────────────────────────────────
   adapter: DataAdapter;
   households: HouseholdMeta[];
@@ -65,8 +63,7 @@ export interface Store extends ModalSlice, ReconcileSlice, NotifySlice {
   rates: ExchangeRates;
 
   // ── v7: recurring + notifications ───────────────────────────
-  recurringSchedules: RecurringSchedule[];
-  // notifications / notificationPrefs live in NotifySlice (store/slices/notifySlice.ts, TD-25).
+  // recurringSchedules + notifications/prefs live in RecurringSlice / NotifySlice (TD-25).
 
   // ── v4.1: cloud + auth ───────────────────────────────────────
   cloudEnabled: boolean;
@@ -120,9 +117,7 @@ export interface Store extends ModalSlice, ReconcileSlice, NotifySlice {
   resetRates: () => Promise<void>;
 
   // v7 — recurring
-  upsertRecurring: (s: Partial<RecurringSchedule>) => Promise<RecurringSchedule>;
-  removeRecurring: (id: string) => Promise<void>;
-  runRecurringEngine: () => Promise<void>;
+  // recurring actions live in RecurringSlice (store/slices/recurringSlice.ts, TD-25).
 
   // v7 — notifications
   // notification actions live in NotifySlice (store/slices/notifySlice.ts, TD-25).
@@ -168,6 +163,7 @@ export const useStore = create<Store>((set, get, api) => ({
   ...createModalSlice(set, get, api),
   ...createReconcileSlice(set, get, api),
   ...createNotifySlice(set, get, api),
+  ...createRecurringSlice(set, get, api),
   adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
@@ -182,7 +178,6 @@ export const useStore = create<Store>((set, get, api) => ({
   sessionLoaded: !isCloudEnabled(),     // local-only mode: instantly "loaded"
   myRole: undefined,
 
-  recurringSchedules: readLocalJson<RecurringSchedule[]>('recurring', []),
 
   theme: (readLocalString('theme', 'warm') as Theme) || 'warm',
   loading: true,
@@ -724,98 +719,6 @@ export const useStore = create<Store>((set, get, api) => ({
       await adapter.upsertRate(currentHouseholdId, code, rate);
     }
     set({ rates: { ...DEFAULT_RATES } });
-  },
-
-  // ── v7: RECURRING ────────────────────────────────────────────
-  upsertRecurring: async (s) => {
-    const list = get().recurringSchedules;
-    const existingIdx = s.id ? list.findIndex(x => x.id === s.id) : -1;
-    const isNew = existingIdx < 0;
-
-    const next: RecurringSchedule = {
-      id: s.id || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
-      transactionTemplate: s.transactionTemplate!,
-      frequency: s.frequency!,
-      dayOfMonth: s.dayOfMonth,
-      weekday: s.weekday,
-      startDate: s.startDate || new Date().toISOString().split('T')[0],
-      nextDueDate: s.nextDueDate || s.startDate || new Date().toISOString().split('T')[0],
-      lastGenerated: s.lastGenerated,
-      autoConfirm: s.autoConfirm ?? true,
-      active: s.active ?? true,
-      reminderLeadDays: s.reminderLeadDays,
-    };
-
-    // Seed the first transaction so a freshly-created schedule shows up in Transactions
-    // immediately — unless the caller already produced one (e.g. the txn modal mirrored
-    // its just-saved row into a schedule and pre-set lastGenerated).
-    let seededTxn: Transaction | null = null;
-    if (isNew && !next.lastGenerated && next.active && next.startDate <= today()) {
-      seededTxn = {
-        ...(next.transactionTemplate as Omit<Transaction, 'id' | 'date'>),
-        id: uid(),
-        date: next.startDate,
-      } as Transaction;
-      try { await get().adapter.upsert('transactions', get().currentHouseholdId, seededTxn); }
-      catch { /* local fallback below still updates state */ }
-      next.lastGenerated = next.startDate;
-    }
-
-    // v8.9 — persist through the adapter so the schedule is household-scoped +
-    // synced (and attributed to the creating user server-side via created_by).
-    const saved = await get().adapter.upsert(
-      'recurring', get().currentHouseholdId, next,
-      next.id && next.updated_at ? next.updated_at : undefined,
-    ) as RecurringSchedule;
-    const updated = existingIdx >= 0
-      ? list.map(x => x.id === saved.id ? saved : x)
-      : [...list, saved];
-    set({
-      recurringSchedules: updated,
-      transactions: seededTxn ? [...get().transactions, seededTxn] : get().transactions,
-    });
-    return saved;
-  },
-
-  removeRecurring: async (id) => {
-    await get().adapter.remove('recurring', get().currentHouseholdId, id);
-    set({ recurringSchedules: get().recurringSchedules.filter(s => s.id !== id) });
-  },
-
-  runRecurringEngine: async () => {
-    const { recurringSchedules, transactions, adapter, currentHouseholdId } = get();
-    const due = dueSchedules(recurringSchedules);
-    if (!due.length) { get().refreshNotifications(); return; }
-    const newTxns: Transaction[] = [];
-    const updated = [...recurringSchedules];
-    for (const s of due) {
-      if (s.autoConfirm) {
-        // R2 (sync fix): idempotency guard. Skip if this occurrence already
-        // exists locally (it may have been generated on another device and
-        // pulled in, or generated in a prior engine run before the schedule
-        // advance synced). The deterministic id makes the cloud upsert a no-op
-        // too, but this also avoids a transient in-memory duplicate.
-        const occId = recurringInstanceId(s.id, s.nextDueDate);
-        const exists = transactions.some(
-          t => t.id === occId || (t.recurringScheduleId === s.id && t.date === s.nextDueDate),
-        );
-        if (!exists) {
-          const txn = generateTransaction(s);
-          await adapter.upsert('transactions', currentHouseholdId, txn);
-          newTxns.push(txn);
-        }
-      }
-      const advanced = advanceSchedule(s);
-      const idx = updated.findIndex(x => x.id === s.id);
-      updated[idx] = advanced;
-      // Persist the advanced schedule (lastGenerated / nextDueDate moved on).
-      try { await adapter.upsert('recurring', currentHouseholdId, advanced); } catch { /* best-effort */ }
-    }
-    set({
-      recurringSchedules: updated,
-      transactions: [...transactions, ...newTxns],
-    });
-    get().refreshNotifications();
   },
 
   // ── v7: DEBT PAYMENT WITH RE-AMORTISATION ────────────────────
