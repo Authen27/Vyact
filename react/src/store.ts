@@ -5,11 +5,13 @@
 import { create } from 'zustand';
 import { createModalSlice, type ModalSlice } from './store/slices/modalSlice';
 import { createReconcileSlice, type ReconcileSlice } from './store/slices/reconcileSlice';
+import { createNotifySlice, type NotifySlice } from './store/slices/notifySlice';
+import { readLocalJson, readLocalString, setLocalString, removeLocal } from './store/localJson';
 import { exposeStoreForE2E } from './store/testHooks';
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, Theme,
-  RecurringSchedule, Notification, NotificationPrefs, PartPaymentChoice,
+  RecurringSchedule, PartPaymentChoice,
 } from './types';
 import type { Session } from '@supabase/supabase-js';
 import { LocalStorageAdapter, type DataAdapter } from './lib/dataAdapter';
@@ -27,11 +29,6 @@ import {
 } from './lib/recurring';
 import { uid, today, setNumberSystem } from './lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from './lib/numberSystemPref';
-import {
-  upcomingBillNotifs, missedPaymentNotifs, budgetThresholdNotifs,
-  goalMilestoneNotifs, DEFAULT_PREFS, isInQuietHours, showWebPush,
-} from './lib/notifications';
-import ls from './lib/localStorageCompat';
 import { getMoneyMapMode } from './lib/featureFlags';
 import {
   registerOnboardingSync, hydrateOnboardingFromCloud,
@@ -43,7 +40,7 @@ import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress 
 
 interface ToastMsg { id: string; text: string; type: 'success'|'error'|'info'|'warning'; }
 
-export interface Store extends ModalSlice, ReconcileSlice {
+export interface Store extends ModalSlice, ReconcileSlice, NotifySlice {
   // ── data ────────────────────────────────────────────────────
   adapter: DataAdapter;
   households: HouseholdMeta[];
@@ -69,8 +66,7 @@ export interface Store extends ModalSlice, ReconcileSlice {
 
   // ── v7: recurring + notifications ───────────────────────────
   recurringSchedules: RecurringSchedule[];
-  notifications: Notification[];
-  notificationPrefs: NotificationPrefs;
+  // notifications / notificationPrefs live in NotifySlice (store/slices/notifySlice.ts, TD-25).
 
   // ── v4.1: cloud + auth ───────────────────────────────────────
   cloudEnabled: boolean;
@@ -129,10 +125,7 @@ export interface Store extends ModalSlice, ReconcileSlice {
   runRecurringEngine: () => Promise<void>;
 
   // v7 — notifications
-  refreshNotifications: () => void;
-  markNotificationRead: (id: string) => void;
-  dismissNotification: (id: string) => void;
-  updateNotificationPrefs: (patch: Partial<NotificationPrefs>) => void;
+  // notification actions live in NotifySlice (store/slices/notifySlice.ts, TD-25).
 
   // v7 — debt payment with re-amortisation
   recordDebtPayment: (debtId: string, amount: number, choice?: PartPaymentChoice) => Promise<{ message: string; debt: Debt | null }>;
@@ -157,35 +150,8 @@ const defaultProfile: Profile = {
   payoffStrategy: 'avalanche', extraPayment: 0,
 };
 
-function readLocalJson<T>(suffix: string, fallback: T): T {
-  try {
-    const val = ls.readJson<T>(suffix);
-    return val !== null ? val : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function readLocalString(suffix: string, fallback: string | null = null): string | null {
-  try {
-    const v = ls.readString(suffix);
-    return v !== null ? v : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function setLocalJson(suffix: string, value: unknown): void {
-  try { ls.setJson(suffix, value); } catch { /* noop */ }
-}
-
-function setLocalString(suffix: string, value: string): void {
-  try { ls.setString(suffix, value); } catch { /* noop */ }
-}
-
-function removeLocal(suffix: string): void {
-  try { ls.removeBoth(suffix); } catch { /* noop */ }
-}
+// readLocalJson/readLocalString/setLocalJson/setLocalString/removeLocal moved to
+// store/localJson.ts (TD-25) so extracted slices can share them.
 
 // v8.1.2 — monotonically increasing refresh sequence. Module-scoped (not store
 // state) so bumping it never triggers a re-render. refresh() uses it to discard
@@ -200,6 +166,8 @@ const initialAdapter: DataAdapter = (isCloudEnabled() && supabase)
 
 export const useStore = create<Store>((set, get, api) => ({
   ...createModalSlice(set, get, api),
+  ...createReconcileSlice(set, get, api),
+  ...createNotifySlice(set, get, api),
   adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
@@ -215,8 +183,6 @@ export const useStore = create<Store>((set, get, api) => ({
   myRole: undefined,
 
   recurringSchedules: readLocalJson<RecurringSchedule[]>('recurring', []),
-  notifications: readLocalJson<Notification[]>('notifications', []),
-  notificationPrefs: { ...DEFAULT_PREFS, ...readLocalJson('notification_prefs', {}) },
 
   theme: (readLocalString('theme', 'warm') as Theme) || 'warm',
   loading: true,
@@ -689,7 +655,6 @@ export const useStore = create<Store>((set, get, api) => ({
     await adapter.remove('accounts', currentHouseholdId, id);
     set({ accounts: accounts.filter(x => x.id !== id) });
   },
-  ...createReconcileSlice(set, get, api),
   upsertSavedView: async (v) => {
     const { adapter, currentHouseholdId, savedViews } = get();
     const saved = await adapter.upsert('savedViews', currentHouseholdId, v, v.id && v.updated_at ? v.updated_at : undefined);
@@ -851,51 +816,6 @@ export const useStore = create<Store>((set, get, api) => ({
       transactions: [...transactions, ...newTxns],
     });
     get().refreshNotifications();
-  },
-
-  // ── v7: NOTIFICATIONS ────────────────────────────────────────
-  refreshNotifications: () => {
-    const { recurringSchedules, notifications, notificationPrefs,
-            budgets, transactions, goals, profile, rates } = get();
-    if (!notificationPrefs.master) return;
-
-    const fresh: Notification[] = [
-      ...upcomingBillNotifs(recurringSchedules, notificationPrefs, notifications),
-      ...missedPaymentNotifs(recurringSchedules, notificationPrefs, notifications),
-      ...budgetThresholdNotifs(budgets, transactions, notificationPrefs, notifications, profile.baseCurrency, rates),
-      ...goalMilestoneNotifs(goals, notificationPrefs, notifications),
-    ];
-    if (!fresh.length) return;
-    const merged = [...notifications, ...fresh];
-    setLocalJson('notifications', merged);
-    set({ notifications: merged });
-
-    // Web Push for high-priority types if outside quiet hours
-    if (notificationPrefs.webPushEnabled && !isInQuietHours(notificationPrefs)) {
-      for (const n of fresh) {
-        if (n.type === 'missed_payment' || n.type === 'goal_milestone') {
-          showWebPush(n.title, n.body);
-        }
-      }
-    }
-  },
-
-  markNotificationRead: (id) => {
-    const updated = get().notifications.map(n => n.id === id ? { ...n, status: 'read' as const } : n);
-    setLocalJson('notifications', updated);
-    set({ notifications: updated });
-  },
-
-  dismissNotification: (id) => {
-    const updated = get().notifications.map(n => n.id === id ? { ...n, status: 'dismissed' as const } : n);
-    setLocalJson('notifications', updated);
-    set({ notifications: updated });
-  },
-
-  updateNotificationPrefs: (patch) => {
-    const next = { ...get().notificationPrefs, ...patch };
-    setLocalJson('notification_prefs', next);
-    set({ notificationPrefs: next });
   },
 
   // ── v7: DEBT PAYMENT WITH RE-AMORTISATION ────────────────────
