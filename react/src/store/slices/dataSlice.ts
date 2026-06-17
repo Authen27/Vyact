@@ -68,23 +68,9 @@ export interface DataSlice {
   // CRUD
   upsertTransaction: (t: Partial<Transaction>) => Promise<Transaction>;
   removeTransaction: (id: string) => Promise<void>;
-  upsertBudget: (b: Partial<Budget>) => Promise<Budget>;
-  removeBudget: (id: string) => Promise<void>;
-  /** v9.1 §4 — replace a budget's per-category allocations. */
-  setBudgetAllocations: (budgetId: string, rows: Partial<BudgetAllocation>[]) => Promise<BudgetAllocation[]>;
-  upsertGoal: (g: Partial<Goal>) => Promise<Goal>;
-  removeGoal: (id: string) => Promise<void>;
-  upsertMember: (m: Partial<Member>) => Promise<Member>;
-  removeMember: (id: string) => Promise<void>;
-  upsertDebt: (d: Partial<Debt>) => Promise<Debt>;
-  removeDebt: (id: string) => Promise<void>;
-  upsertAsset: (a: Partial<Asset>) => Promise<Asset>;
-  removeAsset: (id: string) => Promise<void>;
-  upsertAccount: (a: Partial<Account>) => Promise<Account>;
-  // reconcileAccount lives in ReconcileSlice (store/slices/reconcileSlice.ts, TD-25).
-  removeAccount: (id: string) => Promise<void>;
-  upsertSavedView: (v: Partial<SavedView>) => Promise<SavedView>;
-  removeSavedView: (id: string) => Promise<void>;
+  // Entity CRUD (budget/allocation/goal/member/debt/asset/account/savedView)
+  // lives in CrudSlice (store/slices/crudSlice.ts, TD-25); reconcileAccount in
+  // ReconcileSlice — both folded into Store via `extends`.
 
   updateProfile: (patch: Partial<Profile>) => Promise<void>;
   /** v7.3 — Money Map Migration B. Mark a topic completed/dismissed and
@@ -476,159 +462,8 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     await adapter.remove('transactions', currentHouseholdId, id);
     set({ transactions: transactions.filter(x => x.id !== id) });
   },
-  upsertBudget: async (b) => {
-    const { adapter, currentHouseholdId, budgets } = get();
-    // v9.3.3 — the DB owns budget identity (household, scope, period), enforced by
-    // uq_budget_month/uq_budget_annual. A NEW budget goes through the identity-aware
-    // create authority (`createBudgetChecked` → upsert_budget RPC): it assigns the
-    // id and rejects a duplicate slot — including another member's unsynced one —
-    // with BudgetExistsError, rather than minting a client id that collides and
-    // dead-letters. An EDIT keeps its id and uses the concurrency-safe update path.
-    // (The v9.3.1 deterministic-id approach was removed: coupling PK to identity
-    // broke delete+recreate and clashed with recovered random-id rows.)
-    let saved: Budget;
-    if (!b.id) {
-      saved = await adapter.createBudgetChecked(currentHouseholdId, b);
-    } else {
-      saved = await adapter.upsert('budgets', currentHouseholdId, b, b.updated_at ? b.updated_at : undefined) as Budget;
-    }
-    // Period metadata now lives on the row itself (PR #20). The adapter's
-    // rowToBudget mapper returns `period` / `periodStart` / `periodEnd`.
-    const merged: Budget = { ...saved, period: saved.period || b.period || 'monthly' };
-    const idx = budgets.findIndex(x => x.id === saved.id);
-    set({ budgets: idx >= 0 ? budgets.map(x => x.id === saved.id ? merged : x) : [...budgets, merged] });
-    return merged;
-  },
-  removeBudget: async (id) => {
-    const { adapter, currentHouseholdId, budgets, budgetAllocations } = get();
-    await adapter.remove('budgets', currentHouseholdId, id);
-    // Cascade allocations locally (DB cascades via FK on delete; soft-delete
-    // here just drops them from memory).
-    set({
-      budgets: budgets.filter(x => x.id !== id),
-      budgetAllocations: budgetAllocations.filter(a => a.budgetId !== id),
-    });
-  },
-  // v9.1 §4 — replace the full per-category allocation set for one budget.
-  setBudgetAllocations: async (budgetId, rows) => {
-    const { adapter, currentHouseholdId, budgetAllocations } = get();
-    const others = budgetAllocations.filter(a => a.budgetId !== budgetId);
-    const saved: BudgetAllocation[] = [];
-    // remove allocations the user dropped
-    const keepIds = new Set(rows.filter(r => r.id).map(r => r.id));
-    for (const a of budgetAllocations.filter(a => a.budgetId === budgetId)) {
-      if (!keepIds.has(a.id)) await adapter.remove('budgetAllocations', currentHouseholdId, a.id);
-    }
-    // upsert the current set
-    for (const r of rows) {
-      const row = await adapter.upsert('budgetAllocations', currentHouseholdId, { ...r, budgetId });
-      saved.push(row as BudgetAllocation);
-    }
-    set({ budgetAllocations: [...others, ...saved] });
-    return saved;
-  },
-  upsertGoal: async (g) => {
-    const { adapter, currentHouseholdId, goals } = get();
-    // TD-03 phase B (PR #12): thread the version precondition on edits.
-    const saved = await adapter.upsert('goals', currentHouseholdId, g, g.id && g.updated_at ? g.updated_at : undefined);
-    const idx = goals.findIndex(x => x.id === saved.id);
-    set({ goals: idx >= 0 ? goals.map(x => x.id === saved.id ? saved as Goal : x) : [...goals, saved as Goal] });
-    return saved as Goal;
-  },
-  removeGoal: async (id) => {
-    const { adapter, currentHouseholdId, goals } = get();
-    await adapter.remove('goals', currentHouseholdId, id);
-    set({ goals: goals.filter(x => x.id !== id) });
-  },
-  upsertMember: async (m) => {
-    const { adapter, currentHouseholdId, members } = get();
-    const saved = await adapter.upsert('members', currentHouseholdId, m);
-    const idx = members.findIndex(x => x.id === saved.id);
-    set({ members: idx >= 0 ? members.map(x => x.id === saved.id ? saved as Member : x) : [...members, saved as Member] });
-    return saved as Member;
-  },
-  removeMember: async (id) => {
-    const { adapter, currentHouseholdId, members, transactions } = get();
-    // Orphan linked transactions
-    const linked = transactions.filter(t => t.memberId === id);
-    for (const t of linked) {
-      const updated = { ...t, memberId: '' };
-      await adapter.upsert('transactions', currentHouseholdId, updated);
-    }
-    await adapter.remove('members', currentHouseholdId, id);
-    set({
-      members: members.filter(x => x.id !== id),
-      transactions: transactions.map(t => t.memberId === id ? { ...t, memberId: '' } : t),
-    });
-  },
-  upsertDebt: async (d) => {
-    const { adapter, currentHouseholdId, debts } = get();
-    // TD-03 phase B (PR #12): thread the version precondition on edits.
-    const saved = await adapter.upsert('debts', currentHouseholdId, d, d.id && d.updated_at ? d.updated_at : undefined);
-    const idx = debts.findIndex(x => x.id === saved.id);
-    set({ debts: idx >= 0 ? debts.map(x => x.id === saved.id ? saved as Debt : x) : [...debts, saved as Debt] });
-    return saved as Debt;
-  },
-  removeDebt: async (id) => {
-    const { adapter, currentHouseholdId, debts } = get();
-    await adapter.remove('debts', currentHouseholdId, id);
-    set({ debts: debts.filter(x => x.id !== id) });
-  },
-  upsertAsset: async (a) => {
-    const { adapter, currentHouseholdId, assets } = get();
-    // TD-03 phase B (PR #12): thread the version precondition on edits.
-    const saved = await adapter.upsert('assets', currentHouseholdId, a, a.id && a.updated_at ? a.updated_at : undefined);
-    const idx = assets.findIndex(x => x.id === saved.id);
-    set({ assets: idx >= 0 ? assets.map(x => x.id === saved.id ? saved as Asset : x) : [...assets, saved as Asset] });
-    return saved as Asset;
-  },
-  removeAsset: async (id) => {
-    const { adapter, currentHouseholdId, assets } = get();
-    await adapter.remove('assets', currentHouseholdId, id);
-    set({ assets: assets.filter(x => x.id !== id) });
-  },
-  upsertAccount: async (a) => {
-    const { adapter, currentHouseholdId, accounts } = get();
-    const isNew = !a.id || !accounts.find(x => x.id === a.id);
-
-    // v9.4.2 — when creating a NEW investment account with no backing asset,
-    // auto-create a corresponding Asset so the investment appears on Net Worth.
-    // The `assetId` FK chain (accountValueOf → 'asset:<assetId>') feeds balances
-    // into the Net Worth calculation automatically.
-    if (isNew && a.kind === 'investment' && !a.assetId) {
-      const backingAsset = await get().upsertAsset({
-        id: uid(),
-        type: 'investment',
-        name: a.name || 'Investment',
-        value: (a as any).openingBalance || 0,
-        currency: a.currency || get().profile.baseCurrency,
-        liquidity: 'short',
-      });
-      a = { ...a, assetId: backingAsset.id };
-    }
-
-    const saved = await adapter.upsert('accounts', currentHouseholdId, a, a.id && a.updated_at ? a.updated_at : undefined);
-    const idx = accounts.findIndex(x => x.id === saved.id);
-    set({ accounts: idx >= 0 ? accounts.map(x => x.id === saved.id ? saved as Account : x) : [...accounts, saved as Account] });
-    return saved as Account;
-  },
-  removeAccount: async (id) => {
-    const { adapter, currentHouseholdId, accounts } = get();
-    await adapter.remove('accounts', currentHouseholdId, id);
-    set({ accounts: accounts.filter(x => x.id !== id) });
-  },
-  upsertSavedView: async (v) => {
-    const { adapter, currentHouseholdId, savedViews } = get();
-    const saved = await adapter.upsert('savedViews', currentHouseholdId, v, v.id && v.updated_at ? v.updated_at : undefined);
-    const idx = savedViews.findIndex(x => x.id === saved.id);
-    set({ savedViews: idx >= 0 ? savedViews.map(x => x.id === saved.id ? saved as SavedView : x) : [...savedViews, saved as SavedView] });
-    return saved as SavedView;
-  },
-  removeSavedView: async (id) => {
-    const { adapter, currentHouseholdId, savedViews } = get();
-    await adapter.remove('savedViews', currentHouseholdId, id);
-    set({ savedViews: savedViews.filter(x => x.id !== id) });
-  },
+  // Entity CRUD (budget/allocation/goal/member/debt/asset/account/savedView) lives
+  // in CrudSlice (store/slices/crudSlice.ts, TD-25), composed via the spread above.
 
   updateProfile: async (patch) => {
     const { adapter, currentHouseholdId, profile } = get();
