@@ -10,6 +10,22 @@ Three deliverables in one repo, each independently runnable, each on its own Sem
 
 > **Version source of truth:** [`VERSIONS.md`](VERSIONS.md) + each app's `package.json` / `CHANGELOG.md`. The consumer/admin numbers above are CI-checked against `react/package.json` and `admin/package.json` (`scripts/version-drift-check.mjs`, TD-28) — don't hand-edit them out of sync.
 
+## Documentation map
+
+The doc tree is small but purposeful — start here:
+
+| Doc | What it's for |
+|---|---|
+| [`docs/HANDOFF.md`](docs/HANDOFF.md) | **New-session continuity brief** — live URLs, deploy/Supabase gotchas, open work, command cheatsheet |
+| [`CLAUDE.md`](CLAUDE.md) | Agent orientation + the **binding architecture conventions** (money model, budget identity, store slices, sync) |
+| [`VERSIONS.md`](VERSIONS.md) | Master cross-app release timeline + roadmap (version source of truth) |
+| [`react/CHANGELOG.md`](react/CHANGELOG.md) · [`admin/CHANGELOG.md`](admin/CHANGELOG.md) | Authoritative per-version detail |
+| [`docs/HISTORY.md`](docs/HISTORY.md) | Archived per-version *implementation* narrative (moved out of CLAUDE.md) |
+| [`TECH_DEBT.md`](TECH_DEBT.md) | The single source of truth for technical debt (TD-01…TD-28) |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Cloud + auth + multi-household design |
+| [`DEPLOY.md`](DEPLOY.md) · [`db/MIGRATIONS.md`](db/MIGRATIONS.md) | Deploy pipeline · DB migration workflow |
+| [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) | Regression-managed catalog of every automated test (CI-reconciled) |
+
 ## Changelogs
 
 - [`VERSIONS.md`](VERSIONS.md) — **master index** + cross-app release timeline + roadmap
