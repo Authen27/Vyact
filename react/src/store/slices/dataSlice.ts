@@ -1,40 +1,33 @@
-// Vyact v6 — Zustand global store
-// All state + every CRUD action goes through here.
-// CRUD actions persist via DataAdapter, then update in-memory state.
-
-import { create } from 'zustand';
-import { createModalSlice, type ModalSlice } from './store/slices/modalSlice';
-import { createReconcileSlice, type ReconcileSlice } from './store/slices/reconcileSlice';
-import { createNotifySlice, type NotifySlice } from './store/slices/notifySlice';
-import { createRecurringSlice, type RecurringSlice } from './store/slices/recurringSlice';
-import { createCloudAuthSlice, type CloudAuthSlice } from './store/slices/cloudAuthSlice';
-import { createSyncSlice, type SyncSlice } from './store/slices/syncSlice';
-import { readLocalJson, readLocalString, setLocalString, removeLocal } from './store/localJson';
-import { exposeStoreForE2E } from './store/testHooks';
+// Vyact — data-core slice (TD-25 final increment).
+// Household-scoped entity state + bootstrap (init), the refresh stale-sequence
+// guard, and every CRUD / money action. Composed into `useStore` by
+// store/index.ts; reads/writes the rest of the store via get()/set().
+import type { StateCreator } from 'zustand';
+import type { Store } from '../../store';
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta,
   RecurringSchedule, PartPaymentChoice,
-} from './types';
-import { LocalStorageAdapter, type DataAdapter } from './lib/dataAdapter';
-import { HybridAdapter } from './lib/hybridAdapter';
-import { buildSeed } from './lib/seed';
-import { DEFAULT_RATES } from './constants';
-import { isCloudEnabled, supabase } from './lib/supabase';
-import { applyPayment } from './lib/amortization';
-import { autoMigrateAnonToHousehold } from './lib/migration';
-import { backfillSchedulesFromTransactions } from './lib/recurring';
-import { uid, setNumberSystem } from './lib/format';
-import { readNumberSystemPref, writeNumberSystemPref } from './lib/numberSystemPref';
+} from '../../types';
+import { LocalStorageAdapter, type DataAdapter } from '../../lib/dataAdapter';
+import { HybridAdapter } from '../../lib/hybridAdapter';
+import { buildSeed } from '../../lib/seed';
+import { DEFAULT_RATES } from '../../constants';
+import { isCloudEnabled, supabase } from '../../lib/supabase';
+import { applyPayment } from '../../lib/amortization';
+import { autoMigrateAnonToHousehold } from '../../lib/migration';
+import { backfillSchedulesFromTransactions } from '../../lib/recurring';
+import { uid, setNumberSystem } from '../../lib/format';
+import { readNumberSystemPref, writeNumberSystemPref } from '../../lib/numberSystemPref';
 import {
   registerOnboardingSync, hydrateOnboardingFromCloud,
   type HouseholdOnboarding,
-} from './lib/onboardingState';
-import { accountValueOf } from './lib/accountBalance';
-import { splitEmiPortions } from './lib/calculations';
-import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from './lib/educationProgress';
+} from '../../lib/onboardingState';
+import { accountValueOf } from '../../lib/accountBalance';
+import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from '../../lib/educationProgress';
+import { readLocalJson, readLocalString, setLocalString, removeLocal } from '../localJson';
 
-export interface Store extends ModalSlice, ReconcileSlice, NotifySlice, RecurringSlice, CloudAuthSlice, SyncSlice {
+export interface DataSlice {
   // ── data ────────────────────────────────────────────────────
   adapter: DataAdapter;
   households: HouseholdMeta[];
@@ -134,13 +127,7 @@ const initialAdapter: DataAdapter = (isCloudEnabled() && supabase)
   ? new HybridAdapter(supabase)
   : new LocalStorageAdapter();
 
-export const useStore = create<Store>((set, get, api) => ({
-  ...createModalSlice(set, get, api),
-  ...createReconcileSlice(set, get, api),
-  ...createNotifySlice(set, get, api),
-  ...createRecurringSlice(set, get, api),
-  ...createCloudAuthSlice(set, get, api),
-  ...createSyncSlice(set, get, api),
+export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get) => ({
   adapter: initialAdapter,
   households: [],
   currentHouseholdId: 'local',
@@ -734,11 +721,4 @@ export const useStore = create<Store>((set, get, api) => ({
     return { message: result.message, debt: result.debt };
   },
 
-  // auth lifecycle (setSession/refreshHouseholds), sync surface
-  // (manualRefresh/subscribeRealtime/lastSyncedAt), and theme/toast live in
-  // CloudAuthSlice / SyncSlice, composed via the spreads above (TD-25).
-}));
-
-// Expose store to E2E tests in non-production modes (read-only access).
-// Extracted to store/testHooks.ts (TD-25) behind a single typed window shim.
-exposeStoreForE2E(useStore);
+});
