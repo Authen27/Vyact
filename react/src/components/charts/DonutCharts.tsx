@@ -5,6 +5,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
+import { Link } from 'react-router-dom';
 import { fmtShort, fmt } from '../../lib/format';
 import { getCat } from '../../constants';
 
@@ -16,9 +17,11 @@ interface DonutEntry {
 interface DonutProps {
   data: DonutEntry[];
   currency: string;
+  /** When provided, each category row links to filtered Transactions. */
+  monthKey?: string;
 }
 
-export function CategoryDonut({ data, currency }: DonutProps) {
+export function CategoryDonut({ data, currency, monthKey }: DonutProps) {
   if (!data.length) {
     return <div className="text-center py-9 text-ink-dim font-mono text-xs uppercase tracking-wider">No data</div>;
   }
@@ -60,13 +63,21 @@ export function CategoryDonut({ data, currency }: DonutProps) {
       <div className="flex flex-col gap-1 max-h-[200px] overflow-y-auto">
         {enriched.slice(0, 8).map(entry => {
           const pct = Math.round(entry.amount / total * 100);
-          return (
-            <div key={entry.catId} className="grid grid-cols-[10px_1fr_auto_auto] gap-2 items-center py-1 border-b border-line text-[0.74rem] text-ink-mid">
+          const row = (
+            <div className="grid grid-cols-[10px_1fr_auto_auto] gap-2 items-center py-1 border-b border-line text-[0.74rem] text-ink-mid">
               <div className="w-2 h-2 rounded-full" style={{ background: entry.color }} />
               <div className="font-medium text-ink truncate">{entry.name}</div>
               <div className="font-mono text-[0.68rem] text-ink">{fmtShort(entry.amount, currency)}</div>
               <div className="font-mono text-[0.6rem] text-ink-dim w-8 text-right">{pct}%</div>
             </div>
+          );
+          return monthKey ? (
+            <Link key={entry.catId} to={`/transactions?type=expense&cat=${entry.catId}&month=${monthKey}`}
+              className="block rounded-md hover:bg-bg3 transition-colors -mx-1 px-1">
+              {row}
+            </Link>
+          ) : (
+            <div key={entry.catId}>{row}</div>
           );
         })}
       </div>

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Card, Panel } from '../components/ui/Card';
@@ -10,7 +11,7 @@ import {
 import {
   reportableTxns, effectiveAmount,
 } from '../lib/calculations';
-import { fmt, fmtSigned, getMonthKey } from '../lib/format';
+import { fmt, fmtSigned, getMonthKey, nowMonthKey } from '../lib/format';
 import { useCategoryClassifications } from '../lib/categorization';
 import { getMoneyMapMode } from '../lib/featureFlags';
 import Money from '../components/ui/Money';
@@ -31,6 +32,19 @@ export default function Reports() {
   const baseCur = profile.baseCurrency;
   const classifications = useCategoryClassifications();
   const [period, setPeriod] = useState<Period>('month');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromSavings = searchParams.get('from') === 'savings';
+  // Savings banner: compute current-month income/expense for the formula display.
+  const currentMk = nowMonthKey();
+  const savingsIncome = useMemo(() =>
+    reportableTxns(txns).filter(t => t.type === 'income' && getMonthKey(t.date) === currentMk)
+      .reduce((s, t) => s + effectiveAmount(t, baseCur, rates), 0),
+    [txns, baseCur, rates, currentMk]);
+  const savingsExpense = useMemo(() =>
+    reportableTxns(txns).filter(t => t.type === 'expense' && getMonthKey(t.date) === currentMk)
+      .reduce((s, t) => s + effectiveAmount(t, baseCur, rates), 0),
+    [txns, baseCur, rates, currentMk]);
+  const savingsRate = savingsIncome > 0 ? Math.round((savingsIncome - savingsExpense) / savingsIncome * 100) : 0;
   // R6 (g) — By-member / By-account breakouts are now a permanent part of Reports
   // (the money model is permanent). They fold over `reportableTxns`, so transfers
   // and balance adjustments are excluded and never skew the breakdowns.
@@ -224,6 +238,28 @@ export default function Reports() {
           }}
         />
       </div>
+
+      {/* v9.4.2 — Savings rate contextual banner (navigated from Dashboard savings card). */}
+      {fromSavings && (
+        <div className="mb-4 bg-honey/8 border border-honey/30 rounded-xl px-5 py-4 flex items-start gap-3">
+          <span className="text-lg flex-shrink-0">💡</span>
+          <div className="flex-1 text-[0.84rem] text-ink-mid">
+            <span className="font-semibold text-ink">Savings rate {savingsRate}%</span>
+            {' — '}
+            {savingsIncome > 0
+              ? `You kept ${fmt(savingsIncome - savingsExpense, baseCur)} of ${fmt(savingsIncome, baseCur)} income this month.`
+              : 'No income recorded this month.'}
+            <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim mt-1">
+              Formula: (Income − Expenses) ÷ Income × 100
+            </div>
+          </div>
+          <button
+            onClick={() => { const next = new URLSearchParams(searchParams); next.delete('from'); setSearchParams(next, { replace: true }); }}
+            className="text-ink-dim hover:text-ink text-[0.78rem] flex-shrink-0"
+            aria-label="Dismiss"
+          >✕</button>
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3.5">

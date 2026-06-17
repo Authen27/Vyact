@@ -144,8 +144,8 @@ export default function Dashboard() {
           <Link to={`/transactions?type=expense&month=${mk}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View expense transactions">
             <Card label={t('monthly-expenses')} accent="terra" value={<Money amount={month.expense} currency={baseCur} maxChars={8} />} sub={t('this-month')} />
           </Link>
-          <Link to="/budgets" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View budgets">
-            <Card label={t('savings-rate')}     accent="honey" value={<span className={rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}>{rate}%</span>} sub={t('of-income-saved')} />
+          <Link to="/reports?from=savings" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View savings breakdown">
+            <Card label={t('savings-rate')}     accent="honey" value={<span className={rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}>{rate}%</span>} sub="of income not spent" />
           </Link>
         </div>
       </div>
@@ -213,14 +213,13 @@ export default function Dashboard() {
 
       {/* Category donut (goals panel removed — goals are no longer a module). */}
       <div className="mb-3.5">
-        <Link to="/reports" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View reports">
-          <Panel title={t('spending-by-category')} sub={t('this-month')}>
+          <Panel title={t('spending-by-category')} sub={t('this-month')}
+            action={<Link to="/reports" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">View All →</Link>}>
             {donutData.length === 0
               ? <EmptyState icon="🥯" message="No expenses this month" />
-              : <CategoryDonut data={donutData} currency={baseCur} />
+              : <CategoryDonut data={donutData} currency={baseCur} monthKey={mk} />
             }
           </Panel>
-        </Link>
       </div>
 
       {/* Net worth + Debt overview */}

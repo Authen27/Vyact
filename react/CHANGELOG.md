@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.4.1`** (consumer)
+> **Current production version: `v9.4.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.4.2 — Customer feedback round *(2026-06-17)*
+
+Five usability improvements driven by customer feedback:
+
+**Feedback 1 — EMI toggle relabelling** (`Debts.tsx`)
+Renamed the EMI detail toggle from "EMI" / "Less" to "EMI Details" / "Hide Details"
+for clarity.
+
+**Feedback 2 — Unified debt payment path** (`Debts.tsx`, `TransactionFormModal.tsx`,
+`store.ts`, `types.ts`)
+Removed the inline payment form on the Debts page. "Record Payment" now launches
+the TransactionFormModal pre-seeded with `loan_emi` category, debt reference, and
+minimum payment amount. The store's `loan_emi` path now uses `applyPayment()` for
+full re-amortisation (tenure / EMI / advance) with paymentLog. Part-payment strategy
+picker appears in the form when amount exceeds the debt's minimum payment.
+
+**Feedback 3 — Investment account → Net Worth** (`store.ts`,
+`AccountFormModal.tsx`, `TransactionFormModal.tsx`)
+Creating an Investment account now auto-creates a backing Asset on the Net Worth page
+(type `investment`, liquidity `short`). The account's `assetId` FK links it to the
+balance sheet. AccountFormModal shows a contextual hint; TransactionFormModal replaces
+the passive text with an actionable "Create Investment Account" button.
+
+**Feedback 5 — Category rows → filtered transactions** (`DonutCharts.tsx`,
+`Dashboard.tsx`)
+Each category row in the Spending by Category donut chart now links to
+`/transactions?type=expense&cat=<catId>&month=<monthKey>` for drill-down. The outer
+panel `<Link to="/reports">` was replaced with a "View All →" action button.
+
+**Feedback 6 — Savings rate clarification** (`Dashboard.tsx`, `Reports.tsx`)
+Dashboard savings rate card now redirects to `/reports?from=savings` and shows
+subtitle "of income not spent". Reports page renders a dismissible contextual banner
+with savings rate %, amounts, and the formula when navigated from savings.
+
+**Verification:** `tsc --noEmit` clean, zero errors.
 
 ## v9.4.1 — Store slice-composition: cloudAuth + sync *(2026-06-15)*
 

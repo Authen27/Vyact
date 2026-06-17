@@ -4,12 +4,12 @@ import { Pencil, Trash2, ChevronDown, ChevronUp, CreditCard } from 'lucide-react
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, convert } from '../lib/format';
+import { fmt, convert, today } from '../lib/format';
 import Money from '../components/ui/Money';
 import { computeEmi, splitEmiPortions, totalLiabilities, totalReceivables, totalMonthlyDebtPayment } from '../lib/calculations';
 import { DEBT_TYPES } from '../constants';
 import { getMoneyMapMode } from '../lib/featureFlags';
-import type { Debt, PartPaymentChoice } from '../types';
+import type { Debt } from '../types';
 
 type DebtTab = 'all' | 'owed_by_me' | 'owed_to_me';
 
@@ -21,16 +21,13 @@ export default function Debts() {
   const rates        = useStore(s => s.rates);
   const transactions = useStore(s => s.transactions);
   const removeDebt   = useStore(s => s.removeDebt);
-  const recordDebtPayment = useStore(s => s.recordDebtPayment);
+  // v9.4.2 — debt payment now launches the TransactionFormModal.
+  const openAddTxn   = useStore(s => s.openAddTxn);
   const toast        = useStore(s => s.toast);
   const openAddDebt  = useStore(s => s.openAddDebt);
   const openEditDebt = useStore(s => s.openEditDebt);
 
   const [expandId, setExpandId]   = useState<string | null>(null);
-  const [payDebtId, setPayDebtId] = useState<string | null>(null);
-  const [payAmount, setPayAmount] = useState('');
-  const [payChoice, setPayChoice] = useState<PartPaymentChoice>('reduce_tenure');
-  const [paying, setPaying]       = useState(false);
   // v7.2 — direction tabs are flag-gated. Off-mode households see the
   // legacy single-list UI; Money Map exposes Owed-by-me / Owed-to-me.
   const showDirectionTabs = getMoneyMapMode() !== 'off';
@@ -65,17 +62,17 @@ export default function Debts() {
     toast('Debt removed', 'info');
   }
 
-  async function submitPayment(d: Debt) {
-    const amount = parseFloat(payAmount);
-    if (isNaN(amount) || amount <= 0) { toast('Enter a valid amount', 'error'); return; }
-    const isPartPayment = amount > d.minimumPayment;
-    setPaying(true);
-    try {
-      const { message } = await recordDebtPayment(d.id, amount, isPartPayment ? payChoice : undefined);
-      toast(message || 'Payment recorded', 'success');
-      setPayDebtId(null); setPayAmount('');
-    } catch (e: any) { toast(e.message || 'Error', 'error'); }
-    finally { setPaying(false); }
+  // v9.4.2 — launch TransactionFormModal pre-seeded for this debt's EMI.
+  function recordPayment(d: Debt) {
+    openAddTxn({
+      type: 'expense',
+      category: 'loan_emi',
+      amount: d.minimumPayment,
+      currency: d.currency,
+      description: `${d.name} — EMI payment`,
+      date: today(),
+      linkedDebtId: d.id,
+    });
   }
 
   function monthsToPayoff(d: Debt): number | null {
@@ -173,7 +170,6 @@ export default function Debts() {
             const emi       = computeEmi(d.currentBalance, d.interestRate, d.tenureMonths || months || 12);
             const { interest, principal: prinPay } = splitEmiPortions(d.currentBalance, d.interestRate, d.minimumPayment);
             const expanded  = expandId === d.id;
-            const isPaying  = payDebtId === d.id;
 
             return (
               <div key={d.id} className="bg-bg border border-line rounded-xl overflow-hidden">
@@ -236,43 +232,13 @@ export default function Debts() {
                     </div>
                   )}
 
-                  {/* Payment form */}
-                  {isPaying && (
-                    <div className="bg-bg3 border border-line rounded-md p-3 mb-3 space-y-2">
-                      <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mb-1">Record Payment</div>
-                      <div className="flex gap-2">
-                        <input className="input flex-1" type="number" min="0" value={payAmount}
-                          onChange={e => setPayAmount(e.target.value)} placeholder={String(d.minimumPayment)} />
-                        <span className="self-center text-ink-dim text-sm">{d.currency}</span>
-                      </div>
-                      {parseFloat(payAmount) > d.minimumPayment && (
-                        <div>
-                          <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase mb-1">Part-payment: apply excess to</div>
-                          <div className="flex gap-2 flex-wrap">
-                            {(['reduce_tenure','reduce_emi','apply_advance'] as PartPaymentChoice[]).map(ch => (
-                              <button key={ch} onClick={() => setPayChoice(ch)}
-                                className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${payChoice === ch ? 'bg-coral text-white border-coral' : 'bg-bg border-line text-ink-mid hover:border-coral/40'}`}>
-                                {ch === 'reduce_tenure' ? 'Reduce tenure' : ch === 'reduce_emi' ? 'Reduce EMI' : 'Apply advance'}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex gap-2 justify-end">
-                        <button className="btn-ghost text-sm" onClick={() => setPayDebtId(null)}>Cancel</button>
-                        <button className="btn-primary text-sm" onClick={() => submitPayment(d)} disabled={paying}>
-                          {paying ? 'Recording…' : 'Record Payment'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button className="btn-primary btn-sm" onClick={() => { setPayDebtId(d.id); setPayAmount(String(d.minimumPayment)); }}>
+                    <button className="btn-primary btn-sm" onClick={() => recordPayment(d)}>
                       <CreditCard size={13} strokeWidth={1.8} /> Record Payment
                     </button>
                     <button className="btn-ghost btn-sm" onClick={() => setExpandId(expanded ? null : d.id)}>
-                      {expanded ? <><ChevronUp size={13} strokeWidth={1.8}/> Less</> : <><ChevronDown size={13} strokeWidth={1.8}/> EMI</>}
+                      {expanded ? <><ChevronUp size={13} strokeWidth={1.8}/> Hide Details</> : <><ChevronDown size={13} strokeWidth={1.8}/> EMI Details</>}
                     </button>
                     {/* §8 — debt drill-down: all payments/EMIs (or receivable repayments). */}
                     <button className="btn-ghost btn-sm" onClick={() => navigate(`/transactions?debtId=${d.id}`)}>

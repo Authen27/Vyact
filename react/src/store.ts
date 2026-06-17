@@ -420,14 +420,23 @@ export const useStore = create<Store>((set, get, api) => ({
     // expense (counts as spend) and a system transfer leg for the principal
     // (reduces the linked debt; excluded from spend). Best-effort sequential —
     // the principal leg + debt update follow the expense write.
+    // v9.4.2 — now uses applyPayment() for full re-amortisation (tenure / EMI /
+    // advance) and paymentLog recording, converging the two payment paths.
     if (!t.id && t.type === 'expense' && t.category === 'loan_emi' && t.linkedDebtId && t.amount) {
       const debt = get().debts.find(d => d.id === t.linkedDebtId);
       if (debt) {
-        const { interest, principal } = splitEmiPortions(debt.currentBalance, debt.interestRate, t.amount);
-        const emiSplit = { interest, principal, debt_id: debt.id };
+        // Read the part-payment strategy from the transient form field.
+        const partChoice = (t as any)._partPaymentChoice as PartPaymentChoice | undefined;
+        // Full re-amortisation: applyPayment handles interest/principal split,
+        // balance reduction, tenure/EMI recalculation, and paymentLog.
+        const result = applyPayment(debt, t.amount, partChoice);
+        const { interest, principal } = result.log;
+        const emiSplit = { interest, principal, debt_id: debt.id, partPaymentChoice: partChoice };
+
         // 1) interest leg — the visible expense (only this counts as spend, R-AGG-6)
         const expense = await adapter.upsert('transactions', currentHouseholdId, {
           ...t, id: uid(), amount: interest, emiSplit,
+          _partPaymentChoice: undefined,  // strip transient field
         });
         // 2) principal leg — system transfer into the loan (liability) account
         //    (display-kind loan_principal). Find-or-create a kind='loan' account
@@ -443,10 +452,13 @@ export const useStore = create<Store>((set, get, api) => ({
           ...t, id: uid(), type: 'transfer' as const, category: '', amount: principal,
           toAccountId: loanAcc.id, description: `${t.description || 'EMI'} — principal`,
           emiSplit, linkedTxnId: (expense as Transaction).id,
+          _partPaymentChoice: undefined,
         });
-        // 3) reduce the linked debt balance
-        await get().upsertDebt({ ...debt, currentBalance: Math.max(0, debt.currentBalance - principal) });
+        // 3) persist the re-amortised debt (balance, remainingMonths, EMI, paymentLog)
+        await get().upsertDebt(result.debt);
         set({ transactions: [...get().transactions, expense as Transaction, principalLeg as Transaction] });
+        // Surface the re-amortisation message as a toast.
+        if (result.message) get().toast(result.message, 'success');
         return expense as Transaction;
       }
     }
@@ -590,6 +602,24 @@ export const useStore = create<Store>((set, get, api) => ({
   },
   upsertAccount: async (a) => {
     const { adapter, currentHouseholdId, accounts } = get();
+    const isNew = !a.id || !accounts.find(x => x.id === a.id);
+
+    // v9.4.2 — when creating a NEW investment account with no backing asset,
+    // auto-create a corresponding Asset so the investment appears on Net Worth.
+    // The `assetId` FK chain (accountValueOf → 'asset:<assetId>') feeds balances
+    // into the Net Worth calculation automatically.
+    if (isNew && a.kind === 'investment' && !a.assetId) {
+      const backingAsset = await get().upsertAsset({
+        id: uid(),
+        type: 'investment',
+        name: a.name || 'Investment',
+        value: (a as any).openingBalance || 0,
+        currency: a.currency || get().profile.baseCurrency,
+        liquidity: 'short',
+      });
+      a = { ...a, assetId: backingAsset.id };
+    }
+
     const saved = await adapter.upsert('accounts', currentHouseholdId, a, a.id && a.updated_at ? a.updated_at : undefined);
     const idx = accounts.findIndex(x => x.id === saved.id);
     set({ accounts: idx >= 0 ? accounts.map(x => x.id === saved.id ? saved as Account : x) : [...accounts, saved as Account] });

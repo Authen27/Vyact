@@ -147,6 +147,13 @@ export default function AccountFormModal(props: Props) {
         </Field>
       </FieldRow>
 
+      {/* v9.4.2 — investment account auto-creates a backing Asset on Net Worth */}
+      {form.kind === 'investment' && !initial && (
+        <p className="-mt-1 mb-1 text-[0.7rem] text-sage leading-snug">
+          📈 This will also appear as an asset on your <strong>Net Worth</strong> page.
+        </p>
+      )}
+
       <Field label="Name">
         <Input
           autoFocus

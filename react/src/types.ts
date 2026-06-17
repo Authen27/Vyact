@@ -103,8 +103,10 @@ export interface Transaction extends WithProvenance {
   accountSplits?: AccountSplit[];
   split?: SplitInfo;
   /** v9 §2.3/§6.3 — system-written EMI split for category=loan_emi rows.
-   *  Read-only to the user; only the interest portion counts as spend. */
-  emiSplit?: { interest: number; principal: number; debt_id: string };
+   *  Read-only to the user; only the interest portion counts as spend.
+   *  v9.4.2 — partPaymentChoice threads the user's re-amortisation strategy
+   *  from the form into the store's loan_emi save path. */
+  emiSplit?: { interest: number; principal: number; debt_id: string; partPaymentChoice?: PartPaymentChoice };
   /** v9.1 §5 — set on transactions MATERIALISED from a recurring schedule;
    *  links the instance back to its template (drives the §8 'from recurring' drill). */
   recurringScheduleId?: string;

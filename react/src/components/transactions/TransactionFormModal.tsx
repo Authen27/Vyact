@@ -16,7 +16,7 @@ import { computeNextDueDate } from '../../lib/recurring';
 import { isFlagOn, getMoneyMapMode } from '../../lib/featureFlags';
 import { FEATURES } from '../../config/features';
 import { trackFlagExposure } from '../../lib/analytics';
-import type { Transaction, TxnType, Recurrence, RecurrenceFreq, AccountSplit } from '../../types';
+import type { Transaction, TxnType, Recurrence, RecurrenceFreq, AccountSplit, PartPaymentChoice } from '../../types';
 
 interface Props {
   /** Optional override props — when omitted, the modal binds to the global store
@@ -51,6 +51,8 @@ interface FormState {
   direction: 'added' | 'withdrew';
   // v9 §4.1 — the loan an EMI pays (required when category = loan_emi).
   linkedDebtId: string;
+  // v9.4.2 — part-payment strategy when EMI amount exceeds the minimum payment.
+  partPaymentChoice: PartPaymentChoice;
   /** v7.3 — Money Map Item #5. When `splitAcrossAccounts` is true the
    *  primary `paymentMethod` is treated as informational only; the actual
    *  source-of-funds is the multi-account `accountSplitRows` array. */
@@ -110,6 +112,7 @@ const blank = (currency: string, memberId = '', type: TxnType = 'expense'): Form
   paymentMethodTo: '',
   direction: 'added',
   linkedDebtId: '',
+  partPaymentChoice: 'reduce_tenure',
   splitAcrossAccounts: false,
   accountSplitRows: [],
   recurring: '',
@@ -180,6 +183,7 @@ export default function TransactionFormModal(props: Props) {
   const upsertRecurring   = useStore(s => s.upsertRecurring);
   const toast             = useStore(s => s.toast);
   const currentHouseholdId = useStore(s => s.currentHouseholdId);
+  const openAddAccount    = useStore(s => s.openAddAccount);
 
   // Bind to the global store unless explicit props are passed
   const storeOpen     = useStore(s => s.txnModalOpen);
@@ -282,6 +286,7 @@ export default function TransactionFormModal(props: Props) {
         paymentMethodTo: initial.toAccountId ?? initial.linkedToAssetId ?? '',
         direction: 'added',   // edits show the stored from/to as-is
         linkedDebtId: initial.emiSplit?.debt_id ?? initial.linkedDebtId ?? '',
+        partPaymentChoice: initial.emiSplit?.partPaymentChoice ?? 'reduce_tenure',
         splitAcrossAccounts: Boolean(initial.accountSplits && initial.accountSplits.length),
         accountSplitRows: initial.accountSplits ? initial.accountSplits.map(s => ({ accountId: s.accountId, amount: s.amount })) : [],
         recurring: initial.recurring ?? '',
@@ -322,6 +327,7 @@ export default function TransactionFormModal(props: Props) {
         category: seed?.category ?? base.category,
         note: seed?.note ?? base.note,
         date: seed?.date ?? base.date,
+        linkedDebtId: seed?.linkedDebtId ?? seed?.debtId ?? base.linkedDebtId,
       };
       setForm(blankForm);
       setTimeInput(splitTimeForInput(blankForm.time));
@@ -481,6 +487,11 @@ export default function TransactionFormModal(props: Props) {
         excluded: form.excluded || undefined,
         linkedToAssetId: needsToAccount ? toEncoded || undefined : initial?.linkedToAssetId,
         linkedDebtId: (form.category === 'loan_emi' ? form.linkedDebtId : undefined) ?? initial?.linkedDebtId,
+        // v9.4.2 — thread part-payment choice so the loan_emi path can re-amortise.
+        // Stored transiently on the emiSplit object; the store reads it on create.
+        ...(form.category === 'loan_emi' && form.linkedDebtId ? {
+          _partPaymentChoice: form.partPaymentChoice,
+        } : {}),
         linkedTxnId:   initial?.linkedTxnId,
         split,
       };
@@ -626,6 +637,35 @@ export default function TransactionFormModal(props: Props) {
         </Field>
       )}
 
+      {/* v9.4.2 — part-payment strategy picker. When the entered amount exceeds
+          the selected debt's minimum EMI, show a strategy selector so the user
+          controls how excess principal is applied (matches the old Debts inline form). */}
+      {form.type === 'expense' && form.category === 'loan_emi' && (() => {
+        const linkedDebt = debts.find(d => d.id === form.linkedDebtId);
+        const enteredAmt = parseFloat(form.amount) || 0;
+        if (!linkedDebt || enteredAmt <= linkedDebt.minimumPayment) return null;
+        return (
+          <div className="mb-3">
+            <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase mb-1.5">
+              Part-payment: apply excess to
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {(['reduce_tenure', 'reduce_emi', 'apply_advance'] as PartPaymentChoice[]).map(ch => (
+                <button key={ch} type="button"
+                  onClick={() => setForm(f => ({ ...f, partPaymentChoice: ch }))}
+                  className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                    form.partPaymentChoice === ch
+                      ? 'bg-coral text-white border-coral'
+                      : 'bg-bg border-line text-ink-mid hover:border-coral/40'
+                  }`}>
+                  {ch === 'reduce_tenure' ? 'Reduce tenure' : ch === 'reduce_emi' ? 'Reduce EMI' : 'Apply advance'}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* v9 §4.3 — investment direction toggle (replaces buy/sell/dividend etc.). */}
       {isInvestment && (
         <Field label="Direction">
@@ -687,10 +727,18 @@ export default function TransactionFormModal(props: Props) {
         </FieldRow>
       )}
       {isInvestment && investmentAccounts.length === 0 && (
-        <p className="-mt-2 mb-3 text-[0.7rem] text-ink-dim leading-snug">
-          No investment accounts yet — add one on the <strong>Accounts</strong> page
-          (kind: Investment) to record contributions and track its value.
-        </p>
+        <div className="-mt-2 mb-3">
+          <p className="text-[0.7rem] text-ink-dim leading-snug mb-1.5">
+            No investment accounts yet.
+          </p>
+          <button
+            type="button"
+            onClick={() => { openAddAccount?.(); }}
+            className="btn-ghost btn-sm text-[0.72rem]"
+          >
+            + Create Investment Account
+          </button>
+        </div>
       )}
       {accountRequired && accounts.length <= 1 && (
         <p className="-mt-2 mb-3 text-[0.7rem] text-ink-dim leading-snug">
