@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.4.2`** (consumer)
+> **Current production version: `v9.4.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.4.3 — Store god-module eliminated: data core + index.ts *(2026-06-17)*
+
+Completes the structural half of TD-25 (behaviour-neutral; no consumer change),
+landing on top of v9.4.2's feature work. The former 1,167-line `store.ts` is gone:
+it was `git mv`'d to `store/slices/dataSlice.ts` (entity state + `init`/`refresh`
++ all CRUD + the money/EMI paths, moved **verbatim**), and a new **33-line
+`store/index.ts`** is now the pure composition root — `create<Store>` folding the
+seven domain slices (`modal`/`reconcile`/`notify`/`recurring`/`cloudAuth`/`sync`/
+`data`) + the `Store` type + the E2E shim. `useStore`'s public type/behaviour is
+byte-identical; the ~41 `import { useStore } from '../store'` consumers resolve to
+`store/index.ts` unchanged (git tracked it as a 93%-similar rename).
+
+Verified byte-identical: tsc · ESLint · **161 tests incl. money-model invariants
++ golden regression** · build — all green. Also dropped a pre-existing dead
+`splitEmiPortions` import.
+
+**Residual (TD-25):** `dataSlice.ts` is 723 lines (the cohesive data core) —
+splitting its entity CRUD into a `crudSlice` to approach the ~300-line target is
+optional polish. **TD-24** read/noop catch sweep + an in-app diagnostics view
+also remain (the silent-write-loss paths already shipped in v9.4.0).
 
 ## v9.4.2 — Customer feedback round *(2026-06-17)*
 
