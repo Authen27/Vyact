@@ -7,6 +7,7 @@ import type { StateCreator } from 'zustand';
 import type { Theme } from '../../types';
 import type { Store } from '../../store';
 import { readLocalString, setLocalString } from '../localJson';
+import { subscribeBudgets } from '../../lib/realtime';
 
 export interface ToastMsg { id: string; text: string; type: 'success' | 'error' | 'info' | 'warning'; }
 
@@ -53,7 +54,6 @@ export const createSyncSlice: StateCreator<Store, [], [], SyncSlice> = (set, get
   // comes back online, plus a gentle foreground poll. A trailing debounce
   // collapses bursts and avoids overlapping reads clobbering each other.
   subscribeRealtime: (householdId) => {
-    void householdId;
     if (typeof window === 'undefined') return () => {/* noop */};
     let debounce: ReturnType<typeof setTimeout> | null = null;
     const trigger = () => {
@@ -67,12 +67,19 @@ export const createSyncSlice: StateCreator<Store, [], [], SyncSlice> = (set, get
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', trigger);
     window.addEventListener('online', trigger);
+    // v9.5.0 — near-real-time budgets: a household-scoped Supabase Realtime socket
+    // that refetches ONLY budgets on any change. This is an accelerator on top of
+    // the refresh triggers above — if the socket drops, the triggers still converge.
+    const unsubBudgets = get().cloudEnabled
+      ? subscribeBudgets(householdId, () => { void get().refetchBudgets(); })
+      : () => { /* local-only: no socket */ };
     return () => {
       if (debounce) clearTimeout(debounce);
       clearInterval(poll);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', trigger);
       window.removeEventListener('online', trigger);
+      unsubBudgets();
     };
   },
 

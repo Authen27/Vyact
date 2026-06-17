@@ -60,6 +60,8 @@ export interface DataSlice {
   // ── actions ─────────────────────────────────────────────────
   init: () => Promise<void>;
   refresh: () => Promise<void>;
+  /** v9.5.0 — budgets-only refetch, fired by the realtime accelerator (cheap; budgets are small). */
+  refetchBudgets: () => Promise<void>;
   switchHousehold: (id: string) => Promise<void>;
   createHousehold: (name: string, type: HouseholdMeta['type'], baseCurrency: string) => Promise<HouseholdMeta>;
   deleteHousehold: (id: string) => Promise<void>;
@@ -313,6 +315,18 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       set({ recurringSchedules: nextSchedules });
       get().toast(`Recovered ${added} recurring schedule${added === 1 ? '' : 's'} from existing transactions`, 'info');
     }
+  },
+
+  // v9.5.0 — budgets-only refetch (the realtime accelerator's onChange). Unlike
+  // refresh() it touches only budgets + allocations, so a near-real-time budget
+  // update never re-pulls every entity.
+  refetchBudgets: async () => {
+    const { adapter, currentHouseholdId } = get();
+    const [budgets, budgetAllocations] = await Promise.all([
+      adapter.list<Budget>('budgets', currentHouseholdId),
+      adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId).catch(() => [] as BudgetAllocation[]),
+    ]);
+    set({ budgets, budgetAllocations });
   },
 
   switchHousehold: async (id) => {

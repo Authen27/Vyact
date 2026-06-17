@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useStore } from '../store';
+import { can } from '../lib/permissions';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { convert } from '../lib/format';
@@ -39,6 +40,9 @@ export default function Budgets() {
   const openEditBudget = useStore(s => s.openEditBudget);
   const removeBudget   = useStore(s => s.removeBudget);
   const toast          = useStore(s => s.toast);
+  const myRole         = useStore(s => s.myRole);
+  // v9.5.0 — budgets are managed only by the household owner/admin; members view.
+  const canManage      = can(myRole, 'manage_budgets');
 
   const cur = profile.baseCurrency;
 
@@ -77,11 +81,13 @@ export default function Budgets() {
             Month, annual &amp; custom plans · per-category allocations
           </p>
         </div>
-        <button className="btn-primary flex-shrink-0" onClick={openAddBudget}>+ Add Budget</button>
+        {canManage
+          ? <button className="btn-primary flex-shrink-0" onClick={openAddBudget}>+ Add Budget</button>
+          : <span className="flex-shrink-0 font-mono text-[0.6rem] tracking-[0.12em] uppercase text-ink-dim border border-line rounded-md px-2.5 py-1.5 self-center" title="Budgets are managed by the household owner or admin">View only</span>}
       </div>
 
-      {/* §4.2 — create nudge for the current month */}
-      {!hasCurrentMonth && (
+      {/* §4.2 — create nudge for the current month (owner/admin only) */}
+      {!hasCurrentMonth && canManage && (
         <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-coral/30 bg-coral/[0.06] px-4 py-3">
           <span className="text-[0.86rem] text-ink">
             <Sparkles size={14} className="inline mr-1.5 -mt-0.5 text-coral" />
@@ -95,8 +101,8 @@ export default function Budgets() {
         <Panel>
           <div className="px-6 py-14 text-center">
             <div className="text-4xl mb-3 opacity-60">◎</div>
-            <p className="text-ink-mid mb-4">No budgets yet. Add one to start tracking your spending.</p>
-            <button className="btn-primary" onClick={openAddBudget}>Add First Budget</button>
+            <p className="text-ink-mid mb-4">{canManage ? 'No budgets yet. Add one to start tracking your spending.' : 'No budgets yet. The household owner or admin can add one.'}</p>
+            {canManage && <button className="btn-primary" onClick={openAddBudget}>Add First Budget</button>}
           </div>
         </Panel>
       ) : (
@@ -110,10 +116,12 @@ export default function Budgets() {
                     className="font-semibold text-ink text-[0.95rem] truncate hover:text-coral text-left" title="View transactions">
                     {budgetTitle(b)}
                   </button>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={() => openEditBudget(b)} className="row-action" aria-label="Edit budget" title="Edit"><Pencil size={14} strokeWidth={1.6} /></button>
-                    <button onClick={() => del(b.id)} className="row-action danger" aria-label="Delete budget" title="Delete"><Trash2 size={14} strokeWidth={1.6} /></button>
-                  </div>
+                  {canManage && (
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button onClick={() => openEditBudget(b)} className="row-action" aria-label="Edit budget" title="Edit"><Pencil size={14} strokeWidth={1.6} /></button>
+                      <button onClick={() => del(b.id)} className="row-action danger" aria-label="Delete budget" title="Delete"><Trash2 size={14} strokeWidth={1.6} /></button>
+                    </div>
+                  )}
                 </div>
                 {/* overall */}
                 <div className="flex justify-between items-center text-[0.8rem] mb-1">

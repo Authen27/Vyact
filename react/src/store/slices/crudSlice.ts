@@ -9,6 +9,16 @@ import type { StateCreator } from 'zustand';
 import type { Store } from '../../store';
 import type { Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView } from '../../types';
 import { uid } from '../../lib/format';
+import { can } from '../../lib/permissions';
+
+// v9.5.0 — budget management is owner/admin only. The DB enforces it (RLS +
+// upsert_budget guard); this is the client-side guard so a non-manager who
+// bypasses the (hidden) UI gets a clear message instead of a raw 42501/RLS reject.
+const assertCanManageBudgets = (role: import('../../types').AppRole | undefined): void => {
+  if (!can(role, 'manage_budgets')) {
+    throw new Error('Only the household owner or admin can manage budgets.');
+  }
+};
 
 export interface CrudSlice {
   upsertBudget: (b: Partial<Budget>) => Promise<Budget>;
@@ -31,6 +41,7 @@ export interface CrudSlice {
 
 export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get) => ({
   upsertBudget: async (b) => {
+    assertCanManageBudgets(get().myRole);
     const { adapter, currentHouseholdId, budgets } = get();
     // v9.3.3 — the DB owns budget identity (household, scope, period), enforced by
     // uq_budget_month/uq_budget_annual. A NEW budget goes through the identity-aware
@@ -54,6 +65,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     return merged;
   },
   removeBudget: async (id) => {
+    assertCanManageBudgets(get().myRole);
     const { adapter, currentHouseholdId, budgets, budgetAllocations } = get();
     await adapter.remove('budgets', currentHouseholdId, id);
     // Cascade allocations locally (DB cascades via FK on delete; soft-delete
@@ -65,6 +77,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
   },
   // v9.1 §4 — replace the full per-category allocation set for one budget.
   setBudgetAllocations: async (budgetId, rows) => {
+    assertCanManageBudgets(get().myRole);
     const { adapter, currentHouseholdId, budgetAllocations } = get();
     const others = budgetAllocations.filter(a => a.budgetId !== budgetId);
     const saved: BudgetAllocation[] = [];

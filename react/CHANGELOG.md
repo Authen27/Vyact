@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.4.3`** (consumer)
+> **Current production version: `v9.5.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.0 — Budgets owner/admin-managed + near-real-time sync *(2026-06-18)*
+
+Budget management is now restricted to the household **owner or admin**; every
+other member sees budgets **read-only**. This collapses the multi-writer surface
+that had repeatedly produced cross-device/account sync gaps, and pairs it with a
+**near-real-time** budget socket so the (now fewer) writers see each other's
+changes without waiting for a refresh.
+
+**Authorization (DB-enforced, defence in depth).** Migration
+`v950_budgets_owner_admin_only_plus_realtime`:
+- `upsert_budget(h,b,mode)` RPC now raises `42501` ("Only the household owner or
+  admin can manage budgets") for any non-owner/admin, right after the membership
+  check — the single writer for every entry point is guarded.
+- `budgets` + `budget_allocations` insert/update/delete RLS policies tightened to
+  `role_in(household_id) = any(array['owner','admin'])`.
+- Dropped the permissive `balloc_household` `ALL` policy that previously OR'd with
+  the per-command policies and silently granted any member allocation writes.
+- Client mirrors it: `manage_budgets` removed from the `member` permission set;
+  `Budgets.tsx` hides Add/Edit/Delete and shows a "View only" affordance for
+  non-managers; store CRUD (`upsertBudget`/`removeBudget`/`setBudgetAllocations`)
+  asserts `can(role,'manage_budgets')` for a clear message instead of a raw RLS
+  reject.
+
+**Near-real-time (accelerator on the refresh model).** New `lib/realtime.ts`
+`subscribeBudgets(householdId)` opens a household-scoped Supabase Realtime channel
+on `budgets` + `budget_allocations`; a row change fires a debounced **budgets-only**
+refetch (`refetchBudgets`). `budgets` + `budget_allocations` were added to the
+`supabase_realtime` publication. This **layers on** the R3 refresh triggers — if
+the socket drops or never connects, budgets still converge on the next
+visibility/focus/online/poll, so there is no regression, only acceleration.
+Soft-deletes (UPDATE setting `deleted_at`) are handled free by the refetch filter.
+
+Verified: tsc · ESLint · **161 tests** incl. money-model invariants · build; plus
+an auto-rollback RPC role-guard test (owner create PASS · admin replace PASS ·
+member rejected 42501 PASS) against prod, zero residue. The atomic
+budget+allocations RPC is **deferred to a follow-up** (documented in the migration).
 
 ## v9.4.3 — Store god-module eliminated: data core + index.ts *(2026-06-17)*
 

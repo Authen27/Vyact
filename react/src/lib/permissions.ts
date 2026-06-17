@@ -39,7 +39,9 @@ const PERMS: Record<AppRole, Set<Action>> = {
   member: new Set<Action>([
     'view',
     'add_transaction','edit_transaction','delete_transaction','edit_others_transaction',
-    'manage_budgets','manage_goals','manage_debts','manage_assets',
+    // v9.5.0 — budget management is owner/admin only; members are view-only on budgets
+    // (DB-enforced by RLS + the upsert_budget RPC guard). Goals/debts/assets unchanged.
+    'manage_goals','manage_debts','manage_assets',
   ]),
   viewer: new Set<Action>(['view','view_activity_log']),
   child: new Set<Action>([
