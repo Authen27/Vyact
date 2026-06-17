@@ -89,7 +89,7 @@ export async function kvGet<T = unknown>(key: string): Promise<T | null> {
     } catch { /* fall through */ }
   }
   if (memoryFallback.has(key)) {
-    try { return JSON.parse(memoryFallback.get(key)!) as T; } catch { return null; }
+    try { return JSON.parse(memoryFallback.get(key)!) as T; } catch (e) { expected(e, `kvStore.kvGet:memory:${key}`); return null; }
   }
   return null;
 }

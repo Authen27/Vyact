@@ -7,6 +7,7 @@
 // pre-TD-14 contract that callers don't have to handle storage errors.
 
 import { emitStorageEvent, isQuotaError } from './storageEvents';
+import { expected } from './faults';
 
 const NEW_PREFIX = 'vt_';
 const LEGACY_PREFIX = (() => {
@@ -75,7 +76,9 @@ export function setString(key: string, value: string | null): void {
 export function readJson<T = any>(key: string): T | null {
   const s = readString(key);
   if (!s) return null;
-  try { return JSON.parse(s) as T; } catch { return null; }
+  // TD-24: a parse failure means a stored value is corrupt (or non-JSON) —
+  // classify it so it's visible, then fall back to null as before.
+  try { return JSON.parse(s) as T; } catch (e) { expected(e, `localStorageCompat.readJson:${key}`); return null; }
 }
 
 export function setJson(key: string, value: any): void {
