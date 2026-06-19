@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.0`** (consumer)
+> **Current production version: `v9.5.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.1 — Transactions grouping/pagination + consumer-feedback UX fixes *(2026-06-19)*
+
+A cluster of consumer-feedback-driven UX fixes (no money-model or schema change).
+
+**Transactions — grouped by month + paginated.** The list previously rendered as
+one flat (virtualized) stream, which grew unwieldy as history accumulated. It is
+now **grouped into month+year accordions** and **paginated**: the most recent
+`MONTHS_PER_PAGE` (3) months render by default, with a **"Load previous 3 months"**
+control paging back through history until the earliest transaction. Each month
+header shows its transaction count and net (income − expense) and is collapsible
+(sticky while its rows scroll). All existing filters (search, type, category,
+member, calendar day, §8 deep-link context) feed the same grouping; changing a
+filter resets paging to the newest page. Replaces the `@tanstack/react-virtual`
+flat virtualizer on this page — paging bounds the rendered DOM instead.
+
+**Dashboard — removed the redundant "Net Worth Snapshot" panel.** It duplicated the
+**"Net Worth · today"** hero card at the top (which already shows Net Worth with its
+Assets/Debts split). Debt Overview now occupies that row on its own.
+
+**Currency formatting — decimals only when meaningful.** `fmt()` now omits the
+trailing `.00` for whole amounts (e.g. `₹16,000` not `₹16,000.00`), showing the
+fractional part only when the value actually has one. This fixes the Debts summary
+**"Min. Monthly"** tile overflowing its container, and de-clutters money across the
+app. (`fmtShort` was already decimal-light.)
+
+**Budget recommendations — rounded.** The recurring-forecast breakdown in the Budget
+form ("… already committed via recurring this period" + per-category chips) now
+displays whole-unit estimates (`₹72,857` not `₹72,857.14`); paise on an estimate is
+noise. "Use as allocations" already applied the rounded figures.
+
+**Reports — "Net by Period" → "Saved vs Overspent".** The old net-bar chart didn't
+explain itself (its tooltip read "Net: ₹0.00" on flat periods). Reframed with a
+clarifying title/subtitle, a Saved/Overspent legend, a zero baseline reference line
+so surplus-vs-shortfall is legible at a glance, and a plain-language tooltip
+("Saved ₹X" / "Overspent ₹X" with the in/out split, "No activity" when flat).
 
 ## v9.5.0 — Budgets owner/admin-managed + near-real-time sync *(2026-06-18)*
 

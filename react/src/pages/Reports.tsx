@@ -278,7 +278,7 @@ export default function Reports() {
       </Panel>
 
       <div className="grid lg:grid-cols-2 gap-3.5 mb-3.5">
-        <Panel title="Net by Period">
+        <Panel title="Saved vs Overspent" sub={`Did you end each ${period} ahead or behind?`}>
           {data.length === 0
             ? <EmptyState icon="📊" message="No data" />
             : <NetBarChart data={data} currency={baseCur} />

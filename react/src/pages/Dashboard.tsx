@@ -39,7 +39,6 @@ export default function Dashboard() {
   const budgets = useStore(s => s.budgets);
   const budgetAllocations = useStore(s => s.budgetAllocations);
   const debts = useStore(s => s.debts);
-  const assets = useStore(s => s.assets);
   const profile = useStore(s => s.profile);
   const baseCur = profile.baseCurrency;
   const openEditTxn = useStore(s => s.openEditTxn);
@@ -222,26 +221,10 @@ export default function Dashboard() {
           </Panel>
       </div>
 
-      {/* Net worth + Debt overview */}
-      <div className="grid lg:grid-cols-2 gap-3.5">
-        <Panel
-          title={t('net-worth-snapshot')}
-          action={<Link to="/networth" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">View →</Link>}
-        >
-          {(assets.length === 0 && debts.length === 0) ? (
-            <EmptyState icon="⚖️" message="No assets or debts tracked" />
-          ) : (
-            <div className="px-4 py-3 space-y-2">
-              <Row label="Assets"      value={<Money amount={ta} currency={baseCur} maxChars={11} />}      valueClass="text-sage" />
-              <Row label="Liabilities" value={<Money amount={tl} currency={baseCur} maxChars={11} />}      valueClass="text-terra" />
-              <div className="border-t border-line pt-2 flex justify-between items-center min-w-0 gap-2">
-                <span className="display-italic text-[1.1rem] text-ink">Net Worth</span>
-                <Money amount={ta - tl} currency={baseCur} maxChars={12} className={`font-semibold text-[1.4rem] ${ta - tl >= 0 ? 'text-sage' : 'text-terra'}`} />
-              </div>
-            </div>
-          )}
-        </Panel>
-
+      {/* Debt overview. (The Net Worth snapshot that used to sit here was removed
+          in v9.5.1 — it duplicated the "Net Worth · today" hero card at the top of
+          the dashboard, which already shows Net Worth with its Assets/Debts split.) */}
+      <div>
         <Panel
           title={t('debt-overview')}
           action={<Link to="/debts" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">View →</Link>}

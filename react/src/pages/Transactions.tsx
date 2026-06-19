@@ -1,8 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import {
-  CalendarDays, X, Search, SlidersHorizontal, RotateCcw,
+  CalendarDays, X, Search, SlidersHorizontal, RotateCcw, ChevronDown,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation, useShortcuts } from '../hooks';
@@ -22,7 +21,18 @@ type TransactionListItem = {
   projected?: boolean;
 };
 
+type MonthGroup = {
+  key: string;                  // 'YYYY-MM'
+  label: string;                // 'May 2026'
+  items: TransactionListItem[];
+  net: number;                  // income − expense for real (non-projected) rows
+};
+
 type TxnFilter = 'all' | TxnType;
+
+// How many month sections a single page reveals (product brief: "recent 3 months
+// … paginate to see previous 3 months and so on").
+const MONTHS_PER_PAGE = 3;
 
 export default function Transactions() {
   const { t } = useTranslation();
@@ -185,17 +195,57 @@ export default function Transactions() {
     return rows.sort((a, b) => transactionSortValue(b.txn) - transactionSortValue(a.txn) || b.txn.id.localeCompare(a.txn.id));
   }, [txns, schedules, search, type, cat, month, memberId, selectedDate, ctx]);
 
-  // TD-17 — virtualizer for the transactions list. Hooks must live in the
-  // function body, not inside JSX. The scroll container has a fixed pixel
-  // height; row height ~64px (TxnRow is `py-2.5` with a 1px border). Overscan
-  // gives a small buffer beyond the viewport so fast scrolls don't flash empty.
-  const parentRef = useRef<HTMLDivElement>(null);
-  const virtualizer = useVirtualizer({
-    count: filtered.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 64,
-    overscan: 8,
-  });
+  // v9.6 — group the (already date-sorted desc) list into month+year sections
+  // and reveal them a page at a time. The product brief: a long flat list is
+  // hostile; show the most recent months as collapsible accordions and let the
+  // user page back through earlier months (MONTHS_PER_PAGE at a time) until the
+  // earliest transaction. `filtered` is sorted desc, so first-seen month order
+  // is already newest→oldest.
+  const monthGroups = useMemo<MonthGroup[]>(() => {
+    const map = new Map<string, TransactionListItem[]>();
+    for (const item of filtered) {
+      const key = getMonthKey(item.txn.date);
+      const arr = map.get(key);
+      if (arr) arr.push(item);
+      else map.set(key, [item]);
+    }
+    const groups: MonthGroup[] = [];
+    for (const [key, items] of map) {
+      let net = 0;
+      for (const it of items) {
+        if (it.projected) continue;
+        if (it.txn.type === 'income') net += it.txn.amount;
+        else if (it.txn.type === 'expense') net -= it.txn.amount;
+      }
+      groups.push({ key, label: monthName(key), items, net });
+    }
+    // Guard against Map insertion order surprises — pin to descending month key.
+    groups.sort((a, b) => b.key.localeCompare(a.key));
+    return groups;
+  }, [filtered]);
+
+  // Pagination — reveal MONTHS_PER_PAGE months, "Load previous" adds another page.
+  const [visibleMonths, setVisibleMonths] = useState(MONTHS_PER_PAGE);
+  // Any change to the active filter set resets paging to the most recent page so
+  // the user isn't stranded deep in history after re-filtering. (We intentionally
+  // do NOT reset on raw `txns` changes — a realtime refresh shouldn't snap paging.)
+  useEffect(() => {
+    setVisibleMonths(MONTHS_PER_PAGE);
+  }, [search, type, cat, month, memberId, selectedDate, ctx.label, ctx.from, ctx.to]);
+
+  const visibleGroups = monthGroups.slice(0, visibleMonths);
+  const hasMoreMonths = monthGroups.length > visibleMonths;
+
+  // Accordion state — months are expanded by default; this tracks the collapsed
+  // set (a tap toggles). Keyed by month so it survives paging/refilter.
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(() => new Set());
+  const toggleMonth = (key: string) =>
+    setCollapsedMonths(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // Tapping a day filters the list to that date (and reveals the calendar if hidden).
   function handleSelectDate(date: string) {
@@ -466,39 +516,63 @@ export default function Transactions() {
             <EmptyState icon="📝" message="No transactions yet — add your first one to get started." />
           )
         ) : (
-          <div
-            ref={parentRef}
-            style={{
-              height: '560px', // matches typical viewport for the list, adjust if needed
-              overflow: 'auto',
-              position: 'relative',
-            }}
-          >
-            <div
-              style={{
-                height: `${virtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative',
-              }}
-            >
-              {virtualizer.getVirtualItems().map(virtualRow => {
-                const item = filtered[virtualRow.index];
-                return (
-                  <div
-                    key={item.txn.id}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`
-                    }}
+          <div>
+            {visibleGroups.map(group => {
+              const isCollapsed = collapsedMonths.has(group.key);
+              const regionId = `txn-month-${group.key}`;
+              return (
+                <div key={group.key} className="border-b border-line last:border-b-0">
+                  {/* Month+year accordion header — sticky so it stays visible
+                      while its rows scroll past. */}
+                  <button
+                    type="button"
+                    onClick={() => toggleMonth(group.key)}
+                    aria-expanded={!isCollapsed}
+                    aria-controls={regionId}
+                    className="sticky top-0 z-10 w-full flex items-center gap-2.5 px-3 sm:px-4 py-2 bg-bg2/95 backdrop-blur-sm border-b border-line hover:bg-bg3 transition-colors text-left"
                   >
-                    <TxnRow txn={item.txn} showActions={!item.projected} onEdit={openEditTxn} />
-                  </div>
-                );
-              })}
-            </div>
+                    <ChevronDown
+                      size={15}
+                      strokeWidth={2}
+                      className={`text-ink-dim flex-shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                    />
+                    <span className="font-semibold text-ink text-[0.86rem]">{group.label}</span>
+                    <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
+                      {group.items.length} {group.items.length === 1 ? 'txn' : 'txns'}
+                    </span>
+                    <span className={`ml-auto font-mono text-[0.72rem] ${group.net >= 0 ? 'text-sage' : 'text-terra'}`}>
+                      {group.net >= 0 ? '+' : ''}{fmt(group.net, profile.baseCurrency)}
+                    </span>
+                  </button>
+                  {!isCollapsed && (
+                    <div id={regionId}>
+                      {group.items.map(item => (
+                        <TxnRow
+                          key={item.txn.id}
+                          txn={item.txn}
+                          showActions={!item.projected}
+                          onEdit={openEditTxn}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {hasMoreMonths && (
+              <div className="px-4 py-4 flex flex-col items-center gap-1.5 border-t border-line">
+                <button
+                  onClick={() => setVisibleMonths(c => c + MONTHS_PER_PAGE)}
+                  className="btn-secondary text-[0.78rem] py-1.5 px-4"
+                >
+                  Load previous {MONTHS_PER_PAGE} months
+                </button>
+                <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
+                  Showing {visibleGroups.length} of {monthGroups.length} months
+                </span>
+              </div>
+            )}
           </div>
         )}
       </Panel>

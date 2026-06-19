@@ -287,13 +287,15 @@ export default function BudgetFormModal(props: Props) {
         <div className="mt-2 rounded-md border border-line bg-bg2 px-3 py-2">
           <div className="flex items-center justify-between">
             <span className="text-[0.78rem] text-ink-mid">
-              {fmt(forecastTotal, form.currency)} already committed via recurring this period
+              {fmt(Math.round(forecastTotal), form.currency)} already committed via recurring this period
             </span>
             <button type="button" onClick={prefillFromForecast} className="text-coral text-[0.7rem] hover:underline">Use as allocations</button>
           </div>
+          {/* Estimates — shown rounded to whole units; "Use as allocations" applies
+              the same rounded figures. Paise here is noise, not signal. */}
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
             {Object.entries(forecast).map(([c, amt]) => (
-              <span key={c} className="text-[0.68rem] text-ink-dim">{getCat(c).icon} {fmt(amt, form.currency)}</span>
+              <span key={c} className="text-[0.68rem] text-ink-dim">{getCat(c).icon} {fmt(Math.round(amt), form.currency)}</span>
             ))}
           </div>
         </div>

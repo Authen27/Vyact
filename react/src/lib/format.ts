@@ -117,14 +117,21 @@ export function convert(amount: number, from: string, to: string, rates: Record<
 export function fmt(amount: number, currency = 'USD'): string {
   const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
   const n = Math.abs(amount || 0);
+  // Show fractional digits only when the value actually has one — a whole amount
+  // renders without a trailing ".00" (cleaner, and stops 2-decimal strings from
+  // overflowing tight KPI tiles). Round to the currency's precision first so
+  // float dust (e.g. 16000.0000003) doesn't force spurious decimals.
+  const factor = 10 ** cur.decimals;
+  const hasFraction = Math.round(n * factor) % factor !== 0;
+  const digits = hasFraction ? cur.decimals : 0;
   try {
     return new Intl.NumberFormat(cur.locale, {
       style: 'currency', currency,
-      minimumFractionDigits: cur.decimals,
-      maximumFractionDigits: cur.decimals,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
     }).format(n);
   } catch {
-    return cur.symbol + n.toLocaleString('en-US', { minimumFractionDigits: cur.decimals, maximumFractionDigits: cur.decimals });
+    return cur.symbol + n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
   }
 }
 
