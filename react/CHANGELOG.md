@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.3`** (consumer)
+> **Current production version: `v9.5.4`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,33 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.4 — Insights Hub §A: evergreen cards in the DB *(2026-06-20)*
+
+Backend half of the Insights Hub (spec `docs/insights-integration-spec.md` §A).
+
+**Migration `insights_hub_content_items_additive`** (applied to prod): additive,
+forward-only columns on `content_items` for the new `format` model — `format`
+(default `'article'`), `category`, `visual_kind`, `visual_ref` (jsonb), `body_md`,
+`tags`, `reading_seconds`, `tone`, `india_relevant`, and external-link fields
+(`source_name`, `source_url`, `why_it_matters`). Closed-set CHECK constraints
+(format/visual_kind/tone domains, card-has-visual, external-has-source, source
+allowlist) added `NOT VALID` then validated; `(format, published_at desc)` + GIN
+`tags` indexes. Existing editorial articles are **untouched** (all default to
+`format='article'`; the conditional checks don't bind them).
+
+**Seeded the 116 evergreen cards** into `content_items` as `format='card'`
+(`supabase/migrations/20260620120100_insights_hub_seed_cards.sql`, idempotent on
+slug). Integrity verified exactly against the source library (count 116; body/title
+char-sums and tag totals match; 65 icon · 11 stat · 40 diagram; 9 categories).
+
+**Consumer:** `listPublishedContent()` (the What's New tab) now filters to
+`format in ('article','external')` so the seeded cards surface only in **Learn**,
+never as What's New articles. (Learn still renders from the bundled library; a
+later step can switch it to read the DB rows.)
+
+The admin card-authoring + visual picker + external curation UI is the next
+follow-up (spec §C).
 
 ## v9.5.3 — Insights Hub (consumer v1) + the v9.5.2 dashboard fixes *(2026-06-20)*
 

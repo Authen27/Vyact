@@ -47,10 +47,14 @@ function rowToArticle(r: ContentRow): InsightArticle {
 }
 
 export async function listPublishedContent(): Promise<InsightArticle[]> {
+  // v9.5.3 — the Insights Hub seeds 116 evergreen lessons as format='card' in this
+  // same table. Those belong in the Learn tab, NOT What's New, so we exclude them
+  // here and surface only editorial 'article' + curated 'external' items.
   const { data, error } = await sb()
     .from('content_items')
     .select('id,slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at')
     .eq('status', 'published')
+    .in('format', ['article', 'external'])
     .order('published_at', { ascending: false });
   if (error) throw error;
   return (data as ContentRow[]).map(rowToArticle);
