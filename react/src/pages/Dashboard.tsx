@@ -8,7 +8,7 @@ import PulseGauge from '../components/charts/PulseGauge';
 import { CategoryDonut } from '../components/charts/DonutCharts';
 import TxnRow from '../components/transactions/TxnRow';
 import {
-  selectMonthlyData, selectTotalBalance, selectPulse, selectInsights,
+  selectMonthlyData, selectPulse, selectInsights,
   selectSpendByCategory, selectRecentTxns, selectTotalAssets, selectTotalLiabilities,
   selectMonthlyDebtPayment,
 } from '../lib/selectors';
@@ -42,17 +42,12 @@ export default function Dashboard() {
   const profile = useStore(s => s.profile);
   const baseCur = profile.baseCurrency;
   const openEditTxn = useStore(s => s.openEditTxn);
-  // TD-12 review-fix (lead): the dev's selector refactor removed these two
-  // subscriptions but kept references to `txns.length` and `rates` later in
-  // the JSX. The selectors return derived values, not the raw collections
-  // — these need to stay live for the count and the per-row `convert()`
-  // calls in the budget/goal lists.
-  const txns = useStore(s => s.transactions);
+  // `rates` stays a live subscription: the selectors return derived values, not
+  // raw collections, and the per-row `convert()` calls in the budget list need it.
   const rates = useStore(s => s.rates);
 
   const mk = nowMonthKey();
   const month = useStore(selectMonthlyData(mk));
-  const balance = useStore(selectTotalBalance);
   const rate = month.income > 0 ? Math.round((month.income - month.expense) / month.income * 100) : 0;
   const pulse = useStore(selectPulse);
   const insights = useStore(selectInsights);
@@ -133,10 +128,11 @@ export default function Dashboard() {
             </Link>
           ); })()}
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Link to="/networth" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View net worth">
-            <Card label={t('total-balance')}    accent="coral" value={<Money amount={balance} currency={baseCur} className={balance >= 0 ? 'text-sage' : 'text-terra'} maxChars={8} />} sub={`Across all ${txns.length} transactions`} />
-          </Link>
+        {/* v9.5.2 — the lifetime "Total Balance" tile was removed: it showed
+            all-time income − expense, which mapped to neither account cash nor net
+            worth (yet linked to Net Worth), so consumers couldn't place it. The
+            three remaining tiles are all this-month flow metrics. */}
+        <div className="grid grid-cols-3 gap-2">
           <Link to={`/transactions?type=income&month=${mk}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View income transactions">
             <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={8} />} sub={t('this-month')} />
           </Link>
@@ -149,20 +145,30 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Insights */}
+      {/* Insights — v9.5.2: each carries an inline sub-line that defines the term
+          and names the next action, and (when actionable) links to the relevant
+          page. Turns a bare fact ("DTI 20% — healthy") into understanding + a path. */}
       {insights.length > 0 && (
-        <div className="flex gap-2 mb-3.5 flex-wrap">
+        <div className="grid sm:grid-cols-2 gap-2 mb-3.5">
           {insights.map((c, i) => {
             const tone = c.cls === 'chip-good' ? 'border-l-sage'
                        : c.cls === 'chip-warn' ? 'border-l-honey'
                        : c.cls === 'chip-alert' ? 'border-l-terra'
                        :                          'border-l-denim';
-            return (
-              <div key={i} className={`flex items-center gap-2.5 bg-bg2 border border-line ${tone} border-l-[3px] rounded-md px-3.5 py-2.5 text-[0.78rem] text-ink-mid flex-1 min-w-[180px]`}>
-                <span className="text-base flex-shrink-0">{c.icon}</span>
-                <span>{c.text}</span>
-              </div>
+            const cls = `flex items-start gap-2.5 bg-bg2 border border-line ${tone} border-l-[3px] rounded-md px-3.5 py-2.5 ${c.to ? 'hover:bg-bg3 transition-colors' : ''}`;
+            const body = (
+              <>
+                <span className="text-base flex-shrink-0 leading-5">{c.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[0.8rem] text-ink font-medium">{c.text}</div>
+                  {c.detail && <div className="text-[0.72rem] text-ink-dim mt-0.5 leading-snug">{c.detail}</div>}
+                </div>
+                {c.to && <ArrowRight size={13} className="text-coral shrink-0 mt-0.5" />}
+              </>
             );
+            return c.to
+              ? <Link key={i} to={c.to} className={cls}>{body}</Link>
+              : <div key={i} className={cls}>{body}</div>;
           })}
         </div>
       )}

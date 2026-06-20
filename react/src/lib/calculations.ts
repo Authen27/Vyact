@@ -369,7 +369,16 @@ export function pulseStatus(score: number | null): { label: string; cssVar: stri
 }
 
 // ── INSIGHTS ───────────────────────────────────────────────────
-export interface Insight { icon: string; text: string; cls: 'chip-good'|'chip-warn'|'chip-alert'|'chip-info'; }
+export interface Insight {
+  icon: string;
+  text: string;
+  cls: 'chip-good'|'chip-warn'|'chip-alert'|'chip-info';
+  /** Plain-language meaning + the next action, shown as an inline sub-line so an
+   *  insight explains the term AND tells the user what to do (v9.5.2). */
+  detail?: string;
+  /** Where the chip navigates, so every insight has an action path. */
+  to?: string;
+}
 
 export function getInsights(
   transactions: Transaction[], budgets: Budget[], goals: Goal[], debts: Debt[], assets: Asset[],
@@ -382,24 +391,34 @@ export function getInsights(
   const rate = income > 0 ? Math.round((income - expense) / income * 100) : 0;
 
   if (income > 0) {
-    if (rate >= 20) chips.push({ icon:'💚', text:`Savings rate ${rate}% — great work!`, cls:'chip-good' });
-    else if (rate >= 10) chips.push({ icon:'📊', text:`Savings rate ${rate}% — target 20%+`, cls:'chip-warn' });
-    else chips.push({ icon:'⚠️', text:`Low savings rate (${rate}%)`, cls:'chip-alert' });
+    // Savings rate = the share of this month's income left after spending.
+    if (rate >= 20) chips.push({ icon:'💚', text:`Savings rate ${rate}% — great work!`, cls:'chip-good',
+      detail:`That's the share of income you keep after spending. You're above the 20% target — put the surplus to work.`, to:'/reports?from=savings' });
+    else if (rate >= 10) chips.push({ icon:'📊', text:`Savings rate ${rate}% — aim for 20%+`, cls:'chip-warn',
+      detail:`Share of income left after spending. Trim a discretionary category to lift it toward 20%.`, to:'/budgets' });
+    else chips.push({ icon:'⚠️', text:`Low savings rate (${rate}%)`, cls:'chip-alert',
+      detail:`Little income is left after spending this month. Review your biggest expenses to free up cash.`, to:'/transactions?type=expense' });
   }
 
   const over = budgets.filter(b => (spend[b.category ?? ''] || 0) > convert(b.limit, b.currency, baseCurrency, rates));
-  if (over.length) chips.push({ icon:'🚨', text:`${over.length} budget${over.length>1?'s':''} exceeded`, cls:'chip-alert' });
+  if (over.length) chips.push({ icon:'🚨', text:`${over.length} budget${over.length>1?'s':''} exceeded`, cls:'chip-alert',
+    detail:`You've spent past the limit in ${over.length} categor${over.length>1?'ies':'y'} this month. Review and adjust.`, to:'/budgets' });
 
   if (debts.length) {
+    // DTI = debt-to-income: this month's debt payments as a share of income.
     const dti = income > 0 ? (totalMonthlyDebtPayment(debts, baseCurrency, rates) / income) * 100 : 0;
-    if (dti > 36) chips.push({ icon:'📉', text:`DTI ${dti.toFixed(0)}% — above 36% threshold`, cls:'chip-alert' });
-    else if (dti > 0 && dti <= 25) chips.push({ icon:'📈', text:`DTI ${dti.toFixed(0)}% — healthy`, cls:'chip-good' });
+    if (dti > 36) chips.push({ icon:'📉', text:`DTI ${dti.toFixed(0)}% — above 36%`, cls:'chip-alert',
+      detail:`Debt-to-income = monthly debt payments ÷ income. Above 36% is risky — prioritise high-APR payoff.`, to:'/debts' });
+    else if (dti > 0 && dti <= 25) chips.push({ icon:'📈', text:`DTI ${dti.toFixed(0)}% — healthy`, cls:'chip-good',
+      detail:`Debt-to-income = monthly debt payments ÷ income. Under 36% is healthy; extra payments finish debt sooner.`, to:'/debts' });
   }
 
   if (assets.length || debts.length) {
     const nw = totalAssets(assets, baseCurrency, rates) - totalLiabilities(debts, baseCurrency, rates);
-    if (nw > 0) chips.push({ icon:'🏆', text:`Net worth building`, cls:'chip-good' });
-    else        chips.push({ icon:'⬇️', text:`Net worth — focus on payoff`, cls:'chip-warn' });
+    if (nw > 0) chips.push({ icon:'🏆', text:`Net worth building`, cls:'chip-good',
+      detail:`Net worth = assets − debts, and yours is positive. Keep growing assets or cutting debt to widen the gap.`, to:'/networth' });
+    else chips.push({ icon:'⬇️', text:`Net worth — focus on payoff`, cls:'chip-warn',
+      detail:`Your debts currently outweigh your assets. Paying down debt is the fastest way to lift net worth.`, to:'/debts' });
   }
   return chips.slice(0, 4);
 }

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.1`** (consumer)
+> **Current production version: `v9.5.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -25,7 +25,26 @@ The numbering history has some non-monotonic stretches that we keep documented h
 
 ---
 
-## v9.5.1 — Transactions grouping/pagination + consumer-feedback UX fixes *(2026-06-19)*
+## v9.5.2 — Dashboard clarity: remove orphan "Total Balance", explain insights *(2026-06-20)*
+
+Two consumer-feedback usability fixes on the Dashboard (no money-model/schema change).
+
+**Removed the "Total Balance" tile.** It showed all-time income − expenses, which
+maps to neither account cash nor net worth — yet it linked to Net Worth, so its
+label, math, and destination all disagreed and consumers couldn't place it. The
+hero row already carries **Net Worth (today)** and **Cash Flow (this month)**, so
+the lifetime figure was redundant. The supporting KPI block is now a clean 3-up row
+of this-month flow metrics (Income / Expenses / Savings Rate). Removed the now-dead
+`selectTotalBalance` subscription from the page.
+
+**Insights now explain themselves and point to an action.** Each insight chip
+previously stated only a fact ("DTI 20% — healthy", "Net worth building") with no
+definition and (mostly) no link. Every insight now carries an **inline sub-line**
+that (a) defines the term in plain language — savings rate, DTI = monthly debt
+payments ÷ income, net worth = assets − debts — and (b) names the next action, and
+the chip **links to the relevant page** (budgets / debts / reports / transactions).
+`Insight` gained optional `detail` + `to` fields; rendering moved to a 2-up grid of
+tappable cards with a CTA arrow.
 
 A cluster of consumer-feedback-driven UX fixes (no money-model or schema change).
 
