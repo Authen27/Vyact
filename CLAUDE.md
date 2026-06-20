@@ -7,7 +7,7 @@
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
 - Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v9.5.4**
-- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.1.0**
+- Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.2.0**
 - Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
 - Vanilla shell: archived from the working tree in **v7.0.1** — see master index and git history
 
@@ -25,7 +25,7 @@ Three parallel deliverables exist in this repo:
 
 - **Consumer (vanilla shell, legacy)** — archived. The v1.0-v5.0 vanilla HTML/CSS/JS app was removed from the working tree in v7.0.1 (2026-06-01). It is preserved in git history at commits before that cleanup. The React app at `react/` (v6.0+) is the only active consumer product.
 - **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v9.5.4** (Money-Model v2 permanent; txn-redesign; budgets monthly/annual with DB-owned identity; recurring cloud-synced; Goals & Tax removed as modules; store decomposed into Zustand slices). Per-version history is in [`react/CHANGELOG.md`](react/CHANGELOG.md) (authoritative) and [`docs/HISTORY.md`](docs/HISTORY.md) (agent-oriented archive). Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`; local-only mode works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** (the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to). ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different account**, not CI-updated.
-- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.1.0**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. **Live (CI-deployed prod): https://vyact-admin.vercel.app** (the `admin` project under the same team). ⚠ The older `finflow-admin.vercel.app` is likewise orphaned on a different account.
+- **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.2.0**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. **Live (CI-deployed prod): https://vyact-admin.vercel.app** (the `admin` project under the same team). ⚠ The older `finflow-admin.vercel.app` is likewise orphaned on a different account.
 
 **Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app falls back to localStorage-only mode (single anonymous household, no auth screens). Both modes share the same `DataAdapter` interface.
 
@@ -102,7 +102,7 @@ budget-app/
 │                              Debts, NetWorth, Reports, Recurring, Planner, Chat,
 │                              Insights, Households, Settings, Help, Onboarding,
 │                              auth/{SignIn,SignUp,ResetPassword,AcceptInvite}
-└── admin/                  — ADMIN app (v1.1.0, separate product)
+└── admin/                  — ADMIN app (v1.2.0, separate product)
     ├── CHANGELOG.md         — admin per-version history + roadmap
     ├── package.json, vite.config.ts, .env.local
     └── src/

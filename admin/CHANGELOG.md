@@ -4,11 +4,35 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.0.8`**
+> **Current production version: `v1.2.0`**
 > **Live URL:** https://vyact-admin.vercel.app
-> **Next planned: `v1.1.0`** (see Roadmap at the bottom).
 
 ---
+
+## v1.2.0 — Insights Hub authoring: cards + external curation *(2026-06-20)*
+
+Admin side of the Insights Hub (spec `docs/insights-integration-spec.md` §C). The
+Content module now manages all three `content_items` formats, not just articles.
+
+- **Card authoring** (`format='card'`): a New Card form with title, category, tone,
+  body (live word-count toward the ≤120 target), tags, reading-time, India-relevant,
+  and a **visual picker** constrained to the closed set (spec §D) — 57-icon
+  allowlist · stat (big/sub) · diagram primitive (arc/arrow/bar2/compare2/stack)
+  with per-primitive params. A **live preview** (`CardVisualPreview`) renders with
+  the same logic the consumer ships, so author-preview == shipped pixel. Category →
+  legacy `topic` is mapped automatically.
+- **External curation** (`format='external'`): a form constrained to the source
+  **allowlist** (RBI / SEBI / IncomeTax / PFRDA_NPS / GovScheme), source URL,
+  a one-line "why it matters", published date (drives What's New ordering), and
+  tags. Link-out only — no source body is stored.
+- The content list shows a **format badge**; each item edits through the right form.
+- New `lib/visualKit.ts` (allowlists + defaults) and `components/CardVisualPreview`.
+
+DB constraints (the v9.5.4 migration) enforce the contracts: a card without a
+visual, or an external without a valid allowlisted source/url, is rejected (verified).
+
+Also corrects this changelog's banner, which had drifted to `v1.0.8` while the
+package shipped `v1.1.0`.
 
 ## v1.0.8 — Slug sanitiser edge-case fix (remediation PR #3) *(2026-05-24)*
 
