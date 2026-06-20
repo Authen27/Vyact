@@ -1,0 +1,2414 @@
+{
+  "schema": "vyact.content_items.card.v1",
+  "generated": "2026-06-20",
+  "note": "Evergreen educational card library. format=card. Upload via admin (admin_publish_content_item) or direct DB insert. Visuals render from code (icon/stat/diagram) — no hosted images.",
+  "count": 116,
+  "by_category": {
+    "Saving": 26,
+    "Debt": 14,
+    "Budgeting": 14,
+    "Investing": 16,
+    "Net Worth": 9,
+    "Mindset": 12,
+    "India": 11,
+    "Household": 8,
+    "Using Vyact": 6
+  },
+  "by_tone": {
+    "neutral": 77,
+    "positive": 32,
+    "constructive": 7
+  },
+  "by_visual_kind": {
+    "stat": 11,
+    "icon": 65,
+    "diagram": 9,
+    "arc": 9,
+    "arrow": 14,
+    "compare2": 8
+  },
+  "cards": [
+    {
+      "id": "ev-001-the-500-a-day-idea",
+      "format": "card",
+      "category": "Saving",
+      "title": "The ₹500-a-day idea",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "₹500/day",
+        "sub": "≈ ₹15,000 a month"
+      },
+      "body_md": "Here's a simple way to make saving feel doable: think in days, not years. Setting aside ₹500 a day sounds small, but it's about ₹15,000 a month and roughly ₹1.8 lakh over a year — before a single rupee of interest. The exact figure matters less than the shift in framing: a tiny daily habit quietly beats a big once-a-year intention that never quite happens.\n\nTo put it to work, pick an amount you genuinely won't miss on an ordinary day — ₹200, ₹500, whatever fits — and move it the same way every day or let a weekly auto-transfer do it for you. The trick is choosing a number small enough that you never have to negotiate with yourself about it. ₹500 a day is one skipped food-delivery order, or carrying lunch twice a week.\n\nWhat makes this work is consistency, not size. Most people wait until they have a \"big enough\" amount to start saving, and the big amount never arrives. Starting with a daily number removes that wait entirely — you're saving today, with what you have today.\n\nA practical move: automate it so the decision is made once, not 365 times. Set a recurring transfer of ₹3,500 a week into a separate savings pot. By December you'll have built the ₹1.8 lakh almost without noticing — and, more importantly, you'll have built the habit. The amount can grow later; the habit is the real asset you're creating here.",
+      "tags": [
+        "saving",
+        "habit",
+        "beginner"
+      ],
+      "reading_seconds": 75,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-002-pay-yourself-first",
+      "format": "card",
+      "category": "Saving",
+      "title": "Pay yourself first",
+      "visual_kind": "icon",
+      "visual_ref": "PiggyBank",
+      "body_md": "Most people save whatever is left at the end of the month — and by then, there's rarely much left. \"Pay yourself first\" simply flips the order: the day income arrives, move a fixed amount to savings before you spend on anything else, then live on the rest. Same salary, different sequence, a very different balance by year-end.\n\nHere's how to set it up. Decide on an amount — say ₹8,000 if you earn ₹40,000 — and schedule an automatic transfer to a separate savings account for the day after payday. Now your savings happen first, on autopilot, and your spending naturally fits the amount that's left. You're not relying on willpower at month-end, when it's weakest and the balance is lowest.\n\nWhy does this work so well? Because spending expands to fill whatever is available. If ₹40,000 sits in your account all month, ₹40,000 tends to get spent. Remove the ₹8,000 up front and you simply adapt to ₹32,000 — usually without any real sense of sacrifice. The money you never see, you never miss.\n\nA good starting target is 20% of take-home, but begin wherever feels comfortable, even 5%, and raise it whenever your income does. The point isn't to start big; it's to start in the right order. Once the transfer is automated, saving stops being a monthly act of discipline and becomes the default — the thing that happens before you've had a chance to spend it.",
+      "tags": [
+        "saving",
+        "habit",
+        "automation"
+      ],
+      "reading_seconds": 70,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-003-the-50-30-20-starting-point",
+      "format": "card",
+      "category": "Saving",
+      "title": "The 50-30-20 starting point",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "stack",
+        "parts": [
+          [
+            "Needs",
+            50
+          ],
+          [
+            "Wants",
+            30
+          ],
+          [
+            "Save",
+            20
+          ]
+        ]
+      },
+      "body_md": "If budgeting feels overwhelming, the 50-30-20 rule is a clean place to begin. Roughly half your take-home goes to needs, about 30% to wants, and around 20% to saving or repaying debt. On a ₹50,000 income, that's ₹25,000 for essentials, ₹15,000 for lifestyle, and ₹10,000 toward your future. It's a frame, not a law — but it gives you instant orientation.\n\nHere's how to use it. Add up your genuine needs first: rent or EMI, groceries, utilities, transport, insurance. If that's already eating 60% rather than 50%, that's useful information — it tells you the squeeze is in fixed costs, and the fix is usually structural (cheaper rent, refinanced loan) rather than skipping coffees. Whatever's left splits between wants and saving.\n\nThe categories matter less than the act of seeing the split. Most people have never actually divided their income this way, and the first time they do, one number usually stands out — often wants creeping past 30%, or needs higher than expected. That clarity is the whole point.\n\nYou don't have to hit the ratios exactly. If you're early in your career or in a high-cost city, your needs might genuinely run higher and your saving lower — that's fine. Treat 50-30-20 as a target to drift toward, not a test to pass. Even shifting 5% from wants into saving — ₹2,500 a month on that ₹50,000 income — changes your trajectory meaningfully over a few years. Start with the split, then nudge it in the right direction over time.",
+      "tags": [
+        "saving",
+        "budgeting",
+        "beginner"
+      ],
+      "reading_seconds": 75,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-004-automate-the-boring-part",
+      "format": "card",
+      "category": "Saving",
+      "title": "Automate the boring part",
+      "visual_kind": "icon",
+      "visual_ref": "Repeat",
+      "body_md": "Willpower is an unreliable savings strategy — it's strong on the first of the month and exhausted by the twenty-fifth. Standing instructions don't get tired. The single most effective thing you can do for your savings is to automate them, so the good decision happens by default instead of depending on your mood.\n\nHere's the setup. Pick the amount you want to save or invest, then schedule it to move automatically on or just after salary day — a recurring transfer to a savings account, or a SIP into a mutual fund. If you're paid on the 1st, set it for the 2nd, so the money leaves before the month's spending begins. From then on, saving requires zero ongoing effort or discipline.\n\nWhy automation beats intention: every manual decision is a chance to skip \"just this month.\" Automating removes those chances entirely. You make one good decision once, and it keeps working every month without you. People who automate consistently end up saving far more than equally well-intentioned people who rely on remembering.\n\nA few practical touches. Start with an amount you're sure you can sustain — it's better to automate ₹5,000 reliably than ₹15,000 you cancel after two months. Increase it whenever your income rises, so your saving scales with you. And keep the automated savings in a separate account from your spending, so the money isn't sitting in front of you at every checkout. The best savings systems are the ones you set up once and then genuinely forget about — they just quietly run in the background.",
+      "tags": [
+        "saving",
+        "automation",
+        "recurring"
+      ],
+      "reading_seconds": 80,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-005-round-ups-add-up",
+      "format": "card",
+      "category": "Saving",
+      "title": "Round-ups add up",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "₹37",
+        "sub": "avg round-up per spend"
+      },
+      "body_md": "Round-ups are one of the most painless ways to save, because the amounts are too small to notice but add up surprisingly fast. The idea: round each purchase up to the nearest ₹50 or ₹100 and tuck away the difference. A ₹163 lunch becomes ₹200, and ₹37 quietly goes to savings. A ₹512 grocery run rounds to ₹550, saving ₹38.\n\nHere's why it works. Across a busy month, you make dozens of small payments — UPI here, a card swipe there. Individually, ₹37 or ₹12 is invisible; you'd never feel it leave. But forty or fifty transactions a month, each shedding a small round-up, can quietly become ₹1,500–₹2,000 without any sense of sacrifice. It's saving that hides inside your normal spending.\n\nTo do it manually, you can simply move the rounded-up difference to a savings pot whenever you log a transaction — or set a fixed weekly sweep that approximates it, say ₹400 a week, if tracking each round-up feels fiddly. Some people prefer the rougher version because it's simpler to sustain.\n\nThe real value of round-ups isn't the amount — it's that they make saving effortless and continuous, rather than a monthly decision you have to face. The money accumulates in the background while you go about your spending. Think of it as turning your everyday transactions into a slow, automatic savings drip. It won't build wealth on its own, but as a frictionless habit running alongside your main savings, it's a genuinely easy win — and easy wins are the ones that last.",
+      "tags": [
+        "saving",
+        "habit",
+        "micro"
+      ],
+      "reading_seconds": 75,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-006-name-your-savings",
+      "format": "card",
+      "category": "Saving",
+      "title": "Name your savings",
+      "visual_kind": "icon",
+      "visual_ref": "Tag",
+      "body_md": "A small psychological trick makes saving noticeably easier: give your money a name. A pot labelled \"savings\" is easy to raid for any passing want. A pot labelled \"Goa trip\" or \"monsoon buffer\" feels like it already belongs to something — and dipping into it feels like stealing from a plan you care about. The label does quiet work your willpower otherwise has to.\n\nHere's how to use it. Instead of one undifferentiated savings balance, split your saving into named goals: \"emergency fund,\" \"Diwali,\" \"new laptop,\" \"daughter's school fees.\" Each gets its own target and its own progress. Now when you're tempted to spend, you're not weighing it against a vague pile of money — you're weighing it against a specific thing you've decided you want more.\n\nWhy this works comes down to how we treat money mentally. We're far more protective of funds that have a purpose than funds that don't. A ₹40,000 \"general savings\" balance feels spendable; ₹40,000 split as \"₹25,000 emergency + ₹15,000 trip\" feels spoken-for. Same money, very different temptation.\n\nPractically, you can do this with separate goals or simply by tracking named targets against your savings. Watching a named goal fill up is also genuinely motivating — progress toward \"trip: 70% there\" pulls you forward in a way a flat balance never does. Give every chunk of saving a job and a name. It turns abstract discipline into something concrete and personal, and makes the money far stickier when temptation comes calling.",
+      "tags": [
+        "saving",
+        "mindset",
+        "motivation"
+      ],
+      "reading_seconds": 75,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-007-the-one-month-buffer",
+      "format": "card",
+      "category": "Saving",
+      "title": "The one-month buffer",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 30,
+        "label": "1 of 3 months"
+      },
+      "body_md": "A full emergency fund of three to six months can feel so far away that people never start. So don't aim for it yet — aim for one month of expenses first. It's a reachable milestone that already removes most of the everyday financial stress, and it builds the momentum to go further.\n\nHere's the target. Add up one month of essentials — rent or EMI, groceries, utilities, transport, basic bills. If that's ₹35,000, then ₹35,000 is your first goal. Reaching it means a flat tyre, a phone repair, or a surprise medical bill stops being a crisis that forces borrowing, and becomes just an annoyance you can cover.\n\nWhy start small: the psychological difference between zero buffer and one month is enormous, far bigger than the gap between one month and two. With nothing set aside, every unexpected cost becomes debt or panic. With one month, you've bought yourself breathing room — and the confidence that you can do this.\n\nTo get there, treat it like any goal: a number, a date, and an automated transfer. If you can set aside ₹6,000 a month, you'll hit a ₹35,000 buffer in about six months. Keep it somewhere safe and reachable — a separate savings account — not invested, because its whole job is to be there instantly on a bad day.\n\nOnce you've got one month, the path to three feels natural; you've proven you can do it and you've felt the relief. But getting that first month in place is the milestone that changes how secure your daily life feels.",
+      "tags": [
+        "saving",
+        "emergency_fund",
+        "beginner"
+      ],
+      "reading_seconds": 80,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-008-save-the-raise",
+      "format": "card",
+      "category": "Saving",
+      "title": "Save the raise",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "+ raise → savings"
+      },
+      "body_md": "A raise is one of the best savings opportunities you'll get — and the easiest to waste. When income rises, spending usually rises to match it almost automatically: a slightly nicer flat, more dining out, a bigger phone. It's called lifestyle creep, and it's why people earning much more than they used to often save no more than before.\n\nHere's the move: when you get a raise, send the increase straight to savings before your lifestyle adjusts to it. If your take-home goes up by ₹8,000, set up an ₹8,000 automatic transfer to savings or a SIP on the same day the higher salary starts. You were living fine on the old amount last month — so direct the new money to your future before you get used to spending it.\n\nWhy this works so well: you never miss money you didn't start spending. The pain of \"cutting back\" is real, but there's no pain in simply not adding a new expense. You keep your current lifestyle, which already felt fine, and your entire raise compounds toward your goals instead of evaporating into slightly fancier versions of what you already had.\n\nYou don't have to save the whole raise — even directing half of every increase to savings keeps lifestyle creep in check while still letting you enjoy some of your progress. The key is to decide before the money arrives, and automate it, so the default is \"saved\" rather than \"spent.\" Do this with each raise over a career and the gap between what you earn and what you keep grows dramatically — which is the gap that actually builds wealth.",
+      "tags": [
+        "saving",
+        "lifestyle",
+        "habit"
+      ],
+      "reading_seconds": 80,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-009-a-goal-with-a-date",
+      "format": "card",
+      "category": "Saving",
+      "title": "A goal with a date",
+      "visual_kind": "icon",
+      "visual_ref": "CalendarCheck",
+      "body_md": "\"I should save more\" almost never turns into actual savings. \"₹60,000 by December\" does. The difference is specificity: a number and a deadline turn a vague wish into a concrete monthly target you can act on and track. ₹60,000 in six months is about ₹10,000 a month — suddenly it's not an aspiration, it's a line item.\n\nHere's how to build one. Start with the thing you're actually saving for — a trip, an emergency buffer, a gadget, a course — and attach a realistic rupee amount and a date. Then divide: total ÷ months = your monthly target. ₹90,000 for a year-end trip, starting in June, is ₹15,000 a month. Now you know exactly what \"on track\" looks like, and you can tell at a glance whether you're keeping up.\n\nWhy the date matters as much as the number: a deadline creates a natural monthly rhythm and lets you measure progress. Without it, \"save ₹60,000\" has no urgency and no checkpoint — you can always start next month. With \"by December,\" every month either moves you closer or puts you behind, and that feedback keeps you honest.\n\nMake the target realistic enough to actually hit; an impossible goal gets abandoned in week three. If ₹10,000 a month is a stretch, extend the date rather than give up — ₹60,000 over ten months is ₹6,000 a month, far more sustainable. Then automate the monthly amount so it happens without a decision. A goal with a number and a date gives your saving direction, a way to measure it, and a finish line worth reaching.",
+      "tags": [
+        "saving",
+        "goal",
+        "planning"
+      ],
+      "reading_seconds": 80,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-010-the-latte-math-honestly",
+      "format": "card",
+      "category": "Saving",
+      "title": "The latte math, honestly",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "₹150 × 20",
+        "sub": "= ₹3,000/month"
+      },
+      "body_md": "The \"skip your daily coffee and get rich\" advice is overdone — but the math underneath it is genuinely useful, as long as you use it honestly. A ₹150 coffee on twenty workdays is ₹3,000 a month, or ₹36,000 a year. The point isn't that coffee is the enemy; it's that small, repeated habits quietly cost real money, and most of us have no idea which ones add up.\n\nHere's the honest version. Don't cut things reflexively — instead, find out what your small recurring habits actually cost, then decide which are worth it. Maybe that daily coffee genuinely makes your morning better and ₹36,000 a year is a price you're happy to pay. Fine — that's a conscious choice. But maybe a ₹400 twice-weekly food-delivery habit, ₹3,200 a month, turns out to be autopilot rather than joy. That's the one to question.\n\nThe way to do this is simply to track for a month and look at the totals by category, not by individual purchase. A single ₹150 spend is invisible; ₹3,000 of \"coffee\" sitting in your monthly summary is impossible to ignore. The aggregate is where the insight lives.\n\nThen choose deliberately. Keep the small spends that genuinely add value to your life, and trim the ones that are just habit. Even redirecting one autopilot habit — say that ₹3,200 of impulse delivery — into savings is ₹38,000 a year working for you instead of vanishing. The goal was never to give up small pleasures. It's to make sure you're choosing them on purpose, rather than leaking money you'd rather keep.",
+      "tags": [
+        "saving",
+        "spending",
+        "awareness"
+      ],
+      "reading_seconds": 80,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-011-sinking-funds-for-big-bills",
+      "format": "card",
+      "category": "Saving",
+      "title": "Sinking funds for big bills",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "bar2",
+        "a": [
+          "Surprise",
+          100
+        ],
+        "b": [
+          "Planned",
+          100
+        ]
+      },
+      "body_md": "Insurance premiums, school fees, festival spends — they’re not surprises, they’re annual. Set aside a twelfth each month into a “sinking fund” and the big bill arrives already paid-for instead of blowing up a single month.",
+      "tags": [
+        "saving",
+        "planning",
+        "bills"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-012-two-accounts-beat-one",
+      "format": "card",
+      "category": "Saving",
+      "title": "Two accounts beat one",
+      "visual_kind": "compare2",
+      "visual_ref": {
+        "primitive": "compare2",
+        "a": "Spend",
+        "b": "Save"
+      },
+      "body_md": "Keeping savings in the same account you spend from makes them too easy to dip into. A separate account adds just enough friction. Out of sight is, genuinely, out of mind — and out of the checkout.",
+      "tags": [
+        "saving",
+        "accounts",
+        "structure"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-013-save-in-percentages-not-amounts",
+      "format": "card",
+      "category": "Saving",
+      "title": "Save in percentages, not amounts",
+      "visual_kind": "icon",
+      "visual_ref": "Percent",
+      "body_md": "A fixed ₹5,000 saved feels big at ₹40,000 income and small at ₹1,00,000. Saving a percentage instead means your saving scales automatically as you earn more — the habit grows with you without another decision.",
+      "tags": [
+        "saving",
+        "habit",
+        "scaling"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-014-the-no-spend-stretch",
+      "format": "card",
+      "category": "Saving",
+      "title": "The no-spend stretch",
+      "visual_kind": "icon",
+      "visual_ref": "CalendarX",
+      "body_md": "Pick a few days with zero discretionary spending. It’s less about the money saved and more about noticing how often spending is autopilot. Many people find a couple of no-spend days a week surprisingly easy — and revealing.",
+      "tags": [
+        "saving",
+        "challenge",
+        "awareness"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-015-match-your-future-self",
+      "format": "card",
+      "category": "Saving",
+      "title": "Match your future self",
+      "visual_kind": "icon",
+      "visual_ref": "UserCheck",
+      "body_md": "Saving is sending money to your future self. They’ll face the same bills, with one difference — whether you helped. Framing it as a gift to someone real (you, later) makes the trade-off feel less like deprivation.",
+      "tags": [
+        "saving",
+        "mindset",
+        "long_term"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-016-windfalls-split-don-t-spend",
+      "format": "card",
+      "category": "Saving",
+      "title": "Windfalls: split, don’t spend",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "stack",
+        "parts": [
+          [
+            "Save",
+            50
+          ],
+          [
+            "Spend",
+            30
+          ],
+          [
+            "Repay",
+            20
+          ]
+        ]
+      },
+      "body_md": "A bonus or gift feels like free money, so it vanishes fast. A simple pre-decided split — say half to savings, some to repay debt, some to genuinely enjoy — lets you benefit now and later, without the “where did it go?” afterwards.",
+      "tags": [
+        "saving",
+        "windfall",
+        "bonus"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-017-the-savings-rate-that-matters",
+      "format": "card",
+      "category": "Saving",
+      "title": "The savings rate that matters",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "20%+",
+        "sub": "a strong savings rate"
+      },
+      "body_md": "Net worth is built less by what you earn and more by the gap between earning and spending. A savings rate of 20% of take-home is a strong, sustainable target. Already there? You’re doing better than most.",
+      "tags": [
+        "saving",
+        "metric",
+        "progress"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-018-small-wins-compound-too",
+      "format": "card",
+      "category": "Saving",
+      "title": "Small wins compound too",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "consistency > intensity"
+      },
+      "body_md": "You don’t need a dramatic budget overhaul. Saving a little, consistently, beats saving a lot, occasionally. The habit is the asset; the amount grows on its own once the habit is in place.",
+      "tags": [
+        "saving",
+        "mindset",
+        "consistency"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-019-what-an-emergency-fund-really-is",
+      "format": "card",
+      "category": "Saving",
+      "title": "What an emergency fund really is",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 100,
+        "label": "3–6 months"
+      },
+      "body_md": "An emergency fund is three to six months of essential expenses, kept somewhere boring and reachable. It’s not an investment — its job is to be there, instantly, when income stops or a big bill lands. Calm, not returns, is the point.",
+      "tags": [
+        "emergency_fund",
+        "runway",
+        "beginner"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-020-where-to-keep-emergency-money",
+      "format": "card",
+      "category": "Saving",
+      "title": "Where to keep emergency money",
+      "visual_kind": "icon",
+      "visual_ref": "ShieldCheck",
+      "body_md": "Emergency money should be safe and quick to access — a savings account or a liquid/sweep-in deposit, not stocks or a lock-in. The goal is availability on a bad day, not maximising a percentage point. Boring is the feature.",
+      "tags": [
+        "emergency_fund",
+        "liquidity",
+        "safety"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-021-how-big-is-enough",
+      "format": "card",
+      "category": "Saving",
+      "title": "How big is “enough”?",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "expenses × 3–6",
+        "sub": "not income × 3–6"
+      },
+      "body_md": "Size your fund on essential expenses, not income. If you spend ₹40,000 a month on the essentials, three months is ₹1.2 lakh, six is ₹2.4 lakh. Lifestyle spending doesn’t need emergency coverage — survival spending does.",
+      "tags": [
+        "emergency_fund",
+        "sizing"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-022-build-it-before-you-invest",
+      "format": "card",
+      "category": "Saving",
+      "title": "Build it before you invest",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "bar2",
+        "a": [
+          "Buffer",
+          60
+        ],
+        "b": [
+          "Invest",
+          40
+        ]
+      },
+      "body_md": "It’s tempting to chase returns first, but a missing buffer means the first emergency forces you to sell investments at the worst time. A safety net first lets your investments stay invested through the rough patches.",
+      "tags": [
+        "emergency_fund",
+        "priority",
+        "investing"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-023-self-employed-aim-higher",
+      "format": "card",
+      "category": "Saving",
+      "title": "Self-employed? Aim higher",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "irregular income → bigger buffer"
+      },
+      "body_md": "If your income is lumpy — freelance, business, commission — your buffer should lean toward the larger end, six months or more. Irregular income needs a bigger shock absorber to smooth the quiet months.",
+      "tags": [
+        "emergency_fund",
+        "self_employed",
+        "smb"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-024-replenish-don-t-abandon",
+      "format": "card",
+      "category": "Saving",
+      "title": "Replenish, don’t abandon",
+      "visual_kind": "icon",
+      "visual_ref": "RefreshCw",
+      "body_md": "Used your fund for an actual emergency? That’s a win — it did its job. The next step is simply to rebuild it at your normal pace. The fund working as designed is success, not failure.",
+      "tags": [
+        "emergency_fund",
+        "recovery"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-025-insurance-is-part-of-the-safety-net",
+      "format": "card",
+      "category": "Saving",
+      "title": "Insurance is part of the safety net",
+      "visual_kind": "icon",
+      "visual_ref": "Umbrella",
+      "body_md": "An emergency fund handles small-to-medium shocks; insurance handles the large, rare ones — a hospitalisation, a disability. Health and term cover protect the fund itself from being wiped out by a single big event.",
+      "tags": [
+        "emergency_fund",
+        "insurance",
+        "safety"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-026-the-runway-question",
+      "format": "card",
+      "category": "Saving",
+      "title": "The runway question",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "X months",
+        "sub": "if income stopped today"
+      },
+      "body_md": "A useful question to know the answer to: if income stopped today, how many months could you cover essentials? That single number — your runway — is one of the clearest measures of financial calm.",
+      "tags": [
+        "emergency_fund",
+        "runway",
+        "awareness"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-027-avalanche-vs-snowball",
+      "format": "card",
+      "category": "Debt",
+      "title": "Avalanche vs snowball",
+      "visual_kind": "compare2",
+      "visual_ref": {
+        "primitive": "compare2",
+        "a": "Highest rate",
+        "b": "Smallest balance"
+      },
+      "body_md": "Two proven ways to clear debt. Avalanche: pay the highest interest rate first — saves the most money. Snowball: pay the smallest balance first — gives faster wins and motivation. The best one is the one you’ll actually stick to.",
+      "tags": [
+        "debt",
+        "strategy",
+        "payoff"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-028-interest-is-the-real-cost",
+      "format": "card",
+      "category": "Debt",
+      "title": "Interest is the real cost",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "36% APR",
+        "sub": "≈ 3% every month"
+      },
+      "body_md": "A credit card at 36% a year is charging about 3% every month on the unpaid balance. Carrying ₹50,000 costs roughly ₹1,500 a month in interest alone — money buying nothing. Knowing the monthly rate makes the urgency real.",
+      "tags": [
+        "debt",
+        "credit_card",
+        "interest"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-029-pay-more-than-the-minimum",
+      "format": "card",
+      "category": "Debt",
+      "title": "Pay more than the minimum",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "down",
+        "label": "min payment → long payoff"
+      },
+      "body_md": "Paying only the minimum on a card can stretch a small balance into years and multiply what you repay. Even a little above the minimum dramatically shortens the payoff and cuts the total interest. The extra goes straight at the principal.",
+      "tags": [
+        "debt",
+        "credit_card",
+        "minimum"
+      ],
+      "reading_seconds": 30,
+      "tone": "constructive",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-030-the-emi-split-you-don-t-see",
+      "format": "card",
+      "category": "Debt",
+      "title": "The EMI split you don’t see",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "stack",
+        "parts": [
+          [
+            "Interest",
+            40
+          ],
+          [
+            "Principal",
+            60
+          ]
+        ]
+      },
+      "body_md": "Each EMI is part interest, part principal. Early on, more goes to interest; later, more to principal. That’s why early extra payments help so much — they attack principal directly and remove future interest entirely.",
+      "tags": [
+        "debt",
+        "emi",
+        "interest",
+        "principal"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-031-good-debt-costly-debt",
+      "format": "card",
+      "category": "Debt",
+      "title": "Good debt, costly debt",
+      "visual_kind": "compare2",
+      "visual_ref": {
+        "primitive": "compare2",
+        "a": "Builds value",
+        "b": "Buys consumption"
+      },
+      "body_md": "Not all debt is equal. A home or education loan can build value over time, at lower rates. High-interest card or personal-loan debt for consumption usually just costs you. Clearing the costly kind first is almost always the right move.",
+      "tags": [
+        "debt",
+        "types",
+        "mindset"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-032-one-extra-emi-a-year",
+      "format": "card",
+      "category": "Debt",
+      "title": "One extra EMI a year",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "+1 EMI/yr",
+        "sub": "years off a home loan"
+      },
+      "body_md": "On a long home loan, paying just one extra EMI a year — or a small annual prepayment — can knock years off the tenure and save substantial interest. Small, regular prepayments quietly outperform their size.",
+      "tags": [
+        "debt",
+        "home_loan",
+        "prepayment"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-033-the-debt-to-income-check",
+      "format": "card",
+      "category": "Debt",
+      "title": "The debt-to-income check",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 36,
+        "label": "EMIs ÷ income"
+      },
+      "body_md": "A rough health check: total EMIs divided by income. Under ~36% is generally comfortable; higher starts to squeeze everything else. It’s a quick read on how much room your monthly cash flow really has.",
+      "tags": [
+        "debt",
+        "dti",
+        "metric"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-034-avalanche-in-one-line",
+      "format": "card",
+      "category": "Debt",
+      "title": "Avalanche, in one line",
+      "visual_kind": "icon",
+      "visual_ref": "TrendingDown",
+      "body_md": "Pay minimums on everything, then throw every spare rupee at the highest-interest debt until it’s gone — then the next highest. Mathematically, this clears debt for the least total cost. Cold, efficient, effective.",
+      "tags": [
+        "debt",
+        "avalanche",
+        "strategy"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-035-snowball-in-one-line",
+      "format": "card",
+      "category": "Debt",
+      "title": "Snowball, in one line",
+      "visual_kind": "icon",
+      "visual_ref": "CircleDot",
+      "body_md": "Pay minimums on everything, then clear the smallest balance first for a quick, motivating win — then roll that payment into the next-smallest. You may pay slightly more interest, but the momentum keeps many people going.",
+      "tags": [
+        "debt",
+        "snowball",
+        "strategy",
+        "motivation"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-036-avoid-the-debt-for-debt-trap",
+      "format": "card",
+      "category": "Debt",
+      "title": "Avoid the debt-for-debt trap",
+      "visual_kind": "icon",
+      "visual_ref": "AlertTriangle",
+      "body_md": "Taking new borrowing to pay old borrowing can help only if the new rate is genuinely lower and you stop adding to the old. Otherwise it just reshuffles the problem. Consolidation is a tool, not a cure.",
+      "tags": [
+        "debt",
+        "consolidation",
+        "caution"
+      ],
+      "reading_seconds": 30,
+      "tone": "constructive",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-037-your-credit-score-simply",
+      "format": "card",
+      "category": "Debt",
+      "title": "Your credit score, simply",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 75,
+        "label": "on-time = healthy"
+      },
+      "body_md": "A credit score mostly rewards two boring things: paying on time, and not using too much of your available limit. Years of quiet, on-time payments build it; a few missed ones dent it. Consistency is the whole game.",
+      "tags": [
+        "debt",
+        "credit_score",
+        "india"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-038-the-no-cost-emi-footnote",
+      "format": "card",
+      "category": "Debt",
+      "title": "The no-cost-EMI footnote",
+      "visual_kind": "icon",
+      "visual_ref": "Receipt",
+      "body_md": "“No-cost EMI” often bakes the interest into the price or drops a discount you’d otherwise get. It can still be fine — just check whether paying upfront would have been cheaper. Convenient isn’t always free.",
+      "tags": [
+        "debt",
+        "emi",
+        "consumer",
+        "india"
+      ],
+      "reading_seconds": 30,
+      "tone": "constructive",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-039-clear-the-card-before-it-compounds",
+      "format": "card",
+      "category": "Debt",
+      "title": "Clear the card before it compounds",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "down",
+        "label": "pay in full → 0 interest"
+      },
+      "body_md": "Pay a credit card in full by the due date and the interest is zero — you got a free short-term loan. Carry even part of it and interest applies to much more than you’d expect. Paying in full is the whole trick.",
+      "tags": [
+        "debt",
+        "credit_card",
+        "interest"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-040-debt-isn-t-a-moral-failing",
+      "format": "card",
+      "category": "Debt",
+      "title": "Debt isn’t a moral failing",
+      "visual_kind": "icon",
+      "visual_ref": "Heart",
+      "body_md": "Debt is a number to manage, not a verdict on you. Plenty of sensible people carry it. A clear payoff plan and steady progress matter far more than guilt — and progress, however small, is the thing worth tracking.",
+      "tags": [
+        "debt",
+        "mindset",
+        "wellbeing"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-041-a-budget-is-a-plan-not-a-punishment",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "A budget is a plan, not a punishment",
+      "visual_kind": "icon",
+      "visual_ref": "Map",
+      "body_md": "A budget isn’t about saying no to everything — it’s deciding in advance where your money should go, so the spending you care about happens guilt-free. It’s permission with a plan, not restriction.",
+      "tags": [
+        "budgeting",
+        "mindset",
+        "beginner"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-042-track-before-you-trim",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Track before you trim",
+      "visual_kind": "icon",
+      "visual_ref": "Search",
+      "body_md": "You can’t change what you can’t see. Before cutting anything, just watch where the money actually goes for a few weeks. The awareness alone shifts behaviour — and shows you where trimming would even help.",
+      "tags": [
+        "budgeting",
+        "tracking",
+        "beginner"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-043-needs-vs-wants-gently",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Needs vs wants, gently",
+      "visual_kind": "compare2",
+      "visual_ref": {
+        "primitive": "compare2",
+        "a": "Need",
+        "b": "Want"
+      },
+      "body_md": "Not to judge — just to notice. Rent and groceries are needs; the third streaming service is a want. Most budgets don’t need fewer wants, just awareness of the ratio. Once you see it, you can choose it.",
+      "tags": [
+        "budgeting",
+        "categories",
+        "awareness"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-044-budget-by-month-and-year",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Budget by month and year",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "bar2",
+        "a": [
+          "This month",
+          100
+        ],
+        "b": [
+          "This year",
+          100
+        ]
+      },
+      "body_md": "Monthly budgets catch the everyday; annual budgets catch the lumpy — insurance, travel, festivals, fees. Watching both means the big once-a-year costs never ambush a single month. Two horizons, fewer surprises.",
+      "tags": [
+        "budgeting",
+        "planning",
+        "timeline"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-045-the-category-that-ate-the-month",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "The category that ate the month",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 80,
+        "label": "one category, most of it"
+      },
+      "body_md": "Often a single category quietly dominates a month’s spending — dining, shopping, travel. Finding which one is usually more useful than trimming ten small ones. Fix the big leak first; the small drips matter less.",
+      "tags": [
+        "budgeting",
+        "categories",
+        "awareness"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-046-zero-based-simply",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Zero-based, simply",
+      "visual_kind": "icon",
+      "visual_ref": "Equal",
+      "body_md": "Give every rupee a job until none is unassigned — spending, saving, or repaying. It doesn’t mean spending everything; “savings” is a job too. The point is that no money drifts off unaccounted-for.",
+      "tags": [
+        "budgeting",
+        "method",
+        "intermediate"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-047-allocate-then-watch",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Allocate, then watch",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "stack",
+        "parts": [
+          [
+            "Rent",
+            35
+          ],
+          [
+            "Food",
+            20
+          ],
+          [
+            "Rest",
+            45
+          ]
+        ]
+      },
+      "body_md": "Split a budget into a few category limits, then track each against its line. Sub-limits turn a vague total into clear lanes — you instantly see which lane is full and which has room, without doing any math.",
+      "tags": [
+        "budgeting",
+        "allocation",
+        "categories"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-048-budget-for-fun-on-purpose",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Budget for fun on purpose",
+      "visual_kind": "icon",
+      "visual_ref": "Smile",
+      "body_md": "A budget with no room for enjoyment doesn’t survive. Give fun its own line. Planned guilt-free spending is more sustainable than a strict plan you abandon by week three. Sustainable beats perfect.",
+      "tags": [
+        "budgeting",
+        "wellbeing",
+        "sustainable"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-049-the-24-hour-rule",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "The 24-hour rule",
+      "visual_kind": "icon",
+      "visual_ref": "Clock",
+      "body_md": "For non-essential buys above a threshold you set, wait a day. Often the urge passes and you keep the money; sometimes it doesn’t and you buy it without regret. A small pause filters impulse from intention.",
+      "tags": [
+        "budgeting",
+        "impulse",
+        "awareness"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-050-review-beats-restrict",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Review beats restrict",
+      "visual_kind": "icon",
+      "visual_ref": "RotateCcw",
+      "body_md": "A five-minute monthly look at where money went teaches you more than the strictest rules. Budgets work through awareness and adjustment, not iron discipline. Review gently, adjust, repeat.",
+      "tags": [
+        "budgeting",
+        "habit",
+        "review"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-051-last-month-vs-this-month",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Last month vs this month",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "are we improving?"
+      },
+      "body_md": "The most motivating budgeting question isn’t “did I follow the rules?” — it’s “am I doing better than last month?” Progress over time, even small, is what keeps the habit alive. Compare yourself to past-you, not to perfect.",
+      "tags": [
+        "budgeting",
+        "trend",
+        "progress"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-052-recurring-is-your-forecast",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Recurring is your forecast",
+      "visual_kind": "icon",
+      "visual_ref": "CalendarClock",
+      "body_md": "Your known recurring payments — rent, EMIs, subscriptions, SIPs — are next month’s budget already half-written. Counting them first shows how much is truly free to allocate, before a rupee is discretionary.",
+      "tags": [
+        "budgeting",
+        "recurring",
+        "forecast"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-053-festival-and-wedding-seasons",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "Festival and wedding seasons",
+      "visual_kind": "icon",
+      "visual_ref": "Sparkles",
+      "body_md": "In India, certain months carry predictable heavy spending — festivals, weddings, school admissions. They’re not surprises. Setting aside a little through the year means the season arrives funded, not borrowed-for.",
+      "tags": [
+        "budgeting",
+        "seasonal",
+        "india"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-054-a-custom-budget-for-a-trip",
+      "format": "card",
+      "category": "Budgeting",
+      "title": "A custom budget for a trip",
+      "visual_kind": "icon",
+      "visual_ref": "Plane",
+      "body_md": "For a one-off like a holiday, a named budget with its own total keeps the trip’s spending separate from everyday life. You see exactly what the trip cost, and your monthly budget stays undistorted. Clean and motivating.",
+      "tags": [
+        "budgeting",
+        "custom",
+        "goal"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-055-compounding-the-eighth-wonder",
+      "format": "card",
+      "category": "Investing",
+      "title": "Compounding, the eighth wonder",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "time × returns"
+      },
+      "body_md": "Compounding means your returns start earning returns. Its secret ingredient is time, not timing. A modest amount invested early can outgrow a larger amount invested late. Starting beats optimising.",
+      "tags": [
+        "investing",
+        "compounding",
+        "beginner"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-056-the-power-of-starting-early",
+      "format": "card",
+      "category": "Investing",
+      "title": "The power of starting early",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "10 years",
+        "sub": "head start ≈ huge gap"
+      },
+      "body_md": "Two people invest the same amount monthly; one starts ten years earlier and then stops. The early starter often ends up ahead despite investing less, purely because their money had more time to compound. Time is the real edge.",
+      "tags": [
+        "investing",
+        "compounding",
+        "time"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-057-what-a-sip-actually-does",
+      "format": "card",
+      "category": "Investing",
+      "title": "What a SIP actually does",
+      "visual_kind": "icon",
+      "visual_ref": "Repeat",
+      "body_md": "A SIP invests a fixed amount on a fixed date, automatically. You buy more units when prices are low and fewer when high — averaging your cost over time and removing the need to guess the market. Boring, by design.",
+      "tags": [
+        "investing",
+        "sip",
+        "mutual_fund",
+        "india"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-058-rupee-cost-averaging",
+      "format": "card",
+      "category": "Investing",
+      "title": "Rupee-cost averaging",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "bar2",
+        "a": [
+          "Low → more units",
+          100
+        ],
+        "b": [
+          "High → fewer",
+          60
+        ]
+      },
+      "body_md": "Investing the same amount regularly means market dips automatically buy you more units and peaks buy fewer. Over time this smooths your average purchase price and takes the emotion out of “is now a good time?”",
+      "tags": [
+        "investing",
+        "sip",
+        "averaging"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-059-risk-and-return-travel-together",
+      "format": "card",
+      "category": "Investing",
+      "title": "Risk and return travel together",
+      "visual_kind": "compare2",
+      "visual_ref": {
+        "primitive": "compare2",
+        "a": "Lower risk",
+        "b": "Higher potential"
+      },
+      "body_md": "Higher potential returns come with higher ups and downs; safety comes with lower returns. There’s no free lunch. The skill isn’t avoiding risk — it’s taking the right amount for your timeline and your nerves.",
+      "tags": [
+        "investing",
+        "risk",
+        "beginner"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-060-time-in-the-market",
+      "format": "card",
+      "category": "Investing",
+      "title": "Time in the market",
+      "visual_kind": "icon",
+      "visual_ref": "Hourglass",
+      "body_md": "“Time in the market beats timing the market.” Trying to jump in and out perfectly is nearly impossible, even for professionals. Staying invested through the ups and downs is what captures long-term growth.",
+      "tags": [
+        "investing",
+        "long_term",
+        "behaviour"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-061-diversification-in-one-idea",
+      "format": "card",
+      "category": "Investing",
+      "title": "Diversification in one idea",
+      "visual_kind": "icon",
+      "visual_ref": "LayoutGrid",
+      "body_md": "Don’t put everything in one place. Spreading money across different types of investments means one bad apple doesn’t spoil the basket. Diversification is the closest thing investing has to a free lunch.",
+      "tags": [
+        "investing",
+        "diversification",
+        "risk"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-062-index-funds-plainly",
+      "format": "card",
+      "category": "Investing",
+      "title": "Index funds, plainly",
+      "visual_kind": "icon",
+      "visual_ref": "BarChart3",
+      "body_md": "An index fund simply tracks a whole market basket instead of picking winners. Low cost, broadly diversified, no manager to outguess. For many people it’s a sensible, low-effort core to build around.",
+      "tags": [
+        "investing",
+        "index",
+        "passive",
+        "india"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-063-fees-are-a-silent-drag",
+      "format": "card",
+      "category": "Investing",
+      "title": "Fees are a silent drag",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "down",
+        "label": "high fees → lower end value"
+      },
+      "body_md": "A 1% higher annual fee sounds tiny but, compounded over decades, can quietly eat a meaningful slice of your final corpus. Low costs are one of the few investing advantages fully in your control. Check the expense ratio.",
+      "tags": [
+        "investing",
+        "fees",
+        "costs",
+        "india"
+      ],
+      "reading_seconds": 30,
+      "tone": "constructive",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-064-your-time-horizon-decides",
+      "format": "card",
+      "category": "Investing",
+      "title": "Your time horizon decides",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 60,
+        "label": "longer = more growth-tilt"
+      },
+      "body_md": "Money needed next year and money needed in twenty years belong in very different places. Short-term goals want safety; long-term goals can ride out volatility for growth. Match the investment to when you’ll spend it.",
+      "tags": [
+        "investing",
+        "horizon",
+        "allocation"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-065-ppf-and-epf-the-quiet-workhorses",
+      "format": "card",
+      "category": "Investing",
+      "title": "PPF and EPF, the quiet workhorses",
+      "visual_kind": "icon",
+      "visual_ref": "Landmark",
+      "body_md": "For Indian households, PPF and EPF are steady, tax-advantaged, government-backed ways to build long-term savings. They won’t excite anyone, but their safety and consistency make them a solid base for a retirement corpus.",
+      "tags": [
+        "investing",
+        "ppf",
+        "epf",
+        "india",
+        "retirement"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-066-nps-for-retirement",
+      "format": "card",
+      "category": "Investing",
+      "title": "NPS for retirement",
+      "visual_kind": "icon",
+      "visual_ref": "Briefcase",
+      "body_md": "The National Pension System is a low-cost, long-horizon retirement vehicle with an extra tax deduction on top of the usual limit. It locks money until retirement — which, for retirement savings, is a feature, not a bug.",
+      "tags": [
+        "investing",
+        "nps",
+        "retirement",
+        "india"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-067-don-t-invest-the-emergency-fund",
+      "format": "card",
+      "category": "Investing",
+      "title": "Don’t invest the emergency fund",
+      "visual_kind": "icon",
+      "visual_ref": "ShieldAlert",
+      "body_md": "Money you might need at any moment shouldn’t be in something that can drop 20% the week you need it. Keep the emergency fund safe and liquid; invest only what you can leave alone for years. Two different jobs, two different homes.",
+      "tags": [
+        "investing",
+        "emergency_fund",
+        "liquidity"
+      ],
+      "reading_seconds": 30,
+      "tone": "constructive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-068-boring-is-a-strategy",
+      "format": "card",
+      "category": "Investing",
+      "title": "Boring is a strategy",
+      "visual_kind": "icon",
+      "visual_ref": "Coffee",
+      "body_md": "The most successful investing is often deeply boring: invest regularly, diversify, keep costs low, and leave it alone. Excitement usually means risk, and risk untaken on purpose is wealth protected. Dull, done well, wins.",
+      "tags": [
+        "investing",
+        "behaviour",
+        "long_term"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-069-volatility-isn-t-loss",
+      "format": "card",
+      "category": "Investing",
+      "title": "Volatility isn’t loss",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "dips are normal"
+      },
+      "body_md": "A falling price on paper is only a loss if you sell. Markets dip regularly; that’s normal, not a malfunction. The investors who do well are usually the ones who stayed calm and stayed invested through the dips.",
+      "tags": [
+        "investing",
+        "volatility",
+        "behaviour"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-070-update-don-t-obsess",
+      "format": "card",
+      "category": "Investing",
+      "title": "Update, don’t obsess",
+      "visual_kind": "icon",
+      "visual_ref": "RefreshCcw",
+      "body_md": "Checking investments daily invites stress and bad decisions. For long-term money, an occasional update of current value is plenty — enough to know your net worth, not so much that every wobble tempts you to act.",
+      "tags": [
+        "investing",
+        "tracking",
+        "behaviour"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-071-net-worth-in-one-line",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "Net worth in one line",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "Assets − Debts",
+        "sub": "= net worth"
+      },
+      "body_md": "Net worth is everything you own minus everything you owe. It’s the single clearest snapshot of your financial position — and the number that, watched over time, tells you whether you’re moving in the right direction.",
+      "tags": [
+        "net_worth",
+        "beginner",
+        "metric"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-072-track-the-trend-not-the-number",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "Track the trend, not the number",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "direction > level"
+      },
+      "body_md": "Your exact net worth matters less than which way it’s heading. A modest number trending up beats a bigger one sliding down. Watch the direction over months; that’s where the real story is.",
+      "tags": [
+        "net_worth",
+        "trend",
+        "progress"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-073-cash-flow-vs-net-worth",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "Cash flow vs net worth",
+      "visual_kind": "compare2",
+      "visual_ref": {
+        "primitive": "compare2",
+        "a": "Flow (month)",
+        "b": "Stock (now)"
+      },
+      "body_md": "Two different questions. Cash flow asks “am I living within my means this month?” Net worth asks “is my overall position improving?” You need both — a good month and a growing position aren’t the same thing.",
+      "tags": [
+        "net_worth",
+        "cashflow",
+        "concepts"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-074-liabilities-are-tomorrow-s-outflows",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "Liabilities are tomorrow’s outflows",
+      "visual_kind": "icon",
+      "visual_ref": "TrendingDown",
+      "body_md": "Every debt is a claim on your future income. Paying down principal doesn’t just reduce a number — it frees up future cash flow and lifts net worth at the same time. Two wins from one payment.",
+      "tags": [
+        "net_worth",
+        "liabilities",
+        "debt"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-075-assets-that-earn-vs-assets-that-sit",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "Assets that earn vs assets that sit",
+      "visual_kind": "compare2",
+      "visual_ref": {
+        "primitive": "compare2",
+        "a": "Earning",
+        "b": "Sitting"
+      },
+      "body_md": "Some assets grow or pay you — investments, rental property. Others just hold value or slowly fade — a car, gadgets. Both count in net worth, but knowing which is which shapes where new money should go.",
+      "tags": [
+        "net_worth",
+        "assets",
+        "investing"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-076-a-home-is-both",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "A home is both",
+      "visual_kind": "icon",
+      "visual_ref": "Home",
+      "body_md": "A home you live in is an asset on your balance sheet and, via its loan, a liability too. It builds equity as you repay principal, but it isn’t liquid. Useful to hold — just not the same as money you can spend tomorrow.",
+      "tags": [
+        "net_worth",
+        "home",
+        "property",
+        "india"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-077-the-first-goal-positive",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "The first goal: positive",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 50,
+        "label": "cross zero"
+      },
+      "body_md": "If debts currently outweigh assets, net worth is negative — and that’s a normal starting point for many. The first milestone is simply crossing zero. Every principal payment and every rupee saved moves you toward it.",
+      "tags": [
+        "net_worth",
+        "milestone",
+        "debt"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-078-liquidity-is-freedom",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "Liquidity is freedom",
+      "visual_kind": "icon",
+      "visual_ref": "Droplet",
+      "body_md": "Two people with the same net worth can be in very different positions if one’s wealth is all locked in property and the other has accessible savings. Liquidity — how fast you can reach your money — is its own kind of security.",
+      "tags": [
+        "net_worth",
+        "liquidity",
+        "safety"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-079-check-it-monthly-not-daily",
+      "format": "card",
+      "category": "Net Worth",
+      "title": "Check it monthly, not daily",
+      "visual_kind": "icon",
+      "visual_ref": "CalendarDays",
+      "body_md": "Net worth moves slowly and meaningfully. A monthly glance is perfect — frequent enough to see the trend, rare enough to avoid noise. Watching it daily just adds anxiety without adding insight.",
+      "tags": [
+        "net_worth",
+        "habit",
+        "tracking"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-080-awareness-is-the-first-win",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Awareness is the first win",
+      "visual_kind": "icon",
+      "visual_ref": "Eye",
+      "body_md": "Simply paying attention to your money — without changing anything yet — already shifts behaviour. The act of noticing is the quiet first step that everything else builds on. You’ve started just by looking.",
+      "tags": [
+        "mindset",
+        "beginner",
+        "tracking"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-081-progress-over-perfection",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Progress over perfection",
+      "visual_kind": "icon",
+      "visual_ref": "Footprints",
+      "body_md": "A perfect financial plan you abandon helps less than an imperfect one you keep. Aim for steady, sustainable progress, not a flawless system. Showing up beats getting it exactly right.",
+      "tags": [
+        "mindset",
+        "motivation",
+        "sustainable"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-082-money-is-emotional-that-s-okay",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Money is emotional — that’s okay",
+      "visual_kind": "icon",
+      "visual_ref": "Heart",
+      "body_md": "Money decisions are rarely purely logical, and that’s human. Recognising the feelings — stress, guilt, FOMO — helps you make calmer choices. The goal isn’t to remove emotion, just to not be run by it.",
+      "tags": [
+        "mindset",
+        "wellbeing",
+        "emotion"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-083-compare-to-past-you",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Compare to past-you",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "you vs you, last year"
+      },
+      "body_md": "Comparing your finances to friends’ or social media’s is a fast route to feeling behind. The only fair comparison is to yourself a year ago. Against that, steady progress is a genuine win worth noticing.",
+      "tags": [
+        "mindset",
+        "comparison",
+        "progress"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-084-the-cost-of-deserve-it",
+      "format": "card",
+      "category": "Mindset",
+      "title": "The cost of “deserve it”",
+      "visual_kind": "icon",
+      "visual_ref": "Gift",
+      "body_md": "“I deserve it” is a fine reason to spend — occasionally and on purpose. It becomes costly when it’s the automatic answer to every hard day. Noticing the pattern lets you keep the treat and lose the autopilot.",
+      "tags": [
+        "mindset",
+        "spending",
+        "awareness"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-085-small-habits-big-trajectory",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Small habits, big trajectory",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "tiny × consistent"
+      },
+      "body_md": "Financial health is built from small, repeated actions, not one heroic decision. Log a transaction, skip an impulse buy, nudge up a SIP. None feels big; together, over years, they change everything.",
+      "tags": [
+        "mindset",
+        "habit",
+        "compounding"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-086-talk-money-with-your-household",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Talk money with your household",
+      "visual_kind": "icon",
+      "visual_ref": "Users",
+      "body_md": "Money is smoother when a household plans together rather than discovering surprises. A short, regular money chat — what’s coming up, what’s the goal — turns finances from a source of friction into a shared project.",
+      "tags": [
+        "mindset",
+        "household",
+        "communication"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-087-lifestyle-creep-is-sneaky",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Lifestyle creep is sneaky",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "income up → spend up"
+      },
+      "body_md": "As income rises, comforts quietly become “needs” and spending climbs to match. It’s natural — and worth watching. Letting some of each raise flow to savings instead keeps the climb from eating all your progress.",
+      "tags": [
+        "mindset",
+        "lifestyle",
+        "spending"
+      ],
+      "reading_seconds": 30,
+      "tone": "constructive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-088-decide-your-money-values",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Decide your money values",
+      "visual_kind": "icon",
+      "visual_ref": "Compass",
+      "body_md": "Spending feels better when it matches what you actually value — experiences, security, family, freedom. Knowing your money values turns budgeting from restriction into alignment: more of what matters, less of what doesn’t.",
+      "tags": [
+        "mindset",
+        "values",
+        "intentional"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-089-one-decision-not-thirty",
+      "format": "card",
+      "category": "Mindset",
+      "title": "One decision, not thirty",
+      "visual_kind": "icon",
+      "visual_ref": "Zap",
+      "body_md": "Automating savings and bills replaces thirty small monthly decisions with one good decision made once. Fewer choices means fewer chances to slip — and less mental load. Set it up, then let it run.",
+      "tags": [
+        "mindset",
+        "automation",
+        "habit"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-090-it-s-never-too-late-to-start",
+      "format": "card",
+      "category": "Mindset",
+      "title": "It’s never too late to start",
+      "visual_kind": "icon",
+      "visual_ref": "Sunrise",
+      "body_md": "The best time to start was years ago; the second-best time is today. Whatever your starting point, the next good decision still counts. Money rewards starting far more than it punishes starting late.",
+      "tags": [
+        "mindset",
+        "motivation",
+        "beginner"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-091-calm-beats-clever",
+      "format": "card",
+      "category": "Mindset",
+      "title": "Calm beats clever",
+      "visual_kind": "icon",
+      "visual_ref": "Wind",
+      "body_md": "Most financial damage comes not from picking the wrong investment but from panic — selling in a dip, chasing a hot tip. A calm, steady hand usually beats a clever, restless one. Boring discipline is an underrated superpower.",
+      "tags": [
+        "mindset",
+        "behaviour",
+        "investing"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-092-the-1-5-lakh-that-saves-tax",
+      "format": "card",
+      "category": "India",
+      "title": "The ₹1.5 lakh that saves tax",
+      "visual_kind": "stat",
+      "visual_ref": {
+        "big": "₹1.5L",
+        "sub": "80C deductions"
+      },
+      "body_md": "Under the old tax regime, certain investments and expenses up to ₹1.5 lakh a year can reduce taxable income — PPF, EPF, ELSS, life insurance, principal on a home loan, and more. Worth knowing whether you’re using the room you have.",
+      "tags": [
+        "india",
+        "tax",
+        "80c"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-093-old-vs-new-tax-regime",
+      "format": "card",
+      "category": "India",
+      "title": "Old vs new tax regime",
+      "visual_kind": "compare2",
+      "visual_ref": {
+        "primitive": "compare2",
+        "a": "Old: deductions",
+        "b": "New: lower rates"
+      },
+      "body_md": "India offers two tax regimes: the old one rewards deductions (80C, HRA, home-loan interest); the new one gives lower rates but fewer deductions. Which wins depends on how much you actually claim. It’s worth comparing both for your numbers.",
+      "tags": [
+        "india",
+        "tax",
+        "regime"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-094-hra-if-you-rent",
+      "format": "card",
+      "category": "India",
+      "title": "HRA, if you rent",
+      "visual_kind": "icon",
+      "visual_ref": "Home",
+      "body_md": "If you receive House Rent Allowance and pay rent, a portion can be exempt from tax under the old regime. The exact amount depends on your salary, rent, and city. If you rent and claim the old regime, it’s worth checking you’re using it.",
+      "tags": [
+        "india",
+        "tax",
+        "hra",
+        "rent"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-095-a-health-policy-is-tax-smart-too",
+      "format": "card",
+      "category": "India",
+      "title": "A health policy is tax-smart too",
+      "visual_kind": "icon",
+      "visual_ref": "HeartPulse",
+      "body_md": "Health insurance premiums can qualify for a deduction under section 80D, on top of the protection they provide. It’s one of the rare cases where the sensible thing to do and the tax-efficient thing to do are the same.",
+      "tags": [
+        "india",
+        "tax",
+        "insurance",
+        "80d"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-096-upi-convenient-still-trackable",
+      "format": "card",
+      "category": "India",
+      "title": "UPI: convenient, still trackable",
+      "visual_kind": "icon",
+      "visual_ref": "Smartphone",
+      "body_md": "UPI makes spending frictionless — which is great, and also why small payments slip past unnoticed. The flip side of effortless paying is effortless forgetting. Logging UPI spends keeps the convenience without losing the picture.",
+      "tags": [
+        "india",
+        "upi",
+        "tracking",
+        "spending"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-097-the-festival-advance-trap",
+      "format": "card",
+      "category": "India",
+      "title": "The festival-advance trap",
+      "visual_kind": "icon",
+      "visual_ref": "AlertTriangle",
+      "body_md": "Festival sales and easy EMIs make big purchases feel small. They can be fine — just worth pausing on whether you’d buy it at full price, in cash. A planned festival budget beats a year of paying off festival impulse buys.",
+      "tags": [
+        "india",
+        "festival",
+        "debt",
+        "spending"
+      ],
+      "reading_seconds": 30,
+      "tone": "constructive",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-098-gold-beyond-the-jewellery",
+      "format": "card",
+      "category": "India",
+      "title": "Gold, beyond the jewellery",
+      "visual_kind": "icon",
+      "visual_ref": "Coins",
+      "body_md": "Many Indian households hold gold for tradition and as a hedge. As an investment, forms like sovereign gold bonds can be more efficient than physical gold — no storage worry, and they can pay a small interest. Same metal, fewer downsides.",
+      "tags": [
+        "india",
+        "gold",
+        "investing"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-099-sukanya-samriddhi-for-daughters",
+      "format": "card",
+      "category": "India",
+      "title": "Sukanya Samriddhi for daughters",
+      "visual_kind": "icon",
+      "visual_ref": "Baby",
+      "body_md": "For families with a young daughter, the Sukanya Samriddhi scheme offers a safe, tax-advantaged, long-horizon way to build a corpus for her education or future. Government-backed and patient — a quiet long-term workhorse.",
+      "tags": [
+        "india",
+        "child",
+        "savings",
+        "scheme"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-100-nominee-and-will-the-quiet-essentials",
+      "format": "card",
+      "category": "India",
+      "title": "Nominee and will, the quiet essentials",
+      "visual_kind": "icon",
+      "visual_ref": "FileText",
+      "body_md": "Adding nominees to your accounts and investments — and, eventually, writing a simple will — spares your family enormous difficulty later. It’s a small, uncomfortable afternoon of admin that quietly protects the people you love.",
+      "tags": [
+        "india",
+        "estate",
+        "household",
+        "safety"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-101-emergency-fund-in-a-sweep-account",
+      "format": "card",
+      "category": "India",
+      "title": "Emergency fund in a sweep account",
+      "visual_kind": "icon",
+      "visual_ref": "Wallet",
+      "body_md": "A sweep-in fixed deposit lets emergency money earn a bit more than a plain savings account while staying instantly accessible. You get a little extra return without sacrificing the one thing emergency money must have — availability.",
+      "tags": [
+        "india",
+        "emergency_fund",
+        "liquidity"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-102-know-your-cibil-gently",
+      "format": "card",
+      "category": "India",
+      "title": "Know your CIBIL, gently",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 75,
+        "label": "check yearly"
+      },
+      "body_md": "You can check your own credit score for free once a year without affecting it. It’s worth a look — to catch errors, spot any account you don’t recognise, and see the effect of your on-time payments. Knowledge, no downside.",
+      "tags": [
+        "india",
+        "credit_score",
+        "cibil"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-103-the-household-is-the-real-unit",
+      "format": "card",
+      "category": "Household",
+      "title": "The household is the real unit",
+      "visual_kind": "icon",
+      "visual_ref": "Users",
+      "body_md": "Money decisions rarely happen in isolation — they ripple across a household. Seeing the full picture together, rather than each person tracking their own slice, is what makes shared goals and shared budgets actually work.",
+      "tags": [
+        "household",
+        "shared",
+        "concept"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-104-shared-goals-shared-motivation",
+      "format": "card",
+      "category": "Household",
+      "title": "Shared goals, shared motivation",
+      "visual_kind": "icon",
+      "visual_ref": "Target",
+      "body_md": "A goal everyone in the household can see is a goal everyone can pull toward. Visible shared progress — a trip, a cushion, a big purchase — turns saving from one person’s discipline into a team effort.",
+      "tags": [
+        "household",
+        "goal",
+        "motivation"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-105-yours-mine-and-ours",
+      "format": "card",
+      "category": "Household",
+      "title": "Yours, mine, and ours",
+      "visual_kind": "diagram",
+      "visual_ref": {
+        "primitive": "stack",
+        "parts": [
+          [
+            "Ours",
+            50
+          ],
+          [
+            "Yours",
+            25
+          ],
+          [
+            "Mine",
+            25
+          ]
+        ]
+      },
+      "body_md": "Many couples find a blend works best: a shared pot for joint expenses and goals, plus some personal money each, no questions asked. Structure reduces friction — and a little autonomy keeps shared finances feeling fair.",
+      "tags": [
+        "household",
+        "structure",
+        "couples"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-106-the-monthly-money-date",
+      "format": "card",
+      "category": "Household",
+      "title": "The monthly money date",
+      "visual_kind": "icon",
+      "visual_ref": "Coffee",
+      "body_md": "A short, regular catch-up on money — over chai, no blame — keeps a household aligned. What’s coming up, how the goals look, anything worrying. Small and routine beats rare and tense. Make it boring on purpose.",
+      "tags": [
+        "household",
+        "communication",
+        "habit"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-107-one-person-shouldn-t-hold-it-all",
+      "format": "card",
+      "category": "Household",
+      "title": "One person shouldn’t hold it all",
+      "visual_kind": "icon",
+      "visual_ref": "KeyRound",
+      "body_md": "If only one person knows the passwords, balances, and bills, the household is fragile to illness or emergency. Sharing the basics — where things are, what’s due — is a quiet act of care and resilience.",
+      "tags": [
+        "household",
+        "resilience",
+        "safety"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-108-teach-the-kids-early",
+      "format": "card",
+      "category": "Household",
+      "title": "Teach the kids early",
+      "visual_kind": "icon",
+      "visual_ref": "GraduationCap",
+      "body_md": "Children learn money mostly by watching. Small, age-appropriate involvement — a savings jar, a tiny allowance, talking through a purchase — builds instincts that school rarely teaches. The lessons compound as surely as the money.",
+      "tags": [
+        "household",
+        "children",
+        "education"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-109-plan-for-the-predictable",
+      "format": "card",
+      "category": "Household",
+      "title": "Plan for the predictable",
+      "visual_kind": "icon",
+      "visual_ref": "CalendarRange",
+      "body_md": "School admissions, annual premiums, festival seasons, a planned trip — a household’s big costs are mostly known in advance. Listing them at the start of the year turns a string of “expensive months” into a calm plan.",
+      "tags": [
+        "household",
+        "planning",
+        "seasonal"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-110-protect-the-earners",
+      "format": "card",
+      "category": "Household",
+      "title": "Protect the earners",
+      "visual_kind": "icon",
+      "visual_ref": "Shield",
+      "body_md": "A household that depends on one or two incomes is exposed if something happens to an earner. Term life cover and health insurance are inexpensive ways to make sure a tragedy doesn’t also become a financial collapse.",
+      "tags": [
+        "household",
+        "insurance",
+        "protection"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": true,
+      "published": true
+    },
+    {
+      "id": "ev-111-log-little-and-often",
+      "format": "card",
+      "category": "Using Vyact",
+      "title": "Log little and often",
+      "visual_kind": "icon",
+      "visual_ref": "PenLine",
+      "body_md": "The habit that makes everything else work is quick, regular logging. A few seconds per spend keeps your balances real and your insights sharp. Little and often beats a painful catch-up at month-end.",
+      "tags": [
+        "vyact",
+        "habit",
+        "tracking"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-112-reconcile-without-guilt",
+      "format": "card",
+      "category": "Using Vyact",
+      "title": "Reconcile without guilt",
+      "visual_kind": "icon",
+      "visual_ref": "CheckCircle",
+      "body_md": "If your tracked balance drifts from reality, just fix it — the gap is simply forgotten transactions, and correcting it is normal upkeep, not failure. A quick reconcile keeps your numbers honest and your net worth true.",
+      "tags": [
+        "vyact",
+        "reconcile",
+        "tracking"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-113-let-the-trend-teach-you",
+      "format": "card",
+      "category": "Using Vyact",
+      "title": "Let the trend teach you",
+      "visual_kind": "arrow",
+      "visual_ref": {
+        "primitive": "arrow",
+        "dir": "up",
+        "label": "watch the direction"
+      },
+      "body_md": "One month is a data point; six months is a story. The most useful thing in your numbers isn’t any single figure — it’s the direction over time. Glance at the trend; it’s where the real feedback lives.",
+      "tags": [
+        "vyact",
+        "trend",
+        "insights"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-114-recurring-less-to-remember",
+      "format": "card",
+      "category": "Using Vyact",
+      "title": "Recurring = less to remember",
+      "visual_kind": "icon",
+      "visual_ref": "CalendarClock",
+      "body_md": "Set your fixed, predictable payments as recurring once, and they log themselves on schedule. Fewer things to remember, a cleaner picture of what’s truly committed each month, and a head start on next month’s budget.",
+      "tags": [
+        "vyact",
+        "recurring",
+        "automation"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-115-your-pulse-gently-read",
+      "format": "card",
+      "category": "Using Vyact",
+      "title": "Your Pulse, gently read",
+      "visual_kind": "arc",
+      "visual_ref": {
+        "primitive": "arc",
+        "pct": 70,
+        "label": "a wellness signal"
+      },
+      "body_md": "The Pulse Score is a gentle health signal, not a grade. It moves as your habits do — saving, staying on budget, managing debt. Watch which part nudges it, and let it guide one small improvement at a time.",
+      "tags": [
+        "vyact",
+        "pulse",
+        "wellbeing"
+      ],
+      "reading_seconds": 30,
+      "tone": "positive",
+      "india_relevant": false,
+      "published": true
+    },
+    {
+      "id": "ev-116-categories-that-fit-you",
+      "format": "card",
+      "category": "Using Vyact",
+      "title": "Categories that fit you",
+      "visual_kind": "icon",
+      "visual_ref": "Tags",
+      "body_md": "Good categories make your reports meaningful. Keep them broad enough to be quick and specific enough to be useful. When one category swells, that’s your cue to look — and your insights get sharper the cleaner your tags are.",
+      "tags": [
+        "vyact",
+        "categories",
+        "tracking"
+      ],
+      "reading_seconds": 30,
+      "tone": "neutral",
+      "india_relevant": false,
+      "published": true
+    }
+  ],
+  "expansion_status": {
+    "expanded": 10,
+    "remaining_short": 106,
+    "band": "200-300 words",
+    "word_min": 28,
+    "word_max": 272
+  }
+}

@@ -1,21 +1,19 @@
 // Vyact v6.4 — FloatingTools
 //
-// Planner and AI Chat used to live as sidebar entries, which (a) felt
-// buried for tools that work as overlays on top of any page, and (b)
-// required a full route navigation to get to. They now appear as floating
-// action buttons in the bottom-right that open a right-side drawer,
-// available on every authenticated screen.
+// Ask Vyact lives here as a floating action button that opens a right-side
+// drawer, available on every authenticated screen.
 //
-// Routing for /planner and /chat is preserved for deep links and external
-// references, but the primary access point is now the FAB.
+// v9.5.3 (Insights Hub §6/§8): the Planner FAB was REMOVED — the Planner now
+// lives inside the Insights hub as the "Plan" tab. Its Sparkles icon is freed up
+// and adopted by Ask Vyact (was MessageCircle). The /planner and /chat routes
+// remain for deep links.
 
 import React, { Suspense, useState, useEffect, type ReactNode } from 'react';
-import { Sparkles, MessageCircle, X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 
-const Planner = React.lazy(() => import('../../pages/Planner'));
 const Chat = React.lazy(() => import('../../pages/Chat'));
 
-type Tool = 'planner' | 'chat' | null;
+type Tool = 'chat' | null;
 
 import ls from '../../lib/localStorageCompat';
 const KEY = 'floating_last';
@@ -43,27 +41,19 @@ export default function FloatingTools() {
           action; offset above MobileBar (~56px) on small screens. */}
       <div className="fixed right-4 bottom-[160px] lg:bottom-[160px] z-40 flex flex-col gap-2.5">
         <Fab
-          label="Planner"
-          tone="coral"
-          onClick={() => open('planner')}
-          active={tool === 'planner'}
-        >
-          <Sparkles size={18} />
-        </Fab>
-        <Fab
           label="Ask Vyact"
           tone="denim"
           onClick={() => open('chat')}
           active={tool === 'chat'}
         >
-          <MessageCircle size={18} />
+          <Sparkles size={18} />
         </Fab>
       </div>
 
       {tool && (
-        <Drawer onClose={() => setTool(null)} title={tool === 'planner' ? 'Planner' : 'Ask Vyact'}>
+        <Drawer onClose={() => setTool(null)} title="Ask Vyact">
           <Suspense fallback={<DrawerLoadingState />}>
-            {tool === 'planner' ? <Planner onNavigate={() => setTool(null)} /> : <Chat />}
+            <Chat />
           </Suspense>
         </Drawer>
       )}

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.2`** (consumer)
+> **Current production version: `v9.5.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -25,7 +25,38 @@ The numbering history has some non-monotonic stretches that we keep documented h
 
 ---
 
-## v9.5.2 — Dashboard clarity: remove orphan "Total Balance", explain insights *(2026-06-20)*
+## v9.5.3 — Insights Hub (consumer v1) + the v9.5.2 dashboard fixes *(2026-06-20)*
+
+Consolidated release. Turns **Insights** from a single content page into the app's
+stickiness hub (consumer side of `docs/insights-hub-spec.md`), and carries the
+v9.5.2 dashboard clarity fixes (below).
+
+**Insights is now a 4-tab hub** (`pages/Insights.tsx`):
+- **For You** — a personal-insight feed generated on-device from existing
+  aggregates only (`lib/insightsFeed.ts`: savings rate, biggest category, a
+  category down vs its 3-month average, a month-end spend forecast, Pulse, and
+  contextual "learn this" nudges). **No new financial math**; deterministic;
+  tone-mixed (≤1 constructive card per session, per the spec). Presented as a
+  **full-screen reel on mobile** (`ForYouReel`): one insight per panel, vertical
+  scroll-snap, a progress rail, an always-present **Cancel (✕)**, and a finite end
+  panel (anti-doomscroll — no infinite feed).
+- **Learn** — the 100+ **evergreen card library**, bundled as a static asset
+  (`src/data/evergreenCards.json`, 116 cards) and rendered with **code-drawn
+  visuals** (`CardVisual`: themed Lucide icon · big-number stat · SVG
+  stack/bar2/arc/arrow/compare2). Searchable, category-filtered, favoritable
+  (favorites persist locally for v1).
+- **What's New** — the existing v6.3 editorial content module, re-homed as a tab.
+- **Plan** — the **Planner absorbed** into Insights. The Planner FloatingTool
+  bubble is **removed**; its Sparkles icon is adopted by **Ask Vyact** (was the
+  chat bubble icon), per spec §8.
+
+**Deferred to an admin/DB follow-up** (out of scope for a direct consumer deploy):
+the additive `content_items` card columns + admin card-authoring, the external
+"What's New" source-allowlist curation UI (RBI/SEBI/…), DB-backed evergreen
+favorites, and per-week tone-cap persistence. The consumer hub runs fully without
+them today; the library ships bundled rather than via DB.
+
+### v9.5.2 (folded in) — Dashboard clarity
 
 Two consumer-feedback usability fixes on the Dashboard (no money-model/schema change).
 
