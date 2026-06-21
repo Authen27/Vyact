@@ -8,6 +8,7 @@ import { shouldOnboard, migrateExistingHousehold } from './lib/onboardingState';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
 import FaultsPanel from './components/dev/FaultsPanel';
+import SyncHealthIndicator from './components/sync/SyncHealthIndicator';
 import AuthGate from './components/auth/AuthGate';
 import UpdateBanner from './components/layout/UpdateBanner';
 import InstallBanner from './components/layout/InstallBanner';
@@ -56,6 +57,7 @@ export default function App() {
         <RootModals />
       </Suspense>
       <ToastHost />
+      <SyncHealthIndicator />
       {import.meta.env.DEV && <FaultsPanel />}
       <UpdateBanner />
       <InstallBanner />

@@ -44,7 +44,7 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
       tabIndex={clickable ? 0 : undefined}
       onClick={clickable ? () => onEdit!(t) : undefined}
       onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit!(t); } } : undefined}
-      className={`group flex items-center gap-2.5 px-4 py-2.5 border-b border-line last:border-b-0 hover:bg-coral-tint/40 transition-colors ${clickable ? 'cursor-pointer' : ''} ${wrapperBg}`}
+      className={`group relative flex items-center gap-2.5 px-4 py-2.5 border-b border-line last:border-b-0 hover:bg-coral-tint/40 transition-colors ${clickable ? 'cursor-pointer' : ''} ${wrapperBg}`}
     >
       <PaymentMethodChip id={t.paymentMethod} />
       <div
@@ -74,13 +74,16 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
         {showCur    && <Badge tone="plum">{cur}</Badge>}
       </div>
 
+      {/* Edit affordance overlays the right edge on hover instead of reserving a
+          permanent column — otherwise every row showed a dead gutter (the icon
+          kept its layout width at opacity-0) in both Transactions and Dashboard. */}
       {clickable && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onEdit!(t); }}
           aria-label={`Edit ${t.description}`}
           title="Edit"
-          className="row-action flex-shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+          className="row-action absolute right-2 top-1/2 -translate-y-1/2 !bg-bg2 shadow-sm opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
         >
           <Pencil size={14} strokeWidth={1.6} />
         </button>
