@@ -5,7 +5,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://dmxqkvploojokffuh
 const ANON = process.env.VITE_SUPABASE_ANON_KEY || '';
 const BASE = 'https://vyact-twentyx.vercel.app';
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   let cards = [];
   try {
     if (ANON) {
@@ -29,4 +29,4 @@ module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/xml; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
   res.status(200).send(body);
-};
+}

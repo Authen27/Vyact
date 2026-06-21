@@ -26,9 +26,6 @@ export default function AddFab() {
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
 
-  // Hide on auth routes — no household, no modal target.
-  if (location.pathname.startsWith('/auth/')) return null;
-
   // Hide on scroll-down only when the dial is closed; once the user opens the
   // dial, keep it pinned so they can choose without it sliding out.
   const hidden = dir === 'down' && !dialOpen;
@@ -47,6 +44,10 @@ export default function AddFab() {
       window.removeEventListener('mousedown', onClick);
     };
   }, [dialOpen]);
+
+  // Hide on auth routes — no household, no modal target. (After the hooks so they
+  // run unconditionally — rules-of-hooks; the effect is a no-op while closed.)
+  if (location.pathname.startsWith('/auth/')) return null;
 
   function startLongPress() {
     longPressFired.current = false;

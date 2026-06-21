@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.6`** (consumer)
+> **Current production version: `v9.5.7`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,25 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.7 — Fix: Learn microsite functions weren't deploying *(2026-06-21)*
+
+Post-deploy verification of v9.5.5/v9.5.6 found `/learn`, `/learn/<slug>`,
+`/sitemap.xml` and `/robots.txt` all returning the SPA shell instead of the
+server-rendered pages — so social scrapers/crawlers never saw the OG meta or
+JSON-LD. Root cause: Vercel's **project Root Directory is `react/`**, so the
+repo-root `/api` functions and root `vercel.json` rewrites were ignored.
+
+Fix: moved the functions to **`react/api/`** (converted to ESM `export default`,
+since `react/package.json` is `type: module`) and added the rewrites to
+**`react/vercel.json`** (excluding `/api` from the SPA catch-all). Reverted the
+ignored root `vercel.json` rewrites. Verified the relocated ESM functions render
+the per-card page (OG PNG + Article/LearningResource JSON-LD) against prod data.
+
+Also fixed two **pre-existing** lint-gate errors surfaced by a full `eslint .`
+during verification (the earlier gates were targeted): a non-breaking space in
+`Transactions.tsx` and a conditional React hook in `AddFab.tsx` (moved the
+`/auth/` early-return below the hooks — behaviour unchanged). Lint gate: 0 errors.
 
 ## v9.5.6 — Raster OG image for social shares *(2026-06-21)*
 

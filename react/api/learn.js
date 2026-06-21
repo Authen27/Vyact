@@ -152,7 +152,7 @@ ${sections}
   return shell({ title: 'Vyact Learn — free personal-finance lessons', description: 'Free, plain-English personal-finance lessons for Indian households: saving, budgeting, debt, EMIs, SIPs, investing and net worth.', canonical: url, jsonld, body });
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
     const slug = (req.query && req.query.slug ? String(req.query.slug) : '').trim();
     if (!ANON) { res.status(500).send('Learn is temporarily unavailable.'); return; }
@@ -175,4 +175,4 @@ module.exports = async (req, res) => {
   } catch (e) {
     res.status(500).send('Learn is temporarily unavailable.');
   }
-};
+}

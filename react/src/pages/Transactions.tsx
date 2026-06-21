@@ -492,7 +492,7 @@ export default function Transactions() {
           {filtered.length > 0 && (
             <div className="mt-2 flex items-center justify-between text-[0.7rem] font-mono text-ink-dim">
               <span>
-                {filtered.length} {filtered.length === 1 ? 'transaction' : 'transactions'}
+                {filtered.length} {filtered.length === 1 ? 'transaction' : 'transactions'}
               </span>
               {(type === 'all' || type === 'income' || type === 'expense') && (
                 <span className={filteredNet >= 0 ? 'text-sage' : 'text-terra'}>
