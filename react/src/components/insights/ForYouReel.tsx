@@ -6,8 +6,9 @@
 // (3–5 cards, then an end panel) — anti-doomscroll, per the strategy brief.
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, ArrowRight, BookOpen, ChevronUp } from 'lucide-react';
+import { X, ArrowRight, BookOpen, ChevronUp, Share2 } from 'lucide-react';
 import type { FeedCard } from '../../lib/insightsFeed';
+import { shareEvergreen, shareApp } from '../../lib/share';
 
 interface Props {
   cards: FeedCard[];
@@ -96,14 +97,25 @@ export default function ForYouReel({ cards, startIndex = 0, onClose, onOpenLearn
             <div className="num text-[2.4rem] leading-tight font-semibold text-ink max-w-md">{c.big}</div>
             <p className="text-[1rem] text-ink-mid mt-4 max-w-sm leading-relaxed">{c.line}</p>
 
-            {(c.to || c.learnId) && (
+            <div className="flex items-center gap-2.5 mt-7">
+              {(c.to || c.learnId) && (
+                <button
+                  onClick={() => { if (c.learnId) onOpenLearn(c.learnId); else if (c.to) { onClose(); navigate(c.to); } }}
+                  className="btn-primary inline-flex items-center gap-1.5"
+                >
+                  {c.learnId ? <><BookOpen size={15} /> Read the idea</> : <>See the detail <ArrowRight size={15} /></>}
+                </button>
+              )}
+              {/* Share — a lesson card shares its public page; a private insight
+                  promotes the app with NO personal numbers (privacy). */}
               <button
-                onClick={() => { if (c.learnId) onOpenLearn(c.learnId); else if (c.to) { onClose(); navigate(c.to); } }}
-                className="btn-primary mt-7 inline-flex items-center gap-1.5"
+                onClick={() => { if (c.learnId) shareEvergreen(c.learnId, c.big); else shareApp(); }}
+                aria-label="Share"
+                className="w-11 h-11 rounded-full border border-line bg-bg2 text-ink-mid hover:text-coral hover:border-coral/40 flex items-center justify-center"
               >
-                {c.learnId ? <><BookOpen size={15} /> Read the idea</> : <>See the detail <ArrowRight size={15} /></>}
+                <Share2 size={17} />
               </button>
-            )}
+            </div>
 
             {i === 0 && cards.length > 1 && (
               <div className="absolute bottom-7 flex flex-col items-center text-ink-dim animate-bounce">

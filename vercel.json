@@ -5,7 +5,12 @@
   "buildCommand": "cd react && npm run build",
   "outputDirectory": "react/dist",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/learn", "destination": "/api/learn" },
+    { "source": "/learn/", "destination": "/api/learn" },
+    { "source": "/learn/:slug", "destination": "/api/learn?slug=:slug" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/robots.txt", "destination": "/api/robots" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

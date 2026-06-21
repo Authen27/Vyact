@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.4`** (consumer)
+> **Current production version: `v9.5.5`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,40 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.5 — Insights: combined Learn, shareable shorts, public SEO microsite *(2026-06-21)*
+
+Five Insights upgrades focused on stickiness + discoverability.
+
+**Learn + What's New combined.** The hub is now 3 tabs (For You / Learn / Plan).
+Learn carries a **Lessons / Updates** segment — Lessons = the evergreen library,
+Updates = the former What's New (editorial/curated). One place to browse.
+
+**Learn shorts.** A **Shorts** launcher opens the evergreen library as a finite,
+full-screen vertical scroll-snap **reel** (`EvergreenReel`) — one lesson per panel
+with Save + Share, tap to read the full lesson. Mirrors the For You reel.
+
+**Socially shareable shorts.** Every short (For You + Learn) has a **Share** action
+(`lib/share.ts`): native share sheet with copy-link fallback. **Privacy line:**
+evergreen lessons share a real public URL; a *personal* For You insight never gets a
+public page — it shares an app-promo link with **no personal numbers**.
+
+**Public, branded share previews + SEO/AI microsite.** Because the app is a pure
+SPA (scrapers/AI crawlers don't run its JS), the shareable + indexable surface is
+**server-rendered** via new Vercel functions:
+- `/learn` — the library index (SEO hub, `ItemList` JSON-LD).
+- `/learn/<slug>` — each lesson with full OG/Twitter meta, a branded preview image
+  (`/og-vyact.svg`, Vyact logo + wordmark — promotes the app on every share), and
+  **`Article` + `LearningResource` + `BreadcrumbList` JSON-LD** for rich-result +
+  AI-citation eligibility on finance keywords/longtail.
+- `/sitemap.xml` + `/robots.txt` advertise the 116 lessons to search engines.
+- The SPA's default OG image + an `Organization` JSON-LD were added to `index.html`.
+Content is public educational material (no user data); the functions read published
+`format='card'` rows via the public anon key.
+
+> Note: the branded OG image ships as SVG (no raster tooling/dep in this env).
+> Slack/Discord/LinkedIn/Telegram render it; drop in a 1200×630 PNG later for full
+> Facebook/X raster previews.
 
 ## v9.5.4 — Insights Hub §A: evergreen cards in the DB *(2026-06-20)*
 

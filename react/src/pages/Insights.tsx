@@ -10,23 +10,23 @@
 // "Services compute, never fabricate": the For You feed reads existing aggregates
 // only (lib/insightsFeed.ts) — no new financial math, all on-device.
 import { useMemo, useState } from 'react';
-import { Sparkles, GraduationCap, Newspaper, Compass, Play, ArrowRight, BookOpen } from 'lucide-react';
+import { Sparkles, GraduationCap, Compass, Play, ArrowRight, BookOpen } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import EmptyState from '../components/ui/EmptyState';
 import Planner from './Planner';
 import EvergreenLearn from '../components/insights/EvergreenLearn';
-import WhatsNew from '../components/insights/WhatsNew';
 import ForYouReel from '../components/insights/ForYouReel';
 import { buildInsightFeed, type FeedCard } from '../lib/insightsFeed';
 
-type Tab = 'for-you' | 'learn' | 'whats-new' | 'plan';
+// v9.5.5 — What's New was merged INTO Learn (as a Lessons/Updates segment), so the
+// hub is now three tabs.
+type Tab = 'for-you' | 'learn' | 'plan';
 
 const TABS: { id: Tab; label: string; icon: typeof Sparkles }[] = [
-  { id: 'for-you',   label: 'For You',    icon: Sparkles },
-  { id: 'learn',     label: 'Learn',      icon: GraduationCap },
-  { id: 'whats-new', label: "What's New", icon: Newspaper },
-  { id: 'plan',      label: 'Plan',       icon: Compass },
+  { id: 'for-you', label: 'For You', icon: Sparkles },
+  { id: 'learn',   label: 'Learn',   icon: GraduationCap },
+  { id: 'plan',    label: 'Plan',    icon: Compass },
 ];
 
 export default function Insights() {
@@ -79,10 +79,9 @@ export default function Insights() {
         ))}
       </div>
 
-      {tab === 'for-you'   && <ForYou feed={feed} onOpenReel={i => setReelStart(i)} />}
-      {tab === 'learn'     && <EvergreenLearn openId={learnOpenId} onConsumedOpen={() => setLearnOpenId(null)} />}
-      {tab === 'whats-new' && <WhatsNew />}
-      {tab === 'plan'      && <Planner />}
+      {tab === 'for-you' && <ForYou feed={feed} onOpenReel={i => setReelStart(i)} />}
+      {tab === 'learn'   && <EvergreenLearn openId={learnOpenId} onConsumedOpen={() => setLearnOpenId(null)} />}
+      {tab === 'plan'    && <Planner />}
 
       {reelStart !== null && feed.length > 0 && (
         <ForYouReel cards={feed} startIndex={reelStart} onClose={() => setReelStart(null)} onOpenLearn={openLearn} />
