@@ -20,7 +20,7 @@ export function lessonJsonLd(card: EvergreenCard) {
     author: { '@type': 'Organization', name: 'Vyact' },
     publisher: {
       '@type': 'Organization', name: 'Vyact',
-      logo: { '@type': 'ImageObject', url: `${PUBLIC_BASE}/og-vyact.svg` },
+      logo: { '@type': 'ImageObject', url: `${PUBLIC_BASE}/og-vyact.png` },
     },
     mainEntityOfPage: evergreenUrl(card.id),
     articleBody: card.body_md,

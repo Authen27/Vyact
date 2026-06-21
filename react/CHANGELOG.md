@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.5`** (consumer)
+> **Current production version: `v9.5.6`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,15 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.6 — Raster OG image for social shares *(2026-06-21)*
+
+Replaced the placeholder SVG share image with a real **1200×630 PNG**
+(`react/public/og-vyact.png`, branded Vyact social card). Repointed every
+`og:image` / `twitter:image` and JSON-LD publisher logo — `index.html`, the
+per-card pages in `api/learn.js`, and the in-app reader's JSON-LD — to the PNG, so
+**Facebook / X / WhatsApp** (which don't render SVG) now show a proper branded
+preview on every shared lesson. Closes the v9.5.5 follow-up note.
 
 ## v9.5.5 — Insights: combined Learn, shareable shorts, public SEO microsite *(2026-06-21)*
 

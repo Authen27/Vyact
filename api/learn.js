@@ -11,7 +11,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://dmxqkvploojokffuh
 const ANON = process.env.VITE_SUPABASE_ANON_KEY || '';
 const BASE = 'https://vyact-twentyx.vercel.app';
 const APP = `${BASE}/insights`;
-const OG_IMAGE = `${BASE}/og-vyact.svg`;
+const OG_IMAGE = `${BASE}/og-vyact.png`;
 
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
