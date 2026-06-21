@@ -5,7 +5,7 @@
 // Backward-compat: anonymous-mode uses legacy v4/v5 storage keys so existing data survives.
 
 import type {
-  Transaction, Budget, Goal, Member, Debt, Asset, Account, SavedView,
+  Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
 } from '../types';
 import { DEFAULT_RATES } from '../constants';
@@ -69,6 +69,20 @@ export interface DataAdapter {
    * household-wide coordination). The DB assigns the id.
    */
   createBudgetChecked(householdId: string, budget: Partial<Budget>): Promise<Budget>;
+  /**
+   * Budget-sync fix: write a budget AND its full per-category allocation set in a
+   * SINGLE atomic, online-synchronous operation (DB RPC `upsert_budget_with_allocations`).
+   * Fixes the defect where allocations went through the fire-and-forget queue and
+   * could silently dead-letter — never reaching the cloud for realtime/other devices.
+   * `mode='create'` enforces one-budget-per-slot (throws `BudgetExistsError`);
+   * `mode='replace'` updates the existing budget. Returns the authoritative rows.
+   */
+  upsertBudgetWithAllocations(
+    householdId: string,
+    budget: Partial<Budget>,
+    allocations: Partial<BudgetAllocation>[],
+    mode: 'create' | 'replace',
+  ): Promise<{ budget: Budget; allocations: BudgetAllocation[] }>;
 
   // exchange rates (per-household)
   getRates(householdId: string): Promise<ExchangeRates>;
@@ -229,6 +243,25 @@ export class LocalStorageAdapter implements DataAdapter {
       && (budget.scope === 'month' ? b.periodMonth === budget.periodMonth : true));
     if (clash) throw new BudgetExistsError(`scope=${budget.scope} year=${budget.periodYear}${budget.scope === 'month' ? ` month=${budget.periodMonth}` : ''}`);
     return await this.upsert('budgets', householdId, { ...budget, id: uid() }) as Budget;
+  }
+  async upsertBudgetWithAllocations(
+    householdId: string,
+    budget: Partial<Budget>,
+    allocations: Partial<BudgetAllocation>[],
+    mode: 'create' | 'replace',
+  ): Promise<{ budget: Budget; allocations: BudgetAllocation[] }> {
+    // Local-only equivalent of the atomic RPC: dedup-check on create, then a
+    // scoped replace of this budget's allocation set (no cross-budget delete).
+    const saved = (mode === 'create' && !budget.id)
+      ? await this.createBudgetChecked(householdId, budget)
+      : await this.upsert('budgets', householdId, budget) as Budget;
+    const all = await this.read<BudgetAllocation[]>('budgetAllocations', householdId, []);
+    const others = all.filter(a => a.budgetId !== saved.id);
+    const fresh: BudgetAllocation[] = allocations
+      .filter(a => (a.category ?? '') !== '')
+      .map(a => ({ id: uid(), budgetId: saved.id, category: a.category!, amount: a.amount ?? 0 }));
+    await this.write('budgetAllocations', householdId, [...others, ...fresh]);
+    return { budget: saved, allocations: fresh };
   }
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
     await this.write(entity, householdId, records);

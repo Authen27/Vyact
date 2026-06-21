@@ -54,9 +54,8 @@ export default function BudgetFormModal(props: Props) {
   const transactions = useStore(s => s.transactions);
   const debts        = useStore(s => s.debts);
   const goals        = useStore(s => s.goals);
-  const upsertBudget = useStore(s => s.upsertBudget);
+  const saveBudgetWithAllocations = useStore(s => s.saveBudgetWithAllocations);
   const removeBudget = useStore(s => s.removeBudget);
-  const setBudgetAllocations = useStore(s => s.setBudgetAllocations);
   const manualRefresh = useStore(s => s.manualRefresh);
   const toast        = useStore(s => s.toast);
 
@@ -155,10 +154,16 @@ export default function BudgetFormModal(props: Props) {
     }
     setSaving(true);
     try {
-      // v9.3.1 — for a NEW budget, do NOT mint a random id. Let the store assign
-      // the DETERMINISTIC container id for this (scope, year, month) slot so every
-      // device converges on the same row. Use the SAVED id for allocations.
-      const saved = await upsertBudget({
+      // Budget-sync fix — write the budget AND its allocations in ONE atomic,
+      // online-synchronous RPC. The old two-step (upsertBudget, then a per-row
+      // setBudgetAllocations through the optimistic queue) could land the parent
+      // but silently dead-letter the children, so allocations never reached the
+      // cloud / other devices. The DB still owns identity/dedup (create rejects a
+      // taken slot with BUDGET_EXISTS); allocation ids are minted server-side.
+      const rows: Partial<BudgetAllocation>[] = form.allocs
+        .filter(r => parseFloat(r.amount) > 0)
+        .map(r => ({ category: r.category, amount: parseFloat(r.amount) }));
+      await saveBudgetWithAllocations({
         id: initial?.id,
         scope: form.scope,
         periodYear: Number(form.periodYear),
@@ -168,11 +173,7 @@ export default function BudgetFormModal(props: Props) {
         limit: total,
         currency: form.currency,
         color: deterministicColor(form.allocs[0]?.category ?? 'other_expense'),
-      });
-      const rows: Partial<BudgetAllocation>[] = form.allocs
-        .filter(r => parseFloat(r.amount) > 0)
-        .map(r => ({ id: r.id, category: r.category, amount: parseFloat(r.amount) }));
-      await setBudgetAllocations(saved.id, rows);
+      }, rows);
       toast(initial ? 'Budget updated' : 'Budget added', 'success');
       onClose();
     } catch (e) {

@@ -25,6 +25,9 @@ export interface CrudSlice {
   removeBudget: (id: string) => Promise<void>;
   /** v9.1 §4 — replace a budget's per-category allocations. */
   setBudgetAllocations: (budgetId: string, rows: Partial<BudgetAllocation>[]) => Promise<BudgetAllocation[]>;
+  /** Budget-sync fix — write a budget AND its allocations atomically online (one
+   *  RPC), so children can't silently dead-letter. The save path the form uses. */
+  saveBudgetWithAllocations: (budget: Partial<Budget>, allocations: Partial<BudgetAllocation>[]) => Promise<{ budget: Budget; allocations: BudgetAllocation[] }>;
   upsertGoal: (g: Partial<Goal>) => Promise<Goal>;
   removeGoal: (id: string) => Promise<void>;
   upsertMember: (m: Partial<Member>) => Promise<Member>;
@@ -74,6 +77,23 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       budgets: budgets.filter(x => x.id !== id),
       budgetAllocations: budgetAllocations.filter(a => a.budgetId !== id),
     });
+  },
+  // Budget-sync fix — atomic budget + allocations save via one online RPC. This is
+  // the durable path the form uses (replaces the old upsertBudget + per-row
+  // setBudgetAllocations two-step, whose child writes could silently dead-letter).
+  saveBudgetWithAllocations: async (budget, allocs) => {
+    assertCanManageBudgets(get().myRole);
+    const { adapter, currentHouseholdId, budgets, budgetAllocations } = get();
+    const mode: 'create' | 'replace' = budget.id ? 'replace' : 'create';
+    const { budget: saved, allocations } = await adapter.upsertBudgetWithAllocations(currentHouseholdId, budget, allocs, mode);
+    const merged: Budget = { ...saved, period: saved.period || budget.period || 'monthly' };
+    const idx = budgets.findIndex(x => x.id === saved.id);
+    const others = budgetAllocations.filter(a => a.budgetId !== saved.id);
+    set({
+      budgets: idx >= 0 ? budgets.map(x => x.id === saved.id ? merged : x) : [...budgets, merged],
+      budgetAllocations: [...others, ...allocations],
+    });
+    return { budget: merged, allocations };
   },
   // v9.1 §4 — replace the full per-category allocation set for one budget.
   setBudgetAllocations: async (budgetId, rows) => {

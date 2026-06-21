@@ -755,6 +755,36 @@ export class SupabaseAdapter implements DataAdapter {
     return rowToBudget(row as BudgetRow);
   }
 
+  // Budget-sync fix — atomic parent + children write via the DB RPC. The whole
+  // operation (budget identity/dedup + allocation replace) is one transaction, so
+  // children can no longer silently dead-letter the way the queued per-row path did.
+  async upsertBudgetWithAllocations(
+    householdId: string,
+    budget: Partial<Budget>,
+    allocations: Partial<BudgetAllocation>[],
+    mode: 'create' | 'replace',
+  ): Promise<{ budget: Budget; allocations: BudgetAllocation[] }> {
+    const b = budgetToRow(budget, householdId);
+    if (mode === 'create') delete (b as Record<string, unknown>).id;   // DB mints the id on create
+    const allocs = allocations
+      .filter(a => (a.category ?? '') !== '')
+      .map(a => ({ category: a.category, amount: a.amount ?? 0 }));
+    const { data, error } = await this.sb.rpc('upsert_budget_with_allocations', {
+      h: householdId, b, allocs, p_mode: mode,
+    });
+    if (error) {
+      if (error.code === '23505' || /BUDGET_EXISTS/.test(error.message || '')) {
+        throw new BudgetExistsError(error.details || error.message);
+      }
+      throw error;
+    }
+    const out = data as { budget: BudgetRow; allocations: BudgetAllocationRow[] };
+    return {
+      budget: rowToBudget(out.budget),
+      allocations: (out.allocations || []).map(rowToBudgetAllocation),
+    };
+  }
+
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
     const tableName = this.tableName(entity);
     if (entity === 'members') {
@@ -787,10 +817,20 @@ export class SupabaseAdapter implements DataAdapter {
       // allocation rows ride other devices' delta window as tombstones (see
       // remove()). Without this, replaced allocation limits never disappear on
       // a second device — exactly the v9.1.01 "allocation fallback" class.
-      const nowIso = new Date().toISOString();
-      await this.sb.from('budget_allocations')
-        .update({ deleted_at: nowIso, updated_at: nowIso })
-        .eq('household_id', householdId).is('deleted_at', null);
+      //
+      // Budget-sync fix (Phase 3): SCOPE the soft-delete to the target budget.
+      // The old `.eq('household_id', hid)` clobbered EVERY budget's allocations in
+      // the household — a latent data-loss footgun. The records all belong to one
+      // budget; derive it and scope to it. With no budget in the set we cannot
+      // scope, so we skip the delete entirely rather than nuke the household.
+      // (This path is now largely superseded by `upsertBudgetWithAllocations`.)
+      const budgetId = (records as Array<{ budgetId?: string }>).find(r => r.budgetId)?.budgetId;
+      if (budgetId) {
+        const nowIso = new Date().toISOString();
+        await this.sb.from('budget_allocations')
+          .update({ deleted_at: nowIso, updated_at: nowIso })
+          .eq('household_id', householdId).eq('budget_id', budgetId).is('deleted_at', null);
+      }
       const out: unknown[] = [];
       for (const rec of records as Array<{ id?: string }>) {
         out.push(await this.upsert(entity, householdId, rec));

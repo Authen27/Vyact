@@ -1,5 +1,15 @@
 # Plan: Durable Budget-Allocation Cross-Device Sync (v9.5.x)
 
+> **STATUS — IMPLEMENTED in v9.5.8 (2026-06-21).** Phase 1 (atomic
+> `upsert_budget_with_allocations` RPC + adapters + `saveBudgetWithAllocations` store
+> action + single-call `BudgetFormModal` save), Phase 2 (owner/admin RLS already
+> shipped v9.5.0; realtime already covers both tables), and Phase 3 (scoped the
+> `replaceAll('budgetAllocations')` soft-delete to the target budget; the dataSlice
+> allocation-read `.catch` now records a fault + keeps current allocations) are done.
+> RPC validated on prod via a rolled-back `DO` block; advisors clean. Phase 4 gates
+> green (tsc · eslint · 161 tests incl. money-model · build). Phase 0 repro is
+> superseded by the root-cause fix. See `react/CHANGELOG.md` v9.5.8.
+
 Fix the defect behind "category allocations created on mobile never appear on desktop" (issue **a**) and
 guarantee real-time, either-device budget edits (req **b**).
 

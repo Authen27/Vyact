@@ -25,6 +25,7 @@ import {
 } from '../../lib/onboardingState';
 import { accountValueOf } from '../../lib/accountBalance';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from '../../lib/educationProgress';
+import { unexpected } from '../../lib/faults';
 import { readLocalJson, readLocalString, setLocalString, removeLocal } from '../localJson';
 
 export interface DataSlice {
@@ -247,7 +248,10 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       adapter.list<Account>('accounts',         currentHouseholdId),
       adapter.list<SavedView>('savedViews',     currentHouseholdId).catch(() => [] as SavedView[]),
       adapter.list<RecurringSchedule>('recurring', currentHouseholdId).catch(() => [] as RecurringSchedule[]),
-      adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId).catch(() => [] as BudgetAllocation[]),
+      // Budget-sync fix (Phase 3): record the fault + keep current allocations
+      // instead of silently swallowing a read failure into [] (looks like loss).
+      adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId)
+        .catch((e) => { unexpected(e, 'refresh:budgetAllocations'); return get().budgetAllocations; }),
       adapter.getProfile(currentHouseholdId),
       adapter.getRates(currentHouseholdId),
     ]);
@@ -324,7 +328,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const { adapter, currentHouseholdId } = get();
     const [budgets, budgetAllocations] = await Promise.all([
       adapter.list<Budget>('budgets', currentHouseholdId),
-      adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId).catch(() => [] as BudgetAllocation[]),
+      // Budget-sync fix (Phase 3): don't SILENTLY swallow an allocation-read
+      // failure into [] — that renders every budget as un-allocated and looks like
+      // data loss. Record the fault and keep the current allocations instead.
+      adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId)
+        .catch((e) => { unexpected(e, 'refetchBudgets:budgetAllocations'); return get().budgetAllocations; }),
     ]);
     set({ budgets, budgetAllocations });
   },

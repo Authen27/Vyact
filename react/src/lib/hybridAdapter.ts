@@ -14,7 +14,7 @@
 // delegates to those modules.
 
 import type {
-  Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey, Budget,
+  Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey, Budget, BudgetAllocation,
 } from '../types';
 import {
   type DataAdapter, type Entity, LocalStorageAdapter,
@@ -203,6 +203,26 @@ export class HybridAdapter implements DataAdapter {
     const saved = await this.cloud.createBudgetChecked(householdId, budget);
     try { await this.cache.upsert('budgets', householdId, saved); } catch { /* cache is best-effort */ }
     return saved;
+  }
+  async upsertBudgetWithAllocations(
+    householdId: string,
+    budget: Partial<Budget>,
+    allocations: Partial<BudgetAllocation>[],
+    mode: 'create' | 'replace',
+  ): Promise<{ budget: Budget; allocations: BudgetAllocation[] }> {
+    // Online-synchronous (like createBudgetChecked): the atomic RPC is the
+    // durability boundary, NOT the optimistic queue — so a child allocation can no
+    // longer silently dead-letter into vt_sync_failed and never reach the cloud.
+    const res = await this.cloud.upsertBudgetWithAllocations(householdId, budget, allocations, mode);
+    // Seed cache with the authoritative rows (best-effort): the budget + a SCOPED
+    // replace of just this budget's allocations (preserve other budgets' cached rows).
+    try { await this.cache.upsert('budgets', householdId, res.budget); } catch { /* best-effort */ }
+    try {
+      const cached = await this.cache.list('budgetAllocations', householdId) as Array<{ budgetId?: string }>;
+      const others = cached.filter(a => a.budgetId !== res.budget.id);
+      await this.cache.replaceAll('budgetAllocations', householdId, [...others, ...res.allocations]);
+    } catch { /* best-effort */ }
+    return res;
   }
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
     await this.cache.replaceAll(entity, householdId, records);

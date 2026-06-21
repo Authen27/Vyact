@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.7`** (consumer)
+> **Current production version: `v9.5.8`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.8 — Durable budget-allocation cross-device sync *(2026-06-21)*
+
+Implements `docs/budget-sync-fix-plan.md`. Fixes "category allocations created on
+one device never appear on another." Root cause was a **write-path asymmetry**: the
+parent budget was written online-synchronously (`createBudgetChecked`), but each
+child allocation went through the **fire-and-forget optimistic queue** and could
+silently dead-letter into `vt_sync_failed` — never reaching the cloud, so realtime
+had nothing to broadcast and a fresh login/private window showed no allocations.
+
+**Phase 1 — atomic parent + children write (primary fix).**
+- DB: new RPC `upsert_budget_with_allocations(h, b, allocs, p_mode)` writes the
+  budget (reusing `upsert_budget`'s identity/dedup + owner/admin guard +
+  `BUDGET_EXISTS`) **and** its full allocation set (scoped tombstone-then-insert) in
+  **one transaction**. Validated on prod via a rolled-back `DO` block (create → 2
+  live; replace → 1 live + 2 tombstoned, same budget; member → `42501`); advisors clean.
+- Adapters: `upsertBudgetWithAllocations` on the `DataAdapter` interface,
+  `supabaseAdapter` (RPC; maps `BUDGET_EXISTS → BudgetExistsError`), `hybridAdapter`
+  (online-synchronous like `createBudgetChecked`, with a scoped cache seed), and the
+  local `LocalStorageAdapter` (offline equivalent).
+- Store/UI: new `saveBudgetWithAllocations` action; `BudgetFormModal` now saves via
+  the single awaited atomic call instead of `upsertBudget` + a queued per-row
+  `setBudgetAllocations`. Durability no longer depends on a background flush.
+
+**Phase 2 — either-device realtime.** Already in place: owner/admin RLS on
+`budget_allocations` shipped v9.5.0, and `realtime.ts` already subscribes both
+tables — once Phase 1 guarantees children reach the cloud, they broadcast. (Concurrent
+edits: row-level last-writer-wins, documented.)
+
+**Phase 3 — close landmines.** Scoped the `supabaseAdapter.replaceAll('budgetAllocations')`
+soft-delete to the **target budget** (it was `.eq('household_id')` — deleting *every*
+budget's allocations in the household, a latent data-loss footgun). The `dataSlice`
+allocation-read `.catch` now **records a fault and keeps the current allocations**
+instead of silently swallowing a read failure into `[]` (which looked like loss).
+
+Verified: tsc · eslint 0 errors · **161 tests** (money-model suites unchanged) · build.
 
 ## v9.5.7 — Fix: Learn microsite functions weren't deploying *(2026-06-21)*
 
