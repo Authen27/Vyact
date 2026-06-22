@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.10`** (consumer)
+> **Current production version: `v9.5.11`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,16 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.11 — Evergreen Learn library: full-length lessons *(2026-06-21)*
+
+Refreshed the 116-card evergreen library with the expanded, full-length lesson
+bodies (`react/src/data/evergreenCards.json` — 106 of 116 cards rewritten longer;
+~37k → ~173k chars of content; same ids/categories/visuals, none added/removed).
+The consumer Learn tab renders the bundle, so the richer content goes live here.
+The app DB (`content_items`, `format='card'`) is re-seeded to match via a one-shot
+edge function that fetches the committed file and upserts by slug (service role) —
+no SQL transcription.
 
 ## v9.5.10 — Sidebar: relocate sync status off the logo row *(2026-06-21)*
 
