@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.5.9`** (consumer)
+> **Current production version: `v9.5.10`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,18 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.5.10 — Sidebar: relocate sync status off the logo row *(2026-06-21)*
+
+The wide "Synced · 1m ago" pill lived in the desktop sidebar header next to the
+logo + wordmark + notification bell, overflowing the 240px rail and crowding/
+clipping the Vyact logo. It was also **desktop-only** (`hidden lg:flex`), so mobile
+never showed sync status at all.
+
+Fix: moved `SyncStatusBadge` out of the header and **beside the cloud icon in the
+ProfileSwitcher "Cloud sync" row**, which renders in the sidebar drawer on **both
+desktop and mobile**. The header now carries just the logo, wordmark and bell (no
+overflow); sync status — and tap-to-refresh — is reachable on every viewport.
 
 ## v9.5.9 — Production sync-health indicator + tighter transaction rows *(2026-06-21)*
 

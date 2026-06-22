@@ -12,7 +12,6 @@ import ProfileSwitcher from './ProfileSwitcher';
 import { useTranslation, useSwipeToClose } from '../../hooks';
 import { pagesForTemplate } from '../../lib/templates';
 import NotificationCenter from './NotificationCenter';
-import SyncStatusBadge from './SyncStatusBadge';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 
 interface Props {
@@ -103,9 +102,11 @@ export default function Sidebar({ open, onClose }: Props) {
               Vy<span style={{ fontStyle: 'italic', color: 'var(--ff-coral)' }}>act</span>
             </div>
           </Link>
-          <div className="hidden lg:flex items-center gap-2">
+          {/* Sync status moved to the ProfileSwitcher "Cloud sync" row (v9.5.10):
+              the wide "Synced · 1m ago" pill overflowed the 240px rail and crowded
+              the logo. Only the notification bell stays beside the wordmark. */}
+          <div className="hidden lg:flex items-center">
             <NotificationCenter />
-            <SyncStatusBadge />
           </div>
           <button onClick={onClose} className="lg:hidden absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 border border-line rounded text-ink-mid hover:text-ink hover:border-line2 flex items-center justify-center">
             <X size={14} />

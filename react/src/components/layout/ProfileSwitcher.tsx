@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Plus, Settings as SettingsIcon, Check, Cloud, CloudOff } from 'lucide-react';
 import { useStore } from '../../store';
 import { PROFILE_TYPES } from '../../constants';
+import SyncStatusBadge from './SyncStatusBadge';
 
 export default function ProfileSwitcher() {
   const [open, setOpen] = useState(false);
@@ -68,9 +69,16 @@ export default function ProfileSwitcher() {
             className="flex items-center gap-2 px-3.5 py-2.5 cursor-pointer hover:bg-bg3 text-coral font-mono text-[0.65rem] tracking-wider uppercase">
             <SettingsIcon size={14} /> Manage households
           </div>
+          {/* Cloud-sync row — the live sync status badge sits beside the cloud icon
+              here (v9.5.10), where it's reachable on BOTH desktop and mobile, instead
+              of crammed into the desktop-only sidebar header. */}
           <div className="px-3.5 py-2 border-t border-line mt-1 flex items-center gap-2 font-mono text-[0.6rem] tracking-wider uppercase">
             {cloudEnabled
-              ? <><Cloud size={11} className="text-sage" /><span className="text-sage">Cloud sync · {session?.user?.email}</span></>
+              ? <>
+                  <Cloud size={11} className="text-sage shrink-0" />
+                  <span className="text-sage flex-1 min-w-0 truncate">Cloud sync · {session?.user?.email}</span>
+                  <span className="flex-shrink-0"><SyncStatusBadge /></span>
+                </>
               : <><CloudOff size={11} className="text-ink-dim" /><span className="text-ink-dim">Local-only mode</span></>
             }
           </div>
