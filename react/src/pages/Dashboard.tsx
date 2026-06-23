@@ -12,9 +12,12 @@ import {
   selectSpendByCategory, selectRecentTxns, selectTotalAssets, selectTotalLiabilities,
   selectMonthlyDebtPayment,
 } from '../lib/selectors';
-import { fmt, fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
+import { fmtShort, monthName, nowMonthKey, convert } from '../lib/format';
 import { budgetLines } from '../lib/calculations';
 import Money from '../components/ui/Money';
+import AnimatedMoney from '../components/ui/AnimatedMoney';
+import { motion } from 'framer-motion';
+import { staggerContainer, staggerItem } from '../lib/motion';
 import { getCat } from '../constants';
 import { ArrowDownRight, ArrowUpRight, Scale, ArrowRight } from 'lucide-react';
 import type { PulseScore } from '../lib/calculations';
@@ -92,7 +95,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-ink-dim mb-2">
               <ArrowDownRight size={13} className="text-sage" /><ArrowUpRight size={13} className="text-terra" /> Cash Flow · {monthName(mk)}
             </div>
-            <Money amount={month.income - month.expense} currency={baseCur} maxChars={12}
+            <AnimatedMoney amount={month.income - month.expense} currency={baseCur} maxChars={12}
               className={`num text-3xl font-semibold ${month.income - month.expense >= 0 ? 'text-sage' : 'text-terra'}`} />
             <div className="flex gap-4 mt-2 text-[0.78rem]">
               <span className="text-ink-mid">In <span className="num text-sage">{fmtShort(month.income, baseCur)}</span></span>
@@ -105,7 +108,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-ink-dim mb-2">
               <Scale size={13} className="text-denim" /> Net Worth · today
             </div>
-            <Money amount={ta - tl} currency={baseCur} maxChars={12}
+            <AnimatedMoney amount={ta - tl} currency={baseCur} maxChars={12}
               className={`num text-3xl font-semibold ${ta - tl >= 0 ? 'text-ink' : 'text-terra'}`} />
             <div className="flex gap-4 mt-2 text-[0.78rem]">
               <span className="text-ink-mid">Assets <span className="num text-sage">{fmtShort(ta, baseCur)}</span></span>
@@ -132,30 +135,36 @@ export default function Dashboard() {
             all-time income − expense, which mapped to neither account cash nor net
             worth (yet linked to Net Worth), so consumers couldn't place it. The
             three remaining tiles are all this-month flow metrics. */}
-        <div className="grid grid-cols-3 gap-2">
-          <Link to={`/transactions?type=income&month=${mk}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View income transactions">
-            <Card label={t('monthly-income')}   accent="sage"  value={<Money amount={month.income}  currency={baseCur} maxChars={8} />} sub={t('this-month')} />
-          </Link>
-          <Link to={`/transactions?type=expense&month=${mk}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View expense transactions">
-            <Card label={t('monthly-expenses')} accent="terra" value={<Money amount={month.expense} currency={baseCur} maxChars={8} />} sub={t('this-month')} />
-          </Link>
-          <Link to="/reports?from=savings" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View savings breakdown">
-            <Card label={t('savings-rate')}     accent="honey" value={<span className={rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}>{rate}%</span>} sub="of income not spent" />
-          </Link>
-        </div>
+        <motion.div className="grid grid-cols-3 gap-2" variants={staggerContainer} initial="hidden" animate="visible">
+          <motion.div variants={staggerItem}>
+            <Link to={`/transactions?type=income&month=${mk}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View income transactions">
+              <Card label={t('monthly-income')}   accent="sage"  value={<AnimatedMoney amount={month.income}  currency={baseCur} maxChars={8} />} sub={t('this-month')} />
+            </Link>
+          </motion.div>
+          <motion.div variants={staggerItem}>
+            <Link to={`/transactions?type=expense&month=${mk}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View expense transactions">
+              <Card label={t('monthly-expenses')} accent="terra" value={<AnimatedMoney amount={month.expense} currency={baseCur} maxChars={8} />} sub={t('this-month')} />
+            </Link>
+          </motion.div>
+          <motion.div variants={staggerItem}>
+            <Link to="/reports?from=savings" className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 rounded-md" aria-label="View savings breakdown">
+              <Card label={t('savings-rate')}     accent="honey" value={<span className={rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}>{rate}%</span>} sub="of income not spent" />
+            </Link>
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* Insights — v9.5.2: each carries an inline sub-line that defines the term
           and names the next action, and (when actionable) links to the relevant
           page. Turns a bare fact ("DTI 20% — healthy") into understanding + a path. */}
       {insights.length > 0 && (
-        <div className="grid sm:grid-cols-2 gap-2 mb-3.5">
+        <motion.div className="grid sm:grid-cols-2 gap-2 mb-3.5" variants={staggerContainer} initial="hidden" animate="visible">
           {insights.map((c, i) => {
             const tone = c.cls === 'chip-good' ? 'border-l-sage'
                        : c.cls === 'chip-warn' ? 'border-l-honey'
                        : c.cls === 'chip-alert' ? 'border-l-terra'
                        :                          'border-l-denim';
-            const cls = `flex items-start gap-2.5 bg-bg2 border border-line ${tone} border-l-[3px] rounded-md px-3.5 py-2.5 ${c.to ? 'hover:bg-bg3 transition-colors' : ''}`;
+            const cls = `flex items-start gap-2.5 bg-bg2 border border-line ${tone} border-l-[3px] rounded-md px-3.5 py-2.5 h-full ${c.to ? 'hover:bg-bg3 transition-colors' : ''}`;
             const body = (
               <>
                 <span className="text-base flex-shrink-0 leading-5">{c.icon}</span>
@@ -166,11 +175,13 @@ export default function Dashboard() {
                 {c.to && <ArrowRight size={13} className="text-coral shrink-0 mt-0.5" />}
               </>
             );
-            return c.to
-              ? <Link key={i} to={c.to} className={cls}>{body}</Link>
-              : <div key={i} className={cls}>{body}</div>;
+            return (
+              <motion.div key={i} variants={staggerItem}>
+                {c.to ? <Link to={c.to} className={cls}>{body}</Link> : <div className={cls}>{body}</div>}
+              </motion.div>
+            );
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* Two-col: Budgets + Recent transactions */}

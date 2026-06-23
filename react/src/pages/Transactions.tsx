@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
+import { popover } from '../lib/motion';
 import {
   CalendarDays, X, Search, SlidersHorizontal, RotateCcw, ChevronDown,
 } from 'lucide-react';
@@ -407,12 +409,15 @@ export default function Transactions() {
                   </span>
                 )}
               </button>
+              <AnimatePresence>
               {showFilters && (
-                <div
+                <motion.div
                   ref={filterPopoverRef}
                   role="dialog"
                   aria-label="Transaction filters"
-                  className="absolute right-0 top-[44px] z-30 w-[min(92vw,22rem)] bg-bg2 border border-line rounded-xl shadow-3 p-3.5 animate-[modalIn_180ms_ease-out]"
+                  variants={popover} initial="hidden" animate="visible" exit="exit"
+                  style={{ transformOrigin: 'top right' }}
+                  className="absolute right-0 top-[44px] z-30 w-[min(92vw,22rem)] bg-bg2 border border-line rounded-xl shadow-3 p-3.5"
                 >
                   <div className="flex items-center justify-between mb-2.5">
                     <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
@@ -457,8 +462,9 @@ export default function Transactions() {
                       Done
                     </button>
                   </div>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
           </div>
 

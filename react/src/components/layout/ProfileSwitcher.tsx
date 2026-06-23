@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Plus, Settings as SettingsIcon, Check, Cloud, CloudOff } from 'lucide-react';
 import { useStore } from '../../store';
 import { PROFILE_TYPES } from '../../constants';
+import { popover } from '../../lib/motion';
 import SyncStatusBadge from './SyncStatusBadge';
 
 export default function ProfileSwitcher() {
@@ -38,8 +40,12 @@ export default function ProfileSwitcher() {
         <ChevronDown size={12} className="text-ink-mid" />
       </button>
 
+      <AnimatePresence>
       {open && (
-        <div className="absolute top-full inset-x-0 z-50 bg-bg2 border border-line2 rounded-b-md shadow-2 max-h-96 overflow-y-auto py-1">
+        <motion.div
+          variants={popover} initial="hidden" animate="visible" exit="exit"
+          style={{ transformOrigin: 'top' }}
+          className="absolute top-full inset-x-0 z-50 bg-bg2 border border-line2 rounded-b-md shadow-2 max-h-96 overflow-y-auto py-1">
           {households.map(h => {
             const m = PROFILE_TYPES[h.type];
             const isActive = h.id === currentId;
@@ -82,8 +88,9 @@ export default function ProfileSwitcher() {
               : <><CloudOff size={11} className="text-ink-dim" /><span className="text-ink-dim">Local-only mode</span></>
             }
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

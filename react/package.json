@@ -1,7 +1,7 @@
 {
   "name": "vyact-react",
   "private": true,
-  "version": "9.5.11",
+  "version": "9.6.0",
   "type": "module",
   "description": "Vyact — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
@@ -26,6 +26,7 @@
     "@userback/widget": "^0.3.12",
     "@vercel/speed-insights": "^2.0.0",
     "dinero.js": "^2.0.2",
+    "framer-motion": "^12.40.0",
     "lucide-react": "^0.453.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

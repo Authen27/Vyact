@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { MotionConfig } from 'framer-motion';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './store';
 import { useTheme } from './hooks';
@@ -49,22 +50,27 @@ const AcceptInvite  = React.lazy(() => import('./pages/auth/AcceptInvite'));
 const VerifiedAuth = React.lazy(() => import('./pages/auth/VerifiedAuth'));
 
 export default function App() {
+  // reducedMotion="user" makes the WHOLE app honor the OS "reduce motion" setting
+  // automatically — every motion component degrades to instant. This is the
+  // accessibility foundation the rest of the motion work builds on.
   return (
-    <AuthGate>
-      <ScrollToTop />
-      <AppShell />
-      <Suspense fallback={null}>
-        <RootModals />
-      </Suspense>
-      <ToastHost />
-      <SyncHealthIndicator />
-      {import.meta.env.DEV && <FaultsPanel />}
-      <UpdateBanner />
-      <InstallBanner />
-      <Suspense fallback={null}>
-        <NudgeBanner />
-      </Suspense>
-    </AuthGate>
+    <MotionConfig reducedMotion="user">
+      <AuthGate>
+        <ScrollToTop />
+        <AppShell />
+        <Suspense fallback={null}>
+          <RootModals />
+        </Suspense>
+        <ToastHost />
+        <SyncHealthIndicator />
+        {import.meta.env.DEV && <FaultsPanel />}
+        <UpdateBanner />
+        <InstallBanner />
+        <Suspense fallback={null}>
+          <NudgeBanner />
+        </Suspense>
+      </AuthGate>
+    </MotionConfig>
   );
 }
 
