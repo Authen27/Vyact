@@ -115,7 +115,9 @@ export default function Onboarding() {
     markCompleted(householdId, segment, context);
     await updateProfile({
       household: SEGMENT_TO_PROFILE[segment],
-      primaryConcern: (['spending', 'debt', 'savings'].includes(context.primaryConcern)
+      // v9.6.1 — 'savings' (the removed "Save for a goal" concern) is no longer
+      // selectable; 'runway' falls through to 'spending'. Goals are not a module.
+      primaryConcern: (['spending', 'debt'].includes(context.primaryConcern)
         ? context.primaryConcern : 'spending') as 'spending' | 'debt' | 'savings',
       baseCurrency: currency,
       onboardedAt: new Date().toISOString(),

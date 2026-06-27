@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.6.0`** (consumer)
+> **Current production version: `v9.6.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,16 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.6.1 — Onboarding: drop the discarded "Save for a goal" path *(2026-06-23)*
+
+Goals were removed as a module (v8.8.0), so the onboarding **"Save for a goal"**
+primary-concern chip pointed at a surface that no longer exists. Removed it (concerns
+are now Track spending / Pay off debt / Extend runway) and stripped the dead `'Goals'`
+entry from both segments' `visibleModules`. Retired the `'savings'` primaryConcern
+mapping (no concern produces it now; `'runway'` still falls through to `'spending'`).
+No functional dashboard change — these onboarding signals were already inert; this
+removes the goal association only.
 
 ## v9.6.0 — Motion design: framer-motion foundation + Tier 1 + Dashboard *(2026-06-23)*
 
