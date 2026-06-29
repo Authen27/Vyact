@@ -9,6 +9,7 @@
 // remain for deep links.
 
 import React, { Suspense, useState, useEffect, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Sparkles, X } from 'lucide-react';
 
 const Chat = React.lazy(() => import('../../pages/Chat'));
@@ -20,6 +21,7 @@ const KEY = 'floating_last';
 
 export default function FloatingTools() {
   const [tool, setTool] = useState<Tool>(null);
+  const location = useLocation();
 
   // Esc closes the drawer for keyboard users.
   useEffect(() => {
@@ -33,6 +35,11 @@ export default function FloatingTools() {
     setTool(t);
     try { if (t) ls.setString(KEY, t); } catch { /* noop */ }
   }
+
+  // Hide on the onboarding flow + auth routes — these are full-screen overlays
+  // with no household context, so Ask Vyact / the Add-Transaction FAB don't apply.
+  // (After the hooks so they always run — rules-of-hooks.)
+  if (location.pathname.startsWith('/onboarding') || location.pathname.startsWith('/auth/')) return null;
 
   return (
     <>
