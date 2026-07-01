@@ -28,9 +28,9 @@
     "dinero.js": "^2.0.2",
     "framer-motion": "^12.40.0",
     "lucide-react": "^0.453.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.27.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
     "recharts": "^2.13.0",
     "vyact-react": "file:",
     "zustand": "^5.0.1"
@@ -38,8 +38,8 @@
   "devDependencies": {
     "@eslint/js": "^9.13.0",
     "@playwright/test": "^1.60.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.13.0",
