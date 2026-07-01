@@ -15,6 +15,36 @@ come later and are out of scope here. Companion design: `whatsapp-vyact-solution
 
 ---
 
+## 0. Go-live checklist — what's MANDATORY vs OPTIONAL (start here)
+
+**Already captured (non-sensitive IDs, baked into the code — nothing to do):**
+- ✅ **Phone Number ID** `1180086958501828` (default in `_shared/whatsapp.ts`; env `WHATSAPP_PHONE_NUMBER_ID` overrides).
+- ✅ **WhatsApp Business Account ID (WABA)** `1690737521937003` (recorded; only needed for the template-management API — not used by the OTP/webhook runtime).
+
+**MANDATORY — still required to go live (you must obtain/set these; I can't fetch secrets):**
+| # | Item | Where it comes from | Set as |
+| :-- | :-- | :-- | :-- |
+| 1 | **System User Access Token** (permanent; perms `whatsapp_business_messaging`) | Meta Business Settings → System Users | secret `WHATSAPP_ACCESS_TOKEN` |
+| 2 | **App Secret** | Meta App → Settings → Basic | secret `WHATSAPP_APP_SECRET` |
+| 3 | **Verify token** (you invent it) — suggested: `611fe0f8de828eaeef8556ad3326560d034a26462fc3a32d` | you choose | secret `WHATSAPP_VERIFY_TOKEN` |
+| 4 | **Template** `phone_verification_otp` — submitted **and approved** | Meta → WhatsApp → Message Templates | — |
+| 5 | **Webhook** registered + `messages` subscribed + *Verify and save* | Meta → WhatsApp → Configuration | — |
+| 6 | **Deploy** the 3 Edge Functions + `supabase secrets set` | CI job / Supabase CLI | — |
+
+**OPTIONAL — safe to SKIP for the connection phase:**
+- `WHATSAPP_OTP_PEPPER` — recommended, but the OTP is still SHA-256 hashed without it.
+- `WHATSAPP_WABA_ID` secret — the WABA ID is baked in; only set it if you later drive
+  template management via the API.
+- The 4 workflow templates (`transaction_logged_success`, `partner_split_prompt`,
+  `transaction_error_feedback`, `security_alert_unregistered`) — only for the use-case phase.
+- Full Business Verification / higher messaging tier — a **test number** is enough to
+  validate the connection; verification is needed for production sending volume.
+
+> **Bottom line:** you now only need **items 1–6** above. Items 1–3 are three secrets;
+> items 4–6 are three Meta-dashboard / deploy actions. Everything else is optional.
+
+---
+
 ## 1. Meta / WhatsApp Business account configuration (do this first)
 
 ### 1.1 App + product

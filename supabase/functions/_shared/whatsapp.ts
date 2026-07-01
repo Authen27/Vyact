@@ -13,6 +13,12 @@ export const env = (k: string, fallback = ''): string => Deno.env.get(k) ?? fall
 
 export const GRAPH_VERSION = env('WHATSAPP_GRAPH_VERSION', 'v21.0');
 
+// Non-sensitive Meta identifiers — safe to keep in code (they are IDs, not secrets).
+// An env var of the same name overrides, so no code change is needed to rotate.
+//   Phone Number ID = the sending number; WABA ID = the WhatsApp Business Account.
+export const WHATSAPP_PHONE_NUMBER_ID = env('WHATSAPP_PHONE_NUMBER_ID', '1180086958501828');
+export const WHATSAPP_BUSINESS_ACCOUNT_ID = env('WHATSAPP_WABA_ID', '1690737521937003');
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -57,7 +63,7 @@ export async function verifyMetaSignature(rawBody: string, header: string | null
 
 /** Send an approved WhatsApp template message. `params` fill {{1}},{{2}},… in the body. */
 export async function sendTemplate(to: string, templateName: string, params: string[] = [], lang = 'en_US'): Promise<void> {
-  const phoneId = env('WHATSAPP_PHONE_NUMBER_ID');
+  const phoneId = WHATSAPP_PHONE_NUMBER_ID;
   const token = env('WHATSAPP_ACCESS_TOKEN');
   if (!phoneId || !token) throw new Error('WhatsApp sender not configured (PHONE_NUMBER_ID / ACCESS_TOKEN).');
   const components = params.length
