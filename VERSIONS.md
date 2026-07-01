@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v9.7.1** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v9.8.1** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.2.0** | https://vyact-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (archived)** | removed in v7.0.1 | **v5.0** *(final)* | archived — see git history | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
@@ -23,6 +23,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-07-01 | [Consumer](react/CHANGELOG.md) | **v9.8.1** | **Real legal docs + data erasure/deactivation/deletion.** Privacy/Terms/Cookies rewritten with full IP + PII terms and made public (no login required, crawlable); sign-up now records real consent (`tos_accepted_at`/`privacy_accepted_at`); Settings → Danger Zone ships erase-household-data, deactivate (auto-reactivates on sign-in), and permanent delete with a 30-day undo window, each gated on an email verification code — migration applied + `delete-account` edge function deployed to prod. |
 | 2026-06-23 | [Consumer](react/CHANGELOG.md) | **v9.7.1** | **Hide FABs during onboarding.** Ask Vyact + Add-Transaction FABs no longer float over the onboarding overlay (`/onboarding` is a Layout route); both gate on `/onboarding` + `/auth/`. |
 | 2026-06-23 | [Consumer](react/CHANGELOG.md) | **v9.7.0** | **Onboarding redesign — the questionnaire drives the dashboard.** Steps-3–4 inputs kept as an estimated *reference* baseline (`StartingBaselineBand`) rendered day-one and wiped as real activity supersedes it; segment → module template. Reference overlay, not ledger rows; no DB migration. |
 | 2026-06-23 | [Consumer](react/CHANGELOG.md) | **v9.6.1** | **Onboarding: drop "Save for a goal."** Removed the concern pointing at the discarded Goals module + dead `visibleModules` 'Goals' entries. |

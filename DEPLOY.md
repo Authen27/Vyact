@@ -11,6 +11,33 @@
 > history; some of its specifics (URLs, manual env-var entry) are superseded by
 > the section below.**
 
+## 🛑 Non-negotiable pre-push checklist (every release, without fail)
+
+Before any `git push origin main` that bumps a version, run **all** of these — this
+step is not optional and is not "when convenient":
+
+1. Bump the version in lockstep across all four surfaces: `react/package.json`
+   (or `admin/package.json`), `README.md`, `react/CHANGELOG.md` (or
+   `admin/CHANGELOG.md`) banner + new dated entry, and `CLAUDE.md`'s version
+   mentions.
+2. Add the release to **both** tables in [`VERSIONS.md`](VERSIONS.md): the
+   current-version summary row near the top, **and** the "Cross-app release
+   timeline" table further down. The timeline table is a narrative history that
+   `scripts/version-drift-check.mjs` does **not** check — it has silently gone
+   16 releases stale before (caught and backfilled 2026-07-01). Update it by
+   hand, every time.
+3. Run `node scripts/version-drift-check.mjs` from the repo root. It must
+   print "Version-drift check passed" before you push. If it fails, fix the
+   surface it names — do not bypass it.
+4. Run the full verification gate for the app(s) you touched: `tsc -b` (0
+   errors) → `eslint .` (0 errors; pre-existing warnings tolerated) →
+   `vitest run` (full suite; money-model invariant tests must pass) →
+   `vite build` (exit 0).
+
+This is the same gate used for every release in this repo's history — treat a
+version bump without all four doc surfaces + both VERSIONS.md tables updated as
+an incomplete release, not a done one.
+
 ## ✅ Current production deployment (authoritative)
 
 **The trigger is simple and singular: _every push to `main` deploys._**
