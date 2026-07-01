@@ -13,6 +13,7 @@ import {
   sendAccountActionCode, verifyAccountActionCode,
 } from '../lib/auth';
 import WhatsAppLink from '../components/settings/WhatsAppLink';
+import { POLICY_VERSION } from './Privacy';
 import type { Profile, Theme } from '../types';
 import type { Factor } from '@supabase/supabase-js';
 
@@ -27,6 +28,14 @@ const DATE_FORMATS: { key: Profile['dateFormat']; label: string; example: string
   { key: 'eu',  label: 'European', example: '9 May 2026' },
   { key: 'iso', label: 'ISO',      example: '2026-05-09' },
 ];
+
+// POLICY_VERSION is an ISO date string ('2026-07-01') — render it human-readable
+// instead of the internal versioning format.
+function formatPolicyDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -702,11 +711,11 @@ export default function Settings() {
                       <div className="text-[0.82rem] text-ink-mid mt-0.5">
                         Schedules permanent deletion of your account and every household you own, with a <strong>30-day undo window</strong> — sign back in any time before then to cancel automatically. After 30 days, your profile, owned households, and login are erased for good and cannot be recovered.
                       </div>
-                      <div className="flex items-center gap-3 mt-3">
+                      <div className="flex flex-wrap items-center gap-3 mt-3">
                         <button className="btn-secondary text-xs whitespace-nowrap" onClick={onRequestDeletion} disabled={deleting}>
                           {deleting ? 'Working…' : 'Schedule deletion (30-day undo)'}
                         </button>
-                        <button className="text-xs text-terra hover:underline" onClick={onDeleteImmediately} disabled={deleting}>
+                        <button className="text-xs text-terra hover:underline whitespace-nowrap" onClick={onDeleteImmediately} disabled={deleting}>
                           Delete immediately instead
                         </button>
                       </div>
@@ -722,15 +731,15 @@ export default function Settings() {
           <div className="p-5 grid sm:grid-cols-3 gap-3">
             <Link to="/privacy" className="bg-bg3 border border-line rounded-md px-4 py-4 hover:border-coral/40 transition-colors">
               <div className="text-sm font-semibold text-ink mb-1">Privacy Policy</div>
-              <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Draft scaffold</div>
+              <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
             </Link>
             <Link to="/terms" className="bg-bg3 border border-line rounded-md px-4 py-4 hover:border-coral/40 transition-colors">
               <div className="text-sm font-semibold text-ink mb-1">Terms of Service</div>
-              <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Draft scaffold</div>
+              <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
             </Link>
             <Link to="/cookies" className="bg-bg3 border border-line rounded-md px-4 py-4 hover:border-coral/40 transition-colors">
               <div className="text-sm font-semibold text-ink mb-1">Cookie Policy</div>
-              <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Draft scaffold</div>
+              <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
             </Link>
           </div>
         </Panel>

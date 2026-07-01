@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.8.1`** (consumer)
+> **Current production version: `v9.8.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,28 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.8.2 — Danger Zone mobile fix, real "last updated" dates, working support contact *(2026-07-01)*
+
+Three follow-up fixes on top of v9.8.1:
+
+- **Mobile overflow fix** — the "Delete immediately instead" link next to "Schedule deletion
+  (30-day undo)" in Settings → Danger Zone forced its row wider than the card on narrow viewports,
+  pushing it outside the container. The button row now wraps (`flex-wrap`) instead of forcing a
+  single line.
+- **"Draft scaffold" labels removed** — Settings → Legal & Policies previously showed a static
+  "Draft scaffold" tag under all three legal doc links, left over from before they were rewritten
+  in v9.7.x/v9.8.0. Each card now shows a real "Last updated {date}" sourced from
+  `Privacy.tsx`'s exported `POLICY_VERSION`, so the three surfaces (the doc pages themselves, this
+  card, and any future version bump) can't drift out of sync.
+- **Contact support was a dead end — now it isn't.** All three legal docs referenced "Help →
+  Contact", but Help had no such section; there was no way to actually reach support from a legal
+  page. Added a real "Contact support" panel to `Help.tsx` (anchor `#contact`) with a subject/
+  message form that opens a pre-filled `mailto:` to a temporary support inbox
+  (`uday.kr27@gmail.com` — flagged as temporary, to be replaced by proper ticketing as volume
+  grows), and updated the Privacy/Terms/Cookies Contact sections to link directly to a working
+  `mailto:` (so it works even for signed-out visitors reading the docs from an external link) in
+  addition to the in-app form for signed-in users.
 
 ## v9.8.1 — Real Privacy Policy/Terms/Cookies + data erasure, deactivation, and account deletion *(2026-07-01)*
 
