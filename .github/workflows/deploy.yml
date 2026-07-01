@@ -43,7 +43,7 @@ jobs:
     # step is idempotent and re-runs cleanly once the secret is refreshed).
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # NOTE: do NOT use `version: latest` — it hits the unauthenticated GitHub
       # API to look up the latest release and gets rate-limited on shared
       # runners. Pin a specific CLI version and bump it deliberately.
@@ -74,7 +74,7 @@ jobs:
     environment: production-database
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: supabase/setup-cli@v1
         with: { version: 1.226.4 }
       - name: Link project
@@ -99,7 +99,7 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
     defaults: { run: { working-directory: react } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: '20', cache: 'npm', cache-dependency-path: react/package-lock.json }
       - run: npm install -g vercel@latest
@@ -144,7 +144,7 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
     defaults: { run: { working-directory: admin } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: '20', cache: 'npm', cache-dependency-path: admin/package-lock.json }
       - run: npm install -g vercel@latest
