@@ -40,6 +40,8 @@ export interface ContentRow {
   source_name: SourceName | null;
   source_url: string | null;
   why_it_matters: string | null;
+  video_url: string | null;
+  video_updated_at: string | null;
 }
 
 export type EnrichedContent = Article & {
@@ -56,6 +58,8 @@ export type EnrichedContent = Article & {
   sourceName: SourceName | null;
   // sourceUrl is inherited from Article (optional string)
   whyItMatters: string | null;
+  videoUrl: string | null;
+  videoUpdatedAt: string | null;
 };
 
 // Exported for unit testing (ADM-UNIT-008..011); see docs/TEST_SCENARIOS.md.
@@ -87,6 +91,8 @@ export function rowToArticle(r: ContentRow): EnrichedContent {
     sourceName: r.source_name,
     sourceUrl: r.source_url ?? undefined,
     whyItMatters: r.why_it_matters,
+    videoUrl: r.video_url,
+    videoUpdatedAt: r.video_updated_at,
   };
 }
 
@@ -126,6 +132,10 @@ export interface ContentInput {
   why_it_matters?: string | null;
   /** Explicit source date for externals; otherwise set on publish. */
   published_at?: string | null;
+  // video short (any content format) — v9.9.0
+  video_url?: string | null;
+  /** Previous value, so upsertContent only bumps video_updated_at when the URL actually changes. */
+  prev_video_url?: string | null;
 }
 
 export async function upsertContent(input: ContentInput) {
@@ -137,6 +147,9 @@ export async function upsertContent(input: ContentInput) {
   const publishedAt = input.published_at !== undefined
     ? input.published_at
     : (input.status === 'published' ? new Date().toISOString() : null);
+
+  const videoUrl = input.video_url?.trim() || null;
+  const videoChanged = videoUrl !== (input.prev_video_url ?? null);
 
   const row: Partial<ContentRow> = {
     slug: input.slug,
@@ -161,7 +174,10 @@ export async function upsertContent(input: ContentInput) {
     source_name: input.source_name ?? null,
     source_url: input.source_url ?? null,
     why_it_matters: input.why_it_matters ?? null,
+    video_url: videoUrl,
+    video_updated_at: videoUrl ? (videoChanged ? new Date().toISOString() : undefined) : null,
   };
+  if (row.video_updated_at === undefined) delete row.video_updated_at;
   if (input.id) {
     const { data, error } = await sb()
       .from('content_items').update(row).eq('id', input.id).select().single();

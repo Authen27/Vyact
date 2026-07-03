@@ -4,8 +4,8 @@ Three deliverables in one repo, each independently runnable, each on its own Sem
 
 | Path | What | Current | Live | Stack | Run |
 |---|---|---|---|---|---|
-| `react/` | **Consumer (React)** | **v9.8.2** | [vyact-twentyx.vercel.app](https://vyact-twentyx.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Zustand · Supabase | `cd react && npm install && npm run dev` → `:5173` |
-| `admin/` | **Admin** | **v1.2.0** | [vyact-admin.vercel.app](https://vyact-admin.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Supabase | `cd admin && npm install && npm run dev` → `:5174` |
+| `react/` | **Consumer (React)** | **v9.9.0** | [vyact-twentyx.vercel.app](https://vyact-twentyx.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Zustand · Supabase | `cd react && npm install && npm run dev` → `:5173` |
+| `admin/` | **Admin** | **v1.3.0** | [vyact-admin.vercel.app](https://vyact-admin.vercel.app) | Vite · React 18 · TS · Tailwind · Recharts · Supabase | `cd admin && npm install && npm run dev` → `:5174` |
 | archived | Vanilla shell | **v5.0** *(final)* | git history only | removed from working tree | see `VERSIONS.md` |
 
 > **Version source of truth:** [`VERSIONS.md`](VERSIONS.md) + each app's `package.json` / `CHANGELOG.md`. The consumer/admin numbers above are CI-checked against `react/package.json` and `admin/package.json` (`scripts/version-drift-check.mjs`, TD-28) — don't hand-edit them out of sync.

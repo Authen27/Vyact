@@ -3,7 +3,7 @@
 // authenticated user as soon as status='published'.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, FileText, Trash2, GraduationCap, Link2 } from 'lucide-react';
+import { Plus, Eye, FileText, Trash2, GraduationCap, Link2, Youtube } from 'lucide-react';
 import { useAdminStore } from '../store';
 import {
   listAllContent, upsertContent, deleteContent, slugify,
@@ -158,6 +158,11 @@ export default function Content() {
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-base flex-shrink-0">{a.coverEmoji}</span>
                   <span className="text-[0.86rem] font-semibold text-ink truncate">{a.title}</span>
+                  {a.videoUrl && (
+                    <span title={`Video linked${a.videoUpdatedAt ? ` · ${new Date(a.videoUpdatedAt).toLocaleDateString()}` : ''}`}>
+                      <Youtube size={14} className="text-danger flex-shrink-0" />
+                    </span>
+                  )}
                 </div>
                 <div className="font-mono text-[0.6rem] text-ink-dim truncate">{a.slug}</div>
               </div>
@@ -254,6 +259,7 @@ function ArticleFormModal({ initial, authorName, onClose, onSaved }: FormProps) 
   const [status,   setStatus]   = useState<ContentStatus>(initial?.status ?? 'draft');
   const [readMin,  setReadMin]  = useState(String(initial?.readMinutes ?? 3));
   const [emoji,    setEmoji]    = useState(initial?.coverEmoji ?? '📰');
+  const [videoUrl, setVideoUrl] = useState(initial?.videoUrl ?? '');
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState('');
 
@@ -271,6 +277,8 @@ function ArticleFormModal({ initial, authorName, onClose, onSaved }: FormProps) 
         read_minutes: parseInt(readMin) || 3,
         cover_emoji: emoji,
         author_name: authorName,
+        video_url: videoUrl,
+        prev_video_url: initial?.videoUrl ?? null,
       };
       if (!input.title || !input.body) throw new Error('Title and body are required');
       await upsertContent(input);
@@ -328,6 +336,7 @@ function ArticleFormModal({ initial, authorName, onClose, onSaved }: FormProps) 
                 className="w-full bg-elev border border-line rounded-md px-2 py-2 text-[0.86rem] text-center outline-none focus:border-claude" />
             </FormField>
           </div>
+          <VideoUrlField value={videoUrl} onChange={setVideoUrl} updatedAt={initial?.videoUpdatedAt ?? null} />
 
           {error && <div className="text-danger text-[0.78rem]">{error}</div>}
         </div>
@@ -360,6 +369,7 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
   const [visualKind, setVisualKind] = useState<VisualKind>((initial?.visualKind as VisualKind) ?? 'icon');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [visualRef, setVisualRef]   = useState<any>(initial?.visualRef ?? defaultVisualRef('icon'));
+  const [videoUrl, setVideoUrl] = useState(initial?.videoUrl ?? '');
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
 
@@ -383,6 +393,8 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
         reading_seconds: parseInt(readingSecs) || 30,
         india_relevant: india,
         visual_kind: visualKind, visual_ref: visualRef,
+        video_url: videoUrl,
+        prev_video_url: initial?.videoUrl ?? null,
       };
       if (!input.title || !input.body_md) throw new Error('Title and body are required');
       await upsertContent(input);
@@ -430,6 +442,7 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
           <label className="flex items-center gap-2 text-[0.8rem] text-ink-mid">
             <input type="checkbox" checked={india} onChange={e => setIndia(e.target.checked)} /> India-relevant
           </label>
+          <VideoUrlField value={videoUrl} onChange={setVideoUrl} updatedAt={initial?.videoUpdatedAt ?? null} />
         </div>
 
         {/* Visual picker + live preview (same renderer the consumer ships) */}
@@ -521,6 +534,7 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
   const [topic, setTopic]   = useState<Article['topic']>(initial?.topic ?? 'budgeting');
   const [publishedAt, setPublishedAt] = useState((initial?.publishedAt ?? new Date().toISOString()).slice(0, 10));
   const [status, setStatus] = useState<ContentStatus>(initial?.status ?? 'published');
+  const [videoUrl, setVideoUrl] = useState(initial?.videoUrl ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
@@ -536,6 +550,8 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         published_at: new Date(publishedAt + 'T12:00:00').toISOString(),
         summary: why.trim(),
+        video_url: videoUrl,
+        prev_video_url: initial?.videoUrl ?? null,
       };
       await upsertContent(input);
       onSaved();
@@ -576,6 +592,7 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
           </FormField>
         </div>
         <FormField label="Tags" hint="who should see it"><input value={tags} onChange={e => setTags(e.target.value)} className={`${inp} font-mono`} placeholder="home_loan, rate_change" /></FormField>
+        <VideoUrlField value={videoUrl} onChange={setVideoUrl} updatedAt={initial?.videoUpdatedAt ?? null} />
       </div>
       {error && <div className="text-danger text-[0.78rem] mt-3">{error}</div>}
       <ModalActions saving={saving} onClose={onClose} onSave={save} editing={!!initial} />
@@ -611,6 +628,24 @@ function ModalActions({ saving, onClose, onSave, editing }: { saving: boolean; o
         {saving ? 'Saving…' : editing ? 'Update' : 'Create'}
       </button>
     </div>
+  );
+}
+
+// Shared across Article/Card/External forms — all three formats live in the
+// same content_items row, so a video short attaches identically regardless
+// of format (v9.9.0).
+function VideoUrlField({ value, onChange, updatedAt }: { value: string; onChange: (v: string) => void; updatedAt: string | null }) {
+  return (
+    <FormField label="YouTube short URL" hint="watch / shorts / youtu.be link — optional">
+      <div className="flex items-center gap-2">
+        <Youtube size={15} className="text-ink-dim flex-shrink-0" />
+        <input value={value} onChange={e => onChange(e.target.value)}
+          placeholder="https://youtube.com/shorts/…" className={`${inp} font-mono`} />
+      </div>
+      {value && updatedAt && (
+        <div className="font-mono text-[0.6rem] text-ink-dim mt-1">Video last updated {new Date(updatedAt).toLocaleDateString()}</div>
+      )}
+    </FormField>
   );
 }
 

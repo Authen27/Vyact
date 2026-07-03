@@ -4,6 +4,7 @@
 import { useEffect } from 'react';
 import { Heart, X, Share2 } from 'lucide-react';
 import CardVisual from './CardVisual';
+import YouTubeShort from './YouTubeShort';
 import { readingChip, type EvergreenCard } from '../../lib/evergreen';
 import { shareEvergreen, evergreenUrl, setJsonLd, PUBLIC_BASE } from '../../lib/share';
 
@@ -70,6 +71,11 @@ export default function EvergreenReader({ card, isFav, onToggleFav, onClose, onS
             <button onClick={onClose} className="text-ink-dim hover:text-ink p-1.5" aria-label="Close"><X size={18} /></button>
           </div>
         </div>
+        {card.video_url && (
+          <div className="px-5 pt-4">
+            <YouTubeShort videoUrl={card.video_url} title={card.title} />
+          </div>
+        )}
         <div className="px-5 py-4 space-y-3">
           {paragraphs.map((p, i) => <p key={i} className="text-[0.92rem] text-ink leading-relaxed">{p}</p>)}
         </div>

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.8.2`** (consumer)
+> **Current production version: `v9.9.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,33 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.9.0 — YouTube short videos on Insight cards/articles *(2026-07-02)*
+
+Every piece of Insights content — the 116 evergreen cards, editorial articles, and curated
+external items, all rows in `content_items` — can now carry an optional YouTube short. No video
+files are stored in Vyact: only a URL + a last-updated timestamp, admin-authored in the Content
+CMS (see admin v1.3.0). YouTube is the CDN.
+
+- **Rendering:** `CardVisual.tsx` shows a small play-badge overlay on cards that have a video
+  (code-rendered icon/stat/diagram visual is untouched — video is additive, not a replacement).
+  `EvergreenReader.tsx` and `WhatsNew.tsx`'s article reader both gained a new
+  **`YouTubeShort.tsx`** component: click-to-play (no autoplay iframe sitting in the DOM by
+  default) plus an explicit **"Open in YouTube"** link so users can like/comment/subscribe on
+  the actual video.
+- **New `lib/youtube.ts`** — normalises any URL shape (`watch?v=`, `/shorts/`, `youtu.be/`,
+  already-embed) to a video id, and builds both a privacy-enhanced `youtube-nocookie.com` embed
+  URL and the canonical watch URL for redirection.
+- **Evergreen cards are bundled JSON, not DB rows the client reads directly** — but the DB seed
+  for all 116 cards already exists in `content_items` (same `slug` as the JSON's `id`). New
+  **`lib/insightVideos.ts`** does one small `content_items` read (`slug, video_url` where
+  `format='card'`) and merges it onto the bundled cards at runtime in `EvergreenLearn.tsx` — no
+  changes to the JSON asset itself, no new table.
+- **`InsightArticle`/`insightsApi.ts`** gained `videoUrl`, selected directly off `content_items`
+  for the What's New tab (articles/external items aren't bundled, so no merge step needed there).
+- **DB migration**: `supabase/migrations/20260702120000_v99_insight_video_shorts.sql` — additive
+  `content_items.video_url` / `video_updated_at` columns. Applied to the live Supabase project;
+  existing row-level RLS policies already cover the new columns (no policy changes needed).
 
 ## v9.8.2 — Danger Zone mobile fix, real "last updated" dates, working support contact *(2026-07-01)*
 

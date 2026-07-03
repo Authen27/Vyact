@@ -6,8 +6,8 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v9.8.2** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
-| **Admin** | `admin/` | **v1.2.0** | https://vyact-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v9.9.0** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Admin** | `admin/` | **v1.3.0** | https://vyact-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (archived)** | removed in v7.0.1 | **v5.0** *(final)* | archived — see git history | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
 
@@ -23,6 +23,8 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-07-02 | [Admin](admin/CHANGELOG.md) | **v1.3.0** | **Video-short field on every Content item.** Shared `VideoUrlField` added to the Article/Card/External CMS modals; list view badges rows with a linked video; `upsertContent()` auto-manages `video_updated_at` only when the URL actually changes. |
+| 2026-07-02 | [Consumer](react/CHANGELOG.md) | **v9.9.0** | **YouTube short videos on Insight cards/articles.** `CardVisual`/`EvergreenReader`/`WhatsNew` gain a click-to-play `YouTubeShort` embed + "Open in YouTube" redirect; evergreen cards (bundled JSON) get their video merged at runtime from `content_items` by matching slug. No video files stored in Vyact — YouTube is the CDN. |
 | 2026-07-01 | [Consumer](react/CHANGELOG.md) | **v9.8.2** | **Danger Zone mobile fix + real support contact.** Delete-immediately button no longer overflows its card on mobile; Settings → Legal & Policies shows real "Last updated" dates instead of a stale "Draft scaffold" tag; Help gained a working Contact-support panel (mailto), and all 3 legal docs' dead-end "Help → Contact" references now link to a real inbox. |
 | 2026-07-01 | [Consumer](react/CHANGELOG.md) | **v9.8.1** | **Real legal docs + data erasure/deactivation/deletion.** Privacy/Terms/Cookies rewritten with full IP + PII terms and made public (no login required, crawlable); sign-up now records real consent (`tos_accepted_at`/`privacy_accepted_at`); Settings → Danger Zone ships erase-household-data, deactivate (auto-reactivates on sign-in), and permanent delete with a 30-day undo window, each gated on an email verification code — migration applied + `delete-account` edge function deployed to prod. |
 | 2026-06-23 | [Consumer](react/CHANGELOG.md) | **v9.7.1** | **Hide FABs during onboarding.** Ask Vyact + Add-Transaction FABs no longer float over the onboarding overlay (`/onboarding` is a Layout route); both gate on `/onboarding` + `/auth/`. |

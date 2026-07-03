@@ -4,10 +4,28 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.2.0`**
+> **Current production version: `v1.3.0`**
 > **Live URL:** https://vyact-admin.vercel.app
 
 ---
+
+## v1.3.0 — Video-short field on every Content item *(2026-07-02)*
+
+Content editors (Content role / Super) can now attach a YouTube short URL to any
+`content_items` row — evergreen card, article, or curated external item — from the same
+Content CMS used for everything else. Shared **`VideoUrlField`** in `pages/Content.tsx` is
+reused across all three format-specific modals (Article / Card / External); the list view
+shows a small YouTube-icon badge (hover for "last updated" date) on any row with a video
+linked.
+
+`lib/contentApi.ts`'s `upsertContent()` auto-manages `video_updated_at` — it only bumps the
+timestamp when the URL actually changes (compares against the new `prev_video_url` field on
+`ContentInput`), so editing an unrelated field on a row doesn't make its video look freshly
+updated. Pairs with consumer v9.9.0, which renders these links as an in-app click-to-play
+short + an "Open in YouTube" redirect.
+
+DB migration `20260702120000_v99_insight_video_shorts.sql` (additive `content_items.video_url`
+/ `video_updated_at`) — shared with the consumer app, applied once to the live Supabase project.
 
 ## v1.2.0 — Insights Hub authoring: cards + external curation *(2026-06-20)*
 

@@ -4,10 +4,11 @@
 // UI (RBI/SEBI/etc. with a "why it matters" line) is the deferred follow-up; this
 // renders whatever the content module already publishes, reverse-chronological.
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Heart, BookOpen, Clock, X } from 'lucide-react';
+import { Search, Heart, BookOpen, Clock, X, PlayCircle } from 'lucide-react';
 import { useStore } from '../../store';
 import { Panel } from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
+import YouTubeShort from './YouTubeShort';
 import { isCloudEnabled } from '../../lib/supabase';
 import {
   listPublishedContent, listFavoriteIds, addFavorite, removeFavorite,
@@ -99,7 +100,10 @@ export default function WhatsNew() {
           return (
             <article key={a.id} className="bg-bg border border-line rounded-xl p-5 transition-shadow hover:shadow-md flex flex-col">
               <div className="flex items-start justify-between mb-2">
-                <span className="text-2xl" aria-hidden>{a.coverEmoji}</span>
+                <span className="text-2xl inline-flex items-center gap-1" aria-hidden>
+                  {a.coverEmoji}
+                  {a.videoUrl && <PlayCircle size={14} className="text-coral" strokeWidth={1.8} />}
+                </span>
                 <button onClick={() => toggleFav(a)} aria-label={isFav ? 'Unfavorite' : 'Favorite'}
                   className={`p-1.5 rounded-md transition-colors ${isFav ? 'text-coral bg-coral-tint' : 'text-ink-dim hover:text-coral hover:bg-coral-tint'}`}>
                   <Heart size={14} className={isFav ? 'fill-current' : ''} />
@@ -154,6 +158,11 @@ function Reader({ article, isFav, onToggleFav, onClose }: {
           </div>
         </div>
         <div className="px-6 py-5">
+          {article.videoUrl && (
+            <div className="mb-4">
+              <YouTubeShort videoUrl={article.videoUrl} title={article.title} />
+            </div>
+          )}
           {article.summary && <p className="text-[0.95rem] text-ink-mid italic mb-4 leading-relaxed border-l-2 border-coral pl-3">{article.summary}</p>}
           <div className="text-[0.92rem] text-ink leading-relaxed whitespace-pre-line">{article.body}</div>
         </div>

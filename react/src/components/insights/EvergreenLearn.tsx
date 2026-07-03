@@ -14,8 +14,15 @@ import {
   loadFavorites, saveFavorites, type EvergreenCard,
 } from '../../lib/evergreen';
 import { shareEvergreen } from '../../lib/share';
+import { fetchEvergreenVideoLinks } from '../../lib/insightVideos';
+import { isCloudEnabled } from '../../lib/supabase';
 
 type Segment = 'lessons' | 'updates';
+
+function withVideo(card: EvergreenCard, links: Map<string, string>): EvergreenCard {
+  const video_url = links.get(card.id);
+  return video_url ? { ...card, video_url } : card;
+}
 
 interface Props {
   openId?: string | null;
@@ -30,12 +37,20 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
   const [reading, setReading] = useState<EvergreenCard | null>(null);
   const [reelAt, setReelAt] = useState<number | null>(null);
+  const [videoLinks, setVideoLinks] = useState<Map<string, string>>(new Map());
+
+  // Video links are admin-authored in content_items (v9.9.0); best-effort —
+  // a fetch failure just means no "watch" badges show, never breaks the tab.
+  useEffect(() => {
+    if (!isCloudEnabled()) return;
+    fetchEvergreenVideoLinks().then(setVideoLinks).catch(() => {});
+  }, []);
 
   // Honor a deep-link open request from the feed reel (also forces Lessons).
   useEffect(() => {
     if (!openId) return;
     const card = filterEvergreen('', 'all').find(c => c.id === openId);
-    if (card) { setSegment('lessons'); setReading(card); }
+    if (card) { setSegment('lessons'); setReading(withVideo(card, videoLinks)); }
     onConsumedOpen?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openId]);
@@ -52,8 +67,8 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
   const cards = useMemo(() => {
     let f = filterEvergreen(query, category);
     if (favOnly) f = f.filter(c => favorites.has(c.id));
-    return f;
-  }, [query, category, favOnly, favorites]);
+    return f.map(c => withVideo(c, videoLinks));
+  }, [query, category, favOnly, favorites, videoLinks]);
 
   return (
     <div>
