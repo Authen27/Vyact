@@ -131,7 +131,7 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
       )}
 
       {reel && (
-        <EvergreenReel cards={reel.cards} startIndex={reel.index} onClose={() => setReel(null)} favorites={favorites} onToggleFav={toggleFav} />
+        <EvergreenReel cards={reel.cards} startIndex={reel.index} onClose={() => setReel(null)} />
       )}
     </div>
   );

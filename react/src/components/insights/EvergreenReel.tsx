@@ -1,34 +1,27 @@
-// Vyact — the Learn tab's universal card viewer (v9.9.1).
+// Vyact — the Learn tab's universal card viewer (v9.9.2).
 // Every card opens here — a finite, vertically-swipeable, full-screen reel.
-// A card with an admin-uploaded infographic shows it full-bleed portrait with
-// a "Watch video" (if a short is linked) and "Read article" action; a card
-// without one falls back to the original code-visual + teaser + Read layout.
+// Each slide is a flip card (FlippableCardDetail): front = infographic (fully
+// visible, not cropped) or the code-visual fallback; back = video or text,
+// chosen via two minimal controls. Share/Save live on the grid tile, not here.
 import { useEffect, useRef, useState } from 'react';
-import { X, Share2, Heart, BookOpen, PlayCircle, ChevronUp } from 'lucide-react';
+import { X, ChevronUp } from 'lucide-react';
 import CardVisual from './CardVisual';
-import EvergreenReader from './EvergreenReader';
-import FullScreenVideoOverlay from './FullScreenVideoOverlay';
+import FlippableCardDetail from './FlippableCardDetail';
 import { readingChip, type EvergreenCard } from '../../lib/evergreen';
-import { shareEvergreen } from '../../lib/share';
 
 interface Props {
   cards: EvergreenCard[];
   startIndex?: number;
   onClose: () => void;
-  favorites: Set<string>;
-  onToggleFav: (id: string) => void;
 }
 
-function teaser(body: string): string {
-  const first = body.split(/\n\n+/)[0] || body;
-  return first.length > 240 ? first.slice(0, 237).trimEnd() + '…' : first;
+function paragraphs(body: string): string[] {
+  return body.split(/\n\n+/);
 }
 
-export default function EvergreenReel({ cards, startIndex = 0, onClose, favorites, onToggleFav }: Props) {
+export default function EvergreenReel({ cards, startIndex = 0, onClose }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(startIndex);
-  const [reading, setReading] = useState<EvergreenCard | null>(null);
-  const [watching, setWatching] = useState<EvergreenCard | null>(null);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -43,7 +36,6 @@ export default function EvergreenReel({ cards, startIndex = 0, onClose, favorite
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (reading || watching) return; // reader/video own Esc while open
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
@@ -53,7 +45,7 @@ export default function EvergreenReel({ cards, startIndex = 0, onClose, favorite
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, onClose, reading, watching]);
+  }, [active, onClose]);
 
   function onScroll() {
     const el = scroller.current;
@@ -78,53 +70,17 @@ export default function EvergreenReel({ cards, startIndex = 0, onClose, favorite
         className="h-full overflow-y-auto snap-y snap-mandatory scroll-smooth" style={{ scrollbarWidth: 'none' }}>
         {cards.map((c, i) => (
           <section key={c.id} className="h-full w-full snap-start relative overflow-hidden">
-            {c.infographic_url ? (
-              <>
-                <img src={c.infographic_url} alt={c.title} className="absolute inset-0 w-full h-full object-cover" />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-6 pt-20 pb-8">
-                  <span className="font-mono text-[0.58rem] tracking-wider uppercase text-white/70">{c.category} · {readingChip(c.reading_seconds)}</span>
-                  <h2 className="display-italic text-2xl leading-tight text-white mt-1 mb-4">{c.title}</h2>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    {c.video_url && (
-                      <button onClick={() => setWatching(c)} className="btn-primary inline-flex items-center gap-1.5">
-                        <PlayCircle size={16} /> Watch video
-                      </button>
-                    )}
-                    <button onClick={() => setReading(c)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-white/10 border border-white/30 text-white hover:bg-white/20 transition-colors">
-                      <BookOpen size={15} /> Read article
-                    </button>
-                    <button onClick={() => shareEvergreen(c.id, c.title)} aria-label="Share"
-                      className="w-11 h-11 rounded-full border border-white/30 bg-white/10 text-white hover:bg-white/20 flex items-center justify-center flex-shrink-0">
-                      <Share2 size={17} />
-                    </button>
-                    <button onClick={() => onToggleFav(c.id)} aria-label={favorites.has(c.id) ? 'Unsave' : 'Save'}
-                      className={`w-11 h-11 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${favorites.has(c.id) ? 'text-coral bg-coral-tint border-coral/40' : 'border-white/30 bg-white/10 text-white hover:bg-white/20'}`}>
-                      <Heart size={17} className={favorites.has(c.id) ? 'fill-current' : ''} />
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="h-full w-full flex flex-col items-center justify-center px-7 text-center bg-gradient-to-b from-coral/10 via-bg to-bg">
-                <CardVisual card={c} className="h-40 w-full max-w-sm mb-5" />
-                <span className="font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">{c.category} · {readingChip(c.reading_seconds)}</span>
-                <h2 className="display-italic text-[2rem] leading-tight text-ink max-w-md mt-1">{c.title}</h2>
-                <p className="text-[0.95rem] text-ink-mid mt-3 max-w-sm leading-relaxed">{teaser(c.body_md)}</p>
-
-                <div className="flex items-center gap-2.5 mt-6">
-                  {c.video_url && (
-                    <button onClick={() => setWatching(c)} className="btn-secondary inline-flex items-center gap-1.5"><PlayCircle size={15} /> Watch</button>
-                  )}
-                  <button onClick={() => setReading(c)} className="btn-primary inline-flex items-center gap-1.5"><BookOpen size={15} /> Read</button>
-                  <button onClick={() => shareEvergreen(c.id, c.title)} aria-label="Share" className="w-11 h-11 rounded-full border border-line bg-bg2 text-ink-mid hover:text-coral hover:border-coral/40 flex items-center justify-center"><Share2 size={17} /></button>
-                  <button onClick={() => onToggleFav(c.id)} aria-label={favorites.has(c.id) ? 'Unsave' : 'Save'}
-                    className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors ${favorites.has(c.id) ? 'text-coral bg-coral-tint border-coral/40' : 'border-line bg-bg2 text-ink-mid hover:text-coral hover:border-coral/40'}`}>
-                    <Heart size={17} className={favorites.has(c.id) ? 'fill-current' : ''} />
-                  </button>
-                </div>
-              </div>
-            )}
+            <FlippableCardDetail
+              infographicUrl={c.infographic_url}
+              fallbackVisual={<CardVisual card={c} className="h-40 w-full max-w-sm mb-2" />}
+              title={c.title}
+              meta={`${c.category} · ${readingChip(c.reading_seconds)}`}
+              teaser={paragraphs(c.body_md)[0]}
+              videoUrl={c.video_url}
+              articleBody={paragraphs(c.body_md).map((p, pi) => (
+                <p key={pi} className="text-[0.92rem] text-ink leading-relaxed mb-3">{p}</p>
+              ))}
+            />
 
             {i === 0 && cards.length > 1 && (
               <div className={`absolute inset-x-0 flex flex-col items-center animate-bounce pointer-events-none ${c.infographic_url ? 'top-5 text-white/80' : 'bottom-7 text-ink-dim'}`}>
@@ -142,13 +98,6 @@ export default function EvergreenReel({ cards, startIndex = 0, onClose, favorite
           <button onClick={onClose} className="btn-secondary">Done</button>
         </section>
       </div>
-
-      {reading && (
-        <EvergreenReader card={reading} isFav={favorites.has(reading.id)} onToggleFav={() => onToggleFav(reading.id)} onClose={() => setReading(null)} />
-      )}
-      {watching && watching.video_url && (
-        <FullScreenVideoOverlay videoUrl={watching.video_url} title={watching.title} onClose={() => setWatching(null)} />
-      )}
     </div>
   );
 }

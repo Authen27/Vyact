@@ -122,7 +122,7 @@ export default function WhatsNew() {
       </div>
 
       {reel && filtered.length > 0 && (
-        <ArticleReel articles={filtered} startIndex={reel.index} onClose={() => setReel(null)} favorites={favorites} onToggleFav={toggleFav} />
+        <ArticleReel articles={filtered} startIndex={reel.index} onClose={() => setReel(null)} />
       )}
     </div>
   );

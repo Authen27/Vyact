@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.9.1`** (consumer)
+> **Current production version: `v9.9.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,30 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.9.2 — Flip-card detail view: fixes cropping, redundant blocks, and distracting FABs *(2026-07-04)*
+
+User-tested v9.9.1 against real screenshots and flagged concrete defects, all fixed here:
+
+- **Infographic was cropped, unreadable.** The image used `object-cover` (crop-to-fill) on a
+  portrait image taller than the viewport. Switched to `object-contain` — the full image is
+  always visible now, letterboxed rather than cut off.
+- **Redundant blocks removed**: the inline click-to-play video placeholder in the text reader
+  (dead once you'd already reached text), the icon/stat/diagram graphic repeated at the top of
+  the text reader (redundant with the infographic already shown), and the separate Share/Save/
+  close controls duplicated in a second full modal — all gone.
+- **New interaction model — a flip card, not a stacked action bar.** New
+  `FlippableCardDetail.tsx` (shared by `EvergreenReel`/`ArticleReel`): front face is the
+  infographic (or the code-visual fallback) with a title + dark scrim that auto-hides after 4s
+  and reappears on tap; two minimal controls — **Play** and **Text** — flip the card (a real
+  3D `rotateY` transition, reusing the shared `spring` from `lib/motion.ts`) to a back face
+  showing the autoplaying video or the article body; a rotate/back control flips back to the
+  front. Share/Save intentionally stay on the grid tile only, not duplicated in the detail view.
+- **Retired**: `EvergreenReader.tsx`, `FullScreenVideoOverlay.tsx`, `YouTubeShort.tsx` — all
+  superseded by the flip card's back faces.
+- **Floating Ask Vyact / Add-Transaction buttons now hidden under `/insights`** — extended the
+  existing `FloatingTools.tsx`/`AddFab.tsx` route-hide gate (already hiding during onboarding)
+  so they don't compete with the focused, full-screen card-reading experience.
 
 ## v9.9.1 — Portrait infographics as the universal card viewer *(2026-07-04)*
 
