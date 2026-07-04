@@ -90,12 +90,10 @@ export default function FlippableCardDetail({ infographicUrl, fallbackVisual, ti
                 <PlayCircle size={16} /> Play
               </button>
             )}
-            <button
-              onClick={() => setSide('text')}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                infographicUrl ? 'bg-white/10 border border-white/30 text-white hover:bg-white/20' : 'btn-secondary'
-              }`}
-            >
+            {/* Solid theme surface, not a white-ghost chip: with object-contain
+                letterboxing the backdrop can be light OR dark, so the button
+                must be readable on both. */}
+            <button onClick={() => setSide('text')} className="btn-secondary inline-flex items-center gap-1.5 shadow-2">
               <BookOpen size={15} /> Text
             </button>
           </div>

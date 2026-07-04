@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.9.2`** (consumer)
+> **Current production version: `v9.9.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,29 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v9.9.3 — Browser-verified fixes: blank-app on widget failure, reel counter, button contrast *(2026-07-04)*
+
+Full in-browser verification of the v9.9.2 flip-card flow (mobile viewport, real click-through
+of every interaction) surfaced three real defects, fixed here:
+
+- **CRITICAL: the app rendered a permanently blank screen if the Userback feedback widget
+  failed to load.** `main.tsx` gated `createRoot().render()` behind a top-level
+  `await Userback(...)` — any widget failure (adblocker, corporate proxy, unauthorized domain,
+  vendor outage) rejected the module and React never mounted. The widget is now fire-and-forget
+  with a swallow-on-error: the app always renders; feedback is best-effort.
+- **Reel progress indicator overflowed the screen.** The per-card dot column drew 117 dots
+  (one per lesson + end slide) — taller than any phone viewport, colliding with the flip-back
+  control. Replaced with a compact centered `n / 116` counter pill in both reels.
+- **"Text" button was nearly invisible on light backdrops.** Its white-ghost styling assumed a
+  dark photo behind it, but `object-contain` letterboxing puts theme-cream behind the controls.
+  Now a solid `btn-secondary` surface, readable over any infographic or letterbox.
+
+Verified in-browser this release: full-screen reel (375×812), un-cropped `object-contain`
+infographic, title scrim fade-in on tap + 4s auto-hide, flip settling at 180° in ~400ms with
+zero overshoot (sampled frame-by-frame), video autoplay on flip and full unmount on flip-back
+(no ghost audio), text face, no-media fallback face, swipe-to-next, and both FABs absent
+under `/insights`.
 
 ## v9.9.2 — Flip-card detail view: fixes cropping, redundant blocks, and distracting FABs *(2026-07-04)*
 

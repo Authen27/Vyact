@@ -52,18 +52,19 @@ export default function EvergreenReel({ cards, startIndex = 0, onClose }: Props)
     if (el) setActive(Math.round(el.scrollTop / el.clientHeight));
   }
 
-  const total = cards.length + 1;
-
   return (
     <div className="fixed inset-0 z-[190] bg-bg" role="dialog" aria-label="Learn" aria-modal="true">
       <button onClick={onClose} aria-label="Close"
         className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-ink/10 hover:bg-ink/20 text-ink flex items-center justify-center backdrop-blur-sm">
         <X size={20} />
       </button>
-      <div className="absolute top-5 left-4 z-20 flex flex-col gap-1.5">
-        {Array.from({ length: total }).map((_, i) => (
-          <span key={i} className={`w-1 rounded-full transition-all ${i === active ? 'h-5 bg-coral' : 'h-2 bg-ink/20'}`} />
-        ))}
+      {/* Position counter — a compact pill, not one dot per card: with 116
+          lessons a dot column overflows the viewport and collides with the
+          flip-back control at the top-left of each card (v9.9.3). */}
+      <div className="absolute top-5 inset-x-0 z-20 flex justify-center pointer-events-none">
+        <span className="num font-mono text-[0.62rem] tracking-widest px-2.5 py-1 rounded-full bg-ink/10 text-ink backdrop-blur-sm">
+          {Math.min(active + 1, cards.length)} / {cards.length}
+        </span>
       </div>
 
       <div ref={scroller} onScroll={onScroll}
