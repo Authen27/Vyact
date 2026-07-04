@@ -42,6 +42,8 @@ export interface ContentRow {
   why_it_matters: string | null;
   video_url: string | null;
   video_updated_at: string | null;
+  infographic_url: string | null;
+  infographic_updated_at: string | null;
 }
 
 export type EnrichedContent = Article & {
@@ -60,6 +62,8 @@ export type EnrichedContent = Article & {
   whyItMatters: string | null;
   videoUrl: string | null;
   videoUpdatedAt: string | null;
+  infographicUrl: string | null;
+  infographicUpdatedAt: string | null;
 };
 
 // Exported for unit testing (ADM-UNIT-008..011); see docs/TEST_SCENARIOS.md.
@@ -93,6 +97,8 @@ export function rowToArticle(r: ContentRow): EnrichedContent {
     whyItMatters: r.why_it_matters,
     videoUrl: r.video_url,
     videoUpdatedAt: r.video_updated_at,
+    infographicUrl: r.infographic_url,
+    infographicUpdatedAt: r.infographic_updated_at,
   };
 }
 
@@ -136,6 +142,10 @@ export interface ContentInput {
   video_url?: string | null;
   /** Previous value, so upsertContent only bumps video_updated_at when the URL actually changes. */
   prev_video_url?: string | null;
+  // portrait infographic image (any content format) — v9.9.1 / admin v1.3.1
+  infographic_url?: string | null;
+  /** Previous value, so upsertContent only bumps infographic_updated_at when the URL actually changes. */
+  prev_infographic_url?: string | null;
 }
 
 export async function upsertContent(input: ContentInput) {
@@ -150,6 +160,8 @@ export async function upsertContent(input: ContentInput) {
 
   const videoUrl = input.video_url?.trim() || null;
   const videoChanged = videoUrl !== (input.prev_video_url ?? null);
+  const infographicUrl = input.infographic_url?.trim() || null;
+  const infographicChanged = infographicUrl !== (input.prev_infographic_url ?? null);
 
   const row: Partial<ContentRow> = {
     slug: input.slug,
@@ -176,8 +188,11 @@ export async function upsertContent(input: ContentInput) {
     why_it_matters: input.why_it_matters ?? null,
     video_url: videoUrl,
     video_updated_at: videoUrl ? (videoChanged ? new Date().toISOString() : undefined) : null,
+    infographic_url: infographicUrl,
+    infographic_updated_at: infographicUrl ? (infographicChanged ? new Date().toISOString() : undefined) : null,
   };
   if (row.video_updated_at === undefined) delete row.video_updated_at;
+  if (row.infographic_updated_at === undefined) delete row.infographic_updated_at;
   if (input.id) {
     const { data, error } = await sb()
       .from('content_items').update(row).eq('id', input.id).select().single();
@@ -202,4 +217,34 @@ export function slugify(s: string): string {
     .trim()
     .replace(/\s+/g, '-')
     .slice(0, 80);
+}
+
+// ── Infographic upload (v9.9.1 / admin v1.3.1) ─────────────────────────────
+// Portrait infographics are authored outside Vyact and uploaded as real image
+// files — unlike the YouTube-hosted video short, there's no free third-party
+// CDN for an arbitrary image, so this is the app's first Supabase Storage
+// bucket. RLS on storage.objects gates writes to is_admin('content') (same
+// role check as content_items itself); reads are public.
+const INFOGRAPHIC_BUCKET = 'insight-infographics';
+
+/** Uploads a new infographic image and returns its public URL. */
+export async function uploadInfographic(file: File): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb().storage.from(INFOGRAPHIC_BUCKET).upload(path, file, {
+    contentType: file.type || undefined,
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = sb().storage.from(INFOGRAPHIC_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/** Best-effort delete of a previously-uploaded infographic (called before replacing/removing one). */
+export async function deleteInfographic(publicUrl: string): Promise<void> {
+  const marker = `/object/public/${INFOGRAPHIC_BUCKET}/`;
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return;
+  const path = publicUrl.slice(idx + marker.length);
+  await sb().storage.from(INFOGRAPHIC_BUCKET).remove([path]).catch(() => {});
 }

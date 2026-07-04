@@ -3,10 +3,10 @@
 // authenticated user as soon as status='published'.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, FileText, Trash2, GraduationCap, Link2, Youtube } from 'lucide-react';
+import { Plus, Eye, FileText, Trash2, GraduationCap, Link2, Youtube, Image as ImageIcon, X } from 'lucide-react';
 import { useAdminStore } from '../store';
 import {
-  listAllContent, upsertContent, deleteContent, slugify,
+  listAllContent, upsertContent, deleteContent, slugify, uploadInfographic, deleteInfographic,
   type ContentInput, type EnrichedContent, type ContentFormat, type VisualKind, type CardTone, type SourceName,
 } from '../lib/contentApi';
 import {
@@ -163,6 +163,11 @@ export default function Content() {
                       <Youtube size={14} className="text-danger flex-shrink-0" />
                     </span>
                   )}
+                  {a.infographicUrl && (
+                    <span title={`Infographic uploaded${a.infographicUpdatedAt ? ` · ${new Date(a.infographicUpdatedAt).toLocaleDateString()}` : ''}`}>
+                      <ImageIcon size={14} className="text-claude flex-shrink-0" />
+                    </span>
+                  )}
                 </div>
                 <div className="font-mono text-[0.6rem] text-ink-dim truncate">{a.slug}</div>
               </div>
@@ -260,12 +265,15 @@ function ArticleFormModal({ initial, authorName, onClose, onSaved }: FormProps) 
   const [readMin,  setReadMin]  = useState(String(initial?.readMinutes ?? 3));
   const [emoji,    setEmoji]    = useState(initial?.coverEmoji ?? '📰');
   const [videoUrl, setVideoUrl] = useState(initial?.videoUrl ?? '');
+  const [infographicUrl, setInfographicUrl] = useState(initial?.infographicUrl ?? '');
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState('');
 
   async function save() {
     setError(''); setSaving(true);
     try {
+      const prevInfographic = initial?.infographicUrl ?? null;
+      if (prevInfographic && prevInfographic !== infographicUrl) await deleteInfographic(prevInfographic).catch(() => {});
       const input: ContentInput = {
         id: initial?.id,
         slug: slug || slugify(title),
@@ -279,6 +287,8 @@ function ArticleFormModal({ initial, authorName, onClose, onSaved }: FormProps) 
         author_name: authorName,
         video_url: videoUrl,
         prev_video_url: initial?.videoUrl ?? null,
+        infographic_url: infographicUrl,
+        prev_infographic_url: prevInfographic,
       };
       if (!input.title || !input.body) throw new Error('Title and body are required');
       await upsertContent(input);
@@ -337,6 +347,7 @@ function ArticleFormModal({ initial, authorName, onClose, onSaved }: FormProps) 
             </FormField>
           </div>
           <VideoUrlField value={videoUrl} onChange={setVideoUrl} updatedAt={initial?.videoUpdatedAt ?? null} />
+          <InfographicField value={infographicUrl} onChange={setInfographicUrl} updatedAt={initial?.infographicUpdatedAt ?? null} />
 
           {error && <div className="text-danger text-[0.78rem]">{error}</div>}
         </div>
@@ -370,6 +381,7 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [visualRef, setVisualRef]   = useState<any>(initial?.visualRef ?? defaultVisualRef('icon'));
   const [videoUrl, setVideoUrl] = useState(initial?.videoUrl ?? '');
+  const [infographicUrl, setInfographicUrl] = useState(initial?.infographicUrl ?? '');
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
 
@@ -383,6 +395,8 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
   async function save() {
     setError(''); setSaving(true);
     try {
+      const prevInfographic = initial?.infographicUrl ?? null;
+      if (prevInfographic && prevInfographic !== infographicUrl) await deleteInfographic(prevInfographic).catch(() => {});
       const input: ContentInput = {
         id: initial?.id, format: 'card',
         slug: slug || slugify(title), title: title.trim(),
@@ -395,6 +409,8 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
         visual_kind: visualKind, visual_ref: visualRef,
         video_url: videoUrl,
         prev_video_url: initial?.videoUrl ?? null,
+        infographic_url: infographicUrl,
+        prev_infographic_url: prevInfographic,
       };
       if (!input.title || !input.body_md) throw new Error('Title and body are required');
       await upsertContent(input);
@@ -443,6 +459,7 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
             <input type="checkbox" checked={india} onChange={e => setIndia(e.target.checked)} /> India-relevant
           </label>
           <VideoUrlField value={videoUrl} onChange={setVideoUrl} updatedAt={initial?.videoUpdatedAt ?? null} />
+          <InfographicField value={infographicUrl} onChange={setInfographicUrl} updatedAt={initial?.infographicUpdatedAt ?? null} />
         </div>
 
         {/* Visual picker + live preview (same renderer the consumer ships) */}
@@ -535,6 +552,7 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
   const [publishedAt, setPublishedAt] = useState((initial?.publishedAt ?? new Date().toISOString()).slice(0, 10));
   const [status, setStatus] = useState<ContentStatus>(initial?.status ?? 'published');
   const [videoUrl, setVideoUrl] = useState(initial?.videoUrl ?? '');
+  const [infographicUrl, setInfographicUrl] = useState(initial?.infographicUrl ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
@@ -542,6 +560,8 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
     setError(''); setSaving(true);
     try {
       if (!title.trim() || !sourceUrl.trim()) throw new Error('Title and source URL are required');
+      const prevInfographic = initial?.infographicUrl ?? null;
+      if (prevInfographic && prevInfographic !== infographicUrl) await deleteInfographic(prevInfographic).catch(() => {});
       const input: ContentInput = {
         id: initial?.id, format: 'external',
         slug: initial?.slug || slugify(title), title: title.trim(), topic, status,
@@ -552,6 +572,8 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
         summary: why.trim(),
         video_url: videoUrl,
         prev_video_url: initial?.videoUrl ?? null,
+        infographic_url: infographicUrl,
+        prev_infographic_url: prevInfographic,
       };
       await upsertContent(input);
       onSaved();
@@ -593,6 +615,7 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
         </div>
         <FormField label="Tags" hint="who should see it"><input value={tags} onChange={e => setTags(e.target.value)} className={`${inp} font-mono`} placeholder="home_loan, rate_change" /></FormField>
         <VideoUrlField value={videoUrl} onChange={setVideoUrl} updatedAt={initial?.videoUpdatedAt ?? null} />
+          <InfographicField value={infographicUrl} onChange={setInfographicUrl} updatedAt={initial?.infographicUpdatedAt ?? null} />
       </div>
       {error && <div className="text-danger text-[0.78rem] mt-3">{error}</div>}
       <ModalActions saving={saving} onClose={onClose} onSave={save} editing={!!initial} />
@@ -645,6 +668,57 @@ function VideoUrlField({ value, onChange, updatedAt }: { value: string; onChange
       {value && updatedAt && (
         <div className="font-mono text-[0.6rem] text-ink-dim mt-1">Video last updated {new Date(updatedAt).toLocaleDateString()}</div>
       )}
+    </FormField>
+  );
+}
+
+// Shared across Article/Card/External forms — uploads immediately on file
+// select (returns a real Storage URL), removal is local-only until Save
+// (mirrors the video field's changed-on-save pattern so Cancel never deletes
+// anything). v9.9.1 / admin v1.3.1.
+function InfographicField({ value, onChange, updatedAt }: { value: string; onChange: (v: string) => void; updatedAt: string | null }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setError(''); setUploading(true);
+    try {
+      const url = await uploadInfographic(file);
+      onChange(url);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <FormField label="Infographic (portrait image)" hint="full-length, uploaded — shown in the consumer swipe viewer">
+      {value ? (
+        <div className="flex items-start gap-3">
+          <img src={value} alt="Infographic preview" className="w-20 rounded-md border border-line object-cover" style={{ aspectRatio: '9/16' }} />
+          <div className="flex flex-col gap-1.5">
+            <label className="font-mono text-[0.62rem] tracking-wider uppercase px-2.5 py-1.5 border border-line rounded-md hover:bg-elev transition cursor-pointer text-center">
+              {uploading ? 'Uploading…' : 'Replace'}
+              <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={uploading} />
+            </label>
+            <button type="button" onClick={() => onChange('')}
+              className="font-mono text-[0.62rem] tracking-wider uppercase px-2.5 py-1.5 border border-line rounded-md hover:bg-elev transition text-danger flex items-center gap-1 justify-center">
+              <X size={11} /> Remove
+            </button>
+            {updatedAt && <div className="font-mono text-[0.6rem] text-ink-dim">Updated {new Date(updatedAt).toLocaleDateString()}</div>}
+          </div>
+        </div>
+      ) : (
+        <label className="flex items-center gap-2 font-mono text-[0.72rem] px-3 py-2 border border-dashed border-line rounded-md hover:bg-elev transition cursor-pointer w-fit">
+          <ImageIcon size={14} className="text-ink-dim" /> {uploading ? 'Uploading…' : 'Upload image'}
+          <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={uploading} />
+        </label>
+      )}
+      {error && <div className="text-danger text-[0.74rem] mt-1">{error}</div>}
     </FormField>
   );
 }

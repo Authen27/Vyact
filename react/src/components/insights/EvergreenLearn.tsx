@@ -3,10 +3,9 @@
 // via a Lessons/Updates segment. Lessons are searchable, favoritable, shareable
 // (public /learn/<slug>), and viewable as a full-screen shorts reel.
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Heart, Clock, Share2, PlaySquare } from 'lucide-react';
+import { Search, Heart, Clock, Share2 } from 'lucide-react';
 import EmptyState from '../ui/EmptyState';
 import CardVisual from './CardVisual';
-import EvergreenReader from './EvergreenReader';
 import EvergreenReel from './EvergreenReel';
 import WhatsNew from './WhatsNew';
 import {
@@ -14,14 +13,14 @@ import {
   loadFavorites, saveFavorites, type EvergreenCard,
 } from '../../lib/evergreen';
 import { shareEvergreen } from '../../lib/share';
-import { fetchEvergreenVideoLinks } from '../../lib/insightVideos';
+import { fetchEvergreenMedia, type CardMedia } from '../../lib/insightVideos';
 import { isCloudEnabled } from '../../lib/supabase';
 
 type Segment = 'lessons' | 'updates';
 
-function withVideo(card: EvergreenCard, links: Map<string, string>): EvergreenCard {
-  const video_url = links.get(card.id);
-  return video_url ? { ...card, video_url } : card;
+function withMedia(card: EvergreenCard, media: Map<string, CardMedia>): EvergreenCard {
+  const m = media.get(card.id);
+  return m ? { ...card, video_url: m.video_url, infographic_url: m.infographic_url } : card;
 }
 
 interface Props {
@@ -35,22 +34,27 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
   const [category, setCategory] = useState<string | 'all'>('all');
   const [favOnly, setFavOnly] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
-  const [reading, setReading] = useState<EvergreenCard | null>(null);
-  const [reelAt, setReelAt] = useState<number | null>(null);
-  const [videoLinks, setVideoLinks] = useState<Map<string, string>>(new Map());
+  // Every card opens through the universal reel viewer (v9.9.1) — { cards, index }
+  // rather than a single "reading" card, since the viewer is swipeable across
+  // whichever list it was opened from (the filtered grid, or a deep-linked
+  // single-card list).
+  const [reel, setReel] = useState<{ cards: EvergreenCard[]; index: number } | null>(null);
+  const [media, setMedia] = useState<Map<string, CardMedia>>(new Map());
 
-  // Video links are admin-authored in content_items (v9.9.0); best-effort —
-  // a fetch failure just means no "watch" badges show, never breaks the tab.
+  // Video/infographic links are admin-authored in content_items (v9.9.0/v9.9.1);
+  // best-effort — a fetch failure just means cards fall back to text-only, never
+  // breaks the tab.
   useEffect(() => {
     if (!isCloudEnabled()) return;
-    fetchEvergreenVideoLinks().then(setVideoLinks).catch(() => {});
+    fetchEvergreenMedia().then(setMedia).catch(() => {});
   }, []);
 
   // Honor a deep-link open request from the feed reel (also forces Lessons).
   useEffect(() => {
     if (!openId) return;
-    const card = filterEvergreen('', 'all').find(c => c.id === openId);
-    if (card) { setSegment('lessons'); setReading(withVideo(card, videoLinks)); }
+    const full = filterEvergreen('', 'all').map(c => withMedia(c, media));
+    const idx = full.findIndex(c => c.id === openId);
+    if (idx !== -1) { setSegment('lessons'); setReel({ cards: full, index: idx }); }
     onConsumedOpen?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openId]);
@@ -67,8 +71,8 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
   const cards = useMemo(() => {
     let f = filterEvergreen(query, category);
     if (favOnly) f = f.filter(c => favorites.has(c.id));
-    return f.map(c => withVideo(c, videoLinks));
-  }, [query, category, favOnly, favorites, videoLinks]);
+    return f.map(c => withMedia(c, media));
+  }, [query, category, favOnly, favorites, media]);
 
   return (
     <div>
@@ -90,11 +94,6 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
               <input value={query} onChange={e => setQuery(e.target.value)} aria-label="Search lessons"
                 placeholder="Search lessons — saving, EMI, SIP, runway…" className="input w-full pl-9" />
             </div>
-            {cards.length > 0 && (
-              <button onClick={() => setReelAt(0)} className="btn-secondary inline-flex items-center gap-1.5 flex-shrink-0">
-                <PlaySquare size={15} /> Shorts
-              </button>
-            )}
           </div>
           <div className="flex gap-1.5 flex-wrap mb-4">
             <Chip active={category === 'all'} onClick={() => setCategory('all')}>All</Chip>
@@ -106,9 +105,9 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
             <EmptyState icon="🔍" message={favOnly ? 'No saved lessons yet — tap ♡ on a card.' : `No lessons match "${query}"`} />
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {cards.map(c => (
+              {cards.map((c, i) => (
                 <article key={c.id} className="bg-bg border border-line rounded-xl p-3 flex flex-col hover:shadow-md transition-shadow">
-                  <button onClick={() => setReading(c)} className="text-left" aria-label={`Read: ${c.title}`}>
+                  <button onClick={() => setReel({ cards, index: i })} className="text-left" aria-label={`Open: ${c.title}`}>
                     <CardVisual card={c} className="h-28 mb-3" />
                     <span className="font-mono text-[0.55rem] tracking-wider uppercase text-ink-dim">{c.category}</span>
                     <h3 className="font-semibold text-ink text-[0.92rem] leading-snug mt-0.5 mb-2">{c.title}</h3>
@@ -131,11 +130,8 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
         </>
       )}
 
-      {reading && (
-        <EvergreenReader card={reading} isFav={favorites.has(reading.id)} onToggleFav={() => toggleFav(reading.id)} onClose={() => setReading(null)} />
-      )}
-      {reelAt !== null && cards.length > 0 && (
-        <EvergreenReel cards={cards} startIndex={reelAt} onClose={() => setReelAt(null)} favorites={favorites} onToggleFav={toggleFav} />
+      {reel && (
+        <EvergreenReel cards={reel.cards} startIndex={reel.index} onClose={() => setReel(null)} favorites={favorites} onToggleFav={toggleFav} />
       )}
     </div>
   );

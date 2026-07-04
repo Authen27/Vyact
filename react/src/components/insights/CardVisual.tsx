@@ -14,7 +14,6 @@ import {
   Tag, Tags, Target, TrendingDown, Umbrella, UserCheck, Users, Wallet, Wind, Zap,
   type LucideIcon,
 } from 'lucide-react';
-import { PlayCircle } from 'lucide-react';
 import type { EvergreenCard, StatRef, StackRef, Bar2Ref, ArcRef, ArrowRef, Compare2Ref } from '../../lib/evergreen';
 
 const ICONS: Record<string, LucideIcon> = {
@@ -39,14 +38,6 @@ export default function CardVisual({ card, className = '' }: Props) {
   return (
     <div className={`relative flex items-center justify-center overflow-hidden rounded-lg bg-bg3 ${className}`}>
       {render(card)}
-      {card.video_url && (
-        <span
-          aria-label="Has a video short"
-          className="absolute top-1.5 right-1.5 flex items-center justify-center w-6 h-6 rounded-full bg-ink/60 text-white backdrop-blur-sm"
-        >
-          <PlayCircle size={14} strokeWidth={1.8} />
-        </span>
-      )}
     </div>
   );
 }

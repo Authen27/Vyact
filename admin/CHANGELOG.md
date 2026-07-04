@@ -4,10 +4,29 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.3.0`**
+> **Current production version: `v1.3.1`**
 > **Live URL:** https://vyact-admin.vercel.app
 
 ---
+
+## v1.3.1 — Infographic upload on every Content item *(2026-07-04)*
+
+Content editors can now upload a full-length portrait infographic image (authored outside
+Vyact, e.g. NotebookLM) to any `content_items` row, alongside the v1.3.0 video-short field.
+Shared **`InfographicField`** in `pages/Content.tsx` (upload / replace / remove with a live
+preview) is reused across all three format modals, uploading immediately to the app's first
+Supabase Storage bucket (`insight-infographics`) via new `uploadInfographic()`/
+`deleteInfographic()` helpers in `lib/contentApi.ts`. The list view gains an image-icon badge
+(hover for "last updated") next to the existing video badge.
+
+`upsertContent()` follows the same only-bump-on-change pattern as `video_updated_at`: editing
+an unrelated field never makes an infographic look freshly updated, and replacing/removing one
+best-effort deletes the previous Storage object.
+
+DB migration `20260704120000_v991_insight_infographics.sql` (additive `content_items.
+infographic_url`/`infographic_updated_at` + the storage bucket/RLS) — shared with the consumer
+app, applied once to the live Supabase project. Pairs with consumer v9.9.1, which makes the
+infographic (with a video/article overlay) the universal way every card/article opens.
 
 ## v1.3.0 — Video-short field on every Content item *(2026-07-02)*
 
