@@ -1,0 +1,181 @@
+/* ─────────────────────────────────────────────
+   Vyact — Arctic Prestige theme tokens (admin)
+   Dual-mode: light + dark · driven by [data-theme] on <html>
+   Newsreader + Inter Tight + JetBrains Mono
+
+   Source palette (LUXURY · ARCTIC PRESTIGE)
+     01 Ice White    #F5F8FA
+     02 Silver Mist  #D6DEE6
+     03 Glacier Blue #9DB4C6
+     04 Steel Blue   #5C7386
+     05 Arctic Navy  #1E2A39
+     06 Obsidian     #0B0F14
+
+   Architecture
+     · RAW palette        — fixed brand swatches, never theme-dependent
+     · SEMANTIC tokens    — flip between [data-theme="dark"] and ="light"
+     Build UI only on semantic tokens so both themes track automatically.
+   ───────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ── RAW palette — constant in both themes ── */
+  --arc-ice:        #F5F8FA;   /* 01 */
+  --arc-silver:     #D6DEE6;   /* 02 */
+  --arc-glacier:    #9DB4C6;   /* 03 */
+  --arc-steel:      #5C7386;   /* 04 */
+  --arc-navy:       #1E2A39;   /* 05 */
+  --arc-obsidian:   #0B0F14;   /* 06 */
+
+  /* brand gradient (rails, avatars) — theme-independent */
+  --arc-brand-grad: linear-gradient(140deg, var(--arc-glacier), var(--arc-steel));
+  --arc-rail-grad:  linear-gradient(90deg, var(--arc-steel), var(--arc-glacier) 60%, var(--arc-silver));
+
+  /* ── Type ─────────────────────────────────── */
+  --arc-serif: 'Newsreader', 'Cormorant Garamond', Georgia, serif;
+  --arc-sans:  'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --arc-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --arc-text-2xs:  10px; --arc-text-xs: 11px; --arc-text-sm: 13px;
+  --arc-text-base: 14px; --arc-text-md: 15px; --arc-text-lg: 17px;
+  --arc-text-xl:   20px; --arc-text-2xl: 24px; --arc-text-3xl: 32px; --arc-text-4xl: 44px;
+
+  --arc-r-1: 4px; --arc-r-2: 6px; --arc-r-3: 9px; --arc-r-4: 14px; --arc-r-pill: 9999px;
+
+  --arc-ease-out: cubic-bezier(.2,.7,.2,1);
+  --arc-dur-1: 80ms; --arc-dur-2: 180ms; --arc-dur-3: 320ms;
+}
+
+/* ════════════════════════════════════════════
+   DARK  ·  "Obsidian console"  (default)
+   ════════════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Surfaces — obsidian → navy hierarchy */
+  --arc-bg:         #0B0F14;
+  --arc-bg-2:       #10161E;
+  --arc-surface:    #16202C;
+  --arc-surface-2:  #1E2A39;
+  --arc-surface-3:  #243343;
+  --arc-overlay:    rgba(7, 10, 14, 0.66);
+  --arc-page-glow:  rgba(157, 180, 198, 0.10);
+
+  /* Ink — cool light on dark */
+  --arc-ink:        #F5F8FA;
+  --arc-ink-2:      #C2D0DC;
+  --arc-ink-3:      #8497A8;
+  --arc-ink-4:      #5C7386;
+
+  /* Lines */
+  --arc-line:        rgba(157, 180, 198, 0.12);
+  --arc-line-2:      rgba(157, 180, 198, 0.20);
+  --arc-line-strong: rgba(157, 180, 198, 0.34);
+
+  /* Brand — glacier lead, icy highlight */
+  --arc-accent:        #9DB4C6;
+  --arc-accent-bright: #C7E2F2;
+  --arc-accent-soft:   rgba(157, 180, 198, 0.18);
+  --arc-accent-tint:   rgba(157, 180, 198, 0.10);
+  --arc-on-accent:     #0B0F14;
+
+  /* Semantic status */
+  --arc-good:  #6FB89E; --arc-good-tint:  rgba(111, 184, 158, 0.16);
+  --arc-watch: #D8B36A; --arc-watch-tint: rgba(216, 179, 106, 0.16);
+  --arc-risk:  #CD7B6E; --arc-risk-tint:  rgba(205, 123, 110, 0.16);
+  --arc-info:  #7FA8D4; --arc-info-tint:  rgba(127, 168, 212, 0.16);
+
+  /* Shadows — cold, deep */
+  --arc-shadow-1: 0 1px 0 rgba(0,0,0,0.30);
+  --arc-shadow-2: 0 2px 8px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30);
+  --arc-shadow-3: 0 12px 32px rgba(0,0,0,0.50), 0 2px 8px rgba(0,0,0,0.36);
+  --arc-glow:     0 0 0 1px var(--arc-accent-soft), 0 0 24px rgba(157,180,198,0.18);
+}
+
+/* ════════════════════════════════════════════
+   LIGHT  ·  "Arctic daylight"
+   ════════════════════════════════════════════ */
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces — ice → white hierarchy */
+  --arc-bg:         #E9F0F5;
+  --arc-bg-2:       #DCE6EE;
+  --arc-surface:    #FFFFFF;
+  --arc-surface-2:  #F5F8FA;
+  --arc-surface-3:  #E6EDF3;
+  --arc-overlay:    rgba(30, 42, 57, 0.42);
+  --arc-page-glow:  rgba(92, 115, 134, 0.10);
+
+  /* Ink — navy → steel on ice */
+  --arc-ink:        #16202C;
+  --arc-ink-2:      #3C4F60;
+  --arc-ink-3:      #5C7386;
+  --arc-ink-4:      #93A7B6;
+
+  /* Lines */
+  --arc-line:        rgba(30, 42, 57, 0.10);
+  --arc-line-2:      rgba(30, 42, 57, 0.16);
+  --arc-line-strong: rgba(30, 42, 57, 0.28);
+
+  /* Brand — deep steel lead for contrast on white */
+  --arc-accent:        #4D6884;
+  --arc-accent-bright: #3A5570;
+  --arc-accent-soft:   rgba(77, 104, 132, 0.14);
+  --arc-accent-tint:   rgba(77, 104, 132, 0.09);
+  --arc-on-accent:     #F5F8FA;
+
+  /* Semantic status — darkened for light bg */
+  --arc-good:  #3E8E72; --arc-good-tint:  rgba(62, 142, 114, 0.14);
+  --arc-watch: #A8792A; --arc-watch-tint: rgba(168, 121, 42, 0.15);
+  --arc-risk:  #BD5746; --arc-risk-tint:  rgba(189, 87, 70, 0.12);
+  --arc-info:  #3F6FA0; --arc-info-tint:  rgba(63, 111, 160, 0.13);
+
+  /* Shadows — soft cool grey */
+  --arc-shadow-1: 0 1px 0 rgba(30,42,57,0.04);
+  --arc-shadow-2: 0 2px 8px rgba(30,42,57,0.08), 0 1px 2px rgba(30,42,57,0.06);
+  --arc-shadow-3: 0 12px 32px rgba(30,42,57,0.14), 0 2px 8px rgba(30,42,57,0.08);
+  --arc-glow:     0 0 0 1px var(--arc-accent-soft), 0 0 0 4px rgba(77,104,132,0.10);
+}
+
+/* ── Reset (scoped via .arc) ────────────────── */
+.arc, .arc * { box-sizing: border-box; }
+.arc {
+  font-family: var(--arc-sans);
+  font-size: var(--arc-text-base);
+  color: var(--arc-ink);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color var(--arc-dur-3), color var(--arc-dur-3);
+}
+.arc h1, .arc h2, .arc h3, .arc h4, .arc h5, .arc h6, .arc p { margin: 0; }
+.arc button { font-family: inherit; cursor: pointer; }
+.arc [data-num] { font-feature-settings: 'tnum', 'zero'; font-variant-numeric: tabular-nums; }
+
+/* ── Caption / overline ─────────────────────── */
+.arc-caption {
+  font-family: var(--arc-mono);
+  font-size: var(--arc-text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--arc-ink-3);
+}
+
+/* ── Focus ring ─────────────────────────────── */
+.arc *:focus-visible {
+  outline: 2px solid var(--arc-accent);
+  outline-offset: 2px;
+}
+
+/* ── Custom scrollbar ───────────────────────── */
+.arc-scroll { scrollbar-width: thin; scrollbar-color: var(--arc-steel) transparent; }
+.arc-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.arc-scroll::-webkit-scrollbar-track { background: transparent; }
+.arc-scroll::-webkit-scrollbar-thumb {
+  background: rgba(92, 115, 134, 0.5);
+  border-radius: 6px; border: 2px solid transparent; background-clip: padding-box;
+}
+.arc-scroll::-webkit-scrollbar-thumb:hover { background: rgba(92, 115, 134, 0.8); background-clip: padding-box; }

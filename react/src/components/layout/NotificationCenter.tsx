@@ -87,12 +87,17 @@ export default function NotificationCenter() {
       <button
         ref={btnRef}
         onClick={() => setOpen(o => !o)}
-        className="relative p-2 rounded-md text-ink-mid hover:text-ink hover:bg-bg3 transition-colors"
+        className="relative w-10 h-10 rounded-full border-none flex items-center justify-center text-ink-mid hover:text-ink transition-colors cursor-pointer"
+        style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
         title="Notifications"
+        aria-label="Notifications"
       >
         <Bell size={16} />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 bg-coral text-white text-[0.55rem] font-mono font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+          <span
+            className="absolute top-1.5 right-1.5 bg-coral text-white text-[0.55rem] font-mono font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center"
+            style={{ boxShadow: '0 0 0 2px var(--canvas)' }}
+          >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

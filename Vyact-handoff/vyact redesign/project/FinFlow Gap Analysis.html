@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>FinFlow · Gap Analysis · Customer + Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── tokens ─────────────────────────────────────────────────────── */
+  :root{
+    --paper:#F5EFE6; --bone:#FBF7EE; --card:#FFFCF5;
+    --ink:#2A2522; --ink-mid:#5C544D; --ink-dim:#8A8077;
+    --line:#E6DDCF; --line2:#D5C9B4;
+    --coral:#E26D5C; --coral-tint:#FBE4DD;
+    --sage:#85A88A; --olive:#6B7C53;
+    --honey:#E8A87C; --terra:#C44536;
+    --denim:#4A6FA5; --plum:#6E4555;
+    --serif:'Newsreader', Georgia, serif;
+    --ui:'Inter Tight', -apple-system, system-ui, sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:var(--paper); color:var(--ink); font-family:var(--ui); font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  body{ background-image: radial-gradient(circle at 20% 0%, #F9F2E5 0%, transparent 40%), radial-gradient(circle at 90% 30%, #F8E8DC 0%, transparent 35%); }
+
+  .wrap{ max-width:1240px; margin:0 auto; padding:48px 40px 80px; }
+
+  /* ── header ─────────────────────────────────────────────────────── */
+  .hd{ display:grid; grid-template-columns: 1fr auto; gap:24px; align-items:end; padding-bottom:28px; border-bottom:1px solid var(--line2); margin-bottom:36px; }
+  .eyebrow{ font-family:var(--mono); font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:14px; display:flex; gap:18px; align-items:center; }
+  .eyebrow .dot{ width:6px; height:6px; background:var(--coral); border-radius:50%; }
+  h1.doc{ font-family:var(--serif); font-style:italic; font-weight:400; font-size:62px; line-height:1.02; letter-spacing:-.012em; color:var(--ink); }
+  h1.doc em{ color:var(--coral); font-style:italic; }
+  .lede{ margin-top:18px; max-width:62ch; color:var(--ink-mid); font-size:17px; line-height:1.6; }
+  .meta{ font-family:var(--mono); font-size:11px; color:var(--ink-dim); text-align:right; line-height:1.7; }
+  .meta b{ color:var(--ink); font-weight:600; }
+
+  /* ── tally ──────────────────────────────────────────────────────── */
+  .tally{ display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:44px; }
+  .tally .cell{ background:var(--card); border:1px solid var(--line); border-radius:6px; padding:18px 20px; position:relative; overflow:hidden; }
+  .tally .cell::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; }
+  .tally .cell.crit::before{ background:var(--terra); }
+  .tally .cell.warn::before{ background:var(--honey); }
+  .tally .cell.info::before{ background:var(--denim); }
+  .tally .cell.ok::before{ background:var(--sage); }
+  .tally .label{ font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:8px; }
+  .tally .num{ font-family:var(--serif); font-style:italic; font-size:46px; line-height:1; color:var(--ink); }
+  .tally .num.crit{ color:var(--terra); }
+  .tally .num.warn{ color:var(--honey); }
+  .tally .num.info{ color:var(--denim); }
+  .tally .num.ok{ color:var(--olive); }
+  .tally .sub{ font-size:12px; color:var(--ink-mid); margin-top:6px; }
+
+  /* ── section ────────────────────────────────────────────────────── */
+  .sect{ margin-bottom:56px; }
+  .sect-hd{ display:grid; grid-template-columns:auto 1fr; gap:20px; align-items:baseline; padding-bottom:14px; border-bottom:1px solid var(--line2); margin-bottom:22px; }
+  .sect-num{ font-family:var(--mono); font-size:11px; letter-spacing:.2em; color:var(--coral); padding-top:14px; }
+  .sect h2{ font-family:var(--serif); font-style:italic; font-weight:400; font-size:38px; line-height:1.05; color:var(--ink); }
+  .sect h2 .dim{ color:var(--ink-dim); font-style:italic; }
+  .sect-sub{ grid-column:2; font-size:14px; color:var(--ink-mid); max-width:70ch; margin-top:6px; }
+
+  /* ── flow strip (workflow steps) ────────────────────────────────── */
+  .flow{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:6px; margin:8px 0 24px; padding:14px; background:var(--bone); border:1px solid var(--line); border-radius:6px; }
+  .flow .step{ font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-mid); display:flex; align-items:center; gap:8px; padding:6px 4px; }
+  .flow .step .n{ font-family:var(--serif); font-style:italic; font-size:18px; color:var(--coral); width:18px; }
+  .flow .step.bad{ color:var(--terra); }
+  .flow .step.bad .n{ color:var(--terra); }
+  .flow .step.miss{ color:var(--ink-dim); border-top:1px dashed var(--line2); padding-top:8px; }
+  .flow .step.miss .n{ color:var(--ink-dim); }
+
+  /* ── gap row (the workhorse component) ──────────────────────────── */
+  .gap{ display:grid; grid-template-columns: 110px 1fr 1fr 1fr; gap:0; border:1px solid var(--line); background:var(--card); border-radius:6px; margin-bottom:8px; overflow:hidden; }
+  .gap > div{ padding:14px 16px; border-right:1px solid var(--line); }
+  .gap > div:last-child{ border-right:none; }
+  .gap.crit{ border-left:3px solid var(--terra); }
+  .gap.warn{ border-left:3px solid var(--honey); }
+  .gap.info{ border-left:3px solid var(--denim); }
+
+  .gap .sev{ display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+  .gap .sev .pill{ font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; font-weight:600; }
+  .gap .sev .pill.crit{ background:rgba(196,69,54,.12); color:var(--terra); }
+  .gap .sev .pill.warn{ background:rgba(232,168,124,.18); color:#A66A3D; }
+  .gap .sev .pill.info{ background:rgba(74,111,165,.12); color:var(--denim); }
+  .gap .sev .id{ font-family:var(--mono); font-size:10px; color:var(--ink-dim); margin-top:4px; }
+
+  .gap h4{ font-family:var(--ui); font-size:14px; font-weight:600; color:var(--ink); margin-bottom:4px; line-height:1.35; }
+  .gap .where{ font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:6px; }
+  .gap p{ font-size:13.5px; color:var(--ink-mid); line-height:1.5; }
+  .gap p + p{ margin-top:6px; }
+  .gap code{ font-family:var(--mono); font-size:11.5px; background:rgba(226,109,92,.08); color:var(--coral); padding:1px 5px; border-radius:3px; }
+
+  .gap .impact-label, .gap .reco-label{ font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:6px; }
+  .gap .impact-label{ color:var(--terra); }
+  .gap .reco-label{ color:var(--olive); }
+
+  /* ── header row for gap table ───────────────────────────────────── */
+  .gap-head{ display:grid; grid-template-columns: 110px 1fr 1fr 1fr; padding:0 0 6px; font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim); }
+  .gap-head > div{ padding:0 16px; }
+
+  /* ── note callout ───────────────────────────────────────────────── */
+  .note{ background:var(--coral-tint); border:1px solid rgba(226,109,92,.3); border-left:3px solid var(--coral); border-radius:6px; padding:14px 18px; margin:10px 0 24px; }
+  .note .h{ font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--terra); margin-bottom:6px; }
+  .note p{ font-size:13.5px; color:var(--ink-mid); line-height:1.55; }
+
+  /* ── matrix table for prioritisation ────────────────────────────── */
+  .matrix{ width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow:hidden; margin-top:8px; }
+  .matrix th{ background:var(--bone); padding:10px 14px; text-align:left; font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-dim); font-weight:600; border-bottom:1px solid var(--line2); }
+  .matrix th.r{ text-align:right; }
+  .matrix td{ padding:11px 14px; border-bottom:1px solid var(--line); font-size:13.5px; color:var(--ink-mid); vertical-align:top; }
+  .matrix td.r{ text-align:right; font-family:var(--mono); font-size:12px; }
+  .matrix tr:last-child td{ border-bottom:none; }
+  .matrix .who{ font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+  .matrix .who.cu{ color:var(--coral); }
+  .matrix .who.ad{ color:var(--denim); }
+  .matrix .who.bo{ color:var(--plum); }
+  .matrix .ttl{ color:var(--ink); font-weight:600; }
+  .matrix .effort{ display:inline-block; width:48px; height:6px; background:var(--line); border-radius:3px; overflow:hidden; vertical-align:middle; }
+  .matrix .effort i{ display:block; height:100%; background:var(--honey); }
+
+  /* ── persona cards ──────────────────────────────────────────────── */
+  .personas{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:14px; }
+  .persona{ background:var(--card); border:1px solid var(--line); border-radius:6px; padding:18px 18px 16px; }
+  .persona .icon{ font-size:24px; margin-bottom:6px; }
+  .persona h3{ font-family:var(--serif); font-style:italic; font-weight:400; font-size:22px; color:var(--ink); margin-bottom:2px; }
+  .persona .sub{ font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:10px; }
+  .persona ul{ list-style:none; }
+  .persona li{ font-size:12.5px; color:var(--ink-mid); padding:5px 0 5px 16px; border-bottom:1px dashed var(--line); position:relative; line-height:1.45; }
+  .persona li:last-child{ border-bottom:none; }
+  .persona li::before{ content:"⤬"; position:absolute; left:0; color:var(--terra); font-weight:600; }
+  .persona li.ok::before{ content:"✓"; color:var(--olive); }
+
+  /* ── summary band (final) ───────────────────────────────────────── */
+  .band{ background:var(--ink); color:var(--bone); border-radius:8px; padding:36px 40px; margin-top:40px; }
+  .band h2{ font-family:var(--serif); font-style:italic; font-weight:400; font-size:34px; margin-bottom:8px; color:var(--bone); }
+  .band .lede{ color:rgba(251,247,238,.75); font-size:15px; max-width:60ch; margin-bottom:20px; }
+  .band .three{ display:grid; grid-template-columns: repeat(3, 1fr); gap:18px; margin-top:6px; }
+  .band .three .col{ border-left:2px solid rgba(226,109,92,.6); padding-left:14px; }
+  .band .three h4{ font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--coral); margin-bottom:10px; }
+  .band .three ol{ list-style:none; counter-reset:n; }
+  .band .three li{ counter-increment:n; padding:5px 0 5px 22px; position:relative; font-size:13px; color:rgba(251,247,238,.85); line-height:1.45; }
+  .band .three li::before{ content: counter(n,decimal-leading-zero); position:absolute; left:0; font-family:var(--mono); font-size:10px; color:var(--coral); top:7px; }
+
+  /* ── footer ─────────────────────────────────────────────────────── */
+  .ft{ margin-top:48px; padding-top:20px; border-top:1px solid var(--line2); font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-dim); display:flex; justify-content:space-between; }
+
+  /* ── small utilities ────────────────────────────────────────────── */
+  .h3{ font-family:var(--serif); font-style:italic; font-weight:400; font-size:22px; color:var(--ink); margin:18px 0 10px; }
+  .row2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+
+  @media (max-width:980px){
+    .wrap{ padding:32px 22px 60px; }
+    h1.doc{ font-size:44px; }
+    .tally{ grid-template-columns: repeat(2, 1fr); }
+    .gap{ grid-template-columns: 1fr; }
+    .gap > div{ border-right:none; border-bottom:1px solid var(--line); }
+    .gap > div:last-child{ border-bottom:none; }
+    .gap-head{ display:none; }
+    .personas{ grid-template-columns: 1fr; }
+    .band .three{ grid-template-columns: 1fr; }
+    .hd{ grid-template-columns: 1fr; }
+    .meta{ text-align:left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ─── Header ───────────────────────────────────────────────── -->
+  <header class="hd">
+    <div>
+      <div class="eyebrow"><span class="dot"></span> Design audit · v4.1 consumer + v8.0 admin</div>
+      <h1 class="doc">Where FinFlow is <em>tight</em>,<br/>and where it's <em>leaking</em>.</h1>
+      <p class="lede">A workflow‑level review of the customer app (<code style="font-family:var(--mono);font-size:13px;color:var(--coral);">react/</code>) and the admin backend (<code style="font-family:var(--mono);font-size:13px;color:var(--coral);">admin/</code>). The product has good bones — Pulse Score, paper‑warm system, role‑gated admin — but several flows stop short of the value moment, and the two apps don't yet talk to each other. Below: 28 specific gaps with severity, evidence, and what to do.</p>
+    </div>
+    <div class="meta">
+      <b>Reviewer</b> Design lead<br/>
+      <b>Scope</b> Customer + Admin<br/>
+      <b>Sources</b> CLAUDE.md · 17 page files · v7 PRD<br/>
+      <b>Date</b> May 2026 · v1.0
+    </div>
+  </header>
+
+  <!-- ─── Tally ────────────────────────────────────────────────── -->
+  <div class="tally">
+    <div class="cell crit"><div class="label">Critical gaps</div><div class="num crit">9</div><div class="sub">Block core value or expose risk</div></div>
+    <div class="cell warn"><div class="label">Watch</div><div class="num warn">12</div><div class="sub">Hurt retention, conversion, trust</div></div>
+    <div class="cell info"><div class="label">Polish</div><div class="num info">7</div><div class="sub">Quality / consistency wins</div></div>
+    <div class="cell ok"><div class="label">Already strong</div><div class="num ok">6</div><div class="sub">Keep, lean in further</div></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SECTION 01 — CUSTOMER APP
+       ═════════════════════════════════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-hd">
+      <span class="sect-num">01</span>
+      <h2>Customer app <span class="dim">— react/</span></h2>
+      <p class="sect-sub">10 pages live, 4 still stubbed. Onboarding, Dashboard, Transactions, Reports, Recurring, Planner, Chat, Households all working; Budgets, Goals, Debts, Net Worth, Splits, Settings, Help still link back to v5 vanilla.</p>
+    </div>
+
+    <!-- Personas affected -->
+    <div class="personas">
+      <div class="persona">
+        <div class="icon">💞</div>
+        <h3>Couple</h3>
+        <div class="sub">2 adults · combining finances</div>
+        <ul>
+          <li>No "shared vs personal" wallet split — everything is one pool</li>
+          <li>Invitation flow needs Edge Function not yet shipped</li>
+          <li class="ok">Pulse Score lands the joint anxiety reduction promise</li>
+        </ul>
+      </div>
+      <div class="persona">
+        <div class="icon">👨‍👩‍👧</div>
+        <h3>Growing family</h3>
+        <div class="sub">2 adults + kids · time-poor</div>
+        <ul>
+          <li>No bank aggregation = manual entry friction kills D7</li>
+          <li>Planner is rules-only; no "what would Pip do" advice</li>
+          <li>No allowance / kid sub-account flow despite 'child' role</li>
+        </ul>
+      </div>
+      <div class="persona">
+        <div class="icon">👵</div>
+        <h3>Multi-gen</h3>
+        <div class="sub">3 generations · mixed tech literacy</div>
+        <ul>
+          <li>No simplified "elder" mode despite role existing</li>
+          <li>Medical / care category absent from defaults</li>
+          <li>No cross-currency household (e.g. USD + INR remittances)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── 1.1 Onboarding ─────────────────────────────────────── -->
+    <div class="h3">1.1 — Onboarding flow</div>
+    <div class="flow">
+      <div class="step"><span class="n">01</span> Pick template</div>
+      <div class="step"><span class="n">02</span> Household size</div>
+      <div class="step"><span class="n">03</span> Primary concern</div>
+      <div class="step"><span class="n">04</span> Currency · language</div>
+      <div class="step bad"><span class="n">!</span> "Get started" → Dashboard</div>
+      <div class="step miss"><span class="n">—</span> First transaction missing</div>
+      <div class="step miss"><span class="n">—</span> First member invite missing</div>
+    </div>
+
+    <div class="gap-head">
+      <div>Severity · ID</div><div>Gap</div><div>Impact</div><div>Recommendation</div>
+    </div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">CU‑01</span></div>
+      <div>
+        <div class="where">Onboarding · step 4 → Dashboard</div>
+        <h4>Onboarding ends before the value moment</h4>
+        <p>The flow drops the user on a Dashboard populated with zeros. The PRD's NorthStar KPI <code>timeToFirstTxnSec &lt; 90s</code> can't be hit if step 5 (add a transaction) doesn't exist.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Empty dashboards cause D1 churn. Admin currently shows <code>timeToFirstTxnSec</code> 70s — likely measuring sessions where users <em>did</em> figure it out, ignoring those who bounced.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Add step 5: "Add your first transaction" with three big chips (Salary · Rent · Groceries) — pre‑filled amounts editable inline. Step 6: "Invite your partner" (skippable). Promote the existing skip‑link to a secondary action so it isn't the path of least resistance.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">CU‑02</span></div>
+      <div>
+        <div class="where">Onboarding · concern selection</div>
+        <h4>Concern selection has no observable effect on the dashboard</h4>
+        <p>The copy promises "<em>This reorders your dashboard for what matters most to you</em>" but <code>Dashboard.tsx</code> renders the same fixed grid for everyone — Pulse, 4 cards, budgets, transactions, goals, donut, net worth, debt.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Trust erosion. Users notice the broken promise within 30 seconds. Worse: it makes every other claim ("Pulse Score weighted for your situation") feel suspect.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Hoist the panel matching <code>profile.primaryConcern</code> to position 2 (after Pulse). Spending → Budget Progress; Debt → Debt Overview; Savings → Goals; Retirement → Net Worth. Or remove the promise.</p>
+      </div>
+    </div>
+
+    <div class="gap info">
+      <div class="sev"><span class="pill info">Polish</span><span class="id">CU‑03</span></div>
+      <div>
+        <div class="where">Onboarding · step 1</div>
+        <h4>Skip default goes to "Family" — wrong for ~60% of signups</h4>
+        <p>Mock data shows tier mix tilts heavily Free + Family, but PostHog templates list 6 segments evenly: <code>young_couple, family, single, self_employed, retiree, student</code>.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Skippers get wrong starter budgets/categories — silent friction during week 1.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Detect from sign-up email domain + browser hints; fall back to "Single" (safest blank slate). Or remove skip entirely — 4 steps × 90s is not too much friction for the lifetime relationship.</p>
+      </div>
+    </div>
+
+    <!-- ── 1.2 Daily ops ──────────────────────────────────────── -->
+    <div class="h3">1.2 — Daily operations: data entry &amp; categorisation</div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">CU‑04</span></div>
+      <div>
+        <div class="where">Dashboard · header · Transactions · header</div>
+        <h4>"Add Transaction" buttons are decorative</h4>
+        <p>Both pages render <code>&lt;Button&gt;&lt;Plus/&gt; Add Transaction&lt;/Button&gt;</code> with no <code>onClick</code> handler. There's no add-transaction modal anywhere in the React app.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>The single most-frequent action in the app is non-functional in the modern stack. Users either give up or fall back to the v5 vanilla shell — an eject the product can't afford.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Ship <code>AddTransactionModal</code> with: type segmented control · amount · category picker (suggest from history) · payment method · split toggle · private toggle · member · date · note. This is the P0 React migration — every other page block is downstream of it.</p>
+      </div>
+    </div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">CU‑05</span></div>
+      <div>
+        <div class="where">No bank / aggregator import</div>
+        <h4>Manual entry is the only path in</h4>
+        <p>CLAUDE.md acknowledges "No bank aggregation (open banking / Plaid) — Phase 2." But <em>every</em> consumer-finance app the user's compared against (Mint, Monarch, Lunch Money, YNAB) imports transactions on day one.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>D7 retention will cap around 30–35% no matter how good the UI is, because the chore of manual entry compounds daily. <code>d7RetentionPct &gt; 60%</code> target is unreachable without it.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Even if Plaid is Phase 2, ship CSV import + email-receipt forwarding + Apple Pay / Google Pay receipt photo OCR in v7.5. Position manual entry as the rare case ("missed by import").</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">CU‑06</span></div>
+      <div>
+        <div class="where">Transactions · row</div>
+        <h4>No bulk operations · no inline edit · no recategorise</h4>
+        <p><code>TxnRow</code> is read-only when <code>showActions</code> is false; even with actions, there's no multi-select, no "recategorise these 5", no "mark all groceries Tesco as 'Groceries'" rule.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Once aggregator imports land, users will have 50–500 uncategorised rows on day 1. Without bulk edit they bounce.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Add row checkboxes + a sticky bulk-action bar (Categorise · Tag · Mark private · Delete). Add "Always categorise [merchant] as [X]" rule capture from any single edit.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">CU‑07</span></div>
+      <div>
+        <div class="where">Transactions · search</div>
+        <h4>Search is substring-only · no amount/date range</h4>
+        <p>Filters cover type, category, month, member. No amount filter (<code>&gt;$200</code>), no date range, no payment-method filter, no "private only".</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>"How much did I spend at Whole Foods last quarter?" requires Reports + math. Friction → users stop exploring → less stickiness.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Add a saved-views row above filters (Last 30d · This year · Over $500 · Private). Saved searches power the daily check-in habit.</p>
+      </div>
+    </div>
+
+    <!-- ── 1.3 Planning ───────────────────────────────────────── -->
+    <div class="h3">1.3 — Planning &amp; insight</div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">CU‑08</span></div>
+      <div>
+        <div class="where">Planner · all recommendations</div>
+        <h4>Planner has no "do it" path</h4>
+        <p>Each recommendation has a single deep link (<code>r.action.route</code>) to a related page. Nothing actually executes the recommendation. A "pay $200 extra to highest-APR debt" rec doesn't know how to <em>schedule</em> that payment.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p><code>recsFollowedPct</code> targets 25%. Without one-click execution it'll trend &lt;10%. Planner becomes "yet another things-to-feel-bad-about list".</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Each rec gets a primary <em>action</em> button: "Schedule extra payment", "Create budget", "Set up recurring transfer". Wire to existing Recurring + Debts forms. Track click-through to closed-loop "did the user do it within 7 days".</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">CU‑09</span></div>
+      <div>
+        <div class="where">Chat · stub backend</div>
+        <h4>Chat replies from a local pattern matcher and admits it</h4>
+        <p>The privacy notice says "<em>currently in stub mode — answers come from a local pattern-matcher</em>." Users see this and stop using Chat permanently within 2 sessions. <code>avgChatSatisfaction &gt; 4.2</code> is unmeasurable on a stub.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Sets a low ceiling on first impression. v8.1 wiring of the real LLM may not recover users who already learned "Chat doesn't work".</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Don't ship Chat publicly until the Edge Function is live. If you must, gate behind a "Beta · early access" opt-in toggle and don't show a placeholder reply for queries the matcher can't handle — say "I can't answer that yet, this is queued for our LLM upgrade in [date]."</p>
+      </div>
+    </div>
+
+    <div class="gap info">
+      <div class="sev"><span class="pill info">Polish</span><span class="id">CU‑10</span></div>
+      <div>
+        <div class="where">Reports · period selector</div>
+        <h4>5 period buckets · no custom range · no compare</h4>
+        <p>Users want "this Nov vs last Nov", "trip to Italy vs baseline", "before vs after raise". The 5 fixed buckets (D/W/M/Q/Y) don't enable comparison.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Reports become a destination only at month-end, not a habit.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Add date-range picker + "vs previous period" + "vs same period last year" toggle. Persist as saved views.</p>
+      </div>
+    </div>
+
+    <!-- ── 1.4 Multi-user ─────────────────────────────────────── -->
+    <div class="h3">1.4 — Multi-user &amp; households</div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">CU‑11</span></div>
+      <div>
+        <div class="where">Households · invite flow</div>
+        <h4>Invitations require manual link-sharing</h4>
+        <p><code>InviteModal</code> creates the row, then says "<em>Configure the send-invite-email Edge Function in Supabase to email this automatically</em>." Today the inviter has to copy the link and DM/text it.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p><code>multiMemberPct &gt; 40%</code> is the single best retention lever (multi-user households churn ~3× less). Manual link sharing roughly halves invite-acceptance.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Ship the Edge Function before launch. Add SMS option as backup. Add "Tap to share" sheet on mobile that prefers iMessage/WhatsApp where SMS isn't installed.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">CU‑12</span></div>
+      <div>
+        <div class="where">Households · activity log</div>
+        <h4>Activity log is admin-grade · not human-grade</h4>
+        <p>Entries render as <code>&lt;Action: txn.create&gt; on transaction</code>. A partner glancing at the household feed sees postgres event names, not "Priya added $42 at Whole Foods (Groceries) yesterday."</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>The "kitchen-table conversation" promise dies in this list. Households are about <em>seeing each other's money moves</em>, not auditing them.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Re-template every action to natural language. Group by day. Show actor avatar + amount + category icon. Differentiate "<em>Priya recorded</em>" from "<em>Priya edited yours</em>" from "<em>System auto-confirmed rent</em>" — different visual weights.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">CU‑13</span></div>
+      <div>
+        <div class="where">Households · child role</div>
+        <h4>'Child' role exists in code, has no UI</h4>
+        <p>Permissions table grants children scoped permissions. There's no kid-friendly view, no allowance flow, no "ask parent to approve" pattern. Inviting a child as 'child' currently delivers them the adult dashboard with most buttons disabled.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Family segment loses its biggest differentiator (financial education for kids). Competitors (GoHenry, Greenlight) own this.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>v7.6 minimum: child sees a stripped-down "My Money" page (allowance balance, this week's spending, savings goal jar, recent transactions). Parents see a "Kids" admin tab in Households.</p>
+      </div>
+    </div>
+
+    <div class="gap info">
+      <div class="sev"><span class="pill info">Polish</span><span class="id">CU‑14</span></div>
+      <div>
+        <div class="where">Households · transfer ownership</div>
+        <h4>RPC exists; no UI surfaces it</h4>
+        <p>Schema has a <code>transfer_ownership</code> RPC and the <code>'transfer_ownership'</code> permission, but no button anywhere lets an owner do this. Sole-owner-leaves flow has a TODO.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Edge case — but breakups, family restructuring, and admin handoffs are real. Today the owner has to delete + reinvite (data-loss risk).</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Add "Transfer ownership" to Danger Zone, gated to current owner, with confirmation including 2FA-style re-auth.</p>
+      </div>
+    </div>
+
+    <!-- ── 1.5 Stubs ───────────────────────────────────────────── -->
+    <div class="h3">1.5 — Stubbed pages still pointing to v5 vanilla</div>
+
+    <div class="note">
+      <div class="h">Migration debt</div>
+      <p>Seven pages — Budgets, Goals, Splits, Debts, Net Worth, Settings, Help — render a placeholder with a v5 deep link. <strong>Three of these</strong> (Budgets, Goals, Net Worth) are surfaced as Dashboard panels that link <em>back to themselves</em> as stubs. The Pulse Score weights Debt Health 20% and Goal Progress 15% — both calculated from data that lives behind stubbed pages.</p>
+    </div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">CU‑15</span></div>
+      <div>
+        <div class="where">Stubs · /budgets · /goals · /debts · /networth</div>
+        <h4>Dashboard cards link to non-functional pages</h4>
+        <p>Click "View all" on Dashboard's Budget Progress → land on a "React migration in progress" page with a v5 link. Same for Goals, Net Worth, Debts. Pulse Score advertises 20% from Debt Health, but the user can't <em>see or edit</em> debts in the same app.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Dashboard becomes a teaser. Pulse becomes opaque ("why is mine 67? where do I fix it?"). The two-app handoff feels like a bug.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Either: (a) finish the React migration before public launch — budgets and net worth share data shapes already in <code>store.ts</code>, this is hours not days; or (b) hide the stub-linked panels for now and don't promote Pulse Score as a key metric until its inputs are editable.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">CU‑16</span></div>
+      <div>
+        <div class="where">Stubs · /settings</div>
+        <h4>Settings page is a stub — but theme toggle is in the sidebar</h4>
+        <p>Theme switcher and "Sign out" live in the sidebar footer, not in /settings. There's no React-side way to edit profile, change base currency, edit FX rates, change date format, or enable notifications.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Users who change life circumstances (move country, change name, get married) can't update without falling back to v5. Account hygiene tasks become a bug filing.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Settings is the next page to migrate after AddTransactionModal. Group: Profile · Localization · Appearance · Notifications · Sync · Account · Danger.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SECTION 02 — ADMIN APP
+       ═════════════════════════════════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-hd">
+      <span class="sect-num">02</span>
+      <h2>Admin app <span class="dim">— admin/</span></h2>
+      <p class="sect-sub">7 pages, role-gated by Super / Roles / Content. NorthStar dashboard is a strong opening; supporting pages thin out fast. Most "actions" don't act yet.</p>
+    </div>
+
+    <!-- ── 2.1 Dashboard ──────────────────────────────────────── -->
+    <div class="h3">2.1 — NorthStar dashboard</div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">AD‑01</span></div>
+      <div>
+        <div class="where">Dashboard · 12 KPI grid</div>
+        <h4>KPIs are non-clickable · no drill-down · no segment</h4>
+        <p>Each Kpi tile shows value, target, ✓/⚠ — but you can't click "Free → Paid 7.2%" to see <em>which</em> users converted, when, from which surface. Same for D7/D90 retention, multi-member %.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Admin is a glanceable poster, not an investigation tool. PMs will export to Looker for any real question.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Every KPI links to a filtered Users / Households / Subscriptions list. Add segment toggles at top: Country · Tier · Template · Cohort week. Cohort retention curves > single-number retention.</p>
+      </div>
+    </div>
+
+    <div class="gap info">
+      <div class="sev"><span class="pill info">Polish</span><span class="id">AD‑02</span></div>
+      <div>
+        <div class="where">Dashboard · NPS / MRR / Signups</div>
+        <h4>No anomaly detection · no week-over-week alerts</h4>
+        <p>Signups dropped 20% week-over-week? You'd only know if you happened to look. There's no banner, no "what changed", no comparison to expectation.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Slow detection of regressions. Stripe webhook fail at midnight = nobody knows till morning standup.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Top-of-page alert strip when any KPI moves &gt; 2σ from 4-week mean. Slack/email push for super admins.</p>
+      </div>
+    </div>
+
+    <!-- ── 2.2 Users ──────────────────────────────────────────── -->
+    <div class="h3">2.2 — Users</div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">AD‑03</span></div>
+      <div>
+        <div class="where">Users · row actions</div>
+        <h4>Row actions are icons with no handlers</h4>
+        <p>Mail, Ban, Shield, MoreHorizontal icons render. None have <code>onClick</code>. Clicking any does nothing. Worse, they're hidden behind <code>opacity-0 group-hover:opacity-100</code> — but the parent has no <code>group</code> class, so they never appear.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Support team can <em>see</em> users but can't <em>act</em> on them: no email, no suspend, no role change, no impersonation, no password reset, no refund. Admin is read-only in practice.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Click row → side drawer with Profile · Households · Subscription · Activity · Actions (Email · Suspend · Reset password · Impersonate · Refund · Delete with GDPR confirm). Wire to Supabase admin SDK. Audit-log every action.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">AD‑04</span></div>
+      <div>
+        <div class="where">Users · table</div>
+        <h4>Pulse Score column has no context for support</h4>
+        <p>Pulse is shown 0–100 with green/yellow/red bands. Support agent fielding "I need help" can't tell <em>why</em> a user is at 41 — is it debt, missed budgets, low savings? They have to switch contexts.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Support latency. Conversations open with "<em>can you tell me more about your situation</em>" instead of "<em>I see your debt-to-income jumped to 45% last month — want to walk through the planner?</em>"</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Hover Pulse → 5-bar breakdown (Budget · Savings · Goal · Trend · Debt). Click → user drawer pre-pinned to Insights tab.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">AD‑05</span></div>
+      <div>
+        <div class="where">Users · search</div>
+        <h4>Search is name/email/country only</h4>
+        <p>Can't find by Stripe customer ID, Supabase user ID, household name, transaction ID, IP, or signup UTM source — exactly the things support tickets reference.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Every support ticket starts with "what's your email?"; users who signed up with one address and ticket'd from another can't be found.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Cmd-K global search across users, households, subscriptions, audit, articles. Index on every primary identifier.</p>
+      </div>
+    </div>
+
+    <!-- ── 2.3 Households ─────────────────────────────────────── -->
+    <div class="h3">2.3 — Households</div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">AD‑06</span></div>
+      <div>
+        <div class="where">Households · grid cards</div>
+        <h4>Cards aren't clickable · no drill-in</h4>
+        <p>Card shows type, member count, owner email — but can't open it. No way to see the actual members, who's active, last transaction, total balance, churn risk.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Multi-member % is the NorthStar lever; admin can't analyse why a household stopped being multi-member.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Click card → drawer with Members table · Activity feed · Subscription · Health metrics. Add filter: "stopped being multi-member in last 30d" (early churn signal).</p>
+      </div>
+    </div>
+
+    <!-- ── 2.4 Subscriptions ──────────────────────────────────── -->
+    <div class="h3">2.4 — Subscriptions &amp; billing</div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">AD‑07</span></div>
+      <div>
+        <div class="where">Subscriptions · row</div>
+        <h4>No admin actions for billing — refund, comp, retry, cancel</h4>
+        <p>The list shows status (active/past_due/trialing/canceled), monthly amount, renews date. There's no way to: refund, issue credit, comp a month, retry a failed charge, change plan, change payment method, cancel.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Every billing question becomes a Stripe-dashboard task. Two systems of record. Support agents need Stripe access (security risk) or escalate to engineering (slow).</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>v8.1 must include: refund (full + partial), retry, comp 1/3/6 months, change plan, cancel-at-period-end, mark fraudulent. All write through Stripe + log to audit.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">AD‑08</span></div>
+      <div>
+        <div class="where">Subscriptions · top metrics</div>
+        <h4>MRR · ARR · Past Due — but no churn, no LTV, no cohort</h4>
+        <p>The four metric tiles cover today's snapshot. They don't show: monthly churn rate, gross/net revenue retention, LTV by tier, payback period, dunning recovery rate. These are the metrics a CEO opens admin to see.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Admin can't answer "is the business healthy". CEO will open Stripe + a spreadsheet instead.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Add a Revenue tab: Cohort retention by signup month, MRR movement (new + expansion + contraction + churn = net), Dunning recovery %, LTV/CAC (needs marketing input), 30/60/90-day churn.</p>
+      </div>
+    </div>
+
+    <!-- ── 2.5 Content ────────────────────────────────────────── -->
+    <div class="h3">2.5 — Content</div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">AD‑09</span></div>
+      <div>
+        <div class="where">Content · "New Article" button</div>
+        <h4>No editor · no preview · no scheduling</h4>
+        <p>The list is functional; the create flow doesn't exist. There's no way to write, schedule, or even see a published article — the eye icon's <code>onClick</code> is a no-op. The Content admin role's <em>only</em> reason to exist isn't deliverable.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Content team can't do their job in the admin tool. They use Notion → eng exports → ships. Multi-week loop for what should be 1-day publishing.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Markdown / Tiptap editor with autosave · live preview · schedule date · topic + tags · author · cover image upload · SEO fields · review state machine (draft → review → published → archived). Page-level analytics inline.</p>
+      </div>
+    </div>
+
+    <div class="gap info">
+      <div class="sev"><span class="pill info">Polish</span><span class="id">AD‑10</span></div>
+      <div>
+        <div class="where">Content · views column</div>
+        <h4>No engagement metrics beyond views</h4>
+        <p>"Views" is the weakest content KPI. No time-on-page, scroll depth, conversions to signup, completion rate, refer-back rate.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Content team optimises for traffic, not value. Wrong incentive.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Wire PostHog page-view + custom events. Show: signups attributed, time-on-page p50, scroll-depth p50.</p>
+      </div>
+    </div>
+
+    <!-- ── 2.6 Audit ──────────────────────────────────────────── -->
+    <div class="h3">2.6 — Audit log</div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">AD‑11</span></div>
+      <div>
+        <div class="where">Audit · filters</div>
+        <h4>Substring search only · no filters</h4>
+        <p>For a compliance trail (7-year retention!) the only filter is the global search box. No date range, no actor, no action type, no entity, no IP — exactly the things auditors and forensic investigators ask for.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>SOC 2 / GDPR audit response measured in days, not minutes. Every "show me all role changes by user X in 2025" is a CSV export + spreadsheet.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Filter chips: Date range · Actor · Action · Entity · Role · IP. Saved views ("All role changes", "All deletions"). Export already exists — keep it, but make most queries answerable in-page.</p>
+      </div>
+    </div>
+
+    <div class="gap info">
+      <div class="sev"><span class="pill info">Polish</span><span class="id">AD‑12</span></div>
+      <div>
+        <div class="where">Audit · entity column</div>
+        <h4>Entity rows show ID but don't link</h4>
+        <p>"User u_0142" — clicking should jump to Users filtered to that user. Currently it's text.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Investigation workflow is copy-paste-search instead of click-through.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Linkify every entity ID to its detail drawer.</p>
+      </div>
+    </div>
+
+    <!-- ── 2.7 Settings & Security ────────────────────────────── -->
+    <div class="h3">2.7 — Settings &amp; security posture</div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">AD‑13</span></div>
+      <div>
+        <div class="where">Settings · Security</div>
+        <h4>No SSO · no 2FA · no IP allowlist · no impersonation audit</h4>
+        <p>"Required for v8.1" is shown as a status pill — meaning launch v8.0 has admins logging in with email/password and full read access to every household's financial data. Combined with no rate limit on the admin API surface this is a P0 security gap.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Single phished credential = full data breach across all customers. Insurance / SOC 2 / GDPR all blocked. This is also a customer-trust ceiling — "<em>do you do 2FA on internal access?</em>" is question 1 from any enterprise customer.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Block v8.0 launch. Ship Google Workspace SSO + mandatory 2FA + IP allowlist + 30-min idle timeout (already configured) + impersonation audit-log row before any production data lands. Security must be wired before billing actions (AD-07).</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">AD‑14</span></div>
+      <div>
+        <div class="where">Layout · role switcher</div>
+        <h4>Role switcher is in the production sidebar</h4>
+        <p>The "Acting as: Super Admin" dropdown lets you switch tier from the sidebar. This is great for testing. It's a privilege-escalation footgun in production.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>A Content admin who's also a sometime Super gets in the habit of switching down to test their team's view, forgets to switch back, takes a destructive action expecting Content scope.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Behind a <code>VITE_DEV_ROLE_SWITCH</code> env flag. Production = role assigned by SSO claim, immutable for the session.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SECTION 03 — CROSS-CUTTING
+       ═════════════════════════════════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-hd">
+      <span class="sect-num">03</span>
+      <h2>Cross-cutting <span class="dim">— consumer ↔ admin · platform</span></h2>
+      <p class="sect-sub">Gaps that aren't in either app individually but in the seam between them, or in things both apps share.</p>
+    </div>
+
+    <div class="gap crit">
+      <div class="sev"><span class="pill crit">Critical</span><span class="id">XC‑01</span></div>
+      <div>
+        <div class="where">No support / impersonation bridge</div>
+        <h4>Support can't see what the customer sees</h4>
+        <p>When a user reports "my Pulse is wrong" or "the chart is empty," support has no read-only impersonation. Admin shows aggregated data; customer app shows their data. There's no "view as user" mode.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Every support ticket needs screenshot + remote share. P75 resolution time inflates 5–10×. With multi-currency + multi-template + multi-household, repro is hard.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>"Open as user" button on every Users row → opens consumer app in a tab with read-only banner + impersonation token. Audit-logged. Pair with AD‑13 SSO so it's traceable to the admin.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">XC‑02</span></div>
+      <div>
+        <div class="where">No notifications system end-to-end</div>
+        <h4>Notification Center exists; no producers</h4>
+        <p>Sidebar imports <code>NotificationCenter</code>. Recurring schedules have a <code>reminderLeadDays</code> field. There's no service worker, no push, no email, no SMS, and no admin view of notification health.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p><code>reminderConfirmedPct &gt; 80%</code> is unmeasurable. The "kitchen-table conversation" depends on out-of-band nudges.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>v8.1 wire: web push (PWA), email (Resend/SES), in-app feed. Admin gets a Notifications tab: send rate, open rate, click rate, bounce. Per-user notification settings page in consumer Settings.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">XC‑03</span></div>
+      <div>
+        <div class="where">Three apps · two design systems</div>
+        <h4>v5 vanilla, v6 React, v8 admin — three codebases, two type systems</h4>
+        <p>Consumer is paper-warm + Newsreader/Inter Tight; admin is Claude-native + Source Serif 4/Inter. The visual jump between them is jarring for users who'll touch both (e.g. an admin with their own consumer account, support staff demoing).</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Brand dilution. Component duplication. Tokens drift over time as different teams maintain them.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Extract shared <code>@finflow/tokens</code> + <code>@finflow/ui</code> packages. Admin keeps Claude-native palette but uses the same Card / Panel / Table primitives. Retire v5 vanilla once stubs are migrated.</p>
+      </div>
+    </div>
+
+    <div class="gap warn">
+      <div class="sev"><span class="pill warn">Watch</span><span class="id">XC‑04</span></div>
+      <div>
+        <div class="where">Mobile</div>
+        <h4>No native app · web responsive but not optimised for daily use</h4>
+        <p>Consumer is responsive (sidebar collapses, mobile bar). Daily-use behaviour (open phone, scan a receipt, log it in 5 seconds) needs native: camera, biometric unlock, share extension from banks' SMS. Admin doesn't matter on mobile.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p><code>avgSessionsPerUser &gt; 4/wk</code> won't be hit on web alone. Mobile-first competitors will out-stick FinFlow.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>PWA first (installable, push, offline cache) before native. Native iOS in v9.</p>
+      </div>
+    </div>
+
+    <div class="gap info">
+      <div class="sev"><span class="pill info">Polish</span><span class="id">XC‑05</span></div>
+      <div>
+        <div class="where">Accessibility</div>
+        <h4>No a11y pass evident</h4>
+        <p>Pulse Gauge is custom SVG with no <code>aria-label</code> / live region. Color is the primary signal across the app (sage/honey/terra). Modal focus trap not visible in code. Date format relies on locale guessing not user preference for assistive tech.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Multi-gen + elder personas locked out. EU Accessibility Act (June 2025) compliance risk.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Run axe + manual keyboard pass on every page. Add text labels alongside color. Target WCAG 2.2 AA.</p>
+      </div>
+    </div>
+
+    <div class="gap info">
+      <div class="sev"><span class="pill info">Polish</span><span class="id">XC‑06</span></div>
+      <div>
+        <div class="where">Empty &amp; error states</div>
+        <h4>Empty states use emojis · errors silently default</h4>
+        <p>Throughout: <code>&lt;EmptyState icon="◎" /&gt;</code>, <code>icon="🔍"</code>, <code>icon="🥯"</code>. Error states (<code>setHistory</code>, <code>refresh</code>) <code>catch</code> and toast — but no retry button on most network failures.</p>
+      </div>
+      <div>
+        <div class="impact-label">Impact</div>
+        <p>Inconsistent voice. Bagel emoji on "no expenses this month" undercuts the Newsreader gravitas the rest of the app earns.</p>
+      </div>
+      <div>
+        <div class="reco-label">Recommendation</div>
+        <p>Define 1 illustration set (paper-cut style would match the brand). Standardise: empty = invitation to act ("Add first transaction →"), error = retry CTA + support link.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SECTION 04 — STRENGTHS · KEEP
+       ═════════════════════════════════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-hd">
+      <span class="sect-num">04</span>
+      <h2>What's already working <span class="dim">— don't break</span></h2>
+      <p class="sect-sub">Equally important to call out. Optimise these; don't rebuild.</p>
+    </div>
+
+    <div class="row2">
+      <div class="gap" style="grid-template-columns: 110px 1fr; border-left:3px solid var(--sage);">
+        <div class="sev"><span class="pill" style="background:rgba(133,168,138,.18); color:var(--olive);">Keep</span><span class="id">OK‑01</span></div>
+        <div>
+          <h4>Pulse Score is the right NorthStar metric</h4>
+          <p style="font-size:13.5px; color:var(--ink-mid);">5 components, transparent weights, debt-aware. The single number households can rally around. Just make its inputs <em>editable</em> (CU‑15).</p>
+        </div>
+      </div>
+      <div class="gap" style="grid-template-columns: 110px 1fr; border-left:3px solid var(--sage);">
+        <div class="sev"><span class="pill" style="background:rgba(133,168,138,.18); color:var(--olive);">Keep</span><span class="id">OK‑02</span></div>
+        <div>
+          <h4>Paper-warm palette is differentiated</h4>
+          <p style="font-size:13.5px; color:var(--ink-mid);">Coral + cream actually does feel like kitchen-table not quarterly-statement. It's the strongest brand asset; protect it.</p>
+        </div>
+      </div>
+      <div class="gap" style="grid-template-columns: 110px 1fr; border-left:3px solid var(--sage);">
+        <div class="sev"><span class="pill" style="background:rgba(133,168,138,.18); color:var(--olive);">Keep</span><span class="id">OK‑03</span></div>
+        <div>
+          <h4>Privacy-first AI summary is a real moat</h4>
+          <p style="font-size:13.5px; color:var(--ink-mid);"><code>buildSafeSummary</code> strips merchant names. This is genuine differentiation vs. competitors that ship raw txn rows to OpenAI. Lead with it in marketing.</p>
+        </div>
+      </div>
+      <div class="gap" style="grid-template-columns: 110px 1fr; border-left:3px solid var(--sage);">
+        <div class="sev"><span class="pill" style="background:rgba(133,168,138,.18); color:var(--olive);">Keep</span><span class="id">OK‑04</span></div>
+        <div>
+          <h4>Role tiers in admin (Super/Roles/Content)</h4>
+          <p style="font-size:13.5px; color:var(--ink-mid);">Right number of tiers. Right scoping. The implementation just needs SSO (AD‑13) and the actions to actually do things.</p>
+        </div>
+      </div>
+      <div class="gap" style="grid-template-columns: 110px 1fr; border-left:3px solid var(--sage);">
+        <div class="sev"><span class="pill" style="background:rgba(133,168,138,.18); color:var(--olive);">Keep</span><span class="id">OK‑05</span></div>
+        <div>
+          <h4>Template-driven onboarding is the right shape</h4>
+          <p style="font-size:13.5px; color:var(--ink-mid);">6 templates × pre-populated budgets/goals/debts is the right "blank-page solver." Polish it (CU‑01..03), don't rethink it.</p>
+        </div>
+      </div>
+      <div class="gap" style="grid-template-columns: 110px 1fr; border-left:3px solid var(--sage);">
+        <div class="sev"><span class="pill" style="background:rgba(133,168,138,.18); color:var(--olive);">Keep</span><span class="id">OK‑06</span></div>
+        <div>
+          <h4>Multi-currency stored at transaction level</h4>
+          <p style="font-size:13.5px; color:var(--ink-mid);">12 currencies, per-row currency, base-currency conversion at view time. Correct architecture for global + remittance + multi-gen households.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SECTION 05 — PRIORITY MATRIX
+       ═════════════════════════════════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-hd">
+      <span class="sect-num">05</span>
+      <h2>Priority matrix <span class="dim">— next 6 weeks</span></h2>
+      <p class="sect-sub">Sequenced for blocking-first, KPI-impact second, security third. Effort is rough person-weeks (1 senior fullstack).</p>
+    </div>
+
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th style="width:46px">#</th>
+          <th>Initiative</th>
+          <th style="width:90px">App</th>
+          <th style="width:60px">Sev</th>
+          <th style="width:90px" class="r">Effort</th>
+          <th>Blocks / unlocks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td><span class="ttl">Add Transaction modal</span> · CU‑04</td><td><span class="who cu">Customer</span></td><td><span class="pill crit" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(196,69,54,.12); color:var(--terra);">P0</span></td><td class="r"><span class="effort"><i style="width:25%"></i></span> ~3d</td><td>Unblocks every other consumer flow</td></tr>
+        <tr><td>2</td><td><span class="ttl">Onboarding step 5: first txn</span> · CU‑01</td><td><span class="who cu">Customer</span></td><td><span class="pill crit" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(196,69,54,.12); color:var(--terra);">P0</span></td><td class="r"><span class="effort"><i style="width:35%"></i></span> ~4d</td><td>Time-to-first-txn KPI</td></tr>
+        <tr><td>3</td><td><span class="ttl">Migrate Settings + Net Worth + Debts + Budgets + Goals</span> · CU‑15..16</td><td><span class="who cu">Customer</span></td><td><span class="pill crit" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(196,69,54,.12); color:var(--terra);">P0</span></td><td class="r"><span class="effort"><i style="width:80%"></i></span> ~3w</td><td>Closes v6 migration; unblocks Pulse credibility</td></tr>
+        <tr><td>4</td><td><span class="ttl">Admin SSO + 2FA + IP allowlist</span> · AD‑13</td><td><span class="who ad">Admin</span></td><td><span class="pill crit" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(196,69,54,.12); color:var(--terra);">P0</span></td><td class="r"><span class="effort"><i style="width:55%"></i></span> ~2w</td><td>Blocks public launch / SOC 2</td></tr>
+        <tr><td>5</td><td><span class="ttl">Admin user actions + impersonation bridge</span> · AD‑03 · XC‑01</td><td><span class="who bo">Both</span></td><td><span class="pill crit" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(196,69,54,.12); color:var(--terra);">P0</span></td><td class="r"><span class="effort"><i style="width:60%"></i></span> ~2w</td><td>Support team can do their job</td></tr>
+        <tr><td>6</td><td><span class="ttl">Stripe billing actions</span> · AD‑07</td><td><span class="who ad">Admin</span></td><td><span class="pill crit" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(196,69,54,.12); color:var(--terra);">P0</span></td><td class="r"><span class="effort"><i style="width:55%"></i></span> ~2w</td><td>Refund/comp/retry without Stripe-dashboard access</td></tr>
+        <tr><td>7</td><td><span class="ttl">Send-invite-email Edge Function</span> · CU‑11</td><td><span class="who cu">Customer</span></td><td><span class="pill warn" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(232,168,124,.18); color:#A66A3D;">P1</span></td><td class="r"><span class="effort"><i style="width:25%"></i></span> ~3d</td><td>Multi-member % retention lever</td></tr>
+        <tr><td>8</td><td><span class="ttl">Activity feed humanisation</span> · CU‑12</td><td><span class="who cu">Customer</span></td><td><span class="pill warn" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(232,168,124,.18); color:#A66A3D;">P1</span></td><td class="r"><span class="effort"><i style="width:25%"></i></span> ~3d</td><td>Kitchen-table promise</td></tr>
+        <tr><td>9</td><td><span class="ttl">Bulk transactions + recategorise rules</span> · CU‑06</td><td><span class="who cu">Customer</span></td><td><span class="pill warn" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(232,168,124,.18); color:#A66A3D;">P1</span></td><td class="r"><span class="effort"><i style="width:35%"></i></span> ~4d</td><td>Pre-req for aggregator imports</td></tr>
+        <tr><td>10</td><td><span class="ttl">Notification system end-to-end</span> · XC‑02</td><td><span class="who bo">Both</span></td><td><span class="pill warn" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(232,168,124,.18); color:#A66A3D;">P1</span></td><td class="r"><span class="effort"><i style="width:75%"></i></span> ~3w</td><td>Reminder confirmed % KPI</td></tr>
+        <tr><td>11</td><td><span class="ttl">Planner one-click execute</span> · CU‑08</td><td><span class="who cu">Customer</span></td><td><span class="pill warn" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(232,168,124,.18); color:#A66A3D;">P1</span></td><td class="r"><span class="effort"><i style="width:50%"></i></span> ~2w</td><td>Recs followed % KPI</td></tr>
+        <tr><td>12</td><td><span class="ttl">CSV / receipt-email import</span> · CU‑05</td><td><span class="who cu">Customer</span></td><td><span class="pill warn" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(232,168,124,.18); color:#A66A3D;">P1</span></td><td class="r"><span class="effort"><i style="width:55%"></i></span> ~2w</td><td>D7 retention pre-Plaid</td></tr>
+        <tr><td>13</td><td><span class="ttl">Admin household drill-in + KPI drilldowns</span> · AD‑01 · AD‑06</td><td><span class="who ad">Admin</span></td><td><span class="pill warn" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(232,168,124,.18); color:#A66A3D;">P1</span></td><td class="r"><span class="effort"><i style="width:50%"></i></span> ~2w</td><td>Investigation workflow</td></tr>
+        <tr><td>14</td><td><span class="ttl">Concern-driven dashboard reorder</span> · CU‑02</td><td><span class="who cu">Customer</span></td><td><span class="pill info" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(74,111,165,.12); color:var(--denim);">P2</span></td><td class="r"><span class="effort"><i style="width:15%"></i></span> ~2d</td><td>Trust on the onboarding promise</td></tr>
+        <tr><td>15</td><td><span class="ttl">Saved searches + date range on Reports/Txns</span> · CU‑07 · CU‑10</td><td><span class="who cu">Customer</span></td><td><span class="pill info" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(74,111,165,.12); color:var(--denim);">P2</span></td><td class="r"><span class="effort"><i style="width:30%"></i></span> ~4d</td><td>Daily-habit formation</td></tr>
+        <tr><td>16</td><td><span class="ttl">Audit filters + entity links</span> · AD‑11 · AD‑12</td><td><span class="who ad">Admin</span></td><td><span class="pill info" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(74,111,165,.12); color:var(--denim);">P2</span></td><td class="r"><span class="effort"><i style="width:20%"></i></span> ~3d</td><td>Compliance response speed</td></tr>
+        <tr><td>17</td><td><span class="ttl">Gate Chat behind beta · or hold launch</span> · CU‑09</td><td><span class="who cu">Customer</span></td><td><span class="pill info" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(74,111,165,.12); color:var(--denim);">P2</span></td><td class="r"><span class="effort"><i style="width:8%"></i></span> ~1d</td><td>Don't poison first impression</td></tr>
+        <tr><td>18</td><td><span class="ttl">Child role kid-friendly view</span> · CU‑13</td><td><span class="who cu">Customer</span></td><td><span class="pill info" style="font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:3px 7px; border-radius:3px; background:rgba(74,111,165,.12); color:var(--denim);">P3</span></td><td class="r"><span class="effort"><i style="width:60%"></i></span> ~2w</td><td>Family-segment differentiation</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SECTION 06 — SUMMARY BAND
+       ═════════════════════════════════════════════════════════════ -->
+  <section class="band">
+    <h2>The shape of it.</h2>
+    <p class="lede">FinFlow has the architecture of a great product and the polish of a half-shipped one. Three themes will get it across the line.</p>
+    <div class="three">
+      <div class="col">
+        <h4>Close the loops</h4>
+        <ol>
+          <li>Add Transaction modal · the missing primary action</li>
+          <li>Finish the v6 migration · stop the v5 fallback</li>
+          <li>Wire invite emails · activate the multi-member lever</li>
+          <li>Make Planner do, not just tell</li>
+        </ol>
+      </div>
+      <div class="col">
+        <h4>Make admin act, not watch</h4>
+        <ol>
+          <li>SSO + 2FA before public launch</li>
+          <li>Wire user actions · suspend, reset, refund, impersonate</li>
+          <li>Stripe billing actions · stop using two systems</li>
+          <li>KPI drill-downs · admin becomes investigation, not poster</li>
+        </ol>
+      </div>
+      <div class="col">
+        <h4>Bridge the apps</h4>
+        <ol>
+          <li>Impersonation bridge · support sees what user sees</li>
+          <li>Notification system end-to-end</li>
+          <li>Shared @finflow/ui package · stop drift</li>
+          <li>PWA before native · daily-use fidelity on phone</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <div class="ft">
+    <span>FinFlow · Gap Analysis · v1.0 · May 2026</span>
+    <span>28 gaps · 9 critical · 12 watch · 7 polish</span>
+  </div>
+
+</div>
+</body>
+</html>

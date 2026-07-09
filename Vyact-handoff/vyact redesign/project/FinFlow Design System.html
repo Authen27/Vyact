@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>FinFlow · Design System v2</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #F5EFE6; min-height: 100vh; font-family: 'Inter Tight', system-ui, sans-serif; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="android-frame.jsx"></script>
+<script type="text/babel" src="lib.jsx"></script>
+<script type="text/babel" src="sections/foundations.jsx"></script>
+<script type="text/babel" src="sections/components.jsx"></script>
+<script type="text/babel" src="sections/patterns.jsx"></script>
+<script type="text/babel" src="sections/platforms-web.jsx"></script>
+<script type="text/babel" src="sections/platforms-mobile.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+
+  function Cover() {
+    return (
+      <div className="ff" style={{
+        width: '100%', height: '100%',
+        background: 'var(--ff-canvas)',
+        padding: 64, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        position: 'relative',
+        backgroundImage: 'linear-gradient(rgba(42,37,34,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(42,37,34,.04) 1px, transparent 1px)',
+        backgroundSize: '32px 32px',
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'var(--ff-coral)' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <FF.Caption style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 4, background: 'var(--ff-coral)' }} />
+            FinFlow · Design System v2.0 · May 2026
+          </FF.Caption>
+          <FF.Caption>react · admin · iOS · iPadOS · Android</FF.Caption>
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 28 }}>
+            <FF.Pip size={88} mood="happy" />
+            <div>
+              <FF.Wordmark size={48} />
+              <div style={{ marginTop: 6, fontFamily: 'var(--ff-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ff-ink-3)' }}>
+                Family finance OS · with Pip
+              </div>
+            </div>
+          </div>
+          <h1 style={{
+            fontFamily: 'var(--ff-serif)', fontSize: 92, lineHeight: 0.96, fontWeight: 400,
+            letterSpacing: '-0.035em', color: 'var(--ff-ink)', maxWidth: '14ch',
+          }}>
+            A finance OS that feels<br/>
+            <FF.Serif>like</FF.Serif> a kitchen-table <FF.Serif>conversation.</FF.Serif>
+          </h1>
+          <p style={{ marginTop: 24, fontSize: 17, lineHeight: 1.55, color: 'var(--ff-ink-2)', maxWidth: '54ch' }}>
+            One library. Six surfaces. From the consumer dashboard to the operator console, from a parent's iPhone to a teen's Android — the same paper-warm tokens, the same Pulse, the same Pip.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16, paddingTop: 28, borderTop: '1px solid var(--ff-line-2)' }}>
+          {[
+            ['01', 'Foundations', '7 frames'],
+            ['02', 'Components',  '6 frames'],
+            ['03', 'Patterns',    '7 frames'],
+            ['04', 'Web',         '3 surfaces'],
+            ['05', 'Native',      '3 surfaces'],
+            ['06', 'Reference',   'gap analysis'],
+          ].map(([n, t, s]) => (
+            <div key={n}>
+              <FF.Mono style={{ fontSize: 11, color: 'var(--ff-coral)', letterSpacing: '0.08em' }}>{n}</FF.Mono>
+              <div style={{ marginTop: 6, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{t}</div>
+              <FF.Mono style={{ fontSize: 10, color: 'var(--ff-ink-3)', marginTop: 2 }}>{s}</FF.Mono>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function App() {
+    return (
+      <DesignCanvas>
+        <DCSection
+          id="cover"
+          title="00 · Cover"
+          subtitle="Reconciled with the wireframe research direction — warm paper, coral lead, Pip mascot, plainspoken voice — and extended across React (mobile + desktop), Admin, iOS (iPhone + iPad), and Android.">
+          <DCArtboard id="cover" label="Manifesto" width={1280} height={760}>
+            <Cover />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="foundations"
+          title="01 · Foundations"
+          subtitle="Tokens are the contract. Brand voice, Pip's moods, household personas, the warm paper palette, the shell theme for admin, type, spacing, and iconography.">
+          <DCArtboard id="manifesto"   label="Brand · manifesto"        width={1200} height={780}><Foundations.Manifesto /></DCArtboard>
+          <DCArtboard id="pip"         label="Pip · the mascot"         width={1100} height={680}><Foundations.Pip /></DCArtboard>
+          <DCArtboard id="voice"       label="Voice & tone · do/don't"  width={1200} height={900}><Foundations.Voice /></DCArtboard>
+          <DCArtboard id="personas"    label="Personas · 4 households"  width={1200} height={680}><Foundations.Personas /></DCArtboard>
+          <DCArtboard id="color-light" label="Color · paper-warm"       width={1100} height={780}><Foundations.ColorLight /></DCArtboard>
+          <DCArtboard id="color-shell" label="Color · shell (admin)"    width={1100} height={680}><Foundations.ColorShell /></DCArtboard>
+          <DCArtboard id="type"        label="Typography"               width={1200} height={820}><Foundations.Type /></DCArtboard>
+          <DCArtboard id="spacing"     label="Spacing · radii · shadow" width={1200} height={620}><Foundations.Spacing /></DCArtboard>
+          <DCArtboard id="icons"       label="Iconography"              width={1100} height={680}><Foundations.Icons /></DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="components"
+          title="02 · Components"
+          subtitle="The shared vocabulary. Built once in lib.jsx, mirrored as UIKit/SwiftUI on Apple and Material 3 on Android — same spec, different chrome.">
+          <DCArtboard id="buttons" label="Buttons"          width={1200} height={620}><Components.Buttons /></DCArtboard>
+          <DCArtboard id="inputs"  label="Forms & inputs"   width={1100} height={680}><Components.Inputs /></DCArtboard>
+          <DCArtboard id="cards"   label="Cards"            width={1200} height={780}><Components.Cards /></DCArtboard>
+          <DCArtboard id="badges"  label="Badges & status"  width={1100} height={620}><Components.Badges /></DCArtboard>
+          <DCArtboard id="tables"  label="Tables"           width={1280} height={620}><Components.Tables /></DCArtboard>
+          <DCArtboard id="nav"     label="Navigation"       width={1200} height={720}><Components.Nav /></DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="patterns"
+          title="03 · Patterns"
+          subtitle="Domain-specific compositions: money, transactions, charts, modals — plus the user flows, screen states, and motion specs that make a finance product feel alive.">
+          <DCArtboard id="amounts"   label="Amount displays"   width={1100} height={680}><Patterns.Amounts /></DCArtboard>
+          <DCArtboard id="txn-rows"  label="Transaction rows"  width={1100} height={620}><Patterns.TransactionRows /></DCArtboard>
+          <DCArtboard id="charts"    label="Chart frames + Pulse" width={1280} height={680}><Patterns.Charts /></DCArtboard>
+          <DCArtboard id="modals"    label="Modals · sheets · toasts" width={1280} height={760}><Patterns.Modals /></DCArtboard>
+          <DCArtboard id="flows"     label="User flows · 6 rails" width={1200} height={780}><Patterns.Flows /></DCArtboard>
+          <DCArtboard id="states"    label="Empty · error · loading"  width={1200} height={820}><Patterns.States /></DCArtboard>
+          <DCArtboard id="motion"    label="Motion specs"      width={1200} height={680}><Patterns.Motion /></DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="web"
+          title="04 · Web surfaces — react · admin"
+          subtitle="Consumer dashboard at desktop and mobile widths, plus the operator console (admin/) — same tokens, denser data layer for ops, shell theme on the admin side.">
+          <DCArtboard id="desktop" label="Consumer · desktop dashboard" width={1440} height={900}><PlatformsWeb.Desktop /></DCArtboard>
+          <DCArtboard id="mobile"  label="Consumer · mobile web"        width={390}  height={780}><PlatformsWeb.Mobile  /></DCArtboard>
+          <DCArtboard id="admin"   label="Admin · NorthStar console"    width={1440} height={900}><PlatformsWeb.Admin   /></DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="mobile"
+          title="05 · Native surfaces — iOS · iPadOS · Android"
+          subtitle="Same data, same color logic, same Pip — translated to UIKit/SwiftUI on Apple platforms and Material 3 on Android.">
+          <DCArtboard id="iphone"  label="iOS · iPhone"   width={420} height={820}><PlatformsMobile.IPhone /></DCArtboard>
+          <DCArtboard id="ipad"    label="iPadOS · split" width={860} height={640}><PlatformsMobile.IPad /></DCArtboard>
+          <DCArtboard id="android" label="Android · M3"   width={420} height={820}><PlatformsMobile.Android /></DCArtboard>
+        </DCSection>
+
+      </DesignCanvas>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

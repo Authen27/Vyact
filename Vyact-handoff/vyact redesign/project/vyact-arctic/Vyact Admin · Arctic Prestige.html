@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vyact Admin · Arctic Prestige</title>
+<link rel="stylesheet" href="arctic-tokens.css" />
+<script>
+  // Set theme before paint to avoid flash. Default: dark (obsidian console).
+  (function () {
+    try {
+      var t = localStorage.getItem('vyact-admin-theme');
+      document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+    } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+  })();
+</script>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--arc-bg); }
+  body { font-family: var(--arc-sans); }
+
+  /* ── App shell ───────────────────────────── */
+  .app {
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 3px 48px 1fr;
+    background:
+      radial-gradient(900px 480px at 78% -8%, var(--arc-page-glow), transparent 60%),
+      var(--arc-bg);
+  }
+  .accent-rail { background: var(--arc-rail-grad); }
+
+  /* ── Top bar ─────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 22px;
+    background: var(--arc-surface-2);
+    border-bottom: 1px solid var(--arc-line);
+  }
+  .wordmark {
+    font-family: var(--arc-serif); font-weight: 500; font-size: 19px;
+    letter-spacing: -0.01em; color: var(--arc-ink);
+    display: inline-flex; align-items: center; gap: 9px;
+  }
+  .wordmark .glyph {
+    width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+    background: var(--arc-brand-grad);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--arc-serif); font-style: italic; font-size: 14px;
+    color: var(--arc-obsidian); font-weight: 600;
+  }
+  .pill {
+    font-family: var(--arc-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: var(--arc-r-pill);
+    background: var(--arc-accent-soft); color: var(--arc-accent-bright);
+    border: 1px solid var(--arc-line-2);
+  }
+  .vsep { width: 1px; height: 16px; background: var(--arc-line-2); }
+  .nav { display: flex; align-items: center; gap: 20px; }
+  .nav a {
+    font-size: 13px; color: var(--arc-ink-3); text-decoration: none;
+    padding: 4px 0; position: relative; transition: color var(--arc-dur-2);
+  }
+  .nav a:hover { color: var(--arc-ink-2); }
+  .nav a.on { color: var(--arc-ink); font-weight: 600; }
+  .nav a.on::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: -15px; height: 2px;
+    background: var(--arc-accent); border-radius: 2px;
+  }
+  .spacer { flex: 1; }
+  .region { font-family: var(--arc-mono); font-size: 11px; color: var(--arc-ink-3); display: inline-flex; align-items: center; gap: 7px; }
+  .dot-live { width: 7px; height: 7px; border-radius: 50%; background: var(--arc-good); box-shadow: 0 0 0 3px var(--arc-good-tint); }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--arc-brand-grad);
+    color: var(--arc-obsidian); font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .icon-btn {
+    width: 30px; height: 30px; border-radius: var(--arc-r-2);
+    border: 1px solid var(--arc-line-2); background: transparent; color: var(--arc-ink-2);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background var(--arc-dur-2), color var(--arc-dur-2);
+  }
+  .icon-btn:hover { background: var(--arc-surface-3); color: var(--arc-ink); }
+  /* theme toggle shows one glyph per mode */
+  .theme-toggle svg { width: 17px; height: 17px; }
+  [data-theme="dark"] .theme-toggle .ic-sun { display: none; }
+  [data-theme="light"] .theme-toggle .ic-moon { display: none; }
+
+  /* ── Body ────────────────────────────────── */
+  .body { display: grid; grid-template-columns: 212px 1fr; min-height: 0; }
+
+  /* ── Sidebar ─────────────────────────────── */
+  .sidebar {
+    background: var(--arc-bg-2);
+    border-right: 1px solid var(--arc-line);
+    padding: 18px 14px;
+    display: flex; flex-direction: column; gap: 22px;
+    overflow-y: auto;
+  }
+  .nav-group .arc-caption { padding: 0 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 8px 10px; margin-top: 3px; border-radius: var(--arc-r-2);
+    font-size: 13px; color: var(--arc-ink-3); cursor: pointer;
+    transition: background var(--arc-dur-2), color var(--arc-dur-2);
+  }
+  .nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
+  .nav-item:hover { background: var(--arc-surface); color: var(--arc-ink-2); }
+  .nav-item.on {
+    background: var(--arc-accent-tint); color: var(--arc-accent-bright);
+    font-weight: 600; box-shadow: inset 2px 0 0 var(--arc-accent);
+  }
+  .nav-count { margin-left: auto; font-family: var(--arc-mono); font-size: 10px; color: var(--arc-ink-4); }
+
+  /* ── Main ────────────────────────────────── */
+  .main { padding: 26px 28px; overflow-y: auto; min-width: 0; }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+  .page-title {
+    margin-top: 7px; font-family: var(--arc-serif); font-weight: 400;
+    font-size: 30px; letter-spacing: -0.02em; color: var(--arc-ink);
+  }
+  .page-title em { font-style: italic; color: var(--arc-glacier); }
+  .seg {
+    display: inline-flex; padding: 3px; border-radius: var(--arc-r-2);
+    background: var(--arc-bg-2); border: 1px solid var(--arc-line-2);
+  }
+  .seg button {
+    padding: 5px 13px; font-family: var(--arc-mono); font-size: 11px;
+    border: none; background: transparent; color: var(--arc-ink-3); border-radius: var(--arc-r-1);
+    transition: all var(--arc-dur-2);
+  }
+  .seg button.on { background: var(--arc-surface-2); color: var(--arc-ink); box-shadow: var(--arc-shadow-1); }
+
+  /* ── KPI row ─────────────────────────────── */
+  .kpis { margin-top: 22px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .kpi {
+    background: var(--arc-surface); border: 1px solid var(--arc-line);
+    border-radius: var(--arc-r-3); padding: 15px 16px; position: relative; overflow: hidden;
+  }
+  .kpi::before {
+    content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;
+    background: var(--accent, var(--arc-glacier)); opacity: 0.7;
+  }
+  .kpi .val {
+    margin-top: 8px; font-family: var(--arc-serif); font-style: italic;
+    font-size: 26px; font-weight: 400; color: var(--arc-ink); letter-spacing: -0.01em;
+  }
+  .delta { margin-top: 6px; font-family: var(--arc-mono); font-size: 11px; display: inline-flex; align-items: center; gap: 5px; }
+  .delta.good { color: var(--arc-good); }
+  .delta.watch { color: var(--arc-watch); }
+  .delta.risk { color: var(--arc-risk); }
+  .delta.info { color: var(--arc-info); }
+
+  /* ── Content grid ────────────────────────── */
+  .grid { margin-top: 14px; display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: start; }
+  .panel {
+    background: var(--arc-surface); border: 1px solid var(--arc-line);
+    border-radius: var(--arc-r-3); overflow: hidden;
+  }
+  .panel-head {
+    padding: 13px 17px; border-bottom: 1px solid var(--arc-line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .panel-head .meta { font-family: var(--arc-mono); font-size: 10px; color: var(--arc-ink-3); }
+
+  /* ── Table ───────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; padding: 9px 17px; background: var(--arc-bg-2);
+    border-bottom: 1px solid var(--arc-line);
+    font-family: var(--arc-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--arc-ink-3); font-weight: 500;
+  }
+  tbody td { padding: 12px 17px; border-bottom: 1px solid var(--arc-line); font-size: 13px; color: var(--arc-ink); vertical-align: middle; }
+  tbody tr { transition: background var(--arc-dur-1); }
+  tbody tr:hover { background: var(--arc-surface-3); }
+  tbody tr:last-child td { border-bottom: none; }
+  .id { font-family: var(--arc-mono); font-size: 11px; color: var(--arc-ink-3); }
+  .owner { font-weight: 600; }
+  .owner .email { color: var(--arc-ink-3); font-weight: 400; margin-left: 7px; font-size: 12px; }
+  .num { font-family: var(--arc-mono); font-variant-numeric: tabular-nums; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px 3px 7px; border-radius: var(--arc-r-pill);
+    font-size: 11px; font-weight: 600; line-height: 1.4;
+  }
+  .badge .bdot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge.good { background: var(--arc-good-tint); color: var(--arc-good); }
+  .badge.good .bdot { background: var(--arc-good); }
+  .badge.watch { background: var(--arc-watch-tint); color: var(--arc-watch); }
+  .badge.watch .bdot { background: var(--arc-watch); }
+  .badge.risk { background: var(--arc-risk-tint); color: var(--arc-risk); }
+  .badge.risk .bdot { background: var(--arc-risk); }
+
+  .pulse-cell { display: inline-flex; align-items: center; gap: 8px; }
+  .pulse-bar { width: 42px; height: 4px; border-radius: 2px; background: var(--arc-line-2); overflow: hidden; }
+  .pulse-bar i { display: block; height: 100%; border-radius: 2px; }
+
+  /* ── Right column ────────────────────────── */
+  .side-col { display: flex; flex-direction: column; gap: 14px; }
+  .pad { padding: 15px 17px; }
+  .spark { width: 100%; margin-top: 12px; display: block; }
+  .feed { display: flex; flex-direction: column; gap: 11px; margin-top: 12px; }
+  .feed-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+  .feed-row .fdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .feed-row .msg { flex: 1; color: var(--arc-ink-2); }
+  .feed-row .ago { font-family: var(--arc-mono); font-size: 10px; color: var(--arc-ink-4); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px;
+    border-radius: var(--arc-r-2); font-size: 13px; font-weight: 600; border: 1px solid transparent;
+    transition: all var(--arc-dur-2);
+  }
+  .btn svg { width: 15px; height: 15px; }
+  .btn-primary { background: var(--arc-accent); color: var(--arc-on-accent); }
+  .btn-primary:hover { background: var(--arc-accent-bright); box-shadow: var(--arc-glow); }
+  .btn-ghost { background: transparent; color: var(--arc-ink-2); border-color: var(--arc-line-2); }
+  .btn-ghost:hover { background: var(--arc-surface-3); color: var(--arc-ink); }
+
+  .sys-strip {
+    margin-top: 14px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 12px 17px; background: var(--arc-surface); border: 1px solid var(--arc-line);
+    border-radius: var(--arc-r-3);
+  }
+  .sys-item { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--arc-ink-2); }
+  .sys-item .num { color: var(--arc-ink); }
+</style>
+</head>
+
+<body>
+<div class="app arc arc-scroll">
+  <div class="accent-rail"></div>
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <span class="wordmark"><span class="glyph">V</span>Vyact</span>
+    <span class="pill">Admin</span>
+    <span class="vsep"></span>
+    <nav class="nav">
+      <a href="#" class="on">NorthStar</a>
+      <a href="#">Households</a>
+      <a href="#">Subscriptions</a>
+      <a href="#">Activity</a>
+      <a href="#">Audit</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="region"><span class="dot-live"></span>prod · us-east-1</span>
+    <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle light / dark" title="Toggle theme">
+      <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>
+    </button>
+    <button class="icon-btn" aria-label="Search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    </button>
+    <button class="icon-btn" aria-label="Notifications">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    </button>
+    <span class="avatar">OP</span>
+  </header>
+
+  <!-- Body -->
+  <div class="body">
+    <!-- Sidebar -->
+    <aside class="sidebar arc-scroll">
+      <div class="nav-group">
+        <div class="arc-caption">Operate</div>
+        <div class="nav-item on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></svg>
+          NorthStar
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+          Households <span class="nav-count">12.4k</span>
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
+          Subscriptions
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="arc-caption">Observe</div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+          Activity <span class="nav-count">live</span>
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/></svg>
+          Audit log
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Incidents
+        </div>
+      </div>
+      <div class="nav-group" style="margin-top:auto;">
+        <div class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.2A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14.1H3a2 2 0 0 1 0-4h.2A1.6 1.6 0 0 0 4.6 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 4.6V3a2 2 0 0 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 0 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z"/></svg>
+          Settings
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main arc-scroll">
+      <div class="page-head">
+        <div>
+          <div class="arc-caption" style="color:var(--arc-glacier)">NorthStar · last 24h</div>
+          <h1 class="page-title">Operator <em>console</em></h1>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="seg">
+            <button>1h</button>
+            <button class="on">24h</button>
+            <button>7d</button>
+            <button>30d</button>
+          </div>
+          <button class="btn btn-ghost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M7 12h10M10 19h4"/></svg>
+            Filters
+          </button>
+          <button class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Export
+          </button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpis">
+        <div class="kpi" style="--accent:var(--arc-good)">
+          <div class="arc-caption">Active households</div>
+          <div class="val" data-num>12,418</div>
+          <div class="delta good">▲ +184 new</div>
+        </div>
+        <div class="kpi" style="--accent:var(--arc-good)">
+          <div class="arc-caption">MRR</div>
+          <div class="val" data-num>$48.2k</div>
+          <div class="delta good">▲ +2.1%</div>
+        </div>
+        <div class="kpi" style="--accent:var(--arc-good)">
+          <div class="arc-caption">Sync errors</div>
+          <div class="val" data-num>0.04%</div>
+          <div class="delta good">▼ −12 bps</div>
+        </div>
+        <div class="kpi" style="--accent:var(--arc-glacier)">
+          <div class="arc-caption">Onboard funnel</div>
+          <div class="val" data-num>67%</div>
+          <div class="delta info">▲ +3 pt</div>
+        </div>
+        <div class="kpi" style="--accent:var(--arc-watch)">
+          <div class="arc-caption">p99 latency</div>
+          <div class="val" data-num>312ms</div>
+          <div class="delta watch">▲ +8ms</div>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="grid">
+        <!-- Households table -->
+        <section class="panel">
+          <div class="panel-head">
+            <div class="arc-caption">Households · 12,418</div>
+            <span class="meta">showing 6 · sorted by risk</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:96px">ID</th>
+                <th>Owner</th>
+                <th style="width:84px">Members</th>
+                <th style="width:104px">Plan</th>
+                <th style="width:104px">Pulse</th>
+                <th style="width:104px">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="id">HH-04825</td>
+                <td class="owner">Chen Family <span class="email">ch@…</span></td>
+                <td class="num">4</td>
+                <td>Family</td>
+                <td><span class="pulse-cell"><span class="pulse-bar"><i style="width:38%;background:var(--arc-risk)"></i></span><span class="num" style="color:var(--arc-risk)">38</span></span></td>
+                <td><span class="badge risk"><span class="bdot"></span>risk</span></td>
+              </tr>
+              <tr>
+                <td class="id">HH-04823</td>
+                <td class="owner">Okonkwo <span class="email">cn@…</span></td>
+                <td class="num">2</td>
+                <td>Personal</td>
+                <td><span class="pulse-cell"><span class="pulse-bar"><i style="width:54%;background:var(--arc-watch)"></i></span><span class="num" style="color:var(--arc-watch)">54</span></span></td>
+                <td><span class="badge watch"><span class="bdot"></span>watch</span></td>
+              </tr>
+              <tr>
+                <td class="id">HH-04826</td>
+                <td class="owner">Park Household <span class="email">sj@…</span></td>
+                <td class="num">3</td>
+                <td>Family</td>
+                <td><span class="pulse-cell"><span class="pulse-bar"><i style="width:71%;background:var(--arc-good)"></i></span><span class="num" style="color:var(--arc-good)">71</span></span></td>
+                <td><span class="badge good"><span class="bdot"></span>healthy</span></td>
+              </tr>
+              <tr>
+                <td class="id">HH-04821</td>
+                <td class="owner">Reyes Household <span class="email">reyes@…</span></td>
+                <td class="num">4</td>
+                <td>Family</td>
+                <td><span class="pulse-cell"><span class="pulse-bar"><i style="width:78%;background:var(--arc-good)"></i></span><span class="num" style="color:var(--arc-good)">78</span></span></td>
+                <td><span class="badge good"><span class="bdot"></span>healthy</span></td>
+              </tr>
+              <tr>
+                <td class="id">HH-04822</td>
+                <td class="owner">Tan-Mendez <span class="email">amelia@…</span></td>
+                <td class="num">3</td>
+                <td>Family</td>
+                <td><span class="pulse-cell"><span class="pulse-bar"><i style="width:82%;background:var(--arc-good)"></i></span><span class="num" style="color:var(--arc-good)">82</span></span></td>
+                <td><span class="badge good"><span class="bdot"></span>healthy</span></td>
+              </tr>
+              <tr>
+                <td class="id">HH-04824</td>
+                <td class="owner">Volkov <span class="email">iv@…</span></td>
+                <td class="num">5</td>
+                <td>Multi-biz</td>
+                <td><span class="pulse-cell"><span class="pulse-bar"><i style="width:91%;background:var(--arc-good)"></i></span><span class="num" style="color:var(--arc-good)">91</span></span></td>
+                <td><span class="badge good"><span class="bdot"></span>healthy</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Right column -->
+        <div class="side-col">
+          <section class="panel">
+            <div class="pad">
+              <div class="arc-caption">Sync errors · 24h</div>
+              <svg class="spark" viewBox="0 0 300 80" preserveAspectRatio="none" id="errChart"></svg>
+              <div style="margin-top:8px; font-family:var(--arc-mono); font-size:10px; color:var(--arc-ink-3)">Spike at 17:00 UTC · Plaid us-east-1</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="pad">
+              <div class="arc-caption">Recent activity</div>
+              <div class="feed">
+                <div class="feed-row"><span class="fdot" style="background:var(--arc-risk)"></span><span class="msg">HH-04825 · subscription failed</span><span class="ago">2m</span></div>
+                <div class="feed-row"><span class="fdot" style="background:var(--arc-good)"></span><span class="msg">HH-04822 · invite accepted</span><span class="ago">5m</span></div>
+                <div class="feed-row"><span class="fdot" style="background:var(--arc-glacier)"></span><span class="msg">HH-04821 · upgraded · Family</span><span class="ago">12m</span></div>
+                <div class="feed-row"><span class="fdot" style="background:var(--arc-watch)"></span><span class="msg">Audit · admin role granted</span><span class="ago">24m</span></div>
+                <div class="feed-row"><span class="fdot" style="background:var(--arc-good)"></span><span class="msg">HH-04830 · onboarding complete</span><span class="ago">31m</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="pad">
+              <div class="arc-caption">Pulse distribution</div>
+              <div style="display:flex; align-items:flex-end; gap:6px; height:64px; margin-top:14px;">
+                <div style="flex:1; background:var(--arc-risk); height:18%; border-radius:2px;"></div>
+                <div style="flex:1; background:var(--arc-watch); height:34%; border-radius:2px;"></div>
+                <div style="flex:1; background:var(--arc-glacier); height:62%; border-radius:2px;"></div>
+                <div style="flex:1; background:var(--arc-good); height:100%; border-radius:2px;"></div>
+                <div style="flex:1; background:var(--arc-good); height:74%; border-radius:2px;"></div>
+              </div>
+              <div style="margin-top:8px; display:flex; justify-content:space-between; font-family:var(--arc-mono); font-size:9px; color:var(--arc-ink-4)">
+                <span>0–20</span><span>20–40</span><span>40–60</span><span>60–80</span><span>80–100</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- System strip -->
+      <div class="sys-strip">
+        <span class="sys-item"><span class="dot-live"></span>All systems operational</span>
+        <span class="sys-item">Plaid sync <span class="num">99.96%</span></span>
+        <span class="sys-item">Queue depth <span class="num">412</span></span>
+        <span class="sys-item">Webhooks <span class="num">1.2k/min</span></span>
+        <span class="sys-item" style="margin-left:auto; font-family:var(--arc-mono); font-size:11px; color:var(--arc-ink-4)">build 2026.06.22 · arctic</span>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  // Render the sync-error sparkline bars
+  (function () {
+    const svg = document.getElementById('errChart');
+    const W = 300, H = 80, n = 24, gap = 3;
+    const bw = (W - gap * (n - 1)) / n;
+    let html = '';
+    for (let i = 0; i < n; i++) {
+      const h = 8 + Math.abs(Math.sin(i * 0.7) * 22) + (i === 17 ? 32 : 0);
+      const spike = i === 17;
+      html += `<rect x="${(i * (bw + gap)).toFixed(2)}" y="${(H - h).toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx="1.5" fill="${spike ? 'var(--arc-risk)' : 'var(--arc-glacier)'}" opacity="${spike ? 1 : 0.55}"></rect>`;
+    }
+    svg.innerHTML = html;
+  })();
+
+  // Theme toggle — persists to localStorage under a dedicated key.
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    btn.addEventListener('click', function () {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('vyact-admin-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

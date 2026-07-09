@@ -6,7 +6,7 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v9.9.3**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v10.0.0**
 - Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.3.1**
 - Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
 - Vanilla shell: archived from the working tree in **v7.0.1** — see master index and git history
@@ -24,7 +24,7 @@ account** — do not use. Every push to `main` deploys (see [`DEPLOY.md`](DEPLOY
 Three parallel deliverables exist in this repo:
 
 - **Consumer (vanilla shell, legacy)** — archived. The v1.0-v5.0 vanilla HTML/CSS/JS app was removed from the working tree in v7.0.1 (2026-06-01). It is preserved in git history at commits before that cleanup. The React app at `react/` (v6.0+) is the only active consumer product.
-- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v9.9.3** (Money-Model v2 permanent; txn-redesign; budgets monthly/annual with DB-owned identity; recurring cloud-synced; Goals & Tax removed as modules; store decomposed into Zustand slices). Per-version history is in [`react/CHANGELOG.md`](react/CHANGELOG.md) (authoritative) and [`docs/HISTORY.md`](docs/HISTORY.md) (agent-oriented archive). Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`; local-only mode works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** (the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to). ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different account**, not CI-updated.
+- **Consumer (React app)** in `react/` — Vite + React 18 + TypeScript + Tailwind + Recharts + Zustand. **Current v10.0.0** (Money-Model v2 permanent; txn-redesign; budgets monthly/annual with DB-owned identity; recurring cloud-synced; Goals & Tax removed as modules; store decomposed into Zustand slices). Per-version history is in [`react/CHANGELOG.md`](react/CHANGELOG.md) (authoritative) and [`docs/HISTORY.md`](docs/HISTORY.md) (agent-oriented archive). Supabase cloud (auth, multi-household, invitations, realtime, content module) wired behind the `HybridAdapter`; local-only mode works without env vars. **Live (CI-deployed prod): https://vyact-twentyx.vercel.app** (the `react` project under the `bhushandandolus-projects` Vercel team that `deploy.yml` ships to). ⚠ The older `react-taupe-xi.vercel.app` is **orphaned on a different account**, not CI-updated.
 - **Admin app** in `admin/` — separate Vite + React + TS app with **Claude native theme**. **Current v1.3.1**. Three role tiers (Super / Roles / Content). NorthStar dashboard with live KPIs from `admin_dashboard_kpis()` RPC. **Live (CI-deployed prod): https://vyact-admin.vercel.app** (the `admin` project under the same team). ⚠ The older `finflow-admin.vercel.app` is likewise orphaned on a different account.
 
 **Cloud is opt-in** — without `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` env vars, the React app falls back to localStorage-only mode (single anonymous household, no auth screens). Both modes share the same `DataAdapter` interface.
@@ -93,7 +93,8 @@ budget-app/
 │       ├── components/
 │       │   ├── ui/          — Button, Card, Modal, Input, Badge, Toast, Empty, Money, EstimatedTag
 │       │   ├── onboarding/   — NudgeBanner (v8 progressive capture)
-│       │   ├── layout/      — Sidebar, MobileBar, ProfileSwitcher, Layout,
+│       │   ├── layout/      — TopBar, SubNav, CommandPalette, AccountMenu,
+│       │   │                  MobileTabBar, Brand, navModel, ProfileSwitcher, Layout,
 │       │   │                  NotificationCenter, FloatingTools
 │       │   ├── charts/      — PulseGauge (custom SVG), Charts (Recharts)
 │       │   ├── transactions/— TxnRow, PaymentMethodChip, TransactionFormModal
@@ -143,31 +144,50 @@ npm run dev          # → http://localhost:5173
 
 The legacy vanilla shell was archived from the working tree in **v7.0.1**. Its source is intentionally preserved in git history, but it is no longer a supported runtime surface or local run target.
 
-## Design System v4 (from FinFlow Designs wireframes)
+## Design System — "Aurora" (v10.0.0, from `design_handoff_vyact_aurora`)
 
-### Palette — Paper Warm (default)
-- **Coral** `#E26D5C` — primary action, brand
-- **Cream** `#F5EFE6` — canvas
-- **Bone** `#FBF7EE` — cards
-- **Ink** `#2A2522` — text
-- **Sage** `#85A88A` — income, success
-- **Olive** `#6B7C53` — savings, deeper positive
-- **Honey** `#E8A87C` — warning, near-budget
-- **Terracotta** `#C44536` — error, over-budget
-- **Denim** `#4A6FA5` — trust, banking
-- **Plum** `#6E4555` — multi-gen accent
+Neumorphic Fluid: soft dual-light **neumorphism** for everyday chrome (cards, buttons,
+inputs, nav pills — `--neu`/`--neu-sm`/`--neu-inset`/`--neu-hover`), **glass**
+(blur + translucency — `.glass-panel`) reserved for key moments (⌘K palette, account
+dropdown, popovers). Ambient aurora glow behind content (`--ambient` on `body::before`).
 
-> "Why warm coral over electric blue? Households associate cool fintech palettes with banks and bills — i.e. the things they're stressed about. Warm cream + coral reads as **kitchen-table conversation**, not **quarterly statement**."
+### Palette — Nocturne (dark, DEFAULT) · Mist (light)
+- **Canvas/Elevated/Sunken/Hover** `#0F181B / #17242A / #0A1215 / #1C2C33` (dark) ·
+  `#E7EDEC / #FFFFFF / #DAE3E1 / #EFF4F3` (light) — mapped onto the legacy Tailwind slots
+  `bg/bg2/bg4/bg3` so existing utilities re-skin automatically.
+- **Accent = pip coral** `#EC8474` dark / `#E26D5C` light (`--coral`, `--accent`) — brand,
+  primary action, focus. Swappable by design (Indigo/Jade exist in the handoff); Coral ships.
+- **Semantic ("Accidental Wealth" rule — colors are meaningful, never decorative):**
+  `--sage`=good/gains `#4FD9AE`·`#2E9E78` | `--honey`=warn/80–99% `#F2C978`·`#B98A38` |
+  `--denim`=info/banking `#63D6EA`·`#2C93A8` | `--plum`=forecast/AI `#C4A6FF`·`#7C55C4` |
+  `--terra`=crit (genuine failures ONLY) `#F58A8C`·`#D25656`. **Never use crit for "money
+  spent"** — expenses render neutral ink; income in good.
+- **Aurora rail gradient** `linear-gradient(120deg,#38C89B,#6D7CF0,#B08CF5)` (`--rail`) —
+  the 3px strip atop the app bar, avatars, focus flourishes.
+- **Category colors are kept from `constants.ts`** (donut/rows need distinct hues) — do not
+  recolor them to the accent palette.
 
 ### Typography
-- **Newsreader** (italic) — display headings & section opens **only** (page titles, panel/modal titles, the FinFlow wordmark). **Never used for numbers** — `.display-italic` is for editorial headings, not amounts.
-- **Inter Tight** (-0.005em) — UI, body, buttons, **and every money / numeric figure via the canonical `.num` class** (non-italic, `tabular-nums` + `lining-nums`). One money treatment across all sections (Dashboard, Budgets, Splits, Transactions, Net Worth, Debts, Reports); size/weight/colour are applied per call-site with utilities. The adaptive `<Money>` component applies `.num` automatically — prefer it for any rendered amount; use the bare `num` class only when rendering a raw `fmt()` string. Tabular figures keep digits column-aligned and stop values reflowing their neighbours, which lowers cognitive load and protects mobile real-estate.
-- **JetBrains Mono** — labels, status, dense data tables (e.g. Reports → Period Summary), and micro-annotations such as original-currency sub-amounts (uppercase below 14px). Mono is acceptable for a self-contained numeric *table*; it is not used for headline/row/card amounts.
+- **Outfit** — display/headings/labels via `.display-italic` (class name kept for call-site
+  stability; it is now upright Outfit 600) and `font-display`.
+- **Inter** — UI/body (`--ff-sans`, body default).
+- **JetBrains Mono** — **every** figure via the canonical `.num` class (tabular + lining),
+  `mono-label` overlines, dense tables. The `<Money>` component applies `.num` automatically.
 
 ### Themes
-- **Paper Warm** (default)
-- **Dark** — same warm palette in dark inks
-- **System** — follows OS
+- **Nocturne (dark)** — DEFAULT (`:root` / `data-theme="dark"`).
+- **Mist (light)** — keeps the historical `data-theme="warm"` attribute so stored prefs survive.
+- **System** — follows OS.
+
+### Navigation shell (v10 — no left sidebar)
+- **Desktop/tablet (≥640px):** sticky glass **TopBar** (rail strip · pip "Vy·act" wordmark ·
+  **Track/Plan/Analyze** sliding-pill SectionTabs · "Jump to… ⌘K" · bell · AccountMenu) +
+  contextual **SubNav** pill row + **⌘K CommandPalette** (quick actions + every route — the
+  reachability guarantee). Account routes (Households/Settings/Help) live in the avatar
+  dropdown, which also hosts ProfileSwitcher and the theme control.
+- **Mobile (<640px):** slim glass top bar + bottom **MobileTabBar** (Home/Track/Plan/Analyze/
+  Profile); secondary routes via the SubNav pill scroller.
+- Shared route model + template/flag visibility rules: `components/layout/navModel.ts`.
 
 ## Key Features
 
@@ -246,7 +266,7 @@ The legacy vanilla shell was archived from the working tree in **v7.0.1**. Its s
 ## Responsive
 - Desktop ≥1100px — full layout
 - Tablet ≤1100px — single-column settings/help, networth stacked
-- Mobile ≤820px — slide-out sidebar, hamburger menu, all panels stacked
+- Mobile <640px — bottom tab bar (Home/Track/Plan/Analyze/Profile), slim glass top bar, all panels stacked
 - Small ≤480px — single-column cards, smaller pulse ring
 
 ## Sync & Backup

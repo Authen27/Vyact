@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>FinFlow · Mobile Wireframes (iOS + Android)</title>
+  <link rel="stylesheet" href="tokens.css"/>
+  <style>
+    html, body { margin: 0; padding: 0; background: #f0eee9; min-height: 100vh; font-family: 'Inter Tight', system-ui, sans-serif; }
+    .wf-bezel-wrap { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="mobile-wireframes/tweaks-panel.jsx"></script>
+<script type="text/babel" src="mobile-wireframes/wf-ui.jsx"></script>
+<script type="text/babel" src="mobile-wireframes/screens-ios.jsx"></script>
+<script type="text/babel" src="mobile-wireframes/screens-android.jsx"></script>
+<script type="text/babel" src="mobile-wireframes/screens-plan.jsx"></script>
+<script type="text/babel" src="mobile-wireframes/motion.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+
+// ── Tweak defaults (host rewrites this JSON block when user changes a value) ──
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "speed": 1,
+  "easing": "smooth",
+  "motionMode": "full",
+  "tabStyle": "fade",
+  "toastPos": "top",
+  "pressScale": 0.96,
+  "pulseDur": 1400,
+  "sheetDur": 220,
+  "drillDur": 240,
+  "toastDur": 180,
+  "tabDur": 180,
+  "confetti": true,
+  "ticker": true,
+  "hapticHint": true
+}/*EDITMODE-END*/;
+
+const EASE_CURVES = {
+  smooth: 'cubic-bezier(.2,.7,.2,1)',
+  spring: 'cubic-bezier(.5,1.4,.5,1)',
+  linear: 'linear',
+  expressive: 'cubic-bezier(.05,.7,.1,1.0)',
+};
+
+// Apply tweak values to :root as CSS custom properties so all motion components
+// (and any screen that opts in) read them consistently.
+function applyMotionVars(t) {
+  const root = document.documentElement.style;
+  const reduced = t.motionMode === 'reduced';
+  const off = t.motionMode === 'off';
+  const effectiveSpeed = off ? 0.001 : (reduced ? Math.min(t.speed, 0.6) : t.speed);
+  root.setProperty('--motion-speed', String(effectiveSpeed));
+  root.setProperty('--motion-ease', EASE_CURVES[t.easing] || EASE_CURVES.smooth);
+  root.setProperty('--motion-spring', EASE_CURVES.spring);
+  root.setProperty('--motion-pulse-dur', `${t.pulseDur}ms`);
+  root.setProperty('--motion-sheet-dur', `${t.sheetDur}ms`);
+  root.setProperty('--motion-drill-dur', `${reduced ? 0 : t.drillDur}ms`);
+  root.setProperty('--motion-toast-dur', `${t.toastDur}ms`);
+  root.setProperty('--motion-tab-dur', `${t.tabDur}ms`);
+  root.setProperty('--motion-press-scale', String(t.pressScale));
+  root.setProperty('--motion-confetti', t.confetti && !reduced && !off ? '1' : '0');
+  root.setProperty('--motion-ticker', t.ticker && !off ? '1' : '0');
+  // Toast position
+  if (t.toastPos === 'top') {
+    root.setProperty('--motion-toast-top', '14px');
+    root.setProperty('--motion-toast-bottom', 'auto');
+    root.setProperty('--motion-toast-hide', 'translateY(-16px)');
+  } else {
+    root.setProperty('--motion-toast-top', 'auto');
+    root.setProperty('--motion-toast-bottom', '80px');
+    root.setProperty('--motion-toast-hide', 'translateY(16px)');
+  }
+  // Tab style: fade-only is default; slide adds a horizontal offset
+  root.setProperty('--motion-tab-style', t.tabStyle === 'slide' ? 'translateX(0)' : 'none');
+}
+
+// ────────── Cover ──────────
+function Cover() {
+  return (
+    <div className="ff" style={{
+      width: '100%', height: '100%', background: 'var(--ff-canvas)',
+      padding: 56, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ff-ink-3)' }}>
+          FinFlow · Mobile Wireframes v1 · May 2026
+        </div>
+        <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ff-ink-3)' }}>
+          React Native · iOS 26 · Material 3
+        </div>
+      </div>
+
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+          <WF.Pip size={48} mood="happy"/>
+          <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, letterSpacing: '0.14em', color: 'var(--ff-coral)' }}>ƒ · the FinFlow standard</span>
+        </div>
+        <h1 style={{
+          fontFamily: 'var(--ff-serif)', fontSize: 82, lineHeight: 0.96, fontWeight: 400,
+          letterSpacing: '-0.025em', color: 'var(--ff-ink)', maxWidth: '16ch', margin: 0,
+        }}>
+          Two platforms.<br/>
+          One <em style={{ color: 'var(--ff-coral)' }}>household ledger.</em>
+        </h1>
+        <p style={{ marginTop: 22, fontSize: 17, lineHeight: 1.5, color: 'var(--ff-ink-2)', maxWidth: '54ch' }}>
+          The complete React Native app at medium fidelity — every screen rendered for iOS 26 and
+          Material 3 side-by-side, so the platform translation is visible at a glance. Built on the
+          tokens that ship with the rest of the FinFlow system: paper-warm canvas, coral lead, Pip's
+          quiet voice.
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 14, paddingTop: 22, borderTop: '1px solid var(--ff-line-2)' }}>
+        {[
+          ['01', 'Onboarding & Auth', '5 × 2'],
+          ['02', 'Main tabs', '5 × 2'],
+          ['03', 'Plan · AI + planner', '2 × 2'],
+          ['04', 'Logging & detail', '2 × 2'],
+          ['05', 'Money sub-views & debt', '3 × 2'],
+          ['06', 'You · settings & security', '7 × 2'],
+          ['07', 'Motion lab', '8 demos · tweakable'],
+        ].map(([n, t, s]) => (
+          <div key={n}>
+            <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--ff-coral)', letterSpacing: '0.06em' }}>{n}</div>
+            <div style={{ marginTop: 6, fontSize: 15, fontWeight: 500, letterSpacing: '-0.01em' }}>{t}</div>
+            <div style={{ marginTop: 2, fontFamily: 'var(--ff-mono)', fontSize: 10, color: 'var(--ff-ink-3)' }}>{s}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Helper: wrap a screen so it sits centered in the artboard
+const Stage = ({ children }) => (
+  <div className="wf-bezel-wrap">{children}</div>
+);
+
+// 360 × 720 artboards comfortably fit one 320×680 phone with a little air.
+const W = 360, H = 720;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  React.useEffect(() => { applyMotionVars(t); }, [t]);
+
+  return (
+    <>
+    <DesignCanvas>
+      <DCSection
+        id="cover"
+        title="00 · Cover"
+        subtitle="Full React Native app for FinFlow — every screen, both platforms, medium-fidelity. iOS and Android shown side-by-side per area so the platform translation is visible at a glance.">
+        <DCArtboard id="cover" label="Manifesto" width={1240} height={760}><Cover/></DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────────
+          01 · ONBOARDING & AUTH
+          ───────────────────────────────────────────────────────── */}
+      <DCSection
+        id="onboarding"
+        title="01 · Onboarding & Auth"
+        subtitle="First-run path: welcome → sign in → biometric setup → segment → first goal. Goal: under 90 seconds to dashboard, with security set up along the way. Pip introduces themselves on the segment screen; the first goal is always achievable so the dashboard isn't empty.">
+        <DCArtboard id="ios-splash" label="iOS · Welcome" width={W} height={H}><Stage><IOS.Splash/></Stage></DCArtboard>
+        <DCArtboard id="and-splash" label="Android · Welcome" width={W} height={H}><Stage><AND.Splash/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-signin" label="iOS · Sign in" width={W} height={H}><Stage><IOS.SignIn/></Stage></DCArtboard>
+        <DCArtboard id="and-signin" label="Android · Sign in" width={W} height={H}><Stage><AND.SignIn/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-bio" label="iOS · Enable Face ID" width={W} height={H}><Stage><IOS.Biometric/></Stage></DCArtboard>
+        <DCArtboard id="and-bio" label="Android · Enable fingerprint" width={W} height={H}><Stage><AND.Biometric/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-seg" label="iOS · Pick household shape" width={W} height={H}><Stage><IOS.Segment/></Stage></DCArtboard>
+        <DCArtboard id="and-seg" label="Android · Pick household shape" width={W} height={H}><Stage><AND.Segment/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-goal" label="iOS · First goal" width={W} height={H}><Stage><IOS.FirstGoal/></Stage></DCArtboard>
+        <DCArtboard id="and-goal" label="Android · First goal" width={W} height={H}><Stage><AND.FirstGoal/></Stage></DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────────
+          02 · MAIN TABS
+          ───────────────────────────────────────────────────────── */}
+      <DCSection
+        id="tabs"
+        title="02 · Main tabs"
+        subtitle="Five tabs, no more. Home (Pulse + glances), Activity (transactions), Plan (AI assistant + personalized planner), Money (Net Worth · Budgets · Goals · Debts via chip switcher — fewer destinations to remember), You (profile + settings + security). The desktop's Planner had no ‘do-it’ path; mobile fixes that by giving every recommendation a primary action button.">
+        <DCArtboard id="ios-home" label="iOS · Home / Dashboard" width={W} height={H}><Stage><IOS.Home/></Stage></DCArtboard>
+        <DCArtboard id="and-home" label="Android · Home / Dashboard" width={W} height={H}><Stage><AND.Home/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-txns" label="iOS · Activity" width={W} height={H}><Stage><IOS.Txns/></Stage></DCArtboard>
+        <DCArtboard id="and-txns" label="Android · Activity" width={W} height={H}><Stage><AND.Txns/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-plan" label="iOS · Plan (AI + planner)" width={W} height={H}><Stage><IOS.Plan/></Stage></DCArtboard>
+        <DCArtboard id="and-plan" label="Android · Plan (AI + planner)" width={W} height={H}><Stage><AND.Plan/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-bud" label="iOS · Money · Budgets" width={W} height={H}><Stage><IOS.Budgets/></Stage></DCArtboard>
+        <DCArtboard id="and-bud" label="Android · Money · Budgets" width={W} height={H}><Stage><AND.Budgets/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-goals" label="iOS · Money · Goals" width={W} height={H}><Stage><IOS.Goals/></Stage></DCArtboard>
+        <DCArtboard id="and-goals" label="Android · Money · Goals" width={W} height={H}><Stage><AND.Goals/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-wealth" label="iOS · Money · Net Worth" width={W} height={H}><Stage><IOS.Wealth/></Stage></DCArtboard>
+        <DCArtboard id="and-wealth" label="Android · Money · Net Worth" width={W} height={H}><Stage><AND.Wealth/></Stage></DCArtboard>
+      </DCSection>
+
+      {/* ────────────────────────────────────────────────────────
+          02b · PLAN — zoom-in: the ‘do it’ sheet
+          ──────────────────────────────────────────────────────── */}
+      <DCSection
+        id="plan-detail"
+        title="02b · Plan — the ‘do it’ sheet"
+        subtitle="Every recommendation on the Plan tab opens to this sheet: Pip's reasoning in the voice of a level-headed friend, a clean impact table, the math behind it (‘Show my work’), and the execution form pre-filled and ready. One tap and the rec becomes a scheduled transfer — not a deep-link to another screen. This is what closes the desktop’s biggest UX gap.">
+        <DCArtboard id="ios-plan-det" label="iOS · Plan detail" width={W} height={H}><Stage><IOS.PlanDetail/></Stage></DCArtboard>
+        <DCArtboard id="and-plan-det" label="Android · Plan detail" width={W} height={H}><Stage><AND.PlanDetail/></Stage></DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────────
+          03 · LOGGING & DETAIL
+          ───────────────────────────────────────────────────────── */}
+      <DCSection
+        id="logging"
+        title="03 · Logging & detail"
+        subtitle="The most-touched path: tap +, the keyboard is already up. Pip suggests categories from a few words (&quot;Whole Foods&quot;, &quot;Uber&quot;, &quot;Netflix&quot;) — confirm with one tap. Tapping a transaction opens a calm detail view with split, budget impact, and a single destructive action.">
+        <DCArtboard id="ios-add" label="iOS · Add transaction" width={W} height={H}><Stage><IOS.AddTxn/></Stage></DCArtboard>
+        <DCArtboard id="and-add" label="Android · Add transaction" width={W} height={H}><Stage><AND.AddTxn/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-tdet" label="iOS · Transaction detail" width={W} height={H}><Stage><IOS.TxnDetail/></Stage></DCArtboard>
+        <DCArtboard id="and-tdet" label="Android · Transaction detail" width={W} height={H}><Stage><AND.TxnDetail/></Stage></DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────────
+          04 · WEALTH & DEBT
+          ───────────────────────────────────────────────────────── */}
+      <DCSection
+        id="wealth"
+        title="04 · Wealth & debt"
+        subtitle="The big picture and the path out. Net Worth (already in §02) drills into a strategy picker — Avalanche, Snowball, or Custom — with the next target highlighted in coral. Adding a debt is a single sheet that captures rate, minimum, and variable-rate handling.">
+        <DCArtboard id="ios-strat" label="iOS · Payoff strategy" width={W} height={H}><Stage><IOS.DebtStrategy/></Stage></DCArtboard>
+        <DCArtboard id="and-strat" label="Android · Payoff strategy" width={W} height={H}><Stage><AND.DebtStrategy/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-adddebt" label="iOS · Add a debt" width={W} height={H}><Stage><IOS.AddDebt/></Stage></DCArtboard>
+        <DCArtboard id="and-adddebt" label="Android · Add a debt" width={W} height={H}><Stage><AND.AddDebt/></Stage></DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────────
+          05 · HOUSEHOLD & SETTINGS
+          ───────────────────────────────────────────────────────── */}
+      <DCSection
+        id="settings"
+        title="05 · Household & settings"
+        subtitle="The configuration of trust. Roles map to permissions (Primary, Partner, Child = read-only on totals, Elder = simplified UI). Bank-link is gated to Family tier and uses provider OAuth — we never see passwords.">
+        <DCArtboard id="ios-prof" label="iOS · Settings" width={W} height={H}><Stage><IOS.Profile/></Stage></DCArtboard>
+        <DCArtboard id="and-prof" label="Android · Settings" width={W} height={H}><Stage><AND.Profile/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-mem" label="iOS · Household members" width={W} height={H}><Stage><IOS.Members/></Stage></DCArtboard>
+        <DCArtboard id="and-mem" label="Android · Household members" width={W} height={H}><Stage><AND.Members/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-link" label="iOS · Linked accounts" width={W} height={H}><Stage><IOS.LinkedAccounts/></Stage></DCArtboard>
+        <DCArtboard id="and-link" label="Android · Linked accounts" width={W} height={H}><Stage><AND.LinkedAccounts/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-upg" label="iOS · Upgrade to Family" width={W} height={H}><Stage><IOS.Upgrade/></Stage></DCArtboard>
+        <DCArtboard id="and-upg" label="Android · Upgrade to Family" width={W} height={H}><Stage><AND.Upgrade/></Stage></DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────────
+          06 · SECURITY & STATES
+          ───────────────────────────────────────────────────────── */}
+      <DCSection
+        id="states"
+        title="06 · Security & states"
+        subtitle="The bank-grade backbone and the moments around it. The vault dashboard makes protections legible. The app-lock screen is the only place Pip appears in dark mode. Empty + degraded states stay honest — coral never used to alarm, only to direct.">
+        <DCArtboard id="ios-sec" label="iOS · Security center" width={W} height={H}><Stage><IOS.Security/></Stage></DCArtboard>
+        <DCArtboard id="and-sec" label="Android · Security center" width={W} height={H}><Stage><AND.Security/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-lock" label="iOS · App lock (Face ID)" width={W} height={H}><Stage><IOS.AppLock/></Stage></DCArtboard>
+        <DCArtboard id="and-lock" label="Android · App lock (Fingerprint)" width={W} height={H}><Stage><AND.AppLock/></Stage></DCArtboard>
+
+        <DCArtboard id="ios-empty" label="iOS · Empty + sync banner" width={W} height={H}><Stage><IOS.Empty/></Stage></DCArtboard>
+        <DCArtboard id="and-empty" label="Android · Empty + sync banner" width={W} height={H}><Stage><AND.Empty/></Stage></DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────────
+          07 · MOTION LAB — live, replayable transitions
+          Tweak the panel (toolbar → Tweaks) and every demo reflows.
+          ───────────────────────────────────────────────────────── */}
+      <DCSection
+        id="motion"
+        title="07 · Motion Lab"
+        subtitle="Every transition the app uses — live and replayable. Open the Tweaks panel (toolbar toggle) to retime, re-ease, or downshift to reduced motion. The CSS variables drive these demos and any screen that opts in via tokens, so a tweak is a system-wide change.">
+        <DCArtboard id="motion-pulse"   label="Pulse score reveal"  width={W} height={H}><Stage><MOTION.PulseReveal /></Stage></DCArtboard>
+        <DCArtboard id="motion-ticker"  label="Number ticker"       width={W} height={H}><Stage><MOTION.Ticker /></Stage></DCArtboard>
+        <DCArtboard id="motion-tab"     label="Tab switch"          width={W} height={H}><Stage><MOTION.TabSwitch /></Stage></DCArtboard>
+        <DCArtboard id="motion-drill"   label="Push · drill-in"     width={W} height={H}><Stage><MOTION.DrillIn /></Stage></DCArtboard>
+        <DCArtboard id="motion-sheet"   label="Bottom sheet"        width={W} height={H}><Stage><MOTION.Sheet /></Stage></DCArtboard>
+        <DCArtboard id="motion-toast"   label="Toast confirmation"  width={W} height={H}><Stage><MOTION.Toast /></Stage></DCArtboard>
+        <DCArtboard id="motion-goal"    label="Goal complete"       width={W} height={H}><Stage><MOTION.GoalComplete /></Stage></DCArtboard>
+        <DCArtboard id="motion-press"   label="Button press"        width={W} height={H}><Stage><MOTION.ButtonPress /></Stage></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+
+    <TweaksPanel title="Motion">
+      <TweakSection label="Global" />
+      <TweakSlider label="Master speed" value={t.speed} min={0.25} max={2} step={0.05} unit="\u00d7"
+        onChange={(v) => setTweak('speed', Math.round(v * 100) / 100)} />
+      <TweakRadio label="Easing" value={t.easing}
+        options={['smooth', 'spring', 'linear', 'expressive']}
+        onChange={(v) => setTweak('easing', v)} />
+      <TweakRadio label="Mode" value={t.motionMode}
+        options={['full', 'reduced', 'off']}
+        onChange={(v) => setTweak('motionMode', v)} />
+
+      <TweakSection label="Per-transition" />
+      <TweakSlider label="Pulse reveal" value={t.pulseDur} min={400} max={3000} step={100} unit="ms"
+        onChange={(v) => setTweak('pulseDur', v)} />
+      <TweakSlider label="Tab switch"  value={t.tabDur} min={60} max={500} step={20} unit="ms"
+        onChange={(v) => setTweak('tabDur', v)} />
+      <TweakRadio  label="Tab style" value={t.tabStyle}
+        options={['fade', 'slide']}
+        onChange={(v) => setTweak('tabStyle', v)} />
+      <TweakSlider label="Drill-in"    value={t.drillDur} min={120} max={500} step={20} unit="ms"
+        onChange={(v) => setTweak('drillDur', v)} />
+      <TweakSlider label="Sheet up"    value={t.sheetDur} min={120} max={500} step={20} unit="ms"
+        onChange={(v) => setTweak('sheetDur', v)} />
+      <TweakSlider label="Toast"       value={t.toastDur} min={80} max={400} step={20} unit="ms"
+        onChange={(v) => setTweak('toastDur', v)} />
+      <TweakRadio  label="Toast pos" value={t.toastPos}
+        options={['top', 'bottom']}
+        onChange={(v) => setTweak('toastPos', v)} />
+
+      <TweakSection label="Feel" />
+      <TweakSlider label="Press scale"  value={t.pressScale} min={0.88} max={1.0} step={0.01} unit=""
+        onChange={(v) => setTweak('pressScale', Math.round(v * 100) / 100)} />
+      <TweakToggle label="Confetti on completion" value={t.confetti}
+        onChange={(v) => setTweak('confetti', v)} />
+      <TweakToggle label="Number ticker" value={t.ticker}
+        onChange={(v) => setTweak('ticker', v)} />
+      <TweakToggle label="Haptic hints" value={t.hapticHint}
+        onChange={(v) => setTweak('hapticHint', v)} />
+    </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v9.9.3`** (consumer)
+> **Current production version: `v10.0.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,56 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.0.0 — "Aurora" full interface redesign (desktop + mobile) *(2026-07-09)*
+
+Complete visual + navigation redesign to the **Aurora** direction from the claude.ai/design
+handoff bundle (`Vyact-handoff/…/design_handoff_vyact_aurora`). **All business logic, data
+models, routes, and features are preserved** — only the presentation layer and the nav shell
+changed. Major version because the entire interface and navigation paradigm is new.
+
+**Design language — Neumorphic Fluid / Aurora:**
+- Cool nocturne base (deep teal-slate) with a jade/cyan/indigo/violet accent spectrum;
+  **pip coral stays the primary accent**. **Dark ("Nocturne") is now the default theme**;
+  the light theme ("Mist") keeps the stored `warm` attribute key so existing user prefs
+  survive. Soft dual-light **neumorphism** for cards/buttons/inputs/nav pills;
+  **glass** (blur + translucency) reserved for the command palette, account dropdown,
+  and popovers. Signature **aurora rail gradient** (jade→indigo→violet) runs as a 3px strip
+  atop the app bar and fills avatars.
+- **Type:** Outfit (display/headings — replaces Newsreader), Inter (UI/body — replaces
+  Inter Tight), JetBrains Mono for every figure (unchanged). `.display-italic`, `.num`,
+  `.mono-label`, `.panel`, `.btn-*`, `.input` class names kept — their definitions were
+  re-skinned, so every page inherited the redesign without call-site edits.
+- **Token architecture:** both legacy token layers (Tailwind HSL slots + `--ff-*`) were
+  remapped to Aurora values in `index.css`, plus new Aurora primitives (`--neu*`,
+  `--glass*`, `--rail`, `--ambient`, `--accent`). Category colors kept per handoff §4.7.
+  Ambient aurora glow replaces the old blueprint-grid backdrop.
+
+**Navigation — desktop (≥640px):** the left sidebar is gone. New top-anchored shell:
+- Sticky **glass app bar**: rail strip · pip + Vy·act wordmark · **Track / Plan / Analyze**
+  sliding-pill section tabs · "Jump to… ⌘K" search · notification bell · account menu.
+- **Contextual subnav** — neu pill row of the active section's routes, sticky under the bar.
+- **⌘K command palette** (glass modal): quick actions (Add transaction / New budget /
+  Ask Vyact) + every route grouped by section, fuzzy filter, full ↑/↓/↵/Esc keyboard support —
+  the guarantee that all functionality stays reachable.
+- **Account menu**: avatar pill on the rail gradient → glass dropdown with the household
+  switcher (ProfileSwitcher retained wholesale — switching, sync status, manage), the three
+  Account routes, a Light/Dark/Auto theme control, and sign out.
+- Section ↔ route map (no route lost): Track = Dashboard·Transactions·Splits·Recurring;
+  Plan = Budgets·Debts·Net Worth·Accounts; Analyze = Reports·Insights; Account menu =
+  Households·Settings·Help. Template/flag-based page visibility (the old Sidebar rules)
+  is enforced in the subnav, palette, and tab bar via a shared `navModel.ts`.
+
+**Navigation — mobile (<640px):** native-feeling shell — slim glass top bar (pip · search ·
+bell · account) + **bottom tab bar** (Home / Track / Plan / Analyze / Profile, active tab on
+an accent pill, ≥44px targets, safe-area padded); a section's secondary routes stay reachable
+through the same subnav pill scroller. `Sidebar.tsx` and `MobileBar.tsx` were deleted;
+new: `TopBar`, `SubNav`, `CommandPalette`, `AccountMenu`, `MobileTabBar`, `Brand`, `navModel`.
+
+Verified in-browser this release (local mode, both themes, desktop + mobile viewports):
+shell renders, ⌘K opens/filters/executes (quick action confirmed by the Add Budget modal
+opening), section pill slides and syncs with routes, subnav switches per section, account
+menu theme control flips Nocturne↔Mist live, bottom tabs navigate, FABs clear the tab bar.
 
 ## v9.9.3 — Browser-verified fixes: blank-app on widget failure, reel counter, button contrast *(2026-07-04)*
 

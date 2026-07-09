@@ -25,7 +25,9 @@ export interface SyncSlice {
 }
 
 export const createSyncSlice: StateCreator<Store, [], [], SyncSlice> = (set, get) => ({
-  theme: (readLocalString('theme', 'warm') as Theme) || 'warm',
+  // Aurora (v10): dark "Nocturne" is the primary theme. Stored prefs win;
+  // 'warm' remains the attribute name for the light "Mist" theme.
+  theme: (readLocalString('theme', 'dark') as Theme) || 'dark',
   loading: true,
   toasts: [],
   lastSyncedAt: null,   // R4 (sync fix) — set by refresh() on success

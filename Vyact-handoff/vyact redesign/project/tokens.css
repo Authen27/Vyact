@@ -1,0 +1,156 @@
+/* ─────────────────────────────────────────────
+   FinFlow — Design Tokens v2
+   Paper-warm palette · Newsreader + Inter Tight + JetBrains Mono
+   Reconciled with /finflow-wireframes/ research direction.
+   ───────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ── Surfaces — warm paper hierarchy ─────── */
+  --ff-canvas:        #F5EFE6;   /* page background — cream */
+  --ff-canvas-2:      #EDE5D6;   /* nested surface */
+  --ff-surface:       #FBF7EE;   /* card / sheet — bone */
+  --ff-surface-2:     #F5EFE6;   /* dim hover */
+  --ff-surface-3:     #EDE5D6;   /* deeper hover */
+  --ff-shell:         #1F1B17;   /* admin shell */
+  --ff-shell-2:       #2A2520;   /* admin elevated */
+  --ff-overlay:       rgba(42, 37, 34, 0.55);
+
+  /* ── Ink — warm dark ──────────────────────── */
+  --ff-ink:           #2A2522;   /* primary text */
+  --ff-ink-2:         #5C544D;   /* secondary */
+  --ff-ink-3:         #8A8077;   /* meta, captions */
+  --ff-ink-4:         #B0A89E;   /* placeholder, disabled */
+  --ff-ink-on-shell:  #E8DECF;   /* text on shell */
+  --ff-ink-on-shell-2: rgba(232, 222, 207, 0.55);
+
+  /* ── Lines ────────────────────────────────── */
+  --ff-line:          #E6DDCF;
+  --ff-line-2:        #D5C9B4;
+  --ff-line-strong:   #C9BBA2;
+  --ff-line-on-shell: rgba(232, 222, 207, 0.12);
+
+  /* ── Brand — coral lead ───────────────────── */
+  --ff-coral:         #E26D5C;   /* primary action, focus, brand */
+  --ff-coral-soft:    #F4B6A8;   /* hover / lighter */
+  --ff-coral-tint:    #FBE4DD;   /* tinted background */
+  --ff-coral-deep:    #C44536;   /* terracotta — destructive, error */
+  --ff-coral-deep-tint:#F2C7BF;
+
+  /* ── Semantic — warm, not neon ────────────── */
+  --ff-sage:          #85A88A;   /* income, positive trend, success */
+  --ff-sage-tint:     #DDE8DE;
+  --ff-olive:         #6B7C53;   /* savings, deeper positive */
+  --ff-olive-tint:    #D8DECA;
+  --ff-honey:         #E8A87C;   /* warning, near-budget */
+  --ff-honey-tint:    #F8E2CF;
+  --ff-butter:        #F4D27A;   /* highlight, soft caution */
+  --ff-denim:         #4A6FA5;   /* trust, banking, legal */
+  --ff-denim-tint:    #D5DEEA;
+  --ff-plum:          #6E4555;   /* multi-gen accent */
+  --ff-plum-tint:     #E4D4D8;
+
+  /* ── Type ─────────────────────────────────── */
+  --ff-serif: 'Newsreader', 'Cormorant Garamond', Georgia, serif;
+  --ff-sans:  'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --ff-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── Type scale ───────────────────────────── */
+  --ff-text-2xs:  10px;
+  --ff-text-xs:   11px;
+  --ff-text-sm:   13px;
+  --ff-text-base: 14px;
+  --ff-text-md:   15px;
+  --ff-text-lg:   17px;
+  --ff-text-xl:   20px;
+  --ff-text-2xl:  24px;
+  --ff-text-3xl:  32px;
+  --ff-text-4xl:  44px;
+  --ff-text-5xl:  56px;
+  --ff-text-6xl:  72px;
+
+  /* ── Spacing — 4pt grid ───────────────────── */
+  --ff-s-0: 0;
+  --ff-s-1: 4px;
+  --ff-s-2: 8px;
+  --ff-s-3: 12px;
+  --ff-s-4: 16px;
+  --ff-s-5: 20px;
+  --ff-s-6: 24px;
+  --ff-s-7: 32px;
+  --ff-s-8: 40px;
+  --ff-s-9: 56px;
+  --ff-s-10: 80px;
+
+  /* ── Radii ────────────────────────────────── */
+  --ff-r-1: 4px;
+  --ff-r-2: 6px;
+  --ff-r-3: 8px;
+  --ff-r-4: 14px;
+  --ff-r-5: 20px;
+  --ff-r-pill: 9999px;
+
+  /* ── Shadows — paper-soft ─────────────────── */
+  --ff-shadow-1: 0 1px 0 rgba(42, 37, 34, 0.04);
+  --ff-shadow-2: 0 1px 2px rgba(42, 37, 34, 0.06), 0 2px 8px rgba(42, 37, 34, 0.06);
+  --ff-shadow-3: 0 8px 20px rgba(42, 37, 34, 0.12), 0 2px 6px rgba(42, 37, 34, 0.06);
+  --ff-shadow-4: 0 24px 60px rgba(42, 37, 34, 0.20), 0 6px 16px rgba(42, 37, 34, 0.08);
+
+  /* ── Motion ───────────────────────────────── */
+  --ff-ease-out:    cubic-bezier(.2, .7, .2, 1);
+  --ff-ease-in-out: cubic-bezier(.6, .1, .3, .9);
+  --ff-spring:      cubic-bezier(.5, 1.4, .5, 1);
+  --ff-dur-1: 80ms;
+  --ff-dur-2: 180ms;
+  --ff-dur-3: 320ms;
+  --ff-dur-4: 520ms;
+  --ff-dur-5: 1400ms;   /* pulse reveal */
+}
+
+/* ── Reset (scoped via .ff) ─────────────────── */
+.ff, .ff * { box-sizing: border-box; }
+.ff {
+  font-family: var(--ff-sans);
+  font-size: var(--ff-text-base);
+  color: var(--ff-ink);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.ff h1, .ff h2, .ff h3, .ff h4, .ff h5, .ff h6, .ff p { margin: 0; }
+.ff button { font-family: inherit; cursor: pointer; }
+.ff [data-num] { font-feature-settings: 'tnum', 'zero'; font-variant-numeric: tabular-nums; }
+
+/* ── Hatched placeholder ───────────────────── */
+.ff-placeholder {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--ff-canvas-2) 0 8px,
+    var(--ff-surface) 8px 16px
+  );
+  color: var(--ff-ink-3);
+  font-family: var(--ff-mono);
+  font-size: var(--ff-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Focus ring ────────────────────────────── */
+.ff *:focus-visible {
+  outline: 2px solid var(--ff-coral);
+  outline-offset: 2px;
+}
+
+/* ── Skeleton shimmer ──────────────────────── */
+@keyframes ff-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+.ff-skel {
+  background: linear-gradient(90deg, var(--ff-canvas-2) 0%, var(--ff-line) 50%, var(--ff-canvas-2) 100%);
+  background-size: 200% 100%;
+  animation: ff-shimmer 1.6s linear infinite;
+  border-radius: 4px;
+}

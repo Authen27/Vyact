@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v9.9.3** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v10.0.0** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.3.1** | https://vyact-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (archived)** | removed in v7.0.1 | **v5.0** *(final)* | archived — see git history | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
@@ -23,6 +23,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-07-09 | [Consumer](react/CHANGELOG.md) | **v10.0.0** | **"Aurora" full interface redesign.** Neumorphic-fluid design language (nocturne dark default, Mist light, pip-coral accent, Outfit/Inter/JetBrains Mono); left sidebar replaced by a glass top bar + Track/Plan/Analyze section tabs + contextual subnav + ⌘K command palette; mobile gets a bottom tab bar. All logic/routes/features preserved; token-level remap re-skinned every page. From the `design_handoff_vyact_aurora` bundle. |
 | 2026-07-04 | [Consumer](react/CHANGELOG.md) | **v9.9.3** | **Browser-verified fixes.** CRITICAL: app no longer blank-screens when the Userback widget fails (top-level await removed from `main.tsx`); reel's 117-dot progress column replaced with an `n / 116` counter pill; "Text" button now a solid readable surface on any backdrop. Flip timing verified in-browser: settles at 180° in ~400ms, no overshoot. |
 | 2026-07-04 | [Consumer](react/CHANGELOG.md) | **v9.9.2** | **Flip-card detail view.** Fixes user-flagged UX defects in v9.9.1: infographic no longer cropped (`object-contain`), redundant video/icon/Share-Save blocks removed, new `FlippableCardDetail` flip-transition (Play/Text on the front, video-or-text on the back), Ask Vyact/Add-Transaction FABs hidden under `/insights`. |
 | 2026-07-04 | [Admin](admin/CHANGELOG.md) | **v1.3.1** | **Infographic upload on every Content item.** Shared `InfographicField` (upload/replace/remove) added alongside the video field; first Supabase Storage bucket in the app (`insight-infographics`); `upsertContent()` only bumps `infographic_updated_at` when the URL actually changes. |

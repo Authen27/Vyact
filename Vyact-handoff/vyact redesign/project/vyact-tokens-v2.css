@@ -1,0 +1,194 @@
+/* ─────────────────────────────────────────────
+   VYACT — Neumorphic Fluid · VARIANT 2 "AURORA"
+   A cool, nocturne palette (teal · indigo · violet spectrum).
+   pip's coral is kept as the mascot + a selectable accent.
+
+   Same variable NAMES as v1 tokens so components are drop-in;
+   only the palette + ambient differ. Scoped via .vy.
+   ───────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ── RAW · Aurora spectrum (constant) ── */
+  --vy-indigo:  #6D7CF0;   /* aurora periwinkle — brand chrome / primary */
+  --vy-indigo-b:#8B99FA;   /* brightened on dark */
+  --vy-jade:    #38C89B;   /* aurora jade — gains, money moved */
+  --vy-gold:    #E8B85C;   /* attention, trending, warning */
+  --vy-cyan:    #45C6DD;   /* trust, banking, AI info */
+  --vy-violet:  #B08CF5;   /* insight, forecast, future */
+  --vy-rose:    #F0787A;   /* critical alerts ONLY */
+  --vy-coral:   #E26D5C;   /* pip — mascot + selectable accent */
+
+  --vy-jade-b:  #4FD9AE;
+  --vy-cyan-b:  #63D6EA;
+  --vy-violet-b:#C4A6FF;
+  --vy-gold-b:  #F2C978;
+
+  /* signature aurora rail */
+  --vy-rail: linear-gradient(120deg, #38C89B 0%, #6D7CF0 52%, #B08CF5 100%);
+
+  /* ── Type ────────────────────────────────── */
+  --vy-head: 'Outfit';
+  --vy-heading: var(--vy-head), 'Inter Tight', -apple-system, system-ui, sans-serif;
+  --vy-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --vy-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --vy-t-meta: 12px; --vy-t-body: 14px; --vy-t-sub: 16px; --vy-t-lg: 20px;
+  --vy-t-2: 24px; --vy-t-1: 32px; --vy-t-hero: 56px; --vy-t-mega: 84px;
+
+  /* ── Spacing · 8px grid ── */
+  --vy-1: 4px; --vy-2: 8px; --vy-3: 12px; --vy-4: 16px;
+  --vy-5: 24px; --vy-6: 32px; --vy-7: 48px; --vy-8: 64px; --vy-9: 96px;
+
+  /* ── Radii ── */
+  --vy-r-1: 8px; --vy-r-2: 12px; --vy-r-3: 18px; --vy-r-4: 26px; --vy-r-pill: 999px;
+
+  /* ── Motion ── */
+  --vy-ease: cubic-bezier(.4, 0, .2, 1);
+  --vy-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --vy-d-micro: 140ms; --vy-d-std: 300ms; --vy-d-elab: 620ms;
+}
+
+/* ════ DARK · primary · "nocturne" ════ */
+:root,
+[data-vy-theme="dark"] {
+  color-scheme: dark;
+
+  --vy-canvas:   #0F181B;
+  --vy-elevated: #17242A;
+  --vy-sunken:   #0A1215;
+  --vy-hover:    #1C2C33;
+
+  --vy-ink:   #E6EFEC;
+  --vy-ink-2: #A6BAB6;
+  --vy-ink-3: #6E827E;
+  --vy-ink-4: #47585A;
+
+  --vy-line:   rgba(230, 239, 236, 0.08);
+  --vy-line-2: rgba(230, 239, 236, 0.14);
+  --vy-line-3: rgba(230, 239, 236, 0.22);
+
+  --vy-accent:      var(--vy-indigo-b);
+  --vy-accent-ink:  #0B1030;
+  --vy-good:  var(--vy-jade-b);   --vy-good-t:  rgba(79, 217, 174, 0.16);
+  --vy-warn:  var(--vy-gold-b);   --vy-warn-t:  rgba(242, 201, 120, 0.16);
+  --vy-info:  var(--vy-cyan-b);   --vy-info-t:  rgba(99, 214, 234, 0.15);
+  --vy-fore:  var(--vy-violet-b); --vy-fore-t:  rgba(196, 166, 255, 0.17);
+  --vy-crit:  #F58A8C;            --vy-crit-t:  rgba(245, 138, 140, 0.16);
+
+  /* NEUMORPHISM on --vy-canvas (cool) */
+  --vy-neu-dark:  #060D0F;
+  --vy-neu-lite:  #1A2A30;
+  --vy-neu:        6px 6px 16px var(--vy-neu-dark), -5px -5px 14px var(--vy-neu-lite);
+  --vy-neu-sm:     3px 3px 8px var(--vy-neu-dark), -3px -3px 7px var(--vy-neu-lite);
+  --vy-neu-lg:     12px 12px 30px var(--vy-neu-dark), -9px -9px 24px var(--vy-neu-lite);
+  --vy-neu-inset:  inset 4px 4px 10px var(--vy-neu-dark), inset -4px -4px 10px var(--vy-neu-lite);
+  --vy-neu-hover:  9px 9px 22px var(--vy-neu-dark), -7px -7px 18px var(--vy-neu-lite);
+
+  /* GLASS (cool) */
+  --vy-glass:        rgba(26, 42, 48, 0.55);
+  --vy-glass-strong: rgba(28, 45, 52, 0.74);
+  --vy-glass-line:   rgba(220, 240, 255, 0.14);
+  --vy-glass-hi:     rgba(220, 240, 255, 0.06);
+  --vy-blur: blur(18px) saturate(150%);
+
+  --vy-cast-2: 0 6px 20px rgba(0,0,0,0.44);
+  --vy-cast-3: 0 20px 48px rgba(0,0,0,0.58), 0 4px 12px rgba(0,0,0,0.4);
+
+  /* aurora ambient — teal + violet lights */
+  --vy-ambient: radial-gradient(120% 80% at 85% -10%, rgba(176,140,245,0.16), transparent 55%),
+                radial-gradient(95% 62% at 4% 2%, rgba(56,200,155,0.13), transparent 54%),
+                radial-gradient(60% 40% at 50% 120%, rgba(109,124,240,0.10), transparent 60%);
+}
+
+/* ════ LIGHT · "mist" ════ */
+[data-vy-theme="light"] {
+  color-scheme: light;
+
+  --vy-canvas:   #E7EDEC;
+  --vy-elevated: #FFFFFF;
+  --vy-sunken:   #DAE3E1;
+  --vy-hover:    #EFF4F3;
+
+  --vy-ink:   #16211F;
+  --vy-ink-2: #4A5A57;
+  --vy-ink-3: #7A8A87;
+  --vy-ink-4: #A8B6B3;
+
+  --vy-line:   rgba(20, 33, 31, 0.08);
+  --vy-line-2: rgba(20, 33, 31, 0.13);
+  --vy-line-3: rgba(20, 33, 31, 0.20);
+
+  --vy-accent:      #5566E6;
+  --vy-accent-ink:  #FFFFFF;
+  --vy-good:  #2E9E78;  --vy-good-t:  rgba(46, 158, 120, 0.13);
+  --vy-warn:  #B98A38;  --vy-warn-t:  rgba(185, 138, 56, 0.15);
+  --vy-info:  #2C93A8;  --vy-info-t:  rgba(44, 147, 168, 0.12);
+  --vy-fore:  #7C55C4;  --vy-fore-t:  rgba(124, 85, 196, 0.12);
+  --vy-crit:  #D25656;  --vy-crit-t:  rgba(210, 86, 86, 0.12);
+
+  --vy-neu-dark:  #C6D2CF;
+  --vy-neu-lite:  #FFFFFF;
+  --vy-neu:        6px 6px 16px var(--vy-neu-dark), -6px -6px 14px var(--vy-neu-lite);
+  --vy-neu-sm:     3px 3px 8px var(--vy-neu-dark), -3px -3px 7px var(--vy-neu-lite);
+  --vy-neu-lg:     12px 12px 30px var(--vy-neu-dark), -9px -9px 24px var(--vy-neu-lite);
+  --vy-neu-inset:  inset 4px 4px 10px var(--vy-neu-dark), inset -4px -4px 10px var(--vy-neu-lite);
+  --vy-neu-hover:  9px 9px 22px var(--vy-neu-dark), -7px -7px 18px var(--vy-neu-lite);
+
+  --vy-glass:        rgba(255, 255, 255, 0.64);
+  --vy-glass-strong: rgba(255, 255, 255, 0.84);
+  --vy-glass-line:   rgba(255, 255, 255, 0.9);
+  --vy-glass-hi:     rgba(255, 255, 255, 0.55);
+  --vy-blur: blur(18px) saturate(150%);
+
+  --vy-cast-2: 0 6px 20px rgba(40, 60, 70, 0.14);
+  --vy-cast-3: 0 20px 48px rgba(40, 60, 70, 0.18), 0 4px 12px rgba(40, 60, 70, 0.1);
+
+  --vy-ambient: radial-gradient(120% 80% at 85% -10%, rgba(124,85,196,0.10), transparent 55%),
+                radial-gradient(95% 62% at 4% 2%, rgba(46,158,120,0.09), transparent 54%),
+                radial-gradient(60% 40% at 50% 120%, rgba(85,102,230,0.07), transparent 60%);
+}
+
+/* ── Reset — scoped via .vy ── */
+.vy, .vy * { box-sizing: border-box; }
+.vy {
+  font-family: var(--vy-sans);
+  font-size: var(--vy-t-body);
+  color: var(--vy-ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.vy h1, .vy h2, .vy h3, .vy h4, .vy h5, .vy h6, .vy p { margin: 0; }
+.vy button { font-family: inherit; cursor: pointer; }
+.vy a { color: var(--vy-accent); text-decoration: none; }
+.vy a:hover { text-decoration: underline; }
+.vy [data-num] { font-family: var(--vy-mono); font-feature-settings: 'tnum','zero'; font-variant-numeric: tabular-nums; }
+
+.vy h1, .vy h2, .vy h3, .vy .vy-head {
+  font-family: var(--vy-heading);
+  letter-spacing: 0.01em; font-weight: 600; line-height: 1.2;
+}
+.vy-cap {
+  font-family: var(--vy-mono); font-size: 11px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--vy-ink-3);
+}
+.vy :focus-visible { outline: 2px solid var(--vy-accent); outline-offset: 2px; border-radius: 4px; }
+
+@keyframes vy-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.vy-skel {
+  background: linear-gradient(90deg, var(--vy-sunken) 0%, var(--vy-hover) 50%, var(--vy-sunken) 100%);
+  background-size: 200% 100%; animation: vy-shimmer 1.6s linear infinite; border-radius: 6px;
+}
+.vy-scroll { scrollbar-width: thin; scrollbar-color: var(--vy-line-3) transparent; }
+.vy-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.vy-scroll::-webkit-scrollbar-track { background: transparent; }
+.vy-scroll::-webkit-scrollbar-thumb {
+  background: var(--vy-line-3); border-radius: 6px;
+  border: 3px solid transparent; background-clip: padding-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vy *, .vy *::before, .vy *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

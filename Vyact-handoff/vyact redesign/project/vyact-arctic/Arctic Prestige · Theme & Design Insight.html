@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Arctic Prestige · Theme &amp; Design Insight</title>
+<link rel="stylesheet" href="arctic-tokens.css" />
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('vyact-admin-theme');
+      document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+    } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+  })();
+</script>
+<style>
+  html, body { margin: 0; padding: 0; background: var(--arc-bg); }
+  body {
+    font-family: var(--arc-sans); color: var(--arc-ink);
+    background:
+      radial-gradient(1000px 520px at 88% -6%, var(--arc-page-glow), transparent 60%),
+      var(--arc-bg);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 36px 100px; }
+
+  /* ── Masthead ────────────────────────────── */
+  header.mast {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--arc-bg) 86%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--arc-line);
+  }
+  .mast-in { max-width: 1080px; margin: 0 auto; padding: 16px 36px; display: flex; align-items: center; gap: 16px; }
+  .wordmark { font-family: var(--arc-serif); font-weight: 500; font-size: 19px; letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: 9px; }
+  .glyph {
+    width: 24px; height: 24px; border-radius: 6px; background: var(--arc-brand-grad);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--arc-serif); font-style: italic; font-size: 15px; color: var(--arc-obsidian); font-weight: 600;
+  }
+  .pill {
+    font-family: var(--arc-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: var(--arc-r-pill);
+    background: var(--arc-accent-soft); color: var(--arc-accent); border: 1px solid var(--arc-line-2);
+  }
+  .spacer { flex: 1; }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px;
+    border-radius: var(--arc-r-2); border: 1px solid var(--arc-line-2);
+    background: var(--arc-surface); color: var(--arc-ink-2); font-size: 12px; font-weight: 600;
+    transition: all var(--arc-dur-2);
+  }
+  .toggle:hover { background: var(--arc-surface-3); color: var(--arc-ink); }
+  .toggle svg { width: 15px; height: 15px; }
+  [data-theme="dark"] .toggle .ic-sun { display: none; }
+  [data-theme="light"] .toggle .ic-moon { display: none; }
+  .toggle .label::after { content: 'Light mode'; }
+  [data-theme="light"] .toggle .label::after { content: 'Dark mode'; }
+
+  /* ── Hero ────────────────────────────────── */
+  .hero { padding: 64px 0 40px; border-bottom: 1px solid var(--arc-line); }
+  .kicker { font-family: var(--arc-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--arc-accent); }
+  h1.title { margin-top: 14px; font-family: var(--arc-serif); font-weight: 400; font-size: 56px; line-height: 1.02; letter-spacing: -0.025em; }
+  h1.title em { font-style: italic; color: var(--arc-glacier); }
+  .lede { margin-top: 20px; font-size: 17px; line-height: 1.6; color: var(--arc-ink-2); max-width: 64ch; }
+
+  /* ── Section scaffold ────────────────────── */
+  section.block { padding-top: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--arc-line); padding-bottom: 14px; margin-bottom: 28px; }
+  .sec-no { font-family: var(--arc-mono); font-size: 12px; color: var(--arc-accent); }
+  .sec-title { font-family: var(--arc-serif); font-size: 26px; font-weight: 400; letter-spacing: -0.01em; }
+  .sec-sub { margin-left: auto; font-size: 13px; color: var(--arc-ink-3); max-width: 42ch; text-align: right; }
+
+  /* ── Palette ─────────────────────────────── */
+  .palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .sw { border: 1px solid var(--arc-line); border-radius: var(--arc-r-3); overflow: hidden; background: var(--arc-surface); }
+  .sw .chip { height: 92px; }
+  .sw .meta { padding: 12px 14px; }
+  .sw .no { font-family: var(--arc-mono); font-size: 10px; color: var(--arc-ink-3); }
+  .sw .nm { font-weight: 600; font-size: 14px; margin-top: 2px; }
+  .sw .hex { font-family: var(--arc-mono); font-size: 12px; color: var(--arc-ink-2); margin-top: 4px; }
+  .sw .role { font-size: 12px; color: var(--arc-ink-3); margin-top: 8px; line-height: 1.45; }
+
+  /* ── Token directory table ───────────────── */
+  .grp { margin-bottom: 30px; }
+  .grp-name { font-family: var(--arc-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--arc-ink-3); margin-bottom: 10px; }
+  table.dir { width: 100%; border-collapse: collapse; background: var(--arc-surface); border: 1px solid var(--arc-line); border-radius: var(--arc-r-3); overflow: hidden; }
+  table.dir th { text-align: left; padding: 10px 14px; background: var(--arc-bg-2); border-bottom: 1px solid var(--arc-line); font-family: var(--arc-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--arc-ink-3); font-weight: 500; }
+  table.dir td { padding: 11px 14px; border-bottom: 1px solid var(--arc-line); font-size: 13px; vertical-align: middle; }
+  table.dir tr:last-child td { border-bottom: none; }
+  .tok { font-family: var(--arc-mono); font-size: 12px; color: var(--arc-ink); white-space: nowrap; }
+  .valcell { display: flex; align-items: center; gap: 8px; }
+  .vchip { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--arc-line-strong); flex-shrink: 0; }
+  .vhex { font-family: var(--arc-mono); font-size: 11px; color: var(--arc-ink-2); }
+  .role-td { color: var(--arc-ink-3); font-size: 12.5px; }
+  th.col-val, td.col-val { width: 158px; }
+  th.col-tok, td.col-tok { width: 188px; }
+
+  /* ── Surface hierarchy demo ──────────────── */
+  .surfaces { background: var(--arc-bg); border: 1px solid var(--arc-line); border-radius: var(--arc-r-4); padding: 22px; }
+  .surf-card { background: var(--arc-surface); border: 1px solid var(--arc-line); border-radius: var(--arc-r-3); padding: 20px; }
+  .surf-elev { background: var(--arc-surface-2); border: 1px solid var(--arc-line-2); border-radius: var(--arc-r-2); padding: 16px; margin-top: 14px; box-shadow: var(--arc-shadow-2); }
+  .surf-label { font-family: var(--arc-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--arc-ink-3); }
+
+  /* ── Component preview ───────────────────── */
+  .preview { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pv-card { background: var(--arc-surface); border: 1px solid var(--arc-line); border-radius: var(--arc-r-3); padding: 20px; }
+  .pv-card .arc-caption { margin-bottom: 14px; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: var(--arc-r-2); font-size: 13px; font-weight: 600; border: 1px solid transparent; }
+  .btn-primary { background: var(--arc-accent); color: var(--arc-on-accent); }
+  .btn-ghost { background: transparent; color: var(--arc-ink-2); border-color: var(--arc-line-2); }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 7px; border-radius: var(--arc-r-pill); font-size: 11px; font-weight: 600; }
+  .badge .bdot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge.good { background: var(--arc-good-tint); color: var(--arc-good); } .badge.good .bdot { background: var(--arc-good); }
+  .badge.watch { background: var(--arc-watch-tint); color: var(--arc-watch); } .badge.watch .bdot { background: var(--arc-watch); }
+  .badge.risk { background: var(--arc-risk-tint); color: var(--arc-risk); } .badge.risk .bdot { background: var(--arc-risk); }
+  .badge.info { background: var(--arc-info-tint); color: var(--arc-info); } .badge.info .bdot { background: var(--arc-info); }
+  .mini-kpi { border-left: 3px solid var(--arc-glacier); padding-left: 12px; }
+  .mini-kpi .arc-caption { margin: 0; }
+  .mini-kpi .v { font-family: var(--arc-serif); font-style: italic; font-size: 26px; margin-top: 6px; }
+  .mini-kpi .d { font-family: var(--arc-mono); font-size: 11px; color: var(--arc-good); margin-top: 4px; }
+  .nav-demo { display: flex; flex-direction: column; gap: 4px; }
+  .ni { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--arc-r-2); font-size: 13px; color: var(--arc-ink-3); }
+  .ni.on { background: var(--arc-accent-tint); color: var(--arc-accent); font-weight: 600; box-shadow: inset 2px 0 0 var(--arc-accent); }
+  .ni .nidot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* ── Rules ───────────────────────────────── */
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .rule-col { background: var(--arc-surface); border: 1px solid var(--arc-line); border-radius: var(--arc-r-3); padding: 20px; }
+  .rule-col h4 { font-size: 13px; font-family: var(--arc-mono); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px; }
+  .rule-col.do h4 { color: var(--arc-good); }
+  .rule-col.dont h4 { color: var(--arc-risk); }
+  .rule-col ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 11px; }
+  .rule-col li { font-size: 13px; line-height: 1.5; color: var(--arc-ink-2); padding-left: 22px; position: relative; }
+  .rule-col li::before { position: absolute; left: 0; top: 0; font-family: var(--arc-mono); font-weight: 600; }
+  .rule-col.do li::before { content: '+'; color: var(--arc-good); }
+  .rule-col.dont li::before { content: '\00d7'; color: var(--arc-risk); }
+
+  /* ── Code ────────────────────────────────── */
+  pre.code {
+    background: var(--arc-bg-2); border: 1px solid var(--arc-line); border-radius: var(--arc-r-3);
+    padding: 18px 20px; overflow-x: auto; margin: 0;
+    font-family: var(--arc-mono); font-size: 12.5px; line-height: 1.7; color: var(--arc-ink-2);
+  }
+  pre.code .c { color: var(--arc-ink-4); }
+  pre.code .k { color: var(--arc-accent); }
+  pre.code .s { color: var(--arc-good); }
+  .extend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .note { font-size: 13px; line-height: 1.6; color: var(--arc-ink-2); }
+  .note strong { color: var(--arc-ink); }
+
+  /* ── Ref grid (type/radii/motion) ────────── */
+  .refs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .ref-card { background: var(--arc-surface); border: 1px solid var(--arc-line); border-radius: var(--arc-r-3); padding: 18px; }
+  .ref-card .arc-caption { margin-bottom: 12px; }
+  .ref-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--arc-line); }
+  .ref-row:last-child { border-bottom: none; }
+  .ref-row .tk { font-family: var(--arc-mono); color: var(--arc-ink-2); }
+  .ref-row .vv { font-family: var(--arc-mono); color: var(--arc-ink-3); }
+
+  @media (max-width: 760px) {
+    .palette, .preview, .rules, .extend-grid, .refs { grid-template-columns: 1fr; }
+    h1.title { font-size: 40px; }
+    .sec-sub { display: none; }
+  }
+</style>
+</head>
+
+<body class="arc arc-scroll">
+
+<header class="mast">
+  <div class="mast-in">
+    <span class="wordmark"><span class="glyph">V</span>Vyact</span>
+    <span class="pill">Admin theme</span>
+    <span class="spacer"></span>
+    <button class="toggle" id="themeToggle" aria-label="Toggle light / dark">
+      <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>
+      <span class="label"></span>
+    </button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="kicker">Arctic Prestige · Theme &amp; Design Insight</div>
+    <h1 class="title">A token directory for the<br/><em>admin</em> surface.</h1>
+    <p class="lede">A cool ice-and-steel re-skin of the Vyact operator console, delivered as a two-layer token system — fixed brand <strong>palette</strong> plus <strong>semantic</strong> tokens that flip between light and dark. Drop <code>arctic-tokens.css</code> into the design system, scope it to the admin app, and build only on the semantic names so both modes track for free.</p>
+  </div>
+
+  <!-- 01 Palette -->
+  <section class="block">
+    <div class="sec-head">
+      <span class="sec-no">01</span>
+      <span class="sec-title">Source palette</span>
+      <span class="sec-sub">Six fixed brand swatches. Never theme-dependent — both modes are composed from these.</span>
+    </div>
+    <div class="palette" id="paletteGrid"></div>
+  </section>
+
+  <!-- 02 Token directory -->
+  <section class="block">
+    <div class="sec-head">
+      <span class="sec-no">02</span>
+      <span class="sec-title">Semantic token directory</span>
+      <span class="sec-sub">The contract. Each token resolves to a different value per theme — UI references the token, never a raw hex.</span>
+    </div>
+    <div id="dirTables"></div>
+  </section>
+
+  <!-- 03 Surfaces -->
+  <section class="block">
+    <div class="sec-head">
+      <span class="sec-no">03</span>
+      <span class="sec-title">Surface hierarchy</span>
+      <span class="sec-sub">Three depths carry the whole console: page → panel → elevated.</span>
+    </div>
+    <div class="surfaces">
+      <div class="surf-label">--arc-bg · page</div>
+      <div class="surf-card" style="margin-top:12px">
+        <div class="surf-label">--arc-surface · panel</div>
+        <div class="surf-elev">
+          <div class="surf-label">--arc-surface-2 · elevated / header</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 Components -->
+  <section class="block">
+    <div class="sec-head">
+      <span class="sec-no">04</span>
+      <span class="sec-title">Components in context</span>
+      <span class="sec-sub">Live previews — toggle the theme in the header to verify both modes.</span>
+    </div>
+    <div class="preview">
+      <div class="pv-card">
+        <div class="arc-caption">Actions</div>
+        <div class="row">
+          <button class="btn btn-primary">Export</button>
+          <button class="btn btn-ghost">Filters</button>
+          <button class="btn btn-ghost">Cancel</button>
+        </div>
+      </div>
+      <div class="pv-card">
+        <div class="arc-caption">Status badges</div>
+        <div class="row">
+          <span class="badge good"><span class="bdot"></span>healthy</span>
+          <span class="badge watch"><span class="bdot"></span>watch</span>
+          <span class="badge risk"><span class="bdot"></span>risk</span>
+          <span class="badge info"><span class="bdot"></span>info</span>
+        </div>
+      </div>
+      <div class="pv-card">
+        <div class="arc-caption">KPI tile</div>
+        <div class="mini-kpi">
+          <div class="arc-caption">Active households</div>
+          <div class="v" data-num>12,418</div>
+          <div class="d">▲ +184 new</div>
+        </div>
+      </div>
+      <div class="pv-card">
+        <div class="arc-caption">Navigation</div>
+        <div class="nav-demo">
+          <div class="ni on"><span class="nidot"></span>NorthStar</div>
+          <div class="ni"><span class="nidot"></span>Households</div>
+          <div class="ni"><span class="nidot"></span>Audit log</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 Rules -->
+  <section class="block">
+    <div class="sec-head">
+      <span class="sec-no">05</span>
+      <span class="sec-title">Usage rules</span>
+      <span class="sec-sub">Keep the system honest across both themes.</span>
+    </div>
+    <div class="rules">
+      <div class="rule-col do">
+        <h4>Do</h4>
+        <ul>
+          <li>Reference semantic tokens (<code>--arc-surface</code>, <code>--arc-ink-2</code>) so light and dark resolve automatically.</li>
+          <li>Use status tints for fills and the solid status color for text/icons — the pairing is contrast-checked in both modes.</li>
+          <li>Lead with the glacier accent for brand moments; keep it to ~5% of the surface.</li>
+          <li>Set <code>data-theme</code> once on <code>&lt;html&gt;</code> before paint to avoid a flash.</li>
+        </ul>
+      </div>
+      <div class="rule-col dont">
+        <h4>Don't</h4>
+        <ul>
+          <li>Hard-code raw hexes in components — they won't flip with the theme.</li>
+          <li>Reuse the dark accent (icy <code>#C7E2F2</code>) on a light surface; it fails contrast.</li>
+          <li>Introduce new hues outside the six-swatch palette for admin chrome.</li>
+          <li>Mix warm FinFlow tokens (<code>--ff-*</code>) into the admin surface — Arctic is a full replacement here.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 Extend -->
+  <section class="block">
+    <div class="sec-head">
+      <span class="sec-no">06</span>
+      <span class="sec-title">Extend it</span>
+      <span class="sec-sub">Scope to admin, switch themes, add a token.</span>
+    </div>
+    <div class="extend-grid">
+      <pre class="code"><span class="c">/* 1 · load + scope to the admin app only */</span>
+&lt;<span class="k">link</span> rel=<span class="s">"stylesheet"</span> href=<span class="s">"arctic-tokens.css"</span>&gt;
+&lt;<span class="k">html</span> data-theme=<span class="s">"dark"</span>&gt;     <span class="c">/* or "light" */</span>
+
+<span class="c">/* 2 · flip at runtime + persist */</span>
+root.<span class="k">setAttribute</span>(<span class="s">'data-theme'</span>, next);
+localStorage.<span class="k">setItem</span>(<span class="s">'vyact-admin-theme'</span>, next);
+
+<span class="c">/* 3 · add a token — define it in BOTH blocks */</span>
+[data-theme=<span class="s">"dark"</span>]  { --arc-accent-2: <span class="s">#7FA8D4</span>; }
+[data-theme=<span class="s">"light"</span>] { --arc-accent-2: <span class="s">#3F6FA0</span>; }</pre>
+      <div>
+        <p class="note"><strong>Two layers, one rule.</strong> The raw palette is the brand's fixed vocabulary; semantic tokens are the only thing components touch. To theme a new surface, you never invent colors — you remap existing semantic tokens.</p>
+        <p class="note" style="margin-top:14px"><strong>Admin-only by design.</strong> These tokens use the <code>--arc-*</code> namespace and the <code>.arc</code> scope class, so they sit alongside the warm <code>--ff-*</code> consumer tokens without collision. Apply <code>.arc</code> + <code>data-theme</code> on the admin root only.</p>
+        <p class="note" style="margin-top:14px"><strong>Adding a token?</strong> Always define it in <em>both</em> theme blocks. A token that exists in only one mode is the most common source of theme drift.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 Static refs -->
+  <section class="block">
+    <div class="sec-head">
+      <span class="sec-no">07</span>
+      <span class="sec-title">Non-color tokens</span>
+      <span class="sec-sub">Type, radii and motion are shared across both themes.</span>
+    </div>
+    <div class="refs">
+      <div class="ref-card">
+        <div class="arc-caption">Type</div>
+        <div class="ref-row"><span class="tk">--arc-serif</span><span class="vv">Newsreader</span></div>
+        <div class="ref-row"><span class="tk">--arc-sans</span><span class="vv">Inter Tight</span></div>
+        <div class="ref-row"><span class="tk">--arc-mono</span><span class="vv">JetBrains Mono</span></div>
+        <div class="ref-row"><span class="tk">scale</span><span class="vv">10 → 44px</span></div>
+      </div>
+      <div class="ref-card">
+        <div class="arc-caption">Radii</div>
+        <div class="ref-row"><span class="tk">--arc-r-1</span><span class="vv">4px</span></div>
+        <div class="ref-row"><span class="tk">--arc-r-2</span><span class="vv">6px</span></div>
+        <div class="ref-row"><span class="tk">--arc-r-3</span><span class="vv">9px</span></div>
+        <div class="ref-row"><span class="tk">--arc-r-4</span><span class="vv">14px</span></div>
+      </div>
+      <div class="ref-card">
+        <div class="arc-caption">Motion</div>
+        <div class="ref-row"><span class="tk">--arc-dur-1</span><span class="vv">80ms</span></div>
+        <div class="ref-row"><span class="tk">--arc-dur-2</span><span class="vv">180ms</span></div>
+        <div class="ref-row"><span class="tk">--arc-dur-3</span><span class="vv">320ms</span></div>
+        <div class="ref-row"><span class="tk">--arc-ease-out</span><span class="vv">.2,.7,.2,1</span></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  // ── Palette data ──
+  const PALETTE = [
+    ['01', 'Ice White',   '#F5F8FA', 'Light page bg · text on dark'],
+    ['02', 'Silver Mist',  '#D6DEE6', 'Light secondary surface'],
+    ['03', 'Glacier Blue', '#9DB4C6', 'Brand accent (dark) · secondary text'],
+    ['04', 'Steel Blue',   '#5C7386', 'Brand accent (light) · borders'],
+    ['05', 'Arctic Navy',  '#1E2A39', 'Elevated dark surface · light text'],
+    ['06', 'Obsidian',     '#0B0F14', 'Dark page bg · text on accent'],
+  ];
+  document.getElementById('paletteGrid').innerHTML = PALETTE.map(([no, nm, hex, role]) => `
+    <div class="sw">
+      <div class="chip" style="background:${hex}"></div>
+      <div class="meta">
+        <div class="no">${no}</div>
+        <div class="nm">${nm}</div>
+        <div class="hex">${hex}</div>
+        <div class="role">${role}</div>
+      </div>
+    </div>`).join('');
+
+  // ── Token directory: token, light, dark, role ──
+  const GROUPS = [
+    ['Surfaces', [
+      ['--arc-bg',        '#E9F0F5', '#0B0F14', 'Page background'],
+      ['--arc-bg-2',      '#DCE6EE', '#10161E', 'Sunken / track / code'],
+      ['--arc-surface',   '#FFFFFF', '#16202C', 'Panel / card'],
+      ['--arc-surface-2', '#F5F8FA', '#1E2A39', 'Elevated / header'],
+      ['--arc-surface-3', '#E6EDF3', '#243343', 'Hover / row stripe'],
+    ]],
+    ['Ink', [
+      ['--arc-ink',   '#16202C', '#F5F8FA', 'Primary text'],
+      ['--arc-ink-2', '#3C4F60', '#C2D0DC', 'Secondary text'],
+      ['--arc-ink-3', '#5C7386', '#8497A8', 'Meta · captions'],
+      ['--arc-ink-4', '#93A7B6', '#5C7386', 'Faint · disabled'],
+    ]],
+    ['Lines', [
+      ['--arc-line',        'rgba(30,42,57,.10)',  'rgba(157,180,198,.12)', 'Hairline divider'],
+      ['--arc-line-2',      'rgba(30,42,57,.16)',  'rgba(157,180,198,.20)', 'Control border'],
+      ['--arc-line-strong', 'rgba(30,42,57,.28)',  'rgba(157,180,198,.34)', 'Emphasis border'],
+    ]],
+    ['Brand', [
+      ['--arc-accent',        '#4D6884', '#9DB4C6', 'Primary action · brand'],
+      ['--arc-accent-bright', '#3A5570', '#C7E2F2', 'Hover · glow (icy)'],
+      ['--arc-on-accent',     '#F5F8FA', '#0B0F14', 'Text on accent fill'],
+    ]],
+    ['Status', [
+      ['--arc-good',  '#3E8E72', '#6FB89E', 'Healthy · positive'],
+      ['--arc-watch', '#A8792A', '#D8B36A', 'Watch · warning'],
+      ['--arc-risk',  '#BD5746', '#CD7B6E', 'Risk · error'],
+      ['--arc-info',  '#3F6FA0', '#7FA8D4', 'Info · neutral trend'],
+    ]],
+  ];
+  function valCell(v) {
+    return `<div class="valcell"><span class="vchip" style="background:${v}"></span><span class="vhex">${v}</span></div>`;
+  }
+  document.getElementById('dirTables').innerHTML = GROUPS.map(([name, rows]) => `
+    <div class="grp">
+      <div class="grp-name">${name}</div>
+      <table class="dir">
+        <thead><tr>
+          <th class="col-tok">Token</th>
+          <th class="col-val">Light</th>
+          <th class="col-val">Dark</th>
+          <th>Role</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(([tok, l, d, role]) => `
+            <tr>
+              <td class="col-tok"><span class="tok">${tok}</span></td>
+              <td class="col-val">${valCell(l)}</td>
+              <td class="col-val">${valCell(d)}</td>
+              <td class="role-td">${role}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+
+  // ── Theme toggle ──
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    btn.addEventListener('click', function () {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('vyact-admin-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

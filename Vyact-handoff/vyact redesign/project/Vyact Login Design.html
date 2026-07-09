@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vyact · Login Design Variations</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--ff-canvas); min-height: 100vh; font-family: var(--ff-sans); }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="lib.jsx"></script>
+
+<script type="text/babel">
+
+// ─── VARIATION 1: Minimal & Direct ─────────────────────────────
+function LoginMinimal() {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+
+  return (
+    <div className="ff" style={{
+      width: '100%', height: '100%',
+      background: 'var(--ff-canvas)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 20,
+    }}>
+      <div style={{
+        maxWidth: 400,
+        width: '100%',
+        background: 'var(--ff-surface)',
+        borderRadius: 'var(--ff-r-4)',
+        padding: 40,
+        boxShadow: 'var(--ff-shadow-2)',
+      }}>
+        {/* Logo + Brand */}
+        <div style={{ marginBottom: 36, textAlign: 'center' }}>
+          <div style={{
+            fontSize: 48,
+            fontWeight: 700,
+            color: 'var(--ff-coral)',
+            letterSpacing: '-0.02em',
+            marginBottom: 8,
+          }}>
+            Vyact
+          </div>
+          <div style={{
+            fontSize: 'var(--ff-text-sm)',
+            color: 'var(--ff-ink-2)',
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+          }}>
+            Family Finance OS
+          </div>
+        </div>
+
+        {/* Form */}
+        <form style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={{
+              display: 'block',
+              fontSize: 'var(--ff-text-sm)',
+              fontWeight: 500,
+              color: 'var(--ff-ink)',
+              marginBottom: 6,
+            }}>
+              Email
+            </label>
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                fontSize: 'var(--ff-text-base)',
+                border: '1px solid var(--ff-line-2)',
+                borderRadius: 'var(--ff-r-2)',
+                fontFamily: 'inherit',
+                color: 'var(--ff-ink)',
+                boxSizing: 'border-box',
+                transition: 'border-color 80ms, box-shadow 80ms',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = 'var(--ff-coral)';
+                e.target.style.boxShadow = '0 0 0 3px var(--ff-coral-tint)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'var(--ff-line-2)';
+                e.target.style.boxShadow = 'none';
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{
+              display: 'block',
+              fontSize: 'var(--ff-text-sm)',
+              fontWeight: 500,
+              color: 'var(--ff-ink)',
+              marginBottom: 6,
+            }}>
+              Password
+            </label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                fontSize: 'var(--ff-text-base)',
+                border: '1px solid var(--ff-line-2)',
+                borderRadius: 'var(--ff-r-2)',
+                fontFamily: 'inherit',
+                color: 'var(--ff-ink)',
+                boxSizing: 'border-box',
+                transition: 'border-color 80ms, box-shadow 80ms',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = 'var(--ff-coral)';
+                e.target.style.boxShadow = '0 0 0 3px var(--ff-coral-tint)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'var(--ff-line-2)';
+                e.target.style.boxShadow = 'none';
+              }}
+            />
+          </div>
+
+          <button style={{
+            marginTop: 8,
+            padding: '12px 16px',
+            background: 'var(--ff-coral)',
+            color: 'white',
+            border: 'none',
+            borderRadius: 'var(--ff-r-2)',
+            fontSize: 'var(--ff-text-base)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'background 180ms',
+          }}
+          onMouseEnter={(e) => e.target.style.background = 'var(--ff-coral-deep)'}
+          onMouseLeave={(e) => e.target.style.background = 'var(--ff-coral)'}
+          >
+            Sign In
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          margin: '24px 0',
+          color: 'var(--ff-ink-3)',
+          fontSize: 'var(--ff-text-sm)',
+        }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--ff-line)' }} />
+          or
+          <div style={{ flex: 1, height: 1, background: 'var(--ff-line)' }} />
+        </div>
+
+        {/* Social buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button style={{
+            padding: '10px 16px',
+            background: 'var(--ff-canvas-2)',
+            color: 'var(--ff-ink)',
+            border: '1px solid var(--ff-line-2)',
+            borderRadius: 'var(--ff-r-2)',
+            fontSize: 'var(--ff-text-sm)',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'background 180ms',
+          }}
+          onMouseEnter={(e) => e.target.style.background = 'var(--ff-surface-3)'}
+          onMouseLeave={(e) => e.target.style.background = 'var(--ff-canvas-2)'}
+          >
+            Continue with Google
+          </button>
+          <button style={{
+            padding: '10px 16px',
+            background: 'var(--ff-canvas-2)',
+            color: 'var(--ff-ink)',
+            border: '1px solid var(--ff-line-2)',
+            borderRadius: 'var(--ff-r-2)',
+            fontSize: 'var(--ff-text-sm)',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'background 180ms',
+          }}
+          onMouseEnter={(e) => e.target.style.background = 'var(--ff-surface-3)'}
+          onMouseLeave={(e) => e.target.style.background = 'var(--ff-canvas-2)'}
+          >
+            Continue with Apple
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          marginTop: 24,
+          paddingTop: 16,
+          borderTop: '1px solid var(--ff-line)',
+          textAlign: 'center',
+          fontSize: 'var(--ff-text-sm)',
+          color: 'var(--ff-ink-2)',
+        }}>
+          Don't have an account?{' '}
+          <a href="#" style={{ color: 'var(--ff-coral)', textDecoration: 'none', fontWeight: 500 }}>
+            Sign up
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── VARIATION 2: Illustrated & Warm ────────────────────────────
+function LoginIllustrated() {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+
+  return (
+    <div className="ff" style={{
+      width: '100%', height: '100%',
+      background: 'var(--ff-canvas)',
+      display: 'flex',
+    }}>
+      {/* Left: Illustration + Message */}
+      <div style={{
+        flex: 1,
+        background: 'linear-gradient(135deg, #E26D5C 0%, #4A6FA5 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 60,
+        color: 'white',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Decorative circles */}
+        <div style={{
+          position: 'absolute',
+          width: 200,
+          height: 200,
+          borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.1)',
+          top: '10%',
+          right: '10%',
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: 150,
+          height: 150,
+          borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.08)',
+          bottom: '20%',
+          left: '5%',
+        }} />
+
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+          {/* Pip illustration (simplified) */}
+          <div style={{
+            width: 120,
+            height: 120,
+            borderRadius: '50%',
+            background: '#E8A87C',
+            margin: '0 auto 32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 64,
+          }}>
+            💰
+          </div>
+
+          <h2 style={{
+            fontFamily: 'var(--ff-serif)',
+            fontSize: 36,
+            fontWeight: 400,
+            lineHeight: 1.3,
+            marginBottom: 16,
+          }}>
+            Money conversations made simple
+          </h2>
+          <p style={{
+            fontSize: 'var(--ff-text-lg)',
+            lineHeight: 1.6,
+            maxWidth: '28ch',
+            opacity: 0.95,
+          }}>
+            Connect with your family, track spending together, and make smarter financial decisions.
+          </p>
+        </div>
+      </div>
+
+      {/* Right: Login form */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 60,
+      }}>
+        <div style={{ maxWidth: 360, width: '100%' }}>
+          <div style={{ marginBottom: 40 }}>
+            <div style={{
+              fontSize: 32,
+              fontWeight: 700,
+              color: 'var(--ff-coral)',
+              letterSpacing: '-0.02em',
+              marginBottom: 6,
+            }}>
+              Welcome back
+            </div>
+            <p style={{
+              fontSize: 'var(--ff-text-sm)',
+              color: 'var(--ff-ink-2)',
+              margin: 0,
+            }}>
+              Sign in to your family account
+            </p>
+          </div>
+
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: 'var(--ff-text-sm)',
+                fontWeight: 500,
+                color: 'var(--ff-ink)',
+                marginBottom: 6,
+              }}>
+                Email address
+              </label>
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  fontSize: 'var(--ff-text-base)',
+                  border: '1px solid var(--ff-line-2)',
+                  borderRadius: 'var(--ff-r-3)',
+                  fontFamily: 'inherit',
+                  color: 'var(--ff-ink)',
+                  boxSizing: 'border-box',
+                  transition: 'all 180ms',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'var(--ff-coral)';
+                  e.target.style.background = 'var(--ff-coral-tint)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'var(--ff-line-2)';
+                  e.target.style.background = 'var(--ff-surface)';
+                }}
+              />
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <label style={{
+                  fontSize: 'var(--ff-text-sm)',
+                  fontWeight: 500,
+                  color: 'var(--ff-ink)',
+                }}>
+                  Password
+                </label>
+                <a href="#" style={{ fontSize: 'var(--ff-text-xs)', color: 'var(--ff-coral)', textDecoration: 'none' }}>
+                  Forgot?
+                </a>
+              </div>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  fontSize: 'var(--ff-text-base)',
+                  border: '1px solid var(--ff-line-2)',
+                  borderRadius: 'var(--ff-r-3)',
+                  fontFamily: 'inherit',
+                  color: 'var(--ff-ink)',
+                  boxSizing: 'border-box',
+                  transition: 'all 180ms',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'var(--ff-coral)';
+                  e.target.style.background = 'var(--ff-coral-tint)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'var(--ff-line-2)';
+                  e.target.style.background = 'var(--ff-surface)';
+                }}
+              />
+            </div>
+
+            <button style={{
+              marginTop: 12,
+              padding: '14px 20px',
+              background: 'var(--ff-coral)',
+              color: 'white',
+              border: 'none',
+              borderRadius: 'var(--ff-r-3)',
+              fontSize: 'var(--ff-text-base)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 180ms',
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = 'var(--ff-coral-deep)';
+              e.target.style.transform = 'scale(1.02)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'var(--ff-coral)';
+              e.target.style.transform = 'scale(1)';
+            }}
+            >
+              Sign in
+            </button>
+          </form>
+
+          <div style={{
+            marginTop: 28,
+            paddingTop: 20,
+            borderTop: '1px solid var(--ff-line)',
+            textAlign: 'center',
+            fontSize: 'var(--ff-text-sm)',
+            color: 'var(--ff-ink-2)',
+          }}>
+            New to Vyact?{' '}
+            <a href="#" style={{ color: 'var(--ff-coral)', textDecoration: 'none', fontWeight: 500 }}>
+              Create account
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── VARIATION 3: Stepwise with Household Setup ──────────────────
+function LoginStepwise() {
+  const [step, setStep] = React.useState(1);
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [householdName, setHouseholdName] = React.useState('');
+
+  return (
+    <div className="ff" style={{
+      width: '100%', height: '100%',
+      background: 'var(--ff-canvas)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 20,
+    }}>
+      <div style={{
+        maxWidth: 480,
+        width: '100%',
+        background: 'var(--ff-surface)',
+        borderRadius: 'var(--ff-r-4)',
+        padding: 48,
+        boxShadow: 'var(--ff-shadow-3)',
+      }}>
+        {/* Progress indicator */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{
+            display: 'flex',
+            gap: 8,
+            marginBottom: 24,
+          }}>
+            {[1, 2, 3].map((s) => (
+              <div
+                key={s}
+                style={{
+                  flex: 1,
+                  height: 6,
+                  borderRadius: 'var(--ff-r-pill)',
+                  background: s <= step ? 'var(--ff-coral)' : 'var(--ff-line)',
+                  transition: 'background 280ms',
+                }}
+              />
+            ))}
+          </div>
+
+          <div style={{
+            fontSize: 'var(--ff-text-2xl)',
+            fontWeight: 600,
+            color: 'var(--ff-ink)',
+            marginBottom: 8,
+          }}>
+            {step === 1 && 'Sign in'}
+            {step === 2 && 'Create your household'}
+            {step === 3 && 'You\'re all set!'}
+          </div>
+          <p style={{
+            fontSize: 'var(--ff-text-sm)',
+            color: 'var(--ff-ink-2)',
+            margin: 0,
+          }}>
+            {step === 1 && 'Enter your credentials'}
+            {step === 2 && 'Give your family space a name'}
+            {step === 3 && 'Welcome to Vyact'}
+          </p>
+        </div>
+
+        {/* Step 1: Login */}
+        {step === 1 && (
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 16 }} onSubmit={(e) => { e.preventDefault(); setStep(2); }}>
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: 'var(--ff-text-sm)',
+                fontWeight: 500,
+                color: 'var(--ff-ink)',
+                marginBottom: 6,
+              }}>
+                Email
+              </label>
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  fontSize: 'var(--ff-text-base)',
+                  border: '1px solid var(--ff-line-2)',
+                  borderRadius: 'var(--ff-r-3)',
+                  fontFamily: 'inherit',
+                  color: 'var(--ff-ink)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: 'var(--ff-text-sm)',
+                fontWeight: 500,
+                color: 'var(--ff-ink)',
+                marginBottom: 6,
+              }}>
+                Password
+              </label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  fontSize: 'var(--ff-text-base)',
+                  border: '1px solid var(--ff-line-2)',
+                  borderRadius: 'var(--ff-r-3)',
+                  fontFamily: 'inherit',
+                  color: 'var(--ff-ink)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <button
+              type="submit"
+              style={{
+                padding: '12px 16px',
+                background: 'var(--ff-coral)',
+                color: 'white',
+                border: 'none',
+                borderRadius: 'var(--ff-r-3)',
+                fontSize: 'var(--ff-text-base)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginTop: 12,
+              }}
+            >
+              Continue →
+            </button>
+          </form>
+        )}
+
+        {/* Step 2: Household setup */}
+        {step === 2 && (
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 16 }} onSubmit={(e) => { e.preventDefault(); setStep(3); }}>
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: 'var(--ff-text-sm)',
+                fontWeight: 500,
+                color: 'var(--ff-ink)',
+                marginBottom: 6,
+              }}>
+                Household name
+              </label>
+              <input
+                type="text"
+                placeholder="e.g., The Patels, Our Home"
+                value={householdName}
+                onChange={(e) => setHouseholdName(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  fontSize: 'var(--ff-text-base)',
+                  border: '1px solid var(--ff-line-2)',
+                  borderRadius: 'var(--ff-r-3)',
+                  fontFamily: 'inherit',
+                  color: 'var(--ff-ink)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <p style={{
+              fontSize: 'var(--ff-text-sm)',
+              color: 'var(--ff-ink-2)',
+              background: 'var(--ff-canvas-2)',
+              padding: 12,
+              borderRadius: 'var(--ff-r-2)',
+              margin: 0,
+            }}>
+              This is how your family members will identify your shared space.
+            </p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  background: 'var(--ff-canvas-2)',
+                  color: 'var(--ff-ink)',
+                  border: '1px solid var(--ff-line-2)',
+                  borderRadius: 'var(--ff-r-3)',
+                  fontSize: 'var(--ff-text-base)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  background: 'var(--ff-coral)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 'var(--ff-r-3)',
+                  fontSize: 'var(--ff-text-base)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Create →
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Step 3: Success */}
+        {step === 3 && (
+          <div style={{ textAlign: 'center', paddingTop: 20 }}>
+            <div style={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              background: 'var(--ff-sage-tint)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 40,
+              margin: '0 auto 24px',
+            }}>
+              ✓
+            </div>
+            <p style={{
+              fontSize: 'var(--ff-text-base)',
+              color: 'var(--ff-ink-2)',
+              marginBottom: 24,
+            }}>
+              Your household "<strong>{householdName || 'Family'}</strong>" is ready.
+            </p>
+            <button
+              onClick={() => alert('Navigate to dashboard')}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                background: 'var(--ff-coral)',
+                color: 'white',
+                border: 'none',
+                borderRadius: 'var(--ff-r-3)',
+                fontSize: 'var(--ff-text-base)',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ──────────────────────────────────────────────────
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection
+        id="login-designs"
+        title="Vyact · Login Design Variations"
+        subtitle="Three approaches to authentication: minimal & direct, illustrated & warm, and stepwise with household setup. All using the warm paper palette and Coral brand lead.">
+        
+        <DCArtboard id="minimal" label="Variation 1 · Minimal & Direct" width={880} height={800}>
+          <LoginMinimal />
+        </DCArtboard>
+
+        <DCArtboard id="illustrated" label="Variation 2 · Illustrated & Warm" width={1200} height={800}>
+          <LoginIllustrated />
+        </DCArtboard>
+
+        <DCArtboard id="stepwise" label="Variation 3 · Stepwise with Household" width={760} height={900}>
+          <LoginStepwise />
+        </DCArtboard>
+
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
