@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Batch A · Shell + Home — Aurora revamp</title>
+<link rel="stylesheet" href="../../vyact-tokens-v2.css" />
+<link rel="stylesheet" href="batch-a.css" />
+</head>
+<body>
+
+<div class="board-label" style="left:40px; top:36px;">Batch A · Shell + Home — Mobile · 390</div>
+<div class="board-label" style="left:40px; top:1072px;">Batch A · Shell + Home — Desktop · 1440</div>
+
+<!-- ════════ M1 · DASHBOARD (mobile) ════════ -->
+<section class="frame mobile" style="left:40px; top:90px;" data-screen-label="M1 Dashboard · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36" role="button" aria-label="Home"><defs><radialGradient id="pg1" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pg1)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:11.5px; color:var(--vy-ink-3);">Good morning</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em; white-space:nowrap;">Maya Rowan</div>
+      </div>
+      <div class="hh-chip" style="padding:0 11px; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--vy-ink-3)"><path d="M4 11l8-7 8 7M6 10v9h12v-9"/></svg><span class="cap" style="font-size:9px;">Family</span></div>
+      <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+      <span class="avatar" role="button" aria-label="Account">MR</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+      <span class="cap" style="font-size:8.5px; color:var(--vy-accent); flex-shrink:0;">Track ▸</span>
+      <div style="flex:1; display:flex; gap:4px; padding:4px; border-radius:999px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);">
+        <span class="chip on" style="height:26px; font-size:10.5px; padding:0 10px; flex:1; justify-content:center;">Overview</span>
+        <span class="chip" style="height:26px; font-size:10.5px; padding:0 8px; flex:1.35; justify-content:center; box-shadow:none; background:transparent;">Transactions</span>
+        <span class="chip" style="height:26px; font-size:10.5px; padding:0 8px; flex:.9; justify-content:center; box-shadow:none; background:transparent;">Splits</span>
+        <span class="chip" style="height:26px; font-size:10.5px; padding:0 8px; flex:1.15; justify-content:center; box-shadow:none; background:transparent;">Recurring</span>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:9px; padding:10px 13px; border-radius:13px; background:var(--vy-good-t); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vy-good) 24%, transparent); margin-bottom:14px;">
+      <span style="color:var(--vy-good); font-size:15px;">✦</span>
+      <span style="font-size:13px; font-weight:500;">You're on track this week — <b style="color:var(--vy-good)">$220 under</b> budget.</span>
+    </div>
+
+    <!-- cash-flow hero with 6-month trend -->
+    <div class="hero" style="margin-bottom:14px;">
+      <span class="spine" style="background:var(--vy-good)"></span>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div class="cap" style="margin-bottom:6px;">Cash flow · 6 months</div>
+          <div class="big num" style="color:var(--vy-good)" data-tick>+$2,660</div>
+        </div>
+        <span class="pill t-good">↗ 31% kept</span>
+      </div>
+      <div style="position:relative; margin:6px -6px 2px; padding-top:36px;">
+        <div class="glass" style="position:absolute; left:59%; top:0; transform:translateX(-50%); z-index:2; padding:6px 11px; border-radius:11px; text-align:center;">
+          <div class="num" style="font-size:12px; font-weight:700; color:var(--vy-good); white-space:nowrap;">May · +$2,900</div>
+          <div style="font-size:9.5px; color:var(--vy-ink-2); white-space:nowrap;">✦ 12% above your 6-mo average</div>
+        </div>
+        <svg viewBox="0 0 320 96" style="display:block; width:100%; height:88px;" preserveAspectRatio="none">
+          <defs><linearGradient id="cfg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9CC6A6" stop-opacity=".26"/><stop offset="100%" stop-color="#9CC6A6" stop-opacity="0"/></linearGradient></defs>
+          <path class="chart-fill" d="M10 66 L70 46 L130 78 L190 26 L250 54 L310 36 L310 94 L10 94 Z" fill="url(#cfg1)"/>
+          <line x1="190" y1="10" x2="190" y2="92" stroke="var(--vy-ink-3)" stroke-width="1" stroke-dasharray="3 3"/>
+          <path class="chart-line" d="M10 66 L70 46 L130 78 L190 26 L250 54 L310 36" fill="none" stroke="var(--vy-good)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="190" cy="26" r="4.5" fill="var(--vy-good)" stroke="var(--vy-canvas)" stroke-width="2"/>
+        </svg>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-family:var(--vy-mono); font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--vy-ink-4); margin:0 2px 10px;">
+        <span>Feb</span><span>Mar</span><span>Apr</span><span style="color:var(--vy-ink-2);">May</span><span>Jun</span><span>Jul</span>
+      </div>
+      <div style="display:flex; gap:18px; font-size:12.5px; color:var(--vy-ink-3);">
+        <span>In <b class="num" style="color:var(--vy-good)">$8.6k</b></span>
+        <span>Out <b class="num" style="color:var(--vy-ink-2)">$5.9k</b></span>
+        <span>Net worth <b class="num" style="color:var(--vy-ink-2)">$175.1k</b></span>
+      </div>
+    </div>
+
+    <!-- pulse + metrics -->
+    <div style="display:flex; gap:12px; margin-bottom:14px;">
+      <div class="ring" style="width:108px; height:108px;">
+        <div class="arc" style="--deg:274deg; background:conic-gradient(var(--vy-good) var(--deg), var(--vy-sunken) var(--deg));">
+          <div class="core"></div>
+          <div class="val"><div class="num head-f" style="font-weight:700; font-size:28px; color:var(--vy-good); line-height:1;" data-tick>76</div><div class="cap" style="font-size:7.5px;">On track</div></div>
+        </div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:6px; justify-content:center;">
+        <div style="display:flex; align-items:center; gap:8px;"><span class="cap" style="width:52px; font-size:8.5px;">Budgets</span><div class="trough" style="flex:1; height:5px;"><i style="width:68%; background:var(--vy-warn)"></i></div><span class="num" style="font-size:11px; color:var(--vy-warn)">68</span></div>
+        <div style="display:flex; align-items:center; gap:8px;"><span class="cap" style="width:52px; font-size:8.5px;">Savings</span><div class="trough" style="flex:1; height:5px;"><i style="width:79%; background:var(--vy-good)"></i></div><span class="num" style="font-size:11px; color:var(--vy-good)">79</span></div>
+        <div style="display:flex; align-items:center; gap:8px;"><span class="cap" style="width:52px; font-size:8.5px;">Trend</span><div class="trough" style="flex:1; height:5px;"><i style="width:64%; background:var(--vy-warn)"></i></div><span class="num" style="font-size:11px; color:var(--vy-warn)">64</span></div>
+        <div style="display:flex; align-items:center; gap:8px;"><span class="cap" style="width:52px; font-size:8.5px;">Debt</span><div class="trough" style="flex:1; height:5px;"><i style="width:88%; background:var(--vy-good)"></i></div><span class="num" style="font-size:11px; color:var(--vy-good)">88</span></div>
+      </div>
+    </div>
+
+    <!-- budgets -->
+    <div class="neu" style="margin-bottom:14px;">
+      <div class="panel-h"><span class="cap" style="color:var(--vy-ink)">Budget progress</span><span class="cap" style="color:var(--vy-accent); font-size:9px;">View all →</span></div>
+      <div style="padding:10px 16px 6px;">
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:5px;"><span>🛒 Groceries</span><span class="num" style="color:var(--vy-ink-2)">$690 / $750</span></div>
+        <div class="trough" style="margin-bottom:11px;"><i style="width:92%; background:var(--vy-warn)"></i></div>
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:5px;"><span>🏠 Rent</span><span class="num" style="color:var(--vy-ink-2)">$2.1k / $2.1k</span></div>
+        <div class="trough" style="margin-bottom:11px;"><i style="width:100%; background:var(--vy-crit)"></i></div>
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:5px;"><span>🍽️ Dining</span><span class="num" style="color:var(--vy-ink-2)">$420 / $500</span></div>
+        <div class="trough" style="margin-bottom:12px;"><i style="width:84%; background:var(--vy-warn)"></i></div>
+      </div>
+    </div>
+
+    <!-- recent -->
+    <div class="neu">
+      <div class="panel-h"><span class="cap" style="color:var(--vy-ink)">Recent</span><span class="cap" style="color:var(--vy-accent); font-size:9px;">All activity →</span></div>
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Whole Foods</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Today</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$86.40</span></div>
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">💼</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Salary — Acme Inc</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Income · Jul 1</div></div><span class="num" style="font-weight:600; font-size:13.5px; color:var(--vy-good)">+$8,600</span></div>
+      <div class="row" style="background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); border-radius:12px;"><div class="cat-tile" style="background:#4A6FA526">🚗</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Shell</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Transport · Yesterday · pressed state</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$52.10</span></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:40px; top:952px;"><b>M1 · Dashboard (Track ▸ Overview).</b> Cash-flow hero now holds the 6-month trend inside the card — line draws in, scrub finger anywhere to pin the tooltip with its insight note. Track's flows are explicit sub-tabs under the header (“Track ▸” segmented bar): Overview · Transactions · Splits · Recurring. Footer is 5 slots — Track · Plan · <b>+ dead center</b> · Analyze · <b>✦ Ask</b> far right; account lives in the avatar (M7). The Shell row shows the pressed inset state. <i>Click the frame to replay motion.</i></p>
+
+<!-- ════════ M2 · NOTIFICATIONS pull-down (mobile) ════════ -->
+<section class="frame mobile" style="left:490px; top:90px;" data-screen-label="M2 Notifications pull-down · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="scrim"></div>
+  <div class="sheet-top" style="height:92%; padding:14px 22px 12px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:34px 0 4px;">
+      <div><h2 class="head-f" style="font-size:24px; font-weight:700; letter-spacing:-.01em;">Notifications</h2>
+      <div class="cap" style="margin-top:3px;">3 unread · Rowan Family</div></div>
+      <button class="btn ghost sm" style="color:var(--vy-accent);">Mark all read</button>
+    </div>
+    <div style="flex:1; overflow:hidden; padding:6px 0 0 12px;">
+      <div class="cap" style="font-size:8.5px; margin:10px 0 2px;">Today</div>
+      <div class="notif"><span class="undot"></span>
+        <div class="ico" style="background:color-mix(in srgb, var(--vy-accent) 15%, transparent);">↻</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:14px;">Rent · <span class="num">$2,100</span> — due tomorrow</div>
+          <div style="font-size:12px; color:var(--vy-ink-3); margin:1px 0 8px;">Auto-approve is off for this schedule</div>
+          <div style="display:flex; gap:8px;"><button class="btn sm">Approve</button><button class="btn sm neu-b">Skip once</button></div>
+        </div>
+      </div>
+      <div class="notif"><span class="undot"></span>
+        <div class="ico" style="background:var(--vy-warn-t);">◐</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:14px;">Groceries at 92% of July budget</div>
+          <div style="font-size:12px; color:var(--vy-ink-3); margin:1px 0 8px;"><span class="num">$60</span> left · 8 days to go</div>
+          <div style="display:flex; gap:8px;"><button class="btn sm neu-b">Review budget</button></div>
+        </div>
+      </div>
+      <div class="notif"><span class="undot"></span>
+        <div class="ico" style="background:var(--vy-fore-t);">✦</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:14px;">Dining is trending up 14%</div>
+          <div style="font-size:12px; color:var(--vy-ink-3); margin:1px 0 8px;">Mostly weekend delivery — 6 orders</div>
+          <div style="display:flex; gap:8px;"><button class="btn sm neu-b">See why</button></div>
+        </div>
+      </div>
+      <div class="cap" style="font-size:8.5px; margin:14px 0 2px;">Earlier</div>
+      <div class="notif read">
+        <div class="ico" style="background:var(--vy-good-t);">✓</div>
+        <div style="flex:1;"><div style="font-weight:600; font-size:14px;">Salary landed — <span class="num" style="color:var(--vy-good)">+$8,600</span></div><div style="font-size:12px; color:var(--vy-ink-3);">Jul 1</div></div>
+      </div>
+      <div class="notif read">
+        <div class="ico" style="background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);">↻</div>
+        <div style="flex:1;"><div style="font-weight:600; font-size:14px;">Netflix charged <span class="num">$15.49</span></div><div style="font-size:12px; color:var(--vy-ink-3);">Jul 3 · recurring</div></div>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:center; padding:8px 0 2px;"><span class="cap" style="color:var(--vy-accent); font-size:9px;">Notification settings →</span></div>
+    <div class="grabber" style="margin:6px auto 2px;"></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:490px; top:952px;"><b>M2 · Notifications.</b> Bell draws a full-screen glass sheet from the top. Unread coral dots, inline decisions (Approve / Skip / Review), Today–Earlier groups, mark-all-read. Swipe up, tap scrim, or Esc to dismiss. Unique inline decisions per type — full type matrix, dedupe &amp; acceptance criteria: <b>revamp/notifications-spec.md</b>.</p>
+
+<!-- ════════ M3 · HOUSEHOLD pull-down (mobile) ════════ -->
+<section class="frame mobile" style="left:940px; top:90px;" data-screen-label="M3 Household switch pull-down · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="scrim"></div>
+  <div class="sheet-top" style="padding:14px 22px 12px;">
+    <div style="padding:34px 0 14px;">
+      <h2 class="head-f" style="font-size:24px; font-weight:700; letter-spacing:-.01em;">Your households</h2>
+      <div class="cap" style="margin-top:3px;">Each keeps its own data &amp; roles</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="hh-card on">
+        <div class="avstack"><span class="avatar">MR</span><span class="avatar" style="background:#4A6FA5; color:#fff">SR</span><span class="avatar" style="background:#6E4555; color:#fff">JR</span></div>
+        <div style="flex:1; min-width:0;">
+          <div class="head-f" style="font-weight:700; font-size:16px;">Rowan Family</div>
+          <div class="cap" style="font-size:9px;">Family · USD · You're the owner</div>
+        </div>
+        <span class="pill t-acc">Active</span>
+      </div>
+      <div class="hh-card">
+        <div class="avstack"><span class="avatar">MR</span></div>
+        <div style="flex:1; min-width:0;">
+          <div class="head-f" style="font-weight:700; font-size:16px;">Maya Personal</div>
+          <div class="cap" style="font-size:9px;">Personal · USD · Owner</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--vy-ink-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:8px; padding:15px; border-radius:var(--vy-r-3); border:1.5px dashed var(--vy-line-3); color:var(--vy-ink-3); font-family:var(--vy-heading); font-weight:600; font-size:14px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New household
+      </div>
+    </div>
+    <div style="display:flex; justify-content:center; padding:16px 0 2px;"><span class="cap" style="color:var(--vy-accent); font-size:9px;">Manage members &amp; invites →</span></div>
+    <div class="grabber" style="margin:6px auto 2px;"></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:940px; top:952px;"><b>M3 · Household switch.</b> Same pull-down gesture as notifications. Active card glows coral with the member avatar stack; create + manage one tap away.</p>
+
+<!-- ════════ M4 · ADD TRANSACTION — full details (mobile) ════════ -->
+<section class="frame mobile" style="left:1390px; top:90px;" data-screen-label="M4 Add Transaction full sheet · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="scrim"></div>
+  <div class="sheet-bottom" style="padding:0 20px 16px;">
+    <div class="grabber"></div>
+    <div style="display:flex; justify-content:center; gap:6px; padding:0 0 10px;">
+      <span class="chip on" style="height:30px; font-size:11.5px;">Expense</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">Income</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">Transfer</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">Invest</span>
+    </div>
+    <div class="amount" style="font-size:38px;"><span class="cur">$</span>46.20<span class="caret" style="height:32px;"></span></div>
+    <div class="cap" style="text-align:center; font-size:8.5px; margin:2px 0 2px;">tap amount for the keypad — see next frame →</div>
+
+    <span class="field-label">Description</span>
+    <div class="field" style="min-height:40px;"><span>☕</span><span>Blue Bottle</span><span class="cap" style="margin-left:auto; font-size:8px; color:var(--vy-ink-4)">suggested ✕</span></div>
+
+    <span class="field-label">Category</span>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+      <span class="chip cat on" style="width:74px;"><span class="em">☕</span>Coffee</span>
+      <span class="chip cat" style="width:74px;"><span class="em">🛒</span>Groceries</span>
+      <span class="chip cat" style="width:74px;"><span class="em">🍽️</span>Dining</span>
+      <span class="chip cat" style="width:74px;"><span class="em">🚗</span>Transport</span>
+      <span class="chip cat" style="width:74px;"><span class="em">🛍️</span>Shopping</span>
+      <span class="chip cat" style="width:74px;"><span class="em">⚡</span>Utilities</span>
+      <span class="chip cat" style="width:74px;"><span class="em">💊</span>Health</span>
+      <span class="chip cat" style="width:74px;"><span class="em">⌕</span>More</span>
+    </div>
+
+    <span class="field-label">Date · paid with</span>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <span class="chip on" style="height:30px; font-size:11.5px;">Today</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">Yesterday</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">📅 Pick</span>
+      <span class="chip on" style="height:30px; font-size:11.5px;">Visa ••42</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">Chase ••88</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">Cash</span>
+    </div>
+
+    <span class="field-label">Member · currency</span>
+    <div style="display:flex; gap:6px; margin-bottom:8px;">
+      <span class="chip on" style="height:30px; font-size:11.5px;">MR · You</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">SR</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">JR</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">USD ▾</span>
+    </div>
+    <div class="field" style="min-height:38px;"><span class="ph">Add a note…</span></div>
+
+    <div style="display:flex; align-items:center; gap:10px; padding:11px 2px;">
+      <span class="head-f" style="font-size:13px; font-weight:600;">↔ Split with someone</span>
+      <span style="font-size:10.5px; color:var(--vy-ink-3);">off — splits create IOUs</span>
+      <span class="tgl" style="margin-left:auto;"><i></i></span>
+    </div>
+
+    <button class="btn" style="width:100%; height:50px; font-size:15.5px; border-radius:15px;">Save expense</button>
+    <div style="text-align:center; margin-top:8px;"><span class="cap" style="font-size:9px; color:var(--vy-ink-3);">Save &amp; add another</span></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1390px; top:952px;"><b>M4 · Add Transaction — full coverage.</b> Every production field visible, zero dropdowns: type, amount, description (auto-suggested), category, date, account, member, currency, note, split. Untouched fields keep smart defaults, so the 90% case is still amount → Save.</p>
+
+<!-- ════════ M6 · ADD TRANSACTION — keypad active (mobile) ════════ -->
+<section class="frame mobile" style="left:2600px; top:90px;" data-screen-label="M6 Add Transaction · keypad active">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="scrim"></div>
+  <div class="sheet-bottom" style="padding:0 18px 14px;">
+    <div class="grabber"></div>
+    <div style="display:flex; justify-content:center; gap:6px; padding:0 0 10px;">
+      <span class="chip on" style="height:28px; font-size:11px;">Expense</span>
+      <span class="chip" style="height:28px; font-size:11px;">Income</span>
+      <span class="chip" style="height:28px; font-size:11px;">Transfer</span>
+      <span class="chip" style="height:28px; font-size:11px;">Invest</span>
+    </div>
+    <div class="amount" style="font-size:44px;"><span class="cur">$</span>46.2<span class="caret"></span></div>
+    <div class="cap" style="text-align:center; font-size:8.5px; margin:2px 0 10px;">☕ Blue Bottle — suggested</div>
+    <div style="display:flex; gap:6px; overflow:hidden; margin-bottom:8px;">
+      <span class="chip cat on" style="width:72px; flex-shrink:0;"><span class="em">☕</span>Coffee</span>
+      <span class="chip cat" style="width:72px; flex-shrink:0;"><span class="em">🛒</span>Groceries</span>
+      <span class="chip cat" style="width:72px; flex-shrink:0;"><span class="em">🍽️</span>Dining</span>
+      <span class="chip cat" style="width:72px; flex-shrink:0;"><span class="em">🚗</span>Transport</span>
+      <span class="chip cat" style="width:72px; flex-shrink:0;"><span class="em">🛍️</span>Shopp…</span>
+    </div>
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:10px;">
+      <span class="chip on" style="height:28px; font-size:11px;">Today</span>
+      <span class="chip on" style="height:28px; font-size:11px;">Visa ••42</span>
+      <span class="chip" style="height:28px; font-size:11px;">All details ▾</span>
+    </div>
+    <button class="btn" style="width:100%; height:46px; font-size:15px; border-radius:14px;">Save expense</button>
+    <div class="keypad">
+      <span class="key">1</span><span class="key">2</span><span class="key">3</span>
+      <span class="key">4</span><span class="key">5</span><span class="key">6</span>
+      <span class="key">7</span><span class="key">8</span><span class="key">9</span>
+      <span class="key soft">.</span><span class="key">0</span><span class="key soft">⌫</span>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:2600px; top:952px;"><b>M6 · Keypad active.</b> Entry answered: an <b>in-sheet keypad</b> (not the OS keyboard) so chips stay visible and nothing is covered. Amount edits live; category scrolls sideways; Save sits thumb-height directly above the keys; “All details ▾” expands to the M4 view.</p>
+
+<!-- ════════ M7 · ACCOUNT MENU pull-down (mobile) ════════ -->
+<section class="frame mobile" style="left:3050px; top:90px;" data-screen-label="M7 Account menu pull-down · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="scrim"></div>
+  <div class="sheet-top" style="padding:14px 22px 12px;">
+    <div style="display:flex; align-items:center; gap:13px; padding:34px 0 16px;">
+      <span class="avatar" style="width:46px; height:46px; font-size:16px;">MR</span>
+      <div style="flex:1; min-width:0;">
+        <div class="head-f" style="font-weight:700; font-size:17px;">Maya Rowan</div>
+        <div class="cap" style="font-size:9px;">maya@rowan.co · Owner</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:9px;">
+      <div class="mrow"><span class="ic">👤</span><span style="flex:1; font-weight:600; font-size:14px;">Profile &amp; preferences</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--vy-ink-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="mrow"><span class="ic">⌂</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:14px;">Households</div><div style="font-size:11px; color:var(--vy-ink-3);">Rowan Family · 1 other</div></div><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--vy-ink-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="mrow"><span class="ic">⚙</span><span style="flex:1; font-weight:600; font-size:14px;">Settings</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--vy-ink-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="mrow"><span class="ic">?</span><span style="flex:1; font-weight:600; font-size:14px;">Help &amp; guide</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--vy-ink-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="mrow"><span class="ic">◐</span><span style="flex:1; font-weight:600; font-size:14px;">Theme</span>
+        <span style="display:inline-flex; gap:4px;">
+          <span class="chip" style="height:28px; font-size:10.5px; padding:0 10px;">Light</span>
+          <span class="chip on" style="height:28px; font-size:10.5px; padding:0 10px;">Dark</span>
+          <span class="chip" style="height:28px; font-size:10.5px; padding:0 10px;">Auto</span>
+        </span>
+      </div>
+    </div>
+    <div style="text-align:center; padding:16px 0 2px;"><span class="cap" style="font-size:9px; color:var(--vy-crit);">Sign out</span></div>
+    <div class="grabber" style="margin:6px auto 2px;"></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:3050px; top:952px;"><b>M7 · Account menu.</b> Your #7 answered: the header has <b>two distinct controls</b> — the household chip (switches data context, frame M3) and the avatar (this menu: profile, households, settings, help, theme, sign out). Same pull-down gesture family.</p>
+
+<!-- ════════ M5 · SYSTEM STATES tile ════════ -->
+<section class="frame tile" style="left:1840px; top:90px; width:720px; height:844px; padding:26px;" data-screen-label="M5 System states">
+  <div class="amb"></div>
+  <h2 class="head-f" style="font-weight:700; font-size:20px; margin-bottom:18px; position:relative;">System states — designed once, used everywhere</h2>
+  <div style="position:relative; display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+    <div>
+      <div class="cap" style="margin-bottom:10px;">Toasts</div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="toast"><span style="color:var(--vy-good)">✓</span><span>Saved — <b class="num">$46.20</b> to Coffee</span><span class="cap" style="margin-left:auto; font-size:8.5px; color:var(--vy-accent)">Undo</span></div>
+        <div class="toast"><span style="color:var(--vy-warn)">◐</span><span>Some balances are 30+ days old</span><span class="cap" style="margin-left:auto; font-size:8.5px; color:var(--vy-accent)">Review</span></div>
+        <div class="toast"><span style="color:var(--vy-crit)">!</span><span>Sync failed — changes kept locally</span><span class="cap" style="margin-left:auto; font-size:8.5px; color:var(--vy-accent)">Retry</span></div>
+      </div>
+      <div class="cap" style="margin:22px 0 10px;">Estimated vs confirmed</div>
+      <div class="neu" style="padding:16px;">
+        <div style="display:flex; align-items:center; gap:9px; margin-bottom:10px;">
+          <span class="num" style="font-weight:700; font-size:20px;">$4,800</span><span class="est-tag">◌ estimated</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:11.5px; color:var(--vy-ink-3); margin-bottom:6px;"><span>Picture confirmed</span><b class="num" style="color:var(--vy-ink)">64%</b></div>
+        <div class="trough"><i style="width:64%; background:var(--vy-good)"></i></div>
+        <div style="font-size:11.5px; color:var(--vy-ink-3); margin-top:8px;">3 estimates left — confirm them as real activity lands.</div>
+      </div>
+      <div class="cap" style="margin:22px 0 10px;">Skeleton</div>
+      <div class="neu" style="padding:16px;">
+        <div class="skel" style="width:38%; height:10px; margin-bottom:12px;"></div>
+        <div class="skel" style="width:62%; height:26px; margin-bottom:12px;"></div>
+        <div class="skel" style="width:100%; height:8px; margin-bottom:8px;"></div>
+        <div class="skel" style="width:84%; height:8px;"></div>
+      </div>
+    </div>
+    <div>
+      <div class="cap" style="margin-bottom:10px;">Empty — new household</div>
+      <div class="neu" style="padding:28px 22px; text-align:center;">
+        <svg width="54" height="54" viewBox="0 0 36 36" style="margin:0 auto 14px; display:block;"><defs><radialGradient id="pg5" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pg5)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+        <div class="head-f" style="font-weight:700; font-size:17px; margin-bottom:5px;">Nothing here yet</div>
+        <p style="font-size:13px; color:var(--vy-ink-2); margin-bottom:16px;">Log your first expense and pip starts learning your rhythm.</p>
+        <button class="btn" style="height:42px;">+ Add your first expense</button>
+      </div>
+      <div class="cap" style="margin:22px 0 10px;">Empty — all caught up (notifications)</div>
+      <div class="neu" style="padding:24px 22px; text-align:center;">
+        <div style="font-size:26px; margin-bottom:8px;">✓</div>
+        <div class="head-f" style="font-weight:700; font-size:15px;">All caught up</div>
+        <p style="font-size:12.5px; color:var(--vy-ink-3);">pip will nudge you when something needs a decision.</p>
+      </div>
+      <div class="cap" style="margin:22px 0 10px;">Error — inline</div>
+      <div class="neu" style="padding:16px;">
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="color:var(--vy-crit);">!</span>
+          <div>
+            <div style="font-weight:600; font-size:13.5px;">Couldn't load your reports</div>
+            <div style="font-size:12px; color:var(--vy-ink-3); margin:2px 0 10px;">Your data is safe — this view just didn't answer.</div>
+            <button class="btn sm neu-b">Try again</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1840px; top:952px; width:720px;"><b>M5 · System states.</b> Toast voice (calm verbs + undo), the estimated↔confirmed language (dashed honey tags, confirm meter), skeletons, empty states with pip, inline error recovery.</p>
+
+<!-- ════════ D1 · DASHBOARD (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:1130px;" data-screen-label="D1 Dashboard · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar"><span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgd" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:18px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span class="on">Track</span><span>Plan</span><span>Analyze</span></div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+      <span class="chip" style="height:40px; font-size:12.5px; gap:7px; color:var(--vy-info);">✦ Ask</span>
+      <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+      <div class="hh-chip" style="padding:0 12px; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--vy-ink-3)"><path d="M4 11l8-7 8 7M6 10v9h12v-9"/></svg><span class="cap" style="font-size:9px;">Family</span><span class="cap" style="font-size:8px; color:var(--vy-ink-4)">▾</span></div>
+      <span class="avatar" role="button" aria-label="Account">MR</span>
+    </div>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; margin-right:4px;">Track</span>
+    <span class="chip on" style="height:32px; font-size:12.5px;">Overview</span>
+    <span class="chip" style="height:32px; font-size:12.5px;">Transactions</span>
+    <span class="chip" style="height:32px; font-size:12.5px;">Splits</span>
+    <span class="chip" style="height:32px; font-size:12.5px;">Recurring</span>
+    <span class="chip" style="height:32px; font-size:12.5px; margin-left:auto;">July 2026 ▾</span>
+  </div>
+  <main class="d-main">
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px;">
+      <div>
+        <h1 class="head-f" style="font-weight:700; font-size:28px; letter-spacing:-.02em;">Good morning, Maya</h1>
+        <div class="cap" style="margin-top:3px;">Family finance overview · July</div>
+      </div>
+      <button class="btn">+ Add transaction</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+      <div class="hero"><span class="spine" style="background:var(--vy-good)"></span>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div class="cap" style="margin-bottom:6px;">Cash flow · 6 months</div>
+            <div class="big num" style="color:var(--vy-good)" data-tick>+$2,660</div>
+          </div>
+          <span class="pill t-good">↗ 31% kept</span>
+        </div>
+        <div style="position:relative; margin-top:4px; padding-top:30px;">
+          <div class="glass" style="position:absolute; left:59%; top:0; transform:translateX(-50%); z-index:2; padding:5px 10px; border-radius:10px; white-space:nowrap;">
+            <span class="num" style="font-size:11.5px; font-weight:700; color:var(--vy-good);">May · +$2,900</span>
+            <span style="font-size:9.5px; color:var(--vy-ink-2);"> · ✦ 12% above average</span>
+          </div>
+          <svg viewBox="0 0 320 96" style="display:block; width:100%; height:58px;" preserveAspectRatio="none">
+            <defs><linearGradient id="cfg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9CC6A6" stop-opacity=".26"/><stop offset="100%" stop-color="#9CC6A6" stop-opacity="0"/></linearGradient></defs>
+            <path class="chart-fill" d="M10 66 L70 46 L130 78 L190 26 L250 54 L310 36 L310 94 L10 94 Z" fill="url(#cfg2)"/>
+            <line x1="190" y1="10" x2="190" y2="92" stroke="var(--vy-ink-3)" stroke-width="1" stroke-dasharray="3 3"/>
+            <path class="chart-line" d="M10 66 L70 46 L130 78 L190 26 L250 54 L310 36" fill="none" stroke="var(--vy-good)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="190" cy="26" r="5" fill="var(--vy-good)" stroke="var(--vy-canvas)" stroke-width="2"/>
+          </svg>
+        </div>
+        <div style="display:flex; gap:18px; margin-top:8px; font-size:12.5px; color:var(--vy-ink-3);"><span>In <b class="num" style="color:var(--vy-good)">$8.6k</b></span><span>Out <b class="num" style="color:var(--vy-ink-2)">$5.9k</b></span><span>Savings rate <b class="num" style="color:var(--vy-good)">31%</b></span></div>
+      </div>
+      <div class="hero"><span class="spine" style="background:var(--vy-info)"></span>
+        <div class="cap" style="margin-bottom:6px;">Net worth · today</div>
+        <div class="big num" data-tick>$175,081</div>
+        <div style="display:flex; gap:18px; margin-top:8px; font-size:12.5px; color:var(--vy-ink-3);"><span>Assets <b class="num" style="color:var(--vy-good)">$214.3k</b></span><span>Liabilities <b class="num" style="color:var(--vy-ink-2)">$39.3k</b></span></div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:230px 1fr; gap:14px; margin-bottom:14px;">
+      <div class="neu" style="padding:16px; text-align:center;">
+        <div class="cap" style="font-size:8.5px; color:var(--vy-accent); margin-bottom:12px;">Family Pulse Score™</div>
+        <div class="ring" style="width:118px; height:118px; margin:0 auto 12px;">
+          <div class="arc" style="--deg:274deg; background:conic-gradient(var(--vy-good) var(--deg), var(--vy-sunken) var(--deg));">
+            <div class="core"></div>
+            <div class="val"><div class="num head-f" style="font-weight:700; font-size:32px; color:var(--vy-good); line-height:1;" data-tick>76</div><div class="cap" style="font-size:7.5px;">On track</div></div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:5px; text-align:left;">
+          <div style="display:flex; align-items:center; gap:7px;"><span class="cap" style="width:46px; font-size:8px;">Budgets</span><div class="trough" style="flex:1; height:4px;"><i style="width:68%; background:var(--vy-warn)"></i></div><span class="num" style="font-size:10px; color:var(--vy-warn)">68</span></div>
+          <div style="display:flex; align-items:center; gap:7px;"><span class="cap" style="width:46px; font-size:8px;">Savings</span><div class="trough" style="flex:1; height:4px;"><i style="width:79%; background:var(--vy-good)"></i></div><span class="num" style="font-size:10px; color:var(--vy-good)">79</span></div>
+          <div style="display:flex; align-items:center; gap:7px;"><span class="cap" style="width:46px; font-size:8px;">Trend</span><div class="trough" style="flex:1; height:4px;"><i style="width:64%; background:var(--vy-warn)"></i></div><span class="num" style="font-size:10px; color:var(--vy-warn)">64</span></div>
+          <div style="display:flex; align-items:center; gap:7px;"><span class="cap" style="width:46px; font-size:8px;">Debt</span><div class="trough" style="flex:1; height:4px;"><i style="width:88%; background:var(--vy-good)"></i></div><span class="num" style="font-size:10px; color:var(--vy-good)">88</span></div>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+          <div class="metric"><span class="spine-b" style="background:var(--vy-good)"></span><div class="cap" style="font-size:8.5px; margin-bottom:8px;">Monthly income</div><div class="v" style="color:var(--vy-good)">$8.6k</div></div>
+          <div class="metric"><span class="spine-b" style="background:var(--vy-ink-3)"></span><div class="cap" style="font-size:8.5px; margin-bottom:8px;">Monthly expenses</div><div class="v">$5.9k</div></div>
+          <div class="metric"><span class="spine-b" style="background:var(--vy-warn)"></span><div class="cap" style="font-size:8.5px; margin-bottom:8px;">Savings rate</div><div class="v" style="color:var(--vy-good)">31%</div></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="neu-sm" style="padding:12px 15px 12px 18px;"><span class="spine" style="background:var(--vy-good); top:10px; bottom:10px;"></span><div style="font-size:13px; font-weight:500;">📈 Savings rate 31% — above your 20% target.</div><div style="font-size:11.5px; color:var(--vy-ink-3);">You kept $2,660 this month.</div></div>
+          <div class="neu-sm" style="padding:12px 15px 12px 18px;"><span class="spine" style="background:var(--vy-warn); top:10px; bottom:10px;"></span><div style="font-size:13px; font-weight:500;">🍽️ Dining is trending up 14%.</div><div style="font-size:11.5px; color:var(--vy-ink-3);">Mostly weekend delivery — 6 orders.</div></div>
+          <div class="neu-sm" style="padding:12px 15px 12px 18px;"><span class="spine" style="background:var(--vy-crit); top:10px; bottom:10px;"></span><div style="font-size:13px; font-weight:500;">🛒 Groceries at 92% of budget.</div><div style="font-size:11.5px; color:var(--vy-ink-3);">8 days left in the month.</div></div>
+          <div class="neu-sm" style="padding:12px 15px 12px 18px;"><span class="spine" style="background:var(--vy-info); top:10px; bottom:10px;"></span><div style="font-size:13px; font-weight:500;">⚖️ Debt-to-income 8% — healthy.</div><div style="font-size:11.5px; color:var(--vy-ink-3);">Well under the 36% guideline.</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+      <div class="neu">
+        <div class="panel-h"><span class="cap" style="color:var(--vy-ink)">Budget progress</span><span class="cap" style="color:var(--vy-accent); font-size:9px;">View all →</span></div>
+        <div style="padding:10px 16px;">
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>🛒 Groceries</span><span class="num" style="color:var(--vy-ink-2)">92%</span></div>
+          <div class="trough" style="height:5px; margin-bottom:9px;"><i style="width:92%; background:var(--vy-warn)"></i></div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>🏠 Rent</span><span class="num" style="color:var(--vy-crit)">100%</span></div>
+          <div class="trough" style="height:5px; margin-bottom:9px;"><i style="width:100%; background:var(--vy-crit)"></i></div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>🍽️ Dining</span><span class="num" style="color:var(--vy-ink-2)">84%</span></div>
+          <div class="trough" style="height:5px; margin-bottom:9px;"><i style="width:84%; background:var(--vy-warn)"></i></div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>🚗 Transport</span><span class="num" style="color:var(--vy-ink-2)">60%</span></div>
+          <div class="trough" style="height:5px;"><i style="width:60%; background:var(--vy-accent)"></i></div>
+        </div>
+      </div>
+      <div class="neu">
+        <div class="panel-h"><span class="cap" style="color:var(--vy-ink)">Recent transactions</span><span class="cap" style="color:var(--vy-accent); font-size:9px;">All →</span></div>
+        <div class="row" style="padding:9px 16px;"><div class="cat-tile" style="width:30px; height:30px; font-size:14px; background:#85A88A26">🛒</div><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">Whole Foods</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">Today</div></div><span class="num" style="font-size:12.5px; font-weight:600;">−$86.40</span></div>
+        <div class="row" style="padding:9px 16px;"><div class="cat-tile" style="width:30px; height:30px; font-size:14px; background:#85A88A26">💼</div><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">Salary — Acme</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">Jul 1</div></div><span class="num" style="font-size:12.5px; font-weight:600; color:var(--vy-good)">+$8,600</span></div>
+        <div class="row" style="padding:9px 16px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); border-radius:12px;"><div class="cat-tile" style="width:30px; height:30px; font-size:14px; background:#4A6FA526">🚗</div><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">Shell</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">Yesterday · pressed</div></div><span class="num" style="font-size:12.5px; font-weight:600;">−$52.10</span></div>
+        <div class="row" style="padding:9px 16px;"><div class="cat-tile" style="width:30px; height:30px; font-size:14px; background:#6E455526">🎬</div><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">Netflix ↻</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">Jul 3</div></div><span class="num" style="font-size:12.5px; font-weight:600;">−$15.49</span></div>
+      </div>
+      <div class="neu">
+        <div class="panel-h"><span class="cap" style="color:var(--vy-ink)">Spending by category</span><span class="cap" style="font-size:9px;">July</span></div>
+        <div style="display:flex; gap:16px; align-items:center; padding:14px 16px;">
+          <div class="donut" style="width:110px; height:110px; background:conic-gradient(#C44536 0 127deg, #6B635C 127deg 170deg, #85A88A 170deg 212deg, #E26D5C 212deg 249deg, #4A6FA5 249deg 277deg, #E8A87C 277deg 303deg, #4A6FA5 303deg 322deg, #F4D27A 322deg 336deg, #6E4555 336deg 349deg, #85A88A 349deg 360deg);">
+            <div class="hole" style="inset:26px;"><span class="num head-f" style="font-weight:700; font-size:15px;">$5.9k</span><span class="cap" style="font-size:7px;">Total</span></div>
+          </div>
+          <div style="flex:1;">
+            <div class="legend"><i style="background:#C44536"></i><span>🏠 Rent</span><span class="num" style="color:var(--vy-ink-2)">$2.1k</span><span class="num" style="color:var(--vy-ink-3); text-align:right;">35%</span></div>
+            <div class="legend"><i style="background:#85A88A"></i><span>🛒 Groceries</span><span class="num" style="color:var(--vy-ink-2)">$690</span><span class="num" style="color:var(--vy-ink-3); text-align:right;">12%</span></div>
+            <div class="legend"><i style="background:#E26D5C"></i><span>🛍️ Shopping</span><span class="num" style="color:var(--vy-ink-2)">$610</span><span class="num" style="color:var(--vy-ink-3); text-align:right;">10%</span></div>
+            <div class="legend"><i style="background:#E8A87C"></i><span>🍽️ Dining</span><span class="num" style="color:var(--vy-ink-2)">$420</span><span class="num" style="color:var(--vy-ink-3); text-align:right;">7%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</section>
+<p class="frame-cap" style="left:40px; top:2048px; width:1440px;"><b>D1 · Dashboard desktop (Track ▸ Overview).</b> Cash-flow hero carries the 6-month trend with hover tooltip + insight note (“May · +$2,900 · 12% above average”); crosshair follows the pointer. Track lit + subnav showing all Track flows keeps the highlight accurate. <b>✦ Ask</b> in the top bar as anytime entry · ⌘K · bell · household chip · avatar. Pressed row state shown on Shell.</p>
+
+<!-- ════════ D2 · NOTIFICATIONS pull-down (desktop) ════════ -->
+<section class="frame desktop" style="left:1560px; top:1130px;" data-screen-label="D2 Notifications pull-down · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar" style="opacity:.5;"><span class="rail"></span>
+    <span class="head-f" style="font-weight:700; font-size:18px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    <div class="d-tabs"><span class="on">Track</span><span>Plan</span><span>Analyze</span></div>
+    <div style="display:flex; gap:10px;"><div class="jump">Jump to…<span class="kbd">⌘K</span></div><div class="bell"><span class="dot">3</span></div><div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span></div>
+  </header>
+  <div class="scrim"></div>
+  <div class="sheet-top" style="height:86%; border-radius:0 0 34px 34px;">
+    <div style="width:720px; max-width:92%; margin:0 auto; height:100%; display:flex; flex-direction:column; padding:26px 0 10px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:6px;">
+        <div><h2 class="head-f" style="font-size:28px; font-weight:700; letter-spacing:-.01em;">Notifications</h2>
+        <div class="cap" style="margin-top:4px;">3 unread · Rowan Family</div></div>
+        <button class="btn ghost sm" style="color:var(--vy-accent);">Mark all read</button>
+      </div>
+      <div style="flex:1; overflow:hidden; padding-left:12px;">
+        <div class="cap" style="font-size:8.5px; margin:12px 0 2px;">Today</div>
+        <div class="notif"><span class="undot"></span>
+          <div class="ico" style="background:color-mix(in srgb, var(--vy-accent) 15%, transparent);">↻</div>
+          <div style="flex:1;"><div style="font-weight:600; font-size:14.5px;">Rent · <span class="num">$2,100</span> — due tomorrow</div><div style="font-size:12.5px; color:var(--vy-ink-3); margin:1px 0 9px;">Auto-approve is off for this schedule</div>
+          <div style="display:flex; gap:8px;"><button class="btn sm">Approve</button><button class="btn sm neu-b">Skip once</button><button class="btn ghost sm">Edit schedule</button></div></div>
+        </div>
+        <div class="notif"><span class="undot"></span>
+          <div class="ico" style="background:var(--vy-warn-t);">◐</div>
+          <div style="flex:1;"><div style="font-weight:600; font-size:14.5px;">Groceries at 92% of July budget</div><div style="font-size:12.5px; color:var(--vy-ink-3); margin:1px 0 9px;"><span class="num">$60</span> left · 8 days to go</div>
+          <div style="display:flex; gap:8px;"><button class="btn sm neu-b">Review budget</button><button class="btn ghost sm">See transactions</button></div></div>
+        </div>
+        <div class="notif"><span class="undot"></span>
+          <div class="ico" style="background:var(--vy-fore-t);">✦</div>
+          <div style="flex:1;"><div style="font-weight:600; font-size:14.5px;">Dining is trending up 14%</div><div style="font-size:12.5px; color:var(--vy-ink-3); margin:1px 0 9px;">Mostly weekend delivery — 6 orders</div>
+          <div style="display:flex; gap:8px;"><button class="btn sm neu-b">See why</button></div></div>
+        </div>
+        <div class="cap" style="font-size:8.5px; margin:14px 0 2px;">Earlier</div>
+        <div class="notif read"><div class="ico" style="background:var(--vy-good-t);">✓</div><div style="flex:1;"><div style="font-weight:600; font-size:14px;">Salary landed — <span class="num" style="color:var(--vy-good)">+$8,600</span></div><div style="font-size:12px; color:var(--vy-ink-3);">Jul 1</div></div></div>
+        <div class="notif read"><div class="ico" style="background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);">↻</div><div style="flex:1;"><div style="font-weight:600; font-size:14px;">Netflix charged <span class="num">$15.49</span></div><div style="font-size:12px; color:var(--vy-ink-3);">Jul 3 · recurring</div></div></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 2px 4px;">
+        <span class="cap" style="color:var(--vy-accent); font-size:9px;">Notification settings →</span>
+        <span class="kbd">Esc</span>
+      </div>
+      <div class="grabber"></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1560px; top:2048px; width:1440px;"><b>D2 · Notifications desktop.</b> Same full-height pull-down — not a cramped anchored popover. Centered 720px column, richer inline actions, Esc affordance.</p>
+
+<!-- ════════ D3 · HOUSEHOLD pull-down (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:2130px;" data-screen-label="D3 Household switch pull-down · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar" style="opacity:.5;"><span class="rail"></span>
+    <span class="head-f" style="font-weight:700; font-size:18px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    <div class="d-tabs"><span class="on">Track</span><span>Plan</span><span>Analyze</span></div>
+    <div style="display:flex; gap:10px;"><div class="jump">Jump to…<span class="kbd">⌘K</span></div><div class="bell"><span class="dot">3</span></div><div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span></div>
+  </header>
+  <div class="scrim"></div>
+  <div class="sheet-top" style="border-radius:0 0 34px 34px;">
+    <div style="width:640px; max-width:92%; margin:0 auto; padding:30px 0 12px;">
+      <h2 class="head-f" style="font-size:28px; font-weight:700; letter-spacing:-.01em;">Your households</h2>
+      <div class="cap" style="margin:4px 0 18px;">Each keeps its own data &amp; roles</div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="hh-card on">
+          <div class="avstack"><span class="avatar">MR</span><span class="avatar" style="background:#4A6FA5; color:#fff">SR</span><span class="avatar" style="background:#6E4555; color:#fff">JR</span></div>
+          <div style="flex:1;"><div class="head-f" style="font-weight:700; font-size:17px;">Rowan Family</div><div class="cap" style="font-size:9px;">Family · USD · You're the owner · 3 members</div></div>
+          <span class="pill t-acc">Active</span>
+        </div>
+        <div class="hh-card">
+          <div class="avstack"><span class="avatar">MR</span></div>
+          <div style="flex:1;"><div class="head-f" style="font-weight:700; font-size:17px;">Maya Personal</div><div class="cap" style="font-size:9px;">Personal · USD · Owner</div></div>
+          <span class="cap" style="font-size:9px; color:var(--vy-accent)">Switch →</span>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:8px; padding:16px; border-radius:var(--vy-r-3); border:1.5px dashed var(--vy-line-3); color:var(--vy-ink-3); font-family:var(--vy-heading); font-weight:600; font-size:14px;">+ New household</div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 2px 4px;">
+        <span class="cap" style="color:var(--vy-accent); font-size:9px;">Manage members &amp; invites →</span>
+        <span class="kbd">Esc</span>
+      </div>
+      <div class="grabber"></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:3048px; width:1440px;"><b>D3 · Household switch desktop.</b> The household chip draws the same top sheet — active card glows coral with avatar stack; switch, create, and manage in one place.</p>
+
+<!-- ════════ D4 · ADD TRANSACTION (desktop dialog) ════════ -->
+<section class="frame desktop" style="left:1560px; top:2130px;" data-screen-label="D4 Add Transaction dialog · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar" style="opacity:.5;"><span class="rail"></span>
+    <span class="head-f" style="font-weight:700; font-size:18px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    <div class="d-tabs"><span class="on">Track</span><span>Plan</span><span>Analyze</span></div>
+    <div style="display:flex; gap:10px;"><div class="jump">Jump to…<span class="kbd">⌘K</span></div><div class="bell"><span class="dot">3</span></div><div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span></div>
+  </header>
+  <div class="scrim"></div>
+  <div class="glass" style="position:absolute; z-index:50; top:120px; left:50%; transform:translateX(-50%); width:560px; border-radius:var(--vy-r-4); padding:26px 30px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h2 class="head-f" style="font-size:20px; font-weight:700;">Add transaction</h2>
+      <span class="kbd">N</span>
+    </div>
+    <div style="display:flex; gap:6px; margin-bottom:18px;">
+      <span class="chip on" style="height:32px; font-size:12px;">Expense</span>
+      <span class="chip" style="height:32px; font-size:12px;">Income</span>
+      <span class="chip" style="height:32px; font-size:12px;">Transfer</span>
+      <span class="chip" style="height:32px; font-size:12px;">Invest</span>
+    </div>
+    <div class="amount" style="justify-content:flex-start; font-size:40px;"><span class="cur">$</span>46.20<span class="caret" style="height:34px;"></span></div>
+    <div class="cap" style="font-size:8.5px; margin:4px 0 10px;">☕ Blue Bottle — suggested</div>
+    <span class="field-label" style="margin-top:0;">Description</span>
+    <div class="field" style="margin-bottom:12px; min-height:40px;"><span>☕</span><span>Blue Bottle</span><span class="cap" style="margin-left:auto; font-size:8px; color:var(--vy-ink-4)">suggested ✕</span></div>
+    <div style="display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px;">
+      <span class="chip cat on"><span class="em">☕</span>Coffee</span>
+      <span class="chip cat"><span class="em">🛒</span>Groceries</span>
+      <span class="chip cat"><span class="em">🍽️</span>Dining</span>
+      <span class="chip cat"><span class="em">🚗</span>Transport</span>
+      <span class="chip cat"><span class="em">🛍️</span>Shopping</span>
+      <span class="chip cat"><span class="em">⌕</span>More</span>
+    </div>
+    <div style="display:flex; gap:7px; margin-bottom:16px;">
+      <span class="chip on" style="height:32px; font-size:12px;">Today</span>
+      <span class="chip" style="height:32px; font-size:12px;">Yesterday</span>
+      <span class="chip" style="height:32px; font-size:12px;">📅</span>
+      <span class="chip on" style="height:32px; font-size:12px;">Visa ••42</span>
+      <span class="chip" style="height:32px; font-size:12px;">Chase ••88</span>
+    </div>
+    <span class="field-label">Member · currency · note</span>
+    <div style="display:flex; gap:7px; margin-bottom:16px; align-items:center;">
+      <span class="chip on" style="height:30px; font-size:11.5px;">MR · You</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">SR</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">JR</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">USD ▾</span>
+      <div class="field" style="flex:1; min-height:36px;"><span class="ph" style="font-size:12.5px;">Add a note…</span></div>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <span class="cap" style="font-size:9px;">↔ Split with someone ▸</span>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span class="cap" style="font-size:9px; color:var(--vy-ink-3);">Save &amp; add another</span>
+        <button class="btn" style="height:44px; padding:0 26px;">Save expense</button>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1560px; top:3048px; width:1440px;"><b>D4 · Add Transaction desktop.</b> Compact glass dialog (shortcut N) with full field coverage — description, member, currency, note, split — and identical chip anatomy to mobile: one muscle memory across platforms.</p>
+
+<script>
+(function () {
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function tick(el) {
+    var src = el.getAttribute('data-tick-src') || el.textContent;
+    el.setAttribute('data-tick-src', src);
+    var m = src.match(/^([^0-9]*)([\d,]+(?:\.\d+)?)(.*)$/);
+    if (!m) return;
+    var target = parseFloat(m[2].replace(/,/g, ''));
+    var dec = (m[2].split('.')[1] || '').length;
+    var t0 = null, dur = 1100;
+    function step(t) {
+      if (!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = m[1] + (target * e).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3];
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function run(scope) { (scope || document).querySelectorAll('[data-tick]').forEach(tick); }
+  if (!reduced) run(document);
+  // click any frame to replay its entrance motion + number ticks
+  document.querySelectorAll('.frame').forEach(function (f) {
+    f.addEventListener('click', function () {
+      if (reduced) return;
+      f.classList.add('noanim');
+      void f.offsetWidth;
+      f.classList.remove('noanim');
+      run(f);
+    });
+  });
+})();
+</script>
+</body>
+</html>

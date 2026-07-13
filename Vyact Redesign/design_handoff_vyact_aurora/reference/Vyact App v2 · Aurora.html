@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vyact · Aurora (Variant 2)</title>
+<link rel="stylesheet" href="vyact-tokens-v2.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--vy-canvas); }
+  #root { min-height: 100vh; }
+  @keyframes vy-spin { to { transform: rotate(360deg); } }
+  .vy-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; opacity: .8; animation: vy-spin .7s linear infinite; }
+  @keyframes vy-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes vy-pop { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+
+<body>
+<div id="root"></div>
+
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#0F181B"/>
+    <circle cx="50" cy="44" r="17" fill="none" stroke="url(#g)" stroke-width="6"/>
+    <rect x="26" y="20" width="48" height="7" rx="3.5" fill="#6D7CF0"/>
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38C89B"/><stop offset="0.55" stop-color="#6D7CF0"/><stop offset="1" stop-color="#B08CF5"/></linearGradient></defs>
+  </svg>
+</template>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="vy-screens-v2.jsx"></script>
+<script type="text/babel" src="vy-app-v2.jsx"></script>
+</body>
+</html>

@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Batch D · Analyze — Aurora revamp</title>
+<link rel="stylesheet" href="../../vyact-tokens-v2.css" />
+<link rel="stylesheet" href="../batch-a/batch-a.css" />
+<link rel="stylesheet" href="../batch-b/batch-b.css" />
+<link rel="stylesheet" href="../batch-c/batch-c.css" />
+<link rel="stylesheet" href="batch-d.css" />
+</head>
+<body>
+
+<div class="board-label" style="left:40px; top:36px;">Batch D · Analyze — Mobile · 390&ensp;·&ensp;click any frame to replay motion</div>
+<div class="board-label" style="left:40px; top:1072px;">Batch D · Analyze — Desktop · 1440</div>
+
+<!-- ════════ M1 · REPORTS (mobile) ════════ -->
+<section class="frame mobile" style="left:40px; top:90px;" data-screen-label="M1 Reports · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgd1" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd1)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Analyze</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Reports</div>
+      </div>
+      <div class="hh-chip" style="padding:0 11px; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--vy-ink-3)"><path d="M4 11l8-7 8 7M6 10v9h12v-9"/></svg><span class="cap" style="font-size:9px;">Family</span></div>
+      <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="strack">
+      <span class="cap">Analyze ▸</span>
+      <div class="srail">
+        <span class="chip">Insights</span>
+        <span class="chip on">Reports</span>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:6px; margin-bottom:12px;">
+      <div class="srail" style="flex:1;">
+        <span class="chip">Day</span><span class="chip">Week</span><span class="chip on">Month</span><span class="chip">Qtr</span><span class="chip">Year</span>
+      </div>
+      <span class="chip" style="height:34px; font-size:11px;">★ Views</span>
+    </div>
+
+    <!-- stat carousel -->
+    <div style="display:flex; gap:10px; overflow:hidden; margin-bottom:14px;">
+      <div class="stat"><div class="lbl">Income · all time</div><div class="v" style="color:var(--vy-good)" data-tick>$154,800</div><div class="d">12-mo trend ↗</div></div>
+      <div class="stat"><div class="lbl">Expenses · all time</div><div class="v" style="color:var(--vy-ink)" data-tick>$107,300</div><div class="d">avg $5,940/mo</div></div>
+      <div class="stat"><div class="lbl">Net flow</div><div class="v" style="color:var(--vy-accent)">+$47,500</div><div class="d">kept 31%</div></div>
+    </div>
+
+    <!-- income vs expense area -->
+    <div class="neu" style="padding:14px 16px 12px; margin-bottom:14px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <span class="cap" style="font-size:9px;">Income vs expense · 12 mo</span>
+        <span style="display:flex; gap:10px; font-size:9.5px;"><span style="color:var(--vy-good)">● in</span><span style="color:var(--vy-ink-3)">● out</span></span>
+      </div>
+      <div style="position:relative; margin:0 -4px;">
+        <div class="cht-tip" style="left:52%; top:2px; transform:translateX(-50%);">
+          <span class="num" style="font-size:11px; font-weight:700;">May · +$2,900</span>
+          <span style="font-size:9.5px; color:var(--vy-ink-2);"> · best month</span>
+        </div>
+        <svg viewBox="0 0 320 120" style="display:block; width:100%; height:116px;" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="ig" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4FD9AE" stop-opacity=".26"/><stop offset="100%" stop-color="#4FD9AE" stop-opacity="0"/></linearGradient>
+          </defs>
+          <path class="chart-fill" d="M6 40 L34 44 L62 36 L90 42 L118 30 L146 34 L174 24 L202 32 L230 22 L258 30 L286 20 L314 26 L314 120 L6 120 Z" fill="url(#ig)"/>
+          <line x1="174" y1="14" x2="174" y2="112" stroke="var(--vy-ink-3)" stroke-width="1" stroke-dasharray="3 3"/>
+          <path class="chart-line" d="M6 78 L34 74 L62 82 L90 70 L118 76 L146 64 L174 72 L202 60 L230 68 L258 58 L286 66 L314 54" fill="none" stroke="var(--vy-ink-3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity=".55" style="animation-delay:.5s"/>
+          <path class="chart-line" d="M6 40 L34 44 L62 36 L90 42 L118 30 L146 34 L174 24 L202 32 L230 22 L258 30 L286 20 L314 26" fill="none" stroke="var(--vy-good)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="174" cy="24" r="4.5" fill="var(--vy-good)" stroke="var(--vy-canvas)" stroke-width="2"/>
+        </svg>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-family:var(--vy-mono); font-size:8px; letter-spacing:.06em; text-transform:uppercase; color:var(--vy-ink-4); margin-top:2px;"><span>Aug</span><span>Nov</span><span>Feb</span><span>May</span><span>Jul</span></div>
+    </div>
+
+    <!-- net bars -->
+    <div class="neu" style="padding:14px 16px;">
+      <div class="cap" style="font-size:9px; margin-bottom:12px;">Saved vs overspent · by month</div>
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; height:70px; gap:5px;">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;"><div style="width:100%; max-width:20px; height:44%; border-radius:5px 5px 2px 2px; background:var(--vy-good);"></div></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;"><div style="width:100%; max-width:20px; height:58%; border-radius:5px 5px 2px 2px; background:var(--vy-good);"></div></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-start; height:100%;"><div style="width:100%; max-width:20px; height:22%; border-radius:2px 2px 5px 5px; background:var(--vy-warn); margin-top:auto; transform:translateY(0);"></div></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;"><div style="width:100%; max-width:20px; height:70%; border-radius:5px 5px 2px 2px; background:var(--vy-good);"></div></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;"><div style="width:100%; max-width:20px; height:52%; border-radius:5px 5px 2px 2px; background:var(--vy-good);"></div></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;"><div style="width:100%; max-width:20px; height:84%; border-radius:5px 5px 2px 2px; background:var(--vy-good);"></div></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-family:var(--vy-mono); font-size:8px; text-transform:uppercase; color:var(--vy-ink-4); margin-top:7px;"><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:40px; top:952px;"><b>M1 · Reports.</b> Analyze holds two sub-tabs (Insights · Reports). Period rail spans Day→Year (production's five buckets). Stats scroll as a carousel; the income-vs-expense area chart draws in with a scrub tooltip pinning any month ("May · +$2,900 · best month"). Saved-vs-overspent bars sit sage above / honey below the zero line — spend is information, never alarm.</p>
+
+<!-- ════════ M2 · REPORTS BREAKDOWN (mobile) ════════ -->
+<section class="frame mobile" style="left:490px; top:90px;" data-screen-label="M2 Reports breakdown · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgd2" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd2)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Analyze · Reports</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Where it goes</div>
+      </div>
+      <span class="chip on" style="height:34px; font-size:11px;">July ▾</span>
+    </div>
+
+    <!-- donut -->
+    <div class="neu" style="padding:16px; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; gap:18px;">
+        <div class="donut" style="width:132px; height:132px; background:conic-gradient(#C44536 0deg 127deg, #85A88A 127deg 168deg, #E8A87C 168deg 193deg, #E26D5C 168deg 230deg, #4A6FA5 230deg 268deg, #6E4555 268deg 300deg, #F4D27A 300deg 331deg, #6B635C 331deg 360deg);">
+          <div class="hole" style="inset:34px;"><div class="num" style="font-weight:700; font-size:17px;">$5,940</div><div class="cap" style="font-size:7px;">spent</div></div>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div class="lg"><i style="background:#C44536"></i><span>🏠 Rent</span><span class="num" style="color:var(--vy-ink-2)">$2,100</span><span class="num" style="color:var(--vy-ink-3); font-size:10.5px;">35%</span></div>
+          <div class="lg"><i style="background:#85A88A"></i><span>🛒 Groceries</span><span class="num" style="color:var(--vy-ink-2)">$690</span><span class="num" style="color:var(--vy-ink-3); font-size:10.5px;">12%</span></div>
+          <div class="lg"><i style="background:#E26D5C"></i><span>🛍️ Shopping</span><span class="num" style="color:var(--vy-ink-2)">$610</span><span class="num" style="color:var(--vy-ink-3); font-size:10.5px;">10%</span></div>
+          <div class="lg"><i style="background:#E8A87C"></i><span>🍽️ Dining</span><span class="num" style="color:var(--vy-ink-2)">$420</span><span class="num" style="color:var(--vy-ink-3); font-size:10.5px;">7%</span></div>
+          <div class="lg"><i style="background:#6B635C"></i><span>· 6 more</span><span class="num" style="color:var(--vy-ink-2)">$2,120</span><span class="num" style="color:var(--vy-ink-3); font-size:10.5px;">36%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- needs vs wants verdict -->
+    <div class="neu" style="padding:14px 16px; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:9px;">
+        <span class="cap" style="font-size:9px;">Needs vs wants</span>
+        <span style="font-size:11.5px; color:var(--vy-good); font-weight:600;">71% needs — solid</span>
+      </div>
+      <div class="split-bar">
+        <span style="width:71%; background:var(--vy-info);">Needs 71%</span>
+        <span style="width:29%; background:var(--vy-fore);">Wants 29%</span>
+      </div>
+    </div>
+
+    <!-- top categories -->
+    <div class="neu" style="padding:14px 16px;">
+      <div class="cap" style="font-size:9px; margin-bottom:12px;">Top categories · all time</div>
+      <div class="hbar"><span>🏠 Rent</span><div class="track"><i style="width:100%; background:#C44536;"></i></div><span class="num" style="font-size:11px; color:var(--vy-ink-2);">$25.2k</span></div>
+      <div class="hbar"><span>🛒 Groceries</span><div class="track"><i style="width:64%; background:#85A88A;"></i></div><span class="num" style="font-size:11px; color:var(--vy-ink-2);">$16.1k</span></div>
+      <div class="hbar"><span>🍽️ Dining</span><div class="track"><i style="width:41%; background:#E8A87C;"></i></div><span class="num" style="font-size:11px; color:var(--vy-ink-2);">$10.3k</span></div>
+      <div class="hbar"><span>🚗 Transport</span><div class="track"><i style="width:33%; background:#4A6FA5;"></i></div><span class="num" style="font-size:11px; color:var(--vy-ink-2);">$8.4k</span></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:490px; top:952px;"><b>M2 · Reports breakdown.</b> The category donut keeps production's rollup but leads with a legend you can read; needs-vs-wants becomes a two-segment verdict bar with a plain-language read ("71% needs — solid"). Top categories are horizontal bars sized to all-time totals. By-member / by-account breakouts sit one scroll further (see desktop D1).</p>
+
+<!-- ════════ M3 · INSIGHTS · FOR YOU (mobile) ════════ -->
+<section class="frame mobile" style="left:940px; top:90px;" data-screen-label="M3 Insights For You · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgd3" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd3)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Analyze</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Insights</div>
+      </div>
+      <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="tri" style="margin-bottom:14px;">
+      <span class="chip on">For You</span><span class="chip">Learn</span><span class="chip">Plan</span>
+    </div>
+
+    <div class="glass" style="border-radius:20px; padding:18px 20px; margin-bottom:14px; position:relative; overflow:hidden;">
+      <div style="position:absolute; inset:0; background:var(--vy-ambient); opacity:.9;"></div>
+      <div style="position:relative;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><span style="font-size:20px;">✦</span><span class="cap" style="color:var(--vy-accent);">Your insights are ready</span></div>
+        <div class="head-f" style="font-weight:700; font-size:22px; letter-spacing:-.01em; margin-bottom:4px;">5 fresh cards this week</div>
+        <div style="font-size:12.5px; color:var(--vy-ink-2); margin-bottom:14px;">A 60-second story on where your money moved — computed on your device, never guessed.</div>
+        <button class="btn" style="height:44px;"><span style="font-size:15px;">▶</span> Play the reel</button>
+      </div>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 10px;">Or browse them</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="icard"><span class="spine" style="background:var(--vy-good)"></span><div class="em">📈</div><div class="big" style="color:var(--vy-good)">31%</div><div class="cap2">Savings rate — above your 20% target</div></div>
+      <div class="icard"><span class="spine" style="background:var(--vy-warn)"></span><div class="em">🍽️</div><div class="big" style="color:var(--vy-warn)">+14%</div><div class="cap2">Dining is trending up vs last month</div></div>
+      <div class="icard"><span class="spine" style="background:var(--vy-accent)"></span><div class="em">🔁</div><div class="big">$84</div><div class="cap2">6 subscriptions — 2 unused 60 days</div></div>
+      <div class="icard"><span class="spine" style="background:var(--vy-info)"></span><div class="em">⚖️</div><div class="big" style="color:var(--vy-info)">8%</div><div class="cap2">Debt-to-income — comfortably healthy</div></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:940px; top:952px;"><b>M3 · Insights · For You.</b> The hub keeps three tabs (For You · Learn · Plan). For You leads with a launch hero — "5 fresh cards" → the reel — then a preview grid of the same cards (emoji, the number that matters, one line). Everything is computed on-device; the copy says so. Note there's no Ask FAB here: Insights is a focused reading surface.</p>
+
+<!-- ════════ M4 · FOR YOU REEL (mobile) ════════ -->
+<section class="frame mobile" style="left:1390px; top:90px;" data-screen-label="M4 For You reel · mobile">
+  <div class="reel" style="background:radial-gradient(130% 90% at 50% 8%, #2A6152 0%, #163028 42%, #0B1A16 100%);">
+    <div class="prog">
+      <i class="done"></i><i class="now"></i><i></i><i></i><i></i>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; padding:6px 16px 0; z-index:3;">
+      <span style="font-size:15px;">✦</span><span class="cap" style="color:rgba(255,255,255,.7); font-size:8.5px;">Your week · 2 of 5</span>
+      <span style="margin-left:auto; color:rgba(255,255,255,.6); font-size:15px;">✕</span>
+    </div>
+    <div class="rbody">
+      <div class="cap" style="color:rgba(255,255,255,.7); margin-bottom:16px;">You kept more than you thought</div>
+      <div class="num" style="font-family:var(--vy-mono); font-weight:700; font-size:74px; color:#fff; line-height:1; letter-spacing:-.02em;" data-tick>31%</div>
+      <div style="font-size:15px; color:rgba(255,255,255,.9); font-weight:600; margin:14px 0 6px;">savings rate this month</div>
+      <div style="font-size:13px; color:rgba(255,255,255,.65); line-height:1.5; max-width:250px;">That's <b style="color:#fff;">$2,660</b> set aside — above your 20% target for the third month running.</div>
+      <div class="reel-bars" style="margin-top:22px; display:flex; align-items:flex-end; gap:5px; height:56px;">
+        <div style="width:22px; height:40%; border-radius:4px; background:rgba(255,255,255,.3);"></div>
+        <div style="width:22px; height:52%; border-radius:4px; background:rgba(255,255,255,.4);"></div>
+        <div style="width:22px; height:46%; border-radius:4px; background:rgba(255,255,255,.35);"></div>
+        <div style="width:22px; height:100%; border-radius:4px; background:#fff;"></div>
+      </div>
+      <div class="cap" style="color:rgba(255,255,255,.5); font-size:8px; margin-top:8px;">Apr · May · Jun · Jul</div>
+    </div>
+    <div style="padding:0 24px 30px; z-index:4; position:relative;">
+      <button class="btn" style="width:100%; height:46px; background:#fff; color:#163028;">See what drove it →</button>
+      <div style="text-align:center; margin-top:12px;"><span class="cap" style="color:rgba(255,255,255,.5); font-size:8.5px;">tap right to continue · left to go back</span></div>
+    </div>
+    <div class="zones"><span></span><span style="flex:2;"></span></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1390px; top:952px;"><b>M4 · The For You reel.</b> The crown jewel — a finite, story-style sequence (5 cards, progress dots up top) that turns the insight feed into something you <i>want</i> to watch. Full-bleed Aurora gradient, the number ticks up huge, a supporting mini-chart, one action. Tap right/left to move, ✕ to leave. This is the "displayability" you loved, applied to real on-device numbers.</p>
+
+<!-- ════════ M5 · INSIGHTS · PLAN (mobile) ════════ -->
+<section class="frame mobile" style="left:1840px; top:90px;" data-screen-label="M5 Insights Plan · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgd5" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd5)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Analyze</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Insights</div>
+      </div>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="tri" style="margin-bottom:12px;">
+      <span class="chip">For You</span><span class="chip">Learn</span><span class="chip on">Plan</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:11px; background:var(--vy-info-t); margin-bottom:14px;">
+      <span style="font-size:13px;">🔒</span><span style="font-size:11px; color:var(--vy-ink-2); line-height:1.4;">Recommendations follow fixed rules — <b>no AI, no guessing.</b> You decide what to act on.</span>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 8px; color:var(--vy-warn);">⚠ Watch · 2</div>
+    <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+      <div class="sev"><span class="spine" style="background:var(--vy-warn)"></span>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;"><span style="font-size:14px;">💸</span><span style="font-weight:700; font-size:13.5px;">Dining is up 14%</span><span class="pill t-warn" style="margin-left:auto; font-size:9px;">Expenses</span></div>
+        <div style="font-size:12px; color:var(--vy-ink-2); line-height:1.45;">$420 vs $368 last month — mostly 6 weekend deliveries. A soft $400 cap would keep it in check.</div>
+        <div style="margin-top:9px;"><span class="cap" style="font-size:8.5px; color:var(--vy-accent);">Set a dining cap →</span></div>
+      </div>
+      <div class="sev"><span class="spine" style="background:var(--vy-warn)"></span>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;"><span style="font-size:14px;">🔁</span><span style="font-weight:700; font-size:13.5px;">2 subscriptions unused</span><span class="pill t-warn" style="margin-left:auto; font-size:9px;">Expenses</span></div>
+        <div style="font-size:12px; color:var(--vy-ink-2); line-height:1.45;">No activity in 60 days across 2 of your 6 subscriptions — together $22/mo.</div>
+        <div style="margin-top:9px;"><span class="cap" style="font-size:8.5px; color:var(--vy-accent);">Review subscriptions →</span></div>
+      </div>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 8px; color:var(--vy-info);">ⓘ Info · 1</div>
+    <div class="sev" style="margin-bottom:14px;"><span class="spine" style="background:var(--vy-info)"></span>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;"><span style="font-size:14px;">📈</span><span style="font-weight:700; font-size:13.5px;">Emergency fund at 4.8 months</span><span class="pill t-info" style="margin-left:auto; font-size:9px;">Savings</span></div>
+      <div style="font-size:12px; color:var(--vy-ink-2); line-height:1.45;">$1,200/mo gets you to the 6-month mark by October.</div>
+    </div>
+
+    <div style="text-align:center; padding:4px 0;"><span class="cap" style="font-size:8.5px; color:var(--vy-ink-4);">Nothing critical right now — you're steady 🌿</span></div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:1840px; top:952px;"><b>M5 · Insights · Plan.</b> The absorbed Planner — rules-based recommendations, grouped by severity (Critical terra · Watch honey · Info denim) and tagged by domain (Income · Expenses · Debt…). Each carries a plain title, a one-line why, and a deep-linked action. The banner is explicit: fixed rules, no AI. When nothing's critical, the tone stays warm, not empty.</p>
+
+<!-- ════════ M6 · ASK VYACT · EMPTY (mobile) ════════ -->
+<section class="frame mobile" style="left:2290px; top:90px;" data-screen-label="M6 Ask Vyact empty · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:10px;">
+      <span style="width:34px; height:34px; border-radius:11px; background:var(--vy-info-t); display:flex; align-items:center; justify-content:center; font-size:17px; color:var(--vy-info);">✦</span>
+      <div style="flex:1; min-width:0;">
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Ask Vyact</div>
+        <div class="cap" style="font-size:8px;">On-device · private</div>
+      </div>
+      <span class="cap" style="font-size:9px;">✕ Close</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:11px; background:var(--vy-good-t); margin-bottom:16px;">
+      <span style="font-size:13px;">🔒</span><span style="font-size:11px; color:var(--vy-ink-2); line-height:1.4;"><b>Private by design.</b> Your questions are answered on this device — nothing leaves it.</span>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 8px;">Capture</div>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <span class="intent" style="flex:1;"><span class="ic">➕</span>Log an expense</span>
+      <span class="intent" style="flex:1;"><span class="ic">🔁</span>Add a bill</span>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 8px;">Inquire</div>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+      <span class="intent"><span class="ic">🍽️</span>How much did I spend on dining?</span>
+      <span class="intent"><span class="ic">📊</span>Can I afford a $1,200 trip?</span>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 8px;">Plan</div>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <span class="intent" style="flex:1;"><span class="ic">🎯</span>Set a budget</span>
+      <span class="intent" style="flex:1;"><span class="ic">⬇️</span>Pay off debt faster</span>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 8px;">Manage</div>
+    <div style="display:flex; gap:8px;">
+      <span class="intent" style="flex:1;"><span class="ic">📤</span>Export my data</span>
+      <span class="intent" style="flex:1;"><span class="ic">⚙️</span>Change currency</span>
+    </div>
+  </div>
+
+  <div style="position:absolute; bottom:0; left:0; right:0; padding:12px 16px 20px; background:var(--vy-glass-strong); backdrop-filter:var(--vy-blur); border-top:1px solid var(--vy-line); z-index:30;">
+    <div class="field" style="min-height:48px; background:var(--vy-canvas); box-shadow:var(--vy-neu-inset);">
+      <span class="ph" style="flex:1;">Ask anything about your money…</span>
+      <span style="width:34px; height:34px; border-radius:50%; background:var(--vy-info-t); display:flex; align-items:center; justify-content:center; color:var(--vy-info);"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z"/><path d="M6 11a6 6 0 0012 0M12 17v3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:2290px; top:952px;"><b>M6 · Ask Vyact · empty.</b> Opens as a full sheet with pip in the header and a privacy-first banner. The empty state is the hero: intent chips in the four production buckets (Capture · Inquire · Plan · Manage) — tap one to seed the real form, navigate, or ask. The composer pins to the bottom with a prominent voice mic.</p>
+
+<!-- ════════ M7 · ASK VYACT · CONVERSATION (mobile) ════════ -->
+<section class="frame mobile" style="left:2740px; top:90px;" data-screen-label="M7 Ask Vyact conversation · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:10px;">
+      <span style="width:34px; height:34px; border-radius:11px; background:var(--vy-info-t); display:flex; align-items:center; justify-content:center; font-size:17px; color:var(--vy-info);">✦</span>
+      <div style="flex:1; min-width:0;">
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Ask Vyact</div>
+        <div class="cap" style="font-size:8px;">On-device · private</div>
+      </div>
+      <span class="cap" style="font-size:9px;">Clear</span>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px; padding-top:6px;">
+      <div class="bub me">How much did I spend on dining this month?</div>
+      <div class="bub ai">
+        You've spent <b>$420</b> on dining in July — that's <b>84%</b> of your $500 budget, and up <b style="color:var(--vy-warn);">14%</b> from June.
+        <div style="margin-top:9px; padding-top:9px; border-top:1px solid var(--vy-line); font-size:12px; color:var(--vy-ink-2);">Most of it: <b>6 weekend deliveries</b> totalling $180.</div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-self:flex-start; max-width:82%;">
+        <span class="chip on" style="height:32px; font-size:11.5px;">Set a $400 cap</span>
+        <span class="chip" style="height:32px; font-size:11.5px;">Show transactions</span>
+      </div>
+      <div class="bub ai" style="display:flex; align-items:center; gap:4px;"><span class="typing"><i></i><i></i><i></i></span></div>
+    </div>
+  </div>
+
+  <!-- voice listening overlay -->
+  <div style="position:absolute; bottom:0; left:0; right:0; padding:20px 16px 24px; background:var(--vy-glass-strong); backdrop-filter:var(--vy-blur); border-top:1px solid var(--vy-line); z-index:30; display:flex; flex-direction:column; align-items:center; gap:12px;">
+    <div style="font-size:14px; color:var(--vy-ink); text-align:center; font-weight:500; min-height:20px;">"how much can I save by <span style="color:var(--vy-accent);">cutting…</span>"</div>
+    <div style="display:flex; align-items:center; gap:16px;">
+      <span class="cap" style="font-size:9px; color:var(--vy-ink-3);">Listening…</span>
+      <span class="mic"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z"/><path d="M6 11a6 6 0 0012 0M12 17v3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+      <span class="cap" style="font-size:9px; color:var(--vy-accent);">Tap to stop</span>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:2740px; top:952px;"><b>M7 · Ask Vyact · conversation.</b> User bubbles coral-right, Vyact replies soft-neu-left, streaming in word by word (the typing dots). Answers stay concrete — real numbers, real drivers — and offer follow-up chips that seed actions ("Set a $400 cap" opens the budget sheet). Voice input gets a real listening state: pulsing coral mic with the live transcript building above it.</p>
+
+<!-- ════════ M8 · INSIGHTS · LEARN (mobile) ════════ -->
+<section class="frame mobile" style="left:3190px; top:90px;" data-screen-label="M8 Insights Learn · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgd6" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd6)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Analyze</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Insights</div>
+      </div>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="tri" style="margin-bottom:12px;">
+      <span class="chip">For You</span><span class="chip on">Learn</span><span class="chip">Plan</span>
+    </div>
+
+    <div class="field" style="min-height:40px; margin-bottom:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--vy-ink-4)"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg><span class="ph">Search lessons & guides</span></div>
+
+    <div class="tri" style="margin-bottom:14px;">
+      <span class="chip on">Lessons</span><span class="chip">Updates</span>
+    </div>
+
+    <!-- featured media -->
+    <div class="neu" style="padding:0; margin-bottom:14px; overflow:hidden;">
+      <div style="position:relative; height:120px; background:repeating-linear-gradient(135deg, var(--vy-sunken) 0 11px, var(--vy-hover) 11px 22px); display:flex; align-items:center; justify-content:center;">
+        <span style="width:48px; height:48px; border-radius:50%; background:var(--vy-glass-strong); backdrop-filter:var(--vy-blur); border:1px solid var(--vy-glass-line); display:flex; align-items:center; justify-content:center; box-shadow:var(--vy-cast-2); font-size:16px; color:var(--vy-accent);">▶</span>
+        <span class="cap" style="position:absolute; left:12px; top:10px; font-size:7.5px; color:var(--vy-ink-4);">video thumbnail</span>
+        <span class="pill" style="position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.5); color:#fff; font-size:9.5px;">📹 4 min</span>
+      </div>
+      <div style="padding:13px 15px;">
+        <span class="cap" style="font-size:8px; color:var(--vy-accent);">Featured · Saving</span>
+        <div class="head-f" style="font-weight:700; font-size:14.5px; margin:4px 0 3px;">Build a 6-month safety net</div>
+        <div style="font-size:11.5px; color:var(--vy-ink-2); line-height:1.4;">Why emergency funds come before investing — and how to size yours.</div>
+      </div>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 8px;">Browse by topic</div>
+    <div style="display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px;">
+      <span class="chip on" style="height:30px; font-size:11px;">Budgeting</span>
+      <span class="chip" style="height:30px; font-size:11px;">Debt</span>
+      <span class="chip" style="height:30px; font-size:11px;">Saving</span>
+      <span class="chip" style="height:30px; font-size:11px;">Investing</span>
+      <span class="chip" style="height:30px; font-size:11px;">Tax</span>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div class="mrow" style="padding:11px 13px;"><span style="width:44px; height:44px; border-radius:11px; background:repeating-linear-gradient(135deg, var(--vy-sunken) 0 7px, var(--vy-hover) 7px 14px); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:16px;">📊</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">The 50/30/20 rule, visualized</div><div class="cap" style="font-size:8px; margin-top:3px;">Infographic · 2 min</div></div><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--vy-ink-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="mrow" style="padding:11px 13px;"><span style="width:44px; height:44px; border-radius:11px; background:repeating-linear-gradient(135deg, var(--vy-sunken) 0 7px, var(--vy-hover) 7px 14px); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:16px;">📹</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Avalanche vs snowball</div><div class="cap" style="font-size:8px; margin-top:3px;">Video · 5 min</div></div><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--vy-ink-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="mrow" style="padding:11px 13px;"><span style="width:44px; height:44px; border-radius:11px; background:repeating-linear-gradient(135deg, var(--vy-sunken) 0 7px, var(--vy-hover) 7px 14px); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:16px;">📄</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Reading your net-worth statement</div><div class="cap" style="font-size:8px; margin-top:3px;">Article · 6 min read</div></div><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--vy-ink-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:3190px; top:952px;"><b>M8 · Insights · Learn.</b> The content library the repo's EvergreenLearn drives — segmented Lessons / Updates, a featured media card (video/infographic with ▶ + duration), topic chips (Budgeting · Debt · Saving · Investing · Tax), and a mixed feed of content types badged by format (📊 infographic · 📹 video · 📄 article + read-time). Striped blocks are media placeholders for real thumbnails.</p>
+
+<!-- ════════ D1 · REPORTS (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:1120px;" data-screen-label="D1 Reports · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgd7" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd7)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span>Track</span><span>Plan</span><span class="on">Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Analyze ▸</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Insights</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Reports</span>
+    <div class="srail" style="margin-left:16px; display:inline-flex;">
+      <span class="chip" style="height:28px; font-size:11px;">Day</span><span class="chip" style="height:28px; font-size:11px;">Week</span><span class="chip on" style="height:28px; font-size:11px;">Month</span><span class="chip" style="height:28px; font-size:11px;">Qtr</span><span class="chip" style="height:28px; font-size:11px;">Year</span>
+    </div>
+    <span style="margin-left:auto; display:flex; gap:10px; align-items:center;"><span class="chip" style="height:30px; font-size:11px;">★ Views</span><span class="chip" style="height:30px; font-size:11px;">⭳ Export</span></span>
+  </div>
+  <div class="d-main" style="display:grid; grid-template-columns:1fr 380px; gap:22px; align-content:start;">
+    <div>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px;">
+        <div class="stat"><div class="lbl">Income · all time</div><div class="v" style="color:var(--vy-good)" data-tick>$154,800</div><div class="d">↗ 12-mo trend</div></div>
+        <div class="stat"><div class="lbl">Expenses · all time</div><div class="v">$107,300</div><div class="d">avg $5,940/mo</div></div>
+        <div class="stat"><div class="lbl">Net flow</div><div class="v" style="color:var(--vy-accent)">+$47,500</div><div class="d">kept 31%</div></div>
+        <div class="stat"><div class="lbl">Avg month net</div><div class="v" style="color:var(--vy-warn)">+$2,640</div><div class="d">last 12 mo</div></div>
+      </div>
+
+      <div class="neu" style="padding:16px 18px; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <span class="cap" style="font-size:9px;">Income vs expense · 12 months</span>
+          <span style="display:flex; gap:12px; font-size:10px;"><span style="color:var(--vy-good)">● income</span><span style="color:var(--vy-ink-3)">● expense</span></span>
+        </div>
+        <div style="position:relative;">
+          <div class="cht-tip" style="left:56%; top:0;"><span class="num" style="font-size:11px; font-weight:700; color:var(--vy-good);">May · +$2,900</span><span style="font-size:9.5px; color:var(--vy-ink-2);"> · best month</span></div>
+          <svg viewBox="0 0 900 150" style="display:block; width:100%; height:130px;" preserveAspectRatio="none">
+            <defs><linearGradient id="igd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4FD9AE" stop-opacity=".24"/><stop offset="100%" stop-color="#4FD9AE" stop-opacity="0"/></linearGradient></defs>
+            <path class="chart-fill" d="M10 52 L90 58 L170 46 L250 54 L330 38 L410 44 L490 30 L570 42 L650 28 L730 38 L810 24 L890 34 L890 150 L10 150 Z" fill="url(#igd)"/>
+            <line x1="490" y1="16" x2="490" y2="140" stroke="var(--vy-ink-3)" stroke-width="1" stroke-dasharray="3 3"/>
+            <path class="chart-line" style="stroke-dasharray:1400; stroke-dashoffset:1400; animation-delay:.5s" d="M10 100 L90 94 L170 104 L250 90 L330 98 L410 84 L490 92 L570 78 L650 86 L730 76 L810 84 L890 72" fill="none" stroke="var(--vy-ink-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/>
+            <path class="chart-line" style="stroke-dasharray:1400; stroke-dashoffset:1400;" d="M10 52 L90 58 L170 46 L250 54 L330 38 L410 44 L490 30 L570 42 L650 28 L730 38 L810 24 L890 34" fill="none" stroke="var(--vy-good)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="490" cy="30" r="5" fill="var(--vy-good)" stroke="var(--vy-canvas)" stroke-width="2"/>
+          </svg>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div class="neu" style="padding:16px 18px;">
+          <div class="cap" style="font-size:9px; margin-bottom:14px;">Saved vs overspent</div>
+          <div style="display:flex; align-items:flex-end; justify-content:space-between; height:80px; gap:6px;">
+            <div style="flex:1; height:100%; display:flex; align-items:flex-end;"><div style="width:100%; height:48%; border-radius:4px; background:var(--vy-good);"></div></div>
+            <div style="flex:1; height:100%; display:flex; align-items:flex-end;"><div style="width:100%; height:62%; border-radius:4px; background:var(--vy-good);"></div></div>
+            <div style="flex:1; height:100%; display:flex; align-items:flex-start;"><div style="width:100%; height:20%; border-radius:4px; background:var(--vy-warn);"></div></div>
+            <div style="flex:1; height:100%; display:flex; align-items:flex-end;"><div style="width:100%; height:74%; border-radius:4px; background:var(--vy-good);"></div></div>
+            <div style="flex:1; height:100%; display:flex; align-items:flex-end;"><div style="width:100%; height:56%; border-radius:4px; background:var(--vy-good);"></div></div>
+            <div style="flex:1; height:100%; display:flex; align-items:flex-end;"><div style="width:100%; height:88%; border-radius:4px; background:var(--vy-good);"></div></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-family:var(--vy-mono); font-size:8px; text-transform:uppercase; color:var(--vy-ink-4); margin-top:8px;"><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span></div>
+        </div>
+        <div class="neu" style="padding:16px 18px;">
+          <div class="cap" style="font-size:9px; margin-bottom:12px;">Needs vs wants</div>
+          <div class="split-bar" style="margin-bottom:12px;"><span style="width:71%; background:var(--vy-info);">Needs 71%</span><span style="width:29%; background:var(--vy-fore);">Wants 29%</span></div>
+          <div class="hbar"><span>🏠 Rent</span><div class="track"><i style="width:100%; background:#C44536;"></i></div><span class="num" style="font-size:11px;">$25.2k</span></div>
+          <div class="hbar"><span>🛒 Groceries</span><div class="track"><i style="width:64%; background:#85A88A;"></i></div><span class="num" style="font-size:11px;">$16.1k</span></div>
+          <div class="hbar"><span>🍽️ Dining</span><div class="track"><i style="width:41%; background:#E8A87C;"></i></div><span class="num" style="font-size:11px;">$10.3k</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- right rail: period table + breakouts -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div class="neu" style="padding:16px 18px;">
+        <div class="cap" style="font-size:9px; margin-bottom:8px;">Period summary</div>
+        <table class="dtable">
+          <tr><th>Month</th><th>In</th><th>Out</th><th>Net</th></tr>
+          <tr><td>Jul</td><td style="color:var(--vy-good)">8,600</td><td>5,940</td><td style="color:var(--vy-good)">+2,660</td></tr>
+          <tr><td>Jun</td><td style="color:var(--vy-good)">8,600</td><td>7,420</td><td style="color:var(--vy-good)">+1,180</td></tr>
+          <tr><td>May</td><td style="color:var(--vy-good)">9,100</td><td>6,200</td><td style="color:var(--vy-good)">+2,900</td></tr>
+          <tr><td>Apr</td><td style="color:var(--vy-good)">8,600</td><td>6,880</td><td style="color:var(--vy-good)">+1,720</td></tr>
+        </table>
+      </div>
+      <div class="neu" style="padding:16px 18px;">
+        <div class="cap" style="font-size:9px; margin-bottom:12px;">By member · July</div>
+        <div class="row" style="padding:8px 0; border-radius:0;"><span class="avatar">MR</span><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">Maya</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">$3,180 spent</div></div><span class="pill t-good" style="font-size:10px;">+$1,820</span></div>
+        <div class="row" style="padding:8px 0; border-radius:0;"><span class="avatar" style="background:#4A6FA5; color:#fff;">SR</span><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">Sam</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">$2,140 spent</div></div><span class="pill t-good" style="font-size:10px;">+$640</span></div>
+        <div class="row" style="padding:8px 0; border-radius:0; border-bottom:none;"><span class="avatar" style="background:#6E4555; color:#fff;">JR</span><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">Jordan</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">$620 spent</div></div><span class="pill t-warn" style="font-size:10px;">$200</span></div>
+      </div>
+      <div class="neu" style="padding:16px 18px;">
+        <div class="cap" style="font-size:9px; margin-bottom:10px;">By account · July</div>
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; padding:5px 0; border-bottom:1px solid var(--vy-line);"><span>🏦 Chase</span><span class="num" style="color:var(--vy-ink-2)">$3,420</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; padding:5px 0; border-bottom:1px solid var(--vy-line);"><span>💳 Visa ··42</span><span class="num" style="color:var(--vy-ink-2)">$2,180</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; padding:5px 0;"><span>💵 Cash</span><span class="num" style="color:var(--vy-ink-2)">$340</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:2048px; width:1440px;"><b>D1 · Reports desktop.</b> Four all-time stat cards lead (income sage · expenses ink · net-flow coral · avg-month honey). The income-vs-expense area chart spans full width with the hover tooltip; saved-vs-overspent and needs-vs-wants sit below. The right rail keeps the dense views desktop can afford — the period-summary table and by-member / by-account breakouts (tables here, cards on mobile).</p>
+
+<!-- ════════ D2 · INSIGHTS HUB (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:2140px;" data-screen-label="D2 Insights hub · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgd8" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd8)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span>Track</span><span>Plan</span><span class="on">Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Analyze ▸</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Insights</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Reports</span>
+    <div class="tri" style="margin-left:16px; width:260px;"><span class="chip on">For You</span><span class="chip">Learn</span><span class="chip">Plan</span></div>
+  </div>
+  <div class="d-main" style="display:grid; grid-template-columns:1.5fr 1fr; gap:22px; align-content:start;">
+    <div>
+      <div class="glass" style="border-radius:18px; padding:20px 22px; margin-bottom:16px; position:relative; overflow:hidden;">
+        <div style="position:absolute; inset:0; background:var(--vy-ambient); opacity:.9;"></div>
+        <div style="position:relative; display:flex; align-items:center; gap:20px;">
+          <div style="flex:1;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span style="font-size:18px;">✦</span><span class="cap" style="color:var(--vy-accent);">Your insights are ready</span></div>
+            <div class="head-f" style="font-weight:700; font-size:24px; letter-spacing:-.01em; margin-bottom:4px;">5 fresh cards this week</div>
+            <div style="font-size:13px; color:var(--vy-ink-2);">A 60-second story on where your money moved — computed on your device.</div>
+          </div>
+          <button class="btn" style="height:48px; padding:0 24px;"><span style="font-size:16px;">▶</span> Play the reel</button>
+        </div>
+      </div>
+      <div class="cap" style="font-size:9px; margin:0 2px 12px;">All cards · this week</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+        <div class="icard"><span class="spine" style="background:var(--vy-good)"></span><div class="em">📈</div><div class="big" style="color:var(--vy-good)">31%</div><div class="cap2">Savings rate — above target</div></div>
+        <div class="icard"><span class="spine" style="background:var(--vy-warn)"></span><div class="em">🍽️</div><div class="big" style="color:var(--vy-warn)">+14%</div><div class="cap2">Dining trending up</div></div>
+        <div class="icard"><span class="spine" style="background:var(--vy-accent)"></span><div class="em">🔁</div><div class="big">$84</div><div class="cap2">6 subs · 2 unused</div></div>
+        <div class="icard"><span class="spine" style="background:var(--vy-info)"></span><div class="em">⚖️</div><div class="big" style="color:var(--vy-info)">8%</div><div class="cap2">Debt-to-income healthy</div></div>
+        <div class="icard"><span class="spine" style="background:var(--vy-good)"></span><div class="em">🏆</div><div class="big" style="color:var(--vy-good)">75%</div><div class="cap2">Visa card paid off</div></div>
+        <div class="icard"><span class="spine" style="background:var(--vy-fore)"></span><div class="em">🛍️</div><div class="big" style="color:var(--vy-fore)">$610</div><div class="cap2">Shopping · your #3 category</div></div>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div class="neu" style="padding:16px 18px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;"><span class="cap" style="font-size:9px;">Plan · recommendations</span><span class="cap" style="font-size:8px; margin-left:auto; color:var(--vy-ink-4);">🔒 rules, no AI</span></div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div class="sev"><span class="spine" style="background:var(--vy-warn)"></span>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;"><span style="font-size:13px;">💸</span><span style="font-weight:700; font-size:12.5px;">Dining up 14%</span><span class="pill t-warn" style="margin-left:auto; font-size:8.5px;">Expenses</span></div>
+            <div style="font-size:11.5px; color:var(--vy-ink-2); line-height:1.4;">A $400 soft cap keeps it in check.</div>
+            <div style="margin-top:7px;"><span class="cap" style="font-size:8px; color:var(--vy-accent);">Set a cap →</span></div>
+          </div>
+          <div class="sev"><span class="spine" style="background:var(--vy-warn)"></span>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;"><span style="font-size:13px;">🔁</span><span style="font-weight:700; font-size:12.5px;">2 subscriptions unused</span><span class="pill t-warn" style="margin-left:auto; font-size:8.5px;">Expenses</span></div>
+            <div style="font-size:11.5px; color:var(--vy-ink-2); line-height:1.4;">$22/mo across 2 dormant subs.</div>
+            <div style="margin-top:7px;"><span class="cap" style="font-size:8px; color:var(--vy-accent);">Review →</span></div>
+          </div>
+          <div class="sev"><span class="spine" style="background:var(--vy-info)"></span>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;"><span style="font-size:13px;">📈</span><span style="font-weight:700; font-size:12.5px;">Emergency fund 4.8mo</span><span class="pill t-info" style="margin-left:auto; font-size:8.5px;">Savings</span></div>
+            <div style="font-size:11.5px; color:var(--vy-ink-2); line-height:1.4;">$1,200/mo reaches 6 months by Oct.</div>
+          </div>
+        </div>
+      </div>
+      <div class="neu" style="padding:16px 18px;">
+        <div class="cap" style="font-size:9px; margin-bottom:12px;">Learn · evergreen</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div style="padding:12px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div style="font-size:18px; margin-bottom:5px;">🎯</div><div style="font-size:11.5px; font-weight:600;">The 50/30/20 rule</div></div>
+          <div style="padding:12px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div style="font-size:18px; margin-bottom:5px;">🛡️</div><div style="font-size:11.5px; font-weight:600;">Emergency funds</div></div>
+          <div style="padding:12px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div style="font-size:18px; margin-bottom:5px;">⬇️</div><div style="font-size:11.5px; font-weight:600;">Avalanche vs snowball</div></div>
+          <div style="padding:12px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div style="font-size:18px; margin-bottom:5px;">📊</div><div style="font-size:11.5px; font-weight:600;">Needs vs wants</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:3068px; width:1440px;"><b>D2 · Insights hub desktop.</b> All three surfaces at once: For You's launch hero + card grid on the left, and on the right the Plan column (severity-spined, rules-not-AI) above a Learn tile grid. Desktop shows what mobile tabs between — the reel still launches full-screen from "Play the reel".</p>
+
+<!-- ════════ D3 · ASK VYACT DRAWER (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:3160px;" data-screen-label="D3 Ask Vyact drawer · desktop">
+  <div class="amb"></div>
+  <!-- dimmed dashboard behind -->
+  <header class="d-topbar" style="opacity:.5;">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgd9" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgd9)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span class="on">Track</span><span>Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-inset);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div style="position:absolute; inset:68px 0 0; display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:26px 40px; opacity:.32; pointer-events:none;">
+    <div class="hero"><span class="spine" style="background:var(--vy-good)"></span><div class="cap">Cash flow</div><div class="big num" style="color:var(--vy-good); margin-top:8px;">+$2,660</div></div>
+    <div class="hero"><span class="spine" style="background:var(--vy-info)"></span><div class="cap">Net worth</div><div class="big num" style="margin-top:8px;">$175,081</div></div>
+  </div>
+  <div style="position:absolute; inset:0; background:rgba(5,10,12,.4);"></div>
+  <div class="glass" style="position:absolute; left:24px; top:88px; z-index:11; padding:7px 13px; border-radius:999px; display:flex; align-items:center; gap:7px;"><span style="color:var(--vy-ink-2); font-size:13px;">←</span><span class="cap" style="font-size:8.5px; color:var(--vy-ink-2);">Dashboard · stays in context · click to close</span></div>
+
+  <!-- drawer -->
+  <div class="glass" style="position:absolute; top:0; right:0; bottom:0; width:440px; border-radius:0; border-left:1px solid var(--vy-glass-line); display:flex; flex-direction:column; z-index:10;">
+    <div style="display:flex; align-items:center; gap:11px; padding:18px 20px; border-bottom:1px solid var(--vy-line);">
+      <span style="width:34px; height:34px; border-radius:11px; background:var(--vy-info-t); display:flex; align-items:center; justify-content:center; font-size:17px; color:var(--vy-info);">✦</span>
+      <div style="flex:1;"><div class="head-f" style="font-weight:700; font-size:16px;">Ask Vyact</div><div class="cap" style="font-size:8px;">On-device · private</div></div>
+      <span class="bell" style="width:32px; height:32px;" title="Close"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+    </div>
+    <div style="flex:1; padding:18px 20px; display:flex; flex-direction:column; gap:12px; overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:8px; padding:8px 11px; border-radius:10px; background:var(--vy-good-t);"><span style="font-size:12px;">🔒</span><span style="font-size:11px; color:var(--vy-ink-2);">Answered on this device — nothing leaves it.</span></div>
+      <div class="bub me">How much did I spend on dining this month?</div>
+      <div class="bub ai">You've spent <b>$420</b> on dining in July — <b>84%</b> of your $500 budget, up <b style="color:var(--vy-warn)">14%</b> from June.<div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--vy-line); font-size:12px; color:var(--vy-ink-2);">Mostly 6 weekend deliveries ($180).</div></div>
+      <div style="display:flex; gap:8px; align-self:flex-start;"><span class="chip on" style="height:30px; font-size:11px;">Set a $400 cap</span><span class="chip" style="height:30px; font-size:11px;">Show transactions</span></div>
+    </div>
+    <div style="padding:14px 20px 18px; border-top:1px solid var(--vy-line);">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;"><span class="cap" style="font-size:8px; color:var(--vy-ink-4);">Esc or click the dashboard to close</span></div>
+      <div class="field" style="min-height:46px; background:var(--vy-canvas); box-shadow:var(--vy-neu-inset);"><span class="ph" style="flex:1;">Ask anything…</span><span style="width:30px; height:30px; border-radius:50%; background:var(--vy-info-t); display:flex; align-items:center; justify-content:center; color:var(--vy-info);"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z"/></svg></span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:4088px; width:1440px;"><b>D3 · Ask Vyact desktop.</b> On desktop the assistant is a right glass drawer over the dimmed dashboard — you keep your context while you ask. Same anatomy as mobile: privacy line, coral/neu bubbles, follow-up action chips, voice-ready composer. Launches from the ✦ Ask Vyact button in the top bar (its persistent home on desktop).</p>
+<!-- @M3 -->
+<!-- @M4 -->
+<!-- @M5 -->
+<!-- @M6 -->
+<!-- @M7 -->
+<!-- @D1 -->
+<!-- @D2 -->
+<!-- @D3 -->
+
+<script>
+(function () {
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function tick(el) {
+    var src = el.getAttribute('data-tick-src') || el.textContent;
+    el.setAttribute('data-tick-src', src);
+    var m = src.match(/^([^0-9]*)([\d,]+(?:\.\d+)?)(.*)$/);
+    if (!m) return;
+    var target = parseFloat(m[2].replace(/,/g, ''));
+    var dec = (m[2].split('.')[1] || '').length;
+    var t0 = null, dur = 1100;
+    function step(t) {
+      if (!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = m[1] + (target * e).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3];
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function run(scope) { (scope || document).querySelectorAll('[data-tick]').forEach(tick); }
+  if (!reduced) run(document);
+  document.querySelectorAll('.frame').forEach(function (f) {
+    f.addEventListener('click', function () {
+      if (reduced) return;
+      f.classList.add('noanim'); void f.offsetWidth; f.classList.remove('noanim');
+      run(f);
+    });
+  });
+})();
+</script>
+</body>
+</html>

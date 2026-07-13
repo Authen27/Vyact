@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Batch C · Plan — Aurora revamp</title>
+<link rel="stylesheet" href="../../vyact-tokens-v2.css" />
+<link rel="stylesheet" href="../batch-a/batch-a.css" />
+<link rel="stylesheet" href="../batch-b/batch-b.css" />
+<link rel="stylesheet" href="batch-c.css" />
+</head>
+<body>
+
+<div class="board-label" style="left:40px; top:36px;">Batch C · Plan — Mobile · 390</div>
+<div class="board-label" style="left:40px; top:1072px;">Batch C · Plan — Desktop · 1440</div>
+
+<!-- ════════ M1 · BUDGETS (mobile) ════════ -->
+<section class="frame mobile" style="left:40px; top:90px;" data-screen-label="M1 Budgets · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgc1" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgc1)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Plan</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Budgets</div>
+      </div>
+      <span class="chip" style="height:36px; font-size:11.5px; color:var(--vy-accent);">＋ New budget</span>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="strack">
+      <span class="cap">Plan ▸</span>
+      <div class="srail">
+        <span class="chip on">Budgets</span>
+        <span class="chip" style="flex:.85;">Debts</span>
+        <span class="chip" style="flex:1.2;">Net Worth</span>
+        <span class="chip" style="flex:1.1;">Accounts</span>
+      </div>
+    </div>
+
+    <div class="hero" style="margin-bottom:10px;">
+      <span class="spine" style="background:var(--vy-accent)"></span>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div class="cap" style="margin-bottom:6px;">July 2026 · month budget</div>
+          <div class="big num" data-tick>$1,080</div>
+        </div>
+        <span class="cap" style="font-size:9px;">edit ▸</span>
+      </div>
+      <div style="font-size:12.5px; color:var(--vy-ink-3); margin:3px 0 4px;">left of <b class="num" style="color:var(--vy-ink-2)">$5,000</b> · <b style="color:var(--vy-good)">$38/day keeps you green</b> · 23 days to go</div>
+      <div style="position:relative; margin:0 -4px;">
+        <svg viewBox="0 0 320 84" style="display:block; width:100%; height:64px;" preserveAspectRatio="none">
+          <defs><linearGradient id="bgm1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#EC8474" stop-opacity=".22"/><stop offset="100%" stop-color="#EC8474" stop-opacity="0"/></linearGradient></defs>
+          <line x1="8" y1="14" x2="312" y2="14" stroke="var(--vy-crit)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>
+          <path class="chart-fill" d="M8 76 L18 50 L34 48 L50 44 L64 40 L76 34 L86 28 L86 76 Z" fill="url(#bgm1)"/>
+          <path class="chart-line" d="M8 76 L18 50 L34 48 L50 44 L64 40 L76 34 L86 28" fill="none" stroke="var(--vy-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M86 28 L310 16" fill="none" stroke="var(--vy-ink-3)" stroke-width="1.5" stroke-dasharray="2 5" stroke-linecap="round"/>
+          <circle cx="86" cy="28" r="4" fill="var(--vy-accent)" stroke="var(--vy-canvas)" stroke-width="2"/>
+        </svg>
+        <span class="cap" style="position:absolute; top:0; right:2px; font-size:7.5px; color:var(--vy-crit);">limit $5,000</span>
+        <span class="cap" style="position:absolute; top:22px; left:92px; font-size:7.5px;">today · $3,920 spent</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-family:var(--vy-mono); font-size:8px; letter-spacing:.08em; text-transform:uppercase; color:var(--vy-ink-4); margin-top:2px;"><span>Jul 1</span><span>projected · lands $206 under</span><span>Jul 31</span></div>
+    </div>
+
+    <div class="neu" style="padding:12px 14px; margin-bottom:10px;">
+      <div class="cap" style="font-size:9px; margin-bottom:10px;">Allocations · tap for transactions</div>
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🛒 Groceries</span><span class="num" style="color:var(--vy-ink-2);">$690 / $750 · <b style="color:var(--vy-warn);">92%</b></span></div>
+        <div class="trough"><i style="width:92%; background:var(--vy-warn);"></i></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🏠 Rent</span><span class="num" style="color:var(--vy-ink-2);">$2,100 / $2,100 · <b style="color:var(--vy-crit);">100%</b></span></div>
+        <div class="trough"><i style="width:100%; background:var(--vy-crit);"></i></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🍽️ Dining</span><span class="num" style="color:var(--vy-ink-2);">$420 / $500 · <b style="color:var(--vy-warn);">84%</b></span></div>
+        <div class="trough"><i style="width:84%; background:var(--vy-warn);"></i></div>
+      </div>
+      <div>
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🚗 Transport</span><span class="num" style="color:var(--vy-ink-2);">$180 / $300 · <b style="color:var(--vy-accent);">60%</b></span></div>
+        <div class="trough"><i style="width:60%; background:var(--vy-accent);"></i></div>
+      </div>
+    </div>
+
+    <div class="mrow" style="margin-bottom:8px;"><span class="ic">📅</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">2026 annual</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">$31,400 of $58,000 · 54%</div></div><span class="pill t-good" style="font-size:9.5px;">on pace</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+    <div class="mrow"><span class="ic">✈️</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Japan trip · custom</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">$1,850 of $6,000 · Sep window</div></div><span class="cap" style="font-size:8px; color:var(--vy-ink-4);">View only</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:40px; top:952px;"><b>M1 · Budgets.</b> The hero now charts the month: cumulative spend vs the dashed limit line — rent's day-one jump explains the early climb, the dot is today, and the dotted path projects landing <b>$206 under</b>. Pairs with the “$38/day keeps you green” sentence. Allocations keep the production thresholds (coral &lt;80 · honey &lt;100 · terra at 100) and tap through to pre-filtered Transactions; annual + custom stack below with the View-only badge.</p>
+
+<!-- ════════ M2 · ADD BUDGET half-sheet ════════ -->
+<section class="frame mobile" style="left:490px; top:90px;" data-screen-label="M2 Add budget sheet · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div style="padding:0 18px; opacity:.45;">
+    <div class="hero" style="margin-top:8px;"><span class="spine" style="background:var(--vy-accent)"></span><div class="cap" style="margin-bottom:6px;">July 2026 · month budget</div><div class="big num">$1,080</div></div>
+  </div>
+  <div class="scrim"></div>
+  <div class="sheet-bottom" style="padding:0 20px 16px;">
+    <div class="grabber"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <span class="head-f" style="font-weight:700; font-size:17px;">New budget</span>
+      <span class="cap" style="font-size:9px;">✕ Close</span>
+    </div>
+
+    <span class="field-label" style="margin-top:0;">Period</span>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <span class="chip on" style="height:30px; font-size:11.5px;">August 2026</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">September</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">Annual 2027</span>
+      <span class="chip" style="height:30px; font-size:11.5px;">📅 Custom</span>
+    </div>
+
+    <span class="field-label">Total</span>
+    <div class="amount" style="font-size:36px; text-align:left; margin:0 0 2px;"><span class="cur">$</span>5,000<span class="caret" style="height:28px;"></span></div>
+    <div class="cap" style="font-size:8.5px; margin-bottom:10px;">July spend was $5,940 — pip suggests $5,000 with the trims below</div>
+
+    <span class="field-label" style="margin-top:0;">Allocations — pre-filled from July</span>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+      <div class="alloc on"><span>🏠</span><span style="font-weight:600;">Rent</span><span class="amt">$2,100</span></div>
+      <div class="alloc on"><span>🛒</span><span style="font-weight:600;">Groceries</span><span class="cap" style="font-size:8px; color:var(--vy-good);">−$50 vs July</span><span class="amt">$700</span></div>
+      <div class="alloc on"><span>🍽️</span><span style="font-weight:600;">Dining</span><span class="cap" style="font-size:8px; color:var(--vy-good);">−$70 vs July</span><span class="amt">$450</span></div>
+      <div class="alloc"><span>🚗</span><span style="font-weight:600;">Transport</span><span class="amt" style="color:var(--vy-ink-4);">$300</span></div>
+      <div class="alloc" style="justify-content:center; color:var(--vy-accent); font-weight:600;">＋ Add category</div>
+    </div>
+
+    <button class="btn" style="width:100%; height:48px; font-size:15px; border-radius:14px;">Create budget · $3,250 allocated</button>
+    <div style="text-align:center; margin-top:8px;"><span class="cap" style="font-size:8.5px; color:var(--vy-ink-4);">$1,750 stays flexible — allocate any time</span></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:490px; top:952px;"><b>M2 · New budget.</b> The forms doctrine applied: period chips, one big total, and allocations as tappable rows pre-filled from last month's actuals — pip suggests gentle trims (sage deltas). Deselected rows simply stay unbudgeted; the footer keeps the honest note that the rest stays flexible.</p>
+
+<!-- ════════ M3 · DEBTS (mobile) ════════ -->
+<section class="frame mobile" style="left:940px; top:90px;" data-screen-label="M3 Debts · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgc3" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgc3)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Plan</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Debts</div>
+      </div>
+      <span class="chip" style="height:36px; font-size:11.5px; color:var(--vy-accent);">＋ New</span>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="strack">
+      <span class="cap">Plan ▸</span>
+      <div class="srail">
+        <span class="chip">Budgets</span>
+        <span class="chip on" style="flex:.85;">Debts</span>
+        <span class="chip" style="flex:1.2;">Net Worth</span>
+        <span class="chip" style="flex:1.1;">Accounts</span>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:5px;">Total debt</div><div class="num" style="font-size:16px; font-weight:700;" data-tick>$38,100</div><div class="cap" style="font-size:7.5px; margin-top:3px;">3 accounts</div></div>
+      <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:5px;">Min monthly</div><div class="num" style="font-size:16px; font-weight:700; color:var(--vy-warn);">$720</div><div class="cap" style="font-size:7.5px; margin-top:3px;">due each month</div></div>
+      <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:5px;">Debt-to-income</div><div class="num" style="font-size:16px; font-weight:700; color:var(--vy-good);">8%</div><div class="cap" style="font-size:7.5px; margin-top:3px;">healthy · &lt;36</div></div>
+    </div>
+
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+      <div class="srail" style="flex:0 0 auto; display:inline-flex;">
+        <span class="chip on" style="flex:none; padding:0 14px;">Avalanche</span>
+        <span class="chip" style="flex:none; padding:0 14px;">Snowball</span>
+      </div>
+      <span style="font-size:10.5px; color:var(--vy-good);">saves you $340 in interest</span>
+    </div>
+    <div style="display:flex; gap:6px; margin-bottom:12px;">
+      <span class="chip on" style="height:28px; font-size:10.5px;">All</span>
+      <span class="chip" style="height:28px; font-size:10.5px;">I owe</span>
+      <span class="chip" style="height:28px; font-size:10.5px;">Owed to me · $240</span>
+    </div>
+
+    <div class="neu" style="padding:16px; box-shadow:var(--vy-neu), 0 0 0 1.5px var(--vy-accent); border-radius:18px; margin-bottom:10px;">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+        <span class="pill t-acc" style="font-size:9.5px;">⚡ Pay this first</span>
+        <span class="cap" style="font-size:8px;">highest APR</span>
+        <span class="cap" style="font-size:8px; margin-left:auto;">edit ▸</span>
+      </div>
+      <div style="display:flex; gap:16px; align-items:center; margin-bottom:12px;">
+        <div style="position:relative; width:86px; height:86px; flex-shrink:0;">
+          <div class="ringc" style="position:absolute; inset:0; border-radius:50%; --deg:133deg; background:conic-gradient(var(--vy-good) var(--deg), var(--vy-sunken) var(--deg));"></div>
+          <div style="position:absolute; inset:9px; border-radius:50%; background:var(--vy-canvas); box-shadow:var(--vy-neu-sm); display:flex; flex-direction:column; align-items:center; justify-content:center;">
+            <span class="num" style="font-weight:700; font-size:17px;">37%</span>
+            <span class="cap" style="font-size:7px;">paid off</span>
+          </div>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:700; font-size:15px;">Visa credit card ··42</div>
+          <div class="num" style="font-size:10px; color:var(--vy-ink-3); margin-bottom:4px;">Chase · 22.9% APR</div>
+          <div class="num" style="font-size:21px; font-weight:700;" data-tick>$4,200</div>
+          <div style="font-size:11px; color:var(--vy-good);">Debt-free by Mar '27 at this pace</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <div style="flex:1; text-align:center; padding:8px 4px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div class="num" style="font-size:13px; font-weight:700;">$120</div><div class="cap" style="font-size:7px;">min pay</div></div>
+        <div style="flex:1; text-align:center; padding:8px 4px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div class="num" style="font-size:13px; font-weight:700; color:var(--vy-warn);">$80</div><div class="cap" style="font-size:7px;">interest/mo</div></div>
+        <div style="flex:1; text-align:center; padding:8px 4px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div class="num" style="font-size:13px; font-weight:700; color:var(--vy-good);">20</div><div class="cap" style="font-size:7px;">months left</div></div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button class="btn sm" style="height:36px;">Record payment</button>
+        <span class="cap" style="font-size:9px;">EMI details ▾</span>
+        <span class="cap" style="font-size:9px; margin-left:auto; color:var(--vy-accent);">Payments →</span>
+      </div>
+    </div>
+
+    <div class="mrow" style="margin-bottom:8px;"><span class="ic">🚗</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Car loan</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">6.4% APR · 41% paid · $310/mo</div></div><span class="num" style="font-weight:600;">$18,900</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+    <div class="mrow"><span class="ic">🎓</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Student loan</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">4.2% APR · 55% paid · $290/mo</div></div><span class="num" style="font-weight:600;">$15,000</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:940px; top:952px;"><b>M3 · Debts.</b> The payoff journey leads: strategy toggle with its honest payoff ("Avalanche saves you $340"), the priority debt ringed in coral with % paid, projected debt-free date, and the min/interest/months grid. Balances stay in neutral ink — loss is information; honey marks obligations, terra only appears for missed/critical. Record payment opens the add-transaction sheet pre-seeded. The direction tabs keep receivables one tap away.</p>
+
+<!-- ════════ M4 · NET WORTH (mobile) ════════ -->
+<section class="frame mobile" style="left:1390px; top:90px;" data-screen-label="M4 Net Worth · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgc4" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgc4)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Plan</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Net Worth</div>
+      </div>
+      <span class="chip" style="height:36px; font-size:11.5px; color:var(--vy-accent);">＋ Add asset</span>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="strack">
+      <span class="cap">Plan ▸</span>
+      <div class="srail">
+        <span class="chip">Budgets</span>
+        <span class="chip" style="flex:.85;">Debts</span>
+        <span class="chip on" style="flex:1.2;">Net Worth</span>
+        <span class="chip" style="flex:1.1;">Accounts</span>
+      </div>
+    </div>
+
+    <div class="hero" style="margin-bottom:8px; padding:16px 18px;">
+      <span class="spine" style="background:var(--vy-info)"></span>
+      <div class="cap" style="margin-bottom:5px;">Net worth · today</div>
+      <div class="big num" data-tick>$175,081</div>
+      <div style="display:flex; flex-direction:column; gap:5px; margin-top:9px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="flex:0 0 60%;"><div style="height:15px; border-radius:5px; width:100%; background:var(--vy-good); box-shadow:var(--vy-neu-sm);"></div></div>
+          <span style="font-size:10.5px; color:var(--vy-ink-2); white-space:nowrap;">Assets ＋ owed <b class="num">$214,418</b></span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="flex:0 0 60%; display:flex; justify-content:flex-end;"><div style="height:15px; border-radius:5px; width:18%; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset), inset 0 0 0 1px var(--vy-line-2);"></div></div>
+          <span style="font-size:10.5px; color:var(--vy-ink-2); white-space:nowrap;">− Liabilities <b class="num">$39,337</b></span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="flex:0 0 60%;"><div style="height:15px; border-radius:5px; width:82%; background:var(--vy-info); box-shadow:var(--vy-neu-sm);"></div></div>
+          <span style="font-size:10.5px; color:var(--vy-ink-2); white-space:nowrap;">= Net worth <b class="num">$175,081</b></span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <div class="ratio" style="padding:9px 12px;"><div class="cap" style="font-size:8px; margin-bottom:3px;">Liquidity</div><div class="num" style="font-size:15px; font-weight:700; color:var(--vy-good);">4.2×</div><div class="cap" style="font-size:7px; margin-top:2px;">monthly outgo</div></div>
+      <div class="ratio" style="padding:9px 12px;"><div class="cap" style="font-size:8px; margin-bottom:3px;">Debt-to-asset</div><div class="num" style="font-size:15px; font-weight:700; color:var(--vy-good);">18%</div><div class="cap" style="font-size:7px; margin-top:2px;">&lt;30 healthy</div></div>
+      <div class="ratio" style="padding:9px 12px;"><div class="cap" style="font-size:8px; margin-bottom:3px;">Emergency</div><div class="num" style="font-size:15px; font-weight:700; color:var(--vy-warn);">4.8 mo</div><div class="cap" style="font-size:7px; margin-top:2px;">aim for 6</div></div>
+      <div class="ratio" style="padding:9px 12px;"><div class="cap" style="font-size:8px; margin-bottom:3px;">Savings</div><div class="num" style="font-size:15px; font-weight:700; color:var(--vy-good);">31%</div><div class="cap" style="font-size:7px; margin-top:2px;">of income</div></div>
+    </div>
+
+    <div class="grp" style="padding:5px 2px 4px;"><span class="cap" style="font-size:9px;">Assets · by liquidity</span><span class="num" style="margin-left:auto; font-size:11px; color:var(--vy-good); font-weight:600;">$214,300</span></div>
+    <div class="neu-sm" style="margin-bottom:5px;">
+      <div class="row" style="padding:8px 16px;"><div class="cat-tile" style="width:28px; height:28px; font-size:13px; background:#85A88A26">💧</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Liquid · 2 accounts</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">Chase 34d old</div></div><span class="estb">update?</span><span class="num" style="font-weight:600;">$46,000</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+      <div class="row" style="padding:8px 16px;"><div class="cat-tile" style="width:28px; height:28px; font-size:13px; background:#4A6FA526">📊</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Short-term · 2</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">brokerage · bonds</div></div><span class="num" style="font-weight:600;">$41,000</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+      <div class="row" style="padding:8px 16px;"><div class="cat-tile" style="width:28px; height:28px; font-size:13px; background:#6E455526">🏠</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Long-term · 2</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">home · 401(k)</div></div><span class="num" style="font-weight:600;">$127,300</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+    </div>
+    <div class="grp" style="padding:5px 2px 4px;"><span class="cap" style="font-size:9px;">Liabilities</span><span class="num" style="margin-left:auto; font-size:11px; color:var(--vy-ink-2); font-weight:600;">$39,337</span></div>
+    <div class="neu-sm" style="margin-bottom:4px;">
+      <div class="row" style="padding:8px 16px;"><div class="cat-tile" style="width:28px; height:28px; font-size:13px; background:#C4453626">💳</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Debts · 3 accounts</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">payoff plan in Debts</div></div><span class="num" style="font-weight:600;">$38,100</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+      <div class="row" style="padding:8px 16px;"><div class="cat-tile" style="width:28px; height:28px; font-size:13px; background:#C0803C26">⇄</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Split you owe</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3)">Jordan · settle in Splits</div></div><span class="num" style="font-weight:600;">$37</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+      <div class="row" style="padding:8px 16px;"><div class="cat-tile" style="width:28px; height:28px; font-size:13px; background:#F4D27A26">🧾</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Tax provision</div><div class="num" style="font-size:9.5px; color:var(--vy-warn)">est · due Apr '27 · track to closure</div></div><span class="num" style="font-weight:600;">$1,200</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; margin-bottom:4px;"><span class="cap" style="font-size:8.5px; color:var(--vy-accent);">＋ Add liability — IOU · BNPL · tax owed</span></div>
+    <div class="grp" style="padding:5px 2px 4px;"><span class="cap" style="font-size:9px;">Owed to me</span><span class="num" style="margin-left:auto; font-size:11px; color:var(--vy-info); font-weight:600;">+$118</span></div>
+    <div class="neu-sm">
+      <div class="row" style="padding:8px 16px;"><div class="cat-tile" style="width:28px; height:28px; font-size:13px; background:#4A6FA526">⇄</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Weekend cabin split</div><div class="num" style="font-size:9.5px; color:var(--vy-info)">receivable · linked to Splits</div></div><span class="num" style="font-weight:600; color:var(--vy-info);">$118</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:1390px; top:952px;"><b>M4 · Net Worth.</b> The equation is now a waterfall you can read at a glance: assets bar, the slice liabilities take from it, and what remains. Assets roll up into three liquidity buckets (tap to expand — the stale “update?” chip rides the bucket holding Chase). Liabilities go <b>beyond debts</b>: debt accounts, the split you owe, and an estimated tax provision each tracked to closure, with ＋ Add liability for IOUs and BNPL. Receivables stay denim.</p>
+
+<!-- ════════ M5 · ACCOUNTS (mobile) ════════ -->
+<section class="frame mobile" style="left:1840px; top:90px;" data-screen-label="M5 Accounts · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgc5" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgc5)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Plan</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Accounts</div>
+      </div>
+      <span class="chip" style="height:36px; font-size:11.5px; color:var(--vy-accent);">＋ Add</span>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="strack">
+      <span class="cap">Plan ▸</span>
+      <div class="srail">
+        <span class="chip">Budgets</span>
+        <span class="chip" style="flex:.85;">Debts</span>
+        <span class="chip" style="flex:1.2;">Net Worth</span>
+        <span class="chip on" style="flex:1.1;">Accounts</span>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:7px; margin-bottom:10px;">
+      <div class="ratio" style="padding:9px 11px;"><div class="cap" style="font-size:7.5px; margin-bottom:3px;">Bank · 1</div><div class="num" style="font-size:13.5px; font-weight:700;">$8,420</div></div>
+      <div class="ratio" style="padding:9px 11px;"><div class="cap" style="font-size:7.5px; margin-bottom:3px;">Cards · 1</div><div class="num" style="font-size:13.5px; font-weight:700;">−$1,240</div></div>
+      <div class="ratio" style="padding:9px 11px;"><div class="cap" style="font-size:7.5px; margin-bottom:3px;">Invest · 1</div><div class="num" style="font-size:13.5px; font-weight:700;">$32,000</div></div>
+      <div class="ratio" style="padding:9px 11px;"><div class="cap" style="font-size:7.5px; margin-bottom:3px;">Cash · 1</div><div class="num" style="font-size:13.5px; font-weight:700;">$180</div></div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+      <div class="wcard" style="padding:11px 14px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="kind">🏦</span>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:6px;"><span style="font-weight:700; font-size:14.5px;">Chase checking</span><span style="color:var(--vy-warn); font-size:12px;">★</span></div>
+            <div class="num" style="font-size:10px; color:var(--vy-ink-3);">bank · USD · ★ default — pre-fills Add Transaction</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="num" style="font-weight:700; font-size:17px;" data-tick>$8,420</div>
+            <div class="cap" style="font-size:7.5px; color:var(--vy-ink-4);">ledger ▸</div>
+          </div>
+        </div>
+      </div>
+      <div class="wcard" style="padding:11px 14px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="kind">💳</span>
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14.5px;">Visa ··42</div>
+            <div class="num" style="font-size:10px; color:var(--vy-ink-3);">credit card · linked to Visa debt</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="num" style="font-weight:700; font-size:17px;">−$1,240</div>
+            <div class="cap" style="font-size:7.5px; color:var(--vy-info);">25% of $5,000 limit ▸</div>
+          </div>
+        </div>
+      </div>
+      <div class="wcard" style="padding:11px 14px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="kind">💵</span>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px;"><span style="font-weight:700; font-size:14.5px;">Cash</span><span class="estb">est</span></div>
+            <div class="num" style="font-size:10px; color:var(--vy-ink-3);">wallet · low confidence</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="num" style="font-weight:700; font-size:17px;">$180</div>
+            <div class="cap" style="font-size:7.5px; color:var(--vy-warn);">balance check ▸</div>
+          </div>
+        </div>
+      </div>
+      <div class="wcard" style="padding:11px 14px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="kind">📈</span>
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14.5px;">Vanguard brokerage</div>
+            <div class="num" style="font-size:10px; color:var(--vy-ink-3);">investment · linked to 401(k) asset</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="num" style="font-weight:700; font-size:17px;">$32,000</div>
+            <div class="cap" style="font-size:7.5px; color:var(--vy-ink-4);">update value ▸</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mrow" style="opacity:.55;"><span class="ic">🗄️</span><span style="flex:1; font-weight:600; font-size:13.5px;">Archived · 2</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+    <div style="font-size:11px; color:var(--vy-ink-4); padding:8px 4px 0;">Balances are computed from the ledger — never typed over. ★ marks the default per currency; change it from any account's ledger.</div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:1840px; top:952px;"><b>M5 · Accounts.</b> A totals strip splits the money by type — bank · cards · investment · cash (tap filters the wallet). Each card's footer states its own action language: bank → ledger, credit card → <b>cycle utilization</b> (25% of limit), cash → balance check, investment → update value. ★ default is spelled out — it pre-fills Add Transaction — and the note explains how to change it.</p>
+
+<!-- ════════ M6 · LEDGER + BALANCE CHECK sheet ════════ -->
+<section class="frame mobile" style="left:2290px; top:90px;" data-screen-label="M6 Account ledger sheet · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="scrim"></div>
+  <div class="sheet-bottom" style="padding:0 20px 16px;">
+    <div class="grabber"></div>
+    <div style="display:flex; align-items:center; gap:11px; margin-bottom:12px;">
+      <span class="kind" style="width:34px; height:34px; border-radius:10px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); display:flex; align-items:center; justify-content:center; font-size:15px;">🏦</span>
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:700; font-size:16px;">Chase checking</div>
+        <div class="num" style="font-size:10px; color:var(--vy-ink-3);">bank · USD · default ★</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="num" style="font-weight:700; font-size:19px;" data-tick>$8,420</div>
+        <div class="cap" style="font-size:7.5px;">computed</div>
+      </div>
+    </div>
+
+    <div class="neu" style="padding:13px 14px; margin-bottom:12px; box-shadow:var(--vy-neu), 0 0 0 1.5px color-mix(in srgb, var(--vy-warn) 50%, transparent); border-radius:16px;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+        <span class="estb">balance check</span>
+        <span style="font-size:11px; color:var(--vy-ink-3);">updated 34 days ago</span>
+      </div>
+      <div style="display:flex; gap:9px; align-items:center;">
+        <div class="field" style="flex:1; min-height:42px;"><span class="cap" style="font-size:8px;">bank says</span><span class="num" style="font-weight:700; font-size:15px;">$8,395</span></div>
+        <button class="btn sm" style="height:42px;">Confirm</button>
+      </div>
+      <div style="font-size:11px; color:var(--vy-ink-3); margin-top:8px;">We'll absorb the <b class="num" style="color:var(--vy-warn);">−$25</b> drift as an offset entry — no fake transaction, history stays honest.</div>
+    </div>
+
+    <span class="field-label" style="margin-top:0;">Ledger · running balance</span>
+    <div style="display:flex; flex-direction:column;">
+      <div class="lrow"><span style="font-size:14px;">🏠</span><div style="flex:1; min-width:0;"><div style="font-weight:600;">Rent</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jul 1</div></div><div style="text-align:right;"><div class="num" style="font-weight:700;">−$2,100</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-4);">$8,420</div></div></div>
+      <div class="lrow"><span style="font-size:14px;">💼</span><div style="flex:1; min-width:0;"><div style="font-weight:600;">Salary — Acme Inc</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jul 1</div></div><div style="text-align:right;"><div class="num" style="font-weight:700; color:var(--vy-good);">+$8,600</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-4);">$10,520</div></div></div>
+      <div class="lrow"><span style="font-size:14px;">🛒</span><div style="flex:1; min-width:0;"><div style="font-weight:600;">Whole Foods</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jun 24</div></div><div style="text-align:right;"><div class="num" style="font-weight:700;">−$79.75</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-4);">$1,920</div></div></div>
+      <div class="lrow" style="font-style:italic; opacity:.85;"><span style="font-size:14px;">⚖️</span><div style="flex:1; min-width:0;"><div style="font-weight:600;">Balance check</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jun 8 · reconcile</div></div><div style="text-align:right;"><div class="num" style="font-weight:700; color:var(--vy-warn);">−$25</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-4);">$1,999.75</div></div></div>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center; padding-top:12px;">
+      <span class="cap" style="font-size:9px; color:var(--vy-warn);">★ Default for USD · change</span>
+      <span class="cap" style="font-size:9px;">Edit</span>
+      <span class="cap" style="font-size:9px;">Archive</span>
+      <span class="cap" style="font-size:9px; margin-left:auto; color:var(--vy-accent);">All transactions →</span>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:2290px; top:952px;"><b>M6 · Ledger &amp; balance check.</b> Strict reverse-chronological now — newest at top with the running balance landing on today's $8,420; the italic reconcile entry sits in its true Jun 8 position. “Balance check” is the bank-account language (cards speak cycle utilization instead — see D4). The footer gains the ★ default control: this account pre-fills Add Transaction for USD, changeable right here.</p>
+
+<!-- ════════ D1 · BUDGETS (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:1120px;" data-screen-label="D1 Budgets · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgc6" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgc6)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span>Track</span><span class="on">Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Plan ▸</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Budgets</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Debts</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Net Worth</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Accounts</span>
+    <span class="chip" style="height:30px; font-size:11.5px; margin-left:auto; color:var(--vy-accent);">＋ New budget</span>
+  </div>
+  <div class="d-main" style="display:grid; grid-template-columns:1fr 380px; gap:24px; align-content:start;">
+    <div>
+      <div class="hero" style="margin-bottom:14px;">
+        <span class="spine" style="background:var(--vy-accent)"></span>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div class="cap" style="margin-bottom:6px;">July 2026 · month budget</div>
+            <div class="big num" data-tick>$1,080</div>
+          </div>
+          <div style="text-align:right;">
+            <span class="pill t-good">on pace</span>
+            <div class="cap" style="font-size:8.5px; margin-top:8px;">edit · delete</div>
+          </div>
+        </div>
+        <div style="font-size:12.5px; color:var(--vy-ink-3); margin:4px 0 8px;">left of <b class="num" style="color:var(--vy-ink-2)">$5,000</b> · <b style="color:var(--vy-good)">$38/day keeps you green</b> · 23 days to go</div>
+        <div style="position:relative; margin:0 -2px 8px;">
+          <svg viewBox="0 0 320 84" style="display:block; width:100%; height:58px;" preserveAspectRatio="none">
+            <defs><linearGradient id="bgd1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#EC8474" stop-opacity=".22"/><stop offset="100%" stop-color="#EC8474" stop-opacity="0"/></linearGradient></defs>
+            <line x1="8" y1="14" x2="312" y2="14" stroke="var(--vy-crit)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>
+            <path class="chart-fill" d="M8 76 L18 50 L34 48 L50 44 L64 40 L76 34 L86 28 L86 76 Z" fill="url(#bgd1)"/>
+            <path class="chart-line" d="M8 76 L18 50 L34 48 L50 44 L64 40 L76 34 L86 28" fill="none" stroke="var(--vy-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M86 28 L310 16" fill="none" stroke="var(--vy-ink-3)" stroke-width="1.5" stroke-dasharray="2 5" stroke-linecap="round"/>
+            <circle cx="86" cy="28" r="4" fill="var(--vy-accent)" stroke="var(--vy-canvas)" stroke-width="2"/>
+          </svg>
+          <span class="cap" style="position:absolute; top:0; right:2px; font-size:7.5px; color:var(--vy-crit);">limit $5,000</span>
+          <span class="cap" style="position:absolute; top:20px; left:96px; font-size:7.5px;">today · $3,920 spent · projected lands $206 under</span>
+        </div>
+        <div class="trough"><i style="width:78%; background:var(--vy-accent);"></i></div>
+      </div>
+      <div class="neu" style="padding:16px 18px;">
+        <div class="cap" style="font-size:9px; margin-bottom:12px;">Allocations · click a bar for its transactions</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px 22px;">
+          <div><div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🛒 Groceries</span><span class="num" style="color:var(--vy-ink-2);">$690 / $750 · <b style="color:var(--vy-warn);">92%</b></span></div><div class="trough"><i style="width:92%; background:var(--vy-warn);"></i></div></div>
+          <div><div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🏠 Rent</span><span class="num" style="color:var(--vy-ink-2);">$2,100 / $2,100 · <b style="color:var(--vy-crit);">100%</b></span></div><div class="trough"><i style="width:100%; background:var(--vy-crit);"></i></div></div>
+          <div><div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🍽️ Dining</span><span class="num" style="color:var(--vy-ink-2);">$420 / $500 · <b style="color:var(--vy-warn);">84%</b></span></div><div class="trough"><i style="width:84%; background:var(--vy-warn);"></i></div></div>
+          <div><div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🚗 Transport</span><span class="num" style="color:var(--vy-ink-2);">$180 / $300 · <b style="color:var(--vy-accent);">60%</b></span></div><div class="trough"><i style="width:60%; background:var(--vy-accent);"></i></div></div>
+          <div><div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">🎬 Entertainment</span><span class="num" style="color:var(--vy-ink-2);">$95 / $150 · <b style="color:var(--vy-accent);">63%</b></span></div><div class="trough"><i style="width:63%; background:var(--vy-accent);"></i></div></div>
+          <div><div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span style="font-weight:600;">⚡ Utilities</span><span class="num" style="color:var(--vy-ink-2);">$240 / $320 · <b style="color:var(--vy-accent);">75%</b></span></div><div class="trough"><i style="width:75%; background:var(--vy-accent);"></i></div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="glass" style="border-radius:18px; padding:16px 18px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span style="font-size:15px;">💡</span><span class="cap" style="font-size:9px; color:var(--vy-accent);">Nudge</span></div>
+        <div style="font-size:13.5px; font-weight:600; margin-bottom:4px;">No budget for August yet</div>
+        <div style="font-size:12px; color:var(--vy-ink-3); margin-bottom:10px;">Copy July's shape — pip suggests trimming dining by $70.</div>
+        <button class="btn sm" style="height:34px;">Create from July</button>
+      </div>
+      <div class="mrow"><span class="ic">📅</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">2026 annual</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">$31,400 of $58,000 · 54%</div></div><span class="pill t-good" style="font-size:9.5px;">on pace</span></div>
+      <div class="mrow"><span class="ic">✈️</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Japan trip · custom</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">$1,850 of $6,000 · Sep window</div></div><span class="cap" style="font-size:8px; color:var(--vy-ink-4);">View only</span></div>
+      <div style="font-size:11px; color:var(--vy-ink-4); padding:0 4px;">Members without <i>manage budgets</i> permission see View-only cards; edit/delete stay owner &amp; admin.</div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:2048px; width:1440px;"><b>D1 · Budgets desktop.</b> The hero charts the month — cumulative spend vs the dashed limit, hover for day detail, dotted projection landing $206 under — above the usage trough. Allocations in a two-column grid (thresholds intact, click-through to Transactions); the right rail carries the August nudge — “Create from July” pre-fills the new-budget dialog with pip's trims.</p>
+
+<!-- ════════ D2 · DEBTS (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:2140px;" data-screen-label="D2 Debts · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgc7" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgc7)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span>Track</span><span class="on">Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Plan ▸</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Budgets</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Debts</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Net Worth</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Accounts</span>
+    <span class="chip" style="height:30px; font-size:11.5px; margin-left:auto; color:var(--vy-accent);">＋ New debt</span>
+  </div>
+  <div class="d-main" style="display:grid; grid-template-columns:440px 1fr; gap:24px; align-content:start;">
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; gap:8px;">
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:5px;">Total debt</div><div class="num" style="font-size:16px; font-weight:700;" data-tick>$38,100</div><div class="cap" style="font-size:7.5px; margin-top:3px;">3 accounts</div></div>
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:5px;">Min monthly</div><div class="num" style="font-size:16px; font-weight:700; color:var(--vy-warn);">$720</div><div class="cap" style="font-size:7.5px; margin-top:3px;">due monthly</div></div>
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:5px;">DTI</div><div class="num" style="font-size:16px; font-weight:700; color:var(--vy-good);">8%</div><div class="cap" style="font-size:7.5px; margin-top:3px;">healthy</div></div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div class="srail" style="flex:0 0 auto; display:inline-flex;">
+          <span class="chip on" style="flex:none; padding:0 14px;">Avalanche</span>
+          <span class="chip" style="flex:none; padding:0 14px;">Snowball</span>
+        </div>
+        <span style="font-size:11px; color:var(--vy-good);">saves $340 in interest</span>
+      </div>
+      <div class="cap" style="font-size:9px; margin-top:4px;">Payoff order</div>
+      <div class="mrow" style="box-shadow:var(--vy-neu-sm), 0 0 0 1.5px var(--vy-accent);"><span class="num" style="width:22px; font-weight:700; color:var(--vy-accent);">1</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Visa ··42</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">22.9% APR</div></div><span class="num" style="font-weight:600;">$4,200</span></div>
+      <div class="mrow"><span class="num" style="width:22px; font-weight:700; color:var(--vy-ink-3);">2</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Car loan</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">6.4% APR · 41% paid</div></div><span class="num" style="font-weight:600;">$18,900</span></div>
+      <div class="mrow"><span class="num" style="width:22px; font-weight:700; color:var(--vy-ink-3);">3</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Student loan</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">4.2% APR · 55% paid</div></div><span class="num" style="font-weight:600;">$15,000</span></div>
+      <div style="font-size:11px; color:var(--vy-ink-4); padding:0 4px;">Owed to me · <b class="num" style="color:var(--vy-info);">$240</b> — Weekend cabin receivable, linked from Splits.</div>
+    </div>
+
+    <div class="neu" style="padding:20px 22px; box-shadow:var(--vy-neu), 0 0 0 1.5px var(--vy-accent); border-radius:20px; align-self:start;">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+        <span class="pill t-acc" style="font-size:9.5px;">⚡ Pay this first</span>
+        <span class="cap" style="font-size:8.5px;">highest APR · avalanche</span>
+        <span class="cap" style="font-size:8.5px; margin-left:auto;">edit · delete</span>
+      </div>
+      <div style="display:flex; gap:20px; align-items:center; margin-bottom:14px;">
+        <div style="position:relative; width:104px; height:104px; flex-shrink:0;">
+          <div class="ringc" style="position:absolute; inset:0; border-radius:50%; --deg:133deg; background:conic-gradient(var(--vy-good) var(--deg), var(--vy-sunken) var(--deg));"></div>
+          <div style="position:absolute; inset:10px; border-radius:50%; background:var(--vy-canvas); box-shadow:var(--vy-neu-sm); display:flex; flex-direction:column; align-items:center; justify-content:center;">
+            <span class="num" style="font-weight:700; font-size:21px;">37%</span>
+            <span class="cap" style="font-size:7.5px;">paid off</span>
+          </div>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:700; font-size:17px;">Visa credit card ··42</div>
+          <div class="num" style="font-size:11px; color:var(--vy-ink-3); margin-bottom:6px;">Chase · 22.9% APR · linked account</div>
+          <div class="num" style="font-size:26px; font-weight:700;" data-tick>$4,200</div>
+          <div style="font-size:12px; color:var(--vy-good);">Debt-free by Mar '27 · $2,480 cleared so far</div>
+        </div>
+        <button class="btn" style="height:44px; padding:0 22px;">Record payment</button>
+      </div>
+      <div style="display:flex; gap:10px; margin-bottom:14px;">
+        <div style="flex:1; text-align:center; padding:10px 4px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div class="num" style="font-size:15px; font-weight:700;">$120</div><div class="cap" style="font-size:7.5px;">min pay</div></div>
+        <div style="flex:1; text-align:center; padding:10px 4px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div class="num" style="font-size:15px; font-weight:700; color:var(--vy-warn);">$80</div><div class="cap" style="font-size:7.5px;">interest / mo</div></div>
+        <div style="flex:1; text-align:center; padding:10px 4px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div class="num" style="font-size:15px; font-weight:700; color:var(--vy-good);">$40</div><div class="cap" style="font-size:7.5px;">principal / mo</div></div>
+        <div style="flex:1; text-align:center; padding:10px 4px; border-radius:12px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);"><div class="num" style="font-size:15px; font-weight:700; color:var(--vy-good);">20</div><div class="cap" style="font-size:7.5px;">months left</div></div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <span class="cap" style="font-size:9px;">EMI details ▾</span>
+        <span class="cap" style="font-size:9px; color:var(--vy-accent);">Payments → Transactions?debtId</span>
+        <span class="cap" style="font-size:9px; margin-left:auto; color:var(--vy-ink-4);">extra payment set: $100/mo</span>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:3068px; width:1440px;"><b>D2 · Debts desktop.</b> Strategy and payoff order on the left — switching to Snowball resorts the list live and restates the trade-off honestly. The priority debt expands right: ring, projected debt-free date, cleared-so-far, EMI split into interest vs principal, and Record payment pre-seeding the transaction dialog. Balances in neutral ink throughout.</p>
+
+<!-- ════════ D3 · NET WORTH (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:3160px;" data-screen-label="D3 Net Worth · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgc8" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgc8)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span>Track</span><span class="on">Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Plan ▸</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Budgets</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Debts</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Net Worth</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Accounts</span>
+    <span class="chip" style="height:30px; font-size:11.5px; margin-left:auto; color:var(--vy-accent);">＋ Add asset</span>
+  </div>
+  <div class="d-main" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:grid; grid-template-columns:1fr 340px; gap:14px;">
+      <div class="hero">
+        <span class="spine" style="background:var(--vy-info)"></span>
+        <div style="display:flex; gap:26px; align-items:flex-end;">
+          <div>
+            <div class="cap" style="margin-bottom:6px;">Net worth · today</div>
+            <div class="big num" data-tick>$175,081</div>
+          </div>
+          <div style="flex:1; font-size:12px; color:var(--vy-ink-3); padding-bottom:6px;">Assets <b class="num" style="color:var(--vy-good)">$214,300</b> ＋ owed to me <b class="num" style="color:var(--vy-info)">$118</b> − liabilities <b class="num" style="color:var(--vy-ink-2)">$39,337</b></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-top:12px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="flex:0 0 58%;"><div style="height:16px; border-radius:5px; width:100%; background:var(--vy-good); box-shadow:var(--vy-neu-sm);"></div></div>
+            <span style="font-size:11px; color:var(--vy-ink-2); white-space:nowrap;">Assets ＋ owed to me <b class="num">$214,418</b></span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="flex:0 0 58%; display:flex; justify-content:flex-end;"><div style="height:16px; border-radius:5px; width:18%; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset), inset 0 0 0 1px var(--vy-line-2);"></div></div>
+            <span style="font-size:11px; color:var(--vy-ink-2); white-space:nowrap;">− Liabilities <b class="num">$39,337</b></span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="flex:0 0 58%;"><div style="height:16px; border-radius:5px; width:82%; background:var(--vy-info); box-shadow:var(--vy-neu-sm);"></div></div>
+            <span style="font-size:11px; color:var(--vy-ink-2); white-space:nowrap;">= Net worth <b class="num">$175,081</b></span>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:4px;">Liquidity</div><div class="num" style="font-size:16px; font-weight:700; color:var(--vy-good);">4.2×</div><div class="cap" style="font-size:7px; margin-top:2px;">monthly outgo</div></div>
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:4px;">Debt-to-asset</div><div class="num" style="font-size:16px; font-weight:700; color:var(--vy-good);">18%</div><div class="cap" style="font-size:7px; margin-top:2px;">&lt;30 healthy</div></div>
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:4px;">Emergency</div><div class="num" style="font-size:16px; font-weight:700; color:var(--vy-warn);">4.8 mo</div><div class="cap" style="font-size:7px; margin-top:2px;">aim for 6</div></div>
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:4px;">Savings</div><div class="num" style="font-size:16px; font-weight:700; color:var(--vy-good);">31%</div><div class="cap" style="font-size:7px; margin-top:2px;">of income</div></div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div class="neu" style="padding:14px 18px;">
+        <div class="grp"><span class="cap" style="font-size:9px;">Assets · by liquidity</span><span class="num" style="margin-left:auto; font-size:11.5px; color:var(--vy-good); font-weight:700;">$214,300</span></div>
+        <div class="lrow"><span style="font-size:14px;">🏦</span><div style="flex:1;"><div style="font-weight:600;">Chase checking</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">liquid · 34 days old</div></div><span class="estb">update?</span><span class="num" style="font-weight:600;">$8,420</span></div>
+        <div class="lrow"><span style="font-size:14px;">🏦</span><div style="flex:1;"><div style="font-weight:600;">High-yield savings</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">liquid · 4.1% APY</div></div><span class="num" style="font-weight:600;">$37,580</span></div>
+        <div class="lrow"><span style="font-size:14px;">📈</span><div style="flex:1;"><div style="font-weight:600;">Vanguard brokerage</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">short-term</div></div><span class="num" style="font-weight:600;">$32,000</span></div>
+        <div class="lrow"><span style="font-size:14px;">🏠</span><div style="flex:1;"><div style="font-weight:600;">Home equity</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">long · est · € orig</div></div><span class="num" style="font-weight:600;">$95,300</span></div>
+        <div class="lrow"><span style="font-size:14px;">📈</span><div style="flex:1;"><div style="font-weight:600;">401(k)</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">long · Fidelity</div></div><span class="num" style="font-weight:600;">$32,000</span></div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div class="neu" style="padding:14px 18px;">
+          <div class="grp"><span class="cap" style="font-size:9px;">Liabilities</span><span class="num" style="margin-left:auto; font-size:11.5px; color:var(--vy-ink-2); font-weight:700;">$39,337</span></div>
+          <div class="lrow"><span style="font-size:14px;">💳</span><div style="flex:1;"><div style="font-weight:600;">Visa ··42</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">credit card · 22.9%</div></div><span class="num" style="font-weight:600;">$4,200</span></div>
+          <div class="lrow"><span style="font-size:14px;">🚗</span><div style="flex:1;"><div style="font-weight:600;">Car loan</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">6.4%</div></div><span class="num" style="font-weight:600;">$18,900</span></div>
+          <div class="lrow"><span style="font-size:14px;">🎓</span><div style="flex:1;"><div style="font-weight:600;">Student loan</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">4.2%</div></div><span class="num" style="font-weight:600;">$15,000</span></div>
+          <div class="lrow"><span style="font-size:14px;">⇄</span><div style="flex:1;"><div style="font-weight:600;">Split you owe</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jordan · settle in Splits</div></div><span class="num" style="font-weight:600;">$37</span></div>
+          <div class="lrow"><span style="font-size:14px;">🧾</span><div style="flex:1;"><div style="font-weight:600;">Tax provision</div><div class="num" style="font-size:9.5px; color:var(--vy-warn);">est · due Apr '27 · track to closure</div></div><span class="num" style="font-weight:600;">$1,200</span></div>
+          <div style="display:flex; justify-content:flex-end; padding-top:8px;"><span class="cap" style="font-size:8.5px; color:var(--vy-accent);">＋ Add liability — IOU · BNPL · tax owed</span></div>
+        </div>
+        <div class="neu" style="padding:14px 18px;">
+          <div class="grp"><span class="cap" style="font-size:9px;">Owed to me</span><span class="num" style="margin-left:auto; font-size:11.5px; color:var(--vy-info); font-weight:700;">$118</span></div>
+          <div class="lrow"><span style="font-size:14px;">⇄</span><div style="flex:1;"><div style="font-weight:600;">Weekend cabin split</div><div class="num" style="font-size:9.5px; color:var(--vy-info);">Sam · receivable · linked</div></div><span class="num" style="font-weight:600; color:var(--vy-info);">$118</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:4088px; width:1440px;"><b>D3 · Net Worth desktop.</b> The equation is a labeled waterfall — assets, the slice liabilities take, what remains — with the four plain-language ratios beside it. Liabilities go beyond debts: the three debt accounts, the split you owe, and an estimated tax provision tracked to closure, with ＋ Add liability for IOUs and BNPL. Assets keep the liquidity grouping and stale “update?” chip; receivables stay denim; original-currency sub-values keep multi-currency honest.</p>
+
+<!-- ════════ D4 · ACCOUNTS (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:4180px;" data-screen-label="D4 Accounts · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgc9" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgc9)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span>Track</span><span class="on">Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Plan ▸</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Budgets</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Debts</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Net Worth</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Accounts</span>
+    <span class="chip" style="height:30px; font-size:11.5px; margin-left:auto; color:var(--vy-accent);">＋ Add account</span>
+  </div>
+  <div class="d-main" style="display:grid; grid-template-columns:1fr 520px; gap:24px; align-content:start;">
+    <div>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:4px;">Bank · 1</div><div class="num" style="font-size:15px; font-weight:700;">$8,420</div></div>
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:4px;">Cards · 1</div><div class="num" style="font-size:15px; font-weight:700;">−$1,240</div></div>
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:4px;">Investment · 1</div><div class="num" style="font-size:15px; font-weight:700;">$32,000</div></div>
+        <div class="ratio"><div class="cap" style="font-size:8px; margin-bottom:4px;">Cash · 1</div><div class="num" style="font-size:15px; font-weight:700;">$180</div></div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+        <div class="wcard" style="box-shadow:var(--vy-neu), 0 0 0 1.5px var(--vy-accent);">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span class="kind">🏦</span>
+            <div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:6px;"><span style="font-weight:700; font-size:14px;">Chase checking</span><span style="color:var(--vy-warn); font-size:12px;">★</span></div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">bank · USD · open →</div></div>
+            <div class="num" style="font-weight:700; font-size:16px;" data-tick>$8,420</div>
+          </div>
+        </div>
+        <div class="wcard">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span class="kind">💳</span>
+            <div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:14px;">Visa ··42</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">credit card · linked to debt</div></div>
+            <div class="num" style="font-weight:700; font-size:16px;">−$1,240</div>
+          </div>
+        </div>
+        <div class="wcard">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span class="kind">💵</span>
+            <div style="flex:1; min-width:0;"><div style="display:flex; align-items:center; gap:8px;"><span style="font-weight:700; font-size:14px;">Cash</span><span class="estb">est</span></div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">wallet · low confidence</div></div>
+            <div class="num" style="font-weight:700; font-size:16px;">$180</div>
+          </div>
+        </div>
+        <div class="wcard">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span class="kind">📈</span>
+            <div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:14px;">Vanguard brokerage</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">investment · linked to 401(k)</div></div>
+            <div class="num" style="font-weight:700; font-size:16px;">$32,000</div>
+          </div>
+        </div>
+      </div>
+      <div class="neu" style="padding:13px 16px; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <span style="font-size:14px;">💳</span><span style="font-weight:700; font-size:13px;">Visa ··42 · current cycle</span>
+          <span class="cap" style="font-size:8px; margin-left:auto; color:var(--vy-info);">cycle utilization — not a balance check</span>
+        </div>
+        <div class="trough"><i style="width:25%; background:var(--vy-info);"></i></div>
+        <div style="display:flex; gap:16px; font-size:10.5px; color:var(--vy-ink-3); margin-top:7px;">
+          <span><b class="num" style="color:var(--vy-ink-2);">$1,240</b> of $5,000 limit · 25%</span>
+          <span>statement <b class="num" style="color:var(--vy-ink-2);">Jul 15</b></span>
+          <span>due <b class="num" style="color:var(--vy-warn);">Aug 1</b></span>
+          <span>min <b class="num" style="color:var(--vy-ink-2);">$120</b></span>
+        </div>
+      </div>
+      <div class="mrow" style="opacity:.55; margin-bottom:10px;"><span class="ic">🗄️</span><span style="flex:1; font-weight:600; font-size:13.5px;">Archived · 2 — old joint account, closed card</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+      <div style="font-size:11px; color:var(--vy-ink-4); padding:0 4px;">Balances are computed from the ledger — never typed over. The dashed <i>est</i> badge marks low-confidence balances until a balance check confirms them.</div>
+    </div>
+
+    <div class="neu" style="padding:18px 20px; align-self:start;">
+      <div style="display:flex; align-items:center; gap:11px; margin-bottom:12px;">
+        <span class="kind" style="width:34px; height:34px; border-radius:10px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); display:flex; align-items:center; justify-content:center; font-size:15px;">🏦</span>
+        <div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:15px;">Chase checking · ledger</div><div class="num" style="font-size:10px; color:var(--vy-ink-3);">computed balance · running</div></div>
+        <div class="num" style="font-weight:700; font-size:17px;">$8,420</div>
+      </div>
+      <div style="display:flex; gap:9px; align-items:center; margin-bottom:10px;">
+        <div class="field" style="flex:1; min-height:40px;"><span class="cap" style="font-size:8px;">bank says</span><span class="num" style="font-weight:700; font-size:14px;">$8,395</span></div>
+        <button class="btn sm" style="height:40px;">Balance check</button>
+      </div>
+      <div class="lrow"><span style="font-size:14px;">🏠</span><div style="flex:1;"><div style="font-weight:600;">Rent</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jul 1</div></div><div style="text-align:right;"><div class="num" style="font-weight:700;">−$2,100</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-4);">$8,420</div></div></div>
+      <div class="lrow"><span style="font-size:14px;">💼</span><div style="flex:1;"><div style="font-weight:600;">Salary — Acme Inc</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jul 1</div></div><div style="text-align:right;"><div class="num" style="font-weight:700; color:var(--vy-good);">+$8,600</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-4);">$10,520</div></div></div>
+      <div class="lrow"><span style="font-size:14px;">🛒</span><div style="flex:1;"><div style="font-weight:600;">Whole Foods</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jun 24</div></div><div style="text-align:right;"><div class="num" style="font-weight:700;">−$79.75</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-4);">$1,920</div></div></div>
+      <div class="lrow" style="font-style:italic; opacity:.85;"><span style="font-size:14px;">⚖️</span><div style="flex:1;"><div style="font-weight:600;">Balance check</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-3);">Jun 8 · reconcile offset</div></div><div style="text-align:right;"><div class="num" style="font-weight:700; color:var(--vy-warn);">−$25</div><div class="num" style="font-size:9.5px; color:var(--vy-ink-4);">$1,999.75</div></div></div>
+      <div style="display:flex; gap:12px; align-items:center; padding-top:12px;">
+        <span class="cap" style="font-size:9px; color:var(--vy-warn);">★ Default for USD · change</span>
+        <span class="cap" style="font-size:9px;">Edit</span>
+        <span class="cap" style="font-size:9px;">Archive</span>
+        <span class="cap" style="font-size:9px; margin-left:auto; color:var(--vy-accent);">All transactions →</span>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:5108px; width:1440px;"><b>D4 · Accounts desktop.</b> Totals split by type lead; the wallet below carries kind glyphs, default ★, est badge, linked captions, archived dimmed. Kinds speak their own language: the Visa panel shows <b>cycle utilization</b> (limit · statement · due · min) — explicitly not a balance check — while the bank ledger runs strict reverse-chronological with the reconcile log in place and ★ Default for USD changeable in the actions row. Add account is a type-tile-first dialog.</p>
+
+<script>
+(function () {
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function tick(el) {
+    var src = el.getAttribute('data-tick-src') || el.textContent;
+    el.setAttribute('data-tick-src', src);
+    var m = src.match(/^([^0-9]*)([\d,]+(?:\.\d+)?)(.*)$/);
+    if (!m) return;
+    var target = parseFloat(m[2].replace(/,/g, ''));
+    var dec = (m[2].split('.')[1] || '').length;
+    var t0 = null, dur = 1100;
+    function step(t) {
+      if (!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = m[1] + (target * e).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3];
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function run(scope) { (scope || document).querySelectorAll('[data-tick]').forEach(tick); }
+  if (!reduced) run(document);
+  document.querySelectorAll('.frame').forEach(function (f) {
+    f.addEventListener('click', function () {
+      if (reduced) return;
+      f.classList.add('noanim');
+      void f.offsetWidth;
+      f.classList.remove('noanim');
+      run(f);
+    });
+  });
+})();
+</script>
+</body>
+</html>

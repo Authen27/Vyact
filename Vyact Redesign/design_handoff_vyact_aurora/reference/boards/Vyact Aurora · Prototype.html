@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vyact Aurora · Revamp Prototype</title>
+<link rel="stylesheet" href="../vyact-tokens-v2.css" />
+<style>
+  [data-vy-theme="dark"]  { --vy-accent: #EC8474; --vy-accent-ink: #2A1712; }
+  [data-vy-theme="light"] { --vy-accent: #E26D5C; --vy-accent-ink: #2A1712; }
+  html, body { margin: 0; background: var(--vy-canvas); }
+  body { font-family: var(--vy-sans); color: var(--vy-ink); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .amb { position: fixed; inset: 0; background: var(--vy-ambient); pointer-events: none; z-index: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 60px 32px 100px; }
+  h1, h2, h3 { font-family: var(--vy-heading); letter-spacing: -0.01em; margin: 0; }
+  .cap { font-family: var(--vy-mono); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--vy-ink-3); }
+  .num { font-family: var(--vy-mono); }
+  a { text-decoration: none; color: inherit; }
+
+  /* header */
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+  .wordmark { font-family: var(--vy-heading); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+  .hero-t { font-size: 52px; font-weight: 700; line-height: 1.04; letter-spacing: -0.025em; margin-bottom: 18px; }
+  .lede { font-size: 18px; color: var(--vy-ink-2); line-height: 1.55; max-width: 620px; }
+  .meta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
+  .pillm { display: inline-flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 999px; background: var(--vy-canvas); box-shadow: var(--vy-neu-sm); font-size: 12.5px; font-weight: 600; font-family: var(--vy-heading); color: var(--vy-ink-2); }
+  .pillm b { color: var(--vy-accent); }
+
+  .sec-label { display: flex; align-items: center; gap: 12px; margin: 56px 0 20px; }
+  .sec-label .cap { flex-shrink: 0; }
+  .sec-label .rule { flex: 1; height: 1px; background: var(--vy-line-2); }
+
+  /* batch cards */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { position: relative; display: block; background: var(--vy-canvas); border-radius: var(--vy-r-3); box-shadow: var(--vy-neu); padding: 22px 24px; overflow: hidden; transition: box-shadow .24s var(--vy-ease), transform .24s var(--vy-ease); }
+  .card:hover { box-shadow: var(--vy-neu-hover); transform: translateY(-3px); }
+  .card .spine { position: absolute; left: 0; top: 18px; bottom: 18px; width: 3px; border-radius: 3px; }
+  .card .top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .card h3 { font-size: 19px; font-weight: 700; }
+  .card .cnt { font-family: var(--vy-mono); font-size: 11px; color: var(--vy-ink-3); }
+  .card p { margin: 0; font-size: 13.5px; color: var(--vy-ink-2); line-height: 1.5; }
+  .card .frames { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 14px; }
+  .card .frames span { font-family: var(--vy-mono); font-size: 9.5px; letter-spacing: .06em; padding: 3px 8px; border-radius: 6px; background: var(--vy-sunken); box-shadow: var(--vy-neu-inset); color: var(--vy-ink-3); }
+  .card .go { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; font-family: var(--vy-heading); font-weight: 600; font-size: 13px; color: var(--vy-accent); }
+
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .mini { display: block; background: var(--vy-canvas); border-radius: var(--vy-r-2); box-shadow: var(--vy-neu); padding: 18px 20px; transition: box-shadow .2s, transform .2s; }
+  .mini:hover { box-shadow: var(--vy-neu-hover); transform: translateY(-2px); }
+  .mini .ic { width: 38px; height: 38px; border-radius: 11px; background: var(--vy-sunken); box-shadow: var(--vy-neu-inset); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 12px; }
+  .mini h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .mini p { margin: 0; font-size: 12px; color: var(--vy-ink-3); line-height: 1.45; }
+
+  .foot { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--vy-line); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  @media (max-width: 720px) { .grid, .row3 { grid-template-columns: 1fr; } .hero-t { font-size: 38px; } .wrap { padding: 40px 20px 80px; } }
+</style>
+</head>
+<body>
+<div class="amb"></div>
+<div class="wrap">
+
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 36 36" aria-label="pip"><defs><radialGradient id="pipH" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pipH)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><circle cx="9.5" cy="20" r="1.6" fill="#F4B6A8" opacity=".8"/><circle cx="26.5" cy="20" r="1.6" fill="#F4B6A8" opacity=".8"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+    <span class="wordmark">Vy<span style="color:var(--vy-accent)">act</span></span>
+    <span class="cap" style="padding:5px 11px; border-radius:999px; background:var(--vy-canvas); box-shadow:var(--vy-neu-sm);">Aurora Revamp</span>
+  </div>
+
+  <h1 class="hero-t">The complete<br/>redesign, mapped.</h1>
+  <p class="lede">Every screen of Vyact production <span class="num" style="color:var(--vy-ink)">v9.9.3</span> reimagined in the Aurora direction — coral-anchored, warm-companion, mobile-first — across five review boards. Each board shows mobile and desktop side by side. Click through to explore.</p>
+
+  <div class="meta-row">
+    <span class="pillm"><b>47</b>&nbsp;frames</span>
+    <span class="pillm"><b>17</b>&nbsp;surfaces</span>
+    <span class="pillm">Mobile&nbsp;<b>+</b>&nbsp;Desktop</span>
+    <span class="pillm">Coral&nbsp;·&nbsp;Outfit&nbsp;·&nbsp;Dark</span>
+  </div>
+
+  <!-- BATCHES -->
+  <div class="sec-label"><span class="cap">The five boards</span><span class="rule"></span></div>
+  <div class="grid">
+    <a class="card" href="batch-a/Batch%20A%20%C2%B7%20Shell%20+%20Home.html">
+      <span class="spine" style="background:var(--vy-accent)"></span>
+      <div class="top"><h3>A · Shell &amp; Home</h3><span class="cnt">9 frames</span></div>
+      <p>The navigation spine + Dashboard. Footer tabs, notification &amp; household pull-downs, the Add-Transaction half-sheet, and the system-state kit.</p>
+      <div class="frames"><span>Dashboard</span><span>Notifications</span><span>Household</span><span>Add txn</span><span>States</span></div>
+      <span class="go">Open board →</span>
+    </a>
+    <a class="card" href="batch-b/Batch%20B%20%C2%B7%20Track.html">
+      <span class="spine" style="background:var(--vy-good)"></span>
+      <div class="top"><h3>B · Track</h3><span class="cnt">9 frames</span></div>
+      <p>Day-to-day money. Transactions with chip-rail filters + calendar, Splits' who-owes-who, and Recurring's sentence-builder form.</p>
+      <div class="frames"><span>Transactions</span><span>Filters</span><span>Calendar</span><span>Splits</span><span>Recurring</span></div>
+      <span class="go">Open board →</span>
+    </a>
+    <a class="card" href="batch-c/Batch%20C%20%C2%B7%20Plan.html">
+      <span class="spine" style="background:var(--vy-warn)"></span>
+      <div class="top"><h3>C · Plan</h3><span class="cnt">9 frames</span></div>
+      <p>The forward view. Budgets with the pace chart, Debts' payoff journey, the Net-Worth waterfall, and the Accounts wallet + ledger.</p>
+      <div class="frames"><span>Budgets</span><span>Debts</span><span>Net Worth</span><span>Accounts</span></div>
+      <span class="go">Open board →</span>
+    </a>
+    <a class="card" href="batch-d/Batch%20D%20%C2%B7%20Analyze.html">
+      <span class="spine" style="background:var(--vy-fore)"></span>
+      <div class="top"><h3>D · Analyze</h3><span class="cnt">11 frames</span></div>
+      <p>Understanding. Reports' charts, the Insights hub (For You reel · Learn library · Plan), and Ask Vyact with voice.</p>
+      <div class="frames"><span>Reports</span><span>For You reel</span><span>Learn</span><span>Plan</span><span>Ask Vyact</span></div>
+      <span class="go">Open board →</span>
+    </a>
+    <a class="card" href="batch-e/Batch%20E%20%C2%B7%20Profile.html">
+      <span class="spine" style="background:var(--vy-info)"></span>
+      <div class="top"><h3>E · Profile &amp; first-run</h3><span class="cnt">10 frames</span></div>
+      <p>The edges. Grouped Settings, Households with roles + invite, Help, the guided Onboarding reveal, and Auth.</p>
+      <div class="frames"><span>Settings</span><span>Households</span><span>Help</span><span>Onboarding</span><span>Auth</span></div>
+      <span class="go">Open board →</span>
+    </a>
+    <a class="card" href="Vyact%20Revamp%20%C2%B7%20Inventory%20&amp;%20Plan.html" style="background:var(--vy-sunken); box-shadow:var(--vy-neu-inset);">
+      <div class="top"><h3>Inventory &amp; plan</h3><span class="cnt">Step 1</span></div>
+      <p>Where it started — the full production audit, the mobile 5-tab map, the forms doctrine, and the build order that produced boards A–E.</p>
+      <div class="frames"><span>Audit</span><span>IA map</span><span>Forms</span><span>Batches</span></div>
+      <span class="go">Open plan →</span>
+    </a>
+  </div>
+
+  <!-- FOUNDATIONS -->
+  <div class="sec-label"><span class="cap">Foundations &amp; references</span><span class="rule"></span></div>
+  <div class="row3">
+    <a class="mini" href="../Vyact%20Design%20System.html">
+      <div class="ic">◐</div>
+      <h3>Design system</h3>
+      <p>Tokens, type, elevation &amp; the component gallery with live micro-interactions.</p>
+    </a>
+    <a class="mini" href="../Vyact%20App%20v2%20%C2%B7%20Aurora.html">
+      <div class="ic">🖥</div>
+      <h3>Aurora app (v2)</h3>
+      <p>The interactive desktop shell — section tabs, ⌘K palette, live Dashboard.</p>
+    </a>
+    <a class="mini" href="../Vyact%20Mobile%20%C2%B7%20Aurora.html">
+      <div class="ic">📱</div>
+      <h3>Aurora mobile</h3>
+      <p>Full-bleed mobile screens in the Aurora palette with the bottom-tab UX.</p>
+    </a>
+  </div>
+
+  <div class="foot">
+    <span class="cap">Vyact · Aurora · Neumorphic Fluid</span>
+    <span class="cap">Handoff → design_handoff_vyact_aurora/</span>
+  </div>
+
+</div>
+</body>
+</html>

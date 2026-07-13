@@ -1,0 +1,72 @@
+/* Batch B — Track board styles (extends batch-a.css) */
+
+/* Track sub-tab bar */
+.strack { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.strack > .cap { font-size: 8.5px; color: var(--vy-accent); flex-shrink: 0; }
+.strack .srail { flex: 1; display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--vy-sunken); box-shadow: var(--vy-neu-inset); }
+.strack .srail .chip { height: 26px; font-size: 10.5px; padding: 0 8px; flex: 1; justify-content: center; box-shadow: none; background: transparent; }
+.strack .srail .chip.on { box-shadow: var(--vy-neu-sm); background: var(--vy-canvas); }
+
+/* month group header (sticky glass) */
+.mon-h { display: flex; align-items: center; gap: 9px; padding: 10px 14px; border-radius: 12px; background: var(--vy-glass); backdrop-filter: var(--vy-blur); -webkit-backdrop-filter: var(--vy-blur); border: 1px solid var(--vy-glass-line); font-family: var(--vy-heading); font-weight: 700; font-size: 13.5px; }
+.mon-h .n { font-family: var(--vy-mono); font-size: 10.5px; font-weight: 500; color: var(--vy-ink-3); }
+.mon-h .net { margin-left: auto; font-family: var(--vy-mono); font-size: 12px; font-weight: 700; }
+.mon-h .tog { color: var(--vy-ink-4); font-size: 11px; }
+
+/* calendar */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal .wd { text-align: center; font-family: var(--vy-mono); font-size: 8.5px; letter-spacing: .08em; color: var(--vy-ink-4); padding: 3px 0; }
+.cal .d { position: relative; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-family: var(--vy-mono); font-size: 12px; color: var(--vy-ink-2); }
+.cal .d.out { opacity: .3; }
+.cal .d.fut { color: var(--vy-ink-4); }
+.cal .d.sel { background: color-mix(in srgb, var(--vy-accent) 16%, var(--vy-canvas)); box-shadow: var(--vy-neu-inset), 0 0 0 1.5px var(--vy-accent); color: var(--vy-ink); font-weight: 700; }
+.cal .d .dots { position: absolute; bottom: 4px; display: flex; gap: 2.5px; }
+.cal .d .dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--vy-accent); }
+.cal .d .dots i.inc { background: var(--vy-good); }
+.cal .d .rec { position: absolute; top: 3px; right: 5px; font-size: 8px; color: var(--vy-ink-4); }
+.cal.mini .d { height: 30px; border-radius: 8px; font-size: 10.5px; }
+
+/* sentence builder */
+.sent { font-size: 16px; line-height: 2.45; color: var(--vy-ink-2); font-weight: 500; }
+.tok { display: inline-flex; align-items: center; gap: 6px; padding: 3px 13px; border-radius: 999px; background: var(--vy-sunken); box-shadow: var(--vy-neu-inset); font-family: var(--vy-heading); font-weight: 600; font-size: 14px; color: var(--vy-ink); white-space: nowrap; vertical-align: baseline; cursor: pointer; transition: box-shadow .15s, color .15s; }
+.tok:hover { color: var(--vy-accent); }
+.tok.on { box-shadow: var(--vy-neu-inset), 0 0 0 2px var(--vy-accent); color: var(--vy-accent); }
+.tok .car { font-size: 9px; color: var(--vy-ink-4); }
+
+/* day-of-month picker */
+.dgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.dgc { height: 38px; border-radius: 10px; background: var(--vy-canvas); box-shadow: var(--vy-neu-sm); display: flex; align-items: center; justify-content: center; font-family: var(--vy-mono); font-size: 12.5px; color: var(--vy-ink-2); cursor: pointer; transition: box-shadow .15s, color .15s; }
+.dgc:hover { color: var(--vy-ink); }
+.dgc.on { box-shadow: var(--vy-neu-inset), 0 0 0 1.5px var(--vy-accent); color: var(--vy-accent); font-weight: 700; background: color-mix(in srgb, var(--vy-accent) 10%, var(--vy-canvas)); }
+
+/* upcoming recurring card */
+.upcard { min-width: 148px; flex-shrink: 0; padding: 12px 14px; border-radius: 16px; background: var(--vy-canvas); box-shadow: var(--vy-neu); position: relative; overflow: hidden; }
+
+/* split participant line */
+.pline { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--vy-line); font-size: 13px; }
+.pline:last-child { border-bottom: none; }
+
+/* countdown + misc */
+.cd { font-family: var(--vy-mono); font-size: 10px; font-weight: 700; letter-spacing: .05em; padding: 3px 8px; border-radius: 7px; }
+.rec-glyph { font-size: 12px; color: var(--vy-ink-4); }
+
+/* extend stagger depth for longer lists */
+.m-body > *:nth-child(9)  { animation-delay: .49s; }
+.m-body > *:nth-child(10) { animation-delay: .56s; }
+.mon-h, .row, .upcard, .pline { animation: vy-rise .5s var(--vy-ease) backwards; }
+.row:nth-child(1) { animation-delay: .12s; }
+.row:nth-child(2), .pline:nth-child(3) { animation-delay: .2s; }
+.row:nth-child(3), .pline:nth-child(4) { animation-delay: .28s; }
+.row:nth-child(4), .pline:nth-child(5) { animation-delay: .36s; }
+.row:nth-child(5), .pline:nth-child(6) { animation-delay: .44s; }
+.row:nth-child(6) { animation-delay: .52s; }
+.pline:nth-child(2) { animation-delay: .12s; }
+.upcard:nth-child(1) { animation-delay: .1s; }
+.upcard:nth-child(2) { animation-delay: .22s; }
+.upcard:nth-child(3) { animation-delay: .34s; }
+
+.togbtn { width: 26px; height: 26px; border-radius: 50%; background: var(--vy-canvas); box-shadow: var(--vy-neu-sm); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: var(--vy-ink-2); flex-shrink: 0; cursor: pointer; transition: box-shadow .15s; }
+.togbtn:hover { box-shadow: var(--vy-neu-inset); }
+.hl { background: color-mix(in srgb, var(--vy-accent) 32%, transparent); border-radius: 3px; padding: 0 2px; }
+
+@media (prefers-reduced-motion: reduce) { .frame, .frame *, .frame *::before, .frame *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; } }

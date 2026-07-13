@@ -1,11 +1,14 @@
 // Aurora top app bar (v10, handoff §6.1) — replaces the left sidebar.
 // Sticky glass bar: 3px rail gradient, pip wordmark, sliding section pill
 // (Track · Plan · Analyze), Jump-to ⌘K search button, notifications, account.
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import Brand from './Brand';
 import AccountMenu from './AccountMenu';
 import NotificationCenter from './NotificationCenter';
+import HouseholdSheet from './HouseholdSheet';
+import { useStore } from '../../store';
 import { SECTIONS, sectionForPath } from './navModel';
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
@@ -54,6 +57,11 @@ export function SectionTabs() {
 }
 
 export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
+  const [hhOpen, setHhOpen] = useState(false);
+  const households = useStore(s => s.households);
+  const currentHouseholdId = useStore(s => s.currentHouseholdId);
+  const activeName = households.find(h => h.id === currentHouseholdId)?.name || 'Household';
+
   return (
     <header
       className="sticky top-0 z-50 border-b border-line"
@@ -82,10 +90,22 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
               {IS_MAC ? '⌘K' : 'Ctrl K'}
             </span>
           </button>
+          {/* Household chip — switches the DATA context (distinct from the
+              avatar/account menu). Opens the same pull-down as notifications. */}
+          <button
+            onClick={() => setHhOpen(true)}
+            aria-label={`Switch household — ${activeName}`}
+            className="hidden sm:flex items-center gap-1.5 h-10 pl-3 pr-2.5 rounded-pill border-none cursor-pointer text-ink-mid max-w-[160px]"
+            style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
+          >
+            <span className="font-display font-semibold text-[13px] text-ink truncate">{activeName}</span>
+            <ChevronDown size={14} className="flex-shrink-0" />
+          </button>
           <NotificationCenter />
           <AccountMenu />
         </div>
       </div>
+      <HouseholdSheet open={hhOpen} onClose={() => setHhOpen(false)} />
     </header>
   );
 }

@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Batch E · Profile — Aurora revamp</title>
+<link rel="stylesheet" href="../../vyact-tokens-v2.css" />
+<link rel="stylesheet" href="../batch-a/batch-a.css" />
+<link rel="stylesheet" href="batch-e.css" />
+</head>
+<body>
+
+<div class="board-label" style="left:40px; top:36px;">Batch E · Profile · Onboarding · Auth — Mobile · 390&ensp;·&ensp;click any frame to replay motion</div>
+<div class="board-label" style="left:40px; top:1072px;">Batch E — Desktop · 1440</div>
+
+<!-- ════════ M1 · SETTINGS (mobile) ════════ -->
+<section class="frame mobile" style="left:40px; top:90px;" data-screen-label="M1 Settings · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pge1" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pge1)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Account</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Settings</div>
+      </div>
+      <span class="cap" style="font-size:9px;">✕</span>
+    </div>
+
+    <div class="hh-card" style="margin-bottom:8px;">
+      <span class="avatar" style="width:46px; height:46px; font-size:16px;">MR</span>
+      <div style="flex:1; min-width:0;"><div class="head-f" style="font-weight:700; font-size:16px;">Maya Rowan</div><div class="cap" style="font-size:8.5px;">maya@rowan.co · Owner</div></div>
+      <span class="chev" style="color:var(--vy-ink-4);">›</span>
+    </div>
+
+    <div class="grp-cap">Preferences</div>
+    <div class="set-group">
+      <div class="set-row"><span class="ic">◐</span><span class="lbl">Appearance</span><span class="val">Dark</span><span class="chev">›</span></div>
+      <div class="set-row"><span class="ic">🌐</span><span class="lbl">Language &amp; currency</span><span class="val">EN · USD</span><span class="chev">›</span></div>
+      <div class="set-row"><span class="ic">⬇️</span><span class="lbl">Debt preferences</span><span class="val">Avalanche</span><span class="chev">›</span></div>
+    </div>
+
+    <div class="grp-cap">Data &amp; security</div>
+    <div class="set-group">
+      <div class="set-row"><span class="ic">☁️</span><span class="lbl">Sync &amp; backup</span><span class="val">JSON · CSV</span><span class="chev">›</span></div>
+      <div class="set-row"><span class="ic">🔑</span><span class="lbl">Password</span><span class="chev">›</span></div>
+      <div class="set-row"><span class="ic">🛡️</span><span class="lbl">Security</span><span class="val">2FA on</span><span class="chev">›</span></div>
+      <div class="set-row"><span class="ic">📊</span><span class="lbl">Account stats</span><span class="chev">›</span></div>
+    </div>
+
+    <div class="grp-cap">About</div>
+    <div class="set-group" style="margin-bottom:14px;">
+      <div class="set-row"><span class="ic">📄</span><span class="lbl">Legal &amp; policies</span><span class="chev">›</span></div>
+    </div>
+
+    <div class="set-group" style="box-shadow:var(--vy-neu-inset); background:var(--vy-sunken);">
+      <div class="set-row" style="background:transparent;"><span class="ic" style="background:var(--vy-crit-t); box-shadow:none; color:var(--vy-crit);">⚠</span><span class="lbl" style="color:var(--vy-crit);">Danger zone</span><span class="val">delete · reset</span><span class="chev">›</span></div>
+    </div>
+    <div style="text-align:center; padding:12px 0 4px;"><span class="cap" style="font-size:9px; color:var(--vy-crit);">Sign out</span></div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:40px; top:952px;"><b>M1 · Settings.</b> All ten production panels, reorganized into scannable grouped lists (iOS-style neu rows + values + chevrons) instead of ten stacked sections — each row opens a focused sub-view. Current values ride the right edge (Dark · EN·USD · Avalanche). The Danger zone is visually quarantined in an inset well at the bottom. Reached from the avatar menu, not a tab.</p>
+
+<!-- ════════ M2 · HOUSEHOLDS (mobile) ════════ -->
+<section class="frame mobile" style="left:490px; top:90px;" data-screen-label="M2 Households · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pge2" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pge2)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Account</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Households</div>
+      </div>
+      <span class="cap" style="font-size:9px;">✕</span>
+    </div>
+
+    <div class="grp-cap" style="margin-top:2px;">Switch household</div>
+    <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+      <div class="hh-card on">
+        <div class="avstack"><span class="avatar">MR</span><span class="avatar" style="background:#4A6FA5; color:#fff;">SR</span><span class="avatar" style="background:#6E4555; color:#fff;">JR</span></div>
+        <div style="flex:1; min-width:0;"><div class="head-f" style="font-weight:700; font-size:14.5px;">Rowan Family</div><div class="cap" style="font-size:8px;">3 members · active</div></div>
+        <span class="pill t-good" style="font-size:9.5px;">✓ current</span>
+      </div>
+      <div class="hh-card">
+        <div class="avstack"><span class="avatar">MR</span><span class="avatar" style="background:#C0803C; color:#fff;">DK</span></div>
+        <div style="flex:1; min-width:0;"><div class="head-f" style="font-weight:700; font-size:14.5px;">Side business</div><div class="cap" style="font-size:8px;">2 members · self-employed</div></div>
+        <span class="chev" style="color:var(--vy-ink-4);">›</span>
+      </div>
+      <div class="set-row" style="border:none; justify-content:center; color:var(--vy-accent); box-shadow:var(--vy-neu-sm); border-radius:var(--vy-r-2); background:var(--vy-canvas);"><span style="font-weight:600; font-size:13px;">＋ Create household</span></div>
+    </div>
+
+    <div class="grp-cap">Members · Rowan Family</div>
+    <div class="set-group" style="margin-bottom:14px;">
+      <div class="set-row"><span class="avatar">MR</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Maya Rowan</div><div class="cap" style="font-size:8px;">you</div></div><span class="role" style="background:var(--vy-accent); color:var(--vy-accent-ink);">Owner</span></div>
+      <div class="set-row"><span class="avatar" style="background:#4A6FA5; color:#fff;">SR</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Sam Rowan</div><div class="cap" style="font-size:8px;">joined Mar 2026</div></div><span class="role" style="background:var(--vy-info-t); color:var(--vy-info);">Admin ▾</span></div>
+      <div class="set-row"><span class="avatar" style="background:#6E4555; color:#fff;">JR</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">Jordan Rowan</div><div class="cap" style="font-size:8px;">joined May 2026</div></div><span class="role" style="background:var(--vy-sunken); color:var(--vy-ink-2); box-shadow:var(--vy-neu-inset);">Member ▾</span></div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-bottom:14px;">
+      <button class="btn" style="flex:1; height:44px;">＋ Invite</button>
+      <button class="btn neu-b" style="flex:1; height:44px;">Activity log</button>
+    </div>
+
+    <div class="grp-cap">Pending invitations · 1</div>
+    <div class="set-group">
+      <div class="set-row"><span class="ic">✉️</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13px;">alex@example.com</div><div class="cap" style="font-size:8px;">invited as Member · 2d ago</div></div><span class="cap" style="font-size:8.5px; color:var(--vy-crit);">Revoke</span></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:490px; top:952px;"><b>M2 · Households.</b> The switcher leads as cards with member-avatar stacks — the active one glows coral. Members list with role chips (tap to change, permission-aware: Owner locked, others ▾); templates show through (Side business = self-employed). Invite + Activity are primary actions; pending invitations sit below with Revoke. Danger-zone actions (rename, leave, delete with owner-transfer rule) live one level in.</p>
+
+<!-- ════════ M3 · INVITE HALF-SHEET (mobile) ════════ -->
+<section class="frame mobile" style="left:940px; top:90px;" data-screen-label="M3 Household invite sheet · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div style="padding:0 18px; opacity:.4;">
+    <div class="m-header" style="gap:8px;"><div style="flex:1;"><div class="head-f" style="font-weight:700; font-size:18px;">Households</div></div></div>
+    <div class="hh-card on"><div class="avstack"><span class="avatar">MR</span><span class="avatar" style="background:#4A6FA5; color:#fff;">SR</span></div><div style="flex:1;"><div class="head-f" style="font-weight:700; font-size:14.5px;">Rowan Family</div></div></div>
+  </div>
+  <div class="scrim"></div>
+  <div class="sheet-bottom" style="padding:0 20px 18px;">
+    <div class="grabber"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <span class="head-f" style="font-weight:700; font-size:17px;">Invite to Rowan Family</span>
+      <span class="cap" style="font-size:9px;">✕</span>
+    </div>
+    <div class="tri" style="margin-bottom:16px;">
+      <span class="chip on">By email</span><span class="chip">Share link</span>
+    </div>
+    <span class="field-label" style="margin-top:0;">Email</span>
+    <div class="field" style="margin-bottom:14px;"><span>✉️</span><span>alex@example.com</span><span class="caret" style="height:20px; margin-left:2px;"></span></div>
+    <span class="field-label" style="margin-top:0;">Role</span>
+    <div style="display:flex; gap:7px; flex-wrap:wrap; margin-bottom:8px;">
+      <span class="onb-chip" style="padding:8px 13px; font-size:11.5px;">Admin</span>
+      <span class="onb-chip on" style="padding:8px 13px; font-size:11.5px;">Member</span>
+      <span class="onb-chip" style="padding:8px 13px; font-size:11.5px;">Viewer</span>
+      <span class="onb-chip" style="padding:8px 13px; font-size:11.5px;">Child</span>
+    </div>
+    <div style="font-size:11px; color:var(--vy-ink-3); line-height:1.4; margin-bottom:18px;">Members can add and edit transactions, but can't manage budgets or people.</div>
+    <button class="btn" style="width:100%; height:50px; font-size:15.5px; border-radius:15px;">Send invite</button>
+    <div style="text-align:center; margin-top:10px;"><span class="cap" style="font-size:8.5px; color:var(--vy-ink-4);">They'll get a link that expires in 7 days</span></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:940px; top:952px;"><b>M3 · Invite.</b> Two taps, one sheet: email + a role chip, done. The role picker explains each permission inline so you're never guessing what "Member" can do. A "Share link" tab swaps to a labelled copy-link flow. No dropdowns, no separate pages.</p>
+<!-- @M3 -->
+<!-- ════════ M4 · HELP · FAQ (mobile) ════════ -->
+<section class="frame mobile" style="left:1390px; top:90px;" data-screen-label="M4 Help FAQ · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pge4" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pge4)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Account</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Help &amp; guide</div>
+      </div>
+      <span class="cap" style="font-size:9px;">✕</span>
+    </div>
+    <div class="field" style="min-height:42px; margin-bottom:10px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--vy-ink-4)"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg><span class="ph">Search help</span></div>
+    <div style="display:flex; align-items:center; gap:9px; padding:11px 13px; border-radius:12px; background:var(--vy-info-t); margin-bottom:16px;">
+      <span style="font-size:15px; color:var(--vy-info);">✦</span><span style="flex:1; font-size:12px; color:var(--vy-ink-2);">Can't find it? <b>Ask Vyact</b> — it knows your setup.</span><span class="chev" style="color:var(--vy-info);">›</span>
+    </div>
+    <div class="grp-cap" style="margin-top:0;">Getting started</div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div class="faq open">
+        <div class="q">How do budgets differ from goals?<span class="mk">＋</span></div>
+        <div class="a">Budgets cap spending in a category for a period; Vyact has no separate goals module — savings targets surface as insights that track progress automatically.</div>
+      </div>
+      <div class="faq"><div class="q">How do household roles work?<span class="mk">＋</span></div></div>
+      <div class="faq"><div class="q">Can I use more than one currency?<span class="mk">＋</span></div></div>
+      <div class="faq"><div class="q">How is my data backed up?<span class="mk">＋</span></div></div>
+      <div class="faq"><div class="q">What is the Family Pulse Score?<span class="mk">＋</span></div></div>
+    </div>
+    <div style="text-align:center; padding:16px 0 4px;"><span class="cap" style="font-size:9px;">Contact support →</span></div>
+  </div>
+  <nav class="m-tabbar">
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:1390px; top:952px;"><b>M4 · Help &amp; guide.</b> Searchable FAQ in soft accordions (one open, marker rotates on expand). Production content survives — budgets-vs-goals, roles, currency, backup, Pulse — but an "Ask Vyact" shortcut sits up top for anything the FAQ misses. Contact support closes it out.</p>
+
+<!-- ════════ M5 · ONBOARDING · SEGMENT (mobile) ════════ -->
+<section class="frame mobile" style="left:1840px; top:90px;" data-screen-label="M5 Onboarding segment · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div style="padding:16px 22px 24px; height:100%; display:flex; flex-direction:column;">
+    <div class="onb-rib" style="margin-bottom:22px;"><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i></div>
+    <div style="display:flex; align-items:center; gap:11px; margin-bottom:20px;">
+      <svg width="38" height="38" viewBox="0 0 36 36"><defs><radialGradient id="pge5" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pge5)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M13 22 Q 18 26, 23 22" stroke="#2A2522" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div class="glass" style="flex:1; padding:10px 14px; border-radius:14px; border-bottom-left-radius:4px;"><span style="font-size:13px; color:var(--vy-ink);">Who am I helping you look after?</span></div>
+    </div>
+    <div class="cap" style="font-size:9px; margin-bottom:12px;">Step 3 of 6 · this shapes your setup</div>
+    <div style="display:flex; flex-direction:column; gap:12px; flex:1;">
+      <div class="onb-card" style="text-align:left; display:flex; align-items:center; gap:14px; padding:16px;"><span class="em" style="font-size:26px;">🧍</span><div><div class="head-f" style="font-weight:700; font-size:15px;">Just me</div><div style="font-size:11.5px; color:var(--vy-ink-3);">Personal finances, solo</div></div></div>
+      <div class="onb-card on" style="text-align:left; display:flex; align-items:center; gap:14px; padding:16px;"><span class="em" style="font-size:26px;">👨‍👩‍👧</span><div><div class="head-f" style="font-weight:700; font-size:15px;">My household</div><div style="font-size:11.5px; color:var(--vy-ink-2);">Shared budgets, members &amp; splits</div></div><span class="pill t-acc" style="margin-left:auto; font-size:9.5px;">✓</span></div>
+      <div class="onb-card" style="text-align:left; display:flex; align-items:center; gap:14px; padding:16px;"><span class="em" style="font-size:26px;">💼</span><div><div class="head-f" style="font-weight:700; font-size:15px;">Me &amp; my business</div><div style="font-size:11.5px; color:var(--vy-ink-3);">Self-employed — separate books</div></div></div>
+    </div>
+    <button class="btn" style="width:100%; height:50px; font-size:15.5px; border-radius:15px; margin-top:16px;">Continue</button>
+    <div style="display:flex; justify-content:space-between; margin-top:12px;"><span class="cap" style="font-size:9px;">← Back</span><span class="cap" style="font-size:9px;">Skip · USD ▾</span></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1840px; top:952px;"><b>M5 · Onboarding · Segment.</b> pip guides each step from a speech bubble; the coral ribbon tracks progress (3 of 6). The segment choice drives which modules appear (household unlocks members + splits; self-employed focuses net worth + debts). Big tappable cards, no forms. Skip is available from step 2, currency sits in the footer. Seeds nothing into the ledger — just shapes the picture.</p>
+
+<!-- ════════ M6 · ONBOARDING · REVEAL (mobile) ════════ -->
+<section class="frame mobile" style="left:2290px; top:90px;" data-screen-label="M6 Onboarding reveal · mobile">
+  <div class="reel" style="background:radial-gradient(130% 90% at 50% 6%, #6E3B34 0%, #3A211C 44%, #1C1714 100%);">
+    <div style="padding:18px 22px 0; z-index:3;"><div class="onb-rib"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i></div></div>
+    <div class="rbody" style="justify-content:flex-start; padding-top:26px;">
+      <div style="font-size:40px; margin-bottom:8px;">🎉</div>
+      <div class="cap" style="color:rgba(255,255,255,.7); margin-bottom:8px;">Here's your starting picture</div>
+      <div style="font-size:15px; color:rgba(255,255,255,.9); font-weight:600; margin-bottom:20px;">Estimated — it sharpens as you go</div>
+      <div style="display:flex; gap:12px; width:100%; margin-bottom:14px;">
+        <div style="flex:1; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); border-radius:16px; padding:14px;"><div class="cap" style="color:rgba(255,255,255,.6); font-size:8px; margin-bottom:6px;">Monthly net</div><div class="num" style="font-size:24px; font-weight:700; color:#fff;" data-tick>+$2,400</div></div>
+        <div style="flex:1; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); border-radius:16px; padding:14px;"><div class="cap" style="color:rgba(255,255,255,.6); font-size:8px; margin-bottom:6px;">First Pulse</div><div class="num" style="font-size:24px; font-weight:700; color:#9CC6A6;" data-tick>68</div></div>
+      </div>
+      <div style="width:100%; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); border-radius:16px; padding:14px 16px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-size:12px; color:rgba(255,255,255,.75);">Picture confirmed</span><span class="num" style="font-size:12px; font-weight:700; color:#fff;">40%</span></div>
+        <div style="height:7px; border-radius:4px; background:rgba(255,255,255,.15); overflow:hidden;"><div style="width:40%; height:100%; border-radius:4px; background:linear-gradient(90deg, #F4B6A8, #E26D5C);"></div></div>
+        <div style="font-size:10.5px; color:rgba(255,255,255,.6); margin-top:8px;">21-day outlook: on track to keep <b style="color:#fff;">$2,400</b>. Confirm real numbers as they land.</div>
+      </div>
+    </div>
+    <div style="padding:0 24px 30px; z-index:4;">
+      <button class="btn" style="width:100%; height:50px; background:#fff; color:#3A211C;">Go to dashboard →</button>
+      <div style="text-align:center; margin-top:12px;"><span class="cap" style="color:rgba(255,255,255,.55); font-size:8.5px;">Suggested next: confirm your accounts</span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:2290px; top:952px;"><b>M6 · Onboarding · Reveal.</b> The payoff step — a warm pip-coral gradient, numbers ticking in (monthly net, first Pulse), and the honest "picture confirmed 40%" bar that reframes estimates as something you complete over 21 days. One celebratory burst, then a guided "Go to dashboard" with a suggested next step. Everything shown is estimated — the app never fabricates ledger entries.</p>
+
+<!-- ════════ M7 · AUTH · SIGN IN (mobile) ════════ -->
+<section class="frame mobile" style="left:2740px; top:90px;" data-screen-label="M7 Auth sign in · mobile">
+  <div class="amb" style="opacity:1;"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div style="padding:0 22px; height:calc(100% - 44px); display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <div class="auth-card" style="width:100%;">
+      <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:22px;">
+        <svg width="48" height="48" viewBox="0 0 36 36" style="margin-bottom:12px;"><defs><radialGradient id="pge7" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pge7)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M13 22 Q 18 26, 23 22" stroke="#2A2522" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+        <div class="head-f" style="font-weight:700; font-size:22px; letter-spacing:-.02em;">Welcome to Vy<span style="color:var(--vy-accent)">act</span></div>
+        <div class="cap" style="font-size:8.5px; margin-top:4px;">Your family finance OS</div>
+      </div>
+      <button class="auth-btn neu-b" style="background:var(--vy-canvas); color:var(--vy-ink); margin-bottom:16px;"><span style="font-size:15px;">G</span> Continue with Google</button>
+      <div class="auth-div">or</div>
+      <div class="field" style="margin-bottom:10px;"><span style="color:var(--vy-ink-4);">✉️</span><span class="ph">you@email.com</span></div>
+      <div class="field" style="margin-bottom:16px;"><span style="color:var(--vy-ink-4);">🔒</span><span class="ph">Password</span><span class="cap" style="margin-left:auto; font-size:8px; color:var(--vy-accent);">Forgot?</span></div>
+      <button class="auth-btn" style="background:var(--vy-accent); color:var(--vy-accent-ink);">Sign in</button>
+      <div style="text-align:center; margin-top:14px;"><span class="cap" style="font-size:8.5px; color:var(--vy-ink-3);">Prefer a magic link? ▾</span></div>
+    </div>
+    <div style="margin-top:20px;"><span class="cap" style="font-size:8.5px;">New here? <b style="color:var(--vy-accent)">Create an account</b></span></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:2740px; top:952px;"><b>M7 · Auth · Sign in.</b> One glass card floating on the aurora ambient — pip + wordmark up top. Google SSO leads as the calm path; email + password below in the whisper-input style (inset trough, coral focus). A magic-link toggle offers the even-calmer route, and forgot-password / create-account cross-links sit where expected. No app chrome — this is pre-login.</p>
+
+<!-- ════════ D1 · SETTINGS (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:1120px;" data-screen-label="D1 Settings · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pge8" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pge8)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span>Track</span><span>Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar" style="box-shadow:0 0 0 2px var(--vy-accent);">MR</span>
+  </header>
+  <div class="d-main" style="display:grid; grid-template-columns:220px 1fr; gap:26px; align-content:start;">
+    <div>
+      <div class="cap" style="font-size:9px; margin:0 4px 10px;">Settings</div>
+      <div style="display:flex; flex-direction:column; gap:3px;">
+        <div class="set-row" style="border:none; border-radius:10px; padding:10px 12px;"><span class="ic" style="width:26px; height:26px; font-size:13px;">👤</span><span class="lbl" style="font-size:12.5px;">Profile</span></div>
+        <div class="set-row" style="border:none; border-radius:10px; padding:10px 12px; background:var(--vy-canvas); box-shadow:var(--vy-neu-inset);"><span class="ic" style="width:26px; height:26px; font-size:13px;">◐</span><span class="lbl" style="font-size:12.5px; color:var(--vy-accent);">Appearance</span></div>
+        <div class="set-row" style="border:none; border-radius:10px; padding:10px 12px;"><span class="ic" style="width:26px; height:26px; font-size:13px;">🌐</span><span class="lbl" style="font-size:12.5px;">Language &amp; currency</span></div>
+        <div class="set-row" style="border:none; border-radius:10px; padding:10px 12px;"><span class="ic" style="width:26px; height:26px; font-size:13px;">⬇️</span><span class="lbl" style="font-size:12.5px;">Debt preferences</span></div>
+        <div class="set-row" style="border:none; border-radius:10px; padding:10px 12px;"><span class="ic" style="width:26px; height:26px; font-size:13px;">☁️</span><span class="lbl" style="font-size:12.5px;">Sync &amp; backup</span></div>
+        <div class="set-row" style="border:none; border-radius:10px; padding:10px 12px;"><span class="ic" style="width:26px; height:26px; font-size:13px;">🔐</span><span class="lbl" style="font-size:12.5px;">Security</span></div>
+        <div class="set-row" style="border:none; border-radius:10px; padding:10px 12px;"><span class="ic" style="width:26px; height:26px; font-size:13px; color:var(--vy-crit);">⚠</span><span class="lbl" style="font-size:12.5px; color:var(--vy-crit);">Danger zone</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="head-f" style="font-weight:700; font-size:22px; letter-spacing:-.01em; margin-bottom:4px;">Appearance</div>
+      <div style="font-size:13px; color:var(--vy-ink-3); margin-bottom:18px;">How Vyact looks on this device.</div>
+      <div class="cap" style="font-size:9px; margin-bottom:10px;">Theme</div>
+      <div style="display:flex; gap:14px; margin-bottom:24px; max-width:560px;">
+        <div class="theme-thumb" style="background:#EAE1D2;"><div class="bars"><i style="width:70%; background:#C3B59B;"></i><i style="width:50%; background:#D8CDB8;"></i><i style="width:60%; background:#E26D5C;"></i></div><div class="tn" style="color:#2A2522;">Paper-warm</div></div>
+        <div class="theme-thumb on" style="background:#0F181B;"><div class="bars"><i style="width:70%; background:#2A3B40;"></i><i style="width:50%; background:#1C2C33;"></i><i style="width:60%; background:#EC8474;"></i></div><div class="tn" style="color:#E6EFEC;">Dark</div></div>
+        <div class="theme-thumb" style="background:linear-gradient(135deg,#EAE1D2 50%,#0F181B 50%);"><div class="bars"><i style="width:70%; background:#8898A0;"></i><i style="width:50%; background:#A0968A;"></i><i style="width:60%; background:#E26D5C;"></i></div><div class="tn" style="color:#E6EFEC;">System</div></div>
+      </div>
+      <div class="cap" style="font-size:9px; margin-bottom:10px;">Language &amp; currency</div>
+      <div class="set-group" style="max-width:560px;">
+        <div class="set-row"><span class="ic">🌐</span><span class="lbl">Language</span><span class="val">English</span><span class="chev">›</span></div>
+        <div class="set-row"><span class="ic">💱</span><span class="lbl">Base currency</span><span class="val">USD $</span><span class="chev">›</span></div>
+        <div class="set-row"><span class="ic">⇄</span><span class="lbl">Exchange rates</span><span class="val">6 · editable</span><span class="chev">›</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:2048px; width:1440px;"><b>D1 · Settings desktop.</b> Two-pane: a left section rail (Appearance selected) beside the focused panel. Theme is three live preview thumbnails (Paper-warm · Dark · System) instead of a radio list; Language &amp; currency shows editable rate rows. Same grouped model as mobile, widened. Danger zone sits last in the rail, tinted terracotta.</p>
+
+<!-- @D1DONE -->
+<!-- ════════ D2 · HOUSEHOLDS (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:2140px;" data-screen-label="D2 Households · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pge9" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pge9)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span>Track</span><span>Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar" style="box-shadow:0 0 0 2px var(--vy-accent);">MR</span>
+  </header>
+  <div class="d-main" style="align-content:start;">
+    <div class="head-f" style="font-weight:700; font-size:22px; letter-spacing:-.01em; margin-bottom:16px;">Households</div>
+    <div style="display:flex; gap:14px; margin-bottom:24px;">
+      <div class="hh-card on" style="flex:1;"><div class="avstack"><span class="avatar">MR</span><span class="avatar" style="background:#4A6FA5; color:#fff;">SR</span><span class="avatar" style="background:#6E4555; color:#fff;">JR</span></div><div style="flex:1;"><div class="head-f" style="font-weight:700; font-size:15px;">Rowan Family</div><div class="cap" style="font-size:8px;">3 members · active</div></div><span class="pill t-good" style="font-size:9.5px;">✓ current</span></div>
+      <div class="hh-card" style="flex:1;"><div class="avstack"><span class="avatar">MR</span><span class="avatar" style="background:#C0803C; color:#fff;">DK</span></div><div style="flex:1;"><div class="head-f" style="font-weight:700; font-size:15px;">Side business</div><div class="cap" style="font-size:8px;">2 · self-employed</div></div><span class="chev" style="color:var(--vy-ink-4);">›</span></div>
+      <div class="hh-card" style="flex:.6; justify-content:center; color:var(--vy-accent); font-weight:600; font-size:13px;">＋ Create</div>
+    </div>
+    <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:20px;">
+      <div>
+        <div style="display:flex; align-items:center; margin-bottom:12px;"><span class="cap" style="font-size:9px;">Members · Rowan Family</span><button class="btn sm" style="margin-left:auto;">＋ Invite</button></div>
+        <div class="set-group">
+          <div class="set-row"><span class="avatar">MR</span><div style="flex:1;"><div style="font-weight:600; font-size:13px;">Maya Rowan</div><div class="cap" style="font-size:8px;">you · maya@rowan.co</div></div><span class="role" style="background:var(--vy-accent); color:var(--vy-accent-ink);">Owner</span></div>
+          <div class="set-row"><span class="avatar" style="background:#4A6FA5; color:#fff;">SR</span><div style="flex:1;"><div style="font-weight:600; font-size:13px;">Sam Rowan</div><div class="cap" style="font-size:8px;">joined Mar 2026</div></div><span class="role" style="background:var(--vy-info-t); color:var(--vy-info);">Admin ▾</span></div>
+          <div class="set-row"><span class="avatar" style="background:#6E4555; color:#fff;">JR</span><div style="flex:1;"><div style="font-weight:600; font-size:13px;">Jordan Rowan</div><div class="cap" style="font-size:8px;">joined May 2026</div></div><span class="role" style="background:var(--vy-sunken); color:var(--vy-ink-2); box-shadow:var(--vy-neu-inset);">Member ▾</span></div>
+        </div>
+        <div class="cap" style="font-size:9px; margin:16px 0 10px;">Pending · 1</div>
+        <div class="set-group"><div class="set-row"><span class="ic">✉️</span><div style="flex:1;"><div style="font-weight:600; font-size:13px;">alex@example.com</div><div class="cap" style="font-size:8px;">Member · 2d ago</div></div><span class="cap" style="font-size:8.5px; color:var(--vy-crit);">Revoke</span></div></div>
+      </div>
+      <div>
+        <div class="cap" style="font-size:9px; margin-bottom:12px;">Recent activity</div>
+        <div class="neu" style="padding:14px 16px; margin-bottom:16px;">
+          <div style="font-size:12px; color:var(--vy-ink-2); padding:6px 0; border-bottom:1px solid var(--vy-line);">Sam added a transaction · 2h</div>
+          <div style="font-size:12px; color:var(--vy-ink-2); padding:6px 0; border-bottom:1px solid var(--vy-line);">Maya edited July budget · 1d</div>
+          <div style="font-size:12px; color:var(--vy-ink-2); padding:6px 0;">Jordan joined · May 12</div>
+        </div>
+        <div class="set-group" style="box-shadow:var(--vy-neu-inset); background:var(--vy-sunken);">
+          <div class="set-row" style="background:transparent;"><span class="ic" style="background:var(--vy-crit-t); box-shadow:none; color:var(--vy-crit);">⚠</span><span class="lbl" style="color:var(--vy-crit); font-size:12.5px;">Rename · Leave · Delete</span><span class="chev">›</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:3068px; width:1440px;"><b>D2 · Households desktop.</b> Switcher cards across the top (active glows coral), members table with permission-aware role chips + Invite, pending invitations with Revoke, and the activity log beside them. Danger-zone actions (rename / leave / delete — with the sole-owner transfer rule) stay quarantined in an inset well.</p>
+
+<!-- @D2DONE -->
+<!-- ════════ D3 · AUTH (desktop split-hero) ════════ -->
+<section class="frame desktop" style="left:40px; top:3160px;" data-screen-label="D3 Auth · desktop">
+  <div style="position:absolute; inset:0; display:grid; grid-template-columns:1.1fr 1fr;">
+    <div style="position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; padding:0 70px; background:radial-gradient(120% 90% at 20% 10%, #6E3B34 0%, #3A211C 46%, #1C1714 100%);">
+      <svg width="56" height="56" viewBox="0 0 36 36" style="margin-bottom:26px;"><defs><radialGradient id="pgeA" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgeA)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M13 22 Q 18 26, 23 22" stroke="#2A2522" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div class="head-f" style="font-weight:700; font-size:44px; line-height:1.08; letter-spacing:-.02em; color:#fff; margin-bottom:16px;">The calm home<br/>for family money.</div>
+      <div style="font-size:15px; color:rgba(255,255,255,.7); max-width:400px; line-height:1.6;">Track together, plan ahead, and see where you stand — private by design, honest by default.</div>
+      <div style="display:flex; gap:10px; margin-top:28px;"><span class="pill" style="background:rgba(255,255,255,.12); color:#fff; font-size:11px;">🔒 On-device</span><span class="pill" style="background:rgba(255,255,255,.12); color:#fff; font-size:11px;">🏦 No bank login</span></div>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:center; background:var(--vy-canvas); position:relative;">
+      <div class="amb"></div>
+      <div style="position:relative; width:340px;">
+        <div class="head-f" style="font-weight:700; font-size:24px; letter-spacing:-.01em; margin-bottom:4px;">Welcome back</div>
+        <div style="font-size:13px; color:var(--vy-ink-3); margin-bottom:22px;">Sign in to Vyact</div>
+        <button class="auth-btn neu-b" style="background:var(--vy-canvas); color:var(--vy-ink); margin-bottom:16px;"><span style="font-size:15px;">G</span> Continue with Google</button>
+        <div class="auth-div">or</div>
+        <div class="field" style="margin-bottom:10px;"><span style="color:var(--vy-ink-4);">✉️</span><span class="ph">you@email.com</span></div>
+        <div class="field" style="margin-bottom:16px;"><span style="color:var(--vy-ink-4);">🔒</span><span class="ph">Password</span><span class="cap" style="margin-left:auto; font-size:8px; color:var(--vy-accent);">Forgot?</span></div>
+        <button class="auth-btn" style="background:var(--vy-accent); color:var(--vy-accent-ink);">Sign in</button>
+        <div style="text-align:center; margin-top:16px;"><span class="cap" style="font-size:8.5px; color:var(--vy-ink-3);">Prefer a magic link? · New here? <b style="color:var(--vy-accent)">Sign up</b></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:4088px; width:1440px;"><b>D3 · Auth desktop.</b> A split hero: pip and the promise on the warm ambient left, the sign-in card on the calm right. Same auth anatomy as mobile — Google SSO, whisper email/password, magic-link + sign-up cross-links — with the trust badges (on-device, no bank login) that carry through from onboarding. The one screen a new user sees first.</p>
+
+<script>
+(function () {
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function tick(el) {
+    var src = el.getAttribute('data-tick-src') || el.textContent;
+    el.setAttribute('data-tick-src', src);
+    var m = src.match(/^([^0-9]*)([\d,]+(?:\.\d+)?)(.*)$/);
+    if (!m) return;
+    var target = parseFloat(m[2].replace(/,/g, '')), dec = (m[2].split('.')[1] || '').length, t0 = null, dur = 1100;
+    function step(t) { if (!t0) t0 = t; var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = m[1] + (target * e).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3]; if (p < 1) requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  }
+  function run(scope) { (scope || document).querySelectorAll('[data-tick]').forEach(tick); }
+  if (!reduced) run(document);
+  document.querySelectorAll('.frame').forEach(function (f) {
+    f.addEventListener('click', function () { if (reduced) return; f.classList.add('noanim'); void f.offsetWidth; f.classList.remove('noanim'); run(f); });
+  });
+})();
+</script>
+</body>
+</html>

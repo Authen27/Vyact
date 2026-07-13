@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vyact Revamp · Step 1 — Inventory & Plan</title>
+<link rel="stylesheet" href="../vyact-tokens-v2.css" />
+<style>
+  [data-vy-theme="dark"]  { --vy-accent: #EC8474; --vy-accent-ink: #2A1712; }
+  [data-vy-theme="light"] { --vy-accent: #E26D5C; --vy-accent-ink: #2A1712; }
+  html, body { margin: 0; background: var(--vy-canvas); }
+  body { font-family: var(--vy-sans); color: var(--vy-ink); line-height: 1.6; font-size: 14.5px; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 56px 32px 120px; position: relative; }
+  .ambient { position: fixed; inset: 0; background: var(--vy-ambient); pointer-events: none; }
+  h1, h2, h3 { font-family: var(--vy-heading); letter-spacing: -0.01em; margin: 0; }
+  h1 { font-size: 42px; font-weight: 700; line-height: 1.1; }
+  h2 { font-size: 26px; font-weight: 700; margin: 0 0 6px; }
+  h3 { font-size: 16px; font-weight: 600; }
+  p { margin: 0; }
+  .cap { font-family: var(--vy-mono); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--vy-ink-3); }
+  .muted { color: var(--vy-ink-2); }
+  .sec { margin-top: 72px; }
+  .card { background: var(--vy-canvas); border-radius: var(--vy-r-3); box-shadow: var(--vy-neu); padding: 22px 24px; position: relative; overflow: hidden; }
+  .glass { background: var(--vy-glass); backdrop-filter: var(--vy-blur); -webkit-backdrop-filter: var(--vy-blur); border: 1px solid var(--vy-glass-line); box-shadow: var(--vy-cast-2); }
+  .spine { position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px; border-radius: 3px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; font-family: var(--vy-heading); }
+  .pill.good { background: var(--vy-good-t); color: var(--vy-good); }
+  .pill.warn { background: var(--vy-warn-t); color: var(--vy-warn); }
+  .pill.info { background: var(--vy-info-t); color: var(--vy-info); }
+  .pill.fore { background: var(--vy-fore-t); color: var(--vy-fore); }
+  .pill.accent { background: color-mix(in srgb, var(--vy-accent) 15%, transparent); color: var(--vy-accent); }
+  ul { margin: 8px 0 0; padding-left: 18px; }
+  li { margin-bottom: 5px; }
+  li::marker { color: var(--vy-ink-4); }
+  .screen { margin-bottom: 18px; }
+  .screen .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .cols { display: grid; grid-template-columns: 1.05fr 1.3fr; gap: 22px; margin-top: 12px; }
+  .cols .cap { display: block; margin-bottom: 6px; }
+  .keep { font-size: 13px; color: var(--vy-ink-2); }
+  .keep li { margin-bottom: 3px; }
+  .re li { margin-bottom: 6px; }
+  .re b { color: var(--vy-ink); }
+  .states { margin-top: 12px; display: flex; gap: 7px; flex-wrap: wrap; }
+  .states span { font-family: var(--vy-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 9px; border-radius: 7px; background: var(--vy-sunken); box-shadow: var(--vy-neu-inset); color: var(--vy-ink-3); }
+  .tag { font-family: var(--vy-mono); font-size: 10px; color: var(--vy-ink-4); }
+  .callout { border-radius: var(--vy-r-3); padding: 18px 20px; margin-top: 14px; }
+  .divider { height: 1px; background: var(--vy-line); margin: 48px 0; }
+  a { color: var(--vy-accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .tabrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .tab { flex: 1; min-width: 150px; background: var(--vy-canvas); box-shadow: var(--vy-neu); border-radius: var(--vy-r-2); padding: 14px 16px; }
+  .tab .cap { color: var(--vy-accent); }
+  .tab ul { padding-left: 15px; margin-top: 6px; font-size: 12.5px; color: var(--vy-ink-2); }
+  .tab li { margin-bottom: 2px; }
+  .batch { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--vy-line); }
+  .batch:last-child { border-bottom: none; }
+  .batch .num { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--vy-heading); font-weight: 700; font-size: 14px; background: var(--vy-canvas); box-shadow: var(--vy-neu-sm); color: var(--vy-accent); }
+  @media (max-width: 760px) { .cols, .grid2 { grid-template-columns: 1fr; } h1 { font-size: 32px; } .wrap { padding: 40px 18px 90px; } }
+</style>
+</head>
+<body>
+<div class="ambient"></div>
+<div class="wrap">
+
+  <header>
+    <div class="cap" style="margin-bottom:12px;">Vyact Revamp · Step 1 of 4 · Approval gate</div>
+    <h1>Production inventory<br />&amp; revamp plan</h1>
+    <p class="muted" style="max-width:640px; margin-top:14px; font-size:16px;">
+      Every screen in <b style="color:var(--vy-ink)">Authen27/Vyact</b> production (v9.9.3 line), what it shows, and how it maps to the
+      Aurora revamp — journeys, messaging, and information display. Nothing gets built until you approve this plan.
+    </p>
+  </header>
+
+  <!-- KEY FINDINGS -->
+  <section class="sec">
+    <div class="cap" style="margin-bottom:10px;">Findings that shape the plan</div>
+    <div class="grid2">
+      <div class="card"><span class="spine" style="background:var(--vy-good)"></span>
+        <h3>The Aurora shell is already in main</h3>
+        <p class="muted" style="font-size:13.5px; margin-top:6px;">Layout v10 ships TopBar + SubNav + ⌘K palette + a 5-tab mobile bar (Home / Track / Plan / Analyze / Profile) + Add FAB (tap = add txn, long-press = speed dial) + an Ask Vyact drawer. The revamp <b style="color:var(--vy-ink)">keeps this navigation model</b> and redesigns what's inside it — journeys stay familiar, every screen gets the full Aurora treatment.</p>
+      </div>
+      <div class="card"><span class="spine" style="background:var(--vy-warn)"></span>
+        <h3>No Goals module in production</h3>
+        <p class="muted" style="font-size:13.5px; margin-top:6px;">Goals exist only as data feeding the insights engine — “Goals are not a module.” The earlier mobile mockups' Goals tab won't be carried over; the real Plan section (Budgets · Debts · Net Worth · Accounts) takes its place.</p>
+      </div>
+      <div class="card"><span class="spine" style="background:var(--vy-info)"></span>
+        <h3>Modules flex by household type</h3>
+        <p class="muted" style="font-size:13.5px; margin-top:6px;">Templates gate navigation: <b style="color:var(--vy-ink)">Single</b> hides Members/Splits, <b style="color:var(--vy-ink)">Family</b> shows all, <b style="color:var(--vy-ink)">Self-employed</b> hides Splits and focuses Net Worth + Debts. Designs will show the Family (fullest) set.</p>
+      </div>
+      <div class="card"><span class="spine" style="background:var(--vy-fore)"></span>
+        <h3>Estimates are a first-class concept</h3>
+        <p class="muted" style="font-size:13.5px; margin-top:6px;">Onboarding seeds an <i>estimated</i> baseline that “converges to confirmed” over 21 days — EstimatedTag, confidence badges, “Picture confirmed %”. The revamp gives estimated vs confirmed a clear visual voice (dashed vs solid, honey tint).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- MOBILE IA -->
+  <section class="sec">
+    <h2>Mobile navigation — the 5-tab map</h2>
+    <p class="muted" style="max-width:640px;">Adopting the section model already shipped in main, refined. Every one of the 16 routes stays reachable: primary via tabs, secondary via the pill subnav inside each section, everything via ⌘K / search. The FABs survive: <b style="color:var(--vy-ink)">+ (Add)</b> and <b style="color:var(--vy-ink)">✦ Ask Vyact</b>.</p>
+    <div class="tabrow">
+      <div class="tab"><span class="cap">● Home</span><ul><li>Dashboard</li></ul></div>
+      <div class="tab"><span class="cap">⇄ Track</span><ul><li>Transactions</li><li>Splits</li><li>Recurring</li></ul></div>
+      <div class="tab"><span class="cap">◐ Plan</span><ul><li>Budgets</li><li>Debts</li><li>Net Worth</li><li>Accounts</li></ul></div>
+      <div class="tab"><span class="cap">✦ Analyze</span><ul><li>Insights (For You · Learn · Plan)</li><li>Reports</li></ul></div>
+      <div class="tab"><span class="cap">◍ Profile</span><ul><li>Settings</li><li>Households</li><li>Help</li></ul></div>
+    </div>
+  </section>
+
+  <!-- FORMS -->
+  <section class="sec">
+    <h2>Forms — the “half-screen, fewest taps” doctrine</h2>
+    <p class="muted" style="max-width:660px;">Your stated pain point. Every add/edit flow is rebuilt on one pattern: a <b style="color:var(--vy-ink)">bottom half-sheet</b> (mobile) / compact glass dialog (desktop) where tappable chips replace open boxes and dropdowns, smart defaults pre-fill everything, and the primary case commits in ≤3 taps.</p>
+    <div class="callout glass">
+      <div class="cap" style="color:var(--vy-accent); margin-bottom:8px;">The pattern, using Add Transaction</div>
+      <ul class="re" style="font-size:13.5px; color:var(--vy-ink-2);">
+        <li><b>Amount first.</b> Big mono amount field, auto-focused numeric pad. Type (Expense / Income / Transfer / Invest) is a segmented chip row — defaults to Expense.</li>
+        <li><b>Category = emoji chip grid</b>, your 8 most-used first (“recents learn you”), search for the rest. No dropdown.</li>
+        <li><b>Date & account are chips</b>: Today · Yesterday · 📅, and account chips with the default pre-selected. Description is optional, auto-suggested from category.</li>
+        <li><b>Everything else folds away</b> under “More” — note, member, currency, split, mark-recurring. The 90% case never sees it.</li>
+        <li><b>Commit &amp; celebrate</b>: one big Save, toast + tick; “Save & add another” for batch entry.</li>
+      </ul>
+      <p style="font-size:13px; margin-top:10px; color:var(--vy-ink-3);">Same doctrine applied to Add Budget (month chip + total + allocation chips w/ suggested amounts), Add Debt, Add Asset/Account (type-tile first, then 2–3 fields), and Recurring — which becomes a <b style="color:var(--vy-ink)">sentence builder</b>: “Repeat <u>monthly</u> on the <u>1st</u> · <u>auto-approve</u> · remind <u>3 days</u> before.”</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SCREEN INVENTORY -->
+  <section>
+    <div class="cap" style="margin-bottom:6px;">Screen-by-screen</div>
+    <h2 style="margin-bottom:18px;">17 surfaces · information parity guaranteed</h2>
+
+    <!-- Shell -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-accent)"></span>
+      <div class="head"><h3>0 · App shell — header, notifications, household switch</h3><span class="pill accent">Batch A · added on your review</span><span class="tag">TopBar.tsx · NotificationCenter.tsx</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Top bar: brand · section tabs · ⌘K jump · bell · account</li><li>Notifications: unread badge (9+), unread/read/dismissed, mark read, dismiss</li><li>Household: switch between households · create · role context</li><li>Theme control · sync-conflict banner</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Full-screen pull-down for notifications</b> — on both mobile and desktop the bell opens a glass sheet drawn from the top edge (no more cramped anchored panel): grouped <i>Today / Earlier</i>, unread coral dot rail, <b>inline decisions</b> on actionable rows (Approve pending recurring · Review budget alert · Dismiss), mark-all-read, link to notification settings. Empty state: “All caught up” + pip.</li><li><b>Household switcher gets the same pull-down</b>: tapping the household chip draws a top sheet of household cards (avatar stacks, active card glows coral) with create + manage — consistent gesture, both platforms.</li><li>Pull-down sheets dismiss by swipe-up, scrim tap, or Esc.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>all caught up</span><span>unread</span><span>actionable rows</span><span>household switch</span><span>create household</span></div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-accent)"></span>
+      <div class="head"><h3>1 · Dashboard</h3><span class="pill accent">Home</span><span class="tag">Dashboard.tsx</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Greeting · Add transaction</li><li>Cash Flow &amp; Net Worth heroes</li><li>Pulse score (4 components + advice)</li><li>Income / Expenses / Savings-rate metrics</li><li>Insight chips (deep-linking)</li><li>Budget progress · Recent transactions</li><li>Category donut · Debt overview</li><li>Starting-baseline band (estimated)</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Already proven</b> in the v2 prototype you approved — carried over 1:1, now with the estimated-baseline band designed in.</li><li>Mobile: heroes become swipeable full-bleed cards; pulse ring sits beside the greeting; number-tick animations.</li><li>Messaging: “You're on track this week — $220 under budget.”</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>skeleton</span><span>empty (new household)</span><span>baseline band</span></div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-good)"></span>
+      <div class="head"><h3>2 · Transactions</h3><span class="pill good">Track</span><span class="tag">Transactions.tsx · 27KB</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>4 types: income / expense / investment / transfer</li><li>Search (/) · type/category/month/member filters · saved views</li><li>Month accordion groups w/ net ± and counts, “load previous 3 months”</li><li>Expense calendar (tap a day; future days project recurring)</li><li>Deep-link context chips (budget / debt / month / range)</li><li>Result count + filtered net</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Filters become a chip rail + half-sheet</b> — one horizontal row of active chips; the popover's four dropdowns become tappable chip groups.</li><li><b>Month headers as sticky glass bars</b> with the net ticking in; rows get the neu icon-tile treatment with swipe-to-edit.</li><li><b>Calendar as a pull-down layer</b> under the search bar, heat-dotted by spend.</li><li>Messaging: “June ended +$1,240 ahead.”</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>skeleton</span><span>empty</span><span>no-match + clear</span><span>add/edit sheet</span><span>projected rows</span></div>
+    </div>
+
+    <!-- Splits -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-good)"></span>
+      <div class="head"><h3>3 · Splits</h3><span class="pill good">Track</span><span class="tag">Splits.tsx</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Owed to you / You owe totals + item counts</li><li>Split rows: participants, shares, paid state + date</li><li>Mark paid · Settle all · Track as debt (→ Debts + Net Worth)</li><li>Works for shared income too (polarity inverts)</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Who-owes-who hero</b>: one net figure with avatar chips (“Sam owes you $64”) instead of two plain cards.</li><li><b>One-tap settle</b> on each avatar row, spring-animated checkmark; “Settle all” celebrates.</li><li>Instruction banner becomes a one-line empty-state hint, not a permanent box.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>empty 🤝</span><span>partially settled</span><span>linked-debt</span></div>
+    </div>
+
+    <!-- Recurring -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-good)"></span>
+      <div class="head"><h3>4 · Recurring</h3><span class="pill good">Track</span><span class="tag">Recurring.tsx · RRULE</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Schedules: desc, freq, next due, auto/pending, amount ±</li><li>Full recurrence power: daily / weekly (weekday set) / monthly (day-of-month or nth-weekday) / annual · ends never/after-N</li><li>Reminder lead 1/3/7 days · auto-confirm</li><li>Owner attribution (member / household)</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>The flagship form fix.</b> The 12-field modal becomes a sentence builder in a half-sheet: “<i>Netflix · $15.49 · repeats monthly on the 3rd · auto-approved</i>” — each underlined word is a tap-to-edit chip.</li><li><b>Upcoming strip</b> on top: next 7 days of projected charges as cards (“Rent · in 3 days”).</li><li>List rows get countdown badges instead of raw dates.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>empty</span><span>sentence-builder sheet</span><span>pending-confirm</span></div>
+    </div>
+
+    <!-- Budgets -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-warn)"></span>
+      <div class="head"><h3>5 · Budgets</h3><span class="pill warn">Plan</span><span class="tag">Budgets.tsx · v9.1 allocations</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Budget containers: month / annual / custom, per-category allocations</li><li>Overall + per-category progress with 80% / 100% thresholds</li><li>Tap-through to pre-filtered transactions</li><li>“No budget for this month” nudge · role-based manage/view</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Current month leads</b> as a hero card with a big remaining figure + daily-pace line (“$38/day keeps you green”); other periods stack below.</li><li>Bars stay (scannable) but get inset-trough styling and honey/terra glow at thresholds.</li><li><b>Add Budget half-sheet</b>: month chip → total → category chips pre-filled from last-month spend.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>empty</span><span>nudge</span><span>view-only (member)</span><span>over-budget</span><span>add/edit sheet</span></div>
+    </div>
+
+    <!-- Debts -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-warn)"></span>
+      <div class="head"><h3>6 · Debts</h3><span class="pill warn">Plan</span><span class="tag">Debts.tsx</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Total debt · min monthly · DTI% strip</li><li>Direction tabs: all / owe / owed to me</li><li>Strategy sort (avalanche/snowball) + “pay this first” priority</li><li>Per-debt: balance, APR, % paid, min/interest/months grid, EMI breakdown</li><li>Record payment (pre-seeded txn) · payments drill-down</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Payoff journey viz</b>: the priority debt gets a progress ring + projected debt-free date; strategy toggles inline (“Avalanche saves you $340 in interest”).</li><li>Loss-is-information rule: balances in neutral ink, terracotta reserved for missed/critical.</li><li>Record Payment opens the same Add-Transaction half-sheet, pre-filled — one tap to confirm.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>empty 🏦</span><span>receivable view</span><span>EMI expanded</span><span>add/edit sheet</span></div>
+    </div>
+
+    <!-- Net Worth -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-warn)"></span>
+      <div class="head"><h3>7 · Net Worth</h3><span class="pill warn">Plan</span><span class="tag">NetWorth.tsx</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>NW hero = assets + owed-to-me − liabilities</li><li>4 ratios: liquidity, debt-to-asset, emergency cover, savings</li><li>Assets grouped by liquidity (liquid/short/long) w/ totals</li><li>Liabilities + receivables lists · multi-currency sub-values</li><li>Stale-balance warning (&gt;30d)</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>The equation becomes visual</b>: a stacked liquidity bar under the hero shows the shape of your money at a glance.</li><li>Ratios as four neu tiles with plain-language sublines (“6.2 months of expenses covered”).</li><li>Stale balances get an inline honey “update?” chip on the row, not a toast.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>empty</span><span>negative NW</span><span>stale-balance chip</span><span>add-asset sheet</span></div>
+    </div>
+
+    <!-- Accounts -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-warn)"></span>
+      <div class="head"><h3>8 · Accounts</h3><span class="pill warn">Plan</span><span class="tag">Accounts.tsx · Money Map</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Kinds: bank / cash / credit card / investment / loan</li><li>Computed balances · default-per-currency ★ · “est” confidence</li><li>Per-account ledger w/ running balance + reconcile log</li><li>Fix balance / update value (reconcile) · archive/restore</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Wallet of cards</b>: each account a small neu card with kind glyph + balance; tap opens the ledger as a bottom sheet.</li><li>Reconcile becomes “Balance check” — enter what your bank says, we absorb the drift; confirmation microcopy explains it.</li><li>Archived accounts in a collapsed dim group.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>empty</span><span>ledger sheet</span><span>reconcile</span><span>archived</span></div>
+    </div>
+
+    <!-- Reports -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-fore)"></span>
+      <div class="head"><h3>9 · Reports</h3><span class="pill fore">Analyze</span><span class="tag">Reports.tsx · 21KB</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Period lens: day / week / month / quarter / year</li><li>All-time income · expenses · net flow · avg net</li><li>Income-vs-expense trend · saved-vs-overspent bars</li><li>Category donut + needs-vs-wants · top categories</li><li>Period summary table · by-member &amp; by-account breakouts</li><li>Savings-rate explainer banner (deep-link)</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Charts get the Aurora voice</b>: draw-in area chart, spring bars, glass hover tooltips, ≤3 colors.</li><li><b>Tables become cards on mobile</b> — the period summary is a swipeable month-card strip; breakout tables become avatar/account rows with net badges.</li><li>Needs-vs-wants as a two-segment bar with a one-line verdict (“71% of spend was needs — solid”).</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>no data</span><span>savings banner</span><span>period switch</span></div>
+    </div>
+
+    <!-- Insights -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-fore)"></span>
+      <div class="head"><h3>10 · Insights hub</h3><span class="pill fore">Analyze</span><span class="tag">Insights.tsx · For You / Learn / Plan</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>For You: on-device insight feed → full-screen finite reel</li><li>Learn: evergreen library + lessons/updates</li><li>Plan: rules-based recommendations by domain &amp; severity, zero AI, action deep-links + disclaimer</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>The reel becomes the crown jewel</b> — full-bleed glass story cards with the big number ticking up, progress dots, swipe/tap advance. This is the “displayability” you loved, applied to real content.</li><li>Plan recommendations as severity-spined cards (terra/honey/denim) with one-tap actions.</li><li>Learn grid with soft category tiles.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>empty feed</span><span>reel</span><span>healthy (no recs)</span></div>
+    </div>
+
+    <!-- Ask Vyact -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-fore)"></span>
+      <div class="head"><h3>11 · Ask Vyact</h3><span class="pill fore">Analyze · FAB drawer</span><span class="tag">Chat.tsx</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Privacy-first banner (on-device)</li><li>Intent chips in 4 buckets (capture / inquire / plan / manage), 2-tap actions that seed real forms</li><li>Chat with streaming replies · voice input · proactive insight (1/session)</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Right glass drawer</b> (desktop) / full sheet (mobile) with pip in the header; soft neu bubbles.</li><li>Intent chips as the empty-state hero — grouped, tappable, learnable.</li><li>Mic gets a proper listening state (pulsing coral ring + live transcript).</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>empty + intents</span><span>thinking</span><span>listening</span><span>proactive card</span></div>
+    </div>
+
+    <!-- Households -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-info)"></span>
+      <div class="head"><h3>12 · Households</h3><span class="pill info">Profile</span><span class="tag">Households.tsx · 32KB</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Household list + switch · create</li><li>Members: roles (owner/admin/member/viewer/child), change role, remove, leave</li><li>Invitations: email or link, pending list, revoke</li><li>Activity log · danger zone (rename / leave / delete, owner-transfer rule)</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Household switcher as cards</b> with member-avatar stacks; active one glows coral.</li><li>Members as avatar rows with role chips (tap to change, permission-aware).</li><li><b>Invite half-sheet</b>: email + role chips, or copy-link with a label — 2 taps.</li><li>Danger zone folded behind a single calm disclosure.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>invite sheet</span><span>pending</span><span>activity</span><span>sole-owner guard</span></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-info)"></span>
+      <div class="head"><h3>13 · Settings</h3><span class="pill info">Profile</span><span class="tag">Settings.tsx · 39KB · 10 panels</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing (all 10 panels)</span>
+          <ul class="keep"><li>Profile · Appearance (3 themes) · Language &amp; currency (6 languages, editable rates)</li><li>Debt preferences (strategy + extra payment)</li><li>Sync &amp; backup (JSON/CSV export-import) · Password · Security</li><li>Account stats · Danger zone · Legal &amp; policies</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>Grouped settings list</b> (iOS-style sections with neu rows + chevrons) replacing ten stacked panels; each opens a focused sub-view / sheet.</li><li>Theme picker as three live thumbnails; currency + rates as a searchable sheet.</li><li>Danger zone visually quarantined at the bottom.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>sub-sheets</span><span>export/import</span><span>confirm dialogs</span></div>
+    </div>
+
+    <!-- Help -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-info)"></span>
+      <div class="head"><h3>14 · Help &amp; Guide</h3><span class="pill info">Profile</span><span class="tag">Help.tsx</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span><ul class="keep"><li>FAQ accordion (features, budgets, households, currency, backup…)</li><li>Contact support</li></ul></div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span><ul class="re"><li>Searchable FAQ with soft accordions; “Ask Vyact instead” shortcut chip up top.</li></ul></div>
+      </div>
+      <div class="states"><span>search</span><span>expanded</span></div>
+    </div>
+
+    <!-- Onboarding -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-accent)"></span>
+      <div class="head"><h3>15 · Onboarding</h3><span class="pill accent">First-run</span><span class="tag">Onboarding.tsx · 6 steps · ~2 min</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Welcome + trust cards (no bank connection · honest estimates)</li><li>Segment select (individual / household / smb → drives template)</li><li>Context chips + primary concern · snapshot (≤2 estimated inputs)</li><li>Forward model (income + fixed-cost chips → estimated budgets)</li><li>Reveal: position, first pulse, “picture confirmed 40%”, next step</li><li>Skip from step 2 · currency footer · progress bar</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>pip guides the flow</b> — the mascot reacts to each step; progress is a coral ribbon.</li><li>Chips already match our doctrine; inputs become the big-amount style.</li><li><b>The reveal celebrates</b>: numbers tick in, confetti restraint (one burst), then a guided “go to dashboard”.</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>6 steps</span><span>skip path</span><span>segment variants</span></div>
+    </div>
+
+    <!-- Auth -->
+    <div class="card screen"><span class="spine" style="background:var(--vy-accent)"></span>
+      <div class="head"><h3>16 · Auth</h3><span class="pill accent">Signed-out</span><span class="tag">SignIn · SignUp · Reset · AcceptInvite · Verified</span></div>
+      <div class="cols">
+        <div><span class="cap">Keeps showing</span>
+          <ul class="keep"><li>Google SSO primary · email + password · magic link toggle</li><li>Magic-sent state · forgot password · sign-up cross-links</li><li>Invite acceptance flow · verified confirmation</li></ul>
+        </div>
+        <div><span class="cap" style="color:var(--vy-accent)">Aurora revamp</span>
+          <ul class="re"><li><b>One glass card on the aurora ambient</b>, pip + wordmark; inputs in the whisper style (inset trough, coral focus glow).</li><li>Magic-link path visually equal to password (it's the calmer journey).</li></ul>
+        </div>
+      </div>
+      <div class="states"><span>error</span><span>magic sent</span><span>submitting</span></div>
+    </div>
+
+    <p class="muted" style="font-size:13px; margin-top:6px;">+ Legal pages (Privacy / Terms / Cookies) restyled with doc typography — content untouched. System pieces designed once, used everywhere: toasts, ⌘K palette, sync-conflict banner, install/update banners, estimated-tag, empty/skeleton/error patterns.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- BATCHES -->
+  <section>
+    <h2>Build order — five batches, five approvals</h2>
+    <p class="muted" style="max-width:640px; margin-bottom:10px;">Each batch ships as a design-canvas board (mobile + desktop frames side by side) for your yes / no / other. After all five, everything merges into one navigable prototype + the updated Claude Code handoff.</p>
+    <div class="card" style="padding: 10px 24px;">
+      <div class="batch"><div class="num">A</div><div><b>Foundation + Home.</b> Shell (tabs, subnav, FABs, ⌘K) · <b>notification pull-down + household-switch pull-down</b> · Dashboard mobile & desktop · <b>Add Transaction half-sheet</b> (the doctrine's flagship) · toast/empty/skeleton system.</div></div>
+      <div class="batch"><div class="num">B</div><div><b>Track.</b> Transactions (filters, calendar, month groups) · Splits · Recurring + sentence-builder form.</div></div>
+      <div class="batch"><div class="num">C</div><div><b>Plan.</b> Budgets · Debts · Net Worth · Accounts + their half-sheet forms.</div></div>
+      <div class="batch"><div class="num">D</div><div><b>Analyze.</b> Reports · Insights hub + For You reel · Ask Vyact drawer.</div></div>
+      <div class="batch"><div class="num">E</div><div><b>Profile + first-run.</b> Settings · Households · Help · Onboarding · Auth.</div></div>
+      <div class="batch"><div class="num">F</div><div><b>Merge + handoff.</b> One linked prototype (mobile + desktop) · updated redesign handoff MD for Claude Code.</div></div>
+    </div>
+  </section>
+
+  <!-- APPROVAL -->
+  <section class="sec">
+    <div class="callout glass" style="border-radius: var(--vy-r-4); padding: 26px 28px;">
+      <div class="cap" style="color:var(--vy-accent); margin-bottom:10px;">Approval gate · Step 1</div>
+      <h2 style="font-size:22px;">Approve this inventory &amp; plan?</h2>
+      <p class="muted" style="margin-top:8px; font-size:14px;">
+        <b style="color:var(--vy-ink)">Yes</b> — I start Batch A (shell + Dashboard + Add-Transaction sheet).&ensp;
+        <b style="color:var(--vy-ink)">No</b> — tell me what to change.&ensp;
+        <b style="color:var(--vy-ink)">Other</b> — adjust scope, batch order, or any screen's treatment.
+      </p>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.0.0`** (consumer)
+> **Current production version: `v10.1.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,69 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.1.0 — Aurora Batch A: notifications, household switch, amount-first entry, home polish *(2026-07-13)*
+
+First screen-level batch on top of the v10.0.0 Aurora shell. **All business logic, data
+models, routes, the money model, and the Family Pulse computation are unchanged** — this is
+presentation + interaction, plus one new synced entity (notifications). The Money-Model
+invariant + golden suites stay green (presentation-only; no figure moved).
+
+**Cross-device notifications (new synced entity):**
+- Notifications graduate from local-only to a **household-scoped Supabase entity**
+  (`notifications` table + RLS: read = member or `is_admin('roles')`, write = member;
+  `unique(household_id, dedupe_key)`; retention purge dismissed > 30 d / read > 90 d).
+  Migration `20260709120000_v101_notifications_sync.sql` (applied to prod).
+- `notifySlice` now generates locally, upserts to cloud (dedupe on `household_id,dedupe_key`),
+  fetches + purges on refresh, and falls back to per-household localStorage in local-only mode.
+  Read/dismiss/mark-all are optimistic then synced. Refresh is wired from data/recurring/
+  household-switch.
+
+**13-type notification model + full-screen sheet (A2/A3):**
+- `Notification` extended to the 13-type spec model (`priority` P1/P2, inline `actions`,
+  `deepLink`, `amountRef`, per-entity refs, `dedupeKey`). Six generators produce the types
+  whose source data already exists (recurring due/reminder/posted, budget threshold, income
+  landed, debt due, stale balance, invite, sync conflict, insight fresh); the detection-engine
+  types (trend, member activity, milestone) render but are producer-deferred.
+- New `NotificationSheet` — a full-width **pull-down** glass sheet (Today / Earlier groups,
+  P1 pinned first, inline per-type decision buttons that execute in place, mark-all-read,
+  "All caught up" + pip empty state). The bell (`NotificationCenter`) opens it and shows the
+  active-household unread count.
+
+**Household switch pull-down (A4):**
+- `HouseholdSheet` — a pull-down of household cards (active glows coral + accent ring),
+  "New household", and "Manage members & invites →". The TopBar household chip opens it;
+  switching reuses `switchHousehold`.
+
+**Amount-first Add-Transaction half-sheet (A5):**
+- `TransactionFormModal` presentation rebuilt on the forms-doctrine `HalfSheet`
+  (bottom sheet on mobile / centered glass dialog on desktop, single responsive panel):
+  amount-first with an in-sheet **numeric keypad**, **chips instead of dropdowns** for
+  type / category (recents-first) / date (Today·Yesterday·pick) / account / currency / member,
+  autosuggested description, an **"All details ▾"** disclosure, and **Save + "Save & add
+  another"**. **Reuses `upsertTransaction` and the transfer/investment swap matrix byte-for-byte**
+  — the money path is unchanged; only the presentation is new. `N` shortcut unchanged.
+
+**Home polish + system states (A6):**
+- Dashboard heroes restyled to neumorphism and made a **swipeable full-bleed carousel** on
+  mobile; Cash-Flow hero gains an inline **6-month net-flow sparkline**; a glanceable **Pulse
+  ring** sits beside the greeting; friendly empty states use the **pip** mascot.
+- Toasts gain an optional **action slot**; the Add-Transaction flow offers **Undo** on a
+  freshly-added plain expense/income (system-split rows — loan EMI / transfer / investment /
+  people-split — are intentionally excluded, since they create linked legs that must not be
+  one-tap-reversed).
+- Motion: sheet exits are opacity-only (avoids a transform-exit stall inside `AnimatePresence`);
+  the mobile grabber / desktop ✕ are real close controls.
+
+**Known tech debt (tracked, not shipped):** the Playwright e2e suite still targets the
+pre-Aurora DOM and was already substantially red on `main` after v10.0.0 (the FAB now collides
+with the legacy "+ Add Transaction" button; the e2e seed predates the v9.1 budget model). The
+redesigned form is proven in real Playwright for the core edit/delete flow, and the Page Object
++ component test hooks (`data-testid` on chips, correct keypad "Backspace" label, input
+`aria-label`s) are a down-payment. A full e2e migration to the Aurora DOM is deferred until the
+remaining redesign batches (B–E) ship. Non-Playwright gates are green: `tsc` 0, `eslint` 0,
+`vitest` 160/161 (the one failure is the pre-existing clock-dependent money snapshot, identical
+on a clean tree), `vite build` 0, money invariants unmoved.
 
 ## v10.0.0 — "Aurora" full interface redesign (desktop + mobile) *(2026-07-09)*
 

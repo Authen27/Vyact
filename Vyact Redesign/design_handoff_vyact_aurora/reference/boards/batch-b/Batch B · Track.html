@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Batch B · Track — Aurora revamp</title>
+<link rel="stylesheet" href="../../vyact-tokens-v2.css" />
+<link rel="stylesheet" href="../batch-a/batch-a.css" />
+<link rel="stylesheet" href="batch-b.css" />
+</head>
+<body>
+
+<div class="board-label" style="left:40px; top:36px;">Batch B · Track — Mobile · 390</div>
+<div class="board-label" style="left:40px; top:1072px;">Batch B · Track — Desktop · 1440</div>
+
+<!-- ════════ M1 · TRANSACTIONS (mobile) ════════ -->
+<section class="frame mobile" style="left:40px; top:90px;" data-screen-label="M1 Transactions · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36" role="button" aria-label="Home"><defs><radialGradient id="pgb1" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgb1)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Track</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Transactions</div>
+      </div>
+      <div class="hh-chip" style="padding:0 11px; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--vy-ink-3)"><path d="M4 11l8-7 8 7M6 10v9h12v-9"/></svg><span class="cap" style="font-size:9px;">Family</span></div>
+      <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="strack">
+      <span class="cap">Track ▸</span>
+      <div class="srail">
+        <span class="chip">Overview</span>
+        <span class="chip on" style="flex:1.35;">Transactions</span>
+        <span class="chip" style="flex:.9;">Splits</span>
+        <span class="chip" style="flex:1.15;">Recurring</span>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <div class="field" style="flex:1; min-height:42px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--vy-ink-4)"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg><span class="ph">Search — press /</span></div>
+      <span class="bell" style="width:42px; height:42px; border-radius:13px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+    </div>
+
+    <div style="display:flex; gap:6px; margin-bottom:12px; align-items:center;">
+      <div class="srail" style="flex:0 0 auto; display:inline-flex;">
+        <span class="chip on" style="flex:none; padding:0 12px;">All</span>
+        <span class="chip" style="flex:none; padding:0 12px;">Spend</span>
+        <span class="chip" style="flex:none; padding:0 12px;">In</span>
+      </div>
+      <span class="chip" style="height:30px; font-size:11px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M8 15v4"/></svg>Filters</span>
+      <span class="chip" style="height:30px; font-size:11px;">★ Views</span>
+    </div>
+
+    <div class="mon-h" style="margin-bottom:8px;"><span>July 2026</span><span class="n">23 txns</span><span class="net" style="color:var(--vy-good)">+$2,660</span><span class="togbtn">▾</span></div>
+    <div class="neu-sm" style="margin-bottom:10px;">
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Whole Foods</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Today</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$86.40</span></div>
+      <div class="row"><div class="cat-tile" style="background:#E8A87C26">☕</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Blue Bottle</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Dining · Today</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$6.25</span></div>
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">💼</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Salary — Acme Inc</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Income · Jul 1</div></div><span class="num" style="font-weight:700; font-size:13.5px; color:var(--vy-good)">+$8,600.00</span></div>
+      <div class="row" style="background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); border-radius:12px;"><div class="cat-tile" style="background:#4A6FA526">🚗</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Shell</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Transport · Yesterday · pressed</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$52.10</span></div>
+      <div class="row"><div class="cat-tile" style="background:#6E455526">🎬</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Netflix <span class="rec-glyph">↻</span></div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Entertainment · Jul 3</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$15.49</span></div>
+    </div>
+
+    <div class="mon-h" style="margin-bottom:10px;"><span>June 2026</span><span class="n">41 txns · tap to expand</span><span class="net" style="color:var(--vy-good)">+$1,180</span><span class="togbtn">▸</span></div>
+    <div style="text-align:center;"><span class="chip" style="height:32px; font-size:11px;">Load previous 3 months · 2 of 14</span></div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:40px; top:952px;"><b>M1 · Transactions.</b> Month accordion groups with glass sticky headers (count + net ticking in), type segmented rail + Filters/Views chips replacing the old popover, calendar one tap away. Shell row shows the pressed inset state; Netflix carries the ↻ recurring mark. Keyboard: <b>/</b> search · <b>n</b> new. The chevron button expands/collapses each month — June is collapsed; the search-active state is frame M7.</p>
+
+<!-- ════════ M2 · FILTER HALF-SHEET ════════ -->
+<section class="frame mobile" style="left:490px; top:90px;" data-screen-label="M2 Filter sheet · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div style="padding:0 18px; opacity:.45;">
+    <div class="mon-h" style="margin-bottom:8px;"><span>July 2026</span><span class="n">23 txns</span><span class="net" style="color:var(--vy-good)">+$2,660</span></div>
+    <div class="neu-sm"><div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1;"><div style="font-weight:600; font-size:13.5px;">Whole Foods</div></div><span class="num" style="font-size:13.5px;">−$86.40</span></div></div>
+  </div>
+  <div class="scrim"></div>
+  <div class="sheet-bottom" style="padding:0 20px 16px;">
+    <div class="grabber"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+      <span class="head-f" style="font-weight:700; font-size:17px;">Filters</span>
+      <span class="cap" style="font-size:9px;">✕ Close</span>
+    </div>
+    <span class="field-label">Saved views</span>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <span class="chip on" style="height:30px; font-size:11px;">★ Groceries watch</span>
+      <span class="chip" style="height:30px; font-size:11px;">★ Family dining</span>
+      <span class="chip" style="height:30px; font-size:11px;">＋ Save current</span>
+    </div>
+    <span class="field-label">Type</span>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <span class="chip on" style="height:30px; font-size:11px;">All</span>
+      <span class="chip" style="height:30px; font-size:11px;">Expense</span>
+      <span class="chip" style="height:30px; font-size:11px;">Income</span>
+      <span class="chip" style="height:30px; font-size:11px;">Invest</span>
+      <span class="chip" style="height:30px; font-size:11px;">Transfer</span>
+    </div>
+    <span class="field-label">Category</span>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <span class="chip cat" style="width:76px;"><span class="em">🛒</span>Groceries</span>
+      <span class="chip cat on" style="width:76px;"><span class="em">🍽️</span>Dining</span>
+      <span class="chip cat" style="width:76px;"><span class="em">🚗</span>Transport</span>
+      <span class="chip cat" style="width:76px;"><span class="em">🏠</span>Rent</span>
+      <span class="chip cat" style="width:76px;"><span class="em">⚡</span>Utilities</span>
+      <span class="chip cat" style="width:76px;"><span class="em">🎬</span>Fun</span>
+      <span class="chip cat" style="width:76px;"><span class="em">💊</span>Health</span>
+      <span class="chip cat" style="width:76px;"><span class="em">⌕</span>More</span>
+    </div>
+    <span class="field-label">Month</span>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <span class="chip on" style="height:30px; font-size:11px;">This month</span>
+      <span class="chip" style="height:30px; font-size:11px;">Last month</span>
+      <span class="chip" style="height:30px; font-size:11px;">Jun</span>
+      <span class="chip" style="height:30px; font-size:11px;">📅 Range</span>
+    </div>
+    <span class="field-label">Member</span>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;">
+      <span class="chip on" style="height:30px; font-size:11px;">All</span>
+      <span class="chip" style="height:30px; font-size:11px;">MR · You</span>
+      <span class="chip" style="height:30px; font-size:11px;">SR</span>
+      <span class="chip" style="height:30px; font-size:11px;">JR</span>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <span class="cap" style="font-size:9px;">Clear all</span>
+      <button class="btn" style="flex:1; height:46px;">Show 8 results · net −$187</button>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:490px; top:952px;"><b>M2 · Filters.</b> The four-dropdown popover becomes one half-sheet of tappable chip groups — type, category, month, member — plus saved views for one-tap re-filtering. The apply button previews the result count and net before you commit.</p>
+
+<!-- ════════ M3 · CALENDAR LAYER ════════ -->
+<section class="frame mobile" style="left:940px; top:90px;" data-screen-label="M3 Transactions calendar · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgb3" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgb3)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Track</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Transactions</div>
+      </div>
+      <span class="chip on" style="height:36px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</span>
+    </div>
+
+    <div class="neu" style="padding:14px 14px 10px; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <span class="cap" style="font-size:10px; color:var(--vy-ink-4);">‹</span>
+        <span class="head-f" style="font-weight:700; font-size:14px;">July 2026</span>
+        <span class="cap" style="font-size:10px; color:var(--vy-ink-4);">›</span>
+      </div>
+      <div class="cal">
+        <span class="wd">S</span><span class="wd">M</span><span class="wd">T</span><span class="wd">W</span><span class="wd">T</span><span class="wd">F</span><span class="wd">S</span>
+        <span class="d out">28</span><span class="d out">29</span><span class="d out">30</span>
+        <span class="d">1<span class="dots"><i class="inc"></i><i></i></span></span>
+        <span class="d">2</span><span class="d">3<span class="dots"><i></i></span></span><span class="d">4</span>
+        <span class="d">5<span class="dots"><i></i></span></span><span class="d">6<span class="dots"><i></i></span></span><span class="d">7<span class="dots"><i></i></span></span>
+        <span class="d sel">8<span class="dots"><i></i><i></i></span></span>
+        <span class="d fut">9</span><span class="d fut">10</span><span class="d fut">11</span>
+        <span class="d fut">12</span><span class="d fut">13<span class="rec">↻</span></span><span class="d fut">14</span><span class="d fut">15</span><span class="d fut">16</span><span class="d fut">17</span><span class="d fut">18</span>
+        <span class="d fut">19</span><span class="d fut">20<span class="rec">↻</span></span><span class="d fut">21</span><span class="d fut">22</span><span class="d fut">23</span><span class="d fut">24</span><span class="d fut">25</span>
+        <span class="d fut">26</span><span class="d fut">27<span class="rec">↻</span></span><span class="d fut">28</span><span class="d fut">29</span><span class="d fut">30</span><span class="d fut">31<span class="rec" style="color:var(--vy-good)">↻</span></span><span class="d out">1</span>
+      </div>
+      <div style="display:flex; gap:14px; padding:9px 4px 2px; font-size:10px; color:var(--vy-ink-3);">
+        <span><i style="display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--vy-accent); margin-right:5px;"></i>spend</span>
+        <span><i style="display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--vy-good); margin-right:5px;"></i>income</span>
+        <span>↻ projected recurring</span>
+      </div>
+    </div>
+
+    <div class="mon-h" style="margin-bottom:8px;"><span>Wed · Jul 8</span><span class="n">2 txns</span><span class="net">−$92.65</span></div>
+    <div class="neu-sm">
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Whole Foods</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · 9:12 am</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$86.40</span></div>
+      <div class="row"><div class="cat-tile" style="background:#E8A87C26">☕</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Blue Bottle</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Dining · 8:04 am</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$6.25</span></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:940px; top:952px;"><b>M3 · Calendar layer.</b> One tap from the list — heat dots show spend intensity, sage marks income days, and future days carry ↻ projected recurring (gym Mondays, salary on the 31st). Tapping a day filters the list below it; tapping a future day previews the projection.</p>
+
+<!-- ════════ M4 · SPLITS ════════ -->
+<section class="frame mobile" style="left:1390px; top:90px;" data-screen-label="M4 Splits · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgb4" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgb4)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Track</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Splits</div>
+      </div>
+      <span class="chip" style="height:36px; font-size:11.5px; color:var(--vy-accent);">＋ New split</span>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="strack">
+      <span class="cap">Track ▸</span>
+      <div class="srail">
+        <span class="chip">Overview</span>
+        <span class="chip" style="flex:1.35;">Transactions</span>
+        <span class="chip on" style="flex:.9;">Splits</span>
+        <span class="chip" style="flex:1.15;">Recurring</span>
+      </div>
+    </div>
+
+    <div class="hero" style="margin-bottom:8px;">
+      <span class="spine" style="background:var(--vy-good)"></span>
+      <div class="cap" style="margin-bottom:6px;">Net balance · 3 open splits</div>
+      <div class="big num" style="color:var(--vy-good)" data-tick>+$81</div>
+      <div style="font-size:12.5px; color:var(--vy-ink-3); margin-top:6px;">People owe you <b class="num" style="color:var(--vy-good)">$118</b> · you owe <b class="num" style="color:var(--vy-ink-2)">$37</b></div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">
+      <div class="mrow" style="padding:11px 14px;"><span class="avatar" style="background:#4A6FA5; color:#fff;">S</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Sam owes you</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Weekend cabin · Jul 5</div></div><span class="num" style="font-weight:700; color:var(--vy-good)">+$64</span><button class="btn sm">Settle</button></div>
+      <div class="mrow" style="padding:11px 14px;"><span class="avatar" style="background:#6E4555; color:#fff;">P</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Priya owes you</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">2 splits · latest Jul 5</div></div><span class="num" style="font-weight:700; color:var(--vy-good)">+$54</span><button class="btn sm">Settle</button></div>
+      <div class="mrow" style="padding:11px 14px;"><span class="avatar" style="background:#C0803C; color:#fff;">J</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">You owe Jordan</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries run · Jul 2</div></div><span class="num" style="font-weight:700;">−$37</span><button class="btn sm neu-b">Pay</button></div>
+    </div>
+
+    <div class="neu" style="padding:12px 16px 10px;">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:4px;">
+        <span class="head-f" style="font-weight:700; font-size:14.5px;">Weekend cabin</span>
+        <span class="num" style="font-size:10.5px; color:var(--vy-ink-3);">Jul 5 · 4 people · you paid</span>
+        <span class="num" style="margin-left:auto; font-weight:700;">$480</span>
+      </div>
+      <div class="pline"><span class="avatar">MR</span><span style="flex:1;">You <span style="color:var(--vy-ink-4)">· paid the bill</span></span><span class="num" style="color:var(--vy-ink-3)">$120</span><span class="pill t-good">✓ covered</span></div>
+      <div class="pline"><span class="avatar" style="background:#4A6FA5; color:#fff;">S</span><span style="flex:1;">Sam</span><span class="num">$120</span><button class="btn sm">Settle</button></div>
+      <div class="pline"><span class="avatar" style="background:#6E4555; color:#fff;">P</span><span style="flex:1;">Priya <span style="color:var(--vy-ink-4)">· paid Jul 6</span></span><span class="num" style="color:var(--vy-ink-3)">$120</span><span class="pill t-good">✓ paid</span></div>
+      <div class="pline"><span class="avatar" style="background:#C0803C; color:#fff;">D</span><span style="flex:1;">Dev</span><span class="num">$120</span><button class="btn sm">Settle</button></div>
+      <div style="display:flex; gap:10px; align-items:center; padding-top:11px;">
+        <button class="btn sm" style="height:34px;">Settle all</button>
+        <span class="cap" style="font-size:9px;">Track as debt →</span>
+        <span class="cap" style="font-size:9px; margin-left:auto; color:var(--vy-ink-4);">2 of 4 open</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:1390px; top:952px;"><b>M4 · Splits.</b> Who-owes-who leads: one net figure, then people rows with one-tap Settle (your own share = Pay, which opens the add-transaction sheet pre-seeded). The open split expands to participants with paid states, Settle all, and Track as debt — which links it into Debts &amp; Net Worth. Works for shared income too; polarity just inverts. <b>＋ New split</b> (header) opens Add Transaction with the Split toggle on; the post-action state of Track as debt is frame M8.</p>
+
+<!-- ════════ M5 · RECURRING ════════ -->
+<section class="frame mobile" style="left:1840px; top:90px;" data-screen-label="M5 Recurring · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgb5" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgb5)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Track</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Recurring</div>
+      </div>
+      <span class="chip" style="height:36px; font-size:11.5px; color:var(--vy-accent);">＋ New</span>
+      <span class="avatar">MR</span>
+    </div>
+
+    <div class="strack">
+      <span class="cap">Track ▸</span>
+      <div class="srail">
+        <span class="chip">Overview</span>
+        <span class="chip" style="flex:1.35;">Transactions</span>
+        <span class="chip" style="flex:.9;">Splits</span>
+        <span class="chip on" style="flex:1.15;">Recurring</span>
+      </div>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:2px 2px 8px;">Next 7 days</div>
+    <div style="display:flex; gap:10px; overflow:hidden; margin-bottom:14px;">
+      <div class="upcard" style="box-shadow:var(--vy-neu), 0 0 0 1.5px var(--vy-accent);">
+        <div style="display:flex; align-items:center; gap:7px; margin-bottom:6px;"><span style="font-size:15px;">🏠</span><span class="pill t-acc" style="font-size:9.5px;">needs approval</span></div>
+        <div style="font-weight:700; font-size:13.5px;">Rent</div>
+        <div class="num" style="font-size:15px; font-weight:700; margin:2px 0 8px;">−$2,100</div>
+        <div style="display:flex; align-items:center; gap:8px;"><span class="cd t-warn" style="background:var(--vy-warn-t); color:var(--vy-warn);">in 3d</span><button class="btn sm" style="height:28px;">Approve</button></div>
+      </div>
+      <div class="upcard">
+        <div style="display:flex; align-items:center; gap:7px; margin-bottom:6px;"><span style="font-size:15px;">🎬</span><span class="rec-glyph">↻ auto</span></div>
+        <div style="font-weight:700; font-size:13.5px;">Netflix</div>
+        <div class="num" style="font-size:15px; font-weight:700; margin:2px 0 8px;">−$15.49</div>
+        <span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-3); box-shadow:var(--vy-neu-inset);">in 5d</span>
+      </div>
+      <div class="upcard">
+        <div style="display:flex; align-items:center; gap:7px; margin-bottom:6px;"><span style="font-size:15px;">💼</span><span class="rec-glyph">↻ auto</span></div>
+        <div style="font-weight:700; font-size:13.5px;">Salary</div>
+        <div class="num" style="font-size:15px; font-weight:700; margin:2px 0 8px; color:var(--vy-good);">+$8,600</div>
+        <span class="cd" style="background:var(--vy-good-t); color:var(--vy-good);">Jul 31</span>
+      </div>
+    </div>
+
+    <div class="cap" style="font-size:9px; margin:0 2px 8px;">All schedules · 6</div>
+    <div class="neu-sm">
+      <div class="row" style="background:color-mix(in srgb, var(--vy-accent) 7%, transparent);"><div class="cat-tile" style="background:#C4453626">🏠</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Rent</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Monthly · 1st · remind 3d · approval</div></div><span class="cd" style="background:var(--vy-warn-t); color:var(--vy-warn);">in 3d</span><span class="num" style="font-weight:600; font-size:13px;">−$2,100</span></div>
+      <div class="row"><div class="cat-tile" style="background:#6E455526">🎬</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Netflix</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Monthly · 3rd · ↻ auto</div></div><span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-3); box-shadow:var(--vy-neu-inset);">in 5d</span><span class="num" style="font-weight:600; font-size:13px;">−$15.49</span></div>
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">🏋️</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Gym</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Weekly · Mon · ↻ auto</div></div><span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-3); box-shadow:var(--vy-neu-inset);">in 3d</span><span class="num" style="font-weight:600; font-size:13px;">−$24.00</span></div>
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">💼</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Salary — Acme Inc</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Monthly · last weekday · ↻ auto</div></div><span class="cd" style="background:var(--vy-good-t); color:var(--vy-good);">Jul 31</span><span class="num" style="font-weight:700; font-size:13px; color:var(--vy-good);">+$8,600</span></div>
+      <div class="row"><div class="cat-tile" style="background:#6B635C26">🛡️</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Car insurance</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Annual · Mar 12 · remind 7d</div></div><span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-4); box-shadow:var(--vy-neu-inset);">Mar '27</span><span class="num" style="font-weight:600; font-size:13px;">−$890</span></div>
+    </div>
+  </div>
+
+  <nav class="m-tabbar">
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:1840px; top:952px;"><b>M5 · Recurring.</b> The next 7 days lead as cards — pending approvals get the coral ring and an inline Approve (same action as the notification). Below, every schedule reads as a sentence summary with a countdown badge instead of a raw date. Salary lands sage; nothing here is red — attention is honey, action is coral. <b>＋ New</b> (header) opens the sentence builder (M6); ending or deleting a schedule is frame M9.</p>
+
+<!-- ════════ M6 · RECURRING SENTENCE BUILDER ════════ -->
+<section class="frame mobile" style="left:2290px; top:90px;" data-screen-label="M6 Recurring sentence builder · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="scrim"></div>
+  <div class="sheet-bottom" style="padding:0 20px 16px;">
+    <div class="grabber"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <span class="head-f" style="font-weight:700; font-size:17px;">New recurring</span>
+      <span class="cap" style="font-size:9px;">✕ Close</span>
+    </div>
+
+    <span class="field-label" style="margin-top:0;">Schedule — tap any word to edit</span>
+    <p class="sent" style="margin-top:0;">
+      <span class="tok">🎬 Netflix</span> costs <span class="tok">$15.49</span> every
+      <span class="tok">month <span class="car">▾</span></span> on the <span class="tok on">3rd <span class="car">▾</span></span>, starting <span class="tok">Aug 3</span>.
+    </p>
+    <span class="field-label">Options</span>
+    <p class="sent" style="margin-top:0;">
+      <span class="tok" style="color:var(--vy-good);">✓ auto-approve</span> · remind
+      <span class="tok">3 days <span class="car">▾</span></span> before · ends
+      <span class="tok">never <span class="car">▾</span></span> · for
+      <span class="tok">Household <span class="car">▾</span></span>
+    </p>
+
+    <div style="height:1px; background:var(--vy-line); margin:14px 0;"></div>
+
+    <span class="field-label" style="margin-top:0;">Repeats</span>
+    <div class="srail" style="margin-bottom:12px;">
+      <span class="chip">Daily</span>
+      <span class="chip">Weekly</span>
+      <span class="chip on">Monthly</span>
+      <span class="chip">Annual</span>
+    </div>
+
+    <span class="field-label" style="margin-top:0;">On day</span>
+    <div class="dgrid" style="margin-bottom:10px;">
+      <span class="dgc">1</span><span class="dgc">2</span><span class="dgc on">3</span><span class="dgc">4</span><span class="dgc">5</span><span class="dgc">6</span><span class="dgc">7</span>
+      <span class="dgc">8</span><span class="dgc">9</span><span class="dgc">10</span><span class="dgc">11</span><span class="dgc">12</span><span class="dgc">13</span><span class="dgc">…</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+      <span class="cap" style="font-size:9px; flex-shrink:0;">or</span>
+      <span class="chip" style="height:32px; font-size:11.5px;">first <span class="car">▾</span></span>
+      <span class="chip" style="height:32px; font-size:11.5px;">Monday <span class="car">▾</span></span>
+      <span style="font-size:11.5px; color:var(--vy-ink-3);">of the month</span>
+    </div>
+
+    <button class="btn" style="width:100%; height:50px; font-size:15.5px; border-radius:15px;">Create schedule</button>
+    <div style="text-align:center; margin-top:8px;"><span class="cap" style="font-size:8.5px; color:var(--vy-ink-4);">RRULE: FREQ=MONTHLY;BYMONTHDAY=3</span></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:2290px; top:952px;"><b>M6 · The sentence builder.</b> The 12-field recurring modal becomes one readable sentence — every underlined token is a tap-to-edit chip, and the editor below swaps to whatever token is active (here: monthly day picker, with the nth-weekday alternative). Weekday sets, ends-after-N, reminder lead, and owner are all still reachable — full RRULE parity with a fraction of the taps.</p>
+
+<!-- ════════ D1 · TRANSACTIONS (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:1120px;" data-screen-label="D1 Transactions · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgb7" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgb7)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs">
+      <span class="on">Track</span><span>Plan</span><span>Analyze</span>
+    </div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Track ▸</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Overview</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Transactions</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Splits</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Recurring</span>
+    <span style="margin-left:auto; display:flex; gap:10px; align-items:center; color:var(--vy-ink-4); font-size:11px;"><span class="kbd">n</span> new · <span class="kbd">/</span> search</span>
+  </div>
+  <div class="d-main" style="display:grid; grid-template-columns:1fr 350px; gap:24px; align-content:start;">
+    <div>
+      <div style="display:flex; align-items:center; gap:9px; margin-bottom:12px; flex-wrap:wrap;">
+        <span class="glass" style="display:inline-flex; align-items:center; gap:8px; padding:7px 13px; border-radius:999px; font-size:12px;"><span style="color:var(--vy-warn);">◐</span>Viewing: <b>Groceries · July budget</b><span style="color:var(--vy-ink-4);">✕</span></span>
+        <span class="chip on" style="height:30px; font-size:11px;">★ Groceries watch</span>
+        <span class="chip" style="height:30px; font-size:11px;">★ Family dining</span>
+        <span class="num" style="margin-left:auto; font-size:11.5px; color:var(--vy-ink-3);">8 results · 2 months · net <b>−$901</b></span>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <div class="field" style="flex:1; min-height:40px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--vy-ink-4)"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg><span class="ph">Search transactions — press /</span></div>
+        <div class="srail" style="display:inline-flex;">
+          <span class="chip on" style="flex:none; padding:0 14px;">All</span>
+          <span class="chip" style="flex:none; padding:0 14px;">Spend</span>
+          <span class="chip" style="flex:none; padding:0 14px;">In</span>
+        </div>
+        <span class="chip" style="height:34px; font-size:11.5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M8 15v4"/></svg>Filters · 2</span>
+      </div>
+
+      <div class="mon-h" style="margin-bottom:8px;"><span>July 2026</span><span class="n">5 txns</span><span class="net">−$412.00</span><span class="togbtn">▾</span></div>
+      <div class="neu-sm" style="margin-bottom:10px;">
+        <div class="row" style="background:var(--vy-hover);"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Whole Foods</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Today · Visa ··42 — hover</div></div><span class="cap" style="font-size:8.5px; margin-right:8px;">edit ↗</span><span class="num" style="font-weight:600; font-size:13.5px;">−$86.40</span></div>
+        <div class="row" style="background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); border-radius:12px;"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Trader Joe's</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Jul 6 · Amex ··05 — pressed</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$64.20</span></div>
+        <div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">FreshMart</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Jul 5 · Cash</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$38.90</span></div>
+        <div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Costco</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Jul 3 · Visa ··42</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$142.75</span></div>
+        <div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Whole Foods</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Jul 1 · Visa ··42</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$79.75</span></div>
+      </div>
+      <div class="mon-h" style="margin-bottom:12px;"><span>June 2026</span><span class="n">3 txns</span><span class="net">−$489.00</span><span class="togbtn">▸</span></div>
+      <div style="text-align:center;"><span class="chip" style="height:32px; font-size:11px;">Load previous 3 months · 2 of 14</span></div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div class="neu" style="padding:14px 14px 10px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <span class="cap" style="font-size:10px; color:var(--vy-ink-4);">‹</span>
+          <span class="head-f" style="font-weight:700; font-size:13px;">July 2026</span>
+          <span class="cap" style="font-size:10px; color:var(--vy-ink-4);">›</span>
+        </div>
+        <div class="cal mini">
+          <span class="wd">S</span><span class="wd">M</span><span class="wd">T</span><span class="wd">W</span><span class="wd">T</span><span class="wd">F</span><span class="wd">S</span>
+          <span class="d out">28</span><span class="d out">29</span><span class="d out">30</span><span class="d">1<span class="dots"><i class="inc"></i></span></span><span class="d">2</span><span class="d">3<span class="dots"><i></i></span></span><span class="d">4</span>
+          <span class="d">5<span class="dots"><i></i></span></span><span class="d">6<span class="dots"><i></i></span></span><span class="d">7<span class="dots"><i></i></span></span><span class="d sel">8</span><span class="d fut">9</span><span class="d fut">10</span><span class="d fut">11</span>
+          <span class="d fut">12</span><span class="d fut">13</span><span class="d fut">14</span><span class="d fut">15</span><span class="d fut">16</span><span class="d fut">17</span><span class="d fut">18</span>
+          <span class="d fut">19</span><span class="d fut">20</span><span class="d fut">21</span><span class="d fut">22</span><span class="d fut">23</span><span class="d fut">24</span><span class="d fut">25</span>
+          <span class="d fut">26</span><span class="d fut">27</span><span class="d fut">28</span><span class="d fut">29</span><span class="d fut">30</span><span class="d fut">31</span><span class="d out">1</span>
+        </div>
+      </div>
+      <div class="neu" style="padding:16px 18px;">
+        <div class="cap" style="font-size:9.5px; margin-bottom:10px;">July summary</div>
+        <div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;"><span style="color:var(--vy-ink-3);">In</span><b class="num" style="color:var(--vy-good)">$8,600</b></div>
+        <div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;"><span style="color:var(--vy-ink-3);">Out</span><b class="num" style="color:var(--vy-ink-2)">$5,940</b></div>
+        <div style="height:1px; background:var(--vy-line); margin:6px 0;"></div>
+        <div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;"><span style="color:var(--vy-ink-3);">Net</span><b class="num" style="color:var(--vy-good)" data-tick>+$2,660</b></div>
+      </div>
+      <div class="neu" style="padding:16px 18px;">
+        <div class="cap" style="font-size:9.5px; margin-bottom:10px;">Context · Groceries budget</div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:7px;"><span style="font-weight:600;">🛒 $690 of $750</span><span class="num" style="color:var(--vy-warn); font-weight:700;">92%</span></div>
+        <div class="trough"><i style="width:92%; background:var(--vy-warn);"></i></div>
+        <div style="font-size:11px; color:var(--vy-ink-3); margin-top:8px;">$60 left · $2.60/day keeps you inside — 23 days to go.</div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:2048px; width:1440px;"><b>D1 · Transactions desktop.</b> Deep-link context as a glass pill (arrived from the Budgets tap-through — dismiss ✕ to widen), saved views one tap away, hover + pressed row states demonstrated. The right rail keeps orientation: mini heat calendar, month summary, and — because context is a budget — that budget's live pace. Keyboard: n · /.</p>
+
+<!-- ════════ D2 · SPLITS (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:2140px;" data-screen-label="D2 Splits · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgb8" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgb8)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span class="on">Track</span><span>Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Track ▸</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Overview</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Transactions</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Splits</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Recurring</span>
+    <span class="chip" style="height:30px; font-size:11.5px; margin-left:auto; color:var(--vy-accent);">＋ New split</span>
+  </div>
+  <div class="d-main" style="display:grid; grid-template-columns:420px 1fr; gap:24px; align-content:start;">
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="hero">
+        <span class="spine" style="background:var(--vy-good)"></span>
+        <div class="cap" style="margin-bottom:6px;">Net balance · 3 open splits</div>
+        <div class="big num" style="color:var(--vy-good)" data-tick>+$81</div>
+        <div style="font-size:12.5px; color:var(--vy-ink-3); margin-top:6px;">People owe you <b class="num" style="color:var(--vy-good)">$118</b> · you owe <b class="num" style="color:var(--vy-ink-2)">$37</b></div>
+      </div>
+      <div class="mrow" style="padding:12px 14px;"><span class="avatar" style="background:#4A6FA5; color:#fff;">S</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Sam owes you</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Weekend cabin · Jul 5</div></div><span class="num" style="font-weight:700; color:var(--vy-good)">+$64</span><button class="btn sm">Settle</button></div>
+      <div class="mrow" style="padding:12px 14px;"><span class="avatar" style="background:#6E4555; color:#fff;">P</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Priya owes you</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">2 splits · latest Jul 5</div></div><span class="num" style="font-weight:700; color:var(--vy-good)">+$54</span><button class="btn sm">Settle</button></div>
+      <div class="mrow" style="padding:12px 14px;"><span class="avatar" style="background:#C0803C; color:#fff;">J</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">You owe Jordan</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries run · Jul 2</div></div><span class="num" style="font-weight:700;">−$37</span><button class="btn sm neu-b">Pay</button></div>
+      <div style="font-size:11.5px; color:var(--vy-ink-4); padding:0 4px;">Splits are created from the transaction form — flag “Split with someone” and shares are tracked here. Shared income inverts polarity automatically.</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="neu" style="padding:16px 18px;">
+        <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:6px;">
+          <span class="head-f" style="font-weight:700; font-size:15.5px;">Weekend cabin</span>
+          <span class="num" style="font-size:11px; color:var(--vy-ink-3);">Jul 5 · 4 people · you paid · Visa ··42</span>
+          <span class="num" style="margin-left:auto; font-weight:700; font-size:16px;">$480.00</span>
+        </div>
+        <div class="pline"><span class="avatar">MR</span><span style="flex:1;">You <span style="color:var(--vy-ink-4)">· paid the bill</span></span><span class="num" style="color:var(--vy-ink-3)">$120</span><span class="pill t-good">✓ covered</span></div>
+        <div class="pline"><span class="avatar" style="background:#4A6FA5; color:#fff;">S</span><span style="flex:1;">Sam <span style="color:var(--vy-ink-4)">· external 👥</span></span><span class="num">$120</span><button class="btn sm">Settle</button></div>
+        <div class="pline"><span class="avatar" style="background:#6E4555; color:#fff;">P</span><span style="flex:1;">Priya <span style="color:var(--vy-ink-4)">· paid Jul 6</span></span><span class="num" style="color:var(--vy-ink-3)">$120</span><span class="pill t-good">✓ paid</span></div>
+        <div class="pline"><span class="avatar" style="background:#C0803C; color:#fff;">D</span><span style="flex:1;">Dev <span style="color:var(--vy-ink-4)">· external 👥</span></span><span class="num">$120</span><button class="btn sm">Settle</button></div>
+        <div style="display:flex; gap:12px; align-items:center; padding-top:12px;">
+          <button class="btn sm" style="height:34px;">Settle all</button>
+          <span class="cap" style="font-size:9px;">Track as debt →</span>
+          <span class="cap" style="font-size:9px; margin-left:auto; color:var(--vy-ink-4);">2 of 4 shares open</span>
+        </div>
+      </div>
+      <div class="neu-sm">
+        <div class="row"><span class="avatar" style="background:#C0803C; color:#fff;">J</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Groceries run</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Jul 2 · 2 people · Jordan paid · linked to a debt</div></div><span class="num" style="font-weight:600;">−$37 your share</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+        <div class="row"><span class="avatar" style="background:#6E4555; color:#fff;">P</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Streaming bundle <span class="rec-glyph">↻</span></div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Monthly · 2 people · you paid</div></div><span class="num" style="font-weight:700; color:var(--vy-good);">+$11 owed</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:3068px; width:1440px;"><b>D2 · Splits desktop.</b> Left: the who-owes-who ledger — net figure plus per-person rows with one-tap Settle/Pay. Right: the open split expanded with participant states, Settle all, and Track as debt (links into Debts &amp; Net Worth via linkedDebtId); collapsed rows show the linked-debt caption and a recurring shared bill.</p>
+<!-- ════════ D3 · RECURRING (desktop) ════════ -->
+<section class="frame desktop" style="left:40px; top:3160px;" data-screen-label="D3 Recurring · desktop">
+  <div class="amb"></div>
+  <header class="d-topbar">
+    <span class="rail"></span>
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="26" height="26" viewBox="0 0 36 36"><defs><radialGradient id="pgb9" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgb9)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <span class="head-f" style="font-weight:700; font-size:17px;">Vy<span style="color:var(--vy-accent)">act</span></span>
+    </div>
+    <div class="d-tabs"><span class="on">Track</span><span>Plan</span><span>Analyze</span></div>
+    <span class="chip" style="height:40px; color:var(--vy-info); box-shadow:var(--vy-neu-sm);">✦ Ask Vyact</span>
+    <div class="jump"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg>Jump to…<span class="kbd">⌘K</span></div>
+    <div class="bell"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6zM10 20a2 2 0 004 0"/></svg><span class="dot">3</span></div>
+    <div class="hh-chip" style="padding:0 12px; gap:6px;"><span class="cap" style="font-size:9px;">Family</span></div><span class="avatar">MR</span>
+  </header>
+  <div class="d-subnav">
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">Track ▸</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Overview</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Transactions</span>
+    <span class="chip" style="height:30px; font-size:11.5px;">Splits</span>
+    <span class="chip on" style="height:30px; font-size:11.5px;">Recurring</span>
+    <span class="chip" style="height:30px; font-size:11.5px; margin-left:auto; color:var(--vy-accent);">＋ New schedule</span>
+  </div>
+  <div class="d-main" style="display:grid; grid-template-columns:1fr 520px; gap:24px; align-content:start;">
+    <div>
+      <div class="cap" style="font-size:9px; margin-bottom:8px;">Next 7 days</div>
+      <div style="display:flex; gap:10px; margin-bottom:16px;">
+        <div class="upcard" style="box-shadow:var(--vy-neu), 0 0 0 1.5px var(--vy-accent);">
+          <div style="display:flex; align-items:center; gap:7px; margin-bottom:6px;"><span style="font-size:15px;">🏠</span><span class="pill t-acc" style="font-size:9.5px;">needs approval</span></div>
+          <div style="font-weight:700; font-size:13.5px;">Rent</div>
+          <div class="num" style="font-size:15px; font-weight:700; margin:2px 0 8px;">−$2,100</div>
+          <div style="display:flex; align-items:center; gap:8px;"><span class="cd" style="background:var(--vy-warn-t); color:var(--vy-warn);">in 3d</span><button class="btn sm" style="height:28px;">Approve</button></div>
+        </div>
+        <div class="upcard">
+          <div style="display:flex; align-items:center; gap:7px; margin-bottom:6px;"><span style="font-size:15px;">🏋️</span><span class="rec-glyph">↻ auto</span></div>
+          <div style="font-weight:700; font-size:13.5px;">Gym</div>
+          <div class="num" style="font-size:15px; font-weight:700; margin:2px 0 8px;">−$24.00</div>
+          <span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-3); box-shadow:var(--vy-neu-inset);">Mon · in 3d</span>
+        </div>
+        <div class="upcard">
+          <div style="display:flex; align-items:center; gap:7px; margin-bottom:6px;"><span style="font-size:15px;">🎬</span><span class="rec-glyph">↻ auto</span></div>
+          <div style="font-weight:700; font-size:13.5px;">Netflix</div>
+          <div class="num" style="font-size:15px; font-weight:700; margin:2px 0 8px;">−$15.49</div>
+          <span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-3); box-shadow:var(--vy-neu-inset);">in 5d</span>
+        </div>
+      </div>
+      <div class="cap" style="font-size:9px; margin-bottom:8px;">All schedules · 6</div>
+      <div class="neu-sm">
+        <div class="row" style="background:color-mix(in srgb, var(--vy-accent) 7%, transparent);"><div class="cat-tile" style="background:#C4453626">🏠</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Rent</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Monthly · 1st · remind 3d · needs approval</div></div><span class="cd" style="background:var(--vy-warn-t); color:var(--vy-warn);">in 3d</span><span class="num" style="font-weight:600; font-size:13px;">−$2,100</span></div>
+        <div class="row"><div class="cat-tile" style="background:#6E455526">🎬</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Netflix</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Monthly · 3rd · ↻ auto</div></div><span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-3); box-shadow:var(--vy-neu-inset);">in 5d</span><span class="num" style="font-weight:600; font-size:13px;">−$15.49</span></div>
+        <div class="row"><div class="cat-tile" style="background:#85A88A26">🏋️</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Gym</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Weekly · Mon · ↻ auto</div></div><span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-3); box-shadow:var(--vy-neu-inset);">in 3d</span><span class="num" style="font-weight:600; font-size:13px;">−$24.00</span></div>
+        <div class="row"><div class="cat-tile" style="background:#85A88A26">💼</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Salary — Acme Inc</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Monthly · last weekday · ↻ auto</div></div><span class="cd" style="background:var(--vy-good-t); color:var(--vy-good);">Jul 31</span><span class="num" style="font-weight:700; font-size:13px; color:var(--vy-good);">+$8,600</span></div>
+        <div class="row"><div class="cat-tile" style="background:#6B635C26">🛡️</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Car insurance</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Annual · Mar 12 · remind 7d</div></div><span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-4); box-shadow:var(--vy-neu-inset);">Mar '27</span><span class="num" style="font-weight:600; font-size:13px;">−$890</span></div>
+        <div class="row"><div class="cat-tile" style="background:#F4D27A26">⚡</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Utilities</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Monthly · 15th · pending confirm</div></div><span class="cd" style="background:var(--vy-sunken); color:var(--vy-ink-3); box-shadow:var(--vy-neu-inset);">in 7d</span><span class="num" style="font-weight:600; font-size:13px;">−$180</span></div>
+      </div>
+    </div>
+
+    <div class="glass" style="border-radius:22px; padding:22px 24px; align-self:start;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <span class="head-f" style="font-weight:700; font-size:16px;">Edit schedule</span>
+        <span class="cap" style="font-size:9px;">✕ Esc</span>
+      </div>
+      <span class="field-label" style="margin-top:0;">Schedule — click any word to edit</span>
+      <p class="sent" style="margin-top:0;">
+        <span class="tok">🎬 Netflix</span> costs <span class="tok">$15.49</span> every
+        <span class="tok">month <span class="car">▾</span></span> on the <span class="tok on">3rd <span class="car">▾</span></span>, starting <span class="tok">Aug 3</span>.
+      </p>
+      <span class="field-label">Options</span>
+      <p class="sent" style="margin-top:0;">
+        <span class="tok" style="color:var(--vy-good);">✓ auto-approve</span> · remind
+        <span class="tok">3 days <span class="car">▾</span></span> before · ends
+        <span class="tok">never <span class="car">▾</span></span> · for
+        <span class="tok">Household <span class="car">▾</span></span>
+      </p>
+      <div style="height:1px; background:var(--vy-line); margin:12px 0;"></div>
+      <span class="field-label" style="margin-top:0;">Repeats</span>
+      <div class="srail" style="margin-bottom:12px;">
+        <span class="chip">Daily</span><span class="chip">Weekly</span><span class="chip on">Monthly</span><span class="chip">Annual</span>
+      </div>
+      <span class="field-label" style="margin-top:0;">On day</span>
+      <div class="dgrid" style="margin-bottom:10px;">
+        <span class="dgc">1</span><span class="dgc">2</span><span class="dgc on">3</span><span class="dgc">4</span><span class="dgc">5</span><span class="dgc">6</span><span class="dgc">7</span>
+        <span class="dgc">8</span><span class="dgc">9</span><span class="dgc">10</span><span class="dgc">11</span><span class="dgc">12</span><span class="dgc">13</span><span class="dgc">…</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+        <span class="cap" style="font-size:9px; flex-shrink:0;">or</span>
+        <span class="chip" style="height:32px; font-size:11.5px;">first <span class="car">▾</span></span>
+        <span class="chip" style="height:32px; font-size:11.5px;">Monday <span class="car">▾</span></span>
+        <span style="font-size:11.5px; color:var(--vy-ink-3);">of the month</span>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span class="cap" style="font-size:8.5px; color:var(--vy-ink-4);">RRULE: FREQ=MONTHLY;BYMONTHDAY=3</span>
+        <button class="btn" style="margin-left:auto; height:44px; padding:0 26px;">Save schedule</button>
+      </div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:4088px; width:1440px;"><b>D3 · Recurring desktop.</b> Upcoming week as cards with inline Approve (same action the notification offers), schedules as sentence summaries with countdown badges, and the sentence-builder as a glass dialog — identical anatomy to mobile, RRULE shown for engineering parity.</p>
+
+<!-- ════════ M7 · SEARCH ACTIVE ════════ -->
+<section class="frame mobile" style="left:2740px; top:90px;" data-screen-label="M7 Transactions search · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div style="display:flex; gap:10px; align-items:center; padding:12px 0 14px;">
+      <div class="field" style="flex:1; min-height:44px; box-shadow:var(--vy-neu-inset), 0 0 0 2px var(--vy-accent);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--vy-accent)"><path d="M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.6-3.6"/></svg><span>whole</span><span class="caret" style="height:18px; transform:none;"></span><span class="cap" style="margin-left:auto; font-size:9px; color:var(--vy-ink-4);">✕</span></div>
+      <span class="cap" style="font-size:9.5px; color:var(--vy-accent);">Cancel</span>
+    </div>
+    <div style="display:flex; gap:6px; margin-bottom:14px;">
+      <span class="cap" style="font-size:8.5px; align-self:center;">Recent</span>
+      <span class="chip" style="height:28px; font-size:10.5px;">groceries</span>
+      <span class="chip" style="height:28px; font-size:10.5px;">netflix</span>
+      <span class="chip" style="height:28px; font-size:10.5px;">sam</span>
+    </div>
+    <div class="num" style="font-size:11.5px; color:var(--vy-ink-3); margin-bottom:10px;">2 matches · net <b>−$166.15</b> · updates as you type</div>
+    <div class="mon-h" style="margin-bottom:8px;"><span>July 2026</span><span class="n">1 match</span><span class="net">−$86.40</span></div>
+    <div class="neu-sm" style="margin-bottom:12px;">
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;"><span class="hl">Whole</span> Foods</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Today · Visa ··42</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$86.40</span></div>
+    </div>
+    <div class="mon-h" style="margin-bottom:8px;"><span>June 2026</span><span class="n">1 match</span><span class="net">−$79.75</span></div>
+    <div class="neu-sm">
+      <div class="row"><div class="cat-tile" style="background:#85A88A26">🛒</div><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;"><span class="hl">Whole</span> Foods</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Groceries · Jun 24 · Visa ··42</div></div><span class="num" style="font-weight:600; font-size:13.5px;">−$79.75</span></div>
+    </div>
+    <div style="text-align:center; margin-top:14px;"><span class="cap" style="font-size:8.5px; color:var(--vy-ink-4);">Searching description · category · member · amount</span></div>
+  </div>
+  <nav class="m-tabbar">
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:2740px; top:952px;"><b>M7 · Search active.</b> Focused via the search trough or <b>/</b> — coral focus ring, live match count + filtered net, matches grouped by month with the term highlighted. Recent searches sit under the field; results update per keystroke across description, category, member, and amount.</p>
+
+<!-- ════════ M8 · TRACK AS DEBT — RESULT ════════ -->
+<section class="frame mobile" style="left:3190px; top:90px;" data-screen-label="M8 Track as debt result · mobile">
+  <div class="amb"></div>
+  <div class="m-status"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="m-body">
+    <div class="m-header" style="gap:8px;">
+      <svg width="30" height="30" viewBox="0 0 36 36"><defs><radialGradient id="pgb10" cx="50%" cy="40%" r="62%"><stop offset="0%" stop-color="#F4B6A8"/><stop offset="100%" stop-color="#E26D5C"/></radialGradient></defs><path d="M18 3 C 27 3, 33 9, 33 18 C 33 27, 27 33, 18 33 C 9 33, 3 27, 3 18 C 3 9, 9 3, 18 3 Z" fill="url(#pgb10)" stroke="#2A2522" stroke-width="1.2"/><ellipse cx="13" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><ellipse cx="23" cy="16" rx="1.4" ry="1.8" fill="#2A2522"/><path d="M14 22 Q 18 25, 22 22" stroke="#2A2522" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M18 3 Q 16 -1, 14 1 Q 17 3, 18 3 Z" fill="#85A88A" stroke="#2A2522" stroke-width=".8"/></svg>
+      <div style="flex:1; min-width:0;">
+        <div class="cap" style="font-size:8.5px;">Track</div>
+        <div class="head-f" style="font-weight:700; font-size:18px; letter-spacing:-.01em;">Splits</div>
+      </div>
+      <span class="chip" style="height:36px; font-size:11.5px; color:var(--vy-accent);">＋ New split</span>
+      <span class="avatar">MR</span>
+    </div>
+    <div class="strack">
+      <span class="cap">Track ▸</span>
+      <div class="srail">
+        <span class="chip">Overview</span>
+        <span class="chip" style="flex:1.35;">Transactions</span>
+        <span class="chip on" style="flex:.9;">Splits</span>
+        <span class="chip" style="flex:1.15;">Recurring</span>
+      </div>
+    </div>
+    <div class="hero" style="margin-bottom:10px;">
+      <span class="spine" style="background:var(--vy-good)"></span>
+      <div class="cap" style="margin-bottom:6px;">Net balance · 3 open splits</div>
+      <div class="big num" style="color:var(--vy-good)">+$81</div>
+      <div style="font-size:12.5px; color:var(--vy-ink-3); margin-top:6px;">People owe you <b class="num" style="color:var(--vy-good)">$118</b> · you owe <b class="num" style="color:var(--vy-ink-2)">$37</b></div>
+    </div>
+    <div class="neu-sm" style="margin-bottom:10px;">
+      <div class="row" style="background:color-mix(in srgb, var(--vy-info) 7%, transparent);"><span class="avatar" style="background:#4A6FA5; color:#fff;">S</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Weekend cabin</div><div class="num" style="font-size:10px; color:var(--vy-info)">⇄ linked to a debt · just now</div></div><span class="num" style="font-weight:700; color:var(--vy-good);">+$240 open</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+      <div class="row"><span class="avatar" style="background:#C0803C; color:#fff;">J</span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:13.5px;">Groceries run</div><div class="num" style="font-size:10px; color:var(--vy-ink-3)">Jul 2 · ⇄ linked to a debt</div></div><span class="num" style="font-weight:600;">−$37</span><span class="tog" style="color:var(--vy-ink-4);">▸</span></div>
+    </div>
+    <div style="font-size:11.5px; color:var(--vy-ink-4); padding:0 4px;">The new debt appears in <b style="color:var(--vy-ink-2);">Plan ▸ Debts</b> as “Owed to me”. Payments recorded there settle these shares automatically.</div>
+  </div>
+  <div class="toast" style="position:absolute; left:16px; right:16px; bottom:90px; z-index:35;">
+    <span style="color:var(--vy-info); font-size:16px;">⇄</span>
+    <div style="flex:1; min-width:0;"><b>Debt created</b> — Weekend cabin · <span class="num">$240</span> owed to you</div>
+    <span class="cap" style="font-size:9px; color:var(--vy-accent);">View</span>
+    <span class="cap" style="font-size:9px;">Undo</span>
+  </div>
+  <nav class="m-tabbar">
+    <span class="m-tab on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h13M16 4l4 4-4 4M17 16H4M8 12l-4 4 4 4"/></svg>Track</span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h15a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 8l2-3h10l2 3M16.5 13h1.5"/></svg>Plan</span>
+    <span class="m-tab add"><span class="add-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></span>
+    <span class="m-tab"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v14H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13M9 7h6"/></svg>Analyze</span>
+    <span class="m-tab" style="color:var(--vy-info);"><span style="font-size:17px; line-height:19px;">✦</span>Ask</span>
+  </nav>
+</section>
+<p class="frame-cap" style="left:3190px; top:952px;"><b>M8 · Track as debt — result.</b> Instant, no form: a receivable is created in Plan ▸ Debts for the open $240, the split row gains the ⇄ linked caption (denim = information), and the toast offers View / Undo. Recording payments on the debt settles these shares back here via the link.</p>
+
+<!-- ════════ M9 · END / DELETE SCHEDULE ════════ -->
+<section class="frame mobile" style="left:3640px; top:90px;" data-screen-label="M9 End schedule sheet · mobile">
+  <div class="amb"></div>
+  <div class="m-status" style="opacity:.4;"><span>9:41</span><span style="letter-spacing:2px; color:var(--vy-ink-3)">▮▮▮ ᯤ ▭</span></div>
+  <div class="scrim"></div>
+  <div class="sheet-bottom" style="padding:0 20px 16px;">
+    <div class="grabber"></div>
+    <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:2px;">
+      <span class="head-f" style="font-weight:700; font-size:17px;">End Netflix?</span>
+      <span class="num" style="font-size:10.5px; color:var(--vy-ink-3);">Monthly · $15.49 · next Jul 3</span>
+      <span class="cap" style="font-size:9px; margin-left:auto;">✕</span>
+    </div>
+    <span class="field-label">What should happen</span>
+    <div style="display:flex; flex-direction:column; gap:9px; margin-bottom:14px;">
+      <div class="mrow" style="box-shadow:var(--vy-neu-sm), 0 0 0 1.5px var(--vy-accent);"><span style="width:18px; height:18px; border-radius:50%; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i style="width:8px; height:8px; border-radius:50%; background:var(--vy-accent);"></i></span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:14px;">End going forward</div><div style="font-size:11px; color:var(--vy-ink-3);">No more charges after today — history stays</div></div></div>
+      <div class="mrow"><span style="width:18px; height:18px; border-radius:50%; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); flex-shrink:0;"></span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:14px;">Pause instead</div><div style="font-size:11px; color:var(--vy-ink-3);">Skips upcoming charges until you resume</div></div></div>
+      <div class="mrow"><span style="width:18px; height:18px; border-radius:50%; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); flex-shrink:0;"></span><div style="flex:1; min-width:0;"><div style="font-weight:600; font-size:14px; color:var(--vy-crit);">Delete everything</div><div style="font-size:11px; color:var(--vy-ink-3);">Removes the schedule and its 14 past transactions</div></div></div>
+    </div>
+    <button class="btn" style="width:100%; height:48px; font-size:15px; border-radius:14px;">End schedule</button>
+    <div style="text-align:center; margin-top:8px;"><span class="cap" style="font-size:8.5px; color:var(--vy-ink-4);">Undo available from the toast · past charges are never rewritten silently</span></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:3640px; top:952px;"><b>M9 · End / delete semantics.</b> Ending defaults to <b>going forward</b> — the schedule stops (RRULE UNTIL = today), history untouched. Pause skips without deleting; full deletion is explicit about what it removes and sits last. Cancelling a split follows the same pattern: future shares only, settled history stays.</p>
+
+<script>
+(function () {
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function tick(el) {
+    var src = el.getAttribute('data-tick-src') || el.textContent;
+    el.setAttribute('data-tick-src', src);
+    var m = src.match(/^([^0-9]*)([\d,]+(?:\.\d+)?)(.*)$/);
+    if (!m) return;
+    var target = parseFloat(m[2].replace(/,/g, ''));
+    var dec = (m[2].split('.')[1] || '').length;
+    var t0 = null, dur = 1100;
+    function step(t) {
+      if (!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = m[1] + (target * e).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3];
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function run(scope) { (scope || document).querySelectorAll('[data-tick]').forEach(tick); }
+  if (!reduced) run(document);
+  document.querySelectorAll('.frame').forEach(function (f) {
+    f.addEventListener('click', function () {
+      if (reduced) return;
+      f.classList.add('noanim');
+      void f.offsetWidth;
+      f.classList.remove('noanim');
+      run(f);
+    });
+  });
+})();
+</script>
+</body>
+</html>
