@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.1.0`** (consumer)
+> **Current production version: `v10.1.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,25 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.1.1 — Aurora Batch A shell chrome to board spec *(2026-07-13)*
+
+Follow-up patch that brings the app-shell **header and footer** to the Batch A board
+(`reference/boards/batch-a`, frames M1/M7/D1). v10.1.0 built inside the v10.0.0 shell but
+inherited its nav chrome; the board actually refines it. No logic/money/route changes.
+
+- **Mobile footer** is now the board's 5-slot tab bar: **Track · Plan · [ + ] · Analyze · ✦ Ask**
+  — the primary **+ Add sits dead-center** (opens the Add-Transaction sheet) and **✦ Ask** is the
+  far-right slot (opens the Ask drawer). "Home" moved to the header pip and "Profile" to the
+  header avatar, so they are no longer tabs.
+- **Desktop header** gains the **✦ Ask chip** and adopts the board order:
+  Jump-to ⌘K · ✦ Ask · bell · household · avatar.
+- The floating FABs are folded in: the **Ask** FAB is retired (now header chip + tab slot); the
+  **Add** FAB is **desktop-only** (mobile uses the center tab). Ask is now a store-owned drawer
+  (`askOpen`/`openAsk`/`closeAsk` in `modalSlice`) so both launchers open the same surface.
+
+Gates: `tsc` 0, `eslint` 0, `vitest` 160/161 (pre-existing clock snapshot), `vite build` 0,
+version-drift 0.
 
 ## v10.1.0 — Aurora Batch A: notifications, household switch, amount-first entry, home polish *(2026-07-13)*
 

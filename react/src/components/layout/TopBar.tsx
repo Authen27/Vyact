@@ -3,7 +3,7 @@
 // (Track · Plan · Analyze), Jump-to ⌘K search button, notifications, account.
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, ChevronDown } from 'lucide-react';
+import { Search, ChevronDown, Sparkles } from 'lucide-react';
 import Brand from './Brand';
 import AccountMenu from './AccountMenu';
 import NotificationCenter from './NotificationCenter';
@@ -60,6 +60,7 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
   const [hhOpen, setHhOpen] = useState(false);
   const households = useStore(s => s.households);
   const currentHouseholdId = useStore(s => s.currentHouseholdId);
+  const openAsk = useStore(s => s.openAsk);
   const activeName = households.find(h => h.id === currentHouseholdId)?.name || 'Household';
 
   return (
@@ -90,6 +91,18 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
               {IS_MAC ? '⌘K' : 'Ctrl K'}
             </span>
           </button>
+          {/* ✦ Ask chip (handoff §6.1 / Batch A board D1) — opens the Ask Vyact
+              drawer. Desktop only; on phones Ask is the far-right tab-bar slot. */}
+          <button
+            onClick={openAsk}
+            aria-label="Ask Vyact"
+            className="hidden sm:flex items-center gap-1.5 h-10 px-3.5 rounded-pill border-none cursor-pointer"
+            style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'hsl(var(--denim))' }}
+          >
+            <Sparkles size={15} />
+            <span className="font-display font-semibold text-[13px]">Ask</span>
+          </button>
+          <NotificationCenter />
           {/* Household chip — switches the DATA context (distinct from the
               avatar/account menu). Opens the same pull-down as notifications. */}
           <button
@@ -101,7 +114,6 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
             <span className="font-display font-semibold text-[13px] text-ink truncate">{activeName}</span>
             <ChevronDown size={14} className="flex-shrink-0" />
           </button>
-          <NotificationCenter />
           <AccountMenu />
         </div>
       </div>

@@ -88,7 +88,9 @@ export default function AddFab() {
   return (
     <div
       id="add-fab-root"
-      className="fixed right-4 z-50 flex flex-col items-end gap-2.5 transition-all duration-300"
+      /* Desktop-only: on phones the primary "+" is the dead-center tab-bar slot
+         (Batch A board M1). Desktop keeps the FAB for the add + speed-dial. */
+      className="fixed right-4 z-50 hidden sm:flex flex-col items-end gap-2.5 transition-all duration-300"
       style={{
         bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
       }}
