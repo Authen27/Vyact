@@ -41,15 +41,21 @@ export default function MobileTabBar() {
         {/* Plan */}
         <TabButton tab={SECTION_TABS[1]} on={section === 'plan'} onClick={() => navigate(SECTION_TABS[1].to)} className={tabCls} />
 
-        {/* + Add (dead center, primary) */}
+        {/* + Add (dead center, primary — board M1 .add-circle: 54px, lifted,
+            coral glow) */}
         <button
           type="button"
           onClick={() => openAddTxn()}
           aria-label="Add transaction"
-          className="flex items-center justify-center w-12 h-12 -mt-3 rounded-full bg-coral text-white shadow-2 border-[3px] active:scale-95 transition-transform"
-          style={{ borderColor: 'var(--glass-strong)' }}
+          className="flex items-center justify-center w-[54px] h-[54px] rounded-full border-none cursor-pointer transition-[filter] active:brightness-90"
+          style={{
+            background: 'var(--accent)',
+            color: 'var(--accent-ink)',
+            transform: 'translateY(-16px)',
+            boxShadow: '0 8px 22px color-mix(in srgb, var(--accent) 45%, transparent), var(--neu-sm)',
+          }}
         >
-          <Plus size={24} strokeWidth={2.4} />
+          <Plus size={26} strokeWidth={2.6} />
         </button>
 
         {/* Analyze */}

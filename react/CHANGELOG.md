@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.1.1`** (consumer)
+> **Current production version: `v10.1.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,28 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.1.2 — Aurora Batch A shell fixes (pull-down sheets, avatar, add-FAB) *(2026-07-14)*
+
+Bug-fix pass on the v10.1.0/v10.1.1 shell, from board review. Presentation only.
+
+- **Pull-down sheets rendered empty (notifications + household switch).** The
+  `PullDownSheet` body used `flex-1` (flex-basis:0) inside a content-sized,
+  `overflow-y-auto` panel, which collapsed it to ~0px and clipped ALL content —
+  the notification list/empty-state and the household cards were in the DOM but
+  invisible, so both sheets looked broken. Fixed: the body is now `min-h-0`
+  (sizes to content, scrolls only once the sheet hits its 92dvh cap) and the
+  sheet is top-aligned (`items-start`). Both sheets now show their content.
+- **Account avatar didn't match the theme.** It used the jade→indigo→violet
+  rail gradient; the board's `.avatar` is the pip-coral gradient. Swapped to
+  `linear-gradient(135deg,#F4B6A8,#E26D5C)` with dark accent-ink initials.
+- **Mobile "+" add wasn't prominent.** Brought to the board's `.add-circle`
+  spec: 54px (was 48), `translateY(-16px)` so it floats above the bar, coral
+  fill with a coral glow shadow, dark-ink glyph, no border.
+
+Gates: `tsc` 0, `eslint` 0, `vitest` 160/161 (pre-existing clock snapshot),
+`vite build` 0, money invariants unmoved. Verified in a real browser (both
+sheets open/close and render content; avatar + add-FAB geometry confirmed).
 
 ## v10.1.1 — Aurora Batch A shell chrome to board spec *(2026-07-13)*
 

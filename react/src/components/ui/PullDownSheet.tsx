@@ -32,7 +32,7 @@ export default function PullDownSheet({ open, onClose, ariaLabel, header, footer
       {open && (
         <motion.div
           key="scrim"
-          className="fixed inset-0 z-[200] flex justify-center"
+          className="fixed inset-0 z-[200] flex justify-center items-start"
           style={{ background: 'rgba(5,10,12,0.55)', backdropFilter: 'blur(3px)' }}
           onClick={e => { if (e.target === e.currentTarget) onClose(); }}
           variants={scrim} initial="hidden" animate="visible" exit="exit"
@@ -44,7 +44,10 @@ export default function PullDownSheet({ open, onClose, ariaLabel, header, footer
             variants={sheetDown} initial="hidden" animate="visible" exit="exit"
           >
             {header && <div className="px-5 sm:px-6 pt-[max(14px,env(safe-area-inset-top))] flex-shrink-0">{header}</div>}
-            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-2">{children}</div>
+            {/* min-h-0 (not flex-1): the body sizes to its content and only
+                scrolls once the sheet hits its 92dvh cap. flex-1 here collapses
+                to flex-basis:0 in a content-sized sheet and hides all content. */}
+            <div className="min-h-0 overflow-y-auto px-5 sm:px-6 py-2">{children}</div>
             {footer && <div className="px-5 sm:px-6 py-2 border-t border-line flex-shrink-0">{footer}</div>}
             <button onClick={onClose} aria-label="Close" className="w-11 h-[5px] rounded-full bg-ink-dim/55 mx-auto mb-2 mt-1 flex-shrink-0 border-none cursor-pointer p-0" />
           </motion.div>
