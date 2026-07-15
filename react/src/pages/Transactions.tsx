@@ -1,7 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import { popover } from '../lib/motion';
 import {
   CalendarDays, X, Search, SlidersHorizontal, RotateCcw, ChevronDown,
 } from 'lucide-react';
@@ -9,7 +7,9 @@ import { useStore } from '../store';
 import { useTranslation, useShortcuts } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
-import { Input, Select } from '../components/ui/Input';
+import { Input } from '../components/ui/Input';
+import HalfSheet from '../components/ui/HalfSheet';
+import Chip from '../components/ui/Chip';
 import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
@@ -65,7 +65,6 @@ export default function Transactions() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const filterPopoverRef = useRef<HTMLDivElement>(null);
 
   // `/` focuses the search box. The `n` add-transaction shortcut is now
   // registered app-wide in Layout (v7.4.4) so it works on every page.
@@ -85,24 +84,6 @@ export default function Transactions() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Esc closes the filter popover; click-outside dismisses it as well so it
-  // never traps the user on mobile.
-  useEffect(() => {
-    if (!showFilters) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowFilters(false); };
-    const onClick = (e: MouseEvent) => {
-      if (filterPopoverRef.current && !filterPopoverRef.current.contains(e.target as Node)) {
-        setShowFilters(false);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('mousedown', onClick);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('mousedown', onClick);
-    };
-  }, [showFilters]);
 
   const months = useMemo(
     () => [...new Set(txns.map(t => getMonthKey(t.date)))].sort().reverse(),
@@ -304,6 +285,20 @@ export default function Transactions() {
         </div>
       </div>
 
+      {/* Batch B — type chip-rail (board M1): the primary filter as neu chips
+          instead of a buried dropdown. */}
+      <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+        {([
+          { v: 'all', label: 'All' },
+          { v: 'expense', label: '💸 Expense' },
+          { v: 'income', label: '💰 Income' },
+          { v: 'transfer', label: '🔄 Transfer' },
+          { v: 'investment', label: '📈 Investment' },
+        ] as { v: TxnFilter; label: string }[]).map(o => (
+          <Chip key={o.v} on={type === o.v} onClick={() => setType(o.v)} className="flex-shrink-0">{o.label}</Chip>
+        ))}
+      </div>
+
       {/* v7.4.5 — Calendar toggle moved off the title row to stop it from
           overlapping the heading at narrow widths. Sits inline with the
           Saved Views controls so the whole filter-toolbox lives on one row. */}
@@ -389,83 +384,24 @@ export default function Transactions() {
                 </button>
               )}
             </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowFilters(v => !v)}
-                aria-expanded={showFilters}
-                aria-haspopup="dialog"
-                title="Filters"
-                className={`relative h-[38px] w-[38px] rounded-[9px] border flex items-center justify-center transition-colors ${
-                  showFilters || activeFilters.length > 0
-                    ? 'bg-coral-tint border-coral/40 text-coral'
-                    : 'bg-bg border-line text-ink-mid hover:bg-bg3 hover:text-ink'
-                }`}
-              >
-                <SlidersHorizontal size={15} />
-                {activeFilters.length > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-coral text-white text-[0.58rem] font-mono font-semibold flex items-center justify-center leading-none">
-                    {activeFilters.length}
-                  </span>
-                )}
-              </button>
-              <AnimatePresence>
-              {showFilters && (
-                <motion.div
-                  ref={filterPopoverRef}
-                  role="dialog"
-                  aria-label="Transaction filters"
-                  variants={popover} initial="hidden" animate="visible" exit="exit"
-                  style={{ transformOrigin: 'top right' }}
-                  className="absolute right-0 top-[44px] z-30 w-[min(92vw,22rem)] bg-bg2 border border-line rounded-xl shadow-3 p-3.5"
-                >
-                  <div className="flex items-center justify-between mb-2.5">
-                    <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-                      Filters
-                    </div>
-                    <button
-                      onClick={resetAllFilters}
-                      disabled={!hasFilters}
-                      className="flex items-center gap-1 text-[0.72rem] text-ink-mid hover:text-coral disabled:opacity-40 disabled:hover:text-ink-mid"
-                    >
-                      <RotateCcw size={12} /> Reset
-                    </button>
-                  </div>
-                  <div className="space-y-2.5">
-                    <Select value={type} onChange={e => setType(e.target.value as TxnFilter)} aria-label="Type">
-                      <option value="all">All Types</option>
-                      <option value="income">Income</option>
-                      <option value="expense">Expense</option>
-                      <option value="investment">Investment</option>
-                      <option value="transfer">Transfer</option>
-                    </Select>
-                    <Select value={cat} onChange={e => setCat(e.target.value)} aria-label="Category">
-                      <option value="all">All Categories</option>
-                      {ALL_CATEGORIES.map(c => (
-                        <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
-                      ))}
-                    </Select>
-                    <Select value={month} onChange={e => setMonth(e.target.value)} aria-label="Month">
-                      <option value="all">All Months</option>
-                      {months.map(mk => <option key={mk} value={mk}>{monthName(mk)}</option>)}
-                    </Select>
-                    <Select value={memberId} onChange={e => setMemberId(e.target.value)} aria-label="Member">
-                      <option value="all">All Members</option>
-                      {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </Select>
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      onClick={() => setShowFilters(false)}
-                      className="btn-primary py-1.5 px-3 text-[0.74rem]"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </motion.div>
+            <button
+              type="button"
+              onClick={() => setShowFilters(true)}
+              aria-haspopup="dialog"
+              title="Filters"
+              className={`relative h-[38px] w-[38px] rounded-[9px] border flex items-center justify-center transition-colors ${
+                activeFilters.length > 0
+                  ? 'bg-coral-tint border-coral/40 text-coral'
+                  : 'bg-bg border-line text-ink-mid hover:bg-bg3 hover:text-ink'
+              }`}
+            >
+              <SlidersHorizontal size={15} />
+              {activeFilters.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-coral text-white text-[0.58rem] font-mono font-semibold flex items-center justify-center leading-none">
+                  {activeFilters.length}
+                </span>
               )}
-              </AnimatePresence>
-            </div>
+            </button>
           </div>
 
           {/* Active filter chip row — lets users remove individual filters
@@ -535,7 +471,8 @@ export default function Transactions() {
                     onClick={() => toggleMonth(group.key)}
                     aria-expanded={!isCollapsed}
                     aria-controls={regionId}
-                    className="sticky top-0 z-10 w-full flex items-center gap-2.5 px-3 sm:px-4 py-2 bg-bg2/95 backdrop-blur-sm border-b border-line hover:bg-bg3 transition-colors text-left"
+                    className="sticky top-0 z-10 w-full flex items-center gap-2.5 px-3 sm:px-4 py-2.5 border-b border-line hover:brightness-105 transition-[filter] text-left"
+                    style={{ background: 'var(--glass)', backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)' }}
                   >
                     <ChevronDown
                       size={15}
@@ -582,6 +519,58 @@ export default function Transactions() {
           </div>
         )}
       </Panel>
+
+      {/* Batch B — filter half-sheet (board M2): chips instead of dropdowns,
+          Apply previews the live result count + net. */}
+      <HalfSheet open={showFilters} onClose={() => setShowFilters(false)} title="Filters"
+        footer={
+          <div className="flex items-center gap-2">
+            <button onClick={resetAllFilters} disabled={!hasFilters} className="btn-secondary flex-shrink-0 disabled:opacity-40">Reset</button>
+            <button onClick={() => setShowFilters(false)} className="btn-primary flex-1">
+              Show {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
+              {(type === 'all' || type === 'income' || type === 'expense') ? ` · ${filteredNet >= 0 ? '+' : ''}${fmt(filteredNet, profile.baseCurrency)}` : ''}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <div className="mono-label mb-1.5">Type</div>
+            <div className="flex gap-1.5 flex-wrap">
+              {([['all','All'],['expense','Expense'],['income','Income'],['transfer','Transfer'],['investment','Investment']] as [TxnFilter,string][]).map(([v,l]) => (
+                <Chip key={v} on={type === v} onClick={() => setType(v)}>{l}</Chip>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="mono-label mb-1.5">Category</div>
+            <div className="flex gap-1.5 flex-wrap max-h-[168px] overflow-y-auto">
+              <Chip on={cat === 'all'} onClick={() => setCat('all')}>All</Chip>
+              {ALL_CATEGORIES.map(c => (
+                <Chip key={c.id} on={cat === c.id} onClick={() => setCat(c.id)}>{c.icon} {c.label}</Chip>
+              ))}
+            </div>
+          </div>
+          {months.length > 0 && (
+            <div>
+              <div className="mono-label mb-1.5">Month</div>
+              <div className="flex gap-1.5 flex-wrap">
+                <Chip on={month === 'all'} onClick={() => setMonth('all')}>All</Chip>
+                {months.map(mk => <Chip key={mk} on={month === mk} onClick={() => setMonth(mk)}>{monthName(mk)}</Chip>)}
+              </div>
+            </div>
+          )}
+          {members.length > 0 && (
+            <div>
+              <div className="mono-label mb-1.5">Member</div>
+              <div className="flex gap-1.5 flex-wrap">
+                <Chip on={memberId === 'all'} onClick={() => setMemberId('all')}>All</Chip>
+                {members.map(m => <Chip key={m.id} on={memberId === m.id} onClick={() => setMemberId(m.id)}>{m.name}</Chip>)}
+              </div>
+            </div>
+          )}
+        </div>
+      </HalfSheet>
     </div>
   );
 }

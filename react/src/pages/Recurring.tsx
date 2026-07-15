@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Repeat, Trash2, Pencil } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
@@ -7,7 +7,7 @@ import Button from '../components/ui/Button';
 import Money from '../components/ui/Money';
 import { Input, Select, Field, FieldRow } from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
-import { formatDate } from '../lib/format';
+import { formatDate, today } from '../lib/format';
 import { getCat, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import { computeNextDueDate } from '../lib/recurring';
@@ -25,6 +25,9 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 function todayWeekday(): number { return new Date().getDay(); }
 function todayDom(): number { return new Date().getDate(); }
 function todayMonth(): number { return new Date().getMonth() + 1; }
+const daysUntil = (d: string): number =>
+  Math.round((Date.parse(`${d}T00:00:00`) - Date.parse(`${today()}T00:00:00`)) / 86_400_000);
+const countdownLabel = (d: number): string => (d <= 0 ? 'Due today' : d === 1 ? 'Tomorrow' : `in ${d} days`);
 
 export default function Recurring() {
   const schedules = useStore(s => s.recurringSchedules);
@@ -34,6 +37,14 @@ export default function Recurring() {
   const baseCur = useStore(s => s.profile.baseCurrency);
   const dateFormat = useStore(s => s.profile.dateFormat);
   const toast = useStore(s => s.toast);
+
+  // Board M5 — schedules due within the next 7 days, for the upcoming strip.
+  const upcoming = useMemo(() => {
+    const t0 = today();
+    return schedules
+      .filter(s => s.active !== false && s.nextDueDate >= t0 && daysUntil(s.nextDueDate) <= 7)
+      .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
+  }, [schedules]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<RecurringSchedule | null>(null);
@@ -176,6 +187,34 @@ export default function Recurring() {
         </div>
         <button className="btn-primary flex-shrink-0" onClick={() => { resetForm(); setEditing(null); setOpen(true); }}>+ Add Schedule</button>
       </div>
+
+      {/* Board M5 — upcoming-7-day strip: what's about to post, with a countdown. */}
+      {upcoming.length > 0 && (
+        <div className="mb-5">
+          <div className="mono-label mb-2">Next 7 days</div>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+            {upcoming.map(s => {
+              const d = daysUntil(s.nextDueDate);
+              const cat = getCat(s.transactionTemplate.category);
+              const isIncome = s.transactionTemplate.type === 'income';
+              return (
+                <div key={s.id} className="min-w-[152px] flex-shrink-0 rounded-r3 p-3.5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-lg leading-none">{cat.icon}</span>
+                    <span className="num text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-md"
+                      style={{ background: d <= 1 ? 'color-mix(in srgb, hsl(var(--honey)) 18%, transparent)' : 'var(--sunken)', color: d <= 1 ? 'hsl(var(--honey))' : 'var(--ff-ink-3)' }}>
+                      {countdownLabel(d)}
+                    </span>
+                  </div>
+                  <div className="font-display font-semibold text-[13.5px] text-ink truncate">{s.transactionTemplate.description}</div>
+                  <Money amount={s.transactionTemplate.amount} currency={s.transactionTemplate.currency}
+                    className={`num text-[15px] font-bold ${isIncome ? 'text-sage' : 'text-ink'}`} signed={isIncome} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <Panel title="Active Schedules">
         {schedules.length === 0

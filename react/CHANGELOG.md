@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.1.2`** (consumer)
+> **Current production version: `v10.2.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.2.0 — Aurora Batch B: Track (Transactions · Splits · Recurring) *(2026-07-14)*
+
+Second screen-level batch — the **Track** section, restyled to the batch-b board.
+Presentation + interaction only; all filter/split/RRULE logic, the money model, and
+the Family Pulse computation are unchanged (invariants green).
+
+**Transactions:**
+- **Type chip-rail** (All · Expense · Income · Transfer · Investment) as the primary
+  filter, replacing the buried dropdown.
+- **Filter half-sheet** (board M2) — the four `<select>` filters (type / category /
+  month / member) are now neu **chip groups** in a `HalfSheet`, and the apply button
+  previews the live result **count + net** before you commit.
+- **Sticky glass month headers** — the month-group accordion headers are now glass
+  (`--glass` + blur) so they read as a distinct layer while rows scroll under them.
+- The deep-link context pill, calendar, saved views, pagination and projected-recurring
+  rows are all preserved as-is.
+
+**Splits:**
+- **Who-owes-who hero** (board M4) — a single neu card leading with your **net position**,
+  then the two sunken sub-tiles (Owed to you / You owe). Replaces the two flat cards.
+- Split rows restyled to neu; the always-on explainer banner is gone — its guidance now
+  lives in the (Pip-free) empty state. Settle / Mark-paid / Track-as-debt behaviour is
+  unchanged (settling marks the IOU paid — it does NOT mint a settlement transaction,
+  which would double-count against the split money model).
+
+**Recurring:**
+- **Upcoming-7-day strip** (board M5) — a horizontal rail of neu cards for every schedule
+  due in the next week, each with a category glyph, amount, and a **countdown badge**
+  (Due today / Tomorrow / in N days; honey-tinted when ≤ 1 day).
+- The RRULE schedule form (daily/weekly/monthly-DOM/monthly-Nth/annual + ends + reminder
+  + auto-confirm) is preserved. The board's tap-to-edit **sentence-builder** and the
+  calendar pull-down layer are tracked as Batch-B follow-ups.
+
+Gates: `tsc` 0, `eslint` 0, `vitest` 160/161 (pre-existing clock snapshot), `vite build`
+0, money invariants unmoved. Verified in-browser (chip-rail, glass headers, filter sheet
+with 34 chips, upcoming strip).
 
 ## v10.1.2 — Aurora Batch A shell fixes (pull-down sheets, avatar, add-FAB) *(2026-07-14)*
 
