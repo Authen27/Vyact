@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.3.0`** (consumer)
+> **Current production version: `v10.4.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,34 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.4.0 — Aurora Batch D: Analyze (Reports · Insights · Ask Vyact) *(2026-07-14)*
+
+Fourth screen-level batch — the **Analyze** section restyled to the batch-d board.
+Presentation only; no aggregation, insight-feed, planner-rule, or on-device
+assistant logic changed (invariants green).
+
+- **Reports:** a **needs-vs-wants verdict split bar** (neu-inset track, sage/honey
+  fill proportional to spend) replaces the two flat need/want boxes. Stat cards,
+  the income/expense area chart, and every breakout table are unchanged.
+- **Insights:** the For You / Learn / Plan switcher is now the board's **`.tri`**
+  neu pill; the For You launch hero and preview cards (`.icard`) are restyled to
+  neu with a hover lift. The reel (already rebuilt in v9.9.x) and Learn library
+  are untouched — presentation is on-device, adds no financial math.
+- **Plan (Planner):** recommendation rows are now **neu severity-spined cards**
+  (colored left spine: terra/honey/denim by rule outcome) instead of a flat
+  border-left row. Every recommendation still traces to one rule + one data
+  point — zero AI, zero hallucination, unchanged.
+- **Ask Vyact:** chat bubbles restyled to the board's **`.bub`** — user messages
+  in accent-ink-on-coral, assistant replies in a neu canvas bubble, each with the
+  correct corner-radius "tail." The on-device pipeline (normalise → extract →
+  classify → resolve → phrase) is untouched — presentation only.
+
+Gates: `tsc` 0, `eslint` 0 errors, `vitest` 160/161 (pre-existing clock snapshot),
+`vite build` 0, money invariants unmoved. Verified in-browser: verdict bar +
+"Needs vs Wants" label render, the tri-tab pill shows 8 neu insight cards, a real
+chat round-trip renders 2 board-styled bubbles, the Plan tab shows 3 severity
+cards — no runtime errors anywhere.
 
 ## v10.3.0 — Aurora Batch C: Plan (Budgets · Debts · Net Worth · Accounts) *(2026-07-14)*
 
