@@ -2,6 +2,7 @@
 // Mirrors EvergreenReel for the editorial/external content_items rows, using
 // the same flip-card detail surface. Share/Save live on the grid tile, not here.
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronUp } from 'lucide-react';
 import FlippableCardDetail from './FlippableCardDetail';
 import type { InsightArticle } from '../../lib/insightsApi';
@@ -45,7 +46,8 @@ export default function ArticleReel({ articles, startIndex = 0, onClose }: Props
     if (el) setActive(Math.round(el.scrollTop / el.clientHeight));
   }
 
-  return (
+  // Portalled to <body> — see EvergreenReel.tsx for why.
+  return createPortal(
     <div className="fixed inset-0 z-[190] bg-bg" role="dialog" aria-label="What's New" aria-modal="true">
       <button onClick={onClose} aria-label="Close"
         className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-ink/10 hover:bg-ink/20 text-ink flex items-center justify-center backdrop-blur-sm">
@@ -86,6 +88,7 @@ export default function ArticleReel({ articles, startIndex = 0, onClose }: Props
           </section>
         ))}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

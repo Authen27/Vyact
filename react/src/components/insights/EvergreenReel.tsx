@@ -4,6 +4,7 @@
 // visible, not cropped) or the code-visual fallback; back = video or text,
 // chosen via two minimal controls. Share/Save live on the grid tile, not here.
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronUp } from 'lucide-react';
 import CardVisual from './CardVisual';
 import FlippableCardDetail from './FlippableCardDetail';
@@ -52,7 +53,12 @@ export default function EvergreenReel({ cards, startIndex = 0, onClose }: Props)
     if (el) setActive(Math.round(el.scrollTop / el.clientHeight));
   }
 
-  return (
+  // Portalled to <body> — `<main>` (Layout.tsx) sets its own z-index and thereby
+  // establishes a stacking context, so a z-index on a MERE DESCENDANT (this reel)
+  // can never outrank true siblings of <main> like MobileTabBar/AddFab/CommandPalette,
+  // no matter how high. That trapped the reel's Play/Text controls under the tab
+  // bar on mobile. Escaping to `document.body` sidesteps the trap entirely.
+  return createPortal(
     <div className="fixed inset-0 z-[190] bg-bg" role="dialog" aria-label="Learn" aria-modal="true">
       <button onClick={onClose} aria-label="Close"
         className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-ink/10 hover:bg-ink/20 text-ink flex items-center justify-center backdrop-blur-sm">
@@ -99,6 +105,7 @@ export default function EvergreenReel({ cards, startIndex = 0, onClose }: Props)
           <button onClick={onClose} className="btn-secondary">Done</button>
         </section>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.5.0`** (consumer)
+> **Current production version: `v10.5.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,58 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.5.1 — post-Batch-E bug fixes (household switcher, notification settings, glass legibility, mobile Learn controls) *(2026-07-14)*
+
+Five issues reported after Batch E shipped. All root-caused against real code/DOM
+behaviour (not assumed) before fixing.
+
+- **Household switcher from the avatar menu was broken.** `AccountMenu` embedded
+  a legacy `ProfileSwitcher` dropdown whose own expanding list was clipped by its
+  parent's `overflow-hidden` — it visually failed to show any options. Retired
+  `ProfileSwitcher` entirely; the avatar's household row now opens the same
+  `HouseholdSheet` pull-down as the TopBar chip (board M7: "same pull-down
+  gesture family" — one working switcher, not two). The sync-status badge that
+  lived inside the old dropdown is preserved as its own row in the avatar menu.
+- **Notification settings were never implemented.** The data layer
+  (`NotificationPrefs`, `updateNotificationPrefs`, quiet hours, per-type map) was
+  already wired into the generators from Batch A, but no Settings UI existed to
+  read or change any of it — the "Notification settings →" link pointed at a
+  section that didn't exist. Added a full **Settings ▸ Notifications** panel:
+  master toggle, all 13 types grouped and toggled (`sync_conflict` locked "always
+  on" per spec), quiet hours, reminder lead time, and a browser-push toggle that
+  requests permission before enabling.
+- **Notification / account / household flyouts were too transparent to read.**
+  The board's literal `--glass-strong` alpha (0.74 dark / 0.84 light) is tuned
+  for the mockup's flat color blocks; against real dense financial typography it
+  let numbers and headings behind the sheet bleed through legibly. Raised to
+  0.97/0.97 (kept the blur + border, so it still reads as glass, not opaque) —
+  verified with real financial data behind the sheet in both themes.
+- **The Learn tab's Play/Text controls were unreachable on mobile**, hidden
+  under the bottom tab bar. Root cause: `EvergreenReel`/`ForYouReel`/`ArticleReel`
+  are full-screen overlays rendered as normal children of the routed page tree,
+  which sits inside `<main className="... z-[1]">` (Layout.tsx). That z-index
+  makes `<main>` its own stacking context — no z-index a *descendant* sets
+  (however high) can ever outrank a true sibling of `<main>` like
+  `MobileTabBar`/`AddFab`. Fixed by portalling all three reels to `document.body`
+  with `createPortal`, escaping the trap entirely. Verified with
+  `elementFromPoint` at the button's exact pixel before and after.
+- **Dashboard Pulse gauge card** ("the centerpiece of the Dashboard," per its own
+  comment) was still the pre-Aurora flat card — never converted during Batch A.
+  Restyled to neu (`--elevated` + `--neu`, inset ring track) to match every other
+  Dashboard tile.
+
+**Investigated, partially addressed:** "microanimations and the graph experience
+not matching the design" — Recharts' default entrance animation is present but
+untuned to the board's `--vy-ease`/spring vocabulary, and the board's literal
+SVG stroke-draw-in trick (`chart-line`/`chart-fill`) isn't implemented. This is
+a broader, more open-ended chart-animation pass; flagged as a follow-up rather
+than rushed against a shared chart component without full verification.
+
+Gates: `tsc` 0, `eslint` 0 errors, `vitest` 160/161 (pre-existing clock
+snapshot), `vite build` 0, money invariants unmoved (presentation + one bug-fixed
+navigation path only — no money logic touched). Every fix above was verified
+against real DOM/computed-style behaviour in a live browser, not assumed.
 
 ## v10.5.0 — Aurora Batch E: Profile + first-run (Auth · Help · Settings) *(2026-07-14)*
 

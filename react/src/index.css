@@ -63,7 +63,11 @@
   --neu-hover: 9px 9px 22px var(--neu-dark), -7px -7px 18px var(--neu-lite);
 
   --glass:        rgba(26, 42, 48, 0.55);
-  --glass-strong: rgba(28, 45, 52, 0.74);
+  /* Raised from the board's literal 0.74 — at that opacity, real dense financial
+     typography (not the mockup's flat color blocks) still bled through legibly
+     on notification/account/household flyouts. Still blurred + bordered, so it
+     reads as glass, just no longer see-through enough to fight the content. */
+  --glass-strong: rgba(28, 45, 52, 0.97);
   --glass-line:   rgba(220, 240, 255, 0.14);
   --glass-hi:     rgba(220, 240, 255, 0.06);
   --blur: blur(18px) saturate(150%);
@@ -125,7 +129,8 @@
   --neu-lite: #FFFFFF;
 
   --glass:        rgba(255, 255, 255, 0.64);
-  --glass-strong: rgba(255, 255, 255, 0.84);
+  /* See the dark-theme note above — raised from 0.84 for real-content legibility. */
+  --glass-strong: rgba(255, 255, 255, 0.97);
   --glass-line:   rgba(255, 255, 255, 0.9);
   --glass-hi:     rgba(255, 255, 255, 0.55);
   --cast-2: 0 6px 20px rgba(40, 60, 70, 0.14);

@@ -1,13 +1,15 @@
 // Account menu (Aurora v10, handoff §6.5) — avatar pill on the rail gradient
-// opening a glass dropdown: household switcher (ProfileSwitcher), the three
-// Account routes, theme segmented control, and sign out.
+// opening a glass dropdown: household identity (opens the same HouseholdSheet
+// pull-down as the TopBar chip — board M7 "same pull-down gesture family"),
+// the three Account routes, theme segmented control, sync status, sign out.
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Sun, Moon, Monitor, LogOut } from 'lucide-react';
+import { Sun, Moon, Monitor, LogOut, ChevronDown } from 'lucide-react';
 import { useStore } from '../../store';
 import { signOut as authSignOut } from '../../lib/auth';
 import { ACCOUNT_ROUTES } from './navModel';
-import ProfileSwitcher from './ProfileSwitcher';
+import HouseholdSheet from './HouseholdSheet';
+import SyncStatusBadge from './SyncStatusBadge';
 import type { Theme } from '../../types';
 
 const THEME_MODES: { key: Theme; label: string; icon: typeof Sun }[] = [
@@ -18,6 +20,7 @@ const THEME_MODES: { key: Theme; label: string; icon: typeof Sun }[] = [
 
 export default function AccountMenu() {
   const [open, setOpen] = useState(false);
+  const [hhOpen, setHhOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const theme = useStore(s => s.theme);
@@ -60,10 +63,28 @@ export default function AccountMenu() {
 
       {open && (
         <div className="glass-panel absolute right-0 top-[calc(100%+10px)] w-[264px] rounded-r3 p-2 z-[60]">
-          {/* Household identity + switcher (keeps every ProfileSwitcher feature: switch, sync status, manage) */}
-          <div className="rounded-r2 overflow-hidden mb-1.5" style={{ background: 'var(--elevated)' }}>
-            <ProfileSwitcher />
-          </div>
+          {/* Household identity — opens the SAME pull-down sheet as the TopBar
+              chip (board M7: "same pull-down gesture family"). Previously an
+              inline ProfileSwitcher dropdown that got clipped by this row's
+              own overflow-hidden — replaced rather than patched. */}
+          <button
+            type="button"
+            onClick={() => { setHhOpen(true); setOpen(false); }}
+            className="w-full flex items-center gap-2.5 rounded-r2 mb-1.5 px-3 py-2.5 border-none cursor-pointer text-left"
+            style={{ background: 'var(--elevated)' }}
+          >
+            <span
+              className="w-7 h-7 rounded-full flex items-center justify-center font-display font-bold text-[10px] flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #F4B6A8, #E26D5C 72%)', color: 'var(--accent-ink)' }}
+            >
+              {initials}
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[0.82rem] font-semibold text-ink truncate">{active?.name || 'My Household'}</span>
+              <span className="block font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">Switch household</span>
+            </span>
+            <ChevronDown size={14} className="text-ink-dim flex-shrink-0" />
+          </button>
 
           {ACCOUNT_ROUTES.map(r => (
             <NavLink
@@ -103,6 +124,13 @@ export default function AccountMenu() {
             })}
           </div>
 
+          {/* R4 — honest sync status + tap-to-refresh (carried over from the
+              retired ProfileSwitcher; this is the only place it's surfaced). */}
+          <div className="flex items-center justify-between gap-2 mt-1.5 px-2.5 py-2 font-mono text-[0.62rem] tracking-wider uppercase text-ink-dim">
+            <span className="truncate min-w-0">{cloudEnabled ? (session?.user?.email ?? 'Cloud sync') : 'Local-only mode'}</span>
+            <span className="flex-shrink-0"><SyncStatusBadge /></span>
+          </div>
+
           {cloudEnabled && session && (
             <button
               onClick={async () => {
@@ -118,6 +146,7 @@ export default function AccountMenu() {
           )}
         </div>
       )}
+      <HouseholdSheet open={hhOpen} onClose={() => setHhOpen(false)} />
     </div>
   );
 }
