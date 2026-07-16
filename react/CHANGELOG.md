@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.2.0`** (consumer)
+> **Current production version: `v10.3.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,30 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.3.0 — Aurora Batch C: Plan (Budgets · Debts · Net Worth · Accounts) *(2026-07-14)*
+
+Third screen-level batch — the **Plan** section, restyled to the batch-c board.
+Presentation of already-computed values; the money model, reconciliation, EMI splits
+and every aggregation are untouched (invariants green).
+
+- **Net Worth:** neu **waterfall equation** hero (assets + owed − liabilities → net),
+  a **liquidity stacked bar** (liquid / short / long), and the four financial-ratio
+  tiles restyled to neu. Balance-sheet lists and the stale-balance reminder preserved.
+- **Debts:** a **payoff-journey ring** on the priority debt (percent of principal cleared
+  + projected debt-free month), neu summary tiles + debt cards, accent-ink priority badge.
+  Record-payment still launches the pre-seeded Add-Transaction sheet (EMI split unchanged).
+- **Budgets:** a **current-month pace hero** — cumulative spend vs limit with a
+  plain-language daily allowance ("$X/day keeps you green — N days left", or an over-budget
+  line). Budget cards restyled to neu. Container + allocations model unchanged.
+- **Accounts:** account rows are now neu **wallet cards** in a grid, each with a kind glyph
+  tile. The per-account ledger, the fix-balance / update-value **reconcile** (offset, never
+  a transaction) and archive/default controls are all preserved exactly.
+
+The add-budget allocation half-sheet and the ledger bottom-sheet are tracked as batch-C
+follow-ups. Gates: `tsc` 0, `eslint` 0 errors, `vitest` 160/161 (pre-existing clock
+snapshot), `vite build` 0, money invariants unmoved. Verified in-browser (waterfall,
+liquidity bar, payoff ring, no runtime errors across all four surfaces).
 
 ## v10.2.0 — Aurora Batch B: Track (Transactions · Splits · Recurring) *(2026-07-14)*
 

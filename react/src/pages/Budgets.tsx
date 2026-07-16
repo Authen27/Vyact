@@ -10,7 +10,7 @@ import { useStore } from '../store';
 import { can } from '../lib/permissions';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { convert } from '../lib/format';
+import { convert, fmt } from '../lib/format';
 import { spendByCategoryInRange } from '../lib/calculations';
 
 import { getCat } from '../constants';
@@ -65,6 +65,9 @@ export default function Budgets() {
   const now = new Date();
   const hasCurrentMonth = budgets.some(b => b.scope === 'month'
     && b.periodYear === now.getFullYear() && b.periodMonth === now.getMonth() + 1);
+  // Board C — the current-month budget drives the pace hero.
+  const currentMonthRow = rows.find(r => r.b.scope === 'month'
+    && r.b.periodYear === now.getFullYear() && r.b.periodMonth === now.getMonth() + 1);
 
   async function del(id: string) {
     if (!confirm('Delete this budget?')) return;
@@ -97,6 +100,38 @@ export default function Budgets() {
         </div>
       )}
 
+      {/* Board C — current-month pace hero: cumulative spend vs limit + a
+          plain-language daily allowance. Uses the same computed spend/limit. */}
+      {currentMonthRow && (() => {
+        const { totalBase, spent } = currentMonthRow;
+        const overall = pct(spent, totalBase);
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysLeft = Math.max(1, daysInMonth - now.getDate() + 1);
+        const remaining = totalBase - spent;
+        const perDay = remaining / daysLeft;
+        return (
+          <div className="rounded-r4 p-5 mb-4" style={{ background: 'var(--elevated)', boxShadow: 'var(--neu)' }}>
+            <div className="mono-label mb-1.5">This month · {budgetTitle(currentMonthRow.b)}</div>
+            <div className="flex items-end justify-between gap-3 mb-2">
+              <div className="num text-2xl font-semibold text-ink">
+                <Money amount={spent} currency={cur} maxChars={10} className="text-ink" />
+                <span className="text-ink-dim text-base"> / </span>
+                <Money amount={totalBase} currency={cur} maxChars={10} className="text-ink-dim text-base" />
+              </div>
+              <span className={`num text-lg font-semibold ${overall >= 100 ? 'text-terra' : overall >= 80 ? 'text-honey' : 'text-sage'}`}>{Math.round(overall)}%</span>
+            </div>
+            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+              <div className={`h-full rounded-full transition-all ${barCls(overall)}`} style={{ width: `${overall}%` }} />
+            </div>
+            <div className="text-[0.86rem] mt-2.5 text-ink-mid">
+              {remaining <= 0
+                ? <span className="text-terra font-medium">You're {fmt(Math.abs(remaining), cur)} over budget this month.</span>
+                : <><span className="num font-semibold text-sage">{fmt(perDay, cur)}/day</span> keeps you green — {daysLeft} day{daysLeft === 1 ? '' : 's'} left.</>}
+            </div>
+          </div>
+        );
+      })()}
+
       {rows.length === 0 ? (
         <Panel>
           <div className="px-6 py-14 text-center">
@@ -110,7 +145,7 @@ export default function Budgets() {
           {rows.map(({ b, allocs, totalBase, spent }) => {
             const overall = pct(spent, totalBase);
             return (
-              <div key={b.id} className="bg-bg border border-line rounded-xl p-4 min-w-0">
+              <div key={b.id} className="rounded-r3 p-4 min-w-0" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
                 <div className="flex items-start justify-between mb-2 gap-2">
                   <button onClick={() => navigate(`/transactions?budgetId=${b.id}`)}
                     className="font-semibold text-ink text-[0.95rem] truncate hover:text-coral text-left" title="View transactions">
