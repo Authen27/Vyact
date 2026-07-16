@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.5.4`** (consumer)
+> **Current production version: `v10.5.5`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.5.5 — transaction form: date+time one row, native clock picker, currency selector removed *(2026-07-16)*
+
+- **Date & time on one line.** The transaction form's Date row (Today /
+  Yesterday chips + date picker) now also carries the time picker, in an inner
+  non-wrapping group so the two pickers stay side-by-side even on a 375px
+  sheet. The separate Time row in "All details" is gone.
+- **Native clock time picker, consistent app-wide.** The custom hh:mm text
+  input + AM/PM chips are replaced by a native `<input type="time">` — the
+  same control Settings ▸ Notifications quiet hours already uses, and the one
+  that renders as the platform's round clock selector on mobile. There is now
+  exactly one way to pick a time anywhere in the app.
+- **Currency selector removed from the transaction form.** Every new
+  transaction records in the household's base currency; the chip row is gone
+  from "All details". Editing a legacy foreign-currency transaction keeps its
+  stored currency untouched (a small "Recorded in X; reports convert to Y"
+  note appears instead of a control).
+- Note: the user tested the v10.5.4 form-sheet conversions before that deploy
+  finished — verified the deployed `BudgetFormModal` chunk on production
+  already carries the HalfSheet `footer` API, so Add Budget/Debt/Asset/
+  Account/Schedule are live as bottom sheets since v10.5.4.
 
 ## v10.5.4 — form-sheet consistency, coral identity color, transaction form cleanup *(2026-07-16)*
 

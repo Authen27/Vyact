@@ -146,25 +146,6 @@ function deriveInitialTime(initial?: Transaction | null): string {
   return nowTime();
 }
 
-type Meridiem = 'AM' | 'PM';
-
-interface TimeInputState {
-  clock: string;
-  meridiem: Meridiem;
-}
-
-function splitTimeForInput(value?: string | null): TimeInputState {
-  const normalized = normalizeTimeInput(value) ?? nowTime();
-  const [hoursRaw = '00', minutes = '00'] = normalized.split(':');
-  const hours24 = Number(hoursRaw);
-  const meridiem: Meridiem = hours24 >= 12 ? 'PM' : 'AM';
-  const hours12 = hours24 % 12 || 12;
-  return {
-    clock: `${String(hours12).padStart(2, '0')}:${minutes}`,
-    meridiem,
-  };
-}
-
 function yesterdayStr(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
@@ -208,7 +189,6 @@ export default function TransactionFormModal(props: Props) {
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency, defaultMemberId));
   const [saving, setSaving] = useState(false);
   const [showMore, setShowMore] = useState(false);   // "All details" disclosure
-  const [timeInput, setTimeInput] = useState<TimeInputState>(() => splitTimeForInput(nowTime()));
 
   // Linked spending accounts. With `money_map` flag on (or in shadow) and
   // a populated `accounts` store, source options from the canonical table;
@@ -286,7 +266,6 @@ export default function TransactionFormModal(props: Props) {
             }))
           : defaultParticipants(),
       });
-      setTimeInput(splitTimeForInput(initialTime));
     } else {
       // v7.4.5 — `storeSeed` (from Ask Vyact's two-tap flow, or a notification
       // deep-action like "Record payment") pre-fills the form and names a track.
@@ -304,7 +283,6 @@ export default function TransactionFormModal(props: Props) {
         linkedDebtId: seed?.linkedDebtId ?? seed?.debtId ?? base.linkedDebtId,
       };
       setForm(blankForm);
-      setTimeInput(splitTimeForInput(blankForm.time));
     }
   }, [open, initial, storeSeed, profile.baseCurrency, defaultMemberId]);
 
@@ -390,7 +368,6 @@ export default function TransactionFormModal(props: Props) {
   // date and account so the next entry only needs an amount.
   function resetForNext() {
     setForm(f => ({ ...blank(f.currency, f.memberId, f.type), date: f.date, paymentMethod: f.paymentMethod }));
-    setTimeInput(splitTimeForInput(nowTime()));
     setShowMore(false);
   }
 
@@ -410,9 +387,9 @@ export default function TransactionFormModal(props: Props) {
       toast('Description is required', 'error');
       return;
     }
-    const normalizedTime = normalizeTimeInput(`${timeInput.clock} ${timeInput.meridiem}`);
+    const normalizedTime = normalizeTimeInput(form.time);
     if (!normalizedTime) {
-      toast('Enter time as hh:mm with AM or PM', 'error');
+      toast('Pick a time for this transaction', 'error');
       return;
     }
     if (!FEATURES.txnRedesign.enabled && !isTransfer && !form.memberId) {
@@ -676,15 +653,24 @@ export default function TransactionFormModal(props: Props) {
         </datalist>
       </div>
 
-      {/* Date quick-chips */}
+      {/* Date & time — one row. The time control is the native picker (round
+          clock on mobile), same as Settings ▸ Notifications quiet hours, so
+          time entry looks and works the same everywhere in the app. */}
       <div className="mt-4">
-        <div className="mono-label mb-1.5">Date</div>
+        <div className="mono-label mb-1.5">Date &amp; time</div>
         <div className="flex gap-1.5 items-center flex-wrap">
           <Chip on={form.date === todayStr} onClick={() => setForm(f => ({ ...f, date: todayStr }))}>Today</Chip>
           <Chip on={form.date === yStr} onClick={() => setForm(f => ({ ...f, date: yStr }))}>Yesterday</Chip>
-          <input type="date" value={form.date}
-            onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-            className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[150px]" aria-label="Pick a date" />
+          {/* Inner non-wrapping group — the date and time pickers always stay
+              side by side even when the chip row wraps on narrow sheets. */}
+          <div className="flex gap-1.5 items-center">
+            <input type="date" value={form.date}
+              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+              className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[132px]" aria-label="Pick a date" />
+            <input type="time" value={form.time}
+              onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
+              className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[96px]" aria-label="Pick a time" />
+          </div>
         </div>
       </div>
 
@@ -755,17 +741,15 @@ export default function TransactionFormModal(props: Props) {
         </button>
       ) : (
         <div className="mt-4 pt-4 border-t border-line space-y-4">
-          {/* Currency */}
-          <div>
-            <div className="mono-label mb-1.5">Currency</div>
-            <div className="flex gap-1.5 flex-wrap">
-              {Object.entries(CURRENCIES).map(([code, c]) => (
-                <Chip key={code} on={code === form.currency} testId={`txn-cur-${code}`} onClick={() => setForm(f => ({ ...f, currency: code }))}>
-                  {c.symbol} {code}
-                </Chip>
-              ))}
-            </div>
-          </div>
+          {/* Currency selection removed (v10.5.5) — every transaction uses the
+              household's base currency. Edits of a legacy foreign-currency row
+              keep its stored currency untouched (form.currency still carries it
+              through persist); there's just no control to change it. */}
+          {form.currency !== profile.baseCurrency && (
+            <p className="text-[0.72rem] text-ink-dim leading-snug">
+              Recorded in {form.currency}; reports convert to {profile.baseCurrency}.
+            </p>
+          )}
 
           {/* Member */}
           <div>
@@ -778,19 +762,6 @@ export default function TransactionFormModal(props: Props) {
                 <Chip key={m.id} on={m.id === form.memberId} testId={`txn-member-${m.id}`} onClick={() => setForm(f => ({ ...f, memberId: m.id }))}>
                   {m.name}
                 </Chip>
-              ))}
-            </div>
-          </div>
-
-          {/* Time */}
-          <div>
-            <div className="mono-label mb-1.5">Time</div>
-            <div className="flex gap-2 items-center">
-              <input inputMode="numeric" value={timeInput.clock} maxLength={5} placeholder="hh:mm"
-                onChange={e => setTimeInput(t => ({ ...t, clock: e.target.value }))}
-                className="input w-[110px]" aria-label="Time" />
-              {(['AM', 'PM'] as Meridiem[]).map(m => (
-                <Chip key={m} on={timeInput.meridiem === m} onClick={() => setTimeInput(t => ({ ...t, meridiem: m }))}>{m}</Chip>
               ))}
             </div>
           </div>
