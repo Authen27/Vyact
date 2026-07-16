@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.4.0`** (consumer)
+> **Current production version: `v10.5.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,39 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.5.0 — Aurora Batch E: Profile + first-run (Auth · Help · Settings) *(2026-07-14)*
+
+Fifth and final screen-level batch — the **Profile / first-run** surfaces restyled
+to the batch-e board. Presentation only; auth, session, OTP-verification, and
+household/RLS logic are unchanged (invariants green).
+
+- **Auth:** `AuthShell` (shared by every auth screen — sign in/up, reset password,
+  accept invite) is now a single **glass `auth-card`** on the aurora ambient
+  background, with the **pip** mascot leading the wordmark. One edit point,
+  every auth screen inherits it.
+- **Help:** FAQ rows are the board's **`.faq`** — a neu accordion that deepens its
+  shadow while open, with a rotating "+" affordance. Search, the support-ticket
+  form, and all 9 topics are unchanged.
+- **Settings → Appearance:** the theme picker is now **`.theme-thumb`** neu
+  cards with a mini contrast-bar preview and an accent ring on the active theme.
+- **Danger Zone reviewed, left as-is:** the account-deletion controls are already
+  quarantined correctly (OTP-gated, red-accented only on the truly destructive
+  action) — restyling it further risked the security path for no real gain.
+
+**Tracked follow-ups (not in this batch):** the full grouped `.set-group` list
+treatment across every Settings panel, the Households page's card grid + invite
+half-sheet + role chips (the household **switcher** pull-down already shipped in
+Batch A), and the Onboarding progress-ribbon/choice-card flow. These are larger,
+logic-adjacent surfaces (RLS invites, onboarding state machine) better done as a
+deliberate follow-up rather than rushed at the tail of this pass.
+
+Gates: `tsc` 0, `eslint` 0 errors, `vitest` 160/161 (pre-existing clock snapshot),
+`vite build` 0, money invariants unmoved. Verified in-browser: 9 neu FAQ cards
+(open/close works), 3 neu theme thumbnails, and the sign-in screen renders the
+pip + glass card — no runtime errors.
+
+**This closes the planned Aurora batch sequence (A→E, v10.1.0→v10.5.0).**
 
 ## v10.4.0 — Aurora Batch D: Analyze (Reports · Insights · Ask Vyact) *(2026-07-14)*
 

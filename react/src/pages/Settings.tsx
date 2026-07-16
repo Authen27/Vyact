@@ -350,17 +350,26 @@ export default function Settings() {
 
         {/* ── Appearance ──────────────────────────────────── */}
         <Panel title="Appearance">
+          {/* Board E — .theme-thumb: neu thumbnail, accent ring when active. */}
           <div className="p-5 grid sm:grid-cols-3 gap-3">
-            {THEMES.map(th => (
-              <button key={th.key} onClick={() => setTheme(th.key)}
-                className={`border-2 rounded-lg p-4 text-left transition-all ${
-                  theme === th.key ? 'border-coral bg-coral/5' : 'border-line bg-bg3 hover:border-coral/40'
-                }`}>
-                <div className="text-sm font-semibold text-ink mb-0.5">{th.label}</div>
-                <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{th.desc}</div>
-                {theme === th.key && <div className="mt-2 text-[0.65rem] font-mono text-coral uppercase tracking-widest">Active</div>}
-              </button>
-            ))}
+            {THEMES.map(th => {
+              const on = theme === th.key;
+              return (
+                <button key={th.key} onClick={() => setTheme(th.key)}
+                  className="rounded-r3 p-3.5 text-left border-none cursor-pointer transition-shadow"
+                  style={{ background: 'var(--canvas)', boxShadow: on ? 'var(--neu-sm), 0 0 0 2px var(--accent)' : 'var(--neu-sm)' }}>
+                  <div className="flex flex-col gap-1 mb-2" aria-hidden>
+                    {[0, 1, 2].map(i => (
+                      <span key={i} className="h-1.5 rounded-full"
+                        style={{ background: i === 0 ? 'var(--accent)' : 'var(--ff-line-2)', width: `${90 - i * 18}%` }} />
+                    ))}
+                  </div>
+                  <div className="text-[0.86rem] font-display font-semibold text-ink mb-0.5">{th.label}</div>
+                  <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{th.desc}</div>
+                  {on && <div className="mt-2 text-[0.65rem] font-mono uppercase tracking-widest" style={{ color: 'var(--accent)' }}>Active</div>}
+                </button>
+              );
+            })}
           </div>
         </Panel>
 
