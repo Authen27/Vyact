@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.5.1`** (consumer)
+> **Current production version: `v10.5.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,41 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.5.2 — graph animation follow-up (chart/bar/ring entrance motion) *(2026-07-16)*
+
+Picks up the one item flagged "investigated, partially addressed" in v10.5.1: the
+hand-rolled bars/rings across Dashboard/Budgets/Debts/Net Worth never animated on
+load, and the Recharts-based charts animated with untuned defaults.
+
+- **Root cause:** every bar/ring renders its final value directly from data via
+  inline `style={{width}}`/`strokeDashoffset` on first paint. A CSS `transition`
+  only fires on a subsequent VALUE CHANGE, never on initial mount — so the
+  `transition-[width]`/`transition-all` classes already present on these elements
+  were silently inert on page load.
+- **Fix — `animation … backwards` fill-mode** (matches the design handoff's own
+  `vy-grow`/`vy-ringfill` keyframe technique): the browser holds the keyframe's
+  `from` value before paint, then animates to the element's own already-specified
+  inline value as the implicit "to" state — no per-instance keyframe generation
+  needed despite each bar/ring having a different target. Added `.chart-grow`
+  (`vy-grow`, width 0→final, 0.8s) and `.ring-grow` (`vy-ringfill`,
+  stroke-dashoffset from a `--ring-from` custom property, 1.1s) utilities to
+  `index.css`, reusing the existing `--ff-ease-out` token.
+- **Applied across every hand-rolled graph:** Dashboard's mini pulse ring +
+  budget-progress bar; Debts' payoff bar + payoff-journey ring; Budgets' pace-hero
+  bar, per-card overall bar, and per-category allocation bars (60ms stagger);
+  Net Worth's liquidity stacked bar (3 segments, 60/120ms stagger); Reports'
+  category breakdown bars (60ms stagger per row).
+- **Recharts charts tuned** to the brand's motion feel: `animationDuration={900}`
+  + `animationEasing="ease-out"` (the closest Recharts enum match to
+  `--ff-ease-out`'s cubic-bezier — Recharts doesn't accept an arbitrary bezier
+  string) on Reports' income/expense area chart, the saved-vs-overspent bar
+  chart, and the category donut's pie.
+- **Donut legend rows** now enter with the existing `staggerContainer`/
+  `staggerItem` framer-motion variants (same vocabulary as the Dashboard KPI
+  grid), replacing a static list with no entrance motion.
+- Scope: chart/graph entrance animation specifically, as flagged in v10.5.1 —
+  not a broader app-wide microanimation audit.
 
 ## v10.5.1 — post-Batch-E bug fixes (household switcher, notification settings, glass legibility, mobile Learn controls) *(2026-07-14)*
 

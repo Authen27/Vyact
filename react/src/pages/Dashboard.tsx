@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, type ReactNode, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
@@ -242,7 +242,7 @@ export default function Dashboard() {
                     <span className="font-mono text-[0.68rem] text-ink-mid">{fmtShort(spent, baseCur)} / {fmtShort(limitBase, baseCur)}</span>
                   </div>
                   <div className="bg-bg3 h-1.5 rounded-full overflow-hidden mb-1">
-                    <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${pct}%`, background: color }} />
+                    <div className="h-full rounded-full chart-grow transition-[width] duration-500" style={{ width: `${pct}%`, background: color }} />
                   </div>
                   <div className="font-mono text-[0.58rem] text-ink-dim">{pct}% used</div>
                 </div>
@@ -346,7 +346,8 @@ function MiniPulse({ score }: { score: number | null }) {
       <svg width="48" height="48" viewBox="0 0 48 48">
         <circle cx="24" cy="24" r={r} fill="none" stroke="var(--sunken)" strokeWidth="4" />
         <circle cx="24" cy="24" r={r} fill="none" stroke={c} strokeWidth="4" strokeLinecap="round"
-          strokeDasharray={circ} strokeDashoffset={off} transform="rotate(-90 24 24)" />
+          strokeDasharray={circ} strokeDashoffset={off} transform="rotate(-90 24 24)"
+          className="ring-grow" style={{ '--ring-from': circ } as CSSProperties} />
         <text x="24" y="28" textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--ff-ink)" className="num">{score}</text>
       </svg>
     </Link>

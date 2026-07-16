@@ -475,6 +475,23 @@ body::before {
   }
 }
 
+/* Graph/chart entrance animations (board vy-grow/vy-ringfill) — bars and rings
+   across Dashboard/Budgets/Debts/NetWorth/Reports render their final value
+   directly from data on every render, so a CSS `transition` on width/
+   stroke-dashoffset never fires on first mount (transitions only play on a
+   VALUE CHANGE, not on initial paint). `animation ... backwards` does fire on
+   mount: the browser holds the `from` keyframe before paint, then animates to
+   the element's own inline style/attribute value as the implicit "to" state —
+   the same mechanism the design reference uses, and it needs no per-value
+   keyframe generation. Apply `.chart-grow` to any bar-fill div (with its final
+   `width` set inline) and `.ring-grow` to any SVG progress circle (with its
+   final `stroke-dashoffset` set inline). */
+@keyframes vy-grow { from { width: 0; } }
+.chart-grow { animation: vy-grow .8s var(--ff-ease-out) backwards; }
+
+@keyframes vy-ringfill { from { stroke-dashoffset: var(--ring-from, 999); } }
+.ring-grow { animation: vy-ringfill 1.1s .1s var(--ff-ease-out) backwards; }
+
 /* Reduced motion — show end states */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }

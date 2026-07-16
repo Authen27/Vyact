@@ -131,9 +131,9 @@ export default function NetWorth() {
         <div className="rounded-r3 p-4 mb-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
           <div className="mono-label mb-2">Liquidity mix</div>
           <div className="flex h-3.5 rounded-lg overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} aria-hidden>
-            <div style={{ width: pct(liqMix.liquid), background: 'hsl(var(--sage))' }} />
-            <div style={{ width: pct(liqMix.short), background: 'hsl(var(--denim))' }} />
-            <div style={{ width: pct(liqMix.long), background: 'var(--fore)' }} />
+            <div className="chart-grow" style={{ width: pct(liqMix.liquid), background: 'hsl(var(--sage))' }} />
+            <div className="chart-grow" style={{ width: pct(liqMix.short), background: 'hsl(var(--denim))', animationDelay: '60ms' }} />
+            <div className="chart-grow" style={{ width: pct(liqMix.long), background: 'var(--fore)', animationDelay: '120ms' }} />
           </div>
           <div className="flex gap-4 flex-wrap mt-2.5">
             {([['Liquid', liqMix.liquid, 'hsl(var(--sage))'], ['Short-term', liqMix.short, 'hsl(var(--denim))'], ['Long-term', liqMix.long, 'var(--fore)']] as [string, number, string][])

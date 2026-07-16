@@ -121,7 +121,7 @@ export default function Budgets() {
               <span className={`num text-lg font-semibold ${overall >= 100 ? 'text-terra' : overall >= 80 ? 'text-honey' : 'text-sage'}`}>{Math.round(overall)}%</span>
             </div>
             <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-              <div className={`h-full rounded-full transition-all ${barCls(overall)}`} style={{ width: `${overall}%` }} />
+              <div className={`h-full rounded-full chart-grow transition-all ${barCls(overall)}`} style={{ width: `${overall}%` }} />
             </div>
             <div className="text-[0.86rem] mt-2.5 text-ink-mid">
               {remaining <= 0
@@ -168,14 +168,14 @@ export default function Budgets() {
                   <span className={overall >= 100 ? 'text-terra font-medium' : 'text-ink-dim'}>{Math.round(overall)}%</span>
                 </div>
                 <div className="h-2 bg-bg3 rounded-full mb-3 overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${barCls(overall)}`} style={{ width: `${overall}%` }} />
+                  <div className={`h-full rounded-full chart-grow transition-all ${barCls(overall)}`} style={{ width: `${overall}%` }} />
                 </div>
                 {/* allocations */}
                 {allocs.length === 0 ? (
                   <p className="text-[0.74rem] text-ink-dim">No category allocations — edit to add some.</p>
                 ) : (
                   <div className="space-y-1.5">
-                    {allocs.map(a => {
+                    {allocs.map((a, ai) => {
                       const ap = pct(a.spent, a.limitBase);
                       const c = getCat(a.category);
                       return (
@@ -188,7 +188,7 @@ export default function Budgets() {
                             </span>
                           </div>
                           <div className="h-1.5 bg-bg3 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${barCls(ap)}`} style={{ width: `${ap}%` }} />
+                            <div className={`h-full rounded-full chart-grow ${barCls(ap)}`} style={{ width: `${ap}%`, animationDelay: `${ai * 60}ms` }} />
                           </div>
                         </button>
                       );

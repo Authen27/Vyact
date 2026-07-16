@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, Trash2, ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
 import { useStore } from '../store';
@@ -211,7 +211,7 @@ export default function Debts() {
 
                   {/* Payoff progress bar */}
                   <div className="h-1.5 bg-bg3 rounded-full mb-3 overflow-hidden">
-                    <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${paidPct}%` }} />
+                    <div className="h-full rounded-full bg-sage chart-grow transition-all" style={{ width: `${paidPct}%` }} />
                   </div>
                   <div className="text-[0.75rem] text-ink-dim mb-3">
                     {paidPct.toFixed(0)}% paid off · {fmt(prinBase - balBase, c)} cleared
@@ -289,7 +289,8 @@ function PayoffRing({ pct, monthsLeft }: { pct: number; monthsLeft: number | nul
       <svg width="76" height="76" viewBox="0 0 76 76">
         <circle cx="38" cy="38" r={r} fill="none" stroke="var(--sunken)" strokeWidth="7" />
         <circle cx="38" cy="38" r={r} fill="none" stroke="hsl(var(--sage))" strokeWidth="7" strokeLinecap="round"
-          strokeDasharray={circ} strokeDashoffset={off} transform="rotate(-90 38 38)" />
+          strokeDasharray={circ} strokeDashoffset={off} transform="rotate(-90 38 38)"
+          className="ring-grow" style={{ '--ring-from': circ } as CSSProperties} />
         <text x="38" y="43" textAnchor="middle" fontSize="16" fontWeight="700" fill="var(--ff-ink)" className="num">{Math.round(pct)}%</text>
       </svg>
       {free && <div className="mono-label">by {free}</div>}
