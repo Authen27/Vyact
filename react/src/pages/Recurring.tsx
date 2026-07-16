@@ -6,7 +6,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
 import Money from '../components/ui/Money';
 import { Input, Select, Field, FieldRow } from '../components/ui/Input';
-import Modal from '../components/ui/Modal';
+import HalfSheet from '../components/ui/HalfSheet';
 import { formatDate, today } from '../lib/format';
 import { getCat, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
@@ -247,7 +247,14 @@ export default function Recurring() {
         }
       </Panel>
 
-      <Modal open={open} onClose={() => { setOpen(false); setEditing(null); }} title={editing ? 'Edit Recurring Schedule' : 'Add Recurring Schedule'}>
+      <HalfSheet open={open} onClose={() => { setOpen(false); setEditing(null); }} title={editing ? 'Edit Recurring Schedule' : 'Add Recurring Schedule'}
+        footer={
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => { setOpen(false); setEditing(null); }} full>Cancel</Button>
+            <Button onClick={save} full>{editing ? 'Update Schedule' : 'Save Schedule'}</Button>
+          </div>
+        }
+      >
         <div>
           {/* Type */}
           <Field label="Type">
@@ -395,12 +402,8 @@ export default function Recurring() {
             </Field>
           </FieldRow>
 
-          <div className="flex gap-2 mt-5 pt-4 border-t border-line">
-            <Button variant="ghost" onClick={() => { setOpen(false); setEditing(null); }} full>Cancel</Button>
-            <Button onClick={save} full>{editing ? 'Update Schedule' : 'Save Schedule'}</Button>
-          </div>
         </div>
-      </Modal>
+      </HalfSheet>
     </div>
   );
 }

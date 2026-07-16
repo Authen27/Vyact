@@ -60,7 +60,7 @@ export default function HouseholdSheet({ open, onClose }: { open: boolean; onClo
             >
               <span
                 className="w-10 h-10 rounded-full flex items-center justify-center text-white font-display font-bold text-[13px] flex-shrink-0"
-                style={{ background: 'var(--rail)' }}
+                style={{ background: 'var(--coral-grad)' }}
               >
                 {initials(h.name)}
               </span>

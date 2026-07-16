@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.5.3`** (consumer)
+> **Current production version: `v10.5.4`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,59 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.5.4 — form-sheet consistency, coral identity color, transaction form cleanup *(2026-07-16)*
+
+Five more issues reported after v10.5.3.
+
+- **Transaction form:** removed the in-sheet numeric keypad and the optional
+  Note field, per explicit feedback that neither pulled its weight. The
+  amount field (`AmountField`, `components/ui/NumericKeypad.tsx`) is now a
+  real text input (`inputMode="decimal"`) instead of a display-only span
+  driven solely by the custom keypad — removing the keypad without this
+  would have left no way to enter an amount at all. A `sanitizeAmount()`
+  helper keeps typed/pasted input to a valid decimal (digits, one dot, max 2
+  places) the same way the old per-keystroke `applyKey()` did. Existing
+  transactions that already have a note keep it (nothing reads/writes
+  `Transaction.note` outside this one form); only the ability to set a new
+  one from this form is gone.
+- **Reversed the v10.5.3 avatar/Ask-Vyact color call** — that release
+  unified on `--rail` (the multicolor aurora gradient) reasoning from a
+  CLAUDE.md aside about "avatars, focus flourishes." Explicit follow-up
+  feedback: the household/account avatar and Ask Vyact should read as the
+  same **coral** identity color as the rest of the brand, not a separate
+  multicolor treatment. Added `--coral-grad` (the literal gradient already
+  used in two places, now named once) and pointed `AccountMenu`'s avatar,
+  `HouseholdSheet`'s avatar, and Ask Vyact's icon/text color (desktop chip +
+  mobile tab) all at coral (`var(--coral-grad)` / `var(--accent)`).
+- **Add Schedule / Add Budget / Add Asset / Add Account / Add Debt forms
+  now match Add Transaction's presentation.** All five were still wrapped in
+  the legacy `Modal` component (centered dialog, `bg-bg2`/`rounded-lg`, `X`
+  close) instead of `HalfSheet` (bottom sheet on mobile, glass dialog on
+  desktop, grabber, sticky footer) — a different container entirely, not a
+  close match with different field styling. Swapped the wrapper on all five
+  (`BudgetFormModal`, `DebtFormModal`, `AssetFormModal`, `AccountFormModal`,
+  `Recurring.tsx`'s schedule form), extracting each form's trailing
+  Delete/Cancel/Save row into `HalfSheet`'s `footer` prop the same way
+  `TransactionFormModal` already does.
+- **"Add Account" button didn't match the rest of the app's buttons** —
+  traced to the shared `<Button>` React component still rendering its own
+  legacy style (`font-mono uppercase`, flat `shadow-1`) instead of the
+  `.btn-primary`/`.btn-secondary`/`.btn-ghost`/`.btn-danger` CSS classes
+  (serif display font, normal case, neumorphic shadow) the rest of the app
+  moved to during the Aurora pass. `<Button>` now maps `variant` straight to
+  the matching `.btn-*` class, which fixes every one of its 10 consumers at
+  once (Accounts, Households, Chat, Onboarding, WhatsAppLink, and the five
+  form-sheet footers above) rather than patching each call site.
+- **Reports "Needs vs Wants" bar — still investigating.** Confirmed the
+  reporter is on the latest deployed build (checked the live production JS
+  bundle directly — the v10.5.3 fix is present) and the underlying math is
+  provably self-consistent (the percentage and the amounts shown below it
+  come from the identical numbers in the same render, verified against both
+  the demo dataset and the deployed bundle's source). Have not yet been able
+  to reproduce the specific visual defect — screenshot capture is
+  unavailable in this environment for this pass. Left open pending a closer
+  look at the reporter's actual rendered numbers.
 
 ## v10.5.3 — household-type persistence, header redundancy, avatar/AI color consistency, verdict-bar robustness *(2026-07-16)*
 

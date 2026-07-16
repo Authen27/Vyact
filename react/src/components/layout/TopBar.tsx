@@ -93,13 +93,13 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
           </button>
           {/* ✦ Ask chip (handoff §6.1 / Batch A board D1) — opens the Ask Vyact
               drawer. Desktop only; on phones Ask is the far-right tab-bar slot.
-              Uses --plum (the documented forecast/AI semantic color), not
-              --denim (banking/info) — Ask Vyact is the AI assistant surface. */}
+              Coral (--accent) — matches the household/account avatar identity
+              color rather than a semantic status color. */}
           <button
             onClick={openAsk}
             aria-label="Ask Vyact"
             className="hidden sm:flex items-center gap-1.5 h-10 px-3.5 rounded-pill border-none cursor-pointer"
-            style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'hsl(var(--plum))' }}
+            style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent)' }}
           >
             <Sparkles size={15} />
             <span className="font-display font-semibold text-[13px]">Ask</span>

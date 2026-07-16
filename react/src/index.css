@@ -53,6 +53,9 @@
   --accent-ink:  #2A1712;
   --good: #4FD9AE; --warn: #F2C978; --info: #63D6EA; --fore: #C4A6FF; --crit: #F58A8C;
   --rail: linear-gradient(120deg, #38C89B 0%, #6D7CF0 52%, #B08CF5 100%);
+  /* Brand coral gradient — identity avatars (household/account) share this one
+     gradient so the same entity reads as the same color everywhere it shows up. */
+  --coral-grad: linear-gradient(135deg, #F4B6A8, #E26D5C 72%);
 
   --neu-dark: #060D0F;
   --neu-lite: #1A2A30;

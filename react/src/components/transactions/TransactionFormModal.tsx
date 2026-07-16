@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import HalfSheet from '../ui/HalfSheet';
 import Chip, { CategoryChip } from '../ui/Chip';
-import NumericKeypad, { AmountField, applyKey } from '../ui/NumericKeypad';
+import { AmountField } from '../ui/NumericKeypad';
 import { useStore } from '../../store';
 import { normalizeTimeInput, nowTime, uid, today } from '../../lib/format';
 import {
@@ -593,11 +593,11 @@ export default function TransactionFormModal(props: Props) {
         ))}
       </div>
 
-      {/* Amount hero + in-sheet keypad */}
+      {/* Amount hero */}
       <div className="rounded-r3 py-1.5 mb-1" style={{ boxShadow: 'var(--neu-inset)', background: 'var(--sunken)' }}>
-        <AmountField value={form.amount} currencySymbol={currencySymbol} />
+        <AmountField value={form.amount} currencySymbol={currencySymbol}
+          onChange={v => setForm(f => ({ ...f, amount: v }))} />
       </div>
-      <NumericKeypad onKey={k => setForm(f => ({ ...f, amount: applyKey(f.amount, k) }))} />
 
       {/* Category tiles (expense/income) — recents first */}
       {!isTransfer && !isInvestment && (
@@ -793,13 +793,6 @@ export default function TransactionFormModal(props: Props) {
                 <Chip key={m} on={timeInput.meridiem === m} onClick={() => setTimeInput(t => ({ ...t, meridiem: m }))}>{m}</Chip>
               ))}
             </div>
-          </div>
-
-          {/* Note */}
-          <div>
-            <div className="mono-label mb-1.5">Note <span className="text-ink-dim">·optional</span></div>
-            <input className="input w-full" value={form.note} aria-label="Note"
-              onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="" />
           </div>
 
           {/* Private */}

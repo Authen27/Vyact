@@ -55,7 +55,7 @@ export default function AccountMenu() {
         <span className="mono-label hidden md:inline">{active?.type || 'family'}</span>
         <span
           className="w-[30px] h-[30px] rounded-full flex items-center justify-center font-display font-bold text-[11px]"
-          style={{ background: 'var(--rail)', color: 'var(--accent-ink)' }}
+          style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
         >
           {initials}
         </span>
@@ -80,7 +80,7 @@ export default function AccountMenu() {
           >
             <span
               className="w-7 h-7 rounded-full flex items-center justify-center font-display font-bold text-[10px] flex-shrink-0"
-              style={{ background: 'var(--rail)', color: 'var(--accent-ink)' }}
+              style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
             >
               {initials}
             </span>
