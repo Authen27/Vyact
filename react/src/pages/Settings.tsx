@@ -5,7 +5,7 @@ import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, today } from '../lib/format';
-import { CURRENCIES, DEFAULT_RATES, LOCALES, PROFILE_TYPES } from '../constants';
+import { CURRENCIES, DEFAULT_RATES, LOCALES } from '../constants';
 import { sb } from '../lib/supabase';
 import {
   enrollMfaTotp, verifyMfaEnrolment, listMfaFactors, unenrollMfaFactor, updatePassword,
@@ -294,15 +294,6 @@ export default function Settings() {
             <div>
               <label className="mono-label mb-1.5 block">Email</label>
               <input className="input w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
-            </div>
-            <div>
-              <label className="mono-label mb-1.5 block">Household Type</label>
-              <select className="input w-full" value={profile.household}
-                onChange={e => updateProfile({ household: e.target.value as Profile['household'] })}>
-                {Object.entries(PROFILE_TYPES).map(([k, v]) => (
-                  <option key={k} value={k}>{v.icon} {v.label}</option>
-                ))}
-              </select>
             </div>
             <div>
               <label className="mono-label mb-1.5 block">Date Format</label>

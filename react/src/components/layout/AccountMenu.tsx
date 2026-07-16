@@ -55,7 +55,7 @@ export default function AccountMenu() {
         <span className="mono-label hidden md:inline">{active?.type || 'family'}</span>
         <span
           className="w-[30px] h-[30px] rounded-full flex items-center justify-center font-display font-bold text-[11px]"
-          style={{ background: 'linear-gradient(135deg, #F4B6A8, #E26D5C 72%)', color: 'var(--accent-ink)' }}
+          style={{ background: 'var(--rail)', color: 'var(--accent-ink)' }}
         >
           {initials}
         </span>
@@ -66,16 +66,21 @@ export default function AccountMenu() {
           {/* Household identity — opens the SAME pull-down sheet as the TopBar
               chip (board M7: "same pull-down gesture family"). Previously an
               inline ProfileSwitcher dropdown that got clipped by this row's
-              own overflow-hidden — replaced rather than patched. */}
+              own overflow-hidden — replaced rather than patched.
+              sm:hidden — on desktop the TopBar already shows a persistent
+              household chip right next to this menu, so showing the same
+              name again inside the dropdown just duplicated it. Mobile has
+              no such chip (TopBar's is `hidden sm:flex`), so this remains the
+              only household-switch entry point there. */}
           <button
             type="button"
             onClick={() => { setHhOpen(true); setOpen(false); }}
-            className="w-full flex items-center gap-2.5 rounded-r2 mb-1.5 px-3 py-2.5 border-none cursor-pointer text-left"
+            className="sm:hidden w-full flex items-center gap-2.5 rounded-r2 mb-1.5 px-3 py-2.5 border-none cursor-pointer text-left"
             style={{ background: 'var(--elevated)' }}
           >
             <span
               className="w-7 h-7 rounded-full flex items-center justify-center font-display font-bold text-[10px] flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #F4B6A8, #E26D5C 72%)', color: 'var(--accent-ink)' }}
+              style={{ background: 'var(--rail)', color: 'var(--accent-ink)' }}
             >
               {initials}
             </span>

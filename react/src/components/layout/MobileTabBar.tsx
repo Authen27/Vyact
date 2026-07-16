@@ -61,8 +61,8 @@ export default function MobileTabBar() {
         {/* Analyze */}
         <TabButton tab={SECTION_TABS[2]} on={section === 'analyze'} onClick={() => navigate(SECTION_TABS[2].to)} className={tabCls} />
 
-        {/* ✦ Ask */}
-        <button type="button" onClick={openAsk} aria-label="Ask Vyact" className={tabCls} style={{ color: 'hsl(var(--denim))' }}>
+        {/* ✦ Ask — --plum (forecast/AI), matching the desktop Ask chip. */}
+        <button type="button" onClick={openAsk} aria-label="Ask Vyact" className={tabCls} style={{ color: 'hsl(var(--plum))' }}>
           <Sparkles size={19} strokeWidth={1.9} />
           <span className="font-display text-[10px] font-semibold">Ask</span>
         </button>

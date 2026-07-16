@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.5.2`** (consumer)
+> **Current production version: `v10.5.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,66 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.5.3 — household-type persistence, header redundancy, avatar/AI color consistency, verdict-bar robustness *(2026-07-16)*
+
+Five issues reported after v10.5.2. Root-caused against real code/DOM behaviour
+(not assumed); one item (Reports "Needs vs Wants" numeric mismatch) was
+investigated and found NOT reproducible — see below.
+
+- **Household Type silently reverted on reload (real bug, local-only mode).**
+  Settings' "Household Type" field called `updateProfile({household})`, which
+  patched the in-memory `households` list (so the UI looked correct for the
+  rest of the session) but never called `adapter.updateHousehold()` — the only
+  call that actually persists `HouseholdMeta.type` to storage. Cloud mode was
+  already correct (`supabaseAdapter.updateProfile` writes `households.type`
+  directly); local-only mode was not. `updateProfile` (`store/slices/dataSlice.ts`)
+  now also calls `adapter.updateHousehold()` for `household`/`baseCurrency`
+  patches — harmless no-op for cloud, the actual fix for local.
+- **Household Type relocated from Settings ▸ Profile to Households ▸ Household
+  Settings** — it's a property of the household record, not the user's profile,
+  so editing it lived in the wrong place. Local-only mode (previously just an
+  "enable cloud" banner with no household editing at all) now also gets a
+  Household Settings panel (name + type) for its single on-device household.
+- **Redundant household display on desktop.** `AccountMenu`'s dropdown carried
+  its own household-identity row (added in v10.5.1 to fix a *mobile* bug, since
+  mobile has no separate household chip) but it was never hidden on desktop,
+  where the TopBar's persistent household chip already covers the same
+  affordance — opening the avatar menu showed the household name twice at
+  once. The row is now `sm:hidden`; mobile is unaffected.
+- **Household avatar didn't match the app's own avatar convention.**
+  `HouseholdSheet`'s per-household avatars correctly use `--rail` (the
+  documented aurora gradient — CLAUDE.md: "avatars, focus flourishes"); the
+  identical avatar in `AccountMenu` instead used a one-off solid coral
+  gradient. Unified on `--rail` so the same household's identity color is
+  consistent everywhere it appears.
+- **Ask Vyact used the wrong semantic color.** Per the documented palette rule
+  (`--plum` = forecast/AI, `--denim` = banking/info), the AI assistant's
+  launcher (desktop chip + mobile tab) was styled with `--denim`. Switched to
+  `--plum`, consistent with how `insight_fresh`/`trend_alert` notifications
+  already tint themselves.
+- **Reports "Needs vs Wants" bar hardened against rounding artifacts.** Traced
+  the computation and verified live: the bar's percentage and the amounts
+  shown below it always derive from the exact same numbers, so a genuine
+  numeric mismatch isn't possible in this code path — confirmed with the
+  reporter that the actual complaint was visual, not numeric. Hardened anyway:
+  each visible segment now rounds its own outer corner explicitly (previously
+  relied solely on the container's `overflow-hidden` to clip square corners
+  into the pill shape) and the last segment fills via `flex-1` instead of an
+  explicit percent width, so independent per-child pixel rounding can never
+  leave a seam or bleed past the rounded ends.
+- **Notification system audited** (13-type model): the 6 wired generators
+  (`recurring_due_confirm`, `recurring_reminder`, `budget_threshold`,
+  `debt_payment_due`, `income_landed`, `stale_balance`) fire correctly on every
+  refresh, dedupe correctly, and their P1 web-push path is properly gated by
+  the master toggle, per-type toggle, and quiet hours. Confirmed the remaining
+  7 types (`recurring_posted`, `insight_fresh`, `trend_alert`,
+  `member_activity`, `sync_conflict`, `invite_received`, `milestone`) are
+  intentionally producer-deferred (documented since Batch A — they render in
+  the sheet and Settings but have no generator yet, by design, not a bug).
+  Generation logic is identical for desktop and PWA (no platform-specific code
+  path); actual OS-level push delivery on an installed PWA needs verification
+  on a real device, which is outside what this environment can exercise.
 
 ## v10.5.2 — graph animation follow-up (chart/bar/ring entrance motion) *(2026-07-16)*
 
