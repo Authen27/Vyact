@@ -92,6 +92,10 @@ const TYPE_CHIPS: { type: TxnType; label: string; emoji: string }[] = [
 const acctEmoji = (kind?: string) =>
   kind === 'card' ? '💳' : kind === 'bank' ? '🏦' : kind === 'investment' ? '📈' : '💵';
 
+/* Board M4 member chips are initials ("MR · You"), not full names. */
+const memberInitials = (name: string) =>
+  name.split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+
 const blank = (currency: string, memberId = '', type: TxnType = 'expense'): FormState => ({
   type,
   amount: '',
@@ -189,6 +193,7 @@ export default function TransactionFormModal(props: Props) {
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency, defaultMemberId));
   const [saving, setSaving] = useState(false);
   const [showMore, setShowMore] = useState(false);   // "All details" disclosure
+  const [showAllCats, setShowAllCats] = useState(false);   // board M4 "⌕ More" category tile
 
   // Linked spending accounts. With `money_map` flag on (or in shadow) and
   // a populated `accounts` store, source options from the canonical table;
@@ -229,6 +234,7 @@ export default function TransactionFormModal(props: Props) {
   useEffect(() => {
     if (!open) return;
     setShowMore(false);   // each open starts with secondary fields collapsed
+    setShowAllCats(false);
     if (initial) {
       const initialTime = deriveInitialTime(initial);
       const sp = initial.split;
@@ -536,31 +542,34 @@ export default function TransactionFormModal(props: Props) {
   const showPartPayment = form.type === 'expense' && form.category === 'loan_emi'
     && !!linkedDebt && enteredAmt > linkedDebt.minimumPayment;
 
+  /* Board M4 footer — one full-width primary "Save {type}", with
+     "Save & add another" (create) or Delete (edit) as a quiet cap link below. */
   const footer = (
-    <div className="flex items-center gap-2">
-      {initial ? (
-        <button type="button" onClick={del}
-          className="font-mono text-[0.62rem] tracking-wider uppercase text-terra hover:underline mr-auto">
-          Delete
-        </button>
-      ) : null}
-      {!initial && (
-        <button type="button" onClick={() => persist(true)} disabled={saving}
-          className="btn-secondary flex-1 disabled:opacity-60">
-          Save &amp; add another
-        </button>
-      )}
+    <div>
       <button type="button" onClick={() => persist(false)} disabled={saving}
-        className="btn-primary flex-1 disabled:opacity-60">
-        {saving ? 'Saving…' : initial ? 'Update' : 'Save'}
+        className="btn-primary w-full h-[50px] text-[15.5px] rounded-[15px] disabled:opacity-60">
+        {saving ? 'Saving…' : initial ? `Update ${form.type}` : `Save ${form.type}`}
       </button>
+      <div className="text-center mt-2">
+        {initial ? (
+          <button type="button" onClick={del}
+            className="font-mono text-[9px] tracking-[0.15em] uppercase text-terra hover:underline">
+            Delete
+          </button>
+        ) : (
+          <button type="button" onClick={() => persist(true)} disabled={saving}
+            className="font-mono text-[9px] tracking-[0.15em] uppercase text-ink-dim hover:text-ink disabled:opacity-60">
+            Save &amp; add another
+          </button>
+        )}
+      </div>
     </div>
   );
 
   return (
     <HalfSheet open={open} onClose={onClose} title={modalTitle} footer={footer}>
-      {/* Track chips (amount-first sheet — replaces the Track dropdown) */}
-      <div className="flex gap-1.5 flex-wrap mb-3">
+      {/* Track chips — centered row per board M4. */}
+      <div className="flex gap-1.5 flex-wrap justify-center mb-3">
         {TYPE_CHIPS.map(t => (
           <Chip key={t.type} on={t.type === form.type} onClick={() => !initial && setType(t.type)}
             testId={`txn-type-${t.type}`}
@@ -570,22 +579,36 @@ export default function TransactionFormModal(props: Props) {
         ))}
       </div>
 
-      {/* Amount hero */}
-      <div className="rounded-r3 py-1.5 mb-1" style={{ boxShadow: 'var(--neu-inset)', background: 'var(--sunken)' }}>
+      {/* Amount hero — bare on the sheet per board M4 (no field chrome). */}
+      <div className="py-1 mb-1">
         <AmountField value={form.amount} currencySymbol={currencySymbol}
           onChange={v => setForm(f => ({ ...f, amount: v }))} />
       </div>
 
-      {/* Category tiles (expense/income) — recents first */}
+      {/* Category tiles (expense/income) — board M4: a WRAPPED grid of the 7
+          most recent + a "⌕ More" tile, not a horizontal scroller. The selected
+          category is always kept visible in the collapsed set. */}
       {!isTransfer && !isInvestment && (
         <div className="mt-4">
           <div className="mono-label mb-1.5">Category</div>
-          <div className="flex gap-2 overflow-x-auto pb-1.5 -mx-1 px-1">
-            {orderedCats.map(c => (
-              <CategoryChip key={c.id} emoji={c.icon} label={c.label} testId={`txn-cat-${c.id}`}
-                on={c.id === form.category}
-                onClick={() => setForm(f => ({ ...f, category: c.id }))} />
-            ))}
+          <div className="flex gap-1.5 flex-wrap">
+            {(() => {
+              const head = [...(showAllCats ? orderedCats : orderedCats.slice(0, 7))];
+              if (!showAllCats && form.category && !head.some(c => c.id === form.category)) {
+                const sel = orderedCats.find(c => c.id === form.category);
+                if (sel && head.length) head[head.length - 1] = sel;
+              }
+              return head.map(c => (
+                <CategoryChip key={c.id} emoji={c.icon} label={c.label} testId={`txn-cat-${c.id}`}
+                  on={c.id === form.category}
+                  onClick={() => setForm(f => ({ ...f, category: c.id }))} />
+              ));
+            })()}
+            {orderedCats.length > 7 && (
+              <CategoryChip emoji={showAllCats ? '▴' : '⌕'} label={showAllCats ? 'Less' : 'More'}
+                on={false} testId="txn-cat-more"
+                onClick={() => setShowAllCats(s => !s)} />
+            )}
           </div>
         </div>
       )}
@@ -653,11 +676,14 @@ export default function TransactionFormModal(props: Props) {
         </datalist>
       </div>
 
-      {/* Date & time — one row. The time control is the native picker (round
-          clock on mobile), same as Settings ▸ Notifications quiet hours, so
-          time entry looks and works the same everywhere in the app. */}
+      {/* Board M4 "Date · paid with" — date/time pickers and the source
+          account share ONE labeled row. The time input stays native (user
+          request — the platform clock picker); the board's 📅 Pick chip IS the
+          date input. */}
       <div className="mt-4">
-        <div className="mono-label mb-1.5">Date &amp; time</div>
+        <div className="mono-label mb-1.5">
+          Date · {needsToAccount ? accountLabel.toLowerCase() : isIncome ? 'paid into' : 'paid with'} {accountRequired ? <span className="text-terra">·required</span> : null}
+        </div>
         <div className="flex gap-1.5 items-center flex-wrap">
           <Chip on={form.date === todayStr} onClick={() => setForm(f => ({ ...f, date: todayStr }))}>Today</Chip>
           <Chip on={form.date === yStr} onClick={() => setForm(f => ({ ...f, date: yStr }))}>Yesterday</Chip>
@@ -671,15 +697,6 @@ export default function TransactionFormModal(props: Props) {
               onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
               className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[96px]" aria-label="Pick a time" />
           </div>
-        </div>
-      </div>
-
-      {/* Source account chips */}
-      <div className="mt-4">
-        <div className="mono-label mb-1.5">
-          {accountLabel} {accountRequired ? <span className="text-terra">·required</span> : <span className="text-ink-dim">·optional</span>}
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
           {accounts.map(a => (
             <Chip key={a.value} on={a.value === form.paymentMethod} testId={`txn-acct-${a.value}`}
               onClick={() => setForm(f => ({ ...f, paymentMethod: a.value }))}>
@@ -733,6 +750,22 @@ export default function TransactionFormModal(props: Props) {
         </div>
       )}
 
+      {/* Board M4 — member row lives on the MAIN sheet (initials chips,
+          "MR · You" for yourself), not behind the disclosure. */}
+      <div className="mt-4">
+        <div className="mono-label mb-1.5">Member {isTransfer ? <span className="text-ink-dim">·optional</span> : null}</div>
+        <div className="flex gap-1.5 flex-wrap">
+          {isTransfer && (
+            <Chip on={!form.memberId} testId="txn-member-none" onClick={() => setForm(f => ({ ...f, memberId: '' }))}>None</Chip>
+          )}
+          {members.map(m => (
+            <Chip key={m.id} on={m.id === form.memberId} testId={`txn-member-${m.id}`} onClick={() => setForm(f => ({ ...f, memberId: m.id }))}>
+              {memberInitials(m.name)}{m.id === defaultMemberId ? ' · You' : ''}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
       {/* "All details" disclosure */}
       {!showMore ? (
         <button type="button" onClick={() => setShowMore(true)} data-testid="txn-all-details"
@@ -750,21 +783,6 @@ export default function TransactionFormModal(props: Props) {
               Recorded in {form.currency}; reports convert to {profile.baseCurrency}.
             </p>
           )}
-
-          {/* Member */}
-          <div>
-            <div className="mono-label mb-1.5">Member {isTransfer ? <span className="text-ink-dim">·optional</span> : null}</div>
-            <div className="flex gap-1.5 flex-wrap">
-              {isTransfer && (
-                <Chip on={!form.memberId} testId="txn-member-none" onClick={() => setForm(f => ({ ...f, memberId: '' }))}>None</Chip>
-              )}
-              {members.map(m => (
-                <Chip key={m.id} on={m.id === form.memberId} testId={`txn-member-${m.id}`} onClick={() => setForm(f => ({ ...f, memberId: m.id }))}>
-                  {m.name}
-                </Chip>
-              ))}
-            </div>
-          </div>
 
           {/* Private */}
           <label className="flex items-center gap-2 text-[0.84rem] text-ink-mid cursor-pointer select-none">

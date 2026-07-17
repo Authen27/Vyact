@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.6.1`** (consumer)
+> **Current production version: `v10.6.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,36 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.6.2 — Aurora fidelity pass 3/× · Batch A boards M4/D4 (Add-Transaction) *(2026-07-17)*
+
+Rebuilds the Add-Transaction sheet's presentation to board M4/D4 — around the
+user's standing removals (no keypad, no currency selector, no note field; all
+re-confirmed at the conflict checkpoint).
+
+- **Type chips centered** at the top of the sheet (board M4 row).
+- **Amount is bare on the sheet** — the inset field chrome around the amount
+  is gone; 38px mobile / 40px desktop mono with the muted 24px currency
+  prefix, exactly the board's `.amount` treatment (still a real editable
+  input with the native decimal keyboard, per the keypad removal).
+- **Category is a wrapped grid, not a scroller** — the 7 most-recent category
+  tiles + a "⌕ More" tile that expands to the full type-scoped set ("▴ Less"
+  collapses). The selected category is always kept visible in the collapsed
+  set (edits of an older transaction surface its category in slot 7).
+- **"Date · paid with" merged row** (board M4): Today/Yesterday chips, the
+  native date+time pickers, and the source-account chips now share ONE
+  labeled group ("paid into" for income, "from account"/"to account" wording
+  for transfer/investment). The account-required marker and the
+  add-accounts-on-Net-Worth tip carry over.
+- **Member row moved out of "All details" onto the main sheet**, as initials
+  chips per the board ("MR · You" style).
+- **Footer** — one full-width 50px "Save expense/income/transfer/investment"
+  primary button; "Save & add another" (create) or "Delete" (edit) is the
+  quiet mono cap link centered below it.
+- Known remainders flagged for the checkpoint: the split toggle still lives
+  in "All details" (board M4 shows it inline on the main sheet), and the
+  description field doesn't yet render the board's "suggested ✕" chrome
+  (autosuggest itself already works via the datalist).
 
 ## v10.6.1 — Aurora fidelity pass 2/× · Batch A boards M2/M3/D2/D3 (Notification + Household sheets) *(2026-07-17)*
 

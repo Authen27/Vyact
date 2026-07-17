@@ -17,17 +17,18 @@ export function sanitizeAmount(raw: string): string {
   return out;
 }
 
-/** Big mono editable amount input with currency prefix. */
+/** Big mono editable amount input with currency prefix (board §.amount —
+ *  38px mobile / 40px desktop, 24px muted currency, bare on the sheet). */
 export function AmountField({ value, currencySymbol = '$', onChange }: {
   value: string; currencySymbol?: string; onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex items-baseline justify-center gap-1 py-1">
+    <div className="flex items-baseline justify-center gap-0.5 py-1">
       <span className="text-[24px] font-medium text-ink-dim">{currencySymbol}</span>
       <input
         type="text" inputMode="decimal" autoComplete="off" placeholder="0"
         aria-label="Amount"
-        className="num font-bold text-[44px] leading-none tracking-tight text-ink bg-transparent border-none outline-none text-center w-full max-w-[220px]"
+        className="num font-bold text-[38px] sm:text-[40px] leading-none tracking-tight text-ink bg-transparent border-none outline-none text-center w-full max-w-[200px]"
         value={value}
         onChange={e => onChange(sanitizeAmount(e.target.value))}
       />
