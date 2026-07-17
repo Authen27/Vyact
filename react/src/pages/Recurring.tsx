@@ -11,7 +11,7 @@ import { formatDate, today } from '../lib/format';
 import { getCat, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import { computeNextDueDate } from '../lib/recurring';
-import { formatRRule, parseRRule } from '../lib/rrule';
+import { formatRRule, parseRRule, describeRRule } from '../lib/rrule';
 
 type SchedType = 'expense' | 'income' | 'investment';
 type MonthlyMode = 'dom' | 'nth';
@@ -228,8 +228,14 @@ export default function Recurring() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-ink truncate">{s.transactionTemplate.description}</div>
-                    <div className="font-mono text-[0.62rem] text-ink-dim mt-px">
-                      {s.frequency.toUpperCase()} · next {formatDate(s.nextDueDate, dateFormat)} · {s.autoConfirm ? 'auto' : 'pending confirm'}
+                    {/* Board B — schedules read as human sentences ("Monthly on
+                        the 16th"), not raw frequency codes. Legacy rows without
+                        an rrule fall back to the frequency word. */}
+                    <div className="font-mono text-[0.62rem] text-ink-dim mt-px truncate">
+                      {(() => {
+                        try { return s.rrule ? describeRRule(parseRRule(s.rrule)) : s.frequency; }
+                        catch { return s.frequency; }
+                      })()} · next {formatDate(s.nextDueDate, dateFormat)} · {s.autoConfirm ? 'auto' : 'pending confirm'}
                     </div>
                   </div>
                   <div className={`text-[0.86rem] font-medium ${s.transactionTemplate.type === 'income' ? 'text-sage' : 'text-terra'}`}>

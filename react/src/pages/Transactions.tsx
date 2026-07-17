@@ -285,17 +285,32 @@ export default function Transactions() {
         </div>
       </div>
 
-      {/* Batch B — type chip-rail (board M1): the primary filter as neu chips
-          instead of a buried dropdown. */}
-      <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+      {/* Board B M1 §.srail — the type filter is an inset SEGMENTED rail (one
+          sunken pill containing the segments; active = raised accent-tinted
+          chip), not a row of loose neu chips. */}
+      <div
+        className="mb-3 inline-flex max-w-full gap-1 p-1 rounded-pill overflow-x-auto [&::-webkit-scrollbar]:hidden"
+        style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)', scrollbarWidth: 'none' }}
+        role="tablist" aria-label="Transaction type"
+      >
         {([
           { v: 'all', label: 'All' },
-          { v: 'expense', label: '💸 Expense' },
-          { v: 'income', label: '💰 Income' },
-          { v: 'transfer', label: '🔄 Transfer' },
-          { v: 'investment', label: '📈 Investment' },
+          { v: 'expense', label: 'Expense' },
+          { v: 'income', label: 'Income' },
+          { v: 'transfer', label: 'Transfer' },
+          { v: 'investment', label: 'Invest' },
         ] as { v: TxnFilter; label: string }[]).map(o => (
-          <Chip key={o.v} on={type === o.v} onClick={() => setType(o.v)} className="flex-shrink-0">{o.label}</Chip>
+          <button
+            key={o.v}
+            role="tab" aria-selected={type === o.v}
+            onClick={() => setType(o.v)}
+            className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] whitespace-nowrap flex-shrink-0"
+            style={type === o.v
+              ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
+              : { color: 'var(--ff-ink-3)', background: 'transparent' }}
+          >
+            {o.label}
+          </button>
         ))}
       </div>
 

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.6.6`** (consumer)
+> **Current production version: `v10.6.7`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,31 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.6.7 — Aurora fidelity pass 5/× · Batch B quick wins (Track rows, type rail, schedule sentences) *(2026-07-18)*
+
+First Batch B (Track) fidelity increment, from the board-vs-shipped audit:
+
+- **Transaction rows lead with the tinted category tile** (board B M1): 34px
+  rounded-9 tile with neu-sm shadow and a 15% category-color tint; transfer/
+  investment rows get their type glyph (🔄/📈) on a denim tint, and their
+  sub-line names the type instead of a blank category. The payment-method chip
+  no longer occupies the row gutter (the account stays visible in the edit
+  sheet and via filters). Applies everywhere `TxnRow` renders (Transactions,
+  Splits drill-ins).
+- **Recurring transactions carry a compact ↻ glyph** next to the description
+  (title = the recurrence), replacing the boxy "↻ monthly" text badge.
+- **The type filter is the board's segmented rail** — one sunken inset pill
+  containing All · Expense · Income · Transfer · Invest; the active segment is
+  a raised accent-tinted chip. Replaces the loose neu-chip row.
+- **Recurring schedules read as sentences** — rows now describe their rule via
+  `describeRRule` ("Monthly on the 16th") when the schedule carries an rrule;
+  legacy rows fall back to the plain frequency word (no more all-caps codes).
+
+Remaining Batch B items: desktop Transactions right rail (board D1 two-column)
+— next release; the full tap-to-edit sentence BUILDER for the recurring form
+(board M6) is deferred — the current form already has full RRULE parity via
+chips, the builder is a presentation upgrade tracked for a dedicated pass.
 
 ## v10.6.6 — audit finding #1: mobile Dashboard status banner never empty *(2026-07-18)*
 
