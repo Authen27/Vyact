@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.6.3`** (consumer)
+> **Current production version: `v10.6.4`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,34 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.6.4 — Aurora fidelity pass 4/× · Batch A board M7 (Account menu) — Batch A complete *(2026-07-18)*
+
+Finishes Batch A: the account menu is rebuilt to board M7.
+
+- **Mobile → full-width top pull-down sheet** (board M7, same gesture family as
+  notifications/household). Header = 46px person avatar + name + "email · role"
+  ("Local-only mode · Owner" off-cloud). The account routes render as board
+  `.mrow` cards (sunken-inset icon tile · label · chevron): Households ·
+  Settings · Help & Guide. Theme is its own `.mrow` with the segmented control
+  on the right. Sync status line, then **Sign out** in crit color (shown only
+  when signed in).
+- **Desktop → anchored glass dropdown** (the D-pattern) using the SAME body,
+  widened to 300px to fit the card rows.
+- **Dropped the redundant household-switch row** that used to live inside this
+  menu — switching now lives solely on the household chip (TopBar on desktop,
+  MobileHeader on mobile); this menu's "Households" row navigates to household
+  management, matching the board.
+- Conflict/mapping note: the board lists a separate "Profile & preferences" row
+  above "Settings"; this app has no distinct profile page (profile lives inside
+  Settings), so that row is folded into Settings rather than fabricating a
+  duplicate destination. Flag for the Batch-A review.
+
+**Batch A fidelity status:** M1/D1 (Dashboard+shell), M2/M3/D2/D3 (Notification
++ Household sheets), M4/D4 (Add-Transaction), M7 (Account menu) all shipped.
+M6 (keypad-active) is intentionally skipped per the keypad-removal ruling; M5
+(system-states tile) is a designed-state inventory already covered by the A6
+toast/empty/EstimatedTag work — not a distinct screen.
 
 ## v10.6.3 — fidelity fixes (user-reported) + token audit + split toggle inline *(2026-07-17)*
 

@@ -1,14 +1,18 @@
-// Account menu (Aurora v10, handoff §6.5) — avatar pill on the rail gradient
-// opening a glass dropdown: household identity (opens the same HouseholdSheet
-// pull-down as the TopBar chip — board M7 "same pull-down gesture family"),
-// the three Account routes, theme segmented control, sync status, sign out.
+// Account menu (Aurora · board M7). The avatar (person, not household) opens
+// this menu: a header (avatar + name + email · role), the account routes as
+// board `.mrow` cards, the theme segmented control, sync status, and sign out.
+// Mobile → a full-width top PullDownSheet (M7). Desktop → the anchored glass
+// dropdown (the D-pattern equivalent). Household SWITCHING lives on the
+// separate household chip (TopBar / MobileHeader), not here — this menu's
+// "Households" row navigates to household management.
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { Sun, Moon, Monitor, LogOut, ChevronDown } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Sun, Moon, Monitor, LogOut, ChevronRight } from 'lucide-react';
 import { useStore } from '../../store';
 import { signOut as authSignOut } from '../../lib/auth';
+import { roleLabel } from '../../lib/permissions';
 import { ACCOUNT_ROUTES } from './navModel';
-import HouseholdSheet from './HouseholdSheet';
+import PullDownSheet from '../ui/PullDownSheet';
 import SyncStatusBadge from './SyncStatusBadge';
 import type { Theme } from '../../types';
 
@@ -20,8 +24,8 @@ const THEME_MODES: { key: Theme; label: string; icon: typeof Sun }[] = [
 
 export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | 'avatar' }) {
   const [open, setOpen] = useState(false);
-  const [hhOpen, setHhOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const location = useLocation();
   const theme = useStore(s => s.theme);
   const setTheme = useStore(s => s.setTheme);
@@ -30,13 +34,14 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
   const cloudEnabled = useStore(s => s.cloudEnabled);
   const session = useStore(s => s.session);
   const profile = useStore(s => s.profile);
+  const myRole = useStore(s => s.myRole);
   const active = households.find(h => h.id === currentId);
 
-  // Board M1/D1 — the avatar identifies the PERSON ("MR" = Maya Rowan); the
-  // household is identified by the type chip next to it. Fall back to the
-  // household name when no display name is set.
-  const initials = (profile.name?.trim() || active?.name || 'My Household')
-    .split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const displayName = profile.name?.trim() || active?.name || 'My Household';
+  const initials = displayName.split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const role = myRole ? roleLabel(myRole) : (!cloudEnabled ? 'Owner' : null);
+  const subline = [cloudEnabled ? (session?.user?.email ?? 'Cloud sync') : 'Local-only mode', role]
+    .filter(Boolean).join(' · ');
 
   useEffect(() => {
     const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -47,127 +52,150 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
   // Close after navigating.
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
+  const avatar = (size: number, font: number) => (
+    <span
+      className="rounded-full flex items-center justify-center font-display font-bold flex-shrink-0"
+      style={{ width: size, height: size, fontSize: font, background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
+    >
+      {initials}
+    </span>
+  );
+
+  const themeControl = (
+    <div className="flex gap-1 p-1 rounded-pill" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}
+      role="radiogroup" aria-label="Theme">
+      {THEME_MODES.map(m => {
+        const on = theme === m.key;
+        return (
+          <button
+            key={m.key}
+            onClick={() => setTheme(m.key)}
+            role="radio" aria-checked={on}
+            className="h-7 px-2.5 rounded-pill border-none flex items-center justify-center gap-1 font-display text-[10.5px] font-semibold cursor-pointer"
+            style={on
+              ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent)' }
+              : { background: 'transparent', color: 'var(--ff-ink-3)' }}
+          >
+            <m.icon size={11} /> {m.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // Board §.mrow — neu card row: sunken-inset icon tile · label · chevron.
+  const Body = (
+    <div className="flex flex-col gap-2.5">
+      {/* Header — avatar + name + email · role. */}
+      <div className="flex items-center gap-3 px-0.5 pt-0.5 pb-1">
+        {avatar(46, 16)}
+        <div className="flex-1 min-w-0">
+          <div className="font-display font-bold text-[16px] text-ink truncate">{displayName}</div>
+          <div className="font-mono text-[9px] tracking-[0.12em] uppercase text-ink-dim truncate">{subline}</div>
+        </div>
+      </div>
+
+      {ACCOUNT_ROUTES.map(r => (
+        <button
+          key={r.to}
+          type="button"
+          onClick={() => { setOpen(false); navigate(r.to); }}
+          className="flex items-center gap-3 px-3.5 py-3 rounded-r2 border-none cursor-pointer text-left"
+          style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
+        >
+          <span className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+            <r.icon size={16} className="text-ink-mid" />
+          </span>
+          <span className="flex-1 font-semibold text-[14px] text-ink">{r.label}</span>
+          <ChevronRight size={15} className="text-ink-dim flex-shrink-0" />
+        </button>
+      ))}
+
+      {/* Theme row (board §.mrow with the segmented control on the right). */}
+      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-r2"
+        style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+        <span className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center flex-shrink-0"
+          style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+          <Moon size={16} className="text-ink-mid" />
+        </span>
+        <span className="flex-1 font-semibold text-[14px] text-ink">Theme</span>
+        {themeControl}
+      </div>
+
+      {/* Sync status. */}
+      <div className="flex items-center justify-between gap-2 px-1 pt-0.5 font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
+        <span className="truncate min-w-0">{cloudEnabled ? 'Cloud sync' : 'Local-only mode'}</span>
+        <span className="flex-shrink-0"><SyncStatusBadge /></span>
+      </div>
+
+      {/* Sign out — crit color (board M7). */}
+      {cloudEnabled && session && (
+        <button
+          onClick={async () => {
+            if (confirm('Sign out of Vyact?')) {
+              try { await authSignOut(); } catch { /* auth listener clears state */ }
+            }
+          }}
+          title={session.user?.email || ''}
+          className="w-full flex items-center justify-center gap-1.5 mt-0.5 py-2.5 font-mono text-[9px] tracking-[0.15em] uppercase cursor-pointer border-none bg-transparent"
+          style={{ color: 'hsl(var(--terra))' }}
+        >
+          <LogOut size={12} /> Sign out
+        </button>
+      )}
+    </div>
+  );
+
+  const triggerBtn = trigger === 'avatar' ? (
+    <button
+      onClick={() => setOpen(o => !o)}
+      aria-label="Account menu" aria-expanded={open}
+      className="w-[30px] h-[30px] rounded-full border-none cursor-pointer flex items-center justify-center font-display font-bold text-[11px] flex-shrink-0"
+      style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
+    >
+      {initials}
+    </button>
+  ) : (
+    <button
+      onClick={() => setOpen(o => !o)}
+      aria-label="Account menu" aria-expanded={open}
+      className="flex items-center h-10 px-1.5 rounded-pill border-none cursor-pointer"
+      style={{ background: 'var(--canvas)', boxShadow: open ? 'var(--neu-inset)' : 'var(--neu-sm)' }}
+    >
+      <span className="w-[30px] h-[30px] rounded-full flex items-center justify-center font-display font-bold text-[11px]"
+        style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}>
+        {initials}
+      </span>
+    </button>
+  );
+
+  // Mobile (avatar trigger) → M7 full-width pull-down sheet.
+  if (trigger === 'avatar') {
+    return (
+      <>
+        {triggerBtn}
+        <PullDownSheet
+          open={open}
+          onClose={() => setOpen(false)}
+          ariaLabel="Account menu"
+          header={<div className="pt-6 pb-1" />}
+        >
+          {Body}
+        </PullDownSheet>
+      </>
+    );
+  }
+
+  // Desktop (pill trigger) → anchored glass dropdown.
   return (
     <div ref={ref} className="relative">
-      {trigger === 'avatar' ? (
-        /* Bare 30px avatar (board §.avatar) — used in the mobile header. */
-        <button
-          onClick={() => setOpen(o => !o)}
-          aria-label="Account menu"
-          aria-expanded={open}
-          className="w-[30px] h-[30px] rounded-full border-none cursor-pointer flex items-center justify-center font-display font-bold text-[11px] flex-shrink-0"
-          style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
-        >
-          {initials}
-        </button>
-      ) : (
-        <button
-          onClick={() => setOpen(o => !o)}
-          aria-label="Account menu"
-          aria-expanded={open}
-          className="flex items-center h-10 px-1.5 rounded-pill border-none cursor-pointer"
-          style={{ background: 'var(--canvas)', boxShadow: open ? 'var(--neu-inset)' : 'var(--neu-sm)', color: 'var(--ff-ink-2)' }}
-        >
-          <span
-            className="w-[30px] h-[30px] rounded-full flex items-center justify-center font-display font-bold text-[11px]"
-            style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
-          >
-            {initials}
-          </span>
-        </button>
-      )}
-
+      {triggerBtn}
       {open && (
-        <div className="glass-panel absolute right-0 top-[calc(100%+10px)] w-[264px] rounded-r3 p-2 z-[60]">
-          {/* Household identity — opens the SAME pull-down sheet as the TopBar
-              chip (board M7: "same pull-down gesture family"). Previously an
-              inline ProfileSwitcher dropdown that got clipped by this row's
-              own overflow-hidden — replaced rather than patched.
-              sm:hidden — on desktop the TopBar already shows a persistent
-              household chip right next to this menu, so showing the same
-              name again inside the dropdown just duplicated it. Mobile has
-              no such chip (TopBar's is `hidden sm:flex`), so this remains the
-              only household-switch entry point there. */}
-          <button
-            type="button"
-            onClick={() => { setHhOpen(true); setOpen(false); }}
-            className="sm:hidden w-full flex items-center gap-2.5 rounded-r2 mb-1.5 px-3 py-2.5 border-none cursor-pointer text-left"
-            style={{ background: 'var(--elevated)' }}
-          >
-            <span
-              className="w-7 h-7 rounded-full flex items-center justify-center font-display font-bold text-[10px] flex-shrink-0"
-              style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
-            >
-              {initials}
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-[0.82rem] font-semibold text-ink truncate">{active?.name || 'My Household'}</span>
-              <span className="block font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">Switch household</span>
-            </span>
-            <ChevronDown size={14} className="text-ink-dim flex-shrink-0" />
-          </button>
-
-          {ACCOUNT_ROUTES.map(r => (
-            <NavLink
-              key={r.to}
-              to={r.to}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 w-full rounded-r1 px-2.5 py-2.5 text-[0.86rem] font-medium transition-colors ${
-                  isActive ? 'text-coral' : 'text-ink-mid hover:text-ink hover:bg-bg3'
-                }`}
-              style={({ isActive }) => (isActive ? { background: 'var(--hoverbg)' } : undefined)}
-            >
-              <r.icon size={16} /> {r.label}
-            </NavLink>
-          ))}
-
-          {/* Theme segmented control */}
-          <div
-            className="flex gap-1 p-1 mt-1.5 rounded-r2"
-            style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-inset)' }}
-            role="radiogroup" aria-label="Theme"
-          >
-            {THEME_MODES.map(m => {
-              const on = theme === m.key;
-              return (
-                <button
-                  key={m.key}
-                  onClick={() => setTheme(m.key)}
-                  role="radio" aria-checked={on}
-                  className="flex-1 h-8 rounded-md border-none flex items-center justify-center gap-1.5 font-display text-[11px] font-semibold cursor-pointer"
-                  style={on
-                    ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent)' }
-                    : { background: 'transparent', color: 'var(--ff-ink-3)' }}
-                >
-                  <m.icon size={12} /> {m.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* R4 — honest sync status + tap-to-refresh (carried over from the
-              retired ProfileSwitcher; this is the only place it's surfaced). */}
-          <div className="flex items-center justify-between gap-2 mt-1.5 px-2.5 py-2 font-mono text-[0.62rem] tracking-wider uppercase text-ink-dim">
-            <span className="truncate min-w-0">{cloudEnabled ? (session?.user?.email ?? 'Cloud sync') : 'Local-only mode'}</span>
-            <span className="flex-shrink-0"><SyncStatusBadge /></span>
-          </div>
-
-          {cloudEnabled && session && (
-            <button
-              onClick={async () => {
-                if (confirm('Sign out of Vyact?')) {
-                  try { await authSignOut(); } catch { /* auth listener clears state */ }
-                }
-              }}
-              title={session.user?.email || ''}
-              className="w-full flex items-center justify-center gap-1.5 mt-1.5 px-3 py-2 mono-label rounded-r1 border border-line hover:border-coral hover:text-coral transition-colors"
-            >
-              <LogOut size={12} /> Sign Out
-            </button>
-          )}
+        <div className="glass-panel absolute right-0 top-[calc(100%+10px)] w-[300px] rounded-r3 p-3 z-[60]">
+          {Body}
         </div>
       )}
-      <HouseholdSheet open={hhOpen} onClose={() => setHhOpen(false)} />
     </div>
   );
 }
