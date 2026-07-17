@@ -18,7 +18,7 @@ const THEME_MODES: { key: Theme; label: string; icon: typeof Sun }[] = [
   { key: 'system', label: 'Auto',  icon: Monitor },
 ];
 
-export default function AccountMenu() {
+export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | 'avatar' }) {
   const [open, setOpen] = useState(false);
   const [hhOpen, setHhOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -29,9 +29,13 @@ export default function AccountMenu() {
   const currentId = useStore(s => s.currentHouseholdId);
   const cloudEnabled = useStore(s => s.cloudEnabled);
   const session = useStore(s => s.session);
+  const profile = useStore(s => s.profile);
   const active = households.find(h => h.id === currentId);
 
-  const initials = (active?.name || 'My Household')
+  // Board M1/D1 — the avatar identifies the PERSON ("MR" = Maya Rowan); the
+  // household is identified by the type chip next to it. Fall back to the
+  // household name when no display name is set.
+  const initials = (profile.name?.trim() || active?.name || 'My Household')
     .split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   useEffect(() => {
@@ -45,21 +49,33 @@ export default function AccountMenu() {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-label="Account menu"
-        aria-expanded={open}
-        className="flex items-center gap-2 h-10 pl-2.5 pr-1.5 rounded-pill border-none cursor-pointer"
-        style={{ background: 'var(--canvas)', boxShadow: open ? 'var(--neu-inset)' : 'var(--neu-sm)', color: 'var(--ff-ink-2)' }}
-      >
-        <span className="mono-label hidden md:inline">{active?.type || 'family'}</span>
-        <span
-          className="w-[30px] h-[30px] rounded-full flex items-center justify-center font-display font-bold text-[11px]"
+      {trigger === 'avatar' ? (
+        /* Bare 30px avatar (board §.avatar) — used in the mobile header. */
+        <button
+          onClick={() => setOpen(o => !o)}
+          aria-label="Account menu"
+          aria-expanded={open}
+          className="w-[30px] h-[30px] rounded-full border-none cursor-pointer flex items-center justify-center font-display font-bold text-[11px] flex-shrink-0"
           style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
         >
           {initials}
-        </span>
-      </button>
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen(o => !o)}
+          aria-label="Account menu"
+          aria-expanded={open}
+          className="flex items-center h-10 px-1.5 rounded-pill border-none cursor-pointer"
+          style={{ background: 'var(--canvas)', boxShadow: open ? 'var(--neu-inset)' : 'var(--neu-sm)', color: 'var(--ff-ink-2)' }}
+        >
+          <span
+            className="w-[30px] h-[30px] rounded-full flex items-center justify-center font-display font-bold text-[11px]"
+            style={{ background: 'var(--coral-grad)', color: 'var(--accent-ink)' }}
+          >
+            {initials}
+          </span>
+        </button>
+      )}
 
       {open && (
         <div className="glass-panel absolute right-0 top-[calc(100%+10px)] w-[264px] rounded-r3 p-2 z-[60]">

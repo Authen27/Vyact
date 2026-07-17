@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.5.5`** (consumer)
+> **Current production version: `v10.6.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,53 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.6.0 — Aurora fidelity pass 1/× · Batch A boards M1+D1 (Dashboard + shell) *(2026-07-17)*
+
+First screen of the board-fidelity project: the shipped design is being brought
+up to the reference boards at `Vyact Redesign/design_handoff_vyact_aurora/
+reference/boards`, batch by batch, with user checkpoints between screens.
+Conflict rule: the boards are the spec, but anything the user explicitly
+changed earlier (coral Ask, keypad/note/currency removals) stays until they
+rule otherwise — each conflict is flagged as it's hit.
+
+**Shell (board M1/D1):**
+- New `MobileHeader` — phones lose the fixed glass top bar; a scrolling header
+  row carries pip → home · greeting ("Good morning / {name}") on Home, section
+  cap + page title elsewhere · household-TYPE chip → HouseholdSheet · bell ·
+  30px avatar (opens account menu). `TopBar` is now ≥sm only.
+- The avatar now identifies the PERSON (initials from the display name, per
+  board "MR"), and the household chip shows the household TYPE with the house
+  icon on both breakpoints — the name lives in the sheet, ending the
+  name-shown-twice problem for good.
+- `SubNav` → board treatment: mobile is the "Track ▸" accent cap + inset
+  segmented bar (active segment = raised accent-tinted chip); desktop keeps
+  the sticky bar with cap + 32px neu chips, active = inset + accent tint.
+- Mobile tab bar: active tab sits on an accent-tinted pill (board .m-tab.on).
+  Ask stays coral (user override of the board's denim).
+
+**Dashboard (board M1/D1):**
+- Cash-flow hero rebuilt to the board: left tone spine, "Cash flow · 6 months"
+  cap, big signed net, "↗ N% kept" pill, and the 6-month trend INSIDE the card
+  — scrubbable (tap/drag) with a pinned glass tooltip carrying an insight note
+  ("✦ N% above/below your 6-mo average"), dashed month marker, month axis row,
+  In/Out footer (+ Net worth link on mobile, savings rate on desktop).
+- Net-worth hero (desktop): denim spine, big number, Assets/Liabilities row.
+- Pulse block rebuilt as the board composite: conic-gradient ring (inset
+  trough + neu core) beside/above the four component METER BARS
+  (Budgets/Savings/Trend/Debt troughs with scores); mobile = bare
+  ring-plus-meters row, desktop = titled "Family Pulse Score™" card.
+- Desktop metric tiles (income/expenses/savings rate) with bottom accent bars;
+  insights render as 2×2 spine-cards (tone spine + emoji headline + subline).
+- Mobile pace banner: "You're on track this month — $X under budget pace"
+  (pro-rated against the current-month budget; hidden when none exists —
+  computed from existing aggregates only, board asks weekly which needs a
+  weekly budget engine we don't have; flagged at checkpoint).
+- Recent panel rows: board style — 34px tinted category tile, name +
+  "category · when" mono subline, signed amount.
+- Panels row is a 3-up on desktop (budgets · recent · spending donut).
+- Dashboard h1 greeting is desktop-only (mobile greeting lives in the header);
+  MiniPulse-next-to-greeting and the old sparkline are superseded.
 
 ## v10.5.5 — transaction form: date+time one row, native clock picker, currency selector removed *(2026-07-16)*
 

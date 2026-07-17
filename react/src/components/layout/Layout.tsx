@@ -2,6 +2,7 @@
 // desktop/tablet; bottom tab bar below sm. Replaces the v6–v9 left sidebar.
 import { useEffect, useState, type ReactNode } from 'react';
 import TopBar from './TopBar';
+import MobileHeader from './MobileHeader';
 import SubNav from './SubNav';
 import CommandPalette from './CommandPalette';
 import MobileTabBar from './MobileTabBar';
@@ -42,6 +43,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--canvas)' }}>
       <TopBar onOpenPalette={() => setPalette(true)} />
+      {/* Board M1 — mobile chrome scrolls with the page (no fixed bar). */}
+      <MobileHeader />
       <SubNav />
 
       <main className="relative z-[1]">

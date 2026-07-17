@@ -83,7 +83,11 @@ function TabButton({ tab, on, onClick, className }: {
       onClick={onClick}
       aria-current={on ? 'page' : undefined}
       className={className}
-      style={on ? { color: 'var(--accent)' } : { color: 'var(--ff-ink-3)' }}
+      /* Board §.m-tab.on — the active tab sits on an accent-tinted pill, not
+         just a recolored icon. */
+      style={on
+        ? { color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 14%, transparent)' }
+        : { color: 'var(--ff-ink-3)' }}
     >
       <tab.icon size={19} strokeWidth={on ? 2.2 : 1.8} />
       <span className="font-display text-[10px] font-semibold">{tab.label}</span>

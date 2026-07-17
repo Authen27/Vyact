@@ -10,6 +10,8 @@ import NotificationCenter from './NotificationCenter';
 import HouseholdSheet from './HouseholdSheet';
 import { useStore } from '../../store';
 import { SECTIONS, sectionForPath } from './navModel';
+import { PROFILE_TYPES } from '../../constants';
+import type { ProfileTypeKey } from '../../types';
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 
@@ -61,11 +63,15 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
   const households = useStore(s => s.households);
   const currentHouseholdId = useStore(s => s.currentHouseholdId);
   const openAsk = useStore(s => s.openAsk);
-  const activeName = households.find(h => h.id === currentHouseholdId)?.name || 'Household';
+  const activeHousehold = households.find(h => h.id === currentHouseholdId);
+  const activeName = activeHousehold?.name || 'Household';
+  const typeLabel = PROFILE_TYPES[(activeHousehold?.type ?? 'family') as ProfileTypeKey]?.label ?? 'Family';
 
   return (
+    /* Board M1 — phones have no fixed top bar; MobileHeader (in Layout) owns
+       the mobile chrome, so this whole bar is ≥sm only. */
     <header
-      className="sticky top-0 z-50 border-b border-line"
+      className="hidden sm:block sticky top-0 z-50 border-b border-line"
       style={{ background: 'var(--glass)', backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)' }}
     >
       <div aria-hidden className="h-[3px] opacity-85" style={{ background: 'var(--rail)' }} />
@@ -106,15 +112,20 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
           </button>
           <NotificationCenter />
           {/* Household chip — switches the DATA context (distinct from the
-              avatar/account menu). Opens the same pull-down as notifications. */}
+              avatar/account menu). Board D1: house icon + household TYPE, not
+              the name (the avatar identifies the person; the sheet shows the
+              full household identity on open). */}
           <button
             onClick={() => setHhOpen(true)}
             aria-label={`Switch household — ${activeName}`}
-            className="hidden sm:flex items-center gap-1.5 h-10 pl-3 pr-2.5 rounded-pill border-none cursor-pointer text-ink-mid max-w-[160px]"
+            className="flex items-center gap-1.5 h-10 px-3 rounded-pill border-none cursor-pointer text-ink-mid"
             style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
           >
-            <span className="font-display font-semibold text-[13px] text-ink truncate">{activeName}</span>
-            <ChevronDown size={14} className="flex-shrink-0" />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-dim" aria-hidden>
+              <path d="M4 11l8-7 8 7M6 10v9h12v-9" />
+            </svg>
+            <span className="font-mono text-[9px] tracking-[0.15em] uppercase text-ink-dim">{typeLabel}</span>
+            <ChevronDown size={12} className="flex-shrink-0 text-ink-dim" />
           </button>
           <AccountMenu />
         </div>
