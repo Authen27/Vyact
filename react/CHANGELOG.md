@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.6.5`** (consumer)
+> **Current production version: `v10.6.6`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,22 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.6.6 — audit finding #1: mobile Dashboard status banner never empty *(2026-07-18)*
+
+From the Batch-A fidelity audit: board M1's signature status banner only
+rendered when a current-month budget existed (it's a budget-pace nudge), so
+budgetless users saw an empty slot between the pulse and the panels.
+
+- Added a **fallback**: when there's no current-month budget but there IS
+  this-month income, the banner shows a savings status instead — "✦ You've
+  kept $X this month — Y% of income" (sage) or "✦ You've overspent $X this
+  month" (honey). Uses only existing aggregates (no new money math). Null only
+  when there's genuinely nothing truthful to say (no budget AND no income).
+- Batch A fidelity audit otherwise clean: all screens verified at 375px +
+  1280px, no overflow/clipping (the only such bug, the theme selector, was
+  fixed in v10.6.5), correct responsive hiding, sheets at 720px centered on
+  desktop.
 
 ## v10.6.5 — fix: desktop account-menu theme selector overflowed the dropdown *(2026-07-18)*
 

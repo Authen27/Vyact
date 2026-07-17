@@ -111,6 +111,40 @@ export default function Dashboard() {
 
   const advice = pulseAdvice(pulse);
 
+  // Board M1 status banner. Prefer the budget-pace nudge; when there's no
+  // current-month budget, fall back to a this-month savings status so the
+  // banner slot is never empty for users with activity. Both use only the
+  // existing aggregates — no new money math. Null only when there's nothing
+  // truthful to say (no budget AND no income this month).
+  const banner = useMemo((): { good: boolean; text: ReactNode } | null => {
+    if (pace) {
+      return {
+        good: pace.under,
+        text: (
+          <>
+            {pace.under ? "You're on track this month — " : "You're running hot — "}
+            <b style={{ color: `hsl(var(${pace.under ? '--sage' : '--honey'}))` }}>
+              {fmtShort(pace.amt, baseCur)} {pace.under ? 'under' : 'over'}
+            </b>{' '}budget pace.
+          </>
+        ),
+      };
+    }
+    if (month.income > 0) {
+      const saved = month.income - month.expense;
+      const good = saved >= 0;
+      return {
+        good,
+        text: good ? (
+          <>You've kept <b style={{ color: 'hsl(var(--sage))' }}>{fmtShort(saved, baseCur)}</b> this month — {rate}% of income.</>
+        ) : (
+          <>You've overspent <b style={{ color: 'hsl(var(--honey))' }}>{fmtShort(-saved, baseCur)}</b> this month.</>
+        ),
+      };
+    }
+    return null;
+  }, [pace, month.income, month.expense, rate, baseCur]);
+
   return (
     <div>
       {/* Desktop page header (board D1) — mobile identity lives in MobileHeader. */}
@@ -129,22 +163,19 @@ export default function Dashboard() {
       {/* v9.7 — estimated starting picture from onboarding; clears as real data lands. */}
       <StartingBaselineBand />
 
-      {/* Board M1 — mobile pace banner (desktop carries this in the insight cards). */}
-      {pace && (
+      {/* Board M1 — mobile status banner (desktop carries this in the insight
+          cards). Budget-pace nudge when a current-month budget exists, else a
+          this-month savings status. */}
+      {banner && (
         <div
           className="sm:hidden flex items-center gap-2.5 rounded-[13px] px-3.5 py-2.5 mb-3.5"
           style={{
-            background: `color-mix(in srgb, hsl(var(${pace.under ? '--sage' : '--honey'})) 12%, transparent)`,
-            boxShadow: `inset 0 0 0 1px color-mix(in srgb, hsl(var(${pace.under ? '--sage' : '--honey'})) 24%, transparent)`,
+            background: `color-mix(in srgb, hsl(var(${banner.good ? '--sage' : '--honey'})) 12%, transparent)`,
+            boxShadow: `inset 0 0 0 1px color-mix(in srgb, hsl(var(${banner.good ? '--sage' : '--honey'})) 24%, transparent)`,
           }}
         >
-          <span className="text-[15px]" style={{ color: `hsl(var(${pace.under ? '--sage' : '--honey'}))` }}>✦</span>
-          <span className="text-[13px] font-medium text-ink">
-            {pace.under ? "You're on track this month — " : "You're running hot — "}
-            <b style={{ color: `hsl(var(${pace.under ? '--sage' : '--honey'}))` }}>
-              {fmtShort(pace.amt, baseCur)} {pace.under ? 'under' : 'over'}
-            </b>{' '}budget pace.
-          </span>
+          <span className="text-[15px]" style={{ color: `hsl(var(${banner.good ? '--sage' : '--honey'}))` }}>✦</span>
+          <span className="text-[13px] font-medium text-ink">{banner.text}</span>
         </div>
       )}
 
