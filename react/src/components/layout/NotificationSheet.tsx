@@ -104,7 +104,9 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
   const empty = today.length === 0 && earlier.length === 0;
 
   const Group = ({ label, rows }: { label: string; rows: Notification[] }) => rows.length ? (
-    <div>
+    /* Board M2 — the list is inset so unread dots sit in a gutter left of the
+       icon tiles, exactly at the sheet's content edge. */
+    <div className="pl-3">
       <div className="mono-label pt-2.5 pb-1">{label}</div>
       {rows.map(n => {
         const meta = NOTIF_META[n.type];
@@ -115,10 +117,13 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
             className={`relative flex items-start gap-3 rounded-r2 px-1 py-3 border-b border-line last:border-0 transition-colors hover:bg-bg3/60 cursor-pointer ${n.status === 'read' ? 'opacity-60' : ''}`}
           >
             {n.status === 'unread' && (
-              <span className="absolute -left-2 top-6 w-[7px] h-[7px] rounded-full" style={{ background: 'var(--accent)' }} aria-label="unread" />
+              <span className="absolute -left-3 top-6 w-[7px] h-[7px] rounded-full" style={{ background: 'var(--accent)' }} aria-label="unread" />
             )}
+            {/* Board M2 — read rows drop the tint: sunken inset tile. */}
             <span className="w-[38px] h-[38px] rounded-xl flex items-center justify-center flex-shrink-0 text-[16px]"
-              style={{ background: `color-mix(in srgb, ${n.tint || meta.tint} 16%, transparent)`, color: n.tint || meta.tint }}>
+              style={n.status === 'read'
+                ? { background: 'var(--sunken)', boxShadow: 'var(--neu-inset)', color: 'var(--ff-ink-3)' }
+                : { background: `color-mix(in srgb, ${n.tint || meta.tint} 16%, transparent)`, color: n.tint || meta.tint }}>
               {meta.icon}
             </span>
             <div className="flex-1 min-w-0">

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.6.0`** (consumer)
+> **Current production version: `v10.6.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,22 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.6.1 — Aurora fidelity pass 2/× · Batch A boards M2/M3/D2/D3 (Notification + Household sheets) *(2026-07-17)*
+
+- **Household sheet (board M3/D3):** the active household card now carries the
+  board's member AVATAR STACK — up to three overlapping member initials
+  (coral-grad first, deterministic colors after, 2px canvas ring) — and the
+  sub-line gains your role: "Family · USD · You're the owner". Honesty rule:
+  only the ACTIVE household shows the stack (the store only holds its roster);
+  other households keep their initials avatar rather than a fabricated one.
+  Role falls back to "Owner" in local-only mode (single-user data).
+- **Notification sheet (board M2/D2):** the list is inset so unread coral dots
+  sit in a proper gutter left of the icon tiles, and READ rows now drop their
+  tint — the icon tile flips to the sunken/inset treatment the board shows for
+  handled items. (The sheet's structure — Today/Earlier groups, inline
+  Approve/Skip/Review decisions, mark-all-read, settings footer, 720px desktop
+  column — already matched the board from v10.1.)
 
 ## v10.6.0 — Aurora fidelity pass 1/× · Batch A boards M1+D1 (Dashboard + shell) *(2026-07-17)*
 
