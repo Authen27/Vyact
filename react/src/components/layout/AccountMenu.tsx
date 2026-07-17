@@ -61,8 +61,12 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
     </span>
   );
 
+  // Full-width segmented control (chips flex-1). Rendered stacked UNDER the
+  // "Theme" label so it never overflows the narrow (300px) desktop dropdown —
+  // an inline .mrow with three labeled chips did (the "Auto" chip was clipped
+  // by the glass panel edge). Works identically in the wider mobile sheet.
   const themeControl = (
-    <div className="flex gap-1 p-1 rounded-pill" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}
+    <div className="flex gap-1 p-1 rounded-pill w-full" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}
       role="radiogroup" aria-label="Theme">
       {THEME_MODES.map(m => {
         const on = theme === m.key;
@@ -71,12 +75,12 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
             key={m.key}
             onClick={() => setTheme(m.key)}
             role="radio" aria-checked={on}
-            className="h-7 px-2.5 rounded-pill border-none flex items-center justify-center gap-1 font-display text-[10.5px] font-semibold cursor-pointer"
+            className="flex-1 h-8 rounded-pill border-none flex items-center justify-center gap-1.5 font-display text-[11px] font-semibold cursor-pointer"
             style={on
               ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent)' }
               : { background: 'transparent', color: 'var(--ff-ink-3)' }}
           >
-            <m.icon size={11} /> {m.label}
+            <m.icon size={12} /> {m.label}
           </button>
         );
       })}
@@ -112,14 +116,18 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
         </button>
       ))}
 
-      {/* Theme row (board §.mrow with the segmented control on the right). */}
-      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-r2"
+      {/* Theme row (board §.mrow) — label on top, the segmented control
+          stacked full-width below it so three labeled chips fit at any
+          container width (the desktop dropdown is only 300px). */}
+      <div className="flex flex-col gap-2.5 px-3.5 py-2.5 rounded-r2"
         style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-        <span className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center flex-shrink-0"
-          style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-          <Moon size={16} className="text-ink-mid" />
-        </span>
-        <span className="flex-1 font-semibold text-[14px] text-ink">Theme</span>
+        <div className="flex items-center gap-3">
+          <span className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+            <Moon size={16} className="text-ink-mid" />
+          </span>
+          <span className="flex-1 font-semibold text-[14px] text-ink">Theme</span>
+        </div>
         {themeControl}
       </div>
 
