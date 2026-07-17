@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.6.7`** (consumer)
+> **Current production version: `v10.7.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,21 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.7.0 — Aurora fidelity pass 6/× · Batch B board D1 (Transactions desktop right rail) *(2026-07-18)*
+
+- **Two-column desktop Transactions** (board D1 `1fr · 340px`): the list keeps
+  the left column; a sticky right rail carries
+  - a **month summary card** — the CURRENT month's true (unfiltered) In / Out
+    / Net, computed by the same `monthlyData` aggregate the dashboard trusts;
+  - the **heat calendar**, now permanently resident on desktop (day-tap still
+    filters the list, projected recurring days still render).
+- The Calendar toggle button and the toggled full-width calendar are now
+  mobile/tablet-only — below `lg` nothing changes.
+- **Transaction rows regain the account in the sub-line** ("Groceries · Today
+  · Visa" per the board), resolved through the same `resolveAccount` path the
+  old leading chip used — so the account info removed from the gutter in
+  v10.6.7 is back where the board actually places it.
 
 ## v10.6.7 — Aurora fidelity pass 5/× · Batch B quick wins (Track rows, type rail, schedule sentences) *(2026-07-18)*
 

@@ -3,6 +3,7 @@ import type { Transaction } from '../../types';
 import { useStore } from '../../store';
 import { getCat } from '../../constants';
 import { formatDate, formatTime } from '../../lib/format';
+import { resolveAccount } from '../../lib/accounts';
 import Badge from '../ui/Badge';
 import Money from '../ui/Money';
 
@@ -16,8 +17,13 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
   const members = useStore(s => s.members);
   const dateFormat = useStore(s => s.profile.dateFormat || 'us');
   const baseCurrency = useStore(s => s.profile.baseCurrency);
+  const assets = useStore(s => s.assets);
+  const debts2 = useStore(s => s.debts);
 
   const cat = getCat(t.category);
+  // Board B — the account rides in the SUB-LINE ("Groceries · Today · Visa"),
+  // not as a leading chip.
+  const acct = t.paymentMethod ? resolveAccount(t.paymentMethod, assets, debts2) : null;
   const member = members.find(m => m.id === t.memberId);
   const cur = t.currency || baseCurrency;
   const showCur = cur !== baseCurrency;
@@ -67,8 +73,8 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
               compact ↻ glyph instead of a text badge. */}
           {t.recurring && <span aria-label={`Recurring ${t.recurring}`} title={`Recurring · ${t.recurring}`} className="ml-1.5 text-ink-dim text-[0.72rem]">↻</span>}
         </div>
-        <div className="font-mono text-[0.59rem] text-ink-dim mt-px">
-          {(isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{t.note ? ' · ' + t.note : ''}
+        <div className="font-mono text-[0.59rem] text-ink-dim mt-px truncate">
+          {(isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{acct ? ` · ${acct.label}` : ''}{t.note ? ' · ' + t.note : ''}
         </div>
       </div>
       <div className={`font-mono text-[0.86rem] font-medium whitespace-nowrap flex items-center gap-0.5 ${amtCls}`}>

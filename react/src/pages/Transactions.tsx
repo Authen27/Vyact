@@ -15,6 +15,7 @@ import TxnCalendar from '../components/transactions/TxnCalendar';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import { ALL_CATEGORIES } from '../constants';
 import { getMonthKey, monthName, formatDate, nowMonthKey, today, transactionSortValue, fmt } from '../lib/format';
+import { monthlyData } from '../lib/calculations';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
 import type { Transaction, TxnType } from '../types';
 
@@ -39,9 +40,16 @@ const MONTHS_PER_PAGE = 3;
 export default function Transactions() {
   const { t } = useTranslation();
   const txns    = useStore(s => s.transactions);
+  const rates   = useStore(s => s.rates);
   const members = useStore(s => s.members);
   const schedules = useStore(s => s.recurringSchedules);
   const profile = useStore(s => s.profile);
+  // Board B D1 — right-rail month summary: the CURRENT month's true (unfiltered)
+  // In/Out/Net via the same monthlyData aggregate the dashboard trusts.
+  const railMonth = useMemo(
+    () => monthlyData(txns, nowMonthKey(), profile.baseCurrency, rates),
+    [txns, profile.baseCurrency, rates],
+  );
   const openAddTxn  = useStore(s => s.openAddTxn);
   const openEditTxn = useStore(s => s.openEditTxn);
   const budgets     = useStore(s => s.budgets);
@@ -316,13 +324,16 @@ export default function Transactions() {
 
       {/* v7.4.5 — Calendar toggle moved off the title row to stop it from
           overlapping the heading at narrow widths. Sits inline with the
-          Saved Views controls so the whole filter-toolbox lives on one row. */}
+          Saved Views controls so the whole filter-toolbox lives on one row.
+          Board B D1 — on lg+ the calendar lives permanently in the right
+          rail, so the toggle (and the toggled full-width calendar) are
+          mobile/tablet-only. */}
       <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <button
           onClick={() => setShowCalendar(v => !v)}
           aria-pressed={showCalendar}
           title="Toggle expense calendar"
-          className={`h-[34px] px-3 rounded-md border flex items-center gap-1.5 font-mono text-[0.62rem] tracking-wider uppercase transition-colors ${
+          className={`lg:hidden h-[34px] px-3 rounded-md border flex items-center gap-1.5 font-mono text-[0.62rem] tracking-wider uppercase transition-colors ${
             showCalendar
               ? 'bg-coral-tint border-coral/40 text-coral'
               : 'bg-bg border-line text-ink-mid hover:bg-bg3'
@@ -344,18 +355,25 @@ export default function Transactions() {
         />
       </div>
 
-      {/* Expense calendar — shown on demand via the Calendar button */}
+      {/* Expense calendar — shown on demand via the Calendar button (below lg;
+          on lg+ it lives permanently in the right rail). */}
       {showCalendar && (
-        <TxnCalendar
-          transactions={txns}
-          schedules={schedules}
-          initialMonth={month !== 'all' ? month : nowMonthKey()}
-          selectedDate={selectedDate}
-          onSelectDate={handleSelectDate}
-          currency={profile.baseCurrency}
-        />
+        <div className="lg:hidden">
+          <TxnCalendar
+            transactions={txns}
+            schedules={schedules}
+            initialMonth={month !== 'all' ? month : nowMonthKey()}
+            selectedDate={selectedDate}
+            onSelectDate={handleSelectDate}
+            currency={profile.baseCurrency}
+          />
+        </div>
       )}
 
+      {/* Board B D1 — two-column desktop layout: list left, rail right
+          (month summary + heat calendar). Single column below lg. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:items-start">
+      <div className="min-w-0">
       {/* Active day filter chip */}
       {selectedDate && (
         <div className="mb-4 flex items-center gap-2">
@@ -534,6 +552,37 @@ export default function Transactions() {
           </div>
         )}
       </Panel>
+      </div>
+
+      {/* Board B D1 — desktop right rail: month summary + heat calendar. */}
+      <aside className="hidden lg:flex flex-col gap-3.5 lg:sticky lg:top-[124px]">
+        <div className="rounded-r3 p-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+          <div className="mono-label mb-2">{monthName(nowMonthKey())} summary</div>
+          <div className="flex justify-between items-center py-1 text-[13px]">
+            <span className="text-ink-dim">In</span>
+            <b className="num text-sage">{fmt(railMonth.income, profile.baseCurrency)}</b>
+          </div>
+          <div className="flex justify-between items-center py-1 text-[13px]">
+            <span className="text-ink-dim">Out</span>
+            <b className="num text-ink">{fmt(railMonth.expense, profile.baseCurrency)}</b>
+          </div>
+          <div className="flex justify-between items-center py-1 text-[13px]">
+            <span className="text-ink-dim">Net</span>
+            <b className={`num ${railMonth.income - railMonth.expense >= 0 ? 'text-sage' : 'text-terra'}`}>
+              {railMonth.income - railMonth.expense >= 0 ? '+' : ''}{fmt(railMonth.income - railMonth.expense, profile.baseCurrency)}
+            </b>
+          </div>
+        </div>
+        <TxnCalendar
+          transactions={txns}
+          schedules={schedules}
+          initialMonth={month !== 'all' ? month : nowMonthKey()}
+          selectedDate={selectedDate}
+          onSelectDate={handleSelectDate}
+          currency={profile.baseCurrency}
+        />
+      </aside>
+      </div>
 
       {/* Batch B — filter half-sheet (board M2): chips instead of dropdowns,
           Apply previews the live result count + net. */}
