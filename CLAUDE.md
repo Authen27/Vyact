@@ -6,7 +6,7 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v10.6.2**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v10.6.3**
 - Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.3.1**
 - Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
 - Vanilla shell: archived from the working tree in **v7.0.1** — see master index and git history
@@ -150,6 +150,18 @@ Neumorphic Fluid: soft dual-light **neumorphism** for everyday chrome (cards, bu
 inputs, nav pills — `--neu`/`--neu-sm`/`--neu-inset`/`--neu-hover`), **glass**
 (blur + translucency — `.glass-panel`) reserved for key moments (⌘K palette, account
 dropdown, popovers). Ambient aurora glow behind content (`--ambient` on `body::before`).
+
+### ⚠ Token usage rule (binding — a silent-failure class)
+`index.css` has TWO token conventions. **HSL triplets** (`--coral --sage --honey
+--denim --plum --terra --olive --line --line2 --bg* --ink*` …) are consumed as
+`hsl(var(--x))` or via their Tailwind classes; **complete-value tokens**
+(`--canvas --sunken --elevated --accent --accent-ink --neu* --rail --coral-grad
+--glass* --ff-*` …) are consumed as `var(--x)` directly. Writing a triplet raw
+(`border: 1px dashed var(--line2)`) is INVALID CSS and the browser silently
+drops the whole declaration — no error anywhere. After styling, verify each new
+decorative property (border/background/shadow) via computed style in the
+browser, not just element presence; and grep new code with
+`(?<!hsl\()var\(--(coral|sage|honey|denim|plum|terra|olive|line2?|bg\d?|ink)` before shipping.
 
 ### Palette — Nocturne (dark, DEFAULT) · Mist (light)
 - **Canvas/Elevated/Sunken/Hover** `#0F181B / #17242A / #0A1215 / #1C2C33` (dark) ·

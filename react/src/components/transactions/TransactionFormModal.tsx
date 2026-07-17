@@ -791,17 +791,40 @@ export default function TransactionFormModal(props: Props) {
             <span>🔒 Private — exclude from totals, charts and Pulse Score</span>
           </label>
 
-          {/* Split a bill / shared income */}
-          {(form.type === 'expense' || form.type === 'income') && (
-            <div className="border border-line rounded-lg overflow-hidden">
-              <label className="flex items-center gap-2 px-3 py-2.5 bg-bg3 text-[0.84rem] text-ink cursor-pointer select-none">
-                <input type="checkbox" checked={form.splitEnabled}
-                  onChange={e => setForm(f => ({ ...f, splitEnabled: e.target.checked, splitAuto: e.target.checked ? true : f.splitAuto }))} />
-                <span>{form.type === 'income' ? '🤝 Share this income with others' : '🤝 Split this bill with others'}</span>
-              </label>
+        </div>
+      )}
 
-              {form.splitEnabled && (
-                <div className="p-3 space-y-3">
+      {/* Board M4 — split toggle lives INLINE on the main sheet: label + hint
+          + pill toggle row, with the participant editor expanding below. */}
+      {(form.type === 'expense' || form.type === 'income') && (
+        <div className="mt-3">
+          <div className="flex items-center gap-2.5 py-2.5">
+            <span className="font-display font-semibold text-[13px] text-ink">
+              ↔ {form.type === 'income' ? 'Share with someone' : 'Split with someone'}
+            </span>
+            <span className="text-[10.5px] text-ink-dim">
+              {form.splitEnabled ? 'on — shares become IOUs' : 'off — splits create IOUs'}
+            </span>
+            <button
+              type="button" role="switch" aria-checked={form.splitEnabled} aria-label="Split this transaction"
+              onClick={() => setForm(f => ({ ...f, splitEnabled: !f.splitEnabled, splitAuto: !f.splitEnabled ? true : f.splitAuto }))}
+              className="ml-auto relative w-[44px] h-[26px] rounded-pill border-none cursor-pointer flex-shrink-0"
+              style={{
+                background: form.splitEnabled ? 'color-mix(in srgb, hsl(var(--sage)) 40%, var(--sunken))' : 'var(--sunken)',
+                boxShadow: 'var(--neu-inset)',
+              }}
+            >
+              <i aria-hidden className="absolute top-[3px] w-5 h-5 rounded-full transition-[left] duration-150"
+                style={{
+                  left: form.splitEnabled ? 21 : 3,
+                  background: form.splitEnabled ? 'hsl(var(--sage))' : 'var(--ff-ink-3)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,.3)',
+                }} />
+            </button>
+          </div>
+
+          {form.splitEnabled && (
+                <div className="pt-1 space-y-3">
                   <div>
                     <div className="mono-label mb-1.5">{form.type === 'income' ? 'Who received the money?' : 'Who paid the bill?'}</div>
                     <div className="flex gap-1.5 flex-wrap">
@@ -877,8 +900,6 @@ export default function TransactionFormModal(props: Props) {
               )}
             </div>
           )}
-        </div>
-      )}
     </HalfSheet>
   );
 }

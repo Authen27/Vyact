@@ -46,7 +46,7 @@ export default function HouseholdSheet({ open, onClose }: { open: boolean; onClo
       }
       footer={
         <button
-          className="w-full text-center mono-label py-1.5"
+          className="w-full text-left mono-label py-1.5"
           style={{ color: 'var(--accent)' }}
           onClick={() => { onClose(); navigate('/households'); }}
         >
@@ -115,7 +115,7 @@ export default function HouseholdSheet({ open, onClose }: { open: boolean; onClo
         <button
           onClick={() => { onClose(); navigate('/households'); }}
           className="flex items-center justify-center gap-2 py-3.5 rounded-r3 font-display font-semibold text-[14px] text-ink-dim"
-          style={{ border: '1.5px dashed var(--line2)' }}
+          style={{ border: '1.5px dashed hsl(var(--line2))' }}
         >
           <Plus size={16} /> New household
         </button>

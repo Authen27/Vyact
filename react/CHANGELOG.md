@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.6.2`** (consumer)
+> **Current production version: `v10.6.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,31 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.6.3 — fidelity fixes (user-reported) + token audit + split toggle inline *(2026-07-17)*
+
+Two pixel-fidelity bugs reported from prod, root-caused, plus the systemic
+hardening they exposed:
+
+- **"New household" dashed outline was invisible** — `border: 1.5px dashed
+  var(--line2)` is INVALID CSS: `--line2` is an HSL triplet token, so the
+  browser silently dropped the whole declaration. Fixed to
+  `hsl(var(--line2))`. This failure class produces zero errors in any gate
+  (tsc/eslint/build all pass), so:
+  - **New binding rule in CLAUDE.md** ("Token usage rule") documenting the
+    two token conventions and the required verification: computed-style
+    checks on every newly styled decorative property + a pre-ship grep for
+    unwrapped triplet tokens.
+  - **App-wide audit run**: one match found across the entire src tree
+    (PulseGauge's flagged line wraps at usage — false positive). No other
+    instances.
+- **Household sheet footer** ("Manage members & invites →") left-aligned per
+  user direction (the board centers it; explicit feedback overrides).
+- **Split toggle moved inline onto the Add-Transaction main sheet** (board
+  M4): "↔ Split with someone · off — splits create IOUs" row with a real
+  pill switch (sunken track, sage knob when on); the participant editor
+  expands in place. Previously the whole split section hid behind
+  "All details ▾".
 
 ## v10.6.2 — Aurora fidelity pass 3/× · Batch A boards M4/D4 (Add-Transaction) *(2026-07-17)*
 
