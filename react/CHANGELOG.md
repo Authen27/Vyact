@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.7.0`** (consumer)
+> **Current production version: `v10.7.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,45 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.7.1 — Aurora fidelity pass 7/× · bug batch (Transactions, Calendar, Add Transaction, Recurring, pip) *(2026-07-20)*
+
+Six fixes from a direct board-vs-shipped review:
+
+- **Today/Yesterday date-chip collision, fixed.** `today()` (`lib/format.ts`)
+  computes via `toISOString()` (UTC); the form's `yesterdayStr()` used
+  local-time getters. West of UTC during local early-morning hours the two
+  bases could yield the **same string**, so both chips showed "on"
+  simultaneously with no way to tell them apart or undo the selection.
+  `yesterdayStr()` now shares `today()`'s UTC basis.
+- **"All details ▾" disclosure removed from Add Transaction.** Member, split,
+  and currency selection had already migrated to the main sheet in earlier
+  passes, leaving only the Private checkbox behind the toggle — a one-item
+  disclosure was pure friction. Promoted onto the main sheet, always visible.
+- **Add Schedule (Recurring) restyled to match Add Transaction's theme.** The
+  sheet still used the pre-Aurora bordered `Field`/`Input`/`Select` primitives;
+  rebuilt with the same chip/mono-label/bare-amount-hero conventions (type
+  chips, `AmountField`, `CategoryChip` grid, chip rows for owner/recurrence/
+  weekday/monthly-mode/ends/reminder, the same inline switch used for Add
+  Transaction's split toggle, single-primary-button footer). Logic
+  (`save`/`buildRruleStr`/`populateFromSchedule`) untouched.
+- **Pip logo gradient-id collision fixed.** `Brand.tsx`'s `<Pip>` used a
+  literal `id="pip-grad"`; TopBar (desktop) and MobileHeader both mount a Pip
+  at once, producing duplicate DOM ids — invalid HTML and a latent rendering
+  hazard. Now unique per instance via `useId()`.
+- **Transactions view brought closer to the board (M1/D1):** search + the
+  calendar toggle now share the board's first toolbar row; the type rail
+  gained board-styled **Filters** and **★ Views** chip triggers (replacing a
+  bare icon button and a pre-Aurora bordered `SavedViewsBar`, which is now
+  restyled to match); month-group headers are now the board's floating glass
+  pill card with a small circular chevron toggle (was a full-bleed straight
+  bar).
+- **Transactions calendar (`TxnCalendar`) rebuilt to the board's `.cal` spec:**
+  heat dots (opacity scaled to that day's spend vs. the month's peak) plus a
+  sage income dot, replacing the old bordered/legend-swatch day cells with
+  per-day amount labels. Future days with a firing schedule carry the board's
+  `↻` mark. The desktop right-rail instance now renders as the board's
+  described "mini heat calendar" (30px cells) via a new `mini` prop.
 
 ## v10.7.0 — Aurora fidelity pass 6/× · Batch B board D1 (Transactions desktop right rail) *(2026-07-18)*
 

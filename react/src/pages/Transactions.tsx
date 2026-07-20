@@ -293,53 +293,88 @@ export default function Transactions() {
         </div>
       </div>
 
-      {/* Board B M1 §.srail — the type filter is an inset SEGMENTED rail (one
-          sunken pill containing the segments; active = raised accent-tinted
-          chip), not a row of loose neu chips. */}
-      <div
-        className="mb-3 inline-flex max-w-full gap-1 p-1 rounded-pill overflow-x-auto [&::-webkit-scrollbar]:hidden"
-        style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)', scrollbarWidth: 'none' }}
-        role="tablist" aria-label="Transaction type"
-      >
-        {([
-          { v: 'all', label: 'All' },
-          { v: 'expense', label: 'Expense' },
-          { v: 'income', label: 'Income' },
-          { v: 'transfer', label: 'Transfer' },
-          { v: 'investment', label: 'Invest' },
-        ] as { v: TxnFilter; label: string }[]).map(o => (
-          <button
-            key={o.v}
-            role="tab" aria-selected={type === o.v}
-            onClick={() => setType(o.v)}
-            className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] whitespace-nowrap flex-shrink-0"
-            style={type === o.v
-              ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
-              : { color: 'var(--ff-ink-3)', background: 'transparent' }}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-
-      {/* v7.4.5 — Calendar toggle moved off the title row to stop it from
-          overlapping the heading at narrow widths. Sits inline with the
-          Saved Views controls so the whole filter-toolbox lives on one row.
-          Board B D1 — on lg+ the calendar lives permanently in the right
-          rail, so the toggle (and the toggled full-width calendar) are
-          mobile/tablet-only. */}
-      <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+      {/* Board B M1 — search + calendar-toggle live on one row, above the
+          type rail (the board's first toolbar row). On lg+ the calendar
+          lives permanently in the right rail, so the toggle is mobile/tablet-only. */}
+      <div className="mb-3 flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none"
+            aria-hidden
+          />
+          <Input
+            ref={searchRef}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search transactions…  ( / )"
+            aria-label="Search transactions"
+            className="!pl-9 !pr-9"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 row-action"
+            >
+              <X size={13} strokeWidth={1.8} />
+            </button>
+          )}
+        </div>
         <button
           onClick={() => setShowCalendar(v => !v)}
           aria-pressed={showCalendar}
           title="Toggle expense calendar"
-          className={`lg:hidden h-[34px] px-3 rounded-md border flex items-center gap-1.5 font-mono text-[0.62rem] tracking-wider uppercase transition-colors ${
+          className={`lg:hidden flex-shrink-0 h-[38px] w-[38px] rounded-[9px] border flex items-center justify-center transition-colors ${
             showCalendar
               ? 'bg-coral-tint border-coral/40 text-coral'
-              : 'bg-bg border-line text-ink-mid hover:bg-bg3'
+              : 'bg-bg border-line text-ink-mid hover:bg-bg3 hover:text-ink'
           }`}
         >
-          <CalendarDays size={14} /> Calendar
+          <CalendarDays size={15} />
+        </button>
+      </div>
+
+      {/* Board B M1 §.srail — the type filter is an inset SEGMENTED rail (one
+          sunken pill containing the segments; active = raised accent-tinted
+          chip), with Filters + ★ Views chips on the same row per the board. */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        <div
+          className="inline-flex max-w-full gap-1 p-1 rounded-pill overflow-x-auto [&::-webkit-scrollbar]:hidden"
+          style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)', scrollbarWidth: 'none' }}
+          role="tablist" aria-label="Transaction type"
+        >
+          {([
+            { v: 'all', label: 'All' },
+            { v: 'expense', label: 'Expense' },
+            { v: 'income', label: 'Income' },
+            { v: 'transfer', label: 'Transfer' },
+            { v: 'investment', label: 'Invest' },
+          ] as { v: TxnFilter; label: string }[]).map(o => (
+            <button
+              key={o.v}
+              role="tab" aria-selected={type === o.v}
+              onClick={() => setType(o.v)}
+              className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] whitespace-nowrap flex-shrink-0"
+              style={type === o.v
+                ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
+                : { color: 'var(--ff-ink-3)', background: 'transparent' }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowFilters(true)}
+          aria-haspopup="dialog"
+          className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] flex items-center gap-1.5 flex-shrink-0"
+          style={activeFilters.length > 0
+            ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
+            : { color: 'var(--ff-ink-3)', background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
+        >
+          <SlidersHorizontal size={13} /> Filters{activeFilters.length > 0 ? ` · ${activeFilters.length}` : ''}
         </button>
         <SavedViewsBar
           page="transactions"
@@ -387,56 +422,10 @@ export default function Transactions() {
       )}
 
       <Panel>
-        {/* Slim filter bar: search + filter icon (with active-count badge).
-            Mobile-first — collapses heavy selects into a popover so the page
-            doesn't burn 5 select rows of vertical real estate by default. */}
+        {/* Active-filter summary — search + Filters trigger now live in the
+            toolbar above (board M1 row order); this strip just surfaces the
+            live result count/net and lets users clear one filter at a time. */}
         <div className="px-3 sm:px-4 py-2.5 border-b border-line">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 min-w-0">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none"
-                aria-hidden
-              />
-              <Input
-                ref={searchRef}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search transactions…  ( / )"
-                aria-label="Search transactions"
-                className="!pl-9 !pr-9"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 row-action"
-                >
-                  <X size={13} strokeWidth={1.8} />
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowFilters(true)}
-              aria-haspopup="dialog"
-              title="Filters"
-              className={`relative h-[38px] w-[38px] rounded-[9px] border flex items-center justify-center transition-colors ${
-                activeFilters.length > 0
-                  ? 'bg-coral-tint border-coral/40 text-coral'
-                  : 'bg-bg border-line text-ink-mid hover:bg-bg3 hover:text-ink'
-              }`}
-            >
-              <SlidersHorizontal size={15} />
-              {activeFilters.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-coral text-white text-[0.58rem] font-mono font-semibold flex items-center justify-center leading-none">
-                  {activeFilters.length}
-                </span>
-              )}
-            </button>
-          </div>
-
           {/* Active filter chip row — lets users remove individual filters
               one tap at a time without re-opening the popover. */}
           {activeFilters.length > 0 && (
@@ -491,37 +480,45 @@ export default function Transactions() {
             <EmptyState icon="📝" message="No transactions yet — add your first one to get started." />
           )
         ) : (
-          <div>
+          <div className="p-2.5 space-y-2.5">
             {visibleGroups.map(group => {
               const isCollapsed = collapsedMonths.has(group.key);
               const regionId = `txn-month-${group.key}`;
               return (
-                <div key={group.key} className="border-b border-line last:border-b-0">
-                  {/* Month+year accordion header — sticky so it stays visible
-                      while its rows scroll past. */}
-                  <button
-                    type="button"
-                    onClick={() => toggleMonth(group.key)}
-                    aria-expanded={!isCollapsed}
-                    aria-controls={regionId}
-                    className="sticky top-0 z-10 w-full flex items-center gap-2.5 px-3 sm:px-4 py-2.5 border-b border-line hover:brightness-105 transition-[filter] text-left"
-                    style={{ background: 'var(--glass)', backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)' }}
+                <div key={group.key}>
+                  {/* Board B §.mon-h — a floating glass PILL card (rounded,
+                      hairline border), not a full-bleed straight bar. Sticky
+                      so it stays visible while its rows scroll past; the
+                      collapse toggle is a small circular button on the right. */}
+                  <div
+                    className="sticky top-0 z-10 flex items-center gap-2.5 px-3.5 py-2.5 rounded-r3"
+                    style={{ background: 'var(--glass)', backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)', border: '1px solid var(--glass-line)' }}
                   >
-                    <ChevronDown
-                      size={15}
-                      strokeWidth={2}
-                      className={`text-ink-dim flex-shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
-                    />
-                    <span className="font-semibold text-ink text-[0.86rem]">{group.label}</span>
+                    <span className="font-display font-bold text-ink text-[0.86rem]">{group.label}</span>
                     <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
                       {group.items.length} {group.items.length === 1 ? 'txn' : 'txns'}
                     </span>
-                    <span className={`ml-auto font-mono text-[0.72rem] ${group.net >= 0 ? 'text-sage' : 'text-terra'}`}>
+                    <span className={`ml-auto font-mono text-[0.72rem] font-bold ${group.net >= 0 ? 'text-sage' : 'text-terra'}`}>
                       {group.net >= 0 ? '+' : ''}{fmt(group.net, profile.baseCurrency)}
                     </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleMonth(group.key)}
+                      aria-expanded={!isCollapsed}
+                      aria-controls={regionId}
+                      aria-label={isCollapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
+                      className="w-[26px] h-[26px] rounded-full border-none cursor-pointer flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
+                    >
+                      <ChevronDown
+                        size={13}
+                        strokeWidth={2.2}
+                        className={`text-ink-mid transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                      />
+                    </button>
+                  </div>
                   {!isCollapsed && (
-                    <div id={regionId}>
+                    <div id={regionId} className="mt-1.5 rounded-r2 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
                       {group.items.map(item => (
                         <TxnRow
                           key={item.txn.id}
@@ -537,10 +534,11 @@ export default function Transactions() {
             })}
 
             {hasMoreMonths && (
-              <div className="px-4 py-4 flex flex-col items-center gap-1.5 border-t border-line">
+              <div className="py-2.5 flex flex-col items-center gap-1.5">
                 <button
                   onClick={() => setVisibleMonths(c => c + MONTHS_PER_PAGE)}
-                  className="btn-secondary text-[0.78rem] py-1.5 px-4"
+                  className="h-[32px] px-4 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px]"
+                  style={{ color: 'var(--ff-ink-3)', background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
                 >
                   Load previous {MONTHS_PER_PAGE} months
                 </button>
@@ -580,6 +578,7 @@ export default function Transactions() {
           selectedDate={selectedDate}
           onSelectDate={handleSelectDate}
           currency={profile.baseCurrency}
+          mini
         />
       </aside>
       </div>

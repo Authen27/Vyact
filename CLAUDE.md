@@ -6,7 +6,7 @@
 
 Three deployables, each on its own SemVer line. Authoritative changelogs:
 - Master index: [`VERSIONS.md`](VERSIONS.md)
-- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v10.7.0**
+- Consumer: [`react/CHANGELOG.md`](react/CHANGELOG.md) — **current v10.7.1**
 - Admin: [`admin/CHANGELOG.md`](admin/CHANGELOG.md) — **current v1.3.1**
 - Database (Supabase): migrations are source of truth at [`supabase/migrations/`](supabase/migrations/); reconciled with prod (TD-20) — see [`db/MIGRATIONS.md`](db/MIGRATIONS.md)
 - Vanilla shell: archived from the working tree in **v7.0.1** — see master index and git history

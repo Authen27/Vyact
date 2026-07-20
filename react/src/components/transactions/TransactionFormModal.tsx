@@ -150,10 +150,14 @@ function deriveInitialTime(initial?: Transaction | null): string {
   return nowTime();
 }
 
+// Must share today()'s UTC basis (lib/format.ts) — mixing a local-time
+// yesterday with a UTC-based today collided into the same string west of
+// UTC in the early-morning local hours, making Today/Yesterday impossible
+// to tell apart or un-select.
 function yesterdayStr(): string {
   const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().split('T')[0];
 }
 
 export default function TransactionFormModal(props: Props) {
@@ -192,7 +196,6 @@ export default function TransactionFormModal(props: Props) {
 
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency, defaultMemberId));
   const [saving, setSaving] = useState(false);
-  const [showMore, setShowMore] = useState(false);   // "All details" disclosure
   const [showAllCats, setShowAllCats] = useState(false);   // board M4 "⌕ More" category tile
 
   // Linked spending accounts. With `money_map` flag on (or in shadow) and
@@ -233,7 +236,6 @@ export default function TransactionFormModal(props: Props) {
 
   useEffect(() => {
     if (!open) return;
-    setShowMore(false);   // each open starts with secondary fields collapsed
     setShowAllCats(false);
     if (initial) {
       const initialTime = deriveInitialTime(initial);
@@ -374,7 +376,6 @@ export default function TransactionFormModal(props: Props) {
   // date and account so the next entry only needs an amount.
   function resetForNext() {
     setForm(f => ({ ...blank(f.currency, f.memberId, f.type), date: f.date, paymentMethod: f.paymentMethod }));
-    setShowMore(false);
   }
 
   // The single money-critical save path. `addAnother` only changes what happens
@@ -766,33 +767,24 @@ export default function TransactionFormModal(props: Props) {
         </div>
       </div>
 
-      {/* "All details" disclosure */}
-      {!showMore ? (
-        <button type="button" onClick={() => setShowMore(true)} data-testid="txn-all-details"
-          className="mt-4 font-mono text-[0.62rem] tracking-wider uppercase text-coral hover:underline">
-          All details ▾
-        </button>
-      ) : (
-        <div className="mt-4 pt-4 border-t border-line space-y-4">
-          {/* Currency selection removed (v10.5.5) — every transaction uses the
-              household's base currency. Edits of a legacy foreign-currency row
-              keep its stored currency untouched (form.currency still carries it
-              through persist); there's just no control to change it. */}
-          {form.currency !== profile.baseCurrency && (
-            <p className="text-[0.72rem] text-ink-dim leading-snug">
-              Recorded in {form.currency}; reports convert to {profile.baseCurrency}.
-            </p>
-          )}
-
-          {/* Private */}
-          <label className="flex items-center gap-2 text-[0.84rem] text-ink-mid cursor-pointer select-none">
-            <input type="checkbox" checked={form.excluded}
-              onChange={e => setForm(f => ({ ...f, excluded: e.target.checked }))} />
-            <span>🔒 Private — exclude from totals, charts and Pulse Score</span>
-          </label>
-
-        </div>
-      )}
+      {/* Currency selection removed (v10.5.5) — every transaction uses the
+          household's base currency. Edits of a legacy foreign-currency row
+          keep its stored currency untouched (form.currency still carries it
+          through persist); there's just no control to change it. Only one
+          field lived behind "All details" (Private) — promoted to the main
+          sheet since a one-item disclosure was pure friction. */}
+      <div className="mt-4">
+        {form.currency !== profile.baseCurrency && (
+          <p className="mb-2 text-[0.72rem] text-ink-dim leading-snug">
+            Recorded in {form.currency}; reports convert to {profile.baseCurrency}.
+          </p>
+        )}
+        <label className="flex items-center gap-2 text-[0.84rem] text-ink-mid cursor-pointer select-none">
+          <input type="checkbox" checked={form.excluded}
+            onChange={e => setForm(f => ({ ...f, excluded: e.target.checked }))} />
+          <span>🔒 Private — exclude from totals, charts and Pulse Score</span>
+        </label>
+      </div>
 
       {/* Board M4 — split toggle lives INLINE on the main sheet: label + hint
           + pill toggle row, with the participant editor expanding below. */}
