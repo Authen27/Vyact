@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.8.2`** (consumer)
+> **Current production version: `v10.8.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,24 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.8.3 — Aurora fidelity · Batch C 4/4 · Accounts wallet strip + action language (board M5) *(2026-07-22)*
+
+Final Plan-section (Batch C) fidelity increment — Accounts, completing Batch C:
+
+- **Type-totals strip (board M5).** A four-tile strip — Bank · Cards · Invest ·
+  Cash — leads the wallet, each showing that type's count and ledger-computed
+  total (negatives in terra with an explicit "−"). Tapping a tile filters the
+  wallet to that type; tap again to clear.
+- **Per-type action language on each wallet card (board M5).** Every card now
+  footers its own verb: bank/card → **ledger ▸**, cash → **balance check ▸**
+  (honey), investment → **update value ▸**. Cash/investment open the reconcile
+  input; the rest toggle the per-account ledger — replacing the row of generic
+  icon buttons. The ★ default now reads "★ default — pre-fills Add Transaction".
+- **Honest footer note:** "Balances are computed from the ledger — never typed
+  over. ★ marks the default per currency." No money logic changed — the strip
+  totals and card balances come from the same `computeAccountBalance` the page
+  already trusts (a cash balance that nets its ledger proves it).
 
 ## v10.8.2 — Aurora fidelity · Batch C 3/4 · Net Worth waterfall + stale chip (board M4/D3) *(2026-07-22)*
 
