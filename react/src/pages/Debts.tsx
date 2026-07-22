@@ -29,6 +29,9 @@ export default function Debts() {
   const updateProfile = useStore(s => s.updateProfile);
 
   const [expandId, setExpandId]   = useState<string | null>(null);
+  // Board D2 desktop — which debt the right-hand detail panel shows (defaults
+  // to the priority debt at the top of the payoff order).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   // v7.2 — direction tabs are flag-gated. Off-mode households see the
   // legacy single-list UI; Money Map exposes Owed-by-me / Owed-to-me.
   const showDirectionTabs = getMoneyMapMode() !== 'off';
@@ -68,6 +71,9 @@ export default function Debts() {
       return convert(a.currentBalance, a.currency, c, rates) - convert(b.currentBalance, b.currency, c, rates);
     return b.interestRate - a.interestRate;
   });
+
+  // Desktop detail (D2): the selected debt, falling back to the priority.
+  const detailDebt = sorted.find(d => d.id === selectedId) ?? sorted[0];
 
   function openAdd() { openAddDebt(); }
   function openEdit(d: Debt) { openEditDebt(d); }
@@ -209,7 +215,9 @@ export default function Debts() {
           </div>
         </Panel>
       ) : (
-        <div className="space-y-3">
+        <>
+        {/* Mobile / tablet — full cards list (priority ring inline). */}
+        <div className="space-y-3 lg:hidden">
           {sorted.map((d, i) => {
             const balBase   = convert(d.currentBalance, d.currency, c, rates);
             const prinBase  = convert(d.principal, d.currency, c, rates);
@@ -321,6 +329,105 @@ export default function Debts() {
             );
           })}
         </div>
+
+        {/* Board D2 desktop — payoff order (left) + the priority/selected debt
+            expanded (right). Clicking a numbered row selects it into the panel. */}
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,440px)_1fr] lg:gap-6 lg:items-start">
+          <div className="space-y-2">
+            <div className="mono-label mb-1">Payoff order</div>
+            {sorted.map((d, i) => {
+              const balBase  = convert(d.currentBalance, d.currency, c, rates);
+              const prinBase = convert(d.principal, d.currency, c, rates);
+              const paidPct  = prinBase > 0 ? Math.min(((prinBase - balBase) / prinBase) * 100, 100) : 0;
+              const meta     = DEBT_TYPES[d.type] || DEBT_TYPES.other;
+              const active   = d.id === detailDebt.id;
+              return (
+                <button key={d.id} type="button" onClick={() => setSelectedId(d.id)}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-r2 text-left border-none cursor-pointer"
+                  style={active
+                    ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm), 0 0 0 1.5px var(--accent)' }
+                    : { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+                  <span className="num w-[22px] font-bold flex-shrink-0 text-center" style={{ color: i === 0 ? 'var(--accent)' : 'var(--ff-ink-3)' }}>{i + 1}</span>
+                  <span className="text-base flex-shrink-0" aria-hidden>{meta.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-[13.5px] text-ink truncate">{d.name}</div>
+                    <div className="num text-[10px] text-ink-dim">{d.interestRate}% APR{paidPct > 0 ? ` · ${paidPct.toFixed(0)}% paid` : ''}</div>
+                  </div>
+                  <Money amount={balBase} currency={c} maxChars={10} className="num font-semibold text-ink flex-shrink-0" />
+                </button>
+              );
+            })}
+            {totalOwedToMe > 0 && (
+              <div className="text-[11px] text-ink-dim px-1 pt-1">
+                Owed to me · <b className="num text-denim">{fmt(totalOwedToMe, c)}</b> — receivables, linked from Splits.
+              </div>
+            )}
+          </div>
+
+          {detailDebt && (() => {
+            const d        = detailDebt;
+            const balBase  = convert(d.currentBalance, d.currency, c, rates);
+            const prinBase = convert(d.principal, d.currency, c, rates);
+            const paidPct  = prinBase > 0 ? Math.min(((prinBase - balBase) / prinBase) * 100, 100) : 0;
+            const months   = monthsToPayoff(d);
+            const { interest, principal: prinPay } = splitEmiPortions(d.currentBalance, d.interestRate, d.minimumPayment);
+            const cleared  = prinBase - balBase;
+            const isPriority = d.id === sorted[0].id;
+            const freeBy = months != null && months > 0
+              ? new Date(new Date().setMonth(new Date().getMonth() + months)).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+              : null;
+            return (
+              <div className="rounded-r3 p-5 lg:sticky lg:top-[124px]"
+                style={{ background: 'var(--canvas)', boxShadow: 'var(--neu), 0 0 0 1.5px color-mix(in srgb, var(--accent) 40%, transparent)' }}>
+                <div className="flex items-center gap-2 mb-4">
+                  {isPriority && (
+                    <span className="font-mono text-[9.5px] tracking-wider uppercase px-2 py-0.5 rounded-pill"
+                      style={{ background: 'color-mix(in srgb, var(--accent) 16%, transparent)', color: 'var(--accent)' }}>⚡ Pay this first</span>
+                  )}
+                  <span className="mono-label">{profile.payoffStrategy === 'avalanche' ? 'highest APR' : 'smallest balance'}</span>
+                  <div className="ml-auto flex gap-1">
+                    <button className="row-action" onClick={() => openEdit(d)} aria-label={`Edit ${d.name}`} title="Edit"><Pencil size={14} strokeWidth={1.6} /></button>
+                    <button className="row-action danger" onClick={() => del(d.id)} aria-label={`Delete ${d.name}`} title="Delete"><Trash2 size={14} strokeWidth={1.6} /></button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-5 mb-4">
+                  <PayoffRing pct={paidPct} monthsLeft={months} />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-[17px] text-ink truncate">{d.name}</div>
+                    <div className="num text-[11px] text-ink-dim mb-1">{d.lender ? d.lender + ' · ' : ''}{d.interestRate}% APR</div>
+                    <Money amount={balBase} currency={c} maxChars={12} className="num text-[26px] font-bold text-ink" />
+                    <div className="text-[12px] text-sage">
+                      {freeBy ? `Debt-free by ${freeBy} · ${fmt(cleared, c)} cleared so far` : months === 0 ? 'Cleared! 🎉' : `${fmt(cleared, c)} cleared`}
+                    </div>
+                  </div>
+                  <button className="btn-primary btn-sm self-start flex-shrink-0" onClick={() => recordPayment(d)}>
+                    <CreditCard size={13} strokeWidth={1.8} /> Record
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {([
+                    ['min pay',      fmt(convert(d.minimumPayment, d.currency, c, rates), c), 'text-ink'],
+                    ['interest/mo',  fmt(convert(interest, d.currency, c, rates), c),          'text-honey'],
+                    ['principal/mo', fmt(convert(prinPay, d.currency, c, rates), c),           'text-sage'],
+                    ['months left',  months != null ? String(months) : '∞',                    'text-sage'],
+                  ] as [string, string, string][]).map(([lbl, val, cls]) => (
+                    <div key={lbl} className="text-center py-2.5 rounded-r2" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+                      <div className={`num text-[15px] font-bold ${cls}`}>{val}</div>
+                      <div className="font-mono text-[7.5px] tracking-wider uppercase text-ink-dim mt-0.5">{lbl}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 pt-1">
+                  <button className="btn-ghost btn-sm" onClick={() => navigate(`/transactions?debtId=${d.id}`)}>Payments →</button>
+                  {profile.extraPayment > 0 && (
+                    <span className="ml-auto font-mono text-[9px] tracking-wider uppercase text-ink-dim">extra payment: {fmt(profile.extraPayment, c)}/mo</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+        </>
       )}
     </div>
   );

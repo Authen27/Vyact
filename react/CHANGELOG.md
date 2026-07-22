@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.8.3`** (consumer)
+> **Current production version: `v10.8.4`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,45 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.8.4 — Aurora fidelity · Batch C desktop · Debts/Net Worth/Accounts two-column layouts (boards D2/D3/D4) *(2026-07-22)*
+
+The Plan section's **desktop** frames, which the M-frame passes (v10.8.0–v10.8.3)
+didn't cover. Mobile/tablet layouts are unchanged throughout — every new block is
+`lg:`-gated and the existing mobile renderings are now `lg:hidden`.
+
+- **Debts · board D2** — desktop splits into payoff order (440px) + priority
+  detail (1fr). The left column is a compact **numbered payoff list** (rank,
+  kind glyph, APR / % paid, balance) with the priority outlined in the accent;
+  the right column expands the selected debt: payoff ring, `Debt-free by <month>
+  · $X cleared so far`, a four-tile **min pay / interest-per-month /
+  principal-per-month / months-left** strip, Record payment, and the `?debtId`
+  payments drill-through. **Clicking a numbered row moves that debt into the
+  detail panel** (defaults to the priority); the "⚡ Pay this first" badge shows
+  only for the actual priority debt.
+- **Net Worth · board D3** — the waterfall hero and the four ratio tiles now sit
+  **side by side** on desktop (`1fr · 340px`, ratios reflowing to 2×2 in the
+  narrower column) instead of stacking; the balance sheet keeps its two columns
+  below.
+- **Accounts · board D4** — desktop splits into the wallet (1fr) + a **persistent
+  ledger rail** (520px). Selecting a wallet card moves it into the rail, which
+  shows the kind tile, computed running balance, the account's ledger, and an
+  inline reconcile field that **speaks each kind's own language** — bank →
+  "bank says" / Balance check, cash → "cash on hand" / Balance check,
+  investment → "current value" / Update value — plus ★ Default · Edit · Archive.
+  Reconciling still writes the account-level offset, never a transaction.
+
+Not built (no data to back it honestly): the board's credit-card **cycle
+utilization** panel (limit · statement · due · min) needs a credit-limit field
+that `Account` doesn't carry — omitted rather than faked.
+
+### Fixed
+- **Accounts scrolled sideways on phones** once a household actually had
+  accounts. The wallet grids declared `grid sm:grid-cols-2` with no explicit
+  track below `sm`, so the implicit column sized to *max-content* and a wallet
+  card could never shrink. Added `grid-cols-1`. Pre-existing since the wallet
+  cards shipped; it stayed invisible in local-only previews because that seed
+  carries no first-class accounts.
 
 ## v10.8.3 — Aurora fidelity · Batch C 4/4 · Accounts wallet strip + action language (board M5) *(2026-07-22)*
 

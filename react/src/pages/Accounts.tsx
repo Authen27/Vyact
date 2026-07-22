@@ -10,7 +10,7 @@
 // as a chip. Linked to a backfilled asset/debt? We surface that with a
 // small caption so the user understands where the row came from.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -104,6 +104,10 @@ export default function Accounts() {
 
   const shownActive = kindFilter === 'all' ? active : active.filter(a => a.kind === kindFilter);
 
+  // Board D4 desktop — which account the right-hand ledger rail shows.
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const selectedAccount = shownActive.find(a => a.id === selectedAccountId) ?? shownActive[0];
+
   // Resolve assetId → human label so backfilled rows show their origin.
   const linkLabel = (acc: Account): string | null => {
     if (!acc.assetId) return null;
@@ -190,8 +194,12 @@ export default function Accounts() {
         </div>
       )}
 
+      {/* Mobile / tablet — wallet cards with the ledger expanding inline.
+          `grid-cols-1` is load-bearing: without an explicit track the implicit
+          column sizes to max-content, so a wallet card can't shrink and the
+          page scrolls sideways on phones. */}
       {!flagOff && active.length > 0 && (
-        <div className="grid sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:hidden">
           {shownActive.map(acc => (
             <AccountRow
               key={acc.id}
@@ -213,6 +221,88 @@ export default function Accounts() {
         </div>
       )}
 
+      {/* Board D4 desktop — wallet grid (left) + the selected account's ledger
+          in a persistent right rail. Clicking a card moves it into the rail. */}
+      {!flagOff && active.length > 0 && (
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_520px] lg:gap-6 lg:items-start">
+          <div className="grid grid-cols-2 gap-3 content-start">
+            {shownActive.map(acc => {
+              const bal = balanceOf(acc);
+              const on = selectedAccount?.id === acc.id;
+              const estimated = !!acc.confidence && acc.confidence !== 'confirmed';
+              return (
+                <button key={acc.id} type="button" onClick={() => setSelectedAccountId(acc.id)}
+                  className="text-left rounded-r3 px-4 py-3.5 border-none cursor-pointer"
+                  style={on
+                    ? { background: 'var(--canvas)', boxShadow: 'var(--neu), 0 0 0 1.5px var(--accent)' }
+                    : { background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+                  <div className="flex items-center gap-3">
+                    <span className="w-[34px] h-[34px] rounded-r2 flex items-center justify-center text-[15px] flex-shrink-0"
+                      style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} aria-hidden>{KIND_ICON[acc.kind]}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-[14px] text-ink truncate">{acc.name}</span>
+                        {acc.isDefault && <span className="text-honey text-[12px]" title={`Default for ${acc.currency}`}>★</span>}
+                        {estimated && (
+                          <span className="font-mono text-[8.5px] tracking-wider uppercase px-1.5 py-px rounded"
+                            style={{ border: '1px dashed color-mix(in srgb, hsl(var(--honey)) 55%, transparent)', color: 'hsl(var(--honey))' }}>est</span>
+                        )}
+                      </div>
+                      <div className="num text-[9.5px] text-ink-dim truncate">
+                        {WALLET_KINDS.find(w => w.kind === acc.kind)?.label.toLowerCase() ?? acc.kind} · {acc.currency}
+                        {linkLabel(acc) ? ` · ${linkLabel(acc)!.toLowerCase()}` : ''}
+                      </div>
+                    </div>
+                    <Money amount={bal} currency={baseCur} maxChars={11}
+                      className={`num font-bold text-[16px] flex-shrink-0 ${bal < 0 ? 'text-terra' : 'text-ink'}`} />
+                  </div>
+                </button>
+              );
+            })}
+            {shownActive.length === 0 && (
+              <p className="col-span-full text-center text-ink-dim text-sm py-8">No {WALLET_KINDS.find(w => w.kind === kindFilter)?.label.toLowerCase()} accounts.</p>
+            )}
+          </div>
+
+          {selectedAccount && (
+            <div className="rounded-r3 p-5 lg:sticky lg:top-[124px]" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="w-[34px] h-[34px] rounded-r2 flex items-center justify-center text-[15px] flex-shrink-0"
+                  style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} aria-hidden>{KIND_ICON[selectedAccount.kind]}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[15px] text-ink truncate">{selectedAccount.name} · ledger</div>
+                  <div className="num text-[10px] text-ink-dim">computed balance · running</div>
+                </div>
+                <Money amount={balanceOf(selectedAccount)} currency={baseCur} maxChars={11}
+                  className={`num font-bold text-[17px] ${balanceOf(selectedAccount) < 0 ? 'text-terra' : 'text-ink'}`} />
+              </div>
+              <DeskReconcile
+                key={selectedAccount.id}
+                acc={selectedAccount}
+                balance={balanceOf(selectedAccount)}
+                onReconcile={(real) => handleReconcile(selectedAccount, real)}
+              />
+              <AccountLedger
+                account={selectedAccount}
+                accountValue={accountValueOf(selectedAccount)}
+                txns={transactions}
+                baseCur={baseCur}
+                rates={rates}
+              />
+              <div className="flex items-center gap-3 pt-3 mt-1 border-t border-line">
+                {selectedAccount.isDefault && (
+                  <span className="font-mono text-[9px] tracking-wider uppercase text-honey">★ Default for {selectedAccount.currency}</span>
+                )}
+                <button className="font-mono text-[9px] tracking-wider uppercase text-ink-dim hover:text-ink"
+                  onClick={() => openEditAccount(selectedAccount)}>Edit</button>
+                <button className="font-mono text-[9px] tracking-wider uppercase text-ink-dim hover:text-ink"
+                  onClick={() => toggleArchive(selectedAccount)}>Archive</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Board M5 — the honest note on how balances and the default work. */}
       {!flagOff && active.length > 0 && (
         <p className="text-[11px] text-ink-dim leading-snug mt-4 px-1">
@@ -230,7 +320,7 @@ export default function Accounts() {
             {showArchived ? '▾' : '▸'} Archived ({archived.length})
           </button>
           {showArchived && (
-            <div className="grid sm:grid-cols-2 gap-3 opacity-70">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 opacity-70">
               {archived.map(acc => (
                 <AccountRow
                   key={acc.id}
@@ -360,6 +450,31 @@ function AccountRow(props: {
       {showLedger && ledgerEnabled && (
         <AccountLedger account={acc} accountValue={value} txns={txns} baseCur={baseCur} rates={rates} />
       )}
+    </div>
+  );
+}
+
+/** Board D4 — the ledger rail's inline reconcile field. Each kind speaks its
+ *  own language ("bank says" → Balance check · investment → Update value); the
+ *  drift lands on the account's reconciliation offset, never as a transaction. */
+function DeskReconcile({ acc, balance, onReconcile }: {
+  acc: Account; balance: number; onReconcile: (real: number) => void;
+}) {
+  const [val, setVal] = useState(String(Math.round(balance)));
+  useEffect(() => { setVal(String(Math.round(balance))); }, [balance]);
+  const label = acc.kind === 'investment' ? 'current value' : acc.kind === 'cash' ? 'cash on hand' : 'bank says';
+  const cta   = acc.kind === 'investment' ? 'Update value' : 'Balance check';
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div className="flex-1 flex items-center gap-2 h-[40px] px-3 rounded-r2 min-w-0"
+        style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+        <span className="font-mono text-[8px] tracking-wider uppercase text-ink-dim flex-shrink-0">{label}</span>
+        <input type="number" inputMode="decimal" value={val} onChange={e => setVal(e.target.value)}
+          aria-label={`${label} for ${acc.name}`}
+          className="num font-bold text-[14px] bg-transparent border-none outline-none text-ink w-full min-w-0" />
+      </div>
+      <button type="button" className="btn-primary btn-sm h-[40px] flex-shrink-0"
+        onClick={() => { const n = Number(val); if (!isNaN(n)) onReconcile(n); }}>{cta}</button>
     </div>
   );
 }

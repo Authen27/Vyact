@@ -107,6 +107,11 @@ export default function NetWorth() {
         <button className="btn-primary" onClick={openAdd}>+ Add Asset</button>
       </div>
 
+      {/* Board D3 desktop — the waterfall hero and the four ratios sit side by
+          side (1fr · 340px); the balance sheet follows below. Mobile stacks. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-4 lg:items-start">
+      <div className="min-w-0">
+
       {/* Board M4 — the equation is a WATERFALL you read at a glance: the full
           assets(+owed) bar, the slice liabilities take from it, and the net-worth
           remainder. Denim spine, net worth in neutral ink. */}
@@ -159,9 +164,10 @@ export default function NetWorth() {
           </div>
         </div>
       )}
+      </div>{/* /left column (hero + liquidity) */}
 
-      {/* Financial ratios */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      {/* Financial ratios — 2×2 in the desktop right column (board D3). */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3 mb-4 lg:mb-0">
         {[
           {
             label: 'Liquidity Ratio',
@@ -201,11 +207,13 @@ export default function NetWorth() {
           </div>
         ))}
       </div>
+      </div>{/* /hero + ratios desktop grid */}
 
       {/* Add/Edit form lives in <AssetFormModal /> mounted at App root */}
 
-      {/* Balance sheet split */}
-      <div className="grid sm:grid-cols-2 gap-4">
+      {/* Balance sheet split — board D3: Assets (1fr) | Liabilities + Owed (1fr),
+          each a neu card. */}
+      <div className="grid sm:grid-cols-2 gap-4 mt-4">
         {/* Assets column */}
         <div>
           <h2 className="display-italic text-2xl text-ink mb-3">Assets</h2>
