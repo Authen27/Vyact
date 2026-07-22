@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useState, useMemo, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, Trash2, ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
 import { useStore } from '../store';
@@ -6,7 +6,7 @@ import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, convert, today } from '../lib/format';
 import Money from '../components/ui/Money';
-import { computeEmi, splitEmiPortions, totalLiabilities, totalReceivables, totalMonthlyDebtPayment } from '../lib/calculations';
+import { computeEmi, splitEmiPortions, totalLiabilities, totalReceivables, totalMonthlyDebtPayment, simulatePayoffInterest } from '../lib/calculations';
 import { DEBT_TYPES } from '../constants';
 import { getMoneyMapMode } from '../lib/featureFlags';
 import type { Debt } from '../types';
@@ -26,6 +26,7 @@ export default function Debts() {
   const toast        = useStore(s => s.toast);
   const openAddDebt  = useStore(s => s.openAddDebt);
   const openEditDebt = useStore(s => s.openEditDebt);
+  const updateProfile = useStore(s => s.updateProfile);
 
   const [expandId, setExpandId]   = useState<string | null>(null);
   // v7.2 — direction tabs are flag-gated. Off-mode households see the
@@ -40,6 +41,21 @@ export default function Debts() {
   const income       = transactions.filter(tx => tx.type === 'income')
     .reduce((s, tx) => s + convert(tx.amount, tx.currency, c, rates), 0) || 1;
   const dti          = (totalMinPay / (income / 12)) * 100;
+
+  // Board M3 — the strategy toggle states its honest trade-off. We simulate the
+  // full payoff cascade under BOTH orderings (base currency) and compare total
+  // interest; the delta is real, not a guess. Equal minimums with no headroom →
+  // no difference, which the sim reflects.
+  const strategyTradeoff = useMemo(() => {
+    if (debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me' && d.currentBalance > 0).length < 2) return null;
+    const av = simulatePayoffInterest(debts, profile.extraPayment, 'avalanche', c, rates);
+    const sn = simulatePayoffInterest(debts, profile.extraPayment, 'snowball', c, rates);
+    if (!av.terminates || !sn.terminates) return null;
+    const sel = profile.payoffStrategy === 'snowball' ? sn : av;
+    const oth = profile.payoffStrategy === 'snowball' ? av : sn;
+    const delta = oth.totalInterest - sel.totalInterest;   // >0 ⇒ selected saves
+    return { delta, sel, oth };
+  }, [debts, profile.extraPayment, profile.payoffStrategy, c, rates]);
 
   const filtered = showDirectionTabs && tab !== 'all'
     ? debts.filter(d => (d.direction || 'owed_by_me') === tab)
@@ -97,11 +113,13 @@ export default function Debts() {
         <button className="btn-primary" onClick={openAdd}>+ Add Debt</button>
       </div>
 
-      {/* Summary strip */}
+      {/* Summary strip — board M3: balances in NEUTRAL ink (loss is
+          information, not alarm); honey marks the monthly obligation; DTI keeps
+          its healthy/watch/high semantic colour. */}
       {debts.length > 0 && (
         <div className="grid grid-cols-3 gap-3 mb-4">
           {[
-            { label: 'Total Debt',     node: <Money amount={totalDebt} currency={c} maxChars={11} className="text-terra" />,                cls: 'text-terra' },
+            { label: 'Total Debt',     node: <Money amount={totalDebt} currency={c} maxChars={11} className="text-ink" />,                   cls: 'text-ink' },
             { label: 'Min. Monthly',   node: <Money amount={totalMinPay} currency={c} maxChars={11} className="text-honey" />,              cls: 'text-honey' },
             { label: 'Debt-to-Income', node: <span>{`${dti.toFixed(1)}%`}</span>,                                                            cls: dti > 36 ? 'text-terra' : dti > 25 ? 'text-honey' : 'text-sage' },
           ].map(s => (
@@ -110,6 +128,37 @@ export default function Debts() {
               <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mt-0.5">{s.label}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Board M3 — on-page strategy toggle: switching resorts the list live and
+          restates the trade-off honestly (real interest delta from the payoff
+          simulation, not a guess). Previously strategy was only changeable in
+          Settings. */}
+      {debts.length > 0 && (
+        <div className="flex items-center gap-2.5 mb-4 flex-wrap">
+          <div className="inline-flex gap-1 p-1 rounded-pill" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}
+            role="tablist" aria-label="Payoff strategy">
+            {(['avalanche', 'snowball'] as const).map(st => (
+              <button key={st} role="tab" aria-selected={profile.payoffStrategy === st}
+                onClick={() => updateProfile({ payoffStrategy: st })}
+                className="h-[28px] px-4 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] capitalize"
+                style={profile.payoffStrategy === st
+                  ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
+                  : { color: 'var(--ff-ink-3)', background: 'transparent' }}>
+                {st}
+              </button>
+            ))}
+          </div>
+          {strategyTradeoff && (
+            <span className="text-[10.5px]">
+              {strategyTradeoff.delta > 1
+                ? <span className="text-sage">saves you {fmt(Math.round(strategyTradeoff.delta), c)} in interest</span>
+                : strategyTradeoff.delta < -1
+                  ? <span className="text-ink-dim">{fmt(Math.round(-strategyTradeoff.delta), c)} more interest — but frees a balance sooner</span>
+                  : <span className="text-ink-dim">{profile.payoffStrategy === 'avalanche' ? 'targets the highest APR first' : 'clears the smallest balance first'}</span>}
+            </span>
+          )}
         </div>
       )}
 
@@ -204,7 +253,8 @@ export default function Debts() {
                       </div>
                     </div>
                     <div className="text-right min-w-0">
-                      <div className="text-lg font-semibold text-terra"><Money amount={balBase} currency={c} maxChars={12} /></div>
+                      {/* Board M3 — balance in neutral ink, not terra. */}
+                      <div className="text-lg font-semibold text-ink"><Money amount={balBase} currency={c} maxChars={12} /></div>
                       <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">{d.interestRate}% APR</div>
                     </div>
                   </div>

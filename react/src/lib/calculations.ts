@@ -304,6 +304,67 @@ export const totalMonthlyDebtPayment = (debts: Debt[], baseCurrency: string, rat
     baseCurrency,
   ));
 
+// ── DEBT PAYOFF SIMULATION (forecast; not part of the money model) ──
+//
+// Board C · Debts strategy toggle. Simulates the standard debt-snowball /
+// avalanche cascade month-by-month in base currency to project total interest
+// paid, so the on-page toggle can state the honest trade-off ("Avalanche saves
+// you $340 in interest") instead of a fabricated figure. This is a PROJECTION —
+// it never mutates stored balances and is not consumed by any aggregator, so it
+// is outside the money-model invariants. When every debt is paid at exactly its
+// minimum (no rolling headroom) the two strategies are identical, which the
+// simulation reflects (savings → 0).
+export function simulatePayoffInterest(
+  debts: Debt[],
+  extraPerMonth: number,        // base currency, applied above the minimums
+  strategy: 'avalanche' | 'snowball',
+  baseCurrency: string,
+  rates: ExchangeRates,
+): { months: number; totalInterest: number; terminates: boolean } {
+  const work = debts
+    .filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me' && d.currentBalance > 0)
+    .map(d => ({
+      balance: convert(d.currentBalance, d.currency, baseCurrency, rates),
+      rate: (d.interestRate || 0) / 100 / 12,
+      min: convert(d.minimumPayment, d.currency, baseCurrency, rates),
+    }));
+  if (!work.length) return { months: 0, totalInterest: 0, terminates: true };
+  // Total monthly budget = every original minimum + the extra. As debts clear,
+  // their freed minimum stays in the budget and rolls onto the priority debt.
+  const monthlyBudget = work.reduce((s, w) => s + Math.max(0, w.min), 0) + Math.max(0, extraPerMonth);
+  let totalInterest = 0;
+  let months = 0;
+  const CAP = 1200;   // 100 years — a runaway (budget < interest) bails out here
+  while (work.some(w => w.balance > 0.005) && months < CAP) {
+    months++;
+    let budget = monthlyBudget;
+    // 1) accrue interest
+    for (const w of work) {
+      if (w.balance <= 0) continue;
+      const interest = w.balance * w.rate;
+      totalInterest += interest;
+      w.balance += interest;
+    }
+    // 2) pay each active debt its own minimum (capped at balance)
+    for (const w of work) {
+      if (w.balance <= 0 || budget <= 0) continue;
+      const pay = Math.min(w.min, w.balance, budget);
+      w.balance -= pay;
+      budget -= pay;
+    }
+    // 3) cascade whatever is left (extra + freed minimums) onto priority order
+    const active = work.filter(w => w.balance > 0.005)
+      .sort((a, b) => strategy === 'avalanche' ? b.rate - a.rate : a.balance - b.balance);
+    for (const w of active) {
+      if (budget <= 0.005) break;
+      const pay = Math.min(budget, w.balance);
+      w.balance -= pay;
+      budget -= pay;
+    }
+  }
+  return { months, totalInterest, terminates: months < CAP };
+}
+
 // ── PULSE SCORE — 4 components ─────────────────────────────────
 // Goals were removed as a module, so Goal Progress is no longer a Pulse
 // component; the score is Budgets / Savings / Trend / Debt, renormalised over

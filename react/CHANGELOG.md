@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.8.0`** (consumer)
+> **Current production version: `v10.8.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,26 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.8.1 — Aurora fidelity · Batch C 2/4 · Debts strategy toggle + neutral balances (board M3/D2) *(2026-07-22)*
+
+Second Plan-section (Batch C) fidelity increment — Debts:
+
+- **On-page strategy toggle with an honest trade-off (board M3/D2).** Avalanche/
+  Snowball is now a segmented control on the Debts page itself (was only
+  changeable in Settings): switching resorts the priority list live and restates
+  the real trade-off — "saves you $X in interest" / "$X more interest, but frees
+  a balance sooner". The dollar figure is a genuine projection, not a guess.
+  - Driven by a new **pure** `simulatePayoffInterest()` in `lib/calculations.ts`
+    that runs the standard snowball/avalanche cascade (rolling freed minimums +
+    the profile's extra payment) month-by-month in base currency and totals the
+    interest paid. It's a forecast — it never touches stored balances or any
+    aggregator, so the money-model invariants + golden file are unchanged
+    (160/161; the 1 failure remains the pre-existing clock snapshot).
+- **Balances render in neutral ink (board M3: "loss is information").** Total
+  Debt and each debt's balance move from terra → neutral ink; honey still marks
+  the monthly obligation, and terra is reserved for genuinely critical states.
+  Debt-to-income keeps its healthy/watch/high semantic colour.
 
 ## v10.8.0 — Aurora fidelity · Batch C 1/4 · Budgets pace chart (board M1/M2/D1) *(2026-07-22)*
 
