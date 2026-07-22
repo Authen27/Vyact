@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.9.0`** (consumer)
+> **Current production version: `v10.9.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,39 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.9.1 — Aurora fidelity · Batch D 2/3 · Insights hub (boards M3/M5/D2) *(2026-07-22)*
+
+Second Analyze-section increment — the Insights hub.
+
+- **For You launch hero is glass over the ambient aurora** (board M3) and now
+  says the quiet part out loud: *"A 60-second story on where your money moved —
+  computed on your device, never guessed."* Leads with `{n} fresh cards this
+  week` and a `▶ Play the reel` primary, over an "Or browse them" label.
+- **Insight preview cards follow board `.icard`** — a severity **spine** down the
+  left edge (sage positive · honey constructive · coral neutral, from the feed's
+  existing `tone`), the emoji, then the number that matters at 26px tinted to
+  match, then one line. Replaces the flat horizontal row.
+- **Plan groups by SEVERITY, not domain** (board M5). Recommendations now sit
+  under `▲ Critical · n` / `⚠ Watch · n` / `ⓘ Info · n` headers with the domain
+  riding each card as a pill — the board's information hierarchy, inverted from
+  the previous by-domain panels. The redundant 3-card severity count strip is
+  gone (the group headers carry the counts).
+- **The "no AI" promise is compact and denim-tinted** (board M5): *Recommendations
+  follow fixed rules — no AI, no guessing. You decide what to act on.* Replaces
+  the long bordered disclaimer while keeping the not-financial-advice line.
+- **When nothing is critical the tone stays warm**, not empty: *"Nothing critical
+  right now — you're steady 🌿"*.
+- **Desktop shows what mobile tabs between** (board D2) — on `lg` the hub is
+  `1.5fr · 1fr`: For You on the left, and a rail on the right carrying a
+  condensed **Plan · recommendations** column (top 3, severity-spined, "🔒 rules,
+  no AI") over a **Learn · evergreen** tile grid. Selecting Learn or Plan still
+  opens that surface full-width; the rail is hidden below `lg`.
+
+Unchanged after review: the For You reel (board M4) and Learn (board M8) already
+match their frames — Learn has the search, Lessons/Updates segment, topic chips
+and format badges. Learn's featured-media hero is not built: it needs real
+thumbnail media the bundled library doesn't carry.
 
 ## v10.9.0 — Aurora fidelity · Batch D 1/3 · Reports (boards M1/M2) *(2026-07-22)*
 
