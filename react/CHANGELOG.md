@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.8.1`** (consumer)
+> **Current production version: `v10.8.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,22 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.8.2 — Aurora fidelity · Batch C 3/4 · Net Worth waterfall + stale chip (board M4/D3) *(2026-07-22)*
+
+Third Plan-section (Batch C) fidelity increment — Net Worth:
+
+- **The equation is now a visual waterfall (board M4).** The hero replaces the
+  text equation with three scaled bars you read at a glance — the full
+  assets(+owed) bar, the slice liabilities take from it, and the net-worth
+  remainder — over a denim spine, with net worth in neutral ink. Bar widths are
+  the real proportions (liabilities and net worth as a share of gross assets).
+- **Inline "update?" stale chip on aging balances (board M4).** A liquid/short
+  asset not touched in 30+ days now carries a dashed-honey "update?" chip that
+  opens its edit sheet — the same staleness rule that drives the mount-time
+  toast, surfaced where you can act on it. Presentation only; no money changed.
+- Removed dead `totalMonthlyDebtPayment` import/var that lingered unused on the
+  page.
 
 ## v10.8.1 — Aurora fidelity · Batch C 2/4 · Debts strategy toggle + neutral balances (board M3/D2) *(2026-07-22)*
 

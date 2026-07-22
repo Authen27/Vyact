@@ -1,11 +1,11 @@
 import { useStore } from '../store';
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
-import { totalAssets, totalLiabilities, totalReceivables, liquidAssets, totalMonthlyDebtPayment, monthlyData } from '../lib/calculations';
+import { totalAssets, totalLiabilities, totalReceivables, liquidAssets, monthlyData } from '../lib/calculations';
 import { ASSET_TYPES, DEBT_TYPES } from '../constants';
 import type { Asset } from '../types';
 
@@ -54,7 +54,6 @@ export default function NetWorth() {
   const tr  = totalReceivables(debts, c, rates);
   const nw  = ta + tr - tl;
   const la  = liquidAssets(assets, c, rates);
-  const tdp = totalMonthlyDebtPayment(debts, c, rates);
   const { income, expense } = monthlyData(transactions, nowMonthKey(), c, rates);
   const monthlyIncome = income || 1;
 
@@ -87,6 +86,15 @@ export default function NetWorth() {
   const byLiquidity = (liq: Asset['liquidity']) =>
     assets.filter(a => a.liquidity === liq);
 
+  // Board M4 — a liquid/short balance not touched in 30+ days rides an inline
+  // dashed-honey "update?" chip (same rule as the mount-time stale toast).
+  const isStale = (a: Asset) => {
+    const kind = ASSET_TYPES[a.type]?.liquidity;
+    if (kind !== 'liquid' && kind !== 'short') return false;
+    if (!a.lastUpdated) return true;
+    return (Date.now() - new Date(a.lastUpdated).getTime()) / (1000 * 60 * 60 * 24) > 30;
+  };
+
   return (
     <div>
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
@@ -99,32 +107,38 @@ export default function NetWorth() {
         <button className="btn-primary" onClick={openAdd}>+ Add Asset</button>
       </div>
 
-      {/* Board C — waterfall equation hero (neu): assets (+ owed) − liabilities. */}
-      <div className="rounded-r4 p-6 mb-4" style={{ background: 'var(--elevated)', boxShadow: 'var(--neu)' }}>
-        <div className="mono-label mb-2">Net worth = assets {tr > 0 ? '+ owed to me ' : ''}− liabilities</div>
-        <Money amount={nw} currency={c} maxChars={12}
-          className={`num text-4xl font-bold ${nw >= 0 ? 'text-sage' : 'text-terra'}`} />
-        <div className="flex items-end flex-wrap gap-x-5 gap-y-2 mt-4">
-          <div>
-            <div className="mono-label mb-0.5">Assets</div>
-            <Money amount={ta} currency={c} maxChars={11} className="num text-lg font-semibold text-sage" />
+      {/* Board M4 — the equation is a WATERFALL you read at a glance: the full
+          assets(+owed) bar, the slice liabilities take from it, and the net-worth
+          remainder. Denim spine, net worth in neutral ink. */}
+      {(() => {
+        const gross = ta + tr;                                  // assets + owed
+        const libPct = gross > 0 ? Math.min(100, (tl / gross) * 100) : 0;
+        const nwPct  = gross > 0 ? Math.max(0, Math.min(100, (nw / gross) * 100)) : 0;
+        const barRow = (barWidth: string, barStyle: CSSProperties, alignEnd: boolean, label: ReactNode) => (
+          <div className="flex items-center gap-2">
+            <div className={`flex-[0_0_56%] flex ${alignEnd ? 'justify-end' : ''}`}>
+              <div className="h-[15px] rounded-[5px] chart-grow" style={{ width: barWidth, ...barStyle }} />
+            </div>
+            <span className="text-[10.5px] text-ink-mid whitespace-nowrap">{label}</span>
           </div>
-          {tr > 0 && (
-            <>
-              <span className="text-ink-dim text-lg pb-1">+</span>
-              <div>
-                <div className="mono-label mb-0.5">Owed to me</div>
-                <Money amount={tr} currency={c} maxChars={11} className="num text-lg font-semibold text-denim" />
-              </div>
-            </>
-          )}
-          <span className="text-ink-dim text-lg pb-1">−</span>
-          <div>
-            <div className="mono-label mb-0.5">Liabilities</div>
-            <Money amount={tl} currency={c} maxChars={11} className="num text-lg font-semibold text-terra" />
+        );
+        return (
+          <div className="relative rounded-r3 p-5 mb-4 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+            <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full" style={{ background: 'hsl(var(--denim))' }} />
+            <div className="mono-label mb-1">Net worth · today</div>
+            <Money amount={nw} currency={c} maxChars={12}
+              className={`num text-[30px] font-bold leading-tight ${nw >= 0 ? 'text-ink' : 'text-terra'}`} />
+            <div className="flex flex-col gap-1.5 mt-3">
+              {barRow('100%', { background: 'hsl(var(--sage))', boxShadow: 'var(--neu-sm)' }, false,
+                <>Assets {tr > 0 ? '＋ owed ' : ''}<b className="num text-ink-mid">{fmt(gross, c)}</b></>)}
+              {barRow(`${libPct}%`, { background: 'var(--sunken)', boxShadow: 'var(--neu-inset), inset 0 0 0 1px hsl(var(--line2))' }, true,
+                <>− Liabilities <b className="num text-ink-mid">{fmt(tl, c)}</b></>)}
+              {barRow(`${nwPct}%`, { background: 'hsl(var(--denim))', boxShadow: 'var(--neu-sm)' }, false,
+                <>= Net worth <b className="num text-ink-mid">{fmt(nw, c)}</b></>)}
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Board C — liquidity stacked bar. */}
       {ta > 0 && (
@@ -225,7 +239,14 @@ export default function NetWorth() {
                               {a.note && <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{a.note}</div>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {isStale(a) && (
+                              <button type="button" onClick={() => openEdit(a)} title="This balance is over 30 days old — update it"
+                                className="font-mono text-[8.5px] tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-md flex-shrink-0"
+                                style={{ border: '1px dashed color-mix(in srgb, hsl(var(--honey)) 55%, transparent)', color: 'hsl(var(--honey))' }}>
+                                update?
+                              </button>
+                            )}
                             <div className="text-right min-w-0">
                               <Money amount={valBase} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem]" />
                               {a.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(a.value, a.currency)}</div>}
