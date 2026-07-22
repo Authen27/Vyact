@@ -211,6 +211,46 @@ export function spendByCategoryInRange(
   return out;
 }
 
+/** Cumulative spend (base currency) at the end of each calendar day in
+ *  `[start, upto]`, restricted to `categories`. Board-C Budgets pace chart:
+ *  drives the cumulative-spend-vs-limit hero. Uses the same
+ *  `reportableTxns`/`effectiveDinero` machinery as `spendByCategoryInRange`,
+ *  so the final entry's `cumulative` equals that function's total over the
+ *  same window — the chart never contradicts the tracked spend. Returns one
+ *  entry per day (inclusive). */
+export function cumulativeSpendSeries(
+  transactions: Transaction[],
+  categories: Set<string>,
+  start: string,
+  upto: string,
+  baseCurrency: string,
+  rates: ExchangeRates,
+): { date: string; cumulative: number }[] {
+  if (upto < start) return [];
+  // per-day exact spend within the category set (dinero space)
+  const perDay = new Map<string, Dinero<number>>();
+  for (const t of reportableTxns(transactions)) {
+    if (t.type !== 'expense' || !categories.has(t.category)) continue;
+    if (t.date < start || t.date > upto) continue;
+    const d = effectiveDinero(t, baseCurrency, rates);
+    const prev = perDay.get(t.date);
+    perDay.set(t.date, prev ? addDinero(prev, d) : d);
+  }
+  const out: { date: string; cumulative: number }[] = [];
+  let running: Dinero<number> | null = null;
+  const cur = new Date(`${start}T00:00:00`);
+  const end = new Date(`${upto}T00:00:00`);
+  // Guard against a malformed range spinning forever.
+  for (let guard = 0; cur <= end && guard < 400; guard++) {
+    const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+    const day = perDay.get(key);
+    if (day) running = running ? addDinero(running, day) : day;
+    out.push({ date: key, cumulative: running ? fromDinero(running) : 0 });
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 /** How many calendar months the period covers (used to derive a per-month
  *  view of an aggregated period limit). */
 export function periodMonths(period: BudgetPeriod | undefined): number {

@@ -10,11 +10,12 @@ import { useStore } from '../store';
 import { can } from '../lib/permissions';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { convert, fmt } from '../lib/format';
-import { spendByCategoryInRange } from '../lib/calculations';
+import { convert, fmt, fmtShort, today } from '../lib/format';
+import { spendByCategoryInRange, cumulativeSpendSeries } from '../lib/calculations';
 
 import { getCat } from '../constants';
 import Money from '../components/ui/Money';
+import BudgetPaceChart from '../components/budgets/BudgetPaceChart';
 import type { Budget } from '../types';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -100,33 +101,66 @@ export default function Budgets() {
         </div>
       )}
 
-      {/* Board C — current-month pace hero: cumulative spend vs limit + a
-          plain-language daily allowance. Uses the same computed spend/limit. */}
+      {/* Board C M1/D1 — current-month pace hero: a cumulative-spend-vs-limit
+          chart (dashed limit line · today dot · dotted run-rate projection)
+          over a left accent spine, with a plain-language daily allowance and
+          the overall-usage trough beneath. */}
       {currentMonthRow && (() => {
-        const { totalBase, spent } = currentMonthRow;
+        const { b, allocs, totalBase, spent } = currentMonthRow;
         const overall = pct(spent, totalBase);
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         const daysLeft = Math.max(1, daysInMonth - now.getDate() + 1);
         const remaining = totalBase - spent;
         const perDay = remaining / daysLeft;
+        // Cumulative series across the budget's allocated categories, day 1 → today.
+        const catSet = new Set(allocs.map(a => a.category));
+        const todayStr = today();
+        const upto = b.periodEnd && todayStr > b.periodEnd ? b.periodEnd : todayStr;
+        const series = (b.periodStart && catSet.size)
+          ? cumulativeSpendSeries(transactions, catSet, b.periodStart, upto, cur, rates)
+          : [];
+        const dayNum = series.length || now.getDate();
+        const lastCum = series.length ? series[series.length - 1].cumulative : spent;
+        const projectedEnd = dayNum ? (lastCum / dayNum) * daysInMonth : 0;
+        const projUnder = totalBase - projectedEnd;
+        const status = overall >= 100 ? { label: 'over', tone: 'terra' }
+          : overall >= 80 ? { label: 'watch', tone: 'honey' }
+          : { label: 'on pace', tone: 'sage' };
         return (
-          <div className="rounded-r4 p-5 mb-4" style={{ background: 'var(--elevated)', boxShadow: 'var(--neu)' }}>
-            <div className="mono-label mb-1.5">This month · {budgetTitle(currentMonthRow.b)}</div>
-            <div className="flex items-end justify-between gap-3 mb-2">
-              <div className="num text-2xl font-semibold text-ink">
-                <Money amount={spent} currency={cur} maxChars={10} className="text-ink" />
-                <span className="text-ink-dim text-base"> / </span>
-                <Money amount={totalBase} currency={cur} maxChars={10} className="text-ink-dim text-base" />
+          <div className="relative rounded-r3 p-5 mb-4 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+            <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full" style={{ background: 'var(--accent)' }} />
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <div className="mono-label mb-1.5">{budgetTitle(b)} · month budget</div>
+                <div className="num font-bold text-[30px] leading-tight tracking-tight text-ink">{fmt(Math.max(remaining, 0), cur)}</div>
               </div>
-              <span className={`num text-lg font-semibold ${overall >= 100 ? 'text-terra' : overall >= 80 ? 'text-honey' : 'text-sage'}`}>{Math.round(overall)}%</span>
+              <div className="text-right flex-shrink-0">
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-pill text-[11.5px] font-display font-semibold text-${status.tone}`}
+                  style={{ background: `color-mix(in srgb, hsl(var(--${status.tone})) 16%, transparent)` }}>
+                  {status.label}
+                </span>
+                {canManage && (
+                  <button onClick={() => openEditBudget(b)} className="block ml-auto mt-2 font-mono text-[8.5px] tracking-wider uppercase text-ink-dim hover:text-coral">edit ▸</button>
+                )}
+              </div>
             </div>
-            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-              <div className={`h-full rounded-full chart-grow transition-all ${barCls(overall)}`} style={{ width: `${overall}%` }} />
-            </div>
-            <div className="text-[0.86rem] mt-2.5 text-ink-mid">
+            <div className="text-[12.5px] text-ink-dim mt-1 mb-2">
+              left of <b className="num text-ink-mid">{fmt(totalBase, cur)}</b> ·{' '}
               {remaining <= 0
-                ? <span className="text-terra font-medium">You're {fmt(Math.abs(remaining), cur)} over budget this month.</span>
-                : <><span className="num font-semibold text-sage">{fmt(perDay, cur)}/day</span> keeps you green — {daysLeft} day{daysLeft === 1 ? '' : 's'} left.</>}
+                ? <b className="text-terra">{fmt(Math.abs(remaining), cur)} over</b>
+                : <b className="text-sage">{fmt(perDay, cur)}/day keeps you green</b>}
+              {' '}· {daysLeft} day{daysLeft === 1 ? '' : 's'} to go
+            </div>
+            <BudgetPaceChart series={series} limit={totalBase} daysInMonth={daysInMonth} currency={cur} />
+            <div className="flex justify-between font-mono text-[8px] tracking-[0.08em] uppercase text-ink-dim mt-1 mb-2">
+              <span>{MONTHS[now.getMonth()]} 1</span>
+              <span className={projUnder >= 0 ? 'text-sage' : 'text-terra'}>
+                projected · lands {fmtShort(Math.abs(projUnder), cur)} {projUnder >= 0 ? 'under' : 'over'}
+              </span>
+              <span>{MONTHS[now.getMonth()]} {daysInMonth}</span>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+              <div className={`h-full rounded-full chart-grow ${barCls(overall)}`} style={{ width: `${overall}%` }} />
             </div>
           </div>
         );

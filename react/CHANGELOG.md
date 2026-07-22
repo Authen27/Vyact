@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.7.1`** (consumer)
+> **Current production version: `v10.8.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,32 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.8.0 — Aurora fidelity · Batch C 1/4 · Budgets pace chart (board M1/M2/D1) *(2026-07-22)*
+
+First Plan-section (Batch C) fidelity increment — Budgets, from the board-vs-shipped audit:
+
+- **Cumulative-spend pace hero (board M1/D1).** The month hero is now the
+  board's cumulative-spend-vs-limit chart instead of a flat progress bar: a
+  filled coral area traces spend day-by-day, a dashed line marks the limit, the
+  today dot sits at the current cumulative, and a dotted run-rate projection
+  continues to month-end. Leads with **remaining** ("$X left of $limit"), the
+  "$X/day keeps you green" sentence, an on-pace/watch/over status pill, a left
+  accent spine, and the overall-usage trough beneath — with a
+  "projected · lands $X under/over" axis note.
+  - The chart is driven by a new **pure** `cumulativeSpendSeries()` in
+    `lib/calculations.ts` that reuses the same `reportableTxns`/`effectiveDinero`
+    machinery as `spendByCategoryInRange`, so the series endpoint can never
+    contradict the tracked spend total. No money aggregator was modified; the
+    invariant + golden suites are unchanged.
+- **Add-Budget half-sheet restyled to the forms doctrine (board M2).** Replaced
+  the pre-Aurora bordered scope-buttons + month/year/currency dropdowns with:
+  period **chips** (next six months + two annual years, with the bound period
+  always representable), one big **amount hero** for the total, and allocations
+  as tappable neu rows with a "＋ Add category" row and the "Suggest" affordance.
+  Footer is a single "Create budget · $X allocated" primary with the honest
+  "$X stays flexible — allocate any time" note (or Delete on edit). All
+  save/identity/BUDGET_EXISTS logic is byte-identical — presentation only.
 
 ## v10.7.1 — Aurora fidelity pass 7/× · bug batch (Transactions, Calendar, Add Transaction, Recurring, pip) *(2026-07-20)*
 
