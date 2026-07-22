@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.8.4`** (consumer)
+> **Current production version: `v10.9.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,29 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.9.0 — Aurora fidelity · Batch D 1/3 · Reports (boards M1/M2) *(2026-07-22)*
+
+First Analyze-section (Batch D) fidelity increment — Reports.
+
+- **Expenses render in neutral ink, not terra.** The all-time Expenses stat was
+  styled `text-terra`, which breaks the design system's "Accidental Wealth" rule
+  (CLAUDE.md): *crit is reserved for genuine failures — never for "money spent"*.
+  The board shows the figure in plain ink; spend is information, not alarm.
+- **Period selector is the board's segmented rail** (board M1 §`.srail`) — one
+  sunken inset pill whose active segment is a raised accent-tinted chip,
+  matching the Transactions type rail. Replaces the bordered control with the
+  solid-coral active button.
+- **Stat tiles follow board `.stat`** — neu tiles carrying a **delta subline**
+  (`avg $870/month`, `kept 67%`, `over 12 months`) under each figure, and they
+  **scroll as a carousel on phones** before settling into a row on wider
+  screens. Replaces the bordered `<Card>` grid.
+- **Needs-vs-wants gains its plain-language verdict** (board M2) — the bar's
+  header now reads e.g. `90% needs — solid`, with descriptive (never scolding)
+  thresholds: solid ≥70 · balanced ≥50 · wants-leaning ≥35 · mostly wants.
+
+Also dropped two dead imports in `Reports.tsx` (`fmtSigned` was already unused
+before this change; `Card` became unused here).
 
 ## v10.8.4 — Aurora fidelity · Batch C desktop · Debts/Net Worth/Accounts two-column layouts (boards D2/D3/D4) *(2026-07-22)*
 
