@@ -212,8 +212,13 @@ export default function NetWorth() {
       {/* Add/Edit form lives in <AssetFormModal /> mounted at App root */}
 
       {/* Balance sheet split — board D3: Assets (1fr) | Liabilities + Owed (1fr),
-          each a neu card. */}
-      <div className="grid sm:grid-cols-2 gap-4 mt-4">
+          each a neu card.
+          `grid-cols-1` is load-bearing: without an explicit track the implicit
+          column sizes to max-content, and an asset row's right group (the
+          `update?` badge is flex-shrink-0, plus the edit/delete buttons) can't
+          shrink — so the column outgrows the viewport and the page scrolls
+          sideways on phones. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         {/* Assets column */}
         <div>
           <h2 className="display-italic text-2xl text-ink mb-3">Assets</h2>
