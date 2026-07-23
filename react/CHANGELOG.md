@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.9.1`** (consumer)
+> **Current production version: `v10.9.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,31 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.9.2 — Aurora fidelity · Batch D 3/3 · Ask Vyact (boards M6/M7/D3) *(2026-07-22)*
+
+Final Analyze-section increment — Ask Vyact, completing Batch D.
+
+- **The empty state is the hero** (board M6). The intent chips are now board
+  `.intent` **rows** — an inset icon tile beside each label — grouped by the
+  four production buckets (Capture · Inquire · Plan · Manage), replacing the
+  flat pill row. Each `Intent` carries an `icon` glyph (new field on the type).
+- **The privacy line reads in sage, not coral/terra.** "Private by design —
+  nothing leaves it" is a *reassurance*; per the design system, crit is reserved
+  for genuine failures, so a promise is not styled as an alarm.
+- **Desktop is a right glass drawer over the dimmed app** (board D3). The Ask
+  drawer (already launched from the top-bar ✦ chip + mobile tab-bar slot) is now
+  a `glass-strong` panel with the board's header — a ✦ tile, the name, and the
+  "On-device · private" subline — and a footer that states *Esc or click outside
+  to close*. Width tightened to the board's 440px. `Chat` gained an `embedded`
+  prop so the drawer's own header replaces the page's `<h1>` (the `/chat` route
+  still renders standalone with its title).
+- Conversation bubbles were already board-correct (`.bub.me` coral-right /
+  `.bub.ai` neu-left) and are left as-is.
+
+Not built: the board's live voice-**listening** overlay (pulsing mic + building
+transcript). The mic button and Web Speech wiring already exist; the animated
+listening state is a follow-up, flagged rather than faked.
 
 ## v10.9.1 — Aurora fidelity · Batch D 2/3 · Insights hub (boards M3/M5/D2) *(2026-07-22)*
 

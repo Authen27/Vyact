@@ -37,7 +37,7 @@ export default function FloatingTools() {
   return (
     <Drawer onClose={closeAsk} title="Ask Vyact">
       <Suspense fallback={<DrawerLoadingState />}>
-        <Chat />
+        <Chat embedded />
       </Suspense>
     </Drawer>
   );
@@ -52,6 +52,9 @@ interface DrawerProps {
   onClose: () => void;
   children: ReactNode;
 }
+/** Board D3 — a right GLASS drawer over the dimmed app, so you keep your
+ *  context while you ask. Header carries the ✦ tile, the name and the
+ *  on-device promise; the footer states how to leave. */
 function Drawer({ title, onClose, children }: DrawerProps) {
   return (
     <div
@@ -59,15 +62,35 @@ function Drawer({ title, onClose, children }: DrawerProps) {
       style={{ background: 'hsl(var(--shadow) / 0.45)', backdropFilter: 'blur(2px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-bg2 border-l border-line2 h-full w-full sm:w-[min(28rem,100vw)] flex flex-col shadow-3 animate-slideInRight">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-          <h3 className="display-italic text-[1.2rem] leading-none text-ink">{title}</h3>
-          <button onClick={onClose} className="text-ink-dim hover:text-ink transition-colors p-1" aria-label="Close">
+      <div
+        className="h-full w-full sm:w-[min(27.5rem,100vw)] flex flex-col animate-slideInRight"
+        style={{
+          background: 'var(--glass-strong)',
+          backdropFilter: 'var(--blur)',
+          WebkitBackdropFilter: 'var(--blur)',
+          borderLeft: '1px solid var(--glass-line)',
+          boxShadow: 'var(--cast-3)',
+        }}
+      >
+        <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-line">
+          <span
+            className="w-[34px] h-[34px] rounded-r2 flex items-center justify-center text-[17px] flex-shrink-0"
+            style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 16%, transparent)', color: 'hsl(var(--denim))' }}
+            aria-hidden
+          >✦</span>
+          <div className="flex-1 min-w-0">
+            <div className="font-display font-bold text-[16px] leading-tight text-ink truncate">{title}</div>
+            <div className="mono-label text-ink-dim">On-device · private</div>
+          </div>
+          <button onClick={onClose} className="text-ink-dim hover:text-ink transition-colors p-1 flex-shrink-0" aria-label="Close">
             <X size={18} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           {children}
+        </div>
+        <div className="px-4 py-2 border-t border-line">
+          <span className="mono-label text-ink-dim">Esc or click outside to close</span>
         </div>
       </div>
     </div>
