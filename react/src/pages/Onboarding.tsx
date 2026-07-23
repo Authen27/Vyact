@@ -53,6 +53,8 @@ export default function Onboarding() {
   const updateProfile = useStore(s => s.updateProfile);
   const refresh = useStore(s => s.refresh);
   const toast = useStore(s => s.toast);
+  const upsertAccount = useStore(s => s.upsertAccount);
+  const ensureDefaultCashAccount = useStore(s => s.ensureDefaultCashAccount);
 
   const [startedAt] = useState(() => Date.now());
   const [step, setStep] = useState<Step>(0);
@@ -136,6 +138,26 @@ export default function Onboarding() {
     setBaseline(householdId, baseline);
     const baselineCount = (baseline.cash || baseline.debt || baseline.monthlyIncome ? 1 : 0)
       + baseline.fixedCosts.length;
+
+    // Money-Model — in addition to the ephemeral baseline above, link the
+    // captured cash figure to the REAL default Cash account's opening balance
+    // (Money-Model B1.2: "opening balance captured at creation / onboarding"),
+    // so Net Worth is live and dynamic from day one rather than a wiped
+    // reference number. Guard against clobbering a balance already set (a
+    // returning user re-running onboarding, or a prior run).
+    if (cashAmt > 0) {
+      await ensureDefaultCashAccount();
+      const cashAcct = useStore.getState().accounts.find(a => a.kind === 'cash');
+      if (cashAcct && !cashAcct.openingBalance) {
+        await upsertAccount({
+          ...cashAcct,
+          openingBalance: cashAmt,
+          confidence: 'estimated',
+          source: 'onboarding',
+          estimatedAt: new Date().toISOString(),
+        });
+      }
+    }
 
     markCompleted(householdId, segment, context);
     await updateProfile({

@@ -57,6 +57,7 @@ const blank = (currency: string): FormState => ({
 
 export default function AccountFormModal(props: Props) {
   const profile       = useStore(s => s.profile);
+  const accounts      = useStore(s => s.accounts);
   const upsertAccount = useStore(s => s.upsertAccount);
   const removeAccount = useStore(s => s.removeAccount);
   const toast         = useStore(s => s.toast);
@@ -70,6 +71,14 @@ export default function AccountFormModal(props: Props) {
 
   const [form, setForm]     = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);
+
+  // Exactly one Cash account per household (see crudSlice `upsertAccount` for
+  // why — a second one double-counts every cash transaction). Hide the kind
+  // whenever a DIFFERENT account already holds it, whether adding new or
+  // switching an existing account's kind; keep it selectable when editing the
+  // household's actual cash account.
+  const hasOtherCash = accounts.some(a => a.kind === 'cash' && a.id !== initial?.id);
+  const kinds = KINDS.filter(k => k.key !== 'cash' || !hasOtherCash);
 
   useEffect(() => {
     if (!open) return;
@@ -153,7 +162,7 @@ export default function AccountFormModal(props: Props) {
             value={form.kind}
             onChange={e => setForm(f => ({ ...f, kind: e.target.value as AccountKind }))}
           >
-            {KINDS.map(k => (
+            {kinds.map(k => (
               <option key={k.key} value={k.key}>{k.label}</option>
             ))}
           </Select>
@@ -167,10 +176,12 @@ export default function AccountFormModal(props: Props) {
         </Field>
       </FieldRow>
 
-      {/* v9.4.2 — investment account auto-creates a backing Asset on Net Worth */}
-      {form.kind === 'investment' && !initial && (
+      {/* Net Worth reads every cash/bank/investment account's LIVE balance
+          directly (lib/accountBalance.ts liveAssetRows) — no backing Asset
+          needed, so this is honest for every kind, not just investment. */}
+      {form.kind !== 'credit_card' && form.kind !== 'loan' && (
         <p className="-mt-1 mb-1 text-[0.7rem] text-sage leading-snug">
-          📈 This will also appear as an asset on your <strong>Net Worth</strong> page.
+          {form.kind === 'investment' ? '📈' : '💰'} This counts toward your <strong>Net Worth</strong> total.
         </p>
       )}
 

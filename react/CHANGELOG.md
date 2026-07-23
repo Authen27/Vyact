@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.9.2`** (consumer)
+> **Current production version: `v10.10.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,51 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.10.0 — Net Worth goes live: default Cash account + live account balances *(2026-07-23)*
+
+Closes the last gap in the Money Model: Net Worth's asset side now reads real,
+live account balances instead of static `Asset.value` numbers, and every
+household gets exactly one default Cash account from day one.
+
+- **Every household gets a default "Cash in Hand" account, even at $0.** A new
+  `ensureDefaultCashAccount()` (`crudSlice`) runs idempotently at app boot
+  (`init()`) and household switch (`switchHousehold()`) — best-effort, never
+  blocks. Exactly one cash-kind account per household is enforced at two
+  layers: `upsertAccount` throws if a second one is attempted, and
+  `AccountFormModal`'s Kind dropdown hides "Cash" once one exists (still
+  selectable when editing the real one). This was necessary because
+  `accountValueOf()` collapses every cash-kind account to the same literal
+  `'cash'` key — a second one would silently double-count every cash
+  transaction against both accounts.
+- **Net Worth's Assets column is now LIVE, not static.** New `liveAssetRows()` /
+  `liveTotalAssets()` (`lib/accountBalance.ts`) fold every non-archived
+  cash/bank/investment `Account`'s real computed balance
+  (`computeAccountBalance`) into the Assets list, de-duped against any legacy
+  `Asset` a first-class account was backfilled from (`account.assetId` link) —
+  so a Phase-1-backfilled account replaces its old static asset row instead of
+  double-counting it, while genuinely standalone assets (real estate,
+  retirement, vehicles) keep working exactly as before. Bank/investment
+  accounts created in Settings → Accounts now show up on Net Worth
+  automatically — previously this only worked for investment accounts via a
+  broken auto-created shadow asset that froze at $0 forever and never updated;
+  that whole mechanism is removed.
+- **Onboarding's captured cash figure now funds the real Cash account**, not
+  just the ephemeral reference baseline. `Onboarding.tsx` links the entered
+  amount to the default Cash account's `openingBalance` (marked
+  `confidence:'estimated', source:'onboarding'`), guarded so it never clobbers
+  a balance already set. Net Worth is dynamic — driven by both cash and bank
+  transactions — from the moment onboarding completes.
+- **Amount field auto-focuses on Add Transaction** (not Edit) with the value
+  pre-selected, so typing immediately overwrites it instead of landing in
+  Description — the #1 source of "I typed the amount in the wrong field"
+  confusion. `NumericKeypad.tsx`'s `AmountField` gained an `autoFocus` prop.
+- Fixed a pre-existing Net Worth grid overflow guard (single-column fallback).
+- New pinned invariant test — `§7 INV-7b` in
+  `moneyModel.invariants.test.ts` — locks the de-dup/live-fold behavior into
+  the money-model gate.
 
 ---
 

@@ -1,13 +1,18 @@
 import { useStore } from '../store';
-import { useEffect, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
-import { totalAssets, totalLiabilities, totalReceivables, liquidAssets, monthlyData } from '../lib/calculations';
+import { totalLiabilities, totalReceivables, monthlyData } from '../lib/calculations';
+import { liveAssetRows, liveTotalAssets, type LiveAssetRow } from '../lib/accountBalance';
 import { ASSET_TYPES, DEBT_TYPES } from '../constants';
-import type { Asset } from '../types';
+import type { Asset, AccountKind } from '../types';
+
+const KIND_ICON: Record<AccountKind, string> = {
+  bank: '🏦', cash: '💵', credit_card: '💳', investment: '📈', loan: '🏛️',
+};
 
 const LIQUIDITIES = [
   { key: 'liquid', label: 'Liquid',     desc: 'Cash, checking, savings' },
@@ -18,6 +23,7 @@ const LIQUIDITIES = [
 export default function NetWorth() {
   const { t } = useTranslation();
   const assets       = useStore(s => s.assets);
+  const accountsState = useStore(s => s.accounts);
   const debts        = useStore(s => s.debts);
   const transactions = useStore(s => s.transactions);
   const profile      = useStore(s => s.profile);
@@ -27,10 +33,24 @@ export default function NetWorth() {
   const openAddAsset  = useStore(s => s.openAddAsset);
   const openEditAsset = useStore(s => s.openEditAsset);
 
-  // Remind once per mount if any liquid (bank/cash) balance is stale (>30 days).
+  const c = profile.baseCurrency;
+
+  // Money-Model — Net Worth's asset side is LIVE: every spendable account
+  // (cash/bank/investment) contributes its computed balance (opening + ledger
+  // folds + reconciliation offset), not a frozen linked-asset snapshot. See
+  // lib/accountBalance.ts `liveAssetRows` for the de-dup rule.
+  const liveRows = useMemo(
+    () => liveAssetRows(assets, accountsState, transactions, c, rates),
+    [assets, accountsState, transactions, c, rates],
+  );
+
+  // Remind once per mount if any legacy (account-less) asset is stale (>30
+  // days). Account-sourced rows are computed live from the ledger on every
+  // render, so they can't go stale the way a hand-typed asset value can.
   useEffect(() => {
     const now = Date.now();
     const stale = assets.some(a => {
+      if (liveRows.find(r => r.id === a.id)?.source !== 'asset') return false;
       const kind = ASSET_TYPES[a.type]?.liquidity;
       if (kind !== 'liquid' && kind !== 'short') return false;
       if (!a.lastUpdated) return true;
@@ -44,8 +64,7 @@ export default function NetWorth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const c   = profile.baseCurrency;
-  const ta  = totalAssets(assets, c, rates);
+  const ta  = liveTotalAssets(liveRows);
   const tl  = totalLiabilities(debts, c, rates);
   // v7.1 Money Map — receivables (`direction === 'owed_to_me'`) are
   // money owed back to the household. They count toward Net Worth but
@@ -53,7 +72,7 @@ export default function NetWorth() {
   // Assets, per the spec's privacy / clarity requirement (U-3).
   const tr  = totalReceivables(debts, c, rates);
   const nw  = ta + tr - tl;
-  const la  = liquidAssets(assets, c, rates);
+  const la  = liveRows.filter(r => r.liquidity === 'liquid').reduce((s, r) => s + r.value, 0);
   const { income, expense } = monthlyData(transactions, nowMonthKey(), c, rates);
   const monthlyIncome = income || 1;
 
@@ -65,11 +84,10 @@ export default function NetWorth() {
 
   // Board C — liquidity stacked bar totals (presentation of existing values).
   const liqMix = { liquid: 0, short: 0, long: 0 };
-  for (const a of assets) {
-    const v = convert(a.value, a.currency, c, rates);
-    if (a.liquidity === 'liquid') liqMix.liquid += v;
-    else if (a.liquidity === 'short') liqMix.short += v;
-    else if (a.liquidity === 'long') liqMix.long += v;
+  for (const r of liveRows) {
+    if (r.liquidity === 'liquid') liqMix.liquid += r.value;
+    else if (r.liquidity === 'short') liqMix.short += r.value;
+    else if (r.liquidity === 'long') liqMix.long += r.value;
   }
   const liqTot = liqMix.liquid + liqMix.short + liqMix.long || 1;
   const pct = (n: number) => `${(n / liqTot) * 100}%`;
@@ -83,12 +101,15 @@ export default function NetWorth() {
     toast('Asset removed', 'info');
   }
 
-  const byLiquidity = (liq: Asset['liquidity']) =>
-    assets.filter(a => a.liquidity === liq);
+  const byLiquidity = (liq: LiveAssetRow['liquidity']) =>
+    liveRows.filter(r => r.liquidity === liq);
 
-  // Board M4 — a liquid/short balance not touched in 30+ days rides an inline
-  // dashed-honey "update?" chip (same rule as the mount-time stale toast).
-  const isStale = (a: Asset) => {
+  // Board M4 — a liquid/short LEGACY asset (no live account behind it) not
+  // touched in 30+ days rides an inline dashed-honey "update?" chip (same
+  // rule as the mount-time stale toast). Account-sourced rows never qualify.
+  const isStale = (row: LiveAssetRow) => {
+    if (row.source !== 'asset' || !row.asset) return false;
+    const a = row.asset;
     const kind = ASSET_TYPES[a.type]?.liquidity;
     if (kind !== 'liquid' && kind !== 'short') return false;
     if (!a.lastUpdated) return true;
@@ -222,7 +243,7 @@ export default function NetWorth() {
         {/* Assets column */}
         <div>
           <h2 className="display-italic text-2xl text-ink mb-3">Assets</h2>
-          {assets.length === 0 ? (
+          {liveRows.length === 0 ? (
             <Panel>
               <div className="px-6 py-10 text-center">
                 <p className="text-ink-mid text-sm mb-3">No assets added yet.</p>
@@ -232,17 +253,35 @@ export default function NetWorth() {
           ) : (
             <div className="space-y-2">
               {LIQUIDITIES.map(liq => {
-                const group = byLiquidity(liq.key as Asset['liquidity']);
+                const group = byLiquidity(liq.key);
                 if (!group.length) return null;
-                const groupTotal = group.reduce((s, a) => s + convert(a.value, a.currency, c, rates), 0);
+                const groupTotal = group.reduce((s, r) => s + r.value, 0);
                 return (
                   <div key={liq.key}>
                     <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase px-1 mb-1.5">
                       {liq.label} · {fmt(groupTotal, c)}
                     </div>
-                    {group.map(a => {
+                    {group.map(row => {
+                      // Board D3 — live account rows are display-only here (no
+                      // edit/delete): they're managed on the Accounts page, and
+                      // can't go stale since they're computed fresh every render.
+                      if (row.source === 'account' && row.account) {
+                        const acc = row.account;
+                        return (
+                          <div key={row.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span>{KIND_ICON[acc.kind] ?? '💵'}</span>
+                              <div className="min-w-0">
+                                <div className="text-[0.84rem] font-semibold text-ink truncate">{acc.name}</div>
+                                <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{liq.label.toLowerCase()}</div>
+                              </div>
+                            </div>
+                            <Money amount={row.value} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem] flex-shrink-0" />
+                          </div>
+                        );
+                      }
+                      const a = row.asset!;
                       const meta = ASSET_TYPES[a.type] || ASSET_TYPES.cash;
-                      const valBase = convert(a.value, a.currency, c, rates);
                       return (
                         <div key={a.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between">
                           <div className="flex items-center gap-2.5">
@@ -253,7 +292,7 @@ export default function NetWorth() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2.5 min-w-0">
-                            {isStale(a) && (
+                            {isStale(row) && (
                               <button type="button" onClick={() => openEdit(a)} title="This balance is over 30 days old — update it"
                                 className="font-mono text-[8.5px] tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-md flex-shrink-0"
                                 style={{ border: '1px dashed color-mix(in srgb, hsl(var(--honey)) 55%, transparent)', color: 'hsl(var(--honey))' }}>
@@ -261,7 +300,7 @@ export default function NetWorth() {
                               </button>
                             )}
                             <div className="text-right min-w-0">
-                              <Money amount={valBase} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem]" />
+                              <Money amount={row.value} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem]" />
                               {a.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(a.value, a.currency)}</div>}
                             </div>
                             <div className="flex gap-1">

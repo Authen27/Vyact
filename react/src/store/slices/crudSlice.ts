@@ -38,6 +38,9 @@ export interface CrudSlice {
   removeAsset: (id: string) => Promise<void>;
   upsertAccount: (a: Partial<Account>) => Promise<Account>;
   removeAccount: (id: string) => Promise<void>;
+  /** Idempotent — creates the household's one default Cash account (at $0) if
+   *  it doesn't already have one. Safe to call on every load. */
+  ensureDefaultCashAccount: () => Promise<void>;
   upsertSavedView: (v: Partial<SavedView>) => Promise<SavedView>;
   removeSavedView: (id: string) => Promise<void>;
 }
@@ -178,20 +181,15 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     const { adapter, currentHouseholdId, accounts } = get();
     const isNew = !a.id || !accounts.find(x => x.id === a.id);
 
-    // v9.4.2 — when creating a NEW investment account with no backing asset,
-    // auto-create a corresponding Asset so the investment appears on Net Worth.
-    // The `assetId` FK chain (accountValueOf → 'asset:<assetId>') feeds balances
-    // into the Net Worth calculation automatically.
-    if (isNew && a.kind === 'investment' && !a.assetId) {
-      const backingAsset = await get().upsertAsset({
-        id: uid(),
-        type: 'investment',
-        name: a.name || 'Investment',
-        value: (a as any).openingBalance || 0,
-        currency: a.currency || get().profile.baseCurrency,
-        liquidity: 'short',
-      });
-      a = { ...a, assetId: backingAsset.id };
+    // Exactly one Cash account per household. accountValueOf() encodes EVERY
+    // cash-kind account to the same literal 'cash' key, so a second one would
+    // double-count every cash transaction into both balances (and Net Worth)
+    // rather than just being an odd duplicate — this is a correctness guard,
+    // not a cosmetic one. (Net Worth no longer needs a backing Asset per
+    // account — it reads each account's live balance directly; see
+    // lib/accountBalance.ts `liveAssetRows`.)
+    if (isNew && a.kind === 'cash' && accounts.some(x => x.kind === 'cash' && x.id !== a.id)) {
+      throw new Error('This household already has a Cash account — edit it instead of adding another.');
     }
 
     const saved = await adapter.upsert('accounts', currentHouseholdId, a, a.id && a.updated_at ? a.updated_at : undefined);
@@ -203,6 +201,23 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     const { adapter, currentHouseholdId, accounts } = get();
     await adapter.remove('accounts', currentHouseholdId, id);
     set({ accounts: accounts.filter(x => x.id !== id) });
+  },
+  // Every household gets exactly one default Cash account, even at $0 — cash
+  // spend/income needs somewhere to post to from day one, and Net Worth's
+  // asset side folds it in like any other account. Idempotent: a no-op once
+  // one exists (archived or not — recreating a duplicate would double-count,
+  // see upsertAccount above), so it's safe to call on every app/household load.
+  ensureDefaultCashAccount: async () => {
+    const { accounts, profile } = get();
+    if (accounts.some(x => x.kind === 'cash')) return;
+    await get().upsertAccount({
+      id: uid(),
+      kind: 'cash',
+      name: 'Cash in Hand',
+      currency: profile.baseCurrency,
+      isDefault: true,
+      openingBalance: 0,
+    });
   },
   upsertSavedView: async (v) => {
     const { adapter, currentHouseholdId, savedViews } = get();

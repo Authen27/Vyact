@@ -580,9 +580,11 @@ export default function TransactionFormModal(props: Props) {
         ))}
       </div>
 
-      {/* Amount hero — bare on the sheet per board M4 (no field chrome). */}
+      {/* Amount hero — bare on the sheet per board M4 (no field chrome). The
+          caret lands here on a fresh entry (not on edits, where a value already
+          exists) so users stop typing amounts into the description field. */}
       <div className="py-1 mb-1">
-        <AmountField value={form.amount} currencySymbol={currencySymbol}
+        <AmountField value={form.amount} currencySymbol={currencySymbol} autoFocus={!initial}
           onChange={v => setForm(f => ({ ...f, amount: v }))} />
       </div>
 
