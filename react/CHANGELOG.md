@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.10.0`** (consumer)
+> **Current production version: `v10.11.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,57 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.11.0 — Aurora fidelity · Batch E: Settings, Households, Onboarding *(2026-07-23)*
+
+Closes the three follow-ups tracked-but-deferred at the end of v10.5.0 (Batch E's
+original ship): the grouped Settings list, the Households card grid + invite
+half-sheet + role chips, and the Onboarding progress-ribbon/choice-card flow.
+Presentation only — profile/password/MFA/danger-zone logic, household RLS and
+invite flows, and the onboarding state machine are all untouched.
+
+- **Settings is now the board's grouped `.set-group` navigation list**, not a
+  flat stack of always-open panels. Every panel — Appearance, Notifications,
+  Language & currency, Exchange rates, Debt preferences, Sync & backup,
+  Password, Security, Account stats, Legal & policies — is a compact row
+  (icon · label · value preview · chevron) under a caption (*Preferences* /
+  *Data & security* / *About*), expanding in place to the exact same content
+  and logic that used to render open-by-default; one row open at a time.
+  Danger Zone gets its own **quarantined group** (sunken/inset background,
+  never mixed into a regular list) instead of just being the last panel in the
+  stack. A `#notifications` deep link (already used by Help/legal footers)
+  still opens straight to that row.
+- **Households page's household grid now matches the household-switch
+  pull-down** (`HouseholdSheet.tsx`, Batch A): neu cards, the active
+  household's real member-avatar stack (others fall back to initials), and a
+  glowing accent ring + "✓ current" pill on the active card. Member rows get
+  **role chips** (`.role` pill — solid accent for Owner, denim-tint for Admin,
+  neu-inset neutral for everyone else) in place of the generic badge; the
+  editable case keeps the native `<Select>` (a real dropdown beats a fake
+  chip). The **invite flow is now a half-sheet** (`HalfSheet`, the same
+  forms-doctrine container used everywhere else) instead of a generic modal.
+- **Onboarding gets the pip-guided ribbon + neu choice cards.** The pip mascot
+  now leads a compact header card at every step, and the flat progress bar is
+  a coral-gradient neu ribbon. The segment picker (step 1) uses neu cards with
+  an accent ring + ✓ badge on selection; every chip-style choice throughout
+  the flow (adults/dependents/concern in step 2, fixed-cost chips in step 4)
+  now uses the shared `Chip` component instead of hand-rolled pill buttons,
+  for the same look and feel as every other add/edit form in the app. The
+  Reveal step's stat cards and "picture confirmed" bar are restyled to match.
+
+Gates: `tsc` 0, `eslint` 0 errors (all warnings pre-existing, untouched by this
+diff), `vitest` 161/162 (the one failure is the pre-existing clock-dependent
+golden snapshot — unrelated), `vite build` 0. Verified in-browser: Settings'
+grouped rows expand/collapse correctly and the Danger Zone group's inset/sunken
+styling computes correctly; the full Onboarding flow (all 5 steps) walks
+through with the restyled ribbon, cards, and chips, landing on a correct Reveal
+screen. The Households card-grid/invite-sheet/role-chip changes are a direct
+adaptation of the already-shipped, already-verified `HouseholdSheet.tsx`
+pattern; multi-household cloud mode isn't reachable in this local-only dev
+session, so that specific surface rests on the tsc pass + pattern reuse rather
+than a fresh live click-through.
 
 ---
 

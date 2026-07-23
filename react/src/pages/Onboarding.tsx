@@ -16,6 +16,8 @@ import { useStore } from '../store';
 import { CURRENCIES } from '../constants';
 import { fmt } from '../lib/format';
 import Button from '../components/ui/Button';
+import Chip from '../components/ui/Chip';
+import { Pip } from '../components/layout/Brand';
 import EstimatedTag from '../components/ui/EstimatedTag';
 import { FEATURES, isOnboardingEnabled } from '../config/features';
 import {
@@ -195,15 +197,22 @@ export default function Onboarding() {
   return (
     <div className="fixed inset-0 z-[150] bg-bg overflow-y-auto">
       <div className="max-w-2xl mx-auto px-6 py-10">
-        <div className="display-italic text-3xl text-coral mb-1">Vyact</div>
-        <div className="font-mono text-[0.6rem] tracking-[0.18em] uppercase text-ink-dim mb-6">
-          {step === 0 ? 'Welcome' : `Step ${step} of ${TOTAL_STEPS}`} · under 2 minutes
+        {/* Board M5 — pip guides each step from a speech bubble; a coral
+            ribbon (not a flat bar) tracks progress. */}
+        <div className="flex items-start gap-3 mb-5">
+          <Pip size={34} />
+          <div className="flex-1 min-w-0 rounded-r3 px-4 py-2.5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+            <div className="display-italic text-lg text-ink leading-tight">Vyact</div>
+            <div className="font-mono text-[0.6rem] tracking-[0.18em] uppercase text-ink-dim mt-0.5">
+              {step === 0 ? 'Welcome' : `Step ${step} of ${TOTAL_STEPS}`} · under 2 minutes
+            </div>
+          </div>
         </div>
 
-        {/* Progress */}
-        <div className="bg-bg3 h-1 rounded-full overflow-hidden mb-8">
-          <div className="h-full bg-coral transition-[width] duration-500"
-               style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
+        {/* Progress ribbon */}
+        <div className="h-2 rounded-full overflow-hidden mb-8" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+          <div className="h-full rounded-full transition-[width] duration-500"
+               style={{ width: `${(step / TOTAL_STEPS) * 100}%`, background: 'var(--coral-grad)' }} />
         </div>
 
         {/* ── Step 0 — Welcome + Trust ─────────────────────────────────────── */}
@@ -244,9 +253,15 @@ export default function Onboarding() {
             <div className="grid sm:grid-cols-3 gap-3 mb-7">
               {SEGMENT_ORDER.map(key => {
                 const s = SEGMENTS[key];
+                const on = segment === key;
                 return (
                   <button key={key} onClick={() => setSegment(key)}
-                    className={`text-left p-4 rounded-md border-2 transition-all ${segment === key ? 'border-coral bg-coral-tint' : 'border-line hover:border-line2 bg-bg2'}`}>
+                    className="text-left p-4 rounded-r3 transition-shadow relative"
+                    style={{ background: 'var(--canvas)', boxShadow: on ? 'var(--neu-sm), 0 0 0 2px var(--accent)' : 'var(--neu-sm)' }}>
+                    {on && (
+                      <span className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
+                        style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>✓</span>
+                    )}
                     <div className="text-2xl mb-2">{s.icon}</div>
                     <div className="font-semibold text-ink mb-0.5">{s.label}</div>
                     <div className="text-[0.78rem] text-ink-mid leading-snug">{s.blurb}</div>
@@ -275,14 +290,13 @@ export default function Onboarding() {
                     const raw = ctx[q.field];
                     const selected = String(raw) === opt.key;
                     return (
-                      <button key={opt.key}
+                      <Chip key={opt.key} on={selected}
                         onClick={() => setCtx(c => ({
                           ...c,
                           [q.field]: q.field === 'adultCount' ? Number(opt.key) : opt.key,
-                        }))}
-                        className={`px-3.5 py-2 rounded-full border-2 text-[0.85rem] transition-all ${selected ? 'border-coral bg-coral-tint text-ink' : 'border-line hover:border-line2 bg-bg2 text-ink-mid'}`}>
+                        }))}>
                         {opt.label}
-                      </button>
+                      </Chip>
                     );
                   })}
                 </div>
@@ -293,10 +307,9 @@ export default function Onboarding() {
               <div className="font-semibold text-ink mb-2">What matters most right now?</div>
               <div className="flex flex-wrap gap-2">
                 {PRIMARY_CONCERNS.map(opt => (
-                  <button key={opt.key} onClick={() => setConcern(opt.key)}
-                    className={`px-3.5 py-2 rounded-full border-2 text-[0.85rem] transition-all ${concern === opt.key ? 'border-coral bg-coral-tint text-ink' : 'border-line hover:border-line2 bg-bg2 text-ink-mid'}`}>
+                  <Chip key={opt.key} on={concern === opt.key} onClick={() => setConcern(opt.key)}>
                     {opt.label}
-                  </button>
+                  </Chip>
                 ))}
               </div>
             </div>
@@ -366,11 +379,10 @@ export default function Onboarding() {
                 {tpl.fixedCostChips.map(chip => {
                   const on = fixedCosts.includes(chip.key);
                   return (
-                    <button key={chip.key}
-                      onClick={() => setFixedCosts(f => on ? f.filter(k => k !== chip.key) : [...f, chip.key])}
-                      className={`px-3.5 py-2 rounded-full border-2 text-[0.85rem] transition-all ${on ? 'border-coral bg-coral-tint text-ink' : 'border-line hover:border-line2 bg-bg2 text-ink-mid'}`}>
-                      {on && <Check size={12} className="inline mr-1 text-coral" />}{chip.label}
-                    </button>
+                    <Chip key={chip.key} on={on}
+                      onClick={() => setFixedCosts(f => on ? f.filter(k => k !== chip.key) : [...f, chip.key])}>
+                      {on && <Check size={12} />}{chip.label}
+                    </Chip>
                   );
                 })}
               </div>
@@ -403,21 +415,22 @@ export default function Onboarding() {
             </div>
 
             {/* % confirmed indicator — starts low, by design (spec §4.3 / §5.4). */}
-            <div className="bg-bg2 border border-line rounded-md p-4 mb-5">
+            <div className="rounded-r3 p-4 mb-5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
               <div className="flex items-center justify-between mb-2">
                 <span className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-mid">Picture confirmed</span>
                 <span className="num text-ink font-semibold">40%</span>
               </div>
-              <div className="bg-bg3 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-sage" style={{ width: '40%' }} />
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+                <div className="h-full rounded-full" style={{ width: '40%', background: 'hsl(var(--sage))' }} />
               </div>
               <div className="text-[0.72rem] text-ink-dim mt-2">
                 Your estimates fill in as real activity lands — aim for 80% confirmed in 21 days.
               </div>
             </div>
 
-            <div className="bg-coral-tint border border-coral/30 rounded-md p-4 mb-7">
-              <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-terra mb-1">Suggested next step</div>
+            <div className="relative rounded-r3 p-4 mb-7 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+              <span className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full" style={{ background: 'hsl(var(--coral))' }} />
+              <div className="font-mono text-[0.6rem] tracking-[0.14em] uppercase mb-1" style={{ color: 'hsl(var(--coral))' }}>Suggested next step</div>
               <div className="text-[0.9rem] text-ink">
                 {segment === 'household'
                   ? 'Invite your partner so the household picture stays in sync.'
@@ -464,7 +477,7 @@ function RevealStat({ label, value, hint, estimated }: {
   label: string; value: string; hint?: string; estimated?: boolean;
 }) {
   return (
-    <div className="bg-bg2 border border-line rounded-md p-4">
+    <div className="rounded-r3 p-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
       <div className="flex items-center gap-2 mb-1">
         <span className="font-mono text-[0.58rem] tracking-[0.12em] uppercase text-ink-mid">{label}</span>
         {estimated && <EstimatedTag confidence="estimated" />}
