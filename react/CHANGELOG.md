@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.12.0`** (consumer)
+> **Current production version: `v10.13.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,55 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.13.0 — Onboarding rebuilt + wired to real money *(2026-07-24)*
+
+The onboarding flow is rebuilt to the Aurora `revamp/Vyact Aurora · Onboarding.html`
+design and — for the first time — turns what you type into **real, first-class
+money-model objects** you can see and edit from day one, instead of an
+"estimated reference baseline" that wiped itself.
+
+- **Redesigned six-screen flow** (`pages/Onboarding.tsx`): Welcome (currency set
+  once here) → Who + your **first name** → What matters (multi-select) → Money in
+  (take-home) → Money out (fixed bills with **amounts inline** + a live running
+  total) → Reveal. pip greets you by name from step 2 on, and the Reveal is fully
+  computed from what you entered (room left = take-home − fixed bills, your
+  biggest fixed cost and its share of pay, a first Pulse). The separate
+  cash/debt "snapshot" step is gone — take-home is the one cash figure.
+- **The captured numbers become real money** (`lib/onboardingWiring.ts`):
+  1. Monthly take-home → the default **Cash account's opening balance**
+     (cash-in-hand today).
+  2. Take-home → a recurring **paycheck** (income, monthly on the 1st, credited
+     to Cash). Starts the *next* 1st (strictly future) so it never
+     double-counts the opening balance, and is **approval-gated**
+     (`autoConfirm:false`).
+  3. Each fixed bill → a recurring **expense** (monthly on the 2nd, debiting
+     Cash, in its mapped category) — future-dated + approval-gated, so
+     **nothing auto-pays until you review it in Recurring**.
+  4. The bills together → a **budget for your join month** (created even if the
+     month is already underway), one allocation per category.
+- **The money model is untouched by onboarding.** None of the above posts a
+  transaction — opening balances, future-dated approval-gated *schedules* and
+  budgets don't move spend/income. Verified in-browser end to end: after
+  completing onboarding the transaction count was **unchanged** (nothing
+  auto-posted), the Cash opening balance became the take-home figure, a
+  day-1 income schedule and five day-2 expense schedules were created (all
+  `autoConfirm:false`, future-dated, funded by Cash), and the join-month budget
+  landed with its allocations.
+- New `store.saveOnboardingBudget` creates the join-month budget without the
+  owner/admin role gate — onboarding is, by definition, the owner setting up
+  their own household (and local-only mode never populates `myRole`).
+- New pure-helper unit tests (`lib/__tests__/onboardingWiring.test.ts`, 8 cases)
+  pin the future-date math (schedules never start today), the chip→category
+  map, and the per-category allocation merge.
+
+Gates: `tsc` 0, `eslint` 0, `vitest` 169/170 (the one failure is the
+pre-existing clock-dependent golden snapshot, unrelated; +8 new wiring tests;
+money invariants green), `vite build` 0. Full flow walked in-browser
+(salaried path, ₹/$ inputs), reveal figures correct, wiring inspected in the
+live store.
 
 ---
 
