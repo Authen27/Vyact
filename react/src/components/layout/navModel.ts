@@ -19,17 +19,17 @@ export const SECTIONS: NavSection[] = [
     { to: '/dashboard',    page: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
     { to: '/transactions', page: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
     { to: '/splits',       page: 'splits',       label: 'Splits',       icon: Users },
-    { to: '/recurring',    page: 'recurring',    label: 'Recurring',    icon: Repeat },
   ]},
   { id: 'plan', label: 'Plan', routes: [
-    { to: '/budgets',  page: 'budgets',  label: 'Budgets',   icon: Wallet },
-    { to: '/debts',    page: 'debts',    label: 'Debts',     icon: Banknote },
-    { to: '/networth', page: 'networth', label: 'Net Worth', icon: Scale },
-    { to: '/accounts', page: 'accounts', label: 'Accounts',  icon: CreditCard },
+    { to: '/budgets',   page: 'budgets',   label: 'Budgets',   icon: Wallet },
+    { to: '/recurring', page: 'recurring', label: 'Recurring', icon: Repeat },
+    { to: '/debts',     page: 'debts',     label: 'Debts',     icon: Banknote },
+    { to: '/accounts',  page: 'accounts',  label: 'Accounts',  icon: CreditCard },
   ]},
   { id: 'analyze', label: 'Analyze', routes: [
-    { to: '/reports',  page: 'reports',  label: 'Reports',  icon: BarChart3 },
-    { to: '/insights', page: 'insights', label: 'Insights', icon: BookOpen },
+    { to: '/networth', page: 'networth', label: 'Net Worth', icon: Scale },
+    { to: '/reports',  page: 'reports',  label: 'Reports',   icon: BarChart3 },
+    { to: '/insights', page: 'insights', label: 'Insights',  icon: BookOpen },
   ]},
 ];
 

@@ -179,11 +179,15 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Heroes (board M1/D1) — mobile shows the cash-flow hero with net worth
-          folded into its footer row; desktop shows the pair side by side. */}
-      <div className="grid sm:grid-cols-2 gap-3.5 mb-3.5">
-        <CashFlowHero series={netSeries} month={month} rate={rate} netWorth={ta - tl} baseCur={baseCur} mk={mk} />
-        <div className="hidden sm:block">
+      {/* Heroes (board M1/D1) — mobile is a horizontal snap-scroll carousel
+          (Cash flow, then Net worth peeks in beside it); desktop shows the
+          pair side by side. One instance of each hero: flex+snap collapses to
+          a 2-col grid at sm. */}
+      <div className="flex sm:grid sm:grid-cols-2 gap-3.5 mb-3.5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+        <div className="snap-start shrink-0 basis-[86%] sm:basis-auto sm:shrink">
+          <CashFlowHero series={netSeries} month={month} rate={rate} baseCur={baseCur} mk={mk} />
+        </div>
+        <div className="snap-start shrink-0 basis-[86%] sm:basis-auto sm:shrink">
           <NetWorthHero ta={ta} tl={tl} baseCur={baseCur} />
         </div>
       </div>
@@ -331,11 +335,10 @@ function Row({ label, value, valueClass = '' }: { label: string; value: ReactNod
 /** Board §.hero — cash-flow hero with the 6-month trend INSIDE the card:
  *  spine, big net, "% kept" pill, scrubbable line chart with a pinned glass
  *  tooltip + insight note, month axis, In/Out(+Net worth on mobile) footer. */
-function CashFlowHero({ series, month, rate, netWorth, baseCur, mk }: {
+function CashFlowHero({ series, month, rate, baseCur, mk }: {
   series: { mk: string; net: number }[];
   month: { income: number; expense: number };
   rate: number;
-  netWorth: number;
   baseCur: string;
   mk: string;
 }) {
@@ -419,15 +422,18 @@ function CashFlowHero({ series, month, rate, netWorth, baseCur, mk }: {
       <div className="flex gap-[18px] mt-2.5 text-[12.5px] text-ink-mid flex-wrap">
         <span>In <b className="num text-sage">{fmtShort(month.income, baseCur)}</b></span>
         <span>Out <b className="num text-ink">{fmtShort(month.expense, baseCur)}</b></span>
-        <span className="hidden sm:inline">Savings rate <b className={`num ${rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}`}>{rate}%</b></span>
-        <Link to="/networth" className="sm:hidden">Net worth <b className="num text-ink">{fmtShort(netWorth, baseCur)}</b></Link>
+        {/* Net worth is now its own swipeable card beside this one on mobile
+            (and the side-by-side hero on desktop), so the folded footer line
+            was removed to avoid showing the figure twice. */}
+        <span>Savings rate <b className={`num ${rate >= 20 ? 'text-sage' : rate >= 0 ? 'text-honey' : 'text-terra'}`}>{rate}%</b></span>
       </div>
     </div>
   );
 }
 
 /** Board D1 — net-worth hero (stock, not flow): info spine, big number,
- *  Assets/Liabilities footer. Desktop only; mobile folds it into the cash hero. */
+ *  Assets/Liabilities footer. Desktop: side-by-side with the cash hero;
+ *  mobile: the second slide of the swipeable hero carousel. */
 function NetWorthHero({ ta, tl, baseCur }: { ta: number; tl: number; baseCur: string }) {
   return (
     <Link to="/networth" aria-label="View net worth"

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.11.1`** (consumer)
+> **Current production version: `v10.12.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,31 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.12.0 — Section reshuffle + mobile Net Worth hero *(2026-07-24)*
+
+- **Sections regrouped** (`components/layout/navModel.ts`, the single source
+  of truth for the TopBar tabs, SubNav pills, ⌘K palette and mobile tab bar):
+  **Track** = Dashboard · Transactions · Splits; **Plan** = Budgets ·
+  Recurring · Debts · Accounts (Recurring moved in from Track); **Analyze** =
+  Net Worth · Reports · Insights (Net Worth moved in from Plan). Every route
+  stays reachable; `sectionForPath` and the SubNav derive from the model, so
+  the whole shell followed automatically.
+- **Dashboard mobile is now a swipeable hero carousel.** The Net Worth hero
+  used to be desktop-only, folded into the Cash Flow card's footer on mobile.
+  It's now its own full card that sits *beside* Cash Flow in a horizontal
+  snap-scroll — swipe to see net worth, assets and liabilities without
+  leaving Home. Desktop is unchanged (the two heroes stay side-by-side). The
+  now-redundant folded "Net worth" footer line was removed so the figure
+  isn't shown twice; the mobile footer shows the savings rate instead.
+
+Gates: `tsc` 0, `eslint` 0, `vitest` 161/162 (pre-existing clock snapshot,
+unrelated), `vite build` 0. Verified in-browser at mobile (375px, carousel
+scrolls Cash Flow → Net Worth) and desktop (1280px, reverts to the 2-col
+grid); Recurring now lands under Plan and Net Worth under Analyze with the
+correct SubNav pills; no console errors.
 
 ---
 

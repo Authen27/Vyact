@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v10.11.1** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v10.12.0** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.3.1** | https://vyact-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (archived)** | removed in v7.0.1 | **v5.0** *(final)* | archived — see git history | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
@@ -23,6 +23,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-07-24 | [Consumer](react/CHANGELOG.md) | **v10.12.0** | **Section reshuffle + mobile Net Worth hero.** Track=Dashboard/Transactions/Splits, Plan=Budgets/Recurring/Debts/Accounts, Analyze=Net Worth/Reports/Insights. Dashboard mobile gains a swipeable Net Worth hero card beside Cash Flow. |
 | 2026-07-24 | [Consumer](react/CHANGELOG.md) | **v10.11.1** | **Fix: households could not be deleted; failed creates were silent.** Root cause of the delete failure: the `log_domain_activity` audit trigger tried to log a cascade-deleted child row's activity against a household that had already been removed in the same transaction, so the FK check failed and the whole delete rolled back — for every real household. Fixed at the DB layer and verified live. Create-household failures were also silently swallowed client-side (no catch); now surface an error toast and keep the typed input. |
 | 2026-07-23 | [Consumer](react/CHANGELOG.md) | **v10.11.0** | **Aurora fidelity · Batch E.** Settings' grouped `.set-group` nav list (every panel now a collapsible row under Preferences/Data & security/About, Danger Zone quarantined); Households' card grid + invite half-sheet + role chips matching the already-shipped household-switch pull-down; Onboarding's pip-guided coral ribbon + neu choice cards + shared Chip component throughout. Presentation only. |
 | 2026-07-23 | [Consumer](react/CHANGELOG.md) | **v10.10.0** | **Net Worth goes live.** Every household gets one default "Cash in Hand" account (even at $0), uniqueness-enforced at the store and form level; Net Worth's Assets column now reads live account balances (`liveAssetRows`), de-duped against backfilled legacy assets, so bank/investment accounts managed in Settings → Accounts finally reflect on Net Worth; onboarding's captured cash figure funds the real Cash account's opening balance; Add-Transaction amount field auto-focuses + pre-selects. |
