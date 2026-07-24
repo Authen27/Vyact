@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.11.0`** (consumer)
+> **Current production version: `v10.11.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,57 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.11.1 — Fix: households could not be deleted; failed creates were silent *(2026-07-24)*
+
+Two production bugs reported by a real user, both triaged to root cause and fixed.
+
+- **Deleting a household always failed** with `insert or update on table
+  "activity_log" violates foreign key constraint
+  "activity_log_household_id_fkey"`. Root cause: `activity_log.household_id`
+  is `references households(id) on delete cascade` — deleting a household
+  cascades to delete every row referencing it (memberships, transactions,
+  budgets, goals, debts, assets), and EACH of those cascaded deletes fires
+  the `log_domain_activity()` audit trigger (TD-08), which tries to insert a
+  fresh `activity_log` row for a household that, within the same
+  transaction, `households(id)` no longer contains — so the insert's own FK
+  check fails and the whole delete rolls back. This reproduced for **every**
+  real household (every household has at least its owner's membership row).
+  Fixed in `supabase/migrations/20260724120000_fix_household_delete_activity_log_fk.sql`:
+  `log_domain_activity()` now swallows `foreign_key_violation` on that
+  specific insert — a log entry for a household disappearing in the same
+  transaction has no reader anyway (activity_log's own FK is also `on delete
+  cascade`, so it would be removed the instant the delete completed). Applied
+  to prod and verified live via a self-rolling-back `DO` block
+  (`supabase/tests/household_delete_activity_log_regression.sql`):
+  `memberships_before=1 household_gone=t orphan_activity_log_rows=0`.
+- **"Sometimes I can't create a new household."** `CreateHouseholdModal`'s
+  submit handler (`react/src/pages/Households.tsx`) had no `catch` around
+  `await onCreated(...)` — any failure (an expired session making
+  `getUser()` momentarily return no user, an RLS denial, a network blip)
+  became an unhandled promise rejection: no toast, no message, the button
+  just reverted from "Creating…" to "Create" with zero feedback. Fixed by
+  wrapping the create call in `try/catch` + toast (matching the
+  rename/leave/delete handlers already on this page) and re-throwing so the
+  modal keeps the typed household name instead of clearing it like a
+  successful submit.
+- **Regression coverage added** (`react/e2e/TEST_CASE_INVENTORY.md` §16):
+  `HH-REG-001`/`HH-REG-002` document both bugs with root cause + fix +
+  verification; `HH-FC-007`/`HH-FC-008` cover create/delete directly (the
+  existing HH-FC rows only covered switching/roles/invites). A new
+  `HouseholdsPage` Playwright page object is wired into the fixture, ready
+  for Lane B (the cloud test harness is still not implemented — see
+  `e2e/README.md` — so these register as `test.fixme` backlog placeholders
+  for now, consistent with every other `@cloud` row in the inventory).
+
+Gates: `tsc` 0, `eslint` 0 errors (1 pre-existing unrelated warning), `vitest`
+161/162 (pre-existing clock-dependent snapshot, unrelated), `vite build` 0.
+DB fix verified live against production (`vyact` / `dmxqkvploojokffuhxnz`)
+both before the fix (bug reproduced exactly) and after (bug gone, no
+orphaned rows) via zero-cost, self-rolling-back `DO` blocks — no user data
+touched. `get_advisors` shows no new security/performance findings.
 
 ---
 

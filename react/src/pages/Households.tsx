@@ -400,9 +400,19 @@ export default function Households() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={async (name, type, currency) => {
-          await createHousehold(name, type, currency);
-          toast(`Created ${name}`, 'success');
-          setCreateOpen(false);
+          try {
+            await createHousehold(name, type, currency);
+            toast(`Created ${name}`, 'success');
+            setCreateOpen(false);
+          } catch (e) {
+            // HH-REG-001 — this previously had no catch, so any failure
+            // (expired session, RLS denial, network blip) surfaced as
+            // nothing at all: the modal just sat there with no feedback.
+            // Re-throw so CreateHouseholdModal knows to keep the typed
+            // values instead of clearing them like a successful submit.
+            toast((e as Error).message, 'error');
+            throw e;
+          }
         }}
       />
 
@@ -550,8 +560,13 @@ function CreateHouseholdModal({ open, onClose, onCreated }: {
       <form onSubmit={async e => {
         e.preventDefault(); if (!name.trim()) return;
         setSubmitting(true);
-        try { await onCreated(name.trim(), type, currency); }
-        finally { setSubmitting(false); setName(''); }
+        try {
+          await onCreated(name.trim(), type, currency);
+          setName('');
+        } catch {
+          // Already toasted by onCreated — keep the typed name/type/currency
+          // so a transient failure doesn't force retyping.
+        } finally { setSubmitting(false); }
       }}>
         <Field label="Name"><Input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Smith Family · Acme Consulting · …" required /></Field>
         <Field label="Type">
