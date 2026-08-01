@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v10.13.0** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v10.14.0** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.3.1** | https://vyact-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (archived)** | removed in v7.0.1 | **v5.0** *(final)* | archived — see git history | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
@@ -23,6 +23,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-08-02 | [Consumer](react/CHANGELOG.md) | **v10.14.0** | **Email-based cross-household split sharing.** Enter a participant's email on a "you paid" split and their account (once they sign up with that email, if they haven't yet) sees the shared `shared_splits`/`shared_split_shares` row via RLS keyed on their *verified* email — never a client-supplied value. Owner has full CRUD; a participant gets SELECT + a `settle_share()` RPC for self-service settling. Settle/close notifications generate locally on each side (2 new notification types), reusing the existing on-device generator architecture. A real RLS infinite-recursion bug (circular cross-table policies) was caught and fixed via zero-cost `DO`-block testing before it ever reached a client. |
 | 2026-07-24 | [Consumer](react/CHANGELOG.md) | **v10.13.0** | **Onboarding rebuilt + wired to real money.** New Aurora six-screen flow (name capture, currency-once, inline bill amounts, computed reveal); take-home becomes the Cash opening balance AND a recurring paycheck, each fixed bill becomes an approval-gated recurring expense, and the bills seed a join-month budget. Nothing auto-posts — money invariants untouched. |
 | 2026-07-24 | [Consumer](react/CHANGELOG.md) | **v10.12.0** | **Section reshuffle + mobile Net Worth hero.** Track=Dashboard/Transactions/Splits, Plan=Budgets/Recurring/Debts/Accounts, Analyze=Net Worth/Reports/Insights. Dashboard mobile gains a swipeable Net Worth hero card beside Cash Flow. |
 | 2026-07-24 | [Consumer](react/CHANGELOG.md) | **v10.11.1** | **Fix: households could not be deleted; failed creates were silent.** Root cause of the delete failure: the `log_domain_activity` audit trigger tried to log a cascade-deleted child row's activity against a household that had already been removed in the same transaction, so the FK check failed and the whole delete rolled back — for every real household. Fixed at the DB layer and verified live. Create-household failures were also silently swallowed client-side (no catch); now surface an error toast and keep the typed input. |

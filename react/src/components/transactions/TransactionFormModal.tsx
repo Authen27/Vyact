@@ -29,6 +29,9 @@ interface SplitParticipantForm {
   isYou: boolean;
   paid: boolean;
   paidOn?: string | null;
+  /** v10.14 — when set (and you paid, cloud enabled), a shared_splits row is
+   *  created so the account at this email sees the split too. */
+  email?: string;
 }
 
 interface FormState {
@@ -172,6 +175,9 @@ export default function TransactionFormModal(props: Props) {
   const removeTransaction = useStore(s => s.removeTransaction);
   const toast             = useStore(s => s.toast);
   const openAddAccount    = useStore(s => s.openAddAccount);
+  const cloudEnabled          = useStore(s => s.cloudEnabled);
+  const currentHouseholdId   = useStore(s => s.currentHouseholdId);
+  const createSharedSplitForTxn = useStore(s => s.createSharedSplitForTxn);
 
   // Bind to the global store unless explicit props are passed
   const storeOpen     = useStore(s => s.txnModalOpen);
@@ -343,6 +349,9 @@ export default function TransactionFormModal(props: Props) {
     // Editing a name never disturbs auto-balanced shares.
     setForm(f => ({ ...f, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, name } : x) }));
   }
+  function updateParticipantEmail(i: number, email: string) {
+    setForm(f => ({ ...f, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, email } : x) }));
+  }
   function editShare(i: number, share: string) {
     // Manual edit → leave auto mode so we respect the user's numbers.
     setForm(f => ({ ...f, splitAuto: false, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, share } : x) }));
@@ -450,6 +459,7 @@ export default function TransactionFormModal(props: Props) {
           share: p.shareNum,
           paid: form.splitPaidBy === 'me' ? Boolean(p.isYou || p.paid) : Boolean(!p.isYou || p.paid),
           paidOn: p.paidOn ?? null,
+          email: (!p.isYou && p.email?.trim()) ? p.email.trim().toLowerCase() : undefined,
         })),
       };
     }
@@ -488,6 +498,32 @@ export default function TransactionFormModal(props: Props) {
         split,
       };
       await upsertTransaction(txn);
+
+      // v10.14 — email-based cross-household split sharing. Only on a fresh
+      // split (not re-fired on every edit-resave, so it can't duplicate the
+      // shared_splits row): when you paid and cloud is enabled, any participant
+      // with an email gets a shared_splits/shared_split_shares row so their
+      // account (once they sign up with that email, if they haven't yet) sees
+      // this split too. Best-effort — a failure here shouldn't block the
+      // transaction save that already succeeded.
+      if (!initial && split && form.splitPaidBy === 'me' && cloudEnabled && currentHouseholdId !== 'local') {
+        const emailed = split.participants.filter(p => !p.isYou && p.email);
+        if (emailed.length) {
+          try {
+            await createSharedSplitForTxn({
+              txnId: txn.id,
+              description: txn.description,
+              currency: txn.currency,
+              totalAmount: split.totalAmount,
+              txnType: form.type === 'income' ? 'income' : 'expense',
+              date: txn.date,
+              participants: emailed.map(p => ({ email: p.email!, share: p.share })),
+            });
+          } catch (e) {
+            toast(`Split saved, but sharing failed: ${(e as Error).message}`, 'error');
+          }
+        }
+      }
 
       // v9.1 §5 — recurrence is authored ONLY in the Recurring section now;
       // the Transaction form no longer mirrors a schedule.
@@ -848,21 +884,31 @@ export default function TransactionFormModal(props: Props) {
                     </div>
                     <div className="space-y-1.5">
                       {form.splitParticipants.map((p, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <input className="input flex-1 py-1.5" value={p.isYou ? 'You' : p.name} disabled={p.isYou} placeholder="Name"
-                            onChange={e => updateName(i, e.target.value)}
-                            onKeyDown={e => {
-                              if (!p.isYou && (e.key === 'Backspace' || e.key === 'Delete') && !p.name && form.splitParticipants.length > 2) {
-                                e.preventDefault();
-                                removeParticipant(i);
-                              }
-                            }} />
-                          <input className="input w-28 py-1.5 text-right" type="number" min="0" step="0.01" value={p.share} placeholder="0.00"
-                            onChange={e => editShare(i, e.target.value)} />
-                          {!p.isYou ? (
-                            <button type="button" onClick={() => removeParticipant(i)}
-                              className="text-ink-dim hover:text-terra w-7 flex-shrink-0 text-center" aria-label="Remove participant">✕</button>
-                          ) : <span className="w-7 flex-shrink-0" />}
+                        <div key={i} className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <input className="input flex-1 py-1.5" value={p.isYou ? 'You' : p.name} disabled={p.isYou} placeholder="Name"
+                              onChange={e => updateName(i, e.target.value)}
+                              onKeyDown={e => {
+                                if (!p.isYou && (e.key === 'Backspace' || e.key === 'Delete') && !p.name && form.splitParticipants.length > 2) {
+                                  e.preventDefault();
+                                  removeParticipant(i);
+                                }
+                              }} />
+                            <input className="input w-28 py-1.5 text-right" type="number" min="0" step="0.01" value={p.share} placeholder="0.00"
+                              onChange={e => editShare(i, e.target.value)} />
+                            {!p.isYou ? (
+                              <button type="button" onClick={() => removeParticipant(i)}
+                                className="text-ink-dim hover:text-terra w-7 flex-shrink-0 text-center" aria-label="Remove participant">✕</button>
+                            ) : <span className="w-7 flex-shrink-0" />}
+                          </div>
+                          {/* v10.14 — email-based cross-household split sharing. Only
+                             meaningful when you paid (you're the one whose account
+                             creates the shared split) and cloud sync is on. */}
+                          {!p.isYou && cloudEnabled && currentHouseholdId !== 'local' && form.splitPaidBy === 'me' && (
+                            <input className="input flex-1 py-1.5 ml-0" type="email" value={p.email ?? ''}
+                              placeholder="Their email (optional) — lets them see this split"
+                              onChange={e => updateParticipantEmail(i, e.target.value)} />
+                          )}
                         </div>
                       ))}
                     </div>

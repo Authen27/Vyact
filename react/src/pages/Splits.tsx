@@ -15,6 +15,17 @@ export default function Splits() {
   const upsertTransaction = useStore(s => s.upsertTransaction);
   const upsertDebt    = useStore(s => s.upsertDebt);
   const toast         = useStore(s => s.toast);
+  // v10.14 — email-based cross-household split sharing.
+  const cloudEnabled        = useStore(s => s.cloudEnabled);
+  const currentHouseholdId  = useStore(s => s.currentHouseholdId);
+  const session             = useStore(s => s.session);
+  const sharedSplitsOwned   = useStore(s => s.sharedSplitsOwned);
+  const sharedSplitsWithMe  = useStore(s => s.sharedSplitsWithMe);
+  const settleMySplitShare  = useStore(s => s.settleMySplitShare);
+  const markSplitShareRowPaid = useStore(s => s.markSplitShareRowPaid);
+  const closeMySplit        = useStore(s => s.closeMySplit);
+  const myEmail = session?.user?.email?.toLowerCase();
+  const cloudActive = cloudEnabled && currentHouseholdId !== 'local';
 
   const c = profile.baseCurrency;
   const { owedToYou, youOwe, owedDetails, youOweDetails } = splitsOutstanding(transactions, c, rates);
@@ -220,6 +231,81 @@ export default function Splits() {
               <div className="mono-label mt-0.5">{youOweDetails.length} item{youOweDetails.length !== 1 ? 's' : ''}</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* v10.14 — email-based cross-household split sharing: splits where you're a
+          participant via email match (settle your own share) + splits you shared
+          out to other households (mark paid / close). */}
+      {cloudActive && (sharedSplitsWithMe.length > 0 || sharedSplitsOwned.length > 0) && (
+        <div className="space-y-3 mb-5">
+          <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase px-1">
+            Shared across households
+          </div>
+
+          {sharedSplitsWithMe.map(sp => {
+            const myShare = sp.shares.find(sh => sh.email === myEmail);
+            if (!myShare) return null;
+            return (
+              <div key={sp.id} className="rounded-r3 px-5 py-4 flex items-center justify-between gap-4"
+                style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+                <div>
+                  <div className="font-semibold text-ink">{sp.description}</div>
+                  <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">
+                    {sp.date} · shared with you{sp.closedAt ? ' · closed' : ''}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <Money amount={myShare.share} currency={sp.currency} maxChars={10}
+                    className={`font-semibold ${myShare.paid ? 'text-sage' : 'text-ink'}`} />
+                  {myShare.paid ? (
+                    <span className="text-sage text-base">✓</span>
+                  ) : sp.closedAt ? (
+                    <span className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Closed</span>
+                  ) : (
+                    <button className="btn-primary text-xs py-1 px-2.5" onClick={() => settleMySplitShare(myShare.id)}>
+                      Settle my share
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {sharedSplitsOwned.map(sp => (
+            <div key={sp.id} className="rounded-r3 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-semibold text-ink">{sp.description}</div>
+                  <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">
+                    {sp.date} · you shared this{sp.closedAt ? ' · closed' : ''}
+                  </div>
+                </div>
+                {!sp.closedAt && (
+                  <button className="btn-ghost text-xs py-1 px-2.5 flex-shrink-0" onClick={() => closeMySplit(sp.id)}>
+                    Close split
+                  </button>
+                )}
+              </div>
+              <div className="border-t border-line px-5 py-4 space-y-1.5">
+                {sp.shares.map(sh => (
+                  <div key={sh.id} className={`flex items-center justify-between rounded-md px-3 py-2.5 border ${sh.paid ? 'bg-sage/5 border-sage/20' : 'bg-bg3 border-line'}`}>
+                    <span className="text-[0.84rem] font-semibold text-ink">{sh.email}</span>
+                    <div className="flex items-center gap-3">
+                      <Money amount={sh.share} currency={sp.currency} maxChars={9}
+                        className={`font-semibold text-[0.9rem] ${sh.paid ? 'text-sage' : 'text-ink'}`} />
+                      {!sh.paid && !sp.closedAt && (
+                        <button className="btn-secondary text-xs py-1 px-2.5" onClick={() => markSplitShareRowPaid(sh.id)}>
+                          Mark paid
+                        </button>
+                      )}
+                      {sh.paid && <span className="text-sage text-base">✓</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

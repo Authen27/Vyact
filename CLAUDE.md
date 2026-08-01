@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.13.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.14.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -79,6 +79,13 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   hosted images / LLM generation. Personal insights are never publicly shareable.
 - **WhatsApp integration is dormant** (RLS-locked service-role tables + Edge fns;
   no secrets in code).
+- **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
+  key participants by **verified email** (`my_email()`, never a client-supplied
+  value) so a household can't be spoofed into another's split. The owner has
+  normal owner-checked CRUD; a participant has SELECT only + `settle_share()`
+  (SECURITY DEFINER RPC) for self-service settling. Settle/close notifications
+  are generated **locally on each side** — no cross-household writes needed,
+  since RLS already lets each party read the rows relevant to them.
 
 ## Aurora design — token usage rule (binding · silent-failure class)
 
@@ -104,6 +111,14 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
 - **Local-only mode leaves `myRole` undefined** → the owner/admin budget guard
   blocks store-level budget writes; seed + onboarding (`saveOnboardingBudget`)
   bypass it. Verify budget writes in cloud mode, not the local preview.
+- **Circular RLS policies recurse (`42P17`)** — table A's policy querying table B
+  while B's policy queries A back raises "infinite recursion detected in policy".
+  Fix: a `SECURITY DEFINER` helper function for the cross-table check (it runs
+  as the function owner, bypassing RLS internally, breaking the cycle) — the
+  established pattern (`is_member()`/`role_in()`, and `owns_shared_split()`/
+  `is_split_participant()` for shared splits). A blocked **UPDATE** doesn't
+  raise — it silently matches 0 rows; test with `GET DIAGNOSTICS row_count`,
+  not exception-catching.
 
 ## Running
 

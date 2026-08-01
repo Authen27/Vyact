@@ -27,7 +27,7 @@ interface NotifRow {
   dedupe_key: string;
 }
 
-const CTX_KEYS = ['scheduleId', 'budgetId', 'debtId', 'accountId', 'txnId', 'inviteToken'] as const;
+const CTX_KEYS = ['scheduleId', 'budgetId', 'debtId', 'accountId', 'txnId', 'inviteToken', 'splitId'] as const;
 
 function toInsertRow(n: Notification): Omit<NotifRow, 'id'> {
   const context: Record<string, string> = {};
@@ -53,6 +53,7 @@ function fromRow(r: NotifRow): Notification {
     tint: r.tint ?? undefined, actions: r.actions ?? undefined, dedupeKey: r.dedupe_key,
     scheduleId: ctx.scheduleId, budgetId: ctx.budgetId, debtId: ctx.debtId,
     accountId: ctx.accountId, txnId: ctx.txnId, inviteToken: ctx.inviteToken,
+    splitId: ctx.splitId,
   };
 }
 

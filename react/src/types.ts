@@ -44,6 +44,11 @@ export interface SplitParticipant {
   share: number;
   paid: boolean;
   paidOn?: string | null;
+  /** v10.14 — when set (and paidBy === 'me', cloud enabled), a `shared_splits`
+   *  row is created so the account at this email sees the split too. */
+  email?: string;
+  /** FK to the created `shared_splits.id`, once synced. */
+  sharedSplitId?: string;
 }
 
 export interface SplitInfo {
@@ -52,6 +57,36 @@ export interface SplitInfo {
   yourShare: number;
   paidBy: 'me' | 'external';
   participants: SplitParticipant[];
+}
+
+// v10.14 — email-based cross-household split sharing (supabase/migrations/
+// 20260724130000_shared_splits.sql). Mirrors the DB row shapes; the OWNER's
+// copy is created alongside the local `Transaction.split` (display only link
+// via `txnId`), the PARTICIPANT's copy is read-only except via `settleShare`.
+export interface SharedSplitShare {
+  id: string;
+  splitId: string;
+  email: string;
+  share: number;
+  paid: boolean;
+  paidAt?: string | null;
+  settledUserId?: string | null;
+}
+
+export interface SharedSplit {
+  id: string;
+  ownerUserId: string;
+  ownerHouseholdId: string;
+  txnId?: string | null;
+  description: string;
+  currency: string;
+  totalAmount: number;
+  txnType: 'expense' | 'income';
+  date: string;
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  shares: SharedSplitShare[];
 }
 
 // v8 — Onboarding & Activation provenance (spec §3.2). Carried on every
@@ -349,7 +384,11 @@ export type NotifType =
   | 'recurring_due_confirm' | 'recurring_reminder' | 'recurring_posted'
   | 'budget_threshold' | 'income_landed' | 'insight_fresh' | 'trend_alert'
   | 'debt_payment_due' | 'stale_balance' | 'invite_received'
-  | 'member_activity' | 'sync_conflict' | 'milestone';
+  | 'member_activity' | 'sync_conflict' | 'milestone'
+  // v10.14 — email-based cross-household split sharing. Generated locally on
+  // each side (no cross-household writes needed — RLS already lets each
+  // party read the shared_split rows relevant to them).
+  | 'split_settled' | 'split_closed';
 
 export type NotifPriority = 'P1' | 'P2';
 
@@ -387,6 +426,8 @@ export interface Notification {
   accountId?: string;
   txnId?: string;
   inviteToken?: string;
+  /** v10.14 — the `shared_splits.id` a split_settled/split_closed row refers to. */
+  splitId?: string;
   /** Stable key so a given occurrence is only generated once. */
   dedupeKey?: string;
 }

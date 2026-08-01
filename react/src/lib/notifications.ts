@@ -14,7 +14,7 @@
 
 import type {
   Notification, NotifType, NotifPriority, NotifActionSpec, NotificationPrefs,
-  RecurringSchedule, Transaction, Budget, Debt, Account, ExchangeRates,
+  RecurringSchedule, Transaction, Budget, Debt, Account, ExchangeRates, SharedSplit,
 } from '../types';
 import { uid, today, getMonthKey, fmt } from './format';
 import { upcomingSchedules } from './recurring';
@@ -36,6 +36,8 @@ export const NOTIF_META: Record<NotifType, NotifMeta> = {
   member_activity:       { icon: '⌂', tint: 'var(--info)', priority: 'P2' },
   sync_conflict:         { icon: '!', tint: 'var(--crit)', priority: 'P1' },
   milestone:             { icon: '✦', tint: 'var(--good)', priority: 'P2' },
+  split_settled:         { icon: '🤝', tint: 'var(--good)', priority: 'P2' },
+  split_closed:          { icon: '🤝', tint: 'var(--ff-ink-3)', priority: 'P2' },
 };
 
 /** Settings grouping (Settings ▸ Notifications). */
@@ -44,6 +46,7 @@ export const NOTIF_GROUPS: { label: string; types: NotifType[] }[] = [
   { label: 'Budgets & debts', types: ['budget_threshold', 'debt_payment_due'] },
   { label: 'Insights',        types: ['insight_fresh', 'trend_alert', 'milestone'] },
   { label: 'Household',       types: ['invite_received', 'member_activity'] },
+  { label: 'Splits',          types: ['split_settled', 'split_closed'] },
   { label: 'System',          types: ['stale_balance', 'sync_conflict'] },
 ];
 
@@ -61,6 +64,8 @@ export const NOTIF_TYPE_LABEL: Record<NotifType, string> = {
   member_activity:       'Member activity',
   sync_conflict:         'Sync conflict',
   milestone:             'Milestone',
+  split_settled:         'Split settled',
+  split_closed:          'Split closed',
 };
 
 /** `sync_conflict` can never be silenced (spec §4). */
@@ -254,6 +259,51 @@ export function staleBalanceNotifs(accounts: Account[], prefs: NotificationPrefs
     deepLink: '/accounts',
     actions: [A('update', 'Update balances', 'primary'), A('dismiss', 'Dismiss', 'ghost')],
   }];
+}
+
+/** 14 · split_settled (P2, owner-facing) — a participant self-settled their
+ *  share via settle_share() (settled_user_id set — distinguishes it from the
+ *  owner marking a row paid themselves, which sets no settled_user_id). */
+export function splitSettledNotifs(owned: SharedSplit[], prefs: NotificationPrefs, existing: Notification[], ctx: Ctx): Notification[] {
+  if (!typeEnabled(prefs, 'split_settled')) return [];
+  const out: Notification[] = [];
+  for (const sp of owned) {
+    for (const sh of sp.shares) {
+      if (!sh.paid || !sh.settledUserId) continue;
+      const key = `split_settled:${sh.id}`;
+      if (existing.some(n => n.dedupeKey === key)) continue;
+      out.push({
+        ...base('split_settled', key, ctx),
+        title: `${sh.email} settled their share of "${sp.description}"`,
+        body: `${fmt(sh.share, sp.currency)} settled`,
+        amountRef: sh.share, splitId: sp.id,
+        deepLink: `/splits?splitId=${sp.id}`,
+        actions: [A('view', 'View split', 'neu')],
+      });
+    }
+  }
+  return out;
+}
+
+/** 15 · split_closed (P2, participant-facing) — the owner closed a split the
+ *  caller is a participant in. */
+export function splitClosedNotifs(withMe: SharedSplit[], prefs: NotificationPrefs, existing: Notification[], ctx: Ctx): Notification[] {
+  if (!typeEnabled(prefs, 'split_closed')) return [];
+  const out: Notification[] = [];
+  for (const sp of withMe) {
+    if (!sp.closedAt) continue;
+    const key = `split_closed:${sp.id}`;
+    if (existing.some(n => n.dedupeKey === key)) continue;
+    out.push({
+      ...base('split_closed', key, ctx),
+      title: `"${sp.description}" was marked closed`,
+      body: 'The owner closed this shared split',
+      splitId: sp.id,
+      deepLink: `/splits?splitId=${sp.id}`,
+      actions: [A('view', 'View split', 'neu')],
+    });
+  }
+  return out;
 }
 
 // ── Web Push (unchanged) ─────────────────────────────────────────────────────

@@ -223,6 +223,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     // v7: run recurring + refresh notifications on every load
     await get().runRecurringEngine();
     void get().refreshNotifications();
+    void get().refreshSharedSplits();
 
     // Every household gets a default Cash account from day one (idempotent —
     // no-op once one exists). Runs after refresh()/seeding so `accounts` is
@@ -351,6 +352,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     }
     await get().refresh();
     void get().refreshNotifications();   // reload the new household's notifications (cross-device)
+    void get().refreshSharedSplits();
     try { await get().ensureDefaultCashAccount(); } catch { /* best-effort */ }
     get().toast('Switched profile', 'success');
   },

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.13.0`** (consumer)
+> **Current production version: `v10.14.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,64 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.14.0 — Email-based cross-household split sharing *(2026-08-02)*
+
+A split's owner can now enter a participant's **email** and their account —
+once they sign up with that email, if they haven't yet — sees the split too,
+across households. This is new server state (`shared_splits`/
+`shared_split_shares`), not a client overlay: visibility is gated on the
+CALLER's own **verified** email (`my_email()`, reads `auth.users` via
+`SECURITY DEFINER`), never a client-supplied value, so nobody can put someone
+else's email in a row and read as that person.
+
+- **DB** (`supabase/migrations/20260724130000_shared_splits.sql`) —
+  `shared_splits` (one per owner-created split) + `shared_split_shares` (one
+  row per participant email + share). Owner has full owner-checked CRUD.
+  A participant gets SELECT only (email match) + `settle_share()`, a
+  `SECURITY DEFINER` RPC that re-derives the caller's verified email
+  server-side and only ever touches the ONE row that matches — the
+  self-service path for a participant, who has no direct UPDATE policy.
+- **RLS recursion caught and fixed pre-ship** — the first live insert test
+  raised `42P17` (infinite recursion): `shared_splits`' and
+  `shared_split_shares`' SELECT policies each inlined a cross-table `EXISTS`
+  that referenced the other, so Postgres re-applied each table's RLS while
+  evaluating the other's. Fixed with the codebase's established
+  `is_member()`/`role_in()` pattern — two new `SECURITY DEFINER` helpers
+  (`owns_shared_split()`, `is_split_participant()`) whose internal queries run
+  as the function owner, bypassing RLS and breaking the cycle. Also fixed an
+  `auth_rls_initplan` perf advisory (wrap `auth.uid()` in `(select …)` so it's
+  evaluated once per statement, not per row). Verified via a 5-assertion
+  zero-cost `DO`-block proof impersonating 3 real users (unrelated-user
+  denial, fake-insert denial, participant-direct-UPDATE silently blocked,
+  participant-RPC-settle works, owner-close works) — all rolled back, zero
+  effect on production data.
+- **Client** — `lib/sharedSplits.ts` (cloud adapter), `sharedSplitsSlice.ts`
+  (new store slice, refreshed alongside notifications on load/household
+  switch); `TransactionFormModal.tsx` gains an email field per non-you split
+  participant (shown only when cloud sync is on) and creates the shared rows
+  on submit when you paid; `Splits.tsx` gains a "Shared across households"
+  section — settle your own share, or (as owner) mark a participant paid /
+  close the split.
+- **2 new notification types** (`split_settled`, `split_closed`), generated
+  **locally on each side** reusing the existing on-device generator
+  architecture — no cross-household writes needed, since RLS already lets
+  each party read the rows relevant to them. `split_settled` (owner-facing)
+  fires only when `settled_user_id` is set, i.e. the participant genuinely
+  self-settled via the RPC — not when the owner marks a row paid themselves.
+- **Fixed a pre-existing clock-dependent test flake** flagged (but not yet
+  fixed) in v10.13.0's Gates note: `moneyModel.regression.test.ts`'s golden
+  fixture hardcoded `MK = '2026-06'` while `buildSafeSummary` computes "this
+  month" from the real wall clock — the golden values silently went to 0 once
+  real time moved past June 2026. Now derives `MK` from `nowMonthKey()`.
+
+Gates: `tsc` 0, `eslint` 0, `vitest` 170/170 (previously-flagged clock flake
+now fixed), `vite build` 0. RLS isolation fully verified via zero-cost SQL (no
+paid branch); a true two-account UI click-through isn't possible in the
+single-user local preview, so that layer rests on the RLS proof + this review.
+`get_advisors` (security + performance) clean for the new objects post-fix.
 
 ---
 
