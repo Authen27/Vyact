@@ -31,9 +31,11 @@ Feedback item 3, completed: participants (and the owner) are now emailed for
 real, not just alerted in-app.
 
 - **New `send-split-email` edge function** (`supabase/functions/send-split-email/`)
-  sends transactional email via **SMTP** (any provider — reuse the one you'd set
-  as Supabase Auth's Custom SMTP) **or Resend** (SMTP checked first). Supabase's
-  own email is auth-only with no general send API, so a transport is required.
+  sends transactional email via **MailerSend** (MailerLite's transactional API),
+  **SMTP** (any provider — e.g. MailerSend's SMTP or the one you'd set as Supabase
+  Auth Custom SMTP), **or Resend** (checked in that order). Supabase's own email
+  is auth-only with no general send API, and an MCP server is a chat-time tool
+  (not a runtime sender), so an HTTP/SMTP transport is required.
   - `shared` → each participant is emailed when a split is shared with them.
   - `settled` → the owner is emailed when a participant settles their share.
   - `closed` → participants are emailed when the owner closes the split.
@@ -44,11 +46,12 @@ real, not just alerted in-app.
 - **Client wiring** (`lib/splitEmail.ts` + `sharedSplitsSlice`): create/settle/
   close each fire the matching email, best-effort — a mail failure never blocks
   the action, and the in-app notification remains the always-on baseline.
-- **Inert until configured:** with neither `SMTP_HOST` nor `RESEND_API_KEY` set
-  the function returns `email_not_configured` and the app is unaffected. Setup
-  (pick SMTP or Resend, verify a sender domain, set secrets, deploy) is
-  documented in [`docs/split-email-setup.md`](../docs/split-email-setup.md). No
-  secrets or keys are committed.
+- **Inert until configured:** with none of `MAILERSEND_API_KEY` / `SMTP_HOST` /
+  `RESEND_API_KEY` set the function returns `email_not_configured` and the app is
+  unaffected. Setup (pick a transport, verify a sender domain, set secrets,
+  deploy) is documented in
+  [`docs/split-email-setup.md`](../docs/split-email-setup.md). No secrets or keys
+  are committed.
 
 Gates: `tsc` 0, `eslint` 0, `vitest` 170/170, `vite build` 0. The edge function
 is Deno (outside the client build); it deploys separately via

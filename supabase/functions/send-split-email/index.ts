@@ -12,10 +12,16 @@
 //   • 'settled'           → caller must be the participant on `shareId` (emails owner)
 //
 // Transport: pick ONE (checked in this order), all via function secrets —
-//   1. SMTP (any provider, incl. the one you set as Supabase Auth "Custom SMTP"):
+//   1. MailerSend (MailerLite's TRANSACTIONAL email API — https://mailersend.com):
+//        supabase secrets set MAILERSEND_API_KEY=mlsn_xxx \
+//          SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
+//      (MailerLite's own API is marketing/subscriber-oriented; MailerSend is its
+//       transactional arm and the right fit for one-off split emails. MailerSend
+//       also offers SMTP — smtp.mailersend.net:587 — usable via transport #2.)
+//   2. SMTP (any provider, incl. MailerSend or the one you set as Auth Custom SMTP):
 //        supabase secrets set SMTP_HOST=smtp.provider.com SMTP_PORT=465 \
 //          SMTP_USER=... SMTP_PASS=... SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
-//   2. Resend REST API:
+//   3. Resend REST API:
 //        supabase secrets set RESEND_API_KEY=re_xxx \
 //          SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
 // NOTE: Supabase's own email service is AUTH-ONLY (confirm/magic-link/reset/invite)
@@ -41,8 +47,28 @@ const CUR_SYMBOL: Record<string, string> = { USD: '$', INR: '₹', EUR: '€', G
 const money = (amt: number, cur: string) => `${CUR_SYMBOL[cur] ?? ''}${amt}${CUR_SYMBOL[cur] ? '' : ' ' + cur}`;
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
-// Configured if EITHER transport has its secrets set (SMTP preferred).
-const emailConfigured = () => Boolean(env('SMTP_HOST') || env('RESEND_API_KEY'));
+// Configured if ANY transport has its secrets set (MailerSend preferred).
+const emailConfigured = () => Boolean(env('MAILERSEND_API_KEY') || env('SMTP_HOST') || env('RESEND_API_KEY'));
+
+// "Name <email>" | "email" → { email, name? } for APIs that want a structured sender.
+function parseFrom(raw: string): { email: string; name?: string } {
+  const m = raw.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (m) return { email: m[2].trim(), name: m[1] || undefined };
+  return { email: raw.trim() };
+}
+
+async function sendViaMailerSend(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
+  const res = await fetch('https://api.mailersend.com/v1/email', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env('MAILERSEND_API_KEY')}`,
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: JSON.stringify({ from: parseFrom(from), to: [{ email: to }], subject, html, text }),
+  });
+  return res.ok; // 202 Accepted on success
+}
 
 async function sendViaResend(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
   const res = await fetch('https://api.resend.com/emails', {
@@ -83,7 +109,8 @@ async function sendEmail(to: string, subject: string, heading: string, lines: st
     <p style="margin:24px 0 0;color:#94a3b8;font-size:12px">You're receiving this because someone shared a bill split with this email on Vyact.</p>
   </div>`;
   const text = `${heading}\n\n${lines.map(l => l.replace(/<[^>]+>/g, '')).join('\n')}\n\nOpen: ${appUrl}/splits`;
-  // SMTP first (reuses standard mail infra), else Resend.
+  // MailerSend first (MailerLite's transactional API), then SMTP, then Resend.
+  if (env('MAILERSEND_API_KEY')) return sendViaMailerSend(from, to, subject, html, text);
   if (env('SMTP_HOST')) return sendViaSmtp(from, to, subject, html, text);
   if (env('RESEND_API_KEY')) return sendViaResend(from, to, subject, html, text);
   return false;
