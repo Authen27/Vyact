@@ -9,8 +9,10 @@ import type { SharedSplit } from '../../types';
 import {
   createSharedSplit, fetchOwnedSharedSplits, fetchSharedWithMe,
   settleSharedSplitShare, markShareRowPaid, closeSharedSplit,
+  resolveParticipantNames,
   type NewSharedSplitParticipant,
 } from '../../lib/sharedSplits';
+import type { SharedSplitShare } from '../../types';
 
 export interface SharedSplitsSlice {
   sharedSplitsOwned: SharedSplit[];
@@ -34,7 +36,17 @@ export const createSharedSplitsSlice: StateCreator<Store, [], [], SharedSplitsSl
     if (!cloudEnabled || currentHouseholdId === 'local' || !session) return;
     try {
       const [owned, withMe] = await Promise.all([fetchOwnedSharedSplits(), fetchSharedWithMe()]);
-      set({ sharedSplitsOwned: owned, sharedSplitsWithMe: withMe });
+      // Enrich each share with the participant's display name (one RPC for all
+      // emails across both lists) so the UI can show "Manu · email", not a bare
+      // address (feedback item 1).
+      const emails = [...owned, ...withMe].flatMap(sp => sp.shares.map(s => s.email));
+      let nameMap: Record<string, string> = {};
+      try { nameMap = await resolveParticipantNames(emails); } catch { /* names are best-effort */ }
+      const withNames = (list: typeof owned) => list.map(sp => ({
+        ...sp,
+        shares: sp.shares.map((s: SharedSplitShare) => ({ ...s, name: nameMap[s.email.toLowerCase()] })),
+      }));
+      set({ sharedSplitsOwned: withNames(owned), sharedSplitsWithMe: withNames(withMe) });
     } catch {
       // Offline / RLS hiccup — keep whatever we already have; next refresh retries.
     }
