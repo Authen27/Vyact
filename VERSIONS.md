@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v10.14.1** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v10.15.0** | https://vyact-twentyx.vercel.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.3.1** | https://vyact-admin.vercel.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (archived)** | removed in v7.0.1 | **v5.0** *(final)* | archived — see git history | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |
@@ -23,6 +23,7 @@ Newest first. For full per-version detail, follow the link in the **App** column
 
 | Date | App | Version | Headline |
 |---|---|---|---|
+| 2026-08-02 | [Consumer](react/CHANGELOG.md) | **v10.15.0** | **Real email delivery for split sharing.** New `send-split-email` edge function (Resend) emails a participant when a split is shared with them, the owner when a share settles, and participants when a split is closed. Recipients are resolved SERVER-SIDE from the split id (caller can't send to arbitrary addresses) and the caller is authorised per event. Inert until `RESEND_API_KEY`/`SPLIT_EMAIL_FROM` secrets are set — see [`docs/split-email-setup.md`](docs/split-email-setup.md). In-app notifications remain the always-on baseline. |
 | 2026-08-02 | [Consumer](react/CHANGELOG.md) | **v10.14.1** | **Split-sharing feedback fixes.** Participant is now identified by **email only** — the display name is resolved from it (new `resolve_participant_names` RPC, authenticated-only) and shown non-editable; the Splits view shows **name · email**; the "Someone else paid" toggle and the long helper paragraph are gone. New in-app **"split shared with you"** notification so a participant is alerted (email delivery is still not built — notifications are in-app only). Closed an anon-executable-SECURITY DEFINER finding on the new RPC. |
 | 2026-08-02 | [Consumer](react/CHANGELOG.md) | **v10.14.0** | **Email-based cross-household split sharing.** Enter a participant's email on a "you paid" split and their account (once they sign up with that email, if they haven't yet) sees the shared `shared_splits`/`shared_split_shares` row via RLS keyed on their *verified* email — never a client-supplied value. Owner has full CRUD; a participant gets SELECT + a `settle_share()` RPC for self-service settling. Settle/close notifications generate locally on each side (2 new notification types), reusing the existing on-device generator architecture. A real RLS infinite-recursion bug (circular cross-table policies) was caught and fixed via zero-cost `DO`-block testing before it ever reached a client. |
 | 2026-07-24 | [Consumer](react/CHANGELOG.md) | **v10.13.0** | **Onboarding rebuilt + wired to real money.** New Aurora six-screen flow (name capture, currency-once, inline bill amounts, computed reveal); take-home becomes the Cash opening balance AND a recurring paycheck, each fixed bill becomes an approval-gated recurring expense, and the bills seed a join-month budget. Nothing auto-posts — money invariants untouched. |

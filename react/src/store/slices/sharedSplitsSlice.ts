@@ -12,6 +12,7 @@ import {
   resolveParticipantNames,
   type NewSharedSplitParticipant,
 } from '../../lib/sharedSplits';
+import { sendSplitEmail } from '../../lib/splitEmail';
 import type { SharedSplitShare } from '../../types';
 
 export interface SharedSplitsSlice {
@@ -57,12 +58,16 @@ export const createSharedSplitsSlice: StateCreator<Store, [], [], SharedSplitsSl
     if (!cloudEnabled || currentHouseholdId === 'local' || !session) return null;
     const created = await createSharedSplit({ ownerHouseholdId: currentHouseholdId, ...input });
     set({ sharedSplitsOwned: [created, ...get().sharedSplitsOwned] });
+    // v10.15 — email each participant that a split was shared with them.
+    void sendSplitEmail({ splitId: created.id, event: 'shared' });
     return created;
   },
 
   settleMySplitShare: async (shareId) => {
     await settleSharedSplitShare(shareId);
     await get().refreshSharedSplits();
+    // v10.15 — tell the owner (server resolves their address) that I settled.
+    void sendSplitEmail({ shareId, event: 'settled' });
     get().toast('Marked your share as settled', 'success');
   },
 
@@ -75,6 +80,8 @@ export const createSharedSplitsSlice: StateCreator<Store, [], [], SharedSplitsSl
   closeMySplit: async (splitId) => {
     await closeSharedSplit(splitId);
     await get().refreshSharedSplits();
+    // v10.15 — email participants that the split was closed.
+    void sendSplitEmail({ splitId, event: 'closed' });
     get().toast('Split closed', 'success');
   },
 });
