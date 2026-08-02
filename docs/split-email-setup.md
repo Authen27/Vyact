@@ -1,35 +1,49 @@
 # Split-sharing email delivery — setup (v10.15.0)
 
 The `send-split-email` edge function sends real email when a split is shared,
-settled, or closed. It uses **Resend** and is **inert until two secrets are
-set** (before that it returns `email_not_configured` and the app is unaffected —
-in-app notifications still fire). Nothing here is committed to the repo.
+settled, or closed. It's **inert until a transport is configured** (before that
+it returns `email_not_configured` and the app is unaffected — in-app
+notifications still fire). Nothing here is committed to the repo.
 
-## 1. Provision Resend
+> **Why not Supabase's own email?** Supabase's built-in email is **auth-only**
+> (confirmation / magic-link / reset / invite) with **no general send-email
+> API**, so it can't carry custom split content. You point this function at a
+> mail transport instead — either **SMTP** (recommended: reuse the same provider
+> you'd set as Supabase Auth → *Custom SMTP*) or **Resend**.
 
-1. Create an account at <https://resend.com> (free tier: 3,000 emails/mo, 100/day).
-2. **Verify a sender domain** (Domains → Add Domain → add the DNS records). This
-   is required to email *arbitrary* recipients (your split participants).
-   - For a quick test without a domain, Resend's `onboarding@resend.dev` works
-     but **only delivers to your own Resend account email** — fine for a smoke
-     test, not for real participants.
-3. Create an **API key** (API Keys → Create). Copy `re_...` — you'll set it as a
-   secret; never paste it into code or commit it.
+## 1. Pick a transport & get credentials
+
+**Option A — SMTP (recommended).** Any provider works: Amazon SES, Mailgun,
+Postmark, SendGrid, Resend's SMTP, or a Gmail app-password for testing. Get the
+host, port (465 for implicit TLS, 587 for STARTTLS), username, and password.
+Use a **verified sender domain** so mail doesn't land in spam.
+
+**Option B — Resend REST.** Create an account at <https://resend.com> (free tier
+3,000/mo), **verify a sender domain**, and create an API key (`re_...`).
+`onboarding@resend.dev` works for a smoke test but only delivers to your own
+Resend account email.
 
 ## 2. Set the Supabase secrets
 
 From the repo root (needs the Supabase CLI, logged in / linked to project
-`dmxqkvploojokffuhxnz`):
+`dmxqkvploojokffuhxnz`). **SMTP is checked first**, then Resend.
 
 ```bash
-supabase secrets set RESEND_API_KEY=re_your_key_here
-supabase secrets set SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
-# optional — link target in emails; defaults to the live app URL:
+# Option A — SMTP:
+supabase secrets set SMTP_HOST=smtp.yourprovider.com SMTP_PORT=465 \
+  SMTP_USER=your_smtp_user SMTP_PASS=your_smtp_password \
+  SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
+
+# Option B — Resend:
+supabase secrets set RESEND_API_KEY=re_your_key_here \
+  SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
+
+# optional (both) — link target in emails; defaults to the live app URL:
 supabase secrets set APP_URL=https://vyact-twentyx.vercel.app
 ```
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically — do
-not set them.
+not set them. Never paste credentials into code or commit them.
 
 ## 3. Deploy the function
 
@@ -61,6 +75,8 @@ Check delivery in the Resend dashboard (Logs) and the function logs
   caller's JWT (owner for shared/closed; the settling participant for settled).
 - **Cost / deliverability:** on the free tier watch the 100/day cap. Use a
   verified domain (not `resend.dev`) so mail doesn't land in spam.
-- **Swapping providers:** the only provider-specific code is the single `fetch`
-  to `api.resend.com/emails` in the function — swap it for SendGrid/SES/Postmark
-  and change the two secrets if you prefer another provider.
+- **Transport precedence:** if both are set, SMTP wins. To switch back to Resend,
+  unset the SMTP secrets (`supabase secrets unset SMTP_HOST ...`).
+- **SMTP from edge functions:** the function uses `denomailer` over an outbound
+  SMTP connection (Supabase Edge Functions allow outbound TCP). Port 465 uses
+  implicit TLS; 587 upgrades via STARTTLS.

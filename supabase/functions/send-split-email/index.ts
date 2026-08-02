@@ -11,13 +11,20 @@
 //   • 'shared' / 'closed' → caller must be the split's owner (emails participants)
 //   • 'settled'           → caller must be the participant on `shareId` (emails owner)
 //
-// Provider: Resend (https://resend.com) via its REST API. Configure two secrets:
-//   supabase secrets set RESEND_API_KEY=re_xxx
-//   supabase secrets set SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
-// Until RESEND_API_KEY is set the function is a graceful no-op (email_not_configured),
+// Transport: pick ONE (checked in this order), all via function secrets —
+//   1. SMTP (any provider, incl. the one you set as Supabase Auth "Custom SMTP"):
+//        supabase secrets set SMTP_HOST=smtp.provider.com SMTP_PORT=465 \
+//          SMTP_USER=... SMTP_PASS=... SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
+//   2. Resend REST API:
+//        supabase secrets set RESEND_API_KEY=re_xxx \
+//          SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
+// NOTE: Supabase's own email service is AUTH-ONLY (confirm/magic-link/reset/invite)
+// with no general send-email API, so one of the transports above is required.
+// Until one is configured the function is a graceful no-op (email_not_configured),
 // so the app keeps working before email is provisioned. Optional: APP_URL for links.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,10 +41,40 @@ const CUR_SYMBOL: Record<string, string> = { USD: '$', INR: '₹', EUR: '€', G
 const money = (amt: number, cur: string) => `${CUR_SYMBOL[cur] ?? ''}${amt}${CUR_SYMBOL[cur] ? '' : ' ' + cur}`;
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
+// Configured if EITHER transport has its secrets set (SMTP preferred).
+const emailConfigured = () => Boolean(env('SMTP_HOST') || env('RESEND_API_KEY'));
+
+async function sendViaResend(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to, subject, html, text }),
+  });
+  return res.ok;
+}
+
+async function sendViaSmtp(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
+  const port = Number(env('SMTP_PORT') || '465');
+  const client = new SMTPClient({
+    connection: {
+      hostname: env('SMTP_HOST'),
+      port,
+      tls: port === 465,   // 465 = implicit TLS; 587 = STARTTLS (denomailer upgrades)
+      auth: { username: env('SMTP_USER'), password: env('SMTP_PASS') },
+    },
+  });
+  try {
+    await client.send({ from, to, subject, content: text, html });
+    return true;
+  } catch (_e) {
+    return false;
+  } finally {
+    try { await client.close(); } catch { /* ignore */ }
+  }
+}
+
 async function sendEmail(to: string, subject: string, heading: string, lines: string[], appUrl: string): Promise<boolean> {
-  const key = env('RESEND_API_KEY');
   const from = env('SPLIT_EMAIL_FROM') || 'Vyact <onboarding@resend.dev>';
-  if (!key) return false;
   const body = lines.map(l => `<p style="margin:0 0 12px;color:#334155;font-size:15px;line-height:1.5">${l}</p>`).join('');
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px">
     <h1 style="font-size:20px;color:#0f172a;margin:0 0 16px">${esc(heading)}</h1>
@@ -46,12 +83,10 @@ async function sendEmail(to: string, subject: string, heading: string, lines: st
     <p style="margin:24px 0 0;color:#94a3b8;font-size:12px">You're receiving this because someone shared a bill split with this email on Vyact.</p>
   </div>`;
   const text = `${heading}\n\n${lines.map(l => l.replace(/<[^>]+>/g, '')).join('\n')}\n\nOpen: ${appUrl}/splits`;
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, subject, html, text }),
-  });
-  return res.ok;
+  // SMTP first (reuses standard mail infra), else Resend.
+  if (env('SMTP_HOST')) return sendViaSmtp(from, to, subject, html, text);
+  if (env('RESEND_API_KEY')) return sendViaResend(from, to, subject, html, text);
+  return false;
 }
 
 Deno.serve(async (req: Request) => {
@@ -92,7 +127,7 @@ Deno.serve(async (req: Request) => {
   const ownerName = (ownerRes?.data?.user?.user_metadata?.full_name as string | undefined)
     || (ownerRes?.data?.user?.email ?? 'Someone');
 
-  if (!env('RESEND_API_KEY')) return json({ ok: false, reason: 'email_not_configured' });
+  if (!emailConfigured()) return json({ ok: false, reason: 'email_not_configured' });
 
   let sent = 0;
   if (event === 'shared' || event === 'closed') {
