@@ -15,6 +15,8 @@ export default function Splits() {
   const upsertTransaction = useStore(s => s.upsertTransaction);
   const upsertDebt    = useStore(s => s.upsertDebt);
   const toast         = useStore(s => s.toast);
+  const openAddSplit  = useStore(s => s.openAddSplit);
+  const openEditSplit = useStore(s => s.openEditSplit);
   // v10.14 — email-based cross-household split sharing.
   const cloudEnabled        = useStore(s => s.cloudEnabled);
   const currentHouseholdId  = useStore(s => s.currentHouseholdId);
@@ -146,11 +148,16 @@ export default function Splits() {
           <div className="border-t border-line px-5 py-4 space-y-2">
             <div className="flex justify-between items-center mb-3">
               <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase">Participants</div>
-              {unsettled.length > 0 && (
-                <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => markAllPaid(txn.id)}>
-                  Settle all
+              <div className="flex gap-2">
+                <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => openEditSplit(txn)}>
+                  Edit
                 </button>
-              )}
+                {unsettled.length > 0 && (
+                  <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => markAllPaid(txn.id)}>
+                    Settle all
+                  </button>
+                )}
+              </div>
             </div>
             {split.participants.map((p: SplitParticipant) => {
               const shareBase = convert(p.share, txn.currency, c, rates);
@@ -211,6 +218,9 @@ export default function Splits() {
             Group bills · outstanding IOUs · settlements
           </p>
         </div>
+        <button className="btn-primary text-sm py-2 px-4 flex-shrink-0" onClick={() => openAddSplit()}>
+          + Add Split
+        </button>
       </div>
 
       {/* Board M4 — who-owes-who hero: your net position + the two sides. */}
@@ -317,12 +327,13 @@ export default function Splits() {
         <Panel>
           <div className="px-6 py-14 text-center max-w-md mx-auto">
             <div className="text-4xl mb-3 opacity-60">🤝</div>
-            <p className="text-ink-mid mb-2">No split transactions yet.</p>
-            <p className="text-[0.84rem] text-ink-dim leading-relaxed">
-              Add a transaction and flag it as a split — a shared bill (expense) or a shared payout
-              (income) — then assign participants and shares. On a "you owe" row, <span className="text-ink font-semibold">Track as debt</span>
-              &nbsp;turns the IOU into a real debt on the Debts page and Net Worth.
+            <p className="text-ink-mid mb-2">No splits yet.</p>
+            <p className="text-[0.84rem] text-ink-dim leading-relaxed mb-4">
+              Tap <span className="text-ink font-semibold">+ Add Split</span> to split a shared bill
+              (expense) or a shared payout (income) — enter the total, add people and their shares,
+              and only your share counts toward your money. Others' shares are tracked as IOUs here.
             </p>
+            <button className="btn-primary text-sm py-2 px-4" onClick={() => openAddSplit()}>+ Add Split</button>
           </div>
         </Panel>
       ) : (

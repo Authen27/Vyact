@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.15.0`** (consumer)
+> **Current production version: `v10.16.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,53 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.16.0 — Standalone Split form, editing, email templates + onboarding chrome *(2026-08-03)*
+
+Splits become their own thing, gain editing, get proper email templates, and the
+onboarding flow loses its nav bars.
+
+- **Split removed from the Add-Transaction form** (`TransactionFormModal.tsx`) —
+  the split toggle + participant editor are gone; a plain transaction never
+  carries a `split`.
+- **New standalone `SplitFormModal`** (`components/splits/SplitFormModal.tsx`),
+  opened from a **"+ Add Split"** button on the Splits page (and the desktop FAB
+  speed-dial), following the `Budget/DebtFormModal` + `HalfSheet` pattern with a
+  new `splitModalOpen`/`editingSplit` store slot. Type (shared bill/income),
+  total amount, category, description, date, account, and participants
+  (email-primary in cloud with name resolution, name-based local).
+- **Transaction-backed — money model unchanged.** Saving creates/updates a real
+  `Transaction` carrying `SplitInfo`, so **only your share** counts in Cash Flow /
+  budgets / accounts (`effectiveDinero`) and the who-owes view
+  (`splitsOutstanding`). Verified in-browser: a 100 split with a 50 share adds
+  exactly **50** to monthly expense (not 100), `owedToYou = 50`. Money invariant
+  suite stays green (170/170).
+- **Editing with a per-participant lock** — split-level fields lock once any
+  member has paid/settled; each participant row locks individually when that
+  person pays/settles. New owner-side adapters in `lib/sharedSplits.ts`
+  (`updateSharedSplit`, `updateShareAmount`, `addShareToSplit`, `removeShare`,
+  `deleteSharedSplit`) + a `sharedSplitsSlice` diff orchestrator that touches
+  only unpaid rows. RLS already permitted owner edits — **no DB migration.**
+- **Reusable email templates** (`supabase/functions/_shared/emailTemplates.ts`) —
+  one Aurora-styled `renderEmail` layout + four split scenarios: member **with**
+  account (full split info + settle CTA), member **without** account (a distinct
+  **"sign up for Vyact"** invite email), settled, closed. `send-split-email`
+  reworked to use them and to **branch per recipient** on account existence
+  (detected server-side via the `resolve_participant_names` RPC).
+- **Onboarding renders without nav chrome** (`App.tsx`) — `/onboarding` now
+  returns outside `<Layout>` (mirroring the auth/legal routes), so there's **no
+  top bar / sub-nav / mobile tab bar / FAB** on the flow. Verified full-bleed on
+  desktop (1280) and mobile (375).
+
+Gates: `tsc` 0, `eslint` 0, `vitest` 170/170 (money invariants green), `vite
+build` 0. Browser-verified in local mode (Add/Edit split, money math, txn form
+has no split section, onboarding chrome-free). **Follow-up:** the reworked
+`send-split-email` edge function is committed but the **live redeploy is pending**
+(no Supabase CLI here to bundle `../_shared`); run `supabase functions deploy
+send-split-email` — it pairs with the MailerSend secret setup. The current live
+v2 still sends split emails (without the new account-branch) until then.
 
 ---
 

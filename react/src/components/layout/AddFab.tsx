@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Wallet, CreditCard, Briefcase, X } from 'lucide-react';
+import { Plus, Wallet, CreditCard, Briefcase, Users, X } from 'lucide-react';
 import { useStore } from '../../store';
 import { useScrollDirection } from '../../hooks';
 
@@ -20,6 +20,7 @@ export default function AddFab() {
   const openAddBudget = useStore(s => s.openAddBudget);
   const openAddDebt   = useStore(s => s.openAddDebt);
   const openAddAsset  = useStore(s => s.openAddAsset);
+  const openAddSplit  = useStore(s => s.openAddSplit);
 
   const dir = useScrollDirection();
   const [dialOpen, setDialOpen] = useState(false);
@@ -80,6 +81,7 @@ export default function AddFab() {
   }
 
   const dialItems = [
+    { label: 'New split',  icon: <Users size={16} />,      onClick: () => pick(openAddSplit) },
     { label: 'Add budget', icon: <Wallet size={16} />,     onClick: () => pick(openAddBudget) },
     { label: 'Add debt',   icon: <CreditCard size={16} />, onClick: () => pick(openAddDebt) },
     { label: 'Add asset',  icon: <Briefcase size={16} />,  onClick: () => pick(openAddAsset) },

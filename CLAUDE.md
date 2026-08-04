@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.15.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.16.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -86,6 +86,14 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   (SECURITY DEFINER RPC) for self-service settling. Settle/close notifications
   are generated **locally on each side** — no cross-household writes needed,
   since RLS already lets each party read the rows relevant to them.
+  (v10.16: splits are authored in a **standalone `SplitFormModal`** — removed
+  from the txn form — but stay **transaction-backed** (only `yourShare` counts,
+  money model unchanged); editable until a member pays/settles; emails use the
+  reusable `supabase/functions/_shared/emailTemplates.ts` with a "sign up"
+  variant for non-account recipients.)
+- **Onboarding renders outside `<Layout>`** (v10.16) — the `/onboarding` early
+  return in `App.tsx` (mirroring auth/legal routes) means no top/bottom nav
+  chrome on the flow, desktop or mobile.
 
 ## Aurora design — token usage rule (binding · silent-failure class)
 

@@ -13,7 +13,6 @@ import {
 import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED_TYPES } from '../../lib/accounts';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { FEATURES } from '../../config/features';
-import { resolveParticipantNames } from '../../lib/sharedSplits';
 import type { Transaction, TxnType, Recurrence, PartPaymentChoice } from '../../types';
 
 interface Props {
@@ -22,17 +21,6 @@ interface Props {
   open?: boolean;
   initial?: Transaction | null;
   onClose?: () => void;
-}
-
-interface SplitParticipantForm {
-  name: string;
-  share: string;
-  isYou: boolean;
-  paid: boolean;
-  paidOn?: string | null;
-  /** v10.14 — when set (and you paid, cloud enabled), a shared_splits row is
-   *  created so the account at this email sees the split too. */
-  email?: string;
 }
 
 interface FormState {
@@ -61,19 +49,7 @@ interface FormState {
   accountSplitRows: { accountId: string; amount: number }[];
   recurring: Recurrence | '';
   excluded: boolean;
-  // ── split ──
-  splitEnabled: boolean;
-  splitPaidBy: 'me' | 'external';
-  splitParticipants: SplitParticipantForm[];
-  // When true, shares are kept auto-balanced to an even split; flips to false the
-  // moment the user edits a share by hand (so manual amounts are never clobbered).
-  splitAuto: boolean;
 }
-
-const defaultParticipants = (): SplitParticipantForm[] => ([
-  { name: 'You', share: '', isYou: true,  paid: true },
-  { name: '',    share: '', isYou: false, paid: false },
-]);
 
 // v9 txn-redesign §3 — type-scoped defaults. Transfers and investments carry NO
 // category (CK_txn_category_by_type); '' is the client-side sentinel for null.
@@ -119,21 +95,7 @@ const blank = (currency: string, memberId = '', type: TxnType = 'expense'): Form
   accountSplitRows: [],
   recurring: '',
   excluded: false,
-  splitEnabled: false,
-  splitPaidBy: 'me',
-  splitParticipants: defaultParticipants(),
-  splitAuto: true,
 });
-
-// Even split of `bill` across `n` people; rounding remainder goes to the first.
-function evenShares(bill: number, n: number): string[] {
-  if (n < 1) return [];
-  const base = Math.floor((bill / n) * 100) / 100;
-  const shares = Array(n).fill(base);
-  const remainder = Math.round((bill - base * n) * 100) / 100;
-  shares[0] = Math.round((shares[0] + remainder) * 100) / 100;
-  return shares.map(s => (bill > 0 ? s.toFixed(2) : ''));
-}
 
 function categoriesFor(type: TxnType) {
   // v9 §3 — type-scoped sets. Transfers AND investments carry no category
@@ -176,12 +138,6 @@ export default function TransactionFormModal(props: Props) {
   const removeTransaction = useStore(s => s.removeTransaction);
   const toast             = useStore(s => s.toast);
   const openAddAccount    = useStore(s => s.openAddAccount);
-  const cloudEnabled          = useStore(s => s.cloudEnabled);
-  const currentHouseholdId   = useStore(s => s.currentHouseholdId);
-  const createSharedSplitForTxn = useStore(s => s.createSharedSplitForTxn);
-  // Cross-household split sharing (email input + name resolution) only applies
-  // in cloud mode with a real household; local-only mode keeps the name input.
-  const cloudActive = cloudEnabled && currentHouseholdId !== 'local';
 
   // Bind to the global store unless explicit props are passed
   const storeOpen     = useStore(s => s.txnModalOpen);
@@ -207,10 +163,6 @@ export default function TransactionFormModal(props: Props) {
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency, defaultMemberId));
   const [saving, setSaving] = useState(false);
   const [showAllCats, setShowAllCats] = useState(false);   // board M4 "⌕ More" category tile
-  // v10.14.1 — email → display-name resolution for split participants. Keyed by
-  // lowercase email: a string name = a Vyact account exists; '' = resolved, no
-  // account yet; undefined = not resolved yet.
-  const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
 
   // Linked spending accounts. With `money_map` flag on (or in shadow) and
   // a populated `accounts` store, source options from the canonical table;
@@ -253,10 +205,9 @@ export default function TransactionFormModal(props: Props) {
     setShowAllCats(false);
     if (initial) {
       const initialTime = deriveInitialTime(initial);
-      const sp = initial.split;
       setForm({
         type: initial.type,
-        amount: String(sp?.isSplit ? sp.totalAmount : initial.amount),
+        amount: String(initial.amount),
         currency: initial.currency,
         date: initial.date,
         time: initialTime,
@@ -273,20 +224,6 @@ export default function TransactionFormModal(props: Props) {
         accountSplitRows: initial.accountSplits ? initial.accountSplits.map(s => ({ accountId: s.accountId, amount: s.amount })) : [],
         recurring: initial.recurring ?? '',
         excluded: Boolean(initial.excluded),
-        splitEnabled: Boolean(sp?.isSplit),
-        splitPaidBy: sp?.paidBy ?? 'me',
-        // Existing splits keep their explicit shares (no auto-rebalance);
-        // a fresh split starts in auto-even mode.
-        splitAuto: !sp?.isSplit,
-        splitParticipants: sp?.isSplit && sp.participants.length
-          ? sp.participants.map(p => ({
-              name: p.isYou ? 'You' : p.name,
-              share: String(p.share),
-              isYou: Boolean(p.isYou),
-              paid: p.paid,
-              paidOn: p.paidOn,
-            }))
-          : defaultParticipants(),
       });
     } else {
       // v7.4.5 — `storeSeed` (from Ask Vyact's two-tap flow, or a notification
@@ -352,53 +289,6 @@ export default function TransactionFormModal(props: Props) {
     return out;
   }, [transactions, form.type]);
 
-  // ── split helpers ──
-  function updateName(i: number, name: string) {
-    // Editing a name never disturbs auto-balanced shares.
-    setForm(f => ({ ...f, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, name } : x) }));
-  }
-  function updateParticipantEmail(i: number, email: string) {
-    setForm(f => ({ ...f, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, email } : x) }));
-  }
-  // v10.14.1 — resolve a participant email → their Vyact display name (shown
-  // non-editable). One RPC per distinct email; results cached in resolvedNames.
-  async function resolveEmail(email: string) {
-    const e = email.trim().toLowerCase();
-    if (!e || resolvedNames[e] !== undefined) return;
-    try {
-      const map = await resolveParticipantNames([e]);
-      setResolvedNames(prev => ({ ...prev, [e]: map[e] ?? '' }));
-    } catch { /* best-effort — the email still shares the split */ }
-  }
-  function editShare(i: number, share: string) {
-    // Manual edit → leave auto mode so we respect the user's numbers.
-    setForm(f => ({ ...f, splitAuto: false, splitParticipants: f.splitParticipants.map((x, j) => j === i ? { ...x, share } : x) }));
-  }
-  function addParticipant() {
-    // Keep whatever mode we're in; the rebalance effect re-evens shares in auto mode.
-    setForm(f => ({ ...f, splitParticipants: [...f.splitParticipants, { name: '', share: '', isYou: false, paid: false }] }));
-  }
-  function removeParticipant(i: number) {
-    setForm(f => ({ ...f, splitParticipants: f.splitParticipants.filter((_, j) => j !== i) }));
-  }
-  function resetEvenSplit() {
-    setForm(f => ({ ...f, splitAuto: true }));
-  }
-
-  // Auto-balance: while in auto mode, keep every share at an even split of the bill.
-  // Re-runs when the bill or the number of participants changes.
-  useEffect(() => {
-    if (!form.splitEnabled || !form.splitAuto) return;
-    const bill = parseFloat(form.amount) || 0;
-    const shares = evenShares(bill, form.splitParticipants.length);
-    setForm(f => {
-      if (!f.splitAuto) return f;
-      const changed = f.splitParticipants.some((p, i) => p.share !== shares[i]);
-      if (!changed) return f;
-      return { ...f, splitParticipants: f.splitParticipants.map((p, i) => ({ ...p, share: shares[i] })) };
-    });
-  }, [form.amount, form.splitEnabled, form.splitAuto, form.splitParticipants.length]);
-
   // Reset for a rapid "Save & add another" — keep the track, currency, member,
   // date and account so the next entry only needs an amount.
   function resetForNext() {
@@ -451,49 +341,8 @@ export default function TransactionFormModal(props: Props) {
       return;
     }
 
-    // ── Build split info (expense or income) ──
-    let split: Transaction['split'] | undefined = undefined;
-    if ((form.type === 'expense' || form.type === 'income') && form.splitEnabled) {
-      // v10.14.1 — in cloud mode a participant is identified by EMAIL (name is
-      // resolved from it); in local-only mode by a typed name.
-      const idOf = (p: SplitParticipantForm) => cloudActive ? (p.email ?? '').trim() : p.name.trim();
-      const parts = form.splitParticipants
-        .map(p => ({ ...p, shareNum: parseFloat(p.share) }))
-        .filter(p => (p.isYou || idOf(p)) && !isNaN(p.shareNum) && p.shareNum >= 0);
-      const you = parts.find(p => p.isYou);
-      if (!you) { toast('A split needs your share', 'error'); return; }
-      if (parts.length < 2) { toast('A split needs at least one other participant', 'error'); return; }
-      if (parts.some(p => !p.isYou && !idOf(p))) {
-        toast(cloudActive ? 'Every participant needs an email' : 'All participants must have a name', 'error');
-        return;
-      }
-      const sumShares = parts.reduce((s, p) => s + p.shareNum, 0);
-      if (Math.abs(sumShares - amount) > 0.01) {
-        toast(`Participant shares (${sumShares.toFixed(2)}) must add up to the total bill (${amount.toFixed(2)})`, 'error');
-        return;
-      }
-      split = {
-        isSplit: true,
-        totalAmount: amount,
-        yourShare: you.shareNum,
-        paidBy: form.splitPaidBy,
-        participants: parts.map(p => {
-          const email = (p.email ?? '').trim().toLowerCase();
-          // Display name: resolved account name → typed name → the email itself.
-          const displayName = p.isYou ? 'You'
-            : (cloudActive ? (resolvedNames[email] || p.name.trim() || email) : p.name.trim());
-          return {
-            name: displayName,
-            isYou: p.isYou || undefined,
-            share: p.shareNum,
-            paid: form.splitPaidBy === 'me' ? Boolean(p.isYou || p.paid) : Boolean(!p.isYou || p.paid),
-            paidOn: p.paidOn ?? null,
-            email: (!p.isYou && email) ? email : undefined,
-          };
-        }),
-      };
-    }
-
+    // Splits are authored in the standalone Split form (v10.16); a plain
+    // transaction never carries a `split`.
     setSaving(true);
     try {
       // v9 §4.3 — investment direction maps the account matrix:
@@ -525,46 +374,18 @@ export default function TransactionFormModal(props: Props) {
           _partPaymentChoice: form.partPaymentChoice,
         } : {}),
         linkedTxnId:   initial?.linkedTxnId,
-        split,
       };
       await upsertTransaction(txn);
-
-      // v10.14 — email-based cross-household split sharing. Only on a fresh
-      // split (not re-fired on every edit-resave, so it can't duplicate the
-      // shared_splits row): when you paid and cloud is enabled, any participant
-      // with an email gets a shared_splits/shared_split_shares row so their
-      // account (once they sign up with that email, if they haven't yet) sees
-      // this split too. Best-effort — a failure here shouldn't block the
-      // transaction save that already succeeded.
-      if (!initial && split && form.splitPaidBy === 'me' && cloudEnabled && currentHouseholdId !== 'local') {
-        const emailed = split.participants.filter(p => !p.isYou && p.email);
-        if (emailed.length) {
-          try {
-            await createSharedSplitForTxn({
-              txnId: txn.id,
-              description: txn.description,
-              currency: txn.currency,
-              totalAmount: split.totalAmount,
-              txnType: form.type === 'income' ? 'income' : 'expense',
-              date: txn.date,
-              participants: emailed.map(p => ({ email: p.email!, share: p.share })),
-            });
-          } catch (e) {
-            toast(`Split saved, but sharing failed: ${(e as Error).message}`, 'error');
-          }
-        }
-      }
 
       // v9.1 §5 — recurrence is authored ONLY in the Recurring section now;
       // the Transaction form no longer mirrors a schedule.
 
       // Offer Undo only for a freshly-added PLAIN expense/income row — those
-      // delete cleanly. System-split rows (loan_emi, transfer, investment) and
-      // people-splits create linked legs/IOUs, so we never one-tap-undo them.
+      // delete cleanly. System-split rows (loan_emi, transfer, investment)
+      // create linked legs, so we never one-tap-undo them.
       const undoable = !initial
         && (form.type === 'expense' || form.type === 'income')
-        && form.category !== 'loan_emi'
-        && !form.splitEnabled;
+        && form.category !== 'loan_emi';
       const createdId = txn.id;
       toast(
         initial ? 'Transaction updated' : 'Transaction added',
@@ -854,127 +675,6 @@ export default function TransactionFormModal(props: Props) {
         </label>
       </div>
 
-      {/* Board M4 — split toggle lives INLINE on the main sheet: label + hint
-          + pill toggle row, with the participant editor expanding below. */}
-      {(form.type === 'expense' || form.type === 'income') && (
-        <div className="mt-3">
-          <div className="flex items-center gap-2.5 py-2.5">
-            <span className="font-display font-semibold text-[13px] text-ink">
-              ↔ {form.type === 'income' ? 'Share with someone' : 'Split with someone'}
-            </span>
-            <span className="text-[10.5px] text-ink-dim">
-              {form.splitEnabled ? 'on — shares become IOUs' : 'off — splits create IOUs'}
-            </span>
-            <button
-              type="button" role="switch" aria-checked={form.splitEnabled} aria-label="Split this transaction"
-              onClick={() => setForm(f => ({ ...f, splitEnabled: !f.splitEnabled, splitAuto: !f.splitEnabled ? true : f.splitAuto }))}
-              className="ml-auto relative w-[44px] h-[26px] rounded-pill border-none cursor-pointer flex-shrink-0"
-              style={{
-                background: form.splitEnabled ? 'color-mix(in srgb, hsl(var(--sage)) 40%, var(--sunken))' : 'var(--sunken)',
-                boxShadow: 'var(--neu-inset)',
-              }}
-            >
-              <i aria-hidden className="absolute top-[3px] w-5 h-5 rounded-full transition-[left] duration-150"
-                style={{
-                  left: form.splitEnabled ? 21 : 3,
-                  background: form.splitEnabled ? 'hsl(var(--sage))' : 'var(--ff-ink-3)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,.3)',
-                }} />
-            </button>
-          </div>
-
-          {form.splitEnabled && (
-                <div className="pt-1 space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="mono-label">
-                        {cloudActive ? `Participants · email & share (${form.currency})` : `Participants & shares (${form.currency})`}
-                      </label>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={resetEvenSplit}
-                          className={`font-mono text-[0.6rem] tracking-wider uppercase hover:underline ${form.splitAuto ? 'text-sage' : 'text-ink-dim'}`}
-                          title="Reset to an even split">
-                          {form.splitAuto ? '⚖ Even (auto)' : '⚖ Even split'}
-                        </button>
-                        <button type="button" onClick={addParticipant}
-                          className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:underline">
-                          + Add person
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      {form.splitParticipants.map((p, i) => {
-                        const emailKey = (p.email ?? '').trim().toLowerCase();
-                        const resolved = emailKey ? resolvedNames[emailKey] : undefined;
-                        return (
-                        <div key={i} className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            {p.isYou ? (
-                              <div className="input flex-1 py-1.5 flex items-center text-ink-dim">You</div>
-                            ) : cloudActive ? (
-                              // v10.14.1 — email is the only identity to enter; the
-                              // name is resolved from it and shown below, non-editable.
-                              <input className="input flex-1 py-1.5" type="email" value={p.email ?? ''} placeholder="Their email"
-                                onChange={e => updateParticipantEmail(i, e.target.value)}
-                                onBlur={e => resolveEmail(e.target.value)}
-                                onKeyDown={e => {
-                                  if ((e.key === 'Backspace' || e.key === 'Delete') && !p.email && form.splitParticipants.length > 2) {
-                                    e.preventDefault();
-                                    removeParticipant(i);
-                                  }
-                                }} />
-                            ) : (
-                              <input className="input flex-1 py-1.5" value={p.name} placeholder="Name"
-                                onChange={e => updateName(i, e.target.value)}
-                                onKeyDown={e => {
-                                  if ((e.key === 'Backspace' || e.key === 'Delete') && !p.name && form.splitParticipants.length > 2) {
-                                    e.preventDefault();
-                                    removeParticipant(i);
-                                  }
-                                }} />
-                            )}
-                            <input className="input w-28 py-1.5 text-right" type="number" min="0" step="0.01" value={p.share} placeholder="0.00"
-                              onChange={e => editShare(i, e.target.value)} />
-                            {!p.isYou ? (
-                              <button type="button" onClick={() => removeParticipant(i)}
-                                className="text-ink-dim hover:text-terra w-7 flex-shrink-0 text-center" aria-label="Remove participant">✕</button>
-                            ) : <span className="w-7 flex-shrink-0" />}
-                          </div>
-                          {/* v10.14.1 — resolved display name (non-editable) or a
-                             "not on Vyact yet" hint, once an email is entered. */}
-                          {!p.isYou && cloudActive && emailKey && (
-                            resolved
-                              ? <div className="font-mono text-[0.6rem] tracking-wider text-sage pl-1">✓ {resolved}</div>
-                              : resolved === ''
-                                ? <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim pl-1">Not on Vyact yet — they'll see it when they join</div>
-                                : null
-                          )}
-                        </div>
-                        );
-                      })}
-                    </div>
-                    {(() => {
-                      const bill = parseFloat(form.amount) || 0;
-                      const sum = form.splitParticipants.reduce((s, p) => s + (parseFloat(p.share) || 0), 0);
-                      const ok = Math.abs(sum - bill) < 0.01 && bill > 0;
-                      let error = '';
-                      if (bill === 0) error = 'Enter the total bill amount above.';
-                      else if (form.splitParticipants.length < 2) error = 'Add at least one other participant.';
-                      else if (form.splitParticipants.some(p => !p.isYou && !(cloudActive ? (p.email ?? '').trim() : p.name.trim())))
-                        error = cloudActive ? 'Every participant needs an email.' : 'All participants must have a name.';
-                      else if (!ok) error = `Shares (${sum.toFixed(2)}) must add up to the bill (${bill.toFixed(2)}).`;
-                      return (
-                        <div className={`mt-2 font-mono text-[0.62rem] tracking-wider ${ok ? 'text-sage' : 'text-honey'}`}>
-                          Shares total {sum.toFixed(2)} / bill {bill.toFixed(2)} {ok ? '✓' : '— must match'}
-                          {error && <div className="text-terra mt-1 normal-case tracking-normal">{error}</div>}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
     </HalfSheet>
   );
 }
