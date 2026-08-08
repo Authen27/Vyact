@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.16.0`** (consumer)
+> **Current production version: `v10.17.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,34 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.17.0 — Investment walling, "Owed to me" removal, Splits & UX polish *(2026-08-08)*
+
+A 17-item feedback batch. Two cross-cutting themes plus targeted UX fixes.
+
+**Investment accounts are walled off to the Investment track only.** Root cause: `buildAccountsFromStore` mislabelled investment accounts as `kind:'bank'`, so they leaked into every picker. Fix: `AccountOption.kind` now includes `'investment'` and the builder tags them, so a shared `notInvestment` predicate can exclude them.
+- Expense/income **source**, **transfers** (both sides), the **split** account, and **debt/EMI payments** never list an investment account.
+- Investment **"Added money"** — the *From* (cash) side excludes investment; the destination is the investment account.
+- Investment **"Took money out"** — the pickers **reorient**: *From* = the investment account, *To* = bank/cash. The stored `paymentMethod`/`linkedToAssetId` are **byte-identical** to before (the persist swap is unchanged) — money invariants INV-8 stay green.
+
+**"Owed to me" (receivables) is deprecated from the UI** (hide-only, data retained → reversible):
+- **Add Debt** loses the direction selector and the "Who owes you" field — debts are liabilities.
+- **Debts** drops the All/Owe/Owed tabs and the receivables footnote; the list shows liabilities only.
+- **Net Worth** drops the "Owed to me" sub-list; net worth is now `assets − liabilities` (the waterfall too). `totalReceivables` already excluded receivables from `totalAssets`/`totalLiabilities`, so **no number moves** — only the local `nw = ta + tr − tl` addend is gone. INV-7 stays green.
+
+**Splits:**
+- **Delete a split** from the row (removes the backing transaction and any cross-household shares).
+- The **Owed-to-you / You-owe / Net position** hero tiles are now **tappable**, expanding a **per-person breakdown keyed by email** (username · email — amount). Sums reconcile with the tile because both read the same `splitsOutstanding` details.
+- Friendlier participant tagging: a clearer label and an **email autocomplete** of people from prior splits.
+- The split account picker excludes investment accounts.
+
+**Other:**
+- **Description** on Add Transaction is a plain open field again (the recent-value dropdown is gone).
+- New **circular 24-hour time dial** (`TimeDial`) replaces the native time input; it still emits `HH:MM` so persistence is unchanged.
+- **Recurring "Add Schedule"** modal is no longer trapped under the header. `HalfSheet` now **portals to `<body>`**, so a sheet rendered inline in a page (inside `<main class="relative z-[1]">`) escapes that stacking context instead of being painted over by the sticky TopBar.
+- **Ask Vyact** drops the dead **Manage** bucket (Open Budgets/Net Worth/Households) — those chips navigated under the open drawer and read as dead.
+
+No DB migration, no edge-function change. Money invariant suites (INV-1..9) unchanged and green (170/170).
 
 ## v10.16.0 — Standalone Split form, editing, email templates + onboarding chrome *(2026-08-03)*
 

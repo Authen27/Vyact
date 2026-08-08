@@ -4,8 +4,30 @@ import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, convert, uid } from '../lib/format';
 import Money from '../components/ui/Money';
-import { splitsOutstanding } from '../lib/calculations';
+import { splitsOutstanding, type SplitOutstanding } from '../lib/calculations';
 import type { Transaction, SplitParticipant, Debt } from '../types';
+
+// v10.17 (items 7/8/9) — roll the outstanding split details up per person,
+// keyed by email (fallback: display name for local/no-email participants), so
+// the hero tiles can expand into "who must pay you / whom you must pay". The
+// sums reconcile exactly with the hero numbers because both read the same
+// `splitsOutstanding` details.
+interface PersonAgg { key: string; name: string; email?: string; amount: number }
+function aggregatePeople(
+  details: SplitOutstanding['owedDetails'],
+  base: string, rates: Parameters<typeof convert>[3],
+): PersonAgg[] {
+  const map = new Map<string, PersonAgg>();
+  for (const { txn, participant } of details) {
+    const email = participant.email?.toLowerCase();
+    const key = email || participant.name.toLowerCase();
+    const amt = convert(participant.share, txn.currency, base, rates);
+    const cur = map.get(key);
+    if (cur) cur.amount += amt;
+    else map.set(key, { key, name: participant.name, email, amount: amt });
+  }
+  return [...map.values()].sort((a, b) => b.amount - a.amount);
+}
 
 export default function Splits() {
   const { t } = useTranslation();
@@ -13,10 +35,12 @@ export default function Splits() {
   const profile       = useStore(s => s.profile);
   const rates         = useStore(s => s.rates);
   const upsertTransaction = useStore(s => s.upsertTransaction);
+  const removeTransaction = useStore(s => s.removeTransaction);
   const upsertDebt    = useStore(s => s.upsertDebt);
   const toast         = useStore(s => s.toast);
   const openAddSplit  = useStore(s => s.openAddSplit);
   const openEditSplit = useStore(s => s.openEditSplit);
+  const deleteSharedSplitForTxn = useStore(s => s.deleteSharedSplitForTxn);
   // v10.14 — email-based cross-household split sharing.
   const cloudEnabled        = useStore(s => s.cloudEnabled);
   const currentHouseholdId  = useStore(s => s.currentHouseholdId);
@@ -32,7 +56,34 @@ export default function Splits() {
   const c = profile.baseCurrency;
   const { owedToYou, youOwe, owedDetails, youOweDetails } = splitsOutstanding(transactions, c, rates);
 
+  // v10.17 (items 7/8/9) — which hero tile's per-person breakdown is expanded.
+  const [heroView, setHeroView] = useState<null | 'owed' | 'owe' | 'net'>(null);
+  const owedByPerson = aggregatePeople(owedDetails, c, rates);
+  const youOweByPerson = aggregatePeople(youOweDetails, c, rates);
+  // Net per person = what they owe you − what you owe them (union of both sides).
+  const netByPerson = (() => {
+    const map = new Map<string, { key: string; name: string; email?: string; net: number }>();
+    for (const p of owedByPerson) map.set(p.key, { key: p.key, name: p.name, email: p.email, net: p.amount });
+    for (const p of youOweByPerson) {
+      const cur = map.get(p.key);
+      if (cur) cur.net -= p.amount;
+      else map.set(p.key, { key: p.key, name: p.name, email: p.email, net: -p.amount });
+    }
+    return [...map.values()].filter(p => Math.abs(p.net) > 0.005).sort((a, b) => b.net - a.net);
+  })();
+
   const splitTxns = transactions.filter(tx => tx.split?.isSplit);
+
+  async function deleteSplit(txnId: string) {
+    if (!confirm('Delete this split completely? This removes the transaction and any shares sent to other households.')) return;
+    try {
+      await removeTransaction(txnId);
+      if (cloudActive) await deleteSharedSplitForTxn(txnId);
+      toast('Split deleted', 'info');
+    } catch (e) {
+      toast(`Delete failed: ${(e as Error).message}`, 'error');
+    }
+  }
 
   async function markPaid(txnId: string, participantName: string) {
     const txn = transactions.find(tx => tx.id === txnId);
@@ -99,6 +150,29 @@ export default function Splits() {
     toast(`Tracked ${fmt(convert(part.share, txn.currency, c, rates), c)} as a debt`, 'success');
   }
 
+  // v10.17 — one row of the per-person hero breakdown. Shows the resolved
+  // username (falls back to the email when no display name) and the email ID
+  // beneath it, with the rolled-up amount on the right.
+  function PersonBreakdownRow(
+    { p, amount, tone, signed }: { p: { name: string; email?: string }; amount: number; tone: 'sage' | 'terra'; signed?: boolean },
+  ) {
+    const showName = p.name && p.name.toLowerCase() !== (p.email ?? '').toLowerCase() && p.name !== 'You';
+    const prefix = signed ? (amount >= 0 ? '＋' : '−') : '';
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-md px-3 py-2 bg-bg3 border border-line">
+        <div className="min-w-0">
+          {showName && <div className="text-[0.82rem] font-semibold text-ink truncate">{p.name}</div>}
+          <div className={`font-mono text-[0.62rem] tracking-wider truncate ${showName ? 'text-ink-dim' : 'text-ink font-semibold'}`}>
+            {p.email || p.name}
+          </div>
+        </div>
+        <span className={`num font-semibold text-[0.9rem] flex-shrink-0 ${tone === 'sage' ? 'text-sage' : 'text-terra'}`}>
+          {prefix}{fmt(Math.abs(amount), c)}
+        </span>
+      </div>
+    );
+  }
+
   function SplitRow({ txn }: { txn: Transaction }) {
     const [expanded, setExpanded] = useState(false);
     const split = txn.split!;
@@ -157,6 +231,9 @@ export default function Splits() {
                     Settle all
                   </button>
                 )}
+                <button className="btn-ghost text-xs py-1 px-2.5 text-terra" onClick={() => deleteSplit(txn.id)}>
+                  Delete
+                </button>
               </div>
             </div>
             {split.participants.map((p: SplitParticipant) => {
@@ -223,24 +300,67 @@ export default function Splits() {
         </button>
       </div>
 
-      {/* Board M4 — who-owes-who hero: your net position + the two sides. */}
+      {/* Board M4 — who-owes-who hero: your net position + the two sides.
+          v10.17 (items 7/8/9) — every tile is a toggle that expands a per-person
+          (email-keyed) breakdown. The breakdown sums reconcile with the tile. */}
       {(owedToYou > 0 || youOwe > 0) && (
         <div className="rounded-r4 p-5 mb-5" style={{ background: 'var(--elevated)', boxShadow: 'var(--neu)' }}>
-          <div className="mono-label mb-1.5">Your net position</div>
-          <Money amount={owedToYou - youOwe} currency={c} maxChars={12}
-            className={`num text-3xl font-semibold ${owedToYou - youOwe >= 0 ? 'text-sage' : 'text-terra'}`} />
+          <button type="button" onClick={() => setHeroView(v => v === 'net' ? null : 'net')}
+            className="w-full text-left" aria-expanded={heroView === 'net'}>
+            <div className="mono-label mb-1.5 flex items-center gap-1.5">
+              Your net position <span className="text-ink-dim">{heroView === 'net' ? '▴' : '▾'}</span>
+            </div>
+            <Money amount={owedToYou - youOwe} currency={c} maxChars={12}
+              className={`num text-3xl font-semibold ${owedToYou - youOwe >= 0 ? 'text-sage' : 'text-terra'}`} />
+          </button>
           <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="rounded-r3 px-4 py-3 min-w-0" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-              <div className="mono-label mb-1">Owed to you</div>
+            <button type="button" onClick={() => setHeroView(v => v === 'owed' ? null : 'owed')}
+              className="rounded-r3 px-4 py-3 min-w-0 text-left" aria-expanded={heroView === 'owed'}
+              style={{ background: 'var(--sunken)', boxShadow: heroView === 'owed' ? 'var(--neu-inset), 0 0 0 1.5px hsl(var(--sage))' : 'var(--neu-inset)' }}>
+              <div className="mono-label mb-1 flex items-center gap-1.5">Owed to you <span className="text-ink-dim">{heroView === 'owed' ? '▴' : '▾'}</span></div>
               <Money amount={owedToYou} currency={c} maxChars={11} className="num text-xl font-semibold text-sage" />
-              <div className="mono-label mt-0.5">{owedDetails.length} item{owedDetails.length !== 1 ? 's' : ''}</div>
-            </div>
-            <div className="rounded-r3 px-4 py-3 min-w-0" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-              <div className="mono-label mb-1">You owe</div>
+              <div className="mono-label mt-0.5">{owedByPerson.length} {owedByPerson.length === 1 ? 'person' : 'people'}</div>
+            </button>
+            <button type="button" onClick={() => setHeroView(v => v === 'owe' ? null : 'owe')}
+              className="rounded-r3 px-4 py-3 min-w-0 text-left" aria-expanded={heroView === 'owe'}
+              style={{ background: 'var(--sunken)', boxShadow: heroView === 'owe' ? 'var(--neu-inset), 0 0 0 1.5px hsl(var(--terra))' : 'var(--neu-inset)' }}>
+              <div className="mono-label mb-1 flex items-center gap-1.5">You owe <span className="text-ink-dim">{heroView === 'owe' ? '▴' : '▾'}</span></div>
               <Money amount={youOwe} currency={c} maxChars={11} className="num text-xl font-semibold text-terra" />
-              <div className="mono-label mt-0.5">{youOweDetails.length} item{youOweDetails.length !== 1 ? 's' : ''}</div>
-            </div>
+              <div className="mono-label mt-0.5">{youOweByPerson.length} {youOweByPerson.length === 1 ? 'person' : 'people'}</div>
+            </button>
           </div>
+
+          {/* Per-person breakdown for the selected tile. */}
+          {heroView && (
+            <div className="mt-4 pt-4 border-t border-line space-y-1.5">
+              {heroView === 'owed' && (
+                owedByPerson.length === 0
+                  ? <div className="mono-label">No one owes you right now.</div>
+                  : <>
+                      <div className="mono-label mb-1">Who must pay you</div>
+                      {owedByPerson.map(p => <PersonBreakdownRow key={p.key} p={p} amount={p.amount} tone="sage" />)}
+                    </>
+              )}
+              {heroView === 'owe' && (
+                youOweByPerson.length === 0
+                  ? <div className="mono-label">You don't owe anyone right now.</div>
+                  : <>
+                      <div className="mono-label mb-1">Whom you must pay</div>
+                      {youOweByPerson.map(p => <PersonBreakdownRow key={p.key} p={p} amount={p.amount} tone="terra" />)}
+                    </>
+              )}
+              {heroView === 'net' && (
+                netByPerson.length === 0
+                  ? <div className="mono-label">All square — nothing outstanding per person.</div>
+                  : <>
+                      <div className="mono-label mb-1">Per person · who pays you (＋) or you pay (−)</div>
+                      {netByPerson.map(p => (
+                        <PersonBreakdownRow key={p.key} p={p} amount={p.net} tone={p.net >= 0 ? 'sage' : 'terra'} signed />
+                      ))}
+                    </>
+              )}
+            </div>
+          )}
         </div>
       )}
 

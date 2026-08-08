@@ -31,7 +31,7 @@ interface SpeechRecognitionLike {
   start: () => void; stop: () => void;
 }
 
-const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan', 'manage'];
+const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan'];
 
 const backend = selectChatBackend();
 const assistantBackend = selectAssistantBackend();
@@ -284,7 +284,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
               <MessageCircle className="text-coral" /> Ask Vyact
             </h1>
             <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-              On-device · private · two taps to capture, inquire, plan, or navigate
+              On-device · private · two taps to capture, inquire, or plan
             </p>
           </div>
           {history.length > 0 && (

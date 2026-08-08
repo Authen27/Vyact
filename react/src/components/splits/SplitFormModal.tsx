@@ -19,7 +19,7 @@ import Button from '../ui/Button';
 import { useStore } from '../../store';
 import { uid, today, nowTime } from '../../lib/format';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CURRENCIES } from '../../constants';
-import { buildAccounts, buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES } from '../../lib/accounts';
+import { buildAccounts, buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { resolveParticipantNames } from '../../lib/sharedSplits';
 import type { Transaction } from '../../types';
@@ -92,6 +92,7 @@ export default function SplitFormModal(props: Props) {
   const session           = useStore(s => s.session);
   const assets            = useStore(s => s.assets);
   const debts             = useStore(s => s.debts);
+  const transactions      = useStore(s => s.transactions);
   const accountsState     = useStore(s => s.accounts);
   const upsertTransaction = useStore(s => s.upsertTransaction);
   const removeTransaction = useStore(s => s.removeTransaction);
@@ -126,10 +127,26 @@ export default function SplitFormModal(props: Props) {
   const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
 
   const useFirstClass = getMoneyMapMode() !== 'off' && accountsState.length > 0;
+  // v10.17 item 15 — a split is never paid from an investment account.
   const accounts = useMemo(
-    () => useFirstClass ? buildAccountsFromStore(accountsState) : buildAccounts(assets, debts),
+    () => useFirstClass ? buildAccountsFromStore(accountsState, { filter: notInvestment }) : buildAccounts(assets, debts),
     [useFirstClass, accountsState, assets, debts],
   );
+
+  // v10.17 item 10 — autocomplete of people you might tag: distinct emails from
+  // prior split participants (local transactions + splits you've shared out).
+  const emailSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    for (const tx of transactions) {
+      for (const p of tx.split?.participants ?? []) {
+        if (p.email) set.add(p.email.toLowerCase());
+      }
+    }
+    for (const sp of sharedSplitsOwned) {
+      for (const sh of sp.shares) if (sh.email) set.add(sh.email.toLowerCase());
+    }
+    return [...set].sort();
+  }, [transactions, sharedSplitsOwned]);
 
   // Hydrate on open. Edit uses the backing Transaction's split + (cloud) the
   // matched shared_split to read per-share paid/settled state.
@@ -405,7 +422,12 @@ export default function SplitFormModal(props: Props) {
       {/* Participants + shares. */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-1.5">
-          <label className="mono-label">{cloudActive ? `People · email & share (${form.currency})` : `People & shares (${form.currency})`}</label>
+          <label className="mono-label">{cloudActive ? `Who's in · tag by email & share (${form.currency})` : `People & shares (${form.currency})`}</label>
+          {cloudActive && (
+            <datalist id="split-email-suggestions">
+              {emailSuggestions.map(e => <option key={e} value={e} />)}
+            </datalist>
+          )}
           <div className="flex gap-2">
             {!splitLocked && (
               <button type="button" onClick={() => setForm(f => ({ ...f, auto: true }))}
@@ -430,7 +452,9 @@ export default function SplitFormModal(props: Props) {
                   {p.isYou ? (
                     <div className="input flex-1 py-1.5 flex items-center text-ink-dim">You</div>
                   ) : cloudActive ? (
-                    <input className="input flex-1 py-1.5" type="email" value={p.email ?? ''} placeholder="Their email"
+                    <input className="input flex-1 py-1.5" type="email" value={p.email ?? ''}
+                      placeholder="Tag someone by email — e.g. sam@email.com"
+                      list="split-email-suggestions" autoComplete="off"
                       disabled={rowLocked}
                       onChange={e => updateEmail(i, e.target.value)}
                       onBlur={e => resolveEmail(e.target.value)}

@@ -10,7 +10,8 @@ import {
   CATEGORIES_BY_TYPE,
   CURRENCIES,
 } from '../../constants';
-import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED_TYPES } from '../../lib/accounts';
+import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
+import TimeDial from '../ui/TimeDial';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { FEATURES } from '../../config/features';
 import type { Transaction, TxnType, Recurrence, PartPaymentChoice } from '../../types';
@@ -163,23 +164,27 @@ export default function TransactionFormModal(props: Props) {
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency, defaultMemberId));
   const [saving, setSaving] = useState(false);
   const [showAllCats, setShowAllCats] = useState(false);   // board M4 "⌕ More" category tile
+  const [showTimeDial, setShowTimeDial] = useState(false); // v10.17 — circular 24h picker panel
 
   // Linked spending accounts. With `money_map` flag on (or in shadow) and
   // a populated `accounts` store, source options from the canonical table;
   // otherwise fall back to the legacy assets+debts derivation so off-mode
   // and pre-backfill households keep working unchanged.
   const useFirstClassAccounts = getMoneyMapMode() !== 'off' && accountsState.length > 0;
+  // v10.17 — the cash-side picker never offers investment accounts; they are
+  // walled off to the Investment track only (`notInvestment` predicate).
   const accounts = useMemo(
     () => useFirstClassAccounts
-      ? buildAccountsFromStore(accountsState)
+      ? buildAccountsFromStore(accountsState, { filter: notInvestment })
       : buildAccounts(assets, debts),
     [useFirstClassAccounts, accountsState, assets, debts],
   );
   // For transfer + investment, the destination dropdown excludes the source
-  // so a user can't pick the same account on both sides.
+  // so a user can't pick the same account on both sides — and (v10.17) never
+  // lists investment accounts either.
   const accountsTo = useMemo(
     () => useFirstClassAccounts
-      ? buildAccountsFromStore(accountsState, { excludeId: form.paymentMethod || undefined })
+      ? buildAccountsFromStore(accountsState, { excludeId: form.paymentMethod || undefined, filter: notInvestment })
       : buildAccounts(assets, debts, { excludeId: form.paymentMethod || undefined }),
     [useFirstClassAccounts, accountsState, assets, debts, form.paymentMethod],
   );
@@ -196,6 +201,11 @@ export default function TransactionFormModal(props: Props) {
   const isInvestment = form.type === 'investment';
   const isIncome     = form.type === 'income';
   const needsToAccount = isTransfer || isInvestment;
+  // v10.17 §2 — "Took money out" reorients the pickers: the FROM slot shows
+  // the investment account (bound to `paymentMethodTo`) and the destination
+  // slot shows the bank/cash account (bound to `paymentMethod`). The stored
+  // from/to is byte-identical to before (the persist swap is unchanged).
+  const isWithdraw = isInvestment && form.direction === 'withdrew';
   // Account-field label varies by track: expense flows out of an account,
   // income lands in one, transfer/investment have both sides.
   const accountLabel = needsToAccount ? 'From account' : isIncome ? 'To account' : 'Account';
@@ -203,6 +213,7 @@ export default function TransactionFormModal(props: Props) {
   useEffect(() => {
     if (!open) return;
     setShowAllCats(false);
+    setShowTimeDial(false);
     if (initial) {
       const initialTime = deriveInitialTime(initial);
       setForm({
@@ -275,19 +286,6 @@ export default function TransactionFormModal(props: Props) {
     const tail = cats.filter(c => !recent.includes(c.id));
     return [...head, ...tail];
   }, [transactions, form.type, cats, isTransfer, isInvestment]);
-
-  // Recent descriptions for this track — offered as an autocomplete datalist.
-  const recentDescriptions = useMemo(() => {
-    const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date));
-    const out: string[] = [];
-    for (const t of sorted) {
-      if (t.type !== form.type) continue;
-      const d = t.description?.trim();
-      if (d && !out.includes(d)) out.push(d);
-      if (out.length >= 8) break;
-    }
-    return out;
-  }, [transactions, form.type]);
 
   // Reset for a rapid "Save & add another" — keep the track, currency, member,
   // date and account so the next entry only needs an amount.
@@ -550,26 +548,25 @@ export default function TransactionFormModal(props: Props) {
         </div>
       )}
 
-      {/* Description with recent-value autocomplete */}
+      {/* Description — a plain open field (v10.17 item 1: the recent-value
+          dropdown was removed per request). */}
       <div className="mt-4">
         <div className="mono-label mb-1.5">Description {isTransfer ? <span className="text-ink-dim">·optional</span> : null}</div>
         <input
           className="input w-full"
           value={form.description}
-          list="txn-desc-suggestions"
           aria-label="Description"
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
           placeholder={isTransfer ? 'e.g. Move savings to brokerage' : isIncome ? 'e.g. July salary' : 'e.g. Tesco grocery run'}
         />
-        <datalist id="txn-desc-suggestions">
-          {recentDescriptions.map(d => <option key={d} value={d} />)}
-        </datalist>
       </div>
 
       {/* Board M4 "Date · paid with" — date/time pickers and the source
-          account share ONE labeled row. The time input stays native (user
-          request — the platform clock picker); the board's 📅 Pick chip IS the
-          date input. */}
+          account share ONE labeled row. The time chip opens the circular 24h
+          TimeDial (v10.17 item 14); the board's 📅 Pick chip IS the date input.
+          v10.17 §2: "Took money out" puts the INVESTMENT account in this FROM
+          slot (bound to `paymentMethodTo`); every other track puts the
+          bank/cash source here (bound to `paymentMethod`, investment walled). */}
       <div className="mt-4">
         <div className="mono-label mb-1.5">
           Date · {needsToAccount ? accountLabel.toLowerCase() : isIncome ? 'paid into' : 'paid with'} {accountRequired ? <span className="text-terra">·required</span> : null}
@@ -577,29 +574,52 @@ export default function TransactionFormModal(props: Props) {
         <div className="flex gap-1.5 items-center flex-wrap">
           <Chip on={form.date === todayStr} onClick={() => setForm(f => ({ ...f, date: todayStr }))}>Today</Chip>
           <Chip on={form.date === yStr} onClick={() => setForm(f => ({ ...f, date: yStr }))}>Yesterday</Chip>
-          {/* Inner non-wrapping group — the date and time pickers always stay
-              side by side even when the chip row wraps on narrow sheets. */}
+          {/* Inner non-wrapping group — the date input and the time chip always
+              stay side by side even when the chip row wraps on narrow sheets. */}
           <div className="flex gap-1.5 items-center">
             <input type="date" value={form.date}
               onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
               className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[132px]" aria-label="Pick a date" />
-            <input type="time" value={form.time}
-              onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
-              className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[96px]" aria-label="Pick a time" />
+            <button type="button" onClick={() => setShowTimeDial(v => !v)}
+              className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[96px] flex items-center justify-center gap-1 font-mono"
+              aria-label="Pick a time" aria-expanded={showTimeDial}>
+              <span aria-hidden>🕑</span>{form.time || '--:--'}
+            </button>
           </div>
-          {accounts.map(a => (
-            <Chip key={a.value} on={a.value === form.paymentMethod} testId={`txn-acct-${a.value}`}
-              onClick={() => setForm(f => ({ ...f, paymentMethod: a.value }))}>
-              <span aria-hidden>{acctEmoji(a.kind)}</span>{a.label}
-            </Chip>
-          ))}
-          {form.paymentMethod && !currentInList && (
+          {isWithdraw
+            ? investmentAccounts.map(a => (
+                <Chip key={a.id} on={a.id === form.paymentMethodTo} testId={`txn-acct-${a.id}`}
+                  onClick={() => setForm(f => ({ ...f, paymentMethodTo: a.id }))}>
+                  <span aria-hidden>📈</span>{a.name}
+                </Chip>
+              ))
+            : accounts.map(a => (
+                <Chip key={a.value} on={a.value === form.paymentMethod} testId={`txn-acct-${a.value}`}
+                  onClick={() => setForm(f => ({ ...f, paymentMethod: a.value }))}>
+                  <span aria-hidden>{acctEmoji(a.kind)}</span>{a.label}
+                </Chip>
+              ))}
+          {!isWithdraw && form.paymentMethod && !currentInList && (
             <Chip on onClick={() => { /* keep legacy value selectable */ }}>
               {currentAccount ? currentAccount.label : form.paymentMethod} (legacy)
             </Chip>
           )}
         </div>
-        {accountRequired && accounts.length <= 1 && (
+        {showTimeDial && (
+          <div className="mt-3 flex justify-center rounded-r3 border border-line py-4"
+            style={{ background: 'var(--elevated)' }}>
+            <TimeDial value={form.time || nowTime()} onChange={v => setForm(f => ({ ...f, time: v }))} />
+          </div>
+        )}
+        {isWithdraw && investmentAccounts.length === 0 && (
+          <div className="mt-1.5">
+            <p className="text-[0.72rem] text-ink-dim leading-snug mb-1.5">No investment accounts yet.</p>
+            <button type="button" onClick={() => { openAddAccount?.(); }} className="btn-ghost btn-sm text-[0.72rem]">
+              + Create investment account
+            </button>
+          </div>
+        )}
+        {!isWithdraw && accountRequired && accounts.length <= 1 && (
           <p className="mt-1.5 text-[0.7rem] text-ink-dim leading-snug">
             Tip: add your bank accounts and credit cards on the <strong>Net Worth</strong> page to
             spend from them here. Only Cash is available until then.
@@ -607,13 +627,16 @@ export default function TransactionFormModal(props: Props) {
         )}
       </div>
 
-      {/* Destination account (transfer/investment) — required */}
+      {/* Destination account (transfer/investment) — required.
+          transfer → bank/cash (paymentMethodTo, investment walled);
+          investment "added" → the investment account (paymentMethodTo);
+          investment "withdrew" → bank/cash destination (paymentMethod). */}
       {needsToAccount && (
         <div className="mt-4">
           <div className="mono-label mb-1.5">
-            {isTransfer ? 'To account' : 'Investment account'} <span className="text-terra">·required</span>
+            {isTransfer ? 'To account' : isWithdraw ? 'To account' : 'Investment account'} <span className="text-terra">·required</span>
           </div>
-          {isInvestment && investmentAccounts.length === 0 ? (
+          {isInvestment && !isWithdraw && investmentAccounts.length === 0 ? (
             <div>
               <p className="text-[0.72rem] text-ink-dim leading-snug mb-1.5">No investment accounts yet.</p>
               <button type="button" onClick={() => { openAddAccount?.(); }} className="btn-ghost btn-sm text-[0.72rem]">
@@ -622,7 +645,14 @@ export default function TransactionFormModal(props: Props) {
             </div>
           ) : (
             <div className="flex gap-1.5 flex-wrap">
-              {isInvestment
+              {isWithdraw
+                ? accounts.map(a => (
+                    <Chip key={a.value} on={a.value === form.paymentMethod} testId={`txn-to-${a.value}`}
+                      onClick={() => setForm(f => ({ ...f, paymentMethod: a.value }))}>
+                      <span aria-hidden>{acctEmoji(a.kind)}</span>{a.label}
+                    </Chip>
+                  ))
+                : isInvestment
                 ? investmentAccounts.map(a => (
                     <Chip key={a.id} on={a.id === form.paymentMethodTo} testId={`txn-to-${a.id}`}
                       onClick={() => setForm(f => ({ ...f, paymentMethodTo: a.id }))}>
