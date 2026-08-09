@@ -47,7 +47,7 @@ jobs:
       # NOTE: do NOT use `version: latest` — it hits the unauthenticated GitHub
       # API to look up the latest release and gets rate-limited on shared
       # runners. Pin a specific CLI version and bump it deliberately.
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with: { version: 1.226.4 }
       - name: Validate migrations directory (CI-style gate)
         run: node scripts/db-migrations-check.mjs
@@ -75,7 +75,7 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with: { version: 1.226.4 }
       - name: Link project
         env:
