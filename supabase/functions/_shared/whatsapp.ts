@@ -83,6 +83,48 @@ export async function sendTemplate(to: string, templateName: string, params: str
   if (!res.ok) throw new Error(`Meta dispatch failed (${res.status}): ${await res.text()}`);
 }
 
+/** Send a free-form session text. Allowed within the 24h customer-service window
+ *  (i.e. after the user has messaged us) — no template approval needed. This is
+ *  what the MVP write-only flow uses for confirmations / clarify / hard-block. */
+export async function sendText(to: string, body: string): Promise<void> {
+  const phoneId = WHATSAPP_PHONE_NUMBER_ID;
+  const token = env('WHATSAPP_ACCESS_TOKEN');
+  if (!phoneId || !token) throw new Error('WhatsApp sender not configured (PHONE_NUMBER_ID / ACCESS_TOKEN).');
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${phoneId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body },
+    }),
+  });
+  if (!res.ok) throw new Error(`Meta text dispatch failed (${res.status}): ${await res.text()}`);
+}
+
+/** The consumer app URL used in reply links (override via env). */
+export const APP_URL = env('VYACT_APP_URL', 'https://vyact-twentyx.vercel.app');
+
+// ── Outbound follow-through gating ────────────────────────────────────────────
+// Proactive template sends (partner split, budget alert, bill reminder, …) stay
+// INERT until BOTH: outbound is enabled AND the specific template name is on the
+// approved allowlist. So the trigger machinery ships now and "activation" is just
+// setting two secrets once Meta approves — no code change, no accidental sends.
+export const OUTBOUND_ENABLED = /^(1|true|yes)$/i.test(env('WHATSAPP_OUTBOUND_ENABLED'));
+const APPROVED_TEMPLATES = new Set(
+  env('WHATSAPP_APPROVED_TEMPLATES').split(',').map((s) => s.trim()).filter(Boolean),
+);
+export function isTemplateApproved(name: string): boolean { return APPROVED_TEMPLATES.has(name); }
+
+/** Guarded proactive template send. Never throws for a gating miss — returns the
+ *  reason so callers can log-and-continue. Real dispatch failures still throw. */
+export async function dispatchTemplate(
+  to: string, templateName: string, params: string[] = [], lang = 'en_US',
+): Promise<{ sent: boolean; reason?: string }> {
+  if (!OUTBOUND_ENABLED) return { sent: false, reason: 'outbound_disabled' };
+  if (!isTemplateApproved(templateName)) return { sent: false, reason: 'template_not_approved' };
+  await sendTemplate(to, templateName, params, lang);
+  return { sent: true };
+}
+
 /** 6-digit numeric OTP from a CSPRNG. */
 export function generateOtp(): string {
   const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;

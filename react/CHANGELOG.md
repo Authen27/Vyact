@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.17.0`** (consumer)
+> **Current production version: `v10.18.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.18.0 — WhatsApp as an interface: write-only logging (workflow phase) *(2026-08-10)*
+
+The parked WhatsApp integration's *connection foundation* (phone-link OTP, signed webhook,
+RLS-locked tables) shipped in June. This release adds the **workflow phase** — the part that makes
+WhatsApp an actual interface: an inbound text becomes a real Vyact transaction.
+
+**Inbound logging (MVP, write-only, no AI, no third-party egress):**
+- New self-contained deterministic parser `supabase/functions/_shared/whatsapp-parser.ts`, ported from
+  `react/src/lib/askVyactParser.ts` (normalise, k/lakh/cr amounts, `KEYWORD_MAP` categories) + a command
+  grammar, income/transfer/investment detection, account-alias matching, currency detection, and a
+  query hard-block. `850 groceries hdfc` → expense; `+50000 salary` → income; `moved 10000 to icici` →
+  transfer. Ambiguous input → a deterministic clarify reply (never a guess).
+- New `whatsapp_log_transaction` RPC (SECURITY DEFINER, service-role only) — honors the live v9 CHECK
+  matrix exactly (`created_by`/`member_id`, per-type category & account nullability), resolves account
+  aliases with a cash fallback, and is idempotent (claim-first on `whatsapp_inbound_messages`).
+  **Validated zero-cost against the live schema** (rolled-back `DO` block: expense/income/transfer/
+  investment + idempotency, zero residue); clean on the security advisor. Money invariants unchanged.
+- `whatsapp-webhook` now processes inbound messages in the background (`EdgeRuntime.waitUntil`) after the
+  200 ack: parse → RPC → **session-text** confirmation. Because the user just messaged us, replies are
+  free-form session text within the 24h window — **no new Meta template required** for the MVP.
+- Data queries ("what's my balance", "net worth") are **hard-blocked** — the reply is a secure link to
+  the app; nothing sensitive ever leaves over chat.
+
+**Proactive follow-through machinery (inert until approved):**
+- New `whatsapp-notify` edge function + a guarded `dispatchTemplate` maps app events (partner-split,
+  budget/bill alerts, split & digest notifications) → approved templates. **Nothing sends** unless both
+  `WHATSAPP_OUTBOUND_ENABLED` is set AND the template name is in `WHATSAPP_APPROVED_TEMPLATES` — so the
+  trigger machinery ships now and "activation" is flipping two secrets once Meta approves each template.
+
+**Client:** the Settings → WhatsApp panel copy flips from "coming soon" to active, with a command-grammar
+helper. **CI:** `deploy.yml` now also deploys `whatsapp-notify`.
+
+Docs: `whatsapp-vyact-solutioning.md` / `whatsapp-connection-setup.md` companions, plus a new
+`whatsapp-closure-runbook.md` for the irreducible Meta-dashboard + secret steps. The OTP *link* flow
+remains blocked on Meta business verification (its template is rejected until then); inbound logging is
+independent and testable via a service-role-seeded link.
 
 ## v10.17.0 — Investment walling, "Owed to me" removal, Splits & UX polish *(2026-08-08)*
 

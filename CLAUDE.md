@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.17.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.18.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -77,8 +77,16 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
 - **Insights Hub** — on-device For You feed adds NO financial math; card visuals
   from a CLOSED code set (icon allowlist · stat · 6 diagram primitives), never
   hosted images / LLM generation. Personal insights are never publicly shareable.
-- **WhatsApp integration is dormant** (RLS-locked service-role tables + Edge fns;
-  no secrets in code).
+- **WhatsApp integration — write-only logging (v10.18)** — inbound text → the
+  deterministic parser (`supabase/functions/_shared/whatsapp-parser.ts`, ported
+  from `askVyactParser`, NO AI / NO egress) → `whatsapp_log_transaction` RPC
+  (v9 CHECK-safe: `created_by`/`member_id`, per-type account matrix) → **session-text**
+  confirmation (24h window → no template needed). Data queries are **hard-blocked**
+  (nothing sensitive leaves over chat). Proactive templates (partner-split, budget/bill
+  alerts, digests) dispatch through `whatsapp-notify`, **inert until BOTH
+  `WHATSAPP_OUTBOUND_ENABLED` AND the template name in `WHATSAPP_APPROVED_TEMPLATES`**.
+  RLS-locked service-role tables + Edge fns; no secrets in code. The OTP *link* flow is
+  blocked on Meta business verification (its template is rejected until then).
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

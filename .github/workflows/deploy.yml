@@ -88,6 +88,7 @@ jobs:
           supabase functions deploy whatsapp-webhook --no-verify-jwt
           supabase functions deploy whatsapp-send-otp
           supabase functions deploy whatsapp-verify-otp
+          supabase functions deploy whatsapp-notify
 
   consumer:
     needs: db-migrations
