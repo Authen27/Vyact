@@ -12,6 +12,24 @@
 
 ---
 
+## 0. ⛔ ACTIVE / STALLED WORK — WhatsApp integration (resume here first)
+
+> **WhatsApp write-only logging shipped as v10.18.0 (2026-08-10) but is STALLED, unexercised.**
+> All Vyact/Supabase code is built, deployed, and inert-safe; the channel has **0 linked numbers /
+> 0 messages** because **Meta Business Verification is incomplete** (the `phone_verification_otp`
+> template is rejected → no self-serve phone link).
+>
+> **The authoritative resume state, ordered task list, and exact resume command are in
+> [`whatsapp-closure-runbook.md`](../whatsapp-closure-runbook.md) §3b (RESUME STATE).** Read it first.
+> A closure agent monitors every 3h (routine `trig_01QtsmxCV95urbLaKhfyrXrc`).
+> Deploy note: CI's Supabase jobs fail on an expired `SUPABASE_ACCESS_TOKEN` — deploy edge fns via
+> the Supabase MCP until it's rotated.
+>
+> (The rest of this brief below is older, v6.4.x-era context — still-useful gotchas, but the version
+> numbers are stale; consumer is now **v10.18.0**.)
+
+---
+
 ## 1. Snapshot — what's live right now
 
 | Deployable | Version | Live URL (authoritative) | Vercel project / team |
