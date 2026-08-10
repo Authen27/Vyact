@@ -85,9 +85,22 @@ export default function Splits() {
     }
   }
 
+  // v10.18.1 — the local transaction card is now the single owner surface, so
+  // marking a member paid must also settle their CLOUD share (the copy other
+  // households see + their notifications), matched by email. Best-effort.
+  async function syncCloudSharePaid(txnId: string, email?: string) {
+    if (!cloudActive || !email) return;
+    const owned = sharedSplitsOwned.find(sp => sp.txnId === txnId);
+    const share = owned?.shares.find(sh => sh.email?.toLowerCase() === email.toLowerCase());
+    if (share && !share.paid) {
+      try { await markSplitShareRowPaid(share.id); } catch { /* best-effort cloud sync */ }
+    }
+  }
+
   async function markPaid(txnId: string, participantName: string) {
     const txn = transactions.find(tx => tx.id === txnId);
     if (!txn?.split) return;
+    const target = txn.split.participants.find((p: SplitParticipant) => p.name === participantName);
     const updated: Transaction = {
       ...txn,
       split: {
@@ -98,6 +111,7 @@ export default function Splits() {
       },
     };
     await upsertTransaction(updated);
+    await syncCloudSharePaid(txnId, target?.email);
     toast(`Marked ${participantName} as settled`, 'success');
   }
 
@@ -112,7 +126,20 @@ export default function Splits() {
       },
     };
     await upsertTransaction(updated);
+    // Also settle every unpaid cloud share for this split (best-effort).
+    if (cloudActive) {
+      const owned = sharedSplitsOwned.find(sp => sp.txnId === txnId);
+      for (const sh of owned?.shares ?? []) {
+        if (!sh.paid) { try { await markSplitShareRowPaid(sh.id); } catch { /* best-effort */ } }
+      }
+    }
     toast('All participants settled', 'success');
+  }
+
+  async function closeSplit(splitId: string) {
+    if (!confirm('Close this split? Members are notified and it can no longer be edited.')) return;
+    try { await closeMySplit(splitId); toast('Split closed', 'info'); }
+    catch (e) { toast(`Close failed: ${(e as Error).message}`, 'error'); }
   }
 
   // v7.3 — Convert a "you owe" split obligation into a real Debt row so it
@@ -198,6 +225,9 @@ export default function Splits() {
         : 0;
     }
     const linkedDebtId = txn.linkedDebtId;
+    // v10.18.1 — the matching CLOUD shared split (if this owned split was shared
+    // out). Drives the folded-in owner controls (Close split) + email display.
+    const ownedShared = sharedSplitsOwned.find(sp => sp.txnId === txn.id);
 
     return (
       <div className="rounded-r3 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
@@ -231,6 +261,11 @@ export default function Splits() {
                     Settle all
                   </button>
                 )}
+                {ownedShared && !ownedShared.closedAt && (
+                  <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => closeSplit(ownedShared.id)}>
+                    Close split
+                  </button>
+                )}
                 <button className="btn-ghost text-xs py-1 px-2.5 text-terra" onClick={() => deleteSplit(txn.id)}>
                   Delete
                 </button>
@@ -239,15 +274,20 @@ export default function Splits() {
             {split.participants.map((p: SplitParticipant) => {
               const shareBase = convert(p.share, txn.currency, c, rates);
               return (
-                <div key={p.name} className={`flex items-center justify-between rounded-md px-3 py-2.5 border ${p.paid ? 'bg-sage/5 border-sage/20' : 'bg-bg3 border-line'}`}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">{p.isYou ? '👤' : '👥'}</span>
-                    <div>
-                      <span className="text-[0.84rem] font-semibold text-ink">{p.isYou ? 'You' : p.name}</span>
-                      {p.paid && p.paidOn && <div className="font-mono text-[0.58rem] tracking-wider text-sage">Settled {p.paidOn}</div>}
+                <div key={p.name} className={`flex items-center justify-between gap-3 rounded-md px-3 py-2.5 border ${p.paid ? 'bg-sage/5 border-sage/20' : 'bg-bg3 border-line'}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base flex-shrink-0">{p.isYou ? '👤' : '👥'}</span>
+                    <div className="min-w-0">
+                      <div className="text-[0.84rem] font-semibold text-ink truncate">{p.isYou ? 'You' : p.name}</div>
+                      {!p.isYou && p.email && (
+                        <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim truncate">{p.email}</div>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+                    {p.paid && p.paidOn && (
+                      <span className="font-mono text-[0.58rem] tracking-wider text-sage whitespace-nowrap">Settled {p.paidOn}</span>
+                    )}
                     <Money amount={shareBase} currency={c} maxChars={10} className={`font-semibold text-[0.9rem] ${p.paid ? 'text-sage' : 'text-ink'}`} />
                     {!p.paid && !p.isYou && ((!isIncome && split.paidBy === 'me') || (isIncome && split.paidBy === 'me')) && (
                       <button className="btn-secondary text-xs py-1 px-2.5" onClick={() => markPaid(txn.id, p.name)}>
@@ -364,13 +404,14 @@ export default function Splits() {
         </div>
       )}
 
-      {/* v10.14 — email-based cross-household split sharing: splits where you're a
-          participant via email match (settle your own share) + splits you shared
-          out to other households (mark paid / close). */}
-      {cloudActive && (sharedSplitsWithMe.length > 0 || sharedSplitsOwned.length > 0) && (
+      {/* v10.14 — splits OTHERS shared with you (settle your own share). These
+          have no local transaction card, so they live here. v10.18.1 — the
+          splits YOU own were removed from this section (they were redundant with
+          the transaction card below); their owner controls now live on that card. */}
+      {cloudActive && sharedSplitsWithMe.length > 0 && (
         <div className="space-y-3 mb-5">
           <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase px-1">
-            Shared across households
+            Shared with you
           </div>
 
           {sharedSplitsWithMe.map(sp => {
@@ -402,43 +443,6 @@ export default function Splits() {
             );
           })}
 
-          {sharedSplitsOwned.map(sp => (
-            <div key={sp.id} className="rounded-r3 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-              <div className="px-5 py-4 flex items-center justify-between gap-4">
-                <div>
-                  <div className="font-semibold text-ink">{sp.description || 'Shared split'}</div>
-                  <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">
-                    {sp.date} · you shared this{sp.closedAt ? ' · closed' : ''}
-                  </div>
-                </div>
-                {!sp.closedAt && (
-                  <button className="btn-ghost text-xs py-1 px-2.5 flex-shrink-0" onClick={() => closeMySplit(sp.id)}>
-                    Close split
-                  </button>
-                )}
-              </div>
-              <div className="border-t border-line px-5 py-4 space-y-1.5">
-                {sp.shares.map(sh => (
-                  <div key={sh.id} className={`flex items-center justify-between gap-3 rounded-md px-3 py-2.5 border ${sh.paid ? 'bg-sage/5 border-sage/20' : 'bg-bg3 border-line'}`}>
-                    <div className="min-w-0">
-                      {sh.name && <div className="text-[0.84rem] font-semibold text-ink truncate">{sh.name}</div>}
-                      <div className={`font-mono text-[0.62rem] tracking-wider truncate ${sh.name ? 'text-ink-dim' : 'text-ink font-semibold'}`}>{sh.email}</div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <Money amount={sh.share} currency={sp.currency} maxChars={9}
-                        className={`font-semibold text-[0.9rem] ${sh.paid ? 'text-sage' : 'text-ink'}`} />
-                      {!sh.paid && !sp.closedAt && (
-                        <button className="btn-secondary text-xs py-1 px-2.5" onClick={() => markSplitShareRowPaid(sh.id)}>
-                          Mark paid
-                        </button>
-                      )}
-                      {sh.paid && <span className="text-sage text-base">✓</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
         </div>
       )}
 

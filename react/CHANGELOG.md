@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.18.0`** (consumer)
+> **Current production version: `v10.18.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.18.1 — Splits: de-duplicate the split view *(2026-08-10)*
+
+An owned, cross-household split used to render **twice** on the Splits page — once in the top
+"Shared across households → you shared this" block (the cloud `shared_splits` copy) and again in the
+"N split transactions" card (the local transaction copy). This removes the redundancy and makes the
+transaction card the single owner surface:
+
+- **Removed** the redundant owned block from the "Shared across households" section (renamed
+  **"Shared with you"** — it now only lists splits *others* shared with you, which have no local card
+  and still offer "Settle my share").
+- **Transaction card participant rows** now show each member as **username + email** (matching the old
+  top block), and the **"Settled <date>" moved to the right**, beside the amount + ✓ (removing the
+  left-column redundancy).
+- **Owner controls folded in, nothing lost:** the card's *Mark paid* / *Settle all* now also settle the
+  member's **cloud** `shared_split_shares` row (matched by email — so the other household's copy +
+  notifications stay in sync), and a **Close split** action is available on the card for owned shared
+  splits.
+
+Display + existing cloud-share sync only — no ledger writes; money invariants unchanged. One file
+(`react/src/pages/Splits.tsx`).
 
 ## v10.18.0 — WhatsApp as an interface: write-only logging (workflow phase) *(2026-08-10)*
 
