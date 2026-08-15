@@ -68,10 +68,26 @@ event to its template and dispatches only if enabled + approved (else returns `{
 - **Live e2e:** from a linked number send `850 groceries hdfc` → the txn appears in the app for that
   household; send "what's my balance?" → hard-block reply (app link), no data.
 
-## 3b. ⛔ RESUME STATE (stalled 2026-08-10) — read this to pick the work back up
+## 3b. ✅ VALIDATED 2026-08-15 — MVP inbound logging works end-to-end
 
-**Status:** MVP inbound-logging code is **built, deployed, and validated**; the channel is
-**deployed with Meta secrets set** but **not yet exercised** (0 linked numbers, 0 messages).
+**Status:** **DONE / live on the real business number +918897882803** (WABA `1887272231954080`).
+Proven: `Groceries hdfc 56` → a real ₹56 Groceries·HDFC transaction; session-text confirmation
+delivered; a budget query correctly hard-blocked. Recipient **919740556606** (the number that texts
+the business) is seeded-linked to Mallela Household. Closure agent DISABLED; temp `whatsapp-test-send`
+fn retired (inert stub).
+
+**THE gotcha (not business verification!):** the number is LIVE/VERIFIED/GREEN/TIER_250 — business
+verification never blocked messaging. The dead-end was **two WABAs**: the 9 Vyact templates were
+submitted to the OLD test WABA `1690737521937003` (owns only the +1 555 public test number), but the
+live business number is on WABA `1887272231954080`. **Templates are per-WABA** → sending them from the
+business number = `#132001`. (`hello_world` is Meta-locked to public test numbers = `#131058`.)
+
+**Remaining to finish PROACTIVE sends (logging already works):** the 9 templates are **In review on
+`1887272231954080`** — once APPROVED THERE, set `WHATSAPP_OUTBOUND_ENABLED=1` +
+`WHATSAPP_APPROVED_TEMPLATES=...`, then wire `whatsapp-notify` triggers to app events (WA-6, code).
+
+<details><summary>Original stalled-state notes (2026-08-10) — superseded, kept for history</summary>
+
 **Blocker (owner-side, external):** **Meta Business Verification is incomplete**, so the
 `phone_verification_otp` template is **rejected** → the in-app *Send code* link flow can't deliver,
 so no one can self-link a number yet. Everything on the Vyact/Supabase side is done and inert-safe.
@@ -98,6 +114,8 @@ so no one can self-link a number yet. Everything on the Vyact/Supabase side is d
 > "Resume Vyact WhatsApp closure (v10.18 workflow phase). Read `whatsapp-closure-runbook.md` §3b + memory `whatsapp-workflow-phase-live` + `ci-supabase-token-expired-use-mcp`. Meta Business Verification was the blocker — check if it's cleared, then work the §3b resume task list in order and report status."
 
 **Release/versioning note:** the workflow phase shipped as **v10.18.0**. The resume work above is a *continuation of the same feature*; only bump the version again (v10.18.1 / v10.19.0) if resuming requires new code (e.g., wiring `whatsapp-notify` triggers in step 6). Pure config/secret/Meta-dashboard activation (steps 1–5) needs **no** version bump.
+
+</details>
 
 ## 4. The closure agent (autonomous finish)
 A scheduled Claude routine that, each run: pulls latest → runs the local gate → ensures the migration
