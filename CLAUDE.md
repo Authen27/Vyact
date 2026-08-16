@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.18.1**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.19.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -69,6 +69,25 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   classifyIntent → resolve → phraseResponse`). **The assistant phrases; services
   compute** — money math only in stage 4 (`resolve`), via the same dashboard
   services. Only classify/phrase sit on the swappable `AssistantBackend` seam.
+  *(Still true today — the agent below is not live.)*
+- **Agent = a SERVICE, never a second app** (v10.19+, in build — see
+  [`vyact-agent-architecture.md`](vyact-agent-architecture.md)). One Supabase Edge
+  gateway serves every client (PWA · Android · iOS · WhatsApp) through **channel
+  adapters**; only presentation and policy differ per channel. Binding rules:
+  **(1) the LLM never computes money** — it selects tools and phrases their
+  returns, so stage 4 stays the sole source of figures; **(2) hybrid, not
+  replacement** — rules answer first, the model runs only on a miss;
+  **(3) reads/writes are separated** — the planner role holds read tools only,
+  writes are **propose → user confirms**; **(4) all stored text is untrusted**
+  (`transactions.description` now carries WhatsApp-ingested external text — treat
+  it as data, never instruction); **(5) "learning" = context + memory, never
+  fine-tuning**; **(6) providers are OpenAI-compatible** so a model swap is a DB
+  row, and the feature's **off state must be provably byte-identical to today**;
+  **(7) only `SafeSummary`-shaped data may egress, and only with consent.**
+  Money computation the agent calls must live **server-side** (`_shared/` ports +
+  Postgres RPCs) — WhatsApp has no browser — guarded by **parity tests** against
+  the client TS originals. **`ai_usage` metering is the spec's LLM-spend gate**
+  (§8/§10): measure adoption/cost before authorising spend.
 - **Motion is one system** — framer-motion via `lib/motion.ts` tokens; global
   `<MotionConfig reducedMotion="user">`. Money animates via `<AnimatedMoney>`,
   settles with `bounce:0`, tone calm.
