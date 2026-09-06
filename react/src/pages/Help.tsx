@@ -88,7 +88,7 @@ const SECTIONS: Section[] = [
   },
   {
     q: 'Planner, Insights & Recurring',
-    a: 'Planner is a deterministic rules engine (no AI, no hallucination) that reviews your data and surfaces prioritised recommendations across Income, Expenses, Investments, Debt and Tax (Critical · Watch · Info). Insights is your reading list of articles published by the Vyact team — search and favourite them. Recurring manages repeating transactions (weekly/monthly/yearly/custom) with auto-confirm or reminder lead-days.',
+    a: 'Planner is a deterministic rules engine — fixed rules applied on this device, no model — that reviews your data and surfaces prioritised recommendations across Income, Expenses, Investments, Debt and Tax (Critical · Watch · Info). Insights is your For You feed — cards computed on this device from your own transactions — alongside a library of explainers you can search and favourite. Recurring manages repeating transactions (weekly/monthly/yearly/custom) with auto-confirm or reminder lead-days.',
     media: { src: '/help/planner.webp', alt: 'Planner recommendations' },
   },
   {

@@ -78,7 +78,7 @@ export default function Insights() {
             aria-pressed={tab === id}
             className="flex-1 flex items-center justify-center gap-1.5 h-[30px] px-3 rounded-pill whitespace-nowrap text-[0.8rem] font-medium border-none cursor-pointer transition-[box-shadow,color]"
             style={tab === id
-              ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--ink)' }
+              ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'hsl(var(--ink))' }
               : { background: 'transparent', color: 'var(--ff-ink-3)' }}
           >
             <Icon size={14} /> {label}
@@ -111,8 +111,9 @@ export default function Insights() {
 }
 
 /** Board D2 right rail — a condensed Plan column: the top few rules-based
- *  recommendations as severity-spined rows, with the "no AI" promise kept in
- *  view. Reads the same `evaluateRecommendations` the Plan tab does. */
+ *  recommendations as severity-spined rows, with the "fixed rules, no model"
+ *  label kept in view. Reads the same `evaluateRecommendations` the Plan tab
+ *  does. */
 function PlanRail({ onSeeAll }: { onSeeAll: () => void }) {
   const txns    = useStore(s => s.transactions);
   const budgets = useStore(s => s.budgets);
@@ -134,7 +135,7 @@ function PlanRail({ onSeeAll }: { onSeeAll: () => void }) {
     <div className="rounded-r3 p-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
       <div className="flex items-center gap-2 mb-3">
         <span className="mono-label">Plan · recommendations</span>
-        <span className="ml-auto mono-label text-ink-dim">🔒 rules, no AI</span>
+        <span className="ml-auto mono-label text-ink-dim">🔒 fixed rules, no model</span>
       </div>
       <div className="flex flex-col gap-2.5">
         {recs.map(r => (
@@ -201,7 +202,7 @@ function ForYou({ feed, onOpenReel }: { feed: FeedCard[]; onOpenReel: (startInde
               {feed.length} fresh card{feed.length === 1 ? '' : 's'} this week
             </div>
             <div className="text-[12.5px] text-ink-mid leading-snug mb-3.5 sm:mb-0">
-              A 60-second story on where your money moved — computed on your device, never guessed.
+              A 60-second story on where your money moved — every number computed on this device from your own transactions.
             </div>
           </div>
           <button onClick={() => onOpenReel(0)}
