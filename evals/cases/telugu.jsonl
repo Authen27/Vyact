@@ -1,0 +1,25 @@
+// Telugu (te / Telugu script). The architecture requires the corpus be
+// Telugu-ready FROM DAY ONE, so these cases exist now even though most of them
+// are known gaps: there is no Telugu GrammarVocabulary in GRAMMAR_VOCABULARIES
+// today (only VOCAB_EN and VOCAB_HINGLISH), so no Telugu verb or category word
+// can match. They are marked honestly rather than deleted — the point of the
+// bucket is that the day a Telugu vocabulary table lands, these flip to XPASS
+// and the runner says so out loud.
+//
+// ALL TEXT IS FABRICATED. Aliases point at the synthetic runner.mjs fixture.
+//
+// What already works, script-agnostically, and is SCORED here: the query and
+// chitchat classifiers, and any sentence whose amount/account/verb happen to be
+// in Latin script with Telugu words around them. That is not nothing — it means
+// a Telugu-speaking user typing mixed script is not silently mis-booked.
+{"id":"te-query-balance","bucket":"telugu","text":"నా బ్యాలెన్స్ ఎంత?","expect":{"outcome":"block","reason":"query"},"note":"A question mark is script-agnostic, so the query hard-block already works in Telugu. Data must never leak over a chat channel."}
+{"id":"te-query-spend","bucket":"telugu","text":"ఈ నెలలో ఎంత ఖర్చు చేశాను?","expect":{"outcome":"block","reason":"query"}}
+{"id":"te-greeting","bucket":"telugu","text":"నమస్కారం","expect":{"outcome":"ignore","reason":"chitchat"},"note":"No amount, nothing to log. Must not become a transaction."}
+{"id":"te-mixed-latin-verb","bucket":"telugu","text":"spent 300 on టిఫిన్ from hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":300,"transaction_type":"expense","direction":"debit","account_alias":"HDFC Savings"}},"note":"Telugu merchant text inside an English frame must not break extraction, and must not be coerced into a category it does not match."}
+{"id":"te-mixed-latin-account","bucket":"telugu","text":"450 కాఫీ from hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":450,"transaction_type":"expense","account_alias":"HDFC Savings"}},"note":"The account resolves from the Latin `from hdfc`. The Telugu word for coffee does NOT yield a category today — see te-category-word."}
+{"id":"te-category-word","bucket":"telugu","text":"500 కిరాణా","expect":{"outcome":"ask","format":"free_text","ambiguityKinds":["account"],"candidate":{"amount":500,"category_id":"groceries"}},"expectedFailure":true,"baseline":{"outcome":"ask"},"note":"KNOWN GAP: the outcome is already right (ask which account) but the CATEGORY is not — కిరాణా is groceries and no Telugu categories table exists. This case fails on the candidate assertion, not the outcome."}
+{"id":"te-category-and-account","bucket":"telugu","text":"850 కిరాణా hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":850,"transaction_type":"expense","category_id":"groceries","account_alias":"HDFC Savings"}},"expectedFailure":true,"baseline":{"outcome":"ask"},"note":"KNOWN GAP: with no Telugu category match there is no anchor for trailingAlias(), so `hdfc` is never seen either. One missing vocabulary table costs both fields."}
+{"id":"te-rent-account","bucket":"telugu","text":"1200 అద్దె hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":1200,"transaction_type":"expense","category_id":"rent_mortgage","account_alias":"HDFC Savings"}},"expectedFailure":true,"baseline":{"outcome":"ask"},"note":"KNOWN GAP: same missing-vocabulary root cause as te-category-and-account."}
+{"id":"te-merchant-first","bucket":"telugu","text":"టిఫిన్ 250 hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":250,"transaction_type":"expense","account_alias":"HDFC Savings"}},"expectedFailure":true,"baseline":{"outcome":"ask"},"note":"KNOWN GAP: same root cause. Word order is not the problem — the missing anchor is."}
+{"id":"te-telugu-numerals","bucket":"telugu","text":"౫౦౦ కిరాణా","expect":{"outcome":"ask","format":"free_text","ambiguityKinds":["account"],"candidate":{"amount":500}},"expectedFailure":true,"baseline":{"outcome":"ignore","reason":"chitchat"},"note":"KNOWN GAP: Telugu digits (U+0C66..U+0C6F) are not ASCII, so classify.HAS_AMOUNT and grammar.AMOUNT_RE see no number at all and the message is classified as chitchat. Silent, and the worst kind of gap because the user gets no signal."}
+{"id":"te-debit-verb","bucket":"telugu","text":"1500 ఖర్చు చేశాను hdfc నుండి","expect":{"outcome":"write","format":"free_text","candidate":{"amount":1500,"transaction_type":"expense","account_alias":"HDFC Savings"}},"expectedFailure":true,"baseline":{"outcome":"ask"},"note":"KNOWN GAP: ఖర్చు (spend) is not in any debitVerbs table and నుండి (from) is not in any fromWords table, so neither polarity nor account is recovered."}

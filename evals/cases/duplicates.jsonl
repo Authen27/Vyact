@@ -1,0 +1,21 @@
+// Dedupe (dedupe.ts, architecture §3.1 stage 6 / §4). Two mechanisms,
+// deliberately asymmetric:
+//   exact-by-REFERENCE -> collapse silently (a bank ref is a natural key)
+//   near-match         -> ASK. Never auto-merge. A wrong merge destroys a real
+//                         transaction the user can never discover.
+//
+// STRUCTURAL FINDING, and why most of this bucket is a known gap: checkDuplicate()
+// needs BOTH an amount and a DATE, and extractByGrammar() never emits a date at
+// all (the resolver then deletes the empty field, correctly refusing to default
+// to today). So on the deterministic path the dedupe stage is unreachable —
+// candidate.date is always undefined and every verdict is `none`. Dedupe comes
+// alive only when a recipe or a model supplies a date, which is exactly what the
+// null provider does not do.
+//
+// `recent` selects a fixture row set from runner.mjs. ALL TEXT IS FABRICATED.
+{"id":"dup-no-false-positive-unrelated","bucket":"duplicates","text":"850 groceries hdfc","recent":"unrelated","expect":{"outcome":"write","candidate":{"amount":850,"account_alias":"HDFC Savings"}},"note":"A recent row from June, different amount, different merchant. Dedupe must not fire — a false positive here costs the user a real transaction."}
+{"id":"dup-no-false-positive-different-merchant","bucket":"duplicates","text":"450 coffee from hdfc","recent":"same_day_groceries","expect":{"outcome":"write","candidate":{"amount":450,"account_alias":"HDFC Savings"}},"note":"Same day, same account, different amount and merchant. Still not a duplicate."}
+{"id":"dup-exact-by-reference","bucket":"duplicates","channel":"sms_share","recent":"with_reference","text":"Rs.850.00 debited from A/c XX4471 on 19-08-26 to VPA testvendor@ybl. Ref 550012349911. Avl Bal Rs.11,200.00 -HDFC Bank","expect":{"outcome":"ignore","reason":"duplicate_reference"},"expectedFailure":true,"baseline":{"outcome":"ignore","reason":"not_parseable"},"note":"KNOWN GAP: the same SMS re-forwarded. The reference 550012349911 already exists in `recent`, so the correct outcome is a silent collapse — but nothing extracts the refId with no recipe cache and no model, so it lands on not_parseable instead. Right outcome, wrong reason."}
+{"id":"dup-near-same-day-repeat","bucket":"duplicates","text":"850 groceries hdfc","recent":"same_day_groceries","expect":{"outcome":"ask","ambiguityKinds":["duplicate"],"minOptions":2},"expectedFailure":true,"baseline":{"outcome":"write"},"note":"KNOWN GAP: identical amount, merchant and account on the same day. Two identical purchases in one day are REAL, so the locked behaviour is to ASK. Unreachable today because the grammar emits no date, so the row is written with no question."}
+{"id":"dup-near-auth-settlement","bucket":"duplicates","text":"1224 coffee at testcafe from hdfc","recent":"cafe_auth","expect":{"outcome":"ask","ambiguityKinds":["duplicate"],"minOptions":2},"expectedFailure":true,"baseline":{"outcome":"write"},"note":"KNOWN GAP: 1224 vs a 1200 authorisation the day before is inside the +/-2% and +/-1 day window — the card auth-vs-settlement case the window exists for. Same date-less root cause."}
+{"id":"dup-near-outside-window","bucket":"duplicates","text":"1400 coffee at testcafe from hdfc","recent":"cafe_auth","expect":{"outcome":"write","candidate":{"amount":1400}},"note":"1400 vs 1200 is ~17% apart, well outside the +/-2% window. Must write without a question. This case will keep meaning something after the date gap is closed — it is the control that stops a fix from over-merging."}

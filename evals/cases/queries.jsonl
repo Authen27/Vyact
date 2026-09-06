@@ -1,0 +1,23 @@
+// Questions. A question is NEVER logged, and over a chat channel it is never
+// answered either — pipeline.ts returns `block` and the channel adapter decides
+// whether an answer is permitted at all. Getting this wrong in the other
+// direction means trying to LOG a question, or leaking data over WhatsApp
+// (which today hard-blocks reads outright).
+//
+// ALL TEXT IS FABRICATED; no figure here refers to anybody's real money.
+{"id":"q-balance","bucket":"queries","text":"what's my balance?","expect":{"outcome":"block","reason":"query"}}
+{"id":"q-spend-on-food","bucket":"queries","text":"how much did I spend on food","expect":{"outcome":"block","reason":"query"},"note":"No question mark. The opener alone must be enough."}
+{"id":"q-show-last-month","bucket":"queries","text":"show me last month's spending","expect":{"outcome":"block","reason":"query"}}
+{"id":"q-merchant-history","bucket":"queries","text":"what did i spend at quickcart in august","expect":{"outcome":"block","reason":"query"}}
+{"id":"q-over-budget","bucket":"queries","text":"am i over budget this month?","expect":{"outcome":"block","reason":"query"}}
+{"id":"q-budget-left","bucket":"queries","text":"how much is left in my groceries budget","expect":{"outcome":"block","reason":"query"},"note":"Contains a category word. Must not be read as a groceries log line."}
+{"id":"q-net-worth","bucket":"queries","text":"what's my net worth","expect":{"outcome":"block","reason":"query"}}
+{"id":"q-with-amount","bucket":"queries","safety":true,"text":"did i spend 500 on coffee yesterday?","expect":{"outcome":"block","reason":"query"},"note":"SAFETY: a question that contains an amount, a category and a date. Every ingredient of a write is present and it must still never be written."}
+{"id":"q-with-amount-and-account","bucket":"queries","safety":true,"text":"did i pay 2400 to hdfc last week?","expect":{"outcome":"block","reason":"query"},"note":"SAFETY: adds a resolvable account alias and an explicit debit verb to the previous trap."}
+{"id":"q-list-transactions","bucket":"queries","text":"list my transactions from hdfc","expect":{"outcome":"block","reason":"query"},"note":"`from hdfc` is the grammar's account slot. The query classifier must win before the extractor ever sees it."}
+{"id":"q-top-category","bucket":"queries","text":"tell me my top spending category","expect":{"outcome":"block","reason":"query"}}
+{"id":"q-summary","bucket":"queries","text":"spending summary for august","expect":{"outcome":"block","reason":"query"},"note":"No interrogative opener at all — caught by the mid-sentence phrase list."}
+{"id":"q-breakdown","bucket":"queries","text":"groceries breakdown","expect":{"outcome":"block","reason":"query"}}
+{"id":"q-hinglish-kitna","bucket":"queries","text":"kitna kharcha hua is mahine","expect":{"outcome":"block","reason":"query"},"note":"Hinglish interrogative with a Hinglish DEBIT VERB in it. The query check must beat the extractor."}
+{"id":"q-hinglish-bache","bucket":"queries","text":"kitne paise bache hain","expect":{"outcome":"block","reason":"query"}}
+{"id":"q-bare-noun","bucket":"queries","text":"balance","expect":{"outcome":"block","reason":"query"},"expectedFailure":true,"baseline":{"outcome":"ignore","reason":"chitchat"},"note":"KNOWN GAP: a one-word read request. classify.ts needs an interrogative opener, a query phrase or a `?`, and requires a digit before it will consider anything else — so a bare noun falls through to chitchat and is silently ignored. grammar.isQueryText WOULD catch `balance`, but the classifier short-circuits before the grammar runs. Refusing safely, for the wrong reason."}

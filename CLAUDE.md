@@ -65,15 +65,36 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   `<EstimatedTag/>`; never auto-overwrite a user value without an explicit tap.
   (v10.13: onboarding now also wires take-home → Cash opening balance + recurring
   paycheck, bills → approval-gated recurring expenses + a join-month budget.)
-- **Ask Vyact** is on-device, no-LLM, deterministic (`normalise → entityExtract →
-  classifyIntent → resolve → phraseResponse`). **The assistant phrases; services
-  compute** — money math only in stage 4 (`resolve`), via the same dashboard
-  services. Only classify/phrase sit on the swappable `AssistantBackend` seam.
-  *(Still true today — the agent below is not live.)*
-- **Agent = a SERVICE, never a second app** (v10.19+, in build — see
-  [`vyact-agent-architecture.md`](vyact-agent-architecture.md)). One Supabase Edge
-  gateway serves every client (PWA · Android · iOS · WhatsApp) through **channel
-  adapters**; only presentation and policy differ per channel. Binding rules:
+- **Ask Vyact is MODEL-BACKED (v10.20)** — the deterministic `RulesBackend` was
+  REMOVED; `LlmBackend` is the only backend and there is no rules fallback.
+  **The assistant phrases; services compute** — stage 4 (`resolve`) was NOT
+  removed and is still the sole source of every figure. The model picks the
+  intent (stage 3) and words the answer (stage 5); it never does arithmetic on
+  money. That rule is enforced mechanically by `assertNoInventedFigures`
+  (`askVyactLlm.ts`): any reply containing a number no tool produced is
+  DISCARDED, not shown. **With no model configured or reachable, Ask Vyact
+  returns an explicit unavailable turn — it must never silently degrade to a
+  canned answer.** The provider key lives server-side in the `ask-vyact` Edge
+  Function; the browser-direct Gemini client, `ChatBackend`, `StubChatBackend`,
+  `SupabaseChatBackend` and the `SubAgent` registry were all retired with it.
+- **Agent = an INDEPENDENT SERVICE, never a second app** (v10.19+, in build).
+  📖 **Working on the agent? Read [`vyact-agent-architecture.md`](vyact-agent-architecture.md)
+  and stop there — it is self-contained by design.** Do NOT load the Aurora design
+  system, Insights, onboarding or the admin CMS to build agent features; that
+  doc plus the one seam you're touching is the whole context. The service owns
+  `supabase/functions/ask-vyact/`, `supabase/functions/_shared/agent/`, and the
+  `agent_*` / `ai_model_configs` / `ai_usage` tables, and consumes the app through
+  exactly three seams: `upsertTransaction` / `whatsapp_log_transaction` (writes),
+  `resolve()` + `calculations.ts` (money), `buildSafeSummary()` (the only egress
+  shape). Keep that boundary — it is a token-budget rule as much as an
+  architectural one.
+  One Supabase Edge gateway serves every client (PWA · Android · iOS · WhatsApp)
+  through **channel adapters**; only presentation and policy differ per channel.
+  **SMS/receipt parsing is LLM-first with LEARNED recipes** — formats vary too
+  much across banks/issuers/locales to hand-maintain templates; an extraction is
+  cached by digit-masked signature so repeat formats become free and
+  deterministic, and every extraction passes deterministic validator guards (the
+  "available balance is not the amount" class of bug). Binding rules:
   **(1) the LLM never computes money** — it selects tools and phrases their
   returns, so stage 4 stays the sole source of figures; **(2) hybrid, not
   replacement** — rules answer first, the model runs only on a miss;
@@ -99,7 +120,8 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
 - **WhatsApp integration — write-only logging (v10.18)** — inbound text → the
   deterministic parser (`supabase/functions/_shared/whatsapp-parser.ts`, ported
   from `askVyactParser`, NO AI / NO egress) → `whatsapp_log_transaction` RPC
-  (v9 CHECK-safe: `created_by`/`member_id`, per-type account matrix) → **session-text**
+  (v9 CHECK-safe: `created_by`/`member_id`, per-type account matrix; **v10.20 adds
+  `p_date`** — a bank SMS is routinely BACKDATED, null => today, out-of-range clamps) → **session-text**
   confirmation (24h window → no template needed). Data queries are **hard-blocked**
   (nothing sensitive leaves over chat). Proactive templates (partner-split, budget/bill
   alerts, digests) dispatch through `whatsapp-notify`, **inert until BOTH
