@@ -5,7 +5,7 @@ import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import {
-  buildSafeSummary, selectChatBackend, type ChatMessage,
+  buildSafeSummary, type ChatMessage,
 } from '../lib/aiSummary';
 import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
@@ -33,8 +33,10 @@ interface SpeechRecognitionLike {
 
 const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan'];
 
-const backend = selectChatBackend();
-const assistantBackend = selectAssistantBackend();
+// Both backends are resolved PER TURN inside `send()`, never memoised here.
+// Module-scope resolution froze the choice at first import, so any config change
+// (feature flag, env, and soon a DB-driven model row) could not take effect
+// without a full page reload. Both factories are cheap and stateless.
 
 /** `embedded` — rendered inside the Ask Vyact drawer, which supplies its own
  *  board-spec header, so the page title block is suppressed to avoid showing
@@ -151,18 +153,21 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       // Ask Vyact assistant (spec §3). When the flag is OFF this whole branch is
       // skipped and the launcher behaves exactly as it did in v7.4.5.
       if (isAskVyactEnabled()) {
+        const assistantBackend = selectAssistantBackend();
         const ctx: AssistantContext = {
           summary, transactions: txns, budgets, goals, debts, assets, recurring,
           profile, rates, baseCurrency: profile.baseCurrency,
         };
-        const turn = runAssistant(question, ctx, assistantBackend);
-        // The deterministic hit-rate this records is the headline cost metric:
-        // every 'rules' row is an LLM call that was never paid for.
+        // A null backend means no model is configured. runAssistant turns that
+        // into an explicit "unavailable" turn rather than a fabricated answer.
+        const turn = await runAssistant(question, ctx, assistantBackend);
         void logAiUsage({
           householdId, text: question, surface: 'chat',
-          backend: assistantBackend.id,
-          tier: assistantBackend.id === 'rules' ? 't0' : 't1',
-          outcome: turn.clarify ? 'clarify' : turn.intentId === 'fallback' ? 'fallback' : 'ok',
+          backend: assistantBackend?.id ?? 'llm',
+          tier: 't1',
+          outcome: turn.intentId === 'unavailable' ? 'error'
+            : turn.clarify ? 'clarify'
+            : turn.intentId === 'fallback' ? 'fallback' : 'ok',
           latencyMs: Date.now() - startedAt,
         });
         // Capture intents seed the EXISTING TransactionFormModal — no parallel path.
@@ -173,12 +178,18 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         await streamReply(turn.reply);
         return;
       }
-      const answer = await backend.ask(question, summary, history);
+      // Ask Vyact is the ONLY assistant (v10.20). With the feature flag off there
+      // is no second engine to fall through to — the old ChatBackend path was
+      // removed with its browser-side key. Say so plainly rather than routing the
+      // user to something they were never told about.
       void logAiUsage({
         householdId, text: question, surface: 'chat',
-        backend: 'llm', tier: 't1', outcome: 'ok', latencyMs: Date.now() - startedAt,
+        outcome: 'error', latencyMs: Date.now() - startedAt,
       });
-      setHistory(h => [...h, { role: 'assistant', content: answer }]);
+      setHistory(h => [...h, {
+        role: 'assistant',
+        content: 'The assistant is turned off right now.',
+      }]);
     } catch (e) {
       void logAiUsage({
         householdId, text: question, surface: 'chat',
@@ -323,14 +334,15 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       )}
 
       {/* Board D M6 — the privacy line is a REASSURANCE, so it reads in sage
-          (good), not coral/terra. Crit is reserved for genuine failures; a
-          promise that nothing leaves the device is not an alarm. */}
+          (good), not coral/terra. Crit is reserved for genuine failures; saying
+          where an answer is computed is not an alarm. Keep the claim scoped to
+          how Ask Vyact answers today — no forever-promises about egress. */}
       <div className="flex items-start gap-2.5 rounded-r2 px-3 py-2.5 mb-3.5"
         style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 14%, transparent)' }}>
         <span className="text-[13px] leading-5 flex-shrink-0" aria-hidden>🔒</span>
         <p className="text-[11.5px] text-ink-mid leading-[1.4]">
-          <strong className="text-ink">Private by design.</strong> Your questions are answered on this device —
-          nothing leaves it.
+          <strong className="text-ink">Answered on this device.</strong> Ask Vyact reads your data here and replies
+          with fixed rules — no model involved.
         </p>
       </div>
 
