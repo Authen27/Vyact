@@ -20,19 +20,54 @@ const docPath = path.join(repoRoot, 'docs', 'TEST_SCENARIOS.md');
 // Layer token allows digits so "E2E" parses correctly (E-then-2-then-E).
 const ID_RE = /^([A-Z]+)-([A-Z0-9]+)-(\d{3})$/;
 
+/**
+ * THE SECOND NAMESPACE.
+ *
+ * The e2e suite carries TWO kinds of id, and both are legitimate:
+ *
+ *   CON-E2E-017 · [BDGT-FC-001] …   ← scenario id, rostered in docs/TEST_SCENARIOS.md
+ *   BDGT-FC-001 · …                 ← inventory id, rostered in e2e/TEST_CASE_INVENTORY.md
+ *
+ * `{DOMAIN}-FC-{NNN}` ids belong to the e2e feature-case inventory, which is a
+ * different catalogue with a different lifecycle. They were being reported as
+ * "malformed" purely because this script assumed one namespace per directory —
+ * 54 of the 77 problems it reported were that single wrong assumption, and it
+ * had been red long enough that the whole check stopped being read.
+ *
+ * They are still checked for DUPLICATES (an id must identify one test), but they
+ * are NOT reconciled against TEST_SCENARIOS.md, because they were never meant to
+ * be listed there.
+ *
+ * NOT A LICENCE TO DRIFT: the dual form above is richer — it satisfies both
+ * catalogues at once — and is what new e2e tests should use.
+ */
+const INVENTORY_ID_RE = /^[A-Z]+-FC-\d{3}$/;
+
 // ── 1. Discover scenario IDs in code ─────────────────────────────────
 const sourceRoots = [
   { app: 'CON', layer: 'UNIT', dir: 'react/src/lib/__tests__', match: /\.test\.tsx?$/ },
   { app: 'ADM', layer: 'UNIT', dir: 'admin/src/lib/__tests__', match: /\.test\.tsx?$/ },
-  { app: 'CON', layer: 'E2E',  dir: 'react/e2e/tests',         match: /\.spec\.tsx?$/ },
+  // Only the e2e directory has an inventory namespace alongside its scenarios.
+  { app: 'CON', layer: 'E2E',  dir: 'react/e2e/tests',         match: /\.spec\.tsx?$/,
+    inventory: INVENTORY_ID_RE },
 ];
+
+/** Inventory ids found in code: id -> { file, title }. Duplicate-checked only. */
+const inventoryScenarios = new Map();
 
 // Match it('ID · description', …) and test('ID · description', …).
 // Accept either ' · ' (middle dot) or ' - ' as separators.
 // The description body uses [\s\S]+?\1 (any-char non-greedy, terminated by the
 // captured opening quote) so titles can safely embed other quote types — e.g.
 // it('ADM-UNIT-011 · maps null published_at to undefined (not the string "null")', …).
-const TITLE_RE = /\b(?:it|test)\s*\(\s*(['"`])([A-Z]+-[A-Z0-9]+-\d{3})\s*(?:·|-)\s*([\s\S]+?)\1/g;
+//
+// `(?:\.\w+)*` accepts runner MODIFIERS: test.fixme / it.skip / test.only /
+// it.each and so on. Without it, a scenario parked as `test.fixme(...)` was
+// invisible to this script and reported as "in the doc but missing from code" —
+// a test that exists, is rostered, and is deliberately pending is none of those
+// things, and chasing a phantom deletion is exactly the kind of false alarm
+// that gets a whole check ignored.
+const TITLE_RE = /\b(?:it|test)(?:\.\w+)*\s*\(\s*(['"`])([A-Z]+-[A-Z0-9]+-\d{3})\s*(?:·|-)\s*([\s\S]+?)\1/g;
 
 function walk(dir) {
   const out = [];
@@ -61,11 +96,26 @@ for (const root of sourceRoots) {
       const rel = path.relative(repoRoot, file).replace(/\\/g, '/');
       const parts = ID_RE.exec(id);
       if (!parts || parts[1] !== root.app || parts[2] !== root.layer) {
-        // ID's app/layer prefix doesn't match the directory it lives in.
-        // Treat as a malformed ID for that location.
+        // Not a scenario id for this directory. Before calling it malformed,
+        // check whether this directory has a second, legitimate namespace.
+        if (root.inventory && root.inventory.test(id)) {
+          const prior = inventoryScenarios.get(id);
+          if (prior) {
+            codeDupes.push({
+              id, where: 'duplicate-in-code',
+              detail: `${id} appears in both ${prior.file} and ${rel}`,
+            });
+          } else {
+            inventoryScenarios.set(id, { file: rel, title });
+          }
+          continue;
+        }
+        // Genuinely malformed for this location.
         codeDupes.push({
           id, where: 'malformed',
-          detail: `${rel} — ID ${id} does not match expected prefix ${root.app}-${root.layer}-NNN for this directory`,
+          detail: `${rel} — ID ${id} does not match ${root.app}-${root.layer}-NNN`
+            + (root.inventory ? ' or an inventory id ({DOMAIN}-FC-NNN)' : '')
+            + ' for this directory',
         });
         continue;
       }
