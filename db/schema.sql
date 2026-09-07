@@ -4439,3 +4439,893 @@ end;
 $$;
 
 grant execute on function public.admin_ai_usage_summary() to authenticated, anon, service_role;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260816120000_agent_ingestion_state.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- AI-P5 (schema half) — agent multi-turn ingestion state.
+-- Companion: vyact-agent-architecture.md §3 (ingestion pipeline) + §4 (data model).
+-- Forward-only, idempotent, additive. Creates three NEW tables; touches nothing
+-- that exists today.
+--
+-- WHY THESE TABLES EXIST
+--   `runAssistant()` is pure and single-turn, and the WhatsApp webhook forgets a
+--   message the instant `clarifyReply()` returns. There is therefore no place to
+--   park "I asked you a question, here is the draft it will produce" between two
+--   inbound messages. §3 stage [6] (AMBIGUITY DETECTOR) and stage [8] (DECISION →
+--   ASK) are unimplementable without persisted turn state, because the webhook is
+--   stateless by construction.
+--
+-- WHAT THIS MIGRATION DOES **NOT** DO
+--   No RPCs, no writers, no expiry sweeper, no `p_date` change to
+--   `whatsapp_log_transaction`, no `accounts.mask_last4`, no `ai_usage` columns.
+--   Those are separate, deliberately-sequenced changes (§4 "Changes to EXISTING
+--   objects"). This file is schema-only so it can be reviewed in isolation.
+--
+-- MONEY MODEL: untouched. Nothing here writes `transactions` or `accounts`; these
+--   are staging/draft rows only. A pending intent becomes money exactly once, via
+--   the existing write seams (`upsertTransaction` / `whatsapp_log_transaction`),
+--   and only after a human confirm (binding rule §2.4).
+--
+-- RLS NOTE — 42P17 avoidance (CLAUDE.md § DB gotchas):
+--   `agent_pending_intents` carries its OWN `household_id` (denormalised from its
+--   conversation on purpose). That lets its membership policy call
+--   `is_member(household_id)` directly instead of joining back to
+--   `agent_conversations` — so there is no A→B/B→A policy pair to recurse. The one
+--   genuine cross-table check that remains (does this conversation actually belong
+--   to the household the caller claims?) is routed through the SECURITY DEFINER
+--   helper `agent_conversation_in_household()`, mirroring the established
+--   `is_member()` / `role_in()` / `owns_shared_split()` pattern.
+--   `auth.uid()` is never called inline in a policy here; `is_member()` is already
+--   SECURITY DEFINER + STABLE, per the Auth RLS Initialization Plan advisory.
+-- ============================================================================
+
+begin;
+
+-- ── 1. agent_conversations — multi-turn thread state ────────────────────────
+create table if not exists public.agent_conversations (
+  id            uuid primary key default gen_random_uuid(),
+  household_id  uuid not null references public.households(id) on delete cascade,
+  user_id       uuid not null,
+  channel       text not null check (channel in ('chat','whatsapp','sms_share','receipt')),
+  last_turn_at  timestamptz not null default now(),
+  created_at    timestamptz not null default now()
+);
+
+-- Channel adapters resume the most recent live thread for a (household, user).
+create index if not exists idx_agent_conversations_lookup
+  on public.agent_conversations (household_id, user_id, last_turn_at desc);
+
+comment on table public.agent_conversations is
+  'Agent multi-turn thread state (vyact-agent-architecture.md §4). One row per conversation per channel; household-scoped via is_member().';
+comment on column public.agent_conversations.channel is
+  'Channel adapter that opened the thread. Presentation/policy differ per channel; the gateway does not.';
+comment on column public.agent_conversations.user_id is
+  'auth.users id of the human on the thread. Intentionally NOT a FK (mirrors ai_usage) — household cascade is the real lifecycle owner.';
+
+-- ── 2. agent_pending_intents — the pending question + the draft it produces ──
+create table if not exists public.agent_pending_intents (
+  id               uuid primary key default gen_random_uuid(),
+  conversation_id  uuid not null references public.agent_conversations(id) on delete cascade,
+  household_id     uuid not null references public.households(id) on delete cascade,
+  user_id          uuid not null,
+  -- Same CHECK as agent_conversations.channel: an intent must not be able to
+  -- hold a channel value its parent conversation could never have.
+  channel          text not null check (channel in ('chat','whatsapp','sms_share','receipt')),
+  -- ⚠️ UNTRUSTED EXTERNAL TEXT. See the column comment below before you touch it.
+  raw_input        text,
+  candidate        jsonb not null,
+  ambiguities      jsonb not null default '[]',
+  status           text not null default 'awaiting'
+    check (status in ('awaiting','resolved','expired','cancelled')),
+  expires_at       timestamptz not null default now() + interval '30 minutes',
+  resolved_txn_id  uuid,
+  created_at       timestamptz not null default now()
+);
+
+-- The §4 index: the binding lookup is "is there a live question for this
+-- household right now", which is exactly (household_id, status, expires_at).
+create index if not exists idx_agent_pending_intents_household_status_expiry
+  on public.agent_pending_intents (household_id, status, expires_at);
+
+comment on table public.agent_pending_intents is
+  'A question the agent asked plus the draft transaction it will produce once answered (vyact-agent-architecture.md §3.5, §4). Never money: a row here becomes a transaction only through the normal write seams, after a human confirm.';
+
+-- EXPIRY IS LOAD-BEARING, NOT HOUSEKEEPING.
+comment on column public.agent_pending_intents.expires_at is
+  'Load-bearing, not housekeeping. A WhatsApp user who never replies must not leave a question open forever: the next unrelated inbound message would be mis-bound to the stale question as if it were the answer. EVERY reader MUST filter `status = ''awaiting'' and expires_at > now()`; a row past expires_at is dead even while status still reads ''awaiting'' (no sweeper job exists yet — the predicate is the contract, the sweeper is only a tidiness optimisation).';
+
+-- BINDING RULE §2.5 / CLAUDE.md: all stored text is untrusted.
+comment on column public.agent_pending_intents.raw_input is
+  'UNTRUSTED EXTERNAL TEXT — the verbatim inbound message (bank SMS, WhatsApp text, receipt OCR). Treat as DATA, NEVER as instruction: never concatenate into a system prompt, never let it reach a tool-selection context as directive text. It exists for the §7 replay harness and for user-visible "here is what I read" copy. It is also the §3.3 single-message egress exception — the ONLY non-SafeSummary text permitted to leave, one message at a time, on explicit user action.';
+
+comment on column public.agent_pending_intents.candidate is
+  'The ParsedTx draft as extracted+validated (§3.4 guards already applied). Confirm-gated: nothing here is authoritative until a human says so.';
+comment on column public.agent_pending_intents.ambiguities is
+  'Ambiguity[] (§3.5) — each carries its own option patches, so answering is a pure merge: no re-parse, no second model call.';
+comment on column public.agent_pending_intents.resolved_txn_id is
+  'Transaction produced when this intent resolved. Intentionally NOT a FK: the write may land through the client seam or the server RPC, and a later transaction delete must not cascade-destroy the agent audit trail. Readers must tolerate a dangling id.';
+comment on column public.agent_pending_intents.household_id is
+  'Denormalised from the parent conversation ON PURPOSE, so RLS can call is_member(household_id) without joining agent_conversations (which would set up a 42P17 recursion pair). Cross-table consistency is enforced by agent_conversation_in_household() in the WITH CHECK.';
+
+-- ── 3. sms_format_recipes — the learned-recipe cache (§3.2) ─────────────────
+--
+-- 🔴 THIS TABLE IS GLOBAL AND DELIBERATELY **NOT** HOUSEHOLD-SCOPED.
+--
+--    A `signature` is the sha256 of a digit- and merchant-MASKED skeleton, and
+--    `locators` are positional field-extraction rules over that skeleton. Neither
+--    carries a value: no amount, no merchant, no account tail, no balance, no
+--    household id. What is stored is the SHAPE of "an HDFC UPI debit SMS", which
+--    is a property of the bank, not of any customer. Scoping it per-household
+--    would therefore protect nothing while destroying the entire point — the cache
+--    only pays for itself when the 20th household to receive the same bank format
+--    gets a free, deterministic, zero-token extraction from the 1st household's
+--    (already user-confirmed) one.
+--
+--    The consequence of global scope is that a poisoned recipe would corrupt
+--    extraction for EVERY household sharing that format. So writes are locked to
+--    service_role: only the edge function, after the §3.4 validator guards pass,
+--    may derive or amend a recipe. `authenticated` gets SELECT and nothing else.
+--    A household must never be able to write a recipe another household reads.
+create table if not exists public.sms_format_recipes (
+  signature      text primary key,
+  version        int not null default 1,
+  locators       jsonb not null,
+  -- Lifecycle (§3.2 promotion/demotion). Without this, "trusted after N
+  -- confirmations", "demote on correction" and "an admin can disable a bad
+  -- recipe" are all unexpressible — a ratio computed in app code cannot
+  -- represent a DISABLED recipe at all, and a silently-changed bank format
+  -- would keep being applied.
+  status         text not null default 'candidate'
+                 check (status in ('candidate','trusted','disabled')),
+  -- Informational only ('HDFC'). Never used for matching — the signature is the
+  -- key — and never a value from the message body.
+  issuer_hint    text,
+  confirmations  int not null default 0,
+  corrections    int not null default 0,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  -- Observability: which recipes are actually live. `updated_at` only moves on
+  -- write, so it cannot answer that.
+  last_used_at   timestamptz
+);
+
+drop trigger if exists touch_sms_format_recipes on public.sms_format_recipes;
+create trigger touch_sms_format_recipes before update on public.sms_format_recipes
+  for each row execute function public.set_updated_at();
+
+comment on table public.sms_format_recipes is
+  'Learned SMS/receipt extraction recipes (§3.2) — earned artifacts, not authored templates. GLOBAL BY DESIGN: rows hold masked structure only, never household values. Readable by authenticated, writable by service_role ONLY, so no household can poison another household''s extraction.';
+comment on column public.sms_format_recipes.signature is
+  'sha256 of the digit- and merchant-masked skeleton (smsSignature()). Carries no household data by construction — that masking is what makes the global scope safe. If a future signature function stops masking, this table must be re-scoped.';
+comment on column public.sms_format_recipes.locators is
+  'Field locators derived from a validated extraction. Applied deterministically on a cache hit: zero tokens, zero latency, reproducible.';
+comment on column public.sms_format_recipes.confirmations is
+  'User-confirmed successful applications. Promotion signal (§3.2: trusted only after N confirmations).';
+comment on column public.sms_format_recipes.corrections is
+  'User corrections. Demotion signal — self-healing when a bank silently changes format.';
+
+-- ============================================================================
+-- RLS
+--
+-- service_role already BYPASSES RLS in Supabase, so the `to service_role`
+-- policies below are belt-and-braces. They are written out anyway so that the
+-- webhook's access is legible in `pg_policies` rather than being an implicit
+-- property of the role — the WhatsApp webhook has no user JWT and must not look
+-- like an accident to the next reviewer.
+-- ============================================================================
+
+-- ORDERING IS LOAD-BEARING: this helper must be created AFTER the tables it
+-- queries. check_function_bodies (on by default) validates a LANGUAGE sql body
+-- at CREATE time, so declaring it before agent_conversations exists fails the
+-- whole migration on a fresh database.
+create or replace function public.agent_conversation_in_household(
+  p_conversation_id uuid,
+  p_household_id    uuid
+)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from agent_conversations c
+    where c.id = p_conversation_id
+      and c.household_id = p_household_id
+  );
+$$;
+
+grant execute on function public.agent_conversation_in_household(uuid, uuid) to authenticated, service_role;
+-- Postgres grants EXECUTE to PUBLIC by default, which would let anon reach this
+-- SECURITY DEFINER helper via /rest/v1/rpc/ and use it as an existence oracle.
+revoke all on function public.agent_conversation_in_household(uuid, uuid) from public;
+revoke all on function public.agent_conversation_in_household(uuid, uuid) from anon;
+
+alter table public.agent_conversations   enable row level security;
+alter table public.agent_pending_intents enable row level security;
+alter table public.sms_format_recipes    enable row level security;
+
+-- ── agent_conversations ─────────────────────────────────────────────────────
+drop policy if exists "agent_conversations_select"       on public.agent_conversations;
+drop policy if exists "agent_conversations_insert"       on public.agent_conversations;
+drop policy if exists "agent_conversations_update"       on public.agent_conversations;
+drop policy if exists "agent_conversations_service_role" on public.agent_conversations;
+
+create policy "agent_conversations_select" on public.agent_conversations
+  for select to authenticated
+  using (is_member(household_id));
+
+create policy "agent_conversations_insert" on public.agent_conversations
+  for insert to authenticated
+  with check (is_member(household_id));
+
+-- UPDATE exists solely to bump last_turn_at. WITH CHECK repeats the USING test so
+-- a member cannot re-parent a thread into a household they do not belong to.
+create policy "agent_conversations_update" on public.agent_conversations
+  for update to authenticated
+  using (is_member(household_id))
+  with check (is_member(household_id));
+
+create policy "agent_conversations_service_role" on public.agent_conversations
+  for all to service_role using (true) with check (true);
+
+-- ── agent_pending_intents ───────────────────────────────────────────────────
+drop policy if exists "agent_pending_intents_select"       on public.agent_pending_intents;
+drop policy if exists "agent_pending_intents_insert"       on public.agent_pending_intents;
+drop policy if exists "agent_pending_intents_update"       on public.agent_pending_intents;
+drop policy if exists "agent_pending_intents_service_role" on public.agent_pending_intents;
+
+-- USER-SCOPED, deliberately narrower than §4's household rule.
+--
+-- `raw_input` holds the verbatim inbound message — a bank SMS carrying a card
+-- tail, a merchant and a spend the sender may not have chosen to share yet. The
+-- resulting TRANSACTION is shared with the household as normal; the raw text
+-- that produced it is not. Household scope would let one member read another
+-- member's card notifications, which costs nothing to prevent here.
+create policy "agent_pending_intents_select" on public.agent_pending_intents
+  for select to authenticated
+  using (user_id = (select auth.uid()) and is_member(household_id));
+
+create policy "agent_pending_intents_insert" on public.agent_pending_intents
+  for insert to authenticated
+  with check (
+    is_member(household_id)
+    and agent_conversation_in_household(conversation_id, household_id)
+  );
+
+-- The answer path: a member flips status awaiting → resolved/cancelled and stamps
+-- resolved_txn_id. WITH CHECK re-asserts BOTH tests so the row cannot be moved to
+-- another household or re-parented onto another household's conversation.
+-- Answering is also user-scoped: only the member who was asked may answer. A
+-- blocked UPDATE does NOT raise — it silently matches zero rows (CLAUDE.md) —
+-- so callers must check the affected row count, never rely on an exception.
+create policy "agent_pending_intents_update" on public.agent_pending_intents
+  for update to authenticated
+  using (user_id = (select auth.uid()) and is_member(household_id))
+  with check (
+    user_id = (select auth.uid())
+    and is_member(household_id)
+    and agent_conversation_in_household(conversation_id, household_id)
+  );
+
+create policy "agent_pending_intents_service_role" on public.agent_pending_intents
+  for all to service_role using (true) with check (true);
+
+-- ── sms_format_recipes ──────────────────────────────────────────────────────
+drop policy if exists "sms_format_recipes_select"       on public.sms_format_recipes;
+drop policy if exists "sms_format_recipes_service_role" on public.sms_format_recipes;
+
+-- Read-only to every signed-in user: the rows are masked structure, shared on
+-- purpose. There is deliberately NO insert/update/delete policy for
+-- `authenticated` — the write path is service_role, after the §3.4 validator.
+create policy "sms_format_recipes_select" on public.sms_format_recipes
+  for select to authenticated
+  using (true);
+
+create policy "sms_format_recipes_service_role" on public.sms_format_recipes
+  for all to service_role using (true) with check (true);
+
+-- ============================================================================
+-- GRANTS — least privilege. No `to public`, no `to anon`.
+--
+-- DELETE is granted to nobody: cancelling an intent is `status = 'cancelled'`
+-- (an UPDATE), not a row removal, so the §7 replay harness and the confirm-gate
+-- audit trail (§13: "no source='agent' row exists without a confirm event")
+-- keep their evidence. Real deletion happens by household cascade or service_role.
+-- ============================================================================
+
+grant select, insert, update on public.agent_conversations   to authenticated;
+grant select, insert, update on public.agent_pending_intents to authenticated;
+grant select                 on public.sms_format_recipes    to authenticated;
+
+grant select, insert, update, delete on public.agent_conversations   to service_role;
+grant select, insert, update, delete on public.agent_pending_intents to service_role;
+grant select, insert, update, delete on public.sms_format_recipes    to service_role;
+
+revoke all on public.agent_conversations   from anon;
+revoke all on public.agent_pending_intents from anon;
+revoke all on public.sms_format_recipes    from anon;
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260816130000_provenance_source_agent.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v10.20 · Agent provenance — widen the provenance `source` CHECK to allow 'agent'
+--
+-- WHY THIS IS A BLOCKER, NOT A NICETY
+-- The v8 honest-data model pins `source` to ('onboarding','user','bank') via a
+-- per-table CHECK, applied in a loop over the provenance tables
+-- (20260606120000_v8_onboarding_state.sql) and again on `accounts`
+-- (20260607120000_v8_money_model_account_opening_balance.sql).
+--
+-- The agent creates transactions. Without this migration the FIRST agent-created
+-- row fails with 23514 (check_violation) — the client union already carries
+-- 'agent' (react/src/types.ts ProvenanceSource) and the Supabase adapter passes
+-- `source` through generically, so the failure surfaces only at write time.
+--
+-- WHY A NEW VALUE RATHER THAN REUSING 'bank'
+-- 'bank' asserts a bank confirmed the figure. An agent-extracted row is a
+-- MODEL's reading of a message — frequently correct, never authoritative. The
+-- honest-data convention is that anything with confidence <> 'confirmed' renders
+-- <EstimatedTag/>; reusing 'bank' would let a model-read row inherit a bank's
+-- credibility, which is exactly the dishonesty that convention exists to prevent.
+--
+-- ADDITIVE AND REVERSIBLE. Widening a CHECK cannot invalidate an existing row:
+-- every current value remains legal. No data is rewritten, no default changes,
+-- and every row already in the table keeps its meaning. The confidence CHECK is
+-- deliberately left ALONE — 'estimated'|'confirming'|'confirmed' already covers
+-- the agent's states.
+
+BEGIN;
+
+do $$
+declare
+  t text;
+  -- Same table list as the v8 loop. Kept verbatim so the two stay comparable.
+  tables text[] := array['transactions','budgets','goals','debts','assets'];
+begin
+  foreach t in array tables loop
+    execute format($f$
+      alter table %1$I drop constraint if exists %1$s_source_chk;
+      alter table %1$I add  constraint %1$s_source_chk
+        check (source in ('onboarding','user','bank','agent'));
+    $f$, t);
+
+    execute format($f$
+      comment on column %I.source is
+        'v8 honest-data provenance: onboarding|user|bank|agent. ''agent'' = extracted by the agent from a message (chat/WhatsApp/SMS/receipt) and NOT bank-authoritative — it must render <EstimatedTag/> until a human confirms it (vyact-agent-architecture.md §4).';
+    $f$, t);
+  end loop;
+end $$;
+
+-- `accounts` was constrained in its own migration, outside that loop.
+alter table accounts drop constraint if exists accounts_source_chk;
+alter table accounts add  constraint accounts_source_chk
+  check (source in ('onboarding','user','bank','agent'));
+
+comment on column accounts.source is
+  'v8 honest-data provenance: onboarding|user|bank|agent. See transactions.source.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260906120000_ai_model_configs.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- AI-P2 — `ai_model_configs`: the model router's configuration table.
+-- Companion: vyact-agent-architecture.md §5 (topology), §6 (hosting/secrets),
+--            §8 phase P2, §11 (locked decisions).
+--
+-- Forward-only, additive, idempotent. Creates ONE new table. Touches nothing
+-- that exists today: no money table, no RPC, no policy on any existing object.
+--
+-- WHY THIS TABLE EXISTS
+--   Binding rule §2.7a: "providers are OpenAI-compatible so a model swap is a DB
+--   ROW, not a deploy." Everything that varies between vLLM, Ollama, Groq,
+--   Together, OpenRouter and OpenAI is a value in a row here — endpoint, model
+--   id, sampling params, pricing, which secret holds the key. The edge function
+--   `ask-vyact` reads this table and changes behaviour without being redeployed.
+--
+-- 🔴 INERT BY DEFAULT — THIS IS THE POINT, NOT A PRECAUTION.
+--   `enabled` DEFAULTS FALSE and this migration inserts NO ROWS. With an empty
+--   (or all-disabled) table the gateway resolves no config, calls no provider,
+--   spends nothing, and writes no `ai_usage` row — binding rule §2.7b, "the
+--   feature's off state is provably byte-identical to today". Applying this
+--   migration to production changes observable behaviour by exactly zero.
+--
+-- 🔴 NO SECRET IS EVER STORED HERE.
+--   `key_env_var` holds the NAME of a Supabase Function secret (e.g. the string
+--   'OPENROUTER_API_KEY'). The VALUE is read from `Deno.env` inside the edge
+--   function and never reaches this table, the repo, a log, or a client bundle
+--   (§6 "Secrets"). Two CHECK constraints enforce that mechanically: the name
+--   must look like an env var name, and it must not name a platform secret
+--   (SUPABASE_*, SERVICE_ROLE, WHATSAPP_*, …) — otherwise one bad row could make
+--   the router POST the service-role key to an attacker-chosen `base_url`.
+--   A third CHECK rejects anything key-shaped pasted into `params`.
+--
+-- MONEY MODEL: untouched. Nothing here reads or writes `transactions`,
+--   `accounts`, `budgets` or any balance. Binding rule §2.1 — the LLM never
+--   computes money — is enforced upstream (the router returns text and tool
+--   selections only, and holds no database client at all).
+--
+-- RLS / GRANT STYLE mirrors 20260816120000_agent_ingestion_state.sql:
+--   SECURITY DEFINER helpers (`is_admin`) only, never an inline `auth.uid()` in a
+--   policy; explicit service_role policies written out even though service_role
+--   bypasses RLS, so the gateway's access is legible in `pg_policies` instead of
+--   being an implicit property of the role; no `to public`, no `to anon`.
+-- ============================================================================
+
+begin;
+
+create table if not exists public.ai_model_configs (
+  id           uuid primary key default gen_random_uuid(),
+
+  -- 🔴 LOAD-BEARING. The app has TWO parallel model selectors (§10.2):
+  --    `AssistantBackend` (flag-driven, live) and `ChatBackend` (env-driven,
+  --    with a complete but unreachable GeminiChatBackend). A config row that did
+  --    not name its seam would let an admin flip a toggle and silently configure
+  --    the path they were not looking at. The CHECK is the guard; the router
+  --    filters on this column before anything else.
+  seam         text not null check (seam in ('chat','assistant')),
+
+  -- Free text on purpose: 'vllm' | 'ollama' | 'groq' | 'together' | 'openrouter'
+  -- | 'openai' | … Adding a provider must not need a migration (§2.7a). It is
+  -- telemetry and human labelling only — the router branches on nothing here.
+  provider     text not null check (length(btrim(provider)) between 1 and 64),
+
+  -- The provider's model id, verbatim, e.g. 'meta-llama/llama-3.3-70b-instruct'.
+  model        text not null check (length(btrim(model)) between 1 and 200),
+
+  -- Origin (optionally + path prefix) of an OpenAI-compatible API. The router
+  -- appends '/v1/chat/completions'. A localhost value is ACCEPTED here on
+  -- purpose — it is a legitimate dev target — and rejected at call time with a
+  -- clear "Edge runs in the cloud and cannot reach your machine" result rather
+  -- than a crash or a hang.
+  base_url     text not null check (base_url ~ '^https?://[^[:space:]]+$'),
+
+  -- 🔴 The NAME of a Supabase secret. NEVER a key. Null/empty = unauthenticated
+  --    endpoint, which is the normal case for a local vLLM or Ollama server.
+  key_env_var  text,
+
+  -- Sampling + pricing, e.g.
+  --   {"temperature":0.2,"max_tokens":800,
+  --    "price_per_mtok_input":0.15,"price_per_mtok_output":0.6}
+  -- Pricing feeds `ai_usage.cost_usd` — OPERATIONAL SPEND, never ledger money.
+  params       jsonb not null default '{}'::jsonb,
+
+  -- 🔴 FALSE BY DEFAULT. This single column is the kill switch.
+  enabled      boolean not null default false,
+
+  -- Selection order when more than one row is enabled for a seam:
+  -- **HIGHER WINS** (the router sorts `priority desc, id asc`, so selection is
+  -- deterministic and reproducible for evals). Exists so P11's model cascade —
+  -- primary, then cheaper fallback — is expressible without a schema change.
+  priority     int not null default 0 check (priority between 0 and 1000),
+
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+
+  -- ── mechanical secret hygiene ────────────────────────────────────────────
+  -- 1. If a key_env_var is given it must LOOK like an env var name. A pasted
+  --    API key (mixed case, dashes, dots, > 64 chars) cannot satisfy this.
+  constraint ai_model_configs_key_env_var_shape_chk
+    check (key_env_var is null or key_env_var ~ '^[A-Z][A-Z0-9_]{2,63}$'),
+
+  -- 2. …and it must not name a PLATFORM secret. Without this, an admin row
+  --    could make the router read SUPABASE_SERVICE_ROLE_KEY and send it as a
+  --    bearer token to any base_url it likes. Deny by pattern so a future
+  --    secret is denied by default rather than forgotten. Mirrors
+  --    FORBIDDEN_KEY_ENV in supabase/functions/_shared/agent/router.ts.
+  constraint ai_model_configs_key_env_var_reserved_chk
+    check (
+      key_env_var is null
+      or (key_env_var !~ '^(SUPABASE|WHATSAPP|SMTP|RESEND|VERCEL|GITHUB|VYACT)_'
+          and key_env_var !~ 'SERVICE_ROLE'
+          and key_env_var !~ 'JWT'
+          and key_env_var !~ '(^|_)(DB|DATABASE)_')
+    ),
+
+  -- 3. Nothing key-shaped in `params`. The router already allowlists the body
+  --    keys it forwards, so a smuggled credential would be dropped — but it
+  --    would still be sitting in a DB row, readable by every admin. Reject it
+  --    at write time instead. Text-level regex so nesting cannot hide it.
+  --
+  --    The key name must EQUAL (or end with `_` + ) a credential word — it is
+  --    deliberately not a substring match, because the single most common
+  --    legitimate param is `max_tokens`, and `"...token..."` would reject it.
+  --      blocked : "key", "api_key", "OPENROUTER_API_KEY", "secret", "token",
+  --                "password", "authorization", "bearer", "credential"
+  --      allowed : "max_tokens", "temperature", "top_p", "seed", "stop",
+  --                "price_per_mtok_input", "price_per_mtok_output"
+  constraint ai_model_configs_params_no_secrets_chk
+    check (params::text !~* '"([A-Za-z0-9_]*_)?(api_?key|apikey|key|secret|token|password|passwd|authorization|bearer|credential)"[[:space:]]*:'),
+
+  -- 4. An ENABLED row must be complete. A half-configured row that is switched
+  --    on is the one way this table could produce a surprise at runtime.
+  constraint ai_model_configs_enabled_complete_chk
+    check (
+      enabled = false
+      or (length(btrim(model)) > 0 and length(btrim(base_url)) > 0 and provider is not null)
+    )
+);
+
+-- The router's read path, verbatim: enabled rows for one seam, best first.
+create index if not exists idx_ai_model_configs_seam_enabled_priority
+  on public.ai_model_configs (seam, enabled, priority desc);
+
+-- One row per (seam, provider, model, endpoint). Stops the "I enabled the wrong
+-- duplicate" class of incident; still allows the same model on two seams, which
+-- is a legitimate configuration.
+create unique index if not exists uq_ai_model_configs_identity
+  on public.ai_model_configs (seam, provider, model, base_url);
+
+drop trigger if exists touch_ai_model_configs on public.ai_model_configs;
+create trigger touch_ai_model_configs before update on public.ai_model_configs
+  for each row execute function public.set_updated_at();
+
+comment on table public.ai_model_configs is
+  'Model router configuration (vyact-agent-architecture.md §5/§6, P2). A model swap is a ROW CHANGE here, not a deploy. INERT BY DEFAULT: enabled defaults false and no rows ship, so the gateway calls nothing and spends nothing until a super-admin turns one on. Holds NO SECRETS — key_env_var is the NAME of a Supabase Function secret; the value lives only in the edge runtime.';
+comment on column public.ai_model_configs.seam is
+  'LOAD-BEARING. Which of the app''s two model selectors this row configures: ''chat'' (ChatBackend) or ''assistant'' (AssistantBackend). Two selectors exist (§10.2); without this column an admin toggle could silently configure the path they were not looking at.';
+comment on column public.ai_model_configs.provider is
+  'Human/telemetry label (''vllm'',''ollama'',''groq'',''openrouter'',''openai'',…). Copied to ai_usage.provider. The router branches on NOTHING here — every provider is called through the same OpenAI-compatible contract, which is what makes a swap a row change.';
+comment on column public.ai_model_configs.base_url is
+  'Origin of an OpenAI-compatible API; the router appends ''/v1/chat/completions''. A localhost/LAN value is allowed and is a normal dev target, but Supabase Edge runs in the cloud and cannot reach a developer machine — the router detects that BEFORE calling and returns a clear, non-fatal ''unreachable'' result instead of hanging.';
+comment on column public.ai_model_configs.key_env_var is
+  '🔴 The NAME of a Supabase Function secret (e.g. ''OPENROUTER_API_KEY''), never a key. The value is read from Deno.env inside ask-vyact and never reaches this table, the repo, a log or any client bundle (§6). NULL means the endpoint needs no auth — the normal case for a local vLLM/Ollama server. Two CHECK constraints stop this naming a platform secret, so a bad row cannot exfiltrate the service-role key to an arbitrary base_url.';
+comment on column public.ai_model_configs.params is
+  'Sampling + pricing as jsonb. price_per_mtok_input/output feed ai_usage.cost_usd — OPERATIONAL SPEND (our provider bill), never ledger money: binding rule §2.1 keeps every user-facing figure coming from resolve()/an RPC. Values are clamped by the router; unknown keys are dropped.';
+comment on column public.ai_model_configs.enabled is
+  '🔴 THE KILL SWITCH. Defaults FALSE. With no enabled row for a seam the gateway performs no provider call, writes no ai_usage row, and leaves existing behaviour byte-identical to today (binding rule §2.7b). Flipping this to true authorises real spend.';
+comment on column public.ai_model_configs.priority is
+  'Selection order among enabled rows for one seam: HIGHER WINS (router sorts priority desc, id asc — deterministic, so evals are reproducible). Exists so the P11 model cascade (primary → cheaper fallback) needs no schema change.';
+
+-- ============================================================================
+-- RLS
+--
+-- Read: ANY admin (`is_admin()` with no minimum role) — the AI Config page needs
+--       to render current state, and the row carries no secret to leak.
+-- Write: `is_admin('super')` ONLY. Enabling a row authorises real money to be
+--       spent against a provider, and choosing base_url decides where an API key
+--       is sent. That is a super-admin decision, matching how the admin console
+--       gates its other destructive surfaces.
+-- Normal users: NO access at all. The gateway reads this table with the service
+--       role on their behalf; an end user never needs, and never gets, sight of
+--       the model configuration.
+-- ============================================================================
+
+alter table public.ai_model_configs enable row level security;
+
+drop policy if exists "ai_model_configs_select"       on public.ai_model_configs;
+drop policy if exists "ai_model_configs_insert"       on public.ai_model_configs;
+drop policy if exists "ai_model_configs_update"       on public.ai_model_configs;
+drop policy if exists "ai_model_configs_delete"       on public.ai_model_configs;
+drop policy if exists "ai_model_configs_service_role" on public.ai_model_configs;
+
+create policy "ai_model_configs_select" on public.ai_model_configs
+  for select to authenticated
+  using (is_admin());
+
+create policy "ai_model_configs_insert" on public.ai_model_configs
+  for insert to authenticated
+  with check (is_admin('super'));
+
+-- WITH CHECK repeats the USING test so a super-admin check cannot be dodged by
+-- an UPDATE that would otherwise be evaluated only against the OLD row.
+create policy "ai_model_configs_update" on public.ai_model_configs
+  for update to authenticated
+  using (is_admin('super'))
+  with check (is_admin('super'));
+
+create policy "ai_model_configs_delete" on public.ai_model_configs
+  for delete to authenticated
+  using (is_admin('super'));
+
+create policy "ai_model_configs_service_role" on public.ai_model_configs
+  for all to service_role using (true) with check (true);
+
+-- ============================================================================
+-- GRANTS — least privilege. No `to public`, no `to anon`.
+-- Table privileges are granted to `authenticated` and NARROWED BY RLS above to
+-- admins (read) / super-admins (write) — the same layering used by the agent
+-- ingestion tables. `anon` is explicitly revoked.
+-- ============================================================================
+
+grant select, insert, update, delete on public.ai_model_configs to authenticated;
+grant select, insert, update, delete on public.ai_model_configs to service_role;
+
+revoke all on public.ai_model_configs from anon;
+
+-- ============================================================================
+-- NO SEED ROWS. Deliberately.
+--
+-- Switching the gateway on is an explicit, auditable act by a super-admin, not a
+-- side effect of applying a migration. For reference, an operator enables a
+-- provider with (values below are ILLUSTRATIVE — note that key_env_var is a
+-- variable NAME; the key itself is set out-of-band with
+-- `supabase secrets set <NAME>=…` and never appears in SQL):
+--
+--   insert into public.ai_model_configs
+--     (seam, provider, model, base_url, key_env_var, params, enabled, priority)
+--   values
+--     ('assistant', 'vllm', 'qwen2.5-7b-instruct',
+--      'https://your-inference-host.example.com', null,
+--      '{"temperature":0.2,"max_tokens":800}'::jsonb, false, 100);
+--
+-- …then flips `enabled = true` only after the §7 evals and the §9 spend gate say
+-- so. Until that flip the endpoint is a no-op that costs nothing.
+-- ============================================================================
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260906130000_whatsapp_log_transaction_backdate.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v10.20 · whatsapp_log_transaction — accept an explicit transaction date
+--
+-- WHY THIS IS A CORRECTNESS FIX, NOT AN ENHANCEMENT
+-- The v10.18 RPC hardcodes `current_date` for every row it writes. That was fine
+-- when the only input was a human typing "850 groceries hdfc" as it happened.
+-- It is WRONG for the agent's actual use case: a bank SMS is routinely
+-- BACKDATED. "Rs.850 debited ... on 14-08" forwarded on the 20th must land on
+-- the 14th, or the ledger silently misstates which month the money moved — and
+-- that error is invisible to the user, because the amount and account are right.
+--
+-- The resolver already parses the real date (agent/resolver.ts parseLooseDate,
+-- day-first, never defaulting to today). This RPC was the last place that threw
+-- it away.
+--
+-- WHY DROP-AND-RECREATE RATHER THAN `create or replace`
+-- Adding a defaulted parameter changes the signature, so `create or replace`
+-- would create an OVERLOAD rather than replace the function. The existing
+-- 10-argument call in whatsapp-webhook would then match BOTH candidates and
+-- Postgres would raise 42725 "function ... is not unique" — breaking WhatsApp
+-- logging in production. So the old signature is dropped explicitly first.
+--
+-- BACKWARD COMPATIBLE AT THE CALL SITE: p_date defaults to null and null falls
+-- back to current_date, so the existing 10-argument caller keeps working
+-- unchanged and can adopt the parameter later.
+--
+-- NOTE: `drop function` also drops its grants, so they are re-issued below for
+-- the new signature. Forgetting that would leave the RPC callable by nobody and
+-- WhatsApp logging would fail closed.
+
+BEGIN;
+
+drop function if exists public.whatsapp_log_transaction(
+  uuid, uuid, numeric, text, text, text, text, text, text, text
+);
+
+create or replace function public.whatsapp_log_transaction(
+  p_profile_id      uuid,
+  p_household_id    uuid,
+  p_amount          numeric,
+  p_currency        text,
+  p_txn_type        text,
+  p_category_id     text,
+  p_account_alias   text,
+  p_to_account_alias text,
+  p_wa_message_id   text,
+  p_description     text,
+  -- ISO date of the transaction as stated by the SOURCE (the SMS), not the
+  -- moment we happened to receive it. Null => today, preserving v10.18 behaviour.
+  p_date            date default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_member_id     uuid;
+  v_account_id    uuid;
+  v_to_account_id uuid;
+  v_cash_id       uuid;
+  v_txn_id        uuid;
+  v_claimed       int;
+  v_date          date;
+begin
+  -- Sanity-clamp the incoming date. An extractor reading a garbled SMS must not
+  -- be able to write a transaction dated 1900 or next year: a future-dated row
+  -- corrupts "this month" on every dashboard that reads it. Out-of-range falls
+  -- back to today rather than raising, because losing the DATE is recoverable
+  -- and losing the TRANSACTION is not.
+  v_date := coalesce(p_date, current_date);
+  if v_date > current_date + interval '2 days' or v_date < current_date - interval '5 years' then
+    v_date := current_date;
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    return jsonb_build_object('status','error','reason','invalid_amount');
+  end if;
+  if p_txn_type not in ('expense','income','investment','transfer') then
+    return jsonb_build_object('status','error','reason','invalid_type');
+  end if;
+
+  -- Idempotency claim-first: ensure the inbound row exists, then claim it by
+  -- flipping processed_at only if still unprocessed. Concurrent deliveries lose
+  -- the race (0 rows) and return 'duplicate' without inserting.
+  insert into public.whatsapp_inbound_messages (wa_message_id, profile_id, household_id, direction)
+    values (p_wa_message_id, p_profile_id, p_household_id, 'inbound')
+    on conflict (wa_message_id) do nothing;
+
+  update public.whatsapp_inbound_messages
+     set processed_at = now(),
+         profile_id   = coalesce(profile_id, p_profile_id),
+         household_id = coalesce(household_id, p_household_id)
+   where wa_message_id = p_wa_message_id and processed_at is null;
+  get diagnostics v_claimed = row_count;
+  if v_claimed = 0 then
+    return jsonb_build_object('status','duplicate');
+  end if;
+
+  -- Resolve the household member backing this profile (nullable is fine).
+  select id into v_member_id
+    from public.memberships
+   where household_id = p_household_id and user_id = p_profile_id
+   limit 1;
+
+  -- Cash fallback account for this household.
+  select id into v_cash_id
+    from public.accounts
+   where household_id = p_household_id and lower(kind) = 'cash' and coalesce(is_archived,false) = false
+   limit 1;
+
+  -- Resolve source alias (name or kind).
+  if p_account_alias is not null and p_account_alias <> '' then
+    select id into v_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and (lower(name) = lower(p_account_alias) or lower(kind) = lower(p_account_alias))
+     limit 1;
+  end if;
+
+  -- Resolve destination alias (name or kind).
+  if p_to_account_alias is not null and p_to_account_alias <> '' then
+    select id into v_to_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and (lower(name) = lower(p_to_account_alias) or lower(kind) = lower(p_to_account_alias))
+     limit 1;
+  end if;
+
+  -- Apply the per-type account matrix + cash fallbacks.
+  if p_txn_type = 'expense' then
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    v_to_account_id := null;
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+  elsif p_txn_type = 'income' then
+    -- income names its destination via account_alias; to_account_alias unused.
+    v_to_account_id := coalesce(v_to_account_id, v_account_id, v_cash_id);
+    v_account_id := null;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+  else  -- transfer / investment: both required, must differ
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+    if v_to_account_id = v_account_id then
+      return jsonb_build_object('status','error','reason','same_account');
+    end if;
+  end if;
+
+  insert into public.transactions (
+    household_id, created_by, member_id, amount, currency, type, category,
+    account_id, to_account_id, date, description
+  ) values (
+    p_household_id,
+    p_profile_id,
+    v_member_id,
+    p_amount,
+    coalesce(nullif(p_currency,''), 'USD'),
+    p_txn_type,
+    case when p_txn_type in ('expense','income')
+         then coalesce(nullif(p_category_id,''), case when p_txn_type='expense' then 'other_expense' else 'other_income' end)
+         else null end,
+    v_account_id,
+    v_to_account_id,
+    v_date,
+    coalesce(nullif(p_description,''), 'Logged via WhatsApp')
+  ) returning id into v_txn_id;
+
+  -- Store the parsed result on the audit row for traceability.
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload,'{}'::jsonb) || jsonb_build_object(
+           'parsed', jsonb_build_object(
+             'transaction_id', v_txn_id, 'amount', p_amount, 'currency', p_currency,
+             'type', p_txn_type, 'category_id', p_category_id,
+             'account_id', v_account_id, 'to_account_id', v_to_account_id))
+   where wa_message_id = p_wa_message_id;
+
+  return jsonb_build_object(
+    'status','success',
+    'transaction_id', v_txn_id,
+    'amount', p_amount,
+    'currency', coalesce(nullif(p_currency,''),'USD'),
+    'type', p_txn_type,
+    'category_id', p_category_id,
+    'account_name',    (select name from public.accounts where id = v_account_id),
+    'to_account_name', (select name from public.accounts where id = v_to_account_id)
+  );
+end;
+$$;
+
+-- Grants must be re-issued: `drop function` above discarded the originals, and
+-- without these the RPC would be executable by nobody and WhatsApp logging
+-- would fail closed. Service-role only (the Edge Function); deny everyone else.
+revoke all on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) from public, anon, authenticated;
+grant execute on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) to service_role;
+
+comment on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) is
+  'v10.20 — WhatsApp/agent transaction writer. Honors the v9 CHECK matrix, claim-first idempotent on wa_message_id. p_date carries the date stated by the SOURCE (a bank SMS is routinely backdated); null => current_date. Out-of-range dates clamp to today rather than raising.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260906140000_seed_model_catalogue.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v10.20 · Model catalogue — premier + value models, ALL DISABLED.
+--
+-- WHY SEED ROWS AT ALL
+-- "Plug-n-play" means switching models is a ROW CHANGE, not a deploy. That only
+-- holds if the rows exist. This seeds a ready catalogue so switching is one
+-- UPDATE, and so the multi-model bake-off (architecture §7 layer 7) has a matrix
+-- to run against.
+--
+-- 🔴 EVERY ROW SHIPS `enabled = false`. Nothing here spends a cent until someone
+--    deliberately flips one on. The gateway with no enabled row does exactly one
+--    config SELECT and answers `enabled:false` — the inert default.
+--
+-- PROVIDER CHOICE: OpenRouter, because it exposes Claude, GPT, Gemini, Llama,
+-- Qwen and DeepSeek behind ONE OpenAI-compatible endpoint and ONE key. Anthropic's
+-- own API is not OpenAI-shaped (different path, auth header and body), so reaching
+-- Claude directly would need a bespoke adapter in the router; via OpenRouter it
+-- needs nothing. Direct per-vendor adapters can come later purely as a cost play.
+--
+-- NO SECRET IS STORED HERE. `key_env_var` is the NAME of a Supabase Function
+-- secret; the value lives only in the edge runtime.
+--
+-- Pricing below was read from OpenRouter's public /api/v1/models on 2026-09-06
+-- and feeds ai_usage.cost_usd. It is OPERATIONAL SPEND (our provider bill), never
+-- ledger money. Re-check it before trusting a cost report — vendors move prices.
+
+BEGIN;
+
+insert into public.ai_model_configs
+  (seam, provider, model, base_url, key_env_var, params, enabled, priority)
+values
+  -- ── PREMIER TIER ──────────────────────────────────────────────────────────
+  ('assistant','openrouter','anthropic/claude-sonnet-5','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":2.00,"price_per_mtok_output":10.00}'::jsonb,false,100),
+  ('assistant','openrouter','anthropic/claude-opus-5','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":5.00,"price_per_mtok_output":25.00}'::jsonb,false,90),
+  ('assistant','openrouter','openai/gpt-5.1','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":1.25,"price_per_mtok_output":10.00}'::jsonb,false,80),
+  ('assistant','openrouter','google/gemini-2.5-pro','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":1.25,"price_per_mtok_output":10.00}'::jsonb,false,70),
+  -- ── VALUE TIER — the bake-off cost floor ──────────────────────────────────
+  ('assistant','openrouter','openai/gpt-oss-120b','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":0.04,"price_per_mtok_output":0.17}'::jsonb,false,40),
+  ('assistant','openrouter','meta-llama/llama-3.3-70b-instruct','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":0.10,"price_per_mtok_output":0.32}'::jsonb,false,30),
+  ('assistant','openrouter','qwen/qwen3-235b-a22b-2507','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":0.09,"price_per_mtok_output":0.55}'::jsonb,false,20),
+  ('assistant','openrouter','deepseek/deepseek-v4-flash','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":0.08,"price_per_mtok_output":0.16}'::jsonb,false,10)
+on conflict (seam, provider, model, base_url) do nothing;
+
+COMMIT;
+
+-- TO SWITCH MODELS (exactly one enabled row is the clearest mental model;
+-- with several enabled, the HIGHEST priority wins):
+--
+--   update public.ai_model_configs set enabled = false where seam = 'assistant';
+--   update public.ai_model_configs set enabled = true
+--    where seam = 'assistant' and model = 'anthropic/claude-sonnet-5';
