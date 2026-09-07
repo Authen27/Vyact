@@ -69,7 +69,7 @@ export default function Planner({ onNavigate }: PlannerProps = {}) {
             <Sparkles className="text-coral" /> Planner
           </h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Rules-based recommendations · No AI · Zero hallucination
+            Rules-based recommendations · Computed on this device · No model
           </p>
         </div>
       </div>
@@ -80,8 +80,9 @@ export default function Planner({ onNavigate }: PlannerProps = {}) {
         style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 12%, transparent)' }}>
         <span className="text-[13px] leading-5 flex-shrink-0" aria-hidden>🔒</span>
         <p className="text-[11.5px] text-ink-mid leading-[1.4]">
-          Recommendations follow fixed rules — <strong className="text-ink">no AI, no guessing.</strong> You decide what
-          to act on. They're guidelines from your own data, not financial advice.
+          Every recommendation here comes from a fixed rule applied to your own data —{' '}
+          <strong className="text-ink">no model, nothing guessed.</strong> You decide what
+          to act on. They're guidelines, not financial advice.
         </p>
       </div>
 

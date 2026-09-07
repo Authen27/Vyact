@@ -1,0 +1,177 @@
+/* conv.css — Vyact conversation-design boards (WhatsApp templates + Ask Vyact)
+   Neutral messaging preview chrome. Brand = Aurora tokens + coral pip accent. */
+
+[data-vy-theme="dark"] { --vy-accent:#EC8474; --vy-accent-ink:#2A1712; }
+html,body { margin:0; background:#080D0F; }
+body { font-family:var(--vy-sans); color:var(--vy-ink); -webkit-font-smoothing:antialiased; }
+
+/* ── canvas furniture ─────────────────────────── */
+.board-label { position:absolute; font-family:var(--vy-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:#5C6F6C; white-space:nowrap; }
+.frame { position:absolute; overflow:hidden; background:var(--vy-canvas); box-shadow:0 30px 80px rgba(0,0,0,.55), inset 0 0 0 1px rgba(230,239,236,.07); }
+.frame.thread { width:390px; height:812px; border-radius:30px; }
+.frame.panel  { border-radius:20px; }
+.frame.app    { width:390px; height:812px; border-radius:30px; }
+.frame.wide   { border-radius:20px; }
+.frame-cap { position:absolute; width:390px; margin:0; font-size:12.5px; line-height:1.55; color:#8C9E9B; }
+.frame-cap b { color:#D6E3E0; font-weight:600; }
+.frame-cap i { color:#B0C0BD; }
+.frame-cap code { font-family:var(--vy-mono); font-size:11.5px; color:#EC8474; }
+.cap { font-family:var(--vy-mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--vy-ink-3); }
+.hd { font-family:var(--vy-heading); font-weight:700; letter-spacing:-.02em; line-height:1.12; }
+
+/* ── neutral message-preview chrome ───────────── */
+.wa-top { height:56px; display:flex; align-items:center; gap:11px; padding:0 14px; background:#101B1E; border-bottom:1px solid rgba(230,239,236,.07); flex-shrink:0; }
+.wa-top .av { width:34px; height:34px; border-radius:50%; background:linear-gradient(150deg,#F4B6A8,#E26D5C); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.wa-top .nm { font-size:14.5px; font-weight:600; color:#E6EFEC; display:flex; align-items:center; gap:5px; }
+.wa-top .sub { font-family:var(--vy-mono); font-size:9px; letter-spacing:.11em; text-transform:uppercase; color:#6E827E; }
+.wa-body { flex:1; overflow:hidden; padding:14px 12px; display:flex; flex-direction:column; gap:9px; background:#0B1416; }
+/* flex items default to shrink:1, which silently SQUEEZES a bubble instead of
+   overflowing the thread — clipping copy while scrollHeight still equals
+   clientHeight. Disable it so overflow is real and measurable. */
+.wa-body > *, .ap-body > * { flex-shrink:0; }
+.wa-foot { height:52px; display:flex; align-items:center; gap:9px; padding:0 13px; background:#101B1E; border-top:1px solid rgba(230,239,236,.07); flex-shrink:0; }
+.wa-foot .inp { flex:1; height:34px; border-radius:999px; background:#0B1416; box-shadow:inset 0 0 0 1px rgba(230,239,236,.09); display:flex; align-items:center; padding:0 14px; font-size:12.5px; color:#546663; }
+.wa-day { align-self:center; font-family:var(--vy-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:#5C6F6C; background:rgba(230,239,236,.05); padding:4px 11px; border-radius:6px; margin:3px 0; }
+
+/* bubbles */
+.wb { max-width:84%; align-self:flex-start; background:#17242A; border-radius:13px; border-bottom-left-radius:4px; padding:9px 12px; font-size:13px; line-height:1.5; color:#E6EFEC; position:relative; }
+.wb.me { align-self:flex-end; background:#243A34; border-bottom-left-radius:13px; border-bottom-right-radius:4px; }
+.wb .t { display:block; font-family:var(--vy-mono); font-size:8.5px; color:#6E827E; text-align:right; margin-top:4px; }
+.wb b { font-weight:600; }
+.wb .amt { font-family:var(--vy-mono); font-weight:600; }
+.wb.tpl { padding:0; overflow:hidden; }
+.wb.tpl .bd { padding:10px 12px 8px; }
+.wb.tpl .ft { padding:0 12px 9px; font-size:11.5px; color:#7A8D8A; font-style:italic; }
+.wb .btnrow { border-top:1px solid rgba(230,239,236,.1); display:flex; }
+.wb .btnrow + .btnrow { border-top:1px solid rgba(230,239,236,.1); }
+.wb .wbtn { flex:1; text-align:center; padding:9px 6px; font-size:12.5px; font-weight:600; color:#EC8474; }
+/* numbered option list — WhatsApp reply-by-number */
+.opts { margin:7px 0 2px; display:flex; flex-direction:column; gap:5px; }
+.opts .o { display:flex; gap:9px; align-items:baseline; font-size:12.5px; }
+.opts .o .n { font-family:var(--vy-mono); font-weight:600; color:#EC8474; flex-shrink:0; }
+.hold { margin-top:7px; font-size:11px; color:#7A8D8A; font-style:italic; }
+.hold.stop { color:#F0A08F; font-style:normal; }
+
+/* brand-composed media header card (export as PNG) */
+.mcard { height:132px; padding:15px 16px; display:flex; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden; }
+.mcard.warm { background:radial-gradient(120% 130% at 12% 0%, #6E3B34 0%, #3A211C 52%, #1B1310 100%); }
+.mcard.calm { background:radial-gradient(120% 130% at 12% 0%, #1E3A42 0%, #14262C 55%, #0C171A 100%); }
+.mcard.deep { background:radial-gradient(120% 130% at 12% 0%, #2E2545 0%, #1D1930 55%, #100E1B 100%); }
+.mcard .ey { font-family:var(--vy-mono); font-size:8.5px; letter-spacing:.17em; text-transform:uppercase; color:rgba(255,255,255,.55); }
+.mcard .hl { font-family:var(--vy-heading); font-weight:700; font-size:21px; line-height:1.1; letter-spacing:-.02em; color:#fff; }
+.mcard .fig { font-family:var(--vy-mono); font-weight:700; font-size:27px; letter-spacing:-.01em; }
+.mcard .pipmk { position:absolute; right:14px; bottom:13px; opacity:.9; }
+.mcard .strip { display:flex; gap:4px; align-items:flex-end; height:26px; }
+.mcard .strip i { width:7px; border-radius:2px; background:rgba(255,255,255,.3); display:block; }
+
+/* ── doctrine panel bits ──────────────────────── */
+.dp { padding:26px 28px; }
+.turngrid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; }
+.turn { background:var(--vy-canvas); border-radius:var(--vy-r-2); box-shadow:var(--vy-neu-sm); padding:13px 13px 14px; display:flex; flex-direction:column; gap:7px; border-top:2px solid var(--th,#6E827E); }
+.turn .tg { font-family:var(--vy-mono); font-size:9px; letter-spacing:.11em; text-transform:uppercase; color:var(--th,#6E827E); }
+.turn .tn { font-family:var(--vy-heading); font-weight:700; font-size:14px; color:#E6EFEC; }
+.turn .td { font-size:11.5px; line-height:1.45; color:#98ABA8; }
+.turn .tr { font-size:11px; line-height:1.4; color:#D6E3E0; padding-left:9px; border-left:2px solid var(--th,#6E827E); }
+.rulebox { background:var(--vy-canvas); border-radius:var(--vy-r-2); box-shadow:var(--vy-neu-inset); padding:15px 17px; }
+.rulebox h4 { margin:0 0 9px; font-family:var(--vy-heading); font-size:13px; font-weight:700; color:#E6EFEC; }
+.rulebox li { font-size:12px; line-height:1.5; color:#A6BAB6; margin-bottom:5px; }
+.rulebox ul { margin:0; padding-left:16px; }
+.rulebox code { font-family:var(--vy-mono); font-size:11px; color:#EC8474; }
+.vtag { display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius:6px; font-family:var(--vy-mono); font-size:9px; letter-spacing:.09em; text-transform:uppercase; }
+.vtag.keep { background:rgba(79,217,174,.14); color:#4FD9AE; }
+.vtag.new  { background:rgba(99,214,234,.14); color:#63D6EA; }
+.vtag.del  { background:rgba(245,138,140,.15); color:#F58A8C; }
+.vtag.mkt  { background:rgba(242,201,120,.15); color:#F2C978; }
+
+/* library table */
+.lib { width:100%; border-collapse:collapse; }
+.lib th { font-family:var(--vy-mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:#6E827E; text-align:left; padding:9px 12px; background:rgba(230,239,236,.04); font-weight:500; }
+.lib td { padding:10px 12px; font-size:12px; line-height:1.5; color:#A6BAB6; border-top:1px solid rgba(230,239,236,.06); vertical-align:top; }
+.lib td.n { font-family:var(--vy-mono); font-size:11.5px; color:#E6EFEC; white-space:nowrap; }
+.lib td.b { color:#D6E3E0; }
+.lib tr.dead td { color:#5C6F6C; }
+.lib tr.dead td.n { color:#7A8D8A; text-decoration:line-through; }
+
+/* ── in-app Ask Vyact chat ────────────────────── */
+.ap-top { height:52px; display:flex; align-items:center; gap:10px; padding:0 16px; border-bottom:1px solid var(--vy-line); flex-shrink:0; }
+.ap-body { flex:1; overflow:hidden; padding:16px 14px; display:flex; flex-direction:column; gap:11px; }
+.ap-foot { padding:11px 14px calc(env(safe-area-inset-bottom,8px) + 12px); border-top:1px solid var(--vy-line); flex-shrink:0; }
+.ab { max-width:86%; align-self:flex-start; font-size:13.5px; line-height:1.55; color:var(--vy-ink); background:var(--vy-canvas); box-shadow:var(--vy-neu-sm); border-radius:var(--vy-r-3); border-bottom-left-radius:5px; padding:11px 14px; }
+.ab.me { align-self:flex-end; background:var(--vy-accent); color:var(--vy-accent-ink); box-shadow:var(--vy-neu-sm); border-bottom-left-radius:var(--vy-r-3); border-bottom-right-radius:5px; font-weight:500; }
+.ab.glass { background:var(--vy-glass,rgba(23,36,42,.7)); backdrop-filter:blur(14px); box-shadow:inset 0 0 0 1px rgba(230,239,236,.1); }
+.chips { display:flex; flex-wrap:wrap; gap:8px; align-self:flex-start; max-width:92%; }
+.chip { padding:9px 14px; border-radius:999px; background:var(--vy-canvas); box-shadow:var(--vy-neu-sm); font-size:12.5px; font-weight:500; color:var(--vy-ink); }
+.chip.pri { background:var(--vy-accent); color:var(--vy-accent-ink); }
+.dcard { align-self:flex-start; max-width:92%; background:var(--vy-canvas); border-radius:var(--vy-r-3); box-shadow:var(--vy-neu); padding:14px 15px; display:flex; flex-direction:column; gap:10px; }
+.dcard .row { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:12.5px; }
+.dcard .row .k { color:var(--vy-ink-3); font-family:var(--vy-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+.dcard .row .v { color:var(--vy-ink); font-weight:600; }
+.dcard .row .v.mono { font-family:var(--vy-mono); }
+.assume { font-size:11.5px; line-height:1.45; color:var(--vy-ink-3); padding-left:10px; border-left:2px solid var(--vy-fore); }
+.typing { display:flex; gap:4px; align-items:center; padding:13px 16px; }
+.typing i { width:6px; height:6px; border-radius:50%; background:var(--vy-ink-3); display:block; animation:tdot 1.2s infinite; }
+.typing i:nth-child(2){animation-delay:.15s} .typing i:nth-child(3){animation-delay:.3s}
+@keyframes tdot { 0%,60%,100%{opacity:.25;transform:translateY(0)} 30%{opacity:1;transform:translateY(-3px)} }
+.inbar { display:flex; align-items:center; gap:9px; height:46px; border-radius:999px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); padding:0 6px 0 16px; }
+.inbar .ph { flex:1; font-size:13px; color:var(--vy-ink-4); }
+.inbar .send { width:34px; height:34px; border-radius:50%; background:var(--vy-accent); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+/* turn-type label — normal flow, above the copy, so it never covers a line.
+   Compact by design: the message text is the artifact, this is its annotation. */
+.turnbadge { display:block; width:fit-content; font-family:var(--vy-mono); font-size:8px; letter-spacing:.1em; text-transform:uppercase; color:#7A8D8A; margin-bottom:5px; line-height:1.25; }
+.wb.tpl > .turnbadge { margin:9px 12px 3px; }
+.dcard > .turnbadge, .ab > .turnbadge { color:var(--vy-ink-3); }
+@media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+
+/* ── media header cards ───────────────────────── */
+.card { padding:0; }
+.mhead { width:600px; height:314px; position:relative; overflow:hidden; flex-shrink:0; }
+.mhead .in { position:absolute; inset:0; padding:30px 34px; display:flex; flex-direction:column; justify-content:space-between; }
+.mhead .ey { font-family:var(--vy-mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,.82); }
+.mhead .hl { font-family:var(--vy-heading); font-weight:700; font-size:40px; line-height:1.04; letter-spacing:-.025em; color:#fff; max-width:340px; }
+.mhead .sl { font-size:14.5px; color:rgba(255,255,255,.62); margin-top:9px; max-width:330px; line-height:1.45; }
+.mhead .dev { position:absolute; right:30px; top:50%; transform:translateY(-50%); }
+.mhead .wm { display:flex; align-items:center; gap:7px; }
+.mhead .wm span { font-family:var(--vy-heading); font-weight:700; font-size:15px; color:rgba(255,255,255,.92); letter-spacing:-.01em; }
+.mhead.sm { width:420px; height:220px; }
+.mhead.sm .in { padding:22px 24px; }
+.mhead.sm .hl { font-size:28px; max-width:240px; }
+.mhead.sm .sl { font-size:12.5px; margin-top:6px; max-width:230px; }
+.mhead.sm .ey { font-size:9px; }
+.mhead.sm .dev { right:20px; transform:translateY(-50%) scale(.72); }
+.g-coral { background:radial-gradient(115% 130% at 8% 0%, #7A4038 0%, #3E231D 48%, #180F0D 100%); }
+.g-jade  { background:radial-gradient(115% 130% at 8% 0%, #1C5049 0%, #12302E 50%, #0A1817 100%); }
+.g-cyan  { background:radial-gradient(115% 130% at 8% 0%, #1B4551 0%, #112B33 50%, #08171B 100%); }
+.g-gold  { background:radial-gradient(115% 130% at 8% 0%, #6A5124 0%, #3A2C15 50%, #17110A 100%); }
+.g-viol  { background:radial-gradient(115% 130% at 8% 0%, #3B2C58 0%, #241C36 50%, #100D1A 100%); }
+
+/* ── message body + variants ──────────────────── */
+.msg { padding:16px 18px 18px; display:flex; flex-direction:column; gap:11px; }
+.mbub { background:#17242A; border-radius:13px; border-bottom-left-radius:4px; padding:12px 14px; font-size:13.5px; line-height:1.62; color:#E6EFEC; white-space:pre-line; }
+.mbub b { font-weight:600; }
+.mbub var { font-family:var(--vy-mono); font-style:normal; font-size:12.5px; color:#EC8474; }
+.mbub .ftl { display:block; margin-top:9px; padding-top:9px; border-top:1px solid rgba(230,239,236,.1); font-size:11.5px; color:#7A8D8A; font-style:italic; }
+.mbtn { display:flex; gap:0; border-top:1px solid rgba(230,239,236,.1); margin:9px -14px -12px; }
+.mbtn span { flex:1; text-align:center; padding:10px 6px; font-size:12.5px; font-weight:600; color:#EC8474; }
+.mbtn span + span { border-left:1px solid rgba(230,239,236,.1); }
+.vlabel { display:flex; align-items:center; gap:8px; }
+.vlabel .k { font-family:var(--vy-mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:#7A8D8A; }
+.vlabel .d { font-size:11.5px; color:#8C9E9B; }
+.vlabel hr { flex:1; border:0; border-top:1px solid rgba(230,239,236,.08); }
+
+/* ── variable legend ──────────────────────────── */
+.vlg { background:var(--vy-canvas); border-radius:10px; box-shadow:var(--vy-neu-inset); padding:12px 14px; }
+.vlg .hd2 { font-family:var(--vy-mono); font-size:9px; letter-spacing:.13em; text-transform:uppercase; color:#7A8D8A; margin-bottom:9px; }
+.vlg .r { display:grid; grid-template-columns:44px 1fr; gap:4px 10px; font-size:11.5px; line-height:1.5; margin-bottom:4px; }
+.vlg .r:last-child { margin-bottom:0; }
+.vlg .r code { font-family:var(--vy-mono); font-size:11px; color:#EC8474; }
+.vlg .r span { color:#A6BAB6; }
+.vlg .r span em { color:#D6E3E0; font-style:normal; font-family:var(--vy-mono); font-size:10.5px; }
+
+/* ── bucket badges ────────────────────────────── */
+.bkt { font-family:var(--vy-mono); font-size:9px; letter-spacing:.11em; text-transform:uppercase; padding:4px 9px; border-radius:5px; font-weight:500; }
+.bkt.a { background:rgba(236,132,116,.16); color:#EC8474; }
+.bkt.b { background:rgba(99,214,234,.15); color:#63D6EA; }
+.bkt.c { background:rgba(196,166,255,.16); color:#C4A6FF; }
+.tt { font-family:var(--vy-mono); font-size:9px; letter-spacing:.11em; text-transform:uppercase; color:#7A8D8A; }
+.nmo { font-family:var(--vy-mono); font-size:11px; color:#A6BAB6; margin-left:auto; }
+.meta { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }

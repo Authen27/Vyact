@@ -20,11 +20,13 @@ import { getCat, NEEDS_WANTS_MAP } from '../constants';
 import { fmt } from './format';
 import { nowMonthKey, getMonthKey } from './format';
 import type { SafeSummary } from './aiSummary';
+import type { IntentResult, AssistantBucket } from './askVyactIntents';
+import { normaliseChips, type AssistantChip, type ResolveResult } from './askVyactResponses';
 import {
-  classifyIntent as rulesClassify, type IntentResult, type AssistantBucket,
-} from './askVyactIntents';
-import { parse } from './askVyactParser';
-import { phraseResponse as rulesPhrase, type ResolveResult } from './askVyactResponses';
+  classifyIntentViaModel, phraseViaModel,
+  InventedFigureError, ModelUnavailableError, type ModelCall,
+} from './askVyactLlm';
+import { resolveConfiguredModelCall } from './askVyactModelCall';
 import { isAskVyactBucketEnabled, FEATURES } from '../config/features';
 
 // ── Context passed through the pipeline (the same data the dashboard reads) ─────
@@ -43,10 +45,27 @@ export interface AssistantContext {
 }
 
 // ── The two-method seam (rules now, LLM later) ─────────────────────────────────
+// Both methods are ASYNC. The rules implementation resolves immediately (no I/O),
+// but the signature must be Promise-shaped so a network-backed LlmBackend can be
+// dropped in without touching a single call site. Stages 1/2/4 stay synchronous
+// and pure — only the seam awaits.
 export interface AssistantBackend {
   id: 'rules' | 'llm';
-  classifyIntent(utterance: string, ctx: AssistantContext): IntentResult;   // stage 3
-  phraseResponse(intent: IntentResult, result: ResolveResult, ctx: AssistantContext): string; // stage 5
+  classifyIntent(utterance: string, ctx: AssistantContext): Promise<IntentResult>;   // stage 3
+  /**
+   * `seed` selects the phrasing variant deterministically, so the same question
+   * always reads the same way. It is part of the CONTRACT, not an implementation
+   * detail of the rules backend: it used to be smuggled through a
+   * `backend as RulesBackend` cast at the call site, which meant any backend not
+   * declaring a 4th parameter silently dropped it and fell back to `Date.now()`
+   * — making replies non-reproducible on that path, with no test to catch it.
+   */
+  phraseResponse(
+    intent: IntentResult,
+    result: ResolveResult,
+    ctx: AssistantContext,
+    seed?: number,
+  ): Promise<string>; // stage 5
 }
 
 export interface AssistantTurn {
@@ -55,6 +74,12 @@ export interface AssistantTurn {
   intentId: string;
   /** Capture only — seed for the existing TransactionFormModal (openAddTxn). */
   seed?: Partial<Transaction>;
+  /**
+   * Up to three one-tap follow-ups (#62). Already normalised and capped by
+   * `runAssistant` — a renderer may show these verbatim without re-checking.
+   * `undefined` means this turn offers none, which is normal.
+   */
+  chips?: AssistantChip[];
   /** True when the turn is a clarifying chip / fallback rather than an answer. */
   clarify: boolean;
 }
@@ -103,7 +128,11 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
     case 'capture.transfer':
     case 'capture.investment': {
       if (e.amount == null) {
-        return { kind: 'capture', outcome: 'missing_amount', vars: {}, chip: { label: 'Add details' } };
+        // No chips. The deck answers this case with three amounts drawn from
+        // this user's own spend history ("₹200 · ₹500 · ₹1,000") — that needs
+        // #70. The old `{ label: 'Add details' }` placeholder asked nothing, so
+        // it could only ever have been a dead end had it reached a screen.
+        return { kind: 'capture', outcome: 'missing_amount', vars: {} };
       }
       const type: TxnType = intent.id === 'capture.income' ? 'income'
         : intent.id === 'capture.transfer' ? 'transfer'
@@ -128,7 +157,11 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
     }
     case 'capture.split': {
       if (e.amount == null) {
-        return { kind: 'capture', outcome: 'missing_amount', vars: {}, chip: { label: 'Add details' } };
+        // No chips. The deck answers this case with three amounts drawn from
+        // this user's own spend history ("₹200 · ₹500 · ₹1,000") — that needs
+        // #70. The old `{ label: 'Add details' }` placeholder asked nothing, so
+        // it could only ever have been a dead end had it reached a screen.
+        return { kind: 'capture', outcome: 'missing_amount', vars: {} };
       }
       const ways = e.participantCount ?? 2;
       const share = Math.round((e.amount / ways) * 100) / 100;
@@ -159,9 +192,15 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       const amount = spend[category] || 0;
       const budget = ctx.budgets.find(b => b.category === category);
       const usesEstimate = categoryUsesEstimate(ctx, category);
+      // The deck's canonical example of the rule: after a figure, the next
+      // question is "why", never "open reports".
+      const lookupChips: AssistantChip[] = [
+        { label: 'Why is it up?', prompt: `why is my ${getCat(category).label.toLowerCase()} spending so high` },
+        { label: 'Where else is it going?', prompt: 'where is my money going' },
+      ];
       if (budget && budget.limit > 0) {
         return {
-          kind: 'interpret', outcome: 'vs_budget', usesEstimate,
+          kind: 'interpret', outcome: 'vs_budget', usesEstimate, chips: lookupChips,
           vars: {
             amount: money(amount, ctx), category: getCat(category).label.toLowerCase(),
             pct: `${Math.round((amount / budget.limit) * 100)}%`, budget: money(budget.limit, ctx),
@@ -169,7 +208,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         };
       }
       return {
-        kind: 'interpret', outcome: 'ok', usesEstimate,
+        kind: 'interpret', outcome: 'ok', usesEstimate, chips: lookupChips,
         vars: { amount: money(amount, ctx), category: getCat(category).label.toLowerCase() },
       };
     }
@@ -207,14 +246,21 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       }
       if (worst && worst.delta / Math.max(worst.avg, 1) >= 0.2) {
         const pct = Math.round((worst.delta / worst.avg) * 100);
+        // The chips deliberately exclude "Why so high?" — this reply has just
+        // said why, and the deck bans a chip that repeats the answer.
         return { kind: 'interpret', outcome: 'found', usesEstimate: categoryUsesEstimate(ctx, worst.cat), vars: {
           headline: `${getCat(worst.cat).label} is ${pct}% above your usual.`,
           detail: `It's at ${money(worst.now, ctx)} this month vs about ${money(worst.avg, ctx)} normally — that's the main pull on your cash.`,
-        }, chip: { label: `See ${getCat(worst.cat).label}`, prompt: `how much on ${worst.cat} this month` } };
+        }, chips: [
+          { label: `See ${getCat(worst.cat).label}`, prompt: `how much on ${worst.cat} this month` },
+          { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+        ] };
       }
       return { kind: 'interpret', outcome: 'clear', vars: {
         detail: `your spending is tracking close to your normal pattern this month.`,
-      } };
+      }, chips: [
+        { label: 'What did I spend most on?', prompt: 'what did I spend the most on this month' },
+      ] };
     }
     case 'interpret.budgets': {
       const over = ctx.summary.budgets.filter(b => b.spentPct > 100);
@@ -224,10 +270,16 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         : near.length
           ? `${near.length} close to the limit: ${near.map(b => getCat(b.category).label).join(', ')}.`
           : ctx.summary.budgets.length ? `all ${ctx.summary.budgets.length} budgets are on track.` : `you have no budgets yet.`;
+      // Chips only when there is something to chase — "Budgets look healthy"
+      // needs no follow-up, and an offer of one implies a problem there isn't.
+      const worstBudget = over[0] ?? near[0];
       return { kind: 'interpret', outcome: 'ok', vars: {
         headline: over.length ? 'Some budgets need attention.' : near.length ? 'A couple of budgets are getting close.' : 'Budgets look healthy.',
         detail,
-      } };
+      }, chips: worstBudget ? [
+        { label: `Why is ${getCat(worstBudget.category).label} over?`, prompt: `why is my ${getCat(worstBudget.category).label.toLowerCase()} spending so high` },
+        { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+      ] : undefined };
     }
     case 'interpret.debts': {
       const d = ctx.summary.debts;
@@ -253,7 +305,9 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
 
     // ── Forecast (Planner-grounded) ──────────────────────────────────────────────
     case 'forecast.affordability': {
-      if (e.amount == null) return { kind: 'forecast', outcome: 'missing_amount', vars: {}, chip: { label: 'How much?' } };
+      // No chip: the reply itself asks "how much?", and a chip that repeats the
+      // answer is exactly what the deck's rule forbids.
+      if (e.amount == null) return { kind: 'forecast', outcome: 'missing_amount', vars: {} };
       const liquid = liquidAssets(ctx.assets, cur(ctx), ctx.rates);
       const floor = emergencyFloor(ctx);
       const headroom = liquid - floor;
@@ -261,17 +315,30 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         return { kind: 'forecast', outcome: 'fits', vars: {
           amount: money(e.amount, ctx), headroom: money(headroom, ctx),
           cushion: money(headroom - e.amount, ctx),
-        } };
+        }, chips: [
+          { label: 'How long would my savings last?', prompt: 'how long would my savings last' },
+        ] };
       }
+      // The deck's chip here is "When is it comfortable?" — deliberately NOT
+      // shipped: answering it needs payday as a modelled date (#68), and today
+      // `payday` is only a trigger keyword. The old chip carried no prompt, so
+      // it would have been untappable even had it reached a screen. These two
+      // are answerable now.
       return { kind: 'forecast', outcome: 'tight', vars: {
         amount: money(e.amount, ctx), shortfall: money(e.amount - headroom, ctx),
-      }, chip: { label: 'When is it comfortable?' } };
+      }, chips: [
+        { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+        { label: 'How long would my savings last?', prompt: 'how long would my savings last' },
+      ] };
     }
     case 'forecast.runway': {
       const liquid = liquidAssets(ctx.assets, cur(ctx), ctx.rates);
       const burn = monthlyBurn(ctx) || (totalMonthlyDebtPayment(ctx.debts, cur(ctx), ctx.rates) + 1);
       const months = burn > 0 ? liquid / burn : 0;
-      return { kind: 'forecast', outcome: 'ok', vars: { months: months.toFixed(1) } };
+      return { kind: 'forecast', outcome: 'ok', vars: { months: months.toFixed(1) }, chips: [
+        { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+        { label: 'What is driving my spending?', prompt: 'where is my money going' },
+      ] };
     }
     case 'forecast.prescriptive': {
       const target = e.amount;
@@ -307,62 +374,126 @@ function fallback(): ResolveResult {
   return { kind: 'fallback', outcome: 'default', vars: {} };
 }
 
-// ── RulesBackend — the shipped AssistantBackend (stages 3 + 5) ──────────────────
-export class RulesBackend implements AssistantBackend {
-  readonly id = 'rules' as const;
-  classifyIntent(utterance: string): IntentResult {
-    return rulesClassify(parse(utterance));
-  }
-  // The variant key is `${intent.id}.${outcome}` — intent.id already distinguishes
-  // expense/income/transfer/split, so no remapping is needed.
-  phraseResponse(intent: IntentResult, result: ResolveResult, _ctx?: AssistantContext, seed?: number): string {
-    return rulesPhrase(intent, result, seed);
-  }
-}
-
-// ── LlmBackend — future drop-in. Inherits stages 1/2/4 with ZERO change; only
-//    classify (3) + phrase (5) become model calls. Stubbed so the seam compiles
-//    and an acceptance test can swap it in (spec §9). ─────────────────────────
+// ── LlmBackend — the ONLY assistant backend (v10.20) ────────────────────────────
+//
+// The deterministic `RulesBackend` was REMOVED in v10.20 by product decision:
+// Ask Vyact is model-backed, with no rules fallback for classify/phrase.
+//
+// What did NOT move: stage 4, `resolve()` above. Every figure the assistant says
+// still comes from it. The model decides WHICH question this is and says the
+// answer in words — it never computes money. That is the binding rule, and
+// `assertNoInventedFigures` enforces it on the way out rather than trusting the
+// prompt to have been obeyed.
+//
+// CONSEQUENCE, stated plainly: with no model configured and reachable, Ask Vyact
+// cannot answer. `runAssistant` surfaces that as an explicit unavailable turn —
+// it must never silently degrade to a canned reply, because a finance assistant
+// that quietly stops thinking while still sounding confident is worse than one
+// that says it is unavailable.
 export class LlmBackend implements AssistantBackend {
   readonly id = 'llm' as const;
-  // TODO(future-major v7.0): replace these two bodies with model calls. The
-  // payload is the existing aiSummary aggregation only — never raw transactions.
-  classifyIntent(utterance: string): IntentResult {
-    return rulesClassify(parse(utterance)); // safe default until the model lands
+  constructor(private readonly call: ModelCall) {}
+
+  async classifyIntent(utterance: string, ctx: AssistantContext): Promise<IntentResult> {
+    return classifyIntentViaModel(utterance, ctx, this.call);
   }
-  phraseResponse(intent: IntentResult, result: ResolveResult): string {
-    return rulesPhrase(intent, result);
+
+  /** `seed` is accepted for interface conformance; a model does not use a
+   *  variant table, so phrasing variety comes from the model itself. */
+  async phraseResponse(
+    intent: IntentResult, result: ResolveResult, _ctx?: AssistantContext, _seed?: number,
+  ): Promise<string> {
+    return phraseViaModel(intent, result, this.call);
   }
 }
 
-/** Select the active backend per the feature flag (the existing selection seam). */
-export function selectAssistantBackend(): AssistantBackend {
-  return FEATURES.askVyact.backend === 'llm' ? new LlmBackend() : new RulesBackend();
+/**
+ * The model transport. Resolved per turn (never memoised at module scope) so a
+ * DB-driven configuration change takes effect on the next question rather than
+ * requiring a page reload.
+ *
+ * Returns null when no model is configured — the caller must treat that as
+ * "unavailable", not as a reason to invent an answer.
+ */
+export function selectModelCall(): ModelCall | null {
+  return resolveConfiguredModelCall();
+}
+
+/** The active backend, or null when no model is reachable. */
+export function selectAssistantBackend(): AssistantBackend | null {
+  const call = selectModelCall();
+  return call ? new LlmBackend(call) : null;
 }
 
 // ── The orchestrator — runs all five stages ─────────────────────────────────────
-export function runAssistant(
+// The `backend` default is evaluated PER CALL (not captured at module load), so a
+// runtime change to `FEATURES.askVyact.backend` takes effect on the next turn.
+export async function runAssistant(
   utterance: string,
   ctx: AssistantContext,
-  backend: AssistantBackend = selectAssistantBackend(),
+  backend: AssistantBackend | null = selectAssistantBackend(),
   seed = Date.now(),
-): AssistantTurn {
-  const intent = backend.classifyIntent(utterance, ctx);          // stages 1–3
-  // Per-bucket gate: a disabled bucket degrades to a clarifying fallback (§2).
-  if (intent.bucket !== 'none' && !isAskVyactBucketEnabled(intent.bucket)) {
-    const r = fallback();
-    return { reply: backend.phraseResponse({ ...intent, id: 'fallback' }, r, ctx), bucket: 'none', intentId: 'fallback', clarify: true };
+): Promise<AssistantTurn> {
+  // No model configured or reachable. Say so — never fake an answer. There is no
+  // rules fallback by design (v10.20), and a finance assistant that invents a
+  // reply when it cannot think is worse than one that admits it is offline.
+  if (!backend) return unavailableTurn('not_configured');
+
+  let intent: IntentResult;
+  try {
+    intent = await backend.classifyIntent(utterance, ctx);         // stages 1–3
+  } catch (err) {
+    if (err instanceof ModelUnavailableError) return unavailableTurn('unreachable');
+    throw err;
   }
-  const result = resolve(intent, ctx);                            // stage 4 (never LLM)
-  // RulesBackend accepts a 4th `seed` arg for deterministic phrasing in tests;
-  // the AssistantBackend interface only requires the first three.
-  const reply = (backend as RulesBackend).phraseResponse(intent, result, ctx, seed);
+
+  // Per-bucket gate: a disabled bucket degrades to a clarifying fallback (§2).
+  const gated = intent.bucket !== 'none' && !isAskVyactBucketEnabled(intent.bucket);
+  const effective: IntentResult = gated
+    ? { ...intent, id: 'fallback', bucket: 'none' }
+    : intent;
+  const result = gated ? fallback() : resolve(effective, ctx);     // stage 4 (never LLM)
+
+  let reply: string;
+  try {
+    reply = await backend.phraseResponse(effective, result, ctx, seed);
+  } catch (err) {
+    if (err instanceof ModelUnavailableError) return unavailableTurn('unreachable');
+    // The model put a figure in the reply that no tool computed. Discard the
+    // whole reply: showing an invented number in a finance app is the one
+    // failure this system exists to prevent.
+    if (err instanceof InventedFigureError) return unavailableTurn('unverified_figures');
+    throw err;
+  }
+
   return {
     reply,
-    bucket: intent.bucket,
-    intentId: intent.id,
+    bucket: effective.bucket,
+    intentId: effective.id,
     seed: result.seed,
-    clarify: result.kind === 'fallback' || result.outcome === 'missing_amount',
+    // The ONE place the cap and the well-formedness rule are applied, so every
+    // channel gets the same list and no call site can opt out of the limit.
+    chips: normaliseChips(result.chips),
+    clarify: gated || result.kind === 'fallback' || result.outcome === 'missing_amount',
+  };
+}
+
+/** Reason codes are distinct so telemetry can tell "never set up" from
+ *  "set up but broken" from "the model misbehaved" — three different fixes. */
+export type UnavailableReason = 'not_configured' | 'unreachable' | 'unverified_figures';
+
+const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
+  not_configured: "Ask Vyact isn't set up yet — no assistant model is configured.",
+  unreachable: "I can't reach the assistant right now. Your data is untouched — please try again shortly.",
+  unverified_figures: "I couldn't verify the numbers in that answer, so I haven't shown it. Please ask again.",
+};
+
+function unavailableTurn(reason: UnavailableReason): AssistantTurn {
+  return {
+    reply: UNAVAILABLE_COPY[reason],
+    bucket: 'none',
+    intentId: 'unavailable',
+    clarify: true,
   };
 }
 

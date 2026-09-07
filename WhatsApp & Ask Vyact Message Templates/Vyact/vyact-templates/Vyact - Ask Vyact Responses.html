@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Vyact · Ask Vyact Responses</title>
+<link rel="stylesheet" href="../vyact-tokens-v2.css" />
+<link rel="stylesheet" href="templates.css" />
+<style>
+.qgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.qcell { background:var(--vy-canvas); border-radius:14px; box-shadow:var(--vy-neu-sm); padding:14px 15px; display:flex; flex-direction:column; gap:9px; }
+.qq { align-self:flex-end; max-width:88%; background:var(--vy-accent); color:var(--vy-accent-ink); border-radius:13px; border-bottom-right-radius:4px; padding:8px 12px; font-size:12.5px; font-weight:500; line-height:1.45; }
+.rr { align-self:flex-start; max-width:94%; background:#17242A; border-radius:13px; border-bottom-left-radius:4px; padding:10px 12px; font-size:12.5px; line-height:1.6; color:#E6EFEC; white-space:pre-line; }
+.rr b { font-weight:600; }
+.rr var { font-family:var(--vy-mono); font-style:normal; font-size:11.5px; color:#EC8474; }
+.rr.fore { background:rgba(196,166,255,.08); box-shadow:inset 0 0 0 1px rgba(196,166,255,.2); }
+.rr.ref { background:rgba(242,201,120,.08); box-shadow:inset 0 0 0 1px rgba(242,201,120,.2); }
+.rchips { display:flex; flex-wrap:wrap; gap:6px; align-self:flex-start; }
+.rchips span { padding:6px 11px; border-radius:999px; background:var(--vy-sunken); box-shadow:var(--vy-neu-inset); font-size:11px; color:var(--vy-ink-2); }
+.shape { font-family:var(--vy-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:#7A8D8A; }
+.assume2 { font-size:11px; line-height:1.4; color:#8C9E9B; padding-left:9px; border-left:2px solid var(--vy-fore); }
+</style>
+</head>
+<body>
+
+<div class="board-label" style="left:40px; top:36px;">Vyact · Ask Vyact responses &nbsp;·&nbsp; 24 real queries and what pip says back &nbsp;·&nbsp; in-app assistant, authenticated</div>
+
+<!-- ══════════ RULES ══════════ -->
+<section class="frame panel wide" style="left:40px; top:90px; width:1900px; height:256px;">
+  <div class="dp" style="padding:22px 26px;">
+    <div style="display:flex; align-items:flex-start; gap:24px;">
+      <div style="width:400px;">
+        <div class="cap" style="margin-bottom:7px;">In-app assistant</div>
+        <div class="hd" style="font-size:22px; margin-bottom:10px;">Same seven turns as WhatsApp. More room, and no PIN.</div>
+        <div style="font-size:12.5px; color:#98ABA8; line-height:1.6;">The user is authenticated here, so every figure answers straight away — net worth included. Copy is ours to change freely, which is also where Hinglish mirroring lives.</div>
+      </div>
+      <div style="width:1px; background:rgba(230,239,236,.1); align-self:stretch;"></div>
+      <div style="flex:1;">
+        <div class="cap" style="margin-bottom:9px;">Response shape, by bucket</div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;">
+          <div><div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span class="bkt a">A · Capture</span></div><div style="font-size:11.5px; color:#98ABA8; line-height:1.5;">Echo what was recorded, then the undo. If a field was inferred by a model, ask before saving. Never more than one question.</div></div>
+          <div><div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span class="bkt b">B · Interpret</span></div><div style="font-size:11.5px; color:#98ABA8; line-height:1.5;">Headline figure first, then the context that makes it mean something, then the two or three likely follow-ups as chips.</div></div>
+          <div><div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span class="bkt c">C · Forecast</span></div><div style="font-size:11.5px; color:#98ABA8; line-height:1.5;">Verdict, the number behind it, then the assumption it rests on — always. Never a flat “no”; name the date the answer changes.</div></div>
+        </div>
+      </div>
+      <div style="width:1px; background:rgba(230,239,236,.1); align-self:stretch;"></div>
+      <div style="width:340px;">
+        <div class="cap" style="margin-bottom:9px;">Hard limits</div>
+        <ul style="margin:0; padding-left:15px;">
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45; margin-bottom:4px;">Never a figure the app didn't calculate — no “roughly a third”.</li>
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45; margin-bottom:4px;">Never investment, tax or legal advice.</li>
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45; margin-bottom:4px;">Say “I don't have enough yet” rather than estimate thinly.</li>
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45;">Every inbound message gets a reply.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CHAT FLOWS ══════════ -->
+<section class="frame app" style="left:40px; top:396px;" data-screen-label="R1 Capture flow">
+  <div style="display:flex; flex-direction:column; height:100%;">
+    <div class="ap-top"><svg width="26" height="26" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="#E26D5C"/><path d="M18 4 Q15.8 .4 13.8 2.4 Q17 4.4 18 4 Z" fill="#85A88A"/><ellipse cx="13" cy="16" rx="1.5" ry="2" fill="#2A1712"/><ellipse cx="23" cy="16" rx="1.5" ry="2" fill="#2A1712"/><path d="M12.5 22 Q18 27 23.5 22" stroke="#2A1712" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg><div style="flex:1;"><div style="font-size:15px; font-weight:600; font-family:var(--vy-heading);">Ask Vyact</div><div class="cap" style="font-size:8.5px;">pip · always here</div></div><span class="bkt a">Capture</span></div>
+    <div class="ap-body">
+      <div class="ab me">450 lunch</div>
+      <div class="ab"><span class="turnbadge">Result</span>Got it — <b>₹450</b> · Lunch · today.</div>
+      <div class="chips"><span class="chip" style="font-size:11.5px; padding:7px 12px;">Undo</span><span class="chip" style="font-size:11.5px; padding:7px 12px;">Change category</span></div>
+      <div class="ab me">no that was groceries</div>
+      <div class="ab"><span class="turnbadge">Result</span>Changed to Groceries. The earlier entry is gone — nothing double-counted.</div>
+      <div class="ab me">i paid rent</div>
+      <div class="ab"><span class="turnbadge">Ask</span>Got Rent, but not the amount. How much was it?</div>
+      <div class="ab me">26000</div>
+      <div class="ab"><span class="turnbadge">Result</span><b>₹26,000</b> · Rent · today. That's your biggest fixed cost this month, as usual.</div>
+    </div>
+    <div class="ap-foot"><div class="inbar"><span class="ph">Tell me what you spent…</span><span class="send"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A1712" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span></div></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:1222px; width:390px;"><b>R1 · Capture flow.</b> Three turns in a row with no friction: log, correct, complete. The missing-amount Ask takes a bare number as its answer, and the final Result adds one line of context — the difference between a receipt and an assistant.</p>
+
+<section class="frame app" style="left:470px; top:396px;" data-screen-label="R2 Interpret flow">
+  <div style="display:flex; flex-direction:column; height:100%;">
+    <div class="ap-top"><svg width="26" height="26" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="#E26D5C"/><path d="M18 4 Q15.8 .4 13.8 2.4 Q17 4.4 18 4 Z" fill="#85A88A"/><ellipse cx="13" cy="16" rx="1.5" ry="2" fill="#2A1712"/><ellipse cx="23" cy="16" rx="1.5" ry="2" fill="#2A1712"/><path d="M12.5 22 Q18 27 23.5 22" stroke="#2A1712" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg><div style="flex:1;"><div style="font-size:15px; font-weight:600; font-family:var(--vy-heading);">Ask Vyact</div><div class="cap" style="font-size:8.5px;">pip · always here</div></div><span class="bkt b">Interpret</span></div>
+    <div class="ap-body">
+      <div class="ab me">where did my money go this month?</div>
+      <div class="dcard"><span class="turnbadge">Result · diagnostic</span>
+        <div style="font-size:14.5px; font-family:var(--vy-heading); font-weight:600;">Dining, and it's the weekends.</div>
+        <div style="font-size:12.5px; line-height:1.55; color:var(--vy-ink-2);">₹6,840 of your ₹28,400 — the biggest single slice, and ₹1,240 above your usual.</div>
+        <div class="row"><span class="k">Weekends</span><span class="v mono">₹420/day</span></div>
+        <div class="row"><span class="k">Weekdays</span><span class="v mono">₹180/day</span></div>
+      </div>
+      <div class="chips"><span class="chip pri" style="font-size:11.5px; padding:7px 12px;">How do I get it under?</span><span class="chip" style="font-size:11.5px; padding:7px 12px;">Show the orders</span></div>
+      <div class="ab me">whats my net worth</div>
+      <div class="ab"><span class="turnbadge">Result</span><b>₹4,82,600</b> — up ₹18,400 this month, mostly your SIP.</div>
+      <div class="ab" style="background:rgba(99,214,234,.08); box-shadow:inset 0 0 0 1px rgba(99,214,234,.2); font-size:11.5px; color:var(--vy-ink-2);">No PIN in-app — you're already authenticated. On WhatsApp this same question asks for four digits.</div>
+    </div>
+    <div class="ap-foot"><div class="inbar"><span class="ph">Ask me anything…</span><span class="send"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A1712" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span></div></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:470px; top:1222px; width:390px;"><b>R2 · Interpret flow.</b> A vague question gets a specific answer — pip names the cause in a headline, then proves it with two rates the user can act on. The net-worth exchange is the visible payoff of being in the app: the same query that needs a PIN on WhatsApp answers immediately here.</p>
+
+<section class="frame app" style="left:900px; top:396px;" data-screen-label="R3 Forecast flow">
+  <div style="display:flex; flex-direction:column; height:100%;">
+    <div class="ap-top"><svg width="26" height="26" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="#E26D5C"/><path d="M18 4 Q15.8 .4 13.8 2.4 Q17 4.4 18 4 Z" fill="#85A88A"/><ellipse cx="13" cy="16" rx="1.5" ry="2" fill="#2A1712"/><ellipse cx="23" cy="16" rx="1.5" ry="2" fill="#2A1712"/><path d="M12.5 22 Q18 27 23.5 22" stroke="#2A1712" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg><div style="flex:1;"><div style="font-size:15px; font-weight:600; font-family:var(--vy-heading);">Ask Vyact</div><div class="cap" style="font-size:8.5px;">pip · always here</div></div><span class="bkt c">Forecast</span></div>
+    <div class="ap-body">
+      <div class="ab me">can i afford a 40k phone</div>
+      <div class="dcard glass" style="background:rgba(196,166,255,.07); box-shadow:inset 0 0 0 1px rgba(196,166,255,.2);"><span class="turnbadge">Result · forecast</span>
+        <div style="font-family:var(--vy-heading); font-weight:700; font-size:16px;">It'd be tight.</div>
+        <div style="font-size:12.5px; line-height:1.55; color:var(--vy-ink-2);">₹40,000 would dip about <b style="color:var(--vy-ink);">₹4,300</b> into your emergency fund. After the <b style="color:var(--vy-ink);">28th</b> it's comfortable.</div>
+        <div class="assume">Assumes ₹35,098 of fixed bills this month and the ₹50,000 floor you set.</div>
+      </div>
+      <div class="chips"><span class="chip pri" style="font-size:11.5px; padding:7px 12px;">Show the working</span><span class="chip" style="font-size:11.5px; padding:7px 12px;">Remind me on the 28th</span></div>
+      <div class="ab me">how much can i spend today?</div>
+      <div class="ab" style="max-width:92%;"><span class="turnbadge">Result · forecast</span>About <b>₹640</b> a day for the rest of the month keeps every budget intact.<div class="assume" style="margin-top:8px;">Assumes your fixed bills are still to come out and no new plans in the diary.</div></div>
+    </div>
+    <div class="ap-foot"><div class="inbar"><span class="ph">Ask me anything…</span><span class="send"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A1712" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span></div></div>
+  </div>
+</section>
+<p class="frame-cap" style="left:900px; top:1222px; width:390px;"><b>R3 · Forecast flow.</b> Every forecast answer carries a violet-ruled assumption line, on both surfaces. “How much can I spend today” is the most useful forecast in the product and the easiest to get wrong — so it names both assumptions rather than presenting a daily allowance as fact.</p>
+
+<section class="frame panel" style="left:1330px; top:396px; width:610px; height:812px;">
+  <div class="dp" style="padding:22px 24px;">
+    <div class="cap" style="margin-bottom:7px;">Response anatomy</div>
+    <div class="hd" style="font-size:20px; margin-bottom:16px;">Four parts, in this order</div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="rulebox"><h4>1 · The answer, first word</h4><div style="font-size:11.5px; color:#A6BAB6; line-height:1.5;">The figure or the verdict leads. Never “Let me check that for you” — an Acknowledge turn is only permitted when the next turn genuinely takes a moment.</div></div>
+      <div class="rulebox"><h4>2 · The context that gives it meaning</h4><div style="font-size:11.5px; color:#A6BAB6; line-height:1.5;">A percentage of budget, a comparison to the user's own last month, days remaining. One line. This is what separates an answer from a lookup.</div></div>
+      <div class="rulebox"><h4>3 · The assumption — Forecast only</h4><div style="font-size:11.5px; color:#A6BAB6; line-height:1.5;">Violet rule, plain sentence, in the same message. A wrong bill reminder is an annoyance; a wrong “you can afford this” costs money.</div></div>
+      <div class="rulebox"><h4>4 · Two or three likely follow-ups</h4><div style="font-size:11.5px; color:#A6BAB6; line-height:1.5;">Chips are the <b style="color:#D6E3E0;">next question</b>, not navigation. “Why is it up?” beats “Open reports”. Max three, and never a chip that just repeats the answer.</div></div>
+      <div class="rulebox" style="box-shadow:var(--vy-neu-sm);"><h4 style="color:#F58A8C;">Never</h4><ul>
+        <li>A figure no calculation produced.</li>
+        <li>An apology, or an exclamation mark.</li>
+        <li>Congratulating someone for logging a spend.</li>
+        <li>A flat “no” to an affordability question.</li>
+        <li>Investment, tax or legal advice.</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1330px; top:1222px; width:610px;"><b>Response anatomy.</b> Applied to all 24 responses on this board. The ordering matters more than the wording: leading with the figure is what makes a two-line reply feel competent, and putting the assumption <i>after</i> the verdict keeps a forecast honest without making it timid.</p>
+
+<!-- ══════════ A · CAPTURE QUERIES ══════════ -->
+<section class="frame panel wide" style="left:40px; top:1340px; width:1900px; height:890px;">
+  <div class="dp" style="padding:24px 26px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:16px;"><span class="bkt a">A · Capture</span><div class="hd" style="font-size:21px;">“Record this for me”</div><span class="tt" style="margin-left:auto;">6 queries</span></div>
+    <div class="qgrid">
+
+      <div class="qcell">
+        <div class="qq">1200 amex</div>
+        <div class="rr">₹1,200 on your Amex — I can't tell which of these it is.</div>
+        <div class="rchips"><span>A purchase on the card</span><span>Paying the card bill</span><span>Moving money to the card</span></div>
+        <div class="shape">Ask · 3 options · never writes on silence</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount parsed — <em>1,200</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Card named in the message — <em>Amex</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">split 2400 with priya 3 ways</div>
+        <div class="rr">Split <b>₹<var>{{1}}</var></b> <var>{{2}}</var> ways — your share is <b>₹<var>{{3}}</var></b>.
+
+<var>{{4}}</var> owes you ₹<var>{{3}}</var>. I'll let them know.</div>
+        <div class="rchips"><span>Confirm</span><span>Change the shares</span></div>
+        <div class="shape">Confirm · shows every inferred field</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Total to split — <em>2,400</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Number of ways, spelled — <em>three</em></span></div>
+          <div class="r"><code>{{3}}</code><span>This user's share — <em>800</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Other participants, composed — <em>Priya and Raj</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">forwarded a bank SMS</div>
+        <div class="rr">I read this from that message:
+
+<b>₹<var>{{1}}</var></b>
+<var>{{2}}</var>
+<var>{{3}}</var> · <var>{{4}}</var>
+
+A model read this one, not a rule — worth a check.</div>
+        <div class="rchips"><span>Save it</span><span>Edit</span><span>Discard</span></div>
+        <div class="shape">Confirm · glass surface marks model output</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount read — <em>2,480</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Category · merchant — <em>Groceries · Blinkit</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Date read — <em>4 Sep</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Account, masked — <em>HDFC ⋯8006</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">delete that last one</div>
+        <div class="rr">Gone — the <b>₹<var>{{1}}</var></b> <var>{{2}}</var> from <var>{{3}}</var>.
+
+Your <var>{{2}}</var> total for the month is back to <b>₹<var>{{4}}</var></b>.</div>
+        <div class="rchips"><span>Put it back</span></div>
+        <div class="shape">Result · reversible, states the effect</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount removed — <em>450</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Its category, used twice — <em>Lunch</em></span></div>
+          <div class="r"><code>{{3}}</code><span>When it was logged — <em>this morning</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Recalculated category total — <em>6,390</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">i spent some money on food</div>
+        <div class="rr">Happy to log it — how much was it?
+
+If you can't remember exactly, a close figure is better than nothing. You can fix it later.</div>
+        <div class="rchips"><span>₹200</span><span>₹500</span><span>₹1,000</span><span>Type it</span></div>
+        <div class="shape">Ask · offers a guess, never invents one</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>—</code><span>No variables. Chip amounts are drawn from this user's three most common food spends, rounded to real past values.</span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">4200 dinner private</div>
+        <div class="rr">Logged <b>₹<var>{{1}}</var></b>, marked private.
+
+Your household total includes it — the merchant and category stay with you.</div>
+        <div class="rchips"><span>Undo</span><span>Make it visible</span></div>
+        <div class="shape">Result · household privacy honoured</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount logged — <em>4,200</em></span></div>
+          <div class="r"><code>—</code><span>Trigger word <code>private</code> anywhere in the message. Works only in a household account.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:2244px; width:1900px;"><b>Capture responses.</b> Note the fifth: “I spent some money on food” is the message every parser fails on. Rather than guessing an amount, pip offers three chips drawn from this user's real past food spends — a guess the user can confirm in one tap, never a number the app invented.</p>
+
+<!-- ══════════ B · INTERPRET QUERIES ══════════ -->
+<section class="frame panel wide" style="left:40px; top:2330px; width:1900px; height:1500px;">
+  <div class="dp" style="padding:24px 26px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:16px;"><span class="bkt b">B · Interpret</span><div class="hd" style="font-size:21px;">“Tell me about what I already have”</div><span class="tt" style="margin-left:auto;">9 queries</span></div>
+    <div class="qgrid">
+
+      <div class="qcell">
+        <div class="qq">how much have i spent this month?</div>
+        <div class="rr"><b>₹<var>{{1}}</var></b> this month, across <var>{{2}}</var> entries.
+
+That's <b>₹<var>{{3}}</var> <var>{{4}}</var></b> than the same point in <var>{{5}}</var>, with <var>{{6}}</var> days to go.</div>
+        <div class="rchips"><span>By category</span><span>What changed?</span></div>
+        <div class="shape">Result · figure, then same-point comparison</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Month-to-date total — <em>28,400</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Entry count — <em>47</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Difference vs same day last month — <em>2,100</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Direction — <em>more</em> | <em>less</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Comparison month — <em>August</em></span></div>
+          <div class="r"><code>{{6}}</code><span>Days left — <em>18</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">whats my biggest expense</div>
+        <div class="rr"><b><var>{{1}}</var></b>, at <b>₹<var>{{2}}</var></b> — <var>{{3}}</var>% of everything you've spent this month.
+
+Second is <var>{{4}}</var>, well behind at ₹<var>{{5}}</var>.</div>
+        <div class="rchips"><span>Why so high?</span><span>Set a budget for it</span></div>
+        <div class="shape">Result · ranks, then contrasts with second</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Top category — <em>Rent</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Its amount — <em>26,000</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Share of total spend — <em>41</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Second category — <em>Dining</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Its amount — <em>6,840</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">why is my dining so high</div>
+        <div class="rr">Two things did it.
+
+<b><var>{{1}}</var></b> — <var>{{2}}</var> orders, ₹<var>{{3}}</var>.
+<b><var>{{4}}</var></b> — one evening, ₹<var>{{5}}</var>.
+
+Weekends run ₹<var>{{6}}</var> a day against ₹<var>{{7}}</var> on weekdays.</div>
+        <div class="rchips"><span>How do I get it under?</span><span>Show the orders</span></div>
+        <div class="shape">Result · diagnostic · names causes, not totals</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Top merchant — <em>Swiggy</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Its order count — <em>9</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Its total — <em>2,100</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Second driver — <em>Toit</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Its amount — <em>2,400</em></span></div>
+          <div class="r"><code>{{6}}</code><span>Weekend daily rate — <em>420</em></span></div>
+          <div class="r"><code>{{7}}</code><span>Weekday daily rate — <em>180</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">whats due this week</div>
+        <div class="rr"><b><var>{{1}}</var> bills</b> this week, <b>₹<var>{{2}}</var></b> together.
+
+<var>{{3}}</var>
+
+<var>{{4}}</var> lands before your payday — worth knowing.</div>
+        <div class="rchips"><span>Mark one paid</span><span>See all upcoming</span></div>
+        <div class="shape">Result · list, then the one that needs attention</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Count, spelled — <em>Three</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Their total — <em>7,890</em></span></div>
+          <div class="r"><code>{{3}}</code><span>The list, composed server-side — <em>BESCOM ₹3,200 Tue · Airtel ₹499 Thu · Rent ₹4,191 Sat</em></span></div>
+          <div class="r"><code>{{4}}</code><span>The pre-payday bill, or omit this line — <em>Rent</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">am i over on any budget</div>
+        <div class="rr"><var>{{1}}</var> of your <var>{{2}}</var> budgets are past their limit.
+
+<var>{{3}}</var>
+
+The rest are on pace with <var>{{4}}</var> days to go.</div>
+        <div class="rchips"><span>Raise a limit</span><span>See the pace</span></div>
+        <div class="shape">Result · counts first, then names</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Over-budget count, spelled — <em>Two</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Total budgets — <em>7</em></span></div>
+          <div class="r"><code>{{3}}</code><span>The breached list — <em>Dining ₹9,340 of ₹8,000 · Transport ₹4,600 of ₹4,400</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Days left — <em>18</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">how much on swiggy</div>
+        <div class="rr"><b>₹<var>{{1}}</var></b> on <var>{{2}}</var> this month, over <var>{{3}}</var> orders — about ₹<var>{{4}}</var> each.
+
+<var>{{5}}</var> in the last 12 months.</div>
+        <div class="rchips"><span>Every order</span><span>Compare to last month</span></div>
+        <div class="shape">Result · merchant lookup, adds per-unit</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Merchant total this month — <em>2,100</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Merchant as matched — <em>Swiggy</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Order count — <em>9</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Average per order — <em>233</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Twelve-month figure — <em>₹24,600</em>. Omit if history is under 3 months.</span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">compare this month to last</div>
+        <div class="rr">Spending: <b>₹<var>{{1}}</var></b> against <b>₹<var>{{2}}</var></b> — <var>{{3}}</var> <var>{{4}}</var>.
+
+Up most: <var>{{5}}</var>
+Down most: <var>{{6}}</var>
+
+Your Pulse went <var>{{7}}</var> → <var>{{8}}</var>.</div>
+        <div class="rchips"><span>Why the change?</span><span>Full report</span></div>
+        <div class="shape">Result · always the user vs themselves</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>This month to date — <em>28,400</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Same point last month — <em>26,300</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Difference — <em>₹2,100</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Direction — <em>more</em> | <em>less</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Biggest riser — <em>Dining, +₹1,240</em></span></div>
+          <div class="r"><code>{{6}}</code><span>Biggest faller — <em>Transport, −₹600</em></span></div>
+          <div class="r"><code>{{7}}</code> <span>Pulse then — <em>68</em></span></div>
+          <div class="r"><code>{{8}}</code><span>Pulse now — <em>74</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">aaj kitna kharch hua?</div>
+        <div class="rr">Aaj <b>₹<var>{{1}}</var></b> kharch hua — <var>{{2}}</var>.
+
+<var>{{3}}</var> budget mein <b>₹<var>{{4}}</var></b> bacha hai.</div>
+        <div class="rchips"><span>Poora hafta dikhao</span><span>Swiggy kitna?</span></div>
+        <div class="shape">Result · mirrors the script the user typed</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Today's total — <em>1,240</em></span></div>
+          <div class="r"><code>{{2}}</code><span>The entries, composed — <em>₹450 lunch aur ₹790 Swiggy</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Relevant budget name, kept in English — <em>Dining</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Amount remaining — <em>1,540</em></span></div>
+          <div class="r"><code>—</code><span>In-app only. Category names stay English; the sentence around them mirrors the user.</span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">how am i doing?</div>
+        <div class="rr">Steady, on the whole.
+
+Pulse <b><var>{{1}}</var></b>, <var>{{2}}</var> from last month. <var>{{3}}</var> of <var>{{4}}</var> budgets on pace, and you've logged <var>{{5}}</var> days running.
+
+The one to watch is <var>{{6}}</var>.</div>
+        <div class="rchips"><span>What's the Pulse made of?</span><span>Look at {{6}}</span></div>
+        <div class="shape">Result · vague question, specific answer</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Current Pulse — <em>74</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Movement, signed and worded — <em>up 6</em> | <em>down 3</em> | <em>unchanged</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Budgets on pace — <em>5</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Total budgets — <em>7</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Logging streak in days — <em>12</em></span></div>
+          <div class="r"><code>{{6}}</code><span>The single weakest area, reused in the chip — <em>Dining</em></span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:3844px; width:1900px;"><b>Interpret responses.</b> Every comparison is the user against their own past — never against an average, a cohort or a “people like you”, which is where finance apps start moralising. “How am I doing?” is the hardest of the nine: the answer has to be specific enough to be useful and calm enough not to alarm, so it leads with one word, then four facts, then the single thing worth watching.</p>
+
+<!-- ══════════ C · FORECAST + EDGES ══════════ -->
+<section class="frame panel wide" style="left:40px; top:3950px; width:1900px; height:1260px;">
+  <div class="dp" style="padding:24px 26px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:16px;"><span class="bkt c">C · Forecast</span><span class="tt">+ boundaries</span><div class="hd" style="font-size:21px;">“What happens if…” — and the things pip won't do</div><span class="tt" style="margin-left:auto;">9 queries</span></div>
+    <div class="qgrid">
+
+      <div class="qcell">
+        <div class="qq">how long will my savings last</div>
+        <div class="rr fore">About <b><var>{{1}}</var> months</b> — that's your liquid savings divided by your usual monthly burn.
+
+<b>₹<var>{{2}}</var></b> put away, <b>₹<var>{{3}}</var></b> a month going out.</div>
+        <div class="assume2">Assumes no income at all, and your last 90 days of spending.</div>
+        <div class="shape">Result · forecast · shows the division</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Runway in months, one decimal — <em>4.2</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Liquid savings — <em>1,84,000</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Median monthly burn — <em>43,800</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">if i cut swiggy how much do i save</div>
+        <div class="rr fore">Dropping <var>{{1}}</var> to <var>{{2}}</var> orders a month frees about <b>₹<var>{{3}}</var></b>.
+
+Over a year that's <b>₹<var>{{4}}</var></b> — enough to add <var>{{5}}</var> to your runway.</div>
+        <div class="assume2">Assumes your average order value holds at ₹<var>{{6}}</var>.</div>
+        <div class="shape">Result · forecast · prescriptive</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Current order count — <em>9</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Suggested count — <em>4</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Monthly saving — <em>1,165</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Annualised — <em>13,980</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Runway added, worded — <em>about two weeks</em></span></div>
+          <div class="r"><code>{{6}}</code><span>Average order value — <em>233</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">will i make it to payday</div>
+        <div class="rr fore">Yes, with room. <b>₹<var>{{1}}</var></b> to last <var>{{2}}</var> days — that's <b>₹<var>{{3}}</var></b> a day, against your usual ₹<var>{{4}}</var>.</div>
+        <div class="assume2">Assumes <var>{{5}}</var> still to come out, and nothing unusual.</div>
+        <div class="shape">Result · forecast · verdict then arithmetic</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Available now — <em>14,200</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Days to payday — <em>11</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Daily allowance available — <em>1,290</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Usual daily rate — <em>780</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Outstanding fixed bills — <em>₹3,200 of bills</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">should i pay off my card or invest</div>
+        <div class="rr ref">That one's yours to make — I don't give investment advice.
+
+What I can tell you: your card is costing <b><var>{{1}}</var>% a year</b> on <b>₹<var>{{2}}</var></b>, which is <b>₹<var>{{3}}</var></b> a month in interest.
+
+Any return you'd need to beat that is the comparison.</div>
+        <div class="rchips"><span>Show a payoff plan</span></div>
+        <div class="shape">Refuse → route · gives facts, withholds advice</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Card APR as stored — <em>42</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Outstanding balance — <em>48,000</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Monthly interest cost — <em>1,680</em></span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">will bitcoin go up</div>
+        <div class="rr ref">No idea, and I wouldn't guess — I only know your money, not the markets.
+
+If you're thinking about putting some in, I can tell you what you'd have spare this month.</div>
+        <div class="rchips"><span>What's spare?</span></div>
+        <div class="shape">Refuse → route · never a dead end</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>—</code><span>No variables. Any market, price-prediction or product-recommendation query routes to what pip <i>can</i> answer.</span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">how much will i spend next month</div>
+        <div class="rr ref">I don't have enough yet to say that honestly.
+
+I've got <b><var>{{1}}</var> weeks</b> of your spending. Around <var>{{2}}</var> weeks in, the pattern is steady enough for me to forecast a month.
+
+Right now I'd just be extrapolating one good week.</div>
+        <div class="rchips"><span>What can you tell me?</span></div>
+        <div class="shape">Refuse · honest about thin data</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Weeks of history held — <em>two</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Weeks needed — <em>six</em></span></div>
+          <div class="r"><code>—</code><span>Preferred over a low-confidence number. Never estimate thinly to seem capable.</span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">delete everything</div>
+        <div class="rr ref">I can't do that from here — deleting your data is deliberately a two-step thing you do in the app, where I can show you exactly what goes.
+
+Settings ▸ Account ▸ Delete data.</div>
+        <div class="rchips"><span>Open settings</span><span>Export it first</span></div>
+        <div class="shape">Refuse → route · names the exact path</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>—</code><span>No variables. Destructive actions never execute from a chat turn, on either surface.</span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">are you a real person</div>
+        <div class="rr">No — I'm pip, the assistant built into Vyact. I read what you send me and I work from your own numbers.
+
+Anything I'm unsure about, I ask rather than guess.</div>
+        <div class="rchips"><span>What can you do?</span></div>
+        <div class="shape">Result · identity, once, without coyness</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>—</code><span>No variables. Never claims to be human, never role-plays otherwise, never apologises for being software.</span></div>
+        </div>
+      </div>
+
+      <div class="qcell">
+        <div class="qq">whats my dining budget and can i afford a trip</div>
+        <div class="rr">Two questions — the trip's the bigger one, so tell me roughly what it'd cost and I'll answer properly.
+
+Quick one first: <b>₹<var>{{1}}</var></b> left in Dining, <var>{{2}}</var> days to go.</div>
+        <div class="rchips"><span>About ₹20,000</span><span>About ₹50,000</span><span>Type it</span></div>
+        <div class="shape">Ask · answers the cheap half, asks about the rest</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Dining remaining — <em>1,540</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Days left in period — <em>18</em></span></div>
+          <div class="r"><code>—</code><span>CONV-02: when more than one thing is unclear, ask about the most consequential and answer the rest.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:5224px; width:1900px;"><b>Forecast responses and boundaries.</b> The four refusals are the most important copy on this board. Each one gives something real instead of a wall: the card-versus-invest question withholds the advice but hands over the interest cost that actually decides it; “how much next month” admits thin data rather than extrapolating one week; and the delete request names the exact path plus an export first. A refusal that routes is the difference between a careful assistant and a useless one.</p>
+
+</body>
+</html>

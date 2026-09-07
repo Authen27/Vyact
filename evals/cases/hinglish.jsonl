@@ -1,0 +1,28 @@
+// Hinglish — Roman-script Hindi mixed with English (VOCAB_HINGLISH in grammar.ts).
+// In scope for MVP, and the reason the grammar keeps its vocabulary in TABLES
+// rather than inline in regexes: adding a language must be data, not code.
+//
+// ALL TEXT IS FABRICATED. Aliases point at the synthetic runner.mjs fixture.
+//
+// The shape of this bucket is the finding: a Hinglish CATEGORY word (khana,
+// kirana, kiraya, bijli, dawai, kapde, tankhwah) works end-to-end and writes,
+// because the trailing-alias heuristic hangs off a matched category. A Hinglish
+// VERB (kharcha, bheje, nikala, mila) sets a direction that validator.ts — whose
+// vocabulary is English-only — cannot corroborate, so the pipeline asks about
+// polarity instead. Asking is safe; the asymmetry is worth knowing about.
+{"id":"hi-khana-hdfc","bucket":"hinglish","text":"500 khana hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":500,"transaction_type":"expense","category_id":"food_dining","account_alias":"HDFC Savings"}}}
+{"id":"hi-kirana-hdfc","bucket":"hinglish","text":"800 kirana hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":800,"transaction_type":"expense","category_id":"groceries","account_alias":"HDFC Savings"}}}
+{"id":"hi-kiraya-icici","bucket":"hinglish","text":"2000 kiraya icici","expect":{"outcome":"write","format":"free_text","candidate":{"amount":2000,"transaction_type":"expense","category_id":"rent_mortgage","account_alias":"ICICI Salary"}}}
+{"id":"hi-chai-hdfc","bucket":"hinglish","text":"230 chai hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":230,"transaction_type":"expense","category_id":"food_dining","account_alias":"HDFC Savings"}}}
+{"id":"hi-bijli-bill","bucket":"hinglish","text":"1200 bijli ka bill hdfc se","expect":{"outcome":"write","format":"free_text","candidate":{"amount":1200,"transaction_type":"expense","category_id":"utilities","account_alias":"HDFC Savings"}},"note":"`se` trails the account here, so the trailing-alias scan skips it as a known preposition and still lands on hdfc. Contrast hi-se-postposition."}
+{"id":"hi-dawai-hdfc","bucket":"hinglish","text":"dawai 450 hdfc","expect":{"outcome":"write","format":"free_text","candidate":{"amount":450,"transaction_type":"expense","category_id":"health","account_alias":"HDFC Savings"}}}
+{"id":"hi-kapde-card","bucket":"hinglish","text":"kapde 3000 kotak credit card","expect":{"outcome":"write","format":"free_text","candidate":{"amount":3000,"transaction_type":"expense","category_id":"shopping","account_alias":"Kotak Credit Card"}}}
+{"id":"hi-tankhwah-icici","bucket":"hinglish","text":"tankhwah 60000 icici","expect":{"outcome":"write","format":"free_text","candidate":{"amount":60000,"transaction_type":"income","category_id":"salary","account_alias":"ICICI Salary"}},"note":"An income-only category with no verb is income, but the polarity was never STATED, so direction must stay undefined rather than be guessed."}
+{"id":"hi-sabzi-cash","bucket":"hinglish","text":"sabzi 400 ke liye cash","expect":{"outcome":"write","format":"free_text","candidate":{"amount":400,"transaction_type":"expense","category_id":"groceries","account_alias":"Cash"}}}
+{"id":"hi-kharcha-no-account","bucket":"hinglish","text":"500 kharcha","expect":{"outcome":"ask","format":"free_text","ambiguityKinds":["account"],"minOptions":2,"candidate":{"amount":500,"transaction_type":"expense"}},"note":"kharcha is a Hinglish debit verb but not a category, so nothing names an account. Asking is correct."}
+{"id":"hi-khana-amount-after","bucket":"hinglish","text":"khana 300","expect":{"outcome":"ask","format":"free_text","ambiguityKinds":["account"],"candidate":{"amount":300,"transaction_type":"expense","category_id":"food_dining"}}}
+{"id":"hi-paise-bheje","bucket":"hinglish","text":"paise bheje 2000","expect":{"outcome":"ask","format":"free_text","ambiguityKinds":["account"],"candidate":{"amount":2000,"transaction_type":"expense","direction":"debit"}},"note":"bheje (sent) is a DEBIT verb here, not a transfer verb — matching how validator.ts treats `sent`."}
+{"id":"hi-mummy-ko-bheje","bucket":"hinglish","text":"mummy ko 5000 bheje","expect":{"outcome":"ask","format":"free_text","ambiguityKinds":["account"],"candidate":{"amount":5000,"transaction_type":"expense","direction":"debit"}},"note":"A person is not an account. The recipient must never be resolved into the to_account slot."}
+{"id":"hi-nikala-cash","bucket":"hinglish","text":"nikala 2000 cash","expect":{"outcome":"ask","format":"free_text","ambiguityKinds":["polarity"],"candidate":{"amount":2000,"transaction_type":"expense","direction":"debit","account_alias":"Cash"},"issues":["polarity_missing"]},"note":"The account resolves, but validator.DEBIT_VERBS is English-only so `nikala` reads as an inferred polarity and the engine asks out-or-in."}
+{"id":"hi-inaam-mila-icici","bucket":"hinglish","text":"inaam 10000 mila icici","expect":{"outcome":"ask","format":"free_text","ambiguityKinds":["polarity"],"candidate":{"amount":10000,"transaction_type":"income","direction":"credit","category_id":"gift_bonus","account_alias":"ICICI Salary"},"issues":["polarity_missing"]},"note":"Same asymmetry on the credit side: `mila` is a Hinglish credit verb the validator cannot see."}
+{"id":"hi-se-postposition","bucket":"hinglish","text":"hdfc se 900 kharcha","expect":{"outcome":"write","format":"free_text","candidate":{"amount":900,"transaction_type":"expense","account_alias":"HDFC Savings"}},"expectedFailure":true,"baseline":{"outcome":"ask"},"note":"KNOWN GAP: fromWords are compiled as PREpositions (`se <account>`), but Hindi `se` is a POSTposition (`<account> se`). The natural word order never fills the account slot."}

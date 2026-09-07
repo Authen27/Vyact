@@ -29,7 +29,16 @@ export interface ExtractedEntities {
   amount?: number;
   /** Best-guess category id (from KEYWORD_MAP), undefined when none matched. */
   category?: string;
-  /** A merchant/source token the user named (kept on-device; never sent). */
+  /**
+   * A merchant/source token the user named.
+   *
+   * v10.20 — this used to say "kept on-device; never sent", which is no longer
+   * true in either direction. The user's question is sent verbatim to classify
+   * it, so a merchant they typed goes with it; and in the model-backed path
+   * this field is FILLED BY the model's extraction rather than by the regex
+   * below. It is never trusted for money — `resolve()` re-derives every figure
+   * from the household's own data regardless of what came back.
+   */
   merchant?: string;
   /** Number of people in a split ("4 ways" → 4, "me and 2 friends" → 3). */
   participantCount?: number;

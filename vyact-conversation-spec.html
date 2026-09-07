@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Requirements for the Vyact UX team: the seven turn types every conversation must use, live WhatsApp template status, and eleven proposed messages across Capture, Interpret and Forecast.">
+
+<!-- Vyact conversation spec — standalone, shareable copy.
+
+     Audience: the UX / conversation-design team. Describes what Ask Vyact says
+     today across Capture, Interpret and Forecast, the live WhatsApp template
+     set, and the rules any new message must satisfy.
+
+     Fonts load from Google Fonts, so this needs a network connection to render
+     as designed; it degrades to the declared fallback stacks offline. It uses no
+     scripts and no build step — open it directly in a browser.
+
+     Generated from the canonical Claude Artifact. Regenerate rather than editing
+     by hand, or the two will drift. -->
+
+<!-- Baseline reset. The Artifact runtime supplies these automatically; a
+     standalone file must declare them or it renders with a default body margin
+     and no colour-scheme hint for the browser chrome. -->
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+
+<title>Ask Vyact Conversation Spec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --ground:#FBFAF8; --surface:#FFFFFF; --sunken:#F4F2EF;
+    --ink:#241E1B; --ink-mid:#5C534E; --ink-dim:#8B807A;
+    --rule:#E4DFD9; --rule-soft:#EFEBE6;
+    --capture:#C8553D;  --capture-bg:#FBEDE9;
+    --interpret:#2E5E82;--interpret-bg:#E7EFF5;
+    --forecast:#6B4A7A; --forecast-bg:#F0EAF3;
+    --live:#4A7C59;    --live-bg:#E8F0EA;
+    --pending:#9A6B1F; --pending-bg:#F7EEDC;
+    --blocked:#A33A2E; --blocked-bg:#F8E7E4;
+    --absent:#8B807A;  --absent-bg:#EFEBE6;
+    --new:#1F6F73;     --new-bg:#E2F0F0;
+    --shadow:0 1px 2px rgba(36,30,27,.05),0 8px 24px -16px rgba(36,30,27,.22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#16130F; --surface:#1E1A16; --sunken:#262119;
+      --ink:#F2EDE6; --ink-mid:#BDB2A7; --ink-dim:#8B8078;
+      --rule:#352E26; --rule-soft:#2A241D;
+      --capture:#E8836A;  --capture-bg:#33211C;
+      --interpret:#7FB0D4;--interpret-bg:#182631;
+      --forecast:#B593C4; --forecast-bg:#271E2C;
+      --live:#86BB95;    --live-bg:#1A2A1E;
+      --pending:#D8AA5C; --pending-bg:#2E2415;
+      --blocked:#E38377; --blocked-bg:#331D1A;
+      --absent:#8B8078;  --absent-bg:#262119;
+      --new:#6FBDBF;     --new-bg:#132A2B;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#16130F; --surface:#1E1A16; --sunken:#262119;
+    --ink:#F2EDE6; --ink-mid:#BDB2A7; --ink-dim:#8B8078;
+    --rule:#352E26; --rule-soft:#2A241D;
+    --capture:#E8836A;  --capture-bg:#33211C;
+    --interpret:#7FB0D4;--interpret-bg:#182631;
+    --forecast:#B593C4; --forecast-bg:#271E2C;
+    --live:#86BB95;    --live-bg:#1A2A1E;
+    --pending:#D8AA5C; --pending-bg:#2E2415;
+    --blocked:#E38377; --blocked-bg:#331D1A;
+    --absent:#8B8078;  --absent-bg:#262119;
+    --new:#6FBDBF;     --new-bg:#132A2B;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    background:var(--ground); color:var(--ink);
+    font-family:"Source Sans 3",ui-sans-serif,system-ui,sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:1080px; margin:0 auto; padding:56px 28px 96px; }
+
+  h1,h2,h3,h4 { font-family:"Bricolage Grotesque","Source Sans 3",sans-serif; font-weight:700;
+    text-wrap:balance; letter-spacing:-.015em; margin:0; }
+  h1 { font-size:clamp(2.1rem,5vw,3.05rem); line-height:1.06; }
+  h2 { font-size:clamp(1.45rem,3vw,1.95rem); line-height:1.15; }
+  h3 { font-size:1.05rem; font-weight:500; letter-spacing:0; }
+  h4 { font-size:.95rem; font-weight:600; letter-spacing:0; }
+  p { margin:0; }
+
+  .eyebrow { font-family:"JetBrains Mono",monospace; font-size:.69rem;
+    letter-spacing:.13em; text-transform:uppercase; color:var(--ink-dim); }
+  .lede { font-size:1.08rem; color:var(--ink-mid); max-width:64ch; }
+  .note { font-size:.9rem; color:var(--ink-mid); max-width:74ch; }
+  code,.mono { font-family:"JetBrains Mono",monospace; font-size:.85em; }
+
+  header { display:flex; flex-direction:column; gap:18px; padding-bottom:28px; }
+  .meta-row { display:flex; flex-wrap:wrap; gap:10px 22px; align-items:baseline;
+    border-top:1px solid var(--rule); padding-top:16px; }
+  .meta-row div { font-size:.85rem; color:var(--ink-mid); }
+  .meta-row b { color:var(--ink); font-weight:600; }
+
+  section { margin-top:56px; }
+
+  .pill { display:inline-flex; align-items:center; gap:6px;
+    font-family:"JetBrains Mono",monospace; font-size:.67rem; letter-spacing:.05em;
+    text-transform:uppercase; padding:3px 9px; border-radius:4px; white-space:nowrap; }
+  .pill.live{background:var(--live-bg);color:var(--live);}
+  .pill.pending{background:var(--pending-bg);color:var(--pending);}
+  .pill.blocked{background:var(--blocked-bg);color:var(--blocked);}
+  .pill.absent{background:var(--absent-bg);color:var(--absent);}
+  .pill.new{background:var(--new-bg);color:var(--new);}
+
+  table { width:100%; border-collapse:collapse; background:var(--surface);
+    border:1px solid var(--rule); border-radius:10px; overflow:hidden; }
+  th,td { padding:12px 15px; text-align:left; font-size:.9rem;
+    border-bottom:1px solid var(--rule-soft); vertical-align:top; }
+  thead th { background:var(--sunken); font-family:"JetBrains Mono",monospace;
+    font-size:.67rem; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-dim); font-weight:500; }
+  tbody tr:last-child td { border-bottom:0; }
+  .scroll-x { overflow-x:auto; margin-top:18px; }
+
+  /* Turn-type cards */
+  .turns { display:grid; grid-template-columns:repeat(auto-fit,minmax(272px,1fr));
+    gap:14px; margin-top:22px; }
+  .turn { background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+    padding:17px 18px; display:flex; flex-direction:column; gap:9px; }
+  .turn .tag { font-family:"JetBrains Mono",monospace; font-size:.68rem;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--turn-hue,var(--ink-dim)); }
+  .turn p { font-size:.88rem; color:var(--ink-mid); }
+  .turn .rule-line { font-size:.83rem; color:var(--ink); padding-left:11px;
+    border-left:2px solid var(--turn-hue,var(--rule)); }
+
+  /* Template blocks */
+  .tpls { display:flex; flex-direction:column; gap:12px; margin-top:18px; }
+  .tpl { background:var(--surface); border:1px solid var(--rule); border-radius:9px;
+    padding:15px 17px; display:grid; grid-template-columns:1fr auto; gap:9px 16px; align-items:start; }
+  .tpl.propose { border-style:dashed; background:transparent; }
+  .tpl-name { font-family:"JetBrains Mono",monospace; font-size:.84rem; font-weight:500; }
+  .tpl-body { grid-column:1/-1; font-size:.91rem; color:var(--ink-mid);
+    background:var(--sunken); padding:10px 12px; border-radius:6px; line-height:1.55; }
+  .tpl.propose .tpl-body { background:var(--new-bg); color:var(--ink); }
+  .tpl-body var { font-family:"JetBrains Mono",monospace; font-style:normal;
+    color:var(--accent-hue,var(--capture)); font-size:.88em; }
+  .tpl-foot { grid-column:1/-1; font-size:.81rem; color:var(--ink-dim);
+    display:flex; flex-wrap:wrap; gap:5px 15px; }
+  .tpl-foot b { color:var(--ink-mid); font-weight:600; }
+
+  .bucket-head { display:flex; align-items:baseline; gap:13px; flex-wrap:wrap;
+    padding-bottom:11px; border-bottom:2px solid var(--accent-hue); }
+  .bucket-letter { font-family:"Bricolage Grotesque",sans-serif; font-weight:700;
+    font-size:1.45rem; color:var(--accent-hue); line-height:1; }
+  #capture{--accent-hue:var(--capture);--accent-wash:var(--capture-bg);}
+  #interpret{--accent-hue:var(--interpret);--accent-wash:var(--interpret-bg);}
+  #forecast{--accent-hue:var(--forecast);--accent-wash:var(--forecast-bg);}
+
+  .callout { border:1px dashed var(--rule); border-radius:9px; padding:18px 20px;
+    background:var(--accent-wash,var(--sunken)); display:flex; flex-direction:column;
+    gap:7px; margin-top:16px; }
+  .callout .eyebrow { color:var(--accent-hue,var(--ink-dim)); }
+
+  .reqs { display:flex; flex-direction:column; margin-top:20px; }
+  .req { display:grid; grid-template-columns:64px 1fr; gap:4px 16px;
+    padding:17px 0; border-bottom:1px solid var(--rule-soft); }
+  .req:last-child { border-bottom:0; }
+  .req .rid { font-family:"JetBrains Mono",monospace; font-size:.74rem;
+    color:var(--ink-dim); padding-top:3px; }
+  .req p { font-size:.91rem; color:var(--ink-mid); max-width:72ch; margin-top:3px; }
+
+  .thread { background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+    padding:18px; display:flex; flex-direction:column; gap:9px; margin-top:16px; }
+  .bub { max-width:78%; padding:9px 13px; border-radius:13px; font-size:.9rem; line-height:1.5; }
+  /* Mirrors a real thread: the person is on the right, Vyact on the left. */
+  .bub.user  { background:var(--sunken); border-bottom-right-radius:4px; align-self:flex-end; }
+  .bub.vyact { background:var(--surface); border:1px solid var(--rule);
+    border-bottom-left-radius:4px; align-self:flex-start; }
+  .bub.vyact.proposed { background:var(--new-bg); border-color:transparent; }
+  .bub small { display:block; font-family:"JetBrains Mono",monospace; font-size:.63rem;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:3px; }
+
+  footer { margin-top:66px; padding-top:22px; border-top:1px solid var(--rule);
+    font-size:.85rem; color:var(--ink-dim); display:flex; flex-wrap:wrap; gap:8px 20px; }
+
+  @media (max-width:720px){
+    .req{grid-template-columns:1fr;gap:6px;}
+    .tpl{grid-template-columns:1fr;}
+    .wrap{padding:36px 18px 64px;}
+    .bub{max-width:92%;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Vyact · Conversation design requirements</p>
+    <h1>Ask Vyact conversation spec</h1>
+    <p class="lede">
+      What the assistant says today, what it cannot yet say, and the rules every future
+      message must follow. Written for the team that will revise the copy and design the
+      turns that don't exist yet.
+    </p>
+    <div class="meta-row">
+      <div><b>13</b> templates live · <b>0</b> messages ever delivered</div>
+      <div><b>14</b> assistant intents · <b>19</b> outcome states</div>
+      <div>Buckets · <b>Capture</b> · <b>Interpret</b> · <b>Forecast</b></div>
+    </div>
+  </header>
+
+  <section>
+    <p class="eyebrow">Start here</p>
+    <h2>The conversation is one turn deep</h2>
+    <p class="note" style="margin-top:12px">
+      Every message Vyact can send today is a <em>terminal</em> reply. It logs and confirms, or
+      it refuses. It cannot ask a question, offer a choice, check a duplicate, accept a
+      correction, or remember the previous message. That single limitation — not the copy —
+      is what makes the conversation feel unresponsive, and it is what this spec exists to fix.
+    </p>
+    <div class="thread">
+      <div class="bub user"><small>Them</small>1200 amex</div>
+      <div class="bub vyact"><small>Today · the only possible reply</small>✅ Logged ₹1,200 from Amex. Send another anytime.</div>
+      <div class="bub vyact proposed"><small>What it should be able to do</small>₹1,200 on your Amex — is that a purchase on the card, or paying the card bill?<br>Reply <b>1</b> purchase · <b>2</b> bill payment</div>
+    </div>
+    <p class="note" style="margin-top:14px">
+      The engine that produces that second reply already exists and is tested — it can raise a
+      question with two to four concrete options, detect a near-duplicate, and hold a draft
+      until someone answers. Nothing surfaces it to a user, because no message design exists
+      for it.
+    </p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Corrected from the Meta console</p>
+    <h2>What is actually live</h2>
+    <div class="scroll-x">
+      <table>
+        <thead><tr><th>Template</th><th>Category</th><th>Bucket</th><th>Assessment</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">partner_split_prompt</td><td>Utility</td><td style="color:var(--capture)">Capture</td><td>Product copy · keep</td></tr>
+          <tr><td class="mono">split_shared_with_you</td><td>Utility</td><td style="color:var(--capture)">Capture</td><td>Product copy · keep</td></tr>
+          <tr><td class="mono">split_settled</td><td>Utility</td><td style="color:var(--capture)">Capture</td><td>Product copy · keep</td></tr>
+          <tr><td class="mono">large_transaction_alert</td><td>Utility</td><td style="color:var(--capture)">Capture</td><td>Product copy · keep</td></tr>
+          <tr><td class="mono">recurring_auto_logged</td><td>Utility</td><td style="color:var(--capture)">Capture</td><td>Product copy · keep</td></tr>
+          <tr><td class="mono">budget_threshold_alert</td><td>Utility</td><td style="color:var(--interpret)">Interpret</td><td>Product copy · keep</td></tr>
+          <tr><td class="mono">bill_due_reminder</td><td>Utility</td><td style="color:var(--interpret)">Interpret</td><td>Product copy · keep</td></tr>
+          <tr><td class="mono">weekly_summary</td><td>Utility</td><td style="color:var(--interpret)">Interpret</td><td>Product copy · keep</td></tr>
+          <tr><td class="mono">reengagement_nudge</td><td><b style="color:var(--blocked)">Marketing</b></td><td>—</td><td>Different consent + opt-out rules than every other template</td></tr>
+          <tr><td class="mono">hello_world</td><td>Utility</td><td>—</td><td>Meta sample · <b>delete</b></td></tr>
+          <tr><td class="mono">3p_direct_integration_test_template</td><td>Utility</td><td>—</td><td>Integration test · <b>delete</b></td></tr>
+          <tr><td class="mono">feedback</td><td>Utility</td><td>—</td><td>Meta sample, not Vyact copy · <b>delete or rewrite</b></td></tr>
+          <tr><td class="mono">recurring</td><td>Utility</td><td>—</td><td>Meta sample (“card overdue”) · collides by name with <code>recurring_auto_logged</code> · <b>delete</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <p class="eyebrow">Three findings from this list</p>
+      <p class="note"><b>Four of thirteen are not Vyact copy.</b> <code>hello_world</code>,
+      <code>3p_direct_integration_test_template</code>, <code>feedback</code> and
+      <code>recurring</code> are Meta samples and test artifacts sitting in a production
+      namespace. <code>recurring</code> is actively dangerous — it says a card payment is
+      overdue, and its name invites confusion with the real
+      <code>recurring_auto_logged</code>.</p>
+      <p class="note"><b><code>reengagement_nudge</code> is a Marketing template.</b> That is a
+      different regulatory object: it needs marketing opt-in, honours a separate opt-out, and
+      is suppressed for users who have opted out of promotions. It cannot be written in the
+      same voice as the Utility set, and a user who mutes it must still receive bill reminders.</p>
+      <p class="note"><b>Nothing has ever been delivered.</b> Zero messages, zero read rate
+      across all thirteen. Every template here is unproven copy — there is no performance data
+      to defend any of it, which makes this the cheapest moment to rewrite.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">The core requirement</p>
+    <h2>Seven turn types</h2>
+    <p class="note" style="margin-top:12px">
+      “Intuitively responsive” is not a tone — it is a guarantee that every user message
+      produces exactly one of these seven turns, and that the user always knows what to do
+      next. Every message written from here on must declare which type it is and satisfy that
+      type's rule.
+    </p>
+    <div class="turns">
+      <div class="turn" style="--turn-hue:var(--capture)">
+        <span class="tag">01 · Acknowledge</span>
+        <p>Received, working on it. Only when the next turn will take more than a moment.</p>
+        <p class="rule-line">Never alone. Must be followed by a Result, Ask or Recover.</p>
+      </div>
+      <div class="turn" style="--turn-hue:var(--capture)">
+        <span class="tag">02 · Result</span>
+        <p>Something happened. Says what was recorded, where, and how to reverse it.</p>
+        <p class="rule-line">Always carries an undo path. One line.</p>
+      </div>
+      <div class="turn" style="--turn-hue:var(--interpret)">
+        <span class="tag">03 · Ask</span>
+        <p>One thing is genuinely unclear. Offers two to four concrete choices, never open text.</p>
+        <p class="rule-line">Max one Ask per turn. Numbered replies on WhatsApp, chips in-app.</p>
+      </div>
+      <div class="turn" style="--turn-hue:var(--interpret)">
+        <span class="tag">04 · Confirm</span>
+        <p>A draft is ready but a model read it, so a human approves before it becomes money.</p>
+        <p class="rule-line">Shows every field it inferred. Yes and No are equally easy.</p>
+      </div>
+      <div class="turn" style="--turn-hue:var(--forecast)">
+        <span class="tag">05 · Refuse</span>
+        <p>We won't do this here. Names the reason and where it <em>can</em> be done.</p>
+        <p class="rule-line">Never a dead end. Never apologetic. Never blames the user.</p>
+      </div>
+      <div class="turn" style="--turn-hue:var(--forecast)">
+        <span class="tag">06 · Recover</span>
+        <p>Something failed on our side.</p>
+        <p class="rule-line">Reassure about their data <em>before</em> explaining. Give one action.</p>
+      </div>
+      <div class="turn" style="--turn-hue:var(--new)">
+        <span class="tag">07 · Nudge</span>
+        <p>Unprompted. Must be worth the interruption on its own.</p>
+        <p class="rule-line">Carries its own off switch. Frequency-capped. Never during quiet hours.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ CAPTURE ═══════════════════════════════════════════════════════════ -->
+  <section id="capture">
+    <div class="bucket-head">
+      <span class="bucket-letter">A</span><h2>Capture</h2>
+      <span class="eyebrow" style="margin-left:auto">5 live · 5 proposed</span>
+    </div>
+    <p class="note" style="margin-top:15px">
+      Recording something that happened. The engine can already produce every proposed turn
+      below — clarification options, duplicate detection, confirm-before-write — but has no
+      message design to deliver them.
+    </p>
+
+    <h4 style="margin-top:26px">In-app assistant · shipping copy</h4>
+    <div class="scroll-x">
+      <table>
+        <thead><tr><th>Intent</th><th>Trigger</th><th>Reply (one of three rotating)</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">capture.expense</td><td class="mono" style="font-size:.8rem">spent · bought · paid</td><td>Got it — {amount} on {category}. Just confirm and it is logged.</td></tr>
+          <tr><td class="mono">capture.income</td><td class="mono" style="font-size:.8rem">got paid · salary · refund</td><td>Nice — {amount} coming in. Confirm and it's in.</td></tr>
+          <tr><td class="mono">capture.transfer</td><td class="mono" style="font-size:.8rem">moved · transfer</td><td>Set up a {amount} transfer — confirm to record it.</td></tr>
+          <tr><td class="mono">capture.investment</td><td class="mono" style="font-size:.8rem">sip · invested · stocks</td><td>Nice — {amount} into your investments. Pick the account and confirm.</td></tr>
+          <tr><td class="mono">capture.split</td><td class="mono" style="font-size:.8rem">split · between · ways</td><td>Split {amount} {ways} ways — your share is {share}. Confirm to log it.</td></tr>
+          <tr><td class="mono">· missing_amount</td><td class="mono" style="font-size:.8rem">no number given</td><td>Got it — how much was it?</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 style="margin-top:30px">Proposed — the turns that don't exist</h4>
+    <div class="tpls">
+      <div class="tpl propose">
+        <div class="tpl-name">capture_clarify_choice</div><span class="pill new">Propose · Ask</span>
+        <div class="tpl-body">₹<var>{{1}}</var> on your <var>{{2}}</var> — is that a purchase on the card, or paying the card bill?<br>Reply <b>1</b> purchase · <b>2</b> bill payment · <b>3</b> transfer to the card</div>
+        <div class="tpl-foot"><span><b>Why</b> · the engine raises this today and it goes nowhere</span><span><b>Rule</b> · 2–4 options, numbered, never open text</span></div>
+      </div>
+
+      <div class="tpl propose">
+        <div class="tpl-name">capture_confirm_draft</div><span class="pill new">Propose · Confirm</span>
+        <div class="tpl-body">I read this from your message:<br><var>{{1}}</var> · <var>{{2}}</var> · <var>{{3}}</var> on <var>{{4}}</var><br>Reply <b>YES</b> to save · <b>EDIT</b> to change something · <b>NO</b> to discard</div>
+        <div class="tpl-foot"><span><b>Required</b> · anything a model extracted must be approved before it becomes money</span></div>
+      </div>
+
+      <div class="tpl propose">
+        <div class="tpl-name">capture_duplicate_check</div><span class="pill new">Propose · Ask</span>
+        <div class="tpl-body">This looks like the <var>{{1}}</var> you already logged <var>{{2}}</var>. Add it anyway?<br>Reply <b>1</b> add it · <b>2</b> skip</div>
+        <div class="tpl-foot"><span><b>Never auto-merge</b> · two identical coffees in one day are real</span></div>
+      </div>
+
+      <div class="tpl propose">
+        <div class="tpl-name">capture_backdated_notice</div><span class="pill new">Propose · Result</span>
+        <div class="tpl-body">Saved on <var>{{1}}</var>, the date on that message — not today.</div>
+        <div class="tpl-foot"><span><b>Why</b> · forwarded bank SMS are routinely days old; silently dating them today misstates the month</span></div>
+      </div>
+
+      <div class="tpl propose">
+        <div class="tpl-name">capture_correction_ack</div><span class="pill new">Propose · Result</span>
+        <div class="tpl-body">Changed to <var>{{1}}</var>. The earlier entry is gone.</div>
+        <div class="tpl-foot"><span><b>Unlocks</b> · “no, that was groceries” — the single most likely follow-up we cannot handle</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ INTERPRET ═════════════════════════════════════════════════════════ -->
+  <section id="interpret">
+    <div class="bucket-head">
+      <span class="bucket-letter">B</span><h2>Interpret</h2>
+      <span class="eyebrow" style="margin-left:auto">3 live · 3 proposed</span>
+    </div>
+    <p class="note" style="margin-top:15px">
+      Questions about data that already exists. In-app answers all six intents. On WhatsApp,
+      inbound questions are refused — while three templates push figures into the same thread.
+    </p>
+
+    <div class="scroll-x">
+      <table>
+        <thead><tr><th>Intent</th><th>Trigger</th><th>Reply shape</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">interpret.lookup</td><td class="mono" style="font-size:.8rem">how much · top · breakdown</td><td>{amount} on {category} this month — that's {pct} of your {budget} budget.</td></tr>
+          <tr><td class="mono">interpret.status</td><td class="mono" style="font-size:.8rem">pulse score · net worth</td><td>{headline} — {detail}</td></tr>
+          <tr><td class="mono">interpret.budgets</td><td class="mono" style="font-size:.8rem">which budgets · over budget</td><td>Budgets: {detail}</td></tr>
+          <tr><td class="mono">interpret.debts</td><td class="mono" style="font-size:.8rem">payoff · avalanche · snowball</td><td>Debts: {headline} {detail}</td></tr>
+          <tr><td class="mono">interpret.bills</td><td class="mono" style="font-size:.8rem">upcoming bills · subscriptions</td><td>Upcoming: {detail}</td></tr>
+          <tr><td class="mono">interpret.diagnostic</td><td class="mono" style="font-size:.8rem">why · what's eating · leak</td><td>Here's what stands out: {headline} {detail}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <p class="eyebrow">The contradiction to resolve</p>
+      <p class="note">
+        Ask “what's my balance?” on WhatsApp and Vyact replies <em>“For your security, balances
+        and reports live in the app 🔒”</em>. Minutes later <code>budget_threshold_alert</code> and
+        <code>weekly_summary</code> send spend figures to that same thread. Both behaviours are
+        intentional; together they read as arbitrary.
+      </p>
+      <p class="note">
+        <b>Recommended resolution:</b> the rule is not <em>“no figures over chat”</em> — it is
+        <em>“Vyact sends you your own figures on a schedule you chose; it does not answer
+        queries in a channel it cannot authenticate.”</em> That is defensible, and it makes the
+        refusal copy honest instead of evasive.
+      </p>
+    </div>
+
+    <h4 style="margin-top:30px">Proposed</h4>
+    <div class="tpls">
+      <div class="tpl propose">
+        <div class="tpl-name">insights_optin_prompt</div><span class="pill new">Propose · Ask</span>
+        <div class="tpl-body">Want your weekly summary and budget alerts here on WhatsApp? You can stop them any time.<br>Reply <b>1</b> yes · <b>2</b> no thanks</div>
+        <div class="tpl-foot"><span><b>Unblocks</b> · makes every Interpret push consented rather than assumed</span></div>
+      </div>
+      <div class="tpl propose">
+        <div class="tpl-name">refusal_with_route</div><span class="pill new">Propose · Refuse · rewrite of the live block</span>
+        <div class="tpl-body">I keep your numbers in the app rather than in chat. Open Vyact for the full picture — or reply <b>SUMMARY</b> to get your weekly digest here instead.</div>
+        <div class="tpl-foot"><span><b>Fixes</b> · today's refusal is a dead end with no alternative</span></div>
+      </div>
+      <div class="tpl propose">
+        <div class="tpl-name">month_close_summary</div><span class="pill new">Propose · Nudge</span>
+        <div class="tpl-body">Your <var>{{1}}</var> is closed: <var>{{2}}</var> spent, <var>{{3}}</var> vs the month before.</div>
+        <div class="tpl-foot"><span><b>Why</b> · month-end is the one moment people reliably want a number</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ FORECAST ══════════════════════════════════════════════════════════ -->
+  <section id="forecast">
+    <div class="bucket-head">
+      <span class="bucket-letter">C</span><h2>Forecast</h2>
+      <span class="eyebrow" style="margin-left:auto">0 live · 3 proposed</span>
+    </div>
+    <p class="note" style="margin-top:15px">
+      The only bucket where Vyact offers an opinion — and the only one with no presence outside
+      the app. The in-app copy is careful never to say a flat “no”; it says “tight”, and it
+      names when the answer changes. Any WhatsApp version must keep that.
+    </p>
+
+    <div class="scroll-x">
+      <table>
+        <thead><tr><th>Intent</th><th>Outcome</th><th>Shipping copy</th></tr></thead>
+        <tbody>
+          <tr><td class="mono" rowspan="2">forecast.affordability</td><td><span class="pill live">fits</span></td><td>Yes — after your bills you'd have about {headroom} above your emergency fund, so {amount} fits with {cushion} to spare.</td></tr>
+          <tr><td><span class="pill pending">tight</span></td><td>It'd be tight — {amount} would dip about {shortfall} into your emergency fund. Wait till payday and it's comfortable.</td></tr>
+          <tr><td class="mono">forecast.runway</td><td><span class="pill live">ok</span></td><td>About {months} months — that's your liquid savings divided by your usual monthly burn.</td></tr>
+          <tr><td class="mono">forecast.prescriptive</td><td><span class="pill live">suggest</span></td><td>To free up {target}, your easiest trim is {category} — it's running {over} above usual.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 style="margin-top:30px">Proposed</h4>
+    <div class="tpls">
+      <div class="tpl propose">
+        <div class="tpl-name">payday_headroom</div><span class="pill new">Propose · Nudge</span>
+        <div class="tpl-body">Payday landed. After your usual bills you've got about <var>{{1}}</var> of room this month.</div>
+        <div class="tpl-foot"><span><b>Timing</b> · the one day of the month this is genuinely useful</span><span><b>Cap</b> · once per pay cycle</span></div>
+      </div>
+      <div class="tpl propose">
+        <div class="tpl-name">runway_shift_alert</div><span class="pill new">Propose · Nudge</span>
+        <div class="tpl-body">Heads up — at this month's pace your savings would cover about <var>{{1}}</var> months, down from <var>{{2}}</var>.</div>
+        <div class="tpl-foot"><span><b>Only</b> on a material change · never as a routine stat</span></div>
+      </div>
+      <div class="tpl propose">
+        <div class="tpl-name">affordability_reply</div><span class="pill new">Propose · Result · needs opt-in</span>
+        <div class="tpl-body">That would leave about <var>{{1}}</var> above your emergency fund — it fits.<br><i>tight variant:</i> That would dip <var>{{1}}</var> into your emergency fund. After <var>{{2}}</var> it's comfortable.</div>
+        <div class="tpl-foot"><span><b>Decision needed</b> · this is a query answer, which the current channel rule forbids</span></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <p class="eyebrow">Product question before any of this is submitted</p>
+      <p class="note">
+        Forecast is advice, not fact. A wrong bill reminder is an annoyance; a wrong
+        “you can afford this” costs someone money. Decide whether Vyact gives opinions in a
+        channel where it cannot show its working — and if yes, every forecast message must name
+        the assumption it rests on, the way the in-app copy already does.
+      </p>
+    </div>
+  </section>
+
+  <!-- ══ RULES ═════════════════════════════════════════════════════════════ -->
+  <section>
+    <p class="eyebrow">Constraints every message must satisfy</p>
+    <h2>Requirements</h2>
+    <div class="reqs">
+
+      <div class="req"><div class="rid">CONV-01</div><div>
+        <h3>Every inbound message gets a reply</h3>
+        <p>Silence is the current failure mode for anything unparseable. No user message may
+        end without a turn — even “I didn't understand that” is a turn, and it must offer an
+        example that would have worked.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-02</div><div>
+        <h3>One question per turn, two to four options</h3>
+        <p>Ask turns offer numbered choices, never open text. If more than one thing is unclear,
+        ask about the most consequential and assume a correctable default for the rest. Users
+        abandon interrogations.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-03</div><div>
+        <h3>Every answer merges without re-parsing</h3>
+        <p>Replying “2” must apply that choice to the draft already held. The user never
+        restates what they said. This is a design constraint on the options, not only on the
+        engine: each option must be complete on its own.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-04</div><div>
+        <h3>Anything a model read gets confirmed; anything parsed by rule does not</h3>
+        <p>Typed shorthand logs instantly, as it does today. A bank SMS or free text
+        interpreted by the model produces a draft and waits. The user must be able to tell
+        which happened from the message alone.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-05</div><div>
+        <h3>Every Result carries an undo</h3>
+        <p>A logged transaction is money. The reply that announces it must also say how to take
+        it back, in the same message, without opening the app.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-06</div><div>
+        <h3>A pending question expires, and says so</h3>
+        <p>Questions are held for 30 minutes. After that a new message starts fresh rather than
+        being read as an answer to something forgotten. The expiry must be visible in the copy
+        — “still there?” beats silent abandonment.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-07</div><div>
+        <h3>Refusals route somewhere</h3>
+        <p>Every “not here” names where it can be done, and offers the nearest thing that
+        <em>is</em> possible in the channel. The current balance refusal and the
+        “link it in Settings” reply both dead-end today — the second points at a flow that
+        cannot complete, because the OTP template does not exist.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-08</div><div>
+        <h3>Nudges are opt-in, capped, and individually silenceable</h3>
+        <p>A user who mutes re-engagement must still get bill reminders. Marketing and Utility
+        are separate consents, and the copy must never bundle them. Cap: one proactive message
+        per day, none during local night hours.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-09</div><div>
+        <h3>The same turn renders twice</h3>
+        <p>One definition per turn, two renderings: numbered list on WhatsApp, tappable chips
+        in-app. Copy is written once and must read naturally in both — which rules out
+        “tap the button below” and any layout that assumes a screen.</p></div></div>
+
+      <div class="req"><div class="rid">CONV-10</div><div>
+        <h3>Never state a figure the app did not calculate</h3>
+        <p>Already enforced in code: a reply containing a number no calculation produced is
+        discarded rather than shown. Copy must not fight this — no rounded approximations, no
+        “roughly a third”, no derived percentages written into template text.</p></div></div>
+
+      <div class="req"><div class="rid">VOICE-01</div><div>
+        <h3>Voice: calm, short, second person, no apology</h3>
+        <p>Vyact states what happened and what is possible. It does not say sorry, does not
+        exclaim, and does not congratulate people for logging an expense. Existing copy holds
+        this well — “It'd be tight” rather than “You can't afford it” is the register to match.</p></div></div>
+
+      <div class="req"><div class="rid">VOICE-02</div><div>
+        <h3>Money is never dramatised</h3>
+        <p>No warning colours in words, no “alarming”, “blown”, “overspent”. Budget alerts
+        report a fact and leave the judgement to the person whose money it is.</p></div></div>
+
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Sequenced</p>
+    <h2>What to do first</h2>
+    <div class="scroll-x">
+      <table>
+        <thead><tr><th>#</th><th>Action</th><th>Why now</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Delete the four sample templates</td><td>Production namespace, zero delivery risk to remove, one is actively misleading</td></tr>
+          <tr><td>2</td><td>Export all live bodies into the repo</td><td>Copy that lives only in a vendor console cannot be reviewed or versioned</td></tr>
+          <tr><td>3</td><td>Rewrite the refusal + link replies</td><td>Both dead-end today; the link one points at a blocked flow</td></tr>
+          <tr><td>4</td><td>Design the five Capture turns</td><td>Engine is built and tested; only the message design is missing</td></tr>
+          <tr><td>5</td><td>Settle the figures-over-chat rule</td><td>Blocks Interpret opt-in and every Forecast template</td></tr>
+          <tr><td>6</td><td>Then submit Forecast templates</td><td>Approved copy is slow to change — design before submitting</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span>Live template status read from Meta Business Manager, 15 Aug 2026.</span>
+    <span>Assistant copy · <code>askVyactResponses.ts</code></span>
+    <span>Routing · <code>whatsapp-notify</code></span>
+  </footer>
+
+</div>
+</body>
+</html>

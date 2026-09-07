@@ -1,11 +1,16 @@
 import { test, expect } from '../fixtures/app';
 import { defaultSeed, legacyOnlySeedScript } from '../fixtures/seed';
 
+// Every route App.tsx actually registers. Keep this list in step with the
+// <Route path=…> set: a route listed here but not registered never resolves, so
+// the test times out after 30s instead of failing with a useful message — which
+// is exactly how '/goals' (removed with the Goals module in v8.8.0) kept this
+// suite, and therefore CI, red.
 const PRIMARY_ROUTES = [
   '/dashboard',
   '/transactions',
+  '/accounts',
   '/budgets',
-  '/goals',
   '/splits',
   '/debts',
   '/networth',

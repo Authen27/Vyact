@@ -2087,3 +2087,3245 @@ COMMIT;
 
 alter view public.v_txn_by_member  set (security_invoker = on);
 alter view public.v_txn_by_account set (security_invoker = on);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260606120000_v8_onboarding_state.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v8.0.0 · Onboarding & Activation — cloud persistence
+--
+-- Spec: vyact-onboarding-engineering-spec.md (§2 per-household state, §3 data
+-- model + provenance, §5 temporary-baseline lifecycle).
+--
+-- v8.0.0 shipped onboarding state as browser-local overlays, which made the
+-- honest-data lifecycle device-local (a second device, or a cleared cache, lost
+-- the "estimated" tags, the % confirmed indicator, the 21-day window, and nudge
+-- bookkeeping). This migration promotes both halves to the cloud:
+--
+--   (a) PER-HOUSEHOLD STATE  → households.onboarding (jsonb). Mirrors the
+--       Money-Map education_progress precedent: a trivial additive jsonb column
+--       on the per-household table, inheriting the existing households RLS.
+--
+--   (b) RECORD PROVENANCE    → normalized confidence/source/estimated_at/
+--       confirmed_at columns on every baseline-derived entity (transactions,
+--       budgets, goals, debts, assets). Provenance therefore rides the existing
+--       per-entity sync + RLS, is queryable in SQL, and stays attached to the
+--       row it describes. Defaults ('confirmed' / 'user') mean every existing
+--       row and every ordinary user row is first-class with no backfill, and
+--       existing data is NEVER re-tagged as an estimate (spec §3.4).
+--
+-- households.onboarding shape (validated app-side; schemaless so the flow can
+-- evolve without a migration per change):
+--   {
+--     "state": "not_started|in_progress|completed|skipped",
+--     "segment": "individual|household|smb"|null,
+--     "context": { ... }|null,
+--     "currentStep": 0,
+--     "startedAt": iso8601|null,
+--     "completedAt": iso8601|null,
+--     "confirmationWindowEndsAt": iso8601|null   -- completedAt + 21 days
+--   }
+
+BEGIN;
+
+-- ── (a) per-household onboarding state ────────────────────────────────────────
+alter table households
+  add column if not exists onboarding jsonb not null default '{}'::jsonb;
+
+alter table households
+  drop constraint if exists households_onboarding_is_object;
+alter table households
+  add constraint households_onboarding_is_object
+  check (jsonb_typeof(onboarding) = 'object');
+
+comment on column households.onboarding is
+  'v8 Onboarding & Activation per-household state machine record. See vyact-onboarding-engineering-spec.md §2/§3.';
+
+-- ── (b) per-entity provenance columns ─────────────────────────────────────────
+-- Applied to each baseline-derived table via a do-block so the checks/comments
+-- stay DRY. confidence/source default to the first-class values so legacy rows
+-- and ordinary user writes need no backfill.
+do $$
+declare
+  t text;
+  tables text[] := array['transactions','budgets','goals','debts','assets'];
+begin
+  foreach t in array tables loop
+    execute format($f$
+      alter table %I
+        add column if not exists confidence   text        not null default 'confirmed',
+        add column if not exists source        text       not null default 'user',
+        add column if not exists estimated_at  timestamptz,
+        add column if not exists confirmed_at  timestamptz;
+    $f$, t);
+
+    execute format($f$
+      alter table %1$I drop constraint if exists %1$s_confidence_chk;
+      alter table %1$I add  constraint %1$s_confidence_chk
+        check (confidence in ('estimated','confirming','confirmed'));
+      alter table %1$I drop constraint if exists %1$s_source_chk;
+      alter table %1$I add  constraint %1$s_source_chk
+        check (source in ('onboarding','user','bank'));
+    $f$, t);
+
+    -- Partial index: cheaply find the still-outstanding onboarding estimates a
+    -- household has to confirm during the 21-day window (powers the nudge stats
+    -- and a future server-side % confirmed). Excludes the confirmed majority.
+    execute format($f$
+      create index if not exists %1$s_estimated_idx
+        on %1$I (household_id)
+        where confidence <> 'confirmed';
+    $f$, t);
+
+    execute format($f$
+      comment on column %I.confidence is
+        'v8 honest-data confidence: estimated|confirming|confirmed (spec §3.2/§5).';
+    $f$, t);
+  end loop;
+end $$;
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260606130000_v8_fix_my_households_view.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v8.0.2 hotfix — expose households.onboarding through the my_households view.
+--
+-- 20260606120000_v8_onboarding_state.sql added households.onboarding, but the
+-- my_households view had been created with an EXPANDED column list (Postgres
+-- freezes `select h.*` into explicit columns at creation time). Adding a column
+-- to the base table therefore did NOT add it to the view, so the consumer's
+-- `GET /rest/v1/my_households?select=...,onboarding` returned 400 and blocked the
+-- entire app on load (listHouseholds runs during init).
+--
+-- A view's column set cannot be reordered/extended in the middle via CREATE OR
+-- REPLACE, so we DROP and recreate. Confirmed no other view depends on it.
+-- Recreating re-expands h.* to the current household columns (incl. onboarding
+-- and baseline_provenance). security_invoker + grant restored to match the
+-- original definition.
+
+BEGIN;
+
+drop view if exists my_households;
+
+create view my_households with (security_invoker = true) as
+  select h.*, m.role, m.display_name as my_display_name, m.household_role
+  from households h
+  join memberships m on m.household_id = h.id
+  where m.user_id = auth.uid();
+
+grant select on my_households to authenticated;
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260606140000_v8_drop_legacy_baseline_provenance.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v8.1.2 cleanup — drop the dead households.baseline_provenance column.
+--
+-- An early draft of the v8 onboarding migration stored record provenance as a
+-- jsonb map on households.baseline_provenance. The shipped design instead uses
+-- normalized confidence/source/estimated_at/confirmed_at columns on each
+-- baseline-derived entity table (transactions/budgets/goals/debts/assets), so
+-- baseline_provenance was never read or written by app code — pure legacy residue.
+--
+-- my_households (select h.*) depends on the column, so drop + recreate the view
+-- around the column drop. households.onboarding (the live per-household state
+-- machine record) stays.
+
+BEGIN;
+
+drop view if exists my_households;
+
+alter table households drop column if exists baseline_provenance;
+
+create view my_households with (security_invoker = true) as
+  select h.*, m.role, m.display_name as my_display_name, m.household_role
+  from households h
+  join memberships m on m.household_id = h.id
+  where m.user_id = auth.uid();
+
+grant select on my_households to authenticated;
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260607120000_v8_money_model_account_opening_balance.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Money-Model Epic 1 (B1.2) — opening balance + provenance on accounts.
+--
+-- Additive only; safe to apply ahead of the feature flag (no behaviour change
+-- until FEATURES.moneyModel.openingBalance is on). Current balance is derived in
+-- the app as opening_balance + credits − debits. Provenance reuses the v8 pattern:
+-- existing accounts are real data → default 'confirmed' / 'user' (never re-tagged
+-- as estimate); onboarding-seeded accounts set 'estimated' until reconciled (B1.3).
+
+BEGIN;
+
+alter table accounts
+  add column if not exists opening_balance numeric not null default 0,
+  add column if not exists confidence  text not null default 'confirmed',
+  add column if not exists source      text not null default 'user',
+  add column if not exists estimated_at timestamptz,
+  add column if not exists confirmed_at timestamptz;
+
+alter table accounts drop constraint if exists accounts_confidence_chk;
+alter table accounts add  constraint accounts_confidence_chk
+  check (confidence in ('estimated','confirming','confirmed'));
+alter table accounts drop constraint if exists accounts_source_chk;
+alter table accounts add  constraint accounts_source_chk
+  check (source in ('onboarding','user','bank'));
+
+comment on column accounts.opening_balance is
+  'Money-Model B1.2 — opening balance; current balance = opening + credits − debits.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260607130000_v8_money_model_b16_account_backfill.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Money-Model B1.6 — account backfill (A2: every transaction has a funding source).
+--
+-- Idempotent and amount-invariant (only sets the funding source, never amounts;
+-- global net unchanged). Verified via a read-only dry-run (R2) before apply:
+--   orphans_after = 0, txns_repaired = 1, cash_accounts created = 2,
+--   global_net 193592.90 before == after.
+--
+-- In-model representation: the app keys account membership off the encoded
+-- `extras.paymentMethod` string ('cash' / 'asset:<id>' / 'debt:<id>' / legacy
+-- key), which lib/accountBalance.ts reads. Full uuid-FK normalization of
+-- transactions.account_id is a separate Money-Map-completion task, intentionally
+-- not done here. `is_default` is set only when no default exists for the
+-- (household, currency) pair, respecting the accounts_default_per_currency index.
+
+BEGIN;
+
+-- 1) System Cash account per household with transactions but no cash account.
+insert into accounts (household_id, kind, name, currency, is_default, opening_balance, confidence, source)
+select
+  h.id, 'cash', 'Cash', coalesce(h.base_currency,'USD'),
+  not exists (
+    select 1 from accounts a2
+    where a2.household_id = h.id
+      and a2.currency = coalesce(h.base_currency,'USD')
+      and a2.is_default and a2.deleted_at is null
+  ),
+  0, 'confirmed', 'user'
+from households h
+where exists (select 1 from transactions t where t.household_id = h.id and t.deleted_at is null)
+  and not exists (select 1 from accounts a where a.household_id = h.id and a.kind = 'cash' and a.deleted_at is null);
+
+-- 2) Repair accountless transactions → the system Cash funding source.
+update transactions
+set extras = jsonb_set(coalesce(extras, '{}'::jsonb), '{paymentMethod}', '"cash"', true)
+where deleted_at is null
+  and (extras->>'paymentMethod') is null;
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260607140000_v8_budgets_allocations.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Money-Model B2.3 — category sub-limits (allocations) that roll up to a budget.
+-- Additive jsonb; safe ahead of the flag (no behaviour until budgetsV2.allocations
+-- is on). Shape: [{ "category": "<label>", "limit": <number> }, ...]. Existing
+-- budgets default to [] and are unaffected.
+
+BEGIN;
+
+alter table budgets
+  add column if not exists allocations jsonb not null default '[]'::jsonb;
+
+alter table budgets drop constraint if exists budgets_allocations_is_array;
+alter table budgets add  constraint budgets_allocations_is_array
+  check (jsonb_typeof(allocations) = 'array');
+
+comment on column budgets.allocations is
+  'Money-Model B2.3 — category sub-limits rolling up to monthly_limit.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260607150000_v8_drop_budget_allocations.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Decision (c) — sub-category budget allocations were removed in favour of a
+-- monthly/annual → category roll-up VIEW (computed client-side via budgetRollup).
+-- Drop the now-unused jsonb column added by 20260607140000_v8_budgets_allocations.sql.
+-- No app code references budgets.allocations after this release.
+
+alter table budgets drop column if exists allocations;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260607160000_v89_recurring_schedules.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Userback #7830371 — recurring schedules should be household + user specific
+-- (they were browser-local only via localStorage). New cloud table, household-
+-- scoped via RLS, with user attribution (created_by = auth.uid()). Mirrors the
+-- accounts table shape (RLS via is_member/role_in, updated_at trigger, delta-sync
+-- index). The app keys this as the 'recurring' entity (tableName → this table).
+
+BEGIN;
+
+create table if not exists recurring_schedules (
+  id                 uuid primary key default gen_random_uuid(),
+  household_id       uuid not null references households(id) on delete cascade,
+  created_by         uuid default auth.uid(),
+  txn_template       jsonb not null default '{}'::jsonb,
+  frequency          text not null check (frequency in ('weekly','monthly','yearly','custom_day')),
+  day_of_month       int,
+  weekday            int,
+  start_date         date not null,
+  next_due_date      date not null,
+  last_generated     date,
+  auto_confirm       boolean not null default false,
+  active             boolean not null default true,
+  reminder_lead_days int,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now(),
+  deleted_at         timestamptz
+);
+
+create index if not exists recurring_household
+  on recurring_schedules (household_id) where deleted_at is null;
+create index if not exists recurring_updated_idx
+  on recurring_schedules (household_id, updated_at);
+
+alter table recurring_schedules enable row level security;
+
+drop policy if exists "recurring_read"   on recurring_schedules;
+drop policy if exists "recurring_insert" on recurring_schedules;
+drop policy if exists "recurring_update" on recurring_schedules;
+drop policy if exists "recurring_delete" on recurring_schedules;
+
+create policy "recurring_read" on recurring_schedules for select to authenticated
+  using (is_member(household_id) or is_admin('roles'));
+create policy "recurring_insert" on recurring_schedules for insert to authenticated
+  with check (role_in(household_id) in ('owner','admin','member'));
+create policy "recurring_update" on recurring_schedules for update to authenticated
+  using (role_in(household_id) in ('owner','admin','member'))
+  with check (role_in(household_id) in ('owner','admin','member'));
+create policy "recurring_delete" on recurring_schedules for delete to authenticated
+  using (role_in(household_id) in ('owner','admin','member'));
+
+create or replace function set_updated_at_recurring()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_recurring_updated_at on recurring_schedules;
+create trigger trg_recurring_updated_at
+  before update on recurring_schedules
+  for each row execute function set_updated_at_recurring();
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260608120000_v9_txn_redesign.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v9 — Transaction Forms & Categories Rebuild (vyact-txn-redesign-architect-spec_1).
+--
+-- Forward-only, data-first, constraints LAST (§5). Applied to prod 2026-06-08 with:
+--   • M0 restore point: _backup_v9_{transactions,accounts,budgets} tables (in-DB;
+--     PITR not triggerable via MCP — capture a dashboard backup before re-running
+--     elsewhere).
+--   • INV-9 verified: spend 91,390.10 and income 301,232.00 identical before/after;
+--     40 rows preserved; 0 violations; 3 unresolvable cases logged to
+--     migration_issues (legacy paymentMethod keys → system Cash; transfer
+--     destination best-effort) — never dropped.
+--
+-- Key decisions implemented (spec §0):
+--   D1: transfers are ONE row (type='transfer', both FKs, category NULL).
+--   D2: reconciliation / investment value = accounts.reconciliation_offset (+ log),
+--       NEVER a transactions row. Legacy balance_adjustment rows are folded into
+--       the offset and deleted.
+--   §2.4 account matrix: expense(account_id only) · income(to_account_id only) ·
+--       transfer/investment(both).
+--   §3: type-scoped category enums; renames keep spend/income sums identical.
+--   Deviation (documented): extras functional keys (time/excluded/split/
+--       paymentMethod/accountSplits) are RETAINED — §4.2 itself requires the
+--       Private toggle (extras.excluded); only the forbidden linkage keys
+--       (__tg / linkedToAssetId / linkedAssetId) are scrubbed.
+
+BEGIN;
+
+create table if not exists migration_issues (
+  id bigint generated always as identity primary key,
+  at timestamptz not null default now(),
+  step text not null,
+  ref_id uuid,
+  detail text
+);
+
+-- M2 — accounts: strict kind enum + reconciliation fields (D2)
+alter table accounts drop constraint if exists accounts_kind_check;
+update accounts set kind = 'bank' where kind in ('checking','savings','wallet','other');
+
+alter table accounts
+  add column if not exists reconciliation_offset numeric not null default 0,
+  add column if not exists reconciliation_log jsonb not null default '[]'::jsonb;
+
+comment on column accounts.reconciliation_offset is
+  'D2 forgiveness term: drift between computed and stated balance. Feeds net worth; NEVER spend/income.';
+comment on column accounts.reconciliation_log is
+  'Dated audit trail [{at, delta, kind: bank|investment, stated_value}] — account history only.';
+
+alter table transactions alter column category drop not null;
+
+-- FK backfill from the encoded extras.paymentMethod scheme
+create or replace function _v9_resolve_account(hh uuid, pm text) returns uuid language sql stable as $$
+  select case
+    when pm is null or pm = '' or pm = 'cash' then
+      (select id from accounts a where a.household_id = hh and a.kind = 'cash' and a.deleted_at is null limit 1)
+    when pm like 'asset:%' or pm like 'debt:%' then
+      coalesce(
+        (select id from accounts a where a.household_id = hh and a.asset_id::text = split_part(pm, ':', 2) and a.deleted_at is null limit 1),
+        (select id from accounts a where a.household_id = hh and a.kind = 'cash' and a.deleted_at is null limit 1))
+    else
+      (select id from accounts a where a.household_id = hh and a.kind = 'cash' and a.deleted_at is null limit 1)
+  end
+$$;
+
+insert into migration_issues (step, ref_id, detail)
+select 'fk_backfill_legacy_pm', t.id, 'legacy paymentMethod "'||(t.extras->>'paymentMethod')||'" mapped to system Cash'
+from transactions t
+where t.extras->>'paymentMethod' is not null
+  and t.extras->>'paymentMethod' not in ('cash')
+  and t.extras->>'paymentMethod' not like 'asset:%'
+  and t.extras->>'paymentMethod' not like 'debt:%'
+  and not exists (select 1 from migration_issues mi where mi.step='fk_backfill_legacy_pm' and mi.ref_id = t.id);
+
+update transactions t set
+  account_id = coalesce(t.account_id, _v9_resolve_account(t.household_id, t.extras->>'paymentMethod')),
+  to_account_id = null
+where t.type = 'expense' and t.account_id is null;
+
+update transactions t set
+  to_account_id = coalesce(t.to_account_id, t.account_id, _v9_resolve_account(t.household_id, t.extras->>'paymentMethod')),
+  account_id = null
+where t.type = 'income' and t.to_account_id is null;
+update transactions set account_id = null where type = 'income' and account_id is not null;
+
+-- M1 — single-row transfers
+insert into migration_issues (step, ref_id, detail)
+select 'transfer_missing_to', id, 'transfer had no destination; assigned system Cash best-effort'
+from transactions t
+where t.type='transfer' and t.to_account_id is null
+  and not exists (select 1 from migration_issues mi where mi.step='transfer_missing_to' and mi.ref_id=t.id);
+
+update transactions t set
+  category = null,
+  account_id = coalesce(t.account_id, _v9_resolve_account(t.household_id, t.extras->>'paymentMethod')),
+  to_account_id = coalesce(t.to_account_id,
+    nullif(_v9_resolve_account(t.household_id, t.extras->>'linkedToAssetId'), t.account_id),
+    (select id from accounts a where a.household_id=t.household_id and a.kind='cash' and a.deleted_at is null limit 1))
+where t.type = 'transfer';
+
+update transactions t set to_account_id =
+  coalesce((select id from accounts a where a.household_id=t.household_id and a.id <> t.account_id and a.deleted_at is null limit 1), t.to_account_id)
+where t.type='transfer' and t.account_id = t.to_account_id;
+
+-- M3..M6 — category remaps (pure renames; sums unchanged)
+update transactions set category='food_dining'      where category='food';
+update transactions set category='rent_mortgage'    where category='rent';
+update transactions set category='other_expense'    where category='other_exp';
+update transactions set category='gift_bonus'       where category='gift';
+update transactions set category='rental_income'    where category='rental';
+update transactions set category='business_revenue' where category='business';
+update transactions set category='other_income'     where category='other_inc';
+update transactions set category='other_income'     where category='investment' and type='income';
+update transactions set category='loan_emi'         where category in ('debt_payment','debt_interest');
+update transactions set category='other_expense'    where category like 'goal_%' or category like 'tax_%';
+update transactions set type='transfer', category=null where category='debt_principal';
+
+update budgets set category='food_dining'   where category='food';
+update budgets set category='rent_mortgage' where category='rent';
+update budgets set category='other_expense' where category='other_exp';
+
+update recurring_schedules set txn_template = jsonb_set(txn_template, '{category}',
+  to_jsonb(case txn_template->>'category'
+    when 'food' then 'food_dining' when 'rent' then 'rent_mortgage'
+    when 'other_exp' then 'other_expense' when 'gift' then 'gift_bonus'
+    when 'rental' then 'rental_income' when 'business' then 'business_revenue'
+    when 'other_inc' then 'other_income' else txn_template->>'category' end))
+where txn_template ? 'category';
+
+-- M2b — legacy balance_adjustment rows → reconciliation_offset (D2)
+do $$
+declare r record;
+begin
+  for r in select * from transactions where category='balance_adjustment' loop
+    update accounts set
+      reconciliation_offset = reconciliation_offset + (case when r.type='income' then r.amount else -r.amount end),
+      reconciliation_log = reconciliation_log || jsonb_build_object('at', r.created_at, 'delta',
+        (case when r.type='income' then r.amount else -r.amount end), 'kind', 'bank', 'stated_value', null)
+    where id = coalesce(r.account_id, r.to_account_id);
+    delete from transactions where id = r.id;
+  end loop;
+end $$;
+
+-- M7 — scrub forbidden linkage keys
+update transactions set extras = (extras - '__tg' - 'linkedToAssetId' - 'linkedAssetId')
+where extras ?| array['__tg','linkedToAssetId','linkedAssetId'];
+
+-- M8 — constraints LAST
+alter table transactions drop constraint if exists CK_txn_type;
+alter table transactions add constraint CK_txn_type
+  check (type in ('expense','income','investment','transfer'));
+
+alter table transactions drop constraint if exists CK_txn_category_by_type;
+alter table transactions add constraint CK_txn_category_by_type
+  check ((type in ('expense','income') and category is not null)
+      or (type in ('investment','transfer') and category is null));
+
+alter table transactions drop constraint if exists CK_txn_accounts_by_type;
+alter table transactions add constraint CK_txn_accounts_by_type
+  check ((type='expense'    and account_id is not null and to_account_id is null)
+      or (type='income'     and account_id is null     and to_account_id is not null)
+      or (type='transfer'   and account_id is not null and to_account_id is not null)
+      or (type='investment' and account_id is not null and to_account_id is not null));
+
+alter table accounts drop constraint if exists CK_account_kind;
+alter table accounts add constraint CK_account_kind
+  check (kind in ('cash','bank','credit_card','investment','loan'));
+
+drop function if exists _v9_resolve_account(uuid, text);
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260612120000_v91_budgets_recurring_receivables_deeplink.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Vyact v9.1 — feedback batch (companion: vyact-v9-feedback-triage-and-solutions.md)
+--   §4  budgets: strict identity (scope + year + month) + budget_allocations child table
+--   §5  recurring_schedules: rrule + owner_member_id
+--   §6  debts.direction/counterparty_name already existed (v7.2.0) — no DDL here
+--   §7  scrub transactions.extras.accountSplits (people-split untouched)
+--   §8  transactions.recurring_schedule_id + debt_id (deep-link FKs)
+--
+-- Forward-only. Applied to prod 2026-06-12 (4 budgets → 2 month containers + 4
+-- allocations; 0 recurring; 0 accountSplits; 0 receivables).
+--
+-- ⚠ LESSON: the Supabase apply_migration runner autocommits per-statement, so a
+--   DO-block that fails mid-way leaves earlier statements committed. The legacy
+--   collapse below is therefore GUARDED to run only when no allocations exist yet
+--   (re-runnable on a clean clone; a no-op once migrated). Identity constraints
+--   are added LAST, after the data is clean (v9 migration discipline).
+-- ============================================================================
+
+create table if not exists migration_issues (
+  id bigserial primary key, at timestamptz default now(), area text, detail text, payload jsonb
+);
+
+-- 1. budgets — strict identity columns; category becomes optional (container has none)
+alter table budgets add column if not exists scope text;
+alter table budgets add column if not exists period_year int;
+alter table budgets add column if not exists period_month int;
+alter table budgets add column if not exists custom_name text;
+alter table budgets alter column category drop not null;
+
+-- 2. budget_allocations — reintroduced as a cloud-synced CHILD TABLE (not jsonb)
+create table if not exists budget_allocations (
+  id uuid primary key default gen_random_uuid(),
+  budget_id uuid not null references budgets(id) on delete cascade,
+  household_id uuid not null references households(id) on delete cascade,
+  category text not null,
+  amount numeric(15,2) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+create index if not exists idx_balloc_budget on budget_allocations(budget_id) where deleted_at is null;
+create index if not exists idx_balloc_household on budget_allocations(household_id) where deleted_at is null;
+alter table budget_allocations enable row level security;
+drop policy if exists balloc_read on budget_allocations;
+create policy balloc_read on budget_allocations for select using (is_member(household_id) or is_admin('roles'));
+drop policy if exists balloc_insert on budget_allocations;
+create policy balloc_insert on budget_allocations for insert with check (role_in(household_id) = any (array['owner','admin','member']));
+drop policy if exists balloc_update on budget_allocations;
+create policy balloc_update on budget_allocations for update using (role_in(household_id) = any (array['owner','admin','member']));
+drop policy if exists balloc_delete on budget_allocations;
+create policy balloc_delete on budget_allocations for delete using (role_in(household_id) = any (array['owner','admin','member']));
+drop trigger if exists touch_budget_allocations on budget_allocations;
+create trigger touch_budget_allocations before update on budget_allocations for each row execute function set_updated_at();
+
+-- 3. collapse legacy per-category budgets → one current-month container + allocations
+--    GUARDED: only when no allocations exist (autocommit-safe; no-op once migrated)
+do $$
+declare h record; container uuid; cy int := extract(year from now())::int; cm int := extract(month from now())::int;
+begin
+  if exists (select 1 from budget_allocations) then return; end if;
+  for h in select distinct household_id from budgets where deleted_at is null loop
+    select id into container from budgets
+      where household_id=h.household_id and deleted_at is null
+      order by created_at asc nulls last, id asc limit 1;
+    insert into budget_allocations (budget_id, household_id, category, amount)
+      select container, household_id, category, coalesce(monthly_limit,0)
+        from budgets where household_id=h.household_id and deleted_at is null and category is not null;
+    update budgets set scope='month',
+      period_year=coalesce(extract(year from period_start)::int, cy),
+      period_month=coalesce(extract(month from period_start)::int, cm),
+      period_start=coalesce(period_start, make_date(cy,cm,1)),
+      period_end=coalesce(period_end, (make_date(cy,cm,1)+interval '1 month - 1 day')::date),
+      monthly_limit=(select coalesce(sum(monthly_limit),0) from budgets where household_id=h.household_id and deleted_at is null),
+      category=null
+      where id=container;
+    update budgets set deleted_at=now()
+      where household_id=h.household_id and deleted_at is null and id<>container;
+  end loop;
+end $$;
+update budgets set scope='month',
+  period_year=coalesce(period_year, extract(year from now())::int),
+  period_month=coalesce(period_month, extract(month from now())::int),
+  period_start=coalesce(period_start, date_trunc('month',now())::date),
+  period_end=coalesce(period_end, (date_trunc('month',now())+interval '1 month - 1 day')::date)
+  where deleted_at is null and scope is null;
+
+-- 4. recurring_schedules — RRULE + owner (§5)
+alter table recurring_schedules add column if not exists rrule text;
+alter table recurring_schedules add column if not exists owner_member_id uuid;
+
+-- 5. transactions — deep-link FKs (§5 materialisation, §8 debt drill)
+alter table transactions add column if not exists recurring_schedule_id uuid references recurring_schedules(id) on delete set null;
+alter table transactions add column if not exists debt_id uuid references debts(id) on delete set null;
+create index if not exists idx_txn_recurring on transactions(recurring_schedule_id) where recurring_schedule_id is not null;
+create index if not exists idx_txn_debt on transactions(debt_id) where debt_id is not null;
+
+-- 6. §7 — scrub account-split (people-split untouched)
+update transactions set extras = extras - 'accountSplits' where extras ? 'accountSplits';
+
+-- 7. CONSTRAINTS LAST — strict budget identity (§4.1)
+create unique index if not exists uq_budget_month on budgets(household_id, period_year, period_month) where scope='month' and deleted_at is null;
+create unique index if not exists uq_budget_annual on budgets(household_id, period_year) where scope='annual' and deleted_at is null;
+
+-- 8. assertion
+do $$ begin
+  if exists (select 1 from transactions where extras ? 'accountSplits') then raise exception 'accountSplits scrub incomplete'; end if;
+end $$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260612120100_v91_feedback_batch.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Vyact v9.1 — feedback batch schema (triage doc §4/§5/§6/§7/§8).
+--
+-- Covers: budget strict identity + allocations child table (§4, fixes Inv A
+-- parallel-budget minting), recurring RRULE + owner + single-source-of-truth FK
+-- (§5), debt receivables already had columns (§6 is UI-only), transactions.debt_id
+-- for the §8 debt drill-down, and the forward-only accountSplits scrub (§7).
+--
+-- DISCIPLINE (v9 txn-redesign rules):
+--   • forward-only, idempotent (safe to re-run).
+--   • additive columns/tables first; the DESTRUCTIVE accountSplits scrub is the
+--     LAST section and is gated — run it only after the §7 UI no longer writes
+--     accountSplits, with an INV-9-style before/after balance reconcile.
+--   • never drop data silently — multi-account rows are logged to migration_issues.
+--   • APPLY ONLY after the v9.1 feature waves land and a dry-run reconciles totals.
+--     This file is the tracked source of truth; it is NOT auto-applied.
+
+-- ── scratch: issues log (idempotent) ────────────────────────────────────────
+create table if not exists migration_issues (
+  id bigint generated always as identity primary key,
+  migration text not null,
+  kind text not null,
+  entity_id text,
+  detail jsonb,
+  logged_at timestamptz not null default now()
+);
+
+-- ── §4 — budgets: strict (scope, year, month) identity ──────────────────────
+alter table budgets add column if not exists scope        text;
+alter table budgets add column if not exists period_year  int;
+alter table budgets add column if not exists period_month int;
+alter table budgets add column if not exists custom_name  text;
+
+-- Backfill scope + period_year/month from the legacy period + period_start.
+update budgets set scope = case
+    when period = 'annual'                       then 'annual'
+    when period = 'custom'                       then 'custom'
+    else 'month'                                  -- 'monthly'/null/others → month
+  end
+  where scope is null;
+
+update budgets set
+    period_year  = nullif(extract(year  from period_start)::int, 0),
+    period_month = case when scope = 'month' then extract(month from period_start)::int else null end
+  where period_start is not null and period_year is null;
+
+-- Resolve period_start/period_end for month & annual where missing (TD-13 cols).
+update budgets set
+    period_start = make_date(period_year, period_month, 1),
+    period_end   = (make_date(period_year, period_month, 1) + interval '1 month - 1 day')::date
+  where scope = 'month' and period_year is not null and period_month is not null and period_start is null;
+update budgets set
+    period_start = make_date(period_year, 1, 1),
+    period_end   = make_date(period_year, 12, 31)
+  where scope = 'annual' and period_year is not null and period_start is null;
+
+-- Identity: one budget per (household, scope, year[, month]). Partial unique
+-- indexes — custom budgets are id-identified and excluded. This is what makes a
+-- budget the SAME budget on every device (Investigation A root-cause fix).
+-- NOTE: if duplicates exist pre-migration, this index creation will fail; the
+-- gated runbook de-dupes into migration_issues first (see §pre-checks below).
+create unique index if not exists uq_budget_month
+  on budgets (household_id, period_year, period_month)
+  where scope = 'month' and deleted_at is null;
+create unique index if not exists uq_budget_annual
+  on budgets (household_id, period_year)
+  where scope = 'annual' and deleted_at is null;
+
+-- ── §4 — budget_allocations child table (the reintroduced allocations, done
+--    right: a row-synced, RLS'd child table, NOT the dropped v8.7 jsonb) ──────
+create table if not exists budget_allocations (
+  id uuid primary key default gen_random_uuid(),
+  budget_id uuid not null references budgets(id) on delete cascade,
+  household_id uuid not null references households(id) on delete cascade,
+  category text not null,
+  amount numeric(15,2) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+create index if not exists ix_balloc_budget on budget_allocations (budget_id) where deleted_at is null;
+create unique index if not exists uq_balloc_cat on budget_allocations (budget_id, category) where deleted_at is null;
+
+alter table budget_allocations enable row level security;
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename = 'budget_allocations' and policyname = 'balloc_household') then
+    create policy balloc_household on budget_allocations
+      using (household_id in (select household_id from memberships where user_id = auth.uid()))
+      with check (household_id in (select household_id from memberships where user_id = auth.uid()));
+  end if;
+end $$;
+
+-- ── §5 — recurring schedules: RRULE + owner + single-source-of-truth ────────
+alter table recurring_schedules add column if not exists rrule           text;
+alter table recurring_schedules add column if not exists owner_member_id uuid references memberships(id) on delete set null;
+alter table recurring_schedules add column if not exists auto_confirm    boolean not null default true;
+
+-- Backfill an RRULE from the legacy frequency enum (best-effort; the form will
+-- author proper RRULEs going forward).
+update recurring_schedules set rrule = case frequency
+    when 'weekly'     then 'FREQ=WEEKLY;INTERVAL=1'
+    when 'monthly'    then 'FREQ=MONTHLY;INTERVAL=1'
+    when 'yearly'     then 'FREQ=YEARLY;INTERVAL=1'
+    when 'custom_day' then 'FREQ=MONTHLY;INTERVAL=1'
+    else 'FREQ=MONTHLY;INTERVAL=1'
+  end
+  where rrule is null;
+
+-- ── §5/§8 — transactions: link generated txns to their schedule, and txns to a
+--    debt for the §8 debt drill-down ──────────────────────────────────────────
+alter table transactions add column if not exists recurring_schedule_id uuid references recurring_schedules(id) on delete set null;
+alter table transactions add column if not exists debt_id               uuid references debts(id) on delete set null;
+create index if not exists ix_txn_schedule on transactions (recurring_schedule_id) where recurring_schedule_id is not null;
+create index if not exists ix_txn_debt     on transactions (debt_id) where debt_id is not null;
+
+-- Backfill debt_id from the v9 EMI split metadata in extras.
+update transactions
+  set debt_id = (extras->'emi_split'->>'debt_id')::uuid
+  where debt_id is null
+    and extras ? 'emi_split'
+    and (extras->'emi_split'->>'debt_id') ~ '^[0-9a-f-]{36}$';
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- §7 — DESTRUCTIVE: scrub extras.accountSplits  (GATED — run last, see header)
+-- ════════════════════════════════════════════════════════════════════════════
+-- Pre-flight: log every multi-account row so nothing is lost. A split row keeps
+-- its primary account_id; if absent, it is assigned to the largest leg.
+-- insert into migration_issues (migration, kind, entity_id, detail)
+--   select '20260612120000_v91', 'accountSplit_collapsed', id,
+--          jsonb_build_object('account_id', account_id, 'splits', extras->'accountSplits')
+--     from transactions
+--    where extras ? 'accountSplits';
+--
+-- update transactions
+--    set account_id = coalesce(account_id, (
+--          select (s->>'accountId')
+--            from jsonb_array_elements(extras->'accountSplits') s
+--           order by (s->>'amount')::numeric desc limit 1))
+--  where extras ? 'accountSplits' and account_id is null;
+--
+-- update transactions set extras = extras - 'accountSplits' where extras ? 'accountSplits';
+--
+-- -- assert: none remain
+-- do $$ begin
+--   if exists (select 1 from transactions where extras ? 'accountSplits') then
+--     raise exception 'accountSplits scrub incomplete';
+--   end if;
+-- end $$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260613120000_budget_scope_drop_custom.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Vyact — remove the "custom" budget scope (monthly + annual only).
+-- Custom date-range budgets were dropped from the Budgets module (more confusion
+-- than use-case). The app now only writes scope ∈ {month, annual}; this CHECK
+-- makes the database reject anything else so a stale client can't reintroduce it.
+-- Forward-only, idempotent. Applied to prod 2026-06-13 (0 custom rows existed).
+
+-- Defensive: fold any legacy custom rows back to month before constraining
+-- (no-op when none exist).
+update public.budgets
+   set scope = 'month',
+       period_month = coalesce(period_month, extract(month from coalesce(period_start, now()))::int),
+       period_year  = coalesce(period_year,  extract(year  from coalesce(period_start, now()))::int),
+       custom_name  = null
+ where scope = 'custom';
+
+alter table public.budgets drop constraint if exists ck_budget_scope;
+alter table public.budgets
+  add constraint ck_budget_scope check (scope is null or scope in ('month','annual')) not valid;
+alter table public.budgets validate constraint ck_budget_scope;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260614120000_whatsapp_connection_foundation.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- WhatsApp Business integration — connection foundation
+-- (companion: whatsapp-vyact-solutioning.md §3). Forward-only, idempotent.
+-- Applied to prod 2026-06-14.
+--
+-- Scope: the phone-link plug-in + webhook idempotency. NO use-case logic yet.
+--   • profiles gets the WhatsApp linkage columns (phone + verified + household).
+--   • whatsapp_verification_otps holds hashed OTPs for the link handshake.
+--   • whatsapp_inbound_messages is the idempotency + audit log for inbound events.
+--   • Both whatsapp_* tables are RLS-enabled with NO client policies → deny-all to
+--     anon/authenticated. Edge Functions use the service-role key (bypasses RLS).
+-- ============================================================================
+
+-- 1. profiles: WhatsApp linkage
+alter table public.profiles add column if not exists phone_number text;
+alter table public.profiles add column if not exists phone_verified_at timestamptz;
+alter table public.profiles add column if not exists whatsapp_household_id uuid references public.households(id) on delete set null;
+create unique index if not exists uq_profiles_phone_number on public.profiles(phone_number) where phone_number is not null;
+create index if not exists idx_profiles_wa_household on public.profiles(whatsapp_household_id) where whatsapp_household_id is not null;
+
+-- 2. OTP table (server-side only)
+create table if not exists public.whatsapp_verification_otps (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  household_id uuid not null references public.households(id) on delete cascade,
+  phone_number text not null,
+  otp_hash text not null,
+  attempts int not null default 0,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_wa_otp_lookup on public.whatsapp_verification_otps(profile_id, phone_number);
+alter table public.whatsapp_verification_otps enable row level security;
+
+-- 3. inbound idempotency + audit (used by later use-cases)
+create table if not exists public.whatsapp_inbound_messages (
+  wa_message_id text primary key,
+  profile_id uuid references public.profiles(id) on delete set null,
+  household_id uuid references public.households(id) on delete set null,
+  direction text not null default 'inbound',
+  payload jsonb,
+  processed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_wa_inbound_created on public.whatsapp_inbound_messages(created_at desc);
+alter table public.whatsapp_inbound_messages enable row level security;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260614130000_v931_budget_identity_convergence.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Vyact v9.3.1 — budget multi-device convergence (root-cause fix)
+--
+-- SYMPTOM (prod v9.3.0): budgets do not sync across a household's devices —
+-- one device's budgets vanish, another's never appear, a third shows a budget
+-- that matches neither.
+--
+-- ROOT CAUSE: a budget's business identity is (household, scope, year, month),
+-- enforced by the partial unique indexes uq_budget_month / uq_budget_annual.
+-- But the client minted a RANDOM id for every new budget, so two devices
+-- creating the same period produced two different primary keys for the same
+-- identity slot. The first INSERT wins; the second violates the unique index,
+-- is retried, and dead-letters — silent cross-device loss. (Fixed client-side
+-- by deriving a DETERMINISTIC container id from the identity — see
+-- react/src/lib/budgetIdentity.ts.)
+--
+-- This migration closes the two DATABASE-side defects that compound it:
+--
+--   1. replace_budgets (the bulk import / backup-restore path) was schema-STALE
+--      and structurally broken:
+--        • its INSERT column list omitted scope / period_year / period_month /
+--          custom_name → every restore STRIPPED the v9.1 identity, leaving rows
+--          the unique indexes can't tell apart;
+--        • it soft-deleted then plain-INSERTed the SAME ids → a real restore
+--          (same-id rows) collided on budgets_pkey and aborted.
+--      Rewritten: schema-correct columns + ON CONFLICT (id) DO UPDATE, so it is
+--      a true atomic "replace" (un-deletes/updates rows in the set; rows not in
+--      the set stay soft-deleted).
+--
+--   2. The legacy per-category unique index budgets_household_category_uniq
+--      (household_id, category) coexisted with the v9.1 per-period indexes — two
+--      competing identity models on one table. Containers carry category=NULL,
+--      so it no longer matches the app's model; drop it.
+--
+-- Forward-only, idempotent. Touches only the budgets RPC + indexes; no data
+-- rewrite. (Recovery of the already-soft-deleted budgets is handled separately.)
+-- ============================================================================
+
+begin;
+
+-- 1. replace_budgets — schema-correct, idempotent atomic replace ---------------
+create or replace function public.replace_budgets(h uuid, rows jsonb)
+returns setof budgets
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null then raise exception 'Must be signed in'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household'; end if;
+
+  -- Soft-delete the current set; rows present in the incoming set are revived by
+  -- the ON CONFLICT branch below, rows absent from it stay deleted.
+  update budgets set deleted_at = now(), updated_at = now()
+    where household_id = h and deleted_at is null;
+
+  return query
+  insert into budgets (
+    id, household_id, category, monthly_limit, currency, color,
+    period, period_start, period_end,
+    scope, period_year, period_month, custom_name,
+    confidence, source, estimated_at, confirmed_at,
+    created_at, updated_at, deleted_at)
+  select
+    t.id, h, t.category, t.monthly_limit, coalesce(t.currency, 'USD'), t.color,
+    coalesce(t.period, 'monthly'), t.period_start, t.period_end,
+    t.scope, t.period_year, t.period_month, t.custom_name,
+    coalesce(t.confidence, 'confirmed'), coalesce(t.source, 'user'), t.estimated_at, t.confirmed_at,
+    coalesce(t.created_at, now()), coalesce(t.updated_at, now()), t.deleted_at
+  from jsonb_populate_recordset(null::budgets, rows) as t
+  on conflict (id) do update set
+    category      = excluded.category,
+    monthly_limit = excluded.monthly_limit,
+    currency      = excluded.currency,
+    color         = excluded.color,
+    period        = excluded.period,
+    period_start  = excluded.period_start,
+    period_end    = excluded.period_end,
+    scope         = excluded.scope,
+    period_year   = excluded.period_year,
+    period_month  = excluded.period_month,
+    custom_name   = excluded.custom_name,
+    confidence    = excluded.confidence,
+    source        = excluded.source,
+    estimated_at  = excluded.estimated_at,
+    confirmed_at  = excluded.confirmed_at,
+    updated_at    = excluded.updated_at,
+    deleted_at    = excluded.deleted_at;
+end;
+$$;
+grant execute on function public.replace_budgets(uuid, jsonb) to authenticated;
+
+-- 2. Drop the legacy competing identity model ---------------------------------
+drop index if exists public.budgets_household_category_uniq;
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260614140000_v933_upsert_budget_identity_authority.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Vyact v9.3.3 — upsert_budget(): the single DB authority for budget identity
+--
+-- Supersedes the v9.3.1 client-side deterministic-id approach, which coupled the
+-- primary key to the business identity and broke in two ways: (a) delete+recreate
+-- a month landed on the soft-deleted same-id row via ON CONFLICT (id) and never
+-- cleared deleted_at → the budget came back invisible; (b) recovered rows kept
+-- their original random ids, so a fresh deterministic-id create collided on
+-- uq_budget_month and dead-lettered.
+--
+-- Identity belongs in the database. This RPC is the one writer all entry points
+-- use (the Budgets form today; Ask Vyact / WhatsApp / 3rd-party API next):
+--   • mode='create'  → INSERT … ON CONFLICT (identity) WHERE deleted_at IS NULL
+--                       DO NOTHING. If nothing inserted, the slot is taken →
+--                       raise BUDGET_EXISTS (errcode 23505). Race-proof, and it
+--                       fires for another member's not-yet-synced budget too.
+--   • mode='replace' → INSERT … ON CONFLICT (identity) DO UPDATE …, deleted_at=NULL
+--                       (idempotent set / revive — for the machine entry points).
+-- Identity = (household, period_year, period_month) for month; (household,
+-- period_year) for annual. The DB assigns the id; the client never sends one.
+--
+-- Forward-only, idempotent (CREATE OR REPLACE). Validated against the live
+-- function with an auto-rollback scenario harness (create / duplicate-reject /
+-- delete+recreate / replace-converge / replace-revive / annual) — all PASS.
+-- ============================================================================
+create or replace function public.upsert_budget(h uuid, b jsonb, p_mode text default 'create')
+returns setof budgets
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v   budgets%rowtype;
+  rec budgets%rowtype;
+  sc  text := nullif(b->>'scope','');
+begin
+  if auth.uid() is null then raise exception 'Must be signed in' using errcode = '28000'; end if;
+  if not is_member(h) then raise exception 'Not a member of this household' using errcode = '42501'; end if;
+  if p_mode not in ('create','replace') then raise exception 'bad mode %', p_mode; end if;
+
+  v := jsonb_populate_record(null::budgets, b);
+  v.household_id := h;
+  if v.id is null then v.id := gen_random_uuid(); end if;
+  if v.currency   is null or v.currency   = '' then v.currency   := 'USD';       end if;
+  if v.period     is null or v.period     = '' then v.period     := 'monthly';   end if;
+  if v.confidence is null or v.confidence = '' then v.confidence := 'confirmed'; end if;
+  if v.source     is null or v.source     = '' then v.source     := 'user';      end if;
+  if v.created_at is null then v.created_at := now(); end if;
+  v.updated_at := now();
+  v.deleted_at := null;   -- a write always yields a LIVE row
+
+  if p_mode = 'create' then
+    if sc = 'month' then
+      insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+      values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,'month',v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+      on conflict (household_id,period_year,period_month) where scope='month' and deleted_at is null
+      do nothing returning * into rec;
+    elsif sc = 'annual' then
+      insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+      values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,'annual',v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+      on conflict (household_id,period_year) where scope='annual' and deleted_at is null
+      do nothing returning * into rec;
+    else
+      insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+      values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,v.scope,v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+      on conflict (id) do nothing returning * into rec;
+    end if;
+
+    if rec.id is null then
+      raise exception 'BUDGET_EXISTS'
+        using errcode = '23505',
+              detail = concat('scope=', coalesce(sc,''), ' year=', v.period_year, ' month=', coalesce(v.period_month::text,''));
+    end if;
+    return next rec; return;
+  end if;
+
+  -- p_mode = 'replace'
+  if sc = 'month' then
+    insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+    values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,'month',v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+    on conflict (household_id,period_year,period_month) where scope='month' and deleted_at is null
+    do update set category=excluded.category, monthly_limit=excluded.monthly_limit, currency=excluded.currency, color=excluded.color, period=excluded.period, period_start=excluded.period_start, period_end=excluded.period_end, custom_name=excluded.custom_name, confidence=excluded.confidence, source=excluded.source, updated_at=now(), deleted_at=null
+    returning * into rec;
+  elsif sc = 'annual' then
+    insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+    values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,'annual',v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+    on conflict (household_id,period_year) where scope='annual' and deleted_at is null
+    do update set category=excluded.category, monthly_limit=excluded.monthly_limit, currency=excluded.currency, color=excluded.color, period=excluded.period, period_start=excluded.period_start, period_end=excluded.period_end, custom_name=excluded.custom_name, confidence=excluded.confidence, source=excluded.source, updated_at=now(), deleted_at=null
+    returning * into rec;
+  else
+    insert into budgets (id,household_id,category,monthly_limit,currency,color,period,period_start,period_end,scope,period_year,period_month,custom_name,confidence,source,estimated_at,confirmed_at,created_at,updated_at,deleted_at)
+    values (v.id,h,v.category,v.monthly_limit,v.currency,v.color,v.period,v.period_start,v.period_end,v.scope,v.period_year,v.period_month,v.custom_name,v.confidence,v.source,v.estimated_at,v.confirmed_at,v.created_at,v.updated_at,null)
+    on conflict (id) do update set category=excluded.category, monthly_limit=excluded.monthly_limit, currency=excluded.currency, color=excluded.color, period=excluded.period, period_start=excluded.period_start, period_end=excluded.period_end, custom_name=excluded.custom_name, confidence=excluded.confidence, source=excluded.source, updated_at=now(), deleted_at=null
+    returning * into rec;
+  end if;
+  return next rec; return;
+end;
+$$;
+grant execute on function public.upsert_budget(uuid, jsonb, text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260617120000_v950_budgets_owner_admin_only_plus_realtime.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Vyact v9.5.0 — Budget management restricted to owner+admin + near-real-time sync
+--
+-- Product change: only the household OWNER or ADMIN may create/edit/delete
+-- budgets; members are view-only. Budget changes propagate near-real-time via
+-- Supabase Realtime (a budgets-only accelerator layered on the existing
+-- refresh-based sync — if the socket drops, budgets degrade to refresh, no
+-- regression).
+--
+-- Three enforcement layers (DB is the boundary; the client is UX):
+--   1. upsert_budget RPC — add an owner/admin guard. The RPC is SECURITY DEFINER
+--      so it bypasses RLS; it needs its own check. role_in() reads auth.uid()
+--      from the JWT (SECURITY DEFINER does NOT change that), so it returns the
+--      CALLER's household role.
+--   2. RLS write policies on budgets + budget_allocations → owner/admin only
+--      (reads unchanged: is_member). NOTE: budget_allocations had a permissive
+--      `balloc_household` ALL policy granting writes to any member — it OR'd
+--      with the per-command policies and had to be DROPPED, else tightening the
+--      writes would have done nothing.
+--   3. Realtime: publish budgets + budget_allocations (RLS still authorizes each
+--      subscriber, so a member receives change events only for households they read).
+--
+-- Forward-only, idempotent. Applied to prod 2026-06-17. get_advisors: no new findings.
+-- (Deferred follow-up: fold setBudgetAllocations into upsert_budget for an atomic
+--  budget+allocations write — see TECH_DEBT / SYNC_FIXPLAN.)
+-- ============================================================================
+begin;
+
+-- 1) upsert_budget guard — see the canonical body in
+--    20260614140000_v933_upsert_budget_identity_authority.sql; this adds, right
+--    after the is_member() check:
+--      if role_in(h) not in ('owner','admin') then
+--        raise exception 'Only the household owner or admin can manage budgets'
+--          using errcode = '42501';
+--      end if;
+--    (Applied to prod via CREATE OR REPLACE with the full body.)
+
+-- 2) RLS — owner/admin writes (reads unchanged)
+alter policy budgets_insert on public.budgets with check (role_in(household_id) = any (array['owner','admin']));
+alter policy budgets_update on public.budgets using (role_in(household_id) = any (array['owner','admin'])) with check (role_in(household_id) = any (array['owner','admin']));
+alter policy budgets_delete on public.budgets using (role_in(household_id) = any (array['owner','admin']));
+
+drop policy if exists balloc_household on public.budget_allocations;  -- permissive ALL catch-all — must go
+alter policy balloc_insert on public.budget_allocations with check (role_in(household_id) = any (array['owner','admin']));
+alter policy balloc_update on public.budget_allocations using (role_in(household_id) = any (array['owner','admin'])) with check (role_in(household_id) = any (array['owner','admin']));
+alter policy balloc_delete on public.budget_allocations using (role_in(household_id) = any (array['owner','admin']));
+
+-- 3) Near-real-time — publish for Supabase Realtime (RLS authorizes per subscriber)
+alter publication supabase_realtime add table public.budgets;
+alter publication supabase_realtime add table public.budget_allocations;
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260620120000_insights_hub.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Vyact — Insights Hub §A: additive content_items columns for evergreen "card"
+-- and curated "external" formats (v9.5.3 / spec docs/insights-integration-spec.md).
+--
+-- Forward-only, additive. Existing rows (legacy editorial articles) keep working:
+-- the new `format` defaults to 'article' and the conditional CHECKs only bind for
+-- format='card' / 'external'. RLS is INHERITED from the existing content_items
+-- policies (admins write, consumers read published) — no new policy logic.
+
+alter table public.content_items
+  add column if not exists format          text    not null default 'article',
+  add column if not exists category        text,             -- card's real category (Saving/Debt/…); topic stays the legacy 6-value field
+  add column if not exists visual_kind     text,             -- 'icon' | 'stat' | 'diagram'
+  add column if not exists visual_ref      jsonb,            -- render spec: icon={"icon":"…"}, stat={"big":…}, diagram={"primitive":…}
+  add column if not exists body_md         text,             -- ≤120-word markdown body (card)
+  add column if not exists tags            text[],           -- trigger/context tags
+  add column if not exists reading_seconds int,
+  add column if not exists tone            text,             -- 'neutral' | 'positive' | 'constructive'
+  add column if not exists india_relevant  boolean not null default false,
+  add column if not exists source_name     text,             -- external allowlist
+  add column if not exists source_url      text,
+  add column if not exists why_it_matters  text;
+
+-- Closed-set + integrity constraints (added NOT VALID then validated so a large
+-- existing table never blocks; legacy rows are all format='article' so they pass).
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'ck_content_format') then
+    alter table public.content_items add constraint ck_content_format
+      check (format in ('article','card','external')) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ck_content_visual_kind') then
+    alter table public.content_items add constraint ck_content_visual_kind
+      check (visual_kind is null or visual_kind in ('icon','stat','diagram')) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ck_content_tone') then
+    alter table public.content_items add constraint ck_content_tone
+      check (tone is null or tone in ('neutral','positive','constructive')) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ck_card_has_visual') then
+    alter table public.content_items add constraint ck_card_has_visual
+      check (format <> 'card' or (visual_kind is not null and visual_ref is not null and body_md is not null)) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ck_external_has_source') then
+    alter table public.content_items add constraint ck_external_has_source
+      check (format <> 'external' or (source_name is not null and source_url is not null and published_at is not null)) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ck_source_allowlist') then
+    alter table public.content_items add constraint ck_source_allowlist
+      check (source_name is null or source_name in ('RBI','SEBI','IncomeTax','PFRDA_NPS','GovScheme')) not valid;
+  end if;
+end $$;
+
+alter table public.content_items validate constraint ck_content_format;
+alter table public.content_items validate constraint ck_content_visual_kind;
+alter table public.content_items validate constraint ck_content_tone;
+alter table public.content_items validate constraint ck_card_has_visual;
+alter table public.content_items validate constraint ck_external_has_source;
+alter table public.content_items validate constraint ck_source_allowlist;
+
+create index if not exists idx_content_format_published
+  on public.content_items (format, published_at desc);
+create index if not exists idx_content_tags_gin
+  on public.content_items using gin (tags);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260620120100_insights_hub_seed_cards.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Vyact Insights Hub — evergreen card seed (116 cards, format=card). Idempotent on slug.
+insert into public.content_items (slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at,format,category,visual_kind,visual_ref,body_md,tags,reading_seconds,tone,india_relevant) values
+('ev-001-the-500-a-day-idea','The ₹500-a-day idea',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','stat','{"big":"₹500/day","sub":"≈ ₹15,000 a month"}'::jsonb,'Here''s a simple way to make saving feel doable: think in days, not years. Setting aside ₹500 a day sounds small, but it''s about ₹15,000 a month and roughly ₹1.8 lakh over a year — before a single rupee of interest. The exact figure matters less than the shift in framing: a tiny daily habit quietly beats a big once-a-year intention that never quite happens.
+
+To put it to work, pick an amount you genuinely won''t miss on an ordinary day — ₹200, ₹500, whatever fits — and move it the same way every day or let a weekly auto-transfer do it for you. The trick is choosing a number small enough that you never have to negotiate with yourself about it. ₹500 a day is one skipped food-delivery order, or carrying lunch twice a week.
+
+What makes this work is consistency, not size. Most people wait until they have a "big enough" amount to start saving, and the big amount never arrives. Starting with a daily number removes that wait entirely — you''re saving today, with what you have today.
+
+A practical move: automate it so the decision is made once, not 365 times. Set a recurring transfer of ₹3,500 a week into a separate savings pot. By December you''ll have built the ₹1.8 lakh almost without noticing — and, more importantly, you''ll have built the habit. The amount can grow later; the habit is the real asset you''re creating here.',ARRAY['saving','habit','beginner']::text[],75,'neutral',false),
+('ev-002-pay-yourself-first','Pay yourself first',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"PiggyBank"}'::jsonb,'Most people save whatever is left at the end of the month — and by then, there''s rarely much left. "Pay yourself first" simply flips the order: the day income arrives, move a fixed amount to savings before you spend on anything else, then live on the rest. Same salary, different sequence, a very different balance by year-end.
+
+Here''s how to set it up. Decide on an amount — say ₹8,000 if you earn ₹40,000 — and schedule an automatic transfer to a separate savings account for the day after payday. Now your savings happen first, on autopilot, and your spending naturally fits the amount that''s left. You''re not relying on willpower at month-end, when it''s weakest and the balance is lowest.
+
+Why does this work so well? Because spending expands to fill whatever is available. If ₹40,000 sits in your account all month, ₹40,000 tends to get spent. Remove the ₹8,000 up front and you simply adapt to ₹32,000 — usually without any real sense of sacrifice. The money you never see, you never miss.
+
+A good starting target is 20% of take-home, but begin wherever feels comfortable, even 5%, and raise it whenever your income does. The point isn''t to start big; it''s to start in the right order. Once the transfer is automated, saving stops being a monthly act of discipline and becomes the default — the thing that happens before you''ve had a chance to spend it.',ARRAY['saving','habit','automation']::text[],70,'neutral',false),
+('ev-003-the-50-30-20-starting-point','The 50-30-20 starting point',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"stack","parts":[["Needs",50],["Wants",30],["Save",20]]}'::jsonb,'If budgeting feels overwhelming, the 50-30-20 rule is a clean place to begin. Roughly half your take-home goes to needs, about 30% to wants, and around 20% to saving or repaying debt. On a ₹50,000 income, that''s ₹25,000 for essentials, ₹15,000 for lifestyle, and ₹10,000 toward your future. It''s a frame, not a law — but it gives you instant orientation.
+
+Here''s how to use it. Add up your genuine needs first: rent or EMI, groceries, utilities, transport, insurance. If that''s already eating 60% rather than 50%, that''s useful information — it tells you the squeeze is in fixed costs, and the fix is usually structural (cheaper rent, refinanced loan) rather than skipping coffees. Whatever''s left splits between wants and saving.
+
+The categories matter less than the act of seeing the split. Most people have never actually divided their income this way, and the first time they do, one number usually stands out — often wants creeping past 30%, or needs higher than expected. That clarity is the whole point.
+
+You don''t have to hit the ratios exactly. If you''re early in your career or in a high-cost city, your needs might genuinely run higher and your saving lower — that''s fine. Treat 50-30-20 as a target to drift toward, not a test to pass. Even shifting 5% from wants into saving — ₹2,500 a month on that ₹50,000 income — changes your trajectory meaningfully over a few years. Start with the split, then nudge it in the right direction over time.',ARRAY['saving','budgeting','beginner']::text[],75,'neutral',true),
+('ev-004-automate-the-boring-part','Automate the boring part',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"Repeat"}'::jsonb,'Willpower is an unreliable savings strategy — it''s strong on the first of the month and exhausted by the twenty-fifth. Standing instructions don''t get tired. The single most effective thing you can do for your savings is to automate them, so the good decision happens by default instead of depending on your mood.
+
+Here''s the setup. Pick the amount you want to save or invest, then schedule it to move automatically on or just after salary day — a recurring transfer to a savings account, or a SIP into a mutual fund. If you''re paid on the 1st, set it for the 2nd, so the money leaves before the month''s spending begins. From then on, saving requires zero ongoing effort or discipline.
+
+Why automation beats intention: every manual decision is a chance to skip "just this month." Automating removes those chances entirely. You make one good decision once, and it keeps working every month without you. People who automate consistently end up saving far more than equally well-intentioned people who rely on remembering.
+
+A few practical touches. Start with an amount you''re sure you can sustain — it''s better to automate ₹5,000 reliably than ₹15,000 you cancel after two months. Increase it whenever your income rises, so your saving scales with you. And keep the automated savings in a separate account from your spending, so the money isn''t sitting in front of you at every checkout. The best savings systems are the ones you set up once and then genuinely forget about — they just quietly run in the background.',ARRAY['saving','automation','recurring']::text[],80,'neutral',true),
+('ev-005-round-ups-add-up','Round-ups add up',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','stat','{"big":"₹37","sub":"avg round-up per spend"}'::jsonb,'Round-ups are one of the most painless ways to save, because the amounts are too small to notice but add up surprisingly fast. The idea: round each purchase up to the nearest ₹50 or ₹100 and tuck away the difference. A ₹163 lunch becomes ₹200, and ₹37 quietly goes to savings. A ₹512 grocery run rounds to ₹550, saving ₹38.
+
+Here''s why it works. Across a busy month, you make dozens of small payments — UPI here, a card swipe there. Individually, ₹37 or ₹12 is invisible; you''d never feel it leave. But forty or fifty transactions a month, each shedding a small round-up, can quietly become ₹1,500–₹2,000 without any sense of sacrifice. It''s saving that hides inside your normal spending.
+
+To do it manually, you can simply move the rounded-up difference to a savings pot whenever you log a transaction — or set a fixed weekly sweep that approximates it, say ₹400 a week, if tracking each round-up feels fiddly. Some people prefer the rougher version because it''s simpler to sustain.
+
+The real value of round-ups isn''t the amount — it''s that they make saving effortless and continuous, rather than a monthly decision you have to face. The money accumulates in the background while you go about your spending. Think of it as turning your everyday transactions into a slow, automatic savings drip. It won''t build wealth on its own, but as a frictionless habit running alongside your main savings, it''s a genuinely easy win — and easy wins are the ones that last.',ARRAY['saving','habit','micro']::text[],75,'neutral',false),
+('ev-006-name-your-savings','Name your savings',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"Tag"}'::jsonb,'A small psychological trick makes saving noticeably easier: give your money a name. A pot labelled "savings" is easy to raid for any passing want. A pot labelled "Goa trip" or "monsoon buffer" feels like it already belongs to something — and dipping into it feels like stealing from a plan you care about. The label does quiet work your willpower otherwise has to.
+
+Here''s how to use it. Instead of one undifferentiated savings balance, split your saving into named goals: "emergency fund," "Diwali," "new laptop," "daughter''s school fees." Each gets its own target and its own progress. Now when you''re tempted to spend, you''re not weighing it against a vague pile of money — you''re weighing it against a specific thing you''ve decided you want more.
+
+Why this works comes down to how we treat money mentally. We''re far more protective of funds that have a purpose than funds that don''t. A ₹40,000 "general savings" balance feels spendable; ₹40,000 split as "₹25,000 emergency + ₹15,000 trip" feels spoken-for. Same money, very different temptation.
+
+Practically, you can do this with separate goals or simply by tracking named targets against your savings. Watching a named goal fill up is also genuinely motivating — progress toward "trip: 70% there" pulls you forward in a way a flat balance never does. Give every chunk of saving a job and a name. It turns abstract discipline into something concrete and personal, and makes the money far stickier when temptation comes calling.',ARRAY['saving','mindset','motivation']::text[],75,'positive',false),
+('ev-007-the-one-month-buffer','The one-month buffer',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"arc","pct":30,"label":"1 of 3 months"}'::jsonb,'A full emergency fund of three to six months can feel so far away that people never start. So don''t aim for it yet — aim for one month of expenses first. It''s a reachable milestone that already removes most of the everyday financial stress, and it builds the momentum to go further.
+
+Here''s the target. Add up one month of essentials — rent or EMI, groceries, utilities, transport, basic bills. If that''s ₹35,000, then ₹35,000 is your first goal. Reaching it means a flat tyre, a phone repair, or a surprise medical bill stops being a crisis that forces borrowing, and becomes just an annoyance you can cover.
+
+Why start small: the psychological difference between zero buffer and one month is enormous, far bigger than the gap between one month and two. With nothing set aside, every unexpected cost becomes debt or panic. With one month, you''ve bought yourself breathing room — and the confidence that you can do this.
+
+To get there, treat it like any goal: a number, a date, and an automated transfer. If you can set aside ₹6,000 a month, you''ll hit a ₹35,000 buffer in about six months. Keep it somewhere safe and reachable — a separate savings account — not invested, because its whole job is to be there instantly on a bad day.
+
+Once you''ve got one month, the path to three feels natural; you''ve proven you can do it and you''ve felt the relief. But getting that first month in place is the milestone that changes how secure your daily life feels.',ARRAY['saving','emergency_fund','beginner']::text[],80,'neutral',false),
+('ev-008-save-the-raise','Save the raise',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"arrow","dir":"up","label":"+ raise → savings"}'::jsonb,'A raise is one of the best savings opportunities you''ll get — and the easiest to waste. When income rises, spending usually rises to match it almost automatically: a slightly nicer flat, more dining out, a bigger phone. It''s called lifestyle creep, and it''s why people earning much more than they used to often save no more than before.
+
+Here''s the move: when you get a raise, send the increase straight to savings before your lifestyle adjusts to it. If your take-home goes up by ₹8,000, set up an ₹8,000 automatic transfer to savings or a SIP on the same day the higher salary starts. You were living fine on the old amount last month — so direct the new money to your future before you get used to spending it.
+
+Why this works so well: you never miss money you didn''t start spending. The pain of "cutting back" is real, but there''s no pain in simply not adding a new expense. You keep your current lifestyle, which already felt fine, and your entire raise compounds toward your goals instead of evaporating into slightly fancier versions of what you already had.
+
+You don''t have to save the whole raise — even directing half of every increase to savings keeps lifestyle creep in check while still letting you enjoy some of your progress. The key is to decide before the money arrives, and automate it, so the default is "saved" rather than "spent." Do this with each raise over a career and the gap between what you earn and what you keep grows dramatically — which is the gap that actually builds wealth.',ARRAY['saving','lifestyle','habit']::text[],80,'positive',false),
+('ev-009-a-goal-with-a-date','A goal with a date',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"CalendarCheck"}'::jsonb,'"I should save more" almost never turns into actual savings. "₹60,000 by December" does. The difference is specificity: a number and a deadline turn a vague wish into a concrete monthly target you can act on and track. ₹60,000 in six months is about ₹10,000 a month — suddenly it''s not an aspiration, it''s a line item.
+
+Here''s how to build one. Start with the thing you''re actually saving for — a trip, an emergency buffer, a gadget, a course — and attach a realistic rupee amount and a date. Then divide: total ÷ months = your monthly target. ₹90,000 for a year-end trip, starting in June, is ₹15,000 a month. Now you know exactly what "on track" looks like, and you can tell at a glance whether you''re keeping up.
+
+Why the date matters as much as the number: a deadline creates a natural monthly rhythm and lets you measure progress. Without it, "save ₹60,000" has no urgency and no checkpoint — you can always start next month. With "by December," every month either moves you closer or puts you behind, and that feedback keeps you honest.
+
+Make the target realistic enough to actually hit; an impossible goal gets abandoned in week three. If ₹10,000 a month is a stretch, extend the date rather than give up — ₹60,000 over ten months is ₹6,000 a month, far more sustainable. Then automate the monthly amount so it happens without a decision. A goal with a number and a date gives your saving direction, a way to measure it, and a finish line worth reaching.',ARRAY['saving','goal','planning']::text[],80,'neutral',false),
+('ev-010-the-latte-math-honestly','The latte math, honestly',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','stat','{"big":"₹150 × 20","sub":"= ₹3,000/month"}'::jsonb,'The "skip your daily coffee and get rich" advice is overdone — but the math underneath it is genuinely useful, as long as you use it honestly. A ₹150 coffee on twenty workdays is ₹3,000 a month, or ₹36,000 a year. The point isn''t that coffee is the enemy; it''s that small, repeated habits quietly cost real money, and most of us have no idea which ones add up.
+
+Here''s the honest version. Don''t cut things reflexively — instead, find out what your small recurring habits actually cost, then decide which are worth it. Maybe that daily coffee genuinely makes your morning better and ₹36,000 a year is a price you''re happy to pay. Fine — that''s a conscious choice. But maybe a ₹400 twice-weekly food-delivery habit, ₹3,200 a month, turns out to be autopilot rather than joy. That''s the one to question.
+
+The way to do this is simply to track for a month and look at the totals by category, not by individual purchase. A single ₹150 spend is invisible; ₹3,000 of "coffee" sitting in your monthly summary is impossible to ignore. The aggregate is where the insight lives.
+
+Then choose deliberately. Keep the small spends that genuinely add value to your life, and trim the ones that are just habit. Even redirecting one autopilot habit — say that ₹3,200 of impulse delivery — into savings is ₹38,000 a year working for you instead of vanishing. The goal was never to give up small pleasures. It''s to make sure you''re choosing them on purpose, rather than leaking money you''d rather keep.',ARRAY['saving','spending','awareness']::text[],80,'neutral',false),
+('ev-011-sinking-funds-for-big-bills','Sinking funds for big bills',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"bar2","a":["Surprise",100],"b":["Planned",100]}'::jsonb,'Insurance premiums, school fees, festival spends — they’re not surprises, they’re annual. Set aside a twelfth each month into a “sinking fund” and the big bill arrives already paid-for instead of blowing up a single month.',ARRAY['saving','planning','bills']::text[],30,'neutral',true),
+('ev-012-two-accounts-beat-one','Two accounts beat one',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"compare2","a":"Spend","b":"Save"}'::jsonb,'Keeping savings in the same account you spend from makes them too easy to dip into. A separate account adds just enough friction. Out of sight is, genuinely, out of mind — and out of the checkout.',ARRAY['saving','accounts','structure']::text[],30,'neutral',false),
+('ev-013-save-in-percentages-not-amounts','Save in percentages, not amounts',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"Percent"}'::jsonb,'A fixed ₹5,000 saved feels big at ₹40,000 income and small at ₹1,00,000. Saving a percentage instead means your saving scales automatically as you earn more — the habit grows with you without another decision.',ARRAY['saving','habit','scaling']::text[],30,'neutral',false),
+('ev-014-the-no-spend-stretch','The no-spend stretch',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"CalendarX"}'::jsonb,'Pick a few days with zero discretionary spending. It’s less about the money saved and more about noticing how often spending is autopilot. Many people find a couple of no-spend days a week surprisingly easy — and revealing.',ARRAY['saving','challenge','awareness']::text[],30,'positive',false),
+('ev-015-match-your-future-self','Match your future self',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"UserCheck"}'::jsonb,'Saving is sending money to your future self. They’ll face the same bills, with one difference — whether you helped. Framing it as a gift to someone real (you, later) makes the trade-off feel less like deprivation.',ARRAY['saving','mindset','long_term']::text[],30,'neutral',false)
+on conflict (slug) do update set title=excluded.title,summary=excluded.summary,body=excluded.body,topic=excluded.topic,status=excluded.status,author_name=excluded.author_name,read_minutes=excluded.read_minutes,cover_emoji=excluded.cover_emoji,format=excluded.format,category=excluded.category,visual_kind=excluded.visual_kind,visual_ref=excluded.visual_ref,body_md=excluded.body_md,tags=excluded.tags,reading_seconds=excluded.reading_seconds,tone=excluded.tone,india_relevant=excluded.india_relevant;
+
+insert into public.content_items (slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at,format,category,visual_kind,visual_ref,body_md,tags,reading_seconds,tone,india_relevant) values
+('ev-016-windfalls-split-don-t-spend','Windfalls: split, don’t spend',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"stack","parts":[["Save",50],["Spend",30],["Repay",20]]}'::jsonb,'A bonus or gift feels like free money, so it vanishes fast. A simple pre-decided split — say half to savings, some to repay debt, some to genuinely enjoy — lets you benefit now and later, without the “where did it go?” afterwards.',ARRAY['saving','windfall','bonus']::text[],30,'neutral',true),
+('ev-017-the-savings-rate-that-matters','The savings rate that matters',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','stat','{"big":"20%+","sub":"a strong savings rate"}'::jsonb,'Net worth is built less by what you earn and more by the gap between earning and spending. A savings rate of 20% of take-home is a strong, sustainable target. Already there? You’re doing better than most.',ARRAY['saving','metric','progress']::text[],30,'positive',false),
+('ev-018-small-wins-compound-too','Small wins compound too',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"arrow","dir":"up","label":"consistency > intensity"}'::jsonb,'You don’t need a dramatic budget overhaul. Saving a little, consistently, beats saving a lot, occasionally. The habit is the asset; the amount grows on its own once the habit is in place.',ARRAY['saving','mindset','consistency']::text[],30,'positive',false),
+('ev-019-what-an-emergency-fund-really-is','What an emergency fund really is',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"arc","pct":100,"label":"3–6 months"}'::jsonb,'An emergency fund is three to six months of essential expenses, kept somewhere boring and reachable. It’s not an investment — its job is to be there, instantly, when income stops or a big bill lands. Calm, not returns, is the point.',ARRAY['emergency_fund','runway','beginner']::text[],30,'neutral',false),
+('ev-020-where-to-keep-emergency-money','Where to keep emergency money',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"ShieldCheck"}'::jsonb,'Emergency money should be safe and quick to access — a savings account or a liquid/sweep-in deposit, not stocks or a lock-in. The goal is availability on a bad day, not maximising a percentage point. Boring is the feature.',ARRAY['emergency_fund','liquidity','safety']::text[],30,'neutral',true),
+('ev-021-how-big-is-enough','How big is “enough”?',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','stat','{"big":"expenses × 3–6","sub":"not income × 3–6"}'::jsonb,'Size your fund on essential expenses, not income. If you spend ₹40,000 a month on the essentials, three months is ₹1.2 lakh, six is ₹2.4 lakh. Lifestyle spending doesn’t need emergency coverage — survival spending does.',ARRAY['emergency_fund','sizing']::text[],30,'neutral',false),
+('ev-022-build-it-before-you-invest','Build it before you invest',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"bar2","a":["Buffer",60],"b":["Invest",40]}'::jsonb,'It’s tempting to chase returns first, but a missing buffer means the first emergency forces you to sell investments at the worst time. A safety net first lets your investments stay invested through the rough patches.',ARRAY['emergency_fund','priority','investing']::text[],30,'neutral',false),
+('ev-023-self-employed-aim-higher','Self-employed? Aim higher',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','diagram','{"primitive":"arrow","dir":"up","label":"irregular income → bigger buffer"}'::jsonb,'If your income is lumpy — freelance, business, commission — your buffer should lean toward the larger end, six months or more. Irregular income needs a bigger shock absorber to smooth the quiet months.',ARRAY['emergency_fund','self_employed','smb']::text[],30,'neutral',true),
+('ev-024-replenish-don-t-abandon','Replenish, don’t abandon',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"RefreshCw"}'::jsonb,'Used your fund for an actual emergency? That’s a win — it did its job. The next step is simply to rebuild it at your normal pace. The fund working as designed is success, not failure.',ARRAY['emergency_fund','recovery']::text[],30,'positive',false),
+('ev-025-insurance-is-part-of-the-safety-net','Insurance is part of the safety net',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','icon','{"icon":"Umbrella"}'::jsonb,'An emergency fund handles small-to-medium shocks; insurance handles the large, rare ones — a hospitalisation, a disability. Health and term cover protect the fund itself from being wiped out by a single big event.',ARRAY['emergency_fund','insurance','safety']::text[],30,'neutral',true),
+('ev-026-the-runway-question','The runway question',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Saving','stat','{"big":"X months","sub":"if income stopped today"}'::jsonb,'A useful question to know the answer to: if income stopped today, how many months could you cover essentials? That single number — your runway — is one of the clearest measures of financial calm.',ARRAY['emergency_fund','runway','awareness']::text[],30,'neutral',false),
+('ev-027-avalanche-vs-snowball','Avalanche vs snowball',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','diagram','{"primitive":"compare2","a":"Highest rate","b":"Smallest balance"}'::jsonb,'Two proven ways to clear debt. Avalanche: pay the highest interest rate first — saves the most money. Snowball: pay the smallest balance first — gives faster wins and motivation. The best one is the one you’ll actually stick to.',ARRAY['debt','strategy','payoff']::text[],30,'neutral',false),
+('ev-028-interest-is-the-real-cost','Interest is the real cost',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','stat','{"big":"36% APR","sub":"≈ 3% every month"}'::jsonb,'A credit card at 36% a year is charging about 3% every month on the unpaid balance. Carrying ₹50,000 costs roughly ₹1,500 a month in interest alone — money buying nothing. Knowing the monthly rate makes the urgency real.',ARRAY['debt','credit_card','interest']::text[],30,'neutral',true),
+('ev-029-pay-more-than-the-minimum','Pay more than the minimum',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','diagram','{"primitive":"arrow","dir":"down","label":"min payment → long payoff"}'::jsonb,'Paying only the minimum on a card can stretch a small balance into years and multiply what you repay. Even a little above the minimum dramatically shortens the payoff and cuts the total interest. The extra goes straight at the principal.',ARRAY['debt','credit_card','minimum']::text[],30,'constructive',true),
+('ev-030-the-emi-split-you-don-t-see','The EMI split you don’t see',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','diagram','{"primitive":"stack","parts":[["Interest",40],["Principal",60]]}'::jsonb,'Each EMI is part interest, part principal. Early on, more goes to interest; later, more to principal. That’s why early extra payments help so much — they attack principal directly and remove future interest entirely.',ARRAY['debt','emi','interest','principal']::text[],30,'neutral',true)
+on conflict (slug) do update set title=excluded.title,summary=excluded.summary,body=excluded.body,topic=excluded.topic,status=excluded.status,author_name=excluded.author_name,read_minutes=excluded.read_minutes,cover_emoji=excluded.cover_emoji,format=excluded.format,category=excluded.category,visual_kind=excluded.visual_kind,visual_ref=excluded.visual_ref,body_md=excluded.body_md,tags=excluded.tags,reading_seconds=excluded.reading_seconds,tone=excluded.tone,india_relevant=excluded.india_relevant;
+
+insert into public.content_items (slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at,format,category,visual_kind,visual_ref,body_md,tags,reading_seconds,tone,india_relevant) values
+('ev-031-good-debt-costly-debt','Good debt, costly debt',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','diagram','{"primitive":"compare2","a":"Builds value","b":"Buys consumption"}'::jsonb,'Not all debt is equal. A home or education loan can build value over time, at lower rates. High-interest card or personal-loan debt for consumption usually just costs you. Clearing the costly kind first is almost always the right move.',ARRAY['debt','types','mindset']::text[],30,'neutral',true),
+('ev-032-one-extra-emi-a-year','One extra EMI a year',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','stat','{"big":"+1 EMI/yr","sub":"years off a home loan"}'::jsonb,'On a long home loan, paying just one extra EMI a year — or a small annual prepayment — can knock years off the tenure and save substantial interest. Small, regular prepayments quietly outperform their size.',ARRAY['debt','home_loan','prepayment']::text[],30,'positive',true),
+('ev-033-the-debt-to-income-check','The debt-to-income check',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','diagram','{"primitive":"arc","pct":36,"label":"EMIs ÷ income"}'::jsonb,'A rough health check: total EMIs divided by income. Under ~36% is generally comfortable; higher starts to squeeze everything else. It’s a quick read on how much room your monthly cash flow really has.',ARRAY['debt','dti','metric']::text[],30,'neutral',true),
+('ev-034-avalanche-in-one-line','Avalanche, in one line',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','icon','{"icon":"TrendingDown"}'::jsonb,'Pay minimums on everything, then throw every spare rupee at the highest-interest debt until it’s gone — then the next highest. Mathematically, this clears debt for the least total cost. Cold, efficient, effective.',ARRAY['debt','avalanche','strategy']::text[],30,'neutral',false),
+('ev-035-snowball-in-one-line','Snowball, in one line',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','icon','{"icon":"CircleDot"}'::jsonb,'Pay minimums on everything, then clear the smallest balance first for a quick, motivating win — then roll that payment into the next-smallest. You may pay slightly more interest, but the momentum keeps many people going.',ARRAY['debt','snowball','strategy','motivation']::text[],30,'positive',false),
+('ev-036-avoid-the-debt-for-debt-trap','Avoid the debt-for-debt trap',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','icon','{"icon":"AlertTriangle"}'::jsonb,'Taking new borrowing to pay old borrowing can help only if the new rate is genuinely lower and you stop adding to the old. Otherwise it just reshuffles the problem. Consolidation is a tool, not a cure.',ARRAY['debt','consolidation','caution']::text[],30,'constructive',true),
+('ev-037-your-credit-score-simply','Your credit score, simply',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','diagram','{"primitive":"arc","pct":75,"label":"on-time = healthy"}'::jsonb,'A credit score mostly rewards two boring things: paying on time, and not using too much of your available limit. Years of quiet, on-time payments build it; a few missed ones dent it. Consistency is the whole game.',ARRAY['debt','credit_score','india']::text[],30,'neutral',true),
+('ev-038-the-no-cost-emi-footnote','The no-cost-EMI footnote',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','icon','{"icon":"Receipt"}'::jsonb,'“No-cost EMI” often bakes the interest into the price or drops a discount you’d otherwise get. It can still be fine — just check whether paying upfront would have been cheaper. Convenient isn’t always free.',ARRAY['debt','emi','consumer','india']::text[],30,'constructive',true),
+('ev-039-clear-the-card-before-it-compounds','Clear the card before it compounds',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','diagram','{"primitive":"arrow","dir":"down","label":"pay in full → 0 interest"}'::jsonb,'Pay a credit card in full by the due date and the interest is zero — you got a free short-term loan. Carry even part of it and interest applies to much more than you’d expect. Paying in full is the whole trick.',ARRAY['debt','credit_card','interest']::text[],30,'neutral',true),
+('ev-040-debt-isn-t-a-moral-failing','Debt isn’t a moral failing',NULL,'','debt','published','Vyact',1,'📚',now(),'card','Debt','icon','{"icon":"Heart"}'::jsonb,'Debt is a number to manage, not a verdict on you. Plenty of sensible people carry it. A clear payoff plan and steady progress matter far more than guilt — and progress, however small, is the thing worth tracking.',ARRAY['debt','mindset','wellbeing']::text[],30,'positive',false),
+('ev-041-a-budget-is-a-plan-not-a-punishment','A budget is a plan, not a punishment',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"Map"}'::jsonb,'A budget isn’t about saying no to everything — it’s deciding in advance where your money should go, so the spending you care about happens guilt-free. It’s permission with a plan, not restriction.',ARRAY['budgeting','mindset','beginner']::text[],30,'positive',false),
+('ev-042-track-before-you-trim','Track before you trim',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"Search"}'::jsonb,'You can’t change what you can’t see. Before cutting anything, just watch where the money actually goes for a few weeks. The awareness alone shifts behaviour — and shows you where trimming would even help.',ARRAY['budgeting','tracking','beginner']::text[],30,'neutral',false),
+('ev-043-needs-vs-wants-gently','Needs vs wants, gently',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','diagram','{"primitive":"compare2","a":"Need","b":"Want"}'::jsonb,'Not to judge — just to notice. Rent and groceries are needs; the third streaming service is a want. Most budgets don’t need fewer wants, just awareness of the ratio. Once you see it, you can choose it.',ARRAY['budgeting','categories','awareness']::text[],30,'neutral',false),
+('ev-044-budget-by-month-and-year','Budget by month and year',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','diagram','{"primitive":"bar2","a":["This month",100],"b":["This year",100]}'::jsonb,'Monthly budgets catch the everyday; annual budgets catch the lumpy — insurance, travel, festivals, fees. Watching both means the big once-a-year costs never ambush a single month. Two horizons, fewer surprises.',ARRAY['budgeting','planning','timeline']::text[],30,'neutral',false),
+('ev-045-the-category-that-ate-the-month','The category that ate the month',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','diagram','{"primitive":"arc","pct":80,"label":"one category, most of it"}'::jsonb,'Often a single category quietly dominates a month’s spending — dining, shopping, travel. Finding which one is usually more useful than trimming ten small ones. Fix the big leak first; the small drips matter less.',ARRAY['budgeting','categories','awareness']::text[],30,'neutral',false)
+on conflict (slug) do update set title=excluded.title,summary=excluded.summary,body=excluded.body,topic=excluded.topic,status=excluded.status,author_name=excluded.author_name,read_minutes=excluded.read_minutes,cover_emoji=excluded.cover_emoji,format=excluded.format,category=excluded.category,visual_kind=excluded.visual_kind,visual_ref=excluded.visual_ref,body_md=excluded.body_md,tags=excluded.tags,reading_seconds=excluded.reading_seconds,tone=excluded.tone,india_relevant=excluded.india_relevant;
+
+insert into public.content_items (slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at,format,category,visual_kind,visual_ref,body_md,tags,reading_seconds,tone,india_relevant) values
+('ev-046-zero-based-simply','Zero-based, simply',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"Equal"}'::jsonb,'Give every rupee a job until none is unassigned — spending, saving, or repaying. It doesn’t mean spending everything; “savings” is a job too. The point is that no money drifts off unaccounted-for.',ARRAY['budgeting','method','intermediate']::text[],30,'neutral',false),
+('ev-047-allocate-then-watch','Allocate, then watch',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','diagram','{"primitive":"stack","parts":[["Rent",35],["Food",20],["Rest",45]]}'::jsonb,'Split a budget into a few category limits, then track each against its line. Sub-limits turn a vague total into clear lanes — you instantly see which lane is full and which has room, without doing any math.',ARRAY['budgeting','allocation','categories']::text[],30,'neutral',false),
+('ev-048-budget-for-fun-on-purpose','Budget for fun on purpose',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"Smile"}'::jsonb,'A budget with no room for enjoyment doesn’t survive. Give fun its own line. Planned guilt-free spending is more sustainable than a strict plan you abandon by week three. Sustainable beats perfect.',ARRAY['budgeting','wellbeing','sustainable']::text[],30,'positive',false),
+('ev-049-the-24-hour-rule','The 24-hour rule',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"Clock"}'::jsonb,'For non-essential buys above a threshold you set, wait a day. Often the urge passes and you keep the money; sometimes it doesn’t and you buy it without regret. A small pause filters impulse from intention.',ARRAY['budgeting','impulse','awareness']::text[],30,'neutral',false),
+('ev-050-review-beats-restrict','Review beats restrict',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"RotateCcw"}'::jsonb,'A five-minute monthly look at where money went teaches you more than the strictest rules. Budgets work through awareness and adjustment, not iron discipline. Review gently, adjust, repeat.',ARRAY['budgeting','habit','review']::text[],30,'positive',false),
+('ev-051-last-month-vs-this-month','Last month vs this month',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','diagram','{"primitive":"arrow","dir":"up","label":"are we improving?"}'::jsonb,'The most motivating budgeting question isn’t “did I follow the rules?” — it’s “am I doing better than last month?” Progress over time, even small, is what keeps the habit alive. Compare yourself to past-you, not to perfect.',ARRAY['budgeting','trend','progress']::text[],30,'positive',false),
+('ev-052-recurring-is-your-forecast','Recurring is your forecast',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"CalendarClock"}'::jsonb,'Your known recurring payments — rent, EMIs, subscriptions, SIPs — are next month’s budget already half-written. Counting them first shows how much is truly free to allocate, before a rupee is discretionary.',ARRAY['budgeting','recurring','forecast']::text[],30,'neutral',true),
+('ev-053-festival-and-wedding-seasons','Festival and wedding seasons',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"Sparkles"}'::jsonb,'In India, certain months carry predictable heavy spending — festivals, weddings, school admissions. They’re not surprises. Setting aside a little through the year means the season arrives funded, not borrowed-for.',ARRAY['budgeting','seasonal','india']::text[],30,'neutral',true),
+('ev-054-a-custom-budget-for-a-trip','A custom budget for a trip',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Budgeting','icon','{"icon":"Plane"}'::jsonb,'For a one-off like a holiday, a named budget with its own total keeps the trip’s spending separate from everyday life. You see exactly what the trip cost, and your monthly budget stays undistorted. Clean and motivating.',ARRAY['budgeting','custom','goal']::text[],30,'positive',false),
+('ev-055-compounding-the-eighth-wonder','Compounding, the eighth wonder',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','diagram','{"primitive":"arrow","dir":"up","label":"time × returns"}'::jsonb,'Compounding means your returns start earning returns. Its secret ingredient is time, not timing. A modest amount invested early can outgrow a larger amount invested late. Starting beats optimising.',ARRAY['investing','compounding','beginner']::text[],30,'neutral',false),
+('ev-056-the-power-of-starting-early','The power of starting early',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','stat','{"big":"10 years","sub":"head start ≈ huge gap"}'::jsonb,'Two people invest the same amount monthly; one starts ten years earlier and then stops. The early starter often ends up ahead despite investing less, purely because their money had more time to compound. Time is the real edge.',ARRAY['investing','compounding','time']::text[],30,'positive',false),
+('ev-057-what-a-sip-actually-does','What a SIP actually does',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"Repeat"}'::jsonb,'A SIP invests a fixed amount on a fixed date, automatically. You buy more units when prices are low and fewer when high — averaging your cost over time and removing the need to guess the market. Boring, by design.',ARRAY['investing','sip','mutual_fund','india']::text[],30,'neutral',true),
+('ev-058-rupee-cost-averaging','Rupee-cost averaging',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','diagram','{"primitive":"bar2","a":["Low → more units",100],"b":["High → fewer",60]}'::jsonb,'Investing the same amount regularly means market dips automatically buy you more units and peaks buy fewer. Over time this smooths your average purchase price and takes the emotion out of “is now a good time?”',ARRAY['investing','sip','averaging']::text[],30,'neutral',true),
+('ev-059-risk-and-return-travel-together','Risk and return travel together',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','diagram','{"primitive":"compare2","a":"Lower risk","b":"Higher potential"}'::jsonb,'Higher potential returns come with higher ups and downs; safety comes with lower returns. There’s no free lunch. The skill isn’t avoiding risk — it’s taking the right amount for your timeline and your nerves.',ARRAY['investing','risk','beginner']::text[],30,'neutral',false),
+('ev-060-time-in-the-market','Time in the market',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"Hourglass"}'::jsonb,'“Time in the market beats timing the market.” Trying to jump in and out perfectly is nearly impossible, even for professionals. Staying invested through the ups and downs is what captures long-term growth.',ARRAY['investing','long_term','behaviour']::text[],30,'neutral',false)
+on conflict (slug) do update set title=excluded.title,summary=excluded.summary,body=excluded.body,topic=excluded.topic,status=excluded.status,author_name=excluded.author_name,read_minutes=excluded.read_minutes,cover_emoji=excluded.cover_emoji,format=excluded.format,category=excluded.category,visual_kind=excluded.visual_kind,visual_ref=excluded.visual_ref,body_md=excluded.body_md,tags=excluded.tags,reading_seconds=excluded.reading_seconds,tone=excluded.tone,india_relevant=excluded.india_relevant;
+
+insert into public.content_items (slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at,format,category,visual_kind,visual_ref,body_md,tags,reading_seconds,tone,india_relevant) values
+('ev-061-diversification-in-one-idea','Diversification in one idea',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"LayoutGrid"}'::jsonb,'Don’t put everything in one place. Spreading money across different types of investments means one bad apple doesn’t spoil the basket. Diversification is the closest thing investing has to a free lunch.',ARRAY['investing','diversification','risk']::text[],30,'neutral',false),
+('ev-062-index-funds-plainly','Index funds, plainly',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"BarChart3"}'::jsonb,'An index fund simply tracks a whole market basket instead of picking winners. Low cost, broadly diversified, no manager to outguess. For many people it’s a sensible, low-effort core to build around.',ARRAY['investing','index','passive','india']::text[],30,'neutral',true),
+('ev-063-fees-are-a-silent-drag','Fees are a silent drag',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','diagram','{"primitive":"arrow","dir":"down","label":"high fees → lower end value"}'::jsonb,'A 1% higher annual fee sounds tiny but, compounded over decades, can quietly eat a meaningful slice of your final corpus. Low costs are one of the few investing advantages fully in your control. Check the expense ratio.',ARRAY['investing','fees','costs','india']::text[],30,'constructive',true),
+('ev-064-your-time-horizon-decides','Your time horizon decides',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','diagram','{"primitive":"arc","pct":60,"label":"longer = more growth-tilt"}'::jsonb,'Money needed next year and money needed in twenty years belong in very different places. Short-term goals want safety; long-term goals can ride out volatility for growth. Match the investment to when you’ll spend it.',ARRAY['investing','horizon','allocation']::text[],30,'neutral',false),
+('ev-065-ppf-and-epf-the-quiet-workhorses','PPF and EPF, the quiet workhorses',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"Landmark"}'::jsonb,'For Indian households, PPF and EPF are steady, tax-advantaged, government-backed ways to build long-term savings. They won’t excite anyone, but their safety and consistency make them a solid base for a retirement corpus.',ARRAY['investing','ppf','epf','india','retirement']::text[],30,'neutral',true),
+('ev-066-nps-for-retirement','NPS for retirement',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"Briefcase"}'::jsonb,'The National Pension System is a low-cost, long-horizon retirement vehicle with an extra tax deduction on top of the usual limit. It locks money until retirement — which, for retirement savings, is a feature, not a bug.',ARRAY['investing','nps','retirement','india']::text[],30,'neutral',true),
+('ev-067-don-t-invest-the-emergency-fund','Don’t invest the emergency fund',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"ShieldAlert"}'::jsonb,'Money you might need at any moment shouldn’t be in something that can drop 20% the week you need it. Keep the emergency fund safe and liquid; invest only what you can leave alone for years. Two different jobs, two different homes.',ARRAY['investing','emergency_fund','liquidity']::text[],30,'constructive',false),
+('ev-068-boring-is-a-strategy','Boring is a strategy',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"Coffee"}'::jsonb,'The most successful investing is often deeply boring: invest regularly, diversify, keep costs low, and leave it alone. Excitement usually means risk, and risk untaken on purpose is wealth protected. Dull, done well, wins.',ARRAY['investing','behaviour','long_term']::text[],30,'positive',false),
+('ev-069-volatility-isn-t-loss','Volatility isn’t loss',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','diagram','{"primitive":"arrow","dir":"up","label":"dips are normal"}'::jsonb,'A falling price on paper is only a loss if you sell. Markets dip regularly; that’s normal, not a malfunction. The investors who do well are usually the ones who stayed calm and stayed invested through the dips.',ARRAY['investing','volatility','behaviour']::text[],30,'neutral',false),
+('ev-070-update-don-t-obsess','Update, don’t obsess',NULL,'','investment','published','Vyact',1,'📚',now(),'card','Investing','icon','{"icon":"RefreshCcw"}'::jsonb,'Checking investments daily invites stress and bad decisions. For long-term money, an occasional update of current value is plenty — enough to know your net worth, not so much that every wobble tempts you to act.',ARRAY['investing','tracking','behaviour']::text[],30,'neutral',false),
+('ev-071-net-worth-in-one-line','Net worth in one line',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','stat','{"big":"Assets − Debts","sub":"= net worth"}'::jsonb,'Net worth is everything you own minus everything you owe. It’s the single clearest snapshot of your financial position — and the number that, watched over time, tells you whether you’re moving in the right direction.',ARRAY['net_worth','beginner','metric']::text[],30,'neutral',false),
+('ev-072-track-the-trend-not-the-number','Track the trend, not the number',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','diagram','{"primitive":"arrow","dir":"up","label":"direction > level"}'::jsonb,'Your exact net worth matters less than which way it’s heading. A modest number trending up beats a bigger one sliding down. Watch the direction over months; that’s where the real story is.',ARRAY['net_worth','trend','progress']::text[],30,'positive',false),
+('ev-073-cash-flow-vs-net-worth','Cash flow vs net worth',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','diagram','{"primitive":"compare2","a":"Flow (month)","b":"Stock (now)"}'::jsonb,'Two different questions. Cash flow asks “am I living within my means this month?” Net worth asks “is my overall position improving?” You need both — a good month and a growing position aren’t the same thing.',ARRAY['net_worth','cashflow','concepts']::text[],30,'neutral',false),
+('ev-074-liabilities-are-tomorrow-s-outflows','Liabilities are tomorrow’s outflows',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','icon','{"icon":"TrendingDown"}'::jsonb,'Every debt is a claim on your future income. Paying down principal doesn’t just reduce a number — it frees up future cash flow and lifts net worth at the same time. Two wins from one payment.',ARRAY['net_worth','liabilities','debt']::text[],30,'neutral',false),
+('ev-075-assets-that-earn-vs-assets-that-sit','Assets that earn vs assets that sit',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','diagram','{"primitive":"compare2","a":"Earning","b":"Sitting"}'::jsonb,'Some assets grow or pay you — investments, rental property. Others just hold value or slowly fade — a car, gadgets. Both count in net worth, but knowing which is which shapes where new money should go.',ARRAY['net_worth','assets','investing']::text[],30,'neutral',false)
+on conflict (slug) do update set title=excluded.title,summary=excluded.summary,body=excluded.body,topic=excluded.topic,status=excluded.status,author_name=excluded.author_name,read_minutes=excluded.read_minutes,cover_emoji=excluded.cover_emoji,format=excluded.format,category=excluded.category,visual_kind=excluded.visual_kind,visual_ref=excluded.visual_ref,body_md=excluded.body_md,tags=excluded.tags,reading_seconds=excluded.reading_seconds,tone=excluded.tone,india_relevant=excluded.india_relevant;
+
+insert into public.content_items (slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at,format,category,visual_kind,visual_ref,body_md,tags,reading_seconds,tone,india_relevant) values
+('ev-076-a-home-is-both','A home is both',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','icon','{"icon":"Home"}'::jsonb,'A home you live in is an asset on your balance sheet and, via its loan, a liability too. It builds equity as you repay principal, but it isn’t liquid. Useful to hold — just not the same as money you can spend tomorrow.',ARRAY['net_worth','home','property','india']::text[],30,'neutral',true),
+('ev-077-the-first-goal-positive','The first goal: positive',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','diagram','{"primitive":"arc","pct":50,"label":"cross zero"}'::jsonb,'If debts currently outweigh assets, net worth is negative — and that’s a normal starting point for many. The first milestone is simply crossing zero. Every principal payment and every rupee saved moves you toward it.',ARRAY['net_worth','milestone','debt']::text[],30,'positive',false),
+('ev-078-liquidity-is-freedom','Liquidity is freedom',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','icon','{"icon":"Droplet"}'::jsonb,'Two people with the same net worth can be in very different positions if one’s wealth is all locked in property and the other has accessible savings. Liquidity — how fast you can reach your money — is its own kind of security.',ARRAY['net_worth','liquidity','safety']::text[],30,'neutral',false),
+('ev-079-check-it-monthly-not-daily','Check it monthly, not daily',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Net Worth','icon','{"icon":"CalendarDays"}'::jsonb,'Net worth moves slowly and meaningfully. A monthly glance is perfect — frequent enough to see the trend, rare enough to avoid noise. Watching it daily just adds anxiety without adding insight.',ARRAY['net_worth','habit','tracking']::text[],30,'neutral',false),
+('ev-080-awareness-is-the-first-win','Awareness is the first win',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Eye"}'::jsonb,'Simply paying attention to your money — without changing anything yet — already shifts behaviour. The act of noticing is the quiet first step that everything else builds on. You’ve started just by looking.',ARRAY['mindset','beginner','tracking']::text[],30,'positive',false),
+('ev-081-progress-over-perfection','Progress over perfection',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Footprints"}'::jsonb,'A perfect financial plan you abandon helps less than an imperfect one you keep. Aim for steady, sustainable progress, not a flawless system. Showing up beats getting it exactly right.',ARRAY['mindset','motivation','sustainable']::text[],30,'positive',false),
+('ev-082-money-is-emotional-that-s-okay','Money is emotional — that’s okay',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Heart"}'::jsonb,'Money decisions are rarely purely logical, and that’s human. Recognising the feelings — stress, guilt, FOMO — helps you make calmer choices. The goal isn’t to remove emotion, just to not be run by it.',ARRAY['mindset','wellbeing','emotion']::text[],30,'neutral',false),
+('ev-083-compare-to-past-you','Compare to past-you',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','diagram','{"primitive":"arrow","dir":"up","label":"you vs you, last year"}'::jsonb,'Comparing your finances to friends’ or social media’s is a fast route to feeling behind. The only fair comparison is to yourself a year ago. Against that, steady progress is a genuine win worth noticing.',ARRAY['mindset','comparison','progress']::text[],30,'positive',false),
+('ev-084-the-cost-of-deserve-it','The cost of “deserve it”',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Gift"}'::jsonb,'“I deserve it” is a fine reason to spend — occasionally and on purpose. It becomes costly when it’s the automatic answer to every hard day. Noticing the pattern lets you keep the treat and lose the autopilot.',ARRAY['mindset','spending','awareness']::text[],30,'neutral',false),
+('ev-085-small-habits-big-trajectory','Small habits, big trajectory',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','diagram','{"primitive":"arrow","dir":"up","label":"tiny × consistent"}'::jsonb,'Financial health is built from small, repeated actions, not one heroic decision. Log a transaction, skip an impulse buy, nudge up a SIP. None feels big; together, over years, they change everything.',ARRAY['mindset','habit','compounding']::text[],30,'positive',false),
+('ev-086-talk-money-with-your-household','Talk money with your household',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Users"}'::jsonb,'Money is smoother when a household plans together rather than discovering surprises. A short, regular money chat — what’s coming up, what’s the goal — turns finances from a source of friction into a shared project.',ARRAY['mindset','household','communication']::text[],30,'positive',false),
+('ev-087-lifestyle-creep-is-sneaky','Lifestyle creep is sneaky',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','diagram','{"primitive":"arrow","dir":"up","label":"income up → spend up"}'::jsonb,'As income rises, comforts quietly become “needs” and spending climbs to match. It’s natural — and worth watching. Letting some of each raise flow to savings instead keeps the climb from eating all your progress.',ARRAY['mindset','lifestyle','spending']::text[],30,'constructive',false),
+('ev-088-decide-your-money-values','Decide your money values',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Compass"}'::jsonb,'Spending feels better when it matches what you actually value — experiences, security, family, freedom. Knowing your money values turns budgeting from restriction into alignment: more of what matters, less of what doesn’t.',ARRAY['mindset','values','intentional']::text[],30,'neutral',false),
+('ev-089-one-decision-not-thirty','One decision, not thirty',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Zap"}'::jsonb,'Automating savings and bills replaces thirty small monthly decisions with one good decision made once. Fewer choices means fewer chances to slip — and less mental load. Set it up, then let it run.',ARRAY['mindset','automation','habit']::text[],30,'positive',false),
+('ev-090-it-s-never-too-late-to-start','It’s never too late to start',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Sunrise"}'::jsonb,'The best time to start was years ago; the second-best time is today. Whatever your starting point, the next good decision still counts. Money rewards starting far more than it punishes starting late.',ARRAY['mindset','motivation','beginner']::text[],30,'positive',false)
+on conflict (slug) do update set title=excluded.title,summary=excluded.summary,body=excluded.body,topic=excluded.topic,status=excluded.status,author_name=excluded.author_name,read_minutes=excluded.read_minutes,cover_emoji=excluded.cover_emoji,format=excluded.format,category=excluded.category,visual_kind=excluded.visual_kind,visual_ref=excluded.visual_ref,body_md=excluded.body_md,tags=excluded.tags,reading_seconds=excluded.reading_seconds,tone=excluded.tone,india_relevant=excluded.india_relevant;
+
+insert into public.content_items (slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at,format,category,visual_kind,visual_ref,body_md,tags,reading_seconds,tone,india_relevant) values
+('ev-091-calm-beats-clever','Calm beats clever',NULL,'','savings','published','Vyact',1,'📚',now(),'card','Mindset','icon','{"icon":"Wind"}'::jsonb,'Most financial damage comes not from picking the wrong investment but from panic — selling in a dip, chasing a hot tip. A calm, steady hand usually beats a clever, restless one. Boring discipline is an underrated superpower.',ARRAY['mindset','behaviour','investing']::text[],30,'neutral',false),
+('ev-092-the-1-5-lakh-that-saves-tax','The ₹1.5 lakh that saves tax',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','stat','{"big":"₹1.5L","sub":"80C deductions"}'::jsonb,'Under the old tax regime, certain investments and expenses up to ₹1.5 lakh a year can reduce taxable income — PPF, EPF, ELSS, life insurance, principal on a home loan, and more. Worth knowing whether you’re using the room you have.',ARRAY['india','tax','80c']::text[],30,'neutral',true),
+('ev-093-old-vs-new-tax-regime','Old vs new tax regime',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','diagram','{"primitive":"compare2","a":"Old: deductions","b":"New: lower rates"}'::jsonb,'India offers two tax regimes: the old one rewards deductions (80C, HRA, home-loan interest); the new one gives lower rates but fewer deductions. Which wins depends on how much you actually claim. It’s worth comparing both for your numbers.',ARRAY['india','tax','regime']::text[],30,'neutral',true),
+('ev-094-hra-if-you-rent','HRA, if you rent',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','icon','{"icon":"Home"}'::jsonb,'If you receive House Rent Allowance and pay rent, a portion can be exempt from tax under the old regime. The exact amount depends on your salary, rent, and city. If you rent and claim the old regime, it’s worth checking you’re using it.',ARRAY['india','tax','hra','rent']::text[],30,'neutral',true),
+('ev-095-a-health-policy-is-tax-smart-too','A health policy is tax-smart too',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','icon','{"icon":"HeartPulse"}'::jsonb,'Health insurance premiums can qualify for a deduction under section 80D, on top of the protection they provide. It’s one of the rare cases where the sensible thing to do and the tax-efficient thing to do are the same.',ARRAY['india','tax','insurance','80d']::text[],30,'neutral',true),
+('ev-096-upi-convenient-still-trackable','UPI: convenient, still trackable',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','icon','{"icon":"Smartphone"}'::jsonb,'UPI makes spending frictionless — which is great, and also why small payments slip past unnoticed. The flip side of effortless paying is effortless forgetting. Logging UPI spends keeps the convenience without losing the picture.',ARRAY['india','upi','tracking','spending']::text[],30,'neutral',true),
+('ev-097-the-festival-advance-trap','The festival-advance trap',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','icon','{"icon":"AlertTriangle"}'::jsonb,'Festival sales and easy EMIs make big purchases feel small. They can be fine — just worth pausing on whether you’d buy it at full price, in cash. A planned festival budget beats a year of paying off festival impulse buys.',ARRAY['india','festival','debt','spending']::text[],30,'constructive',true),
+('ev-098-gold-beyond-the-jewellery','Gold, beyond the jewellery',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','icon','{"icon":"Coins"}'::jsonb,'Many Indian households hold gold for tradition and as a hedge. As an investment, forms like sovereign gold bonds can be more efficient than physical gold — no storage worry, and they can pay a small interest. Same metal, fewer downsides.',ARRAY['india','gold','investing']::text[],30,'neutral',true),
+('ev-099-sukanya-samriddhi-for-daughters','Sukanya Samriddhi for daughters',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','icon','{"icon":"Baby"}'::jsonb,'For families with a young daughter, the Sukanya Samriddhi scheme offers a safe, tax-advantaged, long-horizon way to build a corpus for her education or future. Government-backed and patient — a quiet long-term workhorse.',ARRAY['india','child','savings','scheme']::text[],30,'positive',true),
+('ev-100-nominee-and-will-the-quiet-essentials','Nominee and will, the quiet essentials',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','icon','{"icon":"FileText"}'::jsonb,'Adding nominees to your accounts and investments — and, eventually, writing a simple will — spares your family enormous difficulty later. It’s a small, uncomfortable afternoon of admin that quietly protects the people you love.',ARRAY['india','estate','household','safety']::text[],30,'neutral',true),
+('ev-101-emergency-fund-in-a-sweep-account','Emergency fund in a sweep account',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','icon','{"icon":"Wallet"}'::jsonb,'A sweep-in fixed deposit lets emergency money earn a bit more than a plain savings account while staying instantly accessible. You get a little extra return without sacrificing the one thing emergency money must have — availability.',ARRAY['india','emergency_fund','liquidity']::text[],30,'neutral',true),
+('ev-102-know-your-cibil-gently','Know your CIBIL, gently',NULL,'','savings','published','Vyact',1,'📚',now(),'card','India','diagram','{"primitive":"arc","pct":75,"label":"check yearly"}'::jsonb,'You can check your own credit score for free once a year without affecting it. It’s worth a look — to catch errors, spot any account you don’t recognise, and see the effect of your on-time payments. Knowledge, no downside.',ARRAY['india','credit_score','cibil']::text[],30,'neutral',true),
+('ev-103-the-household-is-the-real-unit','The household is the real unit',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Household','icon','{"icon":"Users"}'::jsonb,'Money decisions rarely happen in isolation — they ripple across a household. Seeing the full picture together, rather than each person tracking their own slice, is what makes shared goals and shared budgets actually work.',ARRAY['household','shared','concept']::text[],30,'neutral',false),
+('ev-104-shared-goals-shared-motivation','Shared goals, shared motivation',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Household','icon','{"icon":"Target"}'::jsonb,'A goal everyone in the household can see is a goal everyone can pull toward. Visible shared progress — a trip, a cushion, a big purchase — turns saving from one person’s discipline into a team effort.',ARRAY['household','goal','motivation']::text[],30,'positive',false),
+('ev-105-yours-mine-and-ours','Yours, mine, and ours',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Household','diagram','{"primitive":"stack","parts":[["Ours",50],["Yours",25],["Mine",25]]}'::jsonb,'Many couples find a blend works best: a shared pot for joint expenses and goals, plus some personal money each, no questions asked. Structure reduces friction — and a little autonomy keeps shared finances feeling fair.',ARRAY['household','structure','couples']::text[],30,'neutral',false)
+on conflict (slug) do update set title=excluded.title,summary=excluded.summary,body=excluded.body,topic=excluded.topic,status=excluded.status,author_name=excluded.author_name,read_minutes=excluded.read_minutes,cover_emoji=excluded.cover_emoji,format=excluded.format,category=excluded.category,visual_kind=excluded.visual_kind,visual_ref=excluded.visual_ref,body_md=excluded.body_md,tags=excluded.tags,reading_seconds=excluded.reading_seconds,tone=excluded.tone,india_relevant=excluded.india_relevant;
+
+insert into public.content_items (slug,title,summary,body,topic,status,author_name,read_minutes,cover_emoji,published_at,format,category,visual_kind,visual_ref,body_md,tags,reading_seconds,tone,india_relevant) values
+('ev-106-the-monthly-money-date','The monthly money date',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Household','icon','{"icon":"Coffee"}'::jsonb,'A short, regular catch-up on money — over chai, no blame — keeps a household aligned. What’s coming up, how the goals look, anything worrying. Small and routine beats rare and tense. Make it boring on purpose.',ARRAY['household','communication','habit']::text[],30,'positive',false),
+('ev-107-one-person-shouldn-t-hold-it-all','One person shouldn’t hold it all',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Household','icon','{"icon":"KeyRound"}'::jsonb,'If only one person knows the passwords, balances, and bills, the household is fragile to illness or emergency. Sharing the basics — where things are, what’s due — is a quiet act of care and resilience.',ARRAY['household','resilience','safety']::text[],30,'neutral',false),
+('ev-108-teach-the-kids-early','Teach the kids early',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Household','icon','{"icon":"GraduationCap"}'::jsonb,'Children learn money mostly by watching. Small, age-appropriate involvement — a savings jar, a tiny allowance, talking through a purchase — builds instincts that school rarely teaches. The lessons compound as surely as the money.',ARRAY['household','children','education']::text[],30,'positive',false),
+('ev-109-plan-for-the-predictable','Plan for the predictable',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Household','icon','{"icon":"CalendarRange"}'::jsonb,'School admissions, annual premiums, festival seasons, a planned trip — a household’s big costs are mostly known in advance. Listing them at the start of the year turns a string of “expensive months” into a calm plan.',ARRAY['household','planning','seasonal']::text[],30,'neutral',true),
+('ev-110-protect-the-earners','Protect the earners',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Household','icon','{"icon":"Shield"}'::jsonb,'A household that depends on one or two incomes is exposed if something happens to an earner. Term life cover and health insurance are inexpensive ways to make sure a tragedy doesn’t also become a financial collapse.',ARRAY['household','insurance','protection']::text[],30,'neutral',true),
+('ev-111-log-little-and-often','Log little and often',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Using Vyact','icon','{"icon":"PenLine"}'::jsonb,'The habit that makes everything else work is quick, regular logging. A few seconds per spend keeps your balances real and your insights sharp. Little and often beats a painful catch-up at month-end.',ARRAY['vyact','habit','tracking']::text[],30,'positive',false),
+('ev-112-reconcile-without-guilt','Reconcile without guilt',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Using Vyact','icon','{"icon":"CheckCircle"}'::jsonb,'If your tracked balance drifts from reality, just fix it — the gap is simply forgotten transactions, and correcting it is normal upkeep, not failure. A quick reconcile keeps your numbers honest and your net worth true.',ARRAY['vyact','reconcile','tracking']::text[],30,'positive',false),
+('ev-113-let-the-trend-teach-you','Let the trend teach you',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Using Vyact','diagram','{"primitive":"arrow","dir":"up","label":"watch the direction"}'::jsonb,'One month is a data point; six months is a story. The most useful thing in your numbers isn’t any single figure — it’s the direction over time. Glance at the trend; it’s where the real feedback lives.',ARRAY['vyact','trend','insights']::text[],30,'neutral',false),
+('ev-114-recurring-less-to-remember','Recurring = less to remember',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Using Vyact','icon','{"icon":"CalendarClock"}'::jsonb,'Set your fixed, predictable payments as recurring once, and they log themselves on schedule. Fewer things to remember, a cleaner picture of what’s truly committed each month, and a head start on next month’s budget.',ARRAY['vyact','recurring','automation']::text[],30,'neutral',false),
+('ev-115-your-pulse-gently-read','Your Pulse, gently read',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Using Vyact','diagram','{"primitive":"arc","pct":70,"label":"a wellness signal"}'::jsonb,'The Pulse Score is a gentle health signal, not a grade. It moves as your habits do — saving, staying on budget, managing debt. Watch which part nudges it, and let it guide one small improvement at a time.',ARRAY['vyact','pulse','wellbeing']::text[],30,'positive',false),
+('ev-116-categories-that-fit-you','Categories that fit you',NULL,'','budgeting','published','Vyact',1,'📚',now(),'card','Using Vyact','icon','{"icon":"Tags"}'::jsonb,'Good categories make your reports meaningful. Keep them broad enough to be quick and specific enough to be useful. When one category swells, that’s your cue to look — and your insights get sharper the cleaner your tags are.',ARRAY['vyact','categories','tracking']::text[],30,'neutral',false)
+on conflict (slug) do update set title=excluded.title,summary=excluded.summary,body=excluded.body,topic=excluded.topic,status=excluded.status,author_name=excluded.author_name,read_minutes=excluded.read_minutes,cover_emoji=excluded.cover_emoji,format=excluded.format,category=excluded.category,visual_kind=excluded.visual_kind,visual_ref=excluded.visual_ref,body_md=excluded.body_md,tags=excluded.tags,reading_seconds=excluded.reading_seconds,tone=excluded.tone,india_relevant=excluded.india_relevant;
+
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260621120000_upsert_budget_with_allocations.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Vyact — Budget-sync fix (docs/budget-sync-fix-plan.md, Phase 1).
+--
+-- Root cause: the parent budget was written online-synchronously (upsert_budget),
+-- but each child allocation went through the fire-and-forget optimistic queue and
+-- could silently dead-letter — so allocations created on one device never reached
+-- the cloud (nothing for realtime to broadcast; a fresh login showed nothing).
+--
+-- Fix: one RPC that writes the parent budget AND its full allocation set in a
+-- SINGLE transaction. Reuses upsert_budget for identity/dedup + the owner/admin
+-- guard + BUDGET_EXISTS (so create still rejects a duplicate slot). The allocation
+-- write is a scoped REPLACE: soft-delete this budget's live allocations (tombstones
+-- ride the delta-sync window), then insert the provided set fresh. Last-writer-wins.
+
+create or replace function public.upsert_budget_with_allocations(
+  h uuid, b jsonb, allocs jsonb, p_mode text default 'create'
+) returns jsonb
+language plpgsql
+security definer
+set search_path to 'public', 'pg_temp'
+as $$
+declare
+  bud budgets%rowtype;
+begin
+  -- Parent — reuse the single writer (auth, owner/admin guard, identity/dedup,
+  -- BUDGET_EXISTS on a taken slot). Runs in THIS transaction.
+  select * into bud from public.upsert_budget(h, b, p_mode) limit 1;
+
+  -- Children — atomic replace scoped strictly to the resolved budget_id.
+  -- 1) tombstone the current live set (bump updated_at so other devices pull the
+  --    delete as a tombstone inside their delta window).
+  update public.budget_allocations
+     set deleted_at = now(), updated_at = now()
+   where budget_id = bud.id and deleted_at is null;
+
+  -- 2) insert the provided set fresh.
+  insert into public.budget_allocations (id, budget_id, household_id, category, amount)
+  select gen_random_uuid(), bud.id, h, a->>'category', coalesce((a->>'amount')::numeric, 0)
+    from jsonb_array_elements(coalesce(allocs, '[]'::jsonb)) a
+   where coalesce(a->>'category','') <> '';
+
+  return jsonb_build_object(
+    'budget', to_jsonb(bud),
+    'allocations', coalesce(
+      (select jsonb_agg(to_jsonb(ba) order by ba.created_at)
+         from public.budget_allocations ba
+        where ba.budget_id = bud.id and ba.deleted_at is null),
+      '[]'::jsonb)
+  );
+end;
+$$;
+
+grant execute on function public.upsert_budget_with_allocations(uuid, jsonb, jsonb, text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260701120000_v98_privacy_deletion_controls.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Vyact v9.8.0 — consent tracking + data erasure / account deactivation /
+-- account deletion controls
+--
+-- Ships the backend for three consumer-facing rights promised by the new
+-- Privacy Policy / Terms of Service:
+--   1. Consent is recorded at sign-up (tos_accepted_at / privacy_accepted_at)
+--      instead of being an unenforced UI checkbox.
+--   2. "Erase all my data" — wipes every financial row for a household
+--      (transactions, budgets, debts, goals, assets, accounts, recurring
+--      schedules, activity log, onboarding baseline) while the household
+--      shell + membership + login survive. Owner/admin only.
+--   3. Deactivate (temporary) vs delete (permanent) at the *account* level:
+--        - deactivated_at: soft-lock, cleared automatically the next time
+--          the owning user authenticates (client calls reactivate_my_account
+--          right after sign-in — see lib/auth.ts reactivateIfNeeded()).
+--        - deletion_requested_at / deletion_scheduled_for: a 30-day undo
+--          window for permanent deletion. Signing back in inside the window
+--          cancels the scheduled purge (same reactivate path). The actual
+--          hard delete (auth.users row + all owned data) is performed by the
+--          `delete-account` edge function using the service role, since a
+--          client-side RLS-scoped connection cannot drop auth.users.
+-- ============================================================================
+
+-- ── 1. Consent + lifecycle columns on profiles ─────────────────────────────
+alter table profiles
+  add column if not exists tos_accepted_at        timestamptz,
+  add column if not exists tos_version             text,
+  add column if not exists privacy_accepted_at     timestamptz,
+  add column if not exists privacy_version         text,
+  add column if not exists deactivated_at          timestamptz,
+  add column if not exists deletion_requested_at   timestamptz,
+  add column if not exists deletion_scheduled_for  timestamptz;
+
+comment on column profiles.deactivated_at is
+  'Temporary account hold. Set by deactivate_my_account(); cleared by reactivate_my_account() the next time the user signs back in.';
+comment on column profiles.deletion_scheduled_for is
+  'Permanent-delete undo deadline (request time + 30 days). The delete-account edge function purges the account once this passes; signing in before it cancels the request.';
+
+-- ── 2. erase_household_data — wipe financial data, keep the shell ──────────
+-- Caller must be an owner/admin member of h_id. Deletes rows scoped to the
+-- household from every money/content table; leaves `households` and
+-- `memberships` themselves untouched so the household and its members still
+-- exist (this is a data reset, not a household deletion).
+drop function if exists erase_household_data(uuid);
+create or replace function erase_household_data(h_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_role text;
+begin
+  select role into caller_role
+  from memberships
+  where household_id = h_id and user_id = auth.uid()
+  limit 1;
+
+  if caller_role is null or caller_role not in ('owner', 'admin') then
+    raise exception 'not authorized to erase this household''s data';
+  end if;
+
+  delete from transactions        where household_id = h_id;
+  delete from budgets              where household_id = h_id;
+  delete from budget_allocations   where household_id = h_id;
+  delete from goals                where household_id = h_id;
+  delete from debts                where household_id = h_id;
+  delete from assets               where household_id = h_id;
+  delete from accounts             where household_id = h_id;
+  delete from recurring_schedules  where household_id = h_id;
+  delete from saved_views          where household_id = h_id;
+  delete from activity_log         where household_id = h_id;
+
+  -- Onboarding baseline/reference overlay (v9.7.0) lives in households.onboarding.
+  update households set onboarding = null where id = h_id;
+
+  insert into activity_log (household_id, actor_id, action, entity_type, entity_id, changes)
+  values (h_id, auth.uid(), 'erase_household_data', 'household', h_id, jsonb_build_object('erased_at', now()));
+end;
+$$;
+
+grant execute on function erase_household_data(uuid) to authenticated;
+
+-- ── 3. Deactivate / reactivate — operate on the caller only ────────────────
+drop function if exists deactivate_my_account();
+create or replace function deactivate_my_account()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update profiles set deactivated_at = now() where id = auth.uid();
+$$;
+
+grant execute on function deactivate_my_account() to authenticated;
+
+drop function if exists reactivate_my_account();
+create or replace function reactivate_my_account()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update profiles
+  set deactivated_at = null,
+      deletion_requested_at = null,
+      deletion_scheduled_for = null
+  where id = auth.uid();
+$$;
+
+grant execute on function reactivate_my_account() to authenticated;
+
+-- ── 4. Request permanent deletion (30-day undo window) ─────────────────────
+drop function if exists request_account_deletion();
+create or replace function request_account_deletion()
+returns timestamptz
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  scheduled timestamptz := now() + interval '30 days';
+begin
+  update profiles
+  set deactivated_at = now(),
+      deletion_requested_at = now(),
+      deletion_scheduled_for = scheduled
+  where id = auth.uid();
+  return scheduled;
+end;
+$$;
+
+grant execute on function request_account_deletion() to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260702120000_v99_insight_video_shorts.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Vyact v9.9.0 — YouTube short video links for Insight content (evergreen
+-- cards, articles, and external items all live in content_items).
+--
+-- Admin (Content CMS) pastes a YouTube URL per item; the consumer renders a
+-- click-to-play embed + an "Open in YouTube" redirect (like/comment/subscribe
+-- there). No video files are stored in Vyact — YouTube is the CDN, this is
+-- just a URL + a last-updated timestamp so staleness is visible in the CMS.
+-- Purely additive; existing RLS policies on content_items already cover these
+-- new columns (row-level, not column-level).
+-- ============================================================================
+
+alter table content_items
+  add column if not exists video_url        text,
+  add column if not exists video_updated_at timestamptz;
+
+comment on column content_items.video_url is
+  'Optional YouTube short URL (any common form — watch/shorts/youtu.be/embed) for this content item. Normalised client-side via lib/youtube.ts.';
+comment on column content_items.video_updated_at is
+  'Set whenever video_url changes in the admin CMS — lets editors see at a glance which shorts are stale relative to the content.';
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260704120000_v991_insight_infographics.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Vyact v9.9.1 / admin v1.3.1 — portrait infographics for Insight content.
+--
+-- Each content_items row (evergreen card / article / external) can carry a
+-- full-length portrait infographic image, authored outside Vyact (NotebookLM
+-- etc.) and uploaded by a content admin through the Content CMS. Unlike the
+-- YouTube-hosted video short, there is no free third-party CDN for an
+-- arbitrary image, so this DOES need real storage — a Supabase Storage
+-- bucket, the first one in this app.
+-- ============================================================================
+
+-- 1. content_items gains the same url + last-updated pattern already used
+--    for video_url/video_updated_at (v9.9.0).
+alter table content_items
+  add column if not exists infographic_url        text,
+  add column if not exists infographic_updated_at timestamptz;
+
+comment on column content_items.infographic_url is
+  'Public Storage URL of the full-length portrait infographic for this content item, if uploaded.';
+comment on column content_items.infographic_updated_at is
+  'Set whenever infographic_url changes (new upload/replace) in the admin CMS.';
+
+-- 2. Storage bucket — public read (images are non-sensitive marketing/
+--    educational content, same trust level as the evergreen card bodies
+--    which are already public at /learn/<slug>), write restricted to content
+--    admins via the same is_admin('content') gate used on content_items.
+insert into storage.buckets (id, name, public)
+values ('insight-infographics', 'insight-infographics', true)
+on conflict (id) do nothing;
+
+drop policy if exists "insight infographics public read"    on storage.objects;
+drop policy if exists "insight infographics admin write"    on storage.objects;
+drop policy if exists "insight infographics admin update"   on storage.objects;
+drop policy if exists "insight infographics admin delete"   on storage.objects;
+
+create policy "insight infographics public read" on storage.objects
+  for select using (bucket_id = 'insight-infographics');
+
+create policy "insight infographics admin write" on storage.objects
+  for insert with check (bucket_id = 'insight-infographics' and public.is_admin('content'));
+
+create policy "insight infographics admin update" on storage.objects
+  for update using (bucket_id = 'insight-infographics' and public.is_admin('content'));
+
+create policy "insight infographics admin delete" on storage.objects
+  for delete using (bucket_id = 'insight-infographics' and public.is_admin('content'));
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260709120000_v101_notifications_sync.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Vyact v10.1.0 — cross-device notifications (Aurora revamp · Batch A).
+--
+-- Notifications were device-local (localStorage). This makes them a synced,
+-- household-scoped entity so the same feed + unread badge appear on every
+-- device a member signs in on. Rows are still GENERATED on-device from app
+-- state (recurring due, budget thresholds, …) — the client upserts freshly
+-- generated notifications (deduped by household_id + dedupe_key) and reads the
+-- household's list back. Status changes (read/dismiss) sync too. No secrets,
+-- household-scoped RLS mirroring transactions/saved_views.
+-- ============================================================================
+
+create table if not exists notifications (
+  id            uuid primary key default gen_random_uuid(),
+  household_id  uuid not null references households(id) on delete cascade,
+  type          text not null,
+  priority      text not null default 'P2' check (priority in ('P1', 'P2')),
+  title         text not null,
+  body          text,
+  status        text not null default 'unread' check (status in ('unread', 'read', 'dismissed')),
+  created_at    timestamptz not null default now(),
+  due_at        timestamptz,
+  member_id     uuid,
+  amount_ref    numeric,
+  deep_link     text,
+  tint          text,
+  actions       jsonb,          -- NotifActionSpec[] (id/label/kind)
+  context       jsonb,          -- { scheduleId, budgetId, debtId, accountId, txnId, inviteToken }
+  dedupe_key    text not null
+);
+
+-- One row per (household, occurrence): two devices generating the same
+-- notification collapse to a single row (client upserts ignore-duplicates).
+create unique index if not exists uq_notif_dedupe on notifications(household_id, dedupe_key);
+create index if not exists notif_household_status_idx on notifications(household_id, status);
+
+alter table notifications enable row level security;
+
+drop policy if exists "notif_read"   on notifications;
+drop policy if exists "notif_insert" on notifications;
+drop policy if exists "notif_update" on notifications;
+drop policy if exists "notif_delete" on notifications;
+
+create policy "notif_read"   on notifications for select using (is_member(household_id) or is_admin('roles'));
+create policy "notif_insert" on notifications for insert with check (is_member(household_id));
+create policy "notif_update" on notifications for update using (is_member(household_id));
+create policy "notif_delete" on notifications for delete using (is_member(household_id));
+
+grant select, insert, update, delete on notifications to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260724120000_fix_household_delete_activity_log_fk.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Fix: deleting a household always fails with
+--   `insert or update on table "activity_log" violates foreign key
+--   constraint "activity_log_household_id_fkey"`
+--
+-- Root cause (confirmed live via a zero-cost DO-block repro before this fix
+-- was written): `activity_log.household_id` is `references households(id)
+-- on delete cascade`. Deleting a household cascades to delete every row that
+-- references it — memberships, transactions, budgets, goals, debts, assets —
+-- and EACH of those cascaded deletes fires its own `log_domain_activity()`
+-- AFTER DELETE trigger (TD-08, 20260529150500_td08_audit_triggers.sql),
+-- which tries to INSERT a fresh 'deleted' row into `activity_log` for that
+-- household. By the time those child-table cascades fire, `households(id)`
+-- has ALREADY been removed from the table within the same transaction (that
+-- removal is what triggered the cascade), so the new activity_log insert's
+-- own FK check fails — the whole DELETE rolls back and the household is
+-- never actually deleted. This reproduces for ANY household with at least
+-- one row in a logged child table, which in practice is every real
+-- household (every household has at least its owner's membership row).
+--
+-- Fix: swallow `foreign_key_violation` specifically on this insert. A log
+-- entry for a household that's disappearing in the same transaction has no
+-- reader anyway — activity_log's own household_id FK is ALSO `on delete
+-- cascade`, so any activity_log rows that already exist for this household
+-- are removed automatically once the delete completes. Skipping the insert
+-- here just avoids trying to create a row that would be immediately
+-- orphaned, instead of aborting the entire household deletion over it.
+
+begin;
+
+create or replace function public.log_domain_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  h       uuid;
+  act     text;
+  ent     text := tg_table_name;
+  ent_id  uuid;
+  ch      jsonb;
+begin
+  if tg_op = 'INSERT' then
+    act    := 'created';
+    h      := new.household_id;
+    ent_id := new.id;
+    ch     := to_jsonb(new);
+  elsif tg_op = 'UPDATE' then
+    act    := 'updated';
+    h      := new.household_id;
+    ent_id := new.id;
+    ch     := jsonb_build_object('old', to_jsonb(old), 'new', to_jsonb(new));
+  elsif tg_op = 'DELETE' then
+    act    := 'deleted';
+    h      := old.household_id;
+    ent_id := old.id;
+    ch     := to_jsonb(old);
+  else
+    return null;
+  end if;
+
+  begin
+    insert into activity_log (household_id, actor_id, action, entity_type, entity_id, changes)
+    values (h, auth.uid(), act, ent, ent_id, ch);
+  exception when foreign_key_violation then
+    -- household_id no longer exists — we're mid-cascade-delete of the
+    -- household itself in this same transaction. See header comment.
+    null;
+  end;
+
+  return null;
+end;
+$$;
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260724130000_shared_splits.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v10.14.0 — email-based cross-household split sharing.
+--
+-- A split's OWNER (the person who paid) creates a `shared_splits` row plus one
+-- `shared_split_shares` row per participant, keyed by the participant's EMAIL
+-- (not a user id — the participant may not have a Vyact account yet). Because
+-- Supabase only ever writes a *verified* email into a session's JWT, matching
+-- on `auth.jwt()`/`auth.users.email` (never a client-supplied value) is what
+-- makes it safe for a participant to see a split they didn't create: nobody
+-- can put someone else's email in a row and read as that person, since read
+-- access is gated on the CALLER's own verified email, not the row's data.
+--
+-- If the participant doesn't have an account yet, the row simply sits there —
+-- the moment they sign up with that email, `shared_splits_select`/
+-- `shared_split_shares_select` (keyed on `my_email()`) start matching and it
+-- appears. No backfill needed (spec item 4.1).
+--
+-- Mutation model:
+--   - The OWNER can insert/update/delete their own split + its shares directly
+--     (normal owner-checked RLS) — this covers the owner manually marking a
+--     participant paid (they said so in person) and closing the split.
+--   - A PARTICIPANT has no UPDATE policy at all (only SELECT via email match),
+--     so their self-service "I paid my share" goes through `settle_share()`,
+--     a SECURITY DEFINER RPC that re-derives the caller's verified email
+--     server-side and only ever touches the ONE row that matches it.
+--
+-- Money-model note: these are IOU/ledger rows, structurally identical in
+-- spirit to the existing local `Transaction.split` — they do NOT touch
+-- `transactions`/`accounts` and never move spend/income on their own. The
+-- owner's own expense/income transaction (already created via the normal
+-- Add-Transaction flow) is optionally linked via `txn_id` for display only.
+--
+-- RLS note — owner-vs-participant checks are SECURITY DEFINER helper
+-- functions (`owns_shared_split`/`is_split_participant`), mirroring the
+-- codebase's existing `is_member()`/`role_in()` pattern: a naive inline
+-- `exists (select 1 from shared_split_shares ...)` on `shared_splits`' own
+-- policy, paired with `shared_splits` on `shared_split_shares`' policy,
+-- recurses (Postgres re-applies each table's RLS while evaluating the
+-- other's), raising `42P17`. Routing the cross-table lookup through a
+-- SECURITY DEFINER function breaks the cycle (it runs as the function
+-- owner, bypassing RLS internally) — verified live via zero-cost `DO`-block
+-- impersonation of three real users before this ever reached a client.
+-- `auth.uid()` calls are wrapped `(select auth.uid())` per the Auth RLS
+-- Initialization Plan advisory, so it's evaluated once per statement, not
+-- once per row.
+
+begin;
+
+-- ── my_email() — the verified-email analogue of is_member()/role_in() ──────
+create or replace function public.my_email()
+returns text
+language sql stable security definer set search_path = public
+as $$ select lower(email) from auth.users where id = auth.uid(); $$;
+
+grant execute on function public.my_email() to authenticated;
+
+-- ── shared_splits ────────────────────────────────────────────────────────
+create table if not exists shared_splits (
+  id                  uuid primary key default gen_random_uuid(),
+  owner_user_id       uuid not null references auth.users(id) on delete cascade,
+  owner_household_id  uuid not null references households(id) on delete cascade,
+  -- Optional link to the owner's OWN transaction row (display only).
+  txn_id              uuid references transactions(id) on delete set null,
+  description         text not null,
+  currency            text not null,
+  total_amount        numeric not null check (total_amount > 0),
+  txn_type            text not null default 'expense' check (txn_type in ('expense','income')),
+  date                date not null,
+  closed_at           timestamptz,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+
+create index if not exists shared_splits_owner_idx on shared_splits(owner_user_id);
+create index if not exists shared_splits_household_idx on shared_splits(owner_household_id);
+
+drop trigger if exists touch_shared_splits on shared_splits;
+create trigger touch_shared_splits before update on shared_splits
+  for each row execute function set_updated_at();
+
+-- ── shared_split_shares ──────────────────────────────────────────────────
+create table if not exists shared_split_shares (
+  id                uuid primary key default gen_random_uuid(),
+  split_id          uuid not null references shared_splits(id) on delete cascade,
+  email             text not null,
+  share             numeric not null check (share > 0),
+  paid              boolean not null default false,
+  paid_at           timestamptz,
+  settled_user_id   uuid references auth.users(id),
+  created_at        timestamptz not null default now()
+);
+
+create index if not exists shared_split_shares_split_idx on shared_split_shares(split_id);
+create index if not exists shared_split_shares_email_idx on shared_split_shares(email);
+create index if not exists shared_split_shares_settled_user_idx on shared_split_shares(settled_user_id);
+
+-- ── RLS helpers (SECURITY DEFINER — break the cross-table recursion) ─────
+create or replace function public.owns_shared_split(p_split_id uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from shared_splits sp
+    where sp.id = p_split_id and sp.owner_user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.is_split_participant(p_split_id uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from shared_split_shares s
+    where s.split_id = p_split_id and s.email = my_email()
+  );
+$$;
+
+grant execute on function public.owns_shared_split(uuid) to authenticated;
+grant execute on function public.is_split_participant(uuid) to authenticated;
+
+-- ── RLS ──────────────────────────────────────────────────────────────────
+alter table shared_splits enable row level security;
+alter table shared_split_shares enable row level security;
+
+drop policy if exists "shared_splits_select" on shared_splits;
+drop policy if exists "shared_splits_insert" on shared_splits;
+drop policy if exists "shared_splits_update" on shared_splits;
+drop policy if exists "shared_splits_delete" on shared_splits;
+
+create policy "shared_splits_select" on shared_splits for select using (
+  owner_user_id = (select auth.uid())
+  or is_split_participant(id)
+);
+create policy "shared_splits_insert" on shared_splits for insert to authenticated
+  with check (owner_user_id = (select auth.uid()));
+create policy "shared_splits_update" on shared_splits for update using (owner_user_id = (select auth.uid()));
+create policy "shared_splits_delete" on shared_splits for delete using (owner_user_id = (select auth.uid()));
+
+drop policy if exists "shared_split_shares_select" on shared_split_shares;
+drop policy if exists "shared_split_shares_insert" on shared_split_shares;
+drop policy if exists "shared_split_shares_owner_update" on shared_split_shares;
+drop policy if exists "shared_split_shares_delete" on shared_split_shares;
+
+create policy "shared_split_shares_select" on shared_split_shares for select using (
+  email = my_email()
+  or owns_shared_split(split_id)
+);
+-- Only the split's owner can add share rows (at creation time).
+create policy "shared_split_shares_insert" on shared_split_shares for insert to authenticated
+  with check (owns_shared_split(split_id));
+-- Owner can edit/mark-paid directly (e.g. "they paid me in cash"). Participants
+-- have NO update policy — their self-settle path is settle_share() below.
+create policy "shared_split_shares_owner_update" on shared_split_shares for update using (
+  owns_shared_split(split_id)
+);
+create policy "shared_split_shares_delete" on shared_split_shares for delete using (
+  owns_shared_split(split_id)
+);
+
+grant select, insert, update, delete on shared_splits to authenticated;
+grant select, insert, update, delete on shared_split_shares to authenticated;
+
+-- ── settle_share(share_id) — participant self-service settle ───────────────
+-- Re-derives the caller's verified email server-side; only ever touches the
+-- ONE row whose email matches. A participant with no UPDATE policy on
+-- shared_split_shares cannot reach this any other way.
+create or replace function public.settle_share(p_share_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_email text;
+  v_matched uuid;
+begin
+  v_email := my_email();
+  if v_email is null then
+    raise exception 'Must be signed in to settle a split share';
+  end if;
+
+  select id into v_matched from shared_split_shares
+   where id = p_share_id and email = v_email;
+
+  if v_matched is null then
+    raise exception 'Share not found, or it is not yours to settle';
+  end if;
+
+  update shared_split_shares
+     set paid = true, paid_at = now(), settled_user_id = auth.uid()
+   where id = p_share_id;
+end;
+$$;
+
+grant execute on function public.settle_share(uuid) to authenticated;
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260802120000_split_participant_name_resolution.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v10.14.1 — resolve a split participant's DISPLAY NAME from their email.
+--
+-- The split form and Splits view are email-keyed, but users think in names.
+-- This lets the client show "Manu · u.reddy@vidaxl.com" instead of a bare
+-- email, and lets the Add-Transaction split form show the resolved name as a
+-- NON-EDITABLE value once you type a participant's email (feedback items 1+2).
+--
+-- SECURITY DEFINER so it can read auth.users/profiles (the caller can't), but
+-- it returns ONLY the display_name for a matching, active account — same
+-- invite-by-email directory lookup Splitwise/Venmo expose. Authenticated only.
+-- Deactivated / deletion-pending accounts are excluded.
+create or replace function public.resolve_participant_names(p_emails text[])
+returns table(email text, display_name text)
+language sql stable security definer set search_path = public
+as $$
+  select lower(u.email) as email, p.display_name
+  from auth.users u
+  join public.profiles p on p.id = u.id
+  where lower(u.email) = any (select lower(e) from unnest(p_emails) e)
+    and p.deactivated_at is null
+    and p.deletion_requested_at is null;
+$$;
+
+-- Postgres grants EXECUTE to PUBLIC by default on create; revoke it so an
+-- UNAUTHENTICATED (anon) caller can't enumerate email → name. This function
+-- has no auth.uid() gate (it's a pure directory lookup), so unlike the other
+-- SECURITY DEFINER helpers it must be authenticated-only.
+revoke execute on function public.resolve_participant_names(text[]) from public;
+revoke execute on function public.resolve_participant_names(text[]) from anon;
+grant execute on function public.resolve_participant_names(text[]) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260810120000_whatsapp_log_transaction.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- WhatsApp workflow phase — atomic ledger insert from an inbound chat message.
+-- Companion: whatsapp-vyact-solutioning.md §8 (v2-corrected + re-validated against
+-- the live v10.x schema on 2026-08-10). Forward-only, idempotent.
+--
+-- Called by the `whatsapp-webhook` Edge Function (service role) after the
+-- deterministic parser produces a structured transaction. SECURITY DEFINER so it
+-- can write under the household's RLS; locked down to service_role only.
+--
+-- Honors the live CHECK matrix exactly:
+--   ck_txn_type            : type ∈ (expense, income, investment, transfer)
+--   ck_txn_category_by_type: category NOT NULL for expense/income, NULL otherwise
+--   ck_txn_accounts_by_type: expense→account_id only; income→to_account_id only;
+--                            transfer/investment→both
+-- Attribution uses created_by (auth uid = profiles.id) + member_id (resolved from
+-- memberships), never a non-existent profile_id column. Money model unchanged:
+-- this inserts a normal transaction exactly like the app.
+-- ============================================================================
+
+create or replace function public.whatsapp_log_transaction(
+  p_profile_id      uuid,
+  p_household_id    uuid,
+  p_amount          numeric,
+  p_currency        text,
+  p_txn_type        text,
+  p_category_id     text,
+  p_account_alias   text,
+  p_to_account_alias text,
+  p_wa_message_id   text,
+  p_description     text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_member_id     uuid;
+  v_account_id    uuid;
+  v_to_account_id uuid;
+  v_cash_id       uuid;
+  v_txn_id        uuid;
+  v_claimed       int;
+begin
+  if p_amount is null or p_amount <= 0 then
+    return jsonb_build_object('status','error','reason','invalid_amount');
+  end if;
+  if p_txn_type not in ('expense','income','investment','transfer') then
+    return jsonb_build_object('status','error','reason','invalid_type');
+  end if;
+
+  -- Idempotency claim-first: ensure the inbound row exists, then claim it by
+  -- flipping processed_at only if still unprocessed. Concurrent deliveries lose
+  -- the race (0 rows) and return 'duplicate' without inserting.
+  insert into public.whatsapp_inbound_messages (wa_message_id, profile_id, household_id, direction)
+    values (p_wa_message_id, p_profile_id, p_household_id, 'inbound')
+    on conflict (wa_message_id) do nothing;
+
+  update public.whatsapp_inbound_messages
+     set processed_at = now(),
+         profile_id   = coalesce(profile_id, p_profile_id),
+         household_id = coalesce(household_id, p_household_id)
+   where wa_message_id = p_wa_message_id and processed_at is null;
+  get diagnostics v_claimed = row_count;
+  if v_claimed = 0 then
+    return jsonb_build_object('status','duplicate');
+  end if;
+
+  -- Resolve the household member backing this profile (nullable is fine).
+  select id into v_member_id
+    from public.memberships
+   where household_id = p_household_id and user_id = p_profile_id
+   limit 1;
+
+  -- Cash fallback account for this household.
+  select id into v_cash_id
+    from public.accounts
+   where household_id = p_household_id and lower(kind) = 'cash' and coalesce(is_archived,false) = false
+   limit 1;
+
+  -- Resolve source alias (name or kind).
+  if p_account_alias is not null and p_account_alias <> '' then
+    select id into v_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and (lower(name) = lower(p_account_alias) or lower(kind) = lower(p_account_alias))
+     limit 1;
+  end if;
+
+  -- Resolve destination alias (name or kind).
+  if p_to_account_alias is not null and p_to_account_alias <> '' then
+    select id into v_to_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and (lower(name) = lower(p_to_account_alias) or lower(kind) = lower(p_to_account_alias))
+     limit 1;
+  end if;
+
+  -- Apply the per-type account matrix + cash fallbacks.
+  if p_txn_type = 'expense' then
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    v_to_account_id := null;
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+  elsif p_txn_type = 'income' then
+    -- income names its destination via account_alias; to_account_alias unused.
+    v_to_account_id := coalesce(v_to_account_id, v_account_id, v_cash_id);
+    v_account_id := null;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+  else  -- transfer / investment: both required, must differ
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+    if v_to_account_id = v_account_id then
+      return jsonb_build_object('status','error','reason','same_account');
+    end if;
+  end if;
+
+  insert into public.transactions (
+    household_id, created_by, member_id, amount, currency, type, category,
+    account_id, to_account_id, date, description
+  ) values (
+    p_household_id,
+    p_profile_id,
+    v_member_id,
+    p_amount,
+    coalesce(nullif(p_currency,''), 'USD'),
+    p_txn_type,
+    case when p_txn_type in ('expense','income')
+         then coalesce(nullif(p_category_id,''), case when p_txn_type='expense' then 'other_expense' else 'other_income' end)
+         else null end,
+    v_account_id,
+    v_to_account_id,
+    current_date,
+    coalesce(nullif(p_description,''), 'Logged via WhatsApp')
+  ) returning id into v_txn_id;
+
+  -- Store the parsed result on the audit row for traceability.
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload,'{}'::jsonb) || jsonb_build_object(
+           'parsed', jsonb_build_object(
+             'transaction_id', v_txn_id, 'amount', p_amount, 'currency', p_currency,
+             'type', p_txn_type, 'category_id', p_category_id,
+             'account_id', v_account_id, 'to_account_id', v_to_account_id))
+   where wa_message_id = p_wa_message_id;
+
+  return jsonb_build_object(
+    'status','success',
+    'transaction_id', v_txn_id,
+    'amount', p_amount,
+    'currency', coalesce(nullif(p_currency,''),'USD'),
+    'type', p_txn_type,
+    'category_id', p_category_id,
+    'account_name',    (select name from public.accounts where id = v_account_id),
+    'to_account_name', (select name from public.accounts where id = v_to_account_id)
+  );
+end;
+$$;
+
+-- Service-role only (the Edge Function). Deny anon/authenticated/public.
+revoke all on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text) from public, anon, authenticated;
+grant execute on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text) to service_role;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260815120000_ai_usage_metering.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- AI-P0 — ai_usage metering (the LLM-spend GATE).
+--
+-- `vyact-ask-vyact-engineering-spec.md` §8/§10 makes adoption + cost measurement
+-- the PRECONDITION for authorising LLM spend ("Promote to the LLM track only when
+-- v1 clears the §9 targets"). Today `ai_usage` records intent/sentiment/length
+-- only — no model, no tokens, no cost, no latency — so the gate cannot be
+-- evaluated. This adds exactly those signals.
+--
+-- Forward-only, additive, idempotent. Every column is nullable so existing
+-- writers (react/src/lib/aiUsage.ts) keep working unchanged.
+--
+-- PRIVACY CONTRACT PRESERVED: still NO message content, NO merchant names, NO
+-- descriptions. Only metadata about the call. (baseline comment: "ai_usage
+-- (privacy-safe: no message content; only intent + sentiment + length)")
+-- ============================================================================
+
+-- ── Which engine actually answered (measures the deterministic fast-path rate,
+--    the single biggest cost lever: every 'rules' row is an LLM call not made).
+alter table public.ai_usage add column if not exists backend text;      -- 'rules' | 'llm'
+alter table public.ai_usage add column if not exists tier text;         -- 't0' | 't1' | 't2'
+
+-- ── Model identity (plug-n-play: which provider/model served this turn).
+alter table public.ai_usage add column if not exists provider text;     -- 'openrouter' | 'groq' | 'vllm' | 'gemini' | …
+alter table public.ai_usage add column if not exists model text;        -- e.g. 'llama-3.3-70b-instruct'
+
+-- ── Volume + money.
+alter table public.ai_usage add column if not exists prompt_tokens integer;
+alter table public.ai_usage add column if not exists completion_tokens integer;
+alter table public.ai_usage add column if not exists cost_usd numeric(12,6);
+
+-- ── UX + reliability.
+alter table public.ai_usage add column if not exists latency_ms integer;
+alter table public.ai_usage add column if not exists outcome text;      -- see CHECK below
+alter table public.ai_usage add column if not exists tool_calls integer;
+
+-- ── §10 gate metrics that need explicit capture.
+--    `helpful`   → the ≥75% interpret / ≥70% forecast thumbs-up targets.
+--    `tap_depth` → the ≤2 median taps target (Chat.tsx already logs tap depth).
+alter table public.ai_usage add column if not exists helpful boolean;
+alter table public.ai_usage add column if not exists tap_depth integer;
+
+-- Constrain the enum-ish columns (added separately so re-runs don't fail).
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'ai_usage_outcome_chk') then
+    alter table public.ai_usage add constraint ai_usage_outcome_chk
+      check (outcome is null or outcome in ('ok','error','blocked','fallback','clarify'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ai_usage_backend_chk') then
+    alter table public.ai_usage add constraint ai_usage_backend_chk
+      check (backend is null or backend in ('rules','llm'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ai_usage_tier_chk') then
+    alter table public.ai_usage add constraint ai_usage_tier_chk
+      check (tier is null or tier in ('t0','t1','t2'));
+  end if;
+end $$;
+
+comment on column public.ai_usage.backend  is 'rules|llm — which engine answered; rules rows are LLM calls avoided';
+comment on column public.ai_usage.cost_usd is 'Computed server-side from token counts x the model rate at call time; never trusted from a client';
+comment on column public.ai_usage.helpful  is '§10 gate: thumbs up/down on the answer (null = not rated)';
+
+-- ── Admin summary: extend with the spend-gate signals. Additive keys only —
+--    admin/src/lib/adminApi.ts already defaults missing keys, so DB and app can
+--    deploy in either order.
+create or replace function public.admin_ai_usage_summary()
+  returns jsonb language plpgsql security definer set search_path to 'public'
+as $$
+declare result jsonb;
+begin
+  if not public.is_admin('content') then
+    raise exception 'forbidden: admin role required';
+  end if;
+
+  select jsonb_build_object(
+    -- ── EXISTING KEYS — preserved byte-for-byte (Intelligence.tsx depends on
+    --    these, incl. `segments`; dropping any would break the admin page).
+    'total',     (select count(*) from ai_usage),
+    'users',     (select count(distinct user_id) from ai_usage),
+    'last7',     (select count(*) from ai_usage where ts > now() - interval '7 days'),
+    'last30',    (select count(*) from ai_usage where ts > now() - interval '30 days'),
+    'byIntent',  (select coalesce(jsonb_object_agg(intent, c), '{}'::jsonb)
+                    from (select coalesce(intent,'other') as intent, count(*) c
+                            from ai_usage group by 1) t),
+    'bySentiment', (select coalesce(jsonb_object_agg(sentiment, c), '{}'::jsonb)
+                    from (select coalesce(sentiment,'neutral') as sentiment, count(*) c
+                            from ai_usage group by 1) t),
+    'segments', (
+      select coalesce(jsonb_agg(seg order by (seg->>'interactions')::int desc), '[]'::jsonb)
+      from (
+        select jsonb_build_object(
+          'userId',       u.user_id,
+          'email',        au.email,
+          'interactions', u.interactions,
+          'topIntent',    u.top_intent,
+          'avgSentiment', u.avg_sentiment,
+          'lastSeen',     u.last_seen
+        ) as seg
+        from (
+          select user_id,
+                 count(*)                                   as interactions,
+                 mode() within group (order by intent)      as top_intent,
+                 round(avg(sentiment_score)::numeric, 2)    as avg_sentiment,
+                 max(ts)                                    as last_seen
+          from ai_usage
+          where user_id is not null
+          group by user_id
+          order by count(*) desc
+          limit 200
+        ) u
+        left join auth.users au on au.id = u.user_id
+      ) s
+    ),
+
+    -- ── spend gate (new) ──────────────────────────────────────────────
+    'byModel', (
+      select coalesce(jsonb_object_agg(model, n), '{}'::jsonb)
+      from (select coalesce(model,'n/a') as model, count(*) n
+              from ai_usage where ts > now() - interval '30 days'
+             group by 1 order by 2 desc limit 25) t),
+    'byProvider', (
+      select coalesce(jsonb_object_agg(provider, n), '{}'::jsonb)
+      from (select coalesce(provider,'n/a') as provider, count(*) n
+              from ai_usage where ts > now() - interval '30 days' group by 1) t),
+    'byBackend', (
+      select coalesce(jsonb_object_agg(backend, n), '{}'::jsonb)
+      from (select coalesce(backend,'unknown') as backend, count(*) n
+              from ai_usage where ts > now() - interval '30 days' group by 1) t),
+    'tokens30', jsonb_build_object(
+      'prompt',     coalesce((select sum(prompt_tokens)     from ai_usage where ts > now() - interval '30 days'), 0),
+      'completion', coalesce((select sum(completion_tokens) from ai_usage where ts > now() - interval '30 days'), 0)),
+    'cost30Usd',  coalesce((select round(sum(cost_usd), 4) from ai_usage where ts > now() - interval '30 days'), 0),
+    'cost7Usd',   coalesce((select round(sum(cost_usd), 4) from ai_usage where ts > now() - interval '7 days'), 0),
+    'latencyMsP50', (
+      select coalesce(percentile_disc(0.5) within group (order by latency_ms), 0)
+        from ai_usage where latency_ms is not null and ts > now() - interval '30 days'),
+    'latencyMsP95', (
+      select coalesce(percentile_disc(0.95) within group (order by latency_ms), 0)
+        from ai_usage where latency_ms is not null and ts > now() - interval '30 days'),
+    -- §10 targets: fallback rate < 15%, thumbs-up >= 75%, deterministic hit rate.
+    'fallbackRate30', (
+      select case when count(*) = 0 then 0
+             else round(count(*) filter (where outcome = 'fallback')::numeric / count(*), 4) end
+        from ai_usage where ts > now() - interval '30 days'),
+    'errorRate30', (
+      select case when count(*) = 0 then 0
+             else round(count(*) filter (where outcome = 'error')::numeric / count(*), 4) end
+        from ai_usage where ts > now() - interval '30 days'),
+    'deterministicRate30', (
+      select case when count(*) filter (where backend is not null) = 0 then 0
+             else round(count(*) filter (where backend = 'rules')::numeric
+                        / count(*) filter (where backend is not null), 4) end
+        from ai_usage where ts > now() - interval '30 days'),
+    'helpfulRate30', (
+      select case when count(*) filter (where helpful is not null) = 0 then 0
+             else round(count(*) filter (where helpful)::numeric
+                        / count(*) filter (where helpful is not null), 4) end
+        from ai_usage where ts > now() - interval '30 days'),
+    'ratedCount30', (
+      select count(*) from ai_usage where helpful is not null and ts > now() - interval '30 days')
+  ) into result;
+
+  return result;
+end;
+$$;
+
+grant execute on function public.admin_ai_usage_summary() to authenticated, anon, service_role;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260816120000_agent_ingestion_state.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- AI-P5 (schema half) — agent multi-turn ingestion state.
+-- Companion: vyact-agent-architecture.md §3 (ingestion pipeline) + §4 (data model).
+-- Forward-only, idempotent, additive. Creates three NEW tables; touches nothing
+-- that exists today.
+--
+-- WHY THESE TABLES EXIST
+--   `runAssistant()` is pure and single-turn, and the WhatsApp webhook forgets a
+--   message the instant `clarifyReply()` returns. There is therefore no place to
+--   park "I asked you a question, here is the draft it will produce" between two
+--   inbound messages. §3 stage [6] (AMBIGUITY DETECTOR) and stage [8] (DECISION →
+--   ASK) are unimplementable without persisted turn state, because the webhook is
+--   stateless by construction.
+--
+-- WHAT THIS MIGRATION DOES **NOT** DO
+--   No RPCs, no writers, no expiry sweeper, no `p_date` change to
+--   `whatsapp_log_transaction`, no `accounts.mask_last4`, no `ai_usage` columns.
+--   Those are separate, deliberately-sequenced changes (§4 "Changes to EXISTING
+--   objects"). This file is schema-only so it can be reviewed in isolation.
+--
+-- MONEY MODEL: untouched. Nothing here writes `transactions` or `accounts`; these
+--   are staging/draft rows only. A pending intent becomes money exactly once, via
+--   the existing write seams (`upsertTransaction` / `whatsapp_log_transaction`),
+--   and only after a human confirm (binding rule §2.4).
+--
+-- RLS NOTE — 42P17 avoidance (CLAUDE.md § DB gotchas):
+--   `agent_pending_intents` carries its OWN `household_id` (denormalised from its
+--   conversation on purpose). That lets its membership policy call
+--   `is_member(household_id)` directly instead of joining back to
+--   `agent_conversations` — so there is no A→B/B→A policy pair to recurse. The one
+--   genuine cross-table check that remains (does this conversation actually belong
+--   to the household the caller claims?) is routed through the SECURITY DEFINER
+--   helper `agent_conversation_in_household()`, mirroring the established
+--   `is_member()` / `role_in()` / `owns_shared_split()` pattern.
+--   `auth.uid()` is never called inline in a policy here; `is_member()` is already
+--   SECURITY DEFINER + STABLE, per the Auth RLS Initialization Plan advisory.
+-- ============================================================================
+
+begin;
+
+-- ── 1. agent_conversations — multi-turn thread state ────────────────────────
+create table if not exists public.agent_conversations (
+  id            uuid primary key default gen_random_uuid(),
+  household_id  uuid not null references public.households(id) on delete cascade,
+  user_id       uuid not null,
+  channel       text not null check (channel in ('chat','whatsapp','sms_share','receipt')),
+  last_turn_at  timestamptz not null default now(),
+  created_at    timestamptz not null default now()
+);
+
+-- Channel adapters resume the most recent live thread for a (household, user).
+create index if not exists idx_agent_conversations_lookup
+  on public.agent_conversations (household_id, user_id, last_turn_at desc);
+
+comment on table public.agent_conversations is
+  'Agent multi-turn thread state (vyact-agent-architecture.md §4). One row per conversation per channel; household-scoped via is_member().';
+comment on column public.agent_conversations.channel is
+  'Channel adapter that opened the thread. Presentation/policy differ per channel; the gateway does not.';
+comment on column public.agent_conversations.user_id is
+  'auth.users id of the human on the thread. Intentionally NOT a FK (mirrors ai_usage) — household cascade is the real lifecycle owner.';
+
+-- ── 2. agent_pending_intents — the pending question + the draft it produces ──
+create table if not exists public.agent_pending_intents (
+  id               uuid primary key default gen_random_uuid(),
+  conversation_id  uuid not null references public.agent_conversations(id) on delete cascade,
+  household_id     uuid not null references public.households(id) on delete cascade,
+  user_id          uuid not null,
+  -- Same CHECK as agent_conversations.channel: an intent must not be able to
+  -- hold a channel value its parent conversation could never have.
+  channel          text not null check (channel in ('chat','whatsapp','sms_share','receipt')),
+  -- ⚠️ UNTRUSTED EXTERNAL TEXT. See the column comment below before you touch it.
+  raw_input        text,
+  candidate        jsonb not null,
+  ambiguities      jsonb not null default '[]',
+  status           text not null default 'awaiting'
+    check (status in ('awaiting','resolved','expired','cancelled')),
+  expires_at       timestamptz not null default now() + interval '30 minutes',
+  resolved_txn_id  uuid,
+  created_at       timestamptz not null default now()
+);
+
+-- The §4 index: the binding lookup is "is there a live question for this
+-- household right now", which is exactly (household_id, status, expires_at).
+create index if not exists idx_agent_pending_intents_household_status_expiry
+  on public.agent_pending_intents (household_id, status, expires_at);
+
+comment on table public.agent_pending_intents is
+  'A question the agent asked plus the draft transaction it will produce once answered (vyact-agent-architecture.md §3.5, §4). Never money: a row here becomes a transaction only through the normal write seams, after a human confirm.';
+
+-- EXPIRY IS LOAD-BEARING, NOT HOUSEKEEPING.
+comment on column public.agent_pending_intents.expires_at is
+  'Load-bearing, not housekeeping. A WhatsApp user who never replies must not leave a question open forever: the next unrelated inbound message would be mis-bound to the stale question as if it were the answer. EVERY reader MUST filter `status = ''awaiting'' and expires_at > now()`; a row past expires_at is dead even while status still reads ''awaiting'' (no sweeper job exists yet — the predicate is the contract, the sweeper is only a tidiness optimisation).';
+
+-- BINDING RULE §2.5 / CLAUDE.md: all stored text is untrusted.
+comment on column public.agent_pending_intents.raw_input is
+  'UNTRUSTED EXTERNAL TEXT — the verbatim inbound message (bank SMS, WhatsApp text, receipt OCR). Treat as DATA, NEVER as instruction: never concatenate into a system prompt, never let it reach a tool-selection context as directive text. It exists for the §7 replay harness and for user-visible "here is what I read" copy. It is also the §3.3 single-message egress exception — the ONLY non-SafeSummary text permitted to leave, one message at a time, on explicit user action.';
+
+comment on column public.agent_pending_intents.candidate is
+  'The ParsedTx draft as extracted+validated (§3.4 guards already applied). Confirm-gated: nothing here is authoritative until a human says so.';
+comment on column public.agent_pending_intents.ambiguities is
+  'Ambiguity[] (§3.5) — each carries its own option patches, so answering is a pure merge: no re-parse, no second model call.';
+comment on column public.agent_pending_intents.resolved_txn_id is
+  'Transaction produced when this intent resolved. Intentionally NOT a FK: the write may land through the client seam or the server RPC, and a later transaction delete must not cascade-destroy the agent audit trail. Readers must tolerate a dangling id.';
+comment on column public.agent_pending_intents.household_id is
+  'Denormalised from the parent conversation ON PURPOSE, so RLS can call is_member(household_id) without joining agent_conversations (which would set up a 42P17 recursion pair). Cross-table consistency is enforced by agent_conversation_in_household() in the WITH CHECK.';
+
+-- ── 3. sms_format_recipes — the learned-recipe cache (§3.2) ─────────────────
+--
+-- 🔴 THIS TABLE IS GLOBAL AND DELIBERATELY **NOT** HOUSEHOLD-SCOPED.
+--
+--    A `signature` is the sha256 of a digit- and merchant-MASKED skeleton, and
+--    `locators` are positional field-extraction rules over that skeleton. Neither
+--    carries a value: no amount, no merchant, no account tail, no balance, no
+--    household id. What is stored is the SHAPE of "an HDFC UPI debit SMS", which
+--    is a property of the bank, not of any customer. Scoping it per-household
+--    would therefore protect nothing while destroying the entire point — the cache
+--    only pays for itself when the 20th household to receive the same bank format
+--    gets a free, deterministic, zero-token extraction from the 1st household's
+--    (already user-confirmed) one.
+--
+--    The consequence of global scope is that a poisoned recipe would corrupt
+--    extraction for EVERY household sharing that format. So writes are locked to
+--    service_role: only the edge function, after the §3.4 validator guards pass,
+--    may derive or amend a recipe. `authenticated` gets SELECT and nothing else.
+--    A household must never be able to write a recipe another household reads.
+create table if not exists public.sms_format_recipes (
+  signature      text primary key,
+  version        int not null default 1,
+  locators       jsonb not null,
+  -- Lifecycle (§3.2 promotion/demotion). Without this, "trusted after N
+  -- confirmations", "demote on correction" and "an admin can disable a bad
+  -- recipe" are all unexpressible — a ratio computed in app code cannot
+  -- represent a DISABLED recipe at all, and a silently-changed bank format
+  -- would keep being applied.
+  status         text not null default 'candidate'
+                 check (status in ('candidate','trusted','disabled')),
+  -- Informational only ('HDFC'). Never used for matching — the signature is the
+  -- key — and never a value from the message body.
+  issuer_hint    text,
+  confirmations  int not null default 0,
+  corrections    int not null default 0,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  -- Observability: which recipes are actually live. `updated_at` only moves on
+  -- write, so it cannot answer that.
+  last_used_at   timestamptz
+);
+
+drop trigger if exists touch_sms_format_recipes on public.sms_format_recipes;
+create trigger touch_sms_format_recipes before update on public.sms_format_recipes
+  for each row execute function public.set_updated_at();
+
+comment on table public.sms_format_recipes is
+  'Learned SMS/receipt extraction recipes (§3.2) — earned artifacts, not authored templates. GLOBAL BY DESIGN: rows hold masked structure only, never household values. Readable by authenticated, writable by service_role ONLY, so no household can poison another household''s extraction.';
+comment on column public.sms_format_recipes.signature is
+  'sha256 of the digit- and merchant-masked skeleton (smsSignature()). Carries no household data by construction — that masking is what makes the global scope safe. If a future signature function stops masking, this table must be re-scoped.';
+comment on column public.sms_format_recipes.locators is
+  'Field locators derived from a validated extraction. Applied deterministically on a cache hit: zero tokens, zero latency, reproducible.';
+comment on column public.sms_format_recipes.confirmations is
+  'User-confirmed successful applications. Promotion signal (§3.2: trusted only after N confirmations).';
+comment on column public.sms_format_recipes.corrections is
+  'User corrections. Demotion signal — self-healing when a bank silently changes format.';
+
+-- ============================================================================
+-- RLS
+--
+-- service_role already BYPASSES RLS in Supabase, so the `to service_role`
+-- policies below are belt-and-braces. They are written out anyway so that the
+-- webhook's access is legible in `pg_policies` rather than being an implicit
+-- property of the role — the WhatsApp webhook has no user JWT and must not look
+-- like an accident to the next reviewer.
+-- ============================================================================
+
+-- ORDERING IS LOAD-BEARING: this helper must be created AFTER the tables it
+-- queries. check_function_bodies (on by default) validates a LANGUAGE sql body
+-- at CREATE time, so declaring it before agent_conversations exists fails the
+-- whole migration on a fresh database.
+create or replace function public.agent_conversation_in_household(
+  p_conversation_id uuid,
+  p_household_id    uuid
+)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from agent_conversations c
+    where c.id = p_conversation_id
+      and c.household_id = p_household_id
+  );
+$$;
+
+grant execute on function public.agent_conversation_in_household(uuid, uuid) to authenticated, service_role;
+-- Postgres grants EXECUTE to PUBLIC by default, which would let anon reach this
+-- SECURITY DEFINER helper via /rest/v1/rpc/ and use it as an existence oracle.
+revoke all on function public.agent_conversation_in_household(uuid, uuid) from public;
+revoke all on function public.agent_conversation_in_household(uuid, uuid) from anon;
+
+alter table public.agent_conversations   enable row level security;
+alter table public.agent_pending_intents enable row level security;
+alter table public.sms_format_recipes    enable row level security;
+
+-- ── agent_conversations ─────────────────────────────────────────────────────
+drop policy if exists "agent_conversations_select"       on public.agent_conversations;
+drop policy if exists "agent_conversations_insert"       on public.agent_conversations;
+drop policy if exists "agent_conversations_update"       on public.agent_conversations;
+drop policy if exists "agent_conversations_service_role" on public.agent_conversations;
+
+create policy "agent_conversations_select" on public.agent_conversations
+  for select to authenticated
+  using (is_member(household_id));
+
+create policy "agent_conversations_insert" on public.agent_conversations
+  for insert to authenticated
+  with check (is_member(household_id));
+
+-- UPDATE exists solely to bump last_turn_at. WITH CHECK repeats the USING test so
+-- a member cannot re-parent a thread into a household they do not belong to.
+create policy "agent_conversations_update" on public.agent_conversations
+  for update to authenticated
+  using (is_member(household_id))
+  with check (is_member(household_id));
+
+create policy "agent_conversations_service_role" on public.agent_conversations
+  for all to service_role using (true) with check (true);
+
+-- ── agent_pending_intents ───────────────────────────────────────────────────
+drop policy if exists "agent_pending_intents_select"       on public.agent_pending_intents;
+drop policy if exists "agent_pending_intents_insert"       on public.agent_pending_intents;
+drop policy if exists "agent_pending_intents_update"       on public.agent_pending_intents;
+drop policy if exists "agent_pending_intents_service_role" on public.agent_pending_intents;
+
+-- USER-SCOPED, deliberately narrower than §4's household rule.
+--
+-- `raw_input` holds the verbatim inbound message — a bank SMS carrying a card
+-- tail, a merchant and a spend the sender may not have chosen to share yet. The
+-- resulting TRANSACTION is shared with the household as normal; the raw text
+-- that produced it is not. Household scope would let one member read another
+-- member's card notifications, which costs nothing to prevent here.
+create policy "agent_pending_intents_select" on public.agent_pending_intents
+  for select to authenticated
+  using (user_id = (select auth.uid()) and is_member(household_id));
+
+create policy "agent_pending_intents_insert" on public.agent_pending_intents
+  for insert to authenticated
+  with check (
+    is_member(household_id)
+    and agent_conversation_in_household(conversation_id, household_id)
+  );
+
+-- The answer path: a member flips status awaiting → resolved/cancelled and stamps
+-- resolved_txn_id. WITH CHECK re-asserts BOTH tests so the row cannot be moved to
+-- another household or re-parented onto another household's conversation.
+-- Answering is also user-scoped: only the member who was asked may answer. A
+-- blocked UPDATE does NOT raise — it silently matches zero rows (CLAUDE.md) —
+-- so callers must check the affected row count, never rely on an exception.
+create policy "agent_pending_intents_update" on public.agent_pending_intents
+  for update to authenticated
+  using (user_id = (select auth.uid()) and is_member(household_id))
+  with check (
+    user_id = (select auth.uid())
+    and is_member(household_id)
+    and agent_conversation_in_household(conversation_id, household_id)
+  );
+
+create policy "agent_pending_intents_service_role" on public.agent_pending_intents
+  for all to service_role using (true) with check (true);
+
+-- ── sms_format_recipes ──────────────────────────────────────────────────────
+drop policy if exists "sms_format_recipes_select"       on public.sms_format_recipes;
+drop policy if exists "sms_format_recipes_service_role" on public.sms_format_recipes;
+
+-- Read-only to every signed-in user: the rows are masked structure, shared on
+-- purpose. There is deliberately NO insert/update/delete policy for
+-- `authenticated` — the write path is service_role, after the §3.4 validator.
+create policy "sms_format_recipes_select" on public.sms_format_recipes
+  for select to authenticated
+  using (true);
+
+create policy "sms_format_recipes_service_role" on public.sms_format_recipes
+  for all to service_role using (true) with check (true);
+
+-- ============================================================================
+-- GRANTS — least privilege. No `to public`, no `to anon`.
+--
+-- DELETE is granted to nobody: cancelling an intent is `status = 'cancelled'`
+-- (an UPDATE), not a row removal, so the §7 replay harness and the confirm-gate
+-- audit trail (§13: "no source='agent' row exists without a confirm event")
+-- keep their evidence. Real deletion happens by household cascade or service_role.
+-- ============================================================================
+
+grant select, insert, update on public.agent_conversations   to authenticated;
+grant select, insert, update on public.agent_pending_intents to authenticated;
+grant select                 on public.sms_format_recipes    to authenticated;
+
+grant select, insert, update, delete on public.agent_conversations   to service_role;
+grant select, insert, update, delete on public.agent_pending_intents to service_role;
+grant select, insert, update, delete on public.sms_format_recipes    to service_role;
+
+revoke all on public.agent_conversations   from anon;
+revoke all on public.agent_pending_intents from anon;
+revoke all on public.sms_format_recipes    from anon;
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260816130000_provenance_source_agent.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v10.20 · Agent provenance — widen the provenance `source` CHECK to allow 'agent'
+--
+-- WHY THIS IS A BLOCKER, NOT A NICETY
+-- The v8 honest-data model pins `source` to ('onboarding','user','bank') via a
+-- per-table CHECK, applied in a loop over the provenance tables
+-- (20260606120000_v8_onboarding_state.sql) and again on `accounts`
+-- (20260607120000_v8_money_model_account_opening_balance.sql).
+--
+-- The agent creates transactions. Without this migration the FIRST agent-created
+-- row fails with 23514 (check_violation) — the client union already carries
+-- 'agent' (react/src/types.ts ProvenanceSource) and the Supabase adapter passes
+-- `source` through generically, so the failure surfaces only at write time.
+--
+-- WHY A NEW VALUE RATHER THAN REUSING 'bank'
+-- 'bank' asserts a bank confirmed the figure. An agent-extracted row is a
+-- MODEL's reading of a message — frequently correct, never authoritative. The
+-- honest-data convention is that anything with confidence <> 'confirmed' renders
+-- <EstimatedTag/>; reusing 'bank' would let a model-read row inherit a bank's
+-- credibility, which is exactly the dishonesty that convention exists to prevent.
+--
+-- ADDITIVE AND REVERSIBLE. Widening a CHECK cannot invalidate an existing row:
+-- every current value remains legal. No data is rewritten, no default changes,
+-- and every row already in the table keeps its meaning. The confidence CHECK is
+-- deliberately left ALONE — 'estimated'|'confirming'|'confirmed' already covers
+-- the agent's states.
+
+BEGIN;
+
+do $$
+declare
+  t text;
+  -- Same table list as the v8 loop. Kept verbatim so the two stay comparable.
+  tables text[] := array['transactions','budgets','goals','debts','assets'];
+begin
+  foreach t in array tables loop
+    execute format($f$
+      alter table %1$I drop constraint if exists %1$s_source_chk;
+      alter table %1$I add  constraint %1$s_source_chk
+        check (source in ('onboarding','user','bank','agent'));
+    $f$, t);
+
+    execute format($f$
+      comment on column %I.source is
+        'v8 honest-data provenance: onboarding|user|bank|agent. ''agent'' = extracted by the agent from a message (chat/WhatsApp/SMS/receipt) and NOT bank-authoritative — it must render <EstimatedTag/> until a human confirms it (vyact-agent-architecture.md §4).';
+    $f$, t);
+  end loop;
+end $$;
+
+-- `accounts` was constrained in its own migration, outside that loop.
+alter table accounts drop constraint if exists accounts_source_chk;
+alter table accounts add  constraint accounts_source_chk
+  check (source in ('onboarding','user','bank','agent'));
+
+comment on column accounts.source is
+  'v8 honest-data provenance: onboarding|user|bank|agent. See transactions.source.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260906120000_ai_model_configs.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- AI-P2 — `ai_model_configs`: the model router's configuration table.
+-- Companion: vyact-agent-architecture.md §5 (topology), §6 (hosting/secrets),
+--            §8 phase P2, §11 (locked decisions).
+--
+-- Forward-only, additive, idempotent. Creates ONE new table. Touches nothing
+-- that exists today: no money table, no RPC, no policy on any existing object.
+--
+-- WHY THIS TABLE EXISTS
+--   Binding rule §2.7a: "providers are OpenAI-compatible so a model swap is a DB
+--   ROW, not a deploy." Everything that varies between vLLM, Ollama, Groq,
+--   Together, OpenRouter and OpenAI is a value in a row here — endpoint, model
+--   id, sampling params, pricing, which secret holds the key. The edge function
+--   `ask-vyact` reads this table and changes behaviour without being redeployed.
+--
+-- 🔴 INERT BY DEFAULT — THIS IS THE POINT, NOT A PRECAUTION.
+--   `enabled` DEFAULTS FALSE and this migration inserts NO ROWS. With an empty
+--   (or all-disabled) table the gateway resolves no config, calls no provider,
+--   spends nothing, and writes no `ai_usage` row — binding rule §2.7b, "the
+--   feature's off state is provably byte-identical to today". Applying this
+--   migration to production changes observable behaviour by exactly zero.
+--
+-- 🔴 NO SECRET IS EVER STORED HERE.
+--   `key_env_var` holds the NAME of a Supabase Function secret (e.g. the string
+--   'OPENROUTER_API_KEY'). The VALUE is read from `Deno.env` inside the edge
+--   function and never reaches this table, the repo, a log, or a client bundle
+--   (§6 "Secrets"). Two CHECK constraints enforce that mechanically: the name
+--   must look like an env var name, and it must not name a platform secret
+--   (SUPABASE_*, SERVICE_ROLE, WHATSAPP_*, …) — otherwise one bad row could make
+--   the router POST the service-role key to an attacker-chosen `base_url`.
+--   A third CHECK rejects anything key-shaped pasted into `params`.
+--
+-- MONEY MODEL: untouched. Nothing here reads or writes `transactions`,
+--   `accounts`, `budgets` or any balance. Binding rule §2.1 — the LLM never
+--   computes money — is enforced upstream (the router returns text and tool
+--   selections only, and holds no database client at all).
+--
+-- RLS / GRANT STYLE mirrors 20260816120000_agent_ingestion_state.sql:
+--   SECURITY DEFINER helpers (`is_admin`) only, never an inline `auth.uid()` in a
+--   policy; explicit service_role policies written out even though service_role
+--   bypasses RLS, so the gateway's access is legible in `pg_policies` instead of
+--   being an implicit property of the role; no `to public`, no `to anon`.
+-- ============================================================================
+
+begin;
+
+create table if not exists public.ai_model_configs (
+  id           uuid primary key default gen_random_uuid(),
+
+  -- 🔴 LOAD-BEARING. The app has TWO parallel model selectors (§10.2):
+  --    `AssistantBackend` (flag-driven, live) and `ChatBackend` (env-driven,
+  --    with a complete but unreachable GeminiChatBackend). A config row that did
+  --    not name its seam would let an admin flip a toggle and silently configure
+  --    the path they were not looking at. The CHECK is the guard; the router
+  --    filters on this column before anything else.
+  seam         text not null check (seam in ('chat','assistant')),
+
+  -- Free text on purpose: 'vllm' | 'ollama' | 'groq' | 'together' | 'openrouter'
+  -- | 'openai' | … Adding a provider must not need a migration (§2.7a). It is
+  -- telemetry and human labelling only — the router branches on nothing here.
+  provider     text not null check (length(btrim(provider)) between 1 and 64),
+
+  -- The provider's model id, verbatim, e.g. 'meta-llama/llama-3.3-70b-instruct'.
+  model        text not null check (length(btrim(model)) between 1 and 200),
+
+  -- Origin (optionally + path prefix) of an OpenAI-compatible API. The router
+  -- appends '/v1/chat/completions'. A localhost value is ACCEPTED here on
+  -- purpose — it is a legitimate dev target — and rejected at call time with a
+  -- clear "Edge runs in the cloud and cannot reach your machine" result rather
+  -- than a crash or a hang.
+  base_url     text not null check (base_url ~ '^https?://[^[:space:]]+$'),
+
+  -- 🔴 The NAME of a Supabase secret. NEVER a key. Null/empty = unauthenticated
+  --    endpoint, which is the normal case for a local vLLM or Ollama server.
+  key_env_var  text,
+
+  -- Sampling + pricing, e.g.
+  --   {"temperature":0.2,"max_tokens":800,
+  --    "price_per_mtok_input":0.15,"price_per_mtok_output":0.6}
+  -- Pricing feeds `ai_usage.cost_usd` — OPERATIONAL SPEND, never ledger money.
+  params       jsonb not null default '{}'::jsonb,
+
+  -- 🔴 FALSE BY DEFAULT. This single column is the kill switch.
+  enabled      boolean not null default false,
+
+  -- Selection order when more than one row is enabled for a seam:
+  -- **HIGHER WINS** (the router sorts `priority desc, id asc`, so selection is
+  -- deterministic and reproducible for evals). Exists so P11's model cascade —
+  -- primary, then cheaper fallback — is expressible without a schema change.
+  priority     int not null default 0 check (priority between 0 and 1000),
+
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+
+  -- ── mechanical secret hygiene ────────────────────────────────────────────
+  -- 1. If a key_env_var is given it must LOOK like an env var name. A pasted
+  --    API key (mixed case, dashes, dots, > 64 chars) cannot satisfy this.
+  constraint ai_model_configs_key_env_var_shape_chk
+    check (key_env_var is null or key_env_var ~ '^[A-Z][A-Z0-9_]{2,63}$'),
+
+  -- 2. …and it must not name a PLATFORM secret. Without this, an admin row
+  --    could make the router read SUPABASE_SERVICE_ROLE_KEY and send it as a
+  --    bearer token to any base_url it likes. Deny by pattern so a future
+  --    secret is denied by default rather than forgotten. Mirrors
+  --    FORBIDDEN_KEY_ENV in supabase/functions/_shared/agent/router.ts.
+  constraint ai_model_configs_key_env_var_reserved_chk
+    check (
+      key_env_var is null
+      or (key_env_var !~ '^(SUPABASE|WHATSAPP|SMTP|RESEND|VERCEL|GITHUB|VYACT)_'
+          and key_env_var !~ 'SERVICE_ROLE'
+          and key_env_var !~ 'JWT'
+          and key_env_var !~ '(^|_)(DB|DATABASE)_')
+    ),
+
+  -- 3. Nothing key-shaped in `params`. The router already allowlists the body
+  --    keys it forwards, so a smuggled credential would be dropped — but it
+  --    would still be sitting in a DB row, readable by every admin. Reject it
+  --    at write time instead. Text-level regex so nesting cannot hide it.
+  --
+  --    The key name must EQUAL (or end with `_` + ) a credential word — it is
+  --    deliberately not a substring match, because the single most common
+  --    legitimate param is `max_tokens`, and `"...token..."` would reject it.
+  --      blocked : "key", "api_key", "OPENROUTER_API_KEY", "secret", "token",
+  --                "password", "authorization", "bearer", "credential"
+  --      allowed : "max_tokens", "temperature", "top_p", "seed", "stop",
+  --                "price_per_mtok_input", "price_per_mtok_output"
+  constraint ai_model_configs_params_no_secrets_chk
+    check (params::text !~* '"([A-Za-z0-9_]*_)?(api_?key|apikey|key|secret|token|password|passwd|authorization|bearer|credential)"[[:space:]]*:'),
+
+  -- 4. An ENABLED row must be complete. A half-configured row that is switched
+  --    on is the one way this table could produce a surprise at runtime.
+  constraint ai_model_configs_enabled_complete_chk
+    check (
+      enabled = false
+      or (length(btrim(model)) > 0 and length(btrim(base_url)) > 0 and provider is not null)
+    )
+);
+
+-- The router's read path, verbatim: enabled rows for one seam, best first.
+create index if not exists idx_ai_model_configs_seam_enabled_priority
+  on public.ai_model_configs (seam, enabled, priority desc);
+
+-- One row per (seam, provider, model, endpoint). Stops the "I enabled the wrong
+-- duplicate" class of incident; still allows the same model on two seams, which
+-- is a legitimate configuration.
+create unique index if not exists uq_ai_model_configs_identity
+  on public.ai_model_configs (seam, provider, model, base_url);
+
+drop trigger if exists touch_ai_model_configs on public.ai_model_configs;
+create trigger touch_ai_model_configs before update on public.ai_model_configs
+  for each row execute function public.set_updated_at();
+
+comment on table public.ai_model_configs is
+  'Model router configuration (vyact-agent-architecture.md §5/§6, P2). A model swap is a ROW CHANGE here, not a deploy. INERT BY DEFAULT: enabled defaults false and no rows ship, so the gateway calls nothing and spends nothing until a super-admin turns one on. Holds NO SECRETS — key_env_var is the NAME of a Supabase Function secret; the value lives only in the edge runtime.';
+comment on column public.ai_model_configs.seam is
+  'LOAD-BEARING. Which of the app''s two model selectors this row configures: ''chat'' (ChatBackend) or ''assistant'' (AssistantBackend). Two selectors exist (§10.2); without this column an admin toggle could silently configure the path they were not looking at.';
+comment on column public.ai_model_configs.provider is
+  'Human/telemetry label (''vllm'',''ollama'',''groq'',''openrouter'',''openai'',…). Copied to ai_usage.provider. The router branches on NOTHING here — every provider is called through the same OpenAI-compatible contract, which is what makes a swap a row change.';
+comment on column public.ai_model_configs.base_url is
+  'Origin of an OpenAI-compatible API; the router appends ''/v1/chat/completions''. A localhost/LAN value is allowed and is a normal dev target, but Supabase Edge runs in the cloud and cannot reach a developer machine — the router detects that BEFORE calling and returns a clear, non-fatal ''unreachable'' result instead of hanging.';
+comment on column public.ai_model_configs.key_env_var is
+  '🔴 The NAME of a Supabase Function secret (e.g. ''OPENROUTER_API_KEY''), never a key. The value is read from Deno.env inside ask-vyact and never reaches this table, the repo, a log or any client bundle (§6). NULL means the endpoint needs no auth — the normal case for a local vLLM/Ollama server. Two CHECK constraints stop this naming a platform secret, so a bad row cannot exfiltrate the service-role key to an arbitrary base_url.';
+comment on column public.ai_model_configs.params is
+  'Sampling + pricing as jsonb. price_per_mtok_input/output feed ai_usage.cost_usd — OPERATIONAL SPEND (our provider bill), never ledger money: binding rule §2.1 keeps every user-facing figure coming from resolve()/an RPC. Values are clamped by the router; unknown keys are dropped.';
+comment on column public.ai_model_configs.enabled is
+  '🔴 THE KILL SWITCH. Defaults FALSE. With no enabled row for a seam the gateway performs no provider call, writes no ai_usage row, and leaves existing behaviour byte-identical to today (binding rule §2.7b). Flipping this to true authorises real spend.';
+comment on column public.ai_model_configs.priority is
+  'Selection order among enabled rows for one seam: HIGHER WINS (router sorts priority desc, id asc — deterministic, so evals are reproducible). Exists so the P11 model cascade (primary → cheaper fallback) needs no schema change.';
+
+-- ============================================================================
+-- RLS
+--
+-- Read: ANY admin (`is_admin()` with no minimum role) — the AI Config page needs
+--       to render current state, and the row carries no secret to leak.
+-- Write: `is_admin('super')` ONLY. Enabling a row authorises real money to be
+--       spent against a provider, and choosing base_url decides where an API key
+--       is sent. That is a super-admin decision, matching how the admin console
+--       gates its other destructive surfaces.
+-- Normal users: NO access at all. The gateway reads this table with the service
+--       role on their behalf; an end user never needs, and never gets, sight of
+--       the model configuration.
+-- ============================================================================
+
+alter table public.ai_model_configs enable row level security;
+
+drop policy if exists "ai_model_configs_select"       on public.ai_model_configs;
+drop policy if exists "ai_model_configs_insert"       on public.ai_model_configs;
+drop policy if exists "ai_model_configs_update"       on public.ai_model_configs;
+drop policy if exists "ai_model_configs_delete"       on public.ai_model_configs;
+drop policy if exists "ai_model_configs_service_role" on public.ai_model_configs;
+
+create policy "ai_model_configs_select" on public.ai_model_configs
+  for select to authenticated
+  using (is_admin());
+
+create policy "ai_model_configs_insert" on public.ai_model_configs
+  for insert to authenticated
+  with check (is_admin('super'));
+
+-- WITH CHECK repeats the USING test so a super-admin check cannot be dodged by
+-- an UPDATE that would otherwise be evaluated only against the OLD row.
+create policy "ai_model_configs_update" on public.ai_model_configs
+  for update to authenticated
+  using (is_admin('super'))
+  with check (is_admin('super'));
+
+create policy "ai_model_configs_delete" on public.ai_model_configs
+  for delete to authenticated
+  using (is_admin('super'));
+
+create policy "ai_model_configs_service_role" on public.ai_model_configs
+  for all to service_role using (true) with check (true);
+
+-- ============================================================================
+-- GRANTS — least privilege. No `to public`, no `to anon`.
+-- Table privileges are granted to `authenticated` and NARROWED BY RLS above to
+-- admins (read) / super-admins (write) — the same layering used by the agent
+-- ingestion tables. `anon` is explicitly revoked.
+-- ============================================================================
+
+grant select, insert, update, delete on public.ai_model_configs to authenticated;
+grant select, insert, update, delete on public.ai_model_configs to service_role;
+
+revoke all on public.ai_model_configs from anon;
+
+-- ============================================================================
+-- NO SEED ROWS. Deliberately.
+--
+-- Switching the gateway on is an explicit, auditable act by a super-admin, not a
+-- side effect of applying a migration. For reference, an operator enables a
+-- provider with (values below are ILLUSTRATIVE — note that key_env_var is a
+-- variable NAME; the key itself is set out-of-band with
+-- `supabase secrets set <NAME>=…` and never appears in SQL):
+--
+--   insert into public.ai_model_configs
+--     (seam, provider, model, base_url, key_env_var, params, enabled, priority)
+--   values
+--     ('assistant', 'vllm', 'qwen2.5-7b-instruct',
+--      'https://your-inference-host.example.com', null,
+--      '{"temperature":0.2,"max_tokens":800}'::jsonb, false, 100);
+--
+-- …then flips `enabled = true` only after the §7 evals and the §9 spend gate say
+-- so. Until that flip the endpoint is a no-op that costs nothing.
+-- ============================================================================
+
+commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260906130000_whatsapp_log_transaction_backdate.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v10.20 · whatsapp_log_transaction — accept an explicit transaction date
+--
+-- WHY THIS IS A CORRECTNESS FIX, NOT AN ENHANCEMENT
+-- The v10.18 RPC hardcodes `current_date` for every row it writes. That was fine
+-- when the only input was a human typing "850 groceries hdfc" as it happened.
+-- It is WRONG for the agent's actual use case: a bank SMS is routinely
+-- BACKDATED. "Rs.850 debited ... on 14-08" forwarded on the 20th must land on
+-- the 14th, or the ledger silently misstates which month the money moved — and
+-- that error is invisible to the user, because the amount and account are right.
+--
+-- The resolver already parses the real date (agent/resolver.ts parseLooseDate,
+-- day-first, never defaulting to today). This RPC was the last place that threw
+-- it away.
+--
+-- WHY DROP-AND-RECREATE RATHER THAN `create or replace`
+-- Adding a defaulted parameter changes the signature, so `create or replace`
+-- would create an OVERLOAD rather than replace the function. The existing
+-- 10-argument call in whatsapp-webhook would then match BOTH candidates and
+-- Postgres would raise 42725 "function ... is not unique" — breaking WhatsApp
+-- logging in production. So the old signature is dropped explicitly first.
+--
+-- BACKWARD COMPATIBLE AT THE CALL SITE: p_date defaults to null and null falls
+-- back to current_date, so the existing 10-argument caller keeps working
+-- unchanged and can adopt the parameter later.
+--
+-- NOTE: `drop function` also drops its grants, so they are re-issued below for
+-- the new signature. Forgetting that would leave the RPC callable by nobody and
+-- WhatsApp logging would fail closed.
+
+BEGIN;
+
+drop function if exists public.whatsapp_log_transaction(
+  uuid, uuid, numeric, text, text, text, text, text, text, text
+);
+
+create or replace function public.whatsapp_log_transaction(
+  p_profile_id      uuid,
+  p_household_id    uuid,
+  p_amount          numeric,
+  p_currency        text,
+  p_txn_type        text,
+  p_category_id     text,
+  p_account_alias   text,
+  p_to_account_alias text,
+  p_wa_message_id   text,
+  p_description     text,
+  -- ISO date of the transaction as stated by the SOURCE (the SMS), not the
+  -- moment we happened to receive it. Null => today, preserving v10.18 behaviour.
+  p_date            date default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_member_id     uuid;
+  v_account_id    uuid;
+  v_to_account_id uuid;
+  v_cash_id       uuid;
+  v_txn_id        uuid;
+  v_claimed       int;
+  v_date          date;
+begin
+  -- Sanity-clamp the incoming date. An extractor reading a garbled SMS must not
+  -- be able to write a transaction dated 1900 or next year: a future-dated row
+  -- corrupts "this month" on every dashboard that reads it. Out-of-range falls
+  -- back to today rather than raising, because losing the DATE is recoverable
+  -- and losing the TRANSACTION is not.
+  v_date := coalesce(p_date, current_date);
+  if v_date > current_date + interval '2 days' or v_date < current_date - interval '5 years' then
+    v_date := current_date;
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    return jsonb_build_object('status','error','reason','invalid_amount');
+  end if;
+  if p_txn_type not in ('expense','income','investment','transfer') then
+    return jsonb_build_object('status','error','reason','invalid_type');
+  end if;
+
+  -- Idempotency claim-first: ensure the inbound row exists, then claim it by
+  -- flipping processed_at only if still unprocessed. Concurrent deliveries lose
+  -- the race (0 rows) and return 'duplicate' without inserting.
+  insert into public.whatsapp_inbound_messages (wa_message_id, profile_id, household_id, direction)
+    values (p_wa_message_id, p_profile_id, p_household_id, 'inbound')
+    on conflict (wa_message_id) do nothing;
+
+  update public.whatsapp_inbound_messages
+     set processed_at = now(),
+         profile_id   = coalesce(profile_id, p_profile_id),
+         household_id = coalesce(household_id, p_household_id)
+   where wa_message_id = p_wa_message_id and processed_at is null;
+  get diagnostics v_claimed = row_count;
+  if v_claimed = 0 then
+    return jsonb_build_object('status','duplicate');
+  end if;
+
+  -- Resolve the household member backing this profile (nullable is fine).
+  select id into v_member_id
+    from public.memberships
+   where household_id = p_household_id and user_id = p_profile_id
+   limit 1;
+
+  -- Cash fallback account for this household.
+  select id into v_cash_id
+    from public.accounts
+   where household_id = p_household_id and lower(kind) = 'cash' and coalesce(is_archived,false) = false
+   limit 1;
+
+  -- Resolve source alias (name or kind).
+  if p_account_alias is not null and p_account_alias <> '' then
+    select id into v_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and (lower(name) = lower(p_account_alias) or lower(kind) = lower(p_account_alias))
+     limit 1;
+  end if;
+
+  -- Resolve destination alias (name or kind).
+  if p_to_account_alias is not null and p_to_account_alias <> '' then
+    select id into v_to_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and (lower(name) = lower(p_to_account_alias) or lower(kind) = lower(p_to_account_alias))
+     limit 1;
+  end if;
+
+  -- Apply the per-type account matrix + cash fallbacks.
+  if p_txn_type = 'expense' then
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    v_to_account_id := null;
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+  elsif p_txn_type = 'income' then
+    -- income names its destination via account_alias; to_account_alias unused.
+    v_to_account_id := coalesce(v_to_account_id, v_account_id, v_cash_id);
+    v_account_id := null;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+  else  -- transfer / investment: both required, must differ
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+    if v_to_account_id = v_account_id then
+      return jsonb_build_object('status','error','reason','same_account');
+    end if;
+  end if;
+
+  insert into public.transactions (
+    household_id, created_by, member_id, amount, currency, type, category,
+    account_id, to_account_id, date, description
+  ) values (
+    p_household_id,
+    p_profile_id,
+    v_member_id,
+    p_amount,
+    coalesce(nullif(p_currency,''), 'USD'),
+    p_txn_type,
+    case when p_txn_type in ('expense','income')
+         then coalesce(nullif(p_category_id,''), case when p_txn_type='expense' then 'other_expense' else 'other_income' end)
+         else null end,
+    v_account_id,
+    v_to_account_id,
+    v_date,
+    coalesce(nullif(p_description,''), 'Logged via WhatsApp')
+  ) returning id into v_txn_id;
+
+  -- Store the parsed result on the audit row for traceability.
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload,'{}'::jsonb) || jsonb_build_object(
+           'parsed', jsonb_build_object(
+             'transaction_id', v_txn_id, 'amount', p_amount, 'currency', p_currency,
+             'type', p_txn_type, 'category_id', p_category_id,
+             'account_id', v_account_id, 'to_account_id', v_to_account_id))
+   where wa_message_id = p_wa_message_id;
+
+  return jsonb_build_object(
+    'status','success',
+    'transaction_id', v_txn_id,
+    'amount', p_amount,
+    'currency', coalesce(nullif(p_currency,''),'USD'),
+    'type', p_txn_type,
+    'category_id', p_category_id,
+    'account_name',    (select name from public.accounts where id = v_account_id),
+    'to_account_name', (select name from public.accounts where id = v_to_account_id)
+  );
+end;
+$$;
+
+-- Grants must be re-issued: `drop function` above discarded the originals, and
+-- without these the RPC would be executable by nobody and WhatsApp logging
+-- would fail closed. Service-role only (the Edge Function); deny everyone else.
+revoke all on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) from public, anon, authenticated;
+grant execute on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) to service_role;
+
+comment on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) is
+  'v10.20 — WhatsApp/agent transaction writer. Honors the v9 CHECK matrix, claim-first idempotent on wa_message_id. p_date carries the date stated by the SOURCE (a bank SMS is routinely backdated); null => current_date. Out-of-range dates clamp to today rather than raising.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260906140000_seed_model_catalogue.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- v10.20 · Model catalogue — premier + value models, ALL DISABLED.
+--
+-- WHY SEED ROWS AT ALL
+-- "Plug-n-play" means switching models is a ROW CHANGE, not a deploy. That only
+-- holds if the rows exist. This seeds a ready catalogue so switching is one
+-- UPDATE, and so the multi-model bake-off (architecture §7 layer 7) has a matrix
+-- to run against.
+--
+-- 🔴 EVERY ROW SHIPS `enabled = false`. Nothing here spends a cent until someone
+--    deliberately flips one on. The gateway with no enabled row does exactly one
+--    config SELECT and answers `enabled:false` — the inert default.
+--
+-- PROVIDER CHOICE: OpenRouter, because it exposes Claude, GPT, Gemini, Llama,
+-- Qwen and DeepSeek behind ONE OpenAI-compatible endpoint and ONE key. Anthropic's
+-- own API is not OpenAI-shaped (different path, auth header and body), so reaching
+-- Claude directly would need a bespoke adapter in the router; via OpenRouter it
+-- needs nothing. Direct per-vendor adapters can come later purely as a cost play.
+--
+-- NO SECRET IS STORED HERE. `key_env_var` is the NAME of a Supabase Function
+-- secret; the value lives only in the edge runtime.
+--
+-- Pricing below was read from OpenRouter's public /api/v1/models on 2026-09-06
+-- and feeds ai_usage.cost_usd. It is OPERATIONAL SPEND (our provider bill), never
+-- ledger money. Re-check it before trusting a cost report — vendors move prices.
+
+BEGIN;
+
+insert into public.ai_model_configs
+  (seam, provider, model, base_url, key_env_var, params, enabled, priority)
+values
+  -- ── PREMIER TIER ──────────────────────────────────────────────────────────
+  ('assistant','openrouter','anthropic/claude-sonnet-5','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":2.00,"price_per_mtok_output":10.00}'::jsonb,false,100),
+  ('assistant','openrouter','anthropic/claude-opus-5','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":5.00,"price_per_mtok_output":25.00}'::jsonb,false,90),
+  ('assistant','openrouter','openai/gpt-5.1','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":1.25,"price_per_mtok_output":10.00}'::jsonb,false,80),
+  ('assistant','openrouter','google/gemini-2.5-pro','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":1.25,"price_per_mtok_output":10.00}'::jsonb,false,70),
+  -- ── VALUE TIER — the bake-off cost floor ──────────────────────────────────
+  ('assistant','openrouter','openai/gpt-oss-120b','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":0.04,"price_per_mtok_output":0.17}'::jsonb,false,40),
+  ('assistant','openrouter','meta-llama/llama-3.3-70b-instruct','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":0.10,"price_per_mtok_output":0.32}'::jsonb,false,30),
+  ('assistant','openrouter','qwen/qwen3-235b-a22b-2507','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":0.09,"price_per_mtok_output":0.55}'::jsonb,false,20),
+  ('assistant','openrouter','deepseek/deepseek-v4-flash','https://openrouter.ai/api','OPENROUTER_API_KEY',
+   '{"temperature":0.2,"max_tokens":600,"price_per_mtok_input":0.08,"price_per_mtok_output":0.16}'::jsonb,false,10)
+on conflict (seam, provider, model, base_url) do nothing;
+
+COMMIT;
+
+-- TO SWITCH MODELS (exactly one enabled row is the clearest mental model;
+-- with several enabled, the HIGHEST priority wins):
+--
+--   update public.ai_model_configs set enabled = false where seam = 'assistant';
+--   update public.ai_model_configs set enabled = true
+--    where seam = 'assistant' and model = 'anthropic/claude-sonnet-5';

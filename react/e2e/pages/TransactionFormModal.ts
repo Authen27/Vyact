@@ -48,11 +48,25 @@ export class TransactionFormModal {
 
   constructor(page: Page) {
     this.page = page;
-    this.keypad = page.getByRole('group', { name: 'Amount keypad' });
-    // The txn sheet is the dialog that owns the amount keypad — unambiguous
-    // even if another dialog is on screen.
-    this.dialog = page.getByRole('dialog').filter({ has: this.keypad });
-    this.amountDisplay = this.dialog.locator('[aria-live="polite"]').first();
+    // ANCHORED ON THE DIALOG'S ACCESSIBLE NAME.
+    //
+    // This used to key off a `group` named "Amount keypad". That element no
+    // longer exists anywhere in the app, so the dialog locator matched nothing
+    // and every modal-dependent test failed with a 30s `waitFor` timeout — the
+    // page object was describing a UI that had been redesigned out from under
+    // it (the sheet now renders through HalfSheet, role="dialog" + aria-label).
+    //
+    // The title is `${'Add'|'Edit'} ${typeMeta.label}` (TransactionFormModal
+    // :421), so the name below matches exactly this sheet and NOT the budget,
+    // debt or split sheets that share the same HalfSheet wrapper.
+    this.dialog = page.getByRole('dialog', {
+      name: /^(Add|Edit) (transaction|expense|income|transfer|investment)$/i,
+    });
+    // The keypad group is gone; keep the property pointing at the dialog's
+    // amount control so callers that reference it still resolve to something
+    // meaningful rather than a phantom.
+    this.keypad = this.dialog;
+    this.amountDisplay = this.dialog.getByLabel(/amount/i).first();
     this.descriptionInput = this.dialog.getByLabel('Description');
     this.dateInput = this.dialog.getByLabel('Pick a date');
     this.noteInput = this.dialog.getByLabel('Note');

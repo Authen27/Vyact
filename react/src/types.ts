@@ -96,7 +96,10 @@ export interface SharedSplit {
 // baseline-derived record so honest-data rendering and the 21-day truing-up loop
 // work across devices (these are real, cloud-synced columns, not a local overlay).
 export type Confidence = 'estimated' | 'confirming' | 'confirmed';
-export type ProvenanceSource = 'onboarding' | 'user' | 'bank';
+// 'agent' = the row was extracted by the agent from a message/receipt (P4.5).
+// It is deliberately NOT 'bank': a model-read value is not a bank-confirmed one,
+// and collapsing the two would let an unverified figure render as real data.
+export type ProvenanceSource = 'onboarding' | 'user' | 'bank' | 'agent';
 
 /** Mixed onto baseline-derived entities (Transaction, Budget, Goal, Debt, Asset).
  *  Absent / 'confirmed' + 'user' means a first-class, user-owned value. */

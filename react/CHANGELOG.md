@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.19.0`** (consumer)
+> **Current production version: `v10.20.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,101 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.0 — Ask Vyact becomes model-backed *(2026-09-07)*
+
+**Breaking.** The deterministic `RulesBackend` is **removed**. `LlmBackend` is the only assistant
+backend and there is no rules fallback. With no model configured or reachable, Ask Vyact returns an
+explicit *unavailable* turn — it never silently degrades to a canned answer, because a finance
+assistant that quietly stops thinking while still sounding confident is worse than one that says it
+is offline.
+
+> **Operational precondition.** `OPENROUTER_API_KEY` must be set in Supabase Edge Function secrets.
+> Without it every Ask Vyact turn returns *"I can't reach the assistant right now."* The model row
+> (`ai_model_configs`) is already enabled: `anthropic/claude-sonnet-5` via OpenRouter.
+
+### What the model does — and what it is never allowed to do
+
+**The assistant phrases; services compute.** Stage 4 (`resolve`) was NOT removed and is still the
+sole source of every figure. The model picks the intent (stage 3) and words the answer (stage 5); it
+never does arithmetic on money. That is enforced mechanically, not by prompt: `assertNoInventedFigures`
+discards any reply containing a number no calculation produced. A hallucinated total cannot reach a
+user, because it did not come from a tool.
+
+The provider key lives server-side in the `ask-vyact` Edge Function. The browser-direct Gemini
+client, `ChatBackend`, `StubChatBackend`, `SupabaseChatBackend` and the `SubAgent` registry were all
+retired with it — no API key ships in the bundle.
+
+### Response chips now reach the user (#62)
+
+`resolve()` had returned a `chip` since the assistant shipped, but `AssistantTurn` had no field for
+it, so the orchestrator dropped it and **no chip had ever reached a user**. Every "two or three
+likely follow-ups" in the response deck was undeliverable for that one reason.
+
+`ResolveResult.chips` is now an ordered list (max three) threaded through `AssistantTurn` and
+`ChatMessage` to a chip row under the newest reply; tapping one sends its `prompt` as the next turn.
+Rules pinned in code: extras are **dropped, never wrapped**; a chip without a `prompt` is dropped
+rather than rendered as an untappable dead end; and chips are **never model-authored** — they come
+from stage 4 beside the figures, closing a path `assertNoInventedFigures` does not guard.
+`renderChipsAsNumberedList()` gives WhatsApp the same list as numbered options (CONV-09).
+
+### Honest copy — three false claims removed
+
+Removing the rules backend made shipped UI copy untrue. All three are corrected in this release:
+
+| Where | Was | Now |
+|---|---|---|
+| Ask Vyact privacy block | "Answered on this device … no model involved." | "Your numbers are calculated, never guessed." |
+| Ask Vyact page subtitle | "On-device · private · two taps…" | "Two taps to capture, inquire, or plan" |
+| Ask drawer header | "On-device · private" | "Your numbers, computed — never guessed" |
+
+`Planner` and `Insights` keep their "fixed rules, no model" lines — those are still true; neither
+calls a model.
+
+### Privacy Policy (`POLICY_VERSION` → 2026-09-07)
+
+A new **"How Ask Vyact uses a language model"** disclosure states exactly what leaves Vyact per
+question: your question as you typed it, and the figures already calculated for that one answer.
+Your transaction history is never sent, nor any record that is not part of the answer you asked for.
+The sub-processor list is updated to match. No claim is made about provider training or retention —
+that is not asserted until the account terms are confirmed.
+
+### Agent service (in build, not user-facing)
+
+- **Ingestion pipeline core** — the eight-stage extractor cascade with the confirm gate:
+  *if a model touched it, a human confirms it*. Only deterministic extractors (grammar/recipe/manual)
+  may write unattended.
+- **Learned-recipe cache** — digit-masked SMS signature → LLM extraction on miss → derived recipe, so
+  a repeat format becomes free and deterministic.
+- **`ask-vyact` gateway** — OpenAI-compatible model router, probe endpoint, quota + origin pinning.
+- **Server-side money port** (`_shared/money`) under parity tests against the client TS originals —
+  WhatsApp has no browser.
+- **Eval harness** — 84 cases, green. It found four real bugs on first run, including a missing
+  `bought`/`buy` verb and an unreachable card-disambiguation question.
+
+### Database
+
+| Migration | What |
+|---|---|
+| `20260612120100_v91_feedback_batch` | De-duplicates a colliding timestamp |
+| `20260816120000_agent_ingestion_state` | `agent_conversations`, `agent_pending_intents`, `sms_format_recipes` (RLS + expiry) |
+| `20260816130000_provenance_source_agent` | Widens the `source` CHECK to allow `'agent'` |
+| `20260906120000_ai_model_configs` | Model router config; `enabled` defaults **false** |
+| `20260906130000_whatsapp_log_transaction_backdate` | Adds `p_date` — a bank SMS is routinely backdated |
+| `20260906140000_seed_model_catalogue` | 8 models, all disabled by default |
+
+> All six are **already applied to production** (via MCP). Their recorded version stamps differ from
+> the filenames, so `supabase db push` sees them as pending; the CI `db-migrations` job does not run
+> them today (stale `SUPABASE_ACCESS_TOKEN`). No action needed for this release — flagged so the
+> next person does not re-apply by hand.
+
+### Tests
+
+789 unit tests green, including 7 new chip tests (`CON-UNIT-ASK-057..063`) and the money invariants
+INV-1..9 untouched. E2E was partially unbroken (dead route, dead page object, 49 phantom tests
+removed); the remaining failures are pre-existing and tracked separately.
 
 ---
 

@@ -4,9 +4,11 @@ import { Send, MessageCircle, Trash2, ChevronLeft, Mic } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import Chip from '../components/ui/Chip';
 import {
-  buildSafeSummary, selectChatBackend, type ChatMessage,
+  buildSafeSummary, type ChatMessage,
 } from '../lib/aiSummary';
+import type { AssistantChip } from '../lib/askVyactResponses';
 import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
 import {
@@ -33,8 +35,10 @@ interface SpeechRecognitionLike {
 
 const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan'];
 
-const backend = selectChatBackend();
-const assistantBackend = selectAssistantBackend();
+// Both backends are resolved PER TURN inside `send()`, never memoised here.
+// Module-scope resolution froze the choice at first import, so any config change
+// (feature flag, env, and soon a DB-driven model row) could not take effect
+// without a full page reload. Both factories are cheap and stateless.
 
 /** `embedded` — rendered inside the Ask Vyact drawer, which supplies its own
  *  board-spec header, so the page title block is suppressed to avoid showing
@@ -151,18 +155,21 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       // Ask Vyact assistant (spec §3). When the flag is OFF this whole branch is
       // skipped and the launcher behaves exactly as it did in v7.4.5.
       if (isAskVyactEnabled()) {
+        const assistantBackend = selectAssistantBackend();
         const ctx: AssistantContext = {
           summary, transactions: txns, budgets, goals, debts, assets, recurring,
           profile, rates, baseCurrency: profile.baseCurrency,
         };
-        const turn = runAssistant(question, ctx, assistantBackend);
-        // The deterministic hit-rate this records is the headline cost metric:
-        // every 'rules' row is an LLM call that was never paid for.
+        // A null backend means no model is configured. runAssistant turns that
+        // into an explicit "unavailable" turn rather than a fabricated answer.
+        const turn = await runAssistant(question, ctx, assistantBackend);
         void logAiUsage({
           householdId, text: question, surface: 'chat',
-          backend: assistantBackend.id,
-          tier: assistantBackend.id === 'rules' ? 't0' : 't1',
-          outcome: turn.clarify ? 'clarify' : turn.intentId === 'fallback' ? 'fallback' : 'ok',
+          backend: assistantBackend?.id ?? 'llm',
+          tier: 't1',
+          outcome: turn.intentId === 'unavailable' ? 'error'
+            : turn.clarify ? 'clarify'
+            : turn.intentId === 'fallback' ? 'fallback' : 'ok',
           latencyMs: Date.now() - startedAt,
         });
         // Capture intents seed the EXISTING TransactionFormModal — no parallel path.
@@ -170,15 +177,21 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         // #4 — human-like: a brief "thinking" pause, then stream word-by-word.
         await new Promise(r => setTimeout(r, 600));
         setThinking(false);
-        await streamReply(turn.reply);
+        await streamReply(turn.reply, turn.chips);
         return;
       }
-      const answer = await backend.ask(question, summary, history);
+      // Ask Vyact is the ONLY assistant (v10.20). With the feature flag off there
+      // is no second engine to fall through to — the old ChatBackend path was
+      // removed with its browser-side key. Say so plainly rather than routing the
+      // user to something they were never told about.
       void logAiUsage({
         householdId, text: question, surface: 'chat',
-        backend: 'llm', tier: 't1', outcome: 'ok', latencyMs: Date.now() - startedAt,
+        outcome: 'error', latencyMs: Date.now() - startedAt,
       });
-      setHistory(h => [...h, { role: 'assistant', content: answer }]);
+      setHistory(h => [...h, {
+        role: 'assistant',
+        content: 'The assistant is turned off right now.',
+      }]);
     } catch (e) {
       void logAiUsage({
         householdId, text: question, surface: 'chat',
@@ -191,7 +204,11 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   }
 
   // #4 — stream an assistant reply word-by-word (resolves when complete).
-  function streamReply(text: string): Promise<void> {
+  //
+  // `chips` are attached only once the last word lands (#62). Showing follow-ups
+  // beside a half-written sentence invites a tap before the answer is legible,
+  // and the tap would discard a reply the user never finished reading.
+  function streamReply(text: string, chips?: AssistantChip[]): Promise<void> {
     return new Promise(resolve => {
       const words = text.split(' ');
       setHistory(h => [...h, { role: 'assistant', content: '' }]);
@@ -199,8 +216,13 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       const id = setInterval(() => {
         i += 1;
         const partial = words.slice(0, i).join(' ');
-        setHistory(h => { const c = h.slice(); c[c.length - 1] = { role: 'assistant', content: partial }; return c; });
-        if (i >= words.length) { clearInterval(id); resolve(); }
+        const done = i >= words.length;
+        setHistory(h => {
+          const c = h.slice();
+          c[c.length - 1] = { role: 'assistant', content: partial, ...(done && chips ? { chips } : {}) };
+          return c;
+        });
+        if (done) { clearInterval(id); resolve(); }
       }, 40);
     });
   }
@@ -302,8 +324,11 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             <h1 className="display-italic text-4xl text-ink mb-1.5 flex items-center gap-2.5">
               <MessageCircle className="text-coral" /> Ask Vyact
             </h1>
+            {/* v10.20 — "On-device" was retired with RulesBackend; see the
+                privacy block below. Ask Vyact still captures, inquires and
+                plans in two taps, which is what this line is actually for. */}
             <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-              On-device · private · two taps to capture, inquire, or plan
+              Two taps to capture, inquire, or plan
             </p>
           </div>
           {history.length > 0 && (
@@ -323,14 +348,26 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       )}
 
       {/* Board D M6 — the privacy line is a REASSURANCE, so it reads in sage
-          (good), not coral/terra. Crit is reserved for genuine failures; a
-          promise that nothing leaves the device is not an alarm. */}
+          (good), not coral/terra. Crit is reserved for genuine failures; saying
+          where an answer is computed is not an alarm. Keep the claim scoped to
+          how Ask Vyact answers today — no forever-promises about egress.
+
+          CORRECTED IN v10.20. This block used to read "Answered on this device
+          … no model involved." That stopped being true the moment RulesBackend
+          was removed: a question now goes to the ask-vyact Edge Function and on
+          to a model provider. The old copy was a false statement about egress
+          on a finance app's chat screen, which is the worst place to leave one.
+
+          What IS still true, and is the more useful reassurance anyway, is that
+          the model never touches the arithmetic — `resolve()` computes every
+          figure and `assertNoInventedFigures` discards a reply carrying a number
+          no calculation produced. Claim that, because it is enforced. */}
       <div className="flex items-start gap-2.5 rounded-r2 px-3 py-2.5 mb-3.5"
         style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 14%, transparent)' }}>
         <span className="text-[13px] leading-5 flex-shrink-0" aria-hidden>🔒</span>
         <p className="text-[11.5px] text-ink-mid leading-[1.4]">
-          <strong className="text-ink">Private by design.</strong> Your questions are answered on this device —
-          nothing leaves it.
+          <strong className="text-ink">Your numbers are calculated, never guessed.</strong> Ask Vyact uses a model to
+          understand your question and word the answer — every figure in it comes from your own data, computed here.
         </p>
       </div>
 
@@ -425,14 +462,31 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             </div>
           )}
           {history.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {/* Board D — .bub: user coral + accent-ink, AI neu canvas. */}
-              <div className="max-w-[85%] px-4 py-2.5 text-[0.86rem] leading-relaxed"
-                style={m.role === 'user'
-                  ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderRadius: '18px 18px 6px 18px', boxShadow: 'var(--neu-sm)' }
-                  : { background: 'var(--canvas)', color: 'var(--ff-ink)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
-                <div className="whitespace-pre-wrap">{m.content}</div>
+            <div key={i}>
+              <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {/* Board D — .bub: user coral + accent-ink, AI neu canvas. */}
+                <div className="max-w-[85%] px-4 py-2.5 text-[0.86rem] leading-relaxed"
+                  style={m.role === 'user'
+                    ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderRadius: '18px 18px 6px 18px', boxShadow: 'var(--neu-sm)' }
+                    : { background: 'var(--canvas)', color: 'var(--ff-ink)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
+                  <div className="whitespace-pre-wrap">{m.content}</div>
+                </div>
               </div>
+              {/* Follow-up chips (#62) — the deck's response anatomy part 4.
+                  Only under the LAST turn: a chip is "the next question", and
+                  the next question only makes sense after the newest answer.
+                  Older turns keep their chips in the transcript (they are part
+                  of what was said) but stop being tappable, so scrolling back
+                  cannot silently re-ask something from ten turns ago. */}
+              {m.role === 'assistant' && m.chips && m.chips.length > 0 && i === history.length - 1 && !thinking && (
+                <div className="flex flex-wrap gap-1.5 mt-2 ml-1" data-testid="ask-vyact-chips">
+                  {m.chips.map((c, ci) => (
+                    <Chip key={ci} onClick={() => void send(c.prompt)} testId={`ask-vyact-chip-${ci}`}>
+                      {c.label}
+                    </Chip>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {thinking && (

@@ -60,12 +60,17 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase db push --password "${{ secrets.SUPABASE_DB_PASSWORD }}" --include-all
 
-  # Deploy the WhatsApp Business Edge Functions. Best-effort (continue-on-error)
-  # for the same reason as db-migrations: a Supabase auth/link hiccup must never
-  # block the app deploy. The deploy itself is idempotent; the runtime WHATSAPP_*
-  # secrets are configured separately via `supabase secrets set` (see
-  # whatsapp-connection-setup.md). The webhook MUST be --no-verify-jwt (Meta has
-  # no Supabase JWT); the OTP functions MUST verify JWT (they identify the user).
+  # Deploy the Supabase Edge Functions. Best-effort (continue-on-error) for the
+  # same reason as db-migrations: a Supabase auth/link hiccup must never block
+  # the app deploy. The deploy itself is idempotent; the runtime WHATSAPP_* /
+  # ASK_VYACT_* secrets are configured separately via `supabase secrets set`
+  # (see whatsapp-connection-setup.md). The webhook MUST be --no-verify-jwt
+  # (Meta has no Supabase JWT); the OTP functions MUST verify JWT (they identify
+  # the user), and so MUST `ask-vyact` — it is a paid endpoint that acts as the
+  # signed-in caller, and it additionally refuses service-role/anon tokens in
+  # code. Deploying `ask-vyact` is SAFE while the agent is off: `ai_model_configs`
+  # ships empty with `enabled` defaulting false, so the gateway resolves no model,
+  # calls no provider, spends nothing and writes no ai_usage row.
   deploy-edge-functions:
     name: Deploy Supabase Edge Functions
     needs: db-migrations
@@ -89,6 +94,12 @@ jobs:
           supabase functions deploy whatsapp-send-otp
           supabase functions deploy whatsapp-verify-otp
           supabase functions deploy whatsapp-notify
+      - name: Deploy agent gateway
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        # WITH JWT verification (default). Inert until a super-admin enables an
+        # ai_model_configs row.
+        run: supabase functions deploy ask-vyact
 
   consumer:
     needs: db-migrations
