@@ -5,8 +5,22 @@
 // voice never touches extraction (stages 1–2) or computation (stage 4).
 //
 // Rules baked in (§7): answer-first, specific, open-ended (always a next step),
-// warm-not-chummy, honest about estimates. Every intent+outcome has ≥3 phrasing
-// variants so the assistant never repeats itself verbatim.
+// warm-not-chummy, honest about estimates.
+//
+// 📖 BEFORE CHANGING COPY HERE, read `vyact-ask-vyact-responses-spec.md` at the
+// repo root. It reconciles this file against the design deck in
+// `WhatsApp & Ask Vyact Message Templates/…/Vyact - Ask Vyact Responses.html`
+// and records which side wins where they disagree. Two things it settles that
+// are easy to get wrong from this file alone:
+//
+//   * VARIANT COUNT IS NO LONGER UNIFORM. The ≥3 rotating phrasings stay only
+//     for the turns a user actually repeats — capture confirmations and the
+//     missing-amount ask. Everything else moves to ONE composed response in the
+//     deck's four-part anatomy. Do not "tidy" one convention into the other.
+//   * COPY CANNOT INTRODUCE A FIGURE THE ENGINE DOES NOT COMPUTE. A reply
+//     carrying an unbacked number is DISCARDED by `assertNoInventedFigures`, so
+//     it fails closed rather than degrading. Several designed responses are
+//     blocked on engine work for exactly this reason — see §2 of that doc.
 
 import type { IntentResult } from './askVyactIntents';
 import type { Transaction } from '../types';
