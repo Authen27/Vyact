@@ -340,19 +340,40 @@ const rowToMember = (r: MembershipRow): Member => ({
   userId: r.user_id || undefined,
 });
 
-const accountToRow = (a: Partial<Account>, hid: string): Partial<AccountRow> => ({
-  ...provToRow(a),
-  id: a.id, household_id: hid,
-  asset_id: a.assetId || null,
-  kind: a.kind!,
-  name: a.name!,
-  currency: a.currency || 'USD',
-  is_default: a.isDefault ?? false,
-  is_archived: a.isArchived ?? false,
-  opening_balance: a.openingBalance ?? 0,                  // Money-Model B1.2
-  reconciliation_offset: a.reconciliationOffset ?? 0,      // v9 D2
-  reconciliation_log: (a.reconciliationLog ?? []) as unknown[],
-});
+/**
+ * 🔒 OMITTED MEANS UNCHANGED — NEVER ZERO.
+ *
+ * This takes a `Partial<Account>`, and the three financial fields below used to
+ * read `?? 0` / `?? []`. On an UPSERT that is not a default, it is an erasure:
+ * a caller sending a metadata-only patch (rename, archive, change currency) had
+ * the account's opening balance written to 0 and its reconciliation history
+ * emptied. Silently, under an "Account updated" toast.
+ *
+ * All three columns are NOT NULL *with a DB default* (`0`, `0`, `'[]'::jsonb`),
+ * so omitting them is safe in both directions: on INSERT Postgres applies the
+ * default, and on the ON CONFLICT UPDATE the column is absent from the SET list
+ * and the stored value survives.
+ *
+ * Provenance already behaved correctly — `provToRow` uses `?? undefined`, and
+ * `JSON.stringify` drops undefined keys, so those columns were never defaulted.
+ * Keep it that way for anything financial that gets added here later.
+ */
+const accountToRow = (a: Partial<Account>, hid: string): Partial<AccountRow> => {
+  const row: Partial<AccountRow> = {
+    ...provToRow(a),
+    id: a.id, household_id: hid,
+    asset_id: a.assetId || null,
+    kind: a.kind!,
+    name: a.name!,
+    currency: a.currency || 'USD',
+    is_default: a.isDefault ?? false,
+    is_archived: a.isArchived ?? false,
+  };
+  if (a.openingBalance !== undefined) row.opening_balance = a.openingBalance;             // Money-Model B1.2
+  if (a.reconciliationOffset !== undefined) row.reconciliation_offset = a.reconciliationOffset;  // v9 D2
+  if (a.reconciliationLog !== undefined) row.reconciliation_log = a.reconciliationLog as unknown[];
+  return row;
+};
 const rowToAccount = (r: AccountRow): Account => ({
   id: r.id,
   assetId: r.asset_id || undefined,
