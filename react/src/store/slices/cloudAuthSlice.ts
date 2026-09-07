@@ -9,7 +9,7 @@ import type { Session } from '@supabase/supabase-js';
 import type { AppRole } from '../../types';
 import type { Store } from '../../store';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
-import { highestRole } from '../../lib/permissions';
+import { highestRole, resolveMyRole } from '../../lib/permissions';
 import { setLocalString } from '../localJson';
 
 export interface CloudAuthSlice {
@@ -55,23 +55,33 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
   },
 
   refreshHouseholds: async () => {
-    const { adapter, currentHouseholdId } = get();
+    const { adapter, currentHouseholdId, cloudEnabled } = get();
     const households = await adapter.listHouseholds();
     set({ households });
-    // Compute my role in the active household by reading the memberships table
-    // for the current user. The membership.role column carries the AppRole.
-    if (supabase && get().session?.user) {
-      try {
-        const { data } = await supabase.from('memberships')
-          .select('role')
-          .eq('household_id', currentHouseholdId)
-          .eq('user_id', get().session!.user.id)
-          .maybeSingle();
-        set({ myRole: (data?.role as AppRole) || undefined });
-      } catch { /* offline — keep last known */ }
-    } else {
-      set({ myRole: 'owner' });   // local-only: you own everything
+
+    // WHO AM I IN THIS HOUSEHOLD? The rule itself is `resolveMyRole` in
+    // lib/permissions.ts, beside `can()` — the two halves of one policy, and
+    // pure so they can be tested without a Supabase client.
+    //
+    // This slice only supplies the three facts the rule needs. Note the middle
+    // case: the old code keyed its 'owner' fallback on "no session" instead of
+    // "no cloud", so a signed-out CLOUD user resolved to 'owner'. Unreachable
+    // then, live the moment App.tsx started calling this on boot.
+    const hasSession = Boolean(supabase && get().session?.user);
+    if (!cloudEnabled || !hasSession) {
+      set({ myRole: resolveMyRole({ cloudEnabled, hasSession }) });
+      return;
     }
+    try {
+      const { data } = await supabase!.from('memberships')
+        .select('role')
+        .eq('household_id', currentHouseholdId)
+        .eq('user_id', get().session!.user.id)
+        .maybeSingle();
+      set({ myRole: resolveMyRole({
+        cloudEnabled, hasSession, membershipRole: data?.role as AppRole | null,
+      }) });
+    } catch { /* offline — keep last known */ }
     void highestRole; // suppress unused
   },
 });
