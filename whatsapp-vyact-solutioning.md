@@ -26,8 +26,9 @@
 | 8 | 🟠 Security | OTP **verify** has no attempt limiter (10⁶ space, online brute-forceable); signature + OTP compares are non-constant-time. | Max-attempts + lockout on verify; constant-time compares. | §6 / §10 |
 | 9 | 🟠 Resilience | Function processes Gemini + RPC + outbound **before** returning 200 → slow Gemini risks Meta timeout + retry storm. | **Ack 200 first**, process via `EdgeRuntime.waitUntil(...)`. | §5 / §11 |
 | 10 | 🟡 Privacy | Ships transaction text to **Gemini (free/dev tier)** — reverses Ask Vyact's documented on-device/"no utterance leaves the client" principle, with no DPA/SLA. | **Resolved for MVP** (deterministic parser, no egress — §1.5/§7a). **MVP++ only:** explicit product + privacy sign-off, link-time consent, DPA-covered tier. | §1.5 / §7b |
-| 11 | 🟡 Consistency | "Write-only / no financial data" is contradicted by `transaction_logged_success` (echoes amount + account) and `partner_split_prompt` (amount + category). | Strip amounts/account names from confirmations, or soften the claim. | §1 / §2 |
+| 11 | 🟢 Consistency | "Write-only / no financial data" was contradicted by templates that echo amounts. | **Resolved (§2).** The rule is now: Vyact answers **only what the user explicitly asked for in that message**, and never volunteers a figure unprompted. The blanket hard-block is superseded for directly-asked questions and still stands for everything else. | §1 / §2 |
 | 12 | 🟡 Hygiene | Inline DDL is not a tracked migration; Graph API pinned to dated `v17.0`; defensive payload parsing missing. | Ship DDL as `supabase/migrations/*.sql`; pin Graph `v21.0`; guard array access. | §3 / §5 / §12 |
+| 13 | 🔴 Correctness | **The implementation samples below dispatch templates that do not exist in Meta** — `security_alert_unregistered` (§5), `transaction_error_feedback` (§5, §12) and `phone_verification_otp` (§6). Copied as written, each call fails at send time. | Rewrite those paths against the reconciled set in §2: the unregistered and parse-failure replies are **session text** (`session_recover`), not templates. OTP has no approved template at all — number linking is blocked (§2). | §2 / §5 / §6 / §12 |
 
 **Confirmed-good (kept as-is):** the v9 per-type account matrix (account_id for expense, to_account_id for income, both for transfer/investment) and null-category for transfer/investment; Gemini structured-output constrained to the real v9 category/account IDs; HMAC verification; OTP hashing + expiry. `public.profiles` **does** exist (the §3 reference is valid).
 
@@ -109,15 +110,105 @@ To authorize Vyact to send and receive messages, the following steps must be com
    * Subscribe to Webhook fields: `messages` (triggers on incoming texts, button replies, and delivery status events).
 
 ### Message Template Configurations
-To initiate conversation flows or send verification codes, WhatsApp requires pre-approved template messages. Five production templates must be submitted and approved:
 
-| Template Name | Category | Language | Template Text | Buttons / Variables |
-| :--- | :--- | :--- | :--- | :--- |
-| `phone_verification_otp` | UTILITY | English (US) | `Your Vyact verification code is {{1}}. This code expires in 10 minutes.` | None |
-| `transaction_logged_success` | UTILITY | English (US) | `Logged: {{1}} {{2}} under "{{3}}" from account "{{4}}".` | [Button: Open Vyact App] |
-| `partner_split_prompt` | UTILITY | English (US) | `{{1}} just logged an expense of {{2}} {{3}} under "{{4}}". How should this split?` | [Button: Split 50/50] [Button: Assign to Partner] |
-| `transaction_error_feedback` | UTILITY | English (US) | `We couldn't process your message: "{{1}}". Reason: {{2}}. Please try again.` | None |
-| `security_alert_unregistered` | UTILITY | English (US) | `A WhatsApp message was received from this number, but it is not linked to a Vyact profile. Link your number in Settings.` | None |
+> **Single source of truth.** The message set is designed in
+> `WhatsApp & Ask Vyact Message Templates/Vyact/vyact-templates/WhatsApp - Vyact Templates.html`
+> (copy, variants and variable legends) and reconciled here against what is
+> actually live in Meta Business Manager. Where the two disagree, **this table
+> records the resolution** — do not re-derive it from either side alone.
+>
+> The five templates previously listed in this section were removed: four of them
+> (`transaction_logged_success`, `transaction_error_feedback`,
+> `security_alert_unregistered`, `phone_verification_otp`) were specified here but
+> **never created in Meta**, and were being cited as though they shipped.
+
+**Two delivery modes, and the difference is not cosmetic.** A *template* is
+pre-approved and may be sent at any time. *Session text* is free-form, costs
+nothing, needs no approval — and can only be delivered inside the 24-hour window
+that opens when the user last messaged us. A proactive alert written as session
+text simply will not arrive if the user has been quiet, and fails silently.
+
+#### Live in Meta — Vyact product templates
+
+| Template | Category | Mode | Status |
+| :--- | :--- | :--- | :--- |
+| `bill_due_reminder` | UTILITY | Template | Live · has A/B variants in the design spec |
+| `budget_threshold_alert` | UTILITY | **Template + session text** | Live · see dual-mode note below |
+| `large_transaction_alert` | UTILITY | **Template + session text** | Live · see dual-mode note below |
+| `weekly_summary` | UTILITY | Template | Live · opt-in |
+| `split_settled` | UTILITY | Template | Live |
+| `partner_split_prompt` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
+| `split_shared_with_you` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
+| `recurring_auto_logged` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
+| `reengagement_nudge` | **MARKETING** | Template | Live · separate consent + opt-out (see below) |
+
+#### Live in Meta — not Vyact copy, scheduled for deletion
+
+`hello_world`, `3p_direct_integration_test_template`, `feedback`, `recurring` are
+Meta samples and integration-test artifacts sitting in the production namespace.
+`recurring` is the one to remove first: it announces an **overdue card payment**,
+and its name invites confusion with the real `recurring_auto_logged`.
+
+#### Designed, not yet submitted
+
+Media templates from the design spec with no Meta counterpart:
+`payday_headroom`, `household_daily_digest`, `runway_shift_alert`,
+`month_close_summary`, `budget_setup_reminder`, `balance_stale_nudge`,
+`affordability_reply`.
+
+Session-text turns (no Meta submission needed): `capture_result`,
+`capture_clarify_choice`, `capture_confirm_draft`, `capture_duplicate_check`,
+`capture_budget_hold`, `capture_over_threshold`, `capture_correction_ack`,
+`capture_backdated_notice`, `capture_missing_amount`, `conv01_fallback`,
+`insights_optin_prompt`, `refusal_with_route`, `pending_expiry`,
+`session_recover`, `list_menu`, `interpret_answer`.
+
+#### Resolved conflicts
+
+**1 · Three live templates are missing from the design spec.**
+`partner_split_prompt`, `split_shared_with_you` and `recurring_auto_logged` are
+approved in Meta *and* referenced by `whatsapp-notify`'s `EVENT_TEMPLATE` map.
+They remain valid. **Action: the UX team owns a corrected design pass for these
+three** — body, variants and variable legend — so the spec covers the whole live
+set rather than a subset. Until then their approved bodies live only in Meta.
+
+**2 · `budget_threshold_alert` and `large_transaction_alert` are dual-mode.**
+Both fire when a threshold is crossed, which is usually *not* within 24 hours of
+the user's last message. Decision: **send the approved template when outside the
+session window, and session text when inside it.** Two consequences the
+implementation must carry:
+  * Each message needs **two bodies that say the same thing** — one template with
+    numbered variables, one free-form. They must be revised together or they drift.
+  * The dispatcher must **check the window before choosing**. Getting this wrong
+    is silent: the template path over-messages, the session path under-delivers.
+
+**3 · Read access over WhatsApp — narrowed, not opened.**
+The design spec proposes `interpret_answer`, `affordability_reply` and
+`read_pin_challenge`. Decision: **answer only what the user explicitly asked for
+in that message.** Consequences:
+  * `read_pin_challenge` is **not adopted**. No PIN flow is being built.
+  * `interpret_answer` and `affordability_reply` are permitted **reply-triggered
+    only** — never proactive, never unprompted.
+  * The v10.18 blanket hard-block on data queries is therefore **superseded** for
+    directly-asked questions, and still stands for everything else.
+  * Because there is no PIN, a person holding the phone can read figures. That is
+    the accepted trade-off of this decision and should be stated in the consent
+    copy rather than left implicit.
+
+**4 · `reengagement_nudge` is a MARKETING template.**
+Different regulatory object from every other entry: it requires marketing opt-in,
+honours a separate opt-out, and is suppressed for users who declined promotions.
+A user who mutes it **must still receive** bill reminders and threshold alerts —
+the consents cannot be bundled.
+
+#### Known blocker — number linking
+
+No OTP template exists in Meta (the earlier `phone_verification_otp` submission
+was rejected pending business verification). Self-serve number linking therefore
+**cannot ship**, while a live session reply still tells users to *"Link it in
+Settings → WhatsApp"* — a route that cannot complete. Either the OTP template
+gets approved, or that reply needs different copy pointing at the interim
+service-role linking path.
 
 ---
 
