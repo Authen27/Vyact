@@ -1,6 +1,6 @@
 # Ask Vyact — response spec, reconciled
 
-**Status:** decisions recorded · 11 engine tickets open ([`ask-vyact-engine`](https://github.com/Authen27/Vyact/labels/ask-vyact-engine)) · no engine work started.
+**Status:** decisions recorded · 11 engine tickets ([`ask-vyact-engine`](https://github.com/Authen27/Vyact/labels/ask-vyact-engine)) · [#62](https://github.com/Authen27/Vyact/issues/62) delivered, 10 open.
 **Audience:** conversation design + the engineer implementing the response layer.
 
 ---
@@ -105,24 +105,43 @@ strictly requires the date. Until it exists, the vague form is the honest one.
 
 ## 3. Delivery gaps
 
-### 3.1 Chips are produced and then thrown away
+### 3.1 Chips — ✅ delivered ([#62](https://github.com/Authen27/Vyact/issues/62))
 
-`resolve()` already returns `chip: { label, prompt }` on several outcomes. The
-orchestrator never forwards it — **`AssistantTurn` has no chip field** — so no
-chip has ever reached a user.
+Was: `resolve()` returned `chip: { label, prompt }` on several outcomes and the
+orchestrator dropped it, because `AssistantTurn` had no chip field. No chip had
+ever reached a user.
 
-The spec needs **two or three chips per response**, as the next question rather
-than navigation. So this is two pieces of work, not one:
+Now: `ResolveResult.chips` is an ordered list, `AssistantTurn` carries it, and
+`Chat.tsx` renders it as a row of Aurora chips under the newest reply. Tapping
+one sends its `prompt` as the next turn.
 
-1. Thread chips through `AssistantTurn` to the UI (the existing single chip).
-2. Widen `ResolveResult.chip` to an ordered list, max three.
+Rules the implementation pins, so the deck and the code cannot drift:
 
-Ticket: [#62](https://github.com/Authen27/Vyact/issues/62) — the highest-leverage
-item in this document. Until it lands, every Interpret and Forecast response in
-the deck is undeliverable regardless of what the engine can compute.
+* **Max three, extras dropped** — never wrapped onto a second line. Enforced once
+  in `normaliseChips` at the orchestrator boundary, not per call site.
+* **A chip must ask something.** A chip with no `prompt` is dropped rather than
+  rendered — the pre-#62 `{ label: 'Add details' }` placeholders would have been
+  untappable dead ends, which is what the open-ended rule exists to prevent.
+* **Never model-authored.** Chips come from stage 4 alongside the figures. Stage 5
+  is handed `vars` only, so `assertNoInventedFigures` — which guards prose, not
+  chip labels — has no blind spot to cover.
+* **One definition, two renderings** (CONV-09). `renderChipsAsNumberedList()` and
+  `chipPromptFromReply()` give WhatsApp the same list as numbered options.
+  No WhatsApp caller exists yet (the webhook is still write-only); when the agent
+  is wired in, these must be ported to `supabase/functions/_shared/` under a
+  parity test, as `whatsapp-parser.ts` was.
 
-Until then, every "two or three likely follow-ups" in the design spec is
-undeliverable.
+**Still blocked on the engine, and deliberately not shipped:**
+
+| Designed chip | Needs |
+| :--- | :--- |
+| Three amounts from spend history ("₹200 · ₹500 · ₹1,000") | [#70](https://github.com/Authen27/Vyact/issues/70) |
+| "When is it comfortable?" after a tight affordability verdict | [#68](https://github.com/Authen27/Vyact/issues/68) — payday as a date |
+| "Show a payoff plan", "What's the Pulse made of?", "Every order" | No intent covers these yet ([#67](https://github.com/Authen27/Vyact/issues/67) for the last) |
+
+The chips that DID ship are limited to follow-ups the existing intents can
+already answer — a chip that leads to "I couldn't verify the numbers" is worse
+than no chip.
 
 ### 3.2 Capture verbs the parser does not have
 
@@ -130,7 +149,7 @@ undeliverable.
 | :--- | :--- | :--- |
 | `delete that last one` → removes it, offers **“Put it back”** | No delete/undo intent exists. Needs an intent, a reference to “last”, and a restore path | [#71](https://github.com/Authen27/Vyact/issues/71) |
 | `4200 dinner private` → trigger word sets the private flag | The transaction form has *“Private — exclude from totals”*; **the parser has no trigger word for it** | [#72](https://github.com/Authen27/Vyact/issues/72) |
-| `i spent some money on food` → offers three amount chips from history | Needs 3.1 plus the chip-amount calculation in §2 | [#70](https://github.com/Authen27/Vyact/issues/70) |
+| `i spent some money on food` → offers three amount chips from history | 3.1 has landed; still needs the chip-amount calculation in §2 | [#70](https://github.com/Authen27/Vyact/issues/70) |
 
 ---
 

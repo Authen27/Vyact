@@ -4,9 +4,11 @@ import { Send, MessageCircle, Trash2, ChevronLeft, Mic } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import Chip from '../components/ui/Chip';
 import {
   buildSafeSummary, type ChatMessage,
 } from '../lib/aiSummary';
+import type { AssistantChip } from '../lib/askVyactResponses';
 import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
 import {
@@ -175,7 +177,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         // #4 — human-like: a brief "thinking" pause, then stream word-by-word.
         await new Promise(r => setTimeout(r, 600));
         setThinking(false);
-        await streamReply(turn.reply);
+        await streamReply(turn.reply, turn.chips);
         return;
       }
       // Ask Vyact is the ONLY assistant (v10.20). With the feature flag off there
@@ -202,7 +204,11 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   }
 
   // #4 — stream an assistant reply word-by-word (resolves when complete).
-  function streamReply(text: string): Promise<void> {
+  //
+  // `chips` are attached only once the last word lands (#62). Showing follow-ups
+  // beside a half-written sentence invites a tap before the answer is legible,
+  // and the tap would discard a reply the user never finished reading.
+  function streamReply(text: string, chips?: AssistantChip[]): Promise<void> {
     return new Promise(resolve => {
       const words = text.split(' ');
       setHistory(h => [...h, { role: 'assistant', content: '' }]);
@@ -210,8 +216,13 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       const id = setInterval(() => {
         i += 1;
         const partial = words.slice(0, i).join(' ');
-        setHistory(h => { const c = h.slice(); c[c.length - 1] = { role: 'assistant', content: partial }; return c; });
-        if (i >= words.length) { clearInterval(id); resolve(); }
+        const done = i >= words.length;
+        setHistory(h => {
+          const c = h.slice();
+          c[c.length - 1] = { role: 'assistant', content: partial, ...(done && chips ? { chips } : {}) };
+          return c;
+        });
+        if (done) { clearInterval(id); resolve(); }
       }, 40);
     });
   }
@@ -313,8 +324,11 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             <h1 className="display-italic text-4xl text-ink mb-1.5 flex items-center gap-2.5">
               <MessageCircle className="text-coral" /> Ask Vyact
             </h1>
+            {/* v10.20 — "On-device" was retired with RulesBackend; see the
+                privacy block below. Ask Vyact still captures, inquires and
+                plans in two taps, which is what this line is actually for. */}
             <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-              On-device · private · two taps to capture, inquire, or plan
+              Two taps to capture, inquire, or plan
             </p>
           </div>
           {history.length > 0 && (
@@ -336,13 +350,24 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       {/* Board D M6 — the privacy line is a REASSURANCE, so it reads in sage
           (good), not coral/terra. Crit is reserved for genuine failures; saying
           where an answer is computed is not an alarm. Keep the claim scoped to
-          how Ask Vyact answers today — no forever-promises about egress. */}
+          how Ask Vyact answers today — no forever-promises about egress.
+
+          CORRECTED IN v10.20. This block used to read "Answered on this device
+          … no model involved." That stopped being true the moment RulesBackend
+          was removed: a question now goes to the ask-vyact Edge Function and on
+          to a model provider. The old copy was a false statement about egress
+          on a finance app's chat screen, which is the worst place to leave one.
+
+          What IS still true, and is the more useful reassurance anyway, is that
+          the model never touches the arithmetic — `resolve()` computes every
+          figure and `assertNoInventedFigures` discards a reply carrying a number
+          no calculation produced. Claim that, because it is enforced. */}
       <div className="flex items-start gap-2.5 rounded-r2 px-3 py-2.5 mb-3.5"
         style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 14%, transparent)' }}>
         <span className="text-[13px] leading-5 flex-shrink-0" aria-hidden>🔒</span>
         <p className="text-[11.5px] text-ink-mid leading-[1.4]">
-          <strong className="text-ink">Answered on this device.</strong> Ask Vyact reads your data here and replies
-          with fixed rules — no model involved.
+          <strong className="text-ink">Your numbers are calculated, never guessed.</strong> Ask Vyact uses a model to
+          understand your question and word the answer — every figure in it comes from your own data, computed here.
         </p>
       </div>
 
@@ -437,14 +462,31 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             </div>
           )}
           {history.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {/* Board D — .bub: user coral + accent-ink, AI neu canvas. */}
-              <div className="max-w-[85%] px-4 py-2.5 text-[0.86rem] leading-relaxed"
-                style={m.role === 'user'
-                  ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderRadius: '18px 18px 6px 18px', boxShadow: 'var(--neu-sm)' }
-                  : { background: 'var(--canvas)', color: 'var(--ff-ink)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
-                <div className="whitespace-pre-wrap">{m.content}</div>
+            <div key={i}>
+              <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {/* Board D — .bub: user coral + accent-ink, AI neu canvas. */}
+                <div className="max-w-[85%] px-4 py-2.5 text-[0.86rem] leading-relaxed"
+                  style={m.role === 'user'
+                    ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderRadius: '18px 18px 6px 18px', boxShadow: 'var(--neu-sm)' }
+                    : { background: 'var(--canvas)', color: 'var(--ff-ink)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
+                  <div className="whitespace-pre-wrap">{m.content}</div>
+                </div>
               </div>
+              {/* Follow-up chips (#62) — the deck's response anatomy part 4.
+                  Only under the LAST turn: a chip is "the next question", and
+                  the next question only makes sense after the newest answer.
+                  Older turns keep their chips in the transcript (they are part
+                  of what was said) but stop being tappable, so scrolling back
+                  cannot silently re-ask something from ten turns ago. */}
+              {m.role === 'assistant' && m.chips && m.chips.length > 0 && i === history.length - 1 && !thinking && (
+                <div className="flex flex-wrap gap-1.5 mt-2 ml-1" data-testid="ask-vyact-chips">
+                  {m.chips.map((c, ci) => (
+                    <Chip key={ci} onClick={() => void send(c.prompt)} testId={`ask-vyact-chip-${ci}`}>
+                      {c.label}
+                    </Chip>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {thinking && (

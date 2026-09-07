@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { parse, normalise, parseAmount, parseParticipantCount, matchCategory } from '../askVyactParser';
-import { classifyIntent, type AssistantIntentId } from '../askVyactIntents';
-import { variantCount } from '../askVyactResponses';
+import { classifyIntent, type AssistantIntentId, type IntentResult } from '../askVyactIntents';
+import {
+  variantCount, normaliseChips, renderChipsAsNumberedList, chipPromptFromReply,
+  MAX_CHIPS, type AssistantChip,
+} from '../askVyactResponses';
 import {
   LlmBackend, resolve, runAssistant, proactiveInsight,
   type AssistantContext,
@@ -167,7 +170,9 @@ describe('resolve + phrase — answers trace to services (spec §5/§6)', () => 
     // A 9000 ask exceeds headroom → tight, never a flat "no".
     const tight = resolve(classifyIntent(parse('can I afford a 9000 holiday')), makeCtx());
     expect(tight.outcome).toBe('tight');
-    expect(tight.chip).toBeTruthy();
+    // #62 — `chip` became `chips`. A "tight" verdict must always offer a way
+    // forward; the deck's rule is that no answer is a dead end.
+    expect(tight.chips?.length).toBeGreaterThan(0);
   });
   it('CON-UNIT-ASK-044 · estimated-derived figures are flagged in phrasing (provenance)', async () => {
     const ctx = makeCtx({
@@ -256,5 +261,109 @@ describe('tone + seam (spec §7/§3)', () => {
     const insight = proactiveInsight(makeCtx());
     expect(insight).not.toBeNull();
     expect(insight!.text.toLowerCase()).toContain('food');
+  });
+});
+
+// ── Chips (#62) — one definition, two renderings ──────────────────────────────
+//
+// These pin the contract rather than the copy: the cap, the well-formedness
+// rule, the fact that chips reach a turn at all (they did not, for the whole
+// life of the feature), and that the WhatsApp rendering is derived from the
+// same list rather than authored separately.
+describe('askVyact chips — delivery + the max-three rule', () => {
+  const chip = (n: number): AssistantChip => ({ label: `L${n}`, prompt: `p${n}` });
+
+  it('CON-UNIT-ASK-057 · extras are DROPPED at three, never wrapped', () => {
+    const out = normaliseChips([chip(1), chip(2), chip(3), chip(4), chip(5)]);
+    expect(out).toHaveLength(MAX_CHIPS);
+    // Order is meaningful — the first three survive, not an arbitrary three.
+    expect(out!.map(c => c.label)).toEqual(['L1', 'L2', 'L3']);
+  });
+
+  it('CON-UNIT-ASK-058 · a chip that asks nothing is dropped, not rendered', () => {
+    // The pre-#62 chips were `{ label }` with no prompt. Had they ever reached a
+    // screen they would have been untappable — the exact dead end the
+    // open-ended rule exists to prevent. Malformed in, nothing out.
+    const out = normaliseChips([
+      { label: 'Add details' } as AssistantChip,
+      { label: '  ', prompt: 'real' } as AssistantChip,
+      { label: 'Good', prompt: 'a real question' },
+    ]);
+    expect(out).toEqual([{ label: 'Good', prompt: 'a real question' }]);
+    // Nothing usable at all reads as "no chips", never an empty row.
+    expect(normaliseChips([{ label: 'x' } as AssistantChip])).toBeUndefined();
+    expect(normaliseChips([])).toBeUndefined();
+    expect(normaliseChips(undefined)).toBeUndefined();
+  });
+
+  it('CON-UNIT-ASK-059 · two chips asking the same thing do not eat two slots', () => {
+    const out = normaliseChips([
+      { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+      { label: 'What can I trim?', prompt: 'Where Can I Cut Back' },
+      { label: 'Why is it up?', prompt: 'why is my food spending so high' },
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out!.map(c => c.label)).toEqual(['Where can I cut back?', 'Why is it up?']);
+  });
+
+  it('CON-UNIT-ASK-060 · chips actually reach the turn (the #62 regression)', async () => {
+    // The bug this ticket exists for: resolve() produced a chip, runAssistant
+    // dropped it, and no chip had ever reached a user. Assert the whole path.
+    const turn = await runAssistant('how much on dining this month', makeCtx(),
+      llm('interpret.lookup', { category: 'food_dining', text: 'dining' }, 'You spent £420.'), 0);
+    expect(turn.chips?.length).toBeGreaterThan(0);
+    expect(turn.chips!.length).toBeLessThanOrEqual(MAX_CHIPS);
+    for (const c of turn.chips!) {
+      expect(c.label.length).toBeGreaterThan(0);
+      expect(c.prompt.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('CON-UNIT-ASK-061 · every chip any resolve() branch produces is tappable', () => {
+    // A sweep, not a sample: a future branch that ships a promptless chip fails
+    // here rather than shipping a dead end to a screen.
+    const ids: AssistantIntentId[] = [
+      'capture.expense', 'capture.income', 'capture.transfer', 'capture.investment',
+      'capture.split', 'interpret.lookup', 'interpret.status', 'interpret.diagnostic',
+      'interpret.budgets', 'interpret.debts', 'interpret.bills',
+      'forecast.affordability', 'forecast.runway', 'forecast.prescriptive', 'fallback',
+    ];
+    const ctx = makeCtx();
+    for (const id of ids) {
+      // Both shapes of every branch: with an amount and without one.
+      for (const entities of [{ text: '' }, { text: '', amount: 9000, category: 'food_dining' }]) {
+        const intent = { id, bucket: 'none', confidence: 1, entities } as unknown as IntentResult;
+        const chips = resolve(intent, ctx).chips ?? [];
+        expect(chips.length).toBeLessThanOrEqual(MAX_CHIPS);
+        for (const c of chips) {
+          expect(c.prompt?.trim(), `${id} chip "${c.label}" has no prompt`).toBeTruthy();
+          expect(c.label?.trim(), `${id} chip has no label`).toBeTruthy();
+        }
+      }
+    }
+  });
+
+  it('CON-UNIT-ASK-062 · WhatsApp renders the SAME list as numbers (CONV-09)', () => {
+    const chips: AssistantChip[] = [
+      { label: 'Why is it up?', prompt: 'why is my food spending so high' },
+      { label: 'Where else is it going?', prompt: 'where is my money going' },
+    ];
+    expect(renderChipsAsNumberedList(chips))
+      .toBe('1. Why is it up?\n2. Where else is it going?');
+    // The numbered rendering must round-trip: a "2" comes back as chip 2's
+    // prompt, so the two channels cannot drift into different follow-ups.
+    expect(chipPromptFromReply('2', chips)).toBe('where is my money going');
+    expect(chipPromptFromReply(' 1. ', chips)).toBe('why is my food spending so high');
+    expect(renderChipsAsNumberedList(undefined)).toBe('');
+  });
+
+  it('CON-UNIT-ASK-063 · a sentence is a new question, not an answer to the list', () => {
+    const chips: AssistantChip[] = [{ label: 'Why is it up?', prompt: 'why is my food spending so high' }];
+    // Out of range, and free text, must both fall through to normal handling —
+    // silently treating "3" or a sentence as a chip tap would answer something
+    // the user never asked.
+    expect(chipPromptFromReply('3', chips)).toBeNull();
+    expect(chipPromptFromReply('what about last month', chips)).toBeNull();
+    expect(chipPromptFromReply('1', undefined)).toBeNull();
   });
 });

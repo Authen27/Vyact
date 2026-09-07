@@ -25,6 +25,95 @@
 import type { IntentResult } from './askVyactIntents';
 import type { Transaction } from '../types';
 
+// ── Chips — the "next question", not navigation (deck §4, ticket #62) ──────────
+//
+// A chip is a follow-up the user can take in ONE tap. The design rule, verbatim
+// from the response deck: *"Chips are the next question, not navigation. 'Why is
+// it up?' beats 'Open reports'. Max three, and never a chip that just repeats the
+// answer."*
+//
+// 🔒 A CHIP IS NEVER MODEL-AUTHORED. Chips are produced by `resolve()` (stage 4)
+// alongside the figures, and are NOT part of what stage 5 phrases — the model is
+// handed `result.vars` and nothing else. That matters: `assertNoInventedFigures`
+// guards prose, not chips, so a model-written chip label would be an unguarded
+// path for an invented number to reach the user. Keeping chip authorship in
+// stage 4 closes that hole by construction rather than by another check.
+export interface AssistantChip {
+  /** What the user reads on the pill. Short — it sits in a row of up to three. */
+  label: string;
+  /**
+   * What gets SENT as the next turn when the chip is tapped. Required: a chip
+   * the user can tap but that asks nothing is a dead end, and the open-ended
+   * rule exists precisely to avoid those. Write it as a user would type it —
+   * it goes through the same classifier as anything typed into the box.
+   */
+  prompt: string;
+}
+
+/** The deck's cap. Enforced centrally in `normaliseChips`, not per call site. */
+export const MAX_CHIPS = 3;
+
+/**
+ * The single gate every chip list passes before it can reach any channel.
+ *
+ * Applied at the orchestrator boundary (`runAssistant`) rather than trusting
+ * each `resolve()` branch to behave, so the cap holds for chips authored later
+ * — including by a channel adapter or a future tool — without revisiting this
+ * rule at every site.
+ *
+ * Drops (rather than repairs) anything malformed: an empty label or an empty
+ * prompt is a bug at the call site, and rendering a broken chip would hide it.
+ * Returns `undefined` rather than `[]` so "no chips" is one value everywhere.
+ */
+export function normaliseChips(chips?: AssistantChip[]): AssistantChip[] | undefined {
+  if (!chips?.length) return undefined;
+  const seen = new Set<string>();
+  const kept: AssistantChip[] = [];
+  for (const c of chips) {
+    const label = c?.label?.trim();
+    const prompt = c?.prompt?.trim();
+    if (!label || !prompt) continue;
+    // Two chips that ask the same thing waste one of only three slots.
+    const key = prompt.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push({ label, prompt });
+    if (kept.length === MAX_CHIPS) break;   // extras DROPPED, never wrapped
+  }
+  return kept.length ? kept : undefined;
+}
+
+/**
+ * The second rendering of the same definition (CONV-09): WhatsApp has no chips,
+ * so the identical list becomes numbered options the user answers with a digit.
+ *
+ * One definition, two renderings — the in-app row and this string are built from
+ * the same `AssistantChip[]`, so a chip cannot exist on one channel only.
+ *
+ * NOTE: no WhatsApp caller exists yet — the webhook is still write-only and
+ * hard-blocks queries (v10.18). This ships with the contract so that wiring the
+ * agent into the webhook is a call site, not a redesign. When that lands it must
+ * be PORTED to `supabase/functions/_shared/` under a parity test, the way
+ * `whatsapp-parser.ts` was — Deno cannot import from `react/src`.
+ */
+export function renderChipsAsNumberedList(chips?: AssistantChip[]): string {
+  const list = normaliseChips(chips);
+  if (!list) return '';
+  return list.map((c, i) => `${i + 1}. ${c.label}`).join('\n');
+}
+
+/** Resolve a WhatsApp-style numeric reply ("2") back to the chip's prompt.
+ *  Returns null for anything that is not a valid 1-based index into THIS list —
+ *  a user who types a sentence instead of a digit is asking something new, not
+ *  answering the list, and must not be silently answered with a chip. */
+export function chipPromptFromReply(reply: string, chips?: AssistantChip[]): string | null {
+  const list = normaliseChips(chips);
+  if (!list) return null;
+  const m = /^\s*([1-9])\s*[.)]?\s*$/.exec(reply);
+  if (!m) return null;
+  return list[Number(m[1]) - 1]?.prompt ?? null;
+}
+
 /** The deterministic outcome of stage 4 (`resolve`). Carries pre-formatted
  *  interpolation values and a variant key — NEVER raw template-computed money
  *  (every figure in `vars` came from a Vyact service). */
@@ -34,8 +123,11 @@ export interface ResolveResult {
   outcome: string;
   /** Pre-formatted strings for `{token}` interpolation in the variant. */
   vars: Record<string, string | number>;
-  /** A one-tap next step shown under the reply (open-ended rule). */
-  chip?: { label: string; prompt?: string };
+  /**
+   * Up to three one-tap next steps shown under the reply (open-ended rule).
+   * Was a single optional `chip` that no consumer ever read — see #62.
+   */
+  chips?: AssistantChip[];
   /** Capture only — the seed for the existing TransactionFormModal. */
   seed?: Partial<Transaction>;
   /** True when any figure leans on onboarding estimates (provenance, §5). */

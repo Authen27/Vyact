@@ -21,7 +21,7 @@ import { fmt } from './format';
 import { nowMonthKey, getMonthKey } from './format';
 import type { SafeSummary } from './aiSummary';
 import type { IntentResult, AssistantBucket } from './askVyactIntents';
-import type { ResolveResult } from './askVyactResponses';
+import { normaliseChips, type AssistantChip, type ResolveResult } from './askVyactResponses';
 import {
   classifyIntentViaModel, phraseViaModel,
   InventedFigureError, ModelUnavailableError, type ModelCall,
@@ -74,6 +74,12 @@ export interface AssistantTurn {
   intentId: string;
   /** Capture only — seed for the existing TransactionFormModal (openAddTxn). */
   seed?: Partial<Transaction>;
+  /**
+   * Up to three one-tap follow-ups (#62). Already normalised and capped by
+   * `runAssistant` — a renderer may show these verbatim without re-checking.
+   * `undefined` means this turn offers none, which is normal.
+   */
+  chips?: AssistantChip[];
   /** True when the turn is a clarifying chip / fallback rather than an answer. */
   clarify: boolean;
 }
@@ -122,7 +128,11 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
     case 'capture.transfer':
     case 'capture.investment': {
       if (e.amount == null) {
-        return { kind: 'capture', outcome: 'missing_amount', vars: {}, chip: { label: 'Add details' } };
+        // No chips. The deck answers this case with three amounts drawn from
+        // this user's own spend history ("₹200 · ₹500 · ₹1,000") — that needs
+        // #70. The old `{ label: 'Add details' }` placeholder asked nothing, so
+        // it could only ever have been a dead end had it reached a screen.
+        return { kind: 'capture', outcome: 'missing_amount', vars: {} };
       }
       const type: TxnType = intent.id === 'capture.income' ? 'income'
         : intent.id === 'capture.transfer' ? 'transfer'
@@ -147,7 +157,11 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
     }
     case 'capture.split': {
       if (e.amount == null) {
-        return { kind: 'capture', outcome: 'missing_amount', vars: {}, chip: { label: 'Add details' } };
+        // No chips. The deck answers this case with three amounts drawn from
+        // this user's own spend history ("₹200 · ₹500 · ₹1,000") — that needs
+        // #70. The old `{ label: 'Add details' }` placeholder asked nothing, so
+        // it could only ever have been a dead end had it reached a screen.
+        return { kind: 'capture', outcome: 'missing_amount', vars: {} };
       }
       const ways = e.participantCount ?? 2;
       const share = Math.round((e.amount / ways) * 100) / 100;
@@ -178,9 +192,15 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       const amount = spend[category] || 0;
       const budget = ctx.budgets.find(b => b.category === category);
       const usesEstimate = categoryUsesEstimate(ctx, category);
+      // The deck's canonical example of the rule: after a figure, the next
+      // question is "why", never "open reports".
+      const lookupChips: AssistantChip[] = [
+        { label: 'Why is it up?', prompt: `why is my ${getCat(category).label.toLowerCase()} spending so high` },
+        { label: 'Where else is it going?', prompt: 'where is my money going' },
+      ];
       if (budget && budget.limit > 0) {
         return {
-          kind: 'interpret', outcome: 'vs_budget', usesEstimate,
+          kind: 'interpret', outcome: 'vs_budget', usesEstimate, chips: lookupChips,
           vars: {
             amount: money(amount, ctx), category: getCat(category).label.toLowerCase(),
             pct: `${Math.round((amount / budget.limit) * 100)}%`, budget: money(budget.limit, ctx),
@@ -188,7 +208,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         };
       }
       return {
-        kind: 'interpret', outcome: 'ok', usesEstimate,
+        kind: 'interpret', outcome: 'ok', usesEstimate, chips: lookupChips,
         vars: { amount: money(amount, ctx), category: getCat(category).label.toLowerCase() },
       };
     }
@@ -226,14 +246,21 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       }
       if (worst && worst.delta / Math.max(worst.avg, 1) >= 0.2) {
         const pct = Math.round((worst.delta / worst.avg) * 100);
+        // The chips deliberately exclude "Why so high?" — this reply has just
+        // said why, and the deck bans a chip that repeats the answer.
         return { kind: 'interpret', outcome: 'found', usesEstimate: categoryUsesEstimate(ctx, worst.cat), vars: {
           headline: `${getCat(worst.cat).label} is ${pct}% above your usual.`,
           detail: `It's at ${money(worst.now, ctx)} this month vs about ${money(worst.avg, ctx)} normally — that's the main pull on your cash.`,
-        }, chip: { label: `See ${getCat(worst.cat).label}`, prompt: `how much on ${worst.cat} this month` } };
+        }, chips: [
+          { label: `See ${getCat(worst.cat).label}`, prompt: `how much on ${worst.cat} this month` },
+          { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+        ] };
       }
       return { kind: 'interpret', outcome: 'clear', vars: {
         detail: `your spending is tracking close to your normal pattern this month.`,
-      } };
+      }, chips: [
+        { label: 'What did I spend most on?', prompt: 'what did I spend the most on this month' },
+      ] };
     }
     case 'interpret.budgets': {
       const over = ctx.summary.budgets.filter(b => b.spentPct > 100);
@@ -243,10 +270,16 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         : near.length
           ? `${near.length} close to the limit: ${near.map(b => getCat(b.category).label).join(', ')}.`
           : ctx.summary.budgets.length ? `all ${ctx.summary.budgets.length} budgets are on track.` : `you have no budgets yet.`;
+      // Chips only when there is something to chase — "Budgets look healthy"
+      // needs no follow-up, and an offer of one implies a problem there isn't.
+      const worstBudget = over[0] ?? near[0];
       return { kind: 'interpret', outcome: 'ok', vars: {
         headline: over.length ? 'Some budgets need attention.' : near.length ? 'A couple of budgets are getting close.' : 'Budgets look healthy.',
         detail,
-      } };
+      }, chips: worstBudget ? [
+        { label: `Why is ${getCat(worstBudget.category).label} over?`, prompt: `why is my ${getCat(worstBudget.category).label.toLowerCase()} spending so high` },
+        { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+      ] : undefined };
     }
     case 'interpret.debts': {
       const d = ctx.summary.debts;
@@ -272,7 +305,9 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
 
     // ── Forecast (Planner-grounded) ──────────────────────────────────────────────
     case 'forecast.affordability': {
-      if (e.amount == null) return { kind: 'forecast', outcome: 'missing_amount', vars: {}, chip: { label: 'How much?' } };
+      // No chip: the reply itself asks "how much?", and a chip that repeats the
+      // answer is exactly what the deck's rule forbids.
+      if (e.amount == null) return { kind: 'forecast', outcome: 'missing_amount', vars: {} };
       const liquid = liquidAssets(ctx.assets, cur(ctx), ctx.rates);
       const floor = emergencyFloor(ctx);
       const headroom = liquid - floor;
@@ -280,17 +315,30 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         return { kind: 'forecast', outcome: 'fits', vars: {
           amount: money(e.amount, ctx), headroom: money(headroom, ctx),
           cushion: money(headroom - e.amount, ctx),
-        } };
+        }, chips: [
+          { label: 'How long would my savings last?', prompt: 'how long would my savings last' },
+        ] };
       }
+      // The deck's chip here is "When is it comfortable?" — deliberately NOT
+      // shipped: answering it needs payday as a modelled date (#68), and today
+      // `payday` is only a trigger keyword. The old chip carried no prompt, so
+      // it would have been untappable even had it reached a screen. These two
+      // are answerable now.
       return { kind: 'forecast', outcome: 'tight', vars: {
         amount: money(e.amount, ctx), shortfall: money(e.amount - headroom, ctx),
-      }, chip: { label: 'When is it comfortable?' } };
+      }, chips: [
+        { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+        { label: 'How long would my savings last?', prompt: 'how long would my savings last' },
+      ] };
     }
     case 'forecast.runway': {
       const liquid = liquidAssets(ctx.assets, cur(ctx), ctx.rates);
       const burn = monthlyBurn(ctx) || (totalMonthlyDebtPayment(ctx.debts, cur(ctx), ctx.rates) + 1);
       const months = burn > 0 ? liquid / burn : 0;
-      return { kind: 'forecast', outcome: 'ok', vars: { months: months.toFixed(1) } };
+      return { kind: 'forecast', outcome: 'ok', vars: { months: months.toFixed(1) }, chips: [
+        { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+        { label: 'What is driving my spending?', prompt: 'where is my money going' },
+      ] };
     }
     case 'forecast.prescriptive': {
       const target = e.amount;
@@ -423,6 +471,9 @@ export async function runAssistant(
     bucket: effective.bucket,
     intentId: effective.id,
     seed: result.seed,
+    // The ONE place the cap and the well-formedness rule are applied, so every
+    // channel gets the same list and no call site can opt out of the limit.
+    chips: normaliseChips(result.chips),
     clarify: gated || result.kind === 'fallback' || result.outcome === 'missing_amount',
   };
 }

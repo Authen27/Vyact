@@ -12,6 +12,9 @@ import {
   liquidAssets, totalMonthlyDebtPayment, spendByCategory, reportableTxns, effectiveAmount,
 } from './calculations';
 import { nowMonthKey, getMonthKey } from './format';
+// Type-only, and one-directional: askVyactResponses does not import this module,
+// so the transcript can carry chips without creating an import cycle.
+import type { AssistantChip } from './askVyactResponses';
 
 
 // The structure sent to the LLM. NO PII. NO descriptions.
@@ -151,4 +154,19 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 // ask-vyact Edge Function. See askVyactModelCall.ts.
 
 /** A turn in the visible chat transcript. */
-export interface ChatMessage { role: 'user' | 'assistant'; content: string; }
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  /**
+   * Assistant turns only — the one-tap follow-ups offered with this reply (#62).
+   *
+   * Stored ON the message rather than in component state because the transcript
+   * is persisted to localStorage: keeping them together means reopening Ask
+   * Vyact restores the reply and its chips as one unit, and a message can never
+   * be paired with another turn's chips.
+   *
+   * Already normalised and capped at three by `runAssistant` — a renderer shows
+   * them as given. Old transcripts predate the field and simply have none.
+   */
+  chips?: AssistantChip[];
+}
