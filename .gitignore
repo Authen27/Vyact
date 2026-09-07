@@ -74,3 +74,13 @@ react/playwright-run.stderr.txt
 rename-audit.txt
 .build.log
 /vyact-evergreen-cards-library.json
+
+# ─── WhatsApp / Ask Vyact design decks ───────────────────────
+# The two HTML decks + templates.css ARE committed — they are the cited source
+# of truth for `whatsapp-vyact-solutioning.md` §2 and
+# `vyact-ask-vyact-responses-spec.md`. Their binaries are not: 11 unoptimised
+# ~600 KB PNG previews, the delivery zip, and loose screenshots ≈ 15 MB.
+# Binaries are easy to add later; they are not easy to remove from history.
+WhatsApp & Ask Vyact Message Templates/*.jpg
+WhatsApp & Ask Vyact Message Templates/*.zip
+WhatsApp & Ask Vyact Message Templates/Vyact/vyact-templates/media/

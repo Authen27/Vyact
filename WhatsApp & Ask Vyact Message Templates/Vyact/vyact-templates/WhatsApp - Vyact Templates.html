@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en" data-vy-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="design_doc_mode" content="canvas" />
+<title>WhatsApp · Vyact Templates</title>
+<link rel="stylesheet" href="../vyact-tokens-v2.css" />
+<link rel="stylesheet" href="templates.css" />
+<style>
+.tgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.tcell { background:var(--vy-canvas); border-radius:14px; box-shadow:var(--vy-neu-sm); padding:14px 15px; display:flex; flex-direction:column; gap:10px; }
+.tcell .nm2 { font-family:var(--vy-mono); font-size:11.5px; color:#E6EFEC; }
+.tcell .mbub { font-size:12.5px; line-height:1.6; padding:10px 12px; }
+.tcell .mbub var { font-size:11.5px; }
+.vswitch { font-family:var(--vy-mono); font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; padding:3px 7px; border-radius:4px; }
+.vswitch.same { background:rgba(79,217,174,.14); color:#4FD9AE; }
+.vswitch.sep { background:rgba(242,201,120,.15); color:#F2C978; }
+</style>
+</head>
+<body>
+
+<div class="board-label" style="left:40px; top:36px;">WhatsApp · Vyact Templates &nbsp;·&nbsp; 11 media templates + 23 text turns &nbsp;·&nbsp; every message with variants and a variable legend</div>
+
+<!-- ══════════ RULES ══════════ -->
+<section class="frame panel wide" style="left:40px; top:90px; width:1900px; height:290px;">
+  <div class="dp" style="padding:22px 26px;">
+    <div style="display:flex; align-items:flex-start; gap:24px;">
+      <div style="width:430px;">
+        <div class="cap" style="margin-bottom:7px;">How to read this board</div>
+        <div class="hd" style="font-size:22px; margin-bottom:10px;">Every template: one body, its variables, and its variants.</div>
+        <div style="font-size:12.5px; color:#98ABA8; line-height:1.6;">Header images are the shipped assets in <code style="font-family:var(--vy-mono); color:#EC8474;">media/</code> — 1200×628, generic by necessity because Meta locks header media at approval. All data lives in the body.</div>
+      </div>
+      <div style="width:1px; background:rgba(230,239,236,.1); align-self:stretch;"></div>
+      <div style="width:390px;">
+        <div class="cap" style="margin-bottom:9px;">The variant rule — read this first</div>
+        <div style="display:flex; flex-direction:column; gap:9px;">
+          <div style="display:flex; gap:9px; align-items:flex-start;"><span class="vswitch same" style="flex-shrink:0; margin-top:1px;">same template</span><span style="font-size:11.5px; color:#98ABA8; line-height:1.5;">Only the variable values differ. One Meta submission covers both.</span></div>
+          <div style="display:flex; gap:9px; align-items:flex-start;"><span class="vswitch sep" style="flex-shrink:0; margin-top:1px;">separate template</span><span style="font-size:11.5px; color:#98ABA8; line-height:1.5;">The sentence structure differs, so it is a <b style="color:#F2C978;">different approved template</b> and needs its own submission. You cannot swap a body at send time.</span></div>
+        </div>
+      </div>
+      <div style="width:1px; background:rgba(230,239,236,.1); align-self:stretch;"></div>
+      <div style="width:300px;">
+        <div class="cap" style="margin-bottom:9px;">Bucket</div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; align-items:center; gap:8px;"><span class="bkt a">A · Capture</span><span style="font-size:11px; color:#8C9E9B;">something was recorded</span></div>
+          <div style="display:flex; align-items:center; gap:8px;"><span class="bkt b">B · Interpret</span><span style="font-size:11px; color:#8C9E9B;">data you already have</span></div>
+          <div style="display:flex; align-items:center; gap:8px;"><span class="bkt c">C · Forecast</span><span style="font-size:11px; color:#8C9E9B;">an opinion about ahead</span></div>
+        </div>
+      </div>
+      <div style="width:1px; background:rgba(230,239,236,.1); align-self:stretch;"></div>
+      <div style="flex:1;">
+        <div class="cap" style="margin-bottom:9px;">Copy rules</div>
+        <ul style="margin:0; padding-left:15px;">
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45; margin-bottom:4px;">Multi-line. One fact per line so it survives a notification preview.</li>
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45; margin-bottom:4px;">Greeting only where the news is neutral or good.</li>
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45; margin-bottom:4px;">One emoji at most, never on money slipping away.</li>
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45; margin-bottom:4px;">Every Result names its undo. Every Nudge names its off switch.</li>
+          <li style="font-size:11.5px; color:#A6BAB6; line-height:1.45;">Every Forecast names the assumption it rests on.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 01 BILL REMINDER ══════════ -->
+<section class="frame card" style="left:40px; top:430px; width:600px; height:1100px;" data-screen-label="T01 Bill reminder">
+  <img src="media/01-bill-reminder.png" alt="Bill reminder header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt b">B · Interpret</span><span class="tt">Nudge</span><span class="nmo">bill_due_reminder</span></div>
+    <div class="vlabel"><span class="k">Variant A · due soon</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub">Hi <var>{{1}}</var> 👋
+
+Your <b><var>{{2}}</var> bill</b> is due <b><var>{{3}}</var></b>.
+Amount: <b>₹<var>{{4}}</var></b>
+
+I don't collect payments, so pay it wherever you normally do. Tell me once it's done and I'll mark it settled.<div class="mbtn"><span>Mark as paid</span><span>Remind me tomorrow</span></div></div>
+    <div class="vlabel"><span class="k">Variant B · overdue</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub"><var>{{1}}</var>, your <b><var>{{2}}</var> bill</b> was due <b><var>{{3}}</var></b>.
+
+Amount: <b>₹<var>{{4}}</var></b>
+
+If you've already paid it, tell me and I'll close it off. If not, it's worth doing before a late fee lands.<div class="mbtn"><span>Already paid</span><span>Snooze 2 days</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>Recipient's first name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{2}}</code><span>Biller or utility name as the user saved it — <em>BESCOM</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Due date, relative where within 7 days — <em>Tuesday</em> · <em>on 15 Sep</em> · overdue variant: <em>3 days ago</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Bill amount, grouped Indian format, no decimals — <em>3,200</em></span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:1544px; width:600px;"><b>01 · Bill reminder.</b> The overdue variant drops the greeting and the emoji — an overdue bill is not neutral news. It also leads with “already paid” because that is the likeliest truth by then, which is the fix for the reference apps that re-sent the same bill three times.</p>
+
+<!-- ══════════ 02 PAYDAY ══════════ -->
+<section class="frame card" style="left:690px; top:430px; width:600px; height:1100px;" data-screen-label="T02 Payday intimation">
+  <img src="media/02-payday.png" alt="Payday header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt c">C · Forecast</span><span class="tt">Nudge</span><span class="nmo">payday_headroom</span></div>
+    <div class="vlabel"><span class="k">Variant A · steady salary</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub">Payday's in, <var>{{1}}</var> 🎉
+
+<b>₹<var>{{2}}</var></b> landed today.
+After your usual bills, you've got about <b>₹<var>{{3}}</var></b> of room this month.
+
+Assumes your <var>{{4}}</var> fixed bills at last month's amounts — ₹<var>{{5}}</var> together.<div class="mbtn"><span>Split it into budgets</span><span>Stop these</span></div><span class="ftl">Once a pay cycle. Reply STOP PAYDAY to end them.</span></div>
+    <div class="vlabel"><span class="k">Variant B · variable income</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub">Money's in, <var>{{1}}</var>.
+
+<b>₹<var>{{2}}</var></b> landed — that's <b>₹<var>{{6}}</var> <var>{{7}}</var></b> than your usual month.
+
+After your bills you've got about <b>₹<var>{{3}}</var></b> of room.
+
+Assumes your <var>{{4}}</var> fixed bills at last month's amounts — ₹<var>{{5}}</var> together.<div class="mbtn"><span>Plan this month</span><span>Stop these</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>First name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{2}}</code><span>Income that landed today — <em>92,000</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Headroom = income − fixed bills. Calculated, never rounded in copy — <em>56,900</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Count of fixed bills used in the assumption — <em>five</em> (spelled, not a digit)</span></div>
+      <div class="r"><code>{{5}}</code><span>Sum of those fixed bills — <em>35,098</em></span></div>
+      <div class="r"><code>{{6}}</code><span>Variant B only · difference from the user's median month — <em>8,400</em></span></div>
+      <div class="r"><code>{{7}}</code><span>Variant B only · direction word — <em>more</em> | <em>less</em></span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:690px; top:1544px; width:600px;"><b>02 · Payday intimation.</b> Variable-income earners get their own template: the comparison to a median month is the fact that matters when pay isn't the same twice, and 🎉 is dropped because a light month shouldn't be cheered. <code>{{4}}</code> is spelled out so the assumption line reads as a sentence.</p>
+
+<!-- ══════════ 03 HOUSEHOLD ══════════ -->
+<section class="frame card" style="left:1340px; top:430px; width:600px; height:1100px;" data-screen-label="T03 Household daily digest">
+  <img src="media/03-household-digest.png" alt="Household digest header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt b">B · Interpret</span><span class="tt">Nudge · bundled</span><span class="nmo">household_daily_digest</span></div>
+    <div class="vlabel"><span class="k">Variant A · normal day</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub">Evening, <var>{{1}}</var>.
+
+Your household spent <b>₹<var>{{2}}</var></b> today, across <var>{{3}}</var> entries.
+
+<var>{{4}}</var>
+
+<var>{{5}}</var> marked private — the amount counts toward your total, the details stay with whoever logged it.<div class="mbtn"><span>See the breakdown</span><span>Stop these</span></div><span class="ftl">One digest a day, never one message per spend.</span></div>
+    <div class="vlabel"><span class="k">Variant B · quiet day</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub">Evening, <var>{{1}}</var>.
+
+Nothing logged in your household today.
+
+If that's right, it's a quiet day. If someone spent and hasn't logged it, it'll show up whenever they do.<div class="mbtn"><span>Add something</span><span>Stop these</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>First name of this recipient — sent per member, not to a group</span></div>
+      <div class="r"><code>{{2}}</code><span>Household total for the day, private entries included — <em>5,410</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Number of entries logged today — <em>4</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Per-member line, pre-composed server-side — <em>Priya ₹3,200 · you ₹2,210</em>. Max 4 members, then <em>+2 others</em></span></div>
+      <div class="r"><code>{{5}}</code><span>Count of private entries — <em>1</em>. If zero, send Variant A without this paragraph via a third template</span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1340px; top:1544px; width:600px;"><b>03 · Household daily digest.</b> A zero-activity day needs its own body — “₹0 across 0 entries” is the kind of empty-state number that made the old reveal screen feel broken. <code>{{4}}</code> is composed server-side because a template variable cannot hold a variable-length list.</p>
+
+<!-- ══════════ 04 RE-ENGAGEMENT ══════════ -->
+<section class="frame card" style="left:40px; top:1650px; width:600px; height:1180px;" data-screen-label="T04 Re-engagement nudge">
+  <img src="media/04-reengagement.png" alt="Re-engagement header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt b">B · Interpret</span><span class="tt">Nudge · Marketing</span><span class="nmo">reengagement_nudge</span></div>
+    <div class="vlabel"><span class="k">Variant A · unnamed spending</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub">Hi <var>{{1}}</var>,
+
+<b>₹<var>{{2}}</var></b> left your accounts last week that I couldn't put a name to.
+
+That's <var>{{3}}</var> entries sitting unnamed — and while they are, your Pulse is guessing rather than knowing.
+
+Three taps sorts it. I can walk you through it right here.<div class="mbtn"><span>Name them here</span><span>Open Vyact</span></div><span class="ftl">You're getting this because you opted into Vyact tips. Reply STOP TIPS to end them — your bill reminders won't change.</span></div>
+    <div class="vlabel"><span class="k">Variant B · gone quiet, nothing pending</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub">Hi <var>{{1}}</var>,
+
+It's been <var>{{4}}</var> days. Your picture is <b><var>{{5}}</var>% confirmed</b> — it was climbing before that.
+
+A week of logging is usually enough to get a forecast worth trusting. Reply LOG and we'll do today's in one line.<div class="mbtn"><span>Log today</span><span>Open Vyact</span></div><span class="ftl">You're getting this because you opted into Vyact tips. Reply STOP TIPS to end them — your bill reminders won't change.</span></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>First name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{2}}</code><span>Total of uncategorised outflow in the last 7 days — <em>3,200</em>. Suppress the message below ₹500</span></div>
+      <div class="r"><code>{{3}}</code><span>Count of those entries — <em>4</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Variant B only · days since last activity — <em>11</em></span></div>
+      <div class="r"><code>{{5}}</code><span>Variant B only · picture-confirmed percentage, current — <em>62</em></span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:2844px; width:600px;"><b>04 · Re-engagement.</b> The only Marketing-category pair, so both bodies carry the consent sentence and the promise that muting tips leaves bill reminders alone. Variant B exists because loss-framing needs something real to point at — with nothing pending, it uses the stalled confirmation percentage instead of inventing urgency.</p>
+
+<!-- ══════════ 05 RUNWAY ══════════ -->
+<section class="frame card" style="left:690px; top:1650px; width:600px; height:1180px;" data-screen-label="T05 Runway shift">
+  <img src="media/05-runway-shift.png" alt="Runway shift header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt c">C · Forecast</span><span class="tt">Nudge</span><span class="nmo">runway_shift_alert</span></div>
+    <div class="vlabel"><span class="k">Variant A · shifted down</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub"><var>{{1}}</var>, a heads-up.
+
+At this month's pace, your savings would cover about <b><var>{{2}}</var> months</b> — down from <b><var>{{3}}</var></b>.
+
+Assumes your last 90 days of spending continues.
+
+Nothing's wrong, and nothing needs doing today. I'd rather you saw it now than in three months.<div class="mbtn"><span>What moved?</span><span>Stop these</span></div><span class="ftl">Only on a material change — never as a routine stat.</span></div>
+    <div class="vlabel"><span class="k">Variant B · recovered</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub">Good news, <var>{{1}}</var>.
+
+Your runway is back to about <b><var>{{2}}</var> months</b>, up from <b><var>{{3}}</var></b>.
+
+<var>{{4}}</var> is what moved it.
+
+Assumes your last 90 days of spending continues.<div class="mbtn"><span>See the detail</span><span>Stop these</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>First name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{2}}</code><span>New runway in months, one decimal — <em>4.2</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Previous runway for comparison — <em>5.1</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Variant B only · the single biggest driver, named — <em>A quieter month on dining</em></span></div>
+      <div class="r"><code>—</code><span>Trigger: fires only on a change of ≥0.5 months. Max once a month.</span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:690px; top:2844px; width:600px;"><b>05 · Runway shift.</b> A recovery deserves its own template — pip should be capable of good news about the same metric, or the message becomes a thing users learn to dread. Both keep the assumption line; neither uses a colour word or an exclamation mark.</p>
+
+<!-- ══════════ 06 MONTH CLOSE ══════════ -->
+<section class="frame card" style="left:1340px; top:1650px; width:600px; height:1180px;" data-screen-label="T06 Monthly close">
+  <img src="media/06-month-close.png" alt="Month close header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt b">B · Interpret</span><span class="tt">Nudge</span><span class="nmo">month_close_summary</span></div>
+    <div class="vlabel"><span class="k">Variant A · full month of data</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub"><var>{{1}}</var> is closed, <var>{{2}}</var> 📊
+
+Spent: <b>₹<var>{{3}}</var></b>
+That's <b>₹<var>{{4}}</var> <var>{{5}}</var></b> than <var>{{6}}</var>.
+Biggest slice: <var>{{7}}</var>
+
+Your Pulse moved <b><var>{{8}}</var> → <var>{{9}}</var></b>, and you logged <var>{{10}}</var> of <var>{{11}}</var> days.<div class="mbtn"><span>See the full month</span><span>Stop these</span></div><span class="ftl">Once a month, on the 1st. Reply STOP SUMMARY to end them.</span></div>
+    <div class="vlabel"><span class="k">Variant B · first month, no comparison</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub">Your first month is closed, <var>{{2}}</var>.
+
+Spent: <b>₹<var>{{3}}</var></b>
+Biggest slice: <var>{{7}}</var>
+
+No comparison yet — from next month I can tell you whether that's usual for you.<div class="mbtn"><span>See the full month</span><span>Stop these</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>Month that closed — <em>September</em></span></div>
+      <div class="r"><code>{{2}}</code><span>First name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Total spent in the month — <em>64,180</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Absolute difference vs the comparison month — <em>2,900</em></span></div>
+      <div class="r"><code>{{5}}</code><span>Direction word — <em>more</em> | <em>less</em></span></div>
+      <div class="r"><code>{{6}}</code><span>Comparison month name — <em>August</em></span></div>
+      <div class="r"><code>{{7}}</code><span>Top category with its amount — <em>Dining ₹12,400</em></span></div>
+      <div class="r"><code>{{8}}</code> <span>Pulse at month start — <em>68</em></span></div>
+      <div class="r"><code>{{9}}</code><span>Pulse at month end — <em>74</em></span></div>
+      <div class="r"><code>{{10}}</code><span>Days with at least one entry — <em>24</em></span></div>
+      <div class="r"><code>{{11}}</code><span>Days in that month — <em>30</em></span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1340px; top:2844px; width:600px;"><b>06 · Monthly close.</b> Eleven variables, which is near the practical ceiling — beyond this, compose lines server-side instead. Variant B removes every comparison rather than printing a zero or an em dash, and turns the absence into a reason to come back next month.</p>
+
+<!-- ══════════ 07 BUDGET SETUP ══════════ -->
+<section class="frame card" style="left:40px; top:2950px; width:600px; height:1170px;" data-screen-label="T07 Budget setup">
+  <img src="media/07-budget-setup.png" alt="Budget setup header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt b">B · Interpret</span><span class="tt">Nudge</span><span class="nmo">budget_setup_reminder</span></div>
+    <div class="vlabel"><span class="k">Variant A · has last month's data</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub"><var>{{1}}</var> starts in two days, <var>{{2}}</var>.
+
+Want me to set your budgets from what you actually spent this month? I'll suggest a limit for each of your <var>{{3}}</var> categories.
+
+You adjust anything before it goes live — nothing locks in without you.<div class="mbtn"><span>Show me the suggestions</span><span>Keep current limits</span></div><span class="ftl">Two days before each month. Reply STOP SETUP to end these.</span></div>
+    <div class="vlabel"><span class="k">Variant B · budgets already set, one looks off</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub"><var>{{1}}</var> starts in two days, <var>{{2}}</var>.
+
+Your budgets carry over as they are. One worth a look: <b><var>{{4}}</var></b> — you've gone past it <var>{{5}}</var> months running.
+
+Want me to raise it to what you actually spend, or leave it as a stretch?<div class="mbtn"><span>Raise it</span><span>Leave it</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>The month about to start — <em>October</em></span></div>
+      <div class="r"><code>{{2}}</code><span>First name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Count of categories with spend history — <em>7</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Variant B only · the category name — <em>Dining</em></span></div>
+      <div class="r"><code>{{5}}</code><span>Variant B only · consecutive months over limit — <em>three</em> (spelled)</span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:4134px; width:600px;"><b>07 · Budget setup.</b> Variant B is the returning-user case, and it asks a real question rather than nagging: a budget you breach every month is either the wrong number or a deliberate stretch, and only the user knows which.</p>
+
+<!-- ══════════ 08 SPLIT SETTLED ══════════ -->
+<section class="frame card" style="left:690px; top:2950px; width:600px; height:1170px;" data-screen-label="T08 Split settled">
+  <img src="media/08-split-settled.png" alt="Split settled header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt a">A · Capture</span><span class="tt">Result</span><span class="nmo">split_settled</span></div>
+    <div class="vlabel"><span class="k">Variant A · they paid you</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub">Settled ✅
+
+<b><var>{{1}}</var></b> paid you <b>₹<var>{{2}}</var></b> for <var>{{3}}</var>.
+
+You're square — nothing outstanding between you either way.<div class="mbtn"><span>See the split</span><span>Undo</span></div><span class="ftl">Reply UNDO within 15 minutes if that's not right.</span></div>
+    <div class="vlabel"><span class="k">Variant B · you paid them</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub">Settled ✅
+
+You paid <b><var>{{1}}</var></b> <b>₹<var>{{2}}</var></b> for <var>{{3}}</var>.
+
+You're square — nothing outstanding between you either way.<div class="mbtn"><span>See the split</span><span>Undo</span></div><span class="ftl">Reply UNDO within 15 minutes if that's not right.</span></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>The other person, as named in the household or contact — <em>Priya</em></span></div>
+      <div class="r"><code>{{2}}</code><span>Amount settled — <em>1,200</em></span></div>
+      <div class="r"><code>{{3}}</code><span>What it was for: the original entry's description — <em>Toit on 12 Sep</em></span></div>
+      <div class="r"><code>—</code><span>Direction cannot be a variable: “paid you” and “you paid” are different sentences, so they are two templates.</span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:690px; top:4134px; width:600px;"><b>08 · Split settled.</b> The clearest illustration of the variant rule: reversing who paid whom changes the sentence, not a value — so it needs a second approved template. Trying to fold direction into <code>{{1}}</code> produces copy like “Priya paid you” / “You paid Priya” from one slot, which Meta approval will not allow.</p>
+
+<!-- ══════════ 09 WEEKLY ══════════ -->
+<section class="frame card" style="left:1340px; top:2950px; width:600px; height:1170px;" data-screen-label="T09 Weekly summary">
+  <img src="media/09-weekly-summary.png" alt="Weekly summary header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt b">B · Interpret</span><span class="tt">Nudge · opt-in</span><span class="nmo">weekly_summary</span></div>
+    <div class="vlabel"><span class="k">Variant A · logged most days</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub">Morning, <var>{{1}}</var> ☕
+
+Your week: <b>₹<var>{{2}}</var></b> spent — ₹<var>{{3}}</var> <var>{{4}}</var> than last week.
+
+<var>{{5}}</var>
+
+You logged <b><var>{{6}}</var> of 7 days</b>. Picture confirmed: <b><var>{{7}}</var>% → <var>{{8}}</var>%</b>.<div class="mbtn"><span>See the breakdown</span><span>Stop these</span></div><span class="ftl">Sundays only. Reply STOP SUMMARY to end them.</span></div>
+    <div class="vlabel"><span class="k">Variant B · barely logged</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub">Morning, <var>{{1}}</var>.
+
+I've got <b>₹<var>{{2}}</var></b> for your week, from <b><var>{{6}}</var> of 7 days</b> — so treat it as partial rather than the full story.
+
+<var>{{5}}</var>
+
+Fill in a day or two and next Sunday's will be worth reading.<div class="mbtn"><span>Add a day</span><span>Stop these</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>First name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{2}}</code><span>Week total — <em>8,240</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Absolute change vs last week — <em>1,100</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Direction word — <em>more</em> | <em>less</em></span></div>
+      <div class="r"><code>{{5}}</code><span>Top three categories, composed server-side — <em>Dining ₹3,100 · Transport ₹1,900 · Groceries ₹2,240</em></span></div>
+      <div class="r"><code>{{6}}</code><span>Days logged this week, 0–7 — <em>6</em></span></div>
+      <div class="r"><code>{{7}}</code><span>Picture-confirmed % at week start — <em>62</em></span></div>
+      <div class="r"><code>{{8}}</code><span>Picture-confirmed % now — <em>71</em></span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:1340px; top:4134px; width:600px;"><b>09 · Weekly summary.</b> Variant B is the honesty case — with two days logged, quoting a total as fact would be the estimate theatre we removed from onboarding. It labels the number partial, drops ☕ and the confirmation climb, and asks for one small thing.</p>
+
+<!-- ══════════ 10 BALANCE ══════════ -->
+<section class="frame card" style="left:40px; top:4240px; width:600px; height:1020px;" data-screen-label="T10 Balance recheck">
+  <img src="media/10-balance-recheck.png" alt="Balance recheck header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt a">A · Capture</span><span class="tt">Nudge → Ask</span><span class="nmo">balance_stale_nudge</span></div>
+    <div class="vlabel"><span class="k">Variant A · several stale</span><hr /><span class="vswitch same">same template</span></div>
+    <div class="mbub">Quick one, <var>{{1}}</var>.
+
+<b><var>{{2}}</var> of your balances</b> haven't moved in a month, so your net worth is drifting from what's actually there.
+
+Reply UPDATE and we'll fix it right here — <var>{{3}}</var> numbers, about two minutes. No app needed.<div class="mbtn"><span>Update here</span><span>Not now</span></div><span class="ftl">Max once a week, and only when balances are actually stale.</span></div>
+    <div class="vlabel"><span class="k">Variant B · one account, long stale</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub">Quick one, <var>{{1}}</var>.
+
+<b><var>{{4}}</var></b> hasn't been updated since <var>{{5}}</var>. Everything else is current.
+
+What's the balance now? Reply with just the number and I'll file it.<div class="mbtn"><span>Skip for now</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>First name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{2}}</code><span>Count of stale balances, spelled — <em>Four</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Same count as a digit, for the effort estimate — <em>4</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Variant B only · account name as the user saved it — <em>HDFC savings</em></span></div>
+      <div class="r"><code>{{5}}</code><span>Variant B only · date last updated — <em>6 August</em></span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:5274px; width:600px;"><b>10 · Balance recheck.</b> A single stale account gets a one-question template that can be answered with a bare number — the shortest possible path from nudge to captured data, and the reason this sits in Capture despite being a Nudge.</p>
+
+<!-- ══════════ 11 FORECAST ══════════ -->
+<section class="frame card" style="left:690px; top:4240px; width:600px; height:1020px;" data-screen-label="T11 Forecast response">
+  <img src="media/11-forecast-response.png" alt="Forecast response header" style="width:600px; height:314px; display:block;" />
+  <div class="msg">
+    <div class="meta"><span class="bkt c">C · Forecast</span><span class="tt">Result · reply-triggered</span><span class="nmo">affordability_reply</span></div>
+    <div class="vlabel"><span class="k">Variant A · it fits</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub"><var>{{1}}</var>, here's how that would land.
+
+<b>It fits.</b> ₹<var>{{2}}</var> would still leave about <b>₹<var>{{3}}</var></b> above your emergency fund.
+
+Assumes ₹<var>{{4}}</var> of fixed bills this month, and the ₹<var>{{5}}</var> floor you set.<div class="mbtn"><span>Show the working</span></div></div>
+    <div class="vlabel"><span class="k">Variant B · it'd be tight</span><hr /><span class="vswitch sep">separate template</span></div>
+    <div class="mbub"><var>{{1}}</var>, here's how that would land.
+
+<b>It'd be tight.</b> ₹<var>{{2}}</var> would dip about <b>₹<var>{{3}}</var></b> into your emergency fund. After <var>{{6}}</var> it's comfortable.
+
+Assumes ₹<var>{{4}}</var> of fixed bills this month, and the ₹<var>{{5}}</var> floor you set.<div class="mbtn"><span>Show the working</span><span>Remind me then</span></div></div>
+    <div class="vlg">
+      <div class="hd2">What each variable holds</div>
+      <div class="r"><code>{{1}}</code><span>First name — <em>Rohan</em></span></div>
+      <div class="r"><code>{{2}}</code><span>Amount the user asked about — <em>40,000</em></span></div>
+      <div class="r"><code>{{3}}</code><span>Cushion above the floor (A) or shortfall below it (B) — <em>4,300</em></span></div>
+      <div class="r"><code>{{4}}</code><span>Fixed bills assumed this month — <em>35,098</em></span></div>
+      <div class="r"><code>{{5}}</code><span>The user's emergency-fund floor — <em>50,000</em></span></div>
+      <div class="r"><code>{{6}}</code><span>Variant B only · date it becomes comfortable — <em>the 28th</em></span></div>
+      <div class="r"><code>—</code><span>Never send a flat “no”. If it doesn't fit at any point this month, use Variant B with the next payday as <code>{{6}}</code>.</span></div>
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:690px; top:5274px; width:600px;"><b>11 · Forecast response.</b> Both outcomes are separate templates because the verdict sentence differs — you cannot put “It fits” and “It'd be tight” in one slot. Both carry the assumption line, which is mandatory for Forecast: a wrong affordability answer costs real money.</p>
+
+<!-- ══════════ TEXT-ONLY · CAPTURE ══════════ -->
+<section class="frame panel wide" style="left:40px; top:5380px; width:1900px; height:1520px;">
+  <div class="dp" style="padding:24px 26px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:4px;"><span class="bkt a">A · Capture</span><div class="hd" style="font-size:22px;">Text-only turns — no header media</div><span class="tt" style="margin-left:auto;">reply-triggered · never proactive</span></div>
+    <div style="font-size:12.5px; color:#98ABA8; margin-bottom:18px;">These answer something the user just sent, so they arrive inside an open session and need no image. Each shows its primary body and one alternate situation.</div>
+    <div class="tgrid">
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_result</span><span class="tt" style="margin-left:auto;">Result</span></div>
+        <div class="mbub">Got it — <b>₹<var>{{1}}</var></b> · <var>{{2}}</var> · <var>{{3}}</var>.
+
+Reply UNDO in the next 15 minutes if I read that wrong.</div>
+        <div class="mbub">Got it — <b>₹<var>{{1}}</var></b> · <var>{{2}}</var> · <var>{{3}}</var>.
+
+That's <b>₹<var>{{4}}</var></b> on <var>{{2}}</var> this month, <var>{{5}}</var>% of budget.
+Reply UNDO within 15 minutes.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount logged — <em>450</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Category assigned — <em>Lunch</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Date, relative — <em>today</em></span></div>
+          <div class="r"><code>{{4}}</code><span>2nd body · category total this month — <em>6,840</em></span></div>
+          <div class="r"><code>{{5}}</code><span>2nd body · % of that budget — <em>78</em></span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_clarify_choice</span><span class="tt" style="margin-left:auto;">Ask</span></div>
+        <div class="mbub">₹<var>{{1}}</var> on your <var>{{2}}</var> — I can't tell which of these it is.
+
+<b>1</b> a purchase on the card
+<b>2</b> paying the card bill
+<b>3</b> moving money to the card
+
+A wrong guess would move your spend total, so I won't pick for you.</div>
+        <div class="mbub">₹<var>{{1}}</var> to <var>{{3}}</var> — which was this?
+
+<b>1</b> a spend
+<b>2</b> money you lent them
+<b>3</b> settling a split
+
+Nothing saved until you pick.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount parsed — <em>1,200</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Card or account named — <em>Amex</em></span></div>
+          <div class="r"><code>{{3}}</code><span>2nd body · person named — <em>Raj</em></span></div>
+          <div class="r"><code>—</code><span>Never writes on silence. Expires in 30 min.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_confirm_draft</span><span class="tt" style="margin-left:auto;">Confirm</span></div>
+        <div class="mbub">I read this from the message you forwarded:
+
+<b>₹<var>{{1}}</var></b>
+<var>{{2}}</var>
+<var>{{3}}</var> · <var>{{4}}</var>
+
+A model read this one, not a rule — so I'd rather you checked it.
+Reply <b>YES</b> to save · <b>EDIT</b> to change · <b>NO</b> to discard.</div>
+        <div class="mbub">That statement had <b><var>{{5}}</var> entries</b>, <b>₹<var>{{1}}</var></b> in total.
+
+I've drafted them all. They're easier to check in the app than one at a time here.
+
+Reply <b>YES</b> to save all, or open Vyact to go through them.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount, or total for a multi-entry draft — <em>2,480</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Category · merchant — <em>Groceries · Blinkit</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Date read from the message — <em>4 Sep</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Account, masked — <em>HDFC ⋯8006</em></span></div>
+          <div class="r"><code>{{5}}</code><span>2nd body · number of entries — <em>12</em></span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_duplicate_check</span><span class="tt" style="margin-left:auto;">Ask</span></div>
+        <div class="mbub">This looks like the <b>₹<var>{{1}}</var></b> <var>{{2}}</var> you logged <var>{{3}}</var>.
+
+Two <var>{{2}}</var> in a day are real, so I won't decide this one.
+
+<b>1</b> add it anyway · <b>2</b> skip it
+
+Nothing is saved until you pick.</div>
+        <div class="mbub">You've logged <b>₹<var>{{1}}</var></b> at <var>{{4}}</var> <var>{{5}}</var> times today.
+
+<b>1</b> that's right, add it
+<b>2</b> skip this one
+
+I'll stop asking about <var>{{4}}</var> today if you pick 1.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount — <em>450</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Category, used twice — keep it lowercase-safe — <em>Lunch</em></span></div>
+          <div class="r"><code>{{3}}</code><span>How long ago — <em>40 minutes ago</em></span></div>
+          <div class="r"><code>{{4}}</code><span>2nd body · merchant — <em>Blinkit</em></span></div>
+          <div class="r"><code>{{5}}</code><span>2nd body · repeat count — <em>three</em></span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_budget_hold</span><span class="tt" style="margin-left:auto;">Ask</span></div>
+        <div class="mbub">This would take <var>{{1}}</var> past its limit — <b>₹<var>{{2}}</var></b> against <b>₹<var>{{3}}</var></b>.
+
+<b>1</b> log it anyway
+<b>2</b> put it under another budget
+
+I'd rather you decided than have me post it quietly.</div>
+        <div class="mbub">This one's big for <var>{{1}}</var> — <b>₹<var>{{4}}</var></b>, against a <b>₹<var>{{3}}</var></b> limit for the month.
+
+<b>1</b> log it as is
+<b>2</b> spread it across the months it covers
+
+Nothing saved until you pick.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Budget/category name — <em>Dining</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Projected total if logged — <em>9,340</em></span></div>
+          <div class="r"><code>{{3}}</code><span>The budget's limit — <em>8,000</em></span></div>
+          <div class="r"><code>{{4}}</code><span>2nd body · this single amount — <em>7,200</em></span></div>
+          <div class="r"><code>—</code><span>Never writes on silence.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_over_threshold</span><span class="tt" style="margin-left:auto;">Refuse → route</span></div>
+        <div class="mbub"><b>₹<var>{{1}}</var></b> is over your <b>₹<var>{{2}}</var></b> chat limit, so I've parked it as a draft in the app rather than posting it from here.
+
+One tap to approve. Change the limit in Settings ▸ WhatsApp.</div>
+        <div class="mbub"><b>₹<var>{{1}}</var></b> is over your <b>₹<var>{{2}}</var></b> chat limit.
+
+I've saved it as a draft — it's waiting in the app with everything I read from your message already filled in.
+
+Nothing posts until you approve it there.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>The amount that tripped the limit — <em>12,000</em></span></div>
+          <div class="r"><code>{{2}}</code><span>The user's chat write limit — <em>5,000</em></span></div>
+          <div class="r"><code>—</code><span>Default limit ₹5,000, user-editable.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_correction_ack</span><span class="tt" style="margin-left:auto;">Result</span></div>
+        <div class="mbub">Changed to <var>{{1}}</var>. The earlier entry is gone — nothing double-counted.</div>
+        <div class="mbub">Changed the amount to <b>₹<var>{{2}}</var></b> and kept everything else as it was.
+
+The earlier entry is gone — nothing double-counted.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>The corrected field's new value — <em>Groceries</em></span></div>
+          <div class="r"><code>{{2}}</code><span>2nd body · corrected amount — <em>540</em></span></div>
+          <div class="r"><code>—</code><span>One body per field type; don't reuse one slot for category and amount.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_backdated_notice</span><span class="tt" style="margin-left:auto;">Result</span></div>
+        <div class="mbub">Saved on <b><var>{{1}}</var></b>, the date you gave — not today.
+
+That moved your <var>{{2}}</var> total, not this week's.</div>
+        <div class="mbub">Saved on <b><var>{{1}}</var></b> — the date on that message, not today.
+
+<var>{{2}}</var> is already closed, so your summary for it has been updated.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Effective date used — <em>4 Sep</em></span></div>
+          <div class="r"><code>{{2}}</code><span>The month affected — <em>September</em></span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">capture_missing_amount</span><span class="tt" style="margin-left:auto;">Ask</span></div>
+        <div class="mbub">Got <var>{{1}}</var>, but not the amount.
+
+How much was it? Reply with just the number and I'll file it.</div>
+        <div class="mbub">I couldn't find an amount in that.
+
+Something like <b>450 lunch</b> or <b>1200 amex</b> works — or reply MENU to see everything I can do.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>What was recognised — <em>Blinkit</em> · <em>the category</em></span></div>
+          <div class="r"><code>—</code><span>2nd body is <code>conv01_fallback</code>: used when nothing at all parsed. Never writes on silence.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:6914px; width:1900px;"><b>Capture · text turns.</b> Nine templates, each with its primary body and one alternate situation. Four of these never write on silence — clarify, duplicate, budget hold and missing amount — because a wrong write there changes a total rather than adding a row. The rest post after a beat with UNDO live for 15 minutes.</p>
+
+<!-- ══════════ TEXT-ONLY · INTERPRET + FORECAST ══════════ -->
+<section class="frame panel wide" style="left:40px; top:7000px; width:1900px; height:1480px;">
+  <div class="dp" style="padding:24px 26px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:4px;"><span class="bkt b">B · Interpret</span><span class="bkt c">C · Forecast</span><div class="hd" style="font-size:22px;">Consent, refusals, and session turns</div></div>
+    <div style="font-size:12.5px; color:#98ABA8; margin-bottom:18px;">The turns that make the channel legible: what the user agreed to, what pip won't do here, and what happens when something fails or expires.</div>
+    <div class="tgrid">
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">insights_optin_prompt</span><span class="tt" style="margin-left:auto;">Ask</span></div>
+        <div class="mbub">Want your weekly summary and budget alerts here on WhatsApp?
+
+<b>1</b> yes, send them here
+<b>2</b> no thanks
+
+Bill reminders come either way — those aren't part of this.</div>
+        <div class="mbub">You're all set, <var>{{1}}</var>. <var>{{2}}</var> it is — one message, and nothing else changes.
+
+Reply STOP SUMMARY whenever you want them to end.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>2nd body · first name — <em>Rohan</em></span></div>
+          <div class="r"><code>{{2}}</code><span>2nd body · the cadence chosen — <em>Sundays</em></span></div>
+          <div class="r"><code>—</code><span>Must run before any Interpret push. Utility consent only — never bundles Marketing.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">budget_threshold_alert</span><span class="tt" style="margin-left:auto;">Nudge</span></div>
+        <div class="mbub">I'm keeping an eye on <var>{{1}}</var> — <b><var>{{2}}</var>%</b> used, <var>{{3}}</var> days to go. <b>₹<var>{{4}}</var></b> still in the pot.
+
+Reply <var>{{1}}</var> and I'll show what's driving it.</div>
+        <div class="mbub"><var>{{1}}</var> is at its limit — <b>₹<var>{{5}}</var></b> of <b>₹<var>{{6}}</var></b>, with <var>{{3}}</var> days left.
+
+Anything more this month goes over. That's your call, not a problem — reply <var>{{1}}</var> to see what got you here.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Category, used as the reply keyword too — <em>Dining</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Percent of budget used — <em>78</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Days remaining in the period — <em>18</em></span></div>
+          <div class="r"><code>{{4}}</code><span>Amount remaining — <em>1,540</em></span></div>
+          <div class="r"><code>{{5}}</code><span>100% body · spent so far — <em>8,000</em></span></div>
+          <div class="r"><code>{{6}}</code><span>100% body · the limit — <em>8,000</em></span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">read_pin_challenge</span><span class="tt" style="margin-left:auto;">Ask</span></div>
+        <div class="mbub"><var>{{1}}</var> is one I keep behind a PIN, even here.
+
+Reply with your four digits and I'll answer. Or open the app for the full picture — no PIN needed there.</div>
+        <div class="mbub">That's not the right PIN.
+
+One more try, or open the app instead — <var>{{2}}</var> attempts left before I lock this for the day.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>What was asked for — <em>Net worth</em> · <em>Your HDFC balance</em> · <em>Your total debt</em></span></div>
+          <div class="r"><code>{{2}}</code><span>2nd body · attempts remaining — <em>1</em></span></div>
+          <div class="r"><code>—</code><span>Gated: net worth, account balances, debt totals. Not gated: spend, budgets, bills, splits.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">refusal_with_route</span><span class="tt" style="margin-left:auto;">Refuse</span></div>
+        <div class="mbub">I can't do <var>{{1}}</var> from here.
+
+<var>{{2}}</var> is the nearest thing I can do in this chat — or open Vyact and it's two taps.</div>
+        <div class="mbub">That's not something I do at all, <var>{{1}}</var> included.
+
+What I can do here: log a spend, tell you where a budget stands, or what's due next. Reply MENU for the list.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>What was asked, restated plainly — <em>editing a past month</em></span></div>
+          <div class="r"><code>{{2}}</code><span>The nearest possible action — <em>Telling you this month's total</em></span></div>
+          <div class="r"><code>—</code><span>Never a dead end. Never apologetic. Never blames the user.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">pending_expiry</span><span class="tt" style="margin-left:auto;">Ask</span></div>
+        <div class="mbub">Still there? I've held that <var>{{1}}</var> question for half an hour, so it's expired.
+
+Send it again and I'll pick it up fresh.</div>
+        <div class="mbub">I've let that <var>{{1}}</var> question go — it'd been half an hour, and I didn't want a stray reply landing on the wrong thing.
+
+Nothing was saved.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Short subject of the expired question — <em>Amex</em> · <em>duplicate</em></span></div>
+          <div class="r"><code>—</code><span>Fires at 30 min. Makes CONV-06 visible so a later “2” is never misread.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">session_recover</span><span class="tt" style="margin-left:auto;">Recover</span></div>
+        <div class="mbub">Your data is safe and nothing was lost.
+
+I couldn't reach the ledger just now, so your <b>₹<var>{{1}}</var></b> <var>{{2}}</var> is queued — it'll post by itself.
+
+Nothing for you to redo.</div>
+        <div class="mbub">Your data is safe and nothing was lost.
+
+That one's taking longer than it should. I've kept it queued and I'll confirm here the moment it lands — you don't need to send it again.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Amount held in the queue — <em>450</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Its category — <em>lunch</em></span></div>
+          <div class="r"><code>—</code><span>Reassure about the data <b>before</b> explaining. One action, or none.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">list_menu</span><span class="tt" style="margin-left:auto;">Ask · list</span></div>
+        <div class="mbub">Here's the lot:
+
+<b>1</b> log a spend
+<b>2</b> this week's summary
+<b>3</b> how my budgets are doing
+<b>4</b> what's due next
+<b>5</b> turn messages off</div>
+        <div class="mbub">Here's the lot, <var>{{1}}</var>:
+
+<b>1</b> log a spend
+<b>2</b> this week's summary
+<b>3</b> how my budgets are doing
+<b>4</b> what's due next
+<b>5</b> update a balance
+<b>6</b> turn messages off</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>2nd body · first name — <em>Rohan</em></span></div>
+          <div class="r"><code>—</code><span>Options are fixed text, not variables — a WhatsApp list message needs its rows approved.</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">interpret_answer</span><span class="tt" style="margin-left:auto;">Result</span></div>
+        <div class="mbub"><b>₹<var>{{1}}</var></b> on <var>{{2}}</var> this month — <b><var>{{3}}</var>%</b> of your ₹<var>{{4}}</var> budget, <var>{{5}}</var> days to go.</div>
+        <div class="mbub"><b>₹<var>{{1}}</var></b> on <var>{{2}}</var> this month.
+
+<var>{{6}}</var>
+
+No budget set for it, so there's nothing to compare against — reply BUDGET if you want one.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Category total — <em>6,840</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Category asked about — <em>Dining</em></span></div>
+          <div class="r"><code>{{3}}</code><span>Percent of budget — <em>78</em></span></div>
+          <div class="r"><code>{{4}}</code><span>The budget limit — <em>8,800</em></span></div>
+          <div class="r"><code>{{5}}</code><span>Days left in period — <em>18</em></span></div>
+          <div class="r"><code>{{6}}</code><span>2nd body · top merchants line, composed server-side</span></div>
+        </div>
+      </div>
+
+      <div class="tcell">
+        <div class="meta"><span class="nm2">large_transaction_alert</span><span class="tt" style="margin-left:auto;">Nudge</span></div>
+        <div class="mbub"><b>₹<var>{{1}}</var></b> went out on your <var>{{2}}</var> just now.
+
+If that was you, nothing to do. If it wasn't, reply <b>FLAG</b> and I'll mark it for review.</div>
+        <div class="mbub"><b>₹<var>{{1}}</var></b> on your <var>{{2}}</var> — that's the largest single spend I've seen on it.
+
+If that was you, nothing to do. Reply <b>FLAG</b> if it wasn't.</div>
+        <div class="vlg"><div class="hd2">Variables</div>
+          <div class="r"><code>{{1}}</code><span>Transaction amount — <em>18,400</em></span></div>
+          <div class="r"><code>{{2}}</code><span>Card or account — <em>HDFC card</em></span></div>
+          <div class="r"><code>—</code><span>Always on; cannot be disabled. Threshold is the user's, default ₹10,000.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+<p class="frame-cap" style="left:40px; top:8494px; width:1900px;"><b>Interpret &amp; Forecast · session turns.</b> The PIN challenge and the routed refusal are what make the channel's rules legible rather than arbitrary: pip answers spend, budget and bill questions freely, gates the three figures that describe wealth, and always names where a thing <i>can</i> be done. <code>large_transaction_alert</code> is the one Nudge with no off switch, because a fraud alert isn't a preference.</p>
+
+</body>
+</html>

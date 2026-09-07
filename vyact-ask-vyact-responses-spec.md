@@ -1,6 +1,6 @@
 # Ask Vyact — response spec, reconciled
 
-**Status:** decisions recorded, engine work not started.
+**Status:** decisions recorded · 11 engine tickets open ([`ask-vyact-engine`](https://github.com/Authen27/Vyact/labels/ask-vyact-engine)) · no engine work started.
 **Audience:** conversation design + the engineer implementing the response layer.
 
 ---
@@ -72,16 +72,16 @@ template, each with its own review cycle and its own drift.
 Verified against the shipping code. Copy that needs these is **blocked until the
 figure exists** (D2).
 
-| Figure the spec uses | Today | Requirement |
-| :--- | :--- | :--- |
-| Same point last month (“₹2,100 more than the same point in August”) | Not computed | Month-to-date total for the *equivalent day* of the prior month |
-| Pulse movement (“up 6 from last month”) | Pulse is computed; **history is not stored** | Persist a monthly Pulse snapshot, or recompute over historical data |
-| Logging streak (“12 days running”) | Not computed | Consecutive days with ≥1 entry |
-| Budgets on pace (“5 of 7”) | Per-budget state exists | Aggregate count of budgets within pace |
-| Per-merchant order count + average order value (“9 Swiggy orders at ₹233”) | Not computed | Group by merchant, count + mean, over a window |
-| Days to payday (“11 days”, “after the 28th”) | **`payday` is a keyword only, never a modelled date** | A recurring-income date the assistant can read |
-| Median monthly burn | `monthlyBurn()` returns a **mean** over `trend6m` | Median, or an explicit decision to keep the mean and change the copy |
-| Chip amounts from the user's own past spends | Not computed | Three most common amounts for a category, rounded to real past values |
+| Figure the spec uses | Today | Requirement | Ticket |
+| :--- | :--- | :--- | :--- |
+| Same point last month (“₹2,100 more than the same point in August”) | Not computed | Month-to-date total for the *equivalent day* of the prior month | [#63](https://github.com/Authen27/Vyact/issues/63) |
+| Pulse movement (“up 6 from last month”) | Pulse is computed; **history is not stored** | Persist a monthly Pulse snapshot, or recompute over historical data | [#64](https://github.com/Authen27/Vyact/issues/64) |
+| Logging streak (“12 days running”) | Not computed | Consecutive days with ≥1 entry | [#65](https://github.com/Authen27/Vyact/issues/65) |
+| Budgets on pace (“5 of 7”) | Per-budget state exists | Aggregate count of budgets within pace | [#66](https://github.com/Authen27/Vyact/issues/66) |
+| Per-merchant order count + average order value (“9 Swiggy orders at ₹233”) | Not computed | Group by merchant, count + mean, over a window | [#67](https://github.com/Authen27/Vyact/issues/67) |
+| Days to payday (“11 days”, “after the 28th”) | **`payday` is a keyword only, never a modelled date** | A recurring-income date the assistant can read | [#68](https://github.com/Authen27/Vyact/issues/68) |
+| Median monthly burn | `monthlyBurn()` returns a **mean** over `trend6m` | Median, or an explicit decision to keep the mean and change the copy | [#69](https://github.com/Authen27/Vyact/issues/69) |
+| Chip amounts from the user's own past spends | Not computed | Three most common amounts for a category, rounded to real past values | [#70](https://github.com/Authen27/Vyact/issues/70) |
 
 ### The mean/median difference is not pedantry
 
@@ -117,16 +117,20 @@ than navigation. So this is two pieces of work, not one:
 1. Thread chips through `AssistantTurn` to the UI (the existing single chip).
 2. Widen `ResolveResult.chip` to an ordered list, max three.
 
+Ticket: [#62](https://github.com/Authen27/Vyact/issues/62) — the highest-leverage
+item in this document. Until it lands, every Interpret and Forecast response in
+the deck is undeliverable regardless of what the engine can compute.
+
 Until then, every "two or three likely follow-ups" in the design spec is
 undeliverable.
 
 ### 3.2 Capture verbs the parser does not have
 
-| Designed | Status |
-| :--- | :--- |
-| `delete that last one` → removes it, offers **“Put it back”** | No delete/undo intent exists. Needs an intent, a reference to “last”, and a restore path |
-| `4200 dinner private` → trigger word sets the private flag | The transaction form has *“Private — exclude from totals”*; **the parser has no trigger word for it** |
-| `i spent some money on food` → offers three amount chips from history | Needs 3.1 plus the chip-amount calculation in §2 |
+| Designed | Status | Ticket |
+| :--- | :--- | :--- |
+| `delete that last one` → removes it, offers **“Put it back”** | No delete/undo intent exists. Needs an intent, a reference to “last”, and a restore path | [#71](https://github.com/Authen27/Vyact/issues/71) |
+| `4200 dinner private` → trigger word sets the private flag | The transaction form has *“Private — exclude from totals”*; **the parser has no trigger word for it** | [#72](https://github.com/Authen27/Vyact/issues/72) |
+| `i spent some money on food` → offers three amount chips from history | Needs 3.1 plus the chip-amount calculation in §2 | [#70](https://github.com/Authen27/Vyact/issues/70) |
 
 ---
 
