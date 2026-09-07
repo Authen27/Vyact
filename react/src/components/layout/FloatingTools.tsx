@@ -53,8 +53,15 @@ interface DrawerProps {
   children: ReactNode;
 }
 /** Board D3 — a right GLASS drawer over the dimmed app, so you keep your
- *  context while you ask. Header carries the ✦ tile, the name and the
- *  on-device promise; the footer states how to leave. */
+ *  context while you ask. Header carries the ✦ tile, the name and the honesty
+ *  line; the footer states how to leave.
+ *
+ *  v10.20 — that line used to read "On-device · private". Removing
+ *  `RulesBackend` made it false: a question now leaves the device for the
+ *  ask-vyact Edge Function and on to a model provider. This drawer wraps
+ *  `<Chat embedded />` and nothing else, so the subtitle speaks for Ask Vyact
+ *  specifically — it says what is still guaranteed (the figures are computed,
+ *  not generated) rather than a claim about egress that no longer holds. */
 function Drawer({ title, onClose, children }: DrawerProps) {
   return (
     <div
@@ -80,7 +87,7 @@ function Drawer({ title, onClose, children }: DrawerProps) {
           >✦</span>
           <div className="flex-1 min-w-0">
             <div className="font-display font-bold text-[16px] leading-tight text-ink truncate">{title}</div>
-            <div className="mono-label text-ink-dim">On-device · private</div>
+            <div className="mono-label text-ink-dim">Your numbers, computed — never guessed</div>
           </div>
           <button onClick={onClose} className="text-ink-dim hover:text-ink transition-colors p-1 flex-shrink-0" aria-label="Close">
             <X size={18} />
