@@ -87,7 +87,9 @@ function Drawer({ title, onClose, children }: DrawerProps) {
           >✦</span>
           <div className="flex-1 min-w-0">
             <div className="font-display font-bold text-[16px] leading-tight text-ink truncate">{title}</div>
-            <div className="mono-label text-ink-dim">Your numbers, computed — never guessed</div>
+            {/* v10.20.1 — was "Your numbers, computed — never guessed", which
+                overstated the invented-figure guard. See Chat.tsx. */}
+            <div className="mono-label text-ink-dim">Vyact does the maths, not the model</div>
           </div>
           <button onClick={onClose} className="text-ink-dim hover:text-ink transition-colors p-1 flex-shrink-0" aria-label="Close">
             <X size={18} />

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.20.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.20.1**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -70,9 +70,14 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   **The assistant phrases; services compute** — stage 4 (`resolve`) was NOT
   removed and is still the sole source of every figure. The model picks the
   intent (stage 3) and words the answer (stage 5); it never does arithmetic on
-  money. That rule is enforced mechanically by `assertNoInventedFigures`
-  (`askVyactLlm.ts`): any reply containing a number no tool produced is
-  DISCARDED, not shown. **With no model configured or reachable, Ask Vyact
+  money. That rule is backed mechanically by `assertNoInventedFigures`
+  (`askVyactLlm.ts`): a reply carrying a money-shaped figure no tool produced is
+  DISCARDED, not shown. **Do NOT describe that guard as proof every figure is
+  correct** — it matches numeric TOKENS, not meaning, and exempts small counts
+  (`HARMLESS`), so a right number with the wrong sign, unit or framing passes.
+  UI copy overstated this in v10.20 and was corrected in v10.20.1; the honest
+  end state is structured facts rendered by the UI, with the model only
+  explaining them. **With no model configured or reachable, Ask Vyact
   returns an explicit unavailable turn — it must never silently degrade to a
   canned answer.** The provider key lives server-side in the `ask-vyact` Edge
   Function; the browser-direct Gemini client, `ChatBackend`, `StubChatBackend`,

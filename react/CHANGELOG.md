@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.0`** (consumer)
+> **Current production version: `v10.20.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,78 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.1 — Stabilisation: silent data loss, blind tests, overstated copy *(2026-09-08)*
+
+Three defects that shared one property: **each reported success while doing the wrong thing.** No
+new features; this is the stabilisation pass the independent audit recommended before more surface
+area lands.
+
+### Renaming an account no longer erases its balance and history
+
+The worst of the three, and the one nobody reported — because it never looked like a failure.
+
+`AccountFormModal` sends a metadata-only patch (name, kind, currency, flags). `accountToRow` then
+read `?? 0` / `?? []` for `opening_balance`, `reconciliation_offset` and `reconciliation_log`, and
+the upsert wrote those zeroes over the stored values. **Renaming an account — or archiving it, or
+changing its currency — reset its opening balance to 0 and emptied its reconciliation log**, under
+an "Account updated" toast.
+
+Fixed at two layers: the mapper now omits financial columns the caller did not supply (all three are
+NOT NULL *with DB defaults*, so omission is correct on INSERT and preserving on UPDATE), and
+`upsertAccount` merges the patch onto the existing account. The generic adapter's replace semantics
+are deliberately untouched — changing those would alter every entity, and some callers rely on them.
+
+### The test suite could not reach the code it was meant to cover
+
+`myRole` was never populated in local-only mode: its only writer sat behind a `cloudEnabled` guard,
+so `can()` fell through to deny-by-default and **every write-gated screen rendered read-only** — no
+Add Budget, no delete household, no recurring edit. Lane A builds local-only, so no e2e test could
+open the editors behind those controls. The suite was green and blind at once.
+
+Fixing it surfaced a latent privilege hole in the same function: the ownership fallback keyed on "no
+session" rather than "no cloud", so a signed-out **cloud** user resolved to `owner`. Unreachable
+while nothing called it in that state — live the moment this fix added that caller. `resolveMyRole()`
+now sits beside `can()` in `lib/permissions.ts` as one pure, testable policy.
+
+### Lane B exists — the cloud lane against a real database
+
+Previously undone work, documented as "Phase 4". Every unique index, CHECK constraint and RLS policy
+in the schema was invisible to CI, because Lane A has no database to violate.
+
+`vyact-test` (free tier, $0/mo) now carries the same 94 RLS policies and 72 functions as production.
+Seven specs run against real Postgres in ~20s: duplicate-allocation rejection, cross-household
+isolation (read, write, insert), and the account-patch acceptance test above. Standing it up caught
+four wrong schema assumptions in the fixtures before they shipped, including
+`ck_txn_accounts_by_type` — the money model is enforced in the *database*, not only the client.
+
+### Ask Vyact copy now claims what the guard actually delivers
+
+v10.20 said *"Your numbers are calculated, never guessed"* and *"A reply containing a number Vyact
+did not calculate is discarded."* `assertNoInventedFigures` does not prove that. It matches numeric
+tokens, not meaning, and it exempted more than it should have:
+
+* `100` — the likeliest confabulation in a finance assistant ("100% of your budget"). Removed; a
+  genuine 100 arrives inside a computed value and is allowed by that route anyway.
+* **Every number from 1900–2099**, unconditionally, as "probably a year". That band is squarely
+  inside real amounts: *"You spent £2,050 on rent"* and *"Your net worth is £1,999"* both passed the
+  guard completely un-computed. The exemption is now conditional on the figure not being presented
+  as money.
+
+Copy across the chat screen, the Ask drawer and the privacy policy now describes the division of
+labour — Vyact does the maths, the model does the words — plus the screening as a safeguard rather
+than a guarantee. `CLAUDE.md` records that the guard must never be described as proof.
+
+### Also
+
+Lane A's Playwright `webServer` timeout raised 180s → 480s. A cold build overran it and Playwright
+then **exits 0 having run nothing** — a suite reporting success while executing zero tests, which is
+the same failure family as everything above.
+
+Tests: 797 unit (up from 792) + 7 Lane B. The catalogue reconciler now scans `e2e/lane-b`, and its
+23 pre-existing problems are tracked in [#74](https://github.com/Authen27/Vyact/issues/74).
 
 ---
 

@@ -111,9 +111,16 @@ export default function Privacy() {
           search through — it is given one question and one already-computed answer to put into words.
         </p>
         <p>
-          <strong className="text-ink">The model never calculates money.</strong> Every figure in a
-          reply comes from Vyact's own calculation on your data. A reply containing a number Vyact
-          did not calculate is discarded rather than shown to you.
+          <strong className="text-ink">The model never calculates money.</strong> Every amount in a
+          reply comes from Vyact's own calculation on your data; the model's job is to put that
+          answer into words. As a further check, replies are screened for amounts that do not match
+          what was calculated, and a reply that fails is not shown to you.
+        </p>
+        <p>
+          That screening is a safeguard, not a guarantee of correctness: it compares the numbers in a
+          reply against the ones Vyact calculated, so it will not catch a correct figure that has
+          been described the wrong way round. Ask Vyact is here to help you understand your money,
+          not to replace your own judgement — and it is never financial advice.
         </p>
         <p>
           These requests are made by Vyact's own server, never by your browser, so no provider
