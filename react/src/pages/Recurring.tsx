@@ -34,6 +34,13 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 
 function todayWeekday(): number { return new Date().getDay(); }
 function todayDom(): number { return new Date().getDate(); }
+/** Clamp a day-of-month to 1–31, falling back to today for anything unusable
+ *  (empty field, NaN, a stray minus). Applied on blur and submit — never on
+ *  keystroke, which is what made the field impossible to retype. */
+function clampDom(n: number): number {
+  if (!Number.isFinite(n)) return todayDom();
+  return Math.max(1, Math.min(31, Math.trunc(n)));
+}
 function todayMonth(): number { return new Date().getMonth() + 1; }
 const daysUntil = (d: string): number =>
   Math.round((Date.parse(`${d}T00:00:00`) - Date.parse(`${today()}T00:00:00`)) / 86_400_000);
@@ -72,7 +79,21 @@ export default function Recurring() {
   const [weekDays, setWeekDays] = useState<number[]>([todayWeekday()]);
   // Monthly
   const [monthlyMode, setMonthlyMode] = useState<MonthlyMode>('dom');
-  const [dayOfMonth, setDayOfMonth] = useState<number>(todayDom());
+  // DAY OF MONTH — the raw text is the state, the number is derived.
+  //
+  // This used to be `useState<number>` fed by an onChange that clamped on every
+  // keystroke: `Math.max(1, Math.min(31, parseInt(e.target.value) || 1))`.
+  // Backspacing to empty gives NaN, `|| 1` turns that into 1, and the field
+  // re-renders as "1" — so the box can never be transiently blank and fights
+  // you the moment you try to retype it. Typing a leading 0 collapsed the same
+  // way. Reproduced live: clearing the field showed "1", "0" showed "1".
+  //
+  // Holding the text lets the input be empty or mid-typing; the clamp moves to
+  // blur and submit, where it belongs. `dayOfMonth` stays a number for every
+  // consumer below, so nothing else changes.
+  const [domText, setDomText] = useState<string>(String(todayDom()));
+  const dayOfMonth = clampDom(parseInt(domText, 10));
+  const setDayOfMonth = (n: number) => setDomText(String(clampDom(n)));
   const [nthWeek, setNthWeek] = useState<number>(1);
   const [nthWeekday, setNthWeekday] = useState<number>(1); // Monday
   // Annual
@@ -251,7 +272,24 @@ export default function Recurring() {
                   <div className={`text-[0.86rem] font-medium ${s.transactionTemplate.type === 'income' ? 'text-sage' : 'text-terra'}`}>
                     <Money amount={s.transactionTemplate.amount} currency={s.transactionTemplate.currency} className="font-medium" signed={s.transactionTemplate.type === 'income'} />
                   </div>
-                  <button onClick={() => { if (confirm('Delete this schedule?')) { remove(s.id); toast('Schedule deleted', 'info'); } }} className="row-action danger" aria-label="Delete schedule" title="Delete">
+                  {/* The delete used to be `remove(s.id); toast('Schedule
+                      deleted')` — fire-and-forget, with the success toast on the
+                      very next line regardless of what happened. Any rejection
+                      became an unhandled promise rejection: invisible in the UI,
+                      invisible in the console for most users, and the toast
+                      claimed success anyway.
+                      That is why this read as "deletion doesn't work" with no
+                      error to go on. Await it, and only claim success when the
+                      write actually succeeded. */}
+                  <button onClick={async () => {
+                    if (!confirm('Delete this schedule?')) return;
+                    try {
+                      await remove(s.id);
+                      toast('Schedule deleted', 'info');
+                    } catch (e) {
+                      toast(`Could not delete: ${(e as Error).message}`, 'error');
+                    }
+                  }} className="row-action danger" aria-label="Delete schedule" title="Delete">
                     <Trash2 size={14} strokeWidth={1.6} />
                   </button>
                   <button onClick={() => { populateFromSchedule(s); setOpen(true); }} className="row-action" aria-label="Edit schedule" title="Edit">
@@ -360,8 +398,9 @@ export default function Recurring() {
             {monthlyMode === 'dom' ? (
               <div className="flex items-center gap-2">
                 <span className="text-[0.84rem] text-ink-mid">Day</span>
-                <input type="number" min={1} max={31} value={dayOfMonth}
-                  onChange={e => setDayOfMonth(Math.max(1, Math.min(31, parseInt(e.target.value) || 1)))}
+                <input type="number" min={1} max={31} value={domText}
+                  onChange={e => setDomText(e.target.value)}
+                  onBlur={() => setDomText(String(clampDom(parseInt(domText, 10))))}
                   className="input h-[34px] py-0 px-2.5 text-[12.5px] w-20" aria-label="Day of month" />
                 <span className="text-[0.84rem] text-ink-mid">of each month</span>
               </div>
