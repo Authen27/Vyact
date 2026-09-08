@@ -496,6 +496,40 @@ export class BudgetExistsError extends Error {
   }
 }
 
+/**
+ * A write that PostgREST accepted but that changed nothing.
+ *
+ * 🔴 THIS IS THE MOST DANGEROUS SHAPE IN THE WHOLE ADAPTER, and it is the
+ * mechanism behind two reported defects: "deleting a household does nothing"
+ * and "deleting a recurring schedule reverts".
+ *
+ * A row-level-security policy does NOT raise on a blocked write. The statement
+ * runs, matches zero rows, and returns `{ error: null }`. `if (error) throw` —
+ * the pattern used everywhere here — therefore sees a clean success. The store
+ * then drops the row from local state, the UI reports "Deleted", and the next
+ * sync pulls it straight back.
+ *
+ * Verified directly against the schema: an unauthorised UPDATE and DELETE each
+ * reported `row_count = 0` with no exception (Lane B, CON-E2E-029).
+ *
+ * The fix is to ask for the affected rows with `.select()` and count them. This
+ * error is what "zero" means: the server declined, silently.
+ */
+export class WriteNotAppliedError extends Error {
+  override readonly name = 'WriteNotAppliedError';
+  constructor(
+    public readonly operation: string,
+    public readonly table: string,
+    public readonly id: string,
+  ) {
+    super(
+      `${operation} on ${table}/${id} affected no rows. The server accepted the request and ` +
+      'changed nothing — usually because permission was denied, or the row is already gone. ' +
+      'Nothing has been removed.',
+    );
+  }
+}
+
 // ── Adapter ───────────────────────────────────────────────────
 export class SupabaseAdapter implements DataAdapter {
   constructor(private sb: SupabaseClient) {}
@@ -556,8 +590,12 @@ export class SupabaseAdapter implements DataAdapter {
   }
 
   async deleteHousehold(id: string): Promise<void> {
-    const { error } = await this.sb.from('households').delete().eq('id', id);
+    // `.select('id')` is what turns "the server declined" into a failure. The
+    // DELETE policy is `role_in(id) = 'owner'`; a non-owner gets zero rows and
+    // no error, which used to read as success all the way up to the toast.
+    const { data, error } = await this.sb.from('households').delete().eq('id', id).select('id');
     if (error) throw error;
+    if (!data || data.length === 0) throw new WriteNotAppliedError('delete', 'households', id);
   }
 
   async getActiveHousehold(): Promise<string> {
@@ -809,8 +847,9 @@ export class SupabaseAdapter implements DataAdapter {
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
     const tableName = this.tableName(entity);
     if (entity === 'members') {
-      const { error } = await this.sb.from('memberships').delete().eq('id', id);
+      const { data, error } = await this.sb.from('memberships').delete().eq('id', id).select('id');
       if (error) throw error;
+      if (!data || data.length === 0) throw new WriteNotAppliedError('delete', 'memberships', id);
       return;
     }
     // Soft-delete for syncable tables.
@@ -822,10 +861,18 @@ export class SupabaseAdapter implements DataAdapter {
     // never enters any other device's delta window, and the row lives on
     // forever as a ghost (the case-7 net-worth bug). Setting it explicitly
     // here guarantees tombstone propagation regardless of server triggers.
+    //
+    // R3 (Phase 1): `.select('id')` and a row count. A soft-delete is an
+    // UPDATE, and an RLS-blocked UPDATE is the quietest failure in Postgres —
+    // it matches zero rows and returns no error. `removeRecurring` awaited this
+    // call, saw it resolve, and dropped the schedule from local state; the next
+    // sync pulled it back. That is defect 7, and it was never a delete bug — it
+    // was this line not asking whether anything happened.
     const nowIso = new Date().toISOString();
-    const { error } = await this.sb.from(tableName)
-      .update({ deleted_at: nowIso, updated_at: nowIso }).eq('id', id);
+    const { data, error } = await this.sb.from(tableName)
+      .update({ deleted_at: nowIso, updated_at: nowIso }).eq('id', id).select('id');
     if (error) throw error;
+    if (!data || data.length === 0) throw new WriteNotAppliedError('soft-delete', tableName, id);
     void householdId;
   }
 

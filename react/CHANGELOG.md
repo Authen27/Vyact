@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.1`** (consumer)
+> **Current production version: `v10.20.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,60 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.2 — Recurring: an editable day field and a delete that tells the truth *(2026-09-08)*
+
+Two reported defects that survived the previous release because the previous release
+did not touch them. Both reproduced against the running app before being changed.
+
+### The day-of-month field fought every edit
+
+    onChange={e => setDayOfMonth(Math.max(1, Math.min(31, parseInt(e.target.value) || 1)))}
+
+Clamping on every keystroke means the box can never be transiently empty. Backspacing to
+clear it yields `NaN`, `|| 1` turns that into `1`, and the field re-renders as "1" while you
+are still typing. Observed live: clearing the field showed `1`; typing `0` showed `1`.
+
+The raw text is now the state and the number is derived from it. The clamp moved to blur and
+submit. After the fix the field accepts `""`, `0` and `25` mid-edit, and on blur settles
+`0` → 1, empty → today, `47` → 31.
+
+### Deleting a schedule claimed success whatever happened
+
+    onClick={() => { if (confirm(…)) { remove(s.id); toast('Schedule deleted'); } }}
+
+`remove(s.id)` was never awaited and the success toast fired on the next line regardless. A
+rejection became an unhandled promise rejection: nothing in the UI, nothing to report, and a
+toast insisting it had worked. That is why this read as "deletion doesn't work" with no error
+to go on.
+
+Now awaited, with the real failure surfaced. **This is deliberately diagnostic**: production
+currently holds zero rows in `recurring_schedules` while schedules appear in the app, and the
+error text is what will distinguish "the row was never on the server" from "the server refused
+the write". Until now there was no error to read.
+
+### Writes that change nothing no longer report success
+
+A row-level-security policy does not raise on a blocked write — the statement runs, matches
+zero rows, and returns `{ error: null }`. Every delete in the Supabase adapter used
+`if (error) throw`, so a refusal was indistinguishable from success: local state dropped the
+row, the UI said "Deleted", and the next sync pulled it back.
+
+`deleteHousehold`, the memberships delete and the soft-delete path now ask for the affected
+rows and count them; zero throws a typed `WriteNotAppliedError` naming what happened.
+`deleteHousehold` in the store also had its order wrong — it switched you to the local
+household *before* attempting the delete, so a refused delete evicted you from a household
+that still existed. It deletes first now, and only switches on success.
+
+> **Note for anyone whose rows are not server-side.** The adapter is stricter than it was, so
+> a queued delete for a row the server does not have will now fail rather than pass quietly.
+> That is the intended behaviour, but it can produce sync-banner noise until such a divergence
+> is resolved.
+
+Tests: 800 unit (CON-UNIT-084..086) and 10 Lane B against real Postgres, including three new
+specs that prove a real policy really does refuse silently — the mocks alone could not.
 
 ---
 

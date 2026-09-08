@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { SupabaseAdapter, ConcurrencyConflictError, BudgetExistsError } from '../supabaseAdapter';
+import { SupabaseAdapter, ConcurrencyConflictError, BudgetExistsError, WriteNotAppliedError } from '../supabaseAdapter';
 
 // Test scenarios CON-UNIT-051..053. TD-03 phase A (PR #11) — pins the
 // compare-and-set behaviour added to SupabaseAdapter.upsert so the
@@ -264,7 +264,11 @@ describe('SupabaseAdapter.remove · R1 tombstone propagation', () => {
   // another device's `updated_at >= cursor` window and the row lives on as a
   // ghost (the case-7 net-worth bug). We assert both columns are set.
   it('CON-UNIT-063 · soft-delete sets deleted_at AND bumps updated_at so the tombstone rides the delta window', async () => {
-    const eq = vi.fn().mockResolvedValue({ error: null });
+    // R3 (Phase 1) added `.select('id')` after `.eq()` so the adapter can count
+    // affected rows — an RLS-blocked UPDATE returns no error, so the row count
+    // is the only signal. The mock models that chain; one row back = applied.
+    const select = vi.fn().mockResolvedValue({ data: [{ id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }], error: null });
+    const eq = vi.fn().mockReturnValue({ select });
     const update = vi.fn().mockReturnValue({ eq });
     const from = vi.fn().mockReturnValue({ update });
     const sb = { from } as unknown as SupabaseClient;
@@ -276,5 +280,54 @@ describe('SupabaseAdapter.remove · R1 tombstone propagation', () => {
     expect(patch.updated_at).toBeTruthy();
     expect(patch.updated_at).toBe(patch.deleted_at);   // same instant
     expect(eq).toHaveBeenCalledWith('id', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+  });
+});
+
+// CON-UNIT-084..086 — Phase 1. The silent-write-loss guard.
+//
+// A row-level-security policy does NOT raise on a blocked write. The statement
+// runs, matches zero rows, and returns { error: null }.  —
+// the pattern this adapter used everywhere — therefore saw a clean success, the
+// store dropped the row from local state, the UI said Deleted, and the next
+// sync pulled it back. That is defects 5 and 7, and neither was a delete bug:
+// it was the write never being asked whether it had done anything.
+//
+// Verified against the real schema in Lane B (CON-E2E-029): an unauthorised
+// UPDATE and DELETE each reported row_count = 0 with no exception.
+describe('SupabaseAdapter · a write that changes nothing must not report success', () => {
+  it('CON-UNIT-084 · a soft-delete affecting zero rows throws WriteNotAppliedError', async () => {
+    const select = vi.fn().mockResolvedValue({ data: [], error: null });   // RLS refused, silently
+    const eq = vi.fn().mockReturnValue({ select });
+    const update = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ update });
+    const adapter = new SupabaseAdapter({ from } as unknown as SupabaseClient);
+
+    await expect(adapter.remove('recurring', 'h1', 'r1')).rejects.toThrow(WriteNotAppliedError);
+    // The message has to be actionable: it is the only thing the user will see.
+    await expect(adapter.remove('recurring', 'h1', 'r1')).rejects.toThrow(/affected no rows/);
+  });
+
+  it('CON-UNIT-085 · deleting a household affecting zero rows throws', async () => {
+    // The households DELETE policy is role_in(id) = 'owner'. A non-owner used to
+    // get a success toast and a household that was still there.
+    const select = vi.fn().mockResolvedValue({ data: [], error: null });
+    const eq = vi.fn().mockReturnValue({ select });
+    const del = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ delete: del });
+    const adapter = new SupabaseAdapter({ from } as unknown as SupabaseClient);
+
+    await expect(adapter.deleteHousehold('h-not-mine')).rejects.toThrow(WriteNotAppliedError);
+  });
+
+  it('CON-UNIT-086 · a write that DID apply still resolves', async () => {
+    // The guard must not turn every successful delete into an error — one row
+    // back is the normal case and has to stay silent.
+    const select = vi.fn().mockResolvedValue({ data: [{ id: 'h1' }], error: null });
+    const eq = vi.fn().mockReturnValue({ select });
+    const del = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ delete: del });
+    const adapter = new SupabaseAdapter({ from } as unknown as SupabaseClient);
+
+    await expect(adapter.deleteHousehold('h1')).resolves.toBeUndefined();
   });
 });
