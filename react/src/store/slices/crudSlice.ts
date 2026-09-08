@@ -213,7 +213,28 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       throw new Error('This household already has a Cash account — edit it instead of adding another.');
     }
 
-    const saved = await adapter.upsert('accounts', currentHouseholdId, a, a.id && a.updated_at ? a.updated_at : undefined);
+    // 🔒 A PATCH MUST NOT ERASE WHAT IT DOES NOT MENTION.
+    //
+    // Callers legitimately send partials: the account editor sends metadata
+    // only (name/kind/currency/flags), while reconcile sends `{...account,
+    // ...patch}`. The editor's shape used to reach an adapter that treats the
+    // record as complete — the local one replaces it outright, the cloud one
+    // defaulted the missing financial columns to 0 — so a rename wrote away the
+    // opening balance and the reconciliation history.
+    //
+    // Merging here, at the layer that actually knows what an Account is, fixes
+    // both adapters at once and keeps the generic `upsert` semantics untouched:
+    // changing those globally would silently alter every other entity, and some
+    // callers do rely on passing a full record.
+    //
+    // Only DEFINED keys are merged, so an explicit `undefined` in a patch still
+    // cannot resurrect an old value by accident.
+    const existing = a.id ? accounts.find(x => x.id === a.id) : undefined;
+    const payload: Partial<Account> = existing
+      ? { ...existing, ...Object.fromEntries(Object.entries(a).filter(([, v]) => v !== undefined)) }
+      : a;
+
+    const saved = await adapter.upsert('accounts', currentHouseholdId, payload, payload.id && payload.updated_at ? payload.updated_at : undefined);
     const idx = accounts.findIndex(x => x.id === saved.id);
     set({ accounts: idx >= 0 ? accounts.map(x => x.id === saved.id ? saved as Account : x) : [...accounts, saved as Account] });
     return saved as Account;

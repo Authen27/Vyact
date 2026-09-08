@@ -154,13 +154,30 @@ function AppShell() {
     return unsub;
   }, []);
 
-  // v4.1 — Realtime subscription on the active household
+  // Resolve WHO I AM in the active household. Runs in BOTH modes.
+  //
+  // This used to live inside the realtime effect below, behind its
+  // `!cloudEnabled || !session` guard — so in local-only mode it never ran at
+  // all. `myRole` stayed at its initial `undefined`, `can()` fell through to
+  // its deny-by-default (`action === 'view'`), and every write-gated screen
+  // rendered read-only: no Add Budget, no delete household, no recurring edit.
+  // The "local-only: you own everything" fallback inside refreshHouseholds was
+  // dead code, because the only caller was gated on cloud being ON.
+  //
+  // It also blinded the whole e2e suite: Lane A builds in local-only mode, so
+  // no test could ever open the editors those screens gate. Fixing the product
+  // bug is what makes those journeys testable — hence Phase 0.
+  useEffect(() => {
+    void refreshHouseholds();
+  }, [cloudEnabled, session, currentHouseholdId, refreshHouseholds]);
+
+  // v4.1 — Realtime subscription on the active household. Cloud-only: there is
+  // nothing to subscribe to in local-only mode, and 'local' is not a real row.
   useEffect(() => {
     if (!cloudEnabled || !session || !currentHouseholdId || currentHouseholdId === 'local') return;
-    refreshHouseholds();
     const unsub = subscribeRealtime(currentHouseholdId);
     return unsub;
-  }, [cloudEnabled, session, currentHouseholdId, subscribeRealtime, refreshHouseholds]);
+  }, [cloudEnabled, session, currentHouseholdId, subscribeRealtime]);
 
   // Auth-only routes (rendered without Layout)
   const isAuthRoute = location.pathname.startsWith('/auth/') || location.pathname.startsWith('/invite/');

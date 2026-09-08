@@ -47,8 +47,15 @@ const INVENTORY_ID_RE = /^[A-Z]+-FC-\d{3}$/;
 const sourceRoots = [
   { app: 'CON', layer: 'UNIT', dir: 'react/src/lib/__tests__', match: /\.test\.tsx?$/ },
   { app: 'ADM', layer: 'UNIT', dir: 'admin/src/lib/__tests__', match: /\.test\.tsx?$/ },
-  // Only the e2e directory has an inventory namespace alongside its scenarios.
+  // Only the e2e directories have an inventory namespace alongside their scenarios.
   { app: 'CON', layer: 'E2E',  dir: 'react/e2e/tests',         match: /\.spec\.tsx?$/,
+    inventory: INVENTORY_ID_RE },
+  // Lane B (cloud) lives in its own directory with its own Playwright config,
+  // because it needs a real Postgres and no browser. Its ids share the CON-E2E
+  // namespace — they are the same catalogue, just a different execution lane —
+  // so it must be scanned here or every Lane B test is invisible to the
+  // reconciler and silently uncatalogued.
+  { app: 'CON', layer: 'E2E',  dir: 'react/e2e/lane-b',        match: /\.spec\.tsx?$/,
     inventory: INVENTORY_ID_RE },
 ];
 

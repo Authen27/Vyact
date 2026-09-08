@@ -257,6 +257,37 @@ describe('tone + seam (spec §7/§3)', () => {
     expect(() => assertNoInventedFigures('You spent £421 on dining.', vars)).toThrow(InventedFigureError);
     expect(() => assertNoInventedFigures('Your net worth is £58,300.', vars)).toThrow(InventedFigureError);
   });
+
+  it('CON-UNIT-ASK-081 · a year-shaped number presented as MONEY is not exempt', () => {
+    // Phase 0.6 (audit A1). The year exemption used to be unconditional, so the
+    // whole 1900–2099 band passed the guard — a realistic amount range, not a
+    // theoretical one. It is now conditional on the figure not being money.
+    const vars = { amount: '£420' };
+    expect(() => assertNoInventedFigures('You spent £2,050 on rent.', vars))
+      .toThrow(InventedFigureError);
+    expect(() => assertNoInventedFigures('Your net worth is £1,999.', vars))
+      .toThrow(InventedFigureError);
+    expect(() => assertNoInventedFigures('That comes to Rs. 2020 this month.', vars))
+      .toThrow(InventedFigureError);
+
+    // A real year in prose still passes — the exemption is narrowed, not removed.
+    expect(() => assertNoInventedFigures('You joined in 2026.', vars)).not.toThrow();
+    expect(() => assertNoInventedFigures('Compared with 1999, spending is calmer.', vars))
+      .not.toThrow();
+  });
+
+  it('CON-UNIT-ASK-082 · 100 is no longer waved through', () => {
+    // The likeliest confabulation in a finance assistant is a percentage. A
+    // genuine 100 arrives inside a computed value and is allowed by that route.
+    expect(() => assertNoInventedFigures('That is 100% of your budget.', { amount: '£420' }))
+      .toThrow(InventedFigureError);
+    expect(() => assertNoInventedFigures('Your Pulse Score is 85/100.',
+      { headline: 'Your Pulse Score is 85/100.' })).not.toThrow();
+
+    // Small counts and calendar quantities stay exempt — prose needs them.
+    expect(() => assertNoInventedFigures('That is 3 budgets over across 30 days.', { amount: '£420' }))
+      .not.toThrow();
+  });
   it('CON-UNIT-ASK-053 · proactive insight surfaces the over-budget category', () => {
     const insight = proactiveInsight(makeCtx());
     expect(insight).not.toBeNull();

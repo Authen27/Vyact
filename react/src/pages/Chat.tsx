@@ -365,9 +365,15 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       <div className="flex items-start gap-2.5 rounded-r2 px-3 py-2.5 mb-3.5"
         style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 14%, transparent)' }}>
         <span className="text-[13px] leading-5 flex-shrink-0" aria-hidden>🔒</span>
+        {/* v10.20.1 — softened from "Your numbers are calculated, never guessed."
+            That claimed the guard proves every figure correct. It does not: it
+            checks numeric tokens against the computed values, exempts small
+            counts, and cannot see sign, unit or framing. Describe the DIVISION
+            OF LABOUR, which is true and is the reassurance that actually
+            matters, rather than a guarantee the code does not make. */}
         <p className="text-[11.5px] text-ink-mid leading-[1.4]">
-          <strong className="text-ink">Your numbers are calculated, never guessed.</strong> Ask Vyact uses a model to
-          understand your question and word the answer — every figure in it comes from your own data, computed here.
+          <strong className="text-ink">Vyact does the maths, not the model.</strong> Every amount comes from your own
+          data, calculated here. The model reads your question and puts the answer into words.
         </p>
       </div>
 

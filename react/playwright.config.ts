@@ -62,7 +62,11 @@ export default defineConfig({
     command: 'npm run build -- --mode test && npm run preview -- --port 4173',
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
+    // 180s was marginal: a cold build overran it, and Playwright then EXITS 0
+    // having run nothing. A suite that reports success while executing zero
+    // tests is the same silent-green failure this lane exists to catch — and it
+    // fooled a real review pass before it was noticed. Give the build room.
+    timeout: 480_000,
     // Blank Supabase env → local-only mode (no auth, single 'local' household).
     env: {
       VITE_SUPABASE_URL: '',

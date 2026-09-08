@@ -132,26 +132,65 @@ export async function classifyIntentViaModel(
 
 // ── the anti-hallucination guard ─────────────────────────────────────────────
 
-/** Numbers that carry no money meaning and may legitimately appear in prose. */
+/**
+ * Small counts and calendar quantities that legitimately appear in prose:
+ * "2 categories", "30 days", "12 months".
+ *
+ * `100` was here and has been REMOVED. In a finance assistant it is the single
+ * most likely figure for a model to confabulate — "100% of your budget" — and it
+ * almost never needs the exemption, because a genuine 100 arrives inside a
+ * computed value ("Your Pulse Score is 85/100") and is therefore already
+ * allowed. Exempting it bought nothing and cost the guard its most obvious case.
+ */
 const HARMLESS = new Set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
-  '11', '12', '24', '30', '31', '100']);
+  '11', '12', '24', '30', '31']);
 
-/** Every numeric token in a string, commas stripped. */
-function figuresIn(text: string): string[] {
-  const out: string[] = [];
+/**
+ * A currency marker immediately before a number: `£2,050`, `Rs. 1999`, `INR 2020`.
+ * Used to stop the year exemption swallowing money — see `assertNoInventedFigures`.
+ */
+const CURRENCY_PREFIX = /(?:[£$€₹¥]|\b(?:rs|inr|usd|gbp|eur|aed|sgd|aud|cad|jpy)\.?)\s*$/i;
+
+interface Figure { value: string; index: number; }
+
+/** Every numeric token in a string, commas stripped, with its position so the
+ *  caller can look at what precedes it. */
+function figuresWithPos(text: string): Figure[] {
+  const out: Figure[] = [];
   const re = /\d[\d,]*(?:\.\d+)?/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(text || '')) !== null) out.push(m[0].replace(/,/g, ''));
+  while ((m = re.exec(text || '')) !== null) {
+    out.push({ value: m[0].replace(/,/g, ''), index: m.index });
+  }
   return out;
+}
+
+/** Values only — for scanning the computed `vars`, where position is irrelevant. */
+function figuresIn(text: string): string[] {
+  return figuresWithPos(text).map(f => f.value);
 }
 
 /**
  * THE "SERVICES COMPUTE" GUARD, mechanised.
  *
  * Every money-shaped figure in the model's reply must trace back to a value
- * `resolve()` produced. This is the automated form of the binding rule, and it
- * is what makes a model-written answer safe to show in a finance app: a
- * hallucinated total cannot reach the user, because it did not come from a tool.
+ * `resolve()` produced. A hallucinated total cannot reach the user, because it
+ * did not come from a tool.
+ *
+ * ⚠️ WHAT THIS DOES **NOT** PROVE — state it here so nobody writes UI copy that
+ * claims more than the code delivers (which is exactly what happened in v10.20):
+ *
+ *   · It matches TOKENS, not meaning. A figure that came from the tools but is
+ *     described with the wrong sign, unit, or framing — income narrated as debt,
+ *     "up" for "down" — passes cleanly.
+ *   · Small counts stay exempt (`HARMLESS`), so "3 budgets are over" can still be
+ *     wrong about the 3.
+ *   · A magnitude word next to a right number ("2.4 million") is not checked.
+ *
+ * It is defence in depth against fabricated amounts. It is not proof that every
+ * financial statement in a reply is correct, and the honest end state is the one
+ * the audit describes: services return facts with units, the UI renders the
+ * amounts, and the model only explains them.
  */
 export function assertNoInventedFigures(
   reply: string,
@@ -168,14 +207,19 @@ export function assertNoInventedFigures(
     }
   }
 
-  const offending = figuresIn(reply).filter(f => {
+  const offending = figuresWithPos(reply).filter(({ value: f, index }) => {
     if (allowed.has(f) || HARMLESS.has(f)) return false;
     if (f.includes('.') && allowed.has(f.replace(/\.0+$/, ''))) return false;
     if (!f.includes('.') && allowed.has(`${f}.00`)) return false;
-    // A 4-digit number in a sentence is far more likely a year than a total.
-    if (/^(19|20)\d{2}$/.test(f)) return false;
+    // A bare 4-digit number in a sentence is far more likely a year than a
+    // total — but ONLY when it is not presented as money. This exemption used to
+    // be unconditional, which meant the entire 1900–2099 band sailed through:
+    // "You spent £2,050 on rent" and "Your net worth is £1,999" both passed the
+    // guard completely un-computed. That is a realistic amount range, not a
+    // theoretical one, and it was the largest hole in this function.
+    if (/^(19|20)\d{2}$/.test(f) && !CURRENCY_PREFIX.test(reply.slice(0, index))) return false;
     return true;
-  });
+  }).map(f => f.value);
 
   if (offending.length > 0) throw new InventedFigureError([...new Set(offending)]);
 }
