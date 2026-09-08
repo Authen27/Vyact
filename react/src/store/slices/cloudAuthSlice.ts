@@ -11,6 +11,7 @@ import type { Store } from '../../store';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { highestRole, resolveMyRole } from '../../lib/permissions';
 import { setLocalString } from '../localJson';
+import { invalidateCacheForSession, clearCacheOnSignOut } from '../../lib/cacheInvalidation';
 
 export interface CloudAuthSlice {
   cloudEnabled: boolean;
@@ -33,6 +34,20 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
     const isSignedIn = Boolean(session);
     set({ session, sessionLoaded: loaded });
     if (!wasSignedIn && isSignedIn) {
+      // 🔴 INVALIDATE THE LOCAL CACHE BEFORE LOADING ANYTHING (v10.20.7).
+      //
+      // The local store is a CACHE of cloud state and nothing ever invalidated
+      // it. On a shared device that meant a second user could be shown the
+      // first user's data — the adapter answers from cache before the network
+      // replies. It also meant rows whose cloud write had FAILED lived on
+      // locally and were re-uploaded by the next sync, so a deleted schedule
+      // came back. `recurring_schedules` held zero rows in production for
+      // months while devices rendered a full list from cache.
+      //
+      // This must run BEFORE init(), or init() hydrates from the very cache we
+      // are about to discard. The user's unsynced write queue is preserved.
+      const uid = session?.user?.id;
+      if (uid) invalidateCacheForSession(uid);
       // Just signed in — load households + data
       get().init();
     } else if (wasSignedIn && !isSignedIn) {
@@ -45,6 +60,12 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
       if (cur && cur !== 'local') {
         try { setLocalString('last_cloud_hid', cur); } catch { /* noop */ }
       }
+      // And drop the cached ledger from the device. Leaving a signed-out
+      // machine holding the last user's transactions is the same privacy
+      // problem as the sign-in case, only deferred. `last_cloud_hid` above is
+      // deliberately preserved so the next sign-in still lands on the right
+      // household.
+      clearCacheOnSignOut();
       // Just signed out — clear in-memory cloud state
       set({
         households: [], currentHouseholdId: 'local',

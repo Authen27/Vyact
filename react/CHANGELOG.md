@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.6`** (consumer)
+> **Current production version: `v10.20.7`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,60 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.7 — The reset: recurring cleared, and the local cache finally expires *(2026-09-08)*
+
+A deliberate reset rather than another patch. Recurring schedules kept coming back because the
+device, not the server, was the source of truth — and nothing ever invalidated the device.
+
+### The local cache never expired
+
+The local store is a **cache** of cloud state, and until now nothing dropped it. Two consequences,
+both live in production:
+
+| | |
+|---|---|
+| **Privacy** | Signing in as a second user on a shared device left the first user's households, accounts and transactions in `localStorage`. The adapter answers from cache before the network replies, so the new user could be shown the previous user's data. |
+| **Ghost rows** | Rows whose cloud write had FAILED lived on locally and were re-uploaded by the next sync. A deleted schedule came back. `recurring_schedules` held **zero** rows in production for months while devices rendered a full list from cache and generated a transaction from it every week. |
+
+`lib/cacheInvalidation.ts` drops the cache at the session boundary when it cannot be trusted —
+the signed-in user is not the user the cache was built for, or the cache was written by an older
+epoch. A routine re-login by the same user keeps its cache, so offline work and cold starts are
+unaffected. **The pending write queue is never dropped**; those are the user's own unsynced
+changes, and discarding them would be the data loss this is meant to prevent. Sign-out clears the
+cache too.
+
+Bumping `CACHE_EPOCH` is now the reset lever: every device drops its cache once, at next sign-in.
+
+### The resurrection machinery is retired
+
+Two migrations ran inside `refresh()` on every load. Both are gone, and nothing replaces them:
+
+- **`backfillSchedulesFromTransactions` (v7.3)** recreated a schedule for any transaction marked
+  `recurring` whose signature matched nothing. It had **no concept of a deliberate deletion**, so
+  deleting a schedule and reloading brought it back — announced by a "Recovered 1 recurring
+  schedule" toast that read as helpful. That is the whole of the long-running "deletion doesn't
+  work" report, and 45 transactions in production still carry a `recurring` marker it would have
+  fed on.
+- **The v10.20.5 re-key** has served its purpose, and its remaining risk was duplication: re-keying
+  changes the primary key, so it inserts rather than updates.
+
+`recurring_schedules` is now an ordinary synced entity. What the cloud holds is what exists, and a
+delete is final.
+
+### Server-side reset
+
+Every recurring schedule in the project was archived to
+`maintenance.recurring_archive_20260908` and removed. Schedules can be recreated in the fixed form
+— which since v10.20.6 requires an account, computes the right due date, and posts nothing on
+creation.
+
+### Coverage
+
+**CON-UNIT-099..104** — different-user purge (including the legacy `ff_*` namespace), same-user
+retention, the epoch lever, write-queue survival, sentinel clearing, and sign-out.
 
 ---
 
