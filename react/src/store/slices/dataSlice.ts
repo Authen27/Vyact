@@ -372,9 +372,19 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
 
   deleteHousehold: async (id) => {
     const { adapter, currentHouseholdId } = get();
-    if (id === currentHouseholdId) await get().switchHousehold('local');
+
+    // DELETE FIRST, THEN SWITCH. The old order switched to 'local' before
+    // attempting the delete, so a refused delete left the user evicted from a
+    // household that still existed — and because the adapter could not tell a
+    // refusal from a success, it then reported "Profile deleted" anyway.
+    //
+    // `deleteHousehold` now throws WriteNotAppliedError when the server changes
+    // nothing, so an unauthorised delete surfaces as an error and the user stays
+    // exactly where they were.
     await adapter.deleteHousehold(id);
-    set({ households: await adapter.listHouseholds() });
+
+    if (id === currentHouseholdId) await get().switchHousehold('local');
+    set({ households: await get().adapter.listHouseholds() });
     get().toast('Profile deleted', 'warning');
   },
 
