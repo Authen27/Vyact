@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.4`** (consumer)
+> **Current production version: `v10.20.5`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,89 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.5 — Recurring schedules can finally reach the cloud *(2026-09-08)*
+
+The previous release stopped the app **complaining** about writes that could not land. This one
+makes them land.
+
+### The defect
+
+Two retired id generators produced values that are not UUIDs:
+
+| Generator | Shape | Retired in |
+|---|---|---|
+| `backfillSchedulesFromTransactions` | `bf-${txn.id}` | v10.20.3 |
+| `recurringSlice.upsertRecurring` | base-36 timestamp + random | v10.20.3 |
+
+`recurring_schedules.id` is a `uuid` column. Every write carrying one of those ids died with
+Postgres `22P02` (invalid input syntax for type uuid), so the schedule lived **only in that
+device's local cache**. That is why production held **zero rows** while the app showed a full
+list — and why a deleted schedule came back on refresh: the delete never reached a row that had
+never been stored.
+
+Fixing the generators in v10.20.3 stopped the bleeding but migrated nothing. Schedules created
+before that release still carried unstorable ids.
+
+### The fix — a one-time, deterministic re-key
+
+`rekeyLegacyRecurringIds()` (`react/src/lib/recurring.ts`) gives every schedule whose id cannot
+be stored a real UUID, and repoints the transactions that referenced it.
+
+**Why deterministic rather than random.** Each device holds its own local copy of the same
+schedules. Random ids would have device A upload eleven rows and device B upload its own eleven —
+the duplicate-household pattern all over again. The id is derived from the schedule's *content*
+(type, description, currency, amount, frequency, day/weekday), so two devices holding the same
+schedule compute the same id and the upsert collapses them into one row. The signature
+deliberately excludes `nextDueDate`, `lastGenerated` and `startDate`, which drift as the engine
+runs — a schedule that has fired on one device still matches the same schedule on one that has not.
+
+**The transaction side matters as much.** `transactions.recurring_schedule_id` is an FK to this
+table, and the adapter's `fkOrNull` silently nulls any non-UUID, so cloud transactions had already
+lost the link. Both sides are remapped together, and written **schedules first** —
+`transactions_recurring_schedule_id_fkey` requires the schedule row to exist.
+
+Guarded by a `recurring_rekeyed_${householdId}` sentinel, and idempotent regardless: a schedule
+that already has a valid UUID is untouched, so a second run changes nothing.
+
+Covered by **CON-UNIT-089/090/091**.
+
+### The deploy gate no longer lies
+
+`db-migrations` carried `continue-on-error: true`, and `deploy-edge-functions`, `consumer` and
+`admin` ran with `if: always()`. The intent was that a Supabase auth hiccup should never block an
+app deploy. In practice the job failed on a stale `SUPABASE_ACCESS_TOKEN` for **four consecutive
+releases** while the workflow reported overall success — so nobody noticed, and the safety valve
+had become the normal state.
+
+The risk that makes this unacceptable: a release whose frontend expects new schema ships even
+though the migration never ran, and nothing says so. That is the same **silent-success** shape as
+every defect this stabilisation programme has been fixing.
+
+All four jobs now gate on `db-migrations`. A failed migration stops the release.
+
+### Making that gate safe to enforce
+
+Turning the gate on would have been a landmine on its own, so the underlying desync was repaired
+first:
+
+- **The migration tracker had drifted from the filenames.** Migrations applied through the Supabase
+  MCP are stamped with the MCP's own version, not the file's, so `supabase db push --include-all`
+  saw six already-applied migrations as pending and would have tried to re-run them the moment the
+  token was refreshed. The tracker rows were realigned to their filenames (and one duplicate
+  `ai_usage_metering` stamp removed). Verified: **all 60 migrations on disk are recorded as
+  applied, zero pending.**
+- **One migration existed only in the live database.**
+  `20260906150000_agent_helper_revoke_public_execute.sql` is now committed. It revokes Postgres's
+  default PUBLIC `EXECUTE` grant on `agent_conversation_in_household()`, a SECURITY DEFINER helper
+  that bypasses RLS by design — without it, `anon` could reach the helper through
+  `/rest/v1/rpc/` and use it as an existence oracle for a `(conversation_id, household_id)` pair.
+  `supabase/migrations/` is the declared source of truth, so a rebuild from disk would have
+  silently reintroduced that hole.
+
+Neither change alters production behaviour — both record what the database already is.
 
 ---
 

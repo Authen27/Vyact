@@ -36,12 +36,20 @@ jobs:
     name: Apply Supabase migrations
     runs-on: ubuntu-latest
     environment: production-database
-    # Best-effort: a Supabase auth/link hiccup (e.g. a rotated
-    # SUPABASE_ACCESS_TOKEN) must NEVER block an app deploy. The app jobs
-    # depend on this with `if: always()` so they ship regardless; a failure
-    # here only means *pending* migrations weren't auto-applied (the apply
-    # step is idempotent and re-runs cleanly once the secret is refreshed).
-    continue-on-error: true
+    # 🔴 NO LONGER BEST-EFFORT (v10.20.5).
+    #
+    # This carried `continue-on-error: true` on the reasoning that a Supabase
+    # auth hiccup must never block an app deploy. In practice it failed on a
+    # stale SUPABASE_ACCESS_TOKEN for FOUR consecutive releases while the
+    # workflow reported overall success — so nobody noticed, and the safety
+    # valve had become the normal state.
+    #
+    # The risk that makes this unacceptable: a release whose frontend expects
+    # new schema would ship even though the migration never ran, and nothing
+    # would say so. That is the same silent-success shape as the defects this
+    # stabilisation programme has been fixing.
+    #
+    # A failure here now stops the release. Refresh the token when it expires.
     steps:
       - uses: actions/checkout@v4
       # NOTE: do NOT use `version: latest` — it hits the unauthenticated GitHub
@@ -60,9 +68,9 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase db push --password "${{ secrets.SUPABASE_DB_PASSWORD }}" --include-all
 
-  # Deploy the Supabase Edge Functions. Best-effort (continue-on-error) for the
-  # same reason as db-migrations: a Supabase auth/link hiccup must never block
-  # the app deploy. The deploy itself is idempotent; the runtime WHATSAPP_* /
+  # Deploy the Supabase Edge Functions. Gated with db-migrations since v10.20.5
+  # (it was best-effort, and was silently failing on a stale token for four
+  # releases). The deploy itself is idempotent; the runtime WHATSAPP_* /
   # ASK_VYACT_* secrets are configured separately via `supabase secrets set`
   # (see whatsapp-connection-setup.md). The webhook MUST be --no-verify-jwt
   # (Meta has no Supabase JWT); the OTP functions MUST verify JWT (they identify
@@ -74,10 +82,9 @@ jobs:
   deploy-edge-functions:
     name: Deploy Supabase Edge Functions
     needs: db-migrations
-    if: always()
     runs-on: ubuntu-latest
     environment: production-database
-    continue-on-error: true
+    # Gated with db-migrations (v10.20.5) — see the note on that job.
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -103,7 +110,7 @@ jobs:
 
   consumer:
     needs: db-migrations
-    if: always()   # deploy even if the best-effort db-migrations job errored
+    # No longer if: always() — the app must not ship when its migrations did not.
     name: Deploy consumer (react/)
     runs-on: ubuntu-latest
     environment:
@@ -148,7 +155,7 @@ jobs:
 
   admin:
     needs: db-migrations
-    if: always()   # deploy even if the best-effort db-migrations job errored
+    # No longer if: always() — the app must not ship when its migrations did not.
     name: Deploy admin (admin/)
     runs-on: ubuntu-latest
     environment:

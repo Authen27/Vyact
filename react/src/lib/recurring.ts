@@ -269,3 +269,91 @@ export function backfillSchedulesFromTransactions(
 
   return { schedules: [...existing, ...added], added: added.length };
 }
+
+
+// ── Legacy id re-key (v10.20.5) ──────────────────────────────────────────────
+//
+// Two id generators in this app produced values that are NOT UUIDs:
+//
+//   `bf-${txn.id}`                              — backfillSchedulesFromTransactions
+//   Date.now().toString(36) + Math.random()…     — recurringSlice.upsertRecurring
+//
+// `recurring_schedules.id` is a `uuid` column, so every one of those cloud
+// writes died with 22P02 and the schedule lived only in that device's local
+// cache. Production held ZERO rows while the app showed a full list. Both
+// generators were fixed in v10.20.3; this migrates the rows they already made.
+//
+// WHY DETERMINISTIC, NOT RANDOM. Each device has its own local copy of the same
+// schedules. Random ids would mean device A uploads eleven rows and device B
+// uploads its own eleven — the duplicate-household pattern all over again.
+// Deriving the id from the schedule's CONTENT makes two devices holding the
+// same schedule compute the same id, so the upsert collapses them into one row.
+//
+// The transaction side matters as much: `transactions.recurring_schedule_id`
+// is an FK to this table, and `fkOrNull` in the adapter silently nulls any
+// non-UUID — so cloud transactions lost their schedule link entirely. Rewriting
+// the schedule id without remapping the transactions would leave that link
+// broken locally too, so both are remapped together.
+
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** True when an id is storable in a `uuid` column. */
+export const isStorableId = (id: string | undefined | null): boolean =>
+  !!id && UUID_SHAPE.test(id);
+
+/**
+ * The stable identity of a schedule, independent of its id.
+ *
+ * Deliberately excludes anything that drifts as the engine runs — nextDueDate,
+ * lastGenerated, startDate — so a schedule that has fired on one device still
+ * derives the same id as the same schedule on a device that has not.
+ */
+function scheduleSignature(s: RecurringSchedule): string {
+  const t = s.transactionTemplate;
+  return [
+    t?.type ?? '',
+    (t?.description ?? '').trim().toLowerCase(),
+    t?.currency ?? '',
+    String(t?.amount ?? ''),
+    s.frequency ?? '',
+    String(s.dayOfMonth ?? ''),
+    String(s.weekday ?? ''),
+  ].join('|');
+}
+
+export interface RekeyResult {
+  schedules: RecurringSchedule[];
+  transactions: Transaction[];
+  /** old id → new id, for callers that need to fix up anything else. */
+  remapped: Map<string, string>;
+}
+
+/**
+ * Give every schedule whose id cannot be stored a deterministic UUID, and
+ * repoint the transactions that referenced it.
+ *
+ * Pure and idempotent: a schedule that already has a valid UUID is untouched,
+ * so running this twice changes nothing the second time.
+ */
+export function rekeyLegacyRecurringIds(
+  schedules: RecurringSchedule[],
+  transactions: Transaction[],
+): RekeyResult {
+  const remapped = new Map<string, string>();
+
+  const nextSchedules = schedules.map((s) => {
+    if (isStorableId(s.id)) return s;
+    const fresh = deterministicUuid(`vyact:recur:rekey:${scheduleSignature(s)}`);
+    remapped.set(s.id, fresh);
+    return { ...s, id: fresh };
+  });
+
+  if (remapped.size === 0) return { schedules, transactions, remapped };
+
+  const nextTransactions = transactions.map((t) => {
+    const to = t.recurringScheduleId ? remapped.get(t.recurringScheduleId) : undefined;
+    return to ? { ...t, recurringScheduleId: to } : t;
+  });
+
+  return { schedules: nextSchedules, transactions: nextTransactions, remapped };
+}
