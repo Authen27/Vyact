@@ -27,7 +27,12 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
     const isNew = existingIdx < 0;
 
     const next: RecurringSchedule = {
-      id: s.id || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
+      // `Date.now().toString(36) + Math.random().toString(36)` is not a UUID,
+      // and `recurring_schedules.id` is a `uuid` column — so a user-created
+      // schedule failed its cloud write with 22P02 exactly like the backfilled
+      // ones. Every other entity in the app already mints ids with `uid()`
+      // (crypto.randomUUID); recurring was the sole exception.
+      id: s.id || uid(),
       transactionTemplate: s.transactionTemplate!,
       frequency: s.frequency!,
       dayOfMonth: s.dayOfMonth,

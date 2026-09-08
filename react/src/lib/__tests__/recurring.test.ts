@@ -5,6 +5,7 @@ import {
   projectRecurringTransactionsForDate,
   scheduleFiresOnDate,
   recurringInstanceId,
+  backfillSchedulesFromTransactions,
 } from '../recurring';
 
 function makeSchedule(overrides: Partial<RecurringSchedule> = {}): RecurringSchedule {
@@ -126,5 +127,55 @@ describe('recurringInstanceId · R2 idempotency', () => {
     expect(a1).not.toBe(b);          // different occurrence-date → different id
     expect(a1).not.toBe(c);          // different schedule → different id
     expect(a1).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+});
+
+// CON-UNIT-087..088 — the recurring-resurrection defect.
+//
+// A deleted schedule reappeared on the next page load. The delete was never at
+// fault: `refresh()` ran `backfillSchedulesFromTransactions` on EVERY load, and
+// that function matches transactions to schedules by signature and recreates any
+// it cannot find. It has no concept of "the user deleted this", so a deliberate
+// deletion looked exactly like a legacy gap.
+//
+// The sentinel that makes it run once lives in dataSlice; what is pinned here is
+// the other half — that the ids it mints are legal for the database. They were
+// `bf-${txn.id}`, which is not a UUID, while `recurring_schedules.id` IS a uuid
+// column. Every backfilled schedule therefore died on write with 22P02, silently,
+// which is why that table is empty in production while schedules show in the app.
+describe('backfillSchedulesFromTransactions · ids must be storable', () => {
+  const txn = (over: Record<string, unknown> = {}) => ({
+    id: '11111111-1111-4111-8111-111111111111',
+    type: 'expense', amount: 42, currency: 'GBP',
+    date: '2026-01-15', description: 'Netflix', category: 'entertainment',
+    recurring: 'monthly',
+    ...over,
+  }) as never;
+
+  it('CON-UNIT-087 · every backfilled schedule id is a valid UUID', () => {
+    const { schedules, added } = backfillSchedulesFromTransactions(
+      [txn(), txn({ id: '22222222-2222-4222-8222-222222222222', date: '2026-02-15' })],
+      [],
+      '2026-03-01',
+    );
+    expect(added, 'the fixture must actually produce a schedule').toBeGreaterThan(0);
+    for (const sch of schedules) {
+      expect(sch.id, `id "${sch.id}" must be a UUID the uuid column accepts`)
+        .toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      // The old shape, pinned explicitly so a revert is loud.
+      expect(sch.id.startsWith('bf-')).toBe(false);
+    }
+  });
+
+  it('CON-UNIT-088 · the same source transaction always derives the same schedule id', () => {
+    // Deterministic, not random: two devices running the migration
+    // independently must converge on one row rather than duplicate it.
+    const run = () => backfillSchedulesFromTransactions([txn()], [], '2026-03-01').schedules[0].id;
+    expect(run()).toBe(run());
+
+    const other = backfillSchedulesFromTransactions(
+      [txn({ id: '33333333-3333-4333-8333-333333333333' })], [], '2026-03-01',
+    ).schedules[0].id;
+    expect(other, 'a different source transaction must derive a different id').not.toBe(run());
   });
 });

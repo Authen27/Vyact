@@ -243,7 +243,18 @@ export function backfillSchedulesFromTransactions(
     const { id: _id, date: _date, ...template } = earliest;
     void _id; void _date;
     added.push({
-      id: `bf-${earliest.id}`,
+      // `bf-${earliest.id}` produced ids like `bf-6f0c…` — NOT a valid UUID,
+      // and `recurring_schedules.id` is a `uuid` column. Every backfilled
+      // schedule therefore failed its cloud write with 22P02 and lived only in
+      // the local cache, which is why that table is empty in production while
+      // schedules appear in the app.
+      //
+      // Deterministic rather than random: the same source transaction must
+      // always derive the same schedule id, so a device that re-runs the
+      // migration (or two devices running it independently) converge on one row
+      // instead of duplicating. Same primitive the recurring engine already
+      // uses for occurrence ids.
+      id: deterministicUuid(`vyact:recur:backfill:${earliest.id}`),
       transactionTemplate: template,
       frequency: freq,
       dayOfMonth,
