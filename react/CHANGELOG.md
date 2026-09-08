@@ -96,15 +96,15 @@ first:
   token was refreshed. The tracker rows were realigned to their filenames (and one duplicate
   `ai_usage_metering` stamp removed). Verified: **all 60 migrations on disk are recorded as
   applied, zero pending.**
-- **One migration existed only in the live database.**
-  `20260906150000_agent_helper_revoke_public_execute.sql` is now committed. It revokes Postgres's
-  default PUBLIC `EXECUTE` grant on `agent_conversation_in_household()`, a SECURITY DEFINER helper
-  that bypasses RLS by design — without it, `anon` could reach the helper through
-  `/rest/v1/rpc/` and use it as an existence oracle for a `(conversation_id, household_id)` pair.
-  `supabase/migrations/` is the declared source of truth, so a rebuild from disk would have
-  silently reintroduced that hole.
+- **A migration appeared to exist only in the live database.**
+  `20260906150000_agent_helper_revoke_public_execute.sql` was added on that reading. It was
+  **wrong** — the revocation was already on disk at
+  `20260816120000_agent_ingestion_state.sql:195`, and the file was a redundant re-assertion. The
+  file has since been removed and this entry corrected. **No security gap ever existed** — `anon`
+  has never been able to reach `agent_conversation_in_household()`.
 
-Neither change alters production behaviour — both record what the database already is.
+The tracker realignment does not alter production behaviour — it records what the database
+already is.
 
 ---
 
