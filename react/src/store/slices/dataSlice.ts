@@ -16,7 +16,6 @@ import { DEFAULT_RATES } from '../../constants';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { applyPayment } from '../../lib/amortization';
 import { autoMigrateAnonToHousehold } from '../../lib/migration';
-import { backfillSchedulesFromTransactions, rekeyLegacyRecurringIds, isStorableId } from '../../lib/recurring';
 import { uid, setNumberSystem } from '../../lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from '../../lib/numberSystemPref';
 import {
@@ -25,7 +24,7 @@ import {
 } from '../../lib/onboardingState';
 import { accountValueOf } from '../../lib/accountBalance';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from '../../lib/educationProgress';
-import { unexpected, droppedWrite } from '../../lib/faults';
+import { unexpected } from '../../lib/faults';
 import { readLocalJson, readLocalString, setLocalString, removeLocal } from '../localJson';
 
 export interface DataSlice {
@@ -309,126 +308,30 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     });
     setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
 
-    // ── One-time RE-KEY of unstorable recurring ids (v10.20.5) ──────────────
+    // ── Recurring migrations: RETIRED (v10.20.7) ────────────────────────────
     //
-    // Two retired generators produced ids that are not UUIDs (`bf-<txn id>`,
-    // and a base-36 timestamp+random). `recurring_schedules.id` is a `uuid`
-    // column, so every such schedule failed its cloud write with 22P02 and
-    // lived only in this device's cache. Both generators were fixed in
-    // v10.20.3; this migrates the rows they already made.
+    // Two migrations used to run here on every load. Both are gone, and this is
+    // a deliberate reset rather than a tidy-up.
     //
-    // ORDER MATTERS. `transactions.recurring_schedule_id` is an FK to this
-    // table, so the schedules are written FIRST and the repointed transactions
-    // second — otherwise the transaction write references a row the server does
-    // not have yet.
-    // `recurringList` is destructured from the load above, so the re-keyed set
-    // is held separately and handed to the backfill below.
-    let effectiveRecurring = recurringList;
-
-    const rekeyKey = `recurring_rekeyed_${currentHouseholdId}`;
-    if (readLocalString(rekeyKey) !== '1') {
-      const rekeyed = rekeyLegacyRecurringIds(recurringList, transactions);
-      try { setLocalString(rekeyKey, '1'); } catch { /* noop */ }
-
-      if (rekeyed.remapped.size > 0) {
-        for (const s of rekeyed.schedules) {
-          if (!rekeyed.remapped.has(s.id) && !isStorableId(s.id)) continue;
-          try {
-            await adapter.upsert('recurring', currentHouseholdId, s);
-          } catch (e) {
-            droppedWrite('dataSlice.refresh:rekeyRecurring',
-              `schedule ${s.id}: ${(e as Error)?.message ?? String(e)}`);
-          }
-        }
-        for (const t of rekeyed.transactions) {
-          if (!t.recurringScheduleId) continue;
-          if (![...rekeyed.remapped.values()].includes(t.recurringScheduleId)) continue;
-          try {
-            await adapter.upsert('transactions', currentHouseholdId, t);
-          } catch (e) {
-            droppedWrite('dataSlice.refresh:rekeyTxnLink',
-              `txn ${t.id}: ${(e as Error)?.message ?? String(e)}`);
-          }
-        }
-        // 🔴 EVICT THE OLD KEYS. Re-keying changes the primary key, so the
-        // writes above INSERTED new rows and left the originals in the local
-        // cache under their old ids. v10.20.5 stopped here, and the next load
-        // listed both — every schedule appeared twice, and deleting one of the
-        // pair left the other, which read as "delete doesn't work".
-        //
-        // A legacy id is not a UUID, so the cloud DELETE cannot match anything
-        // (that is the whole reason for this migration); the removal that
-        // matters is the local one. Failure is therefore expected and must not
-        // be reported as a dropped write.
-        for (const oldId of rekeyed.retiredIds) {
-          try {
-            await adapter.remove('recurring', currentHouseholdId, oldId);
-          } catch { /* legacy id was never storable in the cloud — local evict is what counts */ }
-        }
-
-        effectiveRecurring = rekeyed.schedules;
-        set({ recurringSchedules: rekeyed.schedules, transactions: rekeyed.transactions });
-      }
-    }
-
-    // v7.3 — Backfill RecurringSchedule rows for legacy txns whose `recurring`
-    // field is set but never produced a schedule. v8.9 — recurring is now a
-    // household-scoped, synced entity, so persist new rows through the adapter
-    // (was localStorage-only) so they reach the cloud + other devices.
+    // 1. backfillSchedulesFromTransactions (v7.3) recreated a schedule for any
+    //    transaction marked `recurring` whose signature matched nothing. It had
+    //    NO concept of a deliberate deletion, so deleting a schedule and
+    //    reloading brought it back — announced by a "Recovered 1 recurring
+    //    schedule" toast that read as helpful. That is the whole of the
+    //    long-running "deletion doesn't work" report. 45 transactions in
+    //    production still carry a `recurring` marker, so this would have kept
+    //    resurrecting schedules on any device that had not run it yet.
     //
-    // 🔴 ONCE PER HOUSEHOLD. This is a MIGRATION, and it used to run on every
-    // single `refresh()` — i.e. every page load, forever.
+    // 2. The v10.20.5 re-key rewrote unstorable ids. It has served its purpose
+    //    and its remaining risk is duplication: re-keying changes the primary
+    //    key, so it inserts rather than updates.
     //
-    // It matches transactions to schedules by signature
-    // (`type|description|recurring|currency`) and recreates any schedule the
-    // signature cannot find. It has no idea a user ever deleted one, so a
-    // deliberate deletion looked exactly like a legacy gap: you deleted a
-    // schedule, the delete worked, and the next load rebuilt it — with a
-    // "Recovered 1 recurring schedule" toast that read as helpful rather than
-    // as the bug it was. That is the whole of the reported "deletion doesn't
-    // work".
-    //
-    // The sentinel mirrors HybridAdapter's `cloud_synced_*` pattern: a
-    // per-household localStorage flag, so the migration runs once on a device
-    // that has never done it and never again.
-    const backfillKey = `recurring_backfilled_${currentHouseholdId}`;
-    const alreadyBackfilled = readLocalString(backfillKey) === '1';
+    // Nothing replaces them. `recurring_schedules` is now an ordinary synced
+    // entity: what the cloud holds is what exists, and a delete is final. The
+    // stale caches those migrations fed on are cleared at the session boundary
+    // by lib/cacheInvalidation.ts, so no device re-uploads a schedule the cloud
+    // does not have.
 
-    if (!alreadyBackfilled) {
-      const { schedules: nextSchedules, added } = backfillSchedulesFromTransactions(
-        transactions,
-        effectiveRecurring,
-      );
-      // Mark it done whether or not anything was added — "nothing to recover"
-      // is a completed migration too, and re-running it can only resurrect
-      // things the user has since deleted.
-      try { setLocalString(backfillKey, '1'); } catch { /* noop */ }
-
-      if (added > 0) {
-        // Compare against the post-re-key set: a schedule that was just given a
-        // new id is NOT a new schedule, and treating it as one would re-upload
-        // it needlessly.
-        const fresh = nextSchedules.filter(s => !effectiveRecurring.some(r => r.id === s.id));
-        for (const s of fresh) {
-          // NOT `catch {}`. This swallowed a hard schema error for the entire
-          // life of the feature: backfilled ids were `bf-<uuid>`, the column is
-          // `uuid`, so every one of these writes died with 22P02 and nobody
-          // ever saw it — which is why `recurring_schedules` is empty in
-          // production while schedules show in the app. A dropped write must
-          // surface (the binding rule is "never a silent write-loss catch {}").
-          try {
-            await adapter.upsert('recurring', currentHouseholdId, s);
-          } catch (e) {
-            droppedWrite(
-              'dataSlice.refresh:backfillRecurring',
-              `schedule ${s.id}: ${(e as Error)?.message ?? String(e)}`,
-            );
-          }
-        }
-        set({ recurringSchedules: nextSchedules });
-        get().toast(`Recovered ${added} recurring schedule${added === 1 ? '' : 's'} from existing transactions`, 'info');
-      }
-    }
   },
 
   // v9.5.0 — budgets-only refetch (the realtime accelerator's onChange). Unlike
