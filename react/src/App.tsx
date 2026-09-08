@@ -9,7 +9,6 @@ import { shouldOnboard, migrateExistingHousehold } from './lib/onboardingState';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
 import FaultsPanel from './components/dev/FaultsPanel';
-import SyncHealthIndicator from './components/sync/SyncHealthIndicator';
 import AuthGate from './components/auth/AuthGate';
 import UpdateBanner from './components/layout/UpdateBanner';
 import InstallBanner from './components/layout/InstallBanner';
@@ -63,7 +62,17 @@ export default function App() {
           <RootModals />
         </Suspense>
         <ToastHost />
-        <SyncHealthIndicator />
+        {/* SyncHealthIndicator removed (v10.20.4, product decision).
+            It surfaced a "Some changes may not have synced" banner with a
+            Refresh action on every dead-lettered write. Two problems made it
+            worse than useless in practice:
+              · it interrupted the user for a condition they cannot act on, and
+              · its Refresh called `manualRefresh()`, which is a PULL — it can
+                never re-send a write that failed to push, so the offered
+                remedy did not address the message.
+            Faults are still recorded in the `lib/faults.ts` ring buffer, so
+            nothing is lost at the data layer and FaultsPanel (dev) still shows
+            them. What is gone is the interruption. */}
         {import.meta.env.DEV && <FaultsPanel />}
         <UpdateBanner />
         <InstallBanner />

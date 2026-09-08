@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.3`** (consumer)
+> **Current production version: `v10.20.4`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,39 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.4 — The sync-health banner is gone *(2026-09-08)*
+
+**Removed `SyncHealthIndicator`** — the *"Some changes may not have synced"* popup with its
+Refresh action. Product decision, and a justified one: it interrupted the user for a condition
+they could not act on, and the remedy it offered did not address the message.
+
+`Refresh` called `manualRefresh()`, which is a **pull**. The banner's own message is about a
+**push** that failed. Pulling fresh data can never re-send a write that did not land, so clicking
+the button changed nothing about the reported problem — it just dismissed the banner until the
+next dead-letter.
+
+### What is gone, and what is not
+
+| | |
+|---|---|
+| Gone | The banner, its Refresh action, and the interruption. |
+| Kept | The sync queue and its bounded retry/backoff. Writes still queue, still retry, still work offline. |
+| Kept | Fault recording in `lib/faults.ts`. Dropped writes are still captured in the ring buffer and still visible in `FaultsPanel` (dev builds). |
+| Kept | `manualRefresh()` itself — the budget editor's duplicate-recovery, `SyncConflictBanner` and `SyncStatusBadge` all use it. |
+
+### Why it was firing so often
+
+It was not random. Deleting a recurring schedule queued a cloud write for a row whose id was
+`` `bf-…` `` — not a UUID, so Postgres rejected it with `22P02`, the op exhausted its retries and
+dead-lettered, and `droppedWrite()` raised the banner. The banner was reporting a real failure
+every single time.
+
+> **This release does not make those writes succeed.** Schedules already carrying `bf-*` ids still
+> cannot reach the cloud; re-keying them is a separate data migration. What changes is that the app
+> no longer interrupts you about it on every attempt.
 
 ---
 
