@@ -6,6 +6,8 @@ import {
   scheduleFiresOnDate,
   recurringInstanceId,
   backfillSchedulesFromTransactions,
+  rekeyLegacyRecurringIds,
+  isStorableId,
 } from '../recurring';
 
 function makeSchedule(overrides: Partial<RecurringSchedule> = {}): RecurringSchedule {
@@ -177,5 +179,84 @@ describe('backfillSchedulesFromTransactions · ids must be storable', () => {
       [txn({ id: '33333333-3333-4333-8333-333333333333' })], [], '2026-03-01',
     ).schedules[0].id;
     expect(other, 'a different source transaction must derive a different id').not.toBe(run());
+  });
+});
+
+// CON-UNIT-089..091 — the one-time re-key of unstorable recurring ids.
+//
+// Two retired generators produced ids that are not UUIDs: \`bf-\${txn.id}\` from
+// the backfill, and a base-36 timestamp+random from upsertRecurring. The column
+// is \`uuid\`, so every such schedule failed its cloud write with 22P02 and lived
+// only in that device's cache — production held zero rows while the app showed a
+// full list. The generators were fixed in v10.20.3; this migrates what they left.
+describe('rekeyLegacyRecurringIds · make legacy ids storable', () => {
+  const sched = (id: string, over: Record<string, unknown> = {}) => ({
+    id,
+    transactionTemplate: {
+      type: 'expense', amount: 999, currency: 'GBP',
+      description: 'Netflix', category: 'entertainment',
+    },
+    frequency: 'monthly', dayOfMonth: 15,
+    startDate: '2026-01-15', nextDueDate: '2026-02-15',
+    autoConfirm: true, active: true,
+    ...over,
+  }) as never;
+
+  const txn = (id: string, scheduleId?: string) => ({
+    id, type: 'expense', amount: 999, currency: 'GBP',
+    date: '2026-01-15', description: 'Netflix', category: 'entertainment',
+    recurringScheduleId: scheduleId,
+  }) as never;
+
+  it('CON-UNIT-089 · unstorable ids get a UUID and transactions are repointed', () => {
+    const legacy = 'bf-11111111-1111-4111-8111-111111111111';
+    const out = rekeyLegacyRecurringIds([sched(legacy)], [txn('t1', legacy), txn('t2')]);
+
+    expect(out.remapped.size).toBe(1);
+    const fresh = out.remapped.get(legacy)!;
+    expect(fresh, 'the new id must be storable').toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(out.schedules[0].id).toBe(fresh);
+
+    // The FK side matters as much: transactions.recurring_schedule_id points at
+    // this table, so a rewrite that left them behind would orphan the link.
+    expect(out.transactions[0].recurringScheduleId).toBe(fresh);
+    // A transaction with no schedule link is untouched.
+    expect(out.transactions[1].recurringScheduleId).toBeUndefined();
+  });
+
+  it('CON-UNIT-090 · two devices holding the same schedule derive the SAME id', () => {
+    // THE REASON THIS IS DETERMINISTIC. Random ids would have device A upload
+    // eleven rows and device B upload its own eleven — the duplicate-household
+    // pattern again. Deriving from content makes the upsert collapse them.
+    const a = rekeyLegacyRecurringIds([sched('bf-aaaa')], []).schedules[0].id;
+    const b = rekeyLegacyRecurringIds([sched('legacy-different-id')], []).schedules[0].id;
+    expect(a).toBe(b);
+
+    // A genuinely different schedule must not collide.
+    const other = rekeyLegacyRecurringIds(
+      [sched('bf-cccc', { transactionTemplate: {
+        type: 'expense', amount: 500, currency: 'GBP',
+        description: 'Spotify', category: 'entertainment',
+      } })], [],
+    ).schedules[0].id;
+    expect(other).not.toBe(a);
+  });
+
+  it('CON-UNIT-091 · already-valid ids are untouched and re-running changes nothing', () => {
+    const good = '22222222-2222-4222-8222-222222222222';
+    const first = rekeyLegacyRecurringIds([sched(good)], [txn('t1', good)]);
+    expect(first.remapped.size, 'a storable id needs no migration').toBe(0);
+    expect(first.schedules[0].id).toBe(good);
+
+    // Idempotent: the sentinel guards it in production, but the function must be
+    // safe to run twice regardless.
+    const legacy = 'bf-33333333-3333-4333-8333-333333333333';
+    const once = rekeyLegacyRecurringIds([sched(legacy)], []);
+    const twice = rekeyLegacyRecurringIds(once.schedules, []);
+    expect(twice.remapped.size).toBe(0);
+    expect(twice.schedules[0].id).toBe(once.schedules[0].id);
+
+    expect(isStorableId(legacy)).toBe(false);
+    expect(isStorableId(good)).toBe(true);
   });
 });

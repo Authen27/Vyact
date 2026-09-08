@@ -16,7 +16,7 @@ import { DEFAULT_RATES } from '../../constants';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { applyPayment } from '../../lib/amortization';
 import { autoMigrateAnonToHousehold } from '../../lib/migration';
-import { backfillSchedulesFromTransactions } from '../../lib/recurring';
+import { backfillSchedulesFromTransactions, rekeyLegacyRecurringIds, isStorableId } from '../../lib/recurring';
 import { uid, setNumberSystem } from '../../lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from '../../lib/numberSystemPref';
 import {
@@ -309,6 +309,52 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     });
     setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
 
+    // ── One-time RE-KEY of unstorable recurring ids (v10.20.5) ──────────────
+    //
+    // Two retired generators produced ids that are not UUIDs (`bf-<txn id>`,
+    // and a base-36 timestamp+random). `recurring_schedules.id` is a `uuid`
+    // column, so every such schedule failed its cloud write with 22P02 and
+    // lived only in this device's cache. Both generators were fixed in
+    // v10.20.3; this migrates the rows they already made.
+    //
+    // ORDER MATTERS. `transactions.recurring_schedule_id` is an FK to this
+    // table, so the schedules are written FIRST and the repointed transactions
+    // second — otherwise the transaction write references a row the server does
+    // not have yet.
+    // `recurringList` is destructured from the load above, so the re-keyed set
+    // is held separately and handed to the backfill below.
+    let effectiveRecurring = recurringList;
+
+    const rekeyKey = `recurring_rekeyed_${currentHouseholdId}`;
+    if (readLocalString(rekeyKey) !== '1') {
+      const rekeyed = rekeyLegacyRecurringIds(recurringList, transactions);
+      try { setLocalString(rekeyKey, '1'); } catch { /* noop */ }
+
+      if (rekeyed.remapped.size > 0) {
+        for (const s of rekeyed.schedules) {
+          if (!rekeyed.remapped.has(s.id) && !isStorableId(s.id)) continue;
+          try {
+            await adapter.upsert('recurring', currentHouseholdId, s);
+          } catch (e) {
+            droppedWrite('dataSlice.refresh:rekeyRecurring',
+              `schedule ${s.id}: ${(e as Error)?.message ?? String(e)}`);
+          }
+        }
+        for (const t of rekeyed.transactions) {
+          if (!t.recurringScheduleId) continue;
+          if (![...rekeyed.remapped.values()].includes(t.recurringScheduleId)) continue;
+          try {
+            await adapter.upsert('transactions', currentHouseholdId, t);
+          } catch (e) {
+            droppedWrite('dataSlice.refresh:rekeyTxnLink',
+              `txn ${t.id}: ${(e as Error)?.message ?? String(e)}`);
+          }
+        }
+        effectiveRecurring = rekeyed.schedules;
+        set({ recurringSchedules: rekeyed.schedules, transactions: rekeyed.transactions });
+      }
+    }
+
     // v7.3 — Backfill RecurringSchedule rows for legacy txns whose `recurring`
     // field is set but never produced a schedule. v8.9 — recurring is now a
     // household-scoped, synced entity, so persist new rows through the adapter
@@ -335,7 +381,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     if (!alreadyBackfilled) {
       const { schedules: nextSchedules, added } = backfillSchedulesFromTransactions(
         transactions,
-        recurringList,
+        effectiveRecurring,
       );
       // Mark it done whether or not anything was added — "nothing to recover"
       // is a completed migration too, and re-running it can only resurrect
@@ -343,7 +389,10 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       try { setLocalString(backfillKey, '1'); } catch { /* noop */ }
 
       if (added > 0) {
-        const fresh = nextSchedules.filter(s => !recurringList.some(r => r.id === s.id));
+        // Compare against the post-re-key set: a schedule that was just given a
+        // new id is NOT a new schedule, and treating it as one would re-upload
+        // it needlessly.
+        const fresh = nextSchedules.filter(s => !effectiveRecurring.some(r => r.id === s.id));
         for (const s of fresh) {
           // NOT `catch {}`. This swallowed a hard schema error for the entire
           // life of the feature: backfilled ids were `bf-<uuid>`, the column is
