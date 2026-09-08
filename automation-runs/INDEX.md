@@ -14,3 +14,4 @@
 | 2026-05-29T18:47:59.785Z | ✅ PASS | `main` | `a810fea` | local | 64/64 | [report](2026-05-29T18-39-20-636Z__a810fea/report.md) |
 | 2026-06-03T20:56:42.970Z | ❌ FAIL | `main` | `7878940` | local | — | [report](2026-06-03T20-56-38-647Z__7878940/report.md) |
 | 2026-09-08T13:26:39.559Z | ❌ FAIL | `fix/rekey-recurring-ids` | `9fa92a0` | local | 167/167 | [report](2026-09-08T13-24-21-785Z__9fa92a0/report.md) |
+| 2026-09-08T16:41:26.449Z | ❌ FAIL | `fix/migration-tracker-reconcile` | `881636c` | local | 174/174 | [report](2026-09-08T16-38-15-145Z__881636c/report.md) |

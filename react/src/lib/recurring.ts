@@ -326,6 +326,17 @@ export interface RekeyResult {
   transactions: Transaction[];
   /** old id → new id, for callers that need to fix up anything else. */
   remapped: Map<string, string>;
+  /**
+   * The ids that must be EVICTED from local storage.
+   *
+   * 🔴 Shipping this without eviction is what caused the v10.20.5 duplicates.
+   * Re-keying is not an update — the row's primary key changes, so writing the
+   * re-keyed schedule INSERTS a second row and leaves the original sitting in
+   * the cache under its old id. The next load listed both and every schedule
+   * appeared twice; deleting one of the pair left the other behind, which read
+   * as "delete doesn't work". The caller must remove these.
+   */
+  retiredIds: string[];
 }
 
 /**
@@ -341,19 +352,173 @@ export function rekeyLegacyRecurringIds(
 ): RekeyResult {
   const remapped = new Map<string, string>();
 
-  const nextSchedules = schedules.map((s) => {
+  const rekeyed = schedules.map((s) => {
     if (isStorableId(s.id)) return s;
     const fresh = deterministicUuid(`vyact:recur:rekey:${scheduleSignature(s)}`);
     remapped.set(s.id, fresh);
     return { ...s, id: fresh };
   });
 
-  if (remapped.size === 0) return { schedules, transactions, remapped };
+  // Collapse on id. The id is derived from the schedule's CONTENT, so two
+  // legacy rows describing the same schedule (the backfill could produce one
+  // per matching transaction) land on the same id — and returning both would
+  // re-create the very duplication this migration exists to end. Keep the one
+  // that has progressed furthest, so a schedule that has already fired is not
+  // rewound by an untouched twin.
+  const byId = new Map<string, RecurringSchedule>();
+  for (const s of rekeyed) {
+    const prior = byId.get(s.id);
+    if (!prior) { byId.set(s.id, s); continue; }
+    const better = (s.lastGenerated ?? '') > (prior.lastGenerated ?? '') ? s : prior;
+    byId.set(s.id, better);
+  }
+  const nextSchedules = [...byId.values()];
+
+  if (remapped.size === 0) {
+    return { schedules, transactions, remapped, retiredIds: [] };
+  }
 
   const nextTransactions = transactions.map((t) => {
     const to = t.recurringScheduleId ? remapped.get(t.recurringScheduleId) : undefined;
     return to ? { ...t, recurringScheduleId: to } : t;
   });
 
-  return { schedules: nextSchedules, transactions: nextTransactions, remapped };
+  // Two legacy schedules can share a content signature and therefore collapse
+  // onto ONE new id — that is the intended convergence, not a fault. Retire
+  // every old key regardless; the survivor is keyed by the new id.
+  const retiredIds = [...remapped.keys()];
+
+  return { schedules: nextSchedules, transactions: nextTransactions, remapped, retiredIds };
+}
+
+
+// ── Occurrence calculus (v10.20.6) ──────────────────────────────────────────
+//
+// `computeNextDueDate` answers a different question than the UI needs: it always
+// steps ONE period on from its base. That is right after generating an
+// occurrence, and wrong everywhere else:
+//
+//   • CREATE — picking "the 20th" on the 8th gave 2026-10-20. The 20th of THIS
+//     month had not happened yet, so the first bill silently skipped a month.
+//
+//   • EDIT — Recurring.tsx passed `lastGenerated: undefined`, so the base was
+//     the schedule's ORIGINAL startDate. Editing a schedule that began
+//     2026-05-22 produced nextDueDate 2026-06-02 — three months in the PAST.
+//     `dueSchedules` then saw it as due and the engine materialised a
+//     back-dated transaction, advancing one month per page refresh:
+//     2026-06-02, 2026-07-02, 2026-08-02, 2026-09-02. That is the reported
+//     "recurring schedule appears as a transaction for the current day".
+//
+// The question both paths actually ask is "when does this NEXT fall due, on or
+// after some anchor date?" — which is what this function answers. All maths is
+// in UTC: the app stores plain YYYY-MM-DD, and local-time `setDate`/`setMonth`
+// on a UTC-parsed date drifts a day either side of the date line.
+
+const isoOf = (d: Date): string => d.toISOString().split('T')[0];
+const parseISO = (iso: string): Date => new Date(`${iso}T00:00:00.000Z`);
+/** Last day of the given (year, zero-based month) — 31 → 28/29/30 as needed. */
+const lastDayOfMonth = (y: number, m0: number): number =>
+  new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+
+export function addDaysISO(iso: string, days: number): string {
+  const d = parseISO(iso);
+  d.setUTCDate(d.getUTCDate() + days);
+  return isoOf(d);
+}
+
+/** The later of two ISO dates. */
+export const maxISO = (a: string, b: string): string => (a >= b ? a : b);
+
+/**
+ * The first occurrence of this recurrence on or after `from` (inclusive).
+ *
+ * Pure and total: it never returns a date before `from`, which is the property
+ * that stops a schedule from being born overdue.
+ */
+export function firstDueOnOrAfter(
+  from: string,
+  freq: RecurrenceFreq,
+  opts: { startDate?: string; dayOfMonth?: number; weekday?: number } = {},
+): string {
+  // A schedule cannot fire before it starts.
+  const anchor = opts.startDate ? maxISO(from, opts.startDate) : from;
+  const d = parseISO(anchor);
+
+  switch (freq) {
+    case 'daily':
+      return anchor;
+
+    case 'weekly': {
+      if (opts.weekday === undefined) return anchor;
+      const diff = (opts.weekday - d.getUTCDay() + 7) % 7;   // 0 => today counts
+      return addDaysISO(anchor, diff);
+    }
+
+    case 'yearly': {
+      // Same month/day as the start date, this year or next.
+      const start = parseISO(opts.startDate ?? anchor);
+      const candidate = isoOf(new Date(Date.UTC(
+        d.getUTCFullYear(),
+        start.getUTCMonth(),
+        Math.min(start.getUTCDate(), lastDayOfMonth(d.getUTCFullYear(), start.getUTCMonth())),
+      )));
+      if (candidate >= anchor) return candidate;
+      const y = d.getUTCFullYear() + 1;
+      return isoOf(new Date(Date.UTC(
+        y, start.getUTCMonth(),
+        Math.min(start.getUTCDate(), lastDayOfMonth(y, start.getUTCMonth())),
+      )));
+    }
+
+    case 'monthly':
+    case 'custom_day':
+    default: {
+      const dom = opts.dayOfMonth ?? parseISO(opts.startDate ?? anchor).getUTCDate();
+      const y = d.getUTCFullYear();
+      const m = d.getUTCMonth();
+      // This month first — the case the old code could not express. A 31st in a
+      // 30-day month clamps to the last day rather than rolling into the next.
+      const thisMonth = isoOf(new Date(Date.UTC(y, m, Math.min(dom, lastDayOfMonth(y, m)))));
+      if (thisMonth >= anchor) return thisMonth;
+      const ny = m === 11 ? y + 1 : y;
+      const nm = (m + 1) % 12;
+      return isoOf(new Date(Date.UTC(ny, nm, Math.min(dom, lastDayOfMonth(ny, nm)))));
+    }
+  }
+}
+
+/**
+ * The nextDueDate a schedule should carry after the user saves the form.
+ *
+ * Never in the past, and never on or before an occurrence already generated —
+ * so editing a schedule cannot re-materialise history.
+ */
+export function nextDueAfterSave(
+  freq: RecurrenceFreq,
+  opts: { startDate: string; dayOfMonth?: number; weekday?: number; lastGenerated?: string },
+  now: string = today(),
+): string {
+  const floor = opts.lastGenerated
+    ? maxISO(now, addDaysISO(opts.lastGenerated, 1))
+    : now;
+  return firstDueOnOrAfter(maxISO(floor, opts.startDate), freq, opts);
+}
+
+/**
+ * How far back the engine will still materialise a missed occurrence.
+ *
+ * A device offline for a few weeks SHOULD catch up — that is the feature. But a
+ * schedule carrying a nextDueDate months in the past is corrupt data, not a
+ * backlog, and silently inventing half a year of expenses would misstate every
+ * month it touches. Past this horizon the engine fast-forwards WITHOUT writing.
+ */
+export const MAX_CATCHUP_DAYS = 45;
+
+/** True when this occurrence is too old to materialise honestly. */
+export function isStaleOccurrence(
+  occurrence: string,
+  now: string = today(),
+  maxDays: number = MAX_CATCHUP_DAYS,
+): boolean {
+  return (Date.parse(now) - Date.parse(occurrence)) / DAY_MS > maxDays;
 }
