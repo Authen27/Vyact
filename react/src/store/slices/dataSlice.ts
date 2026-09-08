@@ -25,7 +25,7 @@ import {
 } from '../../lib/onboardingState';
 import { accountValueOf } from '../../lib/accountBalance';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from '../../lib/educationProgress';
-import { unexpected } from '../../lib/faults';
+import { unexpected, droppedWrite } from '../../lib/faults';
 import { readLocalJson, readLocalString, setLocalString, removeLocal } from '../localJson';
 
 export interface DataSlice {
@@ -313,17 +313,56 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     // field is set but never produced a schedule. v8.9 — recurring is now a
     // household-scoped, synced entity, so persist new rows through the adapter
     // (was localStorage-only) so they reach the cloud + other devices.
-    const { schedules: nextSchedules, added } = backfillSchedulesFromTransactions(
-      transactions,
-      recurringList,
-    );
-    if (added > 0) {
-      const fresh = nextSchedules.filter(s => !recurringList.some(r => r.id === s.id));
-      for (const s of fresh) {
-        try { await adapter.upsert('recurring', currentHouseholdId, s); } catch { /* best-effort */ }
+    //
+    // 🔴 ONCE PER HOUSEHOLD. This is a MIGRATION, and it used to run on every
+    // single `refresh()` — i.e. every page load, forever.
+    //
+    // It matches transactions to schedules by signature
+    // (`type|description|recurring|currency`) and recreates any schedule the
+    // signature cannot find. It has no idea a user ever deleted one, so a
+    // deliberate deletion looked exactly like a legacy gap: you deleted a
+    // schedule, the delete worked, and the next load rebuilt it — with a
+    // "Recovered 1 recurring schedule" toast that read as helpful rather than
+    // as the bug it was. That is the whole of the reported "deletion doesn't
+    // work".
+    //
+    // The sentinel mirrors HybridAdapter's `cloud_synced_*` pattern: a
+    // per-household localStorage flag, so the migration runs once on a device
+    // that has never done it and never again.
+    const backfillKey = `recurring_backfilled_${currentHouseholdId}`;
+    const alreadyBackfilled = readLocalString(backfillKey) === '1';
+
+    if (!alreadyBackfilled) {
+      const { schedules: nextSchedules, added } = backfillSchedulesFromTransactions(
+        transactions,
+        recurringList,
+      );
+      // Mark it done whether or not anything was added — "nothing to recover"
+      // is a completed migration too, and re-running it can only resurrect
+      // things the user has since deleted.
+      try { setLocalString(backfillKey, '1'); } catch { /* noop */ }
+
+      if (added > 0) {
+        const fresh = nextSchedules.filter(s => !recurringList.some(r => r.id === s.id));
+        for (const s of fresh) {
+          // NOT `catch {}`. This swallowed a hard schema error for the entire
+          // life of the feature: backfilled ids were `bf-<uuid>`, the column is
+          // `uuid`, so every one of these writes died with 22P02 and nobody
+          // ever saw it — which is why `recurring_schedules` is empty in
+          // production while schedules show in the app. A dropped write must
+          // surface (the binding rule is "never a silent write-loss catch {}").
+          try {
+            await adapter.upsert('recurring', currentHouseholdId, s);
+          } catch (e) {
+            droppedWrite(
+              'dataSlice.refresh:backfillRecurring',
+              `schedule ${s.id}: ${(e as Error)?.message ?? String(e)}`,
+            );
+          }
+        }
+        set({ recurringSchedules: nextSchedules });
+        get().toast(`Recovered ${added} recurring schedule${added === 1 ? '' : 's'} from existing transactions`, 'info');
       }
-      set({ recurringSchedules: nextSchedules });
-      get().toast(`Recovered ${added} recurring schedule${added === 1 ? '' : 's'} from existing transactions`, 'info');
     }
   },
 

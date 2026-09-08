@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.2`** (consumer)
+> **Current production version: `v10.20.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,52 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.3 — Recurring schedules stop coming back from the dead *(2026-09-08)*
+
+The reported defect was "deleting a recurring schedule doesn't work". **The delete was never at
+fault.** The app was rebuilding the schedule on the next page load.
+
+### The chain
+
+`refresh()` — which runs on every page load — called `backfillSchedulesFromTransactions`. That
+function matches transactions to schedules by signature (`type|description|recurring|currency`) and
+recreates any schedule the signature cannot find. It has no concept of a deliberate deletion, so a
+deleted schedule looked exactly like a legacy gap.
+
+Delete → gone, toast honest. Refresh → rebuilt, with a *"Recovered 1 recurring schedule from
+existing transactions"* toast that read as helpful rather than as the bug.
+
+It was written as a **one-time v7.3 migration** for legacy rows. It ran forever.
+
+### And why the table was empty
+
+The backfill minted ids as `` `bf-${txn.id}` `` — not a UUID. `recurring_schedules.id` is a `uuid`
+column, so every one of those cloud writes died with `22P02`, and the failure was swallowed by
+`catch { /* best-effort */ }` on the next line. Schedules lived only in each device's local cache;
+production held zero rows while the app showed a full list.
+
+`upsertRecurring` had the same flaw independently — `Date.now().toString(36) + Math.random()…` is
+also not a UUID. Recurring was the only entity in the app not minting ids with `uid()`.
+
+### Fixed
+
+| | |
+|---|---|
+| The migration | Runs **once per household**, behind a localStorage sentinel mirroring `HybridAdapter`'s `cloud_synced_*` pattern. Marked done even when it recovers nothing — "nothing to recover" is a completed migration, and re-running can only resurrect what the user has since deleted. |
+| The swallowed error | `catch {}` replaced with `droppedWrite()`, so a failed write reaches the fault transport and the sync banner instead of vanishing. The binding rule is *never a silent write-loss `catch {}`*. |
+| The ids | `deterministicUuid()` in the backfill (so two devices running the migration converge on one row rather than duplicating), `uid()` in `upsertRecurring`. |
+
+### Known remaining
+
+Schedules already carrying `bf-*` ids on a device still cannot sync — their ids remain illegal.
+Making them sync means minting fresh UUIDs and letting them upload as new rows, which is a data
+migration over live records and is deliberately **not** included here.
+
+Tests: CON-UNIT-087 (every backfilled id is a valid UUID — fails against the previous
+implementation) and CON-UNIT-088 (the same source transaction always derives the same id).
 
 ---
 
