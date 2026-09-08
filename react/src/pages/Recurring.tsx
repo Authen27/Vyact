@@ -10,7 +10,7 @@ import HalfSheet from '../components/ui/HalfSheet';
 import { formatDate, today } from '../lib/format';
 import { getCat, EXPENSE_CATEGORIES, INCOME_CATEGORIES, CURRENCIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
-import { computeNextDueDate } from '../lib/recurring';
+import { nextDueAfterSave } from '../lib/recurring';
 import { formatRRule, parseRRule, describeRRule } from '../lib/rrule';
 
 /* Board M4 member chips are initials ("MR"), matching Add Transaction. */
@@ -49,6 +49,7 @@ const countdownLabel = (d: number): string => (d <= 0 ? 'Due today' : d === 1 ? 
 export default function Recurring() {
   const schedules = useStore(s => s.recurringSchedules);
   const members = useStore(s => s.members);
+  const accounts = useStore(s => s.accounts);
   const upsert = useStore(s => s.upsertRecurring);
   const remove = useStore(s => s.removeRecurring);
   const baseCur = useStore(s => s.profile.baseCurrency);
@@ -73,6 +74,10 @@ export default function Recurring() {
   const [autoConfirm, setAutoConfirm] = useState(true);
   const [reminderLead, setReminderLead] = useState<1|3|7>(3);
   const [ownerMemberId, setOwnerMemberId] = useState<string>('');
+  // v10.20.6 — the account the schedule moves money through. Absent until now,
+  // which made every form-created schedule generate un-syncable transactions.
+  const [accountId, setAccountId] = useState<string>('');
+  const [toAccountId, setToAccountId] = useState<string>('');
   const [endsKind, setEndsKind] = useState<EndsKind>('never');
   const [endsCount, setEndsCount] = useState('12');
   // Weekly
@@ -104,6 +109,7 @@ export default function Recurring() {
     setType('expense'); setFreq('monthly'); setName(''); setAmount('');
     setCategory('rent_mortgage'); setAutoConfirm(true); setReminderLead(3);
     setOwnerMemberId(''); setEndsKind('never'); setEndsCount('12');
+    setAccountId(''); setToAccountId('');
     setWeekDays([todayWeekday()]); setMonthlyMode('dom');
     setDayOfMonth(todayDom()); setNthWeek(1); setNthWeekday(1);
     setAnnualMonth(todayMonth()); setAnnualDay(todayDom());
@@ -135,10 +141,37 @@ export default function Recurring() {
 
   async function save() {
     if (!name || !amount) { toast('Enter a name and amount', 'error'); return; }
+    // Refuse to save a schedule that cannot produce a storable transaction.
+    // `ck_txn_accounts_by_type` rejects an account-less row with 23514, and the
+    // failure used to surface only as a transaction that silently never synced.
+    if (!accountId) { toast('Choose an account for this schedule', 'error'); return; }
+    if (type === 'investment' && !toAccountId) {
+      toast('Choose the account to invest into', 'error'); return;
+    }
     const startDate = editing?.startDate || new Date().toISOString().split('T')[0];
     const rrule = buildRruleStr();
     const dom = (freq === 'monthly' || freq === 'custom_day') && monthlyMode === 'dom' ? dayOfMonth : undefined;
-    const next = computeNextDueDate(freq, startDate, undefined, dom ?? 1);
+    // v10.20.6 — was `computeNextDueDate(freq, startDate, undefined, dom ?? 1)`,
+    // which always steps ONE period on from its base. Two bugs came out of that:
+    //
+    //   CREATE picking the 20th on the 8th → 2026-10-20, silently skipping the
+    //   20th of THIS month.
+    //
+    //   EDIT was worse. `startDate` is the schedule's ORIGINAL start and
+    //   lastGenerated was passed as undefined, so saving an edit to a schedule
+    //   that began 2026-05-22 set nextDueDate to 2026-06-02 — months in the
+    //   PAST. The engine then treated it as due and materialised a back-dated
+    //   transaction on every refresh. That is the "recurring schedule shows up
+    //   as a transaction for today" report.
+    //
+    // nextDueAfterSave answers the question actually being asked: the next
+    // occurrence on or after today that has not already been generated.
+    const next = nextDueAfterSave(freq, {
+      startDate,
+      dayOfMonth: dom,
+      weekday: editing?.weekday,
+      lastGenerated: editing?.lastGenerated,
+    });
     const schedule = {
       ...(editing || {}),
       transactionTemplate: {
@@ -147,6 +180,14 @@ export default function Recurring() {
         category: type === 'investment' ? '' : category,
         currency: baseCur, recurring: freq === 'custom_day' ? 'monthly' : freq,
         memberId: ownerMemberId || undefined,
+        // The per-type matrix `ck_txn_accounts_by_type` enforces: an expense
+        // moves FROM an account, income moves TO one, an investment does both.
+        // Written as undefined rather than null — a NOT-NULL column with a DB
+        // default is omitted, never sent as explicit null.
+        accountId:   type === 'income' ? undefined : (accountId || undefined),
+        toAccountId: type === 'expense' ? undefined
+                   : type === 'income'  ? (accountId || undefined)
+                   : (toAccountId || undefined),
       },
       frequency: freq,
       dayOfMonth: dom,
@@ -173,6 +214,8 @@ export default function Recurring() {
     setAutoConfirm(s.autoConfirm);
     setReminderLead(([1,3,7] as const).includes(s.reminderLeadDays as 1|3|7) ? (s.reminderLeadDays as 1|3|7) : 3);
     setOwnerMemberId(s.ownerMemberId ?? s.transactionTemplate.memberId ?? '');
+    setAccountId(s.transactionTemplate.accountId ?? '');
+    setToAccountId(s.transactionTemplate.toAccountId ?? '');
     // Parse RRULE to restore sub-fields
     if (s.rrule) {
       const r = parseRRule(s.rrule);
@@ -253,7 +296,8 @@ export default function Recurring() {
           : schedules.map(s => {
               const cat = getCat(s.transactionTemplate.category);
               return (
-                <div key={s.id} className="flex items-center gap-3 px-4 py-3 border-b border-line last:border-b-0">
+                <div key={s.id} data-testid="schedule-row"
+                  className="flex items-center gap-3 px-4 py-3 border-b border-line last:border-b-0">
                   <div className="w-9 h-9 rounded-md flex items-center justify-center text-base flex-shrink-0" style={{ background: cat.color + '22' }}>
                     {cat.icon}
                   </div>
@@ -345,6 +389,47 @@ export default function Recurring() {
               {(type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => (
                 <CategoryChip key={c.id} emoji={c.icon} label={c.label}
                   on={c.id === category} onClick={() => setCategory(c.id)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Account — v10.20.6. THE FORM HAD NO ACCOUNT FIELD AT ALL.
+            Every transaction moves an account (binding money-model rule), and
+            the DB enforces it per type via `ck_txn_accounts_by_type`. A schedule
+            created here carried no account, so the transaction the engine
+            generated from it was rejected by the cloud with 23514 and lived only
+            on the device that made it — verified against production. Backfilled
+            schedules inherited an account from their source transaction, which
+            is why only form-created ones were affected. */}
+        <div className="mt-4">
+          <div className="mono-label mb-1.5">
+            {type === 'income' ? 'Deposit to' : type === 'investment' ? 'Invest from' : 'Pay from'}
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {accounts.filter(a => a.isArchived !== true).map(a => (
+              <Chip key={a.id} on={a.id === accountId} onClick={() => setAccountId(a.id)}>
+                {a.name}
+              </Chip>
+            ))}
+          </div>
+          {!accountId && (
+            <div className="mt-1.5 text-[0.7rem] text-terra">
+              Pick an account — without one this schedule&apos;s transactions cannot sync.
+            </div>
+          )}
+        </div>
+
+        {/* An investment is spend-neutral: it moves money BETWEEN two accounts,
+            so it needs a destination as well as a source. */}
+        {type === 'investment' && (
+          <div className="mt-4">
+            <div className="mono-label mb-1.5">Invest into</div>
+            <div className="flex gap-1.5 flex-wrap">
+              {accounts.filter(a => a.isArchived !== true && a.id !== accountId).map(a => (
+                <Chip key={a.id} on={a.id === toAccountId} onClick={() => setToAccountId(a.id)}>
+                  {a.name}
+                </Chip>
               ))}
             </div>
           </div>

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.5`** (consumer)
+> **Current production version: `v10.20.6`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,70 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.6 — Creating a recurring schedule no longer charges you today *(2026-09-08)*
+
+Three defects behind one report: schedules duplicating on refresh, then vanishing, and a new
+schedule "appearing as a transaction for the current day".
+
+### 1. Creating a schedule posted a transaction, dated today
+
+`upsertRecurring` seeded a transaction on create, dated `startDate` — which for a new schedule is
+**today**. So setting up rent for the 28th charged you on the 8th, for money that had not moved.
+It also set `lastGenerated`, which told the engine an occurrence had already been produced, so the
+schedule's first real due date was silently consumed.
+
+The comment said it was "so a freshly-created schedule shows up in Transactions immediately". A
+schedule is a **template**; `runRecurringEngine` materialises it on its due date, and that is the
+only place allowed to create one. The seeding is removed.
+
+> Onboarding had already been working around this — `nextMonthlyDate` forced a future start date
+> specifically to dodge the seed guard. A workaround in the codebase was the clue; it took a user
+> report to act on it.
+
+### 2. A schedule could be born overdue
+
+The save path computed its due date with `computeNextDueDate`, which always steps **one period on**
+from its base. Two consequences:
+
+| | Old | New |
+|---|---|---|
+| Create on the 8th, pick the 20th | 20 Oct — skipped this month | **20 Sep** |
+| Edit a schedule that began 22 May | **2 Jun — three months in the PAST** | 2 Oct |
+
+The edit case is the damaging one. The form passed `lastGenerated: undefined`, so the base was the
+schedule's *original* start date. `dueSchedules` then matched the past date and the engine
+materialised a back-dated transaction — advancing one month per page refresh. Replacing it with
+`nextDueAfterSave` (first occurrence on or after today, never one already generated) fixes both.
+As defence in depth for schedules already carrying a bad date, the engine now fast-forwards past
+anything older than 45 days instead of writing it. A genuine offline gap still catches up.
+
+### 3. The form had no account field at all
+
+Every transaction moves an account — and the database enforces it per type via
+`ck_txn_accounts_by_type`. A schedule created in this form carried no account, so the transaction
+the engine generated from it was rejected with **23514** and lived only on the device that made it.
+Verified against production. Backfilled schedules inherited an account from their source
+transaction, which is why only form-created ones were affected.
+
+The form now asks for the account (and, for an investment, the destination) and refuses to save
+without one.
+
+### Also: the v10.20.5 duplication
+
+Re-keying changes a schedule's **primary key**, so writing the re-keyed row inserted a second one
+and left the original in the local cache under its old id. The next load listed both, and deleting
+one of the pair left the other — which read as "delete doesn't work". The migration now retires the
+old keys, and content-identical twins collapse to a single row rather than being returned twice.
+
+### Coverage
+
+Eleven new scenarios, because none of this had any: **CON-UNIT-092..098** (the occurrence calculus
+and the re-key) and **CON-E2E-036..039** (create for the Xth with a chosen account · roll-forward ·
+delete surviving a reload · creating a schedule writes no transaction). CON-UNIT-092 and 094 were
+run against the old implementation first and fail there.
 
 ---
 

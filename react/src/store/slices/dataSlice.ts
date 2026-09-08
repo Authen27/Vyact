@@ -350,6 +350,22 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
               `txn ${t.id}: ${(e as Error)?.message ?? String(e)}`);
           }
         }
+        // 🔴 EVICT THE OLD KEYS. Re-keying changes the primary key, so the
+        // writes above INSERTED new rows and left the originals in the local
+        // cache under their old ids. v10.20.5 stopped here, and the next load
+        // listed both — every schedule appeared twice, and deleting one of the
+        // pair left the other, which read as "delete doesn't work".
+        //
+        // A legacy id is not a UUID, so the cloud DELETE cannot match anything
+        // (that is the whole reason for this migration); the removal that
+        // matters is the local one. Failure is therefore expected and must not
+        // be reported as a dropped write.
+        for (const oldId of rekeyed.retiredIds) {
+          try {
+            await adapter.remove('recurring', currentHouseholdId, oldId);
+          } catch { /* legacy id was never storable in the cloud — local evict is what counts */ }
+        }
+
         effectiveRecurring = rekeyed.schedules;
         set({ recurringSchedules: rekeyed.schedules, transactions: rekeyed.transactions });
       }

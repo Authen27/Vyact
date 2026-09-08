@@ -8,6 +8,9 @@ import {
   backfillSchedulesFromTransactions,
   rekeyLegacyRecurringIds,
   isStorableId,
+  firstDueOnOrAfter,
+  nextDueAfterSave,
+  isStaleOccurrence,
 } from '../recurring';
 
 function makeSchedule(overrides: Partial<RecurringSchedule> = {}): RecurringSchedule {
@@ -258,5 +261,99 @@ describe('rekeyLegacyRecurringIds · make legacy ids storable', () => {
 
     expect(isStorableId(legacy)).toBe(false);
     expect(isStorableId(good)).toBe(true);
+  });
+});
+
+// CON-UNIT-092..096 — the occurrence calculus.
+//
+// Reported 2026-09-08: "the newly added recurring schedule for a different time
+// now appears as transaction for current day". Root cause was NOT the engine —
+// it was the date the form saved. Recurring.tsx called
+// \`computeNextDueDate(freq, startDate, undefined, dom)\`, which always steps ONE
+// period on from its base, so editing a schedule that started 2026-05-22 set
+// nextDueDate to 2026-06-02 — three months in the PAST. dueSchedules then
+// matched it and the engine materialised a back-dated transaction per refresh.
+describe('occurrence calculus · a schedule must never be born overdue', () => {
+  it('CON-UNIT-092 · CREATE on the 8th for the 20th falls due THIS month', () => {
+    // The old computeNextDueDate returned 2026-10-20, silently skipping a month.
+    expect(nextDueAfterSave('monthly', { startDate: '2026-09-08', dayOfMonth: 20 }, '2026-09-08'))
+      .toBe('2026-09-20');
+  });
+
+  it('CON-UNIT-093 · CREATE on the 8th for the 2nd rolls to next month', () => {
+    // The 2nd has already passed, so next month is correct here.
+    expect(nextDueAfterSave('monthly', { startDate: '2026-09-08', dayOfMonth: 2 }, '2026-09-08'))
+      .toBe('2026-10-02');
+  });
+
+  it('CON-UNIT-094 · EDIT never moves the due date into the past', () => {
+    // THE REPORTED BUG. Original start months ago; the user edits day-of-month.
+    const next = nextDueAfterSave(
+      'monthly',
+      { startDate: '2026-05-22', dayOfMonth: 2, lastGenerated: '2026-09-02' },
+      '2026-09-08',
+    );
+    expect(next > "2026-09-08", next + " must be in the future").toBe(true);
+    expect(next).toBe('2026-10-02');
+
+    // And with no generation history it still must not reach backwards.
+    const virgin = nextDueAfterSave(
+      'monthly', { startDate: '2026-05-22', dayOfMonth: 2 }, '2026-09-08',
+    );
+    expect(virgin >= '2026-09-08').toBe(true);
+  });
+
+  it('CON-UNIT-095 · a 31st clamps to short months instead of rolling over', () => {
+    // Feb has no 31st. Rolling into March would move the bill a whole month.
+    expect(firstDueOnOrAfter('2026-02-01', 'monthly', { dayOfMonth: 31 })).toBe('2026-02-28');
+    expect(firstDueOnOrAfter('2026-04-01', 'monthly', { dayOfMonth: 31 })).toBe('2026-04-30');
+  });
+
+  it('CON-UNIT-096 · the engine refuses to invent months of history', () => {
+    // Defence in depth for schedules already carrying a corrupt date on device.
+    expect(isStaleOccurrence('2026-06-02', '2026-09-08')).toBe(true);
+    // A genuine offline gap still catches up.
+    expect(isStaleOccurrence('2026-09-01', '2026-09-08')).toBe(false);
+  });
+});
+
+// CON-UNIT-097 — the v10.20.5 duplication.
+describe('rekeyLegacyRecurringIds · re-keying must retire the old key', () => {
+  const sched = (id, over = {}) => ({
+    id,
+    transactionTemplate: {
+      type: 'expense', amount: 999, currency: 'GBP',
+      description: 'Netflix', category: 'entertainment',
+    },
+    frequency: 'monthly', dayOfMonth: 15,
+    startDate: '2026-01-15', nextDueDate: '2026-02-15',
+    autoConfirm: true, active: true,
+    ...over,
+  });
+
+  it('CON-UNIT-097 · old ids are reported for eviction, and twins collapse', () => {
+    // Re-keying changes the PRIMARY KEY, so writing the re-keyed schedule
+    // inserts a SECOND row and leaves the original in the cache. v10.20.5
+    // shipped without eviction and every schedule appeared twice on the next
+    // load; deleting one of the pair left the other behind.
+    const out = rekeyLegacyRecurringIds([sched('bf-1'), sched('bf-2')], []);
+
+    expect(out.retiredIds).toContain('bf-1');
+    expect(out.retiredIds).toContain('bf-2');
+
+    // Both describe the SAME schedule, so they converge on one id — and must be
+    // returned once, not twice, or the migration recreates the duplication it
+    // exists to remove.
+    expect(out.schedules).toHaveLength(1);
+    expect(isStorableId(out.schedules[0].id)).toBe(true);
+  });
+
+  it('CON-UNIT-098 · collapsing twins keeps the one that has fired furthest', () => {
+    const stale = sched('bf-a', { lastGenerated: undefined });
+    const ahead = sched('bf-b', { lastGenerated: '2026-08-15' });
+    const out = rekeyLegacyRecurringIds([stale, ahead], []);
+    expect(out.schedules).toHaveLength(1);
+    // Rewinding to the untouched twin would re-generate August.
+    expect(out.schedules[0].lastGenerated).toBe('2026-08-15');
   });
 });
