@@ -19,6 +19,9 @@ export interface SeedData {
   recurringSchedules?: unknown[];
   // v10.20.6 — the Recurring form now requires an account (see CON-E2E-030).
   accounts?: unknown[];
+  /** v9.1 budget allocation child rows — the Budgets page renders category
+   *  labels from THESE, not from the budget container. */
+  budgetAllocations?: unknown[];
   notifications?: unknown[];
   exchangeRates?: Record<string, number>;
 }
@@ -147,6 +150,7 @@ export function seedScript(data: SeedData) {
   if (data.assets)       w('assets', data.assets);
   if (data.members)      w('members', data.members);
   if (data.accounts)     w('accounts', data.accounts);
+  if (data.budgetAllocations) w('budgetAllocations', data.budgetAllocations);
   if (data.recurringSchedules) w('recurring', data.recurringSchedules);
   if (data.exchangeRates) w('rates', data.exchangeRates);
 }
