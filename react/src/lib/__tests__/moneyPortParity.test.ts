@@ -106,7 +106,7 @@ const FULL: Transaction[] = [
     ] },
   },
   // legacy paymentMethod encoding (pre-v9 rows still in local caches)
-  { id: 'f-legacy', type: 'expense', amount: 60, currency: 'USD', date: '2026-03-14', description: 'legacy row', category: 'transport', paymentMethod: 'cash' },
+  { id: 'f-legacy', type: 'expense', amount: 60, currency: 'USD', date: '2026-03-14', description: 'legacy row', category: 'travel', paymentMethod: 'cash' },
   { id: 'f-legacy-asset', type: 'income', amount: 250, currency: 'USD', date: '2026-03-14', description: 'legacy credit', category: 'other_income', paymentMethod: 'asset:asset-9' },
   // MONTH / YEAR BOUNDARIES — must land in the right bucket, never leak
   { id: 'b-feb-last', type: 'expense', amount: 11, currency: 'USD', date: '2026-02-28', description: 'feb last', category: 'food_dining', accountId: 'acc-cash' },
@@ -165,7 +165,7 @@ const BUDGETS: Budget[] = [
 
 const ALLOCATIONS: BudgetAllocation[] = [
   { id: 'al-1', budgetId: 'b-container', category: 'groceries', amount: 400 },
-  { id: 'al-2', budgetId: 'b-container', category: 'transport', amount: 150.5 },
+  { id: 'al-2', budgetId: 'b-container', category: 'travel', amount: 150.5 },
 ];
 
 const SCHEDULES = [

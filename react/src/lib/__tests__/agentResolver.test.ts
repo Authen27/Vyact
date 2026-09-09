@@ -335,7 +335,7 @@ describe('category — type-scoped', () => {
 
   it('a genuine 50/50 conflicts with both options', () => {
     const hits = matchCategoryCandidates('fuel and food', 'expense');
-    expect(hits.sort()).toEqual(['food_dining', 'transport']);
+    expect(hits.sort()).toEqual(['food_dining', 'travel']);
 
     const r = resolveCandidate(
       baseCandidate({ merchant: 'Shell', description: 'fuel and food' }),
@@ -345,7 +345,7 @@ describe('category — type-scoped', () => {
     expect(c).toBeDefined();
     expect(c!.candidates).toHaveLength(2);
     expect(c!.candidates.map(o => o.patch.category_id).sort())
-      .toEqual(['food_dining', 'transport']);
+      .toEqual(['food_dining', 'travel']);
     expect(r.candidate.category_id).toBeUndefined();
   });
 

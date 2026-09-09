@@ -51,7 +51,7 @@ export interface Intent {
 // can still use the modal's category dropdown after the seed lands.
 const EXPENSE_QUICK_CATS: SubChip[] = [
   { label: 'Groceries',     action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'expense' as TxnType, category: 'food' } } },
-  { label: 'Fuel',          action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'expense' as TxnType, category: 'transport' } } },
+  { label: 'Fuel',          action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'expense' as TxnType, category: 'travel' } } },
   { label: 'Eating out',    action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'expense' as TxnType, category: 'food' } } },
   { label: 'Shopping',      action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'expense' as TxnType, category: 'shopping' } } },
   { label: 'Bills',         action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'expense' as TxnType, category: 'utilities' } } },

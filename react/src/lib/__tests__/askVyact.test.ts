@@ -57,7 +57,7 @@ describe('askVyactParser — amount + entities (spec §3 stage 2)', () => {
   });
   it('CON-UNIT-ASK-002 · normalises and matches category keywords', () => {
     expect(normalise('  Spent  45  ON  Fuel ')).toBe('spent 45 on fuel');
-    expect(matchCategory('spent 45 on fuel')).toBe('transport');
+    expect(matchCategory('spent 45 on fuel')).toBe('travel');
     expect(matchCategory('netflix 199')).toBe('entertainment');
     expect(matchCategory('how much on dining this month')).toBe('food_dining');
   });
@@ -147,12 +147,12 @@ function makeCtx(over: Partial<AssistantContext> = {}): AssistantContext {
 
 describe('resolve + phrase — answers trace to services (spec §5/§6)', () => {
   it('CON-UNIT-ASK-040 · capture seeds the modal with the parsed amount + category', async () => {
-    const backend = llm('capture.expense', { amount: 45, category: 'transport' });
+    const backend = llm('capture.expense', { amount: 45, category: 'travel' });
     const turn = await runAssistant('spent 45 on fuel', makeCtx(), backend, 0);
     // Stage 4 still builds the seed — the model only said WHICH intent this is.
     expect(turn.seed?.type).toBe('expense');
     expect(turn.seed?.amount).toBe(45);
-    expect(turn.seed?.category).toBe('transport');
+    expect(turn.seed?.category).toBe('travel');
     expect(turn.clarify).toBe(false);
     expect(turn.reply.length).toBeGreaterThan(0);
   });

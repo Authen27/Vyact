@@ -9,9 +9,10 @@
 
 // ── category id sets — MUST mirror react/src/constants.ts CATEGORIES_BY_TYPE ──
 export const EXPENSE_IDS = new Set([
-  'food_dining', 'groceries', 'transport', 'rent_mortgage', 'utilities', 'shopping',
-  'health', 'entertainment', 'education', 'travel', 'childcare', 'insurance',
-  'loan_emi', 'other_expense',
+  'food_dining', 'groceries', 'rent_mortgage', 'utilities', 'travel',
+  'holiday_outstay', 'shopping', 'electronics_decor', 'personal_care', 'health',
+  'repairs_maintenance', 'entertainment', 'education', 'childcare',
+  'gifts_donations', 'insurance', 'loan_emi', 'other_expense',
 ]);
 export const INCOME_IDS = new Set([
   'salary', 'freelance', 'gift_bonus', 'rental_income', 'business_revenue', 'other_income',

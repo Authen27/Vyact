@@ -13,9 +13,10 @@
 
 // ── category id sets — MUST mirror react/src/constants.ts (CATEGORIES_BY_TYPE) ──
 export const EXPENSE_IDS = new Set([
-  'food_dining', 'groceries', 'transport', 'rent_mortgage', 'utilities', 'shopping',
-  'health', 'entertainment', 'education', 'travel', 'childcare', 'insurance',
-  'loan_emi', 'other_expense',
+  'food_dining', 'groceries', 'rent_mortgage', 'utilities', 'travel',
+  'holiday_outstay', 'shopping', 'electronics_decor', 'personal_care', 'health',
+  'repairs_maintenance', 'entertainment', 'education', 'childcare',
+  'gifts_donations', 'insurance', 'loan_emi', 'other_expense',
 ]);
 export const INCOME_IDS = new Set([
   'salary', 'freelance', 'gift_bonus', 'rental_income', 'business_revenue', 'other_income',
@@ -76,8 +77,8 @@ const KEYWORD_MAP: Record<string, string> = {
   'eating out': 'food_dining', starbucks: 'food_dining', mcdonalds: 'food_dining',
   swiggy: 'food_dining', zomato: 'food_dining', takeaway: 'food_dining',
   groceries: 'groceries', grocery: 'groceries', supermarket: 'groceries',
-  fuel: 'transport', petrol: 'transport', gas: 'transport', uber: 'transport', taxi: 'transport',
-  cab: 'transport', ola: 'transport', train: 'transport', bus: 'transport', parking: 'transport',
+  fuel: 'travel', petrol: 'travel', gas: 'travel', uber: 'travel', taxi: 'travel',
+  cab: 'travel', ola: 'travel', train: 'travel', bus: 'travel', parking: 'travel',
   amazon: 'shopping', shopping: 'shopping', clothes: 'shopping', shoes: 'shopping', flipkart: 'shopping',
   netflix: 'entertainment', spotify: 'entertainment', movie: 'entertainment', cinema: 'entertainment',
   prime: 'entertainment', subscription: 'entertainment', game: 'entertainment',

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.20.8**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.21.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -45,6 +45,19 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   (`CATEGORIES_BY_TYPE`). **The gate is the test suite:**
   `lib/__tests__/moneyModel.{invariants,regression,engines}.test.ts` (INV-1..9 +
   golden file) — keep green, update the snapshot deliberately.
+- **Categories are type-scoped, and the set exists in THREE places (v10.21).**
+  `constants.ts` is the source, but `_shared/whatsapp-parser.ts` and
+  `_shared/agent/types.ts` each hold their own allowlist because they are Deno
+  modules that cannot import it. **Adding or removing a category means editing
+  all three** — CON-UNIT-161/162 fail if they drift. Drift is silent: a category
+  the app offers is rejected as unknown and the expense lands in other.
+  A retired id (`transport`, merged into `travel`) is **never deleted from**
+  `NEEDS_WANTS_MAP` **or** `LEGACY_CATEGORY_ALIASES` — stored rows and lagging
+  caches still carry it, and dropping it silently removes those rows from the
+  needs/wants split. Every offered category MUST have a needs/wants entry.
+  Renaming a category in the DB is a **merge, not an UPDATE**:
+  `budget_allocations` is unique on `(budget_id, category)`, so a budget holding
+  both ids collides and aborts the migration. Sum them; keep `category_prev`.
 - **Budget identity lives in the DB** — one per `(household, scope, period)`,
   enforced by `uq_budget_month/annual` + `upsert_budget(_with_allocations)` RPC
   (the single writer). Never put budget identity on the client. Create is online

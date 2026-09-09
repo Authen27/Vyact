@@ -32,7 +32,7 @@ const CHIP_CATEGORY: Record<string, string> = {
   utilities: 'utilities',
   phone: 'utilities',
   subscriptions: 'entertainment',
-  transport: 'transport',
+  transport: 'travel',      // v10.21 — the category merged; the bill key did not
   childcare: 'childcare',
   groceries: 'groceries',
   insurance: 'insurance',
