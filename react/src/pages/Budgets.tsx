@@ -179,7 +179,7 @@ export default function Budgets() {
           {rows.map(({ b, allocs, totalBase, spent }) => {
             const overall = pct(spent, totalBase);
             return (
-              <div key={b.id} className="rounded-r3 p-4 min-w-0" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+              <div key={b.id} data-testid="budget-card" className="rounded-r3 p-4 min-w-0" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
                 <div className="flex items-start justify-between mb-2 gap-2">
                   <button onClick={() => navigate(`/transactions?budgetId=${b.id}`)}
                     className="font-semibold text-ink text-[0.95rem] truncate hover:text-coral text-left" title="View transactions">
