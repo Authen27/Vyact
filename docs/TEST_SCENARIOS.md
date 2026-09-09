@@ -295,6 +295,9 @@ Known coverage gaps (tracked outside this file):
 | CON-E2E-040 | `react/e2e/tests/smoke.spec.ts` | tolerates corrupt localStorage payloads and falls back to clean defaults | Renumbered 2026-09-09: this test had been sharing CON-E2E-008 with `debts-payment.spec.ts`, so the catalogue could not say which scenario a result belonged to. |
 | CON-E2E-041 | `react/e2e/tests/smoke.spec.ts` | primary routed pages mount without page errors | Renumbered from a collision with CON-E2E-007 (`transactions-create.spec.ts`). |
 | CON-E2E-042 | `react/e2e/tests/smoke.spec.ts` | boots from legacy ff_* keys and writes back under vt_* | Renumbered from a collision with CON-E2E-010 (`transactions-create.spec.ts`). |
+| CON-E2E-050 | `react/e2e/tests/budget-editor.spec.ts` | every expense category is listed, with no "add category" step | Catalogued during the 2026-09-09 reconciliation pass. |
+| CON-E2E-051 | `react/e2e/tests/budget-editor.spec.ts` | a store refresh mid-edit does not wipe what you typed | Catalogued during the 2026-09-09 reconciliation pass. |
+| CON-E2E-052 | `react/e2e/tests/budget-editor.spec.ts` | one row per category, so a duplicate allocation is unrepresentable | Catalogued during the 2026-09-09 reconciliation pass. |
 
 ### 4.3 Admin · Unit (ADM-UNIT)
 
