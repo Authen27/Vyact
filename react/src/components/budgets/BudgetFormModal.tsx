@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import HalfSheet from '../ui/HalfSheet';
-import { Input, Select } from '../ui/Input';
+import { Input } from '../ui/Input';
 import Chip from '../ui/Chip';
 import { AmountField } from '../ui/NumericKeypad';
 import { useStore } from '../../store';
@@ -49,7 +49,6 @@ export default function BudgetFormModal(props: Props) {
   const profile      = useStore(s => s.profile);
   const rates        = useStore(s => s.rates);
   const recurring    = useStore(s => s.recurringSchedules);
-  const allocations  = useStore(s => s.budgetAllocations);
   const budgets      = useStore(s => s.budgets);
   const transactions = useStore(s => s.transactions);
   const debts        = useStore(s => s.debts);
@@ -69,10 +68,21 @@ export default function BudgetFormModal(props: Props) {
   const [form, setForm]     = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);
 
+  // 🔴 HYDRATE ON OPEN ONLY.
+  //
+  // `allocations` used to be a dependency here. It is the store's
+  // budgetAllocations array, which takes a NEW IDENTITY on every sync poll, so
+  // this effect re-ran mid-edit and called setForm() — wiping whatever the user
+  // had typed. For a new budget that meant setForm(blank()). That is the
+  // reported "adding budget by category ... reset the already filled info".
+  //
+  // The allocations are read imperatively instead, so they are still current at
+  // the moment the sheet opens without making the form hostage to store churn.
   useEffect(() => {
     if (!open) return;
+    const currentAllocations = useStore.getState().budgetAllocations;
     if (initial) {
-      const rows = allocations.filter(a => a.budgetId === initial.id)
+      const rows = currentAllocations.filter(a => a.budgetId === initial.id)
         .map(a => ({ id: a.id, category: a.category, amount: String(a.amount) }));
       setForm({
         // Coerce any legacy 'custom' row to 'month' (custom budgets removed).
@@ -86,7 +96,10 @@ export default function BudgetFormModal(props: Props) {
     } else {
       setForm(blank(profile.baseCurrency));
     }
-  }, [open, initial, profile.baseCurrency, allocations]);
+    // Deliberately NOT depending on `allocations` — see above. `initial` is a
+    // store object whose identity also churns, so key on its id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial?.id, profile.baseCurrency]);
 
   // resolved period range for the current form state
   const period = useMemo(
@@ -105,17 +118,24 @@ export default function BudgetFormModal(props: Props) {
   }, [recurring, period.periodStart, period.periodEnd, form.currency, rates]);
   const forecastTotal = Object.values(forecast).reduce((s, n) => s + n, 0);
 
-  function setAlloc(i: number, patch: Partial<AllocRow>) {
-    setForm(f => ({ ...f, allocs: f.allocs.map((r, idx) => idx === i ? { ...r, ...patch } : r) }));
+  // Defect 3 — every expense category is present, always. The old model made
+  // you press "＋ Add category" for each one and pick it from a dropdown, which
+  // is why budgets ended up covering a handful of categories: the interaction
+  // cost scaled with how thorough you were.
+  //
+  // It also made a DUPLICATE category reachable — `addAlloc` fell back to
+  // 'other_expense' once every category was used, and two rows with the same
+  // category violate `uq_balloc_cat` at save time (23505). One row per
+  // category makes that unrepresentable rather than merely unlikely.
+  function setAmountFor(category: string, amount: string) {
+    setForm(f => {
+      const i = f.allocs.findIndex(r => r.category === category);
+      if (i === -1) return { ...f, allocs: [...f.allocs, { category, amount }] };
+      return { ...f, allocs: f.allocs.map((r, idx) => idx === i ? { ...r, amount } : r) };
+    });
   }
-  function addAlloc() {
-    const used = new Set(form.allocs.map(r => r.category));
-    const next = EXPENSE_CATEGORIES.find(c => !used.has(c.id))?.id ?? 'other_expense';
-    setForm(f => ({ ...f, allocs: [...f.allocs, { category: next, amount: '' }] }));
-  }
-  function removeAlloc(i: number) {
-    setForm(f => ({ ...f, allocs: f.allocs.filter((_, idx) => idx !== i) }));
-  }
+  const amountFor = (category: string) =>
+    form.allocs.find(r => r.category === category)?.amount ?? '';
   function prefillFromForecast() {
     const rows: AllocRow[] = Object.entries(forecast).map(([category, amount]) => ({ category, amount: String(Math.round(amount)) }));
     if (rows.length) setForm(f => ({ ...f, allocs: rows, limit: f.limit || String(Math.round(forecastTotal)) }));
@@ -291,32 +311,31 @@ export default function BudgetFormModal(props: Props) {
             <Sparkles size={12} /> Suggest
           </button>
         </div>
-        <div className="space-y-2">
-          {form.allocs.map((r, i) => {
-            const c = getCat(r.category);
+        <div className="space-y-1.5">
+          {EXPENSE_CATEGORIES.map((cc) => {
+            const value = amountFor(cc.id);
+            const filled = (parseFloat(value) || 0) > 0;
             return (
-              <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-r2" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-                <span className="text-base leading-none flex-shrink-0" aria-hidden>{c.icon}</span>
-                <Select value={r.category} onChange={e => setAlloc(i, { category: e.target.value })}
-                  className="flex-1 min-w-0 !h-[32px] !py-0 text-[12.5px]">
-                  {EXPENSE_CATEGORIES.map(cc => <option key={cc.id} value={cc.id}>{cc.icon} {cc.label}</option>)}
-                </Select>
+              <div key={cc.id}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-r2"
+                style={{
+                  background: 'var(--canvas)',
+                  boxShadow: filled ? 'var(--neu-inset)' : 'var(--neu-sm)',
+                }}>
+                <span className="text-base leading-none flex-shrink-0" aria-hidden>{cc.icon}</span>
+                <span className={`flex-1 min-w-0 truncate text-[12.5px] ${filled ? 'text-ink font-medium' : 'text-ink-dim'}`}>
+                  {cc.label}
+                </span>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <span className="text-ink-dim text-[12.5px]">{currencySymbol}</span>
-                  <Input type="number" min="0" step="0.01" value={r.amount} placeholder="0"
-                    onChange={e => setAlloc(i, { amount: e.target.value })}
-                    className="!h-[32px] !py-0 !w-[84px] text-right num text-[12.5px]" />
+                  <Input type="number" min="0" step="0.01" value={value} placeholder="0"
+                    aria-label={`Budget for ${cc.label}`}
+                    onChange={e => setAmountFor(cc.id, e.target.value)}
+                    className="!h-[32px] !py-0 !w-[92px] text-right num text-[12.5px]" />
                 </div>
-                <button type="button" onClick={() => removeAlloc(i)} aria-label="Remove allocation"
-                  className="text-ink-dim hover:text-terra px-0.5 flex-shrink-0">✕</button>
               </div>
             );
           })}
-          <button type="button" onClick={addAlloc}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-r2 text-coral font-display font-semibold text-[12.5px] border-none cursor-pointer"
-            style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-            ＋ Add category
-          </button>
         </div>
         <div className={`text-[0.72rem] mt-2 ${remaining < -0.001 ? 'text-terra' : 'text-ink-dim'}`}>
           Allocated {fmt(allocSum, form.currency)} of {fmt(total, form.currency)}

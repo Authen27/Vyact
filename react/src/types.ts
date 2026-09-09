@@ -493,11 +493,15 @@ export interface RecordLoanPaymentResult {
   expenseTxnId?: string | null;
   transferTxnId?: string | null;
   loanAccountId?: string | null;
+  debt: Debt;
+  loanAccount: Account;
+  transactions: Transaction[];
 }
 
 /** Store-facing input for the loan-payment command (what the FORM knows; the
  *  store computes the decomposition and fills in the command payload). */
 export interface RecordLoanPaymentInput {
+  operationId?: string;
   debtId: string;
   /** Real account uuid or an encoded picker value ('cash' / account id);
    *  defaults to the household's Cash account. */

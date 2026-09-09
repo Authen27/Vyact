@@ -415,6 +415,9 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
   // ── CRUD ─────────────────────────────────────────────────────
   upsertTransaction: async (t) => {
     const { adapter, currentHouseholdId, transactions, accounts } = get();
+    if (t.id && transactions.find(row => row.id === t.id)?.emiSplit) {
+      throw new Error('Loan payment corrections require an atomic reversal; individual legs cannot be edited');
+    }
 
     // Money-Model B1.1 (A2) — no transaction without an account. Default the
     // funding source to the system Cash account so the rule never blocks fast entry.
@@ -487,6 +490,9 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const { adapter, currentHouseholdId, transactions } = get();
     // v7.0.3 — Transfer pair: deleting either half removes the other half too.
     const target = transactions.find(x => x.id === id);
+    if (target?.emiSplit) {
+      throw new Error('Loan payment corrections require an atomic reversal; individual legs cannot be deleted');
+    }
     const tag = target?.note?.match(/__tg:[A-Za-z0-9_-]+/)?.[0];
     if (tag) {
       const pair = transactions.filter(x => x.note?.includes(tag));
@@ -584,25 +590,38 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
 
   recordLoanPayment: async (input) => {
     const { adapter, currentHouseholdId, cloudEnabled } = get();
+    const actorId = get().session?.user.id;
+    const rpc = typeof adapter.recordLoanPayment === 'function'
+      ? adapter.recordLoanPayment.bind(adapter) : null;
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    if (cloudEnabled && (!rpc || !online)) throw new Error('Loan payments require an online connection');
     const debt = get().debts.find(d => d.id === input.debtId);
     if (!debt) throw new Error('Debt not found');
-    if (!input.amount || input.amount <= 0) throw new Error('Amount must be greater than 0');
+    if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Amount must be greater than 0');
     const date = input.date || new Date().toISOString().split('T')[0];
 
     // Re-amortisation math — the parity-tested port. The server VALIDATES this
     // decomposition's shape; it never computes it.
     const result = applyPayment(debt, input.amount, input.partPaymentChoice, date);
     const { interest, principal } = result.log;
+    if (!cloudEnabled && (interest > input.amount || principal > debt.currentBalance)) {
+      throw new Error('Payment must cover the interest and cannot exceed the outstanding balance plus interest');
+    }
     const emiSplit = { interest, principal, debt_id: debt.id, partPaymentChoice: input.partPaymentChoice };
     const currency = input.currency || debt.currency;
     const description = input.description?.trim() || `${debt.name} EMI`;
 
     // Funding account: explicit id, encoded picker value, else the Cash default.
     const accounts = get().accounts;
-    const funding = accounts.find(a => a.id === input.fundingAccountId)
-      ?? accounts.find(a => input.fundingAccountId ? accountValueOf(a) === input.fundingAccountId : false)
-      ?? accounts.find(a => a.kind === 'cash');
-    if (!funding) throw new Error('No funding account available — add an account first');
+    const funding = input.fundingAccountId
+      ? accounts.find(a => a.id === input.fundingAccountId || accountValueOf(a) === input.fundingAccountId)
+      : accounts.find(a => a.kind === 'cash' && !a.isArchived);
+    if (!funding || funding.isArchived || !['cash', 'bank'].includes(funding.kind)) {
+      throw new Error('Choose an active bank or cash funding account');
+    }
+    if (currency !== debt.currency || funding.currency !== debt.currency) {
+      throw new Error('Loan payments must use the loan and funding account currency');
+    }
 
     // Build the legs locally; every field is known client-side, the RPC is the
     // persistence boundary (it assigns no numbers of its own).
@@ -618,15 +637,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       emiSplit, linkedTxnId: expense?.id,
     } : null;
 
-    const rpc = typeof adapter.recordLoanPayment === 'function'
-      ? adapter.recordLoanPayment.bind(adapter) : null;
-    const online = typeof navigator === 'undefined' || navigator.onLine;
-
     if (cloudEnabled && rpc && online) {
       // Cloud + online: the atomic RPC is the durability boundary (like
       // upsertBudgetWithAllocations) — nothing here goes through the queue.
       const res = await rpc(currentHouseholdId, {
-        operationId: uid(),
+        operationId: input.operationId ?? uid(),
         debtId: debt.id,
         fundingAccountId: funding.id,
         amount: input.amount,
@@ -638,24 +653,15 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
         newMinimumPayment: result.debt.minimumPayment,
         paymentLogEntry: result.log,
       }, { expense: expense ?? undefined, transfer: transferLeg ?? undefined, debt: result.debt });
-      // Adopt the server-assigned ids so store rows match cloud rows.
-      if (expense && res.expenseTxnId) expense.id = res.expenseTxnId;
-      if (transferLeg) {
-        if (res.transferTxnId) transferLeg.id = res.transferTxnId;
-        if (res.loanAccountId) transferLeg.toAccountId = res.loanAccountId;
-        transferLeg.linkedTxnId = expense?.id;
+      if (get().currentHouseholdId === currentHouseholdId && get().session?.user.id === actorId) {
+        set(state => ({
+          transactions: [...state.transactions.filter(row => !res.transactions.some(saved => saved.id === row.id)), ...res.transactions],
+          debts: state.debts.map(row => row.id === res.debt.id ? res.debt : row),
+          accounts: [...state.accounts.filter(row => row.id !== res.loanAccount.id), res.loanAccount],
+        }));
+        get().toast('Payment recorded', 'success');
       }
-      const loanAccount: Account | null = res.loanAccountId
-        && !get().accounts.some(a => a.id === res.loanAccountId)
-        ? { id: res.loanAccountId, kind: 'loan', name: debt.name, currency: debt.currency, debtId: debt.id }
-        : null;
-      set({
-        transactions: [...get().transactions, ...[expense, transferLeg].filter((x): x is Transaction => !!x)],
-        debts: get().debts.map(d => d.id === debt.id ? result.debt : d),
-        ...(loanAccount ? { accounts: [...get().accounts, loanAccount] } : {}),
-      });
-      if (result.message) get().toast(result.message, 'success');
-      return { message: result.message, expense: expense ?? transferLeg };
+      return { message: 'Payment recorded', expense: res.transactions.find(row => row.type === 'expense') ?? res.transactions[0] ?? null };
     }
 
     // Offline / local-only fallback — sequential optimistic writes, each leg a
@@ -672,6 +678,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
         // debt ids with 23503 (the old branch could never have synced).
         loanAcc = await get().upsertAccount({
           id: uid(), kind: 'loan', name: debt.name, currency: debt.currency,
+          openingBalance: -debt.currentBalance,
           debtId: debt.id, isDefault: false, isArchived: false,
         });
       }

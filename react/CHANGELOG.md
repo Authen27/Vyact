@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.21.0`** (consumer)
+> **Current production version: `v10.21.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,56 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.21.1 — The budget editor keeps what you type, and offers every category *(2026-09-09)*
+
+Defects **1** and **3** from the original list, plus a database correction that was quietly
+undoing part of v10.21.0.
+
+### "It reset the already filled info"
+
+The hydration effect listed the store's `budgetAllocations` array in its dependency array. That
+array takes a **new identity on every sync poll**, so the effect re-ran while you were typing and
+called `setForm()` — which for a new budget means `setForm(blank())`. Everything entered vanished,
+with no interaction from you at all, at whatever moment the next poll happened to land.
+
+Hydration now happens when the sheet **opens**, reading the allocations imperatively so the form is
+still populated correctly without being hostage to store churn.
+
+**CON-E2E-051** reproduces this at its cause: it types into the form, calls the same `refresh()`
+a sync poll calls, and asserts the values survive. Run against the old dependency array, the typed
+`450` comes back as `""`.
+
+### Every category, without the "Add category" dance
+
+Each allocation used to need a **＋ Add category** tap and a dropdown selection, so the effort
+scaled with how thorough you were being — which is exactly why budgets ended up covering a handful
+of categories. All 18 expense categories are now listed with an amount field; leave one blank and
+it simply isn't allocated. Filled rows are visually distinct from empty ones.
+
+That also makes a **duplicate category unrepresentable**. The old picker fell back to
+`other_expense` once every category was used, and two rows sharing a category violate
+`uq_balloc_cat` — the database rejected the save with 23505 *after* you had done the work.
+
+### The database was overriding the Travel reclassification
+
+`category_classifications` is an admin-editable table that **overrides** `NEEDS_WANTS_MAP` at
+runtime. Its `travel` row still said **want**, written in May when Travel meant holidays — so the
+"Travel is a need" change shipped in v10.21.0 was not actually in effect in production. Corrected,
+and eight pre-v9 ids that can no longer match any category (`food`, `rent`, `other_exp`,
+`debt_*`, `investment_*`) were removed. Backed up first.
+
+> Worth knowing for the future: a code-level default can be silently overridden by a row in that
+> table, and nothing in the app says so.
+
+### Also in this release
+
+The audit author's corrective checkpoint — the loan payment contract, dialog and outbox
+safeguards, and cache boundary extensions. See `docs/CORRECTIVE_REVIEW_2026-09-09.md` for their
+deployment notes; the loan RPC change in particular requires the migration to be applied before
+the consumer, because the new client depends on authoritative rows in the response.
 
 ---
 

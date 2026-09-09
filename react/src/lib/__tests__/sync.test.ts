@@ -89,7 +89,7 @@ describe('sync/deadLetter — TD-26', () => {
   it('CON-UNIT-077 · record → count → clear on both buckets; retry drains into the outbox owner-stamped', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {}); // recordFailed → unexpected → console.error
     outbox.setDriverForTests(new MemoryDriver());
-    recordConflict(op({ ts: 9, expectedUpdatedAt: '2026-01-01T00:00:00Z' }));
+    recordConflict({ ...op({ ts: 9, expectedUpdatedAt: '2026-01-01T00:00:00Z' }), ownerUid: 'user-1' } as QueueOp);
     expect(pendingConflictCount()).toBe(1);
     recordFailed(op({ ts: 10 }), new Error('boom'));
     expect(pendingFailedCount()).toBe(1);

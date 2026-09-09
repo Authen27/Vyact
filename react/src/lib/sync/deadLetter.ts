@@ -65,14 +65,17 @@ export async function retryDeadLettered(
   ownerUid: string | null,
 ): Promise<void> {
   try {
-    const list = ls.readJson<QueueOp[]>(bucket) || [];
+    const list = ls.readJson<Array<QueueOp & { ownerUid?: string | null }>>(bucket) || [];
     if (!list.length) return;
+    const retained: typeof list = [];
     for (const op of list) {
+      if (!ownerUid || op.ownerUid !== ownerUid) { retained.push(op); continue; }
       await requeueOp(
         { ...op, attempts: 0, nextRetryAt: undefined, expectedUpdatedAt: undefined },
         ownerUid,
       );
     }
-    ls.removeBoth(bucket);
+    if (retained.length) ls.setJson(bucket, retained);
+    else ls.removeBoth(bucket);
   } catch { /* storage error — non-fatal */ }
 }

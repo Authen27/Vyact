@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.21.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.21.1**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -55,6 +55,12 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   `NEEDS_WANTS_MAP` **or** `LEGACY_CATEGORY_ALIASES` — stored rows and lagging
   caches still carry it, and dropping it silently removes those rows from the
   needs/wants split. Every offered category MUST have a needs/wants entry.
+  🔴 **`category_classifications` OVERRIDES `NEEDS_WANTS_MAP` at runtime** in cloud
+  mode (`lib/categorization.ts`), so a code-level need/want default can be
+  silently reverted by a stale row. v10.21.0 shipped `travel: need` while the
+  DB still said `want` from May — the change was not in effect in production
+  until the row was corrected. Change the constant AND the row, or the app
+  disagrees with itself and nothing says so.
   Renaming a category in the DB is a **merge, not an UPDATE**:
   `budget_allocations` is unique on `(budget_id, category)`, so a budget holding
   both ids collides and aborts the migration. Sum them; keep `category_prev`.

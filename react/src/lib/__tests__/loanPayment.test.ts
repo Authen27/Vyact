@@ -33,10 +33,18 @@ const CMD: RecordLoanPaymentCommand = {
   paymentLogEntry: { id: 'log-1', date: '2026-09-08', amount: 1170, interest: 170.5, principal: 999.5, outstandingAfter: 199000.5, isPartPayment: false },
 };
 
+const returnedRows = {
+  debt: { id: 'debt-1', type: 'loan', name: 'Mortgage', currency: 'GBP', current_balance: 199000.5,
+    principal: 200000, interest_rate: 1, minimum_payment: 1170, extras: { remainingMonths: 287 } },
+  loan_account: { id: 'la1', kind: 'loan', name: 'Mortgage', currency: 'GBP', debt_id: 'debt-1',
+    opening_balance: -200000, reconciliation_offset: 25, reconciliation_log: [] },
+  transactions: [],
+};
+
 describe('SupabaseAdapter.recordLoanPayment (audit F2)', () => {
   it('CON-UNIT-113 · maps the command to the RPC contract exactly', async () => {
     const { sb, rpc } = mockRpcClient({
-      data: { status: 'success', expense_txn_id: 'e1', transfer_txn_id: 't1', loan_account_id: 'la1' },
+      data: { ...returnedRows, status: 'success', expense_txn_id: 'e1', transfer_txn_id: 't1', loan_account_id: 'la1' },
     });
     const res = await new SupabaseAdapter(sb).recordLoanPayment('h1', CMD);
 
@@ -56,7 +64,8 @@ describe('SupabaseAdapter.recordLoanPayment (audit F2)', () => {
       p_new_minimum_payment: 1170,
       p_payment_log_entry: CMD.paymentLogEntry,
     });
-    expect(res).toEqual({ status: 'success', expenseTxnId: 'e1', transferTxnId: 't1', loanAccountId: 'la1' });
+    expect(res).toMatchObject({ status: 'success', expenseTxnId: 'e1', transferTxnId: 't1', loanAccountId: 'la1',
+      debt: { currentBalance: 199000.5 }, loanAccount: { openingBalance: -200000, reconciliationOffset: 25 } });
   });
 
   it('CON-UNIT-114 · a server-side rejection (bad split, tenancy, role) THROWS — never a silent success', async () => {
@@ -67,7 +76,7 @@ describe('SupabaseAdapter.recordLoanPayment (audit F2)', () => {
 
   it('CON-UNIT-115 · an idempotent retry returns duplicate with the ORIGINAL ids', async () => {
     const { sb } = mockRpcClient({
-      data: { status: 'duplicate', expense_txn_id: 'e0', transfer_txn_id: 't0', loan_account_id: 'la0' },
+      data: { ...returnedRows, status: 'duplicate', expense_txn_id: 'e0', transfer_txn_id: 't0', loan_account_id: 'la0' },
     });
     const res = await new SupabaseAdapter(sb).recordLoanPayment('h1', CMD);
     expect(res.status).toBe('duplicate');

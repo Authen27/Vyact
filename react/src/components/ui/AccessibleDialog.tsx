@@ -12,7 +12,7 @@
 // HalfSheet and Modal both render through this, so there is ONE dialog
 // behaviour to test.
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -33,6 +33,7 @@ export default function AccessibleDialog({
   open, onClose, title, ariaLabel, children, footer, variant = 'sheet',
 }: Props) {
   const isSheet = variant === 'sheet';
+  const opener = useRef<HTMLElement | null>(null);
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
@@ -44,6 +45,11 @@ export default function AccessibleDialog({
           />
         </Dialog.Overlay>
         <Dialog.Content
+          onOpenAutoFocus={() => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
+          onCloseAutoFocus={event => {
+            if (opener.current?.isConnected) { event.preventDefault(); opener.current.focus(); }
+          }}
+          aria-describedby={undefined}
           aria-label={ariaLabel}
           asChild={false}
           className={
@@ -52,7 +58,7 @@ export default function AccessibleDialog({
               : 'fixed z-[201] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md glass-panel rounded-r4 max-h-[90vh] flex flex-col outline-none'
           }
         >
-          <motion.div variants={sheetUp} initial="hidden" animate="visible" exit="exit" className="flex flex-col min-h-0 max-h-full">
+          <motion.div variants={sheetUp} initial={false} animate="visible" exit="exit" className="flex flex-col min-h-0 max-h-full">
             {/* Audit 6.1 — the close affordance is a REAL control with a ≥44px
                 touch target (the grabber was 5px). Visible on every breakpoint. */}
             <div className={`flex items-center ${title ? 'justify-between' : 'justify-end'} px-5 pt-2 sm:pt-4 pb-2 flex-shrink-0 ${title ? 'sm:border-b sm:border-line' : ''}`}>

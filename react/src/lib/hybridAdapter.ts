@@ -23,7 +23,7 @@ import {
 import ls from './localStorageCompat';
 import { cacheGeneration, isCacheGenerationCurrent } from './kvStore';
 import { SupabaseAdapter, ConcurrencyConflictError } from './supabaseAdapter';
-import { droppedWrite } from './faults';
+import { droppedWrite, unexpected } from './faults';
 import { uid } from './format';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as syncQueue from './sync/syncQueue';
@@ -35,6 +35,15 @@ export class HybridAdapter implements DataAdapter {
   cache: LocalStorageAdapter;
   cloud: SupabaseAdapter;
   private flushing = false;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private scheduleFlush(at: number): void {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      void this.flushQueue().catch(error => unexpected(error, 'sync.retry'));
+    }, Math.max(100, at - Date.now()));
+  }
   /** Audit F6 — identifies this tab's flush worker in outbox claims. */
   private workerId = uid();
 
@@ -95,7 +104,7 @@ export class HybridAdapter implements DataAdapter {
     }
     if (cursor) {
       this.cloud.listSince(entity as Exclude<Entity, 'members'>, householdId, cursor)
-        .then(delta => this.applyCloudDelta(entity, householdId, delta))
+        .then(delta => this.applyCloudDelta(entity, householdId, delta, gen))
         .catch(() => {/* network error — cache stays */});
     } else {
       this.cloud.list<T>(entity, householdId)
@@ -175,19 +184,23 @@ export class HybridAdapter implements DataAdapter {
     entity: Entity,
     householdId: string,
     delta: { rows: unknown[]; tombstones: string[]; maxUpdatedAt: string | null },
+    gen: number,
   ): Promise<void> {
+    if (!isCacheGenerationCurrent(gen)) return;
     // Empty delta is the steady-state happy path — nothing changed since the
     // cursor. No cache touch, no cursor bump.
     if (delta.rows.length === 0 && delta.tombstones.length === 0) return;
     for (const row of delta.rows) {
+      if (!isCacheGenerationCurrent(gen)) return;
       const r = row as { id?: string };
       if (!r.id) continue;
       await this.cache.upsert(entity, householdId, r as { id: string });
     }
     for (const id of delta.tombstones) {
+      if (!isCacheGenerationCurrent(gen)) return;
       try { await this.cache.remove(entity, householdId, id); } catch { /* row may already be gone */ }
     }
-    if (delta.maxUpdatedAt) this.writeCursor(entity, householdId, delta.maxUpdatedAt);
+    if (delta.maxUpdatedAt && isCacheGenerationCurrent(gen)) this.writeCursor(entity, householdId, delta.maxUpdatedAt);
   }
 
   /** Clear the synced sentinel for a household so the next list() treats
@@ -369,7 +382,7 @@ export class HybridAdapter implements DataAdapter {
     await locks.request('vyact-outbox-flush', { ifAvailable: true }, async (lock) => {
       // Another tab holds the lock — it claims this tab's ops too (same
       // origin, same owner filter), so skipping is safe.
-      if (!lock) return;
+      if (!lock) { this.scheduleFlush(Date.now() + 1000); return; }
       await fn();
     });
   }
@@ -378,8 +391,15 @@ export class HybridAdapter implements DataAdapter {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     await this.withFlushLock(async () => {
       const ownerUid = await this.cloud.currentUserId();
+      if (!ownerUid) return;
+      for (let round = 0; round < 100; round++) {
       const claimed = await outbox.claimDue(this.workerId, Date.now(), ownerUid);
+      if (!claimed.length) break;
       for (const op of claimed) {
+        if (await this.cloud.currentUserId() !== ownerUid) {
+          await outbox.release(op, {});
+          continue;
+        }
         // v6.4.2: Drop ops carrying a non-UUID id. Records created before the
         // uid()→crypto.randomUUID() fix have ids like "mpe036yty4vnauz7yif",
         // which the uuid PK columns reject with 22P02. Retrying them forever
@@ -387,17 +407,27 @@ export class HybridAdapter implements DataAdapter {
         // flushing. We drop them with a structured fault rather than silently.
         if (!syncQueue.isQueueOpIdValid(op)) {
           droppedWrite('sync.flushQueue', `${op.op} ${op.entity ?? ''} id=${(op.payload as { id?: string })?.id ?? op.id ?? '?'}`);
-          await outbox.ack(op.opId);
+          deadLetter.recordFailed(op, new Error('Operation contains an invalid entity ID'));
+          await outbox.ack(op.opId, this.workerId);
           continue;
         }
         try {
+          let serverRevision: string | undefined;
           if      (op.op === 'upsert') {
+            const gen = cacheGeneration();
             const saved = await this.cloud.upsert(op.entity!, op.householdId, op.payload as { id?: string }, op.expectedUpdatedAt);
+            serverRevision = (saved as { updated_at?: string }).updated_at;
             // Audit F7 — fold the server-returned authoritative row (and its
             // fresh updated_at) back into the cache, so a second edit before
             // the next refresh carries a CURRENT concurrency precondition
             // rather than a stale or missing one.
-            try { await this.cache.upsert(op.entity!, op.householdId, saved as { id: string }); } catch { /* best-effort */ }
+            if (isCacheGenerationCurrent(gen) && !await outbox.hasPendingEntity(ownerUid, op.householdId, op.entity!, op.opId)) {
+              const cached = await this.cache.list<{ id: string }>(op.entity!, op.householdId);
+              if (isCacheGenerationCurrent(gen)) {
+                await this.cache.replaceAll(op.entity!, op.householdId,
+                  [...cached.filter(row => row.id !== saved.id), saved]);
+              }
+            }
           }
           else if (op.op === 'remove')        await this.cloud.remove(op.entity!, op.householdId, op.id!);
           else if (op.op === 'replaceAll')    await this.cloud.replaceAll(op.entity!, op.householdId, op.payload as unknown[]);
@@ -407,7 +437,7 @@ export class HybridAdapter implements DataAdapter {
           // and RLS access to this (hid, entity); mark synced so subsequent
           // empty list responses are trusted, not treated as transient.
           if (op.entity) this.markSynced(op.entity, op.householdId);
-          await outbox.ack(op.opId);
+          await outbox.ack(op.opId, this.workerId, serverRevision);
         } catch (e) {
           const outcome = classifyFlushError(e, op);
           if (outcome.kind === 'conflict') {
@@ -417,7 +447,7 @@ export class HybridAdapter implements DataAdapter {
               const cc = e as ConcurrencyConflictError;
               console.warn('[Vyact sync] Concurrency conflict — op dead-lettered:', op.entity, cc.id, 'expected', cc.expectedUpdatedAt);
             }
-            await outbox.ack(op.opId);
+            await outbox.ack(op.opId, this.workerId);
             continue;
           }
           if (outcome.kind === 'failed') {
@@ -426,7 +456,7 @@ export class HybridAdapter implements DataAdapter {
             if (typeof console !== 'undefined') {
               console.warn('[Vyact sync] Op exhausted retries — moved to dead-letter:', op.op, op.entity, e);
             }
-            await outbox.ack(op.opId);
+            await outbox.ack(op.opId, this.workerId);
             continue;
           }
           // Transient — release back to pending with the backoff patch; the
@@ -434,8 +464,11 @@ export class HybridAdapter implements DataAdapter {
           await outbox.release(op, outcome.op);
         }
       }
+      }
       // Refresh the synchronous badge count after the batch.
       await outbox.pendingCount();
+      const nextWake = await outbox.nextWakeAt(ownerUid);
+      if (nextWake !== null) this.scheduleFlush(nextWake);
     });
   }
 
@@ -494,25 +527,19 @@ export class HybridAdapter implements DataAdapter {
   async recordLoanPayment(
     householdId: string,
     cmd: RecordLoanPaymentCommand,
-    rows: { expense?: Transaction; transfer?: Transaction; debt: Debt },
+    _rows: { expense?: Transaction; transfer?: Transaction; debt: Debt },
   ): Promise<RecordLoanPaymentResult> {
+    const gen = cacheGeneration();
     const res = await this.cloud.recordLoanPayment(householdId, cmd);
     try {
-      if (rows.expense) {
-        await this.cache.upsert('transactions', householdId,
-          { ...rows.expense, id: res.expenseTxnId ?? rows.expense.id });
-      }
-      if (rows.transfer) {
-        await this.cache.upsert('transactions', householdId,
-          { ...rows.transfer, id: res.transferTxnId ?? rows.transfer.id,
-            toAccountId: res.loanAccountId ?? rows.transfer.toAccountId });
-      }
-      await this.cache.upsert('debts', householdId, rows.debt);
-      if (res.loanAccountId) {
-        await this.cache.upsert('accounts', householdId, {
-          id: res.loanAccountId, kind: 'loan', name: rows.debt.name,
-          currency: rows.debt.currency, debtId: rows.debt.id,
-        });
+      for (const [entity, rows] of [
+        ['transactions', res.transactions], ['debts', [res.debt]], ['accounts', [res.loanAccount]],
+      ] as const) {
+        if (!isCacheGenerationCurrent(gen)) return res;
+        const cached = await this.cache.list<{ id: string }>(entity, householdId);
+        if (!isCacheGenerationCurrent(gen)) return res;
+        await this.cache.replaceAll(entity, householdId,
+          [...cached.filter(row => !rows.some(saved => saved.id === row.id)), ...rows]);
       }
     } catch { /* cache is best-effort; the cloud write is authoritative */ }
     return res;
