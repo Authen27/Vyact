@@ -25,7 +25,19 @@ test.describe('§5 BDGT-FC · Budgets', () => {
 
   test.describe('create / period validation', () => {
     // member present → demo seed suppressed; budgets/transactions start empty.
-    test.use({ seed: seedWith({ budgets: [], transactions: [], members: [SEED_MEMBER] }) });
+    // `onboardedAt` is what suppresses the first-run flow. App.tsx computes
+    // `hasExistingData = transactions.length > 0 || !!profile.onboardedAt`, and
+    // this block deliberately seeds an EMPTY ledger — so without it the app
+    // redirected /budgets to /onboarding and every test here timed out inside
+    // `goto()`, which looked like a stale selector for months.
+    //
+    // Set per-spec, NOT in the shared fixture: marking onboarding complete for
+    // every seeded household was tried and took the suite from 22 passing to
+    // 15. Only the empty-ledger specs need it.
+    test.use({ seed: seedWith({
+      budgets: [], transactions: [], members: [SEED_MEMBER],
+      profile: { onboardedAt: '2026-05-01T00:00:00.000Z' },
+    }) });
 
     test('CON-E2E-017 · [BDGT-FC-001] creates a monthly budget that starts at 0% used', async ({ page, budgets }) => {
       await budgets.goto();
