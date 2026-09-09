@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.21.1`** (consumer)
+> **Current production version: `v10.22.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,70 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.22.0 — `anon` can no longer reach a single SECURITY DEFINER function *(2026-09-09)*
+
+P4 of the technical-debt register. Two database hardening items from the Supabase security advisor,
+both long-standing.
+
+### 19 privileged functions were callable without signing in
+
+A SECURITY DEFINER function runs as its **owner** and bypasses RLS by design. Postgres grants
+EXECUTE on a new function to **PUBLIC** by default, and `anon` inherits PUBLIC — so an explicit
+`grant … to authenticated` never took the default away. All nineteen were reachable from an
+unauthenticated client through `/rest/v1/rpc/<name>`, including `erase_household_data`,
+`transfer_ownership`, `request_account_deletion` and the four `admin_*` reporting functions.
+
+**This was not a live breach** — every one fails internally on a null `auth.uid()`. But the names
+alone are enumerable from a signed-out client, and defence that depends on each function
+remembering to check is not defence. It is the same class as the revokes already applied in
+20260430092130 and 20260816120000; those set the precedent, and these nineteen were simply missed.
+
+Verified before writing the migration: every one requires a signed-in user semantically. The only
+plausible pre-auth caller was the invite flow, and `AcceptInvite.tsx` checks `getSession()` first
+and stashes the token to prompt sign-in — so `anon` never calls `accept_invitation_link`.
+
+Dry-run against production, then rolled back: **anon-executable definer functions 19 → 0**, with
+`authenticated` retaining all 33 and losing nothing.
+
+### A caller could redirect name resolution inside them
+
+An unqualified name inside a SECURITY DEFINER function resolves against the **caller's**
+`search_path`, so a caller who puts a same-named table or operator earlier on the path can change
+what the function does while it runs as the owner. Six app functions had no pinned path
+(`accept_invitation`, `leave_household`, `transfer_ownership`, and the three `updated_at`
+triggers). All six are now pinned to `public, pg_temp`; **zero** definer functions remain unpinned.
+
+`pg_trgm` is deliberately left in `public`. Moving an extension is riskier than it looks: existing
+`gin_trgm_ops` indexes resolve their operator class through the search path, so that is its own
+change with its own verification, not a line in this one.
+
+### P3 · one real cause found in Lane A, and an honest scope correction
+
+The 68 Lane A failures are not one problem. Clustering them showed 37 with no shared selector at
+all, so "fix the stale selectors" was the wrong model.
+
+One concrete cause **is** now identified. `budgets.spec.ts` fails at `goto()`, not on any
+assertion: its create block seeds `transactions: []`, App.tsx then treats the household as fresh
+(`hasExistingData` is false), and **/budgets redirects to /onboarding**. The spec sits in
+`waitForURL("**/budgets")` until the 30s timeout, which reads as a stale selector and hides the
+real cause. Diagnosed by dumping `page.url()`, which was `/onboarding`.
+
+A blanket fixture fix — marking onboarding complete for every seeded household — was tried and
+**reverted**: it took the suite from 22 passing to 15, breaking specs that were green. Only the
+suites seeding an empty ledger are redirected, so the fix belongs in those specs, not the shared
+fixture. Recorded here so the next attempt starts from the finding rather than the symptom.
+
+Also fixed: `BudgetsPage.card()` matched `div.rounded-xl`, a class the Aurora redesign removed,
+so it selected nothing. It keys on `[data-testid="budget-card"]` now — the same precedent as
+`txn-row` and `schedule-row`. Necessary but not sufficient for those six tests.
+
+### Still open, and not fixable from SQL
+
+**Leaked-password protection is disabled** in Supabase Auth. It checks new passwords against
+HaveIBeenPwned and is a dashboard setting, not a migration — Authentication → Policies.
 
 ---
 
