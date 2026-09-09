@@ -49,12 +49,11 @@ function projection() {
 }
 
 describe('computeNetWorth — the one projection (audit F3)', () => {
-  it('CON-UNIT-119 · asset side = live account balances + unlinked legacy assets (archived excluded)', () => {
+  it('CON-UNIT-119 · asset side retains archived accounts and unlinked legacy assets', () => {
     const p = projection();
     // accounts: cash 500 + bank (2000 − 400) + investment 5000 = 7100; + house 300000
-    expect(p.totalAssets).toBe(307100);
-    // the archived account's 999 is NOT counted
-    expect(p.assetRows.some(r => r.id === 'old')).toBe(false);
+    expect(p.totalAssets).toBe(308099);
+    expect(p.assetRows.some(r => r.id === 'old')).toBe(true);
     expect(p.assetRows.some(r => r.id === 'house' && r.source === 'asset')).toBe(true);
   });
 
@@ -66,8 +65,23 @@ describe('computeNetWorth — the one projection (audit F3)', () => {
     expect(p.totalLiabilities).toBe(11700);
     expect(p.liabilityRows.filter(r => r.debt?.id === 'd-car' || r.account?.id === 'loan')).toHaveLength(1);
     expect(p.liabilityRows.some(r => r.debt?.id === 'd-recv')).toBe(false);
-    expect(p.netWorth).toBe(307100 - 11700);
+    expect(p.netWorth).toBe(308099 - 11700);
   });
+    it('CON-UNIT-908 - a positive card balance is owned credit, not debt', () => {
+      const state = { assets: [], debts: [], transactions: [], accounts: [
+        { id: 'credit', kind: 'credit_card' as const, name: 'Credit', currency: 'USD', openingBalance: 150 },
+      ] };
+      const projected = computeNetWorth(state, 'USD', R);
+      expect(projected.totalAssets).toBe(150);
+      expect(projected.totalLiabilities).toBe(0);
+      expect(projected.netWorth).toBe(150);
+    });
+    it('CON-UNIT-909 - archiving retains value and opening balances are valued in account currency', () => {
+      const state = { assets: [], debts: [], transactions: [], accounts: [
+        { id: 'foreign', kind: 'bank' as const, name: 'Foreign', currency: 'GBP', openingBalance: 800, isArchived: true },
+      ] };
+      expect(computeNetWorth(state, 'USD', R).netWorth).toBe(1000);
+    });
 
   it('CON-UNIT-121 · a NEW account with no asset/debt row moves the projection (the audit\'s divergence case)', () => {
     const before = projection();

@@ -10,10 +10,10 @@
 // to NO liability figure anywhere.
 //
 // THE RULE (one source of truth)
-//   ASSET side  — every live, non-archived cash/bank/investment ACCOUNT at its
+//   ASSET side  — every cash/bank/investment ACCOUNT at its
 //                 computed ledger balance, PLUS legacy assets no account
 //                 represents (de-duped by assetId — liveAssetRows' rule).
-//   LIABILITY side — every live, non-archived credit_card/loan ACCOUNT at its
+//   LIABILITY side — every credit_card/loan ACCOUNT at its
 //                 computed ledger balance (this is what makes a standalone
 //                 card/loan account count), PLUS debts no account represents
 //                 (de-duped by debtId), MINUS receivables the v10.17 rule
@@ -62,7 +62,7 @@ export function liveLiabilityRows(
   baseCurrency: string,
   rates: ExchangeRates,
 ): LiabilityRow[] {
-  const liveAccounts = accounts.filter(a => !a.isArchived);
+    const liveAccounts = accounts.filter(a => LIABILITY_KINDS.has(a.kind));
   const linkedDebtIds = new Set(
     liveAccounts.map(a => a.debtId).filter((id): id is string => !!id),
   );
@@ -71,9 +71,7 @@ export function liveLiabilityRows(
     .map(a => ({
       id: a.id,
       name: a.name,
-      // A liability account's computed balance is ≤ 0 by construction (money
-      // out of it is owed). Display positive.
-      value: Math.abs(computeAccountBalance(a, txns, baseCurrency, rates)),
+        value: Math.max(0, -convert(computeAccountBalance(a, txns, a.currency, rates), a.currency, baseCurrency, rates)),
       currency: baseCurrency,
       source: 'account',
       account: a,
@@ -109,7 +107,17 @@ export function computeNetWorth(
   rates: ExchangeRates,
 ): NetWorthProjection {
   const { assets, accounts, debts, transactions } = state;
-  const assetRows = liveAssetRows(assets, accounts, transactions, baseCurrency, rates);
+    const valuationAccounts = accounts.map(account => ({ ...account, isArchived: false }));
+    const assetRows = liveAssetRows(assets, valuationAccounts, transactions, baseCurrency, rates)
+      .map(row => row.account ? { ...row,
+        account: accounts.find(account => account.id === row.id),
+        value: convert(computeAccountBalance(row.account, transactions, row.account.currency, rates), row.account.currency, baseCurrency, rates),
+      } : row);
+    for (const account of accounts.filter(account => LIABILITY_KINDS.has(account.kind))) {
+      const value = convert(computeAccountBalance(account, transactions, account.currency, rates), account.currency, baseCurrency, rates);
+      if (value > 0) assetRows.push({ id: account.id, name: account.name, value,
+        currency: baseCurrency, liquidity: 'liquid', source: 'account', account });
+    }
   const liabilityRows = liveLiabilityRows(debts, accounts, transactions, baseCurrency, rates);
   const totalAssets = liveTotalAssets(assetRows);
   const totalLiabilities = round2(liabilityRows.reduce((s, r) => s + r.value, 0));

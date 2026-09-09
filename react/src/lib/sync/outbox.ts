@@ -12,7 +12,7 @@
 //   • A claim goes stale after CLAIM_STALE_MS, so a tab that dies mid-flush
 //     doesn't hold its ops hostage from other tabs.
 //   • Every op is stamped with its owner's uid. A flush claims only the
-//     current user's ops (plus unowned/legacy ones), so on a shared device
+//     current user's ops. Unowned/legacy ops remain quarantined, so on a shared device
 //     user B's session never attempts — and dead-letters — user A's pending
 //     writes (audit S5's "pending offline writes belonging to a previous
 //     user" case). A's ops wait for A.
@@ -26,6 +26,8 @@ import ls from '../localStorageCompat';
 import { uid } from '../format';
 import { unexpected } from '../faults';
 import type { QueueOp } from './types';
+import { IdbDriver, type OutboxDriver } from './outboxStore';
+export { IdbDriver, MemoryDriver, type OutboxDriver } from './outboxStore';
 
 export interface StoredOp extends QueueOp {
   opId: string;
@@ -37,108 +39,48 @@ export interface StoredOp extends QueueOp {
   ownerUid: string | null;
 }
 
-export interface OutboxDriver {
-  put(op: StoredOp): Promise<void>;
-  delete(opId: string): Promise<void>;
-  getAll(): Promise<StoredOp[]>;
-}
-
 const CLAIM_STALE_MS = 60_000;
 const LEGACY_KEY = 'sync_queue';
 
 // ── IndexedDB driver (browser) ─────────────────────────────────────────────
 
-const DB_NAME = 'vyact_outbox';
-const STORE = 'ops';
-
-function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-class IdbDriver implements OutboxDriver {
-  private dbp: Promise<IDBDatabase> | null = null;
-  private db(): Promise<IDBDatabase> {
-    if (!this.dbp) {
-      this.dbp = new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, 1);
-        req.onupgradeneeded = () => {
-          if (!req.result.objectStoreNames.contains(STORE)) {
-            req.result.createObjectStore(STORE, { keyPath: 'opId' });
-          }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-      // A failed open (private mode, quota) must not wedge every later call.
-      this.dbp.catch(() => { this.dbp = null; });
-    }
-    return this.dbp;
-  }
-  private async store(mode: IDBTransactionMode): Promise<IDBObjectStore> {
-    const db = await this.db();
-    return db.transaction(STORE, mode).objectStore(STORE);
-  }
-  async put(op: StoredOp): Promise<void> {
-    await idbRequest((await this.store('readwrite')).put(op));
-  }
-  async delete(opId: string): Promise<void> {
-    await idbRequest((await this.store('readwrite')).delete(opId));
-  }
-  async getAll(): Promise<StoredOp[]> {
-    return idbRequest((await this.store('readonly')).getAll()) as Promise<StoredOp[]>;
-  }
-}
-
-// ── Memory driver (Node tests / non-IDB environments) ──────────────────────
-
-export class MemoryDriver implements OutboxDriver {
-  private map = new Map<string, StoredOp>();
-  async put(op: StoredOp): Promise<void> { this.map.set(op.opId, op); }
-  async delete(opId: string): Promise<void> { this.map.delete(opId); }
-  async getAll(): Promise<StoredOp[]> { return [...this.map.values()]; }
-}
 
 // ── Module state (lazy — this module is imported at app boot) ──────────────
 
 let driver: OutboxDriver | null = null;
-let migrated = false;
+let migration: Promise<void> | null = null;
 let lastKnownCount = 0;
 
 /** Test hook: inject a driver (null resets to the environment default). */
 export function setDriverForTests(d: OutboxDriver | null): void {
   driver = d;
-  migrated = false;
+  migration = null;
   lastKnownCount = 0;
 }
 
 function getDriver(): OutboxDriver {
   if (!driver) {
-    driver = typeof indexedDB !== 'undefined' ? new IdbDriver() : new MemoryDriver();
+    if (typeof indexedDB === 'undefined') throw new Error('Durable outbox requires IndexedDB');
+    driver = new IdbDriver();
   }
   return driver;
 }
 
 /** One-time import of the legacy localStorage queue. */
 async function migrateLegacyOnce(): Promise<void> {
-  if (migrated) return;
-  migrated = true;
-  let legacy: QueueOp[] = [];
-  try { legacy = ls.readJson<QueueOp[]>(LEGACY_KEY) || []; } catch { legacy = []; }
-  if (!legacy.length) return;
-  const d = getDriver();
-  const existing = await d.getAll();
-  let seq = existing.reduce((m, o) => Math.max(m, o.seq), 0);
-  for (const op of legacy) {
-    seq += 1;
-    // ownerUid unknown for legacy ops → null. They flush under the current
-    // session; RLS rejects anything the current user may not write, and the
-    // rejection dead-letters loudly rather than applying cross-user.
-    await d.put({ ...op, opId: uid(), seq, status: 'pending', ownerUid: null });
-  }
-  try { ls.removeBoth(LEGACY_KEY); } catch { /* noop */ }
+  migration ??= (async () => {
+    const legacy = ls.readJson<QueueOp[]>(LEGACY_KEY) ?? [];
+    if (!legacy.length) return;
+    await getDriver().transaction(rows => {
+      let seq = [...rows.values()].reduce((max, row) => Math.max(max, row.seq), 0);
+      legacy.forEach((op, index) => {
+        const opId = `legacy:${index}:${JSON.stringify(op)}`;
+        if (!rows.has(opId)) rows.set(opId, { ...op, opId, seq: ++seq, status: 'pending', ownerUid: null });
+      });
+    });
+    if (JSON.stringify(ls.readJson(LEGACY_KEY)) === JSON.stringify(legacy)) ls.removeBoth(LEGACY_KEY);
+  })().catch(error => { migration = null; throw error; });
+  await migration;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -147,12 +89,13 @@ async function migrateLegacyOnce(): Promise<void> {
 export async function enqueueOp(op: QueueOp, ownerUid: string | null): Promise<StoredOp> {
   try {
     await migrateLegacyOnce();
-    const d = getDriver();
-    const all = await d.getAll();
-    const seq = all.reduce((m, o) => Math.max(m, o.seq), 0) + 1;
-    const stored: StoredOp = { ...op, opId: uid(), seq, status: 'pending', ownerUid };
-    await d.put(stored);
-    lastKnownCount = all.length + 1;
+    const stored = await getDriver().transaction(rows => {
+      const seq = [...rows.values()].reduce((max, row) => Math.max(max, row.seq), 0) + 1;
+      const next: StoredOp = { ...op, opId: uid(), seq, status: 'pending', ownerUid };
+      rows.set(next.opId, next);
+      return next;
+    });
+    await pendingCount();
     return stored;
   } catch (e) {
     // A failed enqueue is silent write-loss — the binding rule applies.
@@ -163,41 +106,56 @@ export async function enqueueOp(op: QueueOp, ownerUid: string | null): Promise<S
 
 /**
  * Claim the due ops for one worker: pending (or stale-claimed), past their
- * backoff window, owned by this user (or unowned), oldest first.
+ * backoff window, owned by this user, oldest first per entity.
  */
 export async function claimDue(workerId: string, now: number, ownerUid: string | null): Promise<StoredOp[]> {
   await migrateLegacyOnce();
-  const d = getDriver();
-  const all = await d.getAll();
-  const due = all
-    .filter(o => o.ownerUid === ownerUid || o.ownerUid === null)
-    .filter(o => o.status === 'pending' || (o.claimedAt ?? 0) < now - CLAIM_STALE_MS)
-    .filter(o => !o.nextRetryAt || o.nextRetryAt <= now)
-    .sort((a, b) => a.seq - b.seq);
-  const claimed: StoredOp[] = [];
-  for (const o of due) {
-    const c: StoredOp = { ...o, status: 'claimed', claimedBy: workerId, claimedAt: now };
-    await d.put(c);
-    claimed.push(c);
-  }
-  lastKnownCount = all.length;
-  return claimed;
+  if (!ownerUid) return [];
+  return getDriver().transaction(rows => {
+    const claimed: StoredOp[] = [];
+    const blocked = new Set<string>();
+    for (const op of [...rows.values()].sort((left, right) => left.seq - right.seq)) {
+      if (op.ownerUid !== ownerUid) continue;
+      const resource = `${op.householdId}:${op.entity ?? op.op}`;
+      if (blocked.has(resource)) continue;
+      blocked.add(resource);
+      if ((op.status === 'claimed' && (op.claimedAt ?? 0) >= now - CLAIM_STALE_MS)
+          || (op.nextRetryAt ?? 0) > now) continue;
+      const next: StoredOp = { ...op, status: 'claimed', claimedBy: workerId, claimedAt: now };
+      rows.set(op.opId, next);
+      claimed.push(next);
+    }
+    lastKnownCount = rows.size;
+    return claimed;
+  });
 }
 
 /** Acknowledge a completed op — delete exactly that row. */
-export async function ack(opId: string): Promise<void> {
-  const d = getDriver();
-  // Only a real deletion moves the badge count — acking a stale/unknown id
-  // (e.g. an op another tab already acked) must not under-count the queue.
-  const existed = (await d.getAll()).some(o => o.opId === opId);
-  await d.delete(opId);
-  if (existed) lastKnownCount = Math.max(0, lastKnownCount - 1);
+export async function ack(opId: string, workerId?: string, serverRevision?: string): Promise<void> {
+  await getDriver().transaction(rows => {
+    const current = rows.get(opId);
+    if (!current || (workerId && current.claimedBy !== workerId)) return;
+    rows.delete(opId);
+    if (serverRevision && current.op === 'upsert') {
+      const entityId = (current.payload as { id?: string })?.id;
+      const next = [...rows.values()].filter(row => row.ownerUid === current.ownerUid
+        && row.householdId === current.householdId && row.entity === current.entity && row.op === 'upsert'
+        && (row.payload as { id?: string })?.id === entityId && row.seq > current.seq)
+        .sort((left, right) => left.seq - right.seq)[0];
+      if (next) rows.set(next.opId, { ...next, expectedUpdatedAt: serverRevision });
+    }
+  });
+  await pendingCount();
 }
 
 /** Return a claimed op to pending with an updated backoff patch (retry). */
 export async function release(op: StoredOp, patch: Partial<QueueOp>): Promise<void> {
-  const { claimedBy: _c, claimedAt: _t, ...rest } = op;
-  await getDriver().put({ ...rest, ...patch, status: 'pending' });
+  await getDriver().transaction(rows => {
+    const current = rows.get(op.opId);
+    if (!current || current.claimedBy !== op.claimedBy) return;
+    rows.set(op.opId, { ...current, ...patch, opId: current.opId, ownerUid: current.ownerUid,
+      status: 'pending', claimedBy: undefined, claimedAt: undefined });
+  });
 }
 
 /** Re-add an op from a dead-letter bucket (R5 retry path). */
@@ -211,7 +169,7 @@ export async function pendingCount(ownerUid?: string | null): Promise<number> {
   const all = await getDriver().getAll();
   const n = ownerUid === undefined
     ? all.length
-    : all.filter(o => o.ownerUid === ownerUid || o.ownerUid === null).length;
+    : all.filter(o => o.ownerUid === ownerUid).length;
   lastKnownCount = n;
   return n;
 }
@@ -219,4 +177,16 @@ export async function pendingCount(ownerUid?: string | null): Promise<number> {
 /** Best-known synchronous count for UI badges; refreshed on every mutation. */
 export function pendingCountSync(): number {
   return lastKnownCount;
+}
+
+export async function nextWakeAt(ownerUid: string): Promise<number | null> {
+  const rows = await getDriver().getAll();
+  const due = rows.filter(row => row.ownerUid === ownerUid).map(row => row.status === 'claimed'
+    ? (row.claimedAt ?? 0) + CLAIM_STALE_MS + 1 : row.nextRetryAt ?? 0);
+  return due.length ? Math.min(...due) : null;
+}
+
+export async function hasPendingEntity(ownerUid: string, householdId: string, entity: string, exceptOpId: string): Promise<boolean> {
+  return (await getDriver().getAll()).some(row => row.ownerUid === ownerUid && row.householdId === householdId
+    && row.entity === entity && row.opId !== exceptOpId);
 }

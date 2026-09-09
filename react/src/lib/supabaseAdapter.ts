@@ -731,11 +731,18 @@ export class SupabaseAdapter implements DataAdapter {
     if (r.status === 'error') {
       throw new Error(`record_loan_payment rejected: ${String(r.reason ?? 'unknown')}`);
     }
+    if ((r.status !== 'success' && r.status !== 'duplicate') || !r.debt || !r.loan_account
+        || !Array.isArray(r.transactions)) {
+      throw new Error('Loan payment returned an unsupported response; update the server before retrying');
+    }
     return {
       status: r.status as RecordLoanPaymentResult['status'],
       expenseTxnId: (r.expense_txn_id as string | null) ?? null,
       transferTxnId: (r.transfer_txn_id as string | null) ?? null,
       loanAccountId: (r.loan_account_id as string | null) ?? null,
+      debt: rowToDebt(r.debt as DebtRow),
+      loanAccount: rowToAccount(r.loan_account as AccountRow),
+      transactions: r.transactions.map(row => rowToTxn(row as TransactionRow)),
     };
   }
 

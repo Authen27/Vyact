@@ -54,6 +54,7 @@ const CACHED_SUFFIXES = [
  */
 const SENTINEL_PREFIXES = [
   'cloud_synced_', 'recurring_backfilled_', 'recurring_rekeyed_', 'last_delta_',
+  'cursor_', 'chat_history_',
 ];
 
 /** Keys that must SURVIVE — the user's unsynced work and device preferences.

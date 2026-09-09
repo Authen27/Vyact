@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import HalfSheet from '../ui/HalfSheet';
 import Chip, { CategoryChip } from '../ui/Chip';
 import { AmountField } from '../ui/NumericKeypad';
@@ -164,6 +164,7 @@ export default function TransactionFormModal(props: Props) {
 
   const [form, setForm]    = useState<FormState>(blank(profile.baseCurrency, defaultMemberId));
   const [saving, setSaving] = useState(false);
+  const loanOperation = useRef<string | null>(null);
   const [showAllCats, setShowAllCats] = useState(false);   // board M4 "⌕ More" category tile
   const [showTimeDial, setShowTimeDial] = useState(false); // v10.17 — circular 24h picker panel
 
@@ -213,6 +214,7 @@ export default function TransactionFormModal(props: Props) {
 
   useEffect(() => {
     if (!open) return;
+    loanOperation.current = null;
     setShowAllCats(false);
     setShowTimeDial(false);
     if (initial) {
@@ -392,7 +394,9 @@ export default function TransactionFormModal(props: Props) {
       // online. Edits of an existing EMI leg stay on the plain path — the
       // store recognises the known id and skips re-decomposition.
       if (!initial && form.category === 'loan_emi' && form.linkedDebtId) {
+        loanOperation.current ??= uid();
         await recordLoanPayment({
+          operationId: loanOperation.current,
           debtId: form.linkedDebtId,
           fundingAccountId: fromEncoded || undefined,
           amount,
@@ -404,6 +408,7 @@ export default function TransactionFormModal(props: Props) {
         });
         // The store surfaces the re-amortisation message itself; no undo —
         // system-split rows create linked legs and never one-tap-undo.
+        loanOperation.current = null;
         if (addAnother) resetForNext(); else onClose();
         return;
       }

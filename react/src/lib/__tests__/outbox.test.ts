@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 // claim/ack-by-id, which cannot erase an op it never claimed.
 
 import * as outbox from '../sync/outbox';
-import { MemoryDriver, type StoredOp } from '../sync/outbox';
+import { MemoryDriver } from '../sync/outbox';
 import type { QueueOp } from '../sync/types';
 
 class MemStorage {
@@ -60,11 +60,14 @@ describe('outbox — durable per-op rows (audit F6)', () => {
     await outbox.enqueueOp(op(), 'user-1');
     await outbox.enqueueOp(op({ payload: { id: UUID_B } }), 'user-1');
     const first = await outbox.claimDue('worker-1', Date.now(), 'user-1');
-    expect(first).toHaveLength(2);
-    expect(first[0].seq).toBeLessThan(first[1].seq);           // oldest first
+    expect(first).toHaveLength(1);
     expect(first.every(o => o.status === 'claimed' && o.claimedBy === 'worker-1')).toBe(true);
     const again = await outbox.claimDue('worker-1', Date.now(), 'user-1');
     expect(again).toHaveLength(0);                             // already claimed
+    await outbox.ack(first[0].opId, 'worker-1');
+    const following = await outbox.claimDue('worker-1', Date.now(), 'user-1');
+    expect(following).toHaveLength(1);
+    expect(following[0].seq).toBeGreaterThan(first[0].seq);
   });
 
   it('CON-UNIT-107 · THE RACE — an op enqueued DURING a flush survives it', async () => {
@@ -88,12 +91,13 @@ describe('outbox — durable per-op rows (audit F6)', () => {
   });
 
   it('CON-UNIT-108 · backoff — an op inside nextRetryAt is not claimed; release re-queues it', async () => {
-    const a = await outbox.enqueueOp(op({ attempts: 1, nextRetryAt: Date.now() + 60_000 }), 'user-1');
+    await outbox.enqueueOp(op({ attempts: 1, nextRetryAt: Date.now() + 60_000 }), 'user-1');
     expect(await outbox.claimDue('worker-1', Date.now(), 'user-1')).toHaveLength(0);
 
     // The flush's transient-failure path: release with a new backoff patch.
+    const [claimed] = await outbox.claimDue('worker-1', Date.now() + 61_000, 'user-1');
     await outbox.release(
-      { ...a, status: 'claimed', claimedBy: 'worker-1', claimedAt: Date.now() } as StoredOp,
+      claimed,
       { attempts: 2, nextRetryAt: Date.now() - 1 },
     );
     const due = await outbox.claimDue('worker-1', Date.now(), 'user-1');
@@ -117,13 +121,13 @@ describe('outbox — durable per-op rows (audit F6)', () => {
     await outbox.enqueueOp(op({ payload: { id: UUID_B } }), null);   // legacy/unowned
     // User B's flush: only the unowned op.
     const forB = await outbox.claimDue('w', Date.now(), 'user-b');
-    expect(forB).toHaveLength(1);
-    expect(forB[0].ownerUid).toBeNull();
+    expect(forB).toHaveLength(0);
     // User A returns: their op is still there.
     const forA = await outbox.claimDue('w', Date.now() + 61_000, 'user-a');
-    expect(forA).toHaveLength(2);   // A's op + the unowned one (stale claim expired)
-    expect(await outbox.pendingCount('user-b')).toBe(1);
-    expect(await outbox.pendingCount('user-a')).toBe(2);
+    expect(forA).toHaveLength(1);
+    expect(await outbox.pendingCount('user-b')).toBe(0);
+    expect(await outbox.pendingCount('user-a')).toBe(1);
+    expect(await outbox.pendingCount()).toBe(2);
   });
 
   it('CON-UNIT-111 · the legacy localStorage queue migrates in once, ownerless, and is removed', async () => {
@@ -131,10 +135,10 @@ describe('outbox — durable per-op rows (audit F6)', () => {
     const fresh = await outbox.enqueueOp(op(), 'user-1');
     expect(fresh.opId).toBeTruthy();
     const all = await outbox.claimDue('w', Date.now(), 'user-1');
-    expect(all).toHaveLength(3);
+    expect(all).toHaveLength(1);
     // Legacy ops came in with null owner, ordered BEFORE the new op.
-    expect(all[2].opId).toBe(fresh.opId);
-    expect(all[0].ownerUid).toBeNull();
+    expect(all[0].opId).toBe(fresh.opId);
+    expect(await outbox.pendingCount()).toBe(3);
     // The legacy key is gone and a second migration does not duplicate.
     expect(g.localStorage!.getItem('vt_sync_queue')).toBeNull();
     outbox.setDriverForTests(new MemoryDriver());   // reset migrated flag
