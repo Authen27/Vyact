@@ -79,3 +79,54 @@ jobs:
           name: playwright-report
           path: react/playwright-report
           retention-days: 7
+
+  # ── Lane B · the cloud lane ────────────────────────────────────────────────
+  # Lane A has no database, so it cannot exercise a unique index, a CHECK
+  # constraint, or RLS — the whole class of bug where "the write silently
+  # affected zero rows". Lane B is the only lane that can, and until now it
+  # existed as a config and specs with nothing to run it.
+  #
+  # It targets vyact-test (xdbfzwltqocyljbgztmv), a disposable project pinned in
+  # e2e/lane-b/env.ts so a stray VITE_SUPABASE_URL cannot point it at
+  # production. It needs no browser and no dev server.
+  #
+  # GATED ON THE SECRET, and honestly: with SUPABASE_TEST_SERVICE_ROLE_KEY unset
+  # the job reports plainly that it is not configured instead of passing
+  # silently. A cloud lane that quietly runs zero tests is worse than no lane —
+  # that is exactly how the suite once stayed "green" while testing nothing.
+  lane-b:
+    name: E2E — Lane B (cloud, needs SUPABASE_TEST_SERVICE_ROLE_KEY)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: react } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: react/package-lock.json
+      - name: Is Lane B configured?
+        id: cfg
+        env:
+          KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Lane B not configured::Set the SUPABASE_TEST_SERVICE_ROLE_KEY repository secret (service_role key of the vyact-test project) to enable the cloud lane. Skipping — NOT passing."
+          fi
+      - run: npm ci
+        if: steps.cfg.outputs.configured == 'true'
+      - name: Run Lane B against vyact-test
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          SUPABASE_TEST_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE_KEY }}
+        run: npm run e2e:lane-b
+      - name: Upload Lane B report
+        if: ${{ steps.cfg.outputs.configured == 'true' && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-lane-b
+          path: react/playwright-report
+          retention-days: 7
