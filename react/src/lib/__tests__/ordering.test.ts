@@ -3,7 +3,7 @@ import type { Budget, BudgetAllocation, Transaction } from '../../types';
 import { compareTxnRecency, transactionSortValue } from '../format';
 import { budgetLinesForMonth } from '../calculations';
 
-// CON-UNIT-105..108 — two display bugs with ONE root cause: code that depended
+// CON-UNIT-131..135 — two display bugs with ONE root cause: code that depended
 // on incidental array order or on a field that means "when this row was
 // written" rather than "when the money moved".
 //
@@ -19,7 +19,7 @@ const txn = (over: Partial<Transaction>): Transaction => ({
 }) as Transaction;
 
 describe('compareTxnRecency · newest-first means when the money moved', () => {
-  it('CON-UNIT-105 · a back-dated row written today does not outrank a later-dated one', () => {
+  it('CON-UNIT-131 · a back-dated row written today does not outrank a later-dated one', () => {
     // THE REPORTED BUG. Three Salary rows written in one catch-up batch sorted
     // above a transaction dated a month later, so July's salary appeared above
     // September's rent on the dashboard.
@@ -39,13 +39,13 @@ describe('compareTxnRecency · newest-first means when the money moved', () => {
     expect(transactionSortValue(julySalary)).toBe(Date.parse('2026-07-02T00:00:00'));
   });
 
-  it('CON-UNIT-106 · created_at breaks ties WITHIN a day, newest entry first', () => {
+  it('CON-UNIT-132 · created_at breaks ties WITHIN a day, newest entry first', () => {
     const morning = txn({ id: 'a', date: '2026-09-07', created_at: '2026-09-07T06:00:00Z' });
     const evening = txn({ id: 'b', date: '2026-09-07', created_at: '2026-09-07T20:00:00Z' });
     expect([morning, evening].sort(compareTxnRecency).map(t => t.id)).toEqual(['b', 'a']);
   });
 
-  it('CON-UNIT-107 · an explicit time still wins, and ordering is total', () => {
+  it('CON-UNIT-133 · an explicit time still wins, and ordering is total', () => {
     const early = txn({ id: 'a', date: '2026-09-07', time: '09:00' });
     const late  = txn({ id: 'b', date: '2026-09-07', time: '18:30' });
     expect([early, late].sort(compareTxnRecency).map(t => t.id)).toEqual(['b', 'a']);
@@ -67,7 +67,7 @@ describe('budgetLinesForMonth · the dashboard shows THIS month', () => {
     id, budgetId, category, amount: 500,
   }) as BudgetAllocation;
 
-  it('CON-UNIT-108 · only the current month survives, whatever the array order', () => {
+  it('CON-UNIT-134 · only the current month survives, whatever the array order', () => {
     // THE REPORTED BUG. The dashboard called budgetLines() over EVERY budget the
     // household ever had and then took slice(0, 5), so the month on screen was
     // decided by array position. August is deliberately first here.
@@ -87,7 +87,7 @@ describe('budgetLinesForMonth · the dashboard shows THIS month', () => {
       .toStrictEqual(lines);
   });
 
-  it('CON-UNIT-109 · an annual budget covers every month of its year', () => {
+  it('CON-UNIT-135 · an annual budget covers every month of its year', () => {
     const annual = { id: 'y', scope: 'annual', periodYear: 2026, limit: 12000,
       currency: 'INR' } as Budget;
     const lines = budgetLinesForMonth([annual], [alloc('y1', 'y', 'food')], '2026-09');

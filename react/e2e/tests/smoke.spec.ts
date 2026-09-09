@@ -51,7 +51,7 @@ test.describe('App shell (unseeded)', () => {
     await expect(page).not.toHaveURL(/\/auth\//);
   });
 
-  test('CON-E2E-008 · tolerates corrupt localStorage payloads and falls back to clean defaults', async ({ page, transactions }) => {
+  test('CON-E2E-040 · tolerates corrupt localStorage payloads and falls back to clean defaults', async ({ page, transactions }) => {
     await page.addInitScript(() => {
       localStorage.setItem('vt_transactions', '{bad json');
       localStorage.setItem('vt_profile', '{bad json');
@@ -81,7 +81,7 @@ test.describe('Seeded household', () => {
     await expect(transactions.row('E2E Salary')).toBeVisible();
   });
 
-  test('CON-E2E-007 · primary routed pages mount without page errors', async ({ page }) => {
+  test('CON-E2E-041 · primary routed pages mount without page errors', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
 
@@ -105,7 +105,7 @@ test.describe('Seeded household', () => {
 });
 
 test.describe('Legacy localStorage boot path', () => {
-  test('CON-E2E-010 · boots from legacy ff_* keys and writes back under vt_*', async ({ page, transactions }) => {
+  test('CON-E2E-042 · boots from legacy ff_* keys and writes back under vt_*', async ({ page, transactions }) => {
     await page.addInitScript(legacyOnlySeedScript, defaultSeed);
 
     await transactions.goto();
