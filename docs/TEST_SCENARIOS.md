@@ -285,19 +285,18 @@ Known coverage gaps (tracked outside this file):
 | CON-E2E-014 | `react/e2e/tests/transactions-create.spec.ts` | [TXN-FC-007] preserves unicode and emoji in the description | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
 | CON-E2E-015 | `react/e2e/tests/transactions-create.spec.ts` | [TXN-FC-008] stores the original currency of the transaction | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
 | CON-E2E-016 | `react/e2e/tests/transactions-create.spec.ts` | [TXN-FC-009] a rapid double-submit creates only one transaction | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
-| CON-E2E-017 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-001] creates a monthly budget that starts at 0% used | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
-| CON-E2E-018 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-002] spend in a category reduces the remaining budget | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
-| CON-E2E-019 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-003] crossing the threshold fires a budget_threshold notification | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
-| CON-E2E-020 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-004] accepts a non-monthly (quarterly) period | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
-| CON-E2E-021 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-005] custom period requires start and end dates | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
-| CON-E2E-022 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-006] raising the limit recomputes utilisation from over to under | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
-| CON-E2E-023 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-007] an over-budget category shows over-budget styling | Pre-existing Lane A scenario carried into the catalogue during the 2026-09-09 reconciliation. The suite itself is stale against Aurora (tracked in issue #74); cataloguing the ID separates "not written down" from "not passing". |
+| CON-E2E-017 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-001] creates a period budget with a category allocation, starting at 0% used | Rewritten 2026-09-09 for the v9.1 container model (a budget is a period container; its limit splits into `budget_allocations` child rows). Passing. |
+| CON-E2E-018 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-002] spend in a category reduces the remaining budget | Rewritten 2026-09-09 for the v9.1 container model (a budget is a period container; its limit splits into `budget_allocations` child rows). Passing. |
+| CON-E2E-019 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-003] crossing the threshold fires a budget_threshold notification | **`test.fixme`** — the `budget_threshold` notification TYPE exists but nothing emits it on threshold crossing in local-only mode. Kept as a documented gap rather than a test asserting a notification the app never sends. |
+| CON-E2E-022 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-006] raising the limit recomputes utilisation from over to under | Rewritten 2026-09-09 for the v9.1 container model (a budget is a period container; its limit splits into `budget_allocations` child rows). Passing. |
+| CON-E2E-023 | `react/e2e/tests/budgets.spec.ts` | [BDGT-FC-007] an over-budget category shows over-budget styling | Rewritten 2026-09-09 for the v9.1 container model (a budget is a period container; its limit splits into `budget_allocations` child rows). Passing. |
 | CON-E2E-040 | `react/e2e/tests/smoke.spec.ts` | tolerates corrupt localStorage payloads and falls back to clean defaults | Renumbered 2026-09-09: this test had been sharing CON-E2E-008 with `debts-payment.spec.ts`, so the catalogue could not say which scenario a result belonged to. |
 | CON-E2E-041 | `react/e2e/tests/smoke.spec.ts` | primary routed pages mount without page errors | Renumbered from a collision with CON-E2E-007 (`transactions-create.spec.ts`). |
 | CON-E2E-042 | `react/e2e/tests/smoke.spec.ts` | boots from legacy ff_* keys and writes back under vt_* | Renumbered from a collision with CON-E2E-010 (`transactions-create.spec.ts`). |
 | CON-E2E-050 | `react/e2e/tests/budget-editor.spec.ts` | every expense category is listed, with no "add category" step | Catalogued during the 2026-09-09 reconciliation pass. |
 | CON-E2E-051 | `react/e2e/tests/budget-editor.spec.ts` | a store refresh mid-edit does not wipe what you typed | Catalogued during the 2026-09-09 reconciliation pass. |
 | CON-E2E-052 | `react/e2e/tests/budget-editor.spec.ts` | one row per category, so a duplicate allocation is unrepresentable | Catalogued during the 2026-09-09 reconciliation pass. |
+| CON-E2E-053 | `react/e2e/tests/budgets.spec.ts` | an annual budget is accepted alongside monthly | Replaces the retired CON-E2E-020/021. `month` and `annual` are the only two scopes left, so annual is what "non-monthly" now means. |
 
 ### 4.3 Admin · Unit (ADM-UNIT)
 
@@ -347,7 +346,10 @@ Known coverage gaps (tracked outside this file):
 > When a scenario is deleted, move its ID here with a one-line reason. IDs in
 > this section are reserved and must not be reused.
 
-*(none yet — this section will grow as scenarios are retired.)*
+| ID | Reason |
+| --- | --- |
+| CON-E2E-020 | Tested quarterly budget periods. The `quarterly` scope was **removed from the product** by the `budget_scope_drop_custom` migration — a test for a deleted feature is not a coverage gap. Its replacement is the annual-scope case in the budgets spec. |
+| CON-E2E-021 | Tested custom start/end date budget periods. The `custom` scope was removed by the same migration. Its replacement is the annual-scope case in the budgets spec. |
 
 ---
 
