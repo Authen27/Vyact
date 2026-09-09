@@ -7,7 +7,7 @@ import type { Store } from '../../store';
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta,
-  RecurringSchedule, PartPaymentChoice,
+  RecurringSchedule, PartPaymentChoice, RecordLoanPaymentInput,
 } from '../../types';
 import { LocalStorageAdapter, type DataAdapter } from '../../lib/dataAdapter';
 import { HybridAdapter } from '../../lib/hybridAdapter';
@@ -90,6 +90,15 @@ export interface DataSlice {
 
   // v7 — debt payment with re-amortisation
   recordDebtPayment: (debtId: string, amount: number, choice?: PartPaymentChoice) => Promise<{ message: string; debt: Debt | null }>;
+
+  /**
+   * Audit F2 — ONE explicit command for recording a loan payment (EMI).
+   * Books the interest leg as the visible expense, the principal leg as a
+   * system transfer into the debt-linked loan account, and the re-amortised
+   * debt — atomically via the record_loan_payment RPC when cloud+online;
+   * sequentially (queued) when offline/local-only.
+   */
+  recordLoanPayment: (input: RecordLoanPaymentInput) => Promise<{ message: string; expense: Transaction | null }>;
 
   // auth lifecycle (CloudAuthSlice) + sync surface / theme / toast (SyncSlice)
   // are folded in via `extends` (TD-25).
@@ -304,7 +313,9 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       budgetAllocations,
       profile: mergedProfile,
       rates,
-      lastSyncedAt: Date.now(),   // R4 (sync fix): drives "last synced" status
+      // Audit F8 — "last synced" means THIS pull completed and was applied.
+      // It is stamped here, after the stale-guard, never on a cached read.
+      lastSyncedAt: Date.now(),
     });
     setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
 
@@ -437,51 +448,27 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       }
     }
 
-    // v9 §4.1/§6.3 — loan_emi SYSTEM_SPLIT: book the interest portion as the
-    // expense (counts as spend) and a system transfer leg for the principal
-    // (reduces the linked debt; excluded from spend). Best-effort sequential —
-    // the principal leg + debt update follow the expense write.
-    // v9.4.2 — now uses applyPayment() for full re-amortisation (tenure / EMI /
-    // advance) and paymentLog recording, converging the two payment paths.
-    if (!t.id && t.type === 'expense' && t.category === 'loan_emi' && t.linkedDebtId && t.amount) {
-      const debt = get().debts.find(d => d.id === t.linkedDebtId);
-      if (debt) {
-        // Read the part-payment strategy from the transient form field.
-        const partChoice = (t as any)._partPaymentChoice as PartPaymentChoice | undefined;
-        // Full re-amortisation: applyPayment handles interest/principal split,
-        // balance reduction, tenure/EMI recalculation, and paymentLog.
-        const result = applyPayment(debt, t.amount, partChoice);
-        const { interest, principal } = result.log;
-        const emiSplit = { interest, principal, debt_id: debt.id, partPaymentChoice: partChoice };
-
-        // 1) interest leg — the visible expense (only this counts as spend, R-AGG-6)
-        const expense = await adapter.upsert('transactions', currentHouseholdId, {
-          ...t, id: uid(), amount: interest, emiSplit,
-          _partPaymentChoice: undefined,  // strip transient field
-        });
-        // 2) principal leg — system transfer into the loan (liability) account
-        //    (display-kind loan_principal). Find-or-create a kind='loan' account
-        //    linked to the debt so the leg has a real destination.
-        let loanAcc = get().accounts.find(a => a.kind === 'loan' && a.assetId === debt.id);
-        if (!loanAcc) {
-          loanAcc = await get().upsertAccount({
-            id: uid(), kind: 'loan', name: debt.name, currency: debt.currency,
-            assetId: debt.id, isDefault: false, isArchived: false,
-          });
-        }
-        const principalLeg = await adapter.upsert('transactions', currentHouseholdId, {
-          ...t, id: uid(), type: 'transfer' as const, category: '', amount: principal,
-          toAccountId: loanAcc.id, description: `${t.description || 'EMI'} — principal`,
-          emiSplit, linkedTxnId: (expense as Transaction).id,
-          _partPaymentChoice: undefined,
-        });
-        // 3) persist the re-amortised debt (balance, remainingMonths, EMI, paymentLog)
-        await get().upsertDebt(result.debt);
-        set({ transactions: [...get().transactions, expense as Transaction, principalLeg as Transaction] });
-        // Surface the re-amortisation message as a toast.
-        if (result.message) get().toast(result.message, 'success');
-        return expense as Transaction;
-      }
+    // Audit F2 — a NEW loan_emi expense is NEVER stored as a plain expense.
+    // The old branch keyed create-vs-edit on `!t.id`, but the form pre-assigns
+    // an id, so it was unreachable and EMIs landed as raw expenses. The
+    // explicit command above is the primary path; this safety net catches any
+    // other create path (recurring engine, imports). Create-vs-edit is decided
+    // by presence in the store collection — not by whether the caller
+    // pre-assigned an id.
+    const isNewTxn = !t.id || !transactions.some(x => x.id === t.id);
+    if (isNewTxn && t.type === 'expense' && t.category === 'loan_emi' && t.linkedDebtId && t.amount) {
+      const res = await get().recordLoanPayment({
+        debtId: t.linkedDebtId,
+        fundingAccountId: t.accountId ?? t.paymentMethod,
+        amount: t.amount,
+        currency: t.currency,
+        date: t.date,
+        description: t.description,
+        memberId: t.memberId,
+        partPaymentChoice: (t as { _partPaymentChoice?: PartPaymentChoice })._partPaymentChoice,
+      });
+      if (!res.expense) throw new Error('Loan payment produced no spend leg');
+      return res.expense;
     }
 
     // TD-03 phase A (PR #11): when this is an EDIT of an existing txn
@@ -585,36 +572,116 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
   },
 
   // ── v7: DEBT PAYMENT WITH RE-AMORTISATION ────────────────────
+  // Audit F2: recordDebtPayment is now a thin alias over the ONE command.
+  // The old body wrote a principal transfer with NO destination account —
+  // ck_txn_accounts_by_type rejects that row in cloud (23514), so it lived
+  // only on the device that made it.
   recordDebtPayment: async (debtId, amount, choice) => {
-    const debt = get().debts.find(d => d.id === debtId);
-    if (!debt) return { message: 'Debt not found', debt: null };
-    const result = applyPayment(debt, amount, choice);
-    await get().upsertDebt(result.debt);
+    if (!get().debts.find(d => d.id === debtId)) return { message: 'Debt not found', debt: null };
+    await get().recordLoanPayment({ debtId, amount, partPaymentChoice: choice });
+    return { message: '', debt: get().debts.find(d => d.id === debtId) ?? null };
+  },
 
-    // Generate the two transactions per v5 design: interest = expense, principal = transfer
-    const linkId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    const date = new Date().toISOString().split('T')[0];
-    if (result.log.interest > 0.005) {
-      await get().upsertTransaction({
-        type: 'expense', amount: +result.log.interest.toFixed(2), date,
-        description: `${debt.name} — interest`,
-        category: 'debt_interest',
-        currency: debt.currency,
-        linkedDebtId: debt.id,
-        linkedTxnId: linkId,
+  recordLoanPayment: async (input) => {
+    const { adapter, currentHouseholdId, cloudEnabled } = get();
+    const debt = get().debts.find(d => d.id === input.debtId);
+    if (!debt) throw new Error('Debt not found');
+    if (!input.amount || input.amount <= 0) throw new Error('Amount must be greater than 0');
+    const date = input.date || new Date().toISOString().split('T')[0];
+
+    // Re-amortisation math — the parity-tested port. The server VALIDATES this
+    // decomposition's shape; it never computes it.
+    const result = applyPayment(debt, input.amount, input.partPaymentChoice, date);
+    const { interest, principal } = result.log;
+    const emiSplit = { interest, principal, debt_id: debt.id, partPaymentChoice: input.partPaymentChoice };
+    const currency = input.currency || debt.currency;
+    const description = input.description?.trim() || `${debt.name} EMI`;
+
+    // Funding account: explicit id, encoded picker value, else the Cash default.
+    const accounts = get().accounts;
+    const funding = accounts.find(a => a.id === input.fundingAccountId)
+      ?? accounts.find(a => input.fundingAccountId ? accountValueOf(a) === input.fundingAccountId : false)
+      ?? accounts.find(a => a.kind === 'cash');
+    if (!funding) throw new Error('No funding account available — add an account first');
+
+    // Build the legs locally; every field is known client-side, the RPC is the
+    // persistence boundary (it assigns no numbers of its own).
+    const expense: Transaction | null = interest > 0 ? {
+      id: uid(), type: 'expense', amount: interest, currency, date,
+      description, category: 'loan_emi', memberId: input.memberId,
+      accountId: funding.id, debtId: debt.id, linkedDebtId: debt.id, emiSplit,
+    } : null;
+    const transferLeg: Transaction | null = principal > 0 ? {
+      id: uid(), type: 'transfer', amount: principal, currency, date,
+      description: `${description} — principal`, category: '', memberId: input.memberId,
+      accountId: funding.id, debtId: debt.id, linkedDebtId: debt.id,
+      emiSplit, linkedTxnId: expense?.id,
+    } : null;
+
+    const rpc = typeof adapter.recordLoanPayment === 'function'
+      ? adapter.recordLoanPayment.bind(adapter) : null;
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+
+    if (cloudEnabled && rpc && online) {
+      // Cloud + online: the atomic RPC is the durability boundary (like
+      // upsertBudgetWithAllocations) — nothing here goes through the queue.
+      const res = await rpc(currentHouseholdId, {
+        operationId: uid(),
+        debtId: debt.id,
+        fundingAccountId: funding.id,
+        amount: input.amount,
+        currency, date, interest, principal,
+        memberId: input.memberId,
+        description,
+        newBalance: result.debt.currentBalance,
+        newRemainingMonths: result.debt.remainingMonths ?? null,
+        newMinimumPayment: result.debt.minimumPayment,
+        paymentLogEntry: result.log,
+      }, { expense: expense ?? undefined, transfer: transferLeg ?? undefined, debt: result.debt });
+      // Adopt the server-assigned ids so store rows match cloud rows.
+      if (expense && res.expenseTxnId) expense.id = res.expenseTxnId;
+      if (transferLeg) {
+        if (res.transferTxnId) transferLeg.id = res.transferTxnId;
+        if (res.loanAccountId) transferLeg.toAccountId = res.loanAccountId;
+        transferLeg.linkedTxnId = expense?.id;
+      }
+      const loanAccount: Account | null = res.loanAccountId
+        && !get().accounts.some(a => a.id === res.loanAccountId)
+        ? { id: res.loanAccountId, kind: 'loan', name: debt.name, currency: debt.currency, debtId: debt.id }
+        : null;
+      set({
+        transactions: [...get().transactions, ...[expense, transferLeg].filter((x): x is Transaction => !!x)],
+        debts: get().debts.map(d => d.id === debt.id ? result.debt : d),
+        ...(loanAccount ? { accounts: [...get().accounts, loanAccount] } : {}),
       });
+      if (result.message) get().toast(result.message, 'success');
+      return { message: result.message, expense: expense ?? transferLeg };
     }
-    if (result.log.principal > 0.005) {
-      await get().upsertTransaction({
-        type: 'transfer', amount: +result.log.principal.toFixed(2), date,
-        description: `${debt.name} — principal`,
-        category: 'debt_principal',
-        currency: debt.currency,
-        linkedDebtId: debt.id,
-        linkedTxnId: linkId,
-      });
+
+    // Offline / local-only fallback — sequential optimistic writes, each leg a
+    // queued op. Documented non-atomic (audit F2): the atomic boundary requires
+    // the server. Legs write through the adapter DIRECTLY (not
+    // upsertTransaction) so the loan_emi safety net doesn't re-enter this
+    // command.
+    const written: Transaction[] = [];
+    if (expense) written.push(await adapter.upsert('transactions', currentHouseholdId, expense) as Transaction);
+    if (transferLeg) {
+      let loanAcc = accounts.find(a => a.kind === 'loan' && a.debtId === debt.id);
+      if (!loanAcc) {
+        // debtId — NOT assetId: the asset_id FK points at assets and rejected
+        // debt ids with 23503 (the old branch could never have synced).
+        loanAcc = await get().upsertAccount({
+          id: uid(), kind: 'loan', name: debt.name, currency: debt.currency,
+          debtId: debt.id, isDefault: false, isArchived: false,
+        });
+      }
+      written.push(await adapter.upsert('transactions', currentHouseholdId,
+        { ...transferLeg, toAccountId: loanAcc.id }) as Transaction);
     }
-    return { message: result.message, debt: result.debt };
+    await get().upsertDebt(result.debt);
+    set({ transactions: [...get().transactions, ...written] });
+    if (result.message) get().toast(result.message, 'success');
+    return { message: result.message, expense: expense ?? transferLeg };
   },
 
 });

@@ -278,6 +278,10 @@ export interface Account extends WithProvenance {
   /** Legacy back-link to the asset this account was synthesised from. Set
    *  by the Phase 1 backfill; null for accounts the user creates directly. */
   assetId?: string;
+  /** Audit F2/§8.2 — explicit debt link for liability accounts (loan,
+   *  credit_card). Replaces the old `assetId: debt.id` overload, which
+   *  violated the FK (asset_id → assets, not debts). */
+  debtId?: string;
   kind: AccountKind;
   name: string;
   currency: string;
@@ -463,6 +467,48 @@ export interface AmortizationEntry {
 }
 
 export type PartPaymentChoice = 'reduce_tenure' | 'reduce_emi' | 'apply_advance';
+
+/** Audit F2 — the atomic loan-payment command payload (client → RPC). The
+ *  decomposition is computed by the parity-tested lib/amortization.ts port;
+ *  the server validates shape and applies every write in one transaction. */
+export interface RecordLoanPaymentCommand {
+  operationId: string;
+  debtId: string;
+  fundingAccountId: string;
+  amount: number;
+  currency: string;
+  date: string;
+  interest: number;
+  principal: number;
+  memberId?: string;
+  description?: string;
+  newBalance?: number | null;
+  newRemainingMonths?: number | null;
+  newMinimumPayment?: number;
+  paymentLogEntry?: PaymentLogEntry;
+}
+
+export interface RecordLoanPaymentResult {
+  status: 'success' | 'duplicate';
+  expenseTxnId?: string | null;
+  transferTxnId?: string | null;
+  loanAccountId?: string | null;
+}
+
+/** Store-facing input for the loan-payment command (what the FORM knows; the
+ *  store computes the decomposition and fills in the command payload). */
+export interface RecordLoanPaymentInput {
+  debtId: string;
+  /** Real account uuid or an encoded picker value ('cash' / account id);
+   *  defaults to the household's Cash account. */
+  fundingAccountId?: string;
+  amount: number;
+  currency?: string;
+  date?: string;
+  description?: string;
+  memberId?: string;
+  partPaymentChoice?: PartPaymentChoice;
+}
 
 export interface PaymentLogEntry {
   id: string;

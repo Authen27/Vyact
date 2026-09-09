@@ -55,7 +55,11 @@ const SENTINEL_PREFIXES = [
   'cloud_synced_', 'recurring_backfilled_', 'recurring_rekeyed_', 'last_delta_',
 ];
 
-/** Keys that must SURVIVE — the user's unsynced work and device preferences. */
+/** Keys that must SURVIVE — the user's unsynced work and device preferences.
+ *  `sync_queue` is the LEGACY localStorage queue key: the durable outbox moved
+ *  to IndexedDB (audit F6) and is intentionally NOT purged — its ops are
+ *  owner-stamped, so a different user's session will not flush them, and
+ *  dropping them would be the data loss this module exists to prevent. */
 const PRESERVE = new Set(['sync_queue', 'sync_dead_letter', 'theme', 'active_profile',
   'profiles_list', 'last_cloud_hid', 'migrated_v1']);
 

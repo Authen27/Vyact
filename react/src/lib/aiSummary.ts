@@ -5,12 +5,14 @@
 // Only categories + amounts + date ranges + aggregates.
 
 import type {
-  Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates,
+  Transaction, Budget, BudgetAllocation, Goal, Debt, Asset, Account, Profile, ExchangeRates,
 } from '../types';
 import {
-  monthlyData, totalAssets, totalLiabilities, computePulseScore,
-  liquidAssets, totalMonthlyDebtPayment, spendByCategory, reportableTxns, effectiveAmount,
+  monthlyData, computePulseScore,
+  spendByCategory, reportableTxns, budgetLinesForMonth,
 } from './calculations';
+import { computeNetWorth } from './netWorth';
+import { convert } from './format';
 import { nowMonthKey, getMonthKey } from './format';
 // Type-only, and one-directional: askVyactResponses does not import this module,
 // so the transcript can carry chips without creating an import cycle.
@@ -61,16 +63,23 @@ export interface SafeSummary {
 export function buildSafeSummary(
   txns: Transaction[], budgets: Budget[], goals: Goal[],
   debts: Debt[], assets: Asset[], profile: Profile, rates: ExchangeRates,
+  accounts: Account[] = [], allocations: BudgetAllocation[] = [],
 ): SafeSummary {
   const cur = profile.baseCurrency;
   const mk = nowMonthKey();
   const month = monthlyData(txns, mk, cur, rates);
-  const ta = totalAssets(assets, cur, rates);
-  const tl = totalLiabilities(debts, cur, rates);
-  const liquid = liquidAssets(assets, cur, rates);
-  const monthlyExpFor6m = monthlyData(txns, mk, cur, rates).expense;
+  // Audit F3 — the assistant's net worth comes from the SAME canonical
+  // projection the Dashboard and Net Worth pages render (live account balances
+  // on both sides, unlinked assets/debts, receivables excluded), not the
+  // static assets/debts arrays that used to disagree with the UI.
+  const nwProjection = computeNetWorth({ assets, accounts, debts, transactions: txns }, cur, rates);
+  const ta = nwProjection.totalAssets;
+  const tl = nwProjection.totalLiabilities;
+  const liquid = nwProjection.liquidAssets;
+  const monthlyExpFor6m = month.expense;
   const liquidityMonths = monthlyExpFor6m > 0 ? liquid / monthlyExpFor6m : 0;
-  const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates);
+  // Audit F5 — Pulse sees the allocation-derived budget lines.
+  const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations);
 
   // Top 5 expense categories this month — by category id only (no merchants)
   const spend = spendByCategory(txns, mk, cur, rates);
@@ -85,9 +94,13 @@ export function buildSafeSummary(
     return { monthKey: m, income: round2(md.income), expense: round2(md.expense) };
   });
 
-  // Budgets with usage % only — no spending detail
-  const safeBudgets = budgets.map(b => {
-    const limitBase = b.limit * ((rates[b.currency] || 1) / (rates[cur] || 1));
+  // Budgets with usage % only — no spending detail.
+  // Audit F5: read the CURRENT month's allocation-derived category lines (a
+  // container budget is not a category line). Audit F4: convert() — the ONE
+  // FX path (USD-based rate table, dinero-exact); the old `rates[c]/rates[cur]`
+  // was the INVERSE ratio and skipped unknown rates silently.
+  const safeBudgets = budgetLinesForMonth(budgets, allocations, mk).map(b => {
+    const limitBase = convert(b.limit, b.currency, cur, rates);
     const spent = spend[b.category ?? ''] || 0;
     return {
       category: b.category ?? '',
@@ -96,20 +109,22 @@ export function buildSafeSummary(
     };
   });
 
-  // Goals with progress only
+  // Goals with progress only (audit F4: central conversion).
   const safeGoals = goals.map(g => {
-    const tgt = g.target * ((rates[g.currency] || 1) / (rates[cur] || 1));
-    const pct = tgt > 0 ? (g.current / g.target) * 100 : 0;
+    const tgt = convert(g.target, g.currency, cur, rates);
+    const pct = tgt > 0 ? (convert(g.current, g.currency, cur, rates) / tgt) * 100 : 0;
     const daysToDeadline = g.deadline
       ? Math.ceil((new Date(g.deadline).getTime() - Date.now()) / 86400000)
       : null;
     return { type: g.type, targetPct: round2(pct), daysToDeadline };
   });
 
-  // Debts with balance + APR only — no lender name, no account number
+  // Debts with balance + APR only — no lender name, no account number.
+  // Audit F4: the old `* rates[d.currency] / rates[cur]` inverted the ratio
+  // (an INR debt came out 83× too small against a USD base).
   const safeDebts = debts.map(d => ({
     type: d.type,
-    balance: round2(d.currentBalance * ((rates[d.currency] || 1) / (rates[cur] || 1))),
+    balance: round2(convert(d.currentBalance, d.currency, cur, rates)),
     aprPct: d.interestRate,
     monthsRemaining: d.remainingMonths,
   }));
@@ -169,4 +184,11 @@ export interface ChatMessage {
    * them as given. Old transcripts predate the field and simply have none.
    */
   chips?: AssistantChip[];
+  /**
+   * Audit 6.5 — a per-turn id set when the reply row is created. The streaming
+   * writer targets the row by this id (never "the last item"), so a message
+   * appended mid-stream cannot be corrupted by an in-flight stream. Optional;
+   * persisted transcripts carry it harmlessly.
+   */
+  turnId?: string;
 }

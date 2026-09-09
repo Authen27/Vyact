@@ -34,9 +34,10 @@ Deno.serve(async (req: Request) => {
   if (!membership) return json({ error: 'not_a_member' }, 403);
 
   // Phone must not already be linked to a DIFFERENT verified profile.
+  // Audit S1: the binding of record is now the server-owned identity table.
   const { data: taken } = await admin
-    .from('profiles').select('id')
-    .eq('phone_number', e164).not('phone_verified_at', 'is', null).neq('id', user.id).maybeSingle();
+    .from('whatsapp_identities').select('profile_id')
+    .eq('phone_number', e164).neq('profile_id', user.id).maybeSingle();
   if (taken) return json({ error: 'phone_in_use' }, 409);
 
   // Rate-limit resends.

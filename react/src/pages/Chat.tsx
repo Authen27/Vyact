@@ -50,6 +50,8 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   const goals   = useStore(s => s.goals);
   const debts   = useStore(s => s.debts);
   const assets  = useStore(s => s.assets);
+  const accounts = useStore(s => s.accounts);
+  const budgetAllocations = useStore(s => s.budgetAllocations);
   const profile = useStore(s => s.profile);
   const rates   = useStore(s => s.rates);
   const members = useStore(s => s.members);
@@ -62,11 +64,32 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   const toast         = useStore(s => s.toast);
 
   const [history, setHistory] = useState<ChatMessage[]>(() => {
-    try { return ls.readJson<ChatMessage[]>('chat_history') || []; }
+    // Audit S5 — the transcript is household-scoped. One global 'chat_history'
+    // key used to share a conversation across every household (and, on a shared
+    // device, across users until the cache epoch purge). One-time: the legacy
+    // global key seeds THIS household's transcript, then is removed.
+    const key = `chat_history_${householdId}`;
+    try {
+      const scoped = ls.readJson<ChatMessage[]>(key);
+      if (scoped) return scoped;
+      const legacy = ls.readJson<ChatMessage[]>('chat_history');
+      if (legacy) {
+        try { ls.setJson(key, legacy); } catch { /* noop */ }
+        try { localStorage.removeItem('vt_chat_history'); localStorage.removeItem('chat_history'); } catch { /* noop */ }
+        return legacy;
+      }
+      return [];
+    }
     catch { return []; }
   });
   const [input, setInput] = useState('');
-  const [thinking, setThinking] = useState(false);
+  // Audit 6.5 — an ACTIVE TURN, not a boolean. `thinking` was a bare flag that
+  // cleared before the simulated stream finished, and the stream rewrote the
+  // LAST history item — so a new message sent mid-stream corrupted the prior
+  // reply. A turn carries its own id and a cancel handle; the stream appends
+  // by id and can never clobber another turn's row.
+  const [activeTurn, setActiveTurn] = useState<{ id: string; cancel: () => void } | null>(null);
+  const thinking = activeTurn !== null;
   // v7.4.5 — when an intent has secondary chips, hold it here so the
   // empty-state grid swaps to the tap-2 row.
   const [expanded, setExpanded] = useState<Intent | null>(null);
@@ -82,17 +105,20 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
 
   // Privacy-safe summary built from current state — never includes merchant names or descriptions
   const summary = useMemo(() => {
-    const s = buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates);
+    // Audit F3/F5 — the assistant sees the same account-aware net worth and
+    // allocation-derived budget lines the UI renders.
+    const s = buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations);
     s.household.members = members.length;
     return s;
-  }, [txns, budgets, goals, debts, assets, profile, rates, members.length]);
+  }, [txns, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, members.length]);
 
   useEffect(() => {
-    ls.setJson('chat_history', history);
+    // Audit S5 — persist under the household-scoped key (matches the init).
+    ls.setJson(`chat_history_${householdId}`, history);
     // Only auto-scroll to the newest message on a real turn — never on open.
     if (!didMountScroll.current) { didMountScroll.current = true; return; }
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [history]);
+  }, [history, householdId]);
 
   // Surface one proactive insight on open (rate-limited to one per session).
   useEffect(() => {
@@ -140,11 +166,16 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   }
 
   async function send(question: string) {
-    if (!question.trim() || thinking) return;
+    // Audit 6.5 — one turn at a time. `thinking` === activeTurn !== null, so a
+    // send during an in-flight stream is refused and can never interleave rows.
+    if (!question.trim() || activeTurn) return;
     const userMsg: ChatMessage = { role: 'user', content: question };
     setHistory(h => [...h, userMsg]);
     setInput('');
-    setThinking(true);
+    // Mark the turn active immediately (streamReply replaces this with the
+    // cancellable record once the reply row exists). An id of 'pending' keeps
+    // the finally-block guard from clearing it early.
+    setActiveTurn({ id: 'pending', cancel: () => {} });
 
     // AI-P0 — telemetry is logged AFTER the turn so it can carry which engine
     // answered and the outcome. Still privacy-safe: intent + sentiment + length
@@ -176,8 +207,12 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         if (turn.seed) openAddTxn(turn.seed);
         // #4 — human-like: a brief "thinking" pause, then stream word-by-word.
         await new Promise(r => setTimeout(r, 600));
-        setThinking(false);
+        // Audit 6.5 — the turn's reply row is created NOW (its id is the turn's
+        // anchor) and the stream writes THAT row by id. The turn stays active
+        // until the stream resolves, so a concurrent send is blocked by
+        // `thinking` (activeTurn) and can never clobber this row.
         await streamReply(turn.reply, turn.chips);
+        setActiveTurn(null);
         return;
       }
       // Ask Vyact is the ONLY assistant (v10.20). With the feature flag off there
@@ -199,31 +234,43 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       });
       setHistory(h => [...h, { role: 'assistant', content: `Error: ${(e as Error).message}` }]);
     } finally {
-      setThinking(false);
+      // The stream path clears activeTurn itself after the reply settles; the
+      // off / error paths never started a stream, so clear any pending marker.
+      setActiveTurn(t => (t && t.id === 'pending' ? null : t));
     }
   }
 
   // #4 — stream an assistant reply word-by-word (resolves when complete).
   //
-  // `chips` are attached only once the last word lands (#62). Showing follow-ups
-  // beside a half-written sentence invites a tap before the answer is legible,
-  // and the tap would discard a reply the user never finished reading.
+  // Audit 6.5 — the reply row carries a unique `turnId` and the interval writes
+  // THAT row, matched by id, never "the last item". A new message arriving
+  // mid-stream appends its own rows; this stream keeps writing its own row and
+  // cannot corrupt it. `chips` attach only once the last word lands (#62).
   function streamReply(text: string, chips?: AssistantChip[]): Promise<void> {
     return new Promise(resolve => {
+      const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const words = text.split(' ');
-      setHistory(h => [...h, { role: 'assistant', content: '' }]);
+      // The reply row is appended with its id. From here every update targets
+      // this id — immune to anything appended after it.
+      setHistory(h => [...h, { role: 'assistant', content: '', turnId } as ChatMessage]);
       let i = 0;
       const id = setInterval(() => {
         i += 1;
         const partial = words.slice(0, i).join(' ');
         const done = i >= words.length;
-        setHistory(h => {
-          const c = h.slice();
-          c[c.length - 1] = { role: 'assistant', content: partial, ...(done && chips ? { chips } : {}) };
-          return c;
-        });
+        setHistory(h => h.map(msg =>
+          (msg as ChatMessage & { turnId?: string }).turnId === turnId
+            ? { ...msg, content: partial, ...(done && chips ? { chips } : {}) }
+            : msg,
+        ));
         if (done) { clearInterval(id); resolve(); }
       }, 40);
+      // Register the cancellable turn so the UI can stop it and `thinking`
+      // (activeTurn) stays true until the stream settles.
+      setActiveTurn({
+        id: turnId,
+        cancel: () => { clearInterval(id); resolve(); },
+      });
     });
   }
 

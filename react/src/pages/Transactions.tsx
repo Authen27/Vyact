@@ -14,8 +14,8 @@ import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import { ALL_CATEGORIES } from '../constants';
-import { getMonthKey, monthName, formatDate, nowMonthKey, today, transactionSortValue, fmt } from '../lib/format';
-import { monthlyData } from '../lib/calculations';
+import { getMonthKey, monthName, formatDate, nowMonthKey, today, compareTxnRecency, fmt } from '../lib/format';
+import { monthlyData, effectiveAmount } from '../lib/calculations';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
 import type { Transaction, TxnType } from '../types';
 
@@ -183,7 +183,7 @@ export default function Transactions() {
       rows.push(...projected);
     }
 
-    return rows.sort((a, b) => transactionSortValue(b.txn) - transactionSortValue(a.txn) || b.txn.id.localeCompare(a.txn.id));
+    return rows.sort((a, b) => compareTxnRecency(a.txn, b.txn));
   }, [txns, schedules, search, type, cat, month, memberId, selectedDate, ctx]);
 
   // v9.6 — group the (already date-sorted desc) list into month+year sections
@@ -205,15 +205,19 @@ export default function Transactions() {
       let net = 0;
       for (const it of items) {
         if (it.projected) continue;
-        if (it.txn.type === 'income') net += it.txn.amount;
-        else if (it.txn.type === 'expense') net -= it.txn.amount;
+        // Audit F4 — convert EACH row into the household base currency via the
+        // one central path (effectiveAmount → dinero). The old code summed raw
+        // `txn.amount` across currencies (USD 100 + INR 100 = 200 "base").
+        const amt = effectiveAmount(it.txn, profile.baseCurrency, rates);
+        if (it.txn.type === 'income') net += amt;
+        else if (it.txn.type === 'expense') net -= amt;
       }
       groups.push({ key, label: monthName(key), items, net });
     }
     // Guard against Map insertion order surprises — pin to descending month key.
     groups.sort((a, b) => b.key.localeCompare(a.key));
     return groups;
-  }, [filtered]);
+  }, [filtered, profile.baseCurrency, rates]);
 
   // Pagination — reveal MONTHS_PER_PAGE months, "Load previous" adds another page.
   const [visibleMonths, setVisibleMonths] = useState(MONTHS_PER_PAGE);
@@ -273,11 +277,13 @@ export default function Transactions() {
     let net = 0;
     for (const item of filtered) {
       if (item.projected) continue;
-      if (item.txn.type === 'income') net += item.txn.amount;
-      else if (item.txn.type === 'expense') net -= item.txn.amount;
+      // Audit F4 — per-row FX conversion (see month groups above).
+      const amt = effectiveAmount(item.txn, profile.baseCurrency, rates);
+      if (item.txn.type === 'income') net += amt;
+      else if (item.txn.type === 'expense') net -= amt;
     }
     return net;
-  }, [filtered]);
+  }, [filtered, profile.baseCurrency, rates]);
 
   return (
     <div>

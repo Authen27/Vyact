@@ -99,4 +99,22 @@ describe('account patches must not erase financial state (audit F1)', () => {
     expect(row).toHaveProperty('reconciliation_log');
     expect(row.reconciliation_log).toEqual([]);
   });
+
+  it('CON-UNIT-083b · debtId is written when supplied and omitted from metadata patches (audit F2 link)', async () => {
+    const { sb, upsert } = captureUpsert();
+    // A loan account created by the payment command carries the explicit link.
+    await new SupabaseAdapter(sb).upsert('accounts', 'h1', {
+      id: 'a1', kind: 'loan', name: 'Car Loan', currency: 'USD', debtId: 'd-1',
+    });
+    let row = upsert.mock.calls[0][0] as Record<string, unknown>;
+    expect(row.debt_id).toBe('d-1');
+
+    // …and a metadata-only patch must NOT erase it (same F1 rule).
+    const { sb: sb2, upsert: upsert2 } = captureUpsert();
+    await new SupabaseAdapter(sb2).upsert('accounts', 'h1', {
+      id: 'a1', kind: 'loan', name: 'Renamed Loan', currency: 'USD',
+    });
+    row = upsert2.mock.calls[0][0] as Record<string, unknown>;
+    expect(row, 'debt_id must not be sent on a metadata patch').not.toHaveProperty('debt_id');
+  });
 });

@@ -146,30 +146,63 @@ describe('SupabaseAdapter.listSince · TD-06 delta pull', () => {
 
   type ListSinceRow = { id: string; updated_at: string; deleted_at: string | null; household_id: string };
 
+  // Audit F8: the query now orders by (updated_at, id) and keyset-paginates.
+  // The mock chain must expose .or() and a double .order().
   function mockSbList(rows: ListSinceRow[]): {
     sb: SupabaseClient;
-    spies: { from: ReturnType<typeof vi.fn>; eq: ReturnType<typeof vi.fn>; gte: ReturnType<typeof vi.fn>; order: ReturnType<typeof vi.fn>; limit: ReturnType<typeof vi.fn> };
+    spies: { from: ReturnType<typeof vi.fn>; eq: ReturnType<typeof vi.fn>; gte: ReturnType<typeof vi.fn>; or: ReturnType<typeof vi.fn>; order: ReturnType<typeof vi.fn>; limit: ReturnType<typeof vi.fn> };
   } {
-    const limit = vi.fn().mockResolvedValue({ data: rows, error: null });
-    const order = vi.fn().mockReturnValue({ limit });
-    const gte   = vi.fn().mockReturnValue({ order });
-    const eq    = vi.fn().mockReturnValue({ gte });
+    // The real query: .select().eq().order().order().limit(), then either
+    // .or(...) or .gte(...) on the LIMITED chain. Build a self-similar chain
+    // where every link returns the chain and the chain is thenable (awaiting
+    // it resolves the rows), so any of these orders resolve correctly.
+    let resolveWith!: (v: { data: ListSinceRow[]; error: null }) => void;
+    const promise = new Promise<{ data: ListSinceRow[]; error: null }>((res) => { resolveWith = res; });
+    type Chain = Record<'order' | 'limit' | 'or' | 'gte', ReturnType<typeof vi.fn>> & {
+      then: Promise<unknown>['then'];
+    };
+    const chain = {} as Chain;
+    const self = () => chain;
+    chain.order = vi.fn().mockImplementation(self);
+    chain.limit = vi.fn().mockImplementation(self);
+    chain.or    = vi.fn().mockImplementation(self);
+    chain.gte   = vi.fn().mockImplementation(self);
+    chain.then  = ((onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
+      promise.then(onF as never, onR as never)) as Chain['then'];
+    queueMicrotask(() => resolveWith({ data: rows, error: null }));
+    const eq    = vi.fn().mockReturnValue(chain);
     const select = vi.fn().mockReturnValue({ eq });
     const from  = vi.fn().mockReturnValue({ select });
-    return { sb: { from } as unknown as SupabaseClient, spies: { from, eq, gte, order, limit } };
+    return { sb: { from } as unknown as SupabaseClient, spies: {
+      from, eq,
+      gte: chain.gte, or: chain.or, order: chain.order, limit: chain.limit,
+    } };
   }
 
-  it('CON-UNIT-055 · issues `.gte(updated_at, since).order(updated_at asc)` and does NOT filter deleted_at', async () => {
+  it('CON-UNIT-055 · keyset-paginates by (updated_at, id); a bare timestamp cursor still uses gte (legacy compat)', async () => {
     const { sb, spies } = mockSbList([]);
     const adapter = new SupabaseAdapter(sb);
     const result = await adapter.listSince('transactions', 'h1', '2026-05-30T00:00:00Z', 100);
     expect(spies.from).toHaveBeenCalledWith('transactions');
     expect(spies.eq).toHaveBeenCalledWith('household_id', 'h1');
+    // Legacy bare-timestamp cursor → gte fallback (re-reads the boundary once).
     expect(spies.gte).toHaveBeenCalledWith('updated_at', '2026-05-30T00:00:00Z');
+    expect(spies.or).not.toHaveBeenCalled();
     expect(spies.order).toHaveBeenCalledWith('updated_at', { ascending: true });
+    expect(spies.order).toHaveBeenCalledWith('id', { ascending: true });
     expect(spies.limit).toHaveBeenCalledWith(100);
     // Empty response → no rows, no tombstones, null cursor advance.
     expect(result).toEqual({ rows: [], tombstones: [], maxUpdatedAt: null });
+  });
+
+  it('CON-UNIT-055b · a composite cursor uses the keyset OR, never gte (no same-timestamp stall)', async () => {
+    const { sb, spies } = mockSbList([]);
+    const adapter = new SupabaseAdapter(sb);
+    await adapter.listSince('transactions', 'h1', '2026-05-30T00:00:00Z|aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 100);
+    expect(spies.gte).not.toHaveBeenCalled();
+    expect(spies.or).toHaveBeenCalledWith(
+      'updated_at.gt.2026-05-30T00:00:00Z,and(updated_at.eq.2026-05-30T00:00:00Z,id.gt.aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa)',
+    );
   });
 
   it('CON-UNIT-056 · partitions live rows vs tombstones and reports max(updated_at)', async () => {
@@ -186,7 +219,8 @@ describe('SupabaseAdapter.listSince · TD-06 delta pull', () => {
       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
       'cccccccc-cccc-cccc-cccc-cccccccccccc',
     ]);
-    expect(result.maxUpdatedAt).toBe('2026-05-31T12:00:00Z');
+    // Audit F8 — the cursor advances as the COMPOSITE pair, not a bare timestamp.
+    expect(result.maxUpdatedAt).toBe('2026-05-31T12:00:00Z|cccccccc-cccc-cccc-cccc-cccccccccccc');
   });
 });
 
