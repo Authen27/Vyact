@@ -26,7 +26,17 @@ function budgetTitle(b: Budget): string {
   // legacy fallback
   return b.periodStart ? `${b.periodStart} → ${b.periodEnd}` : 'Budget';
 }
-function pct(spent: number, limit: number) { return limit > 0 ? Math.min((spent / limit) * 100, 100) : 0; }
+// v10.22.1 — the displayed percentage and the bar width are NOT the same number.
+//
+// `pct` used to clamp at 100 and feed both, so ₹350 spent against a ₹300 budget
+// read "100%" — identical to spending exactly ₹300. The magnitude of an overrun,
+// which is the one thing a budget card exists to tell you, was invisible; only
+// the terra tint distinguished the two.
+//
+// The clamp was there for the bar (a width over 100% overflows its trough), so
+// it stays — on the bar alone. The number now tells the truth.
+function pct(spent: number, limit: number) { return limit > 0 ? (spent / limit) * 100 : 0; }
+function barPct(p: number) { return Math.min(p, 100); }
 function barCls(p: number) { return p >= 100 ? 'bg-terra' : p >= 80 ? 'bg-honey' : 'bg-sage'; }
 
 export default function Budgets() {
@@ -160,7 +170,7 @@ export default function Budgets() {
               <span>{MONTHS[now.getMonth()]} {daysInMonth}</span>
             </div>
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-              <div className={`h-full rounded-full chart-grow ${barCls(overall)}`} style={{ width: `${overall}%` }} />
+              <div className={`h-full rounded-full chart-grow ${barCls(overall)}`} style={{ width: `${barPct(overall)}%` }} />
             </div>
           </div>
         );
@@ -202,7 +212,7 @@ export default function Budgets() {
                   <span className={overall >= 100 ? 'text-terra font-medium' : 'text-ink-dim'}>{Math.round(overall)}%</span>
                 </div>
                 <div className="h-2 bg-bg3 rounded-full mb-3 overflow-hidden">
-                  <div className={`h-full rounded-full chart-grow transition-all ${barCls(overall)}`} style={{ width: `${overall}%` }} />
+                  <div className={`h-full rounded-full chart-grow transition-all ${barCls(overall)}`} style={{ width: `${barPct(overall)}%` }} />
                 </div>
                 {/* allocations */}
                 {allocs.length === 0 ? (
@@ -222,7 +232,7 @@ export default function Budgets() {
                             </span>
                           </div>
                           <div className="h-1.5 bg-bg3 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full chart-grow ${barCls(ap)}`} style={{ width: `${ap}%`, animationDelay: `${ai * 60}ms` }} />
+                            <div className={`h-full rounded-full chart-grow ${barCls(ap)}`} style={{ width: `${barPct(ap)}%`, animationDelay: `${ai * 60}ms` }} />
                           </div>
                         </button>
                       );

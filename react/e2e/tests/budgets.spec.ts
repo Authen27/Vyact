@@ -143,17 +143,17 @@ test.describe('§5 BDGT-FC · Budgets', () => {
       await budgets.goto();
       const card = budgets.card('Food & Dining');
       await expect(card).toBeVisible();
-      // pct() clamps at 100, so $350 of $300 reads "100%" — the OVERRUN is
-      // carried by the styling: text-terra on the percentage, bg-terra on the
-      // bar. Asserting the class is asserting the actual signal.
-      await expect(card).toContainText('100%');
-      await expect(card.locator('span.text-terra')).toHaveText('100%');
+      // v10.22.1 — the percentage is no longer clamped, so $350 of $300 reads
+      // its true 117%. The terra styling still marks the overrun; assert both,
+      // because the number alone was the part that used to lie.
+      await expect(card).toContainText('117%');
+      await expect(card.locator('span.text-terra')).toHaveText('117%');
       await expect(card.locator('div.bg-terra').first()).toBeVisible();
     });
 
     test('CON-E2E-022 · [BDGT-FC-006] raising the limit recomputes utilisation from over to under', async ({ page, budgets }) => {
       await budgets.goto();
-      await expect(budgets.card('Food & Dining').locator('span.text-terra')).toHaveText('100%');   // baseline: over
+      await expect(budgets.card('Food & Dining').locator('span.text-terra')).toHaveText('117%');   // baseline: over
 
       await budgets.openEdit('Food & Dining');
       const modal = new BudgetFormModal(page);

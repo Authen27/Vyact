@@ -1,9 +1,38 @@
-// Vyact v9 — txn-redesign §7 invariants (INV-1..INV-9). These pin the money
-// model's load-bearing guarantees: transfers and investments never move
-// spend/income, reconciliation forgives drift without fabricating a transaction,
-// the EMI split is exact, balances/net-worth fold over real data, and categories
-// stay type-scoped. If a future change makes any number untrue, one of these
-// fails first.
+// Vyact v9 — txn-redesign §7 invariants. These pin the money model's
+// load-bearing guarantees: transfers and investments never move spend/income,
+// reconciliation forgives drift without fabricating a transaction, the EMI
+// split is exact, balances/net-worth fold over real data, and categories stay
+// type-scoped. If a future change makes any number untrue, one of these fails
+// first.
+//
+// 🔴 THE LABELS BELOW ARE OFF-BY-ONE FROM THE SPEC, from INV-4 onward.
+//
+// This file's numbering drifted when it was written and has been quoted as
+// "INV-1..9" ever since, which made the gaps at 4 and 8 look like missing
+// coverage. They are not missing — they are covered under a different label.
+// The mapping to `vyact-txn-redesign-architect-spec_1.md` §7 is:
+//
+//   spec INV-1  transfer_neutral      → INV-1   ✅
+//   spec INV-2  investment_neutral    → INV-2   ✅
+//   spec INV-3  value_update          → INV-3   ✅  (+ INV-3b reconcile_no_txn)
+//   spec INV-4  emi_split             → INV-5   ✅
+//   spec INV-5  account_balance       → INV-6   ✅
+//   spec INV-6  networth_recon        → INV-7   ✅  (+ INV-7b live-account de-dupe)
+//   spec INV-7  atomicity             →  —      ❌  NOT COVERED — see below
+//   spec INV-8  category_scope        → INV-9   ✅
+//   spec INV-9  migration_recon       →  —      one-time v9 migration check, not a
+//                                               standing invariant
+//
+// The labels are deliberately NOT renumbered: they are cited by id in the
+// CHANGELOG and in source comments, and silently reassigning them would make
+// that history point at the wrong guarantee.
+//
+// ❌ The one real gap is spec INV-7 (atomicity): "force-fail any leg of an EMI
+// or transfer — the ENTIRE event rolls back, zero state change". Nothing here
+// asserts it, because the store has no transactional boundary to assert against
+// yet; it is tracked as the "atomic reversal" release blocker. Do not add a
+// placeholder for it — the inventory gate rejects skipped and TODO cases, and a
+// green placeholder would be worse than an acknowledged gap.
 
 import { describe, it, expect } from 'vitest';
 import { computeAccountBalance, reconcileAccount, liveAssetRows, liveTotalAssets } from '../accountBalance';

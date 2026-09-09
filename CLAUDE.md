@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.22.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.22.1**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -43,8 +43,13 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   `loan_emi` is a SYSTEM_SPLIT (visible interest expense + system principal
   transfer into a `kind='loan'` account). Categories are **type-scoped**
   (`CATEGORIES_BY_TYPE`). **The gate is the test suite:**
-  `lib/__tests__/moneyModel.{invariants,regression,engines}.test.ts` (INV-1..9 +
-  golden file) — keep green, update the snapshot deliberately.
+  `lib/__tests__/moneyModel.{invariants,regression,engines}.test.ts` + the golden
+  file — keep green, update the snapshot deliberately. **It is not "INV-1..9".**
+  The test labels run off-by-one from the spec past INV-4 (the mapping is in the
+  invariants file's header), so the gaps at 4 and 8 are a labelling artefact, not
+  missing coverage. What IS missing is spec **INV-7 (atomicity)** — force-fail a
+  leg of an EMI or transfer and the whole event must roll back. Nothing asserts
+  that; it is the open "atomic reversal" blocker.
 - **Categories are type-scoped, and the set exists in THREE places (v10.21).**
   `constants.ts` is the source, but `_shared/whatsapp-parser.ts` and
   `_shared/agent/types.ts` each hold their own allowlist because they are Deno
