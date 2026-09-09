@@ -150,9 +150,12 @@ async function drainInbox(
 }
 
 const CAT_LABEL: Record<string, string> = {
-  food_dining: 'Food & Dining', groceries: 'Groceries', transport: 'Transport',
+  food_dining: 'Food & Dining', groceries: 'Groceries',
   rent_mortgage: 'Rent / Mortgage', utilities: 'Utilities', shopping: 'Shopping',
   health: 'Health', entertainment: 'Entertainment', education: 'Education', travel: 'Travel',
+  holiday_outstay: 'Holiday & Outstay', electronics_decor: 'Electronics & Decor',
+  personal_care: 'Personal Care', repairs_maintenance: 'Repairs & Maintenance',
+  gifts_donations: 'Gifts & Donations',
   childcare: 'Childcare', insurance: 'Insurance', loan_emi: 'Loan / EMI', other_expense: 'Other',
   salary: 'Salary', freelance: 'Freelance', gift_bonus: 'Gift / Bonus',
   rental_income: 'Rental income', business_revenue: 'Business revenue', other_income: 'Other income',

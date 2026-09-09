@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.8`** (consumer)
+> **Current production version: `v10.21.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,53 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.21.0 — Transport merges into Travel, and five categories you asked for *(2026-09-09)*
+
+### Travel absorbed Transport
+
+They were indistinguishable in practice: a taxi to the airport and the flight it fed were filed
+apart for no reason anyone could articulate. One category now covers getting from A to B, and it
+carries a **route** icon — neither a car nor a plane described the whole of it.
+
+The holiday half of the old Travel became its own category, which is what people were reaching for
+when they picked it. That also changes what Travel *means*, so its needs/wants classification moved
+with it: **Travel is now a need** (commuting is not optional) and **Holiday & Outstay is the want**.
+
+### Five new categories
+
+Holiday & Outstay · Gifts & Donations · Electronics & Decor · Personal Care · Repairs & Maintenance.
+
+Each carries its own icon and label — the suite now fails if any two categories share a glyph,
+because a duplicated icon is how Transport and Travel became indistinguishable in the first place.
+
+### The data migration merges rather than renames
+
+`budget_allocations` has a unique index on `(budget_id, category)`. A budget holding **both** a
+transport and a travel allocation therefore cannot simply have transport renamed — it collides, the
+migration aborts, and since v10.20.5 that blocks the entire release.
+
+Checked against production before writing the migration: exactly one budget was affected, holding
+transport 10,000 and travel 200. Colliding pairs are **summed** into the surviving travel
+allocation and the transport row is soft-deleted — the only option that keeps a budget's
+allocations reconciling against its container total. Dry-run against production (executed, then
+rolled back): 0 transport rows left, that allocation merged to **10,200**, and 0 duplicate
+`(budget, category)` pairs.
+
+Every table storing a category gains a nullable `category_prev` column recording what the row used
+to be, so the reclassification is auditable and reversible with one UPDATE per table.
+
+**No money moved.** The golden snapshot changed in exactly two lines — the fixture's category id and
+its key in `spendByCategory` — with the amount untouched at 150.
+
+### Three copies of the category set, now guarded
+
+The WhatsApp parser and the agent each hold their own allowlist, because they are Deno modules and
+cannot import the client constants. Drift there is silent: a category the app offers is rejected as
+unknown and the expense lands in "other". **CON-UNIT-161/162** now fail if any of the three sets
+disagree — verified by removing a single id and watching the guard catch it.
 
 ---
 

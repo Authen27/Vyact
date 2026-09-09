@@ -61,8 +61,8 @@ const KEYWORD_MAP: Record<string, string> = {
   // groceries (its own category in v9)
   groceries: 'groceries', grocery: 'groceries', supermarket: 'groceries',
   // transport
-  fuel: 'transport', petrol: 'transport', gas: 'transport', uber: 'transport', taxi: 'transport',
-  cab: 'transport', ola: 'transport', train: 'transport', bus: 'transport', parking: 'transport',
+  fuel: 'travel', petrol: 'travel', gas: 'travel', uber: 'travel', taxi: 'travel',
+  cab: 'travel', ola: 'travel', train: 'travel', bus: 'travel', parking: 'travel',
   // shopping
   amazon: 'shopping', shopping: 'shopping', clothes: 'shopping', shoes: 'shopping', flipkart: 'shopping',
   // entertainment / subscriptions

@@ -240,6 +240,14 @@ Known coverage gaps (tracked outside this file):
 | CON-UNIT-133 | `react/src/lib/__tests__/ordering.test.ts` | an explicit time still wins, and ordering is total | **Order is not a contract.** Reported 2026-09-08: the dashboard stopped being reverse-chronological and showed August's budget in September. Both bugs came from code that leaned on incidental array order, or on `created_at` (when the row was WRITTEN) instead of the transaction date. Clearing the local cache in v10.20.7 changed the array source and exposed them. |
 | CON-UNIT-134 | `react/src/lib/__tests__/ordering.test.ts` | only the current month survives, whatever the array order | **Order is not a contract.** Reported 2026-09-08: the dashboard stopped being reverse-chronological and showed August's budget in September. Both bugs came from code that leaned on incidental array order, or on `created_at` (when the row was WRITTEN) instead of the transaction date. Clearing the local cache in v10.20.7 changed the array source and exposed them. |
 | CON-UNIT-135 | `react/src/lib/__tests__/ordering.test.ts` | an annual budget covers every month of its year | **Order is not a contract.** Reported 2026-09-08: the dashboard stopped being reverse-chronological and showed August's budget in September. Both bugs came from code that leaned on incidental array order, or on `created_at` (when the row was WRITTEN) instead of the transaction date. Clearing the local cache in v10.20.7 changed the array source and exposed them. |
+| CON-UNIT-155 | `react/src/lib/__tests__/categoryModel.test.ts` | transport is no longer offered, travel is, and it carries the route icon | **The merge.** The two categories were indistinguishable in practice — a taxi to the airport and the flight it fed were filed apart. The icon is the route, not a car or a plane, because neither described the whole of it. |
+| CON-UNIT-156 | `react/src/lib/__tests__/categoryModel.test.ts` | the five requested categories exist with distinct ids, labels and icons | Also asserts no two categories share a glyph or a label: a duplicated icon makes two categories indistinguishable in the picker, which is how transport/travel got into this state. |
+| CON-UNIT-157 | `react/src/lib/__tests__/categoryModel.test.ts` | every offered expense category has a needs/wants classification | Pulse, the 50/30/20 split and the planner all read `NEEDS_WANTS_MAP`. A category missing from it drops silently out of those calculations rather than failing. |
+| CON-UNIT-158 | `react/src/lib/__tests__/categoryModel.test.ts` | a stored transport row still resolves — label and classification | `transport` is RETIRED, not deleted: historical rows carry it until the migration runs, and a device whose cache predates the migration keeps sending it. |
+| CON-UNIT-159 | `react/src/lib/__tests__/categoryModel.test.ts` | travel is a need and the holiday half is the want | The merge changed what `travel` MEANS — getting around, not a holiday. Leaving it a want would misstate the needs/wants split for every household that commutes. |
+| CON-UNIT-160 | `react/src/lib/__tests__/categoryModel.test.ts` | type-scoping still holds — no category is offered for both types | Guards the v9 binding rule that transfers and investments carry NO category (DB `ck_txn_category_by_type`). |
+| CON-UNIT-161 | `react/src/lib/__tests__/categoryModel.test.ts` | the WhatsApp parser accepts exactly what the app offers | **Drift guard.** The server sets are Deno modules and cannot import the client constants, so three copies exist. Drift is silent: a category the app offers is rejected as unknown, and a logged expense lands in "other". |
+| CON-UNIT-162 | `react/src/lib/__tests__/categoryModel.test.ts` | the agent accepts exactly what the app offers | The other half of CON-UNIT-161, for `_shared/agent/types.ts`. Proven to fail on a single missing id. |
 
 ### 4.2 Consumer · E2E (CON-E2E)
 
@@ -305,6 +313,31 @@ Known coverage gaps (tracked outside this file):
 | ADM-UNIT-011 | `admin/src/lib/__tests__/contentApi.test.ts` | maps null published_at to undefined (not the string "null") | `rowToArticle` boundary. |
 
 ---
+
+### Corrective Payment And Cache Regressions
+
+| ID | File | Scenario | Scope |
+|---|---|---|---|
+| CON-E2E-043 | `react/e2e/tests/dialog-correction.spec.ts` | Budget dialog bounds and opener focus at desktop and mobile sizes | Playwright browser workflow |
+| CON-UNIT-900 | `react/src/lib/__tests__/loanPaymentWorkflow.test.ts` | First principal payment retains opening liability and net worth | Real store and fake IndexedDB |
+| CON-UNIT-901 | `react/src/lib/__tests__/loanPaymentWorkflow.test.ts` | Second payment and metadata edit preserve the opening liability | Real store and fake IndexedDB |
+| CON-UNIT-902 | `react/src/lib/__tests__/loanPaymentSql.test.ts` | RPC initializes the liability and returns balanced rows | Actual migrations executed in PGlite; focused schema fixture |
+| CON-UNIT-903 | `react/src/lib/__tests__/loanPaymentSql.test.ts` | Retrying returns the original payment | Postgres RPC |
+| CON-UNIT-904 | `react/src/lib/__tests__/loanPaymentSql.test.ts` | Stale or invented reductions are rejected | Postgres RPC |
+| CON-UNIT-905 | `react/src/lib/__tests__/loanPaymentSql.test.ts` | Duplicate lookup requires authorization | Postgres RPC |
+| CON-UNIT-906 | `react/src/lib/__tests__/loanPaymentWorkflow.test.ts` | Cloud payments cannot fall back to sequential local writes | Store command |
+| CON-UNIT-907 | `react/src/lib/__tests__/loanPaymentWorkflow.test.ts` | Retry adopts authoritative rows once | Store command with mocked transport |
+| CON-UNIT-908 | `react/src/lib/__tests__/netWorthProjection.test.ts` | Positive card balance is credit, not debt | Financial projection |
+| CON-UNIT-909 | `react/src/lib/__tests__/netWorthProjection.test.ts` | Archive retains value; foreign opening balance uses account currency | Financial projection |
+| CON-UNIT-910 | `react/src/lib/__tests__/loanPaymentWorkflow.test.ts` | Generic CRUD rejects individual system-split corrections | Store command; full reversal remains separate |
+| CON-UNIT-911 | `react/src/lib/__tests__/cacheBoundary.test.ts` | Delayed HybridAdapter delta cannot refill purged cache | Production adapter and fake IndexedDB |
+| CON-UNIT-912 | `react/src/lib/__tests__/cacheBoundary.test.ts` | Purge covers transcript and cursor key shapes | fake IndexedDB |
+| CON-UNIT-913 | `react/src/lib/__tests__/outboxIndexedDb.test.ts` | Competing claims own each row only once | fake IndexedDB transactions |
+| CON-UNIT-914 | `react/src/lib/__tests__/outboxIndexedDb.test.ts` | Aborted transaction cannot report durable success | fake IndexedDB transactions |
+| CON-UNIT-915 | `react/src/lib/__tests__/outboxIndexedDb.test.ts` | Unknown owners remain quarantined across database reopen | fake IndexedDB transactions |
+| CON-UNIT-916 | `react/src/lib/__tests__/outboxIndexedDb.test.ts` | Later writes cannot overtake backoff work | fake IndexedDB transactions |
+| CON-UNIT-917 | `react/src/lib/__tests__/outboxIndexedDb.test.ts` | Delayed HybridAdapter flush drains new work and advances server revisions | Production adapter, fake IndexedDB, mocked network |
+| CON-UNIT-918 | `react/src/lib/__tests__/loanPaymentSql.test.ts` | SQL/client parity for payment strategies and USD/JPY | Real SQL execution, not full Supabase integration |
 
 ## 5. Retired IDs
 
