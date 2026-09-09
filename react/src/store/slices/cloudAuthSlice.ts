@@ -46,10 +46,19 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
       //
       // This must run BEFORE init(), or init() hydrates from the very cache we
       // are about to discard. The user's unsynced write queue is preserved.
+      // 🔴 AWAIT THE PURGE BEFORE HYDRATING (v10.20.8).
+      //
+      // v10.20.7 called this fire-and-forget, so init() raced it and could read
+      // the very cache being cleared. The purge is genuinely async now that it
+      // clears IndexedDB, so the race is real rather than theoretical.
       const uid = session?.user?.id;
-      if (uid) invalidateCacheForSession(uid);
-      // Just signed in — load households + data
-      get().init();
+      if (uid) {
+        void invalidateCacheForSession(uid)
+          .catch(() => { /* a device with storage disabled must still sign in */ })
+          .then(() => { get().init(); });
+      } else {
+        get().init();
+      }
     } else if (wasSignedIn && !isSignedIn) {
       // v6.4: Stash the last cloud household id BEFORE clearing state, so
       // the next sign-in can land back on it (its cache is still in
@@ -65,7 +74,10 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
       // problem as the sign-in case, only deferred. `last_cloud_hid` above is
       // deliberately preserved so the next sign-in still lands on the right
       // household.
-      clearCacheOnSignOut();
+      // Async now that it clears IndexedDB. Not awaited: the in-memory state is
+      // cleared synchronously below, and the next sign-in awaits its own purge
+      // before hydrating — so a slow disk cannot leave stale rows visible.
+      void clearCacheOnSignOut().catch(() => { /* storage disabled */ });
       // Just signed out — clear in-memory cloud state
       set({
         households: [], currentHouseholdId: 'local',

@@ -612,10 +612,14 @@ export const totalMonthlyDebtPayment = (debts: Debt[], baseCurrency: string, rat
 // paymentMethod scheme ('cash' / 'asset:<id>' / 'debt:<id>').
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** The encoded legacy account key for an Account (paymentMethod scheme). */
+/** The encoded legacy account key for an Account (paymentMethod scheme).
+ *  Audit F2: liability accounts prefer the explicit debtId link (the old
+ *  assetId: debt.id overload violated the FK). Kept in parity with the client
+ *  accountBalance.ts — the money-port parity test pins this. */
 export function accountValueOf(account: Account): string {
   if (account.kind === 'cash') return 'cash';
-  if (account.kind === 'credit_card') return `debt:${account.assetId || account.id}`;
+  if (account.kind === 'credit_card') return `debt:${account.debtId ?? account.assetId ?? account.id}`;
+  if (account.kind === 'loan') return `debt:${account.debtId ?? account.assetId ?? account.id}`;
   return `asset:${account.assetId || account.id}`;
 }
 

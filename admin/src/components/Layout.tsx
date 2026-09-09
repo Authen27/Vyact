@@ -193,7 +193,9 @@ export default function Layout({ children }: { children: ReactNode }) {
             />
           </div>
             <div className="hidden sm:block font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            staging.vyact.app · admin
+            {/* Audit 7.4 — environment identity comes from build config, never
+                a hardcoded label. VITE_ADMIN_ENV is set per deploy target. */}
+            {import.meta.env.VITE_ADMIN_ENV ?? 'production'} · admin
           </div>
         </header>
 

@@ -1,7 +1,7 @@
 {
   "name": "vyact-react",
   "private": true,
-  "version": "10.20.7",
+  "version": "10.20.8",
   "type": "module",
   "description": "Vyact — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@dinero.js/currencies": "^2.0.0-alpha.14",
+    "@radix-ui/react-dialog": "^1.1.23",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tanstack/react-virtual": "^3.13.25",
@@ -44,6 +45,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
+    "fake-indexeddb": "^6.2.5",
     "gifenc": "^1.0.3",
     "globals": "^15.11.0",
     "pngjs": "^7.0.0",

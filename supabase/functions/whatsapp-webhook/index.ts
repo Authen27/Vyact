@@ -21,6 +21,21 @@ declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefi
 
 interface Profile { id: string; whatsapp_household_id: string | null }
 
+// Audit S1: the verified phone ↔ profile ↔ household binding now lives in the
+// server-owned `whatsapp_identities` table (RLS deny-all; service role only).
+// A client can no longer self-assert phone_verified_at on `profiles`.
+async function lookupIdentity(
+  supabase: SupabaseClient, fromPhone: string,
+): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('whatsapp_identities')
+    .select('profile_id, household_id')
+    .eq('phone_number', fromPhone)
+    .maybeSingle();
+  if (!data) return null;
+  return { id: data.profile_id, whatsapp_household_id: data.household_id };
+}
+
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
 
@@ -43,43 +58,96 @@ Deno.serve(async (req: Request) => {
     return new Response('Invalid signature', { status: 401 });
   }
 
-  // 3. ACK first; record + process in the background.
+  // 3. ACK first; record EVERY message as a durable pending inbox row, then
+  //    process claimed rows in the background (EdgeRuntime.waitUntil).
+  //
+  //    Audit A4 — the old handler read only entry[0].changes[0].messages[0],
+  //    so every later message in the webhook was DROPPED, and it did the DB
+  //    work before ACK with no record of pending-vs-processed. Now every
+  //    message lands as a pending row BEFORE the ACK, and the claim step is
+  //    atomic (pending→claimed only if still pending), so a Meta redelivery
+  //    or a concurrent worker never double-processes and a crash after ACK
+  //    loses nothing.
   let payload: Record<string, unknown> = {};
   try { payload = JSON.parse(rawBody); } catch { /* keep {} */ }
 
-  const change = (payload as any)?.entry?.[0]?.changes?.[0]?.value;
-  const message = change?.messages?.[0];
+  const supabase = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
 
-  if (message?.id) {
-    const supabase = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
-    const fromPhone = (change?.contacts?.[0]?.wa_id ?? '').replace(/[^\d]/g, '');
+  // Collect (message, phone) pairs across ALL entries/changes/messages.
+  const incoming: Array<{ message: any; phone: string }> = [];
+  for (const entry of (payload as any)?.entry ?? []) {
+    for (const change of entry?.changes ?? []) {
+      const value = change?.value;
+      const phone = (value?.contacts?.[0]?.wa_id ?? '').replace(/[^\d]/g, '');
+      for (const message of value?.messages ?? []) {
+        if (message?.id) incoming.push({ message, phone });
+      }
+    }
+  }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id, whatsapp_household_id')
-      .eq('phone_number', fromPhone)
-      .not('phone_verified_at', 'is', null)
-      .maybeSingle();
+  if (incoming.length) {
+    // Record each as pending (PK on wa_message_id dedups a Meta redelivery).
+    for (const { message, phone } of incoming) {
+      const profile = await lookupIdentity(supabase, phone);
+      await supabase.from('whatsapp_inbound_messages').upsert({
+        wa_message_id: message.id,
+        profile_id: profile?.id ?? null,
+        household_id: profile?.whatsapp_household_id ?? null,
+        direction: 'inbound',
+        payload: message,
+        status: 'pending',
+        processed_at: null,
+      }, { onConflict: 'wa_message_id', ignoreDuplicates: true });
+    }
 
-    // Idempotent claim-first record (PK on wa_message_id rejects duplicates).
-    await supabase.from('whatsapp_inbound_messages').upsert({
-      wa_message_id: message.id,
-      profile_id: profile?.id ?? null,
-      household_id: profile?.whatsapp_household_id ?? null,
-      direction: 'inbound',
-      payload: message,
-      processed_at: null,
-    }, { onConflict: 'wa_message_id', ignoreDuplicates: true });
-
-    const work = processInbound(supabase, message, fromPhone, (profile as Profile | null));
+    const work = drainInbox(supabase, incoming);
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
     else await work;   // local/dev fallback
   }
 
-  return new Response(JSON.stringify({ status: 'ok' }), {
+  return new Response(JSON.stringify({ status: 'ok', recorded: incoming.length }), {
     status: 200, headers: { 'Content-Type': 'application/json' },
   });
 });
+
+/**
+ * Claim-and-process each recorded message. The claim is atomic — status flips
+ * pending→claimed only if still pending — so a redelivery recorded above and
+ * this drain can never both process the same row. A failure re-marks the row
+ * failed with an incremented attempt count (retried by a later sweep); a
+ * success marks done.
+ */
+async function drainInbox(
+  supabase: SupabaseClient,
+  incoming: Array<{ message: any; phone: string }>,
+): Promise<void> {
+  for (const { message, phone } of incoming) {
+    // Atomic claim.
+    const { data: claimed } = await supabase
+      .from('whatsapp_inbound_messages')
+      .update({ status: 'claimed', claimed_at: new Date().toISOString() })
+      .eq('wa_message_id', message.id)
+      .eq('status', 'pending')
+      .select('wa_message_id');
+    if (!claimed || claimed.length === 0) continue;   // already claimed/processed
+
+    const profile = await lookupIdentity(supabase, phone);
+    try {
+      await processInbound(supabase, message, phone, profile);
+      await supabase.from('whatsapp_inbound_messages')
+        .update({ status: 'done', processed_at: new Date().toISOString() })
+        .eq('wa_message_id', message.id);
+    } catch (e) {
+      await supabase.from('whatsapp_inbound_messages')
+        .update({
+          status: 'failed',
+          attempts: (message.__attempts ?? 0) + 1,
+          last_error: (e as Error)?.message ?? String(e),
+        })
+        .eq('wa_message_id', message.id);
+    }
+  }
+}
 
 const CAT_LABEL: Record<string, string> = {
   food_dining: 'Food & Dining', groceries: 'Groceries', transport: 'Transport',
@@ -143,6 +211,11 @@ async function processInbound(
       await sendText(fromPhone, confirmation(r));
     } else if (r?.status === 'duplicate') {
       /* already handled — stay silent */
+    } else if (r?.reason === 'not_a_member' || r?.reason === 'read_only_member') {
+      // Audit S1: the RPC revalidates membership + write role on EVERY inbound
+      // operation, so a revoked member (or a viewer) hears about it rather than
+      // silently logging nothing.
+      await sendText(fromPhone, 'This number is no longer able to log to that household. Relink it in Settings → WhatsApp, or ask the household owner about your access.');
     } else if (r?.reason === 'no_destination_account' || r?.reason === 'same_account') {
       await sendText(fromPhone, 'Which account should this move to? e.g. `moved 10000 to icici`.');
     } else {

@@ -5,8 +5,9 @@ import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
-import { totalLiabilities, monthlyData } from '../lib/calculations';
-import { liveAssetRows, liveTotalAssets, type LiveAssetRow } from '../lib/accountBalance';
+import { monthlyData } from '../lib/calculations';
+import { computeNetWorth } from '../lib/netWorth';
+import { type LiveAssetRow } from '../lib/accountBalance';
 import { ASSET_TYPES, DEBT_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
 
@@ -35,14 +36,18 @@ export default function NetWorth() {
 
   const c = profile.baseCurrency;
 
-  // Money-Model — Net Worth's asset side is LIVE: every spendable account
-  // (cash/bank/investment) contributes its computed balance (opening + ledger
-  // folds + reconciliation offset), not a frozen linked-asset snapshot. See
-  // lib/accountBalance.ts `liveAssetRows` for the de-dup rule.
-  const liveRows = useMemo(
-    () => liveAssetRows(assets, accountsState, transactions, c, rates),
-    [assets, accountsState, transactions, c, rates],
+  // Audit F3 — Net Worth reads THE canonical projection, the same one the
+  // Dashboard and Ask Vyact read. Live account balances on both sides
+  // (asset accounts + liability accounts), unlinked legacy assets and
+  // unlinked debts folded in, receivables excluded, one FX path. The
+  // asset-side rows still drive the per-liquidity display below.
+  const projection = useMemo(
+    () => computeNetWorth(
+      { assets, accounts: accountsState, debts, transactions }, c, rates,
+    ),
+    [assets, accountsState, debts, transactions, c, rates],
   );
+  const liveRows = projection.assetRows;
 
   // Remind once per mount if any legacy (account-less) asset is stale (>30
   // days). Account-sourced rows are computed live from the ledger on every
@@ -64,15 +69,13 @@ export default function NetWorth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const ta  = liveTotalAssets(liveRows);
-  const tl  = totalLiabilities(debts, c, rates);
+  const ta  = projection.totalAssets;
+  const tl  = projection.totalLiabilities;
   // v10.17 — "Owed to me" (receivables) is deprecated from the UI. The rows
   // remain in the data model (reversible) but no longer count toward the
-  // displayed Net Worth. `totalReceivables` already excludes them from
-  // `totalAssets`/`totalLiabilities`, so dropping the addend here is the only
-  // change needed to keep every number honest.
-  const nw  = ta - tl;
-  const la  = liveRows.filter(r => r.liquidity === 'liquid').reduce((s, r) => s + r.value, 0);
+  // displayed Net Worth — the projection excludes them, so no addend here.
+  const nw  = projection.netWorth;
+  const la  = projection.liquidAssets;
   const { income, expense } = monthlyData(transactions, nowMonthKey(), c, rates);
   const monthlyIncome = income || 1;
 

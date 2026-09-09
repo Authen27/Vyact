@@ -5329,3 +5329,864 @@ COMMIT;
 --   update public.ai_model_configs set enabled = false where seam = 'assistant';
 --   update public.ai_model_configs set enabled = true
 --    where seam = 'assistant' and model = 'anthropic/claude-sonnet-5';
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260908120000_audit_s1_whatsapp_identities.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Audit S1 (2026-09-08) — WhatsApp verified identity moves to a server-owned
+-- table; inbound writer revalidates membership + write role.
+--
+-- THE HOLE THIS CLOSES
+-- phone_number / phone_verified_at / whatsapp_household_id sat on `profiles`,
+-- covered only by "users update own profile" (id = auth.uid()). Any
+-- authenticated user could self-assert a phone-verification state and pick a
+-- household reference, and whatsapp_log_transaction then resolved membership
+-- but explicitly tolerated a NULL result — a fabricated link could log
+-- transactions into someone else's household.
+--
+-- THE FIX
+--   1. `whatsapp_identities` — server-owned (RLS enabled, NO policies →
+--      deny-all to anon/authenticated; Edge Functions use the service role,
+--      which bypasses RLS). This is the only place a verified phone ↔
+--      profile ↔ household binding may be written.
+--   2. The legacy profiles columns are frozen by trigger: any non-service-role
+--      UPDATE that changes them raises 42501. Ordinary profile edits (display
+--      name, formats) pass — the guard fires only when those three columns
+--      actually change.
+--   3. whatsapp_log_transaction now REJECTS absent membership and viewer
+--      (read-only) members instead of logging with a null member, and its
+--      account resolution excludes soft-deleted rows.
+--
+-- The profiles columns are left in place (deprecated) so the previous Edge
+-- Function deploy keeps working during the migration→deploy window; nothing
+-- may write them client-side after this lands.
+-- ============================================================================
+
+BEGIN;
+
+-- ── 1. Server-owned identity table ─────────────────────────────────────────
+create table if not exists public.whatsapp_identities (
+  profile_id   uuid primary key references public.profiles(id) on delete cascade,
+  phone_number text not null,
+  household_id uuid not null references public.households(id) on delete cascade,
+  verified_at  timestamptz not null default now(),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+-- One phone number ↔ one identity, globally.
+create unique index if not exists uq_whatsapp_identities_phone
+  on public.whatsapp_identities(phone_number);
+
+alter table public.whatsapp_identities enable row level security;
+-- Deliberately NO policies: deny-all to anon/authenticated.
+revoke all on public.whatsapp_identities from public, anon, authenticated;
+grant select, insert, update, delete on public.whatsapp_identities to service_role;
+
+-- Backfill from the legacy columns (verified links only).
+insert into public.whatsapp_identities (profile_id, phone_number, household_id, verified_at)
+select id, phone_number, whatsapp_household_id, phone_verified_at
+  from public.profiles
+ where phone_number is not null
+   and phone_verified_at is not null
+   and whatsapp_household_id is not null
+on conflict (profile_id) do nothing;
+
+-- ── 2. Freeze the legacy columns against client writes ─────────────────────
+create or replace function public.guard_whatsapp_profile_columns()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare
+  v_claims text;
+  v_role   text;
+begin
+  -- The service role (Edge Functions) manages these columns; everyone else —
+  -- including the row owner and direct-SQL sessions (no JWT claims) — may not
+  -- change them.
+  v_claims := nullif(current_setting('request.jwt.claims', true), '');
+  v_role := case when v_claims is null then ''
+                 else coalesce(v_claims::jsonb ->> 'role', '') end;
+  if v_role = 'service_role' then
+    return new;
+  end if;
+  if new.phone_number is not distinct from old.phone_number
+     and new.phone_verified_at is not distinct from old.phone_verified_at
+     and new.whatsapp_household_id is not distinct from old.whatsapp_household_id then
+    return new;  -- untouched by this UPDATE — ordinary profile edit
+  end if;
+  raise exception 'phone_number, phone_verified_at and whatsapp_household_id are server-managed; use the WhatsApp link flow'
+    using errcode = '42501';
+end $$;
+
+drop trigger if exists trg_guard_whatsapp_profile_columns on public.profiles;
+create trigger trg_guard_whatsapp_profile_columns
+before update on public.profiles
+for each row execute function public.guard_whatsapp_profile_columns();
+
+-- ── 3. Harden the inbound writer ───────────────────────────────────────────
+-- Same signature as 20260906130000 (drop+recreate because grants are dropped
+-- with the function; re-issued below).
+drop function if exists public.whatsapp_log_transaction(
+  uuid, uuid, numeric, text, text, text, text, text, text, text, date
+);
+
+create or replace function public.whatsapp_log_transaction(
+  p_profile_id      uuid,
+  p_household_id    uuid,
+  p_amount          numeric,
+  p_currency        text,
+  p_txn_type        text,
+  p_category_id     text,
+  p_account_alias   text,
+  p_to_account_alias text,
+  p_wa_message_id   text,
+  p_description     text,
+  p_date            date default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_member_id     uuid;
+  v_member_role   text;
+  v_account_id    uuid;
+  v_to_account_id uuid;
+  v_cash_id       uuid;
+  v_txn_id        uuid;
+  v_claimed       int;
+  v_date          date;
+begin
+  -- Sanity-clamp the incoming date (see 20260906130000 for the rationale).
+  v_date := coalesce(p_date, current_date);
+  if v_date > current_date + interval '2 days' or v_date < current_date - interval '5 years' then
+    v_date := current_date;
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    return jsonb_build_object('status','error','reason','invalid_amount');
+  end if;
+  if p_txn_type not in ('expense','income','investment','transfer') then
+    return jsonb_build_object('status','error','reason','invalid_type');
+  end if;
+
+  -- Idempotency claim-first (unchanged from v10.18/v10.20).
+  insert into public.whatsapp_inbound_messages (wa_message_id, profile_id, household_id, direction)
+    values (p_wa_message_id, p_profile_id, p_household_id, 'inbound')
+    on conflict (wa_message_id) do nothing;
+
+  update public.whatsapp_inbound_messages
+     set processed_at = now(),
+         profile_id   = coalesce(profile_id, p_profile_id),
+         household_id = coalesce(household_id, p_household_id)
+   where wa_message_id = p_wa_message_id and processed_at is null;
+  get diagnostics v_claimed = row_count;
+  if v_claimed = 0 then
+    return jsonb_build_object('status','duplicate');
+  end if;
+
+  -- Audit S1: membership is now MANDATORY and must carry a write role. The
+  -- previous version noted "nullable is fine" — with the identity link now
+  -- client-forgeable no longer, this is the second gate: a revoked member (or
+  -- a viewer) cannot log, even while their identity row still exists.
+  select id, role into v_member_id, v_member_role
+    from public.memberships
+   where household_id = p_household_id and user_id = p_profile_id
+   limit 1;
+  if v_member_id is null then
+    return jsonb_build_object('status','error','reason','not_a_member');
+  end if;
+  if v_member_role = 'viewer' then
+    return jsonb_build_object('status','error','reason','read_only_member');
+  end if;
+
+  -- Cash fallback account for this household (audit S1: exclude soft-deleted).
+  select id into v_cash_id
+    from public.accounts
+   where household_id = p_household_id and lower(kind) = 'cash'
+     and coalesce(is_archived,false) = false and deleted_at is null
+   limit 1;
+
+  -- Resolve source alias (name or kind).
+  if p_account_alias is not null and p_account_alias <> '' then
+    select id into v_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and deleted_at is null
+       and (lower(name) = lower(p_account_alias) or lower(kind) = lower(p_account_alias))
+     limit 1;
+  end if;
+
+  -- Resolve destination alias (name or kind).
+  if p_to_account_alias is not null and p_to_account_alias <> '' then
+    select id into v_to_account_id
+      from public.accounts
+     where household_id = p_household_id
+       and coalesce(is_archived,false) = false
+       and deleted_at is null
+       and (lower(name) = lower(p_to_account_alias) or lower(kind) = lower(p_to_account_alias))
+     limit 1;
+  end if;
+
+  -- Apply the per-type account matrix + cash fallbacks.
+  if p_txn_type = 'expense' then
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    v_to_account_id := null;
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+  elsif p_txn_type = 'income' then
+    v_to_account_id := coalesce(v_to_account_id, v_account_id, v_cash_id);
+    v_account_id := null;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+  else  -- transfer / investment: both required, must differ
+    v_account_id := coalesce(v_account_id, v_cash_id);
+    if v_account_id is null then
+      return jsonb_build_object('status','error','reason','no_source_account');
+    end if;
+    if v_to_account_id is null then
+      return jsonb_build_object('status','error','reason','no_destination_account');
+    end if;
+    if v_to_account_id = v_account_id then
+      return jsonb_build_object('status','error','reason','same_account');
+    end if;
+  end if;
+
+  insert into public.transactions (
+    household_id, created_by, member_id, amount, currency, type, category,
+    account_id, to_account_id, date, description
+  ) values (
+    p_household_id,
+    p_profile_id,
+    v_member_id,
+    p_amount,
+    coalesce(nullif(p_currency,''), 'USD'),
+    p_txn_type,
+    case when p_txn_type in ('expense','income')
+         then coalesce(nullif(p_category_id,''), case when p_txn_type='expense' then 'other_expense' else 'other_income' end)
+         else null end,
+    v_account_id,
+    v_to_account_id,
+    v_date,
+    coalesce(nullif(p_description,''), 'Logged via WhatsApp')
+  ) returning id into v_txn_id;
+
+  -- Store the parsed result on the audit row for traceability.
+  update public.whatsapp_inbound_messages
+     set payload = coalesce(payload,'{}'::jsonb) || jsonb_build_object(
+           'parsed', jsonb_build_object(
+             'transaction_id', v_txn_id, 'amount', p_amount, 'currency', p_currency,
+             'type', p_txn_type, 'category_id', p_category_id,
+             'account_id', v_account_id, 'to_account_id', v_to_account_id))
+   where wa_message_id = p_wa_message_id;
+
+  return jsonb_build_object(
+    'status','success',
+    'transaction_id', v_txn_id,
+    'amount', p_amount,
+    'currency', coalesce(nullif(p_currency,''),'USD'),
+    'type', p_txn_type,
+    'category_id', p_category_id,
+    'account_name',    (select name from public.accounts where id = v_account_id),
+    'to_account_name', (select name from public.accounts where id = v_to_account_id)
+  );
+end;
+$$;
+
+revoke all on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) from public, anon, authenticated;
+grant execute on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) to service_role;
+
+comment on function public.whatsapp_log_transaction(uuid,uuid,numeric,text,text,text,text,text,text,text,date) is
+  'v10.20+audit-S1 — WhatsApp/agent transaction writer. v9 CHECK-safe, claim-first idempotent on wa_message_id, p_date backdate-aware (null => today, out-of-range clamps). Audit S1: membership is mandatory and viewers are rejected; account resolution excludes soft-deleted rows. Service-role only.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260908120100_audit_s2_membership_role_grants.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Audit S2 (2026-09-08) — constrain which roles a household admin may grant.
+--
+-- THE HOLE
+-- The memberships INSERT policy checked the CALLER is owner/admin but never
+-- constrained the ROLE being inserted — a household admin could insert a new
+-- 'owner' membership. Hiding "owner" in a UI dropdown is not a boundary.
+-- The UPDATE policy had the mirror-image gap: its USING clause stopped an
+-- admin from touching an existing owner's row, but without a WITH CHECK an
+-- admin could promote a member TO owner in one UPDATE.
+--
+-- THE RULE NOW (database-enforced)
+--   • owners may insert/update rows to any role (including owner — that is
+--     the ownership-transfer building block);
+--   • admins may insert/update rows only to non-owner roles;
+--   • everyone else: no grants (unchanged).
+-- Owner-continuity (never demote/delete the last owner) is NOT enforced here —
+-- that needs a dedicated transfer-ownership RPC and is tracked separately.
+-- ============================================================================
+
+BEGIN;
+
+drop policy if exists "owners and admins add members" on memberships;
+create policy "owners and admins add members" on memberships for insert with check (
+  role_in(household_id) = 'owner'
+  or (role_in(household_id) = 'admin' and role <> 'owner')
+);
+
+drop policy if exists "owners change roles; admins change non-owners" on memberships;
+create policy "owners change roles; admins change non-owners" on memberships for update
+  using (
+    -- existing row: admins may not touch an owner's membership
+    role_in(household_id) = 'owner' or (role_in(household_id) = 'admin' and role <> 'owner')
+  )
+  with check (
+    -- new row: admins may not GRANT ownership either
+    role_in(household_id) = 'owner' or (role_in(household_id) = 'admin' and role <> 'owner')
+  );
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260908120200_audit_s6_erase_onboarding_fix.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Audit S6 (2026-09-08) — erase_household_data violated its own schema.
+--
+-- THE BUG
+-- The erase RPC ended with `update households set onboarding = null`, but
+-- households.onboarding is `jsonb NOT NULL DEFAULT '{}'` with a CHECK that it
+-- be a JSON object (20260606120000). Every real erase therefore raised 23502
+-- and the WHOLE transactional wipe rolled back — "erase my data" has never
+-- worked against the committed schema, and it failed silently for the user
+-- behind a generic error.
+--
+-- THE FIX
+-- Reset onboarding to its empty baseline ('{}'::jsonb) instead of null —
+-- semantically identical (no onboarding state survives) and schema-legal.
+-- Function body is otherwise byte-identical to 20260701120000.
+-- ============================================================================
+
+BEGIN;
+
+create or replace function erase_household_data(h_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_role text;
+begin
+  select role into caller_role
+  from memberships
+  where household_id = h_id and user_id = auth.uid()
+  limit 1;
+
+  if caller_role is null or caller_role not in ('owner', 'admin') then
+    raise exception 'not authorized to erase this household''s data';
+  end if;
+
+  delete from transactions        where household_id = h_id;
+  delete from budgets              where household_id = h_id;
+  delete from budget_allocations   where household_id = h_id;
+  delete from goals                where household_id = h_id;
+  delete from debts                where household_id = h_id;
+  delete from assets               where household_id = h_id;
+  delete from accounts             where household_id = h_id;
+  delete from recurring_schedules  where household_id = h_id;
+  delete from saved_views          where household_id = h_id;
+  delete from activity_log         where household_id = h_id;
+
+  -- Onboarding baseline/reference overlay (v9.7.0) lives in households.onboarding.
+  -- NOT NULL + object CHECK ⇒ reset to the empty baseline, never null (audit S6).
+  update households set onboarding = '{}'::jsonb where id = h_id;
+
+  insert into activity_log (household_id, actor_id, action, entity_type, entity_id, changes)
+  values (h_id, auth.uid(), 'erase_household_data', 'household', h_id, jsonb_build_object('erased_at', now()));
+end;
+$$;
+
+-- `create or replace` keeps existing grants; re-assert for safety.
+grant execute on function erase_household_data(uuid) to authenticated;
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260908120300_audit_f2_record_loan_payment.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Audit F2 (2026-09-08) — record_loan_payment: ONE atomic command for an EMI.
+--
+-- THE BUGS THIS REPLACES
+--   1. The client EMI branch was unreachable from the transaction form (the
+--      form pre-assigns an id; the branch required `!t.id`), so a loan EMI was
+--      stored as a plain expense — no interest/principal split, no debt
+--      re-amortisation, silently.
+--   2. The intended path wrote expense → principal leg → account → debt
+--      SEQUENTIALLY from the browser; a failure mid-way left a half-written
+--      payment.
+--   3. The loan account was linked via accounts.asset_id = debt.id — a column
+--      whose FK points at assets, not debts, so the cloud write violated
+--      23503 the moment the branch ever ran. (Explicit linkage instead:
+--      accounts.debt_id — audit §8.2.)
+--
+-- THE DIVISION OF LABOUR (matches "the model never computes money" rule)
+--   The RE-AMORTISATION MATH (interest/principal split, tenure/EMI strategy)
+--   stays in the parity-tested TypeScript port (lib/amortization.ts). This RPC
+--   VALIDATES the decomposition's shape (interest+principal = amount, tenancy,
+--   non-negative, within outstanding) and applies all writes in ONE
+--   transaction, idempotent on p_operation_id so a retried call cannot
+--   double-post.
+-- ============================================================================
+
+BEGIN;
+
+-- ── 1. Explicit account ↔ debt linkage (audit §8.2) ────────────────────────
+-- asset_id stays for asset-backed accounts; debt_id is the loan/credit-card
+-- counterpart. Nullable; one loan account per debt in practice.
+alter table public.accounts
+  add column if not exists debt_id uuid references public.debts(id) on delete set null;
+create index if not exists accounts_debt
+  on public.accounts (household_id, debt_id) where debt_id is not null;
+
+-- ── 2. Idempotency + audit record for the command ──────────────────────────
+create table if not exists public.loan_payment_events (
+  operation_id    uuid primary key,
+  household_id    uuid not null references public.households(id) on delete cascade,
+  debt_id         uuid not null references public.debts(id) on delete cascade,
+  expense_txn_id  uuid references public.transactions(id) on delete set null,
+  transfer_txn_id uuid references public.transactions(id) on delete set null,
+  loan_account_id uuid references public.accounts(id) on delete set null,
+  amount          numeric not null,
+  interest        numeric not null,
+  principal       numeric not null,
+  created_at      timestamptz not null default now()
+);
+alter table public.loan_payment_events enable row level security;
+-- Members may READ their household's events (retry/duplicate visibility);
+-- only this function (security definer) writes them.
+create policy "members read own household loan payment events"
+  on public.loan_payment_events for select using (is_member(household_id));
+
+-- ── 3. The command ─────────────────────────────────────────────────────────
+create or replace function public.record_loan_payment(
+  p_operation_id         uuid,
+  p_debt_id              uuid,
+  p_funding_account_id   uuid,
+  p_amount               numeric,
+  p_currency             text,
+  p_date                 date,
+  p_interest             numeric,
+  p_principal            numeric,
+  p_member_id            uuid default null,
+  p_description          text default null,
+  p_new_balance          numeric default null,
+  p_new_remaining_months integer default null,
+  p_new_minimum_payment  numeric default null,
+  p_payment_log_entry    jsonb default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_hid             uuid;
+  v_debt            public.debts%rowtype;
+  v_expense_id      uuid;
+  v_transfer_id     uuid;
+  v_loan_account_id uuid;
+  v_existing        public.loan_payment_events%rowtype;
+  v_claimed         uuid;
+begin
+  -- 0. Idempotency: a retried operation returns its original outcome and
+  --    writes nothing twice.
+  select * into v_existing from public.loan_payment_events
+   where operation_id = p_operation_id;
+  if found then
+    return jsonb_build_object('status','duplicate',
+      'expense_txn_id',  v_existing.expense_txn_id,
+      'transfer_txn_id', v_existing.transfer_txn_id,
+      'loan_account_id', v_existing.loan_account_id);
+  end if;
+
+  -- 1. Debt must exist, be live; lock it so concurrent payments serialise.
+  select * into v_debt from public.debts
+   where id = p_debt_id and deleted_at is null
+   for update;
+  if not found then
+    return jsonb_build_object('status','error','reason','debt_not_found');
+  end if;
+  v_hid := v_debt.household_id;
+
+  -- 2. Caller must hold a WRITE role in the debt's household (viewer blocked).
+  if coalesce(role_in(v_hid), 'viewer') not in ('owner','admin','member') then
+    return jsonb_build_object('status','error','reason','not_authorized');
+  end if;
+
+  -- 3. Funding account must belong to the SAME household and be usable.
+  if not exists (
+    select 1 from public.accounts
+     where id = p_funding_account_id and household_id = v_hid
+       and deleted_at is null and coalesce(is_archived,false) = false
+  ) then
+    return jsonb_build_object('status','error','reason','funding_account_invalid');
+  end if;
+
+  -- 4. Decomposition shape: non-negative legs that sum to the amount, within
+  --    the outstanding balance. The arithmetic itself was computed by the
+  --    parity-tested client port; here we refuse anything that does not
+  --    reconcile.
+  if p_amount is null or p_amount <= 0 then
+    return jsonb_build_object('status','error','reason','invalid_amount');
+  end if;
+  if p_interest is null or p_principal is null or p_interest < 0 or p_principal < 0 then
+    return jsonb_build_object('status','error','reason','invalid_split');
+  end if;
+  if abs((p_interest + p_principal) - p_amount) > 0.01 then
+    return jsonb_build_object('status','error','reason','split_mismatch');
+  end if;
+  if p_interest = 0 and p_principal = 0 then
+    return jsonb_build_object('status','error','reason','empty_payment');
+  end if;
+  if p_new_balance is not null and (p_new_balance < 0 or p_new_balance > v_debt.current_balance + 0.01) then
+    return jsonb_build_object('status','error','reason','balance_out_of_range');
+  end if;
+
+  -- 5. Claim the operation id (second concurrent caller becomes a duplicate).
+  insert into public.loan_payment_events (operation_id, household_id, debt_id, amount, interest, principal)
+  values (p_operation_id, v_hid, p_debt_id, p_amount, p_interest, p_principal)
+  on conflict (operation_id) do nothing
+  returning operation_id into v_claimed;
+  if v_claimed is null then
+    select * into v_existing from public.loan_payment_events where operation_id = p_operation_id;
+    return jsonb_build_object('status','duplicate',
+      'expense_txn_id',  v_existing.expense_txn_id,
+      'transfer_txn_id', v_existing.transfer_txn_id,
+      'loan_account_id', v_existing.loan_account_id);
+  end if;
+
+  -- 6. Find-or-create the linked loan (liability) account — via debt_id,
+  --    NOT the asset FK that broke the old path (audit F2 sub-2).
+  select id into v_loan_account_id from public.accounts
+   where household_id = v_hid and debt_id = p_debt_id and kind = 'loan'
+     and deleted_at is null
+   limit 1;
+  if v_loan_account_id is null then
+    insert into public.accounts (household_id, kind, name, currency, debt_id)
+    values (v_hid, 'loan', v_debt.name, v_debt.currency, p_debt_id)
+    returning id into v_loan_account_id;
+  end if;
+
+  -- 7. Interest leg — the visible expense (the only leg that counts as spend).
+  --    transactions.amount is CHECK(amount > 0), so a zero-interest leg
+  --    (0%-APR loan) is simply not written.
+  if p_interest > 0 then
+    insert into public.transactions (
+      household_id, created_by, member_id, amount, currency, type, category,
+      account_id, debt_id, date, description, extras
+    ) values (
+      v_hid, auth.uid(), p_member_id, p_interest,
+      coalesce(nullif(p_currency,''), v_debt.currency),
+      'expense', 'loan_emi', p_funding_account_id, p_debt_id,
+      coalesce(p_date, current_date),
+      coalesce(nullif(p_description,''), v_debt.name || ' EMI'),
+      jsonb_build_object('emi_split', jsonb_build_object(
+        'interest', p_interest, 'principal', p_principal, 'debt_id', p_debt_id))
+    ) returning id into v_expense_id;
+  end if;
+
+  -- 8. Principal leg — system transfer INTO the loan account (spend-neutral).
+  if p_principal > 0 then
+    insert into public.transactions (
+      household_id, created_by, member_id, amount, currency, type, category,
+      account_id, to_account_id, debt_id, date, description, extras
+    ) values (
+      v_hid, auth.uid(), p_member_id, p_principal,
+      coalesce(nullif(p_currency,''), v_debt.currency),
+      'transfer', null, p_funding_account_id, v_loan_account_id, p_debt_id,
+      coalesce(p_date, current_date),
+      coalesce(nullif(p_description,''), v_debt.name || ' EMI') || ' — principal',
+      jsonb_build_object('emi_split', jsonb_build_object(
+        'interest', p_interest, 'principal', p_principal, 'debt_id', p_debt_id),
+        'linkedTxnId', v_expense_id)
+    ) returning id into v_transfer_id;
+  end if;
+
+  -- 9. Re-amortised debt state + payment log entry (client-computed values,
+  --    shape-validated above).
+  update public.debts
+     set current_balance = coalesce(p_new_balance, current_balance),
+         minimum_payment = coalesce(p_new_minimum_payment, minimum_payment),
+         extras = coalesce(extras, '{}'::jsonb)
+           || case when p_new_remaining_months is not null
+                   then jsonb_build_object('remainingMonths', p_new_remaining_months)
+                   else '{}'::jsonb end
+           || case when p_payment_log_entry is not null
+                   then jsonb_build_object('paymentLog',
+                        coalesce(extras->'paymentLog', '[]'::jsonb) || p_payment_log_entry)
+                   else '{}'::jsonb end,
+         updated_at = now()
+   where id = p_debt_id;
+
+  -- 10. Complete the event record.
+  update public.loan_payment_events
+     set expense_txn_id = v_expense_id,
+         transfer_txn_id = v_transfer_id,
+         loan_account_id = v_loan_account_id
+   where operation_id = p_operation_id;
+
+  return jsonb_build_object(
+    'status', 'success',
+    'expense_txn_id',  v_expense_id,
+    'transfer_txn_id', v_transfer_id,
+    'loan_account_id', v_loan_account_id);
+end;
+$$;
+
+revoke all on function public.record_loan_payment(uuid,uuid,uuid,numeric,text,date,numeric,numeric,uuid,text,numeric,integer,numeric,jsonb) from public, anon;
+grant execute on function public.record_loan_payment(uuid,uuid,uuid,numeric,text,date,numeric,numeric,uuid,text,numeric,integer,numeric,jsonb) to authenticated;
+
+comment on function public.record_loan_payment(uuid,uuid,uuid,numeric,text,date,numeric,numeric,uuid,text,numeric,integer,numeric,jsonb) is
+  'Audit F2 — one atomic loan-payment command: validates caller role, debt/account tenancy and split reconciliation, writes interest expense + principal transfer + re-amortised debt + payment log in a single transaction, idempotent on p_operation_id. Re-amortisation math is computed by the parity-tested client port (lib/amortization.ts); this function validates shape, never arithmetic.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260909120000_audit_s3_tenant_consistency.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Audit S3 (2026-09-09) — foreign keys prove a row EXISTS, not that it belongs
+-- to the same household. These triggers enforce tenant consistency at the
+-- database, so no API path (form, WhatsApp, RPC, direct PostgREST) can link
+-- entities across households.
+--
+-- Rules enforced:
+--   transactions.household_id == account_id.household_id
+--   transactions.household_id == to_account_id.household_id
+--   transactions.household_id == member_id.household_id
+--   transactions.household_id == debt_id.household_id
+--   budget_allocations.household_id == budget_id.household_id
+--   shared_splits.owner_household_id: the owner is a member of it, and the
+--     linked txn (if any) belongs to it.
+--
+-- Triggers (not composite FKs) because the references carry ON DELETE SET NULL
+-- and nullable columns — a trigger checks only the non-null ones. Runs as the
+-- table owner's definer context so RLS on the referenced table can't mask a
+-- violation from the check itself.
+-- ============================================================================
+
+BEGIN;
+
+create or replace function public.assert_txn_tenant_consistency()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if new.account_id is not null and not exists (
+    select 1 from public.accounts
+     where id = new.account_id and household_id = new.household_id
+  ) then
+    raise exception 'transactions.account_id belongs to a different household'
+      using errcode = '23503';
+  end if;
+  if new.to_account_id is not null and not exists (
+    select 1 from public.accounts
+     where id = new.to_account_id and household_id = new.household_id
+  ) then
+    raise exception 'transactions.to_account_id belongs to a different household'
+      using errcode = '23503';
+  end if;
+  if new.member_id is not null and not exists (
+    select 1 from public.memberships
+     where id = new.member_id and household_id = new.household_id
+  ) then
+    raise exception 'transactions.member_id belongs to a different household'
+      using errcode = '23503';
+  end if;
+  if new.debt_id is not null and not exists (
+    select 1 from public.debts
+     where id = new.debt_id and household_id = new.household_id
+  ) then
+    raise exception 'transactions.debt_id belongs to a different household'
+      using errcode = '23503';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_txn_tenant_consistency on public.transactions;
+create trigger trg_txn_tenant_consistency
+before insert or update on public.transactions
+for each row execute function public.assert_txn_tenant_consistency();
+
+create or replace function public.assert_allocation_tenant_consistency()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if not exists (
+    select 1 from public.budgets
+     where id = new.budget_id and household_id = new.household_id
+  ) then
+    raise exception 'budget_allocations.budget_id belongs to a different household'
+      using errcode = '23503';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_allocation_tenant_consistency on public.budget_allocations;
+create trigger trg_allocation_tenant_consistency
+before insert or update on public.budget_allocations
+for each row execute function public.assert_allocation_tenant_consistency();
+
+create or replace function public.assert_split_tenant_consistency()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  -- The owner must actually be a member of the household they name.
+  if not exists (
+    select 1 from public.memberships
+     where household_id = new.owner_household_id and user_id = new.owner_user_id
+  ) then
+    raise exception 'shared_splits.owner_household_id is not a household the owner belongs to'
+      using errcode = '23503';
+  end if;
+  -- A linked transaction must live in that same household.
+  if new.txn_id is not null and not exists (
+    select 1 from public.transactions
+     where id = new.txn_id and household_id = new.owner_household_id
+  ) then
+    raise exception 'shared_splits.txn_id belongs to a different household'
+      using errcode = '23503';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_split_tenant_consistency on public.shared_splits;
+create trigger trg_split_tenant_consistency
+before insert or update on public.shared_splits
+for each row execute function public.assert_split_tenant_consistency();
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260909120100_audit_a2_atomic_ai_quota.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Audit A2 (2026-09-09) — AI spend cap becomes an ATOMIC reservation, not a
+-- count-then-call race.
+--
+-- THE HOLE
+-- The gateway did: SELECT count(*) … → call the provider → INSERT usage. Every
+-- concurrent request passed the same count check, a failed count read was
+-- treated as zero usage, and a failed metering write was ignored. Under any
+-- parallelism the cap was advisory, and it failed OPEN.
+--
+-- THE FIX
+-- `reserve_ai_usage(user_id, cap)` — one SECURITY DEFINER function that takes
+-- a row lock on the user's profile (serialising their requests), counts their
+-- LLM calls in the window, and either inserts a reservation row (a pending
+-- ai_usage marker) or raises 42901. Counting and reserving are one statement
+-- sequence under one lock: no two concurrent requests can both pass. A failed
+-- count now fails CLOSED (the error aborts the reservation, and the gateway
+-- does not call the provider). After the provider answers, the gateway
+-- finalises the reservation row with the real tokens/cost/latency.
+-- ============================================================================
+
+BEGIN;
+
+-- A reservation is a normal ai_usage row with outcome='reserved' written
+-- BEFORE the provider call; the gateway UPDATEs it to the real outcome after.
+-- The metering migration's outcome CHECK predates reservations — widen it.
+alter table public.ai_usage drop constraint if exists ai_usage_outcome_chk;
+alter table public.ai_usage add constraint ai_usage_outcome_chk
+  check (outcome is null or outcome in ('ok','error','blocked','fallback','clarify','reserved'));
+
+create or replace function public.reserve_ai_usage(
+  p_user_id      uuid,
+  p_household_id uuid,
+  p_surface      text,
+  p_cap          int
+) returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_count int;
+  v_id    uuid;
+begin
+  -- Serialise this user's quota decisions on their profile row. Two of their
+  -- concurrent requests now run one-after-another here, so the count below is
+  -- exact at decision time.
+  perform 1 from public.profiles where id = p_user_id for update;
+
+  select count(*) into v_count
+    from public.ai_usage
+   where user_id = p_user_id
+     and backend = 'llm'
+     and ts >= now() - interval '24 hours';
+
+  if v_count >= p_cap then
+    raise exception 'quota_exceeded' using errcode = '42901';
+  end if;
+
+  insert into public.ai_usage (user_id, household_id, surface, backend, outcome, ts)
+  values (p_user_id, p_household_id, p_surface, 'llm', 'reserved', now())
+  returning id into v_id;
+  return v_id;
+end $$;
+
+-- Called by the ask-vyact Edge Function with the service role; it must NOT be
+-- client-callable (a client could reserve-then-abandon to inflate usage, or
+-- call with a huge cap).
+revoke all on function public.reserve_ai_usage(uuid, uuid, text, int) from public, anon, authenticated;
+grant execute on function public.reserve_ai_usage(uuid, uuid, text, int) to service_role;
+
+comment on function public.reserve_ai_usage(uuid, uuid, text, int) is
+  'Audit A2 — atomic AI quota reservation. Row-locks the user profile, counts 24h llm usage, inserts a reservation row (outcome=reserved) or raises 42901. Fail-closed: a count error aborts the reservation. The gateway finalises the row after the provider answers.';
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20260909120200_audit_a4_durable_inbox.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Audit A4 (2026-09-09) — the WhatsApp inbound pipeline becomes durable and
+-- batch-correct.
+--
+-- BEFORE: the webhook read only `entry[0].changes[0].messages[0]` (every later
+-- message in the webhook was DROPPED), did the DB work before ACK, and had no
+-- record of WHAT was processed vs pending — a crash after ACK lost the message
+-- silently.
+--
+-- NOW: the webhook records EVERY message as an inbox row (status 'pending')
+-- and ACKs immediately. A separate claim step processes rows — atomic claim
+-- (status flips pending→claimed only if still pending), so a redelivery or a
+-- concurrent worker never double-processes; a failure re-marks 'failed' with a
+-- retry count; a success marks 'done'. Nothing is lost after ACK.
+-- ============================================================================
+
+BEGIN;
+
+alter table public.whatsapp_inbound_messages
+  add column if not exists status text not null default 'pending',
+  add column if not exists attempts int not null default 0,
+  add column if not exists claimed_at timestamptz,
+  add column if not exists last_error text;
+
+-- Claim-ability index: the worker polls pending/claimable rows.
+create index if not exists idx_wa_inbound_claim
+  on public.whatsapp_inbound_messages (status, created_at)
+  where direction = 'inbound';
+
+comment on column public.whatsapp_inbound_messages.status is
+  'Audit A4 — pending | claimed | done | failed. Claim is atomic (pending→claimed only if still pending) so concurrent workers and Meta redeliveries never double-process.';
+
+COMMIT;

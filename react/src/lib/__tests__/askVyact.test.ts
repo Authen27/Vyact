@@ -127,10 +127,17 @@ describe('classifyIntent — Interpret + fallback', () => {
 function makeCtx(over: Partial<AssistantContext> = {}): AssistantContext {
   const profile = { baseCurrency: 'GBP', household: 'individual', language: 'en' } as unknown as Profile;
   const rates = { GBP: 1 };
+  // Audit F5: budgets are read through the month-scoped allocation lines, so
+  // the fixture budget is dated into THIS month and the default spend (420)
+  // exceeds it (300) — the over-budget proactive insight can fire.
+  const [yy, mm] = new Date().toISOString().slice(0, 7).split('-').map(Number);
   const transactions = over.transactions ?? ([
     { id: 't1', type: 'expense', amount: 420, currency: 'GBP', date: new Date().toISOString().slice(0, 10), description: '', category: 'food_dining' },
   ] as Transaction[]);
-  const budgets = over.budgets ?? ([{ id: 'b1', category: 'food_dining', limit: 300, currency: 'GBP' }] as Budget[]);
+  const budgets = over.budgets ?? ([{
+    id: 'b1', category: 'food_dining', limit: 300, currency: 'GBP',
+    scope: 'month', periodYear: yy, periodMonth: mm,
+  }] as Budget[]);
   const goals = over.goals ?? ([] as Goal[]);
   const debts = over.debts ?? ([] as Debt[]);
   const assets = over.assets ?? ([{ id: 'a1', type: 'cash', name: 'Cash', value: 8000, currency: 'GBP', liquidity: 'liquid' }] as Asset[]);

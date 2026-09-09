@@ -73,19 +73,25 @@ Deno.serve(async (req: Request) => {
 
   for (const householdId of ownedHouseholdIds) {
     for (const table of HOUSEHOLD_SCOPED_TABLES) {
+      // Audit S6: EVERY delete result is checked. A failure aborts BEFORE the
+      // auth user is dropped, so the account can retry rather than leaving a
+      // half-erased household with no login.
       const { error } = await admin.from(table).delete().eq('household_id', householdId);
       if (error) return json({ error: 'erase_failed', table, detail: error.message }, 500);
     }
-    await admin.from('memberships').delete().eq('household_id', householdId);
+    const { error: mErr } = await admin.from('memberships').delete().eq('household_id', householdId);
+    if (mErr) return json({ error: 'erase_failed', table: 'memberships', detail: mErr.message }, 500);
     const { error: hErr } = await admin.from('households').delete().eq('id', householdId);
     if (hErr) return json({ error: 'household_delete_failed', detail: hErr.message }, 500);
   }
 
   if (otherMembershipIds.length) {
-    await admin.from('memberships').delete().in('id', otherMembershipIds);
+    const { error: omErr } = await admin.from('memberships').delete().in('id', otherMembershipIds);
+    if (omErr) return json({ error: 'erase_failed', table: 'memberships(self)', detail: omErr.message }, 500);
   }
 
-  await admin.from('profiles').delete().eq('id', user.id);
+  const { error: pErr } = await admin.from('profiles').delete().eq('id', user.id);
+  if (pErr) return json({ error: 'profile_delete_failed', detail: pErr.message }, 500);
 
   const { error: authDeleteErr } = await admin.auth.admin.deleteUser(user.id);
   if (authDeleteErr) return json({ error: 'auth_delete_failed', detail: authDeleteErr.message }, 500);

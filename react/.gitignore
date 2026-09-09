@@ -6,3 +6,9 @@
 /blob-report/
 /test-results/
 .cache/
+
+# tsc emit from tsconfig.node.json must never land beside the source:
+# Vite resolves vite.config.js BEFORE vite.config.ts, so a stray compiled
+# artifact silently becomes the build config (see tsconfig.node.json).
+vite.config.js
+vite.config.d.ts

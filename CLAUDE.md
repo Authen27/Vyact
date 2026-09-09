@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.20.7**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.20.8**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -59,14 +59,25 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
 - **Sync is refresh-based** (visibility/focus/online + poll, not a live socket).
   Queue mechanics in `lib/sync/`; faults via `lib/faults.ts` — **never a silent
   write-loss `catch {}`** on a write/contract path.
-- **The local store is a CACHE, and the cloud is the truth (v10.20.7).**
-  `lib/cacheInvalidation.ts` drops it at the session boundary when it cannot be
-  trusted — a different user, or an older `CACHE_EPOCH`. **Bumping `CACHE_EPOCH`
-  is the reset lever** for any server-side cleanup, because otherwise devices
-  re-upload what you just deleted. The **pending write queue is never dropped**
-  (that would be data loss); device prefs and `last_cloud_hid` also survive.
-  Sign-out clears the cache — a signed-out device must not hold the last user's
-  ledger. **Never add a migration that RECREATES rows from other rows.**
+- **The local store is a CACHE, and the cloud is the truth (v10.20.7, corrected
+  in v10.20.8).** `lib/cacheInvalidation.ts` drops it at the session boundary
+  when it cannot be trusted — a different user, or an older `CACHE_EPOCH`.
+  **Bumping `CACHE_EPOCH` is the reset lever** for any server-side cleanup,
+  because otherwise devices re-upload what you just deleted. The **pending write
+  queue is never dropped** (that would be data loss); device prefs and
+  `last_cloud_hid` also survive. Sign-out clears the cache — a signed-out device
+  must not hold the last user's ledger.
+  🔴 **The cache lives in IndexedDB (`kvStore`, DB `vyact`), NOT localStorage** —
+  `kvSet` deletes the localStorage copy after a successful IDB write. v10.20.7
+  purged only localStorage, so it cleared nothing in a browser, and its unit
+  tests passed because vitest runs in node with a localStorage polyfill and no
+  IndexedDB. **Any test touching the cache must import `fake-indexeddb/auto`**,
+  or it pins the fallback path and reports a guarantee that is not delivered.
+  The purge is **async and must be awaited before hydration**, and it bumps a
+  **cache generation** that `HybridAdapter.applyCloudList` checks — otherwise a
+  cloud read already in flight writes the previous session's rows straight back
+  into the cache you just cleared. The outbox is a separate database
+  (`vyact_outbox`), which is what keeps unsynced writes structurally safe. **Never add a migration that RECREATES rows from other rows.**
   `backfillSchedulesFromTransactions` did exactly that and could not tell a
   deliberate deletion from a legacy gap, so deleting a recurring schedule and
   reloading brought it back for ~2 years; it was retired in v10.20.7 along with

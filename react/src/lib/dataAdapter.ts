@@ -7,6 +7,7 @@
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
+  RecordLoanPaymentCommand, RecordLoanPaymentResult,
 } from '../types';
 import { DEFAULT_RATES } from '../constants';
 import { uid } from './format';
@@ -96,6 +97,18 @@ export interface DataAdapter {
    *  as before. */
   queryTxnByMember?(householdId: string): Promise<Array<{ member_id: string | null; type: string; currency: string; total: number; n: number }> | undefined>;
   queryTxnByAccount?(householdId: string): Promise<Array<{ account_id: string | null; type: string; currency: string; total: number; n: number }> | undefined>;
+
+  /**
+   * Audit F2 — atomic loan-payment command. Present on the cloud adapters
+   *  (SupabaseAdapter performs the RPC; HybridAdapter adds cache seeding).
+   *  When absent (local-only) or offline, the store falls back to the
+   *  sequential client decomposition — documented non-atomic offline.
+   */
+  recordLoanPayment?(
+    householdId: string,
+    cmd: RecordLoanPaymentCommand,
+    rows: { expense?: Transaction; transfer?: Transaction; debt: Debt },
+  ): Promise<RecordLoanPaymentResult>;
 }
 
 const ANON = 'local';

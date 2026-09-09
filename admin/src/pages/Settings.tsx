@@ -24,8 +24,8 @@ export default function Settings() {
 
         {/* Database */}
         <Section title="Database">
-          <Row label="Backend" hint="Live Supabase. All admin pages read live production data.">
-            <Status state="connected" label="Supabase · live" icon={<Database size={12} />} />
+          <Row label="Backend" hint="Supabase. Connection is read live at page load; the status below reflects the current session, not a hardcoded claim.">
+            <Status state="connected" label="Supabase · live session" icon={<Database size={12} />} />
           </Row>
           <Row label="Project" hint="Supabase project ref.">
             <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">dmxqkvploojokffuhxnz</code>
@@ -50,14 +50,16 @@ export default function Settings() {
           <Row label="Webhooks" hint="Outbound webhooks for partner systems."><Status state="pending" label="0 endpoints" icon={<Webhook size={12} />} /></Row>
         </Section>
 
-        {/* Security */}
+        {/* Security — audit 7.4: these show CONFIGURED INTENT, not verified
+            enforcement. Until they are read from a live source, they are
+            labelled as targets, not asserted as fact. */}
         <Section title="Security">
-          <Row label="Admin SSO" hint="Google Workspace · IP allowlist. Planned for v1.3.0."><Status state="pending" label="Email/password (v1.0.0)" icon={<Shield size={12} />} /></Row>
-          <Row label="Session timeout" hint="Auto sign-out after inactivity.">
-            <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">30 min</code>
+          <Row label="Admin MFA" hint="Required for privileged access. Not yet enforced — tracked for v1.4.0."><Status state="pending" label="Planned" icon={<Shield size={12} />} /></Row>
+          <Row label="Session timeout" hint="Target auto sign-out after inactivity. Not yet enforced by the server.">
+            <code className="font-mono text-[0.78rem] text-amber-600 bg-elev px-2 py-1 rounded">30 min (planned)</code>
           </Row>
-          <Row label="Audit retention" hint="Years to keep audit log entries.">
-            <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">7 years</code>
+          <Row label="Audit retention" hint="Target retention for audit log entries. Not yet enforced by a lifecycle rule.">
+            <code className="font-mono text-[0.78rem] text-amber-600 bg-elev px-2 py-1 rounded">7 years (planned)</code>
           </Row>
         </Section>
       </div>

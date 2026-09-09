@@ -30,7 +30,9 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    // E2E_SCREENSHOTS=all captures a screenshot for PASSING tests too, so a
+    // release can ship visual evidence per scenario rather than only failures.
+    screenshot: process.env.E2E_SCREENSHOTS === 'all' ? 'on' : 'only-on-failure',
     video: 'retain-on-failure',
   },
 

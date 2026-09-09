@@ -47,12 +47,12 @@ Deno.serve(async (req: Request) => {
     .eq('household_id', householdId).eq('user_id', user.id).maybeSingle();
   if (!membership) return json({ error: 'not_a_member' }, 403);
 
-  // The recipient must have a VERIFIED WhatsApp number linked to THIS household.
+  // The recipient must have a VERIFIED WhatsApp identity linked to THIS
+  // household (audit S1: read the server-owned identity table, not profiles).
   const { data: recipient } = await admin
-    .from('profiles').select('phone_number, phone_verified_at, whatsapp_household_id')
-    .eq('id', toProfileId).maybeSingle();
-  if (!recipient?.phone_verified_at || !recipient.phone_number
-      || recipient.whatsapp_household_id !== householdId) {
+    .from('whatsapp_identities').select('phone_number, household_id')
+    .eq('profile_id', toProfileId).maybeSingle();
+  if (!recipient?.phone_number || recipient.household_id !== householdId) {
     return json({ status: 'skipped', reason: 'recipient_not_linked' });
   }
 

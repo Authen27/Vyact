@@ -7,6 +7,7 @@ import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
   WithProvenance, Confidence, ProvenanceSource, RecurringSchedule,
+  RecordLoanPaymentCommand, RecordLoanPaymentResult,
 } from '../types';
 import type { DataAdapter, Entity } from './dataAdapter';
 import { parseMoneyFromCloud } from './money';
@@ -116,6 +117,7 @@ interface AssetRow extends ProvenanceRowCols {
 interface AccountRow extends ProvenanceRowCols {
   id: string; household_id: string;
   asset_id: string | null;
+  debt_id?: string | null;                    // audit F2/§8.2 — explicit debt link
   kind: string; name: string; currency: string;
   is_default: boolean; is_archived: boolean;
   opening_balance?: number | null;            // Money-Model B1.2
@@ -340,6 +342,19 @@ const rowToMember = (r: MembershipRow): Member => ({
   userId: r.user_id || undefined,
 });
 
+// ── Audit F8 — composite delta cursor ──────────────────────────────────────
+// Stored form: "<updated_at>|<id>". A bare "<updated_at>" (any stored cursor
+// from before this change) decodes with an empty id, so the boundary rows are
+// re-read once — idempotent — and the next write stores the full pair.
+function encodeDeltaCursor(updatedAt: string, id: string): string {
+  return `${updatedAt}|${id}`;
+}
+function decodeDeltaCursor(cursor: string): [ts: string, id: string] {
+  const i = cursor.indexOf('|');
+  if (i < 0) return [cursor, ''];
+  return [cursor.slice(0, i), cursor.slice(i + 1)];
+}
+
 /**
  * 🔒 OMITTED MEANS UNCHANGED — NEVER ZERO.
  *
@@ -372,11 +387,15 @@ const accountToRow = (a: Partial<Account>, hid: string): Partial<AccountRow> => 
   if (a.openingBalance !== undefined) row.opening_balance = a.openingBalance;             // Money-Model B1.2
   if (a.reconciliationOffset !== undefined) row.reconciliation_offset = a.reconciliationOffset;  // v9 D2
   if (a.reconciliationLog !== undefined) row.reconciliation_log = a.reconciliationLog as unknown[];
+  // Audit F2 — explicit debt link. Conditional for the same reason as the
+  // financial fields above: a metadata-only patch must not erase it.
+  if (a.debtId !== undefined) row.debt_id = a.debtId || null;
   return row;
 };
 const rowToAccount = (r: AccountRow): Account => ({
   id: r.id,
   assetId: r.asset_id || undefined,
+  debtId: r.debt_id || undefined,
   kind: r.kind as Account['kind'],
   name: r.name,
   currency: r.currency,
@@ -646,7 +665,13 @@ export class SupabaseAdapter implements DataAdapter {
     if (patch.language    !== undefined) userPatch.language = patch.language;
     if (patch.educationProgress !== undefined) userPatch.education_progress = patch.educationProgress;
     if (Object.keys(userPatch).length) {
-      await this.sb.from('profiles').update(userPatch).eq('id', user.id);
+      // Audit F7: PostgREST failures RESOLVE with { error } — they do not
+      // throw. An unchecked call here let the queue treat a rejected profile
+      // update as acknowledged. And an UPDATE blocked by RLS matches zero
+      // rows with no error at all, so we also count affected rows.
+      const { data, error } = await this.sb.from('profiles').update(userPatch).eq('id', user.id).select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) throw new WriteNotAppliedError('update', 'profiles', user.id);
     }
     // Household-level fields → households
     const hhPatch: Record<string, unknown> = {};
@@ -656,9 +681,62 @@ export class SupabaseAdapter implements DataAdapter {
     if (patch.payoffStrategy !== undefined) hhPatch.payoff_strategy = patch.payoffStrategy;
     if (patch.extraPayment   !== undefined) hhPatch.extra_payment = patch.extraPayment;
     if (Object.keys(hhPatch).length) {
-      await this.sb.from('households').update(hhPatch).eq('id', householdId);
+      const { data, error } = await this.sb.from('households').update(hhPatch).eq('id', householdId).select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) throw new WriteNotAppliedError('update', 'households', householdId);
     }
     return (await this.getProfile(householdId))!;
+  }
+
+  /** Audit F6 — the outbox stamps every op with its owner's uid so a flush on
+   *  a shared device never attempts (and dead-letters) another user's writes.
+   *  getSession() is local — no network round-trip. */
+  async currentUserId(): Promise<string | null> {
+    try {
+      const { data } = await this.sb.auth.getSession();
+      return data.session?.user?.id ?? null;
+    } catch { return null; }
+  }
+
+  /**
+   * Audit F2 — the atomic loan-payment command. The server validates caller
+   * role, debt/account tenancy and split reconciliation, then writes the
+   * interest expense + principal transfer + re-amortised debt + payment log
+   * in ONE transaction, idempotent on cmd.operationId.
+   */
+  async recordLoanPayment(
+    householdId: string,
+    cmd: RecordLoanPaymentCommand,
+  ): Promise<RecordLoanPaymentResult> {
+    void householdId; // tenancy is derived from the debt server-side
+    const { data, error } = await this.sb.rpc('record_loan_payment', {
+      p_operation_id: cmd.operationId,
+      p_debt_id: cmd.debtId,
+      p_funding_account_id: cmd.fundingAccountId,
+      p_amount: cmd.amount,
+      p_currency: cmd.currency,
+      p_date: cmd.date,
+      p_interest: cmd.interest,
+      p_principal: cmd.principal,
+      p_member_id: cmd.memberId ?? null,
+      p_description: cmd.description ?? null,
+      p_new_balance: cmd.newBalance ?? null,
+      p_new_remaining_months: cmd.newRemainingMonths ?? null,
+      p_new_minimum_payment: cmd.newMinimumPayment ?? null,
+      p_payment_log_entry: cmd.paymentLogEntry ?? null,
+    });
+    if (error) throw error;
+    const r = data as Record<string, unknown> | null;
+    if (!r) throw new Error('record_loan_payment returned no result');
+    if (r.status === 'error') {
+      throw new Error(`record_loan_payment rejected: ${String(r.reason ?? 'unknown')}`);
+    }
+    return {
+      status: r.status as RecordLoanPaymentResult['status'],
+      expenseTxnId: (r.expense_txn_id as string | null) ?? null,
+      transferTxnId: (r.transfer_txn_id as string | null) ?? null,
+      loanAccountId: (r.loan_account_id as string | null) ?? null,
+    };
   }
 
   // ── domain CRUD ────────────────────────────────────────────
@@ -669,19 +747,44 @@ export class SupabaseAdapter implements DataAdapter {
       if (error) throw error;
       return (data || []).map(rowToMember) as unknown as T[];
     }
-    const { data, error } = await this.sb.from(this.tableName(entity))
-      .select('*').eq('household_id', householdId).is('deleted_at', null);
-    if (error) throw error;
-    const rows = data || [];
-    if (entity === 'transactions') return rows.map(rowToTxn) as unknown as T[];
-    if (entity === 'budgets')      return rows.map(rowToBudget) as unknown as T[];
-    if (entity === 'goals')        return rows.map(rowToGoal) as unknown as T[];
-    if (entity === 'debts')        return rows.map(rowToDebt) as unknown as T[];
-    if (entity === 'assets')       return rows.map(rowToAsset) as unknown as T[];
-    if (entity === 'accounts')     return rows.map(rowToAccount) as unknown as T[];
-    if (entity === 'savedViews')   return rows.map(rowToSavedView) as unknown as T[];
-    if (entity === 'recurring')    return rows.map(rowToRecurring) as unknown as T[];
-    if (entity === 'budgetAllocations') return rows.map(rowToBudgetAllocation) as unknown as T[];
+    // Audit F8 — DRAIN, don't single-shot. PostgREST caps a response (default
+    // ~1000 rows); a household past the cap used to get a SILENTLY incomplete
+    // initial dataset — and that incomplete read seeded the delta cursor, so
+    // the missing rows never arrived later either. Page by (updated_at, id)
+    // keyset to completeness; a full page means there may be more.
+    const PAGE = 500;
+    const all: unknown[] = [];
+    let lastU: string | null = null;
+    let lastI: string | null = null;
+    for (let guard = 0; guard < 200; guard++) {
+      let q = this.sb.from(this.tableName(entity))
+        .select('*').eq('household_id', householdId).is('deleted_at', null)
+        .order('updated_at', { ascending: true }).order('id', { ascending: true })
+        .limit(PAGE);
+      if (lastU !== null && lastI !== null) {
+        q = q.or(`updated_at.gt.${lastU},and(updated_at.eq.${lastU},id.gt.${lastI})`);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      const page = data || [];
+      all.push(...page);
+      if (page.length < PAGE) break;   // short page = drained
+      const last = page[page.length - 1] as { id: string; updated_at: string };
+      lastU = last.updated_at;
+      lastI = last.id;
+    }
+    // `all` accumulates raw rows across pages. Map each through its typed row
+    // mapper — the same per-entity casts the (single-shot) list() always used.
+    const rows = all as unknown[];
+    if (entity === 'transactions') return rows.map(r => rowToTxn(r as TransactionRow)) as unknown as T[];
+    if (entity === 'budgets')      return rows.map(r => rowToBudget(r as BudgetRow)) as unknown as T[];
+    if (entity === 'goals')        return rows.map(r => rowToGoal(r as GoalRow)) as unknown as T[];
+    if (entity === 'debts')        return rows.map(r => rowToDebt(r as DebtRow)) as unknown as T[];
+    if (entity === 'assets')       return rows.map(r => rowToAsset(r as AssetRow)) as unknown as T[];
+    if (entity === 'accounts')     return rows.map(r => rowToAccount(r as AccountRow)) as unknown as T[];
+    if (entity === 'savedViews')   return rows.map(r => rowToSavedView(r as SavedViewRow)) as unknown as T[];
+    if (entity === 'recurring')    return rows.map(r => rowToRecurring(r as RecurringRow)) as unknown as T[];
+    if (entity === 'budgetAllocations') return rows.map(r => rowToBudgetAllocation(r as BudgetAllocationRow)) as unknown as T[];
     return [];
   }
 
@@ -711,24 +814,32 @@ export class SupabaseAdapter implements DataAdapter {
     since: string,
     limit = 500,
   ): Promise<{ rows: T[]; tombstones: string[]; maxUpdatedAt: string | null }> {
-    // R1 (sync fix): use `>=`, not `>`. A strict `>` silently skips any row
-    // whose `updated_at` ties the cursor's exact millisecond — so a write
-    // that lands on the boundary timestamp is never pulled by other devices.
-    // `>=` re-reads only the boundary rows; applyCloudDelta upserts them
-    // idempotently, so the only cost is re-processing rows at the cursor ms.
-    const { data, error } = await this.sb.from(this.tableName(entity))
+    // Audit F8 — composite (updated_at, id) keyset cursor. A timestamp-only
+    // cursor with a 500-row limit STALLS when ≥500 rows share the boundary
+    // timestamp (every page re-reads the same 500). Keyset on the pair is
+    // monotonic and cannot repeat a page. `since` may be a bare timestamp
+    // (legacy stored cursor) — treated as (ts, '') so ties at that ms are
+    // re-read once, idempotently.
+    const [sinceTs, sinceId] = decodeDeltaCursor(since);
+    let q = this.sb.from(this.tableName(entity))
       .select('*')
       .eq('household_id', householdId)
-      .gte('updated_at', since)
       .order('updated_at', { ascending: true })
+      .order('id', { ascending: true })
       .limit(limit);
+    if (sinceId) {
+      q = q.or(`updated_at.gt.${sinceTs},and(updated_at.eq.${sinceTs},id.gt.${sinceId})`);
+    } else {
+      q = q.gte('updated_at', sinceTs);
+    }
+    const { data, error } = await q;
     if (error) throw error;
     const all = (data || []) as Array<{ id: string; updated_at: string; deleted_at: string | null }>;
     const tombstones: string[] = [];
     const liveRaw: typeof all = [];
     let maxUpdatedAt: string | null = null;
     for (const r of all) {
-      if (!maxUpdatedAt || r.updated_at > maxUpdatedAt) maxUpdatedAt = r.updated_at;
+      maxUpdatedAt = encodeDeltaCursor(r.updated_at, r.id);
       if (r.deleted_at) tombstones.push(r.id);
       else liveRaw.push(r);
     }

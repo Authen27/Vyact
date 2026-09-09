@@ -15,16 +15,19 @@
 
 import type {
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey, Budget, BudgetAllocation,
+  Transaction, Debt, RecordLoanPaymentCommand, RecordLoanPaymentResult,
 } from '../types';
 import {
   type DataAdapter, type Entity, LocalStorageAdapter,
 } from './dataAdapter';
 import ls from './localStorageCompat';
+import { cacheGeneration, isCacheGenerationCurrent } from './kvStore';
 import { SupabaseAdapter, ConcurrencyConflictError } from './supabaseAdapter';
 import { droppedWrite } from './faults';
+import { uid } from './format';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { QueueOp } from './sync/types';
 import * as syncQueue from './sync/syncQueue';
+import * as outbox from './sync/outbox';
 import * as deadLetter from './sync/deadLetter';
 import { classifyFlushError } from './sync/conflict';
 
@@ -32,6 +35,8 @@ export class HybridAdapter implements DataAdapter {
   cache: LocalStorageAdapter;
   cloud: SupabaseAdapter;
   private flushing = false;
+  /** Audit F6 — identifies this tab's flush worker in outbox claims. */
+  private workerId = uid();
 
   constructor(client: SupabaseClient) {
     this.cache = new LocalStorageAdapter();
@@ -58,6 +63,10 @@ export class HybridAdapter implements DataAdapter {
   //   4. Cloud returns [] AND sentinel says we've synced before → trust the
   //      empty (the user really did delete everything) and clear cache.
   async list<T = unknown>(entity: Entity, householdId: string): Promise<T[]> {
+    // v10.20.8 — capture the cache generation BEFORE any cloud read. If the
+    // session changes while this request is in flight, the response belongs to
+    // the previous user and must not be written into the new one's cache.
+    const gen = cacheGeneration();
     const cached = await this.cache.list<T>(entity, householdId);
     // TD-06: prefer the incremental path once we have a cursor. The cursor
     // is only set after a successful full pull, so the first sync per
@@ -76,7 +85,7 @@ export class HybridAdapter implements DataAdapter {
     if (coldStart) {
       try {
         const fresh = await this.cloud.list<T>(entity, householdId);
-        await this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[]);
+        await this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen);
         return await this.cache.list<T>(entity, householdId);
       } catch {
         // Network error on first load — fall through to cached []. The
@@ -90,7 +99,7 @@ export class HybridAdapter implements DataAdapter {
         .catch(() => {/* network error — cache stays */});
     } else {
       this.cloud.list<T>(entity, householdId)
-        .then(fresh => this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[]))
+        .then(fresh => this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen))
         .catch(() => {/* network error — cache stays */});
     }
     return cached;
@@ -104,7 +113,12 @@ export class HybridAdapter implements DataAdapter {
   private markSynced(entity: Entity, householdId: string): void {
     try { ls.setString(`cloud_synced_${householdId}_${entity}`, '1'); } catch { /* noop */ }
   }
-  private async applyCloudList(entity: Entity, householdId: string, cached: unknown[], fresh: unknown[]): Promise<void> {
+  private async applyCloudList(entity: Entity, householdId: string, cached: unknown[], fresh: unknown[], gen?: number): Promise<void> {
+    // A purge ran while this read was in flight — the rows belong to a session
+    // that has ended. Writing them would re-seed the cache we just cleared,
+    // which is how a second user on a shared device was shown the first
+    // user's data even after invalidation.
+    if (gen !== undefined && !isCacheGenerationCurrent(gen)) return;
     if (fresh.length > 0) {
       await this.cache.replaceAll(entity, householdId, fresh);
       this.markSynced(entity, householdId);
@@ -141,12 +155,20 @@ export class HybridAdapter implements DataAdapter {
     try { ls.setString(this.cursorKey(entity, householdId), value); } catch { /* noop */ }
   }
   private seedCursorFromRows(entity: Entity, householdId: string, rows: unknown[]): void {
-    let max: string | null = null;
+    // Audit F8 — seed the COMPOSITE (updated_at, id) cursor so a burst of
+    // same-millisecond rows cannot strand the delta sync on a repeated page.
+    let maxU: string | null = null;
+    let maxI: string | null = null;
     for (const r of rows) {
-      const u = (r as { updated_at?: string } | null)?.updated_at;
-      if (u && (!max || u > max)) max = u;
+      const row = r as { id?: string; updated_at?: string } | null;
+      if (!row?.updated_at) continue;
+      if (!maxU || row.updated_at > maxU
+          || (row.updated_at === maxU && (row.id ?? '') > (maxI ?? ''))) {
+        maxU = row.updated_at;
+        maxI = row.id ?? '';
+      }
     }
-    if (max) this.writeCursor(entity, householdId, max);
+    if (maxU) this.writeCursor(entity, householdId, `${maxU}|${maxI ?? ''}`);
   }
 
   private async applyCloudDelta(
@@ -180,20 +202,28 @@ export class HybridAdapter implements DataAdapter {
     }
   }
 
-  // ── Write path: cache + queue + try flush ──────────────────
+  // ── Write path: cache + durable outbox + try flush ─────────
   async upsert<T extends { id?: string }>(entity: Entity, householdId: string, record: T, expectedUpdatedAt?: string): Promise<T & { id: string }> {
     // The cache write always succeeds — it's per-tab and not subject to
     // cross-user concurrency. The version precondition only applies to
     // the cloud leg, which is queued and flushed below.
     const local = await this.cache.upsert(entity, householdId, record);
-    syncQueue.enqueue({ ts: Date.now(), op: 'upsert', entity, householdId, payload: local, expectedUpdatedAt });
-    this.flushQueue();
+    // Audit F6: the outbox insert is durable and can never erase another op.
+    // Owner-stamped so another user's session on this device never flushes it.
+    await outbox.enqueueOp(
+      { ts: Date.now(), op: 'upsert', entity, householdId, payload: local, expectedUpdatedAt },
+      await this.cloud.currentUserId(),
+    );
+    void this.flushQueue();
     return local;
   }
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
     await this.cache.remove(entity, householdId, id);
-    syncQueue.enqueue({ ts: Date.now(), op: 'remove', entity, householdId, id });
-    this.flushQueue();
+    await outbox.enqueueOp(
+      { ts: Date.now(), op: 'remove', entity, householdId, id },
+      await this.cloud.currentUserId(),
+    );
+    void this.flushQueue();
   }
   async createBudgetChecked(householdId: string, budget: Partial<Budget>): Promise<Budget> {
     // Budgets are period singletons → create is an ONLINE, synchronous check
@@ -226,21 +256,30 @@ export class HybridAdapter implements DataAdapter {
   }
   async replaceAll<T = unknown>(entity: Entity, householdId: string, records: T[]): Promise<T[]> {
     await this.cache.replaceAll(entity, householdId, records);
-    syncQueue.enqueue({ ts: Date.now(), op: 'replaceAll', entity, householdId, payload: records });
-    this.flushQueue();
+    await outbox.enqueueOp(
+      { ts: Date.now(), op: 'replaceAll', entity, householdId, payload: records },
+      await this.cloud.currentUserId(),
+    );
+    void this.flushQueue();
     return records;
   }
   async upsertRate(householdId: string, code: string, rate: number): Promise<void> {
     await this.cache.upsertRate(householdId, code, rate);
-    syncQueue.enqueue({ ts: Date.now(), op: 'upsertRate', householdId, code, rate });
-    this.flushQueue();
+    await outbox.enqueueOp(
+      { ts: Date.now(), op: 'upsertRate', householdId, code, rate },
+      await this.cloud.currentUserId(),
+    );
+    void this.flushQueue();
   }
 
   // Profile is per-user in cloud; cache it locally per-household for parity.
   async updateProfile(householdId: string, patch: Partial<Profile>): Promise<Profile> {
     await this.cache.updateProfile(householdId, patch);
-    syncQueue.enqueue({ ts: Date.now(), op: 'updateProfile', householdId, payload: patch });
-    this.flushQueue();
+    await outbox.enqueueOp(
+      { ts: Date.now(), op: 'updateProfile', householdId, payload: patch },
+      await this.cloud.currentUserId(),
+    );
+    void this.flushQueue();
     return (await this.getProfile(householdId))!;
   }
   async getProfile(householdId: string): Promise<Profile | null> {
@@ -311,37 +350,55 @@ export class HybridAdapter implements DataAdapter {
   }
 
   // ── Flush orchestrator ─────────────────────────────────────
-  // The queue mechanics live in ./sync/*; this loop drives them: skip ops
-  // inside their backoff window, drop un-syncable ops, perform the cloud write,
-  // and route a thrown error through classifyFlushError → dead-letter or retry.
+  // Audit F6 — the outbox (lib/sync/outbox.ts) owns durability. This loop
+  // CLAIMS the due batch, performs the cloud writes, and ACKs by opId. An op
+  // enqueued mid-flush is simply claimed by the next flush — there is no
+  // queue snapshot left to overwrite. Multi-tab serialisation is the Web
+  // Locks API (one flusher per origin); without it we fall back to the
+  // instance flag.
+  private async withFlushLock(fn: () => Promise<void>): Promise<void> {
+    const locks = typeof navigator !== 'undefined'
+      ? (navigator as Navigator & { locks?: LockManager }).locks
+      : undefined;
+    if (!locks) {
+      if (this.flushing) return;
+      this.flushing = true;
+      try { await fn(); } finally { this.flushing = false; }
+      return;
+    }
+    await locks.request('vyact-outbox-flush', { ifAvailable: true }, async (lock) => {
+      // Another tab holds the lock — it claims this tab's ops too (same
+      // origin, same owner filter), so skipping is safe.
+      if (!lock) return;
+      await fn();
+    });
+  }
+
   async flushQueue(): Promise<void> {
-    if (this.flushing) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-    this.flushing = true;
-    try {
-      const queue = syncQueue.readQueue();
-      const remaining: QueueOp[] = [];
-      const now = Date.now();
-      for (const op of queue) {
-        // TD-10: respect per-op backoff window; defer until nextRetryAt.
-        if (op.nextRetryAt && op.nextRetryAt > now) {
-          remaining.push(op);
-          continue;
-        }
+    await this.withFlushLock(async () => {
+      const ownerUid = await this.cloud.currentUserId();
+      const claimed = await outbox.claimDue(this.workerId, Date.now(), ownerUid);
+      for (const op of claimed) {
         // v6.4.2: Drop ops carrying a non-UUID id. Records created before the
         // uid()→crypto.randomUUID() fix have ids like "mpe036yty4vnauz7yif",
         // which the uuid PK columns reject with 22P02. Retrying them forever
-        // permanently jams the queue and blocks all later (valid) ops from
-        // flushing. We drop them with a warning rather than retain them.
+        // permanently jams the outbox and blocks all later (valid) ops from
+        // flushing. We drop them with a structured fault rather than silently.
         if (!syncQueue.isQueueOpIdValid(op)) {
-          // TD-24: this is a user write the contract can't honour (non-UUID id) —
-          // it is permanently DROPPED. Record exactly one structured fault rather
-          // than a mute console.warn, so silent write-loss is observable.
           droppedWrite('sync.flushQueue', `${op.op} ${op.entity ?? ''} id=${(op.payload as { id?: string })?.id ?? op.id ?? '?'}`);
+          await outbox.ack(op.opId);
           continue;
         }
         try {
-          if      (op.op === 'upsert')        await this.cloud.upsert(op.entity!, op.householdId, op.payload as { id?: string }, op.expectedUpdatedAt);
+          if      (op.op === 'upsert') {
+            const saved = await this.cloud.upsert(op.entity!, op.householdId, op.payload as { id?: string }, op.expectedUpdatedAt);
+            // Audit F7 — fold the server-returned authoritative row (and its
+            // fresh updated_at) back into the cache, so a second edit before
+            // the next refresh carries a CURRENT concurrency precondition
+            // rather than a stale or missing one.
+            try { await this.cache.upsert(op.entity!, op.householdId, saved as { id: string }); } catch { /* best-effort */ }
+          }
           else if (op.op === 'remove')        await this.cloud.remove(op.entity!, op.householdId, op.id!);
           else if (op.op === 'replaceAll')    await this.cloud.replaceAll(op.entity!, op.householdId, op.payload as unknown[]);
           else if (op.op === 'updateProfile') await this.cloud.updateProfile(op.householdId, op.payload as Partial<Profile>);
@@ -350,6 +407,7 @@ export class HybridAdapter implements DataAdapter {
           // and RLS access to this (hid, entity); mark synced so subsequent
           // empty list responses are trusted, not treated as transient.
           if (op.entity) this.markSynced(op.entity, op.householdId);
+          await outbox.ack(op.opId);
         } catch (e) {
           const outcome = classifyFlushError(e, op);
           if (outcome.kind === 'conflict') {
@@ -359,6 +417,7 @@ export class HybridAdapter implements DataAdapter {
               const cc = e as ConcurrencyConflictError;
               console.warn('[Vyact sync] Concurrency conflict — op dead-lettered:', op.entity, cc.id, 'expected', cc.expectedUpdatedAt);
             }
+            await outbox.ack(op.opId);
             continue;
           }
           if (outcome.kind === 'failed') {
@@ -367,20 +426,24 @@ export class HybridAdapter implements DataAdapter {
             if (typeof console !== 'undefined') {
               console.warn('[Vyact sync] Op exhausted retries — moved to dead-letter:', op.op, op.entity, e);
             }
+            await outbox.ack(op.opId);
             continue;
           }
-          remaining.push(outcome.op);
+          // Transient — release back to pending with the backoff patch; the
+          // next flush after nextRetryAt claims it again.
+          await outbox.release(op, outcome.op);
         }
       }
-      syncQueue.writeQueue(remaining);
-    } finally {
-      this.flushing = false;
-    }
+      // Refresh the synchronous badge count after the batch.
+      await outbox.pendingCount();
+    });
   }
 
   // ── Queue / dead-letter surface (delegated to ./sync/*) ─────
   pendingOpCount(): number {
-    return syncQueue.readQueue().length;
+    // Audit F6 — the durable outbox is async (IndexedDB); the badge reads the
+    // best-known count, refreshed on every enqueue / claim / ack / flush.
+    return outbox.pendingCountSync();
   }
 
   /**
@@ -413,8 +476,45 @@ export class HybridAdapter implements DataAdapter {
    * R5 (sync fix) — re-queue a dead-lettered op for another flush attempt
    * (conflict/failed review UI's "Retry"). Conflict ops retry as unconditional
    * last-write-wins; the flush is kicked off once the bucket is drained.
+   * Audit F6: retries re-enter the durable outbox, owner-stamped to the
+   * current user (they are the one reviewing and retrying).
    */
   retryDeadLettered(bucket: 'sync_conflicts' | 'sync_failed'): void {
-    deadLetter.retryDeadLettered(bucket, () => this.flushQueue());
+    void (async () => {
+      await deadLetter.retryDeadLettered(bucket, await this.cloud.currentUserId());
+      void this.flushQueue();
+    })();
+  }
+
+  /**
+   * Audit F2 — atomic loan payment. The cloud RPC is the durability boundary;
+   * the cache is then seeded with the constructed rows (adopting the
+   * server-assigned ids) WITHOUT enqueueing — the write already landed.
+   */
+  async recordLoanPayment(
+    householdId: string,
+    cmd: RecordLoanPaymentCommand,
+    rows: { expense?: Transaction; transfer?: Transaction; debt: Debt },
+  ): Promise<RecordLoanPaymentResult> {
+    const res = await this.cloud.recordLoanPayment(householdId, cmd);
+    try {
+      if (rows.expense) {
+        await this.cache.upsert('transactions', householdId,
+          { ...rows.expense, id: res.expenseTxnId ?? rows.expense.id });
+      }
+      if (rows.transfer) {
+        await this.cache.upsert('transactions', householdId,
+          { ...rows.transfer, id: res.transferTxnId ?? rows.transfer.id,
+            toAccountId: res.loanAccountId ?? rows.transfer.toAccountId });
+      }
+      await this.cache.upsert('debts', householdId, rows.debt);
+      if (res.loanAccountId) {
+        await this.cache.upsert('accounts', householdId, {
+          id: res.loanAccountId, kind: 'loan', name: rows.debt.name,
+          currency: rows.debt.currency, debtId: rows.debt.id,
+        });
+      }
+    } catch { /* cache is best-effort; the cloud write is authoritative */ }
+    return res;
   }
 }

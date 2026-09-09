@@ -328,22 +328,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
     householdId = body.householdId;
   }
 
-  // ── 8. Spend cap — checked BEFORE the provider is called. ─────────────────
+  // ── 8. Spend cap — ATOMIC reservation BEFORE the provider is called. ─────
+  // Audit A2: the old sequence (count → call → insert) let every concurrent
+  // request pass the same count check, and a failed count read was treated as
+  // zero usage. reserve_ai_usage() row-locks the user, counts, and inserts a
+  // 'reserved' row in one locked step — concurrent requests serialise, and a
+  // count failure aborts here (fail-CLOSED; the provider is never called).
   const dailyCap = Number.parseInt(env('ASK_VYACT_DAILY_CALL_CAP', '200'), 10);
+  let reservationId: string | null = null;
   if (Number.isFinite(dailyCap) && dailyCap > 0) {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count } = await admin
-      .from('ai_usage')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('backend', 'llm')
-      .gte('ts', since);
-    if ((count ?? 0) >= dailyCap) {
+    const { data: resId, error: resErr } = await admin.rpc('reserve_ai_usage', {
+      p_user_id: user.id,
+      p_household_id: householdId,
+      p_surface: surface,
+      p_cap: dailyCap,
+    });
+    if (resErr) {
+      const over = resErr.code === '42901' || /quota_exceeded/i.test(resErr.message ?? '');
       return respond({
-        ok: false, enabled: true, seam, error: 'quota_exceeded',
-        message: 'Daily assistant limit reached. Try again tomorrow.', requestId,
-      }, 429, origin);
+        ok: false, enabled: true, seam,
+        error: over ? 'quota_exceeded' : 'quota_check_failed',
+        message: over
+          ? 'Daily assistant limit reached. Try again tomorrow.'
+          : 'Could not verify your usage allowance. Not calling the model.',
+        requestId,
+      }, over ? 429 : 503, origin);
     }
+    reservationId = resId as string;
   }
 
   // ── 9. The call. Bounded, and it cannot throw. ────────────────────────────
@@ -354,21 +365,38 @@ Deno.serve(async (req: Request): Promise<Response> => {
     signal: req.signal,
   });
 
-  // ── 10. Meter it (§9 spend gate). Metadata only — never message content. ──
+  // ── 10. Finalise the reservation with the real outcome (§9 spend gate).
+  // Metadata only — never message content. The row already exists (the
+  // reservation), so this UPDATE carries tokens/cost/latency; if there was no
+  // reservation (cap disabled) we insert as before. Metering never fails the
+  // user's request — but a FAILED finalise is no longer invisible (audit A2):
+  // it is logged with the reservation id so an orphaned 'reserved' row can be
+  // reconciled against provider billing.
   const usageRow = buildUsageRow(result, {
     householdId,
     userId: user.id,
     surface,
     tier: 't1',
   });
-  if (usageRow) {
-    const write = admin.from('ai_usage').insert(usageRow).then(
-      () => undefined,
-      () => undefined,   // metering must never fail the user's request
-    );
-    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(write);
-    else await write;
-  }
+  const meter = (async () => {
+    try {
+      if (reservationId) {
+        const patch = usageRow
+          ? { ...usageRow, id: undefined, user_id: undefined, household_id: undefined }
+          : { outcome: 'error', prompt_tokens: 0, completion_tokens: 0 };
+        delete (patch as Record<string, unknown>).id;
+        const { error } = await admin.from('ai_usage').update(patch).eq('id', reservationId);
+        if (error) console.error('[ask-vyact] metering finalise failed', reservationId, error.message);
+      } else if (usageRow) {
+        const { error } = await admin.from('ai_usage').insert(usageRow);
+        if (error) console.error('[ask-vyact] metering insert failed', error.message);
+      }
+    } catch (e) {
+      console.error('[ask-vyact] metering threw', reservationId, (e as Error)?.message);
+    }
+  })();
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(meter);
+  else await meter;
 
   // ── 11. Answer. ───────────────────────────────────────────────────────────
   if (!result.ok) {

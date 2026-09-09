@@ -1,8 +1,9 @@
 // Vyact WhatsApp — verify phone-link OTP (authenticated; deploy WITH JWT).
 //
 // Body: { code: string }
-// On a correct, unexpired code it links the phone + household to the profile:
-//   profiles.phone_number, phone_verified_at = now(), whatsapp_household_id.
+// On a correct, unexpired code it links the phone + household to the user via
+// the SERVER-OWNED `whatsapp_identities` table (audit S1) — clients can no
+// longer write the legacy profiles.phone_* columns (trigger-frozen).
 // Includes an attempt limiter (online brute-force protection over the 10^6 space).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
@@ -44,12 +45,15 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'incorrect_code', attemptsLeft: MAX_ATTEMPTS - otp.attempts - 1 }, 400);
   }
 
-  // Success → link the phone + household to the profile, purge OTPs.
-  const { error: upErr } = await admin.from('profiles').update({
+  // Success → record the verified identity in the server-owned table,
+  // purge OTPs. One identity per profile; re-linking replaces it.
+  const { error: upErr } = await admin.from('whatsapp_identities').upsert({
+    profile_id: user.id,
     phone_number: otp.phone_number,
-    phone_verified_at: new Date().toISOString(),
-    whatsapp_household_id: otp.household_id,
-  }).eq('id', user.id);
+    household_id: otp.household_id,
+    verified_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'profile_id' });
   if (upErr) return json({ error: 'link_failed', detail: upErr.message }, 500);
   await admin.from('whatsapp_verification_otps').delete().eq('profile_id', user.id);
 

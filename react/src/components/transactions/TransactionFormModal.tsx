@@ -136,6 +136,7 @@ export default function TransactionFormModal(props: Props) {
   const accountsState     = useStore(s => s.accounts);
   const transactions      = useStore(s => s.transactions);
   const upsertTransaction = useStore(s => s.upsertTransaction);
+  const recordLoanPayment = useStore(s => s.recordLoanPayment);
   const removeTransaction = useStore(s => s.removeTransaction);
   const toast             = useStore(s => s.toast);
   const openAddAccount    = useStore(s => s.openAddAccount);
@@ -254,7 +255,14 @@ export default function TransactionFormModal(props: Props) {
       };
       setForm(blankForm);
     }
-  }, [open, initial, storeSeed, profile.baseCurrency, defaultMemberId]);
+    // Audit 6.4 — hydrate ONLY on the open event / the row being edited. The
+    // dependency list deliberately EXCLUDES the live `profile.baseCurrency` and
+    // `defaultMemberId` values: a background sync that refreshed those used to
+    // re-run this effect and wipe an in-progress draft. The base-currency /
+    // default-member values are CAPTURED at open (read once, above) and the
+    // form is an explicit editor keyed on what it's editing, not a live mirror.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial?.id, storeSeed]);
 
   function setType(type: TxnType) {
     setForm(f => ({ ...f, type, category: DEFAULT_CAT_BY_TYPE[type] }));
@@ -372,7 +380,33 @@ export default function TransactionFormModal(props: Props) {
           _partPaymentChoice: form.partPaymentChoice,
         } : {}),
         linkedTxnId:   initial?.linkedTxnId,
+        // Audit F7 — carry the read version through the edit so the store can
+        // pass it as the optimistic-concurrency precondition. Without this the
+        // edit fell back to last-write-wins.
+        updated_at:    initial?.updated_at,
       };
+
+      // Audit F2 — a NEW loan EMI is an explicit financial command, not a
+      // generic upsert. The store performs the system split (interest expense
+      // + principal transfer) via the atomic record_loan_payment RPC when
+      // online. Edits of an existing EMI leg stay on the plain path — the
+      // store recognises the known id and skips re-decomposition.
+      if (!initial && form.category === 'loan_emi' && form.linkedDebtId) {
+        await recordLoanPayment({
+          debtId: form.linkedDebtId,
+          fundingAccountId: fromEncoded || undefined,
+          amount,
+          currency: form.currency,
+          date: form.date,
+          description: form.description.trim() || undefined,
+          memberId: form.memberId,
+          partPaymentChoice: form.partPaymentChoice,
+        });
+        // The store surfaces the re-amortisation message itself; no undo —
+        // system-split rows create linked legs and never one-tap-undo.
+        if (addAnother) resetForNext(); else onClose();
+        return;
+      }
       await upsertTransaction(txn);
 
       // v9.1 §5 — recurrence is authored ONLY in the Recurring section now;

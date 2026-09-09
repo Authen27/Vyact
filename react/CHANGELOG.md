@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.20.7`** (consumer)
+> **Current production version: `v10.20.8`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,77 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.20.8 — Audit stabilisation, honest cache invalidation, and a build that loads the right config *(2026-09-09)*
+
+Lands the 2026-09-07 engineering audit (money truth, durable sync, security hardening) together
+with three corrections found while reviewing it.
+
+### ⚠️ Your Pulse Score will jump, and that is intended
+
+Pulse's **budget** component changed meaning. It used to scale with utilisation, so a household
+sitting comfortably inside its budget still scored a fraction of the marks. It now reads
+**allocation-derived** budget lines and scores **full marks at or under 100%**, degrading only on
+overspend.
+
+In the golden fixture that moved the component from **25 to 100**. If your Pulse rises sharply
+after this release, that is this change and not a data problem. The money model itself is
+untouched — no transaction, balance or total moved.
+
+### The build was loading the wrong config
+
+`react/vite.config.js` was a committed TypeScript **compile artifact**. Vite resolves
+`vite.config.js` *before* `vite.config.ts`, so it — not the maintained TypeScript — was the file
+the build actually loaded. Proved by replacing it with a `throw`: the build failed. Any future
+edit to `vite.config.ts`, including the audit's service-worker security fix, would have been
+silently ignored.
+
+Deleting it was not enough. `tsconfig.node.json` sets `composite: true` (TypeScript refuses
+`noEmit` on a composite project) with no `outDir`, so `tsc -b` wrote the output next to its input.
+Emit now lands in `node_modules/.tmp`. The artifact also carried the **only two ESLint errors** in
+the consumer app.
+
+### Cache invalidation now clears the cache that actually exists
+
+v10.20.7 swept **localStorage**. The entity cache lives in **IndexedDB** — `kvStore` uses IDB as
+its primary backend and deletes the localStorage copy after a successful write — so in a browser
+the purge cleared nothing and the privacy guarantee was not delivered.
+
+Its tests passed because vitest runs in `node` with a localStorage polyfill and no IndexedDB: they
+exercised the fallback path and reported a guarantee the code did not provide. **That is the more
+serious half of the defect.** The suite now imports `fake-indexeddb/auto` and runs the browser path;
+reverting the fix fails six of them.
+
+Also fixed: the purge is **awaited before hydration** (it was fire-and-forget, so `init()` raced
+it), and a **cache generation** counter stops a cloud read that was already in flight from writing
+the previous session's rows back into the cache that was just cleared.
+
+`CACHE_EPOCH` → `v10.20.8`, because devices still hold the cache v10.20.7 failed to clear. Every
+device purges once at next sign-in.
+
+### Recent transactions are chronological again, and the dashboard shows this month
+
+Two display bugs with one root cause — code that leaned on **incidental array order**, exposed the
+moment the cache stopped supplying its old order:
+
+- `transactionSortValue` fell back to `created_at` ahead of the transaction date, so rows sorted by
+  *when they were written*. Three Salary rows written in one catch-up batch outranked a transaction
+  dated a month later — July's salary above September's rent. `created_at` is now only a tie-break
+  within the same day.
+- The dashboard flattened **every budget the household had ever had** and took the first five, so
+  the month on screen was decided by array position — August's budget in September. It now filters
+  to the current period.
+
+### Test catalogue back in lock-step
+
+The reconciler had been red since before v10.19.0 and had drifted to 54 problems. It is now
+**0 — 184 scenarios in code, 184 in the doc.** Three specs had been sharing IDs with other specs
+(so a result could not be attributed to a scenario), and `storage.test.ts` carried its IDs on
+`describe()` blocks where the gate does not look. A trap worth knowing: §6 of the catalogue sits
+*after* "## 5. Retired IDs", and the gate harvests every ID-shaped token after that heading as
+retired — so an ID mentioned there silently un-registers its own §4 row.
 
 ---
 

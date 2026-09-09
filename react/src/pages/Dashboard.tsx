@@ -14,11 +14,11 @@ import EmptyState from '../components/ui/EmptyState';
 import { CategoryDonut } from '../components/charts/DonutCharts';
 import {
   selectMonthlyData, selectPulse, selectInsights,
-  selectSpendByCategory, selectRecentTxns, selectTotalAssets, selectTotalLiabilities,
+  selectSpendByCategory, selectRecentTxns, selectNetWorth,
   selectMonthlyDebtPayment,
 } from '../lib/selectors';
 import { fmtShort, monthName, nowMonthKey, convert, today, formatDate } from '../lib/format';
-import { budgetLines, monthlyData } from '../lib/calculations';
+import { budgetLinesForMonth, monthlyData } from '../lib/calculations';
 import Money from '../components/ui/Money';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
 import StartingBaselineBand from '../components/dashboard/StartingBaselineBand';
@@ -73,12 +73,23 @@ export default function Dashboard() {
   const recent = useStore(selectRecentTxns);
   const transactions = useStore(s => s.transactions);
 
-  const ta = useStore(selectTotalAssets);
-  const tl = useStore(selectTotalLiabilities);
+  // Audit F3 — the dashboard's Net Worth figures come from the ONE canonical
+  // projection (live account balances, liabilities, unlinked assets/debts),
+  // not the static assets/debts arrays that used to drift from NetWorth.tsx.
+  const netWorth = useStore(selectNetWorth);
+  const ta = netWorth.totalAssets;
+  const tl = netWorth.totalLiabilities;
   const monthlyDebtPmt = useStore(selectMonthlyDebtPayment);
   const dti = month.income > 0 ? (monthlyDebtPmt / month.income) * 100 : 0;
   // v9.1 §4 — flatten container budgets + allocations into per-category lines.
-  const budgetView = useMemo(() => budgetLines(budgets, budgetAllocations), [budgets, budgetAllocations]);
+  // Scoped to the CURRENT month. This used to call budgetLines() across every
+  // budget the household has ever had and then slice(0, 5), so the month you saw
+  // was whichever one happened to sort first in the array — in September it
+  // showed August. See budgetLinesForMonth.
+  const budgetView = useMemo(
+    () => budgetLinesForMonth(budgets, budgetAllocations, mk),
+    [budgets, budgetAllocations, mk],
+  );
 
   // A6 — inline 6-month net trend for the Cash Flow hero. Presentation only:
   // each point reuses the SAME `monthlyData` aggregate the dashboard already
