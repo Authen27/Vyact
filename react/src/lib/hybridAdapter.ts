@@ -21,6 +21,7 @@ import {
   type DataAdapter, type Entity, LocalStorageAdapter,
 } from './dataAdapter';
 import ls from './localStorageCompat';
+import { cacheGeneration, isCacheGenerationCurrent } from './kvStore';
 import { SupabaseAdapter, ConcurrencyConflictError } from './supabaseAdapter';
 import { droppedWrite } from './faults';
 import { uid } from './format';
@@ -62,6 +63,10 @@ export class HybridAdapter implements DataAdapter {
   //   4. Cloud returns [] AND sentinel says we've synced before → trust the
   //      empty (the user really did delete everything) and clear cache.
   async list<T = unknown>(entity: Entity, householdId: string): Promise<T[]> {
+    // v10.20.8 — capture the cache generation BEFORE any cloud read. If the
+    // session changes while this request is in flight, the response belongs to
+    // the previous user and must not be written into the new one's cache.
+    const gen = cacheGeneration();
     const cached = await this.cache.list<T>(entity, householdId);
     // TD-06: prefer the incremental path once we have a cursor. The cursor
     // is only set after a successful full pull, so the first sync per
@@ -80,7 +85,7 @@ export class HybridAdapter implements DataAdapter {
     if (coldStart) {
       try {
         const fresh = await this.cloud.list<T>(entity, householdId);
-        await this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[]);
+        await this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen);
         return await this.cache.list<T>(entity, householdId);
       } catch {
         // Network error on first load — fall through to cached []. The
@@ -94,7 +99,7 @@ export class HybridAdapter implements DataAdapter {
         .catch(() => {/* network error — cache stays */});
     } else {
       this.cloud.list<T>(entity, householdId)
-        .then(fresh => this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[]))
+        .then(fresh => this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen))
         .catch(() => {/* network error — cache stays */});
     }
     return cached;
@@ -108,7 +113,12 @@ export class HybridAdapter implements DataAdapter {
   private markSynced(entity: Entity, householdId: string): void {
     try { ls.setString(`cloud_synced_${householdId}_${entity}`, '1'); } catch { /* noop */ }
   }
-  private async applyCloudList(entity: Entity, householdId: string, cached: unknown[], fresh: unknown[]): Promise<void> {
+  private async applyCloudList(entity: Entity, householdId: string, cached: unknown[], fresh: unknown[], gen?: number): Promise<void> {
+    // A purge ran while this read was in flight — the rows belong to a session
+    // that has ended. Writing them would re-seed the cache we just cleared,
+    // which is how a second user on a shared device was shown the first
+    // user's data even after invalidation.
+    if (gen !== undefined && !isCacheGenerationCurrent(gen)) return;
     if (fresh.length > 0) {
       await this.cache.replaceAll(entity, householdId, fresh);
       this.markSynced(entity, householdId);

@@ -1,26 +1,19 @@
+// CON-UNIT-099..104 + 128..130 — cache invalidation at the session boundary.
+//
+// 🔴 THESE TESTS RUN AGAINST REAL INDEXEDDB SEMANTICS (fake-indexeddb).
+//
+// The v10.20.7 version of this suite used a localStorage polyfill in the node
+// environment. It passed — and the code it was pinning cleared NOTHING on a real
+// browser, because `kvStore` uses IndexedDB as its primary backend and deletes
+// the localStorage copy after a successful IDB write. The tests exercised the
+// fallback path and reported a privacy guarantee that was not delivered.
+//
+// Importing 'fake-indexeddb/auto' installs a real IDB implementation on
+// globalThis BEFORE kvStore is imported, so the code under test takes the same
+// branch it takes in the browser.
+import 'fake-indexeddb/auto';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import {
-  invalidateCacheForSession, clearCacheOnSignOut, purgeCachedCloudData, CACHE_EPOCH,
-} from '../cacheInvalidation';
 
-// CON-UNIT-099..103 — cache invalidation at the session boundary.
-//
-// The local store is a CACHE of cloud state, and until v10.20.7 nothing ever
-// invalidated it. Two production consequences:
-//
-//   PRIVACY — signing in as a second user on a shared device left the first
-//   user's households and transactions in localStorage, and the adapter answers
-//   from cache before the network replies.
-//
-//   GHOST ROWS — rows whose cloud write had FAILED lived on locally and were
-//   re-uploaded by the next sync, so a deleted schedule came back.
-//   `recurring_schedules` held ZERO rows in production for months while devices
-//   rendered a full list from cache.
-
-
-// vitest runs in the `node` environment (vitest.config.ts), so install the same
-// minimal localStorage polyfill storage.test.ts uses. purgeCachedCloudData walks
-// localStorage by index, so length/key(i) must behave.
 class MemStorage {
   private m = new Map<string, string>();
   getItem(k: string) { return this.m.has(k) ? this.m.get(k)! : null; }
@@ -31,100 +24,164 @@ class MemStorage {
   key(i: number) { return Array.from(this.m.keys())[i] ?? null; }
 }
 const g = globalThis as unknown as { localStorage?: MemStorage };
-beforeEach(() => { g.localStorage = new MemStorage(); });
-afterEach(() => { delete g.localStorage; });
 
 const HID = '1c859cf7-6a30-4db5-b615-3ecf94c8a02c';
 const ALICE = 'aaaaaaaa-0000-4000-8000-000000000001';
 const BOB   = 'bbbbbbbb-0000-4000-8000-000000000002';
 
-/** Populate a device as if Alice had been using it. */
-function seedDeviceFor(uid: string) {
-  localStorage.clear();
-  localStorage.setItem(`vt_${HID}_transactions`, '[{"id":"t1"}]');
-  localStorage.setItem(`vt_${HID}_recurring`, '[{"id":"bf-legacy"}]');
-  localStorage.setItem(`vt_${HID}_accounts`, '[{"id":"a1"}]');
-  localStorage.setItem('vt_households', '[{"id":"h1"}]');
-  localStorage.setItem(`vt_cloud_synced_${HID}`, '1');
-  localStorage.setItem(`vt_recurring_backfilled_${HID}`, '1');
-  // Legacy namespace must be swept too — the app still reads ff_* keys.
-  localStorage.setItem(`ff_${HID}_transactions`, '[{"id":"t1"}]');
-  // The user's own unsynced work, and device preferences.
-  localStorage.setItem('vt_sync_queue', '[{"op":"upsert"}]');
-  localStorage.setItem('vt_theme', 'dark');
-  localStorage.setItem('vt_last_cloud_hid', HID);
-  // Stamp it as belonging to `uid` at the CURRENT epoch.
-  localStorage.setItem('vt_cache_owner_uid', uid);
-  localStorage.setItem('vt_cache_epoch', CACHE_EPOCH);
+beforeEach(async () => {
+  g.localStorage = new MemStorage();
+  // Close the connection first — otherwise deleteDatabase blocks on it.
+  const { _closeKvForTests } = await import('../kvStore');
+  await _closeKvForTests();
+  // Drop the IDB database so each test starts from a clean store.
+  await new Promise<void>((resolve) => {
+    const req = indexedDB.deleteDatabase('vyact');
+    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+  });
+});
+afterEach(() => { delete g.localStorage; });
+
+/** Populate the device exactly as the app does — through kvStore, so the data
+ *  lands in IndexedDB rather than in localStorage. */
+async function seedDeviceFor(uid: string) {
+  const { kvSet } = await import('../kvStore');
+  const ls = (await import('../localStorageCompat')).default;
+  const { CACHE_EPOCH } = await import('../cacheInvalidation');
+
+  await kvSet(`${HID}_transactions`, [{ id: 't1', amount: 999 }]);
+  await kvSet(`${HID}_accounts`, [{ id: 'a1' }]);
+  await kvSet(`${HID}_recurring`, [{ id: 'bf-legacy' }]);
+  await kvSet('households', [{ id: 'h1' }]);
+  // The user's own unsynced work must survive; the outbox is a SEPARATE IDB
+  // database (`vyact_outbox`), so it is structurally out of reach here.
+  await kvSet('sync_queue', [{ op: 'upsert' }]);
+  await kvSet('theme', 'dark');
+
+  ls.setString(`cloud_synced_${HID}`, '1');
+  ls.setString('cache_owner_uid', uid);
+  ls.setString('cache_epoch', CACHE_EPOCH);
 }
 
-describe('cacheInvalidation · the local cache is dropped when it cannot be trusted', () => {
-  it('CON-UNIT-099 · a different user signing in gets none of the previous user\'s data', () => {
-    seedDeviceFor(ALICE);
-    const out = invalidateCacheForSession(BOB);
+describe('cacheInvalidation · the cache that actually exists is the one cleared', () => {
+  it('CON-UNIT-099 · a different user gets none of the previous user\'s IndexedDB data', async () => {
+    const { kvGet } = await import('../kvStore');
+    const { invalidateCacheForSession } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
 
+    // Precondition: prove the seed really is in IDB, or the test proves nothing.
+    expect(await kvGet(`${HID}_transactions`)).not.toBeNull();
+
+    const out = await invalidateCacheForSession(BOB);
     expect(out.action).toBe('purged');
     expect(out.reason).toBe('different-user');
-    // THE PRIVACY ASSERTION. Nothing of Alice's ledger may survive into Bob's
-    // session — the adapter reads cache before the network answers.
-    expect(localStorage.getItem(`vt_${HID}_transactions`)).toBeNull();
-    expect(localStorage.getItem(`vt_${HID}_accounts`)).toBeNull();
-    expect(localStorage.getItem('vt_households')).toBeNull();
-    expect(localStorage.getItem(`ff_${HID}_transactions`), 'legacy namespace too').toBeNull();
-    // And the device is now stamped as Bob's.
-    expect(localStorage.getItem('vt_cache_owner_uid')).toBe(BOB);
+
+    // THE PRIVACY ASSERTION — and the one v10.20.7 could not actually make.
+    expect(await kvGet(`${HID}_transactions`)).toBeNull();
+    expect(await kvGet(`${HID}_accounts`)).toBeNull();
+    expect(await kvGet('households')).toBeNull();
   });
 
-  it('CON-UNIT-100 · the same user keeps their cache, so offline work is not thrown away', () => {
-    seedDeviceFor(ALICE);
-    const out = invalidateCacheForSession(ALICE);
+  it('CON-UNIT-100 · the same user at the same epoch keeps their cache', async () => {
+    const { kvGet } = await import('../kvStore');
+    const { invalidateCacheForSession } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
 
+    const out = await invalidateCacheForSession(ALICE);
     expect(out.action).toBe('kept');
-    expect(localStorage.getItem(`vt_${HID}_transactions`)).not.toBeNull();
+    expect(await kvGet(`${HID}_transactions`)).not.toBeNull();
   });
 
-  it('CON-UNIT-101 · a stale epoch forces a purge even for the same user', () => {
-    // The shipped reset lever: bump CACHE_EPOCH and every device drops its cache
-    // once, at next sign-in. This is what stops a device re-uploading schedules
-    // the cloud no longer has.
-    seedDeviceFor(ALICE);
-    localStorage.setItem('vt_cache_epoch', 'v0.0.1-old');
+  it('CON-UNIT-101 · a stale epoch purges even for the same user', async () => {
+    const { kvGet } = await import('../kvStore');
+    const ls = (await import('../localStorageCompat')).default;
+    const { invalidateCacheForSession, CACHE_EPOCH } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
+    ls.setString('cache_epoch', 'v10.20.7');   // the epoch whose purge did nothing
 
-    const out = invalidateCacheForSession(ALICE);
+    const out = await invalidateCacheForSession(ALICE);
     expect(out.action).toBe('purged');
     expect(out.reason).toBe('stale-epoch');
-    expect(localStorage.getItem(`vt_${HID}_recurring`)).toBeNull();
-    expect(localStorage.getItem('vt_cache_epoch')).toBe(CACHE_EPOCH);
+    expect(await kvGet(`${HID}_recurring`)).toBeNull();
+    expect(ls.readString('cache_epoch')).toBe(CACHE_EPOCH);
   });
 
-  it('CON-UNIT-102 · the unsynced write queue and device preferences always survive', () => {
-    seedDeviceFor(ALICE);
-    invalidateCacheForSession(BOB);
+  it('CON-UNIT-102 · unsynced work and device preferences survive the purge', async () => {
+    const { kvGet } = await import('../kvStore');
+    const { invalidateCacheForSession } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
 
-    // Dropping the queue would be DATA LOSS — those are changes the user made
-    // that have not reached the server yet. They flush after the purge.
-    expect(localStorage.getItem('vt_sync_queue')).toBe('[{"op":"upsert"}]');
-    expect(localStorage.getItem('vt_theme')).toBe('dark');
-    expect(localStorage.getItem('vt_last_cloud_hid')).toBe(HID);
+    await invalidateCacheForSession(BOB);
+    // Dropping these would be DATA LOSS — the opposite of the point.
+    expect(await kvGet('sync_queue')).not.toBeNull();
+    expect(await kvGet('theme')).toBe('dark');
   });
 
-  it('CON-UNIT-103 · sentinels are cleared, or the reset silently does nothing', () => {
+  it('CON-UNIT-103 · cache-describing sentinels are cleared with the data', async () => {
+    const ls = (await import('../localStorageCompat')).default;
+    const { purgeCachedCloudData } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
+
+    await purgeCachedCloudData();
     // `cloud_synced_*` tells the adapter it has already seen a non-empty cloud
-    // result; `recurring_backfilled_*` suppresses a migration. Leaving either
-    // behind after wiping the data they describe is how a reset fails halfway.
-    seedDeviceFor(ALICE);
-    purgeCachedCloudData();
-    expect(localStorage.getItem(`vt_cloud_synced_${HID}`)).toBeNull();
-    expect(localStorage.getItem(`vt_recurring_backfilled_${HID}`)).toBeNull();
+    // result. Left behind, it changes how the NEXT empty response is treated.
+    expect(ls.readString(`cloud_synced_${HID}`)).toBeNull();
   });
 
-  it('CON-UNIT-104 · signing out leaves no ledger on the device', () => {
-    seedDeviceFor(ALICE);
-    clearCacheOnSignOut();
-    expect(localStorage.getItem(`vt_${HID}_transactions`)).toBeNull();
-    expect(localStorage.getItem('vt_cache_owner_uid')).toBeNull();
-    // Still preserved: unsynced work, and where to land on next sign-in.
-    expect(localStorage.getItem('vt_sync_queue')).not.toBeNull();
-    expect(localStorage.getItem('vt_last_cloud_hid')).toBe(HID);
+  it('CON-UNIT-104 · signing out leaves no ledger on the device', async () => {
+    const { kvGet } = await import('../kvStore');
+    const ls = (await import('../localStorageCompat')).default;
+    const { clearCacheOnSignOut } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
+
+    await clearCacheOnSignOut();
+    expect(await kvGet(`${HID}_transactions`)).toBeNull();
+    expect(ls.readString('cache_owner_uid')).toBeNull();
+    expect(await kvGet('sync_queue')).not.toBeNull();
+  });
+});
+
+describe('cache generation · an in-flight read cannot repopulate a purged cache', () => {
+  it('CON-UNIT-128 · the generation advances on every purge', async () => {
+    const { cacheGeneration, isCacheGenerationCurrent } = await import('../kvStore');
+    const { purgeCachedCloudData } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
+
+    const before = cacheGeneration();
+    expect(isCacheGenerationCurrent(before)).toBe(true);
+
+    await purgeCachedCloudData();
+
+    // A response captured before the purge is now recognisably stale. This is
+    // what HybridAdapter.applyCloudList checks before writing cloud rows.
+    expect(isCacheGenerationCurrent(before)).toBe(false);
+    expect(isCacheGenerationCurrent(cacheGeneration())).toBe(true);
+  });
+
+  it('CON-UNIT-129 · a read that started before the purge is rejected after it', async () => {
+    const { cacheGeneration, isCacheGenerationCurrent, kvSet, kvGet } = await import('../kvStore');
+    const { purgeCachedCloudData } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
+
+    // Simulate the real race: Alice's list() captures the generation, the
+    // session changes and purges, then Alice's response resolves.
+    const genAtRequestStart = cacheGeneration();
+    await purgeCachedCloudData();
+
+    if (isCacheGenerationCurrent(genAtRequestStart)) {
+      await kvSet(`${HID}_transactions`, [{ id: 'alice-row' }]);
+    }
+    expect(await kvGet(`${HID}_transactions`), 'Alice\'s in-flight rows must not land').toBeNull();
+  });
+
+  it('CON-UNIT-130 · purging twice is safe and keeps advancing', async () => {
+    const { cacheGeneration } = await import('../kvStore');
+    const { purgeCachedCloudData } = await import('../cacheInvalidation');
+    await seedDeviceFor(ALICE);
+
+    const g0 = cacheGeneration();
+    await purgeCachedCloudData();
+    await purgeCachedCloudData();
+    expect(cacheGeneration()).toBe(g0 + 2);
   });
 });

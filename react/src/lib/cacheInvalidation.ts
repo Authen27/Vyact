@@ -25,6 +25,7 @@
 // user's own unsynced changes and dropping them would be data loss, which is the
 // opposite of the point. They flush against the cloud after the purge.
 import ls from './localStorageCompat';
+import { kvPurgeWhere } from './kvStore';
 
 /**
  * Bump to force a one-time purge on every device at next sign-in.
@@ -33,7 +34,7 @@ import ls from './localStorageCompat';
  * cloud (non-UUID ids, rejected with 22P02) and would otherwise be re-uploaded
  * by the next sync, undoing the server-side cleanup.
  */
-export const CACHE_EPOCH = 'v10.20.7';
+export const CACHE_EPOCH = 'v10.20.8';
 
 const OWNER_KEY = 'cache_owner_uid';
 const EPOCH_KEY = 'cache_epoch';
@@ -77,24 +78,40 @@ function isPurgeable(bareKey: string): boolean {
  * Returns the number of keys removed. Never throws — a browser with storage
  * disabled must still sign in.
  */
-export function purgeCachedCloudData(): number {
+export async function purgeCachedCloudData(): Promise<number> {
+  // 🔴 THE ENTITY CACHE IS IN INDEXEDDB, NOT localStorage.
+  //
+  // v10.20.7 shipped this function sweeping localStorage only. `kvStore` uses
+  // IndexedDB as its primary backend and DELETES the localStorage copy after a
+  // successful IDB write, so on a normal browser this cleared nothing — the
+  // privacy guarantee was not delivered. Its unit tests passed because vitest
+  // runs in node with a localStorage polyfill and no IndexedDB, so they
+  // exercised the fallback path and never the real one. They now run against
+  // fake-indexeddb.
+  //
+  // kvPurgeWhere sweeps every backend and bumps the cache generation, which is
+  // what stops an in-flight cloud read repopulating what we just cleared.
   let removed = 0;
   try {
-    // Snapshot first: removing while iterating localStorage skips entries.
+    removed = await kvPurgeWhere(isPurgeable);
+  } catch { /* storage unavailable — nothing cached, nothing to purge */ }
+
+  // Sweep raw localStorage too. kvStore only knows keys it wrote; the store and
+  // its slices also persist `vt_*` values directly through localJson (sentinels
+  // like cloud_synced_*, and pre-kvStore leftovers).
+  try {
     const all: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k) all.push(k);
     }
     for (const raw of all) {
-      // Both the current `vt_` namespace and the legacy `ff_` one.
-      const bare = raw.startsWith('vt_') ? raw.slice(3)
-                 : raw.startsWith('ff_') ? raw.slice(3)
-                 : null;
+      const bare = raw.startsWith('vt_') || raw.startsWith('ff_') ? raw.slice(3) : null;
       if (bare === null || !isPurgeable(bare)) continue;
       try { localStorage.removeItem(raw); removed++; } catch { /* keep going */ }
     }
-  } catch { /* storage unavailable — nothing cached, nothing to purge */ }
+  } catch { /* storage unavailable */ }
+
   return removed;
 }
 
@@ -108,7 +125,7 @@ export type InvalidationOutcome =
  *
  * Pure decision + effect, no store access, so it is directly testable.
  */
-export function invalidateCacheForSession(userId: string): InvalidationOutcome {
+export async function invalidateCacheForSession(userId: string): Promise<InvalidationOutcome> {
   let owner: string | null = null;
   let epoch: string | null = null;
   try {
@@ -125,12 +142,12 @@ export function invalidateCacheForSession(userId: string): InvalidationOutcome {
   // device may hold anonymous local-only data, or a cache from before this stamp
   // existed — which is precisely the untrusted case.
   if (owner !== userId) {
-    const keysRemoved = purgeCachedCloudData();
+    const keysRemoved = await purgeCachedCloudData();
     stamp();
     return { action: 'purged', reason: 'different-user', keysRemoved };
   }
   if (epoch !== CACHE_EPOCH) {
-    const keysRemoved = purgeCachedCloudData();
+    const keysRemoved = await purgeCachedCloudData();
     stamp();
     return { action: 'purged', reason: 'stale-epoch', keysRemoved };
   }
@@ -141,8 +158,8 @@ export function invalidateCacheForSession(userId: string): InvalidationOutcome {
  * Called on sign-out. Leaving a signed-out device holding the last user's
  * ledger is the same privacy problem as (1) above, just deferred.
  */
-export function clearCacheOnSignOut(): number {
-  const removed = purgeCachedCloudData();
+export async function clearCacheOnSignOut(): Promise<number> {
+  const removed = await purgeCachedCloudData();
   try { ls.removeBoth(OWNER_KEY); } catch { /* noop */ }
   return removed;
 }
