@@ -15,7 +15,7 @@
 
 import type {
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey, Budget, BudgetAllocation,
-  Transaction, Debt, RecordLoanPaymentCommand, RecordLoanPaymentResult,
+  Transaction, Debt, Account, RecordLoanPaymentCommand, RecordLoanPaymentResult,
 } from '../types';
 import {
   type DataAdapter, type Entity, LocalStorageAdapter,
@@ -543,5 +543,24 @@ export class HybridAdapter implements DataAdapter {
       }
     } catch { /* cache is best-effort; the cloud write is authoritative */ }
     return res;
+  }
+
+  /**
+   * v10.23.0 (R1) — the server-owned Cash in Hand. The returned row replaces
+   * EVERY cached cash account: the database guarantees one, so any other cash
+   * row in the cache is stale and would double-count if it survived.
+   */
+  async ensureCashAccount(householdId: string): Promise<Account | null> {
+    const gen = cacheGeneration();
+    const cash = await this.cloud.ensureCashAccount(householdId);
+    if (!cash) return null;
+    try {
+      if (!isCacheGenerationCurrent(gen)) return cash;
+      const cached = await this.cache.list<Account>('accounts', householdId);
+      if (!isCacheGenerationCurrent(gen)) return cash;
+      await this.cache.replaceAll('accounts', householdId,
+        [...cached.filter(row => row.id !== cash.id && row.kind !== 'cash'), cash]);
+    } catch { /* cache is best-effort; the cloud row is authoritative */ }
+    return cash;
   }
 }

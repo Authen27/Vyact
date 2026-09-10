@@ -147,3 +147,75 @@ describe('ledger persisted happy paths', () => {
     expect(useStore.getState().transactions).toHaveLength(1);
   });
 });
+describe('Accounts R1 — one Cash in Hand per household, currency from the household', () => {
+  it('local-only: creates exactly one Cash in Hand, idempotently, and refuses a second', async () => {
+    await useStore.getState().ensureDefaultCashAccount();
+    await useStore.getState().ensureDefaultCashAccount();
+    expect(useStore.getState().accounts.filter(a => a.kind === 'cash')).toHaveLength(1);
+    await expect(useStore.getState().upsertAccount({ id: crypto.randomUUID(), kind: 'cash', name: 'Second cash' }))
+      .rejects.toThrow(/already has a Cash account/);
+    expect(useStore.getState().accounts.filter(a => a.kind === 'cash')).toHaveLength(1);
+  });
+
+  it('Cash in Hand cannot be archived either — it would vanish from every picker', async () => {
+    await useStore.getState().ensureDefaultCashAccount();
+    const cash = useStore.getState().accounts.find(a => a.kind === 'cash')!;
+    await expect(useStore.getState().upsertAccount({ id: cash.id, isArchived: true })).rejects.toThrow(/cannot be archived/);
+    expect(useStore.getState().accounts.find(a => a.id === cash.id)?.isArchived).toBeFalsy();
+  });
+
+  it('Cash in Hand cannot be deleted, and the refusal changes nothing', async () => {
+    await useStore.getState().ensureDefaultCashAccount();
+    const cash = useStore.getState().accounts.find(a => a.kind === 'cash')!;
+    await expect(useStore.getState().removeAccount(cash.id)).rejects.toThrow(/cannot be deleted/);
+    expect(useStore.getState().accounts.some(a => a.id === cash.id)).toBe(true);
+  });
+
+  it('every account write carries the household currency, whatever the caller sent', async () => {
+    useStore.setState({ profile: { ...useStore.getState().profile, baseCurrency: 'INR' } });
+    const created = await useStore.getState().upsertAccount({ id: crypto.randomUUID(), kind: 'bank', name: 'HDFC', currency: 'USD' });
+    expect(created.currency).toBe('INR');
+    const renamed = await useStore.getState().upsertAccount({ id: 'bank', name: 'Renamed' });
+    expect(renamed.currency).toBe('INR');
+    expect(renamed.openingBalance).toBe(1000);
+  });
+
+  it('cloud mode asks the server for the cash account and never inserts one — even against an empty, unhydrated store', async () => {
+    const hid = crypto.randomUUID();
+    const serverCash = { id: crypto.randomUUID(), kind: 'cash' as const, name: 'Cash', currency: 'INR', openingBalance: 0, isDefault: true };
+    const upsert = vi.fn();
+    const ensureCashAccount = vi.fn().mockResolvedValue(serverCash);
+    useStore.setState({ cloudEnabled: true, currentHouseholdId: hid, accounts: [],
+      adapter: { upsert, ensureCashAccount } as never });
+    await useStore.getState().ensureDefaultCashAccount();
+    expect(ensureCashAccount).toHaveBeenCalledWith(hid);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(useStore.getState().accounts).toEqual([serverCash]);
+  });
+
+  it('cloud mode replaces a stale cached cash row with the server one, so nothing double-counts', async () => {
+    const hid = crypto.randomUUID();
+    const serverCash = { id: crypto.randomUUID(), kind: 'cash' as const, name: 'Cash', currency: 'INR', openingBalance: 0 };
+    const staleDuplicate = { id: crypto.randomUUID(), kind: 'cash' as const, name: 'Cash in Hand', currency: 'USD', openingBalance: 0 };
+    useStore.setState({ cloudEnabled: true, currentHouseholdId: hid,
+      accounts: [useStore.getState().accounts[0], staleDuplicate],
+      adapter: { upsert: vi.fn(), ensureCashAccount: vi.fn().mockResolvedValue(serverCash) } as never });
+    await useStore.getState().ensureDefaultCashAccount();
+    const cash = useStore.getState().accounts.filter(a => a.kind === 'cash');
+    expect(cash).toEqual([serverCash]);
+    expect(useStore.getState().accounts.some(a => a.id === 'bank')).toBe(true);
+  });
+
+  it('a household switch during the server call does not leak the previous household cash into the new one', async () => {
+    const serverCash = { id: crypto.randomUUID(), kind: 'cash' as const, name: 'Cash', currency: 'INR', openingBalance: 0 };
+    let release!: (value: unknown) => void;
+    const ensureCashAccount = vi.fn(() => new Promise(resolve => { release = resolve; }));
+    useStore.setState({ cloudEnabled: true, currentHouseholdId: 'household-old', accounts: [],
+      adapter: { upsert: vi.fn(), ensureCashAccount } as never });
+    const pending = useStore.getState().ensureDefaultCashAccount();
+    useStore.setState({ currentHouseholdId: 'household-new' });
+    release(serverCash);
+    await pending;
+    expect(useStore.getState().accounts).toEqual([]);
+  });
+});

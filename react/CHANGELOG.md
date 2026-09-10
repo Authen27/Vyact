@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.22.3`** (consumer)
+> **Current production version: `v10.23.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,66 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.23.0 — one Cash in Hand per household, and accounts inherit the household currency *(2026-09-10)*
+
+Accounts redesign, release 1 of 4: the data rules the redesigned screens will stand on.
+
+### Duplicate Cash in Hand — the root cause, and the fix
+
+Every cash account encodes to the same literal `'cash'` ledger key, so a second one double-counts
+every cash transaction into both balances and into Net Worth. The only guard lived in the client:
+`ensureDefaultCashAccount` asked "does the **local store** hold a cash account?". On a cold start or a
+household switch it could run before the store had hydrated, get "no", and write a brand-new
+"Cash in Hand" — in **USD**, because `profile.baseCurrency` is `'USD'` until the profile loads.
+Production held exactly that: two empty USD "Cash in Hand" rows beside an INR household's real "Cash".
+
+Identity now lives in the database, as budget identity already does:
+
+- `uq_account_cash_per_household` — exactly one live cash account per household, archived included.
+- `ensure_cash_account(household)` — create-or-return, idempotent on that index. Viewers get the
+  existing row but never create one; `anon` cannot call it.
+- **In cloud mode the store never inserts a cash account** — it asks the RPC, and ignores the answer if
+  the household changed while the call was in flight. Local-only mode keeps its local check, which is
+  sound there because the store is the database.
+- Cash in Hand can be renamed, but no longer deleted or archived (an archived one would still hold the
+  slot while vanishing from every picker).
+
+The two duplicates were archived to `maintenance.accounts_archive_20260910` and tombstoned. Both had
+zero transactions, schedules and open splits; the migration refuses to run if a duplicate is
+referenced, because that needs a merge, not a delete.
+
+### Currency comes from the household
+
+Currency is a household setting, and a per-account currency could only ever disagree with it. The
+account form has no currency field any more; a trigger stamps `households.base_currency` on every
+account write, and changing the household currency relabels every account. Three accounts carried a
+foreign currency label — none held money, so nothing changed meaning; the migration refuses to relabel
+an account that does. (`computeAccountBalance` never read `account.currency`.)
+
+"Default for USD" becomes one **default account per household**; marking a new default clears the old
+one in the same statement, so the new unique index cannot be tripped by an ordinary edit.
+
+### Account form
+
+Only **Bank** and **Credit card** can be created. Loan accounts are system-only EMI legs; investments
+move to Net Worth in a later release; Cash in Hand is the system account above. An existing account of
+those kinds can still be renamed, with its kind shown fixed. The full redesigned form ships next.
+
+### Safety
+
+- Validated against production in a rolled-back transaction before release: total account money
+  identical before and after (₹1,01,536.68); one cash account left in the affected household; the RPC
+  returned the existing account; a second cash insert refused (`23505`); a USD insert stamped INR; a new
+  default cleared the old; `anon` denied.
+- Pre-v10.23 clients still in browsers stay safe: their cash insert now fails on the index (the call
+  was already best-effort), and any currency they send is overwritten by the trigger.
+- `CACHE_EPOCH` → `v10.23.0`, so devices drop caches still holding the duplicate rows instead of
+  re-uploading them.
+
+_Migration: `20260910120000_r1_accounts_one_cash_household_currency.sql`._
 
 ---
 

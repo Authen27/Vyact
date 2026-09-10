@@ -109,6 +109,15 @@ export interface DataAdapter {
     cmd: RecordLoanPaymentCommand,
     rows: { expense?: Transaction; transfer?: Transaction; debt: Debt },
   ): Promise<RecordLoanPaymentResult>;
+
+  /**
+   * v10.23.0 (R1) — return the household's ONE Cash in Hand, creating it
+   *  server-side if there is none. Present on the cloud adapters only; the
+   *  database owns this identity (`uq_account_cash_per_household`). The store
+   *  must never insert a cash account itself in cloud mode: its old check ran
+   *  against a store that had not hydrated yet, and wrote duplicates.
+   */
+  ensureCashAccount?(householdId: string): Promise<Account | null>;
 }
 
 const ANON = 'local';

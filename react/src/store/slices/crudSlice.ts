@@ -212,6 +212,12 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     if (isNew && a.kind === 'cash' && accounts.some(x => x.kind === 'cash' && x.id !== a.id)) {
       throw new Error('This household already has a Cash account — edit it instead of adding another.');
     }
+    // v10.23.0 (R1) — nor can it be archived. An archived cash account still
+    // holds the household's one cash slot, but disappears from every picker, so
+    // cash spend and income would be left with nowhere to post.
+    if ((accounts.find(x => x.id === a.id)?.kind ?? a.kind) === 'cash' && a.isArchived === true) {
+      throw new Error('Cash in Hand cannot be archived — every household keeps exactly one.');
+    }
 
     // 🔒 A PATCH MUST NOT ERASE WHAT IT DOES NOT MENTION.
     //
@@ -230,9 +236,14 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     // Only DEFINED keys are merged, so an explicit `undefined` in a patch still
     // cannot resurrect an old value by accident.
     const existing = a.id ? accounts.find(x => x.id === a.id) : undefined;
-    const payload: Partial<Account> = existing
+    const merged: Partial<Account> = existing
       ? { ...existing, ...Object.fromEntries(Object.entries(a).filter(([, v]) => v !== undefined)) }
       : a;
+    // v10.23.0 (R1) — currency is the HOUSEHOLD's, never the account's. The
+    // cloud enforces it with a trigger (accounts_currency_from_household);
+    // stamping it here keeps local-only mode and the optimistic cache telling
+    // the same truth, whatever the caller sent.
+    const payload: Partial<Account> = { ...merged, currency: get().profile.baseCurrency };
 
     const saved = await adapter.upsert('accounts', currentHouseholdId, payload, payload.id && payload.updated_at ? payload.updated_at : undefined);
     const idx = accounts.findIndex(x => x.id === saved.id);
@@ -241,6 +252,11 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
   },
   removeAccount: async (id) => {
     const { adapter, currentHouseholdId, accounts } = get();
+    // v10.23.0 (R1) — Cash in Hand is system-managed: cash spend and income
+    // need somewhere to post, and the next load would simply create it again.
+    if (accounts.find(x => x.id === id)?.kind === 'cash') {
+      throw new Error('Cash in Hand cannot be deleted — every household keeps exactly one.');
+    }
     await adapter.remove('accounts', currentHouseholdId, id);
     set({ accounts: accounts.filter(x => x.id !== id) });
   },
@@ -250,7 +266,32 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
   // one exists (archived or not — recreating a duplicate would double-count,
   // see upsertAccount above), so it's safe to call on every app/household load.
   ensureDefaultCashAccount: async () => {
-    const { accounts, profile } = get();
+    const { accounts, profile, adapter, cloudEnabled, currentHouseholdId } = get();
+
+    // 🔴 v10.23.0 (R1) — IN CLOUD MODE THE SERVER DECIDES.
+    //
+    // The check below used to run in cloud mode too. It asks "does the LOCAL
+    // store hold a cash account?", and on a cold start or a household switch it
+    // could run before the store had hydrated — so the answer was "no", and it
+    // wrote a brand-new "Cash in Hand" beside the household's real one. It also
+    // took its currency from profile.baseCurrency, which is 'USD' until the
+    // profile loads. Production accumulated exactly that: empty USD duplicates
+    // inside an INR household, each one double-counting every cash transaction.
+    //
+    // The database now owns the identity (uq_account_cash_per_household), and
+    // ensure_cash_account creates-or-returns atomically. The store only ever
+    // ASKS in cloud mode; it never inserts.
+    if (cloudEnabled && currentHouseholdId && currentHouseholdId !== 'local') {
+      if (typeof adapter.ensureCashAccount !== 'function') return;
+      const cash = await adapter.ensureCashAccount(currentHouseholdId);
+      // A household switch while the call was in flight: this row belongs to
+      // the previous household and must not land in the new one's store.
+      if (!cash || get().currentHouseholdId !== currentHouseholdId) return;
+      set({ accounts: [...get().accounts.filter(x => x.id !== cash.id && x.kind !== 'cash'), cash] });
+      return;
+    }
+
+    // Local-only mode: the store IS the database, so the local check is sound.
     if (accounts.some(x => x.kind === 'cash')) return;
     await get().upsertAccount({
       id: uid(),
