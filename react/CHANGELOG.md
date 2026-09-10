@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.24.0`** (consumer)
+> **Current production version: `v10.25.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,44 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.25.0 — how you paid: a payment mode on every transaction *(2026-09-11)*
+
+Accounts redesign, release 3 of 4. The rest of requirement 2: each account already lists the payment modes
+it is used with (v10.24.0); a transaction now records which one it used.
+
+### In the app
+
+- **Add / edit transaction:** after you pick the account, a *via* row offers **only that account's modes**
+  — UPI, debit card, net banking… on a bank; swipe, online, UPI on card… on a card; Cash on Cash in Hand.
+  A new transaction preselects the account's first mode. An edit never gains a mode you did not choose;
+  picking a different account clears a mode that account does not use.
+- **Transaction list:** the mode rides in the sub-line beside the account ("Groceries · Today · HDFC · UPI").
+- **Investments carry no mode.**
+
+### Over WhatsApp
+
+The deterministic parser reads the mode from the message — GPay / PhonePe / Paytm / BHIM → UPI, NEFT / IMPS /
+RTGS → net banking, "debit card", "upi on card", cheque, auto-debit / NACH, online, swipe / tap. A message
+that names none carries none; nothing is guessed. The confirmation says it: *"✅ Logged 450 INR · Food &
+dining from HDFC via UPI."* `whatsapp_log_transaction` gains `p_payment_mode` and stores it **only when the
+paying account lists that mode**; otherwise the mode is dropped and the transaction still logs.
+
+### Safety
+
+- The mode is **descriptive**: no balance, spend, income, category or net-worth figure reads it. Store tests
+  assert a spend posts the same balance with or without a mode.
+- `transactions.payment_mode` is nullable with a CHECK (`ck_txn_payment_mode`): one of the ten modes, and
+  never on an investment. Legacy rows, imports and recurring posts stay valid.
+- A mode the account does not use is dropped, never an error, so a recurring schedule keeps posting after a
+  mode is removed from its account.
+- The mode set lives in three places, like categories; new parity tests fail if the WhatsApp or agent copy
+  drifts from the app's.
+- Written only when the caller mentions it, so an edit that does not touch the mode cannot erase it.
+
+_Migration: `20260910180000_r3_transaction_payment_mode.sql`._
 
 ---
 

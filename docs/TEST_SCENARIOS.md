@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**977 passing deterministic cases in 59 files. Zero failed, skipped or TODO cases at generation.**
+**994 passing deterministic cases in 59 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,10 +35,10 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | handler-integration | conditional | 8 |
 | react | sql-integration | conditional | 5 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 39 |
+| react | store-integration | available | 42 |
 | react | store-integration | conditional | 2 |
 | react | unit | available | 199 |
-| react | unit | conditional | 55 |
+| react | unit | conditional | 69 |
 | react | unit | infrastructure | 585 |
 
 ### Executed Files
@@ -75,7 +75,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/fxCentralization.test.ts](../react/src/lib/__tests__/fxCentralization.test.ts) | Money model | unit | available | 2 |
 | [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 4 |
 | [react/src/lib/__tests__/learnJsonLd.test.ts](../react/src/lib/__tests__/learnJsonLd.test.ts) | Formatting and structured content | unit | available | 2 |
-| [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 30 |
+| [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 33 |
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/loanPaymentSql.test.ts](../react/src/lib/__tests__/loanPaymentSql.test.ts) | Loan SQL command | sql-integration | conditional | 5 |
 | [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 8 |
@@ -102,7 +102,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/supabaseAdapter.test.ts](../react/src/lib/__tests__/supabaseAdapter.test.ts) | Cloud adapter contracts | contract-unit | conditional | 14 |
 | [react/src/lib/__tests__/sync.test.ts](../react/src/lib/__tests__/sync.test.ts) | Storage and synchronization | storage-integration | available | 6 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
-| [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 13 |
+| [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 27 |
 | [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 4 |
 
 ## 4. Roster

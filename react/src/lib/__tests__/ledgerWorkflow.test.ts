@@ -269,10 +269,12 @@ describe('Transactions R3 — the payment mode is one the paying account uses, a
     expect(withMode).toBe(750);
   });
 
-  it('a mode the account does not use is refused, and nothing is written', async () => {
-    await expect(useStore.getState().upsertTransaction({ ...spend, id: crypto.randomUUID(), paymentMode: 'swipe' }))
-      .rejects.toThrow(/isn't used with that payment mode/);
-    expect(useStore.getState().transactions).toHaveLength(0);
+  it('a mode the account does not use is dropped, and the money still posts', async () => {
+    // e.g. a recurring schedule saved with a mode later removed from its account.
+    const saved = await useStore.getState().upsertTransaction({ ...spend, id: crypto.randomUUID(), paymentMode: 'swipe' });
+    expect(saved.paymentMode ?? null).toBeNull();
+    expect(useStore.getState().transactions).toHaveLength(1);
+    expect(balance('bank')).toBe(750);
   });
 
   it('an investment never carries a mode', async () => {
