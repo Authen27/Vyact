@@ -66,14 +66,23 @@ export class TransactionFormModal {
     // amount control so callers that reference it still resolve to something
     // meaningful rather than a phantom.
     this.keypad = this.dialog;
-    this.amountDisplay = this.dialog.getByLabel(/amount/i).first();
+    // The amount INPUT (not a display element) — see setAmount below.
+    this.amountDisplay = this.dialog.getByLabel('Amount', { exact: true });
     this.descriptionInput = this.dialog.getByLabel('Description');
     this.dateInput = this.dialog.getByLabel('Pick a date');
     this.noteInput = this.dialog.getByLabel('Note');
     this.excludedCheckbox = this.dialog.getByLabel(/Private — exclude from totals/);
     this.splitToggle = this.dialog.getByLabel(/Split this bill with others|Share this income with others/);
     this.allDetailsToggle = this.dialog.getByTestId('txn-all-details');
-    this.submitButton = this.dialog.getByRole('button', { name: /^(Save|Update|Saving…)$/, exact: true });
+    // The primary button is `Save ${form.type}` / `Update ${form.type}` — e.g.
+    // "Save expense" (TransactionFormModal.tsx:476), never a bare "Save". The
+    // old exact `/^(Save|Update|Saving…)$/` matched nothing, so `submit()` sat
+    // out its 30s timeout on every create/edit test. The type alternation is
+    // spelled out rather than using a wildcard so this cannot accidentally
+    // match the "Save & add another" cap link beneath it.
+    this.submitButton = this.dialog.getByRole('button', {
+      name: /^((Save|Update) (transaction|expense|income|transfer|investment)|Saving…)$/i,
+    });
     this.addAnotherButton = this.dialog.getByRole('button', { name: 'Save & add another' });
     this.deleteLink = this.dialog.getByRole('button', { name: /^Delete$/ });
   }
@@ -81,27 +90,44 @@ export class TransactionFormModal {
   async waitOpen() { await this.dialog.waitFor({ state: 'visible' }); }
   async waitClosed() { await this.dialog.waitFor({ state: 'hidden' }); }
 
-  // ── amount keypad ──────────────────────────────────────────────────────
-  private key(label: string): Locator {
-    return this.keypad.getByRole('button', { name: label === '⌫' ? 'Backspace' : label, exact: true });
-  }
+  // ── amount ─────────────────────────────────────────────────────────────
+  //
+  // 🔴 REPAIRED 2026-09-10. THERE IS NO KEYPAD.
+  //
+  // These helpers drove an in-sheet digit pad: `setAmount` clicked "⌫" to clear,
+  // then one button per digit. No such buttons exist — the dialog's full button
+  // list is Close, the four type chips, the category chips, Today/Yesterday,
+  // Pick a time, the account chips, the member chips, Save and Save & add
+  // another. Amount is a plain `input type="text" inputmode="decimal"` with its
+  // own sanitiser.
+  //
+  // The cost of that drift was disproportionate: `setAmount` is on the path of
+  // almost every transaction test, and clicking a button that does not exist
+  // burns the full 30s timeout and then reports `locator.click` on "Backspace" —
+  // an error that names the keypad, not the redesign. A large share of Lane A's
+  // failures traced back to these two methods alone.
+  //
+  // `amountValue` was broken in a quieter way: it read `textContent` from what
+  // is an `<input>`, so it returned "" no matter what the field held, and every
+  // caller comparing against it was asserting nothing.
 
   /** Read the current amount as a plain decimal string ("" when unset). */
   async amountValue(): Promise<string> {
-    const raw = (await this.amountDisplay.textContent()) ?? '';
-    const digits = raw.replace(/[^0-9.]/g, '');
-    return digits === '0' ? '' : digits;
+    const raw = await this.amountDisplay.inputValue();
+    return raw === '0' ? '' : raw;
   }
 
-  /** Clear the amount, then type it digit-by-digit on the in-sheet keypad. */
+  /**
+   * Set the amount through the real input.
+   *
+   * The field silently rejects anything that is not a positive decimal — a
+   * leading '-' is stripped, letters never land, a second '.' is refused — so
+   * the value that sticks may differ from what was asked for. That is the app's
+   * contract (asserted by CON-E2E-013), not something to work around here.
+   */
   async setAmount(amount: number | string) {
-    const cur = await this.amountValue();
-    for (let i = 0; i < cur.length + 2; i++) await this.key('⌫').click();
-    for (const ch of String(amount)) {
-      if (ch >= '0' && ch <= '9') await this.key(ch).click();
-      else if (ch === '.') await this.key('.').click();
-      // any other char (e.g. '-') has no keypad key — silently unenterable
-    }
+    await this.amountDisplay.fill('');
+    await this.amountDisplay.fill(String(amount));
   }
 
   // ── chip / field setters ───────────────────────────────────────────────

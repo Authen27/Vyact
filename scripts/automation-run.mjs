@@ -59,6 +59,12 @@ const playwrightJson     = path.join(runDir, 'playwright.json');
 const gates = [
   { id: 'consumer-lint',       name: 'Consumer · ESLint',     cwd: 'react', cmd: 'npm run lint' },
   { id: 'consumer-typecheck',  name: 'Consumer · type-check', cwd: 'react', cmd: 'npm run typecheck' },
+  // The Playwright suite was NEVER type-checked (tsconfig.json excludes e2e),
+  // which is how 68 type errors accumulated in it unseen — each surfacing at
+  // runtime as a 30s timeout naming the wrong cause. This gate keeps the specs
+  // and their page objects in sync with the app by compile error, not by
+  // stopwatch.
+  { id: 'consumer-typecheck-e2e', name: 'Consumer · type-check (e2e specs)', cwd: 'react', cmd: 'npm run typecheck:e2e' },
   { id: 'consumer-unit',       name: 'Consumer · unit tests', cwd: 'react',
     cmd: `npm test -- --reporter=json --outputFile="${consumerVitestJson}"` },
   { id: 'consumer-build',      name: 'Consumer · build (local-only env)', cwd: 'react', cmd: 'npm run build',
