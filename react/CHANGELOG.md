@@ -74,6 +74,10 @@ revoked. Local-only mode applies the same rules against the store.
   already had one, and marking a new default never cleared the old one outside the database trigger — so
   the cache showed two until the next refresh. The store now keeps exactly one, matching
   `ensure_cash_account` and `accounts_single_default`.
+- **A re-saved account named columns the database had not returned.** The read mapper defaulted the
+  new card columns to `null`/`[]`, so reconcile's `{...account, ...patch}` re-save sent them to a schema
+  without them and PostgREST refused (`PGRST204`). Caught by Lane B against the un-migrated test project;
+  production had the same window between a Vercel deploy and `db push`. Absent columns now stay absent.
 - **Account rows invisible on arrival.** Rows mounting after hydration inherited an entrance animation
   that had already settled and stayed at opacity 0. Each row now animates itself in.
 

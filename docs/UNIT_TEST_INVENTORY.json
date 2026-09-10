@@ -77,12 +77,14 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "SupabaseAdapter / askVyactModelCall / whatsappLink",
-      "count": 4,
+      "count": 6,
       "tests": [
         "account patches must not erase financial state (audit F1) CON-UNIT-081 · a metadata-only patch omits the financial columns entirely",
         "account patches must not erase financial state (audit F1) CON-UNIT-082 · financial values are written when the caller supplies them",
         "account patches must not erase financial state (audit F1) CON-UNIT-083 · an explicit zero is still an explicit zero",
-        "account patches must not erase financial state (audit F1) CON-UNIT-083b · debtId is written when supplied and omitted from metadata patches (audit F2 link)"
+        "account patches must not erase financial state (audit F1) CON-UNIT-083b · debtId is written when supplied and omitted from metadata patches (audit F2 link)",
+        "account patches must not erase financial state (audit F1) CON-UNIT-083c · a row re-saved with a spread never names an R2 column the database did not return",
+        "account patches must not erase financial state (audit F1) CON-UNIT-083d · on a migrated schema the same re-save keeps every R2 value, nulls included"
       ]
     },
     {

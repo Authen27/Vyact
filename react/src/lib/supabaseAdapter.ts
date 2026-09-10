@@ -417,11 +417,16 @@ const rowToAccount = (r: AccountRow): Account => ({
   openingBalance: r.opening_balance != null ? parseMoneyFromCloud(r.opening_balance) : 0,
   reconciliationOffset: r.reconciliation_offset != null ? parseMoneyFromCloud(r.reconciliation_offset) : 0,
   reconciliationLog: (r.reconciliation_log ?? []) as Account['reconciliationLog'],
-  paymentModes: (r.payment_modes ?? []) as Account['paymentModes'],
-  creditLimit: r.credit_limit != null ? parseMoneyFromCloud(r.credit_limit) : null,
-  billingCycleDay: r.billing_cycle_day ?? null,
-  paymentDueDay: r.payment_due_day ?? null,
-  lastReconciledAt: r.last_reconciled_at ?? null,
+  // v10.24.0 (R2) — a column the database did not RETURN stays undefined, never
+  // null/[]. Rows are routinely re-saved as `{...account, ...patch}` (reconcile
+  // does), and a defaulted value would then name a column that a lagging schema
+  // does not have — PGRST204, the write refused. That is the window between a
+  // Vercel deploy and `db push`, and every un-migrated test database.
+  ...('payment_modes' in r ? { paymentModes: (r.payment_modes ?? []) as Account['paymentModes'] } : {}),
+  ...('credit_limit' in r ? { creditLimit: r.credit_limit != null ? parseMoneyFromCloud(r.credit_limit) : null } : {}),
+  ...('billing_cycle_day' in r ? { billingCycleDay: r.billing_cycle_day ?? null } : {}),
+  ...('payment_due_day' in r ? { paymentDueDay: r.payment_due_day ?? null } : {}),
+  ...('last_reconciled_at' in r ? { lastReconciledAt: r.last_reconciled_at ?? null } : {}),
   createdAt: r.created_at,
   updated_at: r.updated_at,
   ...rowToProv(r),

@@ -25,13 +25,13 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**975 passing deterministic cases in 59 files. Zero failed, skipped or TODO cases at generation.**
+**977 passing deterministic cases in 59 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | conditional | 34 |
+| react | contract-unit | conditional | 36 |
 | react | handler-integration | conditional | 8 |
 | react | sql-integration | conditional | 5 |
 | react | storage-integration | available | 28 |
@@ -49,7 +49,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [admin/src/lib/__tests__/contentWorkflow.test.ts](../admin/src/lib/__tests__/contentWorkflow.test.ts) | Admin publication | contract-unit | conditional | 5 |
 | [admin/src/lib/__tests__/roleGating.test.ts](../admin/src/lib/__tests__/roleGating.test.ts) | Admin content and permissions | unit | conditional | 4 |
 | [react/src/components/ui/__tests__/estimatedTag.test.ts](../react/src/components/ui/__tests__/estimatedTag.test.ts) | Estimate provenance | unit | available | 5 |
-| [react/src/lib/__tests__/accountPatchSafety.test.ts](../react/src/lib/__tests__/accountPatchSafety.test.ts) | Cloud adapter contracts | contract-unit | conditional | 4 |
+| [react/src/lib/__tests__/accountPatchSafety.test.ts](../react/src/lib/__tests__/accountPatchSafety.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/accountsView.test.ts](../react/src/lib/__tests__/accountsView.test.ts) | Accounts | unit | available | 21 |
 | [react/src/lib/__tests__/agentAmbiguity.test.ts](../react/src/lib/__tests__/agentAmbiguity.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 31 |
 | [react/src/lib/__tests__/agentClassify.test.ts](../react/src/lib/__tests__/agentClassify.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |
