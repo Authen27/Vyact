@@ -22,6 +22,18 @@ export const INCOME_IDS = new Set([
   'salary', 'freelance', 'gift_bonus', 'rental_income', 'business_revenue', 'other_income',
 ]);
 
+// ── payment modes — MUST mirror react/src/lib/accountsView.ts (PAYMENT_MODE_LABEL)
+// and the ck_account_payment_modes / ck_txn_payment_mode CHECKs ──────────────
+export const PAYMENT_MODE_IDS = new Set([
+  'upi', 'debit_card', 'net_banking', 'cheque', 'auto_debit',
+  'swipe', 'upi_on_card', 'online', 'standing_instruction', 'cash',
+]);
+export const PAYMENT_MODE_LABEL: Record<string, string> = {
+  upi: 'UPI', debit_card: 'Debit card', net_banking: 'Net banking', cheque: 'Cheque',
+  auto_debit: 'Auto-debit', swipe: 'Swipe / tap', upi_on_card: 'UPI on card',
+  online: 'Online', standing_instruction: 'Standing instruction', cash: 'Cash',
+};
+
 export type TxnType = 'expense' | 'income' | 'transfer' | 'investment';
 
 export interface ParsedTx {
@@ -32,6 +44,9 @@ export interface ParsedTx {
   account_alias: string;           // source (expense/transfer/investment) or dest (income); RPC resolves
   to_account_alias: string | null; // dest for transfer/investment
   description: string;             // original text, for the txn description + audit
+  /** How the account was used, when the message says so. The RPC keeps it only
+   *  if the paying account lists that mode; null for every investment. */
+  payment_mode: string | null;
 }
 
 export interface AccountLite { name: string; kind: string }
@@ -162,6 +177,24 @@ function detectType(text: string, accounts: AccountLite[]): TxnType {
   return 'expense';
 }
 
+/** The payment mode a message names, or null. Ordered most-specific first, so
+ *  "upi on card" is not read as plain UPI and "debit card" is not a swipe. */
+const MODE_PATTERNS: [RegExp, string][] = [
+  [/\b(upi on (credit )?card|rupay upi|credit card upi)\b/, 'upi_on_card'],
+  [/\bdebit card\b/, 'debit_card'],
+  [/\b(upi|gpay|google pay|phonepe|phone pe|paytm|bhim)\b/, 'upi'],
+  [/\b(net ?banking|neft|imps|rtgs)\b/, 'net_banking'],
+  [/\b(cheque|chq)\b/, 'cheque'],
+  [/\b(auto[- ]?debit|nach|ecs|mandate)\b/, 'auto_debit'],
+  [/\bstanding instruction\b/, 'standing_instruction'],
+  [/\bonline\b/, 'online'],
+  [/\b(swipe|swiped|tap|tapped|pos)\b/, 'swipe'],
+];
+export function detectPaymentMode(text: string): string | null {
+  for (const [re, mode] of MODE_PATTERNS) if (re.test(text)) return mode;
+  return null;
+}
+
 /** Parse a WhatsApp line into a structured transaction, or a reason to clarify. */
 export function parseWhatsAppMessage(
   raw: string,
@@ -212,6 +245,7 @@ export function parseWhatsAppMessage(
       account_alias,
       to_account_alias,
       description: (raw || '').trim().slice(0, 280),
+      payment_mode: type === 'investment' ? null : detectPaymentMode(norm),
     },
   };
 }

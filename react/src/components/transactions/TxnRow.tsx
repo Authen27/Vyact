@@ -4,6 +4,7 @@ import { useStore } from '../../store';
 import { getCat } from '../../constants';
 import { formatDate, formatTime } from '../../lib/format';
 import { resolveAccount } from '../../lib/accounts';
+import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
 import Badge from '../ui/Badge';
 import Money from '../ui/Money';
 import EstimatedTag from '../ui/EstimatedTag';
@@ -83,7 +84,7 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
           {t.recurring && <span aria-label={`Recurring ${t.recurring}`} title={`Recurring · ${t.recurring}`} className="ml-1.5 text-ink-dim text-[0.72rem]">↻</span>}
         </div>
         <div className="font-mono text-[0.59rem] text-ink-dim mt-px truncate">
-          {(isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{acct ? ` · ${acct.label}` : ''}{t.note ? ' · ' + t.note : ''}
+          {(isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{acct ? ` · ${acct.label}` : ''}{t.paymentMode ? ` · ${PAYMENT_MODE_LABEL[t.paymentMode]}` : ''}{t.note ? ' · ' + t.note : ''}
         </div>
       </div>
       {unconfirmed && (

@@ -15,7 +15,7 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { env, verifyMetaSignature, sendText, APP_URL } from '../_shared/whatsapp.ts';
-import { parseWhatsAppMessage, clarifyReply, type AccountLite } from '../_shared/whatsapp-parser.ts';
+import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite } from '../_shared/whatsapp-parser.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
@@ -203,6 +203,8 @@ async function processInbound(
       p_to_account_alias: tx.to_account_alias,
       p_wa_message_id: message.id,
       p_description: tx.description,
+      // v10.25.0 — stored only if the paying account uses this mode.
+      p_payment_mode: tx.payment_mode,
     });
 
     if (error) {
@@ -238,5 +240,7 @@ function confirmation(r: any): string {
   else if (r.type === 'transfer' || r.type === 'investment') {
     where = r.account_name && r.to_account_name ? ` ${r.account_name} → ${r.to_account_name}` : '';
   } else where = r.account_name ? ` from ${r.account_name}` : '';
-  return `✅ Logged ${amt}${cat}${where}. Send another anytime.`;
+  // The RPC echoes the mode only when it was actually stored.
+  const mode = r.payment_mode ? ` via ${PAYMENT_MODE_LABEL[r.payment_mode] ?? r.payment_mode}` : '';
+  return `✅ Logged ${amt}${cat}${where}${mode}. Send another anytime.`;
 }

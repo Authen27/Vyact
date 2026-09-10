@@ -451,6 +451,19 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       }
     }
 
+    // v10.25.0 (R3) — a payment mode is one the PAYING account is used with
+    // (income: the receiving account). An investment never carries one. The
+    // form only offers the account's modes; this keeps every other writer honest.
+    if (t.paymentMode) {
+      const payingId = t.type === 'income' ? t.toAccountId : t.accountId;
+      const paying = accounts.find(a => a.id === payingId);
+      if (t.type === 'investment') {
+        t = { ...t, paymentMode: null };
+      } else if (paying?.paymentModes?.length && !paying.paymentModes.includes(t.paymentMode)) {
+        throw new Error(`${paying.name} isn't used with that payment mode — pick one of its modes`);
+      }
+    }
+
     // Audit F2 — a NEW loan_emi expense is NEVER stored as a plain expense.
     // The old branch keyed create-vs-edit on `!t.id`, but the form pre-assigns
     // an id, so it was unreachable and EMIs landed as raw expenses. The

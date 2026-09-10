@@ -135,6 +135,9 @@ export interface Transaction extends WithProvenance {
    *  `linkedAssetId` while flag is `'shadow'`; sole source once `'on'`. */
   accountId?: string;
   toAccountId?: string;
+  /** v10.25.0 (R3) — how the paying account was used; one of that account's
+   *  `paymentModes`. Descriptive only: no balance or total reads it. `null` clears. */
+  paymentMode?: PaymentMode | null;
   initiatedBy?: string;
   /** v7.3 — Money Map Item #5 (multi-account split). When set, the txn's
    *  total amount is divided across these accounts (e.g. partial debit +
