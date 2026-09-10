@@ -135,7 +135,12 @@ jobs:
         run: supabase functions deploy ask-vyact
 
   consumer:
-    needs: db-migrations
+    # TD-33 (v10.22.4) — also waits for the Edge Functions. Needing only
+    # db-migrations let this job run in PARALLEL with deploy-edge-functions, so a
+    # consumer calling a new function action could go live before the function
+    # did (v10.22.2's WhatsApp status/unlink were the first real case). If the
+    # functions fail to deploy, the consumer that depends on them does not ship.
+    needs: [db-migrations, deploy-edge-functions]
     # No longer if: always() — the app must not ship when its migrations did not.
     name: Deploy consumer (react/)
     runs-on: ubuntu-latest

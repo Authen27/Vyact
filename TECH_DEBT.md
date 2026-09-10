@@ -10,15 +10,20 @@
 > **Effort key:** XS ≤ ½ day · S ≈ 1–2 days · M ≈ 1 week · L ≈ 1–2 weeks.
 > **Severity:** Critical / High / Medium / Low.
 
-## Status at a glance (2026-06-15)
+## Status at a glance (2026-09-10)
 
-**28 items total — 24 ✅ resolved · 2 ⚠ partial · 2 ⬜ open.**
+**35 items total — 25 ✅ resolved · 2 ⚠ partial · 8 ⬜ open.**
 
 | Bucket | IDs |
 |---|---|
-| ✅ **Resolved** (24) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-15, TD-17, TD-18, TD-20, TD-21, **TD-23**, **TD-24**, **TD-25**, **TD-26**, **TD-27**, **TD-28** |
-| ⚠ **Partial** (2) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane A shipped; Lane B/RLS-isolation open) |
-| ⬜ **Open** (2) | TD-16, TD-22 |
+| ✅ **Resolved** (25) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-15, TD-17, TD-18, TD-20, TD-21, **TD-23**, **TD-24**, **TD-25**, **TD-26**, **TD-27**, **TD-28**, **TD-33** |
+| ⚠ **Partial** (2) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B now runs green — 10 specs incl. RLS isolation; Lane A red, tracked as TD-29) |
+| ⬜ **Open** (8) | TD-16, TD-22, **TD-29**, **TD-30**, **TD-31**, **TD-32**, **TD-34**, **TD-35** |
+
+> **2026-09-10 intake (TD-29…TD-35).** Parked at the close of the v10.22.x test-hardening releases,
+> before the Accounts redesign starts. TD-29 is the Lane A triage that remains; TD-30…TD-32 are the
+> test-fidelity gaps that let rot hide; TD-31 is the one money invariant with no test. TD-33 was fixed
+> the same day rather than parked.
 
 > **TD-25 resolved (2026-06-17).** The 1,167-line `store.ts` god-module is fully decomposed into a
 > 35-line `store/index.ts` composition root + nine cohesive `store/slices/` modules (modal, reconcile,
@@ -68,6 +73,13 @@
 | TD-26 | ✅ Sync-queue mechanics extracted to `lib/sync/` (backoff/syncQueue/deadLetter/conflict) *(resolved 2026-06-15; hybridAdapter 508→400, each module unit-tested, queue-replay regression)* | Technical / Maintainability | Medium | M |
 | TD-27 | ✅ Risk-bearing `as any` on money + MFA/security paths *(resolved 2026-06-15: `Reports.tsx` typed `Transaction[]`; `Settings.tsx` MFA typed via `Factor` + enrol-response narrowing)* | Technical / Type-safety | Medium | S |
 | TD-28 | ✅ Doc-architecture *(resolved 2026-06-17)*: CI version-drift guard + CLAUDE.md trimmed (dated narrative → `docs/HISTORY.md`, replaced by a binding-conventions section) + README docs-map | Technical / Process / Docs | Low | S |
+| TD-29 | Lane A: 53 e2e failures across 14 spec files — triage-first, not a selector sweep | Technical / QA | High | M |
+| TD-30 | Vitest does not type-check `src/**/*.test.ts` — unit tests can reference removed code unseen | Technical / QA | Medium | S |
+| TD-31 | Spec INV-7 (atomicity) has no test — a failed leg of an EMI or transfer is not proven to roll back | Technical / Correctness | High | M |
+| TD-32 | Test-fidelity gaps: edge handlers run on npm `supabase-js` not the esm.sh build Deno loads; no cloud-mode unit coverage | Technical / QA | Medium | M |
+| TD-33 | ✅ Consumer deploy raced the Edge Functions deploy *(resolved 2026-09-10: `consumer` job now `needs: deploy-edge-functions`)* | Technical / Release | Medium | XS |
+| TD-34 | `pg_trgm` installed in the `public` schema | Security / Hygiene | Low | S |
+| TD-35 | Remaining audit release blockers: historical loan repair, webhook inbox recovery, ownerless outbox recovery | Technical / Reliability | High | M |
 
 ---
 
@@ -911,12 +923,179 @@ recurring. The partner's "trim CLAUDE.md" (#6) and "README entry point" (#1) lan
 
 ---
 
+## TD-29 — Lane A: 53 e2e failures across 14 spec files
+
+**Description.** After v10.22.3 type-checked the Playwright suite and repaired the transaction page
+object, Lane A reads **53 failed · 32 passed · 82 skipped** in 4.2 min (was 62 / 27 / 82 in 26 min).
+The 82 skips are not rot: 80 are the documented `inventory-backlog.spec.ts` register plus two
+documented `fixme`s. Failures by file: profile-settings 10 · debts-payment 6 · backup 5 ·
+transactions-create 4 · search-filter 4 · responsive-mobile 4 · onboarding 4 · smoke 3 · reports 3 ·
+networth-assets 3 · transactions-edit-delete 2 · privacy 2 · dashboard-pulse 2 · auth-local 1. The
+four in `transactions-create` share one cause — the "All details" disclosure path in
+`TransactionFormModal.ts` (Time is a button, not an input; Note and the currency chips are not
+reachable the way the POM expects). The e2e seed also still uses legacy category ids (`housing`,
+`food`) that only render through `LEGACY_CATEGORY_ALIASES`.
+
+**Impact — tech / architecture.** A permanently red lane is ignored, so it catches nothing. It has
+already hidden real defects: the budget overrun that read "100%" (v10.22.1) and two INVERTED tests
+whose failure was the correct behaviour (TXN-FC-003, CON-E2E-012 — v10.22.3).
+
+**Impact — functional / business.** Regressions in settings, backup, debt payment, search, onboarding
+and reports journeys reach production without a browser test noticing.
+
+**Effort.** M.
+
+**Possible solution approaches.**
+- Keep the triage-first method: classify each failure as a product defect, a stale test, or a test
+  for a removed feature — then fix, rewrite or retire. Never edit a test into contradicting the
+  money model.
+- Measure the running app before pinning an expectation; prove each new assertion can fail.
+- Move the seed to current category ids once the triage is done, so it does not confound results.
+- When green, make Lane A a required status check.
+
+**Acceptance.** Lane A reports zero failures; every retirement is recorded in
+`docs/TEST_SCENARIOS.md` §5; Lane A is required in branch protection.
+
+---
+
+## TD-30 — Vitest does not type-check `src/**/*.test.ts`
+
+**Description.** `react/tsconfig.json` excludes `src/**/*.test.ts(x)`, and Vitest transpiles with
+esbuild, which strips types without checking them. A unit test can call a removed export, pass a
+wrongly shaped fixture, or reference a renamed field and fail only at runtime — or pass vacuously
+inside a branch that never executes. It is the same class of rot v10.22.3 removed from the e2e suite,
+where 68 type errors had accumulated behind 30-second timeouts.
+
+**Impact — tech / architecture.** 937 passing cases give less assurance than the count implies.
+
+**Impact — functional / business.** A test that silently stopped testing reads as coverage.
+
+**Effort.** S.
+
+**Possible solution approaches.**
+- Add `react/tsconfig.test.json` (extends the app config, includes the test files) and a
+  `Consumer · type-check (unit tests)` gate, mirroring `tsconfig.e2e.json`; do the same for `admin/`.
+- Fix what it surfaces before wiring it in, so the gate lands green.
+
+**Acceptance.** The gate is in `scripts/automation-run.mjs` and fails on a deliberately mistyped test.
+
+---
+
+## TD-31 — Spec INV-7 (atomicity) has no test
+
+**Description.** `vyact-txn-redesign-architect-spec_1.md` §7 INV-7: force-fail any leg of an EMI or
+transfer and the ENTIRE event must roll back with zero state change. Nothing asserts it, because the
+client store has no transactional boundary to assert against. (The invariants file's labels run
+off-by-one from the spec past INV-4 — the gaps at 4 and 8 are labelling, not coverage; INV-7 is the
+one genuine gap. See the file header.) Direction agreed 2026-09-10: a **Postgres RPC per multi-leg
+event**, following `upsert_budget_with_allocations` and `record_loan_payment`.
+
+**Impact — tech / architecture.** A multi-write money event can half-apply.
+
+**Impact — functional / business.** A failed leg can leave a ledger split: money leaves one account
+and never arrives in the other. That is a number that is untrue.
+
+**Effort.** M.
+
+**Possible solution approaches.**
+- Route transfer and EMI writes through single SECURITY DEFINER RPCs so Postgres provides atomicity.
+- Local-only mode has no transaction boundary at all; decide and document its behaviour explicitly
+  rather than leaving INV-7 provable in cloud and unprovable locally.
+- Add the invariant test: inject a failing second leg and assert no state change.
+
+**Acceptance.** An INV-7 test exists and passes for cloud mode; local-mode behaviour is documented and
+tested.
+
+---
+
+## TD-32 — Test-fidelity gaps: edge handlers and cloud mode
+
+**Description.** Two ways the 937-case suite tests something other than production:
+1. `react/vitest.config.ts` aliases `https://esm.sh/@supabase/supabase-js@2.45.0` to the npm
+   package, so the handler-integration tests run Edge Function source against a different client
+   build than the one Deno actually loads.
+2. The same config pins `VITE_SUPABASE_URL: ''`, so unit tests only ever run local-only mode —
+   exactly where the `myRole`-undefined budget-guard class of defect does not appear.
+
+**Impact — tech / architecture.** Handler and cloud-path defects can pass the unit gate.
+
+**Impact — functional / business.** Cloud-only regressions reach users who are all in cloud mode.
+
+**Effort.** M.
+
+**Possible solution approaches.**
+- A `deno test` CI job that exercises the Edge Functions under their real import graph.
+- A separate cloud-mode Vitest project with mocked transport and the Supabase env set.
+- Keep leaning on Lane B (vyact-test) for RLS, constraints and real RPC behaviour.
+
+**Acceptance.** Edge Functions are tested under Deno in CI; at least the store write paths are
+covered in cloud mode.
+
+---
+
+## TD-33 — Consumer deploy raced the Edge Functions deploy
+
+**Description.** In `.github/workflows/deploy.yml` both `consumer` and `deploy-edge-functions` needed
+only `db-migrations`, so they ran in parallel. A consumer calling a new function action could go live
+before the function did — v10.22.2's WhatsApp `status`/`unlink` actions were the first real case,
+failing soft as a "could not load WhatsApp link status" toast.
+
+**Effort.** XS.
+
+**Resolution (2026-09-10).** The `consumer` job now `needs: [db-migrations, deploy-edge-functions]`.
+If the functions fail to deploy, the consumer that depends on them does not ship.
+
+---
+
+## TD-34 — `pg_trgm` installed in `public`
+
+**Description.** The `pg_trgm` extension lives in the `public` schema (Supabase advisor
+`extension_in_public`). It was deliberately deferred in v10.22.0: the `gin_trgm_ops` indexes resolve
+the operator class through the search path, so moving the extension naively can break index use or
+creation.
+
+**Impact — tech / architecture.** Extension objects share the application schema.
+
+**Effort.** S.
+
+**Possible solution approaches.**
+- Create an `extensions` schema, `ALTER EXTENSION pg_trgm SET SCHEMA extensions`, and schema-qualify
+  the operator class in every trigram index definition; verify with `get_advisors` and query plans.
+
+**Acceptance.** The advisor warning is gone and every trigram index is still used.
+
+---
+
+## TD-35 — Remaining audit release blockers
+
+**Description.** From the 2026-09 audit, still open after the v10.22.x releases:
+- **Historical loan repair** — loan balances written before the corrected `record_loan_payment`
+  contract have not been re-derived.
+- **Webhook inbox recovery** — failed `whatsapp_inbound_messages` rows have no retry or replay path.
+- **Ownerless outbox recovery** — outbox entries whose owner is unknown are quarantined, but nothing
+  resolves or surfaces them.
+
+(Full browser coverage, the fourth, is TD-29; atomic reversal is TD-31.)
+
+**Impact — functional / business.** Stale loan figures, WhatsApp messages that are silently never
+logged, and unsynced local writes that never reach the cloud.
+
+**Effort.** M.
+
+**Possible solution approaches.** A repair migration with before/after assertions for loans; a
+replay job for failed inbox rows; a surfaced recovery flow for quarantined outbox entries.
+
+**Acceptance.** Each has a tested recovery path and is verified against production data.
+
+---
+
 ## Remediation log
 
 Chronological record of remediation PRs against this register. Each row pins to the merge commit's automation run report (governance: [`docs/TEST_GOVERNANCE.md`](docs/TEST_GOVERNANCE.md)).
 
 | Date | PR | Scope | Items addressed |
 |---|---|---|---|
+| 2026-09-10 | R0 (v10.22.x close-out) | **Parked the test-hardening residue before the Accounts redesign.** Filed TD-29 (Lane A: 53 failures across 14 files, per-file counts from the post-v10.22.3 run), TD-30 (Vitest never type-checks unit tests), TD-31 (spec INV-7 atomicity untested — Postgres-RPC direction agreed), TD-32 (edge handlers on npm `supabase-js`; no cloud-mode unit coverage), TD-34 (`pg_trgm` in `public`), TD-35 (loan repair / webhook inbox / ownerless outbox). TD-19's note corrected: Lane B now runs green with RLS isolation. Fixed TD-33 in the same change: `deploy.yml`'s `consumer` job needed only `db-migrations`, so it deployed in parallel with the Edge Functions; it now also needs `deploy-edge-functions`. | Opens **TD-29…TD-32, TD-34, TD-35**. Closes **TD-33**. |
 | 2026-05-23 | #1 | **ESLint floor** in `react/` and `admin/`. `npm run lint` now runs `eslint .` (flat config, `react-hooks` plugin, typescript-eslint recommended); `tsc --noEmit` preserved as `npm run typecheck`. Gate updated to run both. | Closes **Finding N2** of the 2026-05-22 assessment (no real linter anywhere). Surfaces pre-existing `exhaustive-deps` / `no-unused-vars` / `no-explicit-any` violations as warnings — these are the future-PR debt that the gate will ratchet to errors as TD-05/TD-12 and related items land. Real bug found and fixed: short-circuit-as-statement in [`Households.tsx:304`](react/src/pages/Households.tsx:304). |
 | 2026-05-23 | #2 | **Test Scenarios master catalog + per-scenario audit evidence.** New [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) is the regression-managed master copy of every automated test scenario (56 today). New [`scripts/test-scenarios-check.mjs`](scripts/test-scenarios-check.mjs) CI gate refuses code↔doc drift. Admin Vitest scaffold added with 11 ID-tagged unit tests (`ADM-UNIT-001..011`) covering `slugify` + `rowToArticle`. All 43 existing consumer tests retitled with their TS IDs. `scripts/automation-run.mjs` rewritten so every run's `report.md` and `summary.json` carry per-app pass/fail counts, full failure details (message + stack), and a complete pass register for audit. | Closes **Finding N1** of the 2026-05-22 assessment (admin had zero tests). Establishes regression discipline for the whole test pyramid. Real edge-case bug surfaced (not fixed in this PR): `slugify('!!! ??? @@@')` returns `'-'` instead of `''`. |
 | 2026-05-23 | #3 | **Transactions list virtualization** (handed off to a developer per the handoff protocol). Wraps the Transactions list in `@tanstack/react-virtual`; `data-testid="txn-row"` added on `TxnRow`. No visible UI change. DOM node count is O(viewport) even at 10 000+ rows. | Closes **TD-17**. **Review note:** the submitted patch placed `useRef` / `useVirtualizer` inside JSX (Rules-of-Hooks violation + TS compile error); hoisted to the function body before merge. |
