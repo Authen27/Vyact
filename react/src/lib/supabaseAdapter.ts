@@ -7,7 +7,7 @@ import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
   WithProvenance, Confidence, ProvenanceSource, RecurringSchedule,
-  RecordLoanPaymentCommand, RecordLoanPaymentResult,
+  RecordLoanPaymentCommand, RecordLoanPaymentResult, AccountDependencies, AccountMoveResult,
 } from '../types';
 import type { DataAdapter, Entity } from './dataAdapter';
 import { parseMoneyFromCloud } from './money';
@@ -123,6 +123,11 @@ interface AccountRow extends ProvenanceRowCols {
   opening_balance?: number | null;            // Money-Model B1.2
   reconciliation_offset?: number | null;      // v9 D2
   reconciliation_log?: unknown[] | null;      // v9 D2 quiet log
+  payment_modes?: string[] | null;            // v10.24.0 (R2)
+  credit_limit?: number | null;               // v10.24.0 (R2) — cards only
+  billing_cycle_day?: number | null;
+  payment_due_day?: number | null;
+  last_reconciled_at?: string | null;
   created_at: string; updated_at: string; deleted_at: string | null;
 }
 
@@ -390,6 +395,14 @@ const accountToRow = (a: Partial<Account>, hid: string): Partial<AccountRow> => 
   // Audit F2 — explicit debt link. Conditional for the same reason as the
   // financial fields above: a metadata-only patch must not erase it.
   if (a.debtId !== undefined) row.debt_id = a.debtId || null;
+  // v10.24.0 (R2) — conditional for the same reason: a patch that does not
+  // mention these must not erase them. payment_modes is NOT NULL with a DB
+  // default, so it is written only when present, never as null.
+  if (a.paymentModes !== undefined) row.payment_modes = a.paymentModes;
+  if (a.creditLimit !== undefined) row.credit_limit = a.creditLimit;
+  if (a.billingCycleDay !== undefined) row.billing_cycle_day = a.billingCycleDay;
+  if (a.paymentDueDay !== undefined) row.payment_due_day = a.paymentDueDay;
+  if (a.lastReconciledAt !== undefined) row.last_reconciled_at = a.lastReconciledAt;
   return row;
 };
 const rowToAccount = (r: AccountRow): Account => ({
@@ -404,9 +417,36 @@ const rowToAccount = (r: AccountRow): Account => ({
   openingBalance: r.opening_balance != null ? parseMoneyFromCloud(r.opening_balance) : 0,
   reconciliationOffset: r.reconciliation_offset != null ? parseMoneyFromCloud(r.reconciliation_offset) : 0,
   reconciliationLog: (r.reconciliation_log ?? []) as Account['reconciliationLog'],
+  paymentModes: (r.payment_modes ?? []) as Account['paymentModes'],
+  creditLimit: r.credit_limit != null ? parseMoneyFromCloud(r.credit_limit) : null,
+  billingCycleDay: r.billing_cycle_day ?? null,
+  paymentDueDay: r.payment_due_day ?? null,
+  lastReconciledAt: r.last_reconciled_at ?? null,
+  createdAt: r.created_at,
   updated_at: r.updated_at,
   ...rowToProv(r),
 });
+
+// v10.24.0 (R2) — the account RPCs refuse with a machine key in the message.
+// Translate it into something a customer can act on; anything unknown passes
+// through untouched rather than being guessed at.
+const ACCOUNT_RPC_ERRORS: Record<string, string> = {
+  account_in_use: 'This account has history attached — archive it, or move its history first.',
+  cash_account_protected: 'Cash in Hand cannot be deleted — every household keeps exactly one.',
+  system_account_protected: 'This is a system account and cannot be deleted.',
+  not_allowed: 'Only the household owner or an admin can delete accounts.',
+  unsettled_splits: 'A split on this account is not settled — settle or cancel it before moving its history.',
+  loan_history_attached: 'Loan payment history is attached to this account, so it cannot be moved.',
+  transfers_between_accounts: 'Transfers run between these two accounts — moving would turn them into transfers to itself.',
+  destination_different_group: 'History can only move to another account of the same type.',
+  destination_archived: 'Choose an active account to move the history to.',
+  same_account: 'Choose a different account to move the history to.',
+};
+function accountRpcError(error: { message?: string }): Error {
+  const message = error.message ?? '';
+  const key = Object.keys(ACCOUNT_RPC_ERRORS).find(k => message.includes(k));
+  return new Error(key ? ACCOUNT_RPC_ERRORS[key] : message || 'The account request failed');
+}
 
 const savedViewToRow = (v: Partial<SavedView>, hid: string): Partial<SavedViewRow> => ({
   id: v.id, household_id: hid,
@@ -756,6 +796,56 @@ export class SupabaseAdapter implements DataAdapter {
     const { data, error } = await this.sb.rpc('ensure_cash_account', { p_household: householdId });
     if (error) throw error;
     return data ? rowToAccount(data as AccountRow) : null;
+  }
+
+  /** v10.24.0 (R2) — what refers to an account, counted by the database. */
+  async accountDependencies(householdId: string, accountId: string): Promise<AccountDependencies> {
+    void householdId; // tenancy is derived from the account server-side
+    const { data, error } = await this.sb.rpc('account_dependencies', { p_account_id: accountId });
+    if (error) throw accountRpcError(error);
+    const r = (data ?? {}) as {
+      transactions?: { count?: number; total?: number | string; firstDate?: string | null; lastDate?: string | null;
+        groups?: { label?: string; count?: number; total?: number | string }[] };
+      recurring?: { id?: string; label?: string }[];
+      openSplits?: { id?: string; txnId?: string }[];
+      loanEvents?: number;
+    };
+    return {
+      accountId,
+      transactions: {
+        count: Number(r.transactions?.count ?? 0),
+        total: parseMoneyFromCloud(r.transactions?.total ?? 0),
+        firstDate: r.transactions?.firstDate ?? null,
+        lastDate: r.transactions?.lastDate ?? null,
+        groups: (r.transactions?.groups ?? []).map(g => ({
+          label: String(g.label ?? ''), count: Number(g.count ?? 0), total: parseMoneyFromCloud(g.total ?? 0),
+        })),
+      },
+      recurring: (r.recurring ?? []).map(x => ({ id: String(x.id), label: String(x.label ?? 'Recurring') })),
+      openSplits: (r.openSplits ?? []).map(x => ({ id: String(x.id), txnId: String(x.txnId) })),
+      loanEvents: Number(r.loanEvents ?? 0),
+    };
+  }
+
+  /** v10.24.0 (R2) — tombstones the account; the database refuses while anything refers to it. */
+  async deleteAccountGuarded(householdId: string, accountId: string): Promise<void> {
+    void householdId;
+    const { error } = await this.sb.rpc('delete_account', { p_account_id: accountId });
+    if (error) throw accountRpcError(error);
+  }
+
+  /** v10.24.0 (R2) — moves every transaction and schedule, folds the balance, deletes; one transaction. */
+  async moveAccountAndDelete(householdId: string, fromId: string, toId: string): Promise<AccountMoveResult> {
+    void householdId;
+    const { data, error } = await this.sb.rpc('move_account_and_delete', { p_from: fromId, p_to: toId });
+    if (error) throw accountRpcError(error);
+    const r = (data ?? {}) as { transactions?: number; schedules?: number; folded?: number | string };
+    return {
+      status: 'moved',
+      transactions: Number(r.transactions ?? 0),
+      schedules: Number(r.schedules ?? 0),
+      folded: parseMoneyFromCloud(r.folded ?? 0),
+    };
   }
 
   // ── domain CRUD ────────────────────────────────────────────

@@ -273,6 +273,14 @@ export interface Asset extends WithProvenance {
 // credit_card and loan are liabilities (negative to net worth).
 export type AccountKind = 'cash' | 'bank' | 'credit_card' | 'investment' | 'loan';
 
+/** v10.24.0 (R2) — how money moves through an account. Bank accounts use the
+ *  first five, cards the next four, Cash in Hand only `cash`. The set is
+ *  enforced by `ck_account_payment_modes`. */
+export type PaymentMode =
+  | 'upi' | 'debit_card' | 'net_banking' | 'cheque' | 'auto_debit'
+  | 'swipe' | 'upi_on_card' | 'online' | 'standing_instruction'
+  | 'cash';
+
 export interface Account extends WithProvenance {
   id: string;
   /** Legacy back-link to the asset this account was synthesised from. Set
@@ -298,6 +306,19 @@ export interface Account extends WithProvenance {
   reconciliationOffset?: number;
   /** v9 D2 — dated audit trail of reconciliations; shown in account history only. */
   reconciliationLog?: ReconciliationEntry[];
+  /** v10.24.0 (R2) — the payment modes used on this account. */
+  paymentModes?: PaymentMode[];
+  /** v10.24.0 (R2) — credit cards only. Outstanding, available and utilisation
+   *  are DERIVED from this and the ledger balance (lib/accountsView.ts); none of
+   *  them is stored, so none can drift. `null` clears the value. */
+  creditLimit?: number | null;
+  billingCycleDay?: number | null;
+  paymentDueDay?: number | null;
+  /** v10.24.0 (R2) — the last check against a statement, drift or not. Clears
+   *  "not reconciled in N days" even when nothing needed correcting. */
+  lastReconciledAt?: string | null;
+  /** Row creation time (cloud). A never-reconciled account is judged stale from here. */
+  createdAt?: string;
   updated_at?: string;
 }
 
@@ -305,8 +326,38 @@ export interface Account extends WithProvenance {
 export interface ReconciliationEntry {
   at: string;                    // ISO timestamptz
   delta: number;
-  kind: 'bank' | 'investment';
+  /** 'merge' (v10.24.0) records a balance folded in when another account's
+   *  history was moved here before that account was deleted. */
+  kind: 'bank' | 'investment' | 'credit_card' | 'merge';
   stated_value: number | null;
+  note?: string;
+}
+
+/** v10.24.0 (R2) — what refers to an account. Built by the
+ *  `account_dependencies` RPC in cloud mode, or from the store locally. */
+export interface AccountDependencies {
+  accountId: string;
+  transactions: {
+    count: number;
+    total: number;
+    firstDate: string | null;
+    lastDate: string | null;
+    /** The busiest descriptions (or categories), most transactions first. At most 3. */
+    groups: { label: string; count: number; total: number }[];
+  };
+  recurring: { id: string; label: string }[];
+  /** Shared splits on this account's transactions that are not yet closed. */
+  openSplits: { id: string; txnId: string }[];
+  loanEvents: number;
+}
+
+/** v10.24.0 (R2) — result of moving an account's history, then deleting it. */
+export interface AccountMoveResult {
+  status: 'moved';
+  transactions: number;
+  schedules: number;
+  /** The source's opening balance + offset, carried into the destination. */
+  folded: number;
 }
 
 export type SavedViewPage = 'transactions' | 'reports' | 'insights';

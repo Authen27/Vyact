@@ -55,6 +55,7 @@ export default function Transactions() {
   const budgets     = useStore(s => s.budgets);
   const budgetAllocations = useStore(s => s.budgetAllocations);
   const debts       = useStore(s => s.debts);
+  const accountsList = useStore(s => s.accounts);
 
   // v7.4.4 — deep-link from Dashboard cards (?type=income/expense, ?cat=foo).
   const [searchParams, setSearchParams] = useSearchParams();
@@ -84,7 +85,7 @@ export default function Transactions() {
   // user changes — but ONLY when no v9.1 §8 context param is present (budgetId /
   // debtId / month / from / to drive a live context chip and must persist).
   useEffect(() => {
-    const hasCtx = ['budgetId','debtId','month','from','to'].some(k => searchParams.get(k));
+    const hasCtx = ['budgetId','debtId','accountId','month','from','to'].some(k => searchParams.get(k));
     if (!hasCtx && (searchParams.get('type') || searchParams.get('cat'))) {
       const next = new URLSearchParams(searchParams);
       next.delete('type'); next.delete('cat');
@@ -130,8 +131,16 @@ export default function Transactions() {
     } else if (from || to) {
       label = `${from ?? '…'} → ${to ?? '…'}`;
     }
-    return { budgetId, debtId, from, to, cats, label };
-  }, [searchParams, budgets, budgetAllocations, debts]);
+    // v10.24.0 (R2) — ?accountId=… is the reconcile sheet's "let me find the
+    // missing spend": that account's transactions, optionally narrowed to a card's
+    // statement window by from/to. It composes with a date range.
+    const accountId = searchParams.get('accountId');
+    if (accountId) {
+      const name = accountsList.find(a => a.id === accountId)?.name ?? 'account';
+      label = `Account: ${name}${from || to ? ` · ${from ?? '…'} → ${to ?? '…'}` : ''}`;
+    }
+    return { budgetId, debtId, accountId, from, to, cats, label };
+  }, [searchParams, budgets, budgetAllocations, debts, accountsList]);
 
   const filtered = useMemo<TransactionListItem[]>(() => {
     let f = [...txns];
@@ -146,6 +155,7 @@ export default function Transactions() {
     if (ctx.cats) f = f.filter(t => ctx.cats!.has(t.category));
     if (ctx.debtId) f = f.filter(t =>
       t.debtId === ctx.debtId || t.emiSplit?.debt_id === ctx.debtId || t.linkedDebtId === ctx.debtId);
+    if (ctx.accountId) f = f.filter(t => t.accountId === ctx.accountId || t.toAccountId === ctx.accountId);
     if (search) {
       const q = search.toLowerCase();
       f = f.filter(t =>

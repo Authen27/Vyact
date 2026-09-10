@@ -27,10 +27,26 @@ interface Props {
   footer?: ReactNode;
   /** 'sheet' = mobile bottom-sheet / desktop dialog; 'modal' = always centered. */
   variant?: 'sheet' | 'modal';
+  /** Desktop width. 'md' (default) is the compact form sheet; 'lg' and 'xl'
+   *  fit two-column dialogs (v10.24.0 Accounts edit / delete guard). Mobile is
+   *  always full width. */
+  size?: 'md' | 'lg' | 'xl';
 }
 
+// Whole class strings (not interpolated fragments) so Tailwind's scanner sees them.
+const SHEET_WIDTH: Record<NonNullable<Props['size']>, string> = {
+  md: 'sm:max-w-md',
+  lg: 'sm:max-w-[840px]',
+  xl: 'sm:max-w-[900px]',
+};
+const MODAL_WIDTH: Record<NonNullable<Props['size']>, string> = {
+  md: 'max-w-md',
+  lg: 'max-w-[840px]',
+  xl: 'max-w-[900px]',
+};
+
 export default function AccessibleDialog({
-  open, onClose, title, ariaLabel, children, footer, variant = 'sheet',
+  open, onClose, title, ariaLabel, children, footer, variant = 'sheet', size = 'md',
 }: Props) {
   const isSheet = variant === 'sheet';
   const opener = useRef<HTMLElement | null>(null);
@@ -54,8 +70,8 @@ export default function AccessibleDialog({
           asChild={false}
           className={
             isSheet
-              ? 'fixed z-[201] inset-x-0 bottom-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full sm:max-w-md glass-panel rounded-t-r4 sm:rounded-r4 max-h-[92dvh] sm:max-h-[90vh] flex flex-col outline-none'
-              : 'fixed z-[201] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md glass-panel rounded-r4 max-h-[90vh] flex flex-col outline-none'
+              ? `fixed z-[201] inset-x-0 bottom-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full ${SHEET_WIDTH[size]} glass-panel rounded-t-r4 sm:rounded-r4 max-h-[92dvh] sm:max-h-[90vh] flex flex-col outline-none`
+              : `fixed z-[201] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full ${MODAL_WIDTH[size]} glass-panel rounded-r4 max-h-[90vh] flex flex-col outline-none`
           }
         >
           <motion.div variants={sheetUp} initial={false} animate="visible" exit="exit" className="flex flex-col min-h-0 max-h-full">

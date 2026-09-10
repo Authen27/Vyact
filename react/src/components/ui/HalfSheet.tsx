@@ -19,9 +19,11 @@ interface Props {
   children: ReactNode;
   /** Optional sticky footer (primary action row) that never scrolls away. */
   footer?: ReactNode;
+  /** Desktop width — see AccessibleDialog. */
+  size?: 'md' | 'lg' | 'xl';
 }
 
-export default function HalfSheet({ open, onClose, title, ariaLabel, children, footer }: Props) {
+export default function HalfSheet({ open, onClose, title, ariaLabel, children, footer, size }: Props) {
   return (
     <AccessibleDialog
       open={open}
@@ -30,6 +32,7 @@ export default function HalfSheet({ open, onClose, title, ariaLabel, children, f
       ariaLabel={ariaLabel}
       footer={footer}
       variant="sheet"
+      size={size}
     >
       {children}
     </AccessibleDialog>

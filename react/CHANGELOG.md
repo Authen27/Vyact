@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.23.0`** (consumer)
+> **Current production version: `v10.24.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,74 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.24.0 — the Accounts redesign: Bank | Credit Card, reconcile everywhere, and a delete the database guards *(2026-09-10)*
+
+Accounts redesign, release 2 of 4. Requirements 2, 3, 4, 6 and the Investment/Loan half of 7.
+
+### The screen
+
+Accounts now holds the accounts a transaction can be paid from, in two groups — **Bank** (Cash in Hand
+included) and **Credit Card** — each with a count and subtotal, under a summary that leads with
+**Spendable now** (what the Bank group holds minus what the cards owe). Loans and investments are linked
+out to Debts and Net Worth. A balance not checked against a statement for more than 30 days says
+*"not reconciled in N days"* in words, replacing the dashed `est` badge. Desktop gains a *Needs your
+attention* rail and a household-currency panel. The screen is no longer behind the `money_map` flag.
+
+### The form — type first
+
+Two tabs. **Bank:** name, current balance, payment modes. **Credit card:** name, total credit limit,
+available limit now, billing-cycle day, payment-due day, payment modes. **Outstanding and utilisation
+are calculated live and never asked for.** Only the limit and the cycle days are stored: the available
+limit seeds the opening balance once, and from then on every card figure is derived from the limit and
+the ledger (`lib/accountsView.ts`), so none of them can drift. On edit the balance is shown as the ledger
+computes it, with Reconcile beside it — never typed over.
+
+### Reconcile, on every account
+
+One sheet: a bank against its statement **balance**, a card against its statement **outstanding**. On
+drift, choose *Post an adjustment* or *Let me find the missing spend* (opens that account's transactions,
+narrowed to the card's statement window). **A reconcile still never writes a transaction** — the
+adjustment is the account's offset plus a dated log entry, shown in its ledger and never inside a spend
+total. Confirming a balance that already matches now stamps `last_reconciled_at`, so the stale state
+clears without a fabricated entry.
+
+### Delete — counted first, decided by the database
+
+- **Nothing attached:** a short confirm and the account is gone.
+- **History attached:** permanent delete is blocked. **Archive** is preselected and recommended;
+  **Move, then delete** re-tags every transaction and schedule to another account of the *same type*
+  and folds the source's opening balance and offset into it — one database transaction, in which no
+  balance, category total or net worth moves. An unsettled split blocks the move.
+- Cash in Hand is never deleted or moved. Owners and admins only.
+
+`account_dependencies`, `delete_account` and `move_account_and_delete` are SECURITY DEFINER with `anon`
+revoked. Local-only mode applies the same rules against the store.
+
+### Fixed on the way
+
+- **Two ★ default accounts.** Local-only mode created Cash in Hand as the default even when the household
+  already had one, and marking a new default never cleared the old one outside the database trigger — so
+  the cache showed two until the next refresh. The store now keeps exactly one, matching
+  `ensure_cash_account` and `accounts_single_default`.
+- **Account rows invisible on arrival.** Rows mounting after hydration inherited an entrance animation
+  that had already settled and stayed at opacity 0. Each row now animates itself in.
+
+### Safety
+
+Validated against production data in a rolled-back transaction before release: deleting an account with
+20 transactions refused (`account_in_use`); deleting Cash refused; a household member refused; an empty
+account deleted; a bank→card move refused; a real card→card move re-tagged 2 transactions with the
+household total balance (₹12,12,911.90) and every category total identical before and after; card
+fields on a bank account rejected by constraint; `anon` denied on all three functions. Existing accounts
+get default payment modes (bank: UPI, debit card, net banking · card: swipe, online · cash: cash).
+New unit and store-workflow tests pin the README's four invariants — reconcile moves no spend or income;
+a move leaves every category total and the household total unchanged; deleting an unreferenced account
+changes no number; archiving alters no report.
+
+_Migration: `20260910150000_r2_accounts_card_metadata_delete_guard.sql`._
 
 ---
 
