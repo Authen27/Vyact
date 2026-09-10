@@ -14,14 +14,25 @@
 // - Hard delete remains available (cloud table soft-deletes server-side via
 //   the adapter's `remove`); use it only when the user explicitly wants to
 //   wipe a never-used account.
+//
+// v10.23.0 (R1) — three rules changed:
+// - NO CURRENCY FIELD. Currency is a household setting (Settings ▸ Language &
+//   currency) that every account inherits; the database enforces it with a
+//   trigger, so a per-account picker could only ever disagree with the truth.
+// - Only BANK and CREDIT CARD can be created here. Cash in Hand is one
+//   system-managed account per household (a DB unique index guarantees it);
+//   loan accounts are system-only EMI principal legs; investments are moving
+//   to Net Worth. An existing account of those kinds can still be renamed, but
+//   its kind is shown fixed.
+// - Cash in Hand cannot be deleted — cash spend and income need somewhere to
+//   post, and a second one would double-count every cash transaction.
 
 import { useEffect, useState } from 'react';
 import HalfSheet from '../ui/HalfSheet';
 import Button from '../ui/Button';
-import { Input, Select, Field, FieldRow } from '../ui/Input';
+import { Input, Select, Field } from '../ui/Input';
 import { useStore } from '../../store';
 import { uid } from '../../lib/format';
-import { CURRENCIES } from '../../constants';
 import type { Account, AccountKind } from '../../types';
 
 interface Props {
@@ -33,31 +44,33 @@ interface Props {
 interface FormState {
   kind: AccountKind;
   name: string;
-  currency: string;
   isDefault: boolean;
   isArchived: boolean;
 }
 
-// v9 txn-redesign §2.2 — strict kind enum. credit_card and loan are liabilities.
-const KINDS: { key: AccountKind; label: string }[] = [
+// The kinds a customer can CREATE. Everything else is system-managed.
+const CREATABLE_KINDS: { key: AccountKind; label: string }[] = [
   { key: 'bank',        label: 'Bank' },
-  { key: 'cash',        label: 'Cash' },
   { key: 'credit_card', label: 'Credit card' },
-  { key: 'investment',  label: 'Investment' },
-  { key: 'loan',        label: 'Loan' },
 ];
 
-const blank = (currency: string): FormState => ({
+const KIND_LABEL: Record<AccountKind, string> = {
+  bank: 'Bank',
+  credit_card: 'Credit card',
+  cash: 'Cash in Hand',
+  investment: 'Investment',
+  loan: 'Loan',
+};
+
+const blank = (): FormState => ({
   kind: 'bank',
   name: '',
-  currency,
   isDefault: false,
   isArchived: false,
 });
 
 export default function AccountFormModal(props: Props) {
   const profile       = useStore(s => s.profile);
-  const accounts      = useStore(s => s.accounts);
   const upsertAccount = useStore(s => s.upsertAccount);
   const removeAccount = useStore(s => s.removeAccount);
   const toast         = useStore(s => s.toast);
@@ -69,16 +82,14 @@ export default function AccountFormModal(props: Props) {
   const initial      = props.initial ?? storeInitial;
   const onClose      = props.onClose ?? storeClose;
 
-  const [form, setForm]     = useState<FormState>(blank(profile.baseCurrency));
+  const [form, setForm]     = useState<FormState>(blank());
   const [saving, setSaving] = useState(false);
 
-  // Exactly one Cash account per household (see crudSlice `upsertAccount` for
-  // why — a second one double-counts every cash transaction). Hide the kind
-  // whenever a DIFFERENT account already holds it, whether adding new or
-  // switching an existing account's kind; keep it selectable when editing the
-  // household's actual cash account.
-  const hasOtherCash = accounts.some(a => a.kind === 'cash' && a.id !== initial?.id);
-  const kinds = KINDS.filter(k => k.key !== 'cash' || !hasOtherCash);
+  // An existing cash / loan / investment account keeps its kind: none of those
+  // can be created from here, so switching an account INTO one must not be
+  // possible either, and switching one OUT would orphan what depends on it.
+  const kindLocked = !!initial && !CREATABLE_KINDS.some(k => k.key === initial.kind);
+  const isCash = initial?.kind === 'cash';
 
   useEffect(() => {
     if (!open) return;
@@ -86,14 +97,13 @@ export default function AccountFormModal(props: Props) {
       setForm({
         kind: initial.kind,
         name: initial.name,
-        currency: initial.currency,
         isDefault: !!initial.isDefault,
         isArchived: !!initial.isArchived,
       });
     } else {
-      setForm(blank(profile.baseCurrency));
+      setForm(blank());
     }
-  }, [open, initial, profile.baseCurrency]);
+  }, [open, initial]);
 
   async function save() {
     if (!form.name.trim()) { toast('Name is required', 'error'); return; }
@@ -107,7 +117,8 @@ export default function AccountFormModal(props: Props) {
         assetId: initial?.assetId,
         kind: form.kind,
         name: form.name.trim(),
-        currency: form.currency,
+        // No currency: upsertAccount stamps the household currency, and the
+        // database trigger overrides anything else that arrives.
         isDefault: form.isDefault,
         isArchived: form.isArchived,
         updated_at: initial?.updated_at,
@@ -123,7 +134,7 @@ export default function AccountFormModal(props: Props) {
   }
 
   async function del() {
-    if (!initial) return;
+    if (!initial || isCash) return;
     if (!confirm('Delete this account? Transactions linked to it will keep their history but lose the link.')) return;
     try {
       await removeAccount(initial.id);
@@ -136,7 +147,7 @@ export default function AccountFormModal(props: Props) {
 
   const footer = (
     <div className="flex items-center justify-between gap-2">
-      {initial ? (
+      {initial && !isCash ? (
         <button
           type="button"
           onClick={del}
@@ -156,29 +167,26 @@ export default function AccountFormModal(props: Props) {
 
   return (
     <HalfSheet open={open} title={initial ? 'Edit Account' : 'Add Account'} onClose={onClose} footer={footer}>
-      <FieldRow>
-        <Field label="Kind">
+      <Field label="Kind">
+        {kindLocked ? (
+          <div className="input flex items-center text-ink-mid" aria-readonly="true">
+            {KIND_LABEL[form.kind]}
+          </div>
+        ) : (
           <Select
             value={form.kind}
             onChange={e => setForm(f => ({ ...f, kind: e.target.value as AccountKind }))}
           >
-            {kinds.map(k => (
+            {CREATABLE_KINDS.map(k => (
               <option key={k.key} value={k.key}>{k.label}</option>
             ))}
           </Select>
-        </Field>
-        <Field label="Currency">
-          <Select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}>
-            {Object.entries(CURRENCIES).map(([code, c]) => (
-              <option key={code} value={code}>{c.symbol} {code}</option>
-            ))}
-          </Select>
-        </Field>
-      </FieldRow>
+        )}
+      </Field>
 
       {/* Net Worth reads every cash/bank/investment account's LIVE balance
           directly (lib/accountBalance.ts liveAssetRows) — no backing Asset
-          needed, so this is honest for every kind, not just investment. */}
+          needed, so this is honest for every asset-side kind. */}
       {form.kind !== 'credit_card' && form.kind !== 'loan' && (
         <p className="-mt-1 mb-1 text-[0.7rem] text-sage leading-snug">
           {form.kind === 'investment' ? '📈' : '💰'} This counts toward your <strong>Net Worth</strong> total.
@@ -190,9 +198,14 @@ export default function AccountFormModal(props: Props) {
           autoFocus
           value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          placeholder="e.g. Chase Checking"
+          placeholder={form.kind === 'credit_card' ? 'e.g. HDFC Regalia' : 'e.g. HDFC Savings'}
         />
       </Field>
+
+      <p className="text-[0.72rem] text-ink-dim leading-snug">
+        Currency comes from your household — <strong>{profile.baseCurrency}</strong>. Change it in
+        Settings ▸ Language &amp; currency and every account follows.
+      </p>
 
       <div className="flex flex-col gap-2 pt-1">
         <label className="flex items-center gap-2 text-[0.86rem] text-ink-mid">
@@ -201,16 +214,18 @@ export default function AccountFormModal(props: Props) {
             checked={form.isDefault}
             onChange={e => setForm(f => ({ ...f, isDefault: e.target.checked }))}
           />
-          Default account for this currency
+          Default account — pre-fills Add Transaction
         </label>
-        <label className="flex items-center gap-2 text-[0.86rem] text-ink-mid">
-          <input
-            type="checkbox"
-            checked={form.isArchived}
-            onChange={e => setForm(f => ({ ...f, isArchived: e.target.checked }))}
-          />
-          Archived (hidden from pickers, history retained)
-        </label>
+        {!isCash && (
+          <label className="flex items-center gap-2 text-[0.86rem] text-ink-mid">
+            <input
+              type="checkbox"
+              checked={form.isArchived}
+              onChange={e => setForm(f => ({ ...f, isArchived: e.target.checked }))}
+            />
+            Archived (hidden from pickers, history retained)
+          </label>
+        )}
       </div>
 
     </HalfSheet>

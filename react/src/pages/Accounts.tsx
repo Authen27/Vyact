@@ -295,8 +295,10 @@ export default function Accounts() {
                 )}
                 <button className="font-mono text-[9px] tracking-wider uppercase text-ink-dim hover:text-ink"
                   onClick={() => openEditAccount(selectedAccount)}>Edit</button>
-                <button className="font-mono text-[9px] tracking-wider uppercase text-ink-dim hover:text-ink"
-                  onClick={() => toggleArchive(selectedAccount)}>Archive</button>
+                {selectedAccount.kind !== 'cash' && (
+                  <button className="font-mono text-[9px] tracking-wider uppercase text-ink-dim hover:text-ink"
+                    onClick={() => toggleArchive(selectedAccount)}>Archive</button>
+                )}
               </div>
             </div>
           )}
@@ -425,11 +427,14 @@ function AccountRow(props: {
             className="text-ink-dim hover:text-ink p-1 rounded hover:bg-bg3" aria-label="Edit account" title="Edit">
             <Pencil size={13} />
           </button>
-          <button type="button" onClick={onArchive}
-            className="text-ink-dim hover:text-ink p-1 rounded hover:bg-bg3"
-            aria-label={acc.isArchived ? 'Restore account' : 'Archive account'} title={acc.isArchived ? 'Restore' : 'Archive'}>
-            {acc.isArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-          </button>
+          {/* v10.23.0 — Cash in Hand is system-managed: never archived. */}
+          {acc.kind !== 'cash' && (
+            <button type="button" onClick={onArchive}
+              className="text-ink-dim hover:text-ink p-1 rounded hover:bg-bg3"
+              aria-label={acc.isArchived ? 'Restore account' : 'Archive account'} title={acc.isArchived ? 'Restore' : 'Archive'}>
+              {acc.isArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+            </button>
+          )}
         </div>
       </div>
 

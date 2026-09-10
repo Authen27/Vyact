@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.22.3**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.23.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -74,6 +74,19 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   (the single writer). Never put budget identity on the client. Create is online
   and raises `BUDGET_EXISTS`. A NOT-NULL column with a DB default is written as
   its default or **omitted**, never explicit `null` (`?? undefined`).
+- **Cash in Hand identity lives in the DB too (v10.23.0)** — exactly one live
+  cash account per household (`uq_account_cash_per_household`, archived
+  included), created only by `ensure_cash_account`. Every cash account encodes to
+  the same literal `'cash'` ledger key, so a second one double-counts every cash
+  transaction. **In cloud mode the store never inserts a cash account** — it asks
+  the RPC. The old client check read a store that had not hydrated yet and wrote
+  duplicates, in USD because `profile.baseCurrency` is `'USD'` until the profile
+  loads. Cash can be renamed but never deleted or archived.
+  **Account currency is the household's** — the form has no currency field; a
+  trigger stamps `households.base_currency` on every account write and a base
+  currency change relabels every account. One default account per household
+  (`uq_account_default_per_household`); marking a new default clears the old one
+  in the same statement.
 - **Global modals via store slots** — `{entity}ModalOpen`/`editing{Entity}` +
   `openAdd/openEdit/close`; mounted once in `App.tsx`; pages call the store action.
 - **Store is sliced (TD-25)** — `store/index.ts` is a thin composition root;

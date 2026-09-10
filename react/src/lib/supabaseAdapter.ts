@@ -746,6 +746,18 @@ export class SupabaseAdapter implements DataAdapter {
     };
   }
 
+  /**
+   * v10.23.0 (R1) — the household's ONE Cash in Hand, created server-side when
+   * absent (`ensure_cash_account`, idempotent on the unique index). Returns
+   * null only when the household has no cash account and the caller may not
+   * create one (a viewer).
+   */
+  async ensureCashAccount(householdId: string): Promise<Account | null> {
+    const { data, error } = await this.sb.rpc('ensure_cash_account', { p_household: householdId });
+    if (error) throw error;
+    return data ? rowToAccount(data as AccountRow) : null;
+  }
+
   // ── domain CRUD ────────────────────────────────────────────
   async list<T = unknown>(entity: Entity, householdId: string): Promise<T[]> {
     if (entity === 'members') {

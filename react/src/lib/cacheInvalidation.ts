@@ -33,8 +33,13 @@ import { kvPurgeWhere } from './kvStore';
  * v10.20.7 — the recurring reset. Devices carry schedules that never reached the
  * cloud (non-UUID ids, rejected with 22P02) and would otherwise be re-uploaded
  * by the next sync, undoing the server-side cleanup.
+ *
+ * v10.23.0 — the Accounts R1 reset. The server tombstoned duplicate Cash in
+ * Hand rows and moved every account onto its household currency; a device
+ * still caching the old rows would re-upload the duplicates (and their USD
+ * currency) on the next sync.
  */
-export const CACHE_EPOCH = 'v10.20.8';
+export const CACHE_EPOCH = 'v10.23.0';
 
 const OWNER_KEY = 'cache_owner_uid';
 const EPOCH_KEY = 'cache_epoch';
