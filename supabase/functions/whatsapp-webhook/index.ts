@@ -78,8 +78,8 @@ Deno.serve(async (req: Request) => {
   for (const entry of (payload as any)?.entry ?? []) {
     for (const change of entry?.changes ?? []) {
       const value = change?.value;
-      const phone = (value?.contacts?.[0]?.wa_id ?? '').replace(/[^\d]/g, '');
       for (const message of value?.messages ?? []) {
+        const phone = String(message?.from ?? value?.contacts?.[0]?.wa_id ?? '').replace(/[^\d]/g, '');
         if (message?.id) incoming.push({ message, phone });
       }
     }

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import AuthGate from './components/AuthGate';
 import { useAdminStore } from './store';
+import { canAccessPage } from './lib/permissions';
 
 // Audit 7.3 — route-level code splitting. Every page was eagerly imported, so
 // the whole admin bundle (incl. the chart-heavy Intelligence and the Content
@@ -38,13 +39,7 @@ function AppShell() {
 
   // Role-based route gating: each role sees only the pages it's allowed.
   // PRD §07 — Super (everything), Roles (user mgmt only), Content (articles only).
-  const can = (page: string): boolean => {
-    if (page === 'help')        return true;   // help is open to everyone
-    if (role === 'super')       return true;
-    if (role === 'roles')       return ['dashboard','users','households','audit','intelligence'].includes(page);
-    if (role === 'content')     return ['dashboard','content','intelligence'].includes(page);
-    return false;
-  };
+  const can = (page: string): boolean => canAccessPage(role, page);
 
   return (
     <Layout>

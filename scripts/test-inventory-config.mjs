@@ -1,0 +1,34 @@
+const consumer = 'react/src/lib/__tests__/';
+const admin = 'admin/src/lib/__tests__/';
+const group = (feature, availability, layer, files, owner) => ({ feature, availability, layer, owner,
+  files: files.map(file => `${consumer}${file}.test.ts`) });
+
+export const groups = [
+  group('Money model', 'available', 'unit', ['money', 'moneyModel.engines', 'moneyModel.invariants', 'moneyModel.regression', 'calculations', 'amortization', 'netWorthProjection', 'fxCentralization', 'pulseBudget'], 'calculations / money / netWorth / amortization'),
+  group('Categories and ordering', 'available', 'unit', ['categoryModel', 'ordering'], 'constants / categorization / ordering'),
+  group('Formatting and structured content', 'available', 'unit', ['format', 'learnJsonLd'], 'format / learnJsonLd'),
+  group('Recurring and budgets', 'available', 'unit', ['recurring', 'rrule', 'v91'], 'recurring / rrule / calculations'),
+  group('Onboarding', 'available', 'unit', ['onboarding', 'onboardingWiring', 'onboardingWorkflow'], 'onboarding / wireOnboardingToMoney'),
+  group('Reports, Planner, Insights, notifications', 'available', 'unit', ['featureOutputs'], 'calculations / evaluateRecommendations / buildInsightFeed / notifications'),
+  group('Permissions and faults', 'available', 'unit', ['permissionsRole', 'faults'], 'permissions / faults'),
+  group('Cloud adapter contracts', 'conditional', 'contract-unit', ['accountPatchSafety', 'supabaseAdapter', 'loanPayment', 'cloudTransport'], 'SupabaseAdapter / askVyactModelCall / whatsappLink'),
+  group('Shared splits', 'conditional', 'contract-unit', ['sharedSplitsWorkflow'], 'sharedSplits'),
+  group('Authentication and invitations', 'conditional', 'contract-unit', ['authTransport'], 'auth'),
+  group('Outbox algorithm', 'available', 'unit', ['outbox'], 'sync/outbox (MemoryDriver)'),
+  group('Storage and synchronization', 'available', 'storage-integration', ['storage', 'sync', 'cacheInvalidation', 'cacheBoundary', 'outboxIndexedDb'], 'dataAdapter / kvStore / cacheInvalidation / HybridAdapter'),
+  group('Ledger and recurring workflows', 'available', 'store-integration', ['ledgerWorkflow', 'recurringApproval', 'loanPaymentWorkflow'], 'useStore / LocalStorageAdapter / IndexedDB'),
+  group('Session transitions', 'conditional', 'store-integration', ['sessionWorkflow'], 'cloudAuthSlice / cacheInvalidation / outbox'),
+  group('Loan SQL command', 'conditional', 'sql-integration', ['loanPaymentSql'], 'record_loan_payment migrations (focused PGlite fixture)'),
+  group('Ask Vyact', 'conditional', 'unit', ['askVyact', 'agentRouter'], 'runAssistant / router'),
+  group('Ask gateway', 'conditional', 'handler-integration', ['gatewayWorkflow'], 'ask-vyact/index.ts'),
+  group('WhatsApp parser', 'conditional', 'unit', ['whatsappParser'], 'whatsapp-parser'),
+  group('WhatsApp handlers', 'conditional', 'handler-integration', ['whatsappWorkflow'], 'whatsapp-webhook / whatsapp-verify-otp'),
+  group('Learned ingestion (not connected to entrypoints)', 'infrastructure', 'unit', ['agentAmbiguity', 'agentClassify', 'agentDedupe', 'agentGrammar', 'agentPipeline', 'agentRecipe', 'agentRecipeStore', 'agentResolver', 'agentValidator'], '_shared/agent ingestion modules'),
+  group('Server money port parity', 'infrastructure', 'unit', ['moneyPortParity'], '_shared/agent/tools / client money engines'),
+  { feature: 'Estimate provenance', availability: 'available', layer: 'unit', owner: 'estimatedTagCopy', files: ['react/src/components/ui/__tests__/estimatedTag.test.ts'] },
+  { feature: 'Admin content and permissions', availability: 'conditional', layer: 'unit', owner: 'rowToArticle / slugify / canAccessPage', files: ['contentApi', 'roleGating'].map(file => `${admin}${file}.test.ts`) },
+  { feature: 'Admin publication', availability: 'conditional', layer: 'contract-unit', owner: 'contentApi', files: [`${admin}contentWorkflow.test.ts`] },
+];
+
+export const optionalFiles = [`${consumer}askVyactLive.test.ts`];
+export const retiredIds = ['CON-UNIT-087', 'CON-UNIT-088', 'CON-UNIT-089', 'CON-UNIT-090', 'CON-UNIT-091', 'CON-UNIT-097', 'CON-UNIT-098'];

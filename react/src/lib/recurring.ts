@@ -184,213 +184,26 @@ export function advanceSchedule(schedule: RecurringSchedule): RecurringSchedule 
   };
 }
 
-// v7.3 — Backfill RecurringSchedule rows from legacy transactions whose
-// `recurring` field is set but never produced a schedule (e.g. txns added
-// before v7.0 mirrored every recurring row into a schedule, or rows
-// imported from another tool). The Recurring page and the Transactions
-// calendar both read from `recurringSchedules`, not `transaction.recurring`,
-// so without this backfill those legacy rows show up nowhere as future cost.
-export interface BackfillResult {
-  schedules: RecurringSchedule[];
-  added: number;
-}
-
-export function backfillSchedulesFromTransactions(
-  transactions: Transaction[],
-  existing: RecurringSchedule[],
-  now = today(),
-): BackfillResult {
-  const sigOf = (t: { type?: string; description?: string; recurring?: string; currency?: string }) =>
-    `${t.type ?? ''}|${(t.description ?? '').trim().toLowerCase()}|${t.recurring ?? ''}|${t.currency ?? ''}`;
-
-  const seen = new Set<string>();
-  for (const s of existing) {
-    seen.add(sigOf({
-      type: s.transactionTemplate.type,
-      description: s.transactionTemplate.description,
-      recurring: s.frequency === 'custom_day' ? 'monthly' : s.frequency,
-      currency: s.transactionTemplate.currency,
-    }));
-  }
-
-  const buckets = new Map<string, Transaction[]>();
-  for (const t of transactions) {
-    if (!t.recurring) continue;
-    if (t.split?.isSplit) continue;
-    if (t.category === 'transfer') continue;
-    const sig = sigOf(t);
-    if (seen.has(sig)) continue;
-    const arr = buckets.get(sig) ?? [];
-    arr.push(t);
-    buckets.set(sig, arr);
-  }
-
-  const added: RecurringSchedule[] = [];
-  for (const [, group] of buckets) {
-    const sorted = [...group].sort((a, b) => a.date.localeCompare(b.date));
-    const earliest = sorted[0];
-    const latest = sorted[sorted.length - 1];
-    const freq = earliest.recurring as RecurrenceFreq;
-    if (freq !== 'weekly' && freq !== 'monthly' && freq !== 'yearly') continue;
-
-    const [, , dd] = earliest.date.split('-').map(Number);
-    const dayOfMonth = freq === 'monthly' ? dd : undefined;
-    let nextDue = computeNextDueDate(freq, earliest.date, latest.date, dayOfMonth);
-    while (nextDue <= now) {
-      nextDue = computeNextDueDate(freq, earliest.date, nextDue, dayOfMonth);
-    }
-
-    const { id: _id, date: _date, ...template } = earliest;
-    void _id; void _date;
-    added.push({
-      // `bf-${earliest.id}` produced ids like `bf-6f0c…` — NOT a valid UUID,
-      // and `recurring_schedules.id` is a `uuid` column. Every backfilled
-      // schedule therefore failed its cloud write with 22P02 and lived only in
-      // the local cache, which is why that table is empty in production while
-      // schedules appear in the app.
-      //
-      // Deterministic rather than random: the same source transaction must
-      // always derive the same schedule id, so a device that re-runs the
-      // migration (or two devices running it independently) converge on one row
-      // instead of duplicating. Same primitive the recurring engine already
-      // uses for occurrence ids.
-      id: deterministicUuid(`vyact:recur:backfill:${earliest.id}`),
-      transactionTemplate: template,
-      frequency: freq,
-      dayOfMonth,
-      startDate: earliest.date,
-      nextDueDate: nextDue,
-      lastGenerated: latest.date,
-      autoConfirm: true,
-      active: true,
-      reminderLeadDays: 3,
-    });
-  }
-
-  return { schedules: [...existing, ...added], added: added.length };
-}
-
-
-// ── Legacy id re-key (v10.20.5) ──────────────────────────────────────────────
+// ── Retired writers (v10.22.2) ──────────────────────────────────────────────
 //
-// Two id generators in this app produced values that are NOT UUIDs:
+// `backfillSchedulesFromTransactions` (v7.3) and `rekeyLegacyRecurringIds`
+// (v10.20.5) were DELETED here, not merely unwired.
 //
-//   `bf-${txn.id}`                              — backfillSchedulesFromTransactions
-//   Date.now().toString(36) + Math.random()…     — recurringSlice.upsertRecurring
+// The backfill recreated a schedule from any transaction carrying a legacy
+// `recurring` field, which meant it could not tell a deliberate deletion from
+// a legacy gap: deleting a recurring schedule and reloading brought it back,
+// for roughly two years. It was unwired in v10.20.7 and its tests were removed
+// on 2026-09-09 — but it stayed exported, so nothing stopped a future caller
+// from importing a resurrection writer that no longer had a single test
+// holding it to its contract. An exported writer with no tests and no callers
+// is worse than either keeping it tested or deleting it.
 //
-// `recurring_schedules.id` is a `uuid` column, so every one of those cloud
-// writes died with 22P02 and the schedule lived only in that device's local
-// cache. Production held ZERO rows while the app showed a full list. Both
-// generators were fixed in v10.20.3; this migrates the rows they already made.
+// The re-key is retired for the same reason: it rewrote primary keys, and
+// shipping it without eviction is what produced the v10.20.5 duplicate rows.
+// Both migrations have long since run on every live device.
 //
-// WHY DETERMINISTIC, NOT RANDOM. Each device has its own local copy of the same
-// schedules. Random ids would mean device A uploads eleven rows and device B
-// uploads its own eleven — the duplicate-household pattern all over again.
-// Deriving the id from the schedule's CONTENT makes two devices holding the
-// same schedule compute the same id, so the upsert collapses them into one row.
-//
-// The transaction side matters as much: `transactions.recurring_schedule_id`
-// is an FK to this table, and `fkOrNull` in the adapter silently nulls any
-// non-UUID — so cloud transactions lost their schedule link entirely. Rewriting
-// the schedule id without remapping the transactions would leave that link
-// broken locally too, so both are remapped together.
-
-const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** True when an id is storable in a `uuid` column. */
-export const isStorableId = (id: string | undefined | null): boolean =>
-  !!id && UUID_SHAPE.test(id);
-
-/**
- * The stable identity of a schedule, independent of its id.
- *
- * Deliberately excludes anything that drifts as the engine runs — nextDueDate,
- * lastGenerated, startDate — so a schedule that has fired on one device still
- * derives the same id as the same schedule on a device that has not.
- */
-function scheduleSignature(s: RecurringSchedule): string {
-  const t = s.transactionTemplate;
-  return [
-    t?.type ?? '',
-    (t?.description ?? '').trim().toLowerCase(),
-    t?.currency ?? '',
-    String(t?.amount ?? ''),
-    s.frequency ?? '',
-    String(s.dayOfMonth ?? ''),
-    String(s.weekday ?? ''),
-  ].join('|');
-}
-
-export interface RekeyResult {
-  schedules: RecurringSchedule[];
-  transactions: Transaction[];
-  /** old id → new id, for callers that need to fix up anything else. */
-  remapped: Map<string, string>;
-  /**
-   * The ids that must be EVICTED from local storage.
-   *
-   * 🔴 Shipping this without eviction is what caused the v10.20.5 duplicates.
-   * Re-keying is not an update — the row's primary key changes, so writing the
-   * re-keyed schedule INSERTS a second row and leaves the original sitting in
-   * the cache under its old id. The next load listed both and every schedule
-   * appeared twice; deleting one of the pair left the other behind, which read
-   * as "delete doesn't work". The caller must remove these.
-   */
-  retiredIds: string[];
-}
-
-/**
- * Give every schedule whose id cannot be stored a deterministic UUID, and
- * repoint the transactions that referenced it.
- *
- * Pure and idempotent: a schedule that already has a valid UUID is untouched,
- * so running this twice changes nothing the second time.
- */
-export function rekeyLegacyRecurringIds(
-  schedules: RecurringSchedule[],
-  transactions: Transaction[],
-): RekeyResult {
-  const remapped = new Map<string, string>();
-
-  const rekeyed = schedules.map((s) => {
-    if (isStorableId(s.id)) return s;
-    const fresh = deterministicUuid(`vyact:recur:rekey:${scheduleSignature(s)}`);
-    remapped.set(s.id, fresh);
-    return { ...s, id: fresh };
-  });
-
-  // Collapse on id. The id is derived from the schedule's CONTENT, so two
-  // legacy rows describing the same schedule (the backfill could produce one
-  // per matching transaction) land on the same id — and returning both would
-  // re-create the very duplication this migration exists to end. Keep the one
-  // that has progressed furthest, so a schedule that has already fired is not
-  // rewound by an untouched twin.
-  const byId = new Map<string, RecurringSchedule>();
-  for (const s of rekeyed) {
-    const prior = byId.get(s.id);
-    if (!prior) { byId.set(s.id, s); continue; }
-    const better = (s.lastGenerated ?? '') > (prior.lastGenerated ?? '') ? s : prior;
-    byId.set(s.id, better);
-  }
-  const nextSchedules = [...byId.values()];
-
-  if (remapped.size === 0) {
-    return { schedules, transactions, remapped, retiredIds: [] };
-  }
-
-  const nextTransactions = transactions.map((t) => {
-    const to = t.recurringScheduleId ? remapped.get(t.recurringScheduleId) : undefined;
-    return to ? { ...t, recurringScheduleId: to } : t;
-  });
-
-  // Two legacy schedules can share a content signature and therefore collapse
-  // onto ONE new id — that is the intended convergence, not a fault. Retire
-  // every old key regardless; the survivor is keyed by the new id.
-  const retiredIds = [...remapped.keys()];
-
-  return { schedules: nextSchedules, transactions: nextTransactions, remapped, retiredIds };
-}
-
+// A delete is final. Do not reintroduce either function, and never add a
+// migration that RECREATES rows from other rows.
 
 // ── Occurrence calculus (v10.20.6) ──────────────────────────────────────────
 //
