@@ -70,6 +70,43 @@ export function computeAccountBalance(
   return Math.round(bal * 100) / 100;
 }
 
+/** v10.26.0 (R4) — an investment ASSET's live value, folded exactly like an
+ *  account: opening `value` + every buy into it − every withdrawal out of it +
+ *  the valuation offset. A buy carries `accountId` (the money left that account)
+ *  and `assetId`; a withdrawal carries `toAccountId` and `assetId`. Returned in
+ *  the asset's own currency. An asset nothing moves into and with no offset is
+ *  exactly its stated value, so every other asset type is unchanged. */
+export function computeAssetValue(asset: Asset, txns: Transaction[], rates: ExchangeRates): number {
+  let v = asset.value + (asset.valuationOffset ?? 0);
+  for (const t of txns) {
+    if (t.type !== 'investment' || t.assetId !== asset.id) continue;
+    const amt = effectiveAmount(t, asset.currency, rates);
+    if (t.accountId) v += amt;
+    else if (t.toAccountId) v -= amt;
+  }
+  return Math.round(v * 100) / 100;
+}
+
+/** v10.26.0 (R4) — "Update value" on an investment asset. The same D2 rule as
+ *  reconcileAccount: delta = stated − computed moves the valuation offset with a
+ *  dated log entry; the opening `value` and the transaction stream are untouched.
+ *  A value that already matches appends nothing. */
+export function reconcileAssetValue(
+  asset: Asset,
+  computedValue: number,
+  statedValue: number,
+): { patch: Pick<Asset, 'valuationOffset' | 'valuationLog'>; delta: number } {
+  const delta = Math.round((statedValue - computedValue) * 100) / 100;
+  const entry: ReconciliationEntry = { at: new Date().toISOString(), delta, kind: 'investment', stated_value: statedValue };
+  return {
+    delta,
+    patch: {
+      valuationOffset: Math.round(((asset.valuationOffset ?? 0) + delta) * 100) / 100,
+      valuationLog: [...(asset.valuationLog ?? []), ...(delta !== 0 ? [entry] : [])],
+    },
+  };
+}
+
 // ── Net Worth — live first-class-account balances, not a frozen linked asset ──
 //
 // Net Worth historically summed the static `assets` array. An `Account` with
@@ -124,7 +161,8 @@ export function liveAssetRows(
     .map(a => ({
       id: a.id,
       name: a.name,
-      value: convert(a.value, a.currency, baseCurrency, rates),
+      // v10.26.0 (R4) — live: an investment asset folds its buys/withdrawals.
+      value: convert(computeAssetValue(a, txns, rates), a.currency, baseCurrency, rates),
       currency: a.currency,
       liquidity: a.liquidity,
       source: 'asset',

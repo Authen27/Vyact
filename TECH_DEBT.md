@@ -18,7 +18,7 @@
 |---|---|
 | ✅ **Resolved** (25) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-15, TD-17, TD-18, TD-20, TD-21, **TD-23**, **TD-24**, **TD-25**, **TD-26**, **TD-27**, **TD-28**, **TD-33** |
 | ⚠ **Partial** (2) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B now runs green — 10 specs incl. RLS isolation; Lane A red, tracked as TD-29) |
-| ⬜ **Open** (8) | TD-16, TD-22, **TD-29**, **TD-30**, **TD-31**, **TD-32**, **TD-34**, **TD-35** |
+| ⬜ **Open** (9) | TD-16, TD-22, **TD-29**, **TD-30**, **TD-31**, **TD-32**, **TD-34**, **TD-35**, **TD-36** |
 
 > **2026-09-10 intake (TD-29…TD-35).** Parked at the close of the v10.22.x test-hardening releases,
 > before the Accounts redesign starts. TD-29 is the Lane A triage that remains; TD-30…TD-32 are the
@@ -80,6 +80,7 @@
 | TD-33 | ✅ Consumer deploy raced the Edge Functions deploy *(resolved 2026-09-10: `consumer` job now `needs: deploy-edge-functions`)* | Technical / Release | Medium | XS |
 | TD-34 | `pg_trgm` installed in the `public` schema | Security / Hygiene | Low | S |
 | TD-35 | Remaining audit release blockers: historical loan repair, webhook inbox recovery, ownerless outbox recovery | Technical / Reliability | High | M |
+| TD-36 | Investments as assets (v10.26.0) — the agent resolver, the Lane A investment spec and local-only legacy investment accounts still assume the two-account model | Technical / Consistency | Medium | S |
 
 ---
 
@@ -1089,12 +1090,44 @@ replay job for failed inbox rows; a surfaced recovery flow for quarantined outbo
 
 ---
 
+## TD-36 — Surfaces still on the two-account investment model
+
+**Description.** v10.26.0 moved investments from a transfer between two accounts to a transaction
+between an account and a Net Worth asset (`transactions.asset_id`). The live write paths — the app
+form, recurring schedules, the store, and `whatsapp_log_transaction` — all follow the new model, and
+production was converted. Three surfaces were deliberately left:
+- **Agent resolver** (`supabase/functions/_shared/agent/resolver.ts`) resolves an investment's
+  destination against ACCOUNTS. The agent pipeline is not connected to a live write entrypoint, so
+  nothing writes through it today; when it is connected it must resolve against investment assets,
+  or every proposed investment fails `ck_txn_accounts_by_type`.
+- **Lane A** — the e2e seed still creates the `E2E Brokerage` investment ACCOUNT, and the investment
+  spec targets it (part of the TD-29 triage).
+- **Local-only households** holding a legacy investment account: its history still folds into Net
+  Worth (no number is lost), but new investments must go to an asset. There is no local conversion,
+  by design — a client that re-creates rows from other rows is the pattern CLAUDE.md forbids.
+
+**Impact — functional / business.** None today. A future agent-write connection would propose rows the
+database refuses; Lane A stays red for that spec; a local-only user sees their old investment account
+in Net Worth beside the assets they create.
+
+**Effort.** S.
+
+**Possible solution approaches.** Pass investment assets to `resolveCandidate` and resolve
+`transaction_type = 'investment'` destinations against them; move the e2e seed to an investment asset
+and rewrite the spec; offer an explicit, user-tapped "move to an investment asset" for a local legacy
+account (the same fold, run once, on consent).
+
+**Acceptance.** No code path proposes or writes a two-account investment, and each surface has a test.
+
+---
+
 ## Remediation log
 
 Chronological record of remediation PRs against this register. Each row pins to the merge commit's automation run report (governance: [`docs/TEST_GOVERNANCE.md`](docs/TEST_GOVERNANCE.md)).
 
 | Date | PR | Scope | Items addressed |
 |---|---|---|---|
+| 2026-09-11 | R4 (v10.26.0) | **Investments became Net Worth assets.** Filed TD-36 for the three surfaces deliberately left on the two-account model: the agent resolver (not connected to a write entrypoint), the Lane A investment spec (with TD-29), and local-only legacy investment accounts (still fold; no local conversion by design). | Opens **TD-36**. |
 | 2026-09-10 | R0 (v10.22.x close-out) | **Parked the test-hardening residue before the Accounts redesign.** Filed TD-29 (Lane A: 53 failures across 14 files, per-file counts from the post-v10.22.3 run), TD-30 (Vitest never type-checks unit tests), TD-31 (spec INV-7 atomicity untested — Postgres-RPC direction agreed), TD-32 (edge handlers on npm `supabase-js`; no cloud-mode unit coverage), TD-34 (`pg_trgm` in `public`), TD-35 (loan repair / webhook inbox / ownerless outbox). TD-19's note corrected: Lane B now runs green with RLS isolation. Fixed TD-33 in the same change: `deploy.yml`'s `consumer` job needed only `db-migrations`, so it deployed in parallel with the Edge Functions; it now also needs `deploy-edge-functions`. | Opens **TD-29…TD-32, TD-34, TD-35**. Closes **TD-33**. |
 | 2026-05-23 | #1 | **ESLint floor** in `react/` and `admin/`. `npm run lint` now runs `eslint .` (flat config, `react-hooks` plugin, typescript-eslint recommended); `tsc --noEmit` preserved as `npm run typecheck`. Gate updated to run both. | Closes **Finding N2** of the 2026-05-22 assessment (no real linter anywhere). Surfaces pre-existing `exhaustive-deps` / `no-unused-vars` / `no-explicit-any` violations as warnings — these are the future-PR debt that the gate will ratchet to errors as TD-05/TD-12 and related items land. Real bug found and fixed: short-circuit-as-statement in [`Households.tsx:304`](react/src/pages/Households.tsx:304). |
 | 2026-05-23 | #2 | **Test Scenarios master catalog + per-scenario audit evidence.** New [`docs/TEST_SCENARIOS.md`](docs/TEST_SCENARIOS.md) is the regression-managed master copy of every automated test scenario (56 today). New [`scripts/test-scenarios-check.mjs`](scripts/test-scenarios-check.mjs) CI gate refuses code↔doc drift. Admin Vitest scaffold added with 11 ID-tagged unit tests (`ADM-UNIT-001..011`) covering `slugify` + `rowToArticle`. All 43 existing consumer tests retitled with their TS IDs. `scripts/automation-run.mjs` rewritten so every run's `report.md` and `summary.json` carry per-app pass/fail counts, full failure details (message + stack), and a complete pass register for audit. | Closes **Finding N1** of the 2026-05-22 assessment (admin had zero tests). Establishes regression discipline for the whole test pyramid. Real edge-case bug surfaced (not fixed in this PR): `slugify('!!! ??? @@@')` returns `'-'` instead of `''`. |

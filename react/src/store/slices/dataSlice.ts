@@ -442,6 +442,21 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       t = { ...t, accountId: fromUuid ?? t.accountId, toAccountId: undefined };
     } else if (t.type === 'income') {
       t = { ...t, accountId: undefined, toAccountId: toUuid ?? fromUuid ?? t.accountId };
+    } else if (t.type === 'investment' && t.assetId) {
+      // v10.26.0 (R4) — an investment moves money between an ACCOUNT and an
+      // investment ASSET. A withdrawal names only the receiving account; a buy
+      // names only the paying one. Either way the asset must exist, or the
+      // money would leave an account and arrive nowhere.
+      if (!get().assets.some(a => a.id === t.assetId)) {
+        throw new Error('Choose the investment this money moves into or out of');
+      }
+      const withdrawal = !!t.toAccountId && !t.accountId;
+      t = withdrawal
+        ? { ...t, category: '', accountId: undefined, paymentMethod: undefined, toAccountId: toUuid ?? t.toAccountId }
+        : { ...t, category: '', accountId: fromUuid ?? t.accountId, toAccountId: undefined };
+      if (!(withdrawal ? t.toAccountId : t.accountId)) {
+        throw new Error(withdrawal ? 'Choose the account the money arrives in' : 'Choose the account the money is paid from');
+      }
     } else if (t.type === 'transfer' || t.type === 'investment') {
       // v9 D1 — transfers/investments are ONE row with both FKs; no category.
       t = { ...t, category: '', accountId: fromUuid ?? t.accountId, toAccountId: toUuid ?? t.toAccountId };

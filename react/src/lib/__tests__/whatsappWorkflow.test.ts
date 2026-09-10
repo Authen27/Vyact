@@ -57,6 +57,8 @@ describe('actual WhatsApp Edge handlers', () => {
     const inboxQueries: ReturnType<typeof queryResult>[] = [];
     api.from.mockImplementation((table: string) => {
       if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'USD' }]);
+      // v10.26.0 (R4) — investment assets are offered to the parser as aliases.
+      if (table === 'assets') return queryResult([{ name: 'Nifty fund' }]);
       if (table === 'whatsapp_identities') {
         const query = queryResult(null);
         query.maybeSingle.mockImplementation(async () => {

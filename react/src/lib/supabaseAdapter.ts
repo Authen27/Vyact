@@ -46,6 +46,7 @@ interface TransactionRow {
   account_id?: string | null;
   to_account_id?: string | null;
   payment_mode?: string | null;   // v10.25.0 (R3)
+  asset_id?: string | null;       // v10.26.0 (R4) — investment rows: the asset money moves into/out of
   initiated_by?: string | null;
   // v9.1 — deep-link FKs (§5 materialisation, §8 debt drill).
   recurring_schedule_id?: string | null;
@@ -111,6 +112,8 @@ interface AssetRow extends ProvenanceRowCols {
   id: string; household_id: string;
   type: string; name: string; value: number; currency: string;
   liquidity: string; note: string | null; last_updated: string | null;
+  valuation_offset?: number | null;   // v10.26.0 (R4)
+  valuation_log?: unknown[] | null;   // v10.26.0 (R4)
   updated_at: string; deleted_at: string | null;
 }
 
@@ -196,6 +199,11 @@ const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<Transac
     ...(t.paymentMode !== undefined
       ? { payment_mode: type === 'investment' ? null : t.paymentMode }
       : {}),
+    // v10.26.0 (R4) — only an investment names an asset; written only when the
+    // caller mentions it (a lagging schema is never sent the column).
+    ...(t.assetId !== undefined
+      ? { asset_id: type === 'investment' ? fkOrNull(t.assetId) : null }
+      : {}),
     extras: {
       time: t.time, paymentMethod: t.paymentMethod, excluded: t.excluded,
       linkedDebtId: t.linkedDebtId,
@@ -221,6 +229,7 @@ const rowToTxn = (r: TransactionRow): Transaction => ({
   recurringScheduleId: r.recurring_schedule_id ?? undefined,   // v9.1 §5
   debtId: r.debt_id ?? undefined,                              // v9.1 §8
   paymentMode: (r.payment_mode as Transaction['paymentMode']) ?? undefined,   // v10.25.0
+  assetId: r.asset_id ?? undefined,                                            // v10.26.0 (R4)
   linkedDebtId: r.extras?.linkedDebtId,
   linkedTxnId: r.extras?.linkedTxnId,
   split: r.extras?.split as Transaction['split'],
@@ -329,6 +338,10 @@ const assetToRow = (a: Partial<Asset>, hid: string): Partial<AssetRow> => ({
   value: a.value!, currency: a.currency || 'USD',
   liquidity: a.liquidity!, note: a.note || null,
   last_updated: a.lastUpdated || null,
+  // v10.26.0 (R4) — NOT NULL with DB defaults: written only when mentioned, so an
+  // edit that does not touch the valuation cannot erase it (audit F1 rule).
+  ...(a.valuationOffset !== undefined ? { valuation_offset: a.valuationOffset } : {}),
+  ...(a.valuationLog !== undefined ? { valuation_log: a.valuationLog as unknown[] } : {}),
 });
 const rowToAsset = (r: AssetRow): Asset => ({
   id: r.id, type: r.type, name: r.name,
@@ -336,6 +349,9 @@ const rowToAsset = (r: AssetRow): Asset => ({
   liquidity: r.liquidity as Asset['liquidity'],
   note: r.note || undefined,
   lastUpdated: r.last_updated || undefined,
+  // v10.26.0 (R4) — a column the database did not return stays undefined.
+  ...('valuation_offset' in r ? { valuationOffset: r.valuation_offset != null ? parseMoneyFromCloud(r.valuation_offset) : 0 } : {}),
+  ...('valuation_log' in r ? { valuationLog: (r.valuation_log ?? []) as Asset['valuationLog'] } : {}),
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
   ...rowToProv(r),
 });
