@@ -218,4 +218,147 @@ describe('Accounts R1 — one Cash in Hand per household, currency from the hous
     await pending;
     expect(useStore.getState().accounts).toEqual([]);
   });
+
+  it('local-only: Cash never becomes a second default beside an existing one', async () => {
+    const hid = useStore.getState().currentHouseholdId;
+    const bank = await useStore.getState().upsertAccount({ id: crypto.randomUUID(), kind: 'bank', name: 'HDFC', isDefault: true });
+    await useStore.getState().ensureDefaultCashAccount();
+    const stored = await useStore.getState().adapter.list('accounts', hid);
+    expect(stored.filter(a => a.isDefault).map(a => a.id)).toEqual([bank.id]);
+    expect(useStore.getState().accounts.find(a => a.kind === 'cash')?.isDefault).toBe(false);
+  });
+
+  it('local-only: marking a new default demotes the old one, in the store and in storage', async () => {
+    const hid = useStore.getState().currentHouseholdId;
+    const first = await useStore.getState().upsertAccount({ id: crypto.randomUUID(), kind: 'bank', name: 'HDFC', isDefault: true, openingBalance: 500 });
+    const second = await useStore.getState().upsertAccount({ id: crypto.randomUUID(), kind: 'bank', name: 'ICICI', isDefault: true });
+    expect(useStore.getState().accounts.filter(a => a.isDefault).map(a => a.id)).toEqual([second.id]);
+    const stored = await useStore.getState().adapter.list('accounts', hid);
+    expect(stored.filter(a => a.isDefault).map(a => a.id)).toEqual([second.id]);
+    // Demoting touches only the flag — the old default keeps its money.
+    expect(stored.find(a => a.id === first.id)?.openingBalance).toBe(500);
+  });
+
+  it('cloud mode mirrors the single-default trigger in the cache without writing the demoted row', async () => {
+    const hid = crypto.randomUUID();
+    const oldDefault = { id: crypto.randomUUID(), kind: 'bank' as const, name: 'HDFC', currency: 'INR', isDefault: true };
+    const upsert = vi.fn(async (_t: string, _h: string, row: object) => row);
+    useStore.setState({ cloudEnabled: true, currentHouseholdId: hid, accounts: [oldDefault],
+      adapter: { upsert } as never });
+    const saved = await useStore.getState().upsertAccount({ id: crypto.randomUUID(), kind: 'bank', name: 'ICICI', isDefault: true });
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(useStore.getState().accounts.filter(a => a.isDefault).map(a => a.id)).toEqual([saved.id]);
+  });
+});
+
+describe('Accounts R2 — delete, move, archive and reconcile change no number that should not move', () => {
+  const R = { USD: 1 };
+  function seed() {
+    useStore.setState({
+      profile: { ...useStore.getState().profile, baseCurrency: 'USD' }, rates: R,
+      accounts: [
+        { id: 'hdfc', kind: 'bank', name: 'HDFC', currency: 'USD', openingBalance: 500, reconciliationOffset: 25 },
+        { id: 'icici', kind: 'bank', name: 'ICICI', currency: 'USD', openingBalance: 100 },
+        { id: 'unused', kind: 'bank', name: 'Never used', currency: 'USD', openingBalance: 0 },
+        { id: 'card', kind: 'credit_card', name: 'Card', currency: 'USD', openingBalance: -50 },
+      ],
+      transactions: [
+        { id: 't1', type: 'expense', amount: 120, currency: 'USD', date: '2026-09-02', description: 'Rent', category: 'rent_mortgage', accountId: 'hdfc' },
+        { id: 't2', type: 'income', amount: 900, currency: 'USD', date: '2026-09-03', description: 'Salary', category: 'salary', toAccountId: 'hdfc' },
+        { id: 't3', type: 'expense', amount: 40, currency: 'USD', date: '2026-09-04', description: 'Food', category: 'food_dining', accountId: 'icici' },
+      ],
+      recurringSchedules: [],
+    });
+  }
+  const bal = (id: string) => {
+    const s = useStore.getState();
+    const a = s.accounts.find(x => x.id === id);
+    return a ? computeAccountBalance(a, s.transactions, 'USD', R) : null;
+  };
+  const householdTotal = () => {
+    const s = useStore.getState();
+    return s.accounts.reduce((sum, a) => sum + computeAccountBalance(a, s.transactions, 'USD', R), 0);
+  };
+  const categoryTotals = () => useStore.getState().transactions.reduce<Record<string, number>>(
+    (acc, t) => ({ ...acc, [t.category]: (acc[t.category] ?? 0) + t.amount }), {});
+
+  it('moving an account into another keeps every balance total, category total and the month intact', async () => {
+    seed();
+    const hdfcBefore = bal('hdfc')!;
+    const iciciBefore = bal('icici')!;
+    const total = householdTotal();
+    const cats = categoryTotals();
+    const month = monthlyData(useStore.getState().transactions, '2026-09', 'USD', R);
+
+    const result = await useStore.getState().moveAccountAndDelete('hdfc', 'icici');
+
+    expect(result).toMatchObject({ status: 'moved', transactions: 2, folded: 525 });
+    expect(bal('hdfc')).toBeNull();
+    expect(bal('icici')).toBe(hdfcBefore + iciciBefore);
+    expect(householdTotal()).toBe(total);
+    expect(categoryTotals()).toEqual(cats);
+    expect(monthlyData(useStore.getState().transactions, '2026-09', 'USD', R)).toEqual(month);
+    const log = useStore.getState().accounts.find(a => a.id === 'icici')!.reconciliationLog!;
+    expect(log.at(-1)).toMatchObject({ kind: 'merge', delta: 525, note: 'Moved from HDFC' });
+  });
+
+  it('history never crosses groups, and Cash in Hand is never the source', async () => {
+    seed();
+    await expect(useStore.getState().moveAccountAndDelete('hdfc', 'card')).rejects.toThrow(/same type/);
+    useStore.setState({ accounts: [...useStore.getState().accounts, { id: 'cash', kind: 'cash', name: 'Cash', currency: 'USD' }] });
+    await expect(useStore.getState().moveAccountAndDelete('cash', 'icici')).rejects.toThrow(/cannot be deleted/);
+    expect(bal('hdfc')).not.toBeNull();
+  });
+
+  it('permanent delete is refused while history is attached, and changes nothing when refused', async () => {
+    seed();
+    const total = householdTotal();
+    await expect(useStore.getState().deleteAccountPermanently('hdfc')).rejects.toThrow(/history attached/);
+    expect(bal('hdfc')).not.toBeNull();
+    expect(householdTotal()).toBe(total);
+  });
+
+  it('deleting an account nothing refers to changes no number anywhere', async () => {
+    seed();
+    const total = householdTotal();
+    const cats = categoryTotals();
+    await useStore.getState().deleteAccountPermanently('unused');
+    expect(bal('unused')).toBeNull();
+    expect(householdTotal()).toBe(total);
+    expect(categoryTotals()).toEqual(cats);
+  });
+
+  it('archiving alters no report', async () => {
+    seed();
+    const month = monthlyData(useStore.getState().transactions, '2026-09', 'USD', R);
+    const cats = categoryTotals();
+    await useStore.getState().upsertAccount({ id: 'icici', isArchived: true });
+    expect(monthlyData(useStore.getState().transactions, '2026-09', 'USD', R)).toEqual(month);
+    expect(categoryTotals()).toEqual(cats);
+    expect(useStore.getState().transactions).toHaveLength(3);
+  });
+
+  it('confirming a balance that already matches stamps the check and writes nothing else', async () => {
+    seed();
+    const account = useStore.getState().accounts.find(a => a.id === 'icici')!;
+    const delta = await useStore.getState().reconcileAccount(account, bal('icici')!);
+    const after = useStore.getState().accounts.find(a => a.id === 'icici')!;
+    expect(delta).toBe(0);
+    expect(after.lastReconciledAt).toBeTruthy();
+    expect(after.reconciliationLog ?? []).toHaveLength(0);
+    expect(after.reconciliationOffset ?? 0).toBe(0);
+    expect(useStore.getState().transactions).toHaveLength(3);
+  });
+
+  it('a card reconciled against a higher statement outstanding moves its balance down by the gap, and no spend appears', async () => {
+    seed();
+    const card = useStore.getState().accounts.find(a => a.id === 'card')!;
+    const month = monthlyData(useStore.getState().transactions, '2026-09', 'USD', R);
+    // Vyact says 50 owed; the statement says 80 owed.
+    const delta = await useStore.getState().reconcileAccount(card, -80);
+    expect(delta).toBe(-30);
+    expect(bal('card')).toBe(-80);
+    expect(useStore.getState().accounts.find(a => a.id === 'card')!.reconciliationLog!.at(-1)).toMatchObject({ kind: 'credit_card', delta: -30 });
+    expect(monthlyData(useStore.getState().transactions, '2026-09', 'USD', R)).toEqual(month);
+  });
 });

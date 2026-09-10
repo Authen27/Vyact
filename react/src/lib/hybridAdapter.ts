@@ -16,6 +16,7 @@
 import type {
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey, Budget, BudgetAllocation,
   Transaction, Debt, Account, RecordLoanPaymentCommand, RecordLoanPaymentResult,
+  AccountDependencies, AccountMoveResult,
 } from '../types';
 import {
   type DataAdapter, type Entity, LocalStorageAdapter,
@@ -562,5 +563,36 @@ export class HybridAdapter implements DataAdapter {
         [...cached.filter(row => row.id !== cash.id && row.kind !== 'cash'), cash]);
     } catch { /* cache is best-effort; the cloud row is authoritative */ }
     return cash;
+  }
+
+  /** v10.24.0 (R2) — always asks the server: a cached answer could be stale. */
+  async accountDependencies(householdId: string, accountId: string): Promise<AccountDependencies> {
+    return this.cloud.accountDependencies(householdId, accountId);
+  }
+
+  /** v10.24.0 (R2) — the server decides; the cache drops the row only after it succeeded. */
+  async deleteAccountGuarded(householdId: string, accountId: string): Promise<void> {
+    await this.cloud.deleteAccountGuarded(householdId, accountId);
+    await this.dropCachedAccount(householdId, accountId);
+  }
+
+  /**
+   * v10.24.0 (R2) — transactions, schedules and the destination's offset all
+   * change server-side in one transaction. The cache drops the tombstoned
+   * account here; the store refreshes the rest from the cloud.
+   */
+  async moveAccountAndDelete(householdId: string, fromId: string, toId: string): Promise<AccountMoveResult> {
+    const res = await this.cloud.moveAccountAndDelete(householdId, fromId, toId);
+    await this.dropCachedAccount(householdId, fromId);
+    return res;
+  }
+
+  private async dropCachedAccount(householdId: string, accountId: string): Promise<void> {
+    const gen = cacheGeneration();
+    try {
+      const cached = await this.cache.list<Account>('accounts', householdId);
+      if (!isCacheGenerationCurrent(gen)) return;
+      await this.cache.replaceAll('accounts', householdId, cached.filter(row => row.id !== accountId));
+    } catch { /* cache is best-effort; the next refresh reconciles it */ }
   }
 }

@@ -23,10 +23,16 @@ export const createReconcileSlice: StateCreator<Store, [], [], ReconcileSlice> =
   reconcileAccount: async (account, realBalance) => {
     const { transactions, profile, rates, assets, debts } = get();
     const computed = computeAccountBalance(account, transactions, profile.baseCurrency, rates);
-    const kind = account.kind === 'investment' ? 'investment' as const : 'bank' as const;
+    const kind = account.kind === 'investment' ? 'investment' as const
+      : account.kind === 'credit_card' ? 'credit_card' as const
+      : 'bank' as const;
     const { patch, delta } = buildReconcileOffset(account, computed, realBalance, kind);
     const confirmedProv = { confidence: 'confirmed' as const, source: 'user' as const, confirmedAt: new Date().toISOString() };
-    await get().upsertAccount({ ...account, ...patch, ...confirmedProv });
+    // v10.24.0 (R2) — stamped on EVERY reconcile, including one with no drift.
+    // A matching statement changes no number and writes no log entry (INV-3b),
+    // but it is still a check against a statement, so "not reconciled in N
+    // days" must clear.
+    await get().upsertAccount({ ...account, ...patch, ...confirmedProv, lastReconciledAt: confirmedProv.confirmedAt });
     // §6 R-AGG-5 / D2 — net worth folds over the Asset/Debt entities these
     // accounts were synthesised from, so the stated value MUST flow through to
     // the linked entity (else the offset would never reach net worth). The

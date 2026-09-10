@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseAdapter } from '../supabaseAdapter';
+import type { Account } from '../../types';
 
 // CON-UNIT-081..083 — Phase 0.5. The account-patch data-loss fix (audit F1).
 //
@@ -116,5 +117,43 @@ describe('account patches must not erase financial state (audit F1)', () => {
     });
     row = upsert2.mock.calls[0][0] as Record<string, unknown>;
     expect(row, 'debt_id must not be sent on a metadata patch').not.toHaveProperty('debt_id');
+  });
+
+  it('CON-UNIT-083c · a row re-saved with a spread never names an R2 column the database did not return', async () => {
+    // Lane B (PR #95): reconcile re-saves `{...account, ...patch}`. The read
+    // mapper defaulted absent card columns to null / [], so the re-save sent
+    // billing_cycle_day to a schema without it and PostgREST refused (PGRST204).
+    // Production has the same window between a Vercel deploy and `db push`.
+    const R2 = ['payment_modes', 'credit_limit', 'billing_cycle_day', 'payment_due_day', 'last_reconciled_at'];
+    const { sb, upsert } = captureUpsert();   // its returned row predates R2
+    const adapter = new SupabaseAdapter(sb);
+    const read = await adapter.upsert<Partial<Account>>('accounts', 'h1', { id: 'a1', kind: 'bank', name: 'Renamed', currency: 'GBP' });
+    await adapter.upsert('accounts', 'h1', { ...read, reconciliationOffset: 30 });
+    const row = upsert.mock.calls[1][0] as Record<string, unknown>;
+    for (const col of R2) expect(row, `${col} must not be sent`).not.toHaveProperty(col);
+    expect(row.reconciliation_offset).toBe(30);
+  });
+
+  it('CON-UNIT-083d · on a migrated schema the same re-save keeps every R2 value, nulls included', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: {
+        id: 'a2', household_id: 'h1', kind: 'credit_card', name: 'Regalia', currency: 'INR',
+        is_default: false, is_archived: false, opening_balance: -18400, reconciliation_offset: 0, reconciliation_log: [],
+        payment_modes: ['swipe', 'online'], credit_limit: '150000.00', billing_cycle_day: 11,
+        payment_due_day: null, last_reconciled_at: null,
+      },
+      error: null,
+    });
+    const upsert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) });
+    const adapter = new SupabaseAdapter({ from: vi.fn().mockReturnValue({ upsert }) } as unknown as SupabaseClient);
+    const read = await adapter.upsert<Partial<Account>>('accounts', 'h1', { id: 'a2', kind: 'credit_card', name: 'Regalia', currency: 'INR' });
+    expect(read.creditLimit).toBe(150000);
+    await adapter.upsert('accounts', 'h1', { ...read });
+    const row = upsert.mock.calls[1][0] as Record<string, unknown>;
+    expect(row.payment_modes).toEqual(['swipe', 'online']);
+    expect(row.credit_limit).toBe(150000);
+    expect(row.billing_cycle_day).toBe(11);
+    expect(row).toHaveProperty('payment_due_day', null);
+    expect(row).toHaveProperty('last_reconciled_at', null);
   });
 });

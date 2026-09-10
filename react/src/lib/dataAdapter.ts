@@ -7,7 +7,7 @@
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
-  RecordLoanPaymentCommand, RecordLoanPaymentResult,
+  RecordLoanPaymentCommand, RecordLoanPaymentResult, AccountDependencies, AccountMoveResult,
 } from '../types';
 import { DEFAULT_RATES } from '../constants';
 import { uid } from './format';
@@ -118,6 +118,20 @@ export interface DataAdapter {
    *  against a store that had not hydrated yet, and wrote duplicates.
    */
   ensureCashAccount?(householdId: string): Promise<Account | null>;
+
+  /**
+   * v10.24.0 (R2) — the account delete guard, decided by the database. Present
+   *  on the cloud adapters only; local-only mode builds the same answers from the
+   *  store (lib/accountsView.ts).
+   *  - accountDependencies: what refers to the account.
+   *  - deleteAccountGuarded: tombstones it, and refuses while anything refers to it.
+   *  - moveAccountAndDelete: re-tags every transaction and schedule to another
+   *    account of the same group, folds the balance across, then tombstones —
+   *    in one database transaction.
+   */
+  accountDependencies?(householdId: string, accountId: string): Promise<AccountDependencies>;
+  deleteAccountGuarded?(householdId: string, accountId: string): Promise<void>;
+  moveAccountAndDelete?(householdId: string, fromId: string, toId: string): Promise<AccountMoveResult>;
 }
 
 const ANON = 'local';

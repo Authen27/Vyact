@@ -7,9 +7,15 @@
 // reads/writes the rest of the store via get()/set().
 import type { StateCreator } from 'zustand';
 import type { Store } from '../../store';
-import type { Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView } from '../../types';
+import type {
+  Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
+  AccountDependencies, AccountMoveResult, Transaction, RecurringSchedule,
+} from '../../types';
 import { uid } from '../../lib/format';
 import { can } from '../../lib/permissions';
+import { hasDependencies, localAccountDependencies, moveDestinations } from '../../lib/accountsView';
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // v9.5.0 — budget management is owner/admin only. The DB enforces it (RLS +
 // upsert_budget guard); this is the client-side guard so a non-manager who
@@ -44,6 +50,15 @@ export interface CrudSlice {
   removeAsset: (id: string) => Promise<void>;
   upsertAccount: (a: Partial<Account>) => Promise<Account>;
   removeAccount: (id: string) => Promise<void>;
+  /** v10.24.0 (R2) — what refers to an account: the database's count in cloud
+   *  mode (a cached answer could be stale), the store's in local-only mode. */
+  accountDependencies: (id: string) => Promise<AccountDependencies>;
+  /** v10.24.0 (R2) — permanent delete, refused while anything refers to the account. */
+  deleteAccountPermanently: (id: string) => Promise<void>;
+  /** v10.24.0 (R2) — re-tag every transaction and schedule to another account of
+   *  the same group, fold the source's opening balance + offset into it, then
+   *  delete the source. No balance, category total or net worth moves. */
+  moveAccountAndDelete: (fromId: string, toId: string) => Promise<AccountMoveResult>;
   /** Idempotent — creates the household's one default Cash account (at $0) if
    *  it doesn't already have one. Safe to call on every load. */
   ensureDefaultCashAccount: () => Promise<void>;
@@ -245,10 +260,27 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     // the same truth, whatever the caller sent.
     const payload: Partial<Account> = { ...merged, currency: get().profile.baseCurrency };
 
-    const saved = await adapter.upsert('accounts', currentHouseholdId, payload, payload.id && payload.updated_at ? payload.updated_at : undefined);
-    const idx = accounts.findIndex(x => x.id === saved.id);
-    set({ accounts: idx >= 0 ? accounts.map(x => x.id === saved.id ? saved as Account : x) : [...accounts, saved as Account] });
-    return saved as Account;
+    const saved = await adapter.upsert('accounts', currentHouseholdId, payload, payload.id && payload.updated_at ? payload.updated_at : undefined) as Account;
+    let next = accounts.findIndex(x => x.id === saved.id) >= 0
+      ? accounts.map(x => x.id === saved.id ? saved : x)
+      : [...accounts, saved];
+
+    // v10.24.0 — ONE default account per household. The cloud clears the old
+    // default in the same statement (accounts_single_default trigger); mirror
+    // that here so the cache never shows two ★ rows until the next refresh. In
+    // local-only mode the store IS the database, so the cleared rows are
+    // written through as well.
+    if (saved.isDefault && !saved.isArchived) {
+      const demoted = next.filter(x => x.id !== saved.id && x.isDefault).map(x => ({ ...x, isDefault: false }));
+      if (demoted.length) {
+        if (!(get().cloudEnabled && currentHouseholdId !== 'local')) {
+          for (const d of demoted) await adapter.upsert('accounts', currentHouseholdId, d);
+        }
+        next = next.map(x => demoted.find(d => d.id === x.id) ?? x);
+      }
+    }
+    set({ accounts: next });
+    return saved;
   },
   removeAccount: async (id) => {
     const { adapter, currentHouseholdId, accounts } = get();
@@ -259,6 +291,101 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     }
     await adapter.remove('accounts', currentHouseholdId, id);
     set({ accounts: accounts.filter(x => x.id !== id) });
+  },
+  accountDependencies: async (id) => {
+    const { adapter, currentHouseholdId, cloudEnabled, transactions, recurringSchedules } = get();
+    if (cloudEnabled && currentHouseholdId !== 'local' && typeof adapter.accountDependencies === 'function') {
+      return adapter.accountDependencies(currentHouseholdId, id);
+    }
+    return localAccountDependencies(id, transactions, recurringSchedules);
+  },
+  deleteAccountPermanently: async (id) => {
+    const { adapter, currentHouseholdId, cloudEnabled, accounts } = get();
+    const account = accounts.find(x => x.id === id);
+    if (!account) return;
+    if (account.kind === 'cash') {
+      throw new Error('Cash in Hand cannot be deleted — every household keeps exactly one.');
+    }
+    if (cloudEnabled && currentHouseholdId !== 'local' && typeof adapter.deleteAccountGuarded === 'function') {
+      // The database counts and refuses; the client never decides alone.
+      await adapter.deleteAccountGuarded(currentHouseholdId, id);
+    } else {
+      if (hasDependencies(await get().accountDependencies(id))) {
+        throw new Error('This account has history attached — archive it, or move its history first.');
+      }
+      await adapter.remove('accounts', currentHouseholdId, id);
+    }
+    set({ accounts: get().accounts.filter(x => x.id !== id) });
+  },
+  moveAccountAndDelete: async (fromId, toId) => {
+    const { adapter, currentHouseholdId, cloudEnabled, accounts } = get();
+    const source = accounts.find(a => a.id === fromId);
+    const target = accounts.find(a => a.id === toId);
+    if (!source || !target) throw new Error('Account not found.');
+    if (source.kind === 'cash') throw new Error('Cash in Hand cannot be deleted — every household keeps exactly one.');
+    if (!moveDestinations(source, accounts).some(a => a.id === toId)) {
+      throw new Error('History can only move to another active account of the same type.');
+    }
+
+    if (cloudEnabled && currentHouseholdId !== 'local' && typeof adapter.moveAccountAndDelete === 'function') {
+      // One database transaction moves the rows, folds the balance and tombstones
+      // the source; refresh pulls back everything it changed.
+      const result = await adapter.moveAccountAndDelete(currentHouseholdId, fromId, toId);
+      set({ accounts: get().accounts.filter(a => a.id !== fromId) });
+      await get().refresh();
+      return result;
+    }
+
+    // Local-only: the same steps the RPC performs, against the store.
+    const { transactions, recurringSchedules } = get();
+    if (transactions.some(t => (t.accountId === fromId && t.toAccountId === toId)
+                            || (t.accountId === toId && t.toAccountId === fromId))) {
+      throw new Error('Transfers run between these two accounts — moving would turn them into transfers to itself.');
+    }
+    const movedTxns: Transaction[] = [];
+    const nextTxns = transactions.map(t => {
+      if (t.accountId !== fromId && t.toAccountId !== fromId) return t;
+      const moved: Transaction = {
+        ...t,
+        accountId: t.accountId === fromId ? toId : t.accountId,
+        toAccountId: t.toAccountId === fromId ? toId : t.toAccountId,
+      };
+      movedTxns.push(moved);
+      return moved;
+    });
+    const movedSchedules: RecurringSchedule[] = [];
+    const nextSchedules = recurringSchedules.map(s => {
+      const tpl = s.transactionTemplate;
+      if (tpl.accountId !== fromId && tpl.toAccountId !== fromId) return s;
+      const moved: RecurringSchedule = {
+        ...s,
+        transactionTemplate: {
+          ...tpl,
+          accountId: tpl.accountId === fromId ? toId : tpl.accountId,
+          toAccountId: tpl.toAccountId === fromId ? toId : tpl.toAccountId,
+        },
+      };
+      movedSchedules.push(moved);
+      return moved;
+    });
+    for (const t of movedTxns) await adapter.upsert('transactions', currentHouseholdId, t);
+    for (const s of movedSchedules) await adapter.upsert('recurring', currentHouseholdId, s);
+    set({ transactions: nextTxns, recurringSchedules: nextSchedules });
+
+    const folded = round2((source.openingBalance ?? 0) + (source.reconciliationOffset ?? 0));
+    if (folded !== 0) {
+      await get().upsertAccount({
+        id: toId,
+        reconciliationOffset: round2((target.reconciliationOffset ?? 0) + folded),
+        reconciliationLog: [...(target.reconciliationLog ?? []), {
+          at: new Date().toISOString(), delta: folded, kind: 'merge', stated_value: null,
+          note: `Moved from ${source.name}`,
+        }],
+      });
+    }
+    await adapter.remove('accounts', currentHouseholdId, fromId);
+    set({ accounts: get().accounts.filter(a => a.id !== fromId) });
+    return { status: 'moved', transactions: movedTxns.length, schedules: movedSchedules.length, folded };
   },
   // Every household gets exactly one default Cash account, even at $0 — cash
   // spend/income needs somewhere to post to from day one, and Net Worth's
@@ -298,7 +425,9 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
       kind: 'cash',
       name: 'Cash in Hand',
       currency: profile.baseCurrency,
-      isDefault: true,
+      // Same rule as ensure_cash_account: Cash becomes the default only when
+      // the household has none — never a second ★ beside an existing default.
+      isDefault: !accounts.some(x => x.isDefault && !x.isArchived),
       openingBalance: 0,
     });
   },

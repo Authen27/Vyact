@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.23.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.24.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -87,6 +87,18 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   currency change relabels every account. One default account per household
   (`uq_account_default_per_household`); marking a new default clears the old one
   in the same statement.
+- **The Accounts screen holds spendable accounts only (v10.24.0)** — Bank (with
+  Cash in Hand) and Credit Card. Loans live in Debts, investments in Net Worth.
+  **A card stores its limit and cycle days, never its outstanding** — outstanding,
+  available and utilisation are derived from the limit and the ledger balance
+  (`lib/accountsView.ts`); "available limit" is typed once, to seed the opening
+  balance, and a disagreeing statement afterwards is a reconcile. **Deleting an
+  account is decided by the database** (`account_dependencies` →
+  `delete_account` / `move_account_and_delete`): refused while anything refers
+  to it; a move re-tags transactions + schedules within the same group and folds
+  the source's opening balance + offset into the destination, so no balance,
+  category total or net worth moves. Reconcile stamps `last_reconciled_at` even
+  with no drift, which is what clears "not reconciled in N days".
 - **Global modals via store slots** — `{entity}ModalOpen`/`editing{Entity}` +
   `openAdd/openEdit/close`; mounted once in `App.tsx`; pages call the store action.
 - **Store is sliced (TD-25)** — `store/index.ts` is a thin composition root;
