@@ -135,6 +135,10 @@ export interface Transaction extends WithProvenance {
    *  `linkedAssetId` while flag is `'shadow'`; sole source once `'on'`. */
   accountId?: string;
   toAccountId?: string;
+  /** v10.26.0 (R4) — an investment moves money between an ACCOUNT and an
+   *  investment ASSET. Buy: `accountId` + `assetId`. Withdrawal: `toAccountId`
+   *  + `assetId`. Legacy rows with both account FKs and no asset still fold. */
+  assetId?: string;
   /** v10.25.0 (R3) — how the paying account was used; one of that account's
    *  `paymentModes`. Descriptive only: no balance or total reads it. `null` clears. */
   paymentMode?: PaymentMode | null;
@@ -265,6 +269,12 @@ export interface Asset extends WithProvenance {
   liquidity: Liquidity;
   note?: string;
   lastUpdated?: string;
+  /** v10.26.0 (R4) — investment assets fold like accounts. `value` is the
+   *  OPENING value; live value = value + buys − withdrawals + valuationOffset
+   *  (lib/accountBalance.ts computeAssetValue). "Update value" moves the offset
+   *  with a dated log entry — never `value`, never a transaction. */
+  valuationOffset?: number;
+  valuationLog?: ReconciliationEntry[];
   /** v6.4.19 — TD-03 optimistic-concurrency precondition. See Budget.updated_at. */
   updated_at?: string;
 }

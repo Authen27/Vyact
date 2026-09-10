@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.25.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.26.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -37,8 +37,16 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
 - **Money model — the gate.** Accounts hold real balances; every transaction
   moves an account; the dashboard is two numbers (Cash Flow + Net Worth).
   **If an implementation would make any number untrue, STOP.** Transfers AND
-  investments are one spend/income-**neutral** row (both account FKs set, no
-  category). Reconciliation is an account **offset + dated log, never a
+  investments are one spend/income-**neutral** row with no category. A transfer
+  sets both account FKs. **An investment (v10.26.0) moves money between an
+  ACCOUNT and an investment ASSET in Net Worth** — buy: `account_id` +
+  `asset_id`; withdrawal: `to_account_id` + `asset_id` (`ck_txn_accounts_by_type`).
+  An investment asset folds like an account: live value = `value` (opening) +
+  buys − withdrawals + `valuation_offset`; "Update value" moves the offset with a
+  dated `valuation_log` entry, never `value` and never a transaction. There are
+  no live `kind='investment'` accounts (`ck_account_no_live_investment`); legacy
+  two-account rows in old caches still fold, and an asset with live buys cannot
+  be deleted. Reconciliation is an account **offset + dated log, never a
   transaction** (and bridges the stated value to the linked Asset/Debt).
   `loan_emi` is a SYSTEM_SPLIT (visible interest expense + system principal
   transfer into a `kind='loan'` account). Categories are **type-scoped**

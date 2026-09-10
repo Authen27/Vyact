@@ -4,15 +4,22 @@
 // Extracted verbatim from the store god-module; reads/writes the rest of the
 // store via `get()` (same store-wide handles), so behaviour is byte-identical.
 import type { StateCreator } from 'zustand';
-import type { Account } from '../../types';
+import type { Account, Asset } from '../../types';
 import type { Store } from '../../store';
-import { computeAccountBalance, reconcileAccount as buildReconcileOffset } from '../../lib/accountBalance';
+import {
+  computeAccountBalance, reconcileAccount as buildReconcileOffset,
+  computeAssetValue, reconcileAssetValue,
+} from '../../lib/accountBalance';
 
 export interface ReconcileSlice {
   /** Money-Model B1.3 — reconcile an account to a real balance by writing a dated
    *  Balance Adjustment transaction (never a silent overwrite), then mark the
    *  account balance confirmed. Returns the delta booked. */
   reconcileAccount: (account: Account, realBalance: number) => Promise<number>;
+  /** v10.26.0 (R4) — "Update value" on an investment asset: the valuation offset
+   *  absorbs stated − live with a dated log entry. Never a transaction, never a
+   *  change to the opening value. Returns the delta booked. */
+  updateAssetValue: (asset: Asset, statedValue: number) => Promise<number>;
 }
 
 export const createReconcileSlice: StateCreator<Store, [], [], ReconcileSlice> = (_set, get) => ({
@@ -47,6 +54,18 @@ export const createReconcileSlice: StateCreator<Store, [], [], ReconcileSlice> =
         if (asset) await get().upsertAsset({ ...asset, value: realBalance, lastUpdated: confirmedProv.confirmedAt, ...confirmedProv });
       }
     }
+    return delta;
+  },
+
+  updateAssetValue: async (asset, statedValue) => {
+    const { transactions, rates } = get();
+    const { patch, delta } = reconcileAssetValue(asset, computeAssetValue(asset, transactions, rates), statedValue);
+    const confirmedAt = new Date().toISOString();
+    await get().upsertAsset({
+      ...asset, ...patch,
+      lastUpdated: confirmedAt.slice(0, 10),
+      confidence: 'confirmed', source: 'user', confirmedAt,
+    });
     return delta;
   },
 });

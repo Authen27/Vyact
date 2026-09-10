@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { LocalStorageAdapter } from '../dataAdapter';
-import { computeAccountBalance } from '../accountBalance';
+import { computeAccountBalance, computeAssetValue } from '../accountBalance';
+import { computeNetWorth } from '../netWorth';
 import { budgetLinesForMonth, computePulseScore, monthlyData } from '../calculations';
 import type { Transaction } from '../../types';
 import { buildSafeSummary } from '../aiSummary';
@@ -282,6 +283,63 @@ describe('Transactions R3 — the payment mode is one the paying account uses, a
       date: '2026-09-05', description: 'SIP', category: '', id: crypto.randomUUID(),
       accountId: 'bank', toAccountId: 'investment', paymentMode: 'upi' });
     expect(saved.paymentMode ?? null).toBeNull();
+  });
+});
+
+describe('Investments R4 — money moves between an account and a Net Worth asset, and net worth does not move', () => {
+  const FUND = { id: 'fund', type: 'investment', name: 'Index fund', value: 0, currency: 'USD', liquidity: 'short' as const };
+  const worth = () => {
+    const s = useStore.getState();
+    return computeNetWorth({ assets: s.assets, accounts: s.accounts, debts: s.debts, transactions: s.transactions }, 'USD', { USD: 1 }).netWorth;
+  };
+  const fundValue = () => {
+    const s = useStore.getState();
+    return computeAssetValue(s.assets.find(a => a.id === 'fund')!, s.transactions, { USD: 1 });
+  };
+  const invest = { type: 'investment' as const, currency: 'USD', date: '2026-09-05', description: 'SIP', category: '' };
+  beforeEach(() => {
+    useStore.setState({ profile: { ...useStore.getState().profile, baseCurrency: 'USD' }, rates: { USD: 1 },
+      accounts: useStore.getState().accounts.filter(a => a.kind !== 'investment'), assets: [FUND] });
+  });
+
+  it('a buy lowers the paying account and raises the asset by the same amount; spend and net worth are untouched', async () => {
+    const before = worth();
+    const saved = await useStore.getState().upsertTransaction({ ...invest, id: crypto.randomUUID(), amount: 300, accountId: 'bank', assetId: 'fund' });
+    expect(saved.accountId).toBe('bank');
+    expect(saved.toAccountId).toBeUndefined();
+    expect(balance('bank')).toBe(700);
+    expect(fundValue()).toBe(300);
+    expect(worth()).toBe(before);
+  });
+
+  it('a withdrawal lowers the asset and raises the receiving account; net worth is untouched', async () => {
+    await useStore.getState().upsertTransaction({ ...invest, id: crypto.randomUUID(), amount: 300, accountId: 'bank', assetId: 'fund' });
+    const before = worth();
+    const saved = await useStore.getState().upsertTransaction({ ...invest, id: crypto.randomUUID(), amount: 120, toAccountId: 'bank', assetId: 'fund' });
+    expect(saved.accountId).toBeUndefined();
+    expect(saved.toAccountId).toBe('bank');
+    expect(fundValue()).toBe(180);
+    expect(balance('bank')).toBe(820);
+    expect(worth()).toBe(before);
+  });
+
+  it('an investment naming no known asset is refused and writes nothing', async () => {
+    await expect(useStore.getState().upsertTransaction({ ...invest, id: crypto.randomUUID(), amount: 50, accountId: 'bank', assetId: 'missing' }))
+      .rejects.toThrow(/investment this money moves/);
+    expect(useStore.getState().transactions).toHaveLength(0);
+  });
+
+  it('Update value moves only the valuation offset — the opening value, the account and spend stay put', async () => {
+    await useStore.getState().upsertTransaction({ ...invest, id: crypto.randomUUID(), amount: 300, accountId: 'bank', assetId: 'fund' });
+    const delta = await useStore.getState().updateAssetValue(useStore.getState().assets.find(a => a.id === 'fund')!, 350);
+    expect(delta).toBe(50);
+    const fund = useStore.getState().assets.find(a => a.id === 'fund')!;
+    expect(fund.value).toBe(0);
+    expect(fund.valuationOffset).toBe(50);
+    expect(fund.valuationLog).toHaveLength(1);
+    expect(fundValue()).toBe(350);
+    expect(balance('bank')).toBe(700);
+    expect(useStore.getState().transactions).toHaveLength(1);
   });
 });
 

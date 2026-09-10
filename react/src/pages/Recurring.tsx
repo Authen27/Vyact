@@ -50,6 +50,8 @@ export default function Recurring() {
   const schedules = useStore(s => s.recurringSchedules);
   const members = useStore(s => s.members);
   const accounts = useStore(s => s.accounts);
+  // v10.26.0 (R4) — an investment schedule puts money into a Net Worth asset.
+  const investmentAssets = useStore(s => s.assets).filter(a => a.type === 'investment');
   const upsert = useStore(s => s.upsertRecurring);
   const remove = useStore(s => s.removeRecurring);
   const baseCur = useStore(s => s.profile.baseCurrency);
@@ -146,7 +148,7 @@ export default function Recurring() {
     // failure used to surface only as a transaction that silently never synced.
     if (!accountId) { toast('Choose an account for this schedule', 'error'); return; }
     if (type === 'investment' && !toAccountId) {
-      toast('Choose the account to invest into', 'error'); return;
+      toast('Choose the investment to put this into', 'error'); return;
     }
     const startDate = editing?.startDate || new Date().toISOString().split('T')[0];
     const rrule = buildRruleStr();
@@ -184,10 +186,11 @@ export default function Recurring() {
         // moves FROM an account, income moves TO one, an investment does both.
         // Written as undefined rather than null — a NOT-NULL column with a DB
         // default is omitted, never sent as explicit null.
+        // v10.26.0 (R4) — an investment moves money FROM an account INTO an
+        // asset, so it names `assetId`, never a second account.
         accountId:   type === 'income' ? undefined : (accountId || undefined),
-        toAccountId: type === 'expense' ? undefined
-                   : type === 'income'  ? (accountId || undefined)
-                   : (toAccountId || undefined),
+        toAccountId: type === 'income' ? (accountId || undefined) : undefined,
+        assetId:     type === 'investment' ? (toAccountId || undefined) : undefined,
       },
       frequency: freq,
       dayOfMonth: dom,
@@ -215,7 +218,7 @@ export default function Recurring() {
     setReminderLead(([1,3,7] as const).includes(s.reminderLeadDays as 1|3|7) ? (s.reminderLeadDays as 1|3|7) : 3);
     setOwnerMemberId(s.ownerMemberId ?? s.transactionTemplate.memberId ?? '');
     setAccountId(s.transactionTemplate.accountId ?? '');
-    setToAccountId(s.transactionTemplate.toAccountId ?? '');
+    setToAccountId(s.transactionTemplate.assetId ?? s.transactionTemplate.toAccountId ?? '');
     // Parse RRULE to restore sub-fields
     if (s.rrule) {
       const r = parseRRule(s.rrule);
@@ -426,7 +429,10 @@ export default function Recurring() {
           <div className="mt-4">
             <div className="mono-label mb-1.5">Invest into</div>
             <div className="flex gap-1.5 flex-wrap">
-              {accounts.filter(a => a.isArchived !== true && a.id !== accountId).map(a => (
+              {investmentAssets.length === 0 && (
+                <span className="text-[0.72rem] text-ink-dim">Add an investment in Net Worth first.</span>
+              )}
+              {investmentAssets.map(a => (
                 <Chip key={a.id} on={a.id === toAccountId} onClick={() => setToAccountId(a.id)}>
                   {a.name}
                 </Chip>

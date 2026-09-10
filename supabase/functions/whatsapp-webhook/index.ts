@@ -182,7 +182,28 @@ async function processInbound(
       .select('name, kind, currency')
       .eq('household_id', householdId)
       .eq('is_archived', false);
-    const accountList: AccountLite[] = (accounts ?? []).map((a: any) => ({ name: a.name, kind: a.kind }));
+    // v10.26.0 (R4) — investments live in Net Worth as assets. Offer their names
+    // to the parser so "invested 5000 in <fund>" resolves; the RPC matches the
+    // alias against assets for an investment, never against accounts.
+    // A READ for parser context only: if it fails, the message still logs — the
+    // RPC resolves a household's only investment on its own, and every other
+    // type never needs it. Nothing is written or dropped here.
+    let investmentAssets: { name: string }[] = [];
+    try {
+      const { data } = await supabase
+        .from('assets')
+        .select('name')
+        .eq('household_id', householdId)
+        .eq('type', 'investment')
+        .is('deleted_at', null);
+      investmentAssets = (data as { name: string }[] | null) ?? [];
+    } catch (_e) {
+      investmentAssets = [];
+    }
+    const accountList: AccountLite[] = [
+      ...(accounts ?? []).map((a: any) => ({ name: a.name, kind: a.kind })),
+      ...(investmentAssets ?? []).map((a: any) => ({ name: a.name, kind: 'investment' })),
+    ];
     const baseCurrency: string = (accounts as any)?.[0]?.currency ?? 'USD';
 
     const parsed = parseWhatsAppMessage(text, accountList, baseCurrency);
@@ -221,6 +242,8 @@ async function processInbound(
       // operation, so a revoked member (or a viewer) hears about it rather than
       // silently logging nothing.
       await sendText(fromPhone, 'This number is no longer able to log to that household. Relink it in Settings → WhatsApp, or ask the household owner about your access.');
+    } else if (r?.reason === 'no_investment_asset') {
+      await sendText(fromPhone, 'Which investment is this for? Name it as it appears in Net Worth, e.g. `invested 5000 in Nifty fund`.');
     } else if (r?.reason === 'no_destination_account' || r?.reason === 'same_account') {
       await sendText(fromPhone, 'Which account should this move to? e.g. `moved 10000 to icici`.');
     } else {

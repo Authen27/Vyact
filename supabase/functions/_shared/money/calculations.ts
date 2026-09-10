@@ -97,6 +97,8 @@ export interface Transaction {
   accountId?: string;
   toAccountId?: string;
   linkedToAssetId?: string;
+  /** v10.26.0 (R4) — investment rows move money between an account and an asset. */
+  assetId?: string;
   split?: SplitInfo;
 }
 
@@ -126,6 +128,9 @@ export interface Asset {
   value: number;
   currency: string;
   liquidity: Liquidity;
+  /** v10.26.0 (R4) — see computeAssetValue. */
+  valuationOffset?: number;
+  valuationLog?: ReconciliationEntry[];
 }
 
 export interface Debt {
@@ -662,6 +667,20 @@ export function computeAccountBalance(
   return Math.round(bal * 100) / 100;
 }
 
+/** v10.26.0 (R4) — port of the client's computeAssetValue: opening value + buys
+ *  into the asset − withdrawals out of it + the valuation offset, in the asset's
+ *  own currency. */
+export function computeAssetValue(asset: Asset, txns: Transaction[], rates: ExchangeRates): number {
+  let v = asset.value + (asset.valuationOffset ?? 0);
+  for (const t of txns) {
+    if (t.type !== 'investment' || t.assetId !== asset.id) continue;
+    const amt = effectiveAmount(t, asset.currency, rates);
+    if (t.accountId) v += amt;
+    else if (t.toAccountId) v -= amt;
+  }
+  return Math.round(v * 100) / 100;
+}
+
 export interface LiveAssetRow {
   id: string;
   name: string;
@@ -703,7 +722,7 @@ export function liveAssetRows(
     .map(a => ({
       id: a.id,
       name: a.name,
-      value: convert(a.value, a.currency, baseCurrency, rates),
+      value: convert(computeAssetValue(a, txns, rates), a.currency, baseCurrency, rates),
       currency: a.currency,
       liquidity: a.liquidity,
       source: 'asset' as const,

@@ -39,7 +39,7 @@ import { kvPurgeWhere } from './kvStore';
  * still caching the old rows would re-upload the duplicates (and their USD
  * currency) on the next sync.
  */
-export const CACHE_EPOCH = 'v10.23.0';
+export const CACHE_EPOCH = 'v10.26.0';
 
 const OWNER_KEY = 'cache_owner_uid';
 const EPOCH_KEY = 'cache_epoch';

@@ -143,7 +143,8 @@ const ASSETS: Asset[] = [
   { id: 'asset-9', type: 'checking', name: 'Bank (legacy)', value: 999999, currency: 'USD', liquidity: 'liquid' },
   { id: 'asset-cc', type: 'other', name: 'CC backing', value: 0, currency: 'USD', liquidity: 'liquid' },
   { id: 'asset-house', type: 'real_estate', name: 'House', value: 300000, currency: 'USD', liquidity: 'long' },
-  { id: 'asset-inr', type: 'investment', name: 'PPF', value: 1234567.89, currency: 'INR', liquidity: 'long' },
+  // v10.26.0 (R4) — the offset exercises computeAssetValue in every liveAssetRows case.
+  { id: 'asset-inr', type: 'investment', name: 'PPF', value: 1234567.89, currency: 'INR', liquidity: 'long', valuationOffset: -4321.09 },
   { id: 'asset-jpy', type: 'cash', name: 'Yen jar', value: 45000, currency: 'JPY', liquidity: 'liquid' },
   { id: 'asset-neg', type: 'other', name: 'Underwater', value: -500, currency: 'USD', liquidity: 'short' },
 ];
@@ -194,6 +195,8 @@ const PORTED = [
   'computeEmi', 'splitEmiPortions', 'splitsOutstanding',
   'accountValueOf', 'debitAccountOf', 'creditAccountOf', 'computeAccountBalance',
   'liveAssetRows', 'liveTotalAssets',
+  // v10.26.0 (R4) — investment assets fold like accounts.
+  'computeAssetValue',
 ];
 
 const NOT_PORTED = [
@@ -209,6 +212,8 @@ const NOT_PORTED = [
   // go through the RPC — duplicating the reconciliation write rule here is
   // exactly how the money model would drift.
   'reconcileAccount',
+  // v10.26.0 (R4) — the same rule for an investment asset's "Update value".
+  'reconcileAssetValue',
 ];
 
 describe('parity roster — no client aggregate escapes classification', () => {
@@ -590,6 +595,34 @@ describe('parity — live net-worth asset rows (de-dupe against linked assets)',
     expect(port.liveAssetRows([], [], [], 'USD', RATES)).toStrictEqual(clientAcct.liveAssetRows([], [], [], 'USD', RATES));
     expect(port.liveTotalAssets([])).toBe(clientAcct.liveTotalAssets([]));
   });
+});
+
+// v10.26.0 (R4) — an investment ASSET folds its buys and withdrawals.
+describe('parity — investment asset live value (computeAssetValue)', () => {
+  const FUND: Asset = { id: 'asset-fund', type: 'investment', name: 'Delhi', value: 0, currency: 'INR', liquidity: 'short', valuationOffset: 46870 };
+  const ASSET_TXNS: Transaction[] = [
+    { id: 'r4-b1', type: 'investment', amount: 1200, currency: 'INR', date: '2026-03-01', description: 'buy', category: '', accountId: 'acc-cash', assetId: 'asset-fund' },
+    { id: 'r4-b2', type: 'investment', amount: 10.55, currency: 'EUR', date: '2026-03-02', description: 'fx buy', category: '', accountId: 'acc-bank', assetId: 'asset-fund' },
+    { id: 'r4-w1', type: 'investment', amount: 500, currency: 'INR', date: '2026-03-03', description: 'withdraw', category: '', toAccountId: 'acc-bank', assetId: 'asset-fund' },
+    { id: 'r4-other', type: 'investment', amount: 999, currency: 'INR', date: '2026-03-03', description: 'other asset', category: '', accountId: 'acc-cash', assetId: 'asset-inr' },
+    { id: 'r4-legacy', type: 'investment', amount: 77, currency: 'USD', date: '2026-03-04', description: 'legacy two-account row', category: '', accountId: 'acc-bank', toAccountId: 'acc-inv' },
+    { id: 'r4-noise', type: 'expense', amount: 5, currency: 'INR', date: '2026-03-04', description: 'not an investment', category: 'other_expense', accountId: 'acc-cash', assetId: 'asset-fund' },
+  ];
+  for (const [rname, rates] of RATE_SETS) {
+    it(`${rname}: every asset's live value matches`, () => {
+      for (const a of [FUND, ...ASSETS]) {
+        expect(port.computeAssetValue(a, ASSET_TXNS, rates), a.id).toBe(clientAcct.computeAssetValue(a, ASSET_TXNS, rates));
+      }
+    });
+    for (const base of BASES) {
+      it(`${rname} · ${base}: liveAssetRows with asset-based investments`, () => {
+        const txns = [...FULL, ...ASSET_TXNS];
+        const pick = (rows: ReturnType<typeof clientAcct.liveAssetRows>) => rows.map(r => ({ id: r.id, value: r.value, source: r.source }));
+        expect(pick(port.liveAssetRows([FUND, ...ASSETS], ACCOUNTS, txns, base, rates)))
+          .toStrictEqual(pick(clientAcct.liveAssetRows([FUND, ...ASSETS], ACCOUNTS, txns, base, rates)));
+      });
+    }
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

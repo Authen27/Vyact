@@ -7,7 +7,7 @@ import { fmt, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
 import { monthlyData } from '../lib/calculations';
 import { computeNetWorth } from '../lib/netWorth';
-import { type LiveAssetRow } from '../lib/accountBalance';
+import { computeAssetValue, type LiveAssetRow } from '../lib/accountBalance';
 import { ASSET_TYPES, DEBT_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
 
@@ -100,8 +100,14 @@ export default function NetWorth() {
 
   async function del(id: string) {
     if (!confirm('Delete this asset?')) return;
-    await removeAsset(id);
-    toast('Asset removed', 'info');
+    // v10.26.0 (R4) — the store refuses an investment with buys recorded against
+    // it; that refusal must reach the user, not vanish as an unhandled rejection.
+    try {
+      await removeAsset(id);
+      toast('Asset removed', 'info');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   }
 
   const byLiquidity = (liq: LiveAssetRow['liquidity']) =>
@@ -304,7 +310,9 @@ export default function NetWorth() {
                             )}
                             <div className="text-right min-w-0">
                               <Money amount={row.value} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem]" />
-                              {a.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(a.value, a.currency)}</div>}
+                              {/* v10.26.0 (R4) — the live value in the asset's own currency;
+                                  for an investment `value` is only its opening value. */}
+                              {a.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(computeAssetValue(a, transactions, rates), a.currency)}</div>}
                             </div>
                             <div className="flex gap-1">
                               <button className="row-action" aria-label={`Edit ${a.name}`} title="Edit" onClick={() => openEdit(a)}>

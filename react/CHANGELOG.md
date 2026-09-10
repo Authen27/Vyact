@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.25.0`** (consumer)
+> **Current production version: `v10.26.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,62 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.26.0 — investments live in Net Worth: an investment is an asset, not an account *(2026-09-11)*
+
+Accounts redesign, release 4 of 4 — the investment half of requirement 7. Loans already live in Debts; with this
+release investments live in Net Worth, and the Accounts screen holds only what you pay from.
+
+### The model — a deliberate change, with no number moving
+
+An investment used to be a transfer between two ACCOUNTS, one of them a hidden `investment` account. It now moves
+money between an **account** and an **investment asset** in Net Worth:
+
+- **Buy** — the paying account goes down, the asset goes up, by the same amount.
+- **Withdrawal** — the asset goes down, the receiving account goes up.
+- Still **no spend, no income, no category**, and **net worth does not move**.
+
+An investment asset folds exactly like an account (your choice, *mirror accounts*): live value = its opening value
++ every buy − every withdrawal + a **valuation offset**. **Update value** records a dated value update in that
+offset — never an overwrite, never a transaction — so editing or deleting a past buy always moves the value, and
+the stated value history is kept.
+
+### Your data
+
+Production held one investment account, **Delhi Investment Serivices**, worth **₹48,780**. It is now an investment
+asset carrying the same opening value (₹0), value update (₹46,870) and log entry; its three buys (Cash, HDFC Bank,
+Federal Bank) and one withdrawal (to HDFC Bank) point at the asset; the account is tombstoned. The migration
+recomputes the converted value and **every other account's balance** inside the same transaction and rolls back on
+any difference. Validated against production in a rolled-back run: ₹48,780 before and after, household total
+₹64,12,911.90 before and after.
+
+### In the app
+
+- **Add transaction · Investment** picks from your investments in Net Worth; *Took money out* sends it back to an
+  account. With none yet, *Add an investment* opens the asset form.
+- **Net Worth · edit an investment** shows its live value. Changing it records a value update; details save without
+  touching the opening value. Currency and type lock once money has moved through it.
+- **Recurring · investment** schedules put money into an investment asset.
+- **WhatsApp** — "invested 5000 in <fund>" lands in that asset (or your only one); a missing fund gets a clear reply.
+
+### Safety
+
+- `ck_txn_accounts_by_type` now requires an asset and exactly one account on every investment, and no asset on any
+  other type. `ck_account_no_live_investment` refuses a live investment account.
+- An investment asset with live buys cannot be deleted (database trigger and store guard) — its value would leave net
+  worth while the paying accounts stayed debited.
+- Invariants rewritten deliberately: **INV-2** (buy: account down, asset up, net worth unchanged), **INV-2b**
+  (withdrawal), **INV-2c** (legacy rows still fold), **INV-3c** (value update moves the offset only), **INV-7c**
+  (live asset fold, the production ₹48,780 figure). The server money port gains `computeAssetValue`, pinned by parity
+  tests across every rate set and base currency. Store workflow tests cover buy, withdrawal, refusal and value update.
+- `CACHE_EPOCH` bumped: devices drop caches that still hold the converted account and its two-account rows, rather
+  than re-uploading them.
+- Archive-first: the converted account, its transactions and any schedules are copied to `maintenance.r4_*` before
+  anything changes.
+
+_Migration: `20260911120000_r4_investments_to_assets.sql`._
 
 ---
 

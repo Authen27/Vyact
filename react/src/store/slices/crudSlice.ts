@@ -209,7 +209,13 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     return saved as Asset;
   },
   removeAsset: async (id) => {
-    const { adapter, currentHouseholdId, assets } = get();
+    const { adapter, currentHouseholdId, assets, transactions } = get();
+    // v10.26.0 (R4) — an investment asset its buys still point at cannot go:
+    // its value would leave net worth while the paying accounts stay debited.
+    // The database refuses the same (assets_refuse_delete_in_use).
+    if (transactions.some(t => t.type === 'investment' && t.assetId === id)) {
+      throw new Error('This investment has buys or withdrawals recorded against it — delete or move those first.');
+    }
     await adapter.remove('assets', currentHouseholdId, id);
     set({ assets: assets.filter(x => x.id !== id) });
   },
