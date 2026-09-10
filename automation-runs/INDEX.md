@@ -22,3 +22,5 @@
 | 2026-09-09T17:28:18.260Z | ✅ PASS | `test/lane-a-budgets-container-model` | `8158f45` | local | 238/238 | [report](2026-09-09T17-23-35-326Z__8158f45/report.md) |
 | 2026-09-09T20:37:35.794Z | ❌ FAIL | `release/v10.22.2` | `4166d20` | local | 238/238 | [report](2026-09-09T20-32-48-055Z__4166d20/report.md) |
 | 2026-09-09T20:44:28.705Z | ✅ PASS | `release/v10.22.2` | `4166d20` | local | 238/238 | [report](2026-09-09T20-43-15-454Z__4166d20/report.md) |
+| 2026-09-10T05:18:39.107Z | ✅ PASS | `main` | `05e3a1a` | local | 238/238 | [report](2026-09-10T05-12-55-292Z__05e3a1a/report.md) |
+| 2026-09-10T05:38:28.546Z | ✅ PASS | `main` | `05e3a1a` | local | 238/238 | [report](2026-09-10T05-27-54-879Z__05e3a1a/report.md) |

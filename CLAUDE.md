@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.22.2**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.22.3**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -249,6 +249,23 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   Goals/Tax pages are removed; Saved Views is hidden; learned ingestion is not
   connected to current entrypoints. Retired recurring backfill/re-key tests
   were removed; stored-row compatibility and money invariants remain required.
+- 🔴 **The e2e specs ARE type-checked now (v10.22.3) — keep them that way.**
+  `react/tsconfig.json` excludes `e2e` and `src/**/*.test.ts`, so for months
+  nothing compiled the Playwright suite: 68 type errors had accumulated, and each
+  one surfaced only at runtime as `Test timeout of 30000ms exceeded` — an error
+  naming the stopwatch instead of the cause. Two page-object bugs (`setAmount`
+  clicking a keypad that no longer exists, `submitButton` matching a bare "Save"
+  when the label is `Save ${type}`) accounted for a large share of Lane A on
+  their own. `react/tsconfig.e2e.json` + the `Consumer · type-check (e2e specs)`
+  gate close that hole; a stale spec now fails in seconds with the exact line.
+  **Vitest still does not type-check `src/**/*.test.ts`** (esbuild transpiles
+  only) — the same class of rot can still grow there.
+- **A failing e2e test may be RIGHT.** Before fixing one, decide which it is:
+  a real product defect, a stale test, or a test for a removed feature. v10.22.3
+  found two INVERTED tests whose failure was the correct behaviour — TXN-FC-003
+  asserted the retired `__tg` paired-row transfer encoding, and CON-E2E-012 gave
+  an investment a category. Had either passed, INV-1/INV-9 would be broken.
+  Retire those; never "fix" a test into contradicting the money model.
 - The optional real-provider smoke runs only with `npm --prefix react run
   test:live`; default CI never spends provider tokens. Mocked Edge handlers
   are not deployed Supabase/Meta verification. See `docs/UNIT_TEST_CI_HANDOFF.md`

@@ -174,7 +174,10 @@ export async function runInventory(args = process.argv.slice(2)) {
   // frees the ID for reuse, which is exactly what the section exists to prevent.
   const retiredSrc = rosterEnd === -1 ? '' : oldDoc.slice(rosterEnd);
   const retiredBrowserRows = retiredSrc.split(/\r?\n/)
-    .filter(line => /^- CON-E2E-\d{3} — /.test(line));
+    // Any browser/inventory ID namespace, not just CON-E2E. The narrower
+    // pattern this replaces silently dropped retired TXN-FC-* rows — the same
+    // way the whole section was dropped before it was carried forward at all.
+    .filter(line => /^- [A-Z][A-Z0-9]*(-[A-Z0-9]+)*-\d{3} — /.test(line));
   const document = renderInventory(files, browserRows, retiredBrowserRows);
   if (update) {
     fs.writeFileSync(inventoryPath, content);

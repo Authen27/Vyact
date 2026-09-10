@@ -1,7 +1,7 @@
 {
   "name": "vyact-react",
   "private": true,
-  "version": "10.22.2",
+  "version": "10.22.3",
   "type": "module",
   "description": "Vyact — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "vitest run --config vitest.live.config.ts",

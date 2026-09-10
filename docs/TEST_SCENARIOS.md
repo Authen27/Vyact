@@ -166,6 +166,10 @@ Browser IDs (carried forward from the previous document; the generator never min
 
 - CON-E2E-020 — [BDGT-FC-004] quarterly budget period. The `quarterly` scope was removed from the product by `budget_scope_drop_custom`; a test for a deleted feature is not a coverage gap. Replaced by the annual-scope case in the budgets spec.
 - CON-E2E-021 — [BDGT-FC-005] custom start/end budget period. The `custom` scope was removed by the same migration. Replaced by the annual-scope case in the budgets spec.
+- TXN-FC-003 — transfer track creating PAIRED transfer rows. Asserted two rows per transfer, a sorted [expense, income] pair, category === transfer on both, and a __tg: note tag. All four are money-model VIOLATIONS since v9: a transfer is ONE spend/income-neutral row with both account FKs set and no category, and the __tg paired-row encoding was retired. Its failure was the correct behaviour; passing would have broken INV-1.
+- TXN-FC-010 — track picker narrowing investment categories. The track picker was retired in v9 (D3).
+- TXN-FC-011 — edit mode opening with the track locked and no picker. Same retired control.
+- TXN-FC-012 — numeric shortcuts choosing each track. Same retired control; the surviving half (Escape closes the modal) is covered by A11Y-FC-001.
 
 ## 6. Deployment Verification
 

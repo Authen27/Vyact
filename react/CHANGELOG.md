@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.22.2`** (consumer)
+> **Current production version: `v10.22.3`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,72 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.22.3 — the e2e suite is type-checked, and two page-object bugs come out of hiding *(2026-09-10)*
+
+Lane A has been red for months and the failures read as stale selectors. They were not.
+**`tsconfig.json` excludes `e2e` (and the unit tests), so nothing had ever type-checked the Playwright
+suite** — every piece of drift surfaced at runtime as `Test timeout of 30000ms exceeded`, naming the
+wrong cause. Switching it on produced **68 type errors**. This release takes them to zero and wires
+`typecheck:e2e` into the verification gate, so the specs cannot drift from their page objects again
+without the build saying so.
+
+### Two page-object bugs were doing most of the damage
+
+Both sit on the path of nearly every transaction test, which is why a handful of lines accounted for
+so many failures.
+
+**`setAmount` clicked a keypad that does not exist.** It clicked `⌫` to clear, then one button per
+digit. The dialog's real buttons are Close, the four type chips, the category chips, Today/Yesterday,
+Pick a time, the account chips, the member chips, Save and Save & add another. Amount is a plain
+`input type="text" inputmode="decimal"`. Every amount-setting test burned its full timeout and then
+blamed a "Backspace" button.
+
+**`submitButton` matched `/^(Save|Update)$/`.** The real label is ``Save ${form.type}`` — "Save
+expense" — never a bare "Save", so `submit()` timed out on every create and edit.
+
+**`amountValue()` failed silently**, reading `textContent` from an `<input>`: it returned `""`
+whatever the field held, so every caller comparing against it was asserting nothing.
+
+### Four tests retired — two of them were INVERTED
+
+**TXN-FC-003** asserted a transfer creates TWO rows (a sorted `[expense, income]` pair), each with
+`category === 'transfer'`, plus a `__tg:` note tag. Every one of those is a money-model violation
+since v9: a transfer is ONE spend/income-neutral row with both account FKs set and no category, and
+the `__tg` paired-row encoding was retired. **Its failure was the correct behaviour** — had it passed,
+INV-1 would be broken. **CON-E2E-012** likewise passed `category: 'investment_in'`, an id that does
+not exist: `CATEGORIES_BY_TYPE` has `investment: []` and INV-9 asserts that pool is empty.
+
+TXN-FC-010/011/012 drove the track picker, retired in v9 (D3). A test for a deleted feature is not a
+coverage gap. All four IDs are recorded in `docs/TEST_SCENARIOS.md` §5.
+
+### One real accessibility defect fixed
+
+The Settings exchange-rate inputs had **no accessible name at all** — the currency lived only in an
+adjacent `<span>`, so a screen reader announced twenty-odd identical "edit text" fields with nothing
+to tell them apart. They now carry an `aria-label` naming the currency, and the span is decorative.
+That also replaced a test line calling `page.getByDisplayValue` — a Testing Library API Playwright
+does not have, so it could never have run.
+
+A11Y-FC-004's tab order was re-derived by MEASURING the running form rather than assuming it, and its
+focus-trap assertion was proved able to fail before being kept.
+
+### Lane A, measured
+
+| | Before | After |
+|---|---:|---:|
+| Failed | 62 | **53** |
+| Passed | 27 | **32** |
+| Wall clock | 26.4 min | **4.2 min** |
+
+The speedup matters more than the counts: failures are now ~5s assertion errors instead of 30s
+timeouts, so the lane is usable for iteration. The remaining 53 are being worked triage-first — the
+two inverted tests above are why, and why making the lane green quickly would have been the wrong
+goal.
+
+_No migration. One `aria-label` on an existing input; everything else is test tooling._
 
 ---
 

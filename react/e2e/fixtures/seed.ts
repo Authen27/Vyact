@@ -90,6 +90,16 @@ export const defaultSeed: SeedData = {
       isDefault: true,
       openingBalance: 8000,
     },
+    {
+      // An investment transaction sets BOTH account FKs (v9 per-type matrix), so
+      // the baseline household needs an investment-kind destination. Without one
+      // CON-E2E-012 had nothing to buy into.
+      id: '00000000-0000-4000-8000-0000000000a2',
+      kind: 'investment',
+      name: 'E2E Brokerage',
+      currency: 'USD',
+      openingBalance: 0,
+    },
   ],
   debts: [],
   assets: [

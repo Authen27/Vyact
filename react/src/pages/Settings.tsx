@@ -571,8 +571,14 @@ export default function Settings() {
               <div className="grid sm:grid-cols-3 gap-2">
                 {Object.entries(CURRENCIES).filter(([c]) => c !== 'USD').map(([code]) => (
                   <div key={code} className="flex items-center gap-2 bg-bg3 border border-line rounded-md px-3 py-2">
-                    <span className="font-mono text-[0.7rem] text-ink-dim w-8 flex-shrink-0">{code}</span>
+                    <span className="font-mono text-[0.7rem] text-ink-dim w-8 flex-shrink-0" aria-hidden="true">{code}</span>
                     <input
+                      // v10.22.3 — these inputs had NO accessible name. The
+                      // currency was only in an adjacent <span>, so a screen
+                      // reader announced twenty-odd identical "edit text" fields
+                      // with nothing to tell them apart. The span is decorative
+                      // now and the name lives on the control itself.
+                      aria-label={`${code} rate`}
                       className="input flex-1 text-right text-sm py-1 px-2"
                       value={rateEdits[code] ?? String(rates[code] ?? DEFAULT_RATES[code] ?? '')}
                       onChange={e => setRateEdits(r => ({ ...r, [code]: e.target.value }))}
