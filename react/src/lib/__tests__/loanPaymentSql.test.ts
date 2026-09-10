@@ -1,6 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { applyPayment } from '../amortization';
 import type { Debt, PartPaymentChoice } from '../../types';
 
@@ -47,6 +47,12 @@ beforeAll(async () => {
   }
 }, 30000);
 afterAll(async () => { await db.close(); });
+beforeEach(async () => {
+  await db.exec("delete from loan_payment_events; delete from transactions; delete from accounts where kind='loan'");
+  await db.query(`update debts set current_balance=8000, minimum_payment=500,
+    extras='{"remainingMonths":16}' where id=$1`, [debt]);
+  await db.exec(`select set_config('request.jwt.claim.sub','${actor}',false)`);
+});
 
 const pay = (id: string, newBalance: number, principal = 500) => db.query<{ result: {
   status: string; debt: { current_balance: number }; loan_account: { opening_balance: number };
@@ -88,17 +94,20 @@ describe.sequential('loan command executed by Postgres', () => {
     expect(rows[0].result.transactions).toHaveLength(1);
   });
   it('CON-UNIT-903 - retries return the original transaction without reducing the debt twice', async () => {
+    await pay(operation, 7500);
     const { rows } = await pay(operation, 7500);
     expect(rows[0].result.status).toBe('duplicate');
     expect(rows[0].result.debt.current_balance).toBe(7500);
     expect((await db.query('select * from transactions where debt_id = $1', [debt])).rows).toHaveLength(1);
   });
   it('CON-UNIT-904 - rejects stale or invented balance reductions and rolls back', async () => {
+    await pay(operation, 7500);
     await expect(pay(crypto.randomUUID(), 7500)).rejects.toThrow('payment_state_changed');
     await expect(pay(crypto.randomUUID(), 0)).rejects.toThrow('payment_state_changed');
     expect((await db.query('select * from transactions where debt_id = $1', [debt])).rows).toHaveLength(1);
   });
   it('CON-UNIT-905 - duplicate operation lookup does not bypass authorization', async () => {
+    await pay(operation, 7500);
     await db.exec(`select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',false)`);
     await expect(pay(operation, 7500)).rejects.toThrow('not_authorized');
     await db.exec(`select set_config('request.jwt.claim.sub','${actor}',false)`);

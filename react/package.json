@@ -1,7 +1,7 @@
 {
   "name": "vyact-react",
   "private": true,
-  "version": "10.22.1",
+  "version": "10.22.2",
   "type": "module",
   "description": "Vyact — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:live": "vitest run --config vitest.live.config.ts",
     "e2e": "playwright test",
     "e2e:stability": "node e2e/run-stability.cjs",
     "e2e:capture": "node e2e/run-and-capture.cjs",

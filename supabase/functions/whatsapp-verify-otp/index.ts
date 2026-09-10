@@ -21,7 +21,20 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: aErr } = await admin.auth.getUser(jwt);
   if (aErr || !user) return json({ error: 'unauthorized' }, 401);
 
-  const { code } = await req.json().catch(() => ({}));
+  const { code, action } = await req.json().catch(() => ({}));
+  if (action === 'status') {
+    const { data, error } = await admin.from('whatsapp_identities')
+      .select('phone_number, household_id').eq('profile_id', user.id).maybeSingle();
+    if (error) return json({ error: 'status_failed' }, 500);
+    return json(data ? { status: 'linked', phone: data.phone_number, householdId: data.household_id } : { status: 'unlinked' });
+  }
+  if (action === 'unlink') {
+    const { error: otpError } = await admin.from('whatsapp_verification_otps').delete().eq('profile_id', user.id);
+    if (otpError) return json({ error: 'unlink_failed' }, 500);
+    const { error } = await admin.from('whatsapp_identities').delete().eq('profile_id', user.id);
+    if (error) return json({ error: 'unlink_failed' }, 500);
+    return json({ status: 'unlinked' });
+  }
   if (!code || !/^\d{4,8}$/.test(String(code))) return json({ error: 'invalid_code_format' }, 400);
 
   // Latest unexpired OTP for this user.

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.22.1**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.22.2**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -104,8 +104,10 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   (`vyact_outbox`), which is what keeps unsynced writes structurally safe. **Never add a migration that RECREATES rows from other rows.**
   `backfillSchedulesFromTransactions` did exactly that and could not tell a
   deliberate deletion from a legacy gap, so deleting a recurring schedule and
-  reloading brought it back for ~2 years; it was retired in v10.20.7 along with
-  the v10.20.5 re-key. A delete is final.
+  reloading brought it back for ~2 years; it was unwired in v10.20.7 along with
+  the v10.20.5 re-key, and both were **deleted outright in v10.22.2** — an
+  exported resurrection writer with no callers and no tests is worse than one
+  that is either tested or gone. A delete is final; do not reintroduce them.
 - **Onboarding** is owned by the household (`households.onboarding` jsonb +
   localStorage cache); no-op when `isOnboardingEnabled()` is false. **Honest
   data is non-negotiable:** any value with `confidence !== 'confirmed'` renders
@@ -230,6 +232,27 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   not exception-catching.
 
 ## Running
+
+### Test inventory and CI (source of truth)
+
+- `docs/TEST_SCENARIOS.md` and `docs/UNIT_TEST_INVENTORY.json` are generated
+  from actual passing Vitest cases, not regex-matched IDs or a manual count.
+  Run `npm run test:ci` at the repository root after installing both apps.
+  After adding/removing/renaming tests, run `npm run test:inventory:update`
+  and review the generated diff. Never copy a historical count into this guide.
+- `scripts/test-inventory-config.mjs` classifies every test file by feature,
+  availability and layer. New files must be classified; failed, skipped, TODO,
+  empty or uncollected default tests fail the gate. Parameter expansions count
+  as executable cases, not independent product workflows.
+- `unit`/`contract-unit`, store/IndexedDB, SQL and Edge-handler integration are
+  reported separately. Infrastructure tests do not prove a feature is live.
+  Goals/Tax pages are removed; Saved Views is hidden; learned ingestion is not
+  connected to current entrypoints. Retired recurring backfill/re-key tests
+  were removed; stored-row compatibility and money invariants remain required.
+- The optional real-provider smoke runs only with `npm --prefix react run
+  test:live`; default CI never spends provider tokens. Mocked Edge handlers
+  are not deployed Supabase/Meta verification. See `docs/UNIT_TEST_CI_HANDOFF.md`
+  for the happy-path matrix and required deployment follow-through.
 
 ```bash
 cd react && npm install && npm run dev   # → http://localhost:5173

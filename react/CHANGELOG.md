@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.22.1`** (consumer)
+> **Current production version: `v10.22.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,98 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.22.2 — ten happy-path suites, the three defects they exposed, and two writers deleted *(2026-09-10)*
+
+Two streams land together: a focused happy-path test build across ten areas, and the fixes that build
+exposed. **937 deterministic cases pass, zero failed or skipped** — but read *What the number means*
+below before quoting it, because 585 of them cover code no user can reach yet.
+
+### Three defects the new tests exposed
+
+**Approval-required recurring schedules were advanced without ever being approved.** The engine
+skipped generation for a `!autoConfirm` schedule and then *still* fell through to `advanceSchedule`,
+so a manual bill rolled silently past its due date — nothing logged, and no occurrence left for the
+user to approve — every time the engine ran. It now leaves such a schedule due, and the new
+`approveRecurring(id, occurrenceDate)` store command materialises the occurrence and advances the
+schedule when the user acts on the notification. A strong candidate for the long-standing "my
+recurring schedules disappear" reports.
+
+**A multi-sender WhatsApp batch attributed every message to the first contact.** `wa_id` was read
+once from `value.contacts[0]` *outside* the message loop, so a batch carrying messages from two
+senders logged both against the first sender's identity — one person's transaction written into
+another household's ledger. Each message now resolves its own `message.from`.
+
+**Sign-out left the previous user's data in memory.** It cleared transactions, budgets and accounts
+but not `budgetAllocations`, `recurringSchedules`, `notifications` or either `sharedSplits`
+collection — a direct violation of the binding rule that a signed-out device must not hold the last
+user's ledger. They now clear together.
+
+Also: Settings read/unlink still wrote the frozen legacy `profiles` columns and could self-assert
+`phone_verified_at`. They now call authenticated `whatsapp-verify-otp` `status`/`unlink` actions
+against the server-owned `whatsapp_identities` table (RLS on, zero policies — service-role only).
+Admin route permissions moved to one `canAccessPage` rule imported by both the app and its tests,
+instead of the test restating the rule it was meant to check.
+
+### The two resurrection writers are DELETED
+
+`backfillSchedulesFromTransactions` (v7.3) and `rekeyLegacyRecurringIds` (v10.20.5) are gone from
+`react/src/lib/recurring.ts`, with `isStorableId`, `scheduleSignature`, `BackfillResult` and
+`RekeyResult`. The backfill recreated a schedule from any transaction carrying a legacy `recurring`
+field and could not distinguish a deliberate deletion from a legacy gap — deleting a recurring
+schedule and reloading brought it back, for roughly two years. It was unwired in v10.20.7 and its
+tests were removed in this build, but it stayed **exported**: a resurrection writer with no callers
+and no test holding it to its contract, which is worse than either keeping it tested or removing it.
+Both migrations have long since run on every live device. A delete is final.
+
+The `!autoConfirm` guard left a dead `if (s.autoConfirm)` branch behind it; removed, with the
+reasoning recorded at the guard.
+
+### The inventory replaces the unit half of the reconciler
+
+`docs/TEST_SCENARIOS.md` and `docs/UNIT_TEST_INVENTORY.json` are now GENERATED from passing Vitest
+assertion results (`npm run test:ci`), not regex-matched IDs. This is stricter than the check it
+replaces: it rejects failed, skipped, TODO, empty and uncollected cases, requires every test file to
+be classified in `scripts/test-inventory-config.mjs`, and requires every classified file to have
+actually executed. The consumer runner also widened from `*.test.ts` to `*.test.{ts,tsx}` — component
+tests were being silently skipped. E2E IDs stay on the existing reconciler.
+
+**Retired browser IDs now survive regeneration.** The first version of the §5 rewrite dropped the
+retired `CON-E2E-020`/`021` entries, silently freeing those IDs for reuse — the one thing that
+section exists to prevent. They are carried forward, and the §4 roster capture is scoped to §4 so a
+retired entry cannot be scooped back into the live roster.
+
+**One tooling bug fixed on the way in.** The inventory drift check compared the generated JSON
+byte-for-byte with no line-ending normalisation, so on any checkout with `core.autocrlf=true` — every
+Windows clone — git rewrites the committed file to CRLF and the gate fails against a file it would
+regenerate identically. CI is Linux, so it never fired there; it only ever broke local runs, which is
+the worst place for a gate to cry wolf. Both sides are normalised now.
+
+### What the number means
+
+937 passing cases is not 937 shipped features, and the inventory says so per row:
+
+| Availability | Cases | Meaning |
+|---|---:|---|
+| `available` | 228 | exposed by current source |
+| `conditional` | 124 | needs cloud, auth, config or channel activation |
+| `infrastructure` | 585 | implemented and tested, **not connected to any user entrypoint** |
+
+The 585 are the learned-ingestion agent modules (227) and the server money-port parity suite (358) —
+real code under real test, neither reachable by a user today. Handler tests stub DB and provider
+transport; the PGlite fixture is a focused schema, not production RLS. None of this is release
+approval, and `docs/UNIT_TEST_CI_HANDOFF.md` records the live gates that remain.
+
+### Deployment order
+
+Deploy `whatsapp-verify-otp` and `whatsapp-webhook` **before** promoting the consumer that calls the
+new status/unlink actions. Both are in `deploy.yml`, but the function job and the Vercel build race
+on push; the window's failure mode is a soft "could not load WhatsApp link status" toast, not data
+loss.
+
+_No migration. `whatsapp_identities` already exists in production._
 
 ---
 

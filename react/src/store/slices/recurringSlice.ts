@@ -16,6 +16,7 @@ export interface RecurringSlice {
   recurringSchedules: RecurringSchedule[];
   upsertRecurring: (s: Partial<RecurringSchedule>) => Promise<RecurringSchedule>;
   removeRecurring: (id: string) => Promise<void>;
+  approveRecurring: (id: string, occurrenceDate: string) => Promise<void>;
   runRecurringEngine: () => Promise<void>;
 }
 
@@ -88,6 +89,17 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
     set({ recurringSchedules: get().recurringSchedules.filter(s => s.id !== id) });
   },
 
+  approveRecurring: async (id, occurrenceDate) => {
+    const schedule = get().recurringSchedules.find(row => row.id === id);
+    if (!schedule?.active || schedule.nextDueDate !== occurrenceDate || occurrenceDate > today()) return;
+    const transaction = generateTransaction(schedule);
+    if (!get().transactions.some(row => row.id === transaction.id)) {
+      await get().upsertTransaction(transaction);
+    }
+    await get().upsertRecurring(advanceSchedule(schedule));
+    await get().refreshNotifications();
+  },
+
   runRecurringEngine: async () => {
     const { recurringSchedules, transactions, adapter, currentHouseholdId } = get();
     const due = dueSchedules(recurringSchedules);
@@ -121,21 +133,27 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
         try { await adapter.upsert('recurring', currentHouseholdId, ff); } catch { /* best-effort */ }
         continue;
       }
-      if (s.autoConfirm) {
-        // R2 (sync fix): idempotency guard. Skip if this occurrence already
-        // exists locally (it may have been generated on another device and
-        // pulled in, or generated in a prior engine run before the schedule
-        // advance synced). The deterministic id makes the cloud upsert a no-op
-        // too, but this also avoids a transient in-memory duplicate.
-        const occId = recurringInstanceId(s.id, s.nextDueDate);
-        const exists = transactions.some(
-          t => t.id === occId || (t.recurringScheduleId === s.id && t.date === s.nextDueDate),
-        );
-        if (!exists) {
-          const txn = generateTransaction(s);
-          await adapter.upsert('transactions', currentHouseholdId, txn);
-          newTxns.push(txn);
-        }
+      // An approval-required schedule is LEFT DUE — the engine must not touch
+      // it. Until this guard existed the loop skipped only the generation step
+      // and still fell through to advanceSchedule below, so a manual schedule
+      // rolled silently past its due date: no transaction, and no occurrence
+      // left for the user to approve. `approveRecurring` advances it instead,
+      // once the user acts on the notification.
+      if (!s.autoConfirm) continue;
+
+      // R2 (sync fix): idempotency guard. Skip if this occurrence already
+      // exists locally (it may have been generated on another device and
+      // pulled in, or generated in a prior engine run before the schedule
+      // advance synced). The deterministic id makes the cloud upsert a no-op
+      // too, but this also avoids a transient in-memory duplicate.
+      const occId = recurringInstanceId(s.id, s.nextDueDate);
+      const exists = transactions.some(
+        t => t.id === occId || (t.recurringScheduleId === s.id && t.date === s.nextDueDate),
+      );
+      if (!exists) {
+        const txn = generateTransaction(s);
+        await adapter.upsert('transactions', currentHouseholdId, txn);
+        newTxns.push(txn);
       }
       const advanced = advanceSchedule(s);
       const idx = updated.findIndex(x => x.id === s.id);

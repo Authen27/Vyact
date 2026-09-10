@@ -13,6 +13,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInventory } from './test-inventory.mjs';
+
+try { await runInventory(); }
+catch (error) { console.error(error.message); process.exit(1); }
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const docPath = path.join(repoRoot, 'docs', 'TEST_SCENARIOS.md');
@@ -45,8 +49,6 @@ const INVENTORY_ID_RE = /^[A-Z]+-FC-\d{3}$/;
 
 // ── 1. Discover scenario IDs in code ─────────────────────────────────
 const sourceRoots = [
-  { app: 'CON', layer: 'UNIT', dir: 'react/src/lib/__tests__', match: /\.test\.tsx?$/ },
-  { app: 'ADM', layer: 'UNIT', dir: 'admin/src/lib/__tests__', match: /\.test\.tsx?$/ },
   // Only the e2e directories have an inventory namespace alongside their scenarios.
   { app: 'CON', layer: 'E2E',  dir: 'react/e2e/tests',         match: /\.spec\.tsx?$/,
     inventory: INVENTORY_ID_RE },
@@ -157,7 +159,8 @@ const rosterSrc = docSrc.slice(rosterStart, rosterEnd === -1 ? undefined : roste
 
 // Retired IDs section: collect to refuse reuse.
 const retiredStart = docSrc.indexOf('\n## 5. Retired IDs');
-const retiredSrc = retiredStart === -1 ? '' : docSrc.slice(retiredStart);
+const retiredEnd = docSrc.indexOf('\n## 6.', retiredStart);
+const retiredSrc = retiredStart === -1 ? '' : docSrc.slice(retiredStart, retiredEnd === -1 ? undefined : retiredEnd);
 const retiredIds = new Set(
   Array.from(retiredSrc.matchAll(/\b([A-Z]+-[A-Z0-9]+-\d{3})\b/g)).map(m => m[1]),
 );
@@ -168,6 +171,7 @@ const docDupes = [];
 let row;
 while ((row = ROW_RE.exec(rosterSrc)) !== null) {
   const id = row[1];
+  if (!id.startsWith('CON-E2E-')) continue;
   const file = row[2].trim();
   const desc = row[3].trim();
   if (docScenarios.has(id)) {

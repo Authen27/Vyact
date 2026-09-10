@@ -83,6 +83,8 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
         households: [], currentHouseholdId: 'local',
         transactions: [], budgets: [], goals: [], members: [],
         debts: [], assets: [], accounts: [], savedViews: [], myRole: undefined,
+        budgetAllocations: [], recurringSchedules: [], notifications: [],
+        sharedSplitsOwned: [], sharedSplitsWithMe: [],
       });
     }
   },

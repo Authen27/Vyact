@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "test:ci": "node --test scripts/__tests__/test-inventory.test.mjs && node scripts/test-inventory.mjs",
+    "test:inventory:update": "node scripts/test-inventory.mjs --update"
+  },
   "dependencies": {
     "@vercel/speed-insights": "^2.0.0"
   }

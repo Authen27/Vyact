@@ -23,6 +23,47 @@ beforeEach(() => {
 });
 
 describe('loan payment workflow', () => {
+  it('a fresh cloud success adopts authoritative interest and principal rows', async () => {
+    const state = useStore.getState();
+    const loan = { id: 'cloud-loan', kind: 'loan' as const, name: 'Loan', currency: 'USD', debtId: state.debts[0].id, openingBalance: -8000 };
+    const transactions = [
+      { id: 'interest', type: 'expense' as const, amount: 80, category: 'loan_emi', currency: 'USD', date: '2026-09-09', description: 'Interest', accountId: state.accounts[0].id },
+      { id: 'principal', type: 'transfer' as const, amount: 420, category: '', currency: 'USD', date: '2026-09-09', description: 'Principal', accountId: state.accounts[0].id, toAccountId: loan.id },
+    ];
+    const command = vi.fn().mockResolvedValue({ status: 'success', loanAccount: loan,
+      debt: { ...state.debts[0], currentBalance: 7580 }, transactions });
+    state.adapter.recordLoanPayment = command;
+    useStore.setState({ cloudEnabled: true });
+    await state.recordLoanPayment({ operationId: 'operation', debtId: state.debts[0].id, fundingAccountId: state.accounts[0].id, amount: 500 });
+    const after = useStore.getState();
+    expect(command).toHaveBeenCalledOnce();
+    expect(after.transactions).toEqual(transactions);
+    expect(computeAccountBalance(loan, after.transactions, 'USD', { USD: 1 })).toBe(-7580);
+    expect(computeAccountBalance(after.accounts[0], after.transactions, 'USD', { USD: 1 })).toBe(9500);
+  });
+
+  it('final principal payoff leaves zero liability and survives an adapter reload', async () => {
+    const state = useStore.getState();
+    await state.recordLoanPayment({ debtId: state.debts[0].id, fundingAccountId: state.accounts[0].id, amount: 8000 });
+    const after = useStore.getState();
+    expect(after.debts[0].currentBalance).toBe(0);
+    expect(computeNetWorth(after, 'USD', { USD: 1 }).totalLiabilities).toBe(0);
+    expect(computeNetWorth(after, 'USD', { USD: 1 }).netWorth).toBe(2000);
+    expect(await new LocalStorageAdapter().list('debts', after.currentHouseholdId)).toEqual(after.debts);
+  });
+
+  it('an interest-bearing local payment spends only interest and preserves the principal transfer', async () => {
+    useStore.setState({ debts: [{ ...useStore.getState().debts[0], interestRate: 12 }] });
+    const state = useStore.getState();
+    await state.recordLoanPayment({ debtId: state.debts[0].id, fundingAccountId: state.accounts[0].id, amount: 500 });
+    const after = useStore.getState();
+    expect(after.debts[0].currentBalance).toBe(7580);
+    expect(after.transactions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'expense', amount: 80 }), expect.objectContaining({ type: 'transfer', amount: 420 }),
+    ]));
+    expect(computeNetWorth(after, 'USD', { USD: 1 }).netWorth).toBe(1920);
+  });
+
   it('CON-UNIT-910 - generic CRUD cannot partially undo a system-split payment', async () => {
     const before = useStore.getState();
     await before.recordLoanPayment({ debtId: before.debts[0].id, fundingAccountId: before.accounts[0].id, amount: 500 });

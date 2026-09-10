@@ -27,8 +27,8 @@ const MODEL = process.env.VYACT_LIVE_MODEL ?? 'anthropic/claude-sonnet-5';
 
 /**
  * A real OpenRouter call. Deliberately mirrors what the deployed `ask-vyact`
- * gateway sends, so passing here means the gateway path should behave the same:
- * same OpenAI-compatible shape, same model, same caps.
+ * gateway sends. This does not validate deployed gateway authentication,
+ * quota, consent, configuration or metering.
  */
 const liveModel: ModelCall = async ({ system, user, json, maxTokens }) => {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -76,7 +76,7 @@ describe.skipIf(!KEY)(`Ask Vyact live · ${MODEL}`, () => {
     const backend = new LlmBackend(liveModel);
     const turn = await runAssistant('how much did I spend on dining this month?', makeCtx(), backend, 0);
 
-    // eslint-disable-next-line no-console
+
     console.log(`\n  Q: how much did I spend on dining this month?\n  A: ${turn.reply}\n  intent: ${turn.intentId}\n`);
 
     // The model must NOT have fallen through to an unavailable/fallback turn.
@@ -94,7 +94,7 @@ describe.skipIf(!KEY)(`Ask Vyact live · ${MODEL}`, () => {
     const backend = new LlmBackend(liveModel);
     const turn = await runAssistant('spent 45 on fuel', makeCtx(), backend, 0);
 
-    // eslint-disable-next-line no-console
+
     console.log(`\n  Q: spent 45 on fuel\n  A: ${turn.reply}\n  intent: ${turn.intentId}  seed: ${JSON.stringify(turn.seed)}\n`);
 
     expect(turn.intentId).toBe('capture.expense');
@@ -102,12 +102,4 @@ describe.skipIf(!KEY)(`Ask Vyact live · ${MODEL}`, () => {
     expect(turn.seed?.type).toBe('expense');
     expect(turn.seed?.amount).toBe(45);
   }, 60_000);
-});
-
-// A visible marker when the suite is skipped, so a green run is never mistaken
-// for a live run that actually happened.
-describe.skipIf(!!KEY)('Ask Vyact live · SKIPPED', () => {
-  it('needs OPENROUTER_API_KEY to run against a real model', () => {
-    expect(KEY).toBe('');
-  });
 });
