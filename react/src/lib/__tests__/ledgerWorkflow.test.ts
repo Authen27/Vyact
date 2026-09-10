@@ -251,6 +251,40 @@ describe('Accounts R1 — one Cash in Hand per household, currency from the hous
   });
 });
 
+describe('Transactions R3 — the payment mode is one the paying account uses, and moves no number', () => {
+  const spend = { type: 'expense' as const, amount: 250, currency: 'USD', date: '2026-09-05',
+    description: 'Groceries', category: 'groceries', accountId: 'bank' };
+  beforeEach(() => {
+    useStore.setState({ accounts: useStore.getState().accounts.map(a =>
+      a.id === 'bank' ? { ...a, paymentModes: ['upi', 'debit_card'] } : a) });
+  });
+
+  it('a mode the account uses is kept, and the balance moves exactly as without one', async () => {
+    const saved = await useStore.getState().upsertTransaction({ ...spend, id: crypto.randomUUID(), paymentMode: 'upi' });
+    expect(saved.paymentMode).toBe('upi');
+    const withMode = balance('bank');
+    await useStore.getState().removeTransaction(saved.id);
+    await useStore.getState().upsertTransaction({ ...spend, id: crypto.randomUUID() });
+    expect(balance('bank')).toBe(withMode);
+    expect(withMode).toBe(750);
+  });
+
+  it('a mode the account does not use is dropped, and the money still posts', async () => {
+    // e.g. a recurring schedule saved with a mode later removed from its account.
+    const saved = await useStore.getState().upsertTransaction({ ...spend, id: crypto.randomUUID(), paymentMode: 'swipe' });
+    expect(saved.paymentMode ?? null).toBeNull();
+    expect(useStore.getState().transactions).toHaveLength(1);
+    expect(balance('bank')).toBe(750);
+  });
+
+  it('an investment never carries a mode', async () => {
+    const saved = await useStore.getState().upsertTransaction({ type: 'investment', amount: 100, currency: 'USD',
+      date: '2026-09-05', description: 'SIP', category: '', id: crypto.randomUUID(),
+      accountId: 'bank', toAccountId: 'investment', paymentMode: 'upi' });
+    expect(saved.paymentMode ?? null).toBeNull();
+  });
+});
+
 describe('Accounts R2 — delete, move, archive and reconcile change no number that should not move', () => {
   const R = { USD: 1 };
   function seed() {

@@ -451,6 +451,22 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       }
     }
 
+    // v10.25.0 (R3) — a payment mode is one the PAYING account is used with
+    // (income: the receiving account). An investment never carries one. The
+    // form only offers the account's modes; for every other writer a mode the
+    // account does not use is DROPPED, never an error — the same rule as
+    // whatsapp_log_transaction. A recurring schedule saved with "UPI" must keep
+    // posting after UPI is removed from its account; the mode is descriptive,
+    // the money is not.
+    if (t.paymentMode) {
+      const payingId = t.type === 'income' ? t.toAccountId : t.accountId;
+      const paying = accounts.find(a => a.id === payingId);
+      if (t.type === 'investment'
+          || (paying?.paymentModes?.length && !paying.paymentModes.includes(t.paymentMode))) {
+        t = { ...t, paymentMode: null };
+      }
+    }
+
     // Audit F2 — a NEW loan_emi expense is NEVER stored as a plain expense.
     // The old branch keyed create-vs-edit on `!t.id`, but the form pre-assigns
     // an id, so it was unreachable and EMIs landed as raw expenses. The

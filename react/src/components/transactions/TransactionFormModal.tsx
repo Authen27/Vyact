@@ -14,7 +14,9 @@ import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED
 import TimeDial from '../ui/TimeDial';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { FEATURES } from '../../config/features';
-import type { Transaction, TxnType, Recurrence, PartPaymentChoice } from '../../types';
+import { accountValueOf } from '../../lib/accountBalance';
+import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
+import type { Transaction, TxnType, Recurrence, PartPaymentChoice, PaymentMode } from '../../types';
 
 interface Props {
   /** Optional override props — when omitted, the modal binds to the global store
@@ -37,6 +39,8 @@ interface FormState {
   paymentMethod: string;
   // v7.0.3 — destination account for transfer + investment tracks.
   paymentMethodTo: string;
+  /** v10.25.0 (R3) — how the paying account was used; '' = not stated. */
+  paymentMode: PaymentMode | '';
   // v9 §4.3 — investment direction ('added' = money in, 'withdrew' = money out).
   direction: 'added' | 'withdrew';
   // v9 §4.1 — the loan an EMI pays (required when category = loan_emi).
@@ -89,6 +93,7 @@ const blank = (currency: string, memberId = '', type: TxnType = 'expense'): Form
   memberId,
   paymentMethod: '',
   paymentMethodTo: '',
+  paymentMode: '',
   direction: 'added',
   linkedDebtId: '',
   partPaymentChoice: 'reduce_tenure',
@@ -212,6 +217,24 @@ export default function TransactionFormModal(props: Props) {
   // income lands in one, transfer/investment have both sides.
   const accountLabel = needsToAccount ? 'From account' : isIncome ? 'To account' : 'Account';
 
+  // v10.25.0 (R3) — the account the money is paid with (income: paid into) and
+  // the modes it is used with. Only those modes are offered; investments carry none.
+  const payingAccount = useMemo(
+    () => (isInvestment || !form.paymentMethod) ? undefined
+      : accountsState.find(a => a.id === form.paymentMethod || accountValueOf(a) === form.paymentMethod),
+    [isInvestment, form.paymentMethod, accountsState],
+  );
+  const payingModes = useMemo(() => payingAccount?.paymentModes ?? [], [payingAccount]);
+  // A new transaction preselects the account's first mode. An edit never gains a
+  // mode the user did not choose (honest data) — it only loses one the newly
+  // picked account does not use.
+  useEffect(() => {
+    if (!open || payingModes.length === 0) return;
+    if (form.paymentMode && payingModes.includes(form.paymentMode)) return;
+    const next: PaymentMode | '' = initial ? '' : payingModes[0];
+    if (next !== form.paymentMode) setForm(f => ({ ...f, paymentMode: next }));
+  }, [open, initial, payingModes, form.paymentMode]);
+
   useEffect(() => {
     if (!open) return;
     loanOperation.current = null;
@@ -231,6 +254,7 @@ export default function TransactionFormModal(props: Props) {
         memberId: initial.memberId ?? defaultMemberId,
         paymentMethod: initial.paymentMethod ?? initial.accountId ?? '',
         paymentMethodTo: initial.toAccountId ?? initial.linkedToAssetId ?? '',
+        paymentMode: initial.paymentMode ?? '',
         direction: 'added',   // edits show the stored from/to as-is
         linkedDebtId: initial.emiSplit?.debt_id ?? initial.linkedDebtId ?? '',
         partPaymentChoice: initial.emiSplit?.partPaymentChoice ?? 'reduce_tenure',
@@ -372,6 +396,12 @@ export default function TransactionFormModal(props: Props) {
         note: form.note.trim() || undefined,
         memberId: form.memberId,
         paymentMethod: fromEncoded || undefined,
+        // v10.25.0 — undefined when the account's modes are unknown, so an edit
+        // never erases a stored mode it could not display.
+        // An investment only ever CLEARS a mode it already had — sending null on
+        // every investment would name a column a lagging schema does not have yet.
+        paymentMode: isInvestment ? (initial?.paymentMode ? null : undefined)
+          : payingModes.length ? (form.paymentMode || null) : undefined,
         recurring: form.recurring || undefined,
         excluded: form.excluded || undefined,
         linkedToAssetId: needsToAccount ? toEncoded || undefined : initial?.linkedToAssetId,
@@ -644,6 +674,17 @@ export default function TransactionFormModal(props: Props) {
             </Chip>
           )}
         </div>
+        {payingModes.length > 0 && (
+          <div className="mt-2 flex gap-1.5 items-center flex-wrap" role="group" aria-label="Payment mode">
+            <span className="mono-label mr-0.5">via</span>
+            {payingModes.map(m => (
+              <Chip key={m} on={form.paymentMode === m} testId={`txn-mode-${m}`}
+                onClick={() => setForm(f => ({ ...f, paymentMode: m }))}>
+                {PAYMENT_MODE_LABEL[m]}
+              </Chip>
+            ))}
+          </div>
+        )}
         {showTimeDial && (
           <div className="mt-3 flex justify-center rounded-r3 border border-line py-4"
             style={{ background: 'var(--elevated)' }}>

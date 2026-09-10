@@ -18,6 +18,13 @@ export const INCOME_IDS = new Set([
   'salary', 'freelance', 'gift_bonus', 'rental_income', 'business_revenue', 'other_income',
 ]);
 
+/** v10.25.0 — MUST mirror react/src/lib/accountsView.ts (PAYMENT_MODE_LABEL)
+ *  and the ck_txn_payment_mode CHECK. */
+export const PAYMENT_MODE_IDS = new Set([
+  'upi', 'debit_card', 'net_banking', 'cheque', 'auto_debit',
+  'swipe', 'upi_on_card', 'online', 'standing_instruction', 'cash',
+]);
+
 /** MUST mirror the CURRENCY_REGISTRY keys in react/src/lib/money.ts. */
 export const KNOWN_CURRENCIES = new Set([
   'INR', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'AED', 'JPY', 'CHF', 'NZD',
@@ -55,6 +62,8 @@ export interface ExtractionCandidate {
   accountMask?: string;
   account_alias?: string;
   to_account_alias?: string | null;
+  /** v10.25.0 — how the paying account was used (one of PAYMENT_MODE_IDS). */
+  payment_mode?: string | null;
   /**
    * Which household this belongs to. Always ASKED when the user has more than
    * one (locked decision) — so it must be patchable like any other field, or

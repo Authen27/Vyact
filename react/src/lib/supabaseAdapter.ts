@@ -45,6 +45,7 @@ interface TransactionRow {
   // production rows still come back without them set on legacy data.
   account_id?: string | null;
   to_account_id?: string | null;
+  payment_mode?: string | null;   // v10.25.0 (R3)
   initiated_by?: string | null;
   // v9.1 — deep-link FKs (§5 materialisation, §8 debt drill).
   recurring_schedule_id?: string | null;
@@ -190,6 +191,11 @@ const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<Transac
     initiated_by:  t.initiatedBy  ?? t.memberId ?? null,
     recurring_schedule_id: fkOrNull(t.recurringScheduleId),   // v9.1 §5
     debt_id: fkOrNull(t.debtId),                              // v9.1 §8
+    // v10.25.0 (R3) — written only when the caller says something about it, so
+    // a patch that never mentions the mode cannot erase it.
+    ...(t.paymentMode !== undefined
+      ? { payment_mode: type === 'investment' ? null : t.paymentMode }
+      : {}),
     extras: {
       time: t.time, paymentMethod: t.paymentMethod, excluded: t.excluded,
       linkedDebtId: t.linkedDebtId,
@@ -214,6 +220,7 @@ const rowToTxn = (r: TransactionRow): Transaction => ({
   initiatedBy: r.initiated_by  ?? r.member_id ?? undefined,
   recurringScheduleId: r.recurring_schedule_id ?? undefined,   // v9.1 §5
   debtId: r.debt_id ?? undefined,                              // v9.1 §8
+  paymentMode: (r.payment_mode as Transaction['paymentMode']) ?? undefined,   // v10.25.0
   linkedDebtId: r.extras?.linkedDebtId,
   linkedTxnId: r.extras?.linkedTxnId,
   split: r.extras?.split as Transaction['split'],

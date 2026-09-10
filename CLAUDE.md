@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.24.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.25.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -99,6 +99,16 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   the source's opening balance + offset into the destination, so no balance,
   category total or net worth moves. Reconcile stamps `last_reconciled_at` even
   with no drift, which is what clears "not reconciled in N days".
+- **Payment modes, like categories, exist in THREE places (v10.25.0)** —
+  `PAYMENT_MODE_LABEL` in `lib/accountsView.ts` (the client source), and the
+  Deno allowlists `PAYMENT_MODE_IDS` in `_shared/whatsapp-parser.ts` and
+  `_shared/agent/types.ts`, plus the `ck_account_payment_modes` /
+  `ck_txn_payment_mode` CHECKs. The parity tests in `whatsappParser.test.ts`
+  fail on drift. `transactions.payment_mode` is **descriptive only** — no balance,
+  total or net-worth figure reads it — and is NULL for legacy rows, imports and
+  every investment. A mode the paying account does not use is **dropped, never an
+  error**, in the store and in `whatsapp_log_transaction` alike, so a recurring
+  post never fails because a mode was later removed from its account.
 - **Global modals via store slots** — `{entity}ModalOpen`/`editing{Entity}` +
   `openAdd/openEdit/close`; mounted once in `App.tsx`; pages call the store action.
 - **Store is sliced (TD-25)** — `store/index.ts` is a thin composition root;
