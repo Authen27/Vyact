@@ -24,7 +24,8 @@ import {
 import ls from './localStorageCompat';
 import { cacheGeneration, isCacheGenerationCurrent } from './kvStore';
 import { SupabaseAdapter, ConcurrencyConflictError } from './supabaseAdapter';
-import { droppedWrite, unexpected } from './faults';
+import { droppedWrite, expected, unexpected } from './faults';
+import { mergeSnapshot, type NetWorthSnapshot } from './netWorthSnapshots';
 import { uid } from './format';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as syncQueue from './sync/syncQueue';
@@ -47,6 +48,16 @@ export class HybridAdapter implements DataAdapter {
   }
   /** Audit F6 — identifies this tab's flush worker in outbox claims. */
   private workerId = uid();
+
+  // v10.30.0 — cloud-freshness bookkeeping for the Net Worth snapshot writer.
+  // `cloudAppliedAt`: when a cloud read for household:entity last landed in the
+  // cache THIS session. `servedFresh`: whether the most recent list() for that
+  // key returned rows a cloud read had already confirmed.
+  private cloudAppliedAt = new Map<string, number>();
+  private servedFresh = new Map<string, boolean>();
+  private noteCloudApplied(entity: Entity, householdId: string): void {
+    this.cloudAppliedAt.set(`${householdId}:${entity}`, Date.now());
+  }
 
   constructor(client: SupabaseClient) {
     this.cache = new LocalStorageAdapter();
@@ -77,6 +88,8 @@ export class HybridAdapter implements DataAdapter {
     // session changes while this request is in flight, the response belongs to
     // the previous user and must not be written into the new one's cache.
     const gen = cacheGeneration();
+    const freshKey = `${householdId}:${entity}`;
+    const servedAt = Date.now();
     const cached = await this.cache.list<T>(entity, householdId);
     // TD-06: prefer the incremental path once we have a cursor. The cursor
     // is only set after a successful full pull, so the first sync per
@@ -96,10 +109,12 @@ export class HybridAdapter implements DataAdapter {
       try {
         const fresh = await this.cloud.list<T>(entity, householdId);
         await this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen);
+        this.servedFresh.set(freshKey, this.cloudAppliedAt.has(freshKey));
         return await this.cache.list<T>(entity, householdId);
       } catch {
         // Network error on first load — fall through to cached []. The
         // user sees an empty state instead of a hang; next refresh retries.
+        this.servedFresh.set(freshKey, false);
         return cached;
       }
     }
@@ -112,6 +127,9 @@ export class HybridAdapter implements DataAdapter {
         .then(fresh => this.applyCloudList(entity, householdId, cached as unknown[], fresh as unknown[], gen))
         .catch(() => {/* network error — cache stays */});
     }
+    // Served from cache: fresh only if a cloud read had landed before this read began.
+    const appliedAt = this.cloudAppliedAt.get(freshKey);
+    this.servedFresh.set(freshKey, appliedAt !== undefined && appliedAt <= servedAt);
     return cached;
   }
 
@@ -132,6 +150,7 @@ export class HybridAdapter implements DataAdapter {
     if (fresh.length > 0) {
       await this.cache.replaceAll(entity, householdId, fresh);
       this.markSynced(entity, householdId);
+      this.noteCloudApplied(entity, householdId);
       // TD-06: seed the delta-sync cursor with the max(updated_at) of the
       // freshly pulled page so the next refresh can skip straight to a
       // bounded `updated_at > cursor` query.
@@ -143,6 +162,7 @@ export class HybridAdapter implements DataAdapter {
       // Either the cache was already empty (no-op) or we trust this empty.
       await this.cache.replaceAll(entity, householdId, fresh);
       this.markSynced(entity, householdId);
+      this.noteCloudApplied(entity, householdId);
       return;
     }
     // Defensive: cached has data, we've never seen a non-empty cloud
@@ -190,7 +210,10 @@ export class HybridAdapter implements DataAdapter {
     if (!isCacheGenerationCurrent(gen)) return;
     // Empty delta is the steady-state happy path — nothing changed since the
     // cursor. No cache touch, no cursor bump.
-    if (delta.rows.length === 0 && delta.tombstones.length === 0) return;
+    if (delta.rows.length === 0 && delta.tombstones.length === 0) {
+      this.noteCloudApplied(entity, householdId);   // the cloud confirmed nothing changed
+      return;
+    }
     for (const row of delta.rows) {
       if (!isCacheGenerationCurrent(gen)) return;
       const r = row as { id?: string };
@@ -202,6 +225,7 @@ export class HybridAdapter implements DataAdapter {
       try { await this.cache.remove(entity, householdId, id); } catch { /* row may already be gone */ }
     }
     if (delta.maxUpdatedAt && isCacheGenerationCurrent(gen)) this.writeCursor(entity, householdId, delta.maxUpdatedAt);
+    if (isCacheGenerationCurrent(gen)) this.noteCloudApplied(entity, householdId);
   }
 
   /** Clear the synced sentinel for a household so the next list() treats
@@ -563,6 +587,45 @@ export class HybridAdapter implements DataAdapter {
         [...cached.filter(row => row.id !== cash.id && row.kind !== 'cash'), cash]);
     } catch { /* cache is best-effort; the cloud row is authoritative */ }
     return cash;
+  }
+
+  /**
+   * v10.30.0 — recorded Net Worth snapshots: the cache first (awaiting the cloud
+   * only when the cache is empty); the cloud's rows then refresh the cache.
+   */
+  async listNetWorthSnapshots(householdId: string): Promise<NetWorthSnapshot[]> {
+    const gen = cacheGeneration();
+    const cached = await this.cache.listNetWorthSnapshots(householdId);
+    const pull = this.cloud.listNetWorthSnapshots(householdId).then(async rows => {
+      if (isCacheGenerationCurrent(gen)) await this.cache.replaceNetWorthSnapshots(householdId, rows);
+      return rows;
+    });
+    if (cached.length === 0) {
+      try { return await pull; } catch (error) { expected(error, 'netWorthSnapshots.list'); return cached; }
+    }
+    pull.catch(error => expected(error, 'netWorthSnapshots.list'));
+    return cached;
+  }
+
+  /** v10.30.0 — online only: the database decides which row stands for the month. */
+  async recordNetWorthSnapshot(householdId: string, snapshot: NetWorthSnapshot): Promise<NetWorthSnapshot | null> {
+    const gen = cacheGeneration();
+    const stored = await this.cloud.recordNetWorthSnapshot(householdId, snapshot);
+    if (!stored) return null;
+    try {
+      if (!isCacheGenerationCurrent(gen)) return stored;
+      const cached = await this.cache.listNetWorthSnapshots(householdId);
+      if (!isCacheGenerationCurrent(gen)) return stored;
+      await this.cache.replaceNetWorthSnapshots(householdId,
+        mergeSnapshot(cached.filter(row => row.month !== stored.month), stored));
+    } catch { /* cache is best-effort; the cloud row is authoritative */ }
+    return stored;
+  }
+
+  /** v10.30.0 — see DataAdapter.positionIsCloudFresh. */
+  positionIsCloudFresh(householdId: string): boolean {
+    return (['transactions', 'accounts', 'assets', 'debts'] as Entity[])
+      .every(entity => this.servedFresh.get(`${householdId}:${entity}`) === true);
   }
 
   /** v10.24.0 (R2) — always asks the server: a cached answer could be stale. */

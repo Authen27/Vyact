@@ -7,6 +7,8 @@ import { fmt, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
 import { monthlyData } from '../lib/calculations';
 import { computeNetWorth } from '../lib/netWorth';
+import { netWorthHistory, monthLabel, type NetWorthSnapshot } from '../lib/netWorthSnapshots';
+import { NetWorthHistoryChart } from '../components/charts/ReportCharts';
 import { computeAssetValue, type LiveAssetRow } from '../lib/accountBalance';
 import { ASSET_TYPES, DEBT_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
@@ -33,6 +35,7 @@ export default function NetWorth() {
   const toast        = useStore(s => s.toast);
   const openAddAsset  = useStore(s => s.openAddAsset);
   const openEditAsset = useStore(s => s.openEditAsset);
+  const snapshots    = useStore(s => s.netWorthSnapshots);
 
   const c = profile.baseCurrency;
 
@@ -239,6 +242,8 @@ export default function NetWorth() {
       </div>
       </div>{/* /hero + ratios desktop grid */}
 
+      <NetWorthHistory snapshots={snapshots} currency={c} />
+
       {/* Add/Edit is the /networth/assets/new and /networth/assets/:id/edit page (v10.28.0) */}
 
       {/* Balance sheet split — board D3: Assets (1fr) | Liabilities + Owed (1fr),
@@ -376,5 +381,38 @@ export default function NetWorth() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * v10.30.0 — Net Worth over time, from RECORDED monthly snapshots only. A past
+ * position is never rebuilt from today's rows (standalone assets and debts keep
+ * only their current value), so the chart waits for two recorded months.
+ */
+function NetWorthHistory({ snapshots, currency }: { snapshots: NetWorthSnapshot[]; currency: string }) {
+  const history = netWorthHistory(snapshots, currency);
+  const first = history.points[0];
+  return (
+    <section aria-label="Net worth history" className="mt-4 min-w-0">
+      <Panel title="Net worth history" sub="Recorded once a month · never reconstructed" className="min-w-0">
+        {history.ready
+          ? <NetWorthHistoryChart data={history.points} currency={currency} />
+          : (
+            <p className="px-4 py-6 text-sm text-ink-mid">
+              {first
+                ? `Recording started ${monthLabel(first.month)}. The chart appears once a second month is recorded.`
+                : 'Your Net Worth is recorded the first time the household opens Vyact each month. The chart appears once two months are recorded.'}
+            </p>
+          )}
+        {history.otherCurrency > 0 && (
+          <p className="px-4 pb-2 text-xs text-ink-dim">
+            {history.otherCurrency} month{history.otherCurrency === 1 ? '' : 's'} recorded in a previous household currency {history.otherCurrency === 1 ? 'is' : 'are'} not shown.
+          </p>
+        )}
+        <p className="px-4 pb-4 text-xs text-ink-dim">
+          Each point is the Net Worth shown when the month was first recorded, in {currency}. Earlier months are never filled in.
+        </p>
+      </Panel>
+    </section>
   );
 }

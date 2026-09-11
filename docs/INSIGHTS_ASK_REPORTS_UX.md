@@ -150,11 +150,20 @@ what is already committed, and what can we decide next?"
 
 ### Further Product Work
 
-For a fuller consultation later: a single date-range filter across all flow views;
-budget-versus-actual trends by matching scope; essential-spend runway using a
-stated completed-month baseline; an approval-aware bill calendar; and historical
-Net Worth only after reliable valuation/balance history exists. These require
-separate calculation/data contracts and are not claimed implemented here.
+Originally listed for a fuller consultation: a single date-range filter across all
+flow views; budget-versus-actual trends by matching scope; essential-spend runway
+using a stated completed-month baseline; an approval-aware bill calendar; and
+historical Net Worth only after reliable valuation/balance history exists. Each
+needs its own calculation or data contract. They were taken up after v10.29.0, and
+this table records each contract as it ships.
+
+| Item | Status | Contract |
+| --- | --- | --- |
+| Historical Net Worth | **Recording since v10.30.0.** The history chart appears once two months are recorded. | One snapshot per household per month (`net_worth_snapshots`). The first write for a month wins, and only for the current month in the household currency. Snapshots are taken from the canonical projection, and in cloud mode only after this session has confirmed the inputs with the cloud. History is recorded, never reconstructed, because standalone assets and debts keep only their current value. |
+| Single date range across all flow views | Next | Not yet defined |
+| Budget-versus-actual trends by matching scope | Next | Not yet defined |
+| Essential-spend runway | Next | A stated completed-month baseline (not yet defined in detail) |
+| Approval-aware bill calendar | Next | Not yet defined |
 
 ## Verification
 
@@ -207,6 +216,29 @@ Results for this pass:
   - `INS-FC-003`: a household with only a transfer sees Not enough recorded activity yet, with no next steps, no highlights and no health verdict. A household with no transactions at all would get the local demo data instead.
 - **Smoke:** `CON-E2E-041` passes with `/planner` removed from its route list, because it now redirects. `CON-E2E-040`, `011` and `042` fail identically on an origin/main build, so they predate this change (TD-29).
 - **Release gate:** 13 of 13 steps, 238 of 238 scenarios.
+
+### Net Worth history recording (v10.30.0)
+
+- **Unit:** seven `netWorthSnapshots` cases:
+  - a snapshot comes from the canonical projection, rounded, with net worth derived from the two sides;
+  - only a loaded, non-empty position is recorded, for a month not yet recorded;
+  - the first write wins and months stay ordered;
+  - history is drawn only from two or more months in the household currency;
+  - the local adapter keeps the first write;
+  - the cloud adapter sends the two sides and the first of the month (never net worth), maps the stored row, and surfaces read errors.
+
+  The generated inventory reads 1,075 passing cases in 69 files.
+- **Browser** (Chromium, local-only test build, `e2e/tests/networth-history.spec.ts`):
+  - `NWH-FC-001`: the month is recorded once from the loaded position (1,500), and a reload does not add a second row.
+  - `NWH-FC-002`: an earlier recorded month makes the chart draw both months.
+  - `NWH-FC-003`: a month recorded in another currency is counted but not drawn.
+- **Existing specs on the same page:** `networth-assets` and smoke fail exactly the same tests as origin/main (ASSET-FC-001/002/004 and NWRT-FC-004; CON-E2E-040/011/042), so this change introduces no new failures (TD-29).
+- **Production pre-check (read-only):**
+  - `is_member`, `role_in` and `households.base_currency` exist;
+  - the table and the recorder did not exist yet, and the latest applied migration was 20260911120000;
+  - the live `erase_household_data` body matched the repository line for line, apart from the added delete;
+  - its grants had no anon or public.
+- **Release gate:** 13 of 13 steps and 238 of 238 scenarios passed.
 
 Local review: `http://127.0.0.1:5182/reports` and `http://127.0.0.1:5182/chat`.
 The isolated browser runner uses the existing test-mode preview on port 5183.

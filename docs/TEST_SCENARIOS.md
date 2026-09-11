@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1068 passing deterministic cases in 68 files. Zero failed, skipped or TODO cases at generation.**
+**1075 passing deterministic cases in 69 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 48 |
 | react | store-integration | conditional | 2 |
-| react | unit | available | 244 |
+| react | unit | available | 251 |
 | react | unit | conditional | 69 |
 | react | unit | infrastructure | 600 |
 
@@ -93,6 +93,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/moneyPortParity.test.ts](../react/src/lib/__tests__/moneyPortParity.test.ts) | Server money port parity | unit | infrastructure | 373 |
 | [react/src/lib/__tests__/navigationVisibility.test.ts](../react/src/lib/__tests__/navigationVisibility.test.ts) | Navigation and category selection | unit | available | 2 |
 | [react/src/lib/__tests__/netWorthProjection.test.ts](../react/src/lib/__tests__/netWorthProjection.test.ts) | Money model | unit | available | 6 |
+| [react/src/lib/__tests__/netWorthSnapshots.test.ts](../react/src/lib/__tests__/netWorthSnapshots.test.ts) | Net worth history | unit | available | 7 |
 | [react/src/lib/__tests__/onboarding.test.ts](../react/src/lib/__tests__/onboarding.test.ts) | Onboarding | unit | available | 16 |
 | [react/src/lib/__tests__/onboardingWiring.test.ts](../react/src/lib/__tests__/onboardingWiring.test.ts) | Onboarding | unit | available | 8 |
 | [react/src/lib/__tests__/onboardingWorkflow.test.ts](../react/src/lib/__tests__/onboardingWorkflow.test.ts) | Onboarding | unit | available | 3 |

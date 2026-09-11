@@ -1431,6 +1431,24 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/netWorthSnapshots.test.ts",
+      "feature": "Net worth history",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed)",
+      "count": 7,
+      "tests": [
+        "Recorded Net Worth snapshots (v10.30.0) cloud adapter: lists the household rows by month and surfaces a read error",
+        "Recorded Net Worth snapshots (v10.30.0) cloud adapter: sends the two sides for the first of the month, never net worth, and maps the stored row",
+        "Recorded Net Worth snapshots (v10.30.0) draws history only from two or more recorded months in the household currency",
+        "Recorded Net Worth snapshots (v10.30.0) keeps the first snapshot for a month and orders months ascending",
+        "Recorded Net Worth snapshots (v10.30.0) local-only adapter: first write for a month wins and survives a later write",
+        "Recorded Net Worth snapshots (v10.30.0) records only a loaded, non-empty position for a month not yet recorded",
+        "Recorded Net Worth snapshots (v10.30.0) records the canonical projection rounded to cents, with net worth derived from the two sides"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/onboarding.test.ts",
       "feature": "Onboarding",
       "availability": "available",
