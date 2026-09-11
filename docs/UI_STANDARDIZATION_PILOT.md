@@ -12,6 +12,11 @@ Status: first pilot implemented; category/navigation follow-up verified. Broader
 
 ## Category Consistency Follow-up
 
+Superseded by the user's select-only request on 2026-09-11: financial categories
+now use the shared native `Select`, matching Add Debt -> Type. There is no editable
+search field or custom popup. The earlier searchable-combobox notes below describe
+the previous iteration, not the current control. See `DROPDOWN_STANDARDIZATION.md`.
+
 The user approved one searchable icon + full-label financial category picker.
 `CategoryPicker` uses Headless UI's native combobox behavior and the central
 category registry, alphabetical ordering and type-scoped options. Transactions,

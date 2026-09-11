@@ -40,8 +40,7 @@ try {
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('Amount', { exact: true })).toBeFocused();
   await dialog.getByLabel('Amount', { exact: true }).fill('42');
-  await dialog.getByLabel('Category', { exact: true }).fill('Groceries');
-  await dialog.getByRole('option', { name: 'Groceries', exact: true }).click();
+  await dialog.getByLabel('Category', { exact: true }).selectOption('groceries');
   await dialog.getByLabel('Description', { exact: true }).fill('UI pilot groceries');
   await dialog.getByTestId('txn-source').selectOption({ label: 'Cash' }).catch(async () => {
     const cash = await dialog.getByTestId('txn-source').locator('option').evaluateAll(options => options.find(option => /cash/i.test(option.textContent))?.value);
@@ -49,10 +48,9 @@ try {
     await dialog.getByTestId('txn-source').selectOption(cash);
   });
   await dialog.getByRole('radio', { name: 'Income', exact: true }).check();
-  await expect(dialog.getByLabel('Category', { exact: true })).toHaveValue('Salary');
+  await expect(dialog.getByLabel('Category', { exact: true })).toHaveValue('salary');
   await dialog.getByRole('radio', { name: 'Expense', exact: true }).check();
-  await dialog.getByLabel('Category', { exact: true }).fill('Groceries');
-  await dialog.getByRole('option', { name: 'Groceries', exact: true }).click();
+  await dialog.getByLabel('Category', { exact: true }).selectOption('groceries');
   const save = dialog.getByRole('button', { name: 'Save expense', exact: true });
   await expect(save).toBeVisible();
   expect((await save.boundingBox()).height).toBeGreaterThanOrEqual(44);

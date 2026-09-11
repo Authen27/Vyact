@@ -83,7 +83,7 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
   await expect(split.getByRole('textbox', { name: 'Amount', exact: true })).toBeFocused();
   await split.getByRole('textbox', { name: 'Amount', exact: true }).fill('84');
   await split.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner with friends');
-  await split.getByRole('button', { name: 'Cash', exact: true }).click();
+  await split.getByRole('combobox', { name: 'Paid with', exact: true }).selectOption('cash');
   await split.getByRole('textbox', { name: 'Name', exact: true }).fill('Sam');
   await split.getByRole('button', { name: /Even \(auto\)/ }).click();
   await capture('split', split);
@@ -124,7 +124,7 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
   await expect(recurring.getByRole('textbox', { name: 'Amount', exact: true })).toBeVisible();
   await recurring.getByRole('textbox', { name: 'Amount', exact: true }).fill('1200');
   await recurring.getByRole('textbox', { name: 'Description', exact: true }).fill('Monthly rent');
-  await recurring.getByRole('button', { name: 'Everyday account', exact: true }).click();
+  await recurring.getByRole('combobox', { name: 'Pay from', exact: true }).selectOption({ label: 'Everyday account' });
   await expect(recurring.getByText(/Pick an account/)).toHaveCount(0);
   await recurring.getByRole('switch', { name: 'Auto-approve this schedule', exact: true }).click();
   await capture('recurring', recurring);

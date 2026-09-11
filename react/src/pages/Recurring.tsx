@@ -6,6 +6,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Money from '../components/ui/Money';
 import Chip from '../components/ui/Chip';
 import CategoryPicker from '../components/ui/CategoryPicker';
+import { Field, Select } from '../components/ui/Input';
 import { AmountField } from '../components/ui/NumericKeypad';
 import HalfSheet from '../components/ui/HalfSheet';
 import { formatDate, today } from '../lib/format';
@@ -13,10 +14,6 @@ import { getCat, CURRENCIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import { nextDueAfterSave } from '../lib/recurring';
 import { formatRRule, parseRRule, describeRRule } from '../lib/rrule';
-
-/* Board M4 member chips are initials ("MR"), matching Add Transaction. */
-const memberInitials = (name: string) =>
-  name.split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
 
 type SchedType = 'expense' | 'income' | 'investment';
 type MonthlyMode = 'dom' | 'nth';
@@ -400,16 +397,14 @@ export default function Recurring() {
             schedules inherited an account from their source transaction, which
             is why only form-created ones were affected. */}
         <div className="mt-4">
-          <div className="mono-label mb-1.5">
-            {type === 'income' ? 'Deposit to' : type === 'investment' ? 'Invest from' : 'Pay from'}
-          </div>
-          <div className="flex gap-1.5 flex-wrap">
+          <Field label={type === 'income' ? 'Deposit to' : type === 'investment' ? 'Invest from' : 'Pay from'}>
+          <Select value={accountId} onChange={event => setAccountId(event.target.value)} required>
+            <option value="">Choose account</option>
             {accounts.filter(a => a.isArchived !== true).map(a => (
-              <Chip key={a.id} on={a.id === accountId} onClick={() => setAccountId(a.id)}>
-                {a.name}
-              </Chip>
+              <option key={a.id} value={a.id}>{a.name}</option>
             ))}
-          </div>
+          </Select>
+          </Field>
           {!accountId && (
             <div className="mt-1.5 text-[0.7rem] text-terra">
               Pick an account — without one this schedule&apos;s transactions cannot sync.
@@ -421,33 +416,26 @@ export default function Recurring() {
             so it needs a destination as well as a source. */}
         {type === 'investment' && (
           <div className="mt-4">
-            <div className="mono-label mb-1.5">Invest into</div>
-            <div className="flex gap-1.5 flex-wrap">
-              {investmentAssets.length === 0 && (
-                <span className="text-[0.72rem] text-ink-dim">Add an investment in Net Worth first.</span>
-              )}
+            <Field label="Invest into" hint={investmentAssets.length === 0 ? 'Add an investment in Net Worth first.' : undefined}>
+            <Select value={toAccountId} onChange={event => setToAccountId(event.target.value)} required disabled={investmentAssets.length === 0}>
+              <option value="">Choose investment</option>
               {investmentAssets.map(a => (
-                <Chip key={a.id} on={a.id === toAccountId} onClick={() => setToAccountId(a.id)}>
-                  {a.name}
-                </Chip>
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </div>
+            </Select>
+            </Field>
           </div>
         )}
 
-        {/* Owner — member initial chips, matches Add Transaction's member row. */}
         <div className="mt-4">
-          <div className="mono-label mb-1.5">
-            Owner {type === 'investment' ? <span className="text-ink-dim">·attributed to</span> : null}
-          </div>
-          <div className="flex gap-1.5 flex-wrap">
-            <Chip on={!ownerMemberId} onClick={() => setOwnerMemberId('')}>Household</Chip>
+          <Field label="Owner" hint={type === 'investment' ? 'Attributed to' : undefined}>
+          <Select value={ownerMemberId} onChange={event => setOwnerMemberId(event.target.value)}>
+            <option value="">Household</option>
             {members.map(m => (
-              <Chip key={m.id} on={m.id === ownerMemberId} onClick={() => setOwnerMemberId(m.id)}>
-                {memberInitials(m.name)}
-              </Chip>
+              <option key={m.id} value={m.id}>{m.name}</option>
             ))}
-          </div>
+          </Select>
+          </Field>
         </div>
 
         {/* Recurrence frequency */}

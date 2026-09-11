@@ -1,7 +1,10 @@
 import { test, expect } from '../fixtures/app';
 import { seedWith } from '../fixtures/seed';
+import { seedLocalHousehold } from '../fixtures/localHousehold';
 
-test.use({ seed: seedWith({ goals: [], debts: [], recurringSchedules: [] }) });
+const seed = seedWith({ goals: [], debts: [], recurringSchedules: [] });
+test.use({ seed });
+test.beforeEach(async ({ page }) => seedLocalHousehold(page, seed));
 
 test('CAT-FC-001 - Accounts stays reachable under Plan on mobile and desktop', async ({ page }) => {
   for (const width of [390, 1440]) {
@@ -27,60 +30,74 @@ test('CAT-FC-001 - Accounts stays reachable under Plan on mobile and desktop', a
   }
 });
 
-test('CAT-FC-002 - category search and icon selection stay inside the transaction dialog', async ({ page, txnModal }, testInfo) => {
+test('CAT-FC-002 - category dropdown matches Debt Type without allowing text entry', async ({ page, txnModal }, testInfo) => {
   for (const theme of ['dark', 'warm']) {
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
+      await page.goto('/debts');
+      await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+      await page.getByRole('button', { name: '+ Add Debt', exact: true }).click();
+      const debt = page.getByRole('dialog', { name: 'Add Debt', exact: true });
+      const reference = await debt.getByRole('combobox', { name: 'Type', exact: true }).evaluate(element => {
+        const style = getComputedStyle(element);
+        return [element.tagName, style.fontSize, style.fontWeight, style.borderRadius, style.backgroundColor, style.paddingRight];
+      });
+      await debt.getByRole('button', { name: 'Close', exact: true }).click();
       await page.goto('/transactions');
       await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
-      await page.keyboard.press('n');
+      await page.getByRole('button', { name: /Add Transaction/i }).first().click();
       await txnModal.waitOpen();
       await expect(txnModal.amountDisplay).toBeFocused();
       const picker = txnModal.dialog.getByRole('combobox', { name: 'Category', exact: true });
-      await picker.fill('REPAIRS');
-      const option = txnModal.dialog.getByRole('option', { name: 'Repairs & Maintenance', exact: true });
-      await expect(option).toBeVisible();
-      await expect(option.locator('.category-option-icon')).toHaveText('🔧');
-      await option.click();
-      await expect(picker).toHaveValue('Repairs & Maintenance');
-      await expect(txnModal.dialog.locator('.category-picker-icon')).toHaveText('🔧');
-      await picker.fill('does not exist');
-      await expect(txnModal.dialog.getByText('No categories found', { exact: true })).toBeVisible();
-      await picker.press('Escape');
-      await expect(txnModal.dialog).toBeVisible();
-      await expect(picker).toHaveValue('Repairs & Maintenance');
-      await picker.fill('groceries');
-      await picker.press('ArrowDown');
-      await picker.press('Enter');
-      await expect(picker).toHaveValue('Groceries');
+      expect(await picker.evaluate(element => {
+        const style = getComputedStyle(element);
+        return [element.tagName, style.fontSize, style.fontWeight, style.borderRadius, style.backgroundColor, style.paddingRight];
+      })).toEqual(reference);
+      await expect(picker.locator('input,[contenteditable="true"]')).toHaveCount(0);
+      await picker.selectOption({ label: '🔧 Repairs & Maintenance' });
+      await expect(picker.locator('option:checked')).toHaveText('🔧 Repairs & Maintenance');
+      await picker.selectOption('groceries');
+      await picker.focus();
+      await picker.press('z');
+      expect(await picker.evaluate(element => Array.from((element as HTMLSelectElement).options).some(option => option.value === (element as HTMLSelectElement).value))).toBe(true);
+      await picker.selectOption('groceries');
+      await expect(picker).toHaveValue('groceries');
       await expect(picker).toBeFocused();
       await txnModal.setType('income');
-      await expect(picker).toHaveValue('Salary');
+      await expect(picker).toHaveValue('salary');
+      await expect(picker.locator('option[value="groceries"]')).toHaveCount(0);
       await txnModal.setType('investment');
       await expect(picker).toHaveCount(0);
       await txnModal.setType('transfer');
       await expect(picker).toHaveCount(0);
       await txnModal.setType('expense');
-      await txnModal.dialog.getByRole('button', { name: 'Show category options' }).click();
-      await expect(txnModal.dialog.getByRole('listbox')).toBeVisible();
       await testInfo.attach(`category-${theme}-${width}`, { body: await page.screenshot(), contentType: 'image/png' });
-      await picker.press('Escape');
       await txnModal.cancel();
     }
   }
 });
 
-test('CAT-FC-003 - recurring and split forms use the same searchable category control', async ({ page }) => {
+test('CAT-FC-003 - recurring and split forms use the same select-only category control', async ({ page }) => {
   for (const surface of [{ path: '/recurring', button: '+ Add Schedule' }, { path: '/splits', button: '+ Add Split' }]) {
     await page.goto(surface.path);
     await page.getByRole('button', { name: surface.button, exact: true }).first().click();
     const dialog = page.getByRole('dialog');
     if (surface.path === '/splits') await expect(dialog.getByRole('textbox', { name: 'Amount', exact: true })).toBeFocused();
     const picker = dialog.getByRole('combobox', { name: 'Category', exact: true });
-    await picker.fill('groceries');
-    await dialog.getByRole('option', { name: 'Groceries', exact: true }).click();
-    await expect(picker).toHaveValue('Groceries');
-    await expect(dialog.locator('.category-picker-icon')).toHaveText('🛒');
+    expect(await picker.evaluate(element => element.tagName)).toBe('SELECT');
+    await picker.selectOption('groceries');
+    await expect(picker).toHaveValue('groceries');
+    await expect(picker.locator('option:checked')).toHaveText('🛒 Groceries');
+    if (surface.path === '/recurring') {
+      const account = dialog.getByRole('combobox', { name: 'Pay from', exact: true });
+      await account.selectOption({ label: 'E2E Checking' });
+      await expect(account.locator('option:checked')).toHaveText('E2E Checking');
+      await expect(dialog.getByRole('combobox', { name: 'Owner', exact: true })).toHaveValue('');
+    } else {
+      const account = dialog.getByRole('combobox', { name: 'Paid with', exact: true });
+      await account.selectOption('cash');
+      await expect(account).toHaveValue('cash');
+    }
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
   }
@@ -91,17 +108,43 @@ test('CAT-FC-004 - transaction filters offer All categories through the same con
   await page.getByRole('button', { name: /^Filters/ }).click();
   const dialog = page.getByRole('dialog');
   const picker = dialog.getByRole('combobox', { name: 'Category', exact: true });
-  await expect(picker).toHaveValue('All categories');
-  await picker.fill('salary');
-  await dialog.getByRole('option', { name: 'Salary', exact: true }).click();
-  await expect(picker).toHaveValue('Salary');
-  await picker.fill('All categories');
-  await dialog.getByRole('option', { name: 'All categories', exact: true }).click();
-  await expect(picker).toHaveValue('All categories');
-  await picker.fill('Groceries');
-  await dialog.getByRole('option', { name: 'Groceries', exact: true }).click();
+  await expect(picker).toHaveValue('all');
+  await picker.selectOption('salary');
+  await expect(picker).toHaveValue('salary');
+  await picker.selectOption('all');
+  await expect(picker).toHaveValue('all');
+  await picker.selectOption('groceries');
   await dialog.getByRole('button', { name: 'Transfer', exact: true }).click();
   await expect(picker).toHaveCount(0);
   await dialog.getByRole('button', { name: 'All', exact: true }).first().click();
-  await expect(picker).toHaveValue('All categories');
+  await expect(picker).toHaveValue('all');
+});
+
+test('CAT-FC-005 - Settings dropdowns are labelled fixed-choice selects', async ({ page }) => {
+  await page.goto('/settings');
+  const date = page.getByRole('combobox', { name: 'Date Format', exact: true });
+  await expect(date).toBeVisible();
+  const reference = await date.evaluate(element => {
+    const style = getComputedStyle(element);
+    return [element.tagName, style.borderRadius, style.fontSize, style.fontWeight];
+  });
+  await page.getByRole('button', { name: /Language & currency/ }).click();
+  for (const name of ['Language', 'Base Currency', 'Number System']) {
+    const dropdown = page.getByRole('combobox', { name, exact: true });
+    await expect(dropdown).toBeVisible();
+    expect(await dropdown.evaluate(element => {
+      const style = getComputedStyle(element);
+      return [element.tagName, style.borderRadius, style.fontSize, style.fontWeight];
+    })).toEqual(reference);
+    const first = await dropdown.locator('option').first().getAttribute('value');
+    await dropdown.selectOption(first!);
+    await expect(dropdown).toHaveValue(first!);
+  }
+  await page.getByRole('button', { name: /Debt preferences/ }).click();
+  const payoff = page.getByRole('combobox', { name: 'Payoff Strategy', exact: true });
+  await payoff.selectOption('snowball');
+  await expect(payoff).toHaveValue('snowball');
+  await payoff.selectOption('avalanche');
+  await expect(payoff).toHaveValue('avalanche');
+  await expect(page.locator('input[role="combobox"]')).toHaveCount(0);
 });

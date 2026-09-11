@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import HalfSheet from '../ui/HalfSheet';
 import Chip from '../ui/Chip';
 import CategoryPicker from '../ui/CategoryPicker';
+import { Field, Select } from '../ui/Input';
 import { AmountField } from '../ui/NumericKeypad';
 import Button from '../ui/Button';
 import { useStore } from '../../store';
@@ -396,13 +397,14 @@ export default function SplitFormModal(props: Props) {
           <input type="date" value={form.date}
             onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
             className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[140px]" aria-label="Pick a date" />
-          {accounts.map(a => (
-            <Chip key={a.value} on={a.value === form.paymentMethod}
-              onClick={() => setForm(f => ({ ...f, paymentMethod: a.value }))}>
-              <span aria-hidden>{acctEmoji(a.kind)}</span>{a.label}
-            </Chip>
-          ))}
         </div>
+        <Field label={isIncome ? 'Paid into' : 'Paid with'}>
+          <Select value={form.paymentMethod} required={accountRequired}
+            onChange={event => setForm(f => ({ ...f, paymentMethod: event.target.value }))}>
+            <option value="">Choose account</option>
+            {accounts.map(account => <option key={account.value} value={account.value}>{acctEmoji(account.kind)} {account.label}</option>)}
+          </Select>
+        </Field>
       </div>
 
       {/* Participants + shares. */}
