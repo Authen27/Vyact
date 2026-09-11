@@ -4,6 +4,10 @@ const group = (feature, availability, layer, files, owner) => ({ feature, availa
   files: files.map(file => `${consumer}${file}.test.ts`) });
 
 export const groups = [
+  group('Reports and Ask guidance', 'available', 'unit', ['reportsModel', 'askVyactExamples'], 'reportsModel / intent examples (not provider verification)'),
+  group('Help and adoption guidance', 'available', 'contract-unit', ['helpContent'], 'helpContent / captured media (not deployed service verification)'),
+  group('Navigation and category selection', 'available', 'unit', ['navigationVisibility', 'categoryOptions'], 'navModel / categoryOptions'),
+  { feature: 'Dashboard MVP presentation', availability: 'available', layer: 'contract-unit', owner: 'Dashboard / feature flags (static rendering, not browser geometry)', files: [`${consumer}dashboardPresentation.test.tsx`] },
   group('Money model', 'available', 'unit', ['money', 'moneyModel.engines', 'moneyModel.invariants', 'moneyModel.regression', 'calculations', 'amortization', 'netWorthProjection', 'fxCentralization', 'pulseBudget'], 'calculations / money / netWorth / amortization'),
   group('Categories and ordering', 'available', 'unit', ['categoryModel', 'ordering'], 'constants / categorization / ordering'),
   group('Accounts', 'available', 'unit', ['accountsView'], 'accountsView (card figures · cycles · staleness · summary · delete guard)'),

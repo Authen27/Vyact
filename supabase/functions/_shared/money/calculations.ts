@@ -675,8 +675,9 @@ export function computeAssetValue(asset: Asset, txns: Transaction[], rates: Exch
   for (const t of txns) {
     if (t.type !== 'investment' || t.assetId !== asset.id) continue;
     const amt = effectiveAmount(t, asset.currency, rates);
-    if (t.accountId) v += amt;
-    else if (t.toAccountId) v -= amt;
+    // A withdrawal names ONLY a receiving account; anything else is a buy (v10.27.0).
+    if (t.toAccountId && !t.accountId) v -= amt;
+    else v += amt;
   }
   return Math.round(v * 100) / 100;
 }

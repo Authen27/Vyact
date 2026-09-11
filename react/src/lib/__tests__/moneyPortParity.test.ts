@@ -604,6 +604,8 @@ describe('parity — investment asset live value (computeAssetValue)', () => {
     { id: 'r4-b1', type: 'investment', amount: 1200, currency: 'INR', date: '2026-03-01', description: 'buy', category: '', accountId: 'acc-cash', assetId: 'asset-fund' },
     { id: 'r4-b2', type: 'investment', amount: 10.55, currency: 'EUR', date: '2026-03-02', description: 'fx buy', category: '', accountId: 'acc-bank', assetId: 'asset-fund' },
     { id: 'r4-w1', type: 'investment', amount: 500, currency: 'INR', date: '2026-03-03', description: 'withdraw', category: '', toAccountId: 'acc-bank', assetId: 'asset-fund' },
+    // v10.27.0 — a local-only buy paid from a legacy encoded picker value (no account uuid).
+    { id: 'r4-enc', type: 'investment', amount: 33.3, currency: 'INR', date: '2026-03-03', description: 'encoded buy', category: '', paymentMethod: 'cash', assetId: 'asset-fund' },
     { id: 'r4-other', type: 'investment', amount: 999, currency: 'INR', date: '2026-03-03', description: 'other asset', category: '', accountId: 'acc-cash', assetId: 'asset-inr' },
     { id: 'r4-legacy', type: 'investment', amount: 77, currency: 'USD', date: '2026-03-04', description: 'legacy two-account row', category: '', accountId: 'acc-bank', toAccountId: 'acc-inv' },
     { id: 'r4-noise', type: 'expense', amount: 5, currency: 'INR', date: '2026-03-04', description: 'not an investment', category: 'other_expense', accountId: 'acc-cash', assetId: 'asset-fund' },

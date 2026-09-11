@@ -323,7 +323,7 @@ export default function BudgetFormModal(props: Props) {
                   boxShadow: filled ? 'var(--neu-inset)' : 'var(--neu-sm)',
                 }}>
                 <span className="text-base leading-none flex-shrink-0" aria-hidden>{cc.icon}</span>
-                <span className={`flex-1 min-w-0 truncate text-[12.5px] ${filled ? 'text-ink font-medium' : 'text-ink-dim'}`}>
+                <span className={`flex-1 min-w-0 text-[14px] leading-snug ${filled ? 'text-ink font-medium' : 'text-ink-mid'}`}>
                   {cc.label}
                 </span>
                 <div className="flex items-center gap-1 flex-shrink-0">

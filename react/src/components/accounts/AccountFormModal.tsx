@@ -21,6 +21,8 @@
 import { useEffect, useState } from 'react';
 import HalfSheet from '../ui/HalfSheet';
 import Button from '../ui/Button';
+import { Input, Select } from '../ui/Input';
+import SegmentedControl from '../ui/SegmentedControl';
 import ReconcileSheet from './ReconcileSheet';
 import DeleteAccountSheet from './DeleteAccountSheet';
 import { useStore } from '../../store';
@@ -198,13 +200,13 @@ export default function AccountFormModal(props: Props) {
         <div className="flex items-center gap-4 flex-wrap">
           <button type="button" onClick={() => setForm(f => ({ ...f, isDefault: !f.isDefault }))}
             aria-pressed={form.isDefault}
-            className="font-mono text-[0.62rem] tracking-wider uppercase text-ink-dim hover:text-ink">
+            className="ui-action text-ink-mid hover:text-ink">
             {form.isDefault ? '★ Default account' : '☆ Make default account'}
           </button>
           <button type="button" onClick={archive}
-            className="font-mono text-[0.62rem] tracking-wider uppercase text-ink-dim hover:text-ink">Archive</button>
+            className="ui-action text-ink-mid hover:text-ink">Archive</button>
           <button type="button" onClick={() => setDeleting(true)}
-            className="font-mono text-[0.62rem] tracking-wider uppercase hover:underline"
+            className="ui-action hover:underline"
             style={{ color: 'hsl(var(--terra))' }}>Delete permanently</button>
         </div>
       )}
@@ -219,11 +221,10 @@ export default function AccountFormModal(props: Props) {
 
   const nameField = (
     <Labelled label={isCard ? 'Card name' : 'Account name'} htmlFor="acct-name">
-      <input id="acct-name" autoFocus={!isEdit} value={form.name}
+      <Input id="acct-name" autoFocus={!isEdit} value={form.name}
         onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
         placeholder={isCash ? 'Cash in Hand' : isCard ? 'e.g. HDFC Regalia ··42' : 'e.g. HDFC savings'}
-        className="w-full min-h-[48px] px-4 rounded-r2 text-[15px] text-ink bg-transparent border-none outline-none"
-        style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} />
+        required />
     </Labelled>
   );
 
@@ -234,10 +235,10 @@ export default function AccountFormModal(props: Props) {
           const on = form.modes.includes(mode);
           return (
             <button key={mode} type="button" aria-pressed={on} onClick={() => toggleMode(mode)}
-              className="h-[38px] px-4 rounded-full text-[12.5px] border-none cursor-pointer transition-all"
+              className="min-h-[44px] px-3 rounded-md text-[14px] border border-line cursor-pointer transition-colors"
               style={on
-                ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))', fontWeight: 600 }
-                : { color: 'var(--ff-ink-2, inherit)', background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+                ? { color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))', fontWeight: 500 }
+                : { color: 'var(--ff-ink-2, inherit)', background: 'var(--canvas)' }}>
               {PAYMENT_MODE_LABEL[mode]}
             </button>
           );
@@ -328,29 +329,16 @@ export default function AccountFormModal(props: Props) {
 
   return (
     <>
-      <HalfSheet open={open} title={title} onClose={onClose} footer={footer} size={isEdit && !isCash && !isSystem ? 'lg' : 'md'}>
-        <div className="font-mono text-[8.5px] tracking-[0.16em] uppercase text-ink-dim -mt-1 mb-3">
+      <HalfSheet open={open} title={title} onClose={onClose} footer={footer} className="ui-pilot" size={isEdit && !isCash && !isSystem ? 'lg' : 'md'}>
+        <div className="ui-form-stack">
+        <div className="ui-label">
           {isEdit ? 'Edit account' : 'New account'}
         </div>
 
         {!isCash && !isSystem && (
-          <div role="tablist" aria-label="Account type" className="flex gap-1.5 p-[5px] rounded-[16px] mb-5 max-w-[420px]"
-            style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-            {(['bank', 'credit_card'] as const).map(kind => {
-              const on = form.kind === kind;
-              return (
-                <button key={kind} type="button" role="tab" aria-selected={on}
-                  disabled={isEdit && !on} onClick={() => switchKind(kind)}
-                  className="flex-1 flex flex-row items-center justify-center gap-2 px-4 py-3 rounded-r2 text-[13px] font-semibold border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 transition-all"
-                  style={on
-                    ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent)' }
-                    : { background: 'transparent', color: 'var(--ff-ink-3, inherit)' }}>
-                  <span className="text-[16px] flex-none" aria-hidden>{kind === 'bank' ? '🏦' : '💳'}</span>
-                  {kind === 'bank' ? 'Bank' : 'Credit Card'}
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl label="Account type" value={form.kind === 'credit_card' ? 'credit_card' : 'bank'} onChange={switchKind}
+            options={[{ value: 'bank', label: 'Bank', disabled: isEdit && isCard },
+              { value: 'credit_card', label: 'Credit Card', disabled: isEdit && !isCard }]} />
         )}
         {(isCash || isSystem) && (
           <p className="text-[0.8rem] text-ink-dim mb-4">
@@ -361,25 +349,26 @@ export default function AccountFormModal(props: Props) {
         )}
 
         {isEdit && !isCash && !isSystem ? (
-          <div className="grid gap-5 sm:grid-cols-2 sm:gap-[26px]">
-            <div className="flex flex-col gap-5">
+          <div className="grid gap-group sm:grid-cols-2">
+            <div className="flex flex-col gap-group">
               {nameField}
               {cardFields}
               {!isCard && bankBalanceField}
             </div>
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-group">
               {modesField}
               <CurrencyAdvice symbol={symbol} code={baseCurrency} />
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-group">
             {nameField}
             {!isCash && !isSystem && (isCard ? cardFields : bankBalanceField)}
             {modesField}
             {!isCash && !isSystem && <CurrencyAdvice symbol={symbol} code={baseCurrency} />}
           </div>
         )}
+        </div>
       </HalfSheet>
 
       <ReconcileSheet account={initial} open={reconciling} onClose={() => setReconciling(false)} />
@@ -394,7 +383,8 @@ const fmtDay = (iso: string) =>
 function Labelled({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="block font-mono text-[8.5px] tracking-[0.14em] uppercase text-ink-dim mb-1.5">{label}</label>
+      {htmlFor ? <label htmlFor={htmlFor} className="block ui-label mb-related">{label}</label>
+        : <div className="ui-label mb-related">{label}</div>}
       {children}
     </div>
   );
@@ -404,13 +394,9 @@ function MoneyField({ id, label, symbol, value, onChange }: {
   id: string; label: string; symbol: string; value: string; onChange: (v: string) => void;
 }) {
   return (
-    <div className="p-3 rounded-r2" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-      <label htmlFor={id} className="block font-mono text-[8px] tracking-[0.13em] uppercase text-ink-dim mb-1">{label}</label>
-      <div className="flex items-center gap-1">
-        <span className="font-mono text-[14px] text-ink-dim" aria-hidden>{symbol}</span>
-        <input id={id} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} placeholder="0"
-          className="num font-semibold text-[15px] bg-transparent border-none outline-none text-ink w-full min-w-0" />
-      </div>
+    <div className="min-w-0">
+      <label htmlFor={id} className="block ui-label mb-related">{label} ({symbol})</label>
+      <Input id={id} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} placeholder="0" className="num" />
     </div>
   );
 }
@@ -419,22 +405,21 @@ function DayField({ id, label, value, onChange, warn }: {
   id: string; label: string; value: string; onChange: (v: string) => void; warn?: boolean;
 }) {
   return (
-    <div className="p-3 rounded-r2" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-      <label htmlFor={id} className="block font-mono text-[8px] tracking-[0.13em] uppercase text-ink-dim mb-1">{label}</label>
-      <select id={id} value={value} onChange={e => onChange(e.target.value)}
-        className="num font-semibold text-[15px] bg-transparent border-none outline-none w-full"
+    <div className="min-w-0">
+      <label htmlFor={id} className="block ui-label mb-related">{label}</label>
+      <Select id={id} value={value} onChange={e => onChange(e.target.value)}
         style={{ color: warn && value ? 'hsl(var(--honey))' : undefined }}>
         <option value="">Choose day…</option>
         {DAYS.map(d => <option key={d} value={d}>{ordinal(d)} monthly</option>)}
-      </select>
+      </Select>
     </div>
   );
 }
 
 function Calc({ label, value, valueColor, aside }: { label: string; value: string; valueColor?: string; aside?: string }) {
   return (
-    <div className="p-3 rounded-r2" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }} aria-live="polite">
-      <div className="font-mono text-[8px] tracking-[0.13em] uppercase mb-1" style={{ color: 'hsl(var(--denim))' }}>{label}</div>
+    <div className="py-3 border-b border-line" aria-live="polite">
+      <div className="ui-label mb-related">{label}</div>
       <div className="flex items-baseline gap-3">
         <span className="num font-semibold text-[15px] text-ink" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
         {aside && <span className="font-mono text-[12px] text-ink-dim">{aside}</span>}

@@ -10,6 +10,7 @@ import EmptyState from '../components/ui/EmptyState';
 import { Input } from '../components/ui/Input';
 import HalfSheet from '../components/ui/HalfSheet';
 import Chip from '../components/ui/Chip';
+import CategoryPicker from '../components/ui/CategoryPicker';
 import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
@@ -74,6 +75,10 @@ export default function Transactions() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (type === 'transfer' || type === 'investment') setCat('all');
+  }, [type]);
 
   // `/` focuses the search box. The `n` add-transaction shortcut is now
   // registered app-wide in Layout (v7.4.4) so it works on every page.
@@ -296,11 +301,11 @@ export default function Transactions() {
   }, [filtered, profile.baseCurrency, rates]);
 
   return (
-    <div>
-      <div className="flex justify-between items-start mb-5 gap-4">
+    <div className="ui-pilot">
+      <div className="flex justify-between items-start mb-section gap-4 flex-wrap">
         <div className="min-w-0">
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('transactions')}</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
+          <p className="ui-label">
             All household income, expenses, investments &amp; transfers
           </p>
         </div>
@@ -621,15 +626,7 @@ export default function Transactions() {
               ))}
             </div>
           </div>
-          <div>
-            <div className="mono-label mb-1.5">Category</div>
-            <div className="flex gap-1.5 flex-wrap max-h-[168px] overflow-y-auto">
-              <Chip on={cat === 'all'} onClick={() => setCat('all')}>All</Chip>
-              {ALL_CATEGORIES.map(c => (
-                <Chip key={c.id} on={cat === c.id} onClick={() => setCat(c.id)}>{c.icon} {c.label}</Chip>
-              ))}
-            </div>
-          </div>
+          <CategoryPicker type={type} value={cat} includeAll onChange={setCat} />
           {months.length > 0 && (
             <div>
               <div className="mono-label mb-1.5">Month</div>

@@ -1,0 +1,26 @@
+{
+  "expense": {
+    "width": 448,
+    "height": 838
+  },
+  "split": {
+    "width": 448,
+    "height": 670
+  },
+  "cash-reconcile": {
+    "width": 448,
+    "height": 528
+  },
+  "investment-asset": {
+    "width": 448,
+    "height": 566
+  },
+  "debt": {
+    "width": 448,
+    "height": 812
+  },
+  "recurring": {
+    "width": 448,
+    "height": 990
+  }
+}

@@ -4,11 +4,12 @@ import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
 import Money from '../components/ui/Money';
-import Chip, { CategoryChip } from '../components/ui/Chip';
+import Chip from '../components/ui/Chip';
+import CategoryPicker from '../components/ui/CategoryPicker';
 import { AmountField } from '../components/ui/NumericKeypad';
 import HalfSheet from '../components/ui/HalfSheet';
 import { formatDate, today } from '../lib/format';
-import { getCat, EXPENSE_CATEGORIES, INCOME_CATEGORIES, CURRENCIES } from '../constants';
+import { getCat, CURRENCIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import { nextDueAfterSave } from '../lib/recurring';
 import { formatRRule, parseRRule, describeRRule } from '../lib/rrule';
@@ -384,16 +385,9 @@ export default function Recurring() {
             placeholder="e.g. Rent · Salary · SIP" aria-label="Description" />
         </div>
 
-        {/* Category tiles — expense/income only (investment carries no category). */}
         {type !== 'investment' && (
           <div className="mt-4">
-            <div className="mono-label mb-1.5">Category</div>
-            <div className="flex gap-1.5 flex-wrap">
-              {(type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(c => (
-                <CategoryChip key={c.id} emoji={c.icon} label={c.label}
-                  on={c.id === category} onClick={() => setCategory(c.id)} />
-              ))}
-            </div>
+            <CategoryPicker type={type} value={category} onChange={setCategory} />
           </div>
         )}
 

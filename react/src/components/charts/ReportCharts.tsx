@@ -64,8 +64,8 @@ export function IncomeExpenseArea({ data, currency }: ChartProps) {
           />
           <Tooltip formatter={(value: number, name: string) => [fmt(value, currency), name]} />
           <Legend iconType="circle" />
-          <Area type="monotone" dataKey="income" name="Income" stroke={hsl('sage')} strokeWidth={2.2} fill="url(#incomeGrad)" animationDuration={900} animationEasing="ease-out" />
-          <Area type="monotone" dataKey="expense" name="Expense" stroke={hsl('terra')} strokeWidth={2.2} fill="url(#expenseGrad)" animationDuration={900} animationEasing="ease-out" />
+          <Area type="monotone" dataKey="income" name="Income" stroke={hsl('sage')} strokeWidth={2.2} fill="url(#incomeGrad)" isAnimationActive={false} />
+          <Area type="monotone" dataKey="expense" name="Expense" stroke={hsl('terra')} strokeWidth={2.2} fill="url(#expenseGrad)" isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -93,7 +93,7 @@ function NetTooltip({ active, payload, currency }: {
       ) : (
         <>
           <div className={saved ? 'text-sage' : 'text-terra'}>
-            {saved ? 'Saved' : 'Overspent'} {fmt(Math.abs(p.net), currency)}
+            {saved ? 'Surplus' : 'Shortfall'} {fmt(Math.abs(p.net), currency)}
           </div>
           <div className="text-ink-dim font-mono text-[0.62rem] mt-0.5">
             +{fmtShort(p.income, currency)} in · −{fmtShort(p.expense, currency)} out
@@ -111,8 +111,8 @@ export function NetBarChart({ data, currency }: ChartProps) {
   return (
     <div>
       <div className="flex items-center gap-3.5 px-4 pt-3 font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">
-        <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: hsl('sage') }} /> Saved</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: hsl('terra') }} /> Overspent</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: hsl('sage') }} /> Surplus</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: hsl('terra') }} /> Shortfall</span>
       </div>
       <div className="px-4 pt-1 pb-2 h-[210px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -127,7 +127,7 @@ export function NetBarChart({ data, currency }: ChartProps) {
             />
             <ReferenceLine y={0} stroke={hsl('ink-dim')} strokeWidth={1} />
             <Tooltip cursor={{ fill: 'hsl(var(--bg3))' }} content={<NetTooltip currency={currency} />} />
-            <Bar dataKey="net" name="Net" radius={[3, 3, 0, 0]} animationDuration={900} animationEasing="ease-out">
+            <Bar dataKey="net" name="Net" radius={[3, 3, 0, 0]} isAnimationActive={false}>
               {data.map((entry, index) => (
                 <Cell key={index} fill={entry.net >= 0 ? hsl('sage') : hsl('terra')} />
               ))}
@@ -151,17 +151,17 @@ export function CategoryBars({ data, currency }: CategoryChartProps) {
         const category = getCat(entry.catId);
         const width = Math.round(entry.amount / max * 100);
         return (
-          <div key={entry.catId} className="grid grid-cols-[130px_1fr_76px] items-center gap-2.5 px-4 py-2 border-b border-line last:border-b-0">
-            <div className="text-[0.76rem] text-ink-mid truncate">
+          <div key={entry.catId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 px-4 py-2 border-b border-line last:border-b-0 min-w-0">
+            <div className="text-sm text-ink-mid min-w-0 [overflow-wrap:anywhere]">
               {category.icon} {category.label}
             </div>
-            <div className="bg-bg3 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-bg3 h-1.5 rounded-full overflow-hidden col-span-2 row-start-2">
               <div
                 className="h-full rounded-full chart-grow transition-[width] duration-500"
                 style={{ width: `${width}%`, background: category.color, animationDelay: `${i * 60}ms` }}
               />
             </div>
-            <div className="font-mono text-[0.66rem] text-ink-mid text-right">{fmtShort(entry.amount, currency)}</div>
+            <div className="font-mono text-xs text-ink-mid text-right" title={fmt(entry.amount, currency)}>{fmtShort(entry.amount, currency)}</div>
           </div>
         );
       })}

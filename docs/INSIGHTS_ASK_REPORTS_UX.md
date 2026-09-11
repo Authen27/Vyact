@@ -1,0 +1,182 @@
+# Insights, Ask and Household Reports
+
+Date: 2026-09-11. Insights merge is a UX recommendation. Ask guidance and Reports
+corrections are implemented locally; verification results are recorded below.
+No tax content, financial writer, schema or model-provider change is included.
+
+## Insights: One Personal View
+
+Recommendation: keep two tabs, **For You** and **Learn**. Absorb Plan into For You;
+remove the separate Plan tab and its duplicated desktop recommendation rail.
+For You is the household's review-and-act view. Learn remains the educational
+library, not a competing personal recommendation feed.
+
+Proposed order:
+
+1. **Your next steps.** Up to three materially useful actions, ordered by urgency
+   and impact. Examples: review an upcoming commitment, inspect a budget category,
+   review an expensive debt. Show the relevant period and evidence.
+2. **What changed.** Income/spending/category changes, each paired with its next
+   useful action rather than an isolated statistic. Include positive progress
+   without presenting incomplete data as proof of financial health.
+3. **Keep an eye on.** Lower-priority patterns, estimates and data-quality gaps.
+   Distinguish an estimate from a recorded figure and show the basis.
+4. **Learn about this.** A small contextual link to an appropriate lesson. The
+   full library stays under Learn.
+
+Each item has one reading path:
+
+```text
+Topic and period
+What changed / the verified figure
+Why it matters to this household
+Review transactions | Open budget | Review debt
+```
+
+- Desktop: one readable primary column; an optional narrow rail may show upcoming
+  commitments and related learning, not repeat the same recommendations.
+- Mobile: the same order in one column, with full labels and 44px action targets.
+- Keep Aurora colours and fonts, medium headings, normal body text, and the
+  approved 32/48px section spacing. Unframed sections; a repeated insight may be
+  framed, but no card inside another card.
+- The reel becomes an optional **Review highlights** action. Opening an insight
+  should show its evidence and action directly, not force a slideshow.
+- Deduplicate using the underlying issue, category/account and period, not title
+  similarity. A category-spend observation and a budget warning about the same
+  spending should be one item with supporting detail.
+- Reuse existing calculators, but verify both engines have the same account,
+  allocation, exclusion and period inputs before merging their outputs. They
+  currently have different input shapes; a visual merge alone cannot prove parity.
+- Preserve existing routes/deep links and existing actions. No new generated
+  financial arithmetic or automatic writes. Personal insights remain private.
+- Empty means **Not enough recorded activity yet**, not **Your finances are
+  healthy**. Likewise, no critical flags is not a health certification.
+- Do not reintroduce Goals, Tax or the hidden Dashboard Pulse through the merge.
+
+## Ask: Examples Versus Actions
+
+The old grid mixed direct form shortcuts and immediate model questions. The
+updated interface separates them:
+
+| Control | Behaviour |
+| --- | --- |
+| Use example | Fills and focuses the composer; the user can edit before Send |
+| Open form | Opens the existing editor; no model call and no record saved |
+| Send | Starts a model-backed turn; unavailable service stays explicitly unavailable |
+| Follow-up question | Shows the full question and fills the composer instead of silently sending |
+| Show examples | Restores the examples after a conversation has started |
+| Voice input | Existing speech-to-text path; browser support and microphone permission still apply |
+| Clear history | Existing confirmation and household-scoped transcript clearing; not a ledger action |
+
+The Use example action is now a 16px pencil icon inline with each query title,
+not a separate text button. Its borderless 44px target retains the tooltip and
+accessible name, and still only fills the composer. Ask (including its drawer
+title) and Help use regular-weight headings, labels and controls within their
+own presentation scope; font families, input sizes and other pages are unchanged.
+
+Examples are maintained in the existing intent registry. Amounts below are
+illustrative in the household currency, not recommended spending targets.
+
+| Task | Example |
+| --- | --- |
+| Expense | Spent 45 on groceries today |
+| Income | Received 5000 salary today |
+| Transfer | Transferred 200 from my bank to cash |
+| Investment buy | Invested 500 in my index fund |
+| Spending | How much did I spend this month? |
+| Household overview | How am I doing financially? |
+| Net worth | What's my net worth? |
+| Budget pressure | Which budgets are at risk? |
+| Category review | What are my top spending categories this month? |
+| Bills | What are my upcoming bills? |
+| Income interruption | How long would my money last without income? |
+| Debt payoff | Tell me about my debts and the best payoff strategy. |
+| Purchase decision | Can I afford a 1200 purchase? |
+| Cut back | Where can I cut back on spending? |
+
+Budget, debt and asset creation remain form-only shortcuts, with sample field
+values rather than invented chat commands. Transaction examples may prepare an
+editor; the user must check accounts, amounts, dates and any asset before saving.
+The examples test supported intent vocabulary, not live provider accuracy.
+
+The extra category-shortcut step was removed. It carried stale category IDs and
+competed with the shared searchable category picker. Neutral movements have no
+category seed. Pulse is not promoted as the primary household-health question.
+
+Not expanded here: voice cancellation, native-confirm replacement, drawer
+navigation/focus architecture, provider availability or the legacy split capture
+path. Do not advertise unverified multi-turn or write capabilities.
+
+## Reports: A Family Review
+
+The useful conversation is not "Is this score green?" It is "What is changing,
+what is already committed, and what can we decide next?"
+
+| Consultation question | Evidence retained or added | Interpretation limit |
+| --- | --- | --- |
+| Is income covering spending? | Income/expense trend, surplus/shortfall chart and period table | Cash flow is not an account balance or proof of invested savings |
+| What is driving spending? | Category donut/legend, top-category bars, Needs vs Wants | Classification is descriptive; a high needs share is not automatically healthy |
+| What do we own and owe? | Current assets, liabilities, Net Worth and liquid assets from the canonical projection | Current position only; do not manufacture historical Net Worth from transactions |
+| How much income remains this month? | Current-month income, spending and retained-income percentage | Current month is incomplete; no income means percentage unavailable |
+| What payments are already committed? | Tracked minimum debt payments; direct links to upcoming bills and debt payoff | Untracked commitments and card-only minimums are not implied to be included |
+| Are we following our plan? | Direct Budget vs actual link to the authoritative budget screen | A new cross-period budget chart needs scope/allocation coverage, not duplicated arithmetic |
+| Who and which accounts contributed? | All-time member/account tables with consistent reportable entries and FX | Attribution is not blame; account net flow is not its current balance |
+
+### Corrections
+
+- Needs/Wants container and full amount rows wrap at narrow widths; chart grid
+  tracks can shrink. Category legends retain full labels in a scrollable list,
+  and category bars stack their tracks below labels on narrow layouts.
+- Removed "solid/balanced" health judgements based only on needs percentage.
+- Unclassified spending is shown explicitly rather than disappearing from the
+  mix. Negative current-position values and cash-flow details retain their signs.
+- Reports plots render their geometry immediately. A live preview showed animated
+  pie groups with data but no visible sectors; the report-only nonanimated donut
+  resolves that display failure without changing Dashboard donut animation.
+- Calendar buckets now have valid month/quarter ends and do not skip February
+  when today is the 31st. Excluded, transfer and reconciliation rows use the same
+  reportability rule as the rest of the app.
+- Income is attributed to the receiving account, expenses to the paying account;
+  missing accounts remain unassigned. The full ledger already loaded by Reports
+  now drives all breakdowns, removing a duplicate cloud path with inverse FX and
+  stale same-row-count refresh risks.
+- Chart-window dates are explicit; all-time headings/breakdowns remain labelled
+  separately. Current position and current-month figures do not masquerade as
+  historical rolling-window data.
+- Tax is excluded. No financial-health score or invented target is added.
+
+### Further Product Work
+
+For a fuller consultation later: a single date-range filter across all flow views;
+budget-versus-actual trends by matching scope; essential-spend runway using a
+stated completed-month baseline; an approval-aware bill calendar; and historical
+Net Worth only after reliable valuation/balance history exists. These require
+separate calculation/data contracts and are not claimed implemented here.
+
+## Verification
+
+Unit coverage pins calendar boundaries, central FX, neutral/excluded entries,
+income attribution, missing-account handling and sample-intent vocabulary.
+Browser coverage uses a local-only test-mode build and awaited IndexedDB fixture;
+it exercises wide amounts at 320/390/768/1024/1440px, period controls, every Ask
+example and form shortcut, and follow-up editing without provider calls.
+Live model/WhatsApp/cloud permissions are not certified by these checks.
+
+Results for this pass:
+- Nine new unit cases passed; existing Ask/category and money/Net Worth regression
+  suites also passed.
+- Four Chromium browser cases passed on the final build (25.6s), covering actual
+  chart geometry, full amounts at all five widths, negative Net Worth, unclassified
+  spending, every example/form shortcut, the embedded drawer and editable follow-ups.
+  Their catalogue IDs are `FIN-FC-001` through `FIN-FC-004`.
+- Source and E2E typechecks, scoped lint and the production-style test build passed,
+  including PWA generation. The existing main-bundle size warning remains.
+- Generated inventory update and root `test:ci` passed: 1,040 app cases in 65 files,
+  plus three inventory-tooling tests. Catalogue reconciliation and `git diff --check`
+  passed. No skipped cases were used to reach these results.
+- Final test screenshots were inspected at mobile and desktop widths; the category
+  donut is visible and the full Needs/Wants amounts remain inside their container.
+
+Local review: `http://127.0.0.1:5182/reports` and `http://127.0.0.1:5182/chat`.
+The isolated browser runner uses the existing test-mode preview on port 5183.
+No commit, deployment or live-provider request was made for this work.

@@ -537,6 +537,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/askVyactExamples.test.ts",
+      "feature": "Reports and Ask guidance",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "reportsModel / intent examples (not provider verification)",
+      "count": 3,
+      "tests": [
+        "Ask examples and shortcut contracts does not invent typed creation commands or categories for neutral movements",
+        "Ask examples and shortcut contracts maps transaction and decision examples to supported intent vocabulary",
+        "Ask examples and shortcut contracts offers a real example or an explicit form-only hint for every action"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/authTransport.test.ts",
       "feature": "Authentication and invitations",
       "availability": "conditional",
@@ -630,6 +644,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/categoryOptions.test.ts",
+      "feature": "Navigation and category selection",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "navModel / categoryOptions",
+      "count": 4,
+      "tests": [
+        "displays a saved legacy alias without silently changing its value or offering it to new entries",
+        "keeps income and expense options separate and transfer/investment category-free",
+        "searches full labels without changing IDs and supports All categories in filters",
+        "uses the central icon and label metadata in one stable alphabetical order"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/cloudTransport.test.ts",
       "feature": "Cloud adapter contracts",
       "availability": "conditional",
@@ -641,6 +670,20 @@
         "cloud command transports atomic budget replace forwards identity and returns authoritative allocations",
         "cloud command transports reads link status and unlinks through the authenticated endpoint without profile writes",
         "cloud command transports the configured browser model call invokes only the Edge gateway and returns its text"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/dashboardPresentation.test.tsx",
+      "feature": "Dashboard MVP presentation",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Dashboard / feature flags (static rendering, not browser geometry)",
+      "count": 3,
+      "tests": [
+        "MVP omits Pulse and Debt summaries while keeping Net Worth liabilities",
+        "showDebtSummary can be enabled independently without changing the Net Worth figure",
+        "showPulse can be enabled independently without changing the Net Worth figure"
       ]
     },
     {
@@ -725,6 +768,22 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/helpContent.test.ts",
+      "feature": "Help and adoption guidance",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "helpContent / captured media (not deployed service verification)",
+      "count": 5,
+      "tests": [
+        "Help & Guide content contract does not advertise retired modules or the old split and investment-account flows",
+        "Help & Guide content contract has stable unique topics, complete answers and the four task groups",
+        "Help & Guide content contract links only to current destinations and includes availability caveats",
+        "Help & Guide content contract searches full answers, steps and caveats regardless of case or extra whitespace",
+        "Help & Guide content contract ships six real current PNG screenshots with matching intrinsic dimensions"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/learnJsonLd.test.ts",
       "feature": "Formatting and structured content",
       "availability": "available",
@@ -743,7 +802,7 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 37,
+      "count": 39,
       "tests": [
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be archived either — it would vanish from every picker",
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be deleted, and the refusal changes nothing",
@@ -764,8 +823,10 @@
         "Accounts R2 — delete, move, archive and reconcile change no number that should not move permanent delete is refused while history is attached, and changes nothing when refused",
         "Investments R4 — money moves between an account and a Net Worth asset, and net worth does not move Update value moves only the valuation offset — the opening value, the account and spend stay put",
         "Investments R4 — money moves between an account and a Net Worth asset, and net worth does not move a buy lowers the paying account and raises the asset by the same amount; spend and net worth are untouched",
+        "Investments R4 — money moves between an account and a Net Worth asset, and net worth does not move a local-only build: a buy paid from a legacy encoded picker value still saves and folds",
         "Investments R4 — money moves between an account and a Net Worth asset, and net worth does not move a withdrawal lowers the asset and raises the receiving account; net worth is untouched",
         "Investments R4 — money moves between an account and a Net Worth asset, and net worth does not move an investment naming no known asset is refused and writes nothing",
+        "Investments R4 — money moves between an account and a Net Worth asset, and net worth does not move an investment naming no paying account at all is still refused",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account does not use is dropped, and the money still posts",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account uses is kept, and the balance moves exactly as without one",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number an investment never carries a mode",
@@ -1302,6 +1363,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/navigationVisibility.test.ts",
+      "feature": "Navigation and category selection",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "navModel / categoryOptions",
+      "count": 2,
+      "tests": [
+        "Accounts has one canonical Plan route shared by navigation and the command palette",
+        "Accounts stays visible for every household template, including an unset template"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/netWorthProjection.test.ts",
       "feature": "Money model",
       "availability": "available",
@@ -1489,6 +1563,23 @@
       "count": 1,
       "tests": [
         "keeps an approval-required bill due without posting or advancing it"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/reportsModel.test.ts",
+      "feature": "Reports and Ask guidance",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "reportsModel / intent examples (not provider verification)",
+      "count": 6,
+      "tests": [
+        "Reports periods and account attribution attributes income to the destination and expenses to the paying account",
+        "Reports periods and account attribution keeps twelve distinct monthly buckets when today is the 31st",
+        "Reports periods and account attribution resolves legacy cash but never assigns an unlinked entry to the first account",
+        "Reports periods and account attribution retains the intended rolling window lengths in each grouping",
+        "Reports periods and account attribution uses real leap-day and quarter boundaries",
+        "Reports periods and account attribution uses reportable entries and central currency conversion in every chart bucket"
       ]
     },
     {

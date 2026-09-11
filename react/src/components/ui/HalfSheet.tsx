@@ -21,9 +21,10 @@ interface Props {
   footer?: ReactNode;
   /** Desktop width — see AccessibleDialog. */
   size?: 'md' | 'lg' | 'xl';
+  className?: string;
 }
 
-export default function HalfSheet({ open, onClose, title, ariaLabel, children, footer, size }: Props) {
+export default function HalfSheet({ open, onClose, title, ariaLabel, children, footer, size, className }: Props) {
   return (
     <AccessibleDialog
       open={open}
@@ -33,6 +34,7 @@ export default function HalfSheet({ open, onClose, title, ariaLabel, children, f
       footer={footer}
       variant="sheet"
       size={size}
+      className={className}
     >
       {children}
     </AccessibleDialog>
