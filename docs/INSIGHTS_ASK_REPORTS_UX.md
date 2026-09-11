@@ -1,13 +1,16 @@
 # Insights, Ask and Household Reports
 
-Date: 2026-09-11. Insights merge is a UX recommendation. Ask guidance and Reports
-corrections are implemented locally; verification results are recorded below.
+Date: 2026-09-11. **All three parts are implemented.** Ask guidance and Reports
+corrections shipped in v10.27.0; the Insights merge shipped in v10.29.0.
+Verification results are recorded below.
 No tax content, financial writer, schema or model-provider change is included.
 
 ## Insights: One Personal View
 
-Recommendation: keep two tabs, **For You** and **Learn**. Absorb Plan into For You;
-remove the separate Plan tab and its duplicated desktop recommendation rail.
+**Implemented in v10.29.0** (`pages/Insights.tsx`, `lib/personalInsights.ts`). Two
+tabs, **For You** and **Learn**. Plan is absorbed into For You; the separate Plan tab,
+its duplicated desktop recommendation rail and the standalone Planner page are
+removed (`/planner` and `?tab=plan` open For You).
 For You is the household's review-and-act view. Learn remains the educational
 library, not a competing personal recommendation feed.
 
@@ -176,6 +179,34 @@ Results for this pass:
   passed. No skipped cases were used to reach these results.
 - Final test screenshots were inspected at mobile and desktop widths; the category
   donut is visible and the full Needs/Wants amounts remain inside their container.
+
+### Insights merge (v10.29.0)
+
+- **Unit:** ten `personalInsights` cases cover:
+  - an empty household;
+  - merging by issue and period, and deduplication that does not rely on titles;
+  - allocation budgets over their own period with central FX;
+  - account-aware investment values, counted once;
+  - withdrawals and private rows kept out of the contribution rate;
+  - active schedules as the source of repeating bills;
+  - the three-item cap on next steps, with no duplicates and deterministic output;
+  - estimates marked, including on highlight cards;
+  - no Tax, Goals or Pulse, and future or private entries ignored without mutating inputs.
+
+  The generated inventory reads 1,068 passing cases in 68 files.
+- **Browser** (Chromium, local-only test build):
+  - `INS-FC-001` at 390 and 1440px:
+    - only the For You and Learn tabs;
+    - one to three next steps, each with an action and its 2026-05 period;
+    - Calculation basis and Learn about this present;
+    - no Pulse, Tax or "healthy" wording, unique item titles, and no horizontal scroll.
+  - `INS-FC-002`:
+    - Review highlights opens and closes the reel, and focus returns to the button;
+    - the arrow keys move to Learn and update `?tab=learn`;
+    - `/planner` and `?tab=plan` open For You.
+  - `INS-FC-003`: a household with only a transfer sees Not enough recorded activity yet, with no next steps, no highlights and no health verdict. A household with no transactions at all would get the local demo data instead.
+- **Smoke:** `CON-E2E-041` passes with `/planner` removed from its route list, because it now redirects. `CON-E2E-040`, `011` and `042` fail identically on an origin/main build, so they predate this change (TD-29).
+- **Release gate:** 13 of 13 steps, 238 of 238 scenarios.
 
 Local review: `http://127.0.0.1:5182/reports` and `http://127.0.0.1:5182/chat`.
 The isolated browser runner uses the existing test-mode preview on port 5183.

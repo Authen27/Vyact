@@ -37,7 +37,7 @@ describe('Reports, Planner, Insights and notification outputs', () => {
     const input = context([expense({ amount: 250 }), expense({ type: 'income', amount: 1000, category: 'salary' }),
       expense({ type: 'investment', amount: 600, category: '', toAccountId: 'investment' })]);
     const feed = buildInsightFeed(input, 20);
-    expect(feed).toContainEqual(expect.objectContaining({ id: 'win-savings-2026-09', big: '75% saved', tone: 'positive' }));
+    expect(feed).toContainEqual(expect.objectContaining({ id: 'win-savings-2026-09', big: '75% retained', tone: 'positive' }));
     expect(feed).toContainEqual(expect.objectContaining({ id: 'mirror-topcat-2026-09', to: '/transactions?type=expense&cat=groceries&month=2026-09' }));
     expect(buildInsightFeed(input, 20)).toEqual(feed);
     expect(new Set(feed.map(card => card.id)).size).toBe(feed.length);

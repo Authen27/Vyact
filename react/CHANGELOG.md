@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.28.0`** (consumer)
+> **Current production version: `v10.29.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,44 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.29.0 — Insights becomes one review *(2026-09-11)*
+
+Insights now has two tabs, **For You** and **Learn**. The separate Plan tab is gone: its recommendations and the
+For You feed are now one review. **No money, data or permission rule changes** — nothing new is calculated,
+nothing is written, and personal insights stay on this device. (Completes the Insights part of
+`docs/INSIGHTS_ASK_REPORTS_UX.md`; its Ask and Reports parts shipped in v10.27.0.)
+
+- **For You reads top to bottom:** *Your next steps* (at most three, most urgent first, each with its action —
+  review a budget, a debt or the transactions), *What changed* (the figure and its period), *Keep an eye on*
+  (lower-priority patterns and projections, marked as estimates) and *Learn about this* (a related lesson; the
+  full library stays under Learn).
+- **One item per issue.** A spending observation and a planner warning about the same thing in the same month
+  are one item with supporting evidence, not two cards saying it twice. Every item shows its period and a
+  *Calculation basis*.
+- **The reel is optional.** *Review highlights* opens it; Insights no longer starts as a slideshow, and closing
+  the reel returns focus to that button.
+- **Plainer wording, fewer claims.** "75% saved" reads "75% retained" (month to date, before bills still to
+  come). Rules no longer quote generic "healthy thresholds", lender cut-offs or investment-return promises, and
+  one income category is described as exactly that — not as a single job.
+- **Truer inputs.** Budget warnings use the allocation lines, each over its own budget period, with central FX.
+  Asset concentration uses the account-aware Net Worth values (linked assets counted once). Investment
+  withdrawals and private rows no longer count as contributions. Repeating bills come from active schedules
+  instead of summing entries that already posted. Future-dated and private entries are ignored.
+- **Empty means empty:** with no recorded income or spending, For You says *Not enough recorded activity yet* —
+  never a verdict on the household's finances.
+- **Kept out:** Pulse, Goals and Tax. Personal highlight cards no longer offer Share.
+- **Old links still work:** `/planner` and `?tab=plan` open For You. The standalone Planner page, unreachable
+  behind that redirect, is removed. Ask Vyact's Pulse answer now points to Insights instead of "the Planner".
+
+### Under the hood
+- `lib/personalInsights.ts` runs `evaluateRecommendations` and `buildInsightFeed` over ONE context (the same
+  transactions, accounts, allocations, schedules and Net Worth position) and merges them by issue + period,
+  with `relatedIssues` aliases so a budget warning absorbs its category observations.
+- `plannerRules` and `insightsFeed` carry `issue`, `period`, `basis` and `estimated` metadata; `EstimatedTag`
+  accepts a `title`.
+- Tests: 10 new `personalInsights` unit cases; browser cases INS-FC-001…003 in
+  `e2e/tests/insights-review.spec.ts`.
 
 ## v10.28.0 — forms get a page of their own *(2026-09-11)*
 

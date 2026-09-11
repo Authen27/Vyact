@@ -231,7 +231,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         headline: `Your Pulse Score is ${total}/100.`,
         detail: total >= 80 ? 'Strong — keep doing what you are doing.'
           : total >= 65 ? 'Solid, with a little room to push.'
-          : 'There is room to improve — the Planner has prioritised steps.',
+          : 'There is room to improve — Insights lists your next steps.',
       } };
     }
     case 'interpret.diagnostic': {

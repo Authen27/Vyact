@@ -6,6 +6,8 @@ import { defaultSeed, legacyOnlySeedScript } from '../fixtures/seed';
 // the test times out after 30s instead of failing with a useful message — which
 // is exactly how '/goals' (removed with the Goals module in v8.8.0) kept this
 // suite, and therefore CI, red.
+// '/planner' is not listed: since v10.29.0 it redirects to /insights?tab=for-you,
+// so the URL never settles on it. INS-FC-002 asserts that redirect.
 const PRIMARY_ROUTES = [
   '/dashboard',
   '/transactions',
@@ -16,7 +18,6 @@ const PRIMARY_ROUTES = [
   '/networth',
   '/reports',
   '/recurring',
-  '/planner',
   '/chat',
   '/insights',
   '/households',

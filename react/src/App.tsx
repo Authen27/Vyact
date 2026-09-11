@@ -24,7 +24,6 @@ const Dashboard    = React.lazy(() => import('./pages/Dashboard'));
 const Transactions = React.lazy(() => import('./pages/Transactions'));
 const Reports      = React.lazy(() => import('./pages/Reports'));
 const Recurring    = React.lazy(() => import('./pages/Recurring'));
-const Planner      = React.lazy(() => import('./pages/Planner'));
 const Chat         = React.lazy(() => import('./pages/Chat'));
 const Onboarding   = React.lazy(() => import('./pages/Onboarding'));
 const NudgeBanner  = React.lazy(() => import('./components/onboarding/NudgeBanner'));
@@ -253,7 +252,7 @@ function AppShell() {
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/reports"      element={<Reports />} />
           <Route path="/recurring"    element={<Recurring />} />
-          <Route path="/planner"      element={<Planner />} />
+          <Route path="/planner"      element={<Navigate to="/insights?tab=for-you" replace />} />
           <Route path="/chat"         element={<Chat />} />
           <Route path="/households"   element={<Households />} />
           <Route path="/budgets"      element={<Budgets />} />

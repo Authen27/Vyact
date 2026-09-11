@@ -4,6 +4,7 @@ const group = (feature, availability, layer, files, owner) => ({ feature, availa
   files: files.map(file => `${consumer}${file}.test.ts`) });
 
 export const groups = [
+  group('Merged personal Insights', 'available', 'unit', ['personalInsights'], 'personalInsights / plannerRules / insightsFeed'),
   group('Reports and Ask guidance', 'available', 'unit', ['reportsModel', 'askVyactExamples'], 'reportsModel / intent examples (not provider verification)'),
   group('Help and adoption guidance', 'available', 'contract-unit', ['helpContent'], 'helpContent / captured media (not deployed service verification)'),
   group('Navigation and category selection', 'available', 'unit', ['navigationVisibility', 'categoryOptions', 'formRoutes'], 'navModel / categoryOptions / formRoutes'),
