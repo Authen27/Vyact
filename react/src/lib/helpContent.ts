@@ -190,7 +190,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   {
     id: 'reports', group: 'Everyday money',
     question: 'Where can I review my spending over time?',
-    answer: 'Open Reports under Analyze and check the selected period before comparing income, expenses and category breakdowns. Use Transactions to inspect or correct the underlying entries.',
+    answer: 'Open Reports under Analyze and choose a date range; every chart, category breakdown and member or account table then uses that same window. Budget vs actual compares each budget over its own month or year, and the essential-spend runway states the completed months it is based on. Use Transactions to inspect or correct the underlying entries.',
     note: 'Insights offers a For You feed and an explainer library. It is a place to explore patterns and learn, not to edit your ledger.',
     keywords: ['reports', 'analyze', 'insights', 'trend', 'categories', 'spending'],
     link: { to: '/reports', label: 'Open Reports' },

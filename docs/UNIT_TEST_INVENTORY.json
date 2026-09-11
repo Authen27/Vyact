@@ -589,6 +589,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/budgetTrends.test.ts",
+      "feature": "Reports consultation",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "reportRange / budgetTrends / essentialRunway (range, scope-matched budgets, stated-baseline runway)",
+      "count": 4,
+      "tests": [
+        "Budget vs actual by matching scope (v10.31.0) compares a monthly budget over its own month, only in its allocated categories, through central FX",
+        "Budget vs actual by matching scope (v10.31.0) includes only budgets overlapping the range, and skips budgets with no allocations",
+        "Budget vs actual by matching scope (v10.31.0) keeps annual budgets in their own series over the full year",
+        "Budget vs actual by matching scope (v10.31.0) marks over, and never calls the current period over or under"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/cacheBoundary.test.ts",
       "feature": "Storage and synchronization",
       "availability": "available",
@@ -708,6 +723,21 @@
         "MVP omits Pulse and Debt summaries while keeping Net Worth liabilities",
         "showDebtSummary can be enabled independently without changing the Net Worth figure",
         "showPulse can be enabled independently without changing the Net Worth figure"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/essentialRunway.test.ts",
+      "feature": "Reports consultation",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "reportRange / budgetTrends / essentialRunway (range, scope-matched budgets, stated-baseline runway)",
+      "count": 4,
+      "tests": [
+        "Essential-spend runway (v10.31.0) counts only need-classified reportable spending, honours the live classification map, and converts currency",
+        "Essential-spend runway (v10.31.0) labels baselines within and across years",
+        "Essential-spend runway (v10.31.0) reports zero months for a non-positive liquid position, and no runway without a baseline or essential spend",
+        "Essential-spend runway (v10.31.0) uses the last three completed months with recorded spending, never the current month"
       ]
     },
     {
@@ -1640,6 +1670,23 @@
       "count": 1,
       "tests": [
         "keeps an approval-required bill due without posting or advancing it"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/reportRange.test.ts",
+      "feature": "Reports consultation",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "reportRange / budgetTrends / essentialRunway (range, scope-matched budgets, stated-baseline runway)",
+      "count": 6,
+      "tests": [
+        "Reports date range (v10.31.0) accepts a valid custom range, clamps a future end to today, and rejects invalid or reversed input",
+        "Reports date range (v10.31.0) builds calendar buckets clamped to the range and marks partial edges, including leap February",
+        "Reports date range (v10.31.0) coarsens a grouping that would draw more than 60 buckets, and says so",
+        "Reports date range (v10.31.0) resolves every preset to inclusive calendar dates ending today",
+        "Reports date range (v10.31.0) round-trips through the URL without colliding with from=savings",
+        "Reports date range (v10.31.0) sums only reportable entries dated inside the range, through central FX"
       ]
     },
     {

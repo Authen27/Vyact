@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.30.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.31.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -250,6 +250,14 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   recorded rows only (≥2). In cloud mode record only when
   `adapter.positionIsCloudFresh()` — a cache-first read can be stale, and a stale
   first write is permanent.
+- **Reports reads ONE date range (v10.31.0)** — every flow panel takes its window
+  from `lib/reportRange.ts` (URL `range`/`group`, custom `start`/`end` — never
+  `from`, which is the savings banner). Don't add a panel with its own window or an
+  unlabelled all-time total; the household position and "this month" are the only
+  current-by-design figures. Budget vs actual compares each budget over its OWN
+  period by scope (`lib/budgetTrends.ts`; the current period is "in progress", never
+  over/under). The runway's baseline is completed months only and is stated on
+  screen (`lib/essentialRunway.ts`).
 - **WhatsApp integration — write-only logging (v10.18)** — inbound text → the
   deterministic parser (`supabase/functions/_shared/whatsapp-parser.ts`, ported
   from `askVyactParser`, NO AI / NO egress) → `whatsapp_log_transaction` RPC

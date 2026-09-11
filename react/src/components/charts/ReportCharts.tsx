@@ -169,6 +169,56 @@ export function CategoryBars({ data, currency }: CategoryChartProps) {
   );
 }
 
+interface BudgetActualPoint {
+  label: string;
+  budgeted: number;
+  actual: number;
+  status: 'under' | 'on' | 'over' | 'in-progress';
+}
+
+// v10.31.0 — monthly budget vs actual (lib/budgetTrends.ts). Actual bars are
+// sage when within budget, terra when over, and honey while the month is still
+// in progress (never judged over or under).
+export function BudgetActualBars({ data, currency }: { data: BudgetActualPoint[]; currency: string }) {
+  // An explicit key instead of the Recharts legend: the Actual bars take three
+  // colours by status, and a single legend swatch would misstate two of them.
+  const key: [string, string][] = [
+    ['Budgeted', hsl('denim')], ['Actual · within', hsl('sage')], ['Actual · over', hsl('terra')], ['Actual · in progress', hsl('honey')],
+  ];
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 px-4 pt-3 font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">
+        {key.map(([label, colour]) => (
+          <span key={label} className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: colour }} aria-hidden /> {label}
+          </span>
+        ))}
+      </div>
+    <div className="px-4 pt-2 pb-2 h-[230px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="2 3" stroke={hsl('line')} vertical={false} />
+          <XAxis dataKey="label" stroke={hsl('ink-dim')} tick={{ fontSize: 10 }} />
+          <YAxis
+            stroke={hsl('ink-dim')}
+            tick={{ fontSize: 10 }}
+            tickFormatter={(value: number) => fmtShort(value, currency)}
+            width={50}
+          />
+          <Tooltip cursor={{ fill: 'hsl(var(--bg3))' }} formatter={(value: number, name: string) => [fmt(value, currency), name]} />
+          <Bar dataKey="budgeted" name="Budgeted" fill={hsl('denim')} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="actual" name="Actual" fill={hsl('sage')} radius={[3, 3, 0, 0]} isAnimationActive={false}>
+            {data.map((entry, index) => (
+              <Cell key={index} fill={entry.status === 'over' ? hsl('terra') : entry.status === 'in-progress' ? hsl('honey') : hsl('sage')} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+    </div>
+  );
+}
+
 interface NetWorthPoint {
   label: string;
   netWorth: number;
