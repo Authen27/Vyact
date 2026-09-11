@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, MessageCircle, Trash2, ChevronLeft, Mic } from 'lucide-react';
+import { Send, MessageCircle, Trash2, Mic, PencilLine, Plus, List } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Chip from '../components/ui/Chip';
+import { Input } from '../components/ui/Input';
 import {
   buildSafeSummary, type ChatMessage,
 } from '../lib/aiSummary';
@@ -12,7 +12,7 @@ import type { AssistantChip } from '../lib/askVyactResponses';
 import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
 import {
-  INTENTS, BUCKET_LABEL, intentsByBucket, type Bucket, type Intent, type IntentAction,
+  BUCKET_LABEL, intentsByBucket, intentExample, type Bucket, type IntentAction,
 } from '../lib/askVyactIntents';
 import { isAskVyactEnabled, FEATURES } from '../config/features';
 import {
@@ -92,7 +92,8 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   const thinking = activeTurn !== null;
   // v7.4.5 — when an intent has secondary chips, hold it here so the
   // empty-state grid swaps to the tap-2 row.
-  const [expanded, setExpanded] = useState<Intent | null>(null);
+  const [showExamples, setShowExamples] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Skip the very first history-effect run (mount/hydration) so opening Ask
   // Vyact stays scrolled to the TOP showing the intent options, instead of
@@ -139,7 +140,6 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
 
   function dispatchAction(action: IntentAction, intentId: string, taps: 1 | 2) {
     // Telemetry: privacy-safe — only the chip id + bucket + tap depth.
-    // eslint-disable-next-line no-console
     console.debug('[ask-vyact-intent]', { id: intentId, taps });
     if (action.kind === 'open-modal') {
       switch (action.modal) {
@@ -148,21 +148,17 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         case 'addDebt':   openAddDebt();   break;
         case 'addAsset':  openAddAsset();  break;
       }
-      setExpanded(null);
+      setShowExamples(false);
     } else if (action.kind === 'navigate') {
       navigate(action.to);
     } else if (action.kind === 'ask') {
-      void send(action.prompt);
-      setExpanded(null);
+      prepareQuestion(action.prompt);
     }
   }
 
-  function pickIntent(intent: Intent) {
-    if (intent.secondary && intent.secondary.length) {
-      setExpanded(intent);
-      return;
-    }
-    if (intent.action) dispatchAction(intent.action, intent.id, 1);
+  function prepareQuestion(question: string) {
+    setInput(question);
+    inputRef.current?.focus();
   }
 
   async function send(question: string) {
@@ -364,7 +360,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   }
 
   return (
-    <div className={embedded ? 'flex flex-col flex-1 min-h-0' : undefined}>
+    <div className={`ui-pilot reading-surface ${embedded ? 'flex flex-col flex-1 min-h-0' : ''}`}>
       {!embedded && (
         <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
           <div>
@@ -375,7 +371,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                 privacy block below. Ask Vyact still captures, inquires and
                 plans in two taps, which is what this line is actually for. */}
             <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-              Two taps to capture, inquire, or plan
+              Record money · understand your household · explore a decision
             </p>
           </div>
           {history.length > 0 && (
@@ -432,10 +428,10 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
               <div className="flex items-center gap-2 shrink-0">
                 {proactive.chipPrompt && (
                   <button
-                    onClick={() => { const p = proactive.chipPrompt!; setProactive(null); void send(p); }}
+                    onClick={() => { const p = proactive.chipPrompt!; setProactive(null); prepareQuestion(p); }}
                     className="text-[0.72rem] font-semibold text-coral hover:underline"
                   >
-                    Show me
+                    Use question
                   </button>
                 )}
                 <button onClick={() => setProactive(null)} className="text-ink-dim hover:text-ink text-[0.72rem]">
@@ -444,13 +440,13 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
               </div>
             </div>
           )}
-          {history.length === 0 && (
+          {(history.length === 0 || showExamples) && (
             <div className="py-2">
-              {!expanded ? (
                 <>
-                  <div className="font-mono text-[0.66rem] tracking-wider uppercase text-ink-dim mb-3 text-center">
-                    Pick one — type a question, or tap to act
+                  <div className="text-sm text-ink-mid mb-3 leading-relaxed">
+                    Use an example, replace its details, then Send. Form shortcuts open an editor without asking the model or saving a record.
                   </div>
+                  <p className="text-xs text-ink-dim mb-4">Examples use your household currency. Check accounts, dates and amounts before saving a proposed transaction. Answers need a reachable model service.</p>
                   {/* Board D M6 §.intent — the empty state IS the hero: intent
                       rows in the four production buckets, each an inset icon
                       tile beside its label. */}
@@ -463,55 +459,34 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                           <div className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-ink-dim mb-2 px-1">
                             {BUCKET_LABEL[b]}
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {items.map(intent => (
-                              <button
-                                key={intent.id}
-                                onClick={() => pickIntent(intent)}
-                                className="flex items-center gap-2.5 px-3 py-2.5 rounded-r2 border-none cursor-pointer text-left text-[12.5px] font-medium text-ink transition-[box-shadow,transform] hover:-translate-y-0.5"
-                                style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
-                              >
-                                <span className="w-[30px] h-[30px] rounded-r2 flex items-center justify-center text-[15px] flex-shrink-0"
-                                  style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} aria-hidden>
-                                  {intent.icon}
-                                </span>
-                                <span className="min-w-0">{intent.label}</span>
-                              </button>
-                            ))}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+                            {items.map(intent => {
+                              const example = intentExample(intent);
+                              return <div key={intent.id} className="min-w-0 border-b border-line py-3" data-testid={`ask-intent-${intent.id}`}>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <h3 className="text-sm text-ink flex items-center gap-2 min-w-0"><span aria-hidden>{intent.icon}</span>{intent.label}</h3>
+                                  {example && <button type="button" aria-label={`Use example: ${intent.label}`} title={`Use example: ${intent.label}`}
+                                    onClick={() => prepareQuestion(example)} disabled={thinking}
+                                    className="inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-md text-ink-dim hover:text-coral hover:bg-bg3 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <PencilLine size={16} aria-hidden />
+                                  </button>}
+                                </div>
+                                {example && <p className="text-sm text-ink-mid mt-2 leading-relaxed [overflow-wrap:anywhere]">{example}</p>}
+                                {intent.inputHint && <p className="text-xs text-ink-dim mt-2 leading-relaxed">{intent.inputHint}</p>}
+                                {intent.action?.kind === 'open-modal' && <div className="flex items-center gap-2 flex-wrap mt-2">
+                                  <Button variant="ghost" aria-label={`Open form: ${intent.label}`}
+                                    onClick={() => dispatchAction(intent.action!, intent.id, 1)} disabled={thinking}>
+                                    <Plus size={14} aria-hidden /> Open form
+                                  </Button>
+                                </div>}
+                              </div>;
+                            })}
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 mb-3">
-                    <button
-                      onClick={() => setExpanded(null)}
-                      className="row-action"
-                      aria-label="Back to intents"
-                      title="Back"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <div className="font-mono text-[0.66rem] tracking-wider uppercase text-ink-dim">
-                      {expanded.label} — pick a category
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {expanded.secondary!.map((sub, i) => (
-                      <button
-                        key={i}
-                        onClick={() => dispatchAction(sub.action, expanded.id, 2)}
-                        className="text-[0.82rem] px-3.5 py-2 bg-bg3 border border-line rounded-md hover:border-coral hover:bg-coral-tint hover:text-ink transition text-ink"
-                      >
-                        {sub.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
           )}
           {history.map((m, i) => (
@@ -532,11 +507,13 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                   of what was said) but stop being tappable, so scrolling back
                   cannot silently re-ask something from ten turns ago. */}
               {m.role === 'assistant' && m.chips && m.chips.length > 0 && i === history.length - 1 && !thinking && (
-                <div className="flex flex-wrap gap-1.5 mt-2 ml-1" data-testid="ask-vyact-chips">
+                <div className="flex flex-col gap-2 mt-2 min-w-0" data-testid="ask-vyact-chips">
                   {m.chips.map((c, ci) => (
-                    <Chip key={ci} onClick={() => void send(c.prompt)} testId={`ask-vyact-chip-${ci}`}>
-                      {c.label}
-                    </Chip>
+                    <Button key={ci} variant="ghost" onClick={() => prepareQuestion(c.prompt)} data-testid={`ask-vyact-chip-${ci}`}
+                      className="w-full text-left justify-start" aria-label={`Use question: ${c.prompt}`}>
+                      <PencilLine size={14} className="shrink-0" aria-hidden />
+                      <span className="min-w-0 [overflow-wrap:anywhere]"><span className="block">{c.prompt}</span><span className="block text-xs text-ink-dim mt-1">Use question</span></span>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -555,13 +532,17 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
           )}
         </div>
 
-        <div className="border-t border-line p-3 flex gap-2 flex-shrink-0">
-          <input
+        {history.length > 0 && <Button variant="ghost" onClick={() => setShowExamples(value => !value)} aria-expanded={showExamples}>
+          <List size={14} aria-hidden /> {showExamples ? 'Hide examples' : 'Show examples'}
+        </Button>}
+        <div className="border-t border-line p-3 flex gap-2 flex-shrink-0 flex-wrap">
+          <label htmlFor={embedded ? 'ask-drawer-input' : 'ask-page-input'} className="w-full text-xs text-ink-dim">Your question or entry</label>
+          <Input ref={inputRef} id={embedded ? 'ask-drawer-input' : 'ask-page-input'}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
-            placeholder={listening ? (interimText || 'Listening…') : 'Ask about your spending, goals, debts…'}
-            className="flex-1 bg-bg3 border border-line rounded-md px-3 py-2.5 outline-none focus:border-coral text-[0.86rem]"
+            placeholder={listening ? (interimText || 'Listening…') : 'e.g. How much did I spend this month?'}
+            className="flex-1 min-w-0"
           />
           {Boolean(SpeechRec) && (
             <button

@@ -1,8 +1,8 @@
 // Vyact v10.24.0 (Accounts R2) — the Accounts screen (design frames M1 / D1).
 //
 // Scope is narrowed to SPENDABLE accounts — the ones a transaction can be paid
-// from. Two groups:
-//   Bank         bank accounts, and the household's one Cash in Hand
+// from. Cash in Hand has its own summary, followed by two account groups:
+//   Bank         bank accounts
 //   Credit Card  cards, each showing what is free of its limit and when it's due
 // Loans are money you owe and live in Debts; investments are things you own and
 // live in Net Worth. Both are linked from here so the narrower scope stays legible.
@@ -18,7 +18,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, type Variants } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Banknote, ClipboardCheck, List, Pencil, Plus } from 'lucide-react';
 import { useStore } from '../store';
 import Button from '../components/ui/Button';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
@@ -79,16 +79,18 @@ export default function Accounts() {
     const live = onScreen.filter(a => !a.isArchived);
     const order = (x: Account, y: Account) =>
       (x.isDefault ? 0 : 1) - (y.isDefault ? 0 : 1) || x.name.localeCompare(y.name);
-    const banks = live.filter(a => accountGroup(a) === 'bank').sort(order);
+    const cash = live.filter(a => a.kind === 'cash');
+    const banks = live.filter(a => a.kind === 'bank').sort(order);
     const cards = live.filter(a => accountGroup(a) === 'credit_card').sort(order);
     return {
       balances,
+      cash,
       banks,
       cards,
       archived: onScreen.filter(a => a.isArchived).sort(order),
       summary: accountsSummary(live, a => balances.get(a.id) ?? 0),
       bankTotal: round2(banks.reduce((sum, a) => sum + (balances.get(a.id) ?? 0), 0)),
-      stale: [...banks, ...cards]
+      stale: [...cash, ...banks, ...cards]
         .map(a => ({ a, days: staleDays(a, now) }))
         .filter((x): x is { a: Account; days: number } => x.days !== null),
     };
@@ -124,10 +126,10 @@ export default function Accounts() {
   );
 
   return (
-    <div>
-      <div className="flex justify-between items-end mb-4 gap-4">
+    <div className="ui-pilot">
+      <div className="flex justify-between items-end mb-section gap-4 flex-wrap">
         <div className="min-w-0">
-          <p className="font-mono text-[8.5px] tracking-[0.16em] uppercase text-ink-dim mb-1">
+          <p className="ui-label mb-related">
             Plan · {symbol} {baseCurrency} household
           </p>
           <h1 className="display-italic text-4xl text-ink">Accounts</h1>
@@ -157,20 +159,59 @@ export default function Accounts() {
             <SummaryTile label="Spendable now" amount={view.summary.spendableNow} currency={baseCurrency} />
           </div>
 
-          <GroupBar icon="🏦" name="Bank" count={view.banks.length} unit={['account', 'accounts']}
-            total={fmt(view.bankTotal, baseCurrency)} tone="sage" />
-          <div className="flex flex-col gap-3">
-            {view.banks.map(row)}
-          </div>
-          {view.banks.length === 0 && <p className="text-[0.84rem] text-ink-dim px-1">No bank accounts yet.</p>}
+          {view.cash.map(account => (
+            <section key={account.id} aria-label="Cash in Hand" className="mt-group py-4 border-y border-line">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Banknote size={22} className="text-ink-dim shrink-0" aria-hidden />
+                  <div className="min-w-0">
+                    <h2 className="text-base font-medium text-ink">Cash in Hand</h2>
+                    {account.name !== 'Cash in Hand' && <p className="text-sm text-ink-dim break-words">{account.name}</p>}
+                    {account.isDefault && <p className="text-xs text-ink-dim">Default account</p>}
+                  </div>
+                </div>
+                <span className="num text-[22px] text-ink break-all">
+                  {fmt(view.balances.get(account.id) ?? 0, baseCurrency)}
+                </span>
+              </div>
+              {staleDays(account, now) !== null && (
+                <p className="text-sm text-ink-dim mt-related">Not reconciled in {staleDays(account, now)} days</p>
+              )}
+              <div className="flex items-center gap-2 flex-wrap mt-related">
+                <Button variant="ghost" onClick={() => setReconcileId(account.id)} className="min-h-[44px]">
+                  <ClipboardCheck size={16} aria-hidden /> Reconcile
+                </Button>
+                <Button variant="ghost" onClick={() => setLedgerId(id => id === account.id ? null : account.id)}
+                  aria-expanded={ledgerId === account.id} className="min-h-[44px]">
+                  <List size={16} aria-hidden /> Ledger
+                </Button>
+                <button type="button" onClick={() => openEditAccount(account)} aria-label={`Edit ${account.name}`}
+                  title={`Edit ${account.name}`} className="ml-auto min-w-[44px] min-h-[44px] flex items-center justify-center text-ink-dim hover:text-ink rounded-r2">
+                  <Pencil size={16} aria-hidden />
+                </button>
+              </div>
+              {ledgerId === account.id && <AccountLedger account={account} txns={transactions} baseCur={baseCurrency} rates={rates} />}
+            </section>
+          ))}
 
-          <GroupBar icon="💳" name="Credit Card" count={view.cards.length} unit={['card', 'cards']}
-            total={view.summary.cardOutstanding > 0 ? `−${fmt(view.summary.cardOutstanding, baseCurrency)}` : fmt(0, baseCurrency)}
-            tone="honey" />
-          <div className="flex flex-col gap-3">
-            {view.cards.map(row)}
-          </div>
-          {view.cards.length === 0 && <p className="text-[0.84rem] text-ink-dim px-1">No credit cards yet.</p>}
+          <section aria-label="Bank">
+            <GroupBar icon="🏦" name="Bank" count={view.banks.length} unit={['account', 'accounts']}
+              total={fmt(view.bankTotal, baseCurrency)} tone="sage" />
+            <div className="flex flex-col gap-3">
+              {view.banks.map(row)}
+            </div>
+            {view.banks.length === 0 && <p className="text-[0.84rem] text-ink-dim px-1">No bank accounts yet.</p>}
+          </section>
+
+          <section aria-label="Credit Card">
+            <GroupBar icon="💳" name="Credit Card" count={view.cards.length} unit={['card', 'cards']}
+              total={view.summary.cardOutstanding > 0 ? `−${fmt(view.summary.cardOutstanding, baseCurrency)}` : fmt(0, baseCurrency)}
+              tone="honey" />
+            <div className="flex flex-col gap-3">
+              {view.cards.map(row)}
+            </div>
+            {view.cards.length === 0 && <p className="text-[0.84rem] text-ink-dim px-1">No credit cards yet.</p>}
+          </section>
 
           {/* The narrowed scope, made legible: where the other account types went. */}
           <div className="mt-5 lg:grid lg:grid-cols-2 lg:gap-3">
@@ -237,7 +278,7 @@ export default function Accounts() {
             <div className="flex items-baseline gap-2.5 mb-2">
               <span className="num font-bold text-[19px] text-ink">{symbol} {baseCurrency}</span>
               <span className="text-[12px] text-ink-dim">
-                applies to all {view.banks.length + view.cards.length} account{view.banks.length + view.cards.length === 1 ? '' : 's'}
+                applies to all {view.cash.length + view.banks.length + view.cards.length} account{view.cash.length + view.banks.length + view.cards.length === 1 ? '' : 's'}
               </span>
             </div>
             <p className="text-[12px] text-ink-dim leading-snug">

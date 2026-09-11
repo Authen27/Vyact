@@ -46,7 +46,7 @@ test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
 
     // Waypoint 1: the first category chip.
     await page.keyboard.press('Tab');
-    await expect(txnModal.dialog.getByTestId('txn-cat-food_dining')).toBeFocused();
+    await expect(txnModal.dialog.getByTestId('txn-category')).toBeFocused();
 
     // Waypoint 2: Description comes after the whole category row. Walk forward
     // until it has focus rather than assuming the chip count.

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.26.0`** (consumer)
+> **Current production version: `v10.27.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,63 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.27.0 — one consistent way to pick, choose and find: the UI standardisation pilot *(2026-09-11)*
+
+A presentation release. **No money figure, schema or stored-row shape changes**: transactions, accounts, assets
+and payment modes are written exactly as in v10.26.0, and every figure still comes from the same calculators.
+
+### Forms
+
+- **One category picker everywhere.** Add/edit transaction, recurring schedules, splits and the transactions
+  filter share a single searchable combobox with icon and full label, type-scoped and alphabetical (`CategoryPicker`,
+  built on `@headlessui/react`). Transfers and investments show none. Its options stay inside the dialog, and the
+  first Escape closes the list, the second the dialog.
+- **Choices you can read at a glance.** Transaction type, investment direction, part-payment choice and account
+  type are segmented controls; accounts, investments, loans, members and payment mode are labelled dropdowns.
+- **Payment mode can be left "Not specified".** A new transaction still preselects the account's first mode, but
+  choosing "Not specified" now stays selected — it used to snap back to the first mode.
+- A lighter, more consistent type and spacing scale (32/48px sections) on Dashboard, Transactions, Accounts and the
+  two main forms (`.ui-pilot`); other screens keep their current styling for now.
+
+### Fixed
+
+- **Local-only households could not save an investment buy** (v10.26.0 regression). Without a cloud connection
+  the transaction form lists legacy account values that do not resolve to an account id, and the store refused the
+  buy. It now saves, folding through the paying account exactly as transfers already do.
+- **Such a buy would have debited the account without raising the investment.** The asset value counted only buys
+  that name an account id. The rule is now: a withdrawal names only a receiving account; anything else is a buy — so
+  the account and the asset always move by the same amount and net worth does not change. Pinned by a store test
+  and a server-port parity case.
+
+### Screens
+
+- **Accounts is always under Plan**, for every household template, local or cloud — no longer tied to the retired
+  Money Map flag.
+- **Cash in Hand has its own summary** on Accounts, with direct *Reconcile* ("Cash counted") and *Ledger*. It still
+  counts in Spendable now.
+- **Dashboard** hides the Pulse score and the debt summary by default (`FEATURES.dashboard`). Net Worth still
+  subtracts every liability.
+- **Reports** opens with the household position (net worth, assets, liabilities, liquid assets) and this month's
+  income, spending and tracked minimum debt payments, all from the canonical projections. Corrections: the category
+  breakdown now uses reportable spending only, income is attributed to the account it landed in, the needs/wants
+  split shows unclassified spending instead of hiding it, and the verdict labels are gone.
+- **Ask Vyact** separates examples from actions: *Use example* fills the composer, *Open form* opens the editor,
+  and only *Send* asks the model.
+- **Help & Guide** is rewritten around tasks — accounts, transactions, cash reconciliation, transfers, splits,
+  budgets, recurring approval, debt payments and investment assets — with search across every answer and
+  screenshots of the current screens.
+
+### Checks
+
+- New unit coverage: reports model, Ask examples, help content, navigation visibility, category options and the
+  Dashboard's flagged sections.
+- New browser specs: category picker (CAT-FC-001…004), help guide and finance guidance.
+- Release validation saved real transactions through the new controls in a browser: expenses with a category,
+  account and payment mode (including "Not specified"), a transfer, and an investment buy and withdrawal. The
+  stored rows matched the money model, and the asset showed its folded value in Net Worth.
 
 ---
 

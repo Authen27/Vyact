@@ -1,5 +1,6 @@
 import type { Page, Locator } from '@playwright/test';
 import type { TxnType, Recurrence } from '../../src/types';
+import { getCat } from '../../src/constants';
 
 /**
  * Page Object for the GLOBAL TransactionFormModal mounted at App root
@@ -131,8 +132,16 @@ export class TransactionFormModal {
   }
 
   // ── chip / field setters ───────────────────────────────────────────────
-  async setType(type: TxnType) { await this.dialog.getByTestId(`txn-type-${type}`).click(); }
-  async setCategory(id: string) { await this.dialog.getByTestId(`txn-cat-${id}`).click(); }
+  async setType(type: TxnType) { await this.dialog.getByTestId(`txn-type-${type}`).check(); }
+  async setCategory(id: string) {
+    const label = getCat(id).label;
+    const input = this.dialog.getByTestId('txn-category');
+    // Already selected (e.g. the type's default category): typing the same text
+    // fires no change, so the options never open. Nothing to do.
+    if (await input.inputValue() === label) return;
+    await input.fill(label);
+    await this.dialog.getByRole('option', { name: label, exact: true }).click();
+  }
   async setDate(date: string) { await this.dateInput.fill(date); }
   async setDescription(text: string) { await this.descriptionInput.fill(text); }
 
@@ -157,8 +166,10 @@ export class TransactionFormModal {
 
   /** Select a member by NAME (chip lives under "All details"). */
   async setMember(name: string) {
-    await this.openAllDetails();
-    await this.dialog.getByRole('button', { name, exact: true }).click();
+    const option = await this.dialog.getByTestId('txn-member').locator('option').evaluateAll((options, memberName) =>
+      options.find(option => option.textContent === memberName || option.textContent === `${memberName} (You)`)?.getAttribute('value'), name);
+    if (!option) throw new Error(`Member option not found: ${name}`);
+    await this.dialog.getByTestId('txn-member').selectOption(option);
   }
 
   async setNote(text: string) {
@@ -168,12 +179,12 @@ export class TransactionFormModal {
 
   /** Select the source account chip by its visible NAME (e.g. 'E2E Checking'). */
   async selectAccount(name: string) {
-    await this.dialog.getByRole('button', { name, exact: true }).first().click();
+    await this.dialog.getByTestId('txn-source').selectOption({ label: name });
   }
 
   /** Select the destination account chip (transfer/investment) by NAME. */
   async selectToAccount(name: string) {
-    await this.dialog.getByRole('button', { name, exact: true }).last().click();
+    await this.dialog.getByTestId('txn-destination').selectOption({ label: name });
   }
 
   /**

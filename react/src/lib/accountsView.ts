@@ -26,9 +26,9 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export type AccountGroup = 'bank' | 'credit_card';
 
 /**
- * Which Accounts-screen group an account renders in, or null when it lives in
- * another module: loans are money you owe (Debts), investments are things you
- * own (Net Worth). Cash in Hand sits with Bank — it is spendable money.
+ * Compatibility group for aggregate totals and account-history moves, or null
+ * for loans (Debts) and investments (Net Worth). Cash is bank-compatible here;
+ * the Accounts page presents Cash in Hand separately from the Bank group.
  */
 export function accountGroup(a: Pick<Account, 'kind'>): AccountGroup | null {
   if (a.kind === 'bank' || a.kind === 'cash') return 'bank';

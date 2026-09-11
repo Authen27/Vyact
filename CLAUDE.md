@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.26.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.27.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -95,8 +95,10 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   currency change relabels every account. One default account per household
   (`uq_account_default_per_household`); marking a new default clears the old one
   in the same statement.
-- **The Accounts screen holds spendable accounts only (v10.24.0)** — Bank (with
-  Cash in Hand) and Credit Card. Loans live in Debts, investments in Net Worth.
+- **The Accounts screen holds spendable accounts only (v10.24.0)** — Cash in Hand
+  has a standalone summary with direct reconciliation; Bank and Credit Card are
+  separate groups. Cash remains in aggregate spendable totals and retains its
+  existing bank-compatible history-move rules. Loans live in Debts, investments in Net Worth.
   **A card stores its limit and cycle days, never its outstanding** — outstanding,
   available and utilisation are derived from the limit and the ledger balance
   (`lib/accountsView.ts`); "available limit" is typed once, to seed the opening
@@ -117,6 +119,15 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   every investment. A mode the paying account does not use is **dropped, never an
   error**, in the store and in `whatsapp_log_transaction` alike, so a recurring
   post never fails because a mode was later removed from its account.
+- **Financial category selection (v10.27.0)** uses `components/ui/CategoryPicker.tsx`: one
+  searchable icon + full-label combobox, with metadata from `constants.ts` and
+  type-scoped options from `lib/categoryOptions.ts`. Use it for transaction,
+  recurring and split forms and transaction filters; no separate category tiles
+  or text-only native category selects. Filters may include All categories;
+  transfers/investments have no category picker. Budget allocation amount rows
+  and chart legends retain icon + label display, not selection controls.
+- **Accounts is a permanent Plan route (v10.27.0)** for every household template. Its
+  navigation visibility must not depend on the retired Money Map rollout flag.
 - **Global modals via store slots** — `{entity}ModalOpen`/`editing{Entity}` +
   `openAdd/openEdit/close`; mounted once in `App.tsx`; pages call the store action.
 - **Store is sliced (TD-25)** — `store/index.ts` is a thin composition root;
@@ -210,7 +221,9 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   `<MotionConfig reducedMotion="user">`. Money animates via `<AnimatedMoney>`,
   settles with `bounce:0`, tone calm.
 - **Goals & Tax are removed as modules** (since v8.8.0) — dormant type/slice kept,
-  never surfaced. Pulse Score is 4 components (Budget/Savings/Trend/Debt).
+  never surfaced. Pulse Score is 4 components (Budget/Savings/Trend/Debt). The Dashboard
+  hides Pulse and its debt summary by default (`FEATURES.dashboard`, v10.27.0);
+  Net Worth still subtracts every liability.
 - **Insights Hub** — on-device For You feed adds NO financial math; card visuals
   from a CLOSED code set (icon allowlist · stat · 6 diagram primitives), never
   hosted images / LLM generation. Personal insights are never publicly shareable.

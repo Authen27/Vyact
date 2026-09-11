@@ -1,8 +1,8 @@
 // Vyact v10.24.0 (Accounts R2) — Reconcile (design frame M4).
 //
-// One sheet for both account types; only the wording changes. A bank is
+// One sheet for cash, banks and cards; only the wording changes. A bank is
 // checked against its statement BALANCE, a card against its statement
-// OUTSTANDING — the figure each statement actually prints.
+// OUTSTANDING, and cash against the amount counted.
 //
 // 🔒 A reconcile never writes a transaction. "Post an adjustment" absorbs the
 // drift into the account's reconciliation offset with a dated log entry
@@ -38,6 +38,7 @@ export default function ReconcileSheet({ account, open, onClose }: Props) {
   const navigate = useNavigate();
 
   const isCard = account?.kind === 'credit_card';
+  const isCash = account?.kind === 'cash';
   const balance = account ? computeAccountBalance(account, transactions, baseCurrency, rates) : 0;
   // What Vyact says, in the statement's own terms.
   const vyactSays = isCard ? round2(Math.max(0, -balance)) : balance;
@@ -87,7 +88,7 @@ export default function ReconcileSheet({ account, open, onClose }: Props) {
       await reconcileAccount(account, hasDrift ? statedBalance : balance);
       toast(hasDrift
         ? `Reconcile adjustment of ${fmt(Math.abs(drift), baseCurrency)} posted — spend totals unchanged`
-        : 'Balance confirmed against your statement', 'success');
+        : isCash ? 'Cash balance confirmed' : 'Balance confirmed against your statement', 'success');
       onClose();
     } catch (e) {
       toast(`Reconcile failed: ${(e as Error).message}`, 'error');
@@ -111,10 +112,10 @@ export default function ReconcileSheet({ account, open, onClose }: Props) {
 
   return (
     <HalfSheet open={open} onClose={onClose} title={account.name} footer={footer}>
-      <p className="text-[0.84rem] text-ink-dim -mt-1 mb-4">Reconcile against your statement</p>
+      <p className="text-[0.84rem] text-ink-dim -mt-1 mb-4">{isCash ? 'Reconcile cash on hand' : 'Reconcile against your statement'}</p>
 
       <label className="block font-mono text-[8.5px] tracking-[0.14em] uppercase text-ink-dim mb-1.5" htmlFor="recon-stated">
-        {statementNoun} says
+        {isCash ? 'Cash counted' : `${statementNoun} says`}
       </label>
       <div className="flex items-center gap-2 min-h-[54px] px-4 rounded-r2 mb-4"
         style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
@@ -144,7 +145,7 @@ export default function ReconcileSheet({ account, open, onClose }: Props) {
             <div className="num font-semibold text-[15px] text-ink">{signed(vyactSays)}</div>
           </div>
           <div className="rounded-r2 p-3" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-            <div className="font-mono text-[8px] tracking-[0.13em] uppercase text-ink-dim mb-1">Statement says</div>
+            <div className="font-mono text-[8px] tracking-[0.13em] uppercase text-ink-dim mb-1">{isCash ? 'Cash counted' : 'Statement says'}</div>
             <div className="num font-semibold text-[15px]" style={{ color: 'var(--accent)' }}>
               {statedValue === null ? '—' : signed(statedValue)}
             </div>
@@ -175,8 +176,9 @@ export default function ReconcileSheet({ account, open, onClose }: Props) {
 
       <p className="rounded-[13px] px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
         style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 14%, transparent)' }}>
-        Both types reconcile — a bank against its statement balance, a card against its statement
-        outstanding. Only the wording changes.
+        {isCash
+          ? 'Confirm the cash you counted. Any adjustment is recorded in the cash ledger, not as spending or income.'
+          : 'A bank is reconciled against its statement balance; a card against its statement outstanding.'}
       </p>
     </HalfSheet>
   );

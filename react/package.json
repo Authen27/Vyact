@@ -1,7 +1,7 @@
 {
   "name": "vyact-react",
   "private": true,
-  "version": "10.26.0",
+  "version": "10.27.0",
   "type": "module",
   "description": "Vyact — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@dinero.js/currencies": "^2.0.0-alpha.14",
+    "@headlessui/react": "^2.2.10",
     "@radix-ui/react-dialog": "^1.1.23",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",

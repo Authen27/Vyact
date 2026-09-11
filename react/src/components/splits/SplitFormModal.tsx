@@ -13,12 +13,13 @@
 // once that person pays/settles.
 import { useEffect, useMemo, useState } from 'react';
 import HalfSheet from '../ui/HalfSheet';
-import Chip, { CategoryChip } from '../ui/Chip';
+import Chip from '../ui/Chip';
+import CategoryPicker from '../ui/CategoryPicker';
 import { AmountField } from '../ui/NumericKeypad';
 import Button from '../ui/Button';
 import { useStore } from '../../store';
 import { uid, today, nowTime } from '../../lib/format';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, CURRENCIES } from '../../constants';
+import { CURRENCIES } from '../../constants';
 import { buildAccounts, buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { resolveParticipantNames } from '../../lib/sharedSplits';
@@ -56,7 +57,6 @@ interface FormState {
 const acctEmoji = (kind?: string) =>
   kind === 'card' ? '💳' : kind === 'bank' ? '🏦' : kind === 'investment' ? '📈' : '💵';
 
-const catsFor = (type: SplitType) => (type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES);
 const defaultCat = (type: SplitType) => (type === 'income' ? 'salary' : 'food_dining');
 
 const defaultParticipants = (): PForm[] => ([
@@ -122,7 +122,6 @@ export default function SplitFormModal(props: Props) {
 
   const [form, setForm]   = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);
-  const [showAllCats, setShowAllCats] = useState(false);
   // email → display-name resolution (cloud): string = has account, '' = no account, undefined = unresolved.
   const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
 
@@ -152,7 +151,6 @@ export default function SplitFormModal(props: Props) {
   // matched shared_split to read per-share paid/settled state.
   useEffect(() => {
     if (!open) return;
-    setShowAllCats(false);
     setResolvedNames({});
     const sp = initial?.split;
     if (initial && sp?.isSplit) {
@@ -202,8 +200,6 @@ export default function SplitFormModal(props: Props) {
   // fields lock once ANY participant has paid/settled.
   const anyPaid = form.participants.some(p => !p.isYou && p.paid);
   const splitLocked = editing && anyPaid;
-  const cats = catsFor(form.type);
-  const orderedCats = cats;
   const currencySymbol = CURRENCIES[form.currency]?.symbol ?? '$';
   const accountRequired = ACCOUNT_REQUIRED_TYPES.includes(form.type as (typeof ACCOUNT_REQUIRED_TYPES)[number]);
   const idOf = (p: PForm) => (cloudActive ? (p.email ?? '').trim() : p.name.trim());
@@ -380,17 +376,7 @@ export default function SplitFormModal(props: Props) {
 
       {/* Category (for the backing transaction). */}
       <div className="mt-3">
-        <div className="mono-label mb-1.5">Category</div>
-        <div className="flex gap-1.5 flex-wrap">
-          {(showAllCats ? orderedCats : orderedCats.slice(0, 7)).map(c => (
-            <CategoryChip key={c.id} emoji={c.icon} label={c.label} on={c.id === form.category}
-              onClick={() => setForm(f => ({ ...f, category: c.id }))} />
-          ))}
-          {orderedCats.length > 7 && (
-            <CategoryChip emoji={showAllCats ? '▴' : '⌕'} label={showAllCats ? 'Less' : 'More'} on={false}
-              onClick={() => setShowAllCats(s => !s)} />
-          )}
-        </div>
+        <CategoryPicker type={form.type} value={form.category} onChange={category => setForm(f => ({ ...f, category }))} />
       </div>
 
       {/* Description. */}

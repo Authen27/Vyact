@@ -323,6 +323,22 @@ describe('Investments R4 — money moves between an account and a Net Worth asse
     expect(worth()).toBe(before);
   });
 
+  it('a local-only build: a buy paid from a legacy encoded picker value still saves and folds', async () => {
+    // Money Map off lists 'cash' / 'asset:<id>' values that may not resolve to an
+    // account uuid. The encoded value folds through debitAccountOf, like transfers.
+    const saved = await useStore.getState().upsertTransaction({ ...invest, id: crypto.randomUUID(), amount: 40, paymentMethod: 'asset:legacy-only', assetId: 'fund' });
+    expect(saved.assetId).toBe('fund');
+    expect(saved.accountId).toBeUndefined();
+    expect(saved.paymentMethod).toBe('asset:legacy-only');
+    expect(fundValue()).toBe(40);
+  });
+
+  it('an investment naming no paying account at all is still refused', async () => {
+    await expect(useStore.getState().upsertTransaction({ ...invest, id: crypto.randomUUID(), amount: 40, assetId: 'fund' }))
+      .rejects.toThrow(/paid from/);
+    expect(useStore.getState().transactions).toHaveLength(0);
+  });
+
   it('an investment naming no known asset is refused and writes nothing', async () => {
     await expect(useStore.getState().upsertTransaction({ ...invest, id: crypto.randomUUID(), amount: 50, accountId: 'bank', assetId: 'missing' }))
       .rejects.toThrow(/investment this money moves/);

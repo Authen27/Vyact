@@ -454,7 +454,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       t = withdrawal
         ? { ...t, category: '', accountId: undefined, paymentMethod: undefined, toAccountId: toUuid ?? t.toAccountId }
         : { ...t, category: '', accountId: fromUuid ?? t.accountId, toAccountId: undefined };
-      if (!(withdrawal ? t.toAccountId : t.accountId)) {
+      // v10.27.0 — a local-only build (Money Map off) offers legacy encoded
+      // picker values ('cash' / 'asset:<id>') that may not resolve to an account
+      // uuid. The encoded value still folds (debitAccountOf reads paymentMethod),
+      // exactly as transfers already do, so a buy must not be refused for it.
+      if (!(withdrawal ? t.toAccountId : (t.accountId ?? t.paymentMethod))) {
         throw new Error(withdrawal ? 'Choose the account the money arrives in' : 'Choose the account the money is paid from');
       }
     } else if (t.type === 'transfer' || t.type === 'investment') {
