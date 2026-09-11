@@ -39,7 +39,7 @@ test.describe('§ Budgets · the editor holds what you type, and offers every ca
     await waitForStore(page);
     await budgets.openAdd();
 
-    const dialog = page.getByRole('dialog').first();
+    const dialog = page.getByRole('main', { name: 'Add Budget', exact: true });
     await expect(dialog).toBeVisible();
 
     // The CTA that used to gate each allocation is gone.
@@ -73,7 +73,7 @@ test.describe('§ Budgets · the editor holds what you type, and offers every ca
     await waitForStore(page);
     await budgets.openAdd();
 
-    const dialog = page.getByRole('dialog').first();
+    const dialog = page.getByRole('main', { name: 'Add Budget', exact: true });
     const groceries = dialog.getByLabel('Budget for Groceries');
     const travel = dialog.getByLabel('Budget for Travel');
 
@@ -100,7 +100,7 @@ test.describe('§ Budgets · the editor holds what you type, and offers every ca
     await waitForStore(page);
     await budgets.openAdd();
 
-    const dialog = page.getByRole('dialog').first();
+    const dialog = page.getByRole('main', { name: 'Add Budget', exact: true });
     for (const label of ['Groceries', 'Travel', 'Other']) {
       await expect(dialog.getByLabel(`Budget for ${label}`)).toHaveCount(1);
     }

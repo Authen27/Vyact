@@ -3,11 +3,11 @@ import type { TxnType, Recurrence } from '../../src/types';
 import { getCat } from '../../src/constants';
 
 /**
- * Page Object for the GLOBAL TransactionFormModal mounted at App root
- * (`react/src/App.tsx`). The modal is opened/closed via the Zustand store
- * (`openAddTxn`, `openEditTxn`, `closeTxnModal`) — typically from the
+ * Page Object for the transaction form. Since v10.28.0 it is a routed,
+ * full-screen PAGE (`/transactions/new`, `/transactions/:id/edit`), opened by
+ * the store's `openAddTxn` / `openEditTxn` — typically from the
  * "+ Add Transaction" button on the Transactions page, the AddFab, or the
- * `N` keyboard shortcut.
+ * `N` keyboard shortcut — and closed back to the screen that opened it.
  *
  * v10.1 (Aurora forms doctrine): the form is an AMOUNT-FIRST half-sheet.
  * Dropdowns were replaced by chips and the amount is entered on an in-sheet
@@ -58,9 +58,13 @@ export class TransactionFormModal {
     // it (the sheet now renders through HalfSheet, role="dialog" + aria-label).
     //
     // The title is `${'Add'|'Edit'} ${typeMeta.label}` (TransactionFormModal
-    // :421), so the name below matches exactly this sheet and NOT the budget,
-    // debt or split sheets that share the same HalfSheet wrapper.
-    this.dialog = page.getByRole('dialog', {
+    // :421), so the name below matches exactly this form and NOT the budget,
+    // debt or split forms that share the same FormPage wrapper.
+    //
+    // v10.28.0 — the form is a page: FormPage renders a `main` landmark named
+    // by its title. The property keeps the name `dialog` so every spec that
+    // scopes a locator to "the transaction form" still reads the same.
+    this.dialog = page.getByRole('main', {
       name: /^(Add|Edit) (transaction|expense|income|transfer|investment)$/i,
     });
     // The keypad group is gone; keep the property pointing at the dialog's
@@ -216,8 +220,8 @@ export class TransactionFormModal {
     await this.addAnotherButton.click();
   }
 
-  /** Dismiss without saving. The Aurora sheet has no Cancel button — Escape,
-   *  the ✕ (desktop) / grabber (mobile), or a scrim tap all close it. */
+  /** Dismiss without saving. The form has no Cancel button — Escape or the
+   *  ✕ Close control returns to the screen that opened the page. */
   async cancel() {
     await this.page.keyboard.press('Escape');
     await this.waitClosed();

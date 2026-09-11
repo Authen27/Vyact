@@ -239,7 +239,7 @@ export default function NetWorth() {
       </div>
       </div>{/* /hero + ratios desktop grid */}
 
-      {/* Add/Edit form lives in <AssetFormModal /> mounted at App root */}
+      {/* Add/Edit is the /networth/assets/new and /networth/assets/:id/edit page (v10.28.0) */}
 
       {/* Balance sheet split — board D3: Assets (1fr) | Liabilities + Owed (1fr),
           each a neu card.

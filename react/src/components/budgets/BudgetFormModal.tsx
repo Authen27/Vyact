@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
-import HalfSheet from '../ui/HalfSheet';
+import FormPage from '../ui/FormPage';
 import { Input } from '../ui/Input';
 import Chip from '../ui/Chip';
 import { AmountField } from '../ui/NumericKeypad';
@@ -19,7 +19,8 @@ import { suggestBudget } from '../../lib/budgetIntel';
 import { EXPENSE_CATEGORIES, getCat, deterministicColor, CURRENCIES as CURRENCY_MAP } from '../../constants';
 import type { Budget, BudgetScope, BudgetAllocation } from '../../types';
 
-interface Props { open?: boolean; initial?: Budget | null; onClose?: () => void; }
+/** v10.28.0 — rendered as the /budgets/new and /budgets/:id/edit pages. */
+interface Props { open?: boolean; initial?: Budget | null; onClose: () => void; }
 
 interface AllocRow { id?: string; category: string; amount: string; }
 interface FormState {
@@ -58,12 +59,9 @@ export default function BudgetFormModal(props: Props) {
   const manualRefresh = useStore(s => s.manualRefresh);
   const toast        = useStore(s => s.toast);
 
-  const storeOpen    = useStore(s => s.budgetModalOpen);
-  const storeInitial = useStore(s => s.editingBudget);
-  const storeClose   = useStore(s => s.closeBudgetModal);
-  const open    = props.open    ?? storeOpen;
-  const initial = props.initial ?? storeInitial;
-  const onClose = props.onClose ?? storeClose;
+  const open    = props.open ?? true;
+  const initial = props.initial ?? null;
+  const onClose = props.onClose;
 
   const [form, setForm]     = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);
@@ -271,7 +269,7 @@ export default function BudgetFormModal(props: Props) {
   );
 
   return (
-    <HalfSheet open={open} title={initial ? 'Edit Budget' : 'Add Budget'} onClose={onClose} footer={footer}>
+    <FormPage open={open} title={initial ? 'Edit Budget' : 'Add Budget'} onClose={onClose} footer={footer}>
       {/* Board M2 — period chips (forms doctrine: chips, not scope buttons +
           month/year dropdowns). */}
       <div className="mb-4">
@@ -364,6 +362,6 @@ export default function BudgetFormModal(props: Props) {
         </div>
       )}
 
-    </HalfSheet>
+    </FormPage>
   );
 }

@@ -41,7 +41,9 @@ export class BudgetFormModal {
 
   constructor(page: Page) {
     this.page = page;
-    this.dialog = page.getByRole('dialog', { name: /add budget|edit budget/i });
+    // v10.28.0 — a routed page (`/budgets/new`, `/budgets/:id/edit`): FormPage's
+    // `main` landmark, named by the title.
+    this.dialog = page.getByRole('main', { name: /add budget|edit budget/i });
     // The total is the AmountField hero; NumericKeypad labels it "Amount".
     this.totalInput  = this.dialog.getByLabel('Amount', { exact: true });
     // "Create budget · ₹X allocated" when new, "Update budget" when editing.

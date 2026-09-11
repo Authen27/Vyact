@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.27.2**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.28.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -132,8 +132,14 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   may remain segmented; names, notes, amounts and invite emails are input fields.
 - **Accounts is a permanent Plan route (v10.27.0)** for every household template. Its
   navigation visibility must not depend on the retired Money Map rollout flag.
-- **Global modals via store slots** — `{entity}ModalOpen`/`editing{Entity}` +
-  `openAdd/openEdit/close`; mounted once in `App.tsx`; pages call the store action.
+- **Entity forms are routed pages (v10.28.0)** — Add/Edit Transaction, Split, Debt,
+  Budget, Account, Asset and Reconcile Account are focused full-screen routes
+  (`lib/formRoutes.ts` → `pages/FormPages.tsx`, rendered outside `<Layout>` in a
+  `ui/FormPage`). Callers use the store's `openAdd*/openEdit*`, which navigate
+  (an Ask Vyact seed travels as router state); never spell a form URL. Close =
+  history back, else the list screen; edit routes snapshot the entity once.
+  Goal modals and the non-form sheets (recurring schedule, household, filters,
+  delete guard) stay store slots / `HalfSheet`.
 - **Store is sliced (TD-25)** — `store/index.ts` is a thin composition root;
   logic lives in `store/slices/` (modal, reconcile, notify, recurring, cloudAuth,
   sync, data, crud). Keep `useStore`'s public type/behaviour byte-identical when

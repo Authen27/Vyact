@@ -5,8 +5,11 @@
 // The hand-rolled Escape listener + role="dialog" is replaced by Radix under
 // AccessibleDialog: focus is trapped inside, restored to the trigger on close,
 // the background is inert, and the close affordance is a real ≥44px control
-// (the grabber was 5px). Public props are unchanged; pages still call
-// openAdd/close via the store modal-slot pattern.
+// (the grabber was 5px). Public props are unchanged.
+//
+// v10.28.0 — the entity forms left for routed pages (FormPage, same props);
+// HalfSheet remains for the sheets that are not forms of their own (recurring
+// schedule, household, notifications, filters, the delete-account guard).
 import { type ReactNode } from 'react';
 import AccessibleDialog from './AccessibleDialog';
 

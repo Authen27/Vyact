@@ -22,7 +22,7 @@ import { Banknote, ClipboardCheck, List, Pencil, Plus } from 'lucide-react';
 import { useStore } from '../store';
 import Button from '../components/ui/Button';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
-import ReconcileSheet from '../components/accounts/ReconcileSheet';
+import { formPath } from '../lib/formRoutes';
 import { computeAccountBalance, accountValueOf, debitAccountOf, creditAccountOf } from '../lib/accountBalance';
 import { effectiveAmount } from '../lib/calculations';
 import { fmt } from '../lib/format';
@@ -67,7 +67,8 @@ export default function Accounts() {
   const toast           = useStore(s => s.toast);
   const navigate = useNavigate();
 
-  const [reconcileId, setReconcileId]   = useState<string | null>(null);
+  // v10.28.0 — Reconcile is a page of its own; closing it comes back here.
+  const reconcile = (id: string) => navigate(formPath.accountReconcile(id));
   const [ledgerId, setLedgerId]         = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const now = useMemo(() => new Date(), []);
@@ -97,7 +98,6 @@ export default function Accounts() {
   }, [accounts, transactions, baseCurrency, rates, now]);
 
   const symbol = CURRENCIES[baseCurrency]?.symbol ?? '';
-  const reconciling = accounts.find(a => a.id === reconcileId) ?? null;
 
   async function restore(a: Account) {
     try {
@@ -117,7 +117,7 @@ export default function Accounts() {
         now={now}
         ledgerOpen={ledgerId === a.id}
         onOpen={() => openEditAccount(a)}
-        onReconcile={() => setReconcileId(a.id)}
+        onReconcile={() => reconcile(a.id)}
         onToggleLedger={() => setLedgerId(id => (id === a.id ? null : a.id))}
         transactions={transactions}
         rates={rates}
@@ -178,7 +178,7 @@ export default function Accounts() {
                 <p className="text-sm text-ink-dim mt-related">Not reconciled in {staleDays(account, now)} days</p>
               )}
               <div className="flex items-center gap-2 flex-wrap mt-related">
-                <Button variant="ghost" onClick={() => setReconcileId(account.id)} className="min-h-[44px]">
+                <Button variant="ghost" onClick={() => reconcile(account.id)} className="min-h-[44px]">
                   <ClipboardCheck size={16} aria-hidden /> Reconcile
                 </Button>
                 <Button variant="ghost" onClick={() => setLedgerId(id => id === account.id ? null : account.id)}
@@ -259,14 +259,14 @@ export default function Accounts() {
             ) : (
               <>
                 {view.stale.map(({ a, days }) => (
-                  <button key={a.id} type="button" onClick={() => setReconcileId(a.id)}
+                  <button key={a.id} type="button" onClick={() => reconcile(a.id)}
                     className="w-full flex items-center gap-2.5 py-2 text-left text-[12.5px] text-ink-mid hover:text-ink">
                     <span aria-hidden>{iconOf(a)}</span>
                     <span className="flex-1 min-w-0 truncate">{a.name} · {days} days stale</span>
                     <span className="font-mono text-[9px] tracking-wider uppercase" style={{ color: 'hsl(var(--honey))' }}>reconcile</span>
                   </button>
                 ))}
-                <Button full className="mt-3" onClick={() => setReconcileId(view.stale[0].a.id)}>
+                <Button full className="mt-3" onClick={() => reconcile(view.stale[0].a.id)}>
                   {view.stale.length === 1 ? 'Reconcile it' : `Reconcile ${view.stale[0].a.name} first`}
                 </Button>
               </>
@@ -294,8 +294,6 @@ export default function Accounts() {
           </p>
         </aside>
       </div>
-
-      <ReconcileSheet account={reconciling} open={!!reconciling} onClose={() => setReconcileId(null)} />
     </div>
   );
 }

@@ -9,9 +9,11 @@
 // (money-model D2, INV-3/INV-3b), so spend and income cannot move. The design
 // calls it a "marked adjustment": it is marked in the account's ledger, and it
 // is never inside a spend total.
+//
+// v10.28.0 — rendered as the /accounts/:id/reconcile page (pages/FormPages.tsx).
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import HalfSheet from '../ui/HalfSheet';
+import FormPage from '../ui/FormPage';
 import Button from '../ui/Button';
 import { useStore } from '../../store';
 import { fmt } from '../../lib/format';
@@ -22,14 +24,14 @@ import type { Account } from '../../types';
 
 interface Props {
   account: Account | null;
-  open: boolean;
+  open?: boolean;
   onClose: () => void;
 }
 
 const DAY_MS = 86_400_000;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export default function ReconcileSheet({ account, open, onClose }: Props) {
+export default function ReconcileSheet({ account, open = true, onClose }: Props) {
   const transactions     = useStore(s => s.transactions);
   const rates            = useStore(s => s.rates);
   const baseCurrency     = useStore(s => s.profile.baseCurrency);
@@ -77,8 +79,9 @@ export default function ReconcileSheet({ account, open, onClose }: Props) {
         query.set('from', window.start);
         query.set('to', window.end);
       }
-      onClose();
-      navigate(`/transactions?${query.toString()}`);
+      // Replace, not close-then-push: going back from those transactions returns
+      // to the screen reconcile was opened from, not to this page.
+      navigate(`/transactions?${query.toString()}`, { replace: true });
       return;
     }
     setBusy(true);
@@ -111,7 +114,7 @@ export default function ReconcileSheet({ account, open, onClose }: Props) {
   );
 
   return (
-    <HalfSheet open={open} onClose={onClose} title={account.name} footer={footer}>
+    <FormPage open={open} onClose={onClose} title={account.name} footer={footer}>
       <p className="text-[0.84rem] text-ink-dim -mt-1 mb-4">{isCash ? 'Reconcile cash on hand' : 'Reconcile against your statement'}</p>
 
       <label className="block font-mono text-[8.5px] tracking-[0.14em] uppercase text-ink-dim mb-1.5" htmlFor="recon-stated">
@@ -180,7 +183,7 @@ export default function ReconcileSheet({ account, open, onClose }: Props) {
           ? 'Confirm the cash you counted. Any adjustment is recorded in the cash ledger, not as spending or income.'
           : 'A bank is reconciled against its statement balance; a card against its statement outstanding.'}
       </p>
-    </HalfSheet>
+    </FormPage>
   );
 }
 

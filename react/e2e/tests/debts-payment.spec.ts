@@ -54,7 +54,7 @@ test.describe('§7 DEBT-FC · Debt Payment Cascading', () => {
       await debts.goto();
       await page.getByRole('button', { name: /add first debt|add debt/i }).first().click();
 
-      const dialog = page.getByRole('dialog', { name: /add debt/i });
+      const dialog = page.getByRole('main', { name: /add debt/i });
       await expect(dialog).toBeVisible();
 
       await dialog.getByLabel('Name').fill('DEBT-FC-001 Loan');

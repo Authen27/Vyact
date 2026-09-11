@@ -21,7 +21,7 @@ test('CAT-FC-001 - Accounts stays reachable under Plan on mobile and desktop', a
     }
     const balanceBefore = await cash.locator('.num').innerText();
     await cash.getByRole('button', { name: 'Reconcile', exact: true }).click();
-    const reconcile = page.getByRole('dialog', { name: 'Cash in Hand', exact: true });
+    const reconcile = page.getByRole('main', { name: 'Cash in Hand', exact: true });
     await expect(reconcile.getByRole('textbox', { name: 'Cash counted', exact: true })).toBeVisible();
     await reconcile.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(reconcile).toHaveCount(0);
@@ -37,7 +37,7 @@ test('CAT-FC-002 - category dropdown matches Debt Type without allowing text ent
       await page.goto('/debts');
       await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
       await page.getByRole('button', { name: '+ Add Debt', exact: true }).click();
-      const debt = page.getByRole('dialog', { name: 'Add Debt', exact: true });
+      const debt = page.getByRole('main', { name: 'Add Debt', exact: true });
       const reference = await debt.getByRole('combobox', { name: 'Type', exact: true }).evaluate(element => {
         const style = getComputedStyle(element);
         return [element.tagName, style.fontSize, style.fontWeight, style.borderRadius, style.backgroundColor, style.paddingRight];
@@ -81,7 +81,10 @@ test('CAT-FC-003 - recurring and split forms use the same select-only category c
   for (const surface of [{ path: '/recurring', button: '+ Add Schedule' }, { path: '/splits', button: '+ Add Split' }]) {
     await page.goto(surface.path);
     await page.getByRole('button', { name: surface.button, exact: true }).first().click();
-    const dialog = page.getByRole('dialog');
+    // The recurring schedule form is still a sheet; Add Split is a page (v10.28.0).
+    const dialog = surface.path === '/splits'
+      ? page.getByRole('main', { name: 'Add Split', exact: true })
+      : page.getByRole('dialog');
     if (surface.path === '/splits') await expect(dialog.getByRole('textbox', { name: 'Amount', exact: true })).toBeFocused();
     const picker = dialog.getByRole('combobox', { name: 'Category', exact: true });
     expect(await picker.evaluate(element => element.tagName)).toBe('SELECT');

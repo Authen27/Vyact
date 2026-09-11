@@ -69,6 +69,6 @@ test.describe('§12 PERM-FC · local-only permissions', () => {
     );
 
     await budgets.openAdd();
-    await expect(page.getByRole('dialog').first()).toBeVisible();
+    await expect(page.getByRole('main', { name: 'Add Budget', exact: true })).toBeVisible();
   });
 });

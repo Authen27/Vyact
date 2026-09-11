@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1055 passing deterministic cases in 66 files. Zero failed, skipped or TODO cases at generation.**
+**1058 passing deterministic cases in 67 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 48 |
 | react | store-integration | conditional | 2 |
-| react | unit | available | 231 |
+| react | unit | available | 234 |
 | react | unit | conditional | 69 |
 | react | unit | infrastructure | 600 |
 
@@ -77,6 +77,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/faults.test.ts](../react/src/lib/__tests__/faults.test.ts) | Permissions and faults | unit | available | 3 |
 | [react/src/lib/__tests__/featureOutputs.test.ts](../react/src/lib/__tests__/featureOutputs.test.ts) | Reports, Planner, Insights, notifications | unit | available | 5 |
 | [react/src/lib/__tests__/format.test.ts](../react/src/lib/__tests__/format.test.ts) | Formatting and structured content | unit | available | 11 |
+| [react/src/lib/__tests__/formRoutes.test.ts](../react/src/lib/__tests__/formRoutes.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/fxCentralization.test.ts](../react/src/lib/__tests__/fxCentralization.test.ts) | Money model | unit | available | 2 |
 | [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 4 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
@@ -129,7 +130,7 @@ The Vitest roster is the generated JSON above. The following historical browser 
 | CON-E2E-008 | `react/e2e/tests/debts-payment.spec.ts` | [DEBT-FC-002] payment splits interest and principal at the configured APR | Functional-case spec; renamed during PR #13 review. End-to-end check of the same math that `CON-UNIT-030/048` pin at the unit level. |
 | CON-E2E-009 | `react/e2e/tests/networth-impact.spec.ts` | [NWRT-FC-002] income to a linked account moves NetWorth total assets | Functional-case spec; renamed during PR #13 review. Cross-module assertion (Transactions → NetWorth). |
 | CON-E2E-024 | `react/e2e/tests/permissions-local.spec.ts` | [PERM-FC-001] in local-only mode the Budgets page renders the "+ Add Budget" affordance, shows no "View only" marker, and `__ff_store` reports `myRole === 'owner'` | **Suite-integrity pin.** Lane A runs local-only; before Phase 0 `myRole` was `undefined` there, so every write-gated control was unrendered and no e2e test could reach a write journey. A failure here means the suite has silently stopped testing writes — not that one screen broke. |
-| CON-E2E-025 | `react/e2e/tests/permissions-local.spec.ts` | [PERM-FC-002] clicking "+ Add Budget" opens the budget dialog | **Reachability pin.** A visible button is not a reachable editor. This is the step CON-E2E-017..023 could never perform, which is why four of the eight v10.20 defect reports sat behind a green suite. |
+| CON-E2E-025 | `react/e2e/tests/permissions-local.spec.ts` | [PERM-FC-002] clicking "+ Add Budget" opens the budget form (a routed page since v10.28.0) | **Reachability pin.** A visible button is not a reachable editor. This is the step CON-E2E-017..023 could never perform, which is why four of the eight v10.20 defect reports sat behind a green suite. |
 | CON-E2E-026 | `react/e2e/lane-b/constraints.spec.ts` | [CLOUD-FC-001] inserting two allocations for the SAME category into one budget is rejected with `23505` by `uq_balloc_cat`, and exactly one row survives | **Lane B · the reason it exists.** Lane A runs localStorage-only, where there is no database and nothing to violate — calling `saveBudgetWithAllocations` with a duplicate category there resolves and stores both rows. This is the payload the budget editor produces today (defects 1 and 3), and only a real Postgres can reject it. |
 | CON-E2E-027 | `react/e2e/lane-b/constraints.spec.ts` | [CLOUD-FC-002] the same category in a DIFFERENT budget period is accepted | **Over-correction guard.** The constraint is scoped to `(budget_id, category)`. A fix for the duplicate bug that de-duplicated on category alone would silently stop a category being budgeted next month. |
 | CON-E2E-028 | `react/e2e/lane-b/rls-isolation.spec.ts` | [CLOUD-FC-003] Alice cannot read Bob's household, memberships or transactions; Bob can read his own | **The negative isolation test** `e2e/README.md` calls "most importantly". Asserted through clients authenticated as real users, never the service role — which bypasses RLS and would pass against a database with no policies at all. The positive control (Bob sees his own row) stops it passing against an empty database. |
@@ -163,7 +164,7 @@ The Vitest roster is the generated JSON above. The following historical browser 
 | CON-E2E-051 | `react/e2e/tests/budget-editor.spec.ts` | a store refresh mid-edit does not wipe what you typed | Catalogued during the 2026-09-09 reconciliation pass. |
 | CON-E2E-052 | `react/e2e/tests/budget-editor.spec.ts` | one row per category, so a duplicate allocation is unrepresentable | Catalogued during the 2026-09-09 reconciliation pass. |
 | CON-E2E-053 | `react/e2e/tests/budgets.spec.ts` | an annual budget is accepted alongside monthly | Replaces the retired CON-E2E-020/021. `month` and `annual` are the only two scopes left, so annual is what "non-monthly" now means. |
-| CON-E2E-043 | `react/e2e/tests/dialog-correction.spec.ts` | Budget dialog bounds and opener focus at desktop and mobile sizes | Playwright browser workflow |
+| CON-E2E-043 | `react/e2e/tests/dialog-correction.spec.ts` | Budget form page title bounds, and focus back on its opener after closing, at desktop and mobile sizes | Playwright browser workflow. v10.28.0: the form became a routed page, so "restores focus" is now proven across a history back, not a dialog close. |
 
 ## 5. Retired IDs
 
