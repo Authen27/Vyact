@@ -15,7 +15,7 @@ export const groups = [
   group('Accounts', 'available', 'unit', ['accountsView'], 'accountsView (card figures · cycles · staleness · summary · delete guard)'),
   group('Net worth history', 'available', 'unit', ['netWorthSnapshots'], 'netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed)'),
   group('Formatting and structured content', 'available', 'unit', ['format', 'learnJsonLd'], 'format / learnJsonLd'),
-  group('Recurring and budgets', 'available', 'unit', ['recurring', 'rrule', 'v91', 'budgetOrdering'], 'recurring / rrule / calculations / budgetOrdering'),
+  group('Recurring and budgets', 'available', 'unit', ['recurring', 'rrule', 'v91', 'budgetOrdering', 'billCalendar'], 'recurring / rrule / calculations / budgetOrdering / billCalendar'),
   group('Onboarding', 'available', 'unit', ['onboarding', 'onboardingWiring', 'onboardingWorkflow'], 'onboarding / wireOnboardingToMoney'),
   group('Reports, Planner, Insights, notifications', 'available', 'unit', ['featureOutputs'], 'calculations / evaluateRecommendations / buildInsightFeed / notifications'),
   group('Permissions and faults', 'available', 'unit', ['permissionsRole', 'faults'], 'permissions / faults'),

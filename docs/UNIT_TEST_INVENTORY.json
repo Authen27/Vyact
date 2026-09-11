@@ -565,11 +565,27 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/billCalendar.test.ts",
+      "feature": "Recurring and budgets",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
+      "count": 5,
+      "tests": [
+        "Approval-aware bill calendar (v10.32.0) falls back to the frequency fields for a schedule without an RRULE",
+        "Approval-aware bill calendar (v10.32.0) makes only the due occurrence at the pointer actionable for an approval schedule; later ones wait",
+        "Approval-aware bill calendar (v10.32.0) never shows occurrences before the pointer, marks a posted occurrence, and skips exhausted, inactive or stale schedules",
+        "Approval-aware bill calendar (v10.32.0) projects auto-approved occurrences from the RRULE, including several weekdays, within the horizon",
+        "Approval-aware bill calendar (v10.32.0) totals what is not yet posted in household currency, by kind, and groups by day"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/budgetOrdering.test.ts",
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
       "count": 13,
       "tests": [
         "budgets on the Budgets page · current month on top, oldest at the bottom a full mixed history ends with the oldest period at the bottom",
@@ -1643,7 +1659,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
       "count": 12,
       "tests": [
         "computeNextDueDate advances monthly schedules from the last generated date",
@@ -1712,8 +1728,8 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering",
-      "count": 10,
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
+      "count": 11,
       "tests": [
         "rrule — describe CON-UNIT-RR-020 · human labels",
         "rrule — expansion CON-UNIT-RR-010 · daily with interval",
@@ -1724,6 +1740,7 @@
         "rrule — expansion CON-UNIT-RR-015 · COUNT ends after N occurrences (counts those before the window too)",
         "rrule — expansion CON-UNIT-RR-016 · UNTIL is inclusive and stops generation",
         "rrule — expansion CON-UNIT-RR-017 · never (no COUNT/UNTIL) is window-bounded, not infinite",
+        "rrule — expansion CON-UNIT-RR-018 · weekly BYDAY from a mid-week start keeps date order, so a window ending before next Monday keeps its Friday",
         "rrule — parse/format round-trip CON-UNIT-RR-001 · round-trips the supported encodings"
       ]
     },
@@ -1819,7 +1836,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
       "count": 5,
       "tests": [
         "v9.1 §4 — budget identity budgetForecast sums recurring EXPENSE schedules by category; excludes income",

@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1089 passing deterministic cases in 72 files. Zero failed, skipped or TODO cases at generation.**
+**1095 passing deterministic cases in 73 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 48 |
 | react | store-integration | conditional | 2 |
-| react | unit | available | 265 |
+| react | unit | available | 271 |
 | react | unit | conditional | 69 |
 | react | unit | infrastructure | 600 |
 
@@ -66,6 +66,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/askVyact.test.ts](../react/src/lib/__tests__/askVyact.test.ts) | Ask Vyact | unit | conditional | 31 |
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
+| [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/budgetOrdering.test.ts](../react/src/lib/__tests__/budgetOrdering.test.ts) | Recurring and budgets | unit | available | 13 |
 | [react/src/lib/__tests__/budgetTrends.test.ts](../react/src/lib/__tests__/budgetTrends.test.ts) | Reports consultation | unit | available | 4 |
 | [react/src/lib/__tests__/cacheBoundary.test.ts](../react/src/lib/__tests__/cacheBoundary.test.ts) | Storage and synchronization | storage-integration | available | 2 |
@@ -109,7 +110,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/recurringApproval.test.ts](../react/src/lib/__tests__/recurringApproval.test.ts) | Ledger and recurring workflows | store-integration | available | 1 |
 | [react/src/lib/__tests__/reportRange.test.ts](../react/src/lib/__tests__/reportRange.test.ts) | Reports consultation | unit | available | 6 |
 | [react/src/lib/__tests__/reportsModel.test.ts](../react/src/lib/__tests__/reportsModel.test.ts) | Reports and Ask guidance | unit | available | 6 |
-| [react/src/lib/__tests__/rrule.test.ts](../react/src/lib/__tests__/rrule.test.ts) | Recurring and budgets | unit | available | 10 |
+| [react/src/lib/__tests__/rrule.test.ts](../react/src/lib/__tests__/rrule.test.ts) | Recurring and budgets | unit | available | 11 |
 | [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 2 |
 | [react/src/lib/__tests__/sharedSplitsWorkflow.test.ts](../react/src/lib/__tests__/sharedSplitsWorkflow.test.ts) | Shared splits | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/storage.test.ts](../react/src/lib/__tests__/storage.test.ts) | Storage and synchronization | storage-integration | available | 6 |

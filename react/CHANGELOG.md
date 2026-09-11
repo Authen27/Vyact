@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.31.0`** (consumer)
+> **Current production version: `v10.32.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,41 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.32.0 — an approval-aware bill calendar *(2026-09-11)*
+
+This release ships the last "Further Product Work" item from `docs/INSIGHTS_ASK_REPORTS_UX.md`.
+
+The Recurring screen's "Next 7 days" strip is now a **Bill calendar**: an agenda of what your active schedules will do over the next 7, 30 or 60 days.
+
+**No money, data or permission rule changes.** The calendar is read-only. Approving or skipping a bill uses the same actions the notification already offers.
+
+- **One occurrence at a time, in the engine's own terms.**
+  - Each bill or income shows whether it *Posts automatically*, is *Awaiting your approval*, is one *You approve when due*, or is already *Posted*.
+  - Dates come from the schedule's recurrence rule, so these all hold:
+    - several weekdays a week;
+    - the "2nd Friday" kind of rule;
+    - months without a 31st;
+    - "ends after N times".
+  - Nothing already posted, approved or skipped is shown as due again.
+- **Approve or skip where you see it.**
+  - The one occurrence actually awaiting approval, including one that is overdue, carries *Approve* and *Skip once*.
+  - Approve posts it once and moves the schedule on.
+  - Skip once moves the schedule on without posting, after a confirmation.
+  - Later occurrences can't be approved early, matching the engine.
+- **Totals for the window.** The calendar shows money going out, coming in and going to investments, in the household currency, plus how many bills await approval. It previews commitments; it is not a balance forecast.
+- **Excluded schedules.** A schedule whose due date is older than the engine's 45-day catch-up window is not shown, because the engine will never post it.
+
+### Under the hood
+- `lib/billCalendar.ts` is pure. It builds occurrences with `expandRRule`, falling back to the frequency fields for legacy schedules, and assigns each one a status.
+- `components/recurring/BillCalendar.tsx` renders the agenda. `pages/Recurring.tsx` replaces the strip with it.
+- **Fix — `expandRRule` weekly order.** Each week's BYDAY dates are now emitted in date order.
+  - Before, a schedule starting mid-week (for example on a Tuesday, for Mon + Fri) produced that week's Monday before its Friday. A window ending before the next Monday then stopped early and dropped the Friday, and COUNT could consume occurrences out of order.
+  - Only the calendar reads this expansion; posting uses `scheduleFiresOnDate`, so no posted transaction changes.
+- **Tests:**
+  - 5 `billCalendar` unit cases and the `CON-UNIT-RR-018` regression;
+  - browser cases BILL-FC-001…003 in `e2e/tests/bill-calendar.spec.ts`, covering statuses and totals, approve posts once, and skip posts nothing;
+  - `recurring-lifecycle` CON-E2E-036…039 were stale. They clicked an account *button*, but "Pay from" has been a select-only dropdown since v10.27.1, so they timed out. They now choose from the dropdown and pass again.
 
 ## v10.31.0 — Reports: one date range, budgets by their own period, and an essential-spend runway *(2026-09-11)*
 

@@ -163,7 +163,7 @@ this table records each contract as it ships.
 | Single date range across all flow views | **Implemented in v10.31.0** | One inclusive range that never runs past today (`lib/reportRange.ts`), carried in the URL. It drives every flow panel. Groupings bucket inside the range: edges are clamped and marked partial, and a grouping is coarsened past 60 buckets. The household position and "this month" stay current. |
 | Budget-versus-actual trends by matching scope | **Implemented in v10.31.0** | Each budget is compared over its own full period (`lib/budgetTrends.ts`), monthly and annual never mixed. Budgeted is the sum of allocations through central FX; actual is reportable spend in those categories up to today. The current period is "in progress", and budgets without allocations are counted but not compared. |
 | Essential-spend runway | **Implemented in v10.31.0** | Liquid assets from the canonical projection ÷ average need-classified spending over the last three completed months with recorded spending (`lib/essentialRunway.ts`). The baseline months are named on screen, and the result is marked as an estimate. |
-| Approval-aware bill calendar | Next | Not yet defined |
+| Approval-aware bill calendar | **Implemented in v10.32.0** | A read-only agenda of what active schedules will do over the next 7, 30 or 60 days (`lib/billCalendar.ts`). Dates come from each schedule's RRULE, and nothing before the engine's pointer (`nextDueDate`) is shown. Each occurrence is posted, posts automatically, awaiting approval, or needs approval when due. Only the due occurrence at the pointer, including an overdue one, can be approved or skipped, exactly as `approveRecurring` allows. A pointer past the catch-up window is hidden because the engine never posts it. Totals preview commitments in the household currency and are not a balance forecast. |
 
 ## Verification
 
@@ -272,6 +272,30 @@ Results for this pass:
   - On phones the status folds under the difference, so every figure stays in view.
   - The runway's calculation basis reads in full.
 - **Release gate:** 13 of 13 steps and 238 of 238 scenarios.
+
+### Approval-aware bill calendar (v10.32.0)
+
+- **Unit:** five `billCalendar` cases:
+  - RRULE occurrences with several weekdays inside the horizon;
+  - only the due occurrence at the pointer is actionable, including an overdue one, and later ones wait;
+  - nothing before the pointer is shown; a posted occurrence is marked; exhausted, inactive and stale schedules are hidden;
+  - legacy schedules without an RRULE fall back to the frequency fields;
+  - household-currency totals by kind through FX, grouped by day.
+
+  Plus `CON-UNIT-RR-018`: weekly `expandRRule` from a mid-week start now emits dates in order. Before this, a window ending before the next Monday lost its Friday, and COUNT consumed dates out of order. Only the calendar reads this expansion; posting uses `scheduleFiresOnDate`. The generated inventory reads 1,095 passing cases in 73 files.
+- **Browser** (Chromium, local-only test build, `e2e/tests/bill-calendar.spec.ts`; the fixture clock is Fri 22 May 2026):
+  - `BILL-FC-001`:
+    - eight occurrences in 30 days, with the overdue Cleaner first as "Awaiting your approval · 6 days overdue";
+    - Rent "Posts automatically", five "You approve when due", and exactly one Approve;
+    - Going out $1,500, Coming in $3,000, Awaiting approval 1;
+    - "Next 7 days" narrows to three rows, with no horizontal scroll at 390 or 1280px.
+  - `BILL-FC-002`: Approve posts one Cleaner transaction dated 16 May and moves the pointer to 23 May; no Approve remains.
+  - `BILL-FC-003`: Skip once, after confirming, moves the pointer to 23 May and posts nothing.
+  - `recurring-lifecycle` `CON-E2E-036`…`039` pass after correcting a stale step. "Pay from" has been a select-only dropdown since v10.27.1, and the spec still clicked an account button. An origin/main build times out on that same click, so the breakage predates the calendar.
+  - Help-guide `HELP-FC-001`…`003` pass.
+  - Smoke `CON-E2E-041`, which covers every primary route including `/recurring`, passes. `CON-E2E-011`/`040`/`042` fail exactly as on origin/main (TD-29).
+- **Visual review at 390 and 1280px:** status tones (honey, denim, sage) read against the dark canvas. Approve and Skip once are 44px targets that wrap onto their own line on phones, and amounts stay inside the row.
+- **Release gate:** passed, 239 of 239 scenarios.
 
 Local review: `http://127.0.0.1:5182/reports` and `http://127.0.0.1:5182/chat`.
 The isolated browser runner uses the existing test-mode preview on port 5183.
