@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.29.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.30.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -242,6 +242,14 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   context and dedupes by issue + period; don't re-add a Plan tab, a second
   recommendation rail, Pulse, Goals or Tax there. Empty = "Not enough recorded
   activity yet", never a health verdict.
+- **Net Worth history is RECORDED, never reconstructed (v10.30.0)** —
+  `net_worth_snapshots`: one row per household per month, first write wins, written
+  only via `record_net_worth_snapshot` (current month, household base currency).
+  Never back-fill or rebuild a past Net Worth from today's assets/debts/transactions
+  (standalone assets and debts keep only their current value). The chart draws
+  recorded rows only (≥2). In cloud mode record only when
+  `adapter.positionIsCloudFresh()` — a cache-first read can be stale, and a stale
+  first write is permanent.
 - **WhatsApp integration — write-only logging (v10.18)** — inbound text → the
   deterministic parser (`supabase/functions/_shared/whatsapp-parser.ts`, ported
   from `askVyactParser`, NO AI / NO egress) → `whatsapp_log_transaction` RPC

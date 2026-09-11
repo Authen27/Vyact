@@ -12,6 +12,7 @@ export const groups = [
   group('Money model', 'available', 'unit', ['money', 'moneyModel.engines', 'moneyModel.invariants', 'moneyModel.regression', 'calculations', 'amortization', 'netWorthProjection', 'fxCentralization', 'pulseBudget'], 'calculations / money / netWorth / amortization'),
   group('Categories and ordering', 'available', 'unit', ['categoryModel', 'ordering'], 'constants / categorization / ordering'),
   group('Accounts', 'available', 'unit', ['accountsView'], 'accountsView (card figures · cycles · staleness · summary · delete guard)'),
+  group('Net worth history', 'available', 'unit', ['netWorthSnapshots'], 'netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed)'),
   group('Formatting and structured content', 'available', 'unit', ['format', 'learnJsonLd'], 'format / learnJsonLd'),
   group('Recurring and budgets', 'available', 'unit', ['recurring', 'rrule', 'v91', 'budgetOrdering'], 'recurring / rrule / calculations / budgetOrdering'),
   group('Onboarding', 'available', 'unit', ['onboarding', 'onboardingWiring', 'onboardingWorkflow'], 'onboarding / wireOnboardingToMoney'),

@@ -11,6 +11,25 @@ import type {
 } from '../types';
 import type { DataAdapter, Entity } from './dataAdapter';
 import { parseMoneyFromCloud } from './money';
+import type { NetWorthSnapshot } from './netWorthSnapshots';
+
+// v10.30.0 — net_worth_snapshots row → recorded snapshot. `month` is a date
+// column (first of the month); the app keys months as 'YYYY-MM'.
+interface NetWorthSnapshotRow {
+  month: string; total_assets: number | string; total_liabilities: number | string;
+  net_worth: number | string; liquid_assets: number | string; currency: string; recorded_at: string;
+}
+function rowToNetWorthSnapshot(row: NetWorthSnapshotRow): NetWorthSnapshot {
+  return {
+    month: String(row.month).slice(0, 7),
+    totalAssets: parseMoneyFromCloud(row.total_assets),
+    totalLiabilities: parseMoneyFromCloud(row.total_liabilities),
+    netWorth: parseMoneyFromCloud(row.net_worth),
+    liquidAssets: parseMoneyFromCloud(row.liquid_assets),
+    currency: row.currency,
+    recordedAt: row.recorded_at,
+  };
+}
 
 // TD-01 phase D: money fields arriving from Supabase (`numeric(15,2)`
 // columns serialised as JSON strings) go through `parseMoneyFromCloud`
@@ -824,6 +843,35 @@ export class SupabaseAdapter implements DataAdapter {
     const { data, error } = await this.sb.rpc('ensure_cash_account', { p_household: householdId });
     if (error) throw error;
     return data ? rowToAccount(data as AccountRow) : null;
+  }
+
+  /** v10.30.0 — the household's recorded monthly Net Worth snapshots, months ascending. */
+  async listNetWorthSnapshots(householdId: string): Promise<NetWorthSnapshot[]> {
+    const { data, error } = await this.sb.from('net_worth_snapshots')
+      .select('month,total_assets,total_liabilities,net_worth,liquid_assets,currency,recorded_at')
+      .eq('household_id', householdId)
+      .order('month', { ascending: true });
+    if (error) throw error;
+    return ((data ?? []) as NetWorthSnapshotRow[]).map(rowToNetWorthSnapshot);
+  }
+
+  /**
+   * v10.30.0 — record this month's snapshot (`record_net_worth_snapshot`). The
+   * database keeps the first row for a month and derives net worth itself, so
+   * only the two sides, liquid assets and currency are sent. Returns the row that
+   * stands for the month, or null when a viewer asks and none exists yet.
+   */
+  async recordNetWorthSnapshot(householdId: string, snapshot: NetWorthSnapshot): Promise<NetWorthSnapshot | null> {
+    const { data, error } = await this.sb.rpc('record_net_worth_snapshot', {
+      p_household: householdId,
+      p_month: `${snapshot.month}-01`,
+      p_total_assets: snapshot.totalAssets,
+      p_total_liabilities: snapshot.totalLiabilities,
+      p_liquid_assets: snapshot.liquidAssets,
+      p_currency: snapshot.currency,
+    });
+    if (error) throw error;
+    return data ? rowToNetWorthSnapshot(data as NetWorthSnapshotRow) : null;
   }
 
   /** v10.24.0 (R2) — what refers to an account, counted by the database. */

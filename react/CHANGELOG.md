@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.29.0`** (consumer)
+> **Current production version: `v10.30.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,38 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.30.0 — Net Worth starts keeping a history *(2026-09-11)*
+
+Net Worth now records itself once a month, so a real history can build up. **Nothing is back-filled and no
+past value is estimated**: standalone assets and debts store only their current value, so any earlier figure
+would be invented. (The first "Further Product Work" item from `docs/INSIGHTS_ASK_REPORTS_UX.md`.)
+
+- **Once a month** — the first time the household opens Vyact that month — the app records Net Worth, total
+  assets, total liabilities and liquid assets, exactly as the Net Worth page computes them.
+- **The first record for a month stands.** Another device, a later visit or a changed balance never rewrites
+  it; the next month gets its own record.
+- **Net worth history panel.** Until two months are recorded it says when recording started; from the second
+  month it draws the line, with assets and liabilities alongside. Months recorded before a household-currency
+  change are counted but not drawn, because the figures aren't comparable.
+- **Only from a fully loaded position.** In cloud mode a snapshot is taken only after this device has confirmed
+  its accounts, assets, debts and transactions with the cloud in the current session — a stale cache must never
+  become a permanent record. Never for an empty household. The database refuses any month but the current one
+  and any currency but the household's. A viewer never records; any member who can write does.
+- **Erase my data** now also erases the recorded history. A local-only household that began from the demo data
+  does not record history.
+
+### Under the hood
+- Migration `20260911150000_v1030_net_worth_snapshots.sql`: `net_worth_snapshots` (unique household + month,
+  first-of-month check, `net_worth` generated from the two sides, member-read RLS, no client write policies)
+  and `record_net_worth_snapshot` (SECURITY DEFINER, current month and household base currency only,
+  `on conflict do nothing`, anon revoked). `erase_household_data` now includes the table.
+- `lib/netWorthSnapshots.ts` holds the pure rules; the local, cloud and hybrid adapters gain
+  `listNetWorthSnapshots` / `recordNetWorthSnapshot`, and `HybridAdapter.positionIsCloudFresh` tracks whether
+  each list served cloud-confirmed rows. The store loads snapshots on refresh and records after init, household
+  switch and refresh, with a 10-minute retry window per household-month.
+- Tests: 7 `netWorthSnapshots` unit cases (rules, first write wins locally, cloud RPC contract and mapping);
+  browser cases NWH-FC-001…003 in `e2e/tests/networth-history.spec.ts`.
 
 ## v10.29.0 — Insights becomes one review *(2026-09-11)*
 

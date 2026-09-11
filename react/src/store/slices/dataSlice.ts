@@ -16,7 +16,7 @@ import { DEFAULT_RATES } from '../../constants';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { applyPayment } from '../../lib/amortization';
 import { autoMigrateAnonToHousehold } from '../../lib/migration';
-import { uid, setNumberSystem } from '../../lib/format';
+import { uid, setNumberSystem, nowMonthKey } from '../../lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from '../../lib/numberSystemPref';
 import {
   registerOnboardingSync, hydrateOnboardingFromCloud,
@@ -24,7 +24,11 @@ import {
 } from '../../lib/onboardingState';
 import { accountValueOf } from '../../lib/accountBalance';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from '../../lib/educationProgress';
-import { unexpected } from '../../lib/faults';
+import { expected, unexpected } from '../../lib/faults';
+import { computeNetWorth } from '../../lib/netWorth';
+import {
+  hasPositionData, mergeSnapshot, shouldRecordSnapshot, snapshotFromProjection, type NetWorthSnapshot,
+} from '../../lib/netWorthSnapshots';
 import { readLocalJson, readLocalString, setLocalString, removeLocal } from '../localJson';
 
 export interface DataSlice {
@@ -48,6 +52,8 @@ export interface DataSlice {
    *  scoped on the server via RLS; the array here is whatever the
    *  current user can see (their own + shared rows from household). */
   savedViews: SavedView[];
+  /** v10.30.0 — recorded monthly Net Worth snapshots, months ascending (never reconstructed). */
+  netWorthSnapshots: NetWorthSnapshot[];
   profile: Profile;
   rates: ExchangeRates;
 
@@ -62,6 +68,8 @@ export interface DataSlice {
   refresh: () => Promise<void>;
   /** v9.5.0 — budgets-only refetch, fired by the realtime accelerator (cheap; budgets are small). */
   refetchBudgets: () => Promise<void>;
+  /** v10.30.0 — record this month's Net Worth snapshot once the position is loaded (first write wins). */
+  recordNetWorthSnapshot: () => Promise<void>;
   switchHousehold: (id: string) => Promise<void>;
   createHousehold: (name: string, type: HouseholdMeta['type'], baseCurrency: string) => Promise<HouseholdMeta>;
   deleteHousehold: (id: string) => Promise<void>;
@@ -118,6 +126,14 @@ const defaultProfile: Profile = {
 // stale, out-of-order completions (see refresh()).
 let refreshSeq = 0;
 
+// v10.30.0 — at most one Net Worth snapshot attempt per (household, month) per
+// window, so a viewer, an offline device or a database without the table never
+// calls the recorder on every 90-second refresh.
+const SNAPSHOT_RETRY_MS = 10 * 60_000;
+let snapshotAttempt: { household: string; month: string; at: number } | null = null;
+/** Local-only household id that was filled with the first-run demo data. */
+const DEMO_SEEDED_KEY = 'demo_seeded_household';
+
 // Adapter selector: HybridAdapter when cloud env is set, otherwise LocalStorageAdapter.
 // The store calls adapter methods; the rest of the app doesn't know which is in use.
 const initialAdapter: DataAdapter = (isCloudEnabled() && supabase)
@@ -130,6 +146,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
   currentHouseholdId: 'local',
   transactions: [], budgets: [], budgetAllocations: [], goals: [], members: [], debts: [], assets: [], accounts: [],
   savedViews: [],
+  netWorthSnapshots: [],
   profile: defaultProfile,
   rates: { ...DEFAULT_RATES },
 
@@ -197,6 +214,9 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       for (const [code, rate] of Object.entries(seed.exchangeRates)) {
         await adapter.upsertRate(active, code, rate);
       }
+      // v10.30.0 — demo rows carry no marker, so remember that this household
+      // began as the demo: its invented figures must never become recorded history.
+      try { setLocalString(DEMO_SEEDED_KEY, active); } catch { /* noop */ }
       await get().refresh();
     }
     // v6.4: One-shot anon → cloud migration when the user signs in for the
@@ -239,6 +259,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     try { await get().ensureDefaultCashAccount(); } catch { /* best-effort */ }
 
     set({ loading: false });
+    void get().recordNetWorthSnapshot();
   },
 
   refresh: async () => {
@@ -252,7 +273,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const seq = ++refreshSeq;
     const seqHid = currentHouseholdId;
     const isStale = () => seq !== refreshSeq || get().currentHouseholdId !== seqHid;
-    const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, recurringList, budgetAllocations, profile, rates] = await Promise.all([
+    const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, recurringList, budgetAllocations, profile, rates, netWorthSnapshots] = await Promise.all([
       adapter.list<Transaction>('transactions', currentHouseholdId),
       adapter.list<Budget>('budgets',           currentHouseholdId),
       adapter.list<Goal>('goals',               currentHouseholdId),
@@ -268,6 +289,12 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
         .catch((e) => { unexpected(e, 'refresh:budgetAllocations'); return get().budgetAllocations; }),
       adapter.getProfile(currentHouseholdId),
       adapter.getRates(currentHouseholdId),
+      // v10.30.0 — recorded Net Worth history. A failed read shows no history;
+      // it is never data loss (the rows stay where they are).
+      typeof adapter.listNetWorthSnapshots === 'function'
+        ? adapter.listNetWorthSnapshots(currentHouseholdId)
+          .catch((e): NetWorthSnapshot[] => { expected(e, 'refresh:netWorthSnapshots'); return []; })
+        : Promise.resolve([] as NetWorthSnapshot[]),
     ]);
     // v6.4: hydrate per-budget local period metadata (DB schema lacks an
     // extras column on budgets so period info is a client-side overlay).
@@ -311,6 +338,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       transactions, budgets: hydratedBudgets, goals, members, debts, assets, accounts, savedViews,
       recurringSchedules: recurringList,
       budgetAllocations,
+      netWorthSnapshots,
       profile: mergedProfile,
       rates,
       // Audit F8 — "last synced" means THIS pull completed and was applied.
@@ -318,6 +346,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       lastSyncedAt: Date.now(),
     });
     setNumberSystem(get().profile.numberSystem === 'indian' ? 'indian' : 'western');
+    void get().recordNetWorthSnapshot();
 
     // ── Recurring migrations: RETIRED (v10.20.7) ────────────────────────────
     //
@@ -361,6 +390,32 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     set({ budgets, budgetAllocations });
   },
 
+  recordNetWorthSnapshot: async () => {
+    const { adapter, currentHouseholdId, loading, cloudEnabled } = get();
+    if (typeof adapter.recordNetWorthSnapshot !== 'function') return;
+    if (!cloudEnabled && readLocalString(DEMO_SEEDED_KEY, null) === currentHouseholdId) return;
+    const month = nowMonthKey();
+    if (snapshotAttempt && snapshotAttempt.household === currentHouseholdId && snapshotAttempt.month === month
+        && Date.now() - snapshotAttempt.at < SNAPSHOT_RETRY_MS) return;
+    const state = get();
+    const projection = computeNetWorth(
+      { assets: state.assets, accounts: state.accounts, debts: state.debts, transactions: state.transactions },
+      state.profile.baseCurrency, state.rates,
+    );
+    if (!shouldRecordSnapshot({ loading, hasPosition: hasPositionData(projection), snapshots: state.netWorthSnapshots, month })) return;
+    // A cache-first adapter may still be serving rows the cloud has not confirmed
+    // this session; recording those would lock a stale month in (first write wins).
+    if (typeof adapter.positionIsCloudFresh === 'function' && !adapter.positionIsCloudFresh(currentHouseholdId)) return;
+    snapshotAttempt = { household: currentHouseholdId, month, at: Date.now() };
+    try {
+      const stored = await adapter.recordNetWorthSnapshot(currentHouseholdId, snapshotFromProjection(projection, month));
+      if (!stored || get().currentHouseholdId !== currentHouseholdId) return;
+      set({ netWorthSnapshots: mergeSnapshot(get().netWorthSnapshots.filter(row => row.month !== stored.month), stored) });
+    } catch (error) {
+      expected(error, 'netWorthSnapshots.record');
+    }
+  },
+
   switchHousehold: async (id) => {
     const { adapter, cloudEnabled } = get();
     await adapter.setActiveHousehold(id);
@@ -372,6 +427,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     void get().refreshNotifications();   // reload the new household's notifications (cross-device)
     void get().refreshSharedSplits();
     try { await get().ensureDefaultCashAccount(); } catch { /* best-effort */ }
+    void get().recordNetWorthSnapshot();
     get().toast('Switched profile', 'success');
   },
 

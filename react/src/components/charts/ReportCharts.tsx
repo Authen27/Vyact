@@ -168,3 +168,44 @@ export function CategoryBars({ data, currency }: CategoryChartProps) {
     </div>
   );
 }
+
+interface NetWorthPoint {
+  label: string;
+  netWorth: number;
+  totalAssets: number;
+  totalLiabilities: number;
+}
+
+// v10.30.0 — recorded monthly Net Worth snapshots. Each point is a stored
+// record (lib/netWorthSnapshots.ts); nothing between points is interpolated as
+// data — the line only joins recorded months.
+export function NetWorthHistoryChart({ data, currency }: { data: NetWorthPoint[]; currency: string }) {
+  return (
+    <div className="px-4 pt-4 pb-2 h-[240px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="netWorthGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={hsl('denim')} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={hsl('denim')} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="2 3" stroke={hsl('line')} />
+          <XAxis dataKey="label" stroke={hsl('ink-dim')} tick={{ fontSize: 10 }} />
+          <YAxis
+            stroke={hsl('ink-dim')}
+            tick={{ fontSize: 10 }}
+            tickFormatter={(value: number) => fmtShort(value, currency)}
+            width={56}
+          />
+          <ReferenceLine y={0} stroke={hsl('ink-dim')} strokeWidth={1} />
+          <Tooltip formatter={(value: number, name: string) => [fmt(value, currency), name]} />
+          <Legend iconType="circle" />
+          <Area type="monotone" dataKey="netWorth" name="Net worth" stroke={hsl('denim')} strokeWidth={2.2} fill="url(#netWorthGrad)" dot isAnimationActive={false} />
+          <Area type="monotone" dataKey="totalAssets" name="Assets" stroke={hsl('sage')} strokeWidth={1.4} fill="none" isAnimationActive={false} />
+          <Area type="monotone" dataKey="totalLiabilities" name="Liabilities" stroke={hsl('terra')} strokeWidth={1.4} fill="none" isAnimationActive={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
