@@ -52,6 +52,10 @@ test('FIN-FC-001 - Reports keeps full Needs and Wants amounts inside narrow cont
     await mix.scrollIntoViewIfNeeded();
     await testInfo.attach(`reports-needs-wants-${width}`, { body: await page.screenshot(), contentType: 'image/png' });
   }
+  // v10.31.0 — groupings apply inside ONE date range. Over the default 12 months a
+  // daily view would draw more than 60 bars and coarsens by design, so step
+  // through the groupings on "This month", where every grouping fits.
+  await page.getByLabel('Date range').selectOption('this-month');
   for (const period of ['Day', 'Week', 'Month', 'Quarter', 'Year']) {
     await page.getByRole('tab', { name: period, exact: true }).click();
     await expect(page.getByText('Chart window:', { exact: false })).toContainText(`Grouped by ${period.toLowerCase()}`);

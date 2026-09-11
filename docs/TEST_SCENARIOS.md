@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1075 passing deterministic cases in 69 files. Zero failed, skipped or TODO cases at generation.**
+**1089 passing deterministic cases in 72 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 48 |
 | react | store-integration | conditional | 2 |
-| react | unit | available | 251 |
+| react | unit | available | 265 |
 | react | unit | conditional | 69 |
 | react | unit | infrastructure | 600 |
 
@@ -67,6 +67,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/budgetOrdering.test.ts](../react/src/lib/__tests__/budgetOrdering.test.ts) | Recurring and budgets | unit | available | 13 |
+| [react/src/lib/__tests__/budgetTrends.test.ts](../react/src/lib/__tests__/budgetTrends.test.ts) | Reports consultation | unit | available | 4 |
 | [react/src/lib/__tests__/cacheBoundary.test.ts](../react/src/lib/__tests__/cacheBoundary.test.ts) | Storage and synchronization | storage-integration | available | 2 |
 | [react/src/lib/__tests__/cacheInvalidation.test.ts](../react/src/lib/__tests__/cacheInvalidation.test.ts) | Storage and synchronization | storage-integration | available | 9 |
 | [react/src/lib/__tests__/calculations.test.ts](../react/src/lib/__tests__/calculations.test.ts) | Money model | unit | available | 16 |
@@ -74,6 +75,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
 | [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 4 |
 | [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 3 |
+| [react/src/lib/__tests__/essentialRunway.test.ts](../react/src/lib/__tests__/essentialRunway.test.ts) | Reports consultation | unit | available | 4 |
 | [react/src/lib/__tests__/faults.test.ts](../react/src/lib/__tests__/faults.test.ts) | Permissions and faults | unit | available | 3 |
 | [react/src/lib/__tests__/featureOutputs.test.ts](../react/src/lib/__tests__/featureOutputs.test.ts) | Reports, Planner, Insights, notifications | unit | available | 5 |
 | [react/src/lib/__tests__/format.test.ts](../react/src/lib/__tests__/format.test.ts) | Formatting and structured content | unit | available | 11 |
@@ -105,6 +107,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
 | [react/src/lib/__tests__/recurring.test.ts](../react/src/lib/__tests__/recurring.test.ts) | Recurring and budgets | unit | available | 12 |
 | [react/src/lib/__tests__/recurringApproval.test.ts](../react/src/lib/__tests__/recurringApproval.test.ts) | Ledger and recurring workflows | store-integration | available | 1 |
+| [react/src/lib/__tests__/reportRange.test.ts](../react/src/lib/__tests__/reportRange.test.ts) | Reports consultation | unit | available | 6 |
 | [react/src/lib/__tests__/reportsModel.test.ts](../react/src/lib/__tests__/reportsModel.test.ts) | Reports and Ask guidance | unit | available | 6 |
 | [react/src/lib/__tests__/rrule.test.ts](../react/src/lib/__tests__/rrule.test.ts) | Recurring and budgets | unit | available | 10 |
 | [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 2 |

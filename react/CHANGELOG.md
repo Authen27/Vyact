@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.30.0`** (consumer)
+> **Current production version: `v10.31.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,38 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.31.0 — Reports: one date range, budgets by their own period, and an essential-spend runway *(2026-09-11)*
+
+Three of the "Further Product Work" items from `docs/INSIGHTS_ASK_REPORTS_UX.md`, each with its own calculation
+contract. **No money, data or permission rule changes**: these are read-only views over the existing ledger,
+budgets and Net Worth projection.
+
+- **One date range for every flow view.** A new *Date range* control (This month, Last 3 / 6 / 12 months, Year
+  to date, All time, Custom) drives the headline tiles, the income-vs-expenses trend, surplus/shortfall, the
+  category breakdown with Needs vs Wants, the period summary, top categories, and the by-member and by-account
+  tables — which were previously all-time. The Day…Year control now groups *inside* the range; the first and
+  last intervals are clamped to it and marked partial, and a grouping that would draw more than 60 bars is
+  coarsened, with the reason stated. The range lives in the URL (`?range=…&group=…`, or
+  `range=custom&start=…&end=…`), so a reload or a shared link shows the same window, and saved views keep it.
+  The household position and "this month" stay current and say so. The default is the last 12 months.
+- **Budget vs actual, by matching scope.** A new panel compares each budget over its OWN full period: monthly
+  budgets month by month, annual budgets year by year, never mixed. Budgeted is the sum of its category
+  allocations (central FX); actual is reportable spending in those categories. The current period is shown as
+  *In progress* and never counted as over or under. Budgets without category allocations track nothing on the
+  Budgets screen, so they are not compared (and are counted in a note). Shows every budget overlapping the range.
+- **Essential-spend runway.** In Household position: how many months liquid assets would cover essential
+  spending if income stopped. Essential = spending in categories classified as needs (admin overrides apply).
+  The baseline is **stated**: the last three completed calendar months with recorded spending, named on screen —
+  the current month is never used. Liquid assets come from the canonical projection (no credit limits or
+  investments). Marked as an estimate, with its limits in *Calculation basis*; not advice or a health score.
+
+### Under the hood
+- `lib/reportRange.ts` (presets, calendar buckets, coarsening, URL contract), `lib/budgetTrends.ts`
+  (scope-matched budget vs actual) and `lib/essentialRunway.ts` (stated-baseline runway) are pure and
+  unit-tested; `pages/Reports.tsx` reads them; `ReportCharts.BudgetActualBars` draws the monthly comparison.
+- Tests: 14 unit cases across the three modules; browser cases RPTC-FC-001…003
+  (`e2e/tests/reports-consultation.spec.ts`); FIN-FC-001 now steps through groupings on "This month".
 
 ## v10.30.0 — Net Worth starts keeping a history *(2026-09-11)*
 

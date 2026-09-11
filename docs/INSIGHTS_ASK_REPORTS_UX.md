@@ -160,9 +160,9 @@ this table records each contract as it ships.
 | Item | Status | Contract |
 | --- | --- | --- |
 | Historical Net Worth | **Recording since v10.30.0.** The history chart appears once two months are recorded. | One snapshot per household per month (`net_worth_snapshots`). The first write for a month wins, and only for the current month in the household currency. Snapshots are taken from the canonical projection, and in cloud mode only after this session has confirmed the inputs with the cloud. History is recorded, never reconstructed, because standalone assets and debts keep only their current value. |
-| Single date range across all flow views | Next | Not yet defined |
-| Budget-versus-actual trends by matching scope | Next | Not yet defined |
-| Essential-spend runway | Next | A stated completed-month baseline (not yet defined in detail) |
+| Single date range across all flow views | **Implemented in v10.31.0** | One inclusive range that never runs past today (`lib/reportRange.ts`), carried in the URL. It drives every flow panel. Groupings bucket inside the range: edges are clamped and marked partial, and a grouping is coarsened past 60 buckets. The household position and "this month" stay current. |
+| Budget-versus-actual trends by matching scope | **Implemented in v10.31.0** | Each budget is compared over its own full period (`lib/budgetTrends.ts`), monthly and annual never mixed. Budgeted is the sum of allocations through central FX; actual is reportable spend in those categories up to today. The current period is "in progress", and budgets without allocations are counted but not compared. |
+| Essential-spend runway | **Implemented in v10.31.0** | Liquid assets from the canonical projection ÷ average need-classified spending over the last three completed months with recorded spending (`lib/essentialRunway.ts`). The baseline months are named on screen, and the result is marked as an estimate. |
 | Approval-aware bill calendar | Next | Not yet defined |
 
 ## Verification
@@ -239,6 +239,39 @@ Results for this pass:
   - the live `erase_household_data` body matched the repository line for line, apart from the added delete;
   - its grants had no anon or public.
 - **Release gate:** 13 of 13 steps and 238 of 238 scenarios passed.
+
+### Reports consultation (v10.31.0)
+
+- **Unit:** 14 cases across `reportRange`, `budgetTrends` and `essentialRunway`.
+  - Range presets and month or year boundaries.
+  - Custom validation and future clamping.
+  - Clamped, partial calendar buckets, including leap February.
+  - Grouping coarsening past 60 buckets.
+  - Reportable-only sums through FX.
+  - A URL round-trip that leaves `from=savings` alone.
+  - Scope-matched budgets: allocated categories only, in-progress current period, annual kept separate, range overlap, unallocated budgets skipped.
+  - A runway baseline of completed months that skips empty ones.
+  - Need classification with an override map.
+  - Zero or negative liquid assets, and the no-baseline and no-essential-spend states.
+
+  The generated inventory reads 1,089 passing cases in 72 files.
+- **Browser** (Chromium, local-only test build, `e2e/tests/reports-consultation.spec.ts`):
+  - `RPTC-FC-001`:
+    - The default window is 1 Jun 2025 – 22 May 2026.
+    - "This month" narrows the top categories and writes `range=this-month` to the URL.
+    - A custom URL range restores its dates and weekly grouping and survives a reload, with no horizontal scroll.
+  - `RPTC-FC-002`:
+    - April shows $500 budgeted, $600 actual, $100 over.
+    - May is in progress, with $300 left.
+    - "This month" hides April.
+  - `RPTC-FC-003`: 3.8 months ($1,500 against $400 a month), based on Feb–Apr 2026.
+  - `FIN-FC-001` to `004` still pass. FIN-FC-001 now steps through the groupings on "This month".
+  - Help-guide `HELP-FC-001` to `003` pass with the updated Reports answer.
+- **Visual review at 390 and 1440px:**
+  - The Budget vs actual key names all four bar colours: budgeted; actual within, over and in progress.
+  - On phones the status folds under the difference, so every figure stays in view.
+  - The runway's calculation basis reads in full.
+- **Release gate:** 13 of 13 steps and 238 of 238 scenarios.
 
 Local review: `http://127.0.0.1:5182/reports` and `http://127.0.0.1:5182/chat`.
 The isolated browser runner uses the existing test-mode preview on port 5183.
