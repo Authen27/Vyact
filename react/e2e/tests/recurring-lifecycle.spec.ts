@@ -36,8 +36,9 @@ async function fillSchedule(
   await page.getByLabel('Amount').fill(opts.amount);
   await page.getByLabel('Day of month').first().fill(String(opts.dom));
   await page.getByLabel('Day of month').first().blur();
-  // The payment method. Its absence was defect 3.
-  await page.getByRole('button', { name: opts.account, exact: true }).click();
+  // The payment method. Its absence was defect 3. A select-only "Pay from"
+  // dropdown since v10.27.1 (fixed-choice dropdowns use `Select`), not buttons.
+  await page.getByLabel('Pay from').selectOption({ label: opts.account });
 }
 
 test.describe('§ Recurring · create · delete · regression', () => {
@@ -60,8 +61,8 @@ test.describe('§ Recurring · create · delete · regression', () => {
     await expect(page.locator('body')).toContainText(/28 May 2026|May 28, 2026|2026-05-28/);
 
     // Exactly one LIST row. Scoped to the schedule list on purpose: a schedule
-    // due within 7 days also renders in the "upcoming" strip above, so a
-    // page-wide text count is legitimately 2. The duplication this guards
+    // due within the horizon also renders in the bill calendar above (v10.32.0),
+    // so a page-wide text count is legitimately 2. The duplication this guards
     // against (defect 2 — re-keying without evicting the old key) produced two
     // rows in the list itself.
     await expect(page.getByTestId('schedule-row').filter({ hasText: 'E2E Rent' }))

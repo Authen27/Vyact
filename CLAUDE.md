@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.31.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.32.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -258,6 +258,14 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   period by scope (`lib/budgetTrends.ts`; the current period is "in progress", never
   over/under). The runway's baseline is completed months only and is stated on
   screen (`lib/essentialRunway.ts`).
+- **The bill calendar speaks the recurring engine's terms (v10.32.0)** —
+  `lib/billCalendar.ts` is a read-only projection: dates from the RRULE
+  (`expandRRule`), never anything before `nextDueDate`, and a status per occurrence
+  (posted · posts automatically · awaiting approval · approval when due). Only the
+  due occurrence AT the pointer is actionable, because `approveRecurring` refuses
+  any other date. Never offer "approve early", never post from the calendar's own
+  math, and hide pointers the engine will fast-forward past (`isStaleOccurrence`).
+  Totals are a commitment preview, not a balance forecast.
 - **WhatsApp integration — write-only logging (v10.18)** — inbound text → the
   deterministic parser (`supabase/functions/_shared/whatsapp-parser.ts`, ported
   from `askVyactParser`, NO AI / NO egress) → `whatsapp_log_transaction` RPC
