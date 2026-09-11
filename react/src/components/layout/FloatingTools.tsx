@@ -6,7 +6,8 @@
 // renders a floating action button. It only HOSTS the drawer, driven by the
 // store `askOpen` flag, and is mounted once in Layout.
 //
-// The /planner and /chat routes remain for deep links.
+// The /chat route remains for deep links; /planner redirects to Insights' For You
+// view, which absorbed the Planner in v10.29.0.
 
 import React, { Suspense, useEffect, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';

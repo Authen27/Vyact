@@ -1556,6 +1556,27 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/personalInsights.test.ts",
+      "feature": "Merged personal Insights",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "personalInsights / plannerRules / insightsFeed",
+      "count": 10,
+      "tests": [
+        "Merged personal Insights caps next steps at three and keeps the remaining evidence in other sections without duplication",
+        "Merged personal Insights compares allocation-based budgets using central FX and each budget period",
+        "Merged personal Insights deduplicates by category and period, not matching titles or unrelated entities",
+        "Merged personal Insights does not claim a healthy household or offer financial recommendations without reportable activity",
+        "Merged personal Insights excludes withdrawals and private investment rows from the contribution rate",
+        "Merged personal Insights marks projections and unconfirmed inputs, including highlight cards",
+        "Merged personal Insights merges the same issue and period while preserving the action, evidence and related lesson",
+        "Merged personal Insights omits tax, goals and Pulse and ignores future/excluded spending without mutating inputs",
+        "Merged personal Insights uses active schedules rather than summing already-posted recurring entries as a monthly cost",
+        "Merged personal Insights uses live account-aware investment values once, including private balance movements"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/pulseBudget.test.ts",
       "feature": "Money model",
       "availability": "available",

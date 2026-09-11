@@ -18,6 +18,7 @@ interface Props {
   /** Defaults to the onboarding/legacy voice when absent. */
   source?: ProvenanceSource;
   className?: string;
+  title?: string;
 }
 
 const LABEL: Record<Exclude<Confidence, 'confirmed'>, string> = {
@@ -52,7 +53,7 @@ export function estimatedTagCopy(
   };
 }
 
-export default function EstimatedTag({ confidence, source, className = '' }: Props) {
+export default function EstimatedTag({ confidence, source, className = '', title }: Props) {
   const copy = estimatedTagCopy(confidence, source);
   if (!copy) return null;
   // Literal class strings only — an interpolated `text-${tone}` never survives
@@ -67,7 +68,7 @@ export default function EstimatedTag({ confidence, source, className = '' }: Pro
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-mono text-[0.55rem] tracking-[0.1em] uppercase leading-none ${tone} ${className}`}
-      title={copy.title}
+      title={title ?? copy.title}
     >
       {copy.glyph && <span aria-hidden>{copy.glyph}</span>}
       {copy.label}

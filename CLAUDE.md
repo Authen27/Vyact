@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.28.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.29.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -237,6 +237,11 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
 - **Insights Hub** — on-device For You feed adds NO financial math; card visuals
   from a CLOSED code set (icon allowlist · stat · 6 diagram primitives), never
   hosted images / LLM generation. Personal insights are never publicly shareable.
+  **Two tabs since v10.29.0 (For You · Learn)** — Plan is merged into For You by
+  `lib/personalInsights.ts`, which runs the planner rules and the feed over ONE
+  context and dedupes by issue + period; don't re-add a Plan tab, a second
+  recommendation rail, Pulse, Goals or Tax there. Empty = "Not enough recorded
+  activity yet", never a health verdict.
 - **WhatsApp integration — write-only logging (v10.18)** — inbound text → the
   deterministic parser (`supabase/functions/_shared/whatsapp-parser.ts`, ported
   from `askVyactParser`, NO AI / NO egress) → `whatsapp_log_transaction` RPC
