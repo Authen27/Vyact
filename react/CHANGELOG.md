@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.27.1`** (consumer)
+> **Current production version: `v10.27.2`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,24 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.27.2 — budgets in the order you read them *(2026-09-11)*
+
+A display change. **No budget, allocation, spend or total changes** — only the order they appear in.
+
+- **Categories inside a budget run from most to least used.** Each budget card lists its categories by how much of
+  their limit is spent, highest first. An overrun (say 140%) sits above a category at 95%; a category with spend
+  but no limit is treated as the most over. Equal percentages fall back to the larger spend, then alphabetical.
+- **The Dashboard's Budget progress panel uses the same order**, so its five rows are the five most-used categories
+  this month rather than the first five stored.
+- **Budgets run from the current month down to the oldest.** The current month's budget is first, then this
+  year's annual budget, then any budgets set up for future months (soonest first), then past budgets from last
+  month back to the oldest.
+
+Both orders come from one pure helper (`lib/budgetOrdering.ts`) with its own unit tests, so neither depends on the
+order the store happens to return.
 
 ---
 

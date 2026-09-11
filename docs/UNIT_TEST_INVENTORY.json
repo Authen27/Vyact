@@ -565,6 +565,30 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/budgetOrdering.test.ts",
+      "feature": "Recurring and budgets",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "recurring / rrule / calculations / budgetOrdering",
+      "count": 13,
+      "tests": [
+        "budgets on the Budgets page · current month on top, oldest at the bottom a full mixed history ends with the oldest period at the bottom",
+        "budgets on the Budgets page · current month on top, oldest at the bottom a legacy rolling budget (no period) applies to every month, so it stays with the current period",
+        "budgets on the Budgets page · current month on top, oldest at the bottom a month window covers its real last day, including February",
+        "budgets on the Budgets page · current month on top, oldest at the bottom crosses year boundaries by date, not by month number",
+        "budgets on the Budgets page · current month on top, oldest at the bottom current month first, then older months newest to oldest",
+        "budgets on the Budgets page · current month on top, oldest at the bottom does not depend on, or change, the input order",
+        "budgets on the Budgets page · current month on top, oldest at the bottom future periods follow the current month, soonest first; past periods stay below them",
+        "budgets on the Budgets page · current month on top, oldest at the bottom the annual budget covering this year sits right after the current month budget",
+        "categories within a budget · most utilised first an overrun outranks a line just under its limit — utilisation is not clamped at 100%",
+        "categories within a budget · most utilised first orders by spent ÷ limit, highest first",
+        "categories within a budget · most utilised first returns a new array and leaves the input untouched",
+        "categories within a budget · most utilised first spend against a zero limit is the most over; an unused zero limit sorts last",
+        "categories within a budget · most utilised first ties break by larger spend, then label — never by input order"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/cacheBoundary.test.ts",
       "feature": "Storage and synchronization",
       "availability": "available",
@@ -1536,7 +1560,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations",
+      "owner": "recurring / rrule / calculations / budgetOrdering",
       "count": 12,
       "tests": [
         "computeNextDueDate advances monthly schedules from the last generated date",
@@ -1588,7 +1612,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations",
+      "owner": "recurring / rrule / calculations / budgetOrdering",
       "count": 10,
       "tests": [
         "rrule — describe CON-UNIT-RR-020 · human labels",
@@ -1695,7 +1719,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations",
+      "owner": "recurring / rrule / calculations / budgetOrdering",
       "count": 5,
       "tests": [
         "v9.1 §4 — budget identity budgetForecast sums recurring EXPENSE schedules by category; excludes income",

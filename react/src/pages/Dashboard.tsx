@@ -19,6 +19,7 @@ import {
 } from '../lib/selectors';
 import { fmtShort, monthName, nowMonthKey, convert, today, formatDate } from '../lib/format';
 import { budgetLinesForMonth, monthlyData } from '../lib/calculations';
+import { sortByUtilisation } from '../lib/budgetOrdering';
 import Money from '../components/ui/Money';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
 import StartingBaselineBand from '../components/dashboard/StartingBaselineBand';
@@ -266,10 +267,17 @@ export default function Dashboard() {
             <EmptyState icon="◎" message="No budgets yet" />
           ) : (
             <div className="px-4 pt-2.5 pb-1.5">
-              {budgetView.slice(0, 5).map(b => {
+              {/* v10.27.2 — the five most-utilised categories, highest first
+                  (lib/budgetOrdering), not the first five the store returned. */}
+              {sortByUtilisation(
+                budgetView.map(line => ({
+                  b: line,
+                  limitBase: convert(line.limit, line.currency, baseCur, rates),
+                  spent: spend[line.category ?? ''] || 0,
+                })),
+                row => ({ spent: row.spent, limit: row.limitBase, label: getCat(row.b.category ?? '').label }),
+              ).slice(0, 5).map(({ b, limitBase, spent }) => {
                 const cat = getCat(b.category ?? '');
-                const limitBase = convert(b.limit, b.currency, baseCur, rates);
-                const spent = spend[b.category ?? ''] || 0;
                 const pct = limitBase > 0 ? Math.min(100, Math.round(spent / limitBase * 100)) : 0;
                 // Board trough bands: <80 good · 80–99 warn · 100 crit.
                 const color = pct >= 100 ? 'hsl(var(--terra))' : pct >= 80 ? 'hsl(var(--honey))' : 'hsl(var(--sage))';

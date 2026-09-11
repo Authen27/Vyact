@@ -16,6 +16,7 @@ import { spendByCategoryInRange, cumulativeSpendSeries } from '../lib/calculatio
 import { getCat } from '../constants';
 import Money from '../components/ui/Money';
 import BudgetPaceChart from '../components/budgets/BudgetPaceChart';
+import { sortBudgetsForDisplay, sortByUtilisation } from '../lib/budgetOrdering';
 import type { Budget } from '../types';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -57,23 +58,31 @@ export default function Budgets() {
 
   const cur = profile.baseCurrency;
 
+  // §4.2 — nudge: no budget for the CURRENT month.
+  const now = new Date();
+  const nowKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+
   // per-budget resolved view: total, allocations with spend, overall spend.
-  const rows = useMemo(() => budgets.map(b => {
+  // v10.27.2 — budgets run current month → oldest (lib/budgetOrdering), and the
+  // categories inside each run most-utilised first. Display order only.
+  const rows = useMemo(() => sortBudgetsForDisplay(budgets, new Date()).map(b => {
     const start = b.periodStart || '';
     const end = b.periodEnd || '';
     const spendMap = start && end ? spendByCategoryInRange(transactions, start, end, cur, rates) : {};
-    const allocs = allocations.filter(a => a.budgetId === b.id).map(a => ({
-      ...a,
-      limitBase: convert(a.amount, b.currency, cur, rates),
-      spent: spendMap[a.category] || 0,
-    }));
+    const allocs = sortByUtilisation(
+      allocations.filter(a => a.budgetId === b.id).map(a => ({
+        ...a,
+        limitBase: convert(a.amount, b.currency, cur, rates),
+        spent: spendMap[a.category] || 0,
+      })),
+      a => ({ spent: a.spent, limit: a.limitBase, label: getCat(a.category).label }),
+    );
     const totalBase = convert(b.limit, b.currency, cur, rates);
     const spent = allocs.reduce((s, a) => s + a.spent, 0);
     return { b, allocs, totalBase, spent };
-  }), [budgets, allocations, transactions, cur, rates]);
-
-  // §4.2 — nudge: no budget for the CURRENT month.
-  const now = new Date();
+    // nowKey re-sorts when the month rolls over while the page is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [budgets, allocations, transactions, cur, rates, nowKey]);
   const hasCurrentMonth = budgets.some(b => b.scope === 'month'
     && b.periodYear === now.getFullYear() && b.periodMonth === now.getMonth() + 1);
   // Board C — the current-month budget drives the pace hero.
