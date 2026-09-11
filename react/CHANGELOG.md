@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.27.0`** (consumer)
+> **Current production version: `v10.27.1`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,38 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.27.1 — every fixed choice is a plain dropdown *(2026-09-11)*
+
+A follow-up to the UI pilot. **No money figure, schema or stored-row shape changes.**
+
+### Dropdowns
+
+- **Category is a select-only dropdown again**, styled exactly like Add Debt → Type: icon and full label, alphabetical,
+  type-scoped, no typing and no custom values. It replaces the searchable combobox from v10.27.0 in Add/Edit
+  transaction, recurring schedules, splits and the transaction filter (with *All categories*). A saved category that
+  is no longer offered still shows, marked *(saved category)*. Transfers and investments still have no category.
+- **Chip lists that picked one thing are now dropdowns:** recurring *Pay from / Deposit to / Invest from*, *Invest into*
+  and *Owner*; split *Paid with / Paid into*.
+- **Scattered raw selects now share the one control and are labelled:** Settings (date format, language, base currency,
+  number system, payoff strategy), onboarding currency, *Move history to* when deleting an account, and each leg of
+  *Split across accounts*.
+- Short mode/period segments, weekday multi-select and payment-mode chips on accounts are unchanged.
+- `@headlessui/react` is removed; nothing uses it any more.
+
+### Help & Guide
+
+The expense, split, recurring, debt, investment and cash-reconcile screenshots are recaptured with the new controls, and
+the expense instructions describe choosing a category from the dropdown.
+
+### Checks
+
+- Browser specs updated for the dropdowns, plus **CAT-FC-005** for the Settings selects; the category checks compare
+  the control's computed style with Add Debt → Type on mobile and desktop, in both themes.
+- The v10.27.0 fixes are retained: payment mode *Not specified* stays selected, and a local-only investment buy saves
+  and credits the asset.
 
 ---
 

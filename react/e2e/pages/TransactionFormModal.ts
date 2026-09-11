@@ -134,13 +134,8 @@ export class TransactionFormModal {
   // ── chip / field setters ───────────────────────────────────────────────
   async setType(type: TxnType) { await this.dialog.getByTestId(`txn-type-${type}`).check(); }
   async setCategory(id: string) {
-    const label = getCat(id).label;
-    const input = this.dialog.getByTestId('txn-category');
-    // Already selected (e.g. the type's default category): typing the same text
-    // fires no change, so the options never open. Nothing to do.
-    if (await input.inputValue() === label) return;
-    await input.fill(label);
-    await this.dialog.getByRole('option', { name: label, exact: true }).click();
+    const category = getCat(id);
+    await this.dialog.getByTestId('txn-category').selectOption({ label: `${category.icon} ${category.label}` });
   }
   async setDate(date: string) { await this.dateInput.fill(date); }
   async setDescription(text: string) { await this.descriptionInput.fill(text); }

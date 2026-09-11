@@ -62,12 +62,6 @@ export default function AccessibleDialog({
           />
         </Dialog.Overlay>
         <Dialog.Content
-          onEscapeKeyDown={event => {
-            const target = event.target;
-            if (target instanceof Element && target.closest('[role="combobox"][aria-expanded="true"]')) {
-              event.preventDefault();
-            }
-          }}
           onOpenAutoFocus={() => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
           onCloseAutoFocus={event => {
             if (opener.current?.isConnected) { event.preventDefault(); opener.current.focus(); }

@@ -50,8 +50,9 @@ tokens owning appearance rather than per-page classes.
 - Use appropriate native `type`, `inputMode`, `autoComplete` and length limits.
   Do not force uppercase or silently rewrite names/descriptions.
 - Keep the dedicated money amount field and numeric allocation controls. Do not
-  turn categories/accounts into open-text fields: category selection remains the
-  searchable icon + full-label picker already approved.
+  turn categories/accounts into open-text fields: category selection now uses the
+  select-only icon + full-label native dropdown requested on 2026-09-11, matching
+  Add Debt -> Type. That supersedes the earlier searchable-picker approval.
 - Migrate a screen at a time and verify initial focus, long text, error recovery,
   mobile keyboard/footer reachability and both themes. No untested global reset.
 

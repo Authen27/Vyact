@@ -37,14 +37,14 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     answer: 'Expense is money you spend; Income is money you receive. Choose the account involved so its balance stays connected to your entries.',
     steps: [
       'Open Add transaction and select Expense or Income.',
-      'Enter the amount and search the category picker by name. Each option shows its icon and full label.',
+      'Enter the amount and choose a category from the dropdown. Options show an icon and full label; only listed values can be selected.',
       'Check the date, account, description and household member before saving.',
       'To correct an existing entry, open it from Transactions and save your changes instead of adding a duplicate.',
     ],
     note: 'Categories depend on the transaction type. A payment mode describes how you paid; it does not create another movement of money.',
     keywords: ['category', 'receipt', 'edit', 'payment mode', 'date', 'salary', 'purchase'],
     link: { to: '/transactions', label: 'Open Transactions' },
-    image: screenshot('expense', 'Expense entry with the searchable category picker and paying account'),
+    image: screenshot('expense', 'Expense entry with the select-only category dropdown and paying account'),
   },
   {
     id: 'cash-reconcile', group: 'Everyday money',

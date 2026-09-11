@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 import HalfSheet from '../ui/HalfSheet';
 import Button from '../ui/Button';
+import { Select } from '../ui/Input';
 import { Pick } from './ReconcileSheet';
 import { useStore } from '../../store';
 import { fmt } from '../../lib/format';
@@ -224,11 +225,11 @@ export default function DeleteAccountSheet({ account, open, onClose, onDone }: P
               </Pick>
             </div>
             {choice === 'move' && destinations.length > 0 && (
-              <select aria-label="Move history to" value={destination} onChange={e => setDestination(e.target.value)}
-                className="input w-full mb-3">
+              <Select aria-label="Move history to" value={destination} onChange={e => setDestination(e.target.value)}
+                className="mb-3">
                 <option value="">Choose destination…</option>
                 {destinations.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              </Select>
             )}
             <Advice>Archive whenever real activity is attached. Keep permanent delete for accounts you created by mistake and never used.</Advice>
           </div>

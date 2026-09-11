@@ -5,7 +5,7 @@
   },
   "split": {
     "width": 448,
-    "height": 670
+    "height": 732
   },
   "cash-reconcile": {
     "width": 448,
@@ -13,11 +13,11 @@
   },
   "investment-asset": {
     "width": 448,
-    "height": 566
+    "height": 570
   },
   "debt": {
     "width": 448,
-    "height": 812
+    "height": 814
   },
   "recurring": {
     "width": 448,

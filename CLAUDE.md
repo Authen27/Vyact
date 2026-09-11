@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.27.0**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
+  **v10.27.1**. Live: **https://vyact-twentyx.vercel.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -119,13 +119,17 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   every investment. A mode the paying account does not use is **dropped, never an
   error**, in the store and in `whatsapp_log_transaction` alike, so a recurring
   post never fails because a mode was later removed from its account.
-- **Financial category selection (v10.27.0)** uses `components/ui/CategoryPicker.tsx`: one
-  searchable icon + full-label combobox, with metadata from `constants.ts` and
+- **Financial category selection (v10.27.1)** uses `components/ui/CategoryPicker.tsx`: one
+  select-only native `Select` matching Add Debt -> Type, with icon + full-label
+  metadata from `constants.ts` and
   type-scoped options from `lib/categoryOptions.ts`. Use it for transaction,
   recurring and split forms and transaction filters; no separate category tiles
-  or text-only native category selects. Filters may include All categories;
+  or editable category inputs. Filters may include All categories;
   transfers/investments have no category picker. Budget allocation amount rows
   and chart legends retain icon + label display, not selection controls.
+- **Fixed-choice dropdowns (v10.27.1)** — all consumer fixed-choice dropdowns use `Select` from `components/ui/Input.tsx`.
+  No typed custom values or separate editable combobox. Short mode/period choices
+  may remain segmented; names, notes, amounts and invite emails are input fields.
 - **Accounts is a permanent Plan route (v10.27.0)** for every household template. Its
   navigation visibility must not depend on the retired Money Map rollout flag.
 - **Global modals via store slots** — `{entity}ModalOpen`/`editing{Entity}` +
