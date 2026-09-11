@@ -12,7 +12,7 @@ export const groups = [
   group('Categories and ordering', 'available', 'unit', ['categoryModel', 'ordering'], 'constants / categorization / ordering'),
   group('Accounts', 'available', 'unit', ['accountsView'], 'accountsView (card figures · cycles · staleness · summary · delete guard)'),
   group('Formatting and structured content', 'available', 'unit', ['format', 'learnJsonLd'], 'format / learnJsonLd'),
-  group('Recurring and budgets', 'available', 'unit', ['recurring', 'rrule', 'v91'], 'recurring / rrule / calculations'),
+  group('Recurring and budgets', 'available', 'unit', ['recurring', 'rrule', 'v91', 'budgetOrdering'], 'recurring / rrule / calculations / budgetOrdering'),
   group('Onboarding', 'available', 'unit', ['onboarding', 'onboardingWiring', 'onboardingWorkflow'], 'onboarding / wireOnboardingToMoney'),
   group('Reports, Planner, Insights, notifications', 'available', 'unit', ['featureOutputs'], 'calculations / evaluateRecommendations / buildInsightFeed / notifications'),
   group('Permissions and faults', 'available', 'unit', ['permissionsRole', 'faults'], 'permissions / faults'),
