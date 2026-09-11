@@ -12,9 +12,11 @@
 // a value update — never an overwrite, never a transaction. Once money has
 // moved through it, its currency and type are locked: re-denominating or
 // re-typing it would silently change what those buys are worth.
+//
+// v10.28.0 — rendered as the /networth/assets/new and /networth/assets/:id/edit pages.
 
 import { useEffect, useMemo, useState } from 'react';
-import HalfSheet from '../ui/HalfSheet';
+import FormPage from '../ui/FormPage';
 import Button from '../ui/Button';
 import { Input, Select, Field, FieldRow } from '../ui/Input';
 import { useStore } from '../../store';
@@ -26,7 +28,7 @@ import type { Asset } from '../../types';
 interface Props {
   open?: boolean;
   initial?: Asset | null;
-  onClose?: () => void;
+  onClose: () => void;
 }
 
 interface FormState {
@@ -62,12 +64,9 @@ export default function AssetFormModal(props: Props) {
   const rates            = useStore(s => s.rates);
   const toast            = useStore(s => s.toast);
 
-  const storeOpen    = useStore(s => s.assetModalOpen);
-  const storeInitial = useStore(s => s.editingAsset);
-  const storeClose   = useStore(s => s.closeAssetModal);
-  const open         = props.open    ?? storeOpen;
-  const initial      = props.initial ?? storeInitial;
-  const onClose      = props.onClose ?? storeClose;
+  const open         = props.open ?? true;
+  const initial      = props.initial ?? null;
+  const onClose      = props.onClose;
 
   const [form, setForm]     = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);
@@ -178,7 +177,7 @@ export default function AssetFormModal(props: Props) {
   );
 
   return (
-    <HalfSheet open={open} title={initial ? 'Edit Asset' : 'Add Asset'} onClose={onClose} footer={footer}>
+    <FormPage open={open} title={initial ? 'Edit Asset' : 'Add Asset'} onClose={onClose} footer={footer}>
       <FieldRow>
         <Field label="Type">
           <Select value={form.type} disabled={hasActivity}
@@ -250,6 +249,6 @@ export default function AssetFormModal(props: Props) {
         />
       </Field>
 
-    </HalfSheet>
+    </FormPage>
   );
 }

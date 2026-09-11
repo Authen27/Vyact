@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { MotionConfig } from 'framer-motion';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from './store';
 import { useTheme } from './hooks';
 import { onStorageEvent } from './lib/storageEvents';
@@ -12,15 +12,14 @@ import FaultsPanel from './components/dev/FaultsPanel';
 import AuthGate from './components/auth/AuthGate';
 import UpdateBanner from './components/layout/UpdateBanner';
 import InstallBanner from './components/layout/InstallBanner';
+import HistoryRestoration from './components/layout/HistoryRestoration';
+import { bindAppNavigate } from './lib/appNavigation';
+import { isFormRoute } from './lib/formRoutes';
 
 
 import React, { Suspense } from 'react';
-const TransactionFormModal = React.lazy(() => import('./components/transactions/TransactionFormModal'));
-const BudgetFormModal = React.lazy(() => import('./components/budgets/BudgetFormModal'));
-const DebtFormModal = React.lazy(() => import('./components/debts/DebtFormModal'));
-const AssetFormModal = React.lazy(() => import('./components/assets/AssetFormModal'));
-const AccountFormModal = React.lazy(() => import('./components/accounts/AccountFormModal'));
-const SplitFormModal = React.lazy(() => import('./components/splits/SplitFormModal'));
+// v10.28.0 — the entity forms are routed pages (pages/FormPages.tsx), not root modals.
+const FormPages    = React.lazy(() => import('./pages/FormPages'));
 const Dashboard    = React.lazy(() => import('./pages/Dashboard'));
 const Transactions = React.lazy(() => import('./pages/Transactions'));
 const Reports      = React.lazy(() => import('./pages/Reports'));
@@ -56,11 +55,9 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <AuthGate>
-        <ScrollToTop />
+        <HistoryRestoration />
+        <NavigationBridge />
         <AppShell />
-        <Suspense fallback={null}>
-          <RootModals />
-        </Suspense>
         <ToastHost />
         {/* SyncHealthIndicator removed (v10.20.4, product decision).
             It surfaced a "Some changes may not have synced" banner with a
@@ -84,35 +81,15 @@ export default function App() {
   );
 }
 
-// v7.4.1 — Reset window scroll on every pathname change. Without this
-// react-router preserves the previous tab's scroll position, leaving
-// users mid-page when they jump to a new section.
-function ScrollToTop() {
-  const { pathname } = useLocation();
+// v10.28.0 — lets the store's openAdd*/openEdit* actions open the form pages.
+// A Zustand action cannot call useNavigate(), so the live function is bound here.
+function NavigationBridge() {
+  const navigate = useNavigate();
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [pathname]);
+    bindAppNavigate(navigate);
+    return () => bindAppNavigate(null);
+  }, [navigate]);
   return null;
-}
-
-function RootModals() {
-  const txnModalOpen = useStore(s => s.txnModalOpen);
-  const budgetModalOpen = useStore(s => s.budgetModalOpen);
-  const debtModalOpen = useStore(s => s.debtModalOpen);
-  const assetModalOpen = useStore(s => s.assetModalOpen);
-  const accountModalOpen = useStore(s => s.accountModalOpen);
-  const splitModalOpen = useStore(s => s.splitModalOpen);
-
-  return (
-    <>
-      {txnModalOpen ? <TransactionFormModal /> : null}
-      {budgetModalOpen ? <BudgetFormModal /> : null}
-      {debtModalOpen ? <DebtFormModal /> : null}
-      {assetModalOpen ? <AssetFormModal /> : null}
-      {accountModalOpen ? <AccountFormModal /> : null}
-      {splitModalOpen ? <SplitFormModal /> : null}
-    </>
-  );
 }
 
 function AppShell() {
@@ -251,6 +228,18 @@ function AppShell() {
     return (
       <Suspense fallback={<LoadingFallback />}>
         <Onboarding />
+      </Suspense>
+    );
+  }
+
+  // v10.28.0 — the entity forms (Add/Edit Transaction, Split, Debt, Budget,
+  // Account, Asset, and Reconcile Account) are focused full-screen pages. Like
+  // onboarding they render WITHOUT the Layout chrome: just the form, its Close
+  // control and the Save bar.
+  if (isFormRoute(location.pathname)) {
+    return (
+      <Suspense fallback={<div className="min-h-[100dvh]" style={{ background: 'var(--canvas)' }} />}>
+        <FormPages />
       </Suspense>
     );
   }

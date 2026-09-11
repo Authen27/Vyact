@@ -34,7 +34,7 @@ test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
   //     per date segment. Verified as a single input (not four duplicates) before
   //     writing this, so it is browser behaviour, not a defect — but it is
   //     engine-specific and must not be hard-coded as a stop count.
-  test('A11Y-FC-004 · tab order on the transaction form follows the visual order and stays trapped', async ({
+  test('A11Y-FC-004 · tab order on the transaction form follows the visual order and stays on the form', async ({
     page, transactions, txnModal,
   }) => {
     await transactions.goto();
@@ -59,7 +59,7 @@ test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
     await expect(description, 'Description must be reachable from the category row').toBeFocused();
 
     // Waypoint 3: the date control follows Description (via its Today/Yesterday
-    // shortcut buttons), and focus is still inside the dialog.
+    // shortcut buttons), and focus is still on the form page.
     const dateInput = txnModal.dialog.locator('input[type=date]');
     guard = 0;
     while (!(await dateInput.evaluate(el => el === document.activeElement)) && guard < 20) {
@@ -68,16 +68,20 @@ test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
     }
     await expect(dateInput, 'the date field must be reachable by keyboard').toBeFocused();
 
-    // The focus ring must never escape the dialog. Checked with a focusin
-    // recorder rather than a round-trip per Tab: an evaluate() after every
-    // keypress cost minutes of wall clock for a single assertion.
+    // v10.28.0 — the form is a page, not a modal, so there is no focus trap to
+    // test. What must hold instead: tabbing never reaches app chrome. The page
+    // renders without the Layout, so every focusable stop belongs to the form.
+    // (Tabbing past the last control hands focus to the browser's own UI, which
+    // fires no focusin and so is not counted.) Checked with a focusin recorder
+    // rather than a round-trip per Tab: an evaluate() after every keypress cost
+    // minutes of wall clock for a single assertion.
     await page.evaluate(() => {
       const win = window as unknown as { __escapes: string[] };
       win.__escapes = [];
       document.addEventListener('focusin', () => {
-        const dialog = document.querySelector('[role="dialog"]');
+        const form = document.querySelector('main[data-form-page]');
         const el = document.activeElement;
-        if (!dialog || !el || !dialog.contains(el)) {
+        if (!form || !el || !form.contains(el)) {
           win.__escapes.push((el as HTMLElement | null)?.tagName ?? '<none>');
         }
       }, true);
@@ -87,6 +91,6 @@ test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
 
     const escapes = await page.evaluate(() =>
       (window as unknown as { __escapes: string[] }).__escapes);
-    expect(escapes, 'focus escaped the dialog while tabbing').toEqual([]);
+    expect(escapes, 'focus left the form page while tabbing').toEqual([]);
   });
 });

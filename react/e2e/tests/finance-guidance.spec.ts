@@ -94,7 +94,7 @@ test('FIN-FC-002 - Ask examples fill the composer and form shortcuts do not call
       ['Add investment', 'Add Investment'], ['Add a budget', 'Add Budget'], ['Add a debt', 'Add Debt'], ['Add an asset', 'Add Asset'],
     ]) {
       await page.getByRole('button', { name: `Open form: ${label}`, exact: true }).click();
-      const dialog = page.getByRole('dialog', { name: title, exact: true });
+      const dialog = page.getByRole('main', { name: title, exact: true });
       await expect(dialog).toBeVisible();
       if (title === 'Add Transfer' || title === 'Add Investment') await expect(dialog.getByRole('combobox', { name: 'Category', exact: true })).toHaveCount(0);
       await dialog.getByRole('button', { name: 'Close', exact: true }).click();

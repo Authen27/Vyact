@@ -11,8 +11,10 @@
 // Editing is allowed **only while nothing is paid/settled** — split-level fields
 // lock once any participant has paid, and an individual participant's row locks
 // once that person pays/settles.
+//
+// v10.28.0 — rendered as the /splits/new and /splits/:txnId/edit pages.
 import { useEffect, useMemo, useState } from 'react';
-import HalfSheet from '../ui/HalfSheet';
+import FormPage from '../ui/FormPage';
 import Chip from '../ui/Chip';
 import CategoryPicker from '../ui/CategoryPicker';
 import { Field, Select } from '../ui/Input';
@@ -29,7 +31,7 @@ import type { Transaction } from '../../types';
 interface Props {
   open?: boolean;
   initial?: Transaction | null;
-  onClose?: () => void;
+  onClose: () => void;
 }
 
 type SplitType = 'expense' | 'income';
@@ -106,12 +108,9 @@ export default function SplitFormModal(props: Props) {
   const deleteSharedSplitForTxn = useStore(s => s.deleteSharedSplitForTxn);
   const cloudActive = cloudEnabled && currentHouseholdId !== 'local';
 
-  const storeOpen    = useStore(s => s.splitModalOpen);
-  const storeInitial = useStore(s => s.editingSplit);
-  const storeClose   = useStore(s => s.closeSplitModal);
-  const open         = props.open    ?? storeOpen;
-  const initial      = props.initial ?? storeInitial;
-  const onClose      = props.onClose ?? storeClose;
+  const open         = props.open ?? true;
+  const initial      = props.initial ?? null;
+  const onClose      = props.onClose;
 
   const defaultMemberId = useMemo(() => {
     if (session?.user?.id) {
@@ -351,7 +350,7 @@ export default function SplitFormModal(props: Props) {
   const sharesOk = Math.abs(sharesSum - bill) < 0.01 && bill > 0;
 
   return (
-    <HalfSheet open={open} onClose={onClose} title={editing ? 'Edit Split' : 'Add Split'} footer={footer}>
+    <FormPage open={open} onClose={onClose} title={editing ? 'Edit Split' : 'Add Split'} footer={footer}>
       {splitLocked && (
         <div className="mb-3 rounded-md px-3 py-2 text-[0.72rem] leading-snug border border-line text-ink-mid" style={{ background: 'var(--sunken)' }}>
           A member has already settled, so the total, type and settled rows are locked. You can still edit unpaid members.
@@ -481,6 +480,6 @@ export default function SplitFormModal(props: Props) {
           Shares total {sharesSum.toFixed(2)} / total {bill.toFixed(2)} {sharesOk ? '✓' : '— must match'}
         </div>
       </div>
-    </HalfSheet>
+    </FormPage>
   );
 }

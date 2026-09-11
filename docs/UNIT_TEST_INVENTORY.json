@@ -672,7 +672,7 @@
       "feature": "Navigation and category selection",
       "availability": "available",
       "layer": "unit",
-      "owner": "navModel / categoryOptions",
+      "owner": "navModel / categoryOptions / formRoutes",
       "count": 4,
       "tests": [
         "displays a saved legacy alias without silently changing its value or offering it to new entries",
@@ -760,6 +760,20 @@
         "daysUntil CON-UNIT-011 · returns a positive number for a future date",
         "getMonthKey / nowMonthKey CON-UNIT-007 · extracts YYYY-MM from an ISO date",
         "getMonthKey / nowMonthKey CON-UNIT-008 · nowMonthKey is 7 chars (YYYY-MM)"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/formRoutes.test.ts",
+      "feature": "Navigation and category selection",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "navModel / categoryOptions / formRoutes",
+      "count": 3,
+      "tests": [
+        "entity form routes (v10.28.0) builds every form path and recognises each as a form route",
+        "entity form routes (v10.28.0) keeps an id with reserved characters inside one path segment",
+        "entity form routes (v10.28.0) leaves the screens themselves, and non-form sub-paths, to the Layout"
       ]
     },
     {
@@ -1391,7 +1405,7 @@
       "feature": "Navigation and category selection",
       "availability": "available",
       "layer": "unit",
-      "owner": "navModel / categoryOptions",
+      "owner": "navModel / categoryOptions / formRoutes",
       "count": 2,
       "tests": [
         "Accounts has one canonical Plan route shared by navigation and the command palette",

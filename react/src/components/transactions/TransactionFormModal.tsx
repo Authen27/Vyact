@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import HalfSheet from '../ui/HalfSheet';
+import FormPage from '../ui/FormPage';
 import Chip from '../ui/Chip';
 import { Field, Select } from '../ui/Input';
 import SegmentedControl from '../ui/SegmentedControl';
@@ -22,11 +22,13 @@ import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
 import type { Transaction, TxnType, Recurrence, PartPaymentChoice, PaymentMode } from '../../types';
 
 interface Props {
-  /** Optional override props — when omitted, the modal binds to the global store
-   *  state (txnModalOpen / editingTxn / closeTxnModal). Used at App root. */
+  /** v10.28.0 — rendered as the /transactions/new and /transactions/:id/edit
+   *  pages (pages/FormPages.tsx); a routed page is always open. */
   open?: boolean;
   initial?: Transaction | null;
-  onClose?: () => void;
+  /** v7.4.5 — partial values from Ask Vyact or a notification (router state). */
+  seed?: Partial<Transaction> | null;
+  onClose: () => void;
 }
 
 interface FormState {
@@ -142,14 +144,10 @@ export default function TransactionFormModal(props: Props) {
   // v10.26.0 (R4) — investments live in Net Worth; the empty state adds one there.
   const openAddAsset      = useStore(s => s.openAddAsset);
 
-  // Bind to the global store unless explicit props are passed
-  const storeOpen     = useStore(s => s.txnModalOpen);
-  const storeInitial  = useStore(s => s.editingTxn);
-  const storeSeed     = useStore(s => s.seedTxn);
-  const storeClose    = useStore(s => s.closeTxnModal);
-  const open          = props.open    ?? storeOpen;
-  const initial       = props.initial ?? storeInitial;
-  const onClose       = props.onClose ?? storeClose;
+  const open          = props.open ?? true;
+  const initial       = props.initial ?? null;
+  const seedProp      = props.seed ?? null;
+  const onClose       = props.onClose;
 
   const defaultMemberId = useMemo(() => {
     if (session?.user?.id) {
@@ -279,9 +277,9 @@ export default function TransactionFormModal(props: Props) {
         excluded: Boolean(initial.excluded),
       });
     } else {
-      // v7.4.5 — `storeSeed` (from Ask Vyact's two-tap flow, or a notification
+      // v7.4.5 — `seed` (from Ask Vyact's two-tap flow, or a notification
       // deep-action like "Record payment") pre-fills the form and names a track.
-      const seed = storeSeed ?? undefined;
+      const seed = seedProp ?? undefined;
       const initialType: TxnType = (seed?.type as TxnType) ?? 'expense';
       const base = blank(profile.baseCurrency, defaultMemberId, initialType);
       const blankForm: FormState = {
@@ -303,7 +301,7 @@ export default function TransactionFormModal(props: Props) {
     // default-member values are CAPTURED at open (read once, above) and the
     // form is an explicit editor keyed on what it's editing, not a live mirror.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial?.id, storeSeed]);
+  }, [open, initial?.id, seedProp]);
 
   function setType(type: TxnType) {
     setForm(f => ({ ...f, type, category: DEFAULT_CAT_BY_TYPE[type] }));
@@ -527,7 +525,7 @@ export default function TransactionFormModal(props: Props) {
   );
 
   return (
-    <HalfSheet open={open} onClose={onClose} title={modalTitle} footer={footer} className="ui-pilot">
+    <FormPage open={open} onClose={onClose} title={modalTitle} footer={footer} className="ui-pilot">
       <div className="ui-form-stack">
       {/* Track chips — centered row per board M4. */}
       <SegmentedControl label="Transaction type" value={form.type} onChange={setType}
@@ -692,6 +690,6 @@ export default function TransactionFormModal(props: Props) {
       </div>
 
       </div>
-    </HalfSheet>
+    </FormPage>
   );
 }

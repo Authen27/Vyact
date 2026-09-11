@@ -56,7 +56,21 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
   const capture = async (name: string, target: Locator) => {
     await expect(target).toBeVisible();
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'warm'));
-    const buffer = await target.screenshot({ style: '#root { visibility: hidden; } [role="dialog"] { visibility: visible; }' });
+    // A sheet is captured without the screen behind it. A form page (v10.28.0)
+    // IS the screen, so it is captured whole, at a phone-to-tablet width so the
+    // image is the form column rather than a wide page of empty margins. An
+    // element screenshot is taller than the viewport, so for the capture only
+    // the page drops its viewport min-height and its sticky header and Save bar
+    // lie in flow: otherwise a short form gains a blank band and a long form's
+    // Save bar is frozen across its fields wherever the viewport ended.
+    const isSheet = await target.evaluate(element => element.getAttribute('role') === 'dialog');
+    if (!isSheet) await page.setViewportSize({ width: 600, height: 1100 });
+    const buffer = await target.screenshot({
+      style: isSheet
+        ? '#root { visibility: hidden; } [role="dialog"] { visibility: visible; }'
+        : 'main[data-form-page] { min-height: 0 !important; } main[data-form-page] > * { position: static !important; }',
+    });
+    if (!isSheet) await page.setViewportSize({ width: 960, height: 1100 });
     dimensions[name] = { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
     if (process.env.UPDATE_HELP_MEDIA === '1') {
       await mkdir(destination, { recursive: true });
@@ -79,7 +93,7 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
 
   await page.goto('/splits');
   await page.getByRole('button', { name: '+ Add Split', exact: true }).first().click();
-  const split = page.getByRole('dialog', { name: 'Add Split', exact: true });
+  const split = page.getByRole('main', { name: 'Add Split', exact: true });
   await expect(split.getByRole('textbox', { name: 'Amount', exact: true })).toBeFocused();
   await split.getByRole('textbox', { name: 'Amount', exact: true }).fill('84');
   await split.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner with friends');
@@ -91,14 +105,14 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
 
   await page.goto('/accounts');
   await page.getByRole('region', { name: 'Cash in Hand', exact: true }).getByRole('button', { name: 'Reconcile', exact: true }).click();
-  const reconcile = page.getByRole('dialog', { name: 'Cash in Hand', exact: true });
+  const reconcile = page.getByRole('main', { name: 'Cash in Hand', exact: true });
   await expect(reconcile.getByRole('textbox', { name: 'Cash counted', exact: true })).toHaveValue('120');
   await capture('cash-reconcile', reconcile);
   await reconcile.getByRole('button', { name: 'Not now', exact: true }).click();
 
   await page.goto('/networth');
   await page.getByRole('button', { name: /Add Asset/ }).first().click();
-  const asset = page.getByRole('dialog', { name: 'Add Asset', exact: true });
+  const asset = page.getByRole('main', { name: 'Add Asset', exact: true });
   await expect(asset.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused();
   await asset.getByRole('combobox', { name: 'Type', exact: true }).selectOption('investment');
   await asset.getByRole('textbox', { name: 'Name', exact: true }).fill('Index fund');
@@ -108,7 +122,7 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
 
   await page.goto('/debts');
   await page.getByRole('button', { name: '+ Add Debt', exact: true }).click();
-  const debt = page.getByRole('dialog', { name: 'Add Debt', exact: true });
+  const debt = page.getByRole('main', { name: 'Add Debt', exact: true });
   await expect(debt.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused();
   await debt.getByRole('combobox', { name: 'Type', exact: true }).selectOption('auto_loan');
   await debt.getByRole('textbox', { name: 'Name', exact: true }).fill('Car loan');

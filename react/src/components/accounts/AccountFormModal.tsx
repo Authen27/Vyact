@@ -1,6 +1,7 @@
 // Vyact v10.24.0 (Accounts R2) — the type-first account form (design M2 / M3 / D2).
 //
-// Mounted once at App root and toggled by the store's `accountModalOpen` slot.
+// v10.28.0 — rendered as the /accounts/new and /accounts/:id/edit pages; its
+// Reconcile buttons open the /accounts/:id/reconcile page.
 //
 // CREATE — two tabs, Bank | Credit Card.
 //   Bank:        name · current balance · payment modes
@@ -19,13 +20,14 @@
 // investment accounts do not live on the Accounts screen; if one is opened here
 // from elsewhere, only its name is editable.
 import { useEffect, useState } from 'react';
-import HalfSheet from '../ui/HalfSheet';
+import { useNavigate } from 'react-router-dom';
+import FormPage from '../ui/FormPage';
 import Button from '../ui/Button';
 import { Input, Select } from '../ui/Input';
 import SegmentedControl from '../ui/SegmentedControl';
-import ReconcileSheet from './ReconcileSheet';
 import DeleteAccountSheet from './DeleteAccountSheet';
 import { useStore } from '../../store';
+import { formPath } from '../../lib/formRoutes';
 import { uid, fmt } from '../../lib/format';
 import { CURRENCIES } from '../../constants';
 import { computeAccountBalance } from '../../lib/accountBalance';
@@ -38,7 +40,7 @@ import type { Account, AccountKind, PaymentMode } from '../../types';
 interface Props {
   open?: boolean;
   initial?: Account | null;
-  onClose?: () => void;
+  onClose: () => void;
 }
 
 interface FormState {
@@ -77,18 +79,16 @@ export default function AccountFormModal(props: Props) {
   const upsertAccount = useStore(s => s.upsertAccount);
   const toast         = useStore(s => s.toast);
 
-  const storeOpen    = useStore(s => s.accountModalOpen);
-  const storeInitial = useStore(s => s.editingAccount);
-  const storeClose   = useStore(s => s.closeAccountModal);
-  const open         = props.open    ?? storeOpen;
-  const initialProp  = props.initial ?? storeInitial;
-  const onClose      = props.onClose ?? storeClose;
-  // Read the LIVE row, so a reconcile done from this dialog shows immediately.
+  const open         = props.open ?? true;
+  const initialProp  = props.initial ?? null;
+  const onClose      = props.onClose;
+  const navigate     = useNavigate();
+  // Read the LIVE row, so a reconcile done from here shows on return.
   const initial = initialProp ? (accounts.find(a => a.id === initialProp.id) ?? initialProp) : null;
+  const openReconcile = () => { if (initial) navigate(formPath.accountReconcile(initial.id)); };
 
   const [form, setForm]         = useState<FormState>(blank());
   const [saving, setSaving]     = useState(false);
-  const [reconciling, setReconciling] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const isEdit   = !!initial;
@@ -257,7 +257,7 @@ export default function AccountFormModal(props: Props) {
       <div className="flex items-center gap-3 min-h-[54px] px-4 rounded-r2"
         style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
         <span className="num font-bold text-[20px] text-ink flex-1">{fmt(liveBalance, baseCurrency)}</span>
-        <Button variant="ghost" onClick={() => setReconciling(true)}>Reconcile</Button>
+        <Button variant="ghost" onClick={openReconcile}>Reconcile</Button>
       </div>
       <p className="text-[11.5px] text-ink-dim mt-2 leading-snug">Computed from the ledger. If it disagrees with your statement, reconcile it — it is never typed over.</p>
     </Labelled>
@@ -314,7 +314,7 @@ export default function AccountFormModal(props: Props) {
             <span className="num font-bold text-[20px] flex-1" style={{ color: liveBalance < 0 ? 'hsl(var(--honey))' : undefined }}>
               {liveBalance < 0 ? `−${fmt(-liveBalance, baseCurrency)}` : fmt(liveBalance, baseCurrency)}
             </span>
-            <Button variant="ghost" onClick={() => setReconciling(true)}>Reconcile</Button>
+            <Button variant="ghost" onClick={openReconcile}>Reconcile</Button>
           </div>
           <p className="text-[11.5px] text-ink-dim mt-2 leading-snug">Reconcile against your statement outstanding. A disagreement posts a marked adjustment — never a spend.</p>
         </Labelled>
@@ -329,7 +329,7 @@ export default function AccountFormModal(props: Props) {
 
   return (
     <>
-      <HalfSheet open={open} title={title} onClose={onClose} footer={footer} className="ui-pilot" size={isEdit && !isCash && !isSystem ? 'lg' : 'md'}>
+      <FormPage open={open} title={title} onClose={onClose} footer={footer} className="ui-pilot" size={isEdit && !isCash && !isSystem ? 'lg' : 'md'}>
         <div className="ui-form-stack">
         <div className="ui-label">
           {isEdit ? 'Edit account' : 'New account'}
@@ -369,9 +369,8 @@ export default function AccountFormModal(props: Props) {
           </div>
         )}
         </div>
-      </HalfSheet>
+      </FormPage>
 
-      <ReconcileSheet account={initial} open={reconciling} onClose={() => setReconciling(false)} />
       <DeleteAccountSheet account={initial} open={deleting} onClose={() => setDeleting(false)} onDone={onClose} />
     </>
   );

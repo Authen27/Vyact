@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.27.2`** (consumer)
+> **Current production version: `v10.28.0`** (consumer)
 > **Live URL:** https://vyact-twentyx.vercel.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,49 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.28.0 — forms get a page of their own *(2026-09-11)*
+
+The add and edit forms that used to open as a sheet over the screen now open as their own focused,
+full-screen page. **No money, data or permission rule changes** — the fields, validation and saves are the
+same form components as before; only their container and how you reach them changed.
+
+- **Which forms.** Add/Edit Transaction, Add/Edit Split, Add/Edit Debt, Add/Edit Budget, Add/Edit Account,
+  Add/Edit Asset, and Reconcile Account. Each now has an address: `/transactions/new`,
+  `/transactions/:id/edit`, `/splits/new`, `/splits/:id/edit`, `/debts/new`, `/debts/:id/edit`,
+  `/budgets/new`, `/budgets/:id/edit`, `/accounts/new`, `/accounts/:id/edit`, `/accounts/:id/reconcile`,
+  `/networth/assets/new`, `/networth/assets/:id/edit`.
+- **Focused.** No top bar, sub-navigation, tab bar or + button — only a Close control, the form, and its
+  Save bar pinned to the bottom of the screen. Escape still closes the form, unless a sheet opened from it
+  (the delete-account guard) is showing, in which case Escape closes just that sheet.
+- **Back where you came from.** Saving or closing returns to the screen that opened the form, scrolled to
+  where you were, with focus on the button you used. A form reached from a link or after a refresh has
+  nothing behind it, so it closes to its list screen. "Save & add another" stays on the form.
+- **Reconcile** opened from an account's edit page returns to that page. "Let me find what's missing"
+  replaces the reconcile page with the filtered transactions, so Back goes to where reconcile was opened.
+- **Every entry point works as before** — the + button, the N / B / D / A shortcuts, the command palette,
+  Ask Vyact's "Open form" and a notification's "log payment" pre-fill — because the store's
+  `openAdd*` / `openEdit*` actions now open the page instead of a modal.
+- A link to Add/Edit Budget for someone who can't manage budgets goes to Budgets instead of showing a form
+  that could not save. An edit link to something that no longer exists goes to its list.
+- **Still sheets:** the recurring schedule form, household, notifications, filters and the delete-account
+  guard — they were not in this change's scope.
+
+### Under the hood
+- `lib/formRoutes.ts` owns every form path. `pages/FormPages.tsx` resolves each route's entity — read once
+  when the page opens, so a sync refresh never wipes what you typed — and App.tsx renders form routes
+  outside `<Layout>`, like onboarding. `components/ui/FormPage.tsx` replaces `HalfSheet` for these forms
+  with the same props, as a `main` landmark named by its title.
+- `modalSlice` drops the six `{entity}ModalOpen` / `editing{Entity}` / `close{Entity}Modal` slots and
+  `seedTxn`. `lib/appNavigation.ts` binds the router's navigate for store actions; a seed travels as router
+  state.
+- `components/layout/HistoryRestoration.tsx` replaces `ScrollToTop`: moving forward to a new path still
+  starts at the top, while Back restores scroll position and focus.
+- Tests: new `formRoutes` unit cases. The e2e page objects and specs that located these forms as dialogs
+  now locate the page's `main` landmark; CON-E2E-043 (focus back on the opener) and A11Y-FC-004 (tabbing
+  never leaves the form) are reworded for a page.
+- Help guide: the expense, split, cash-reconcile, investment-asset and debt screenshots
+  (`public/help/current/`, `lib/helpMedia.json`) were recaptured from the new pages by HELP-FC-001.
 
 ## v10.27.2 — budgets in the order you read them *(2026-09-11)*
 
