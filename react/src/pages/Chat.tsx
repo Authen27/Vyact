@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Send, MessageCircle, Trash2, Mic, PencilLine, Plus, List } from 'lucide-react';
+import { Send, MessageCircle, Trash2, Mic, PencilLine, List } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -12,7 +11,7 @@ import type { AssistantChip } from '../lib/askVyactResponses';
 import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
 import {
-  BUCKET_LABEL, intentsByBucket, intentExample, type Bucket, type IntentAction,
+  BUCKET_LABEL, intentsByBucket, intentExample, type Bucket,
 } from '../lib/askVyactIntents';
 import { isAskVyactEnabled, FEATURES } from '../config/features';
 import {
@@ -44,7 +43,6 @@ const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan'];
  *  board-spec header, so the page title block is suppressed to avoid showing
  *  two headings. The /chat route renders it standalone (embedded=false). */
 export default function Chat({ embedded = false }: { embedded?: boolean } = {}) {
-  const navigate = useNavigate();
   const txns    = useStore(s => s.transactions);
   const budgets = useStore(s => s.budgets);
   const goals   = useStore(s => s.goals);
@@ -58,9 +56,6 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   const recurring = useStore(s => s.recurringSchedules);
   const householdId = useStore(s => s.currentHouseholdId);
   const openAddTxn    = useStore(s => s.openAddTxn);
-  const openAddBudget = useStore(s => s.openAddBudget);
-  const openAddDebt   = useStore(s => s.openAddDebt);
-  const openAddAsset  = useStore(s => s.openAddAsset);
   const toast         = useStore(s => s.toast);
 
   const [history, setHistory] = useState<ChatMessage[]>(() => {
@@ -137,24 +132,6 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     // Run once on mount; summary is stable enough for a first-open insight.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function dispatchAction(action: IntentAction, intentId: string, taps: 1 | 2) {
-    // Telemetry: privacy-safe — only the chip id + bucket + tap depth.
-    console.debug('[ask-vyact-intent]', { id: intentId, taps });
-    if (action.kind === 'open-modal') {
-      switch (action.modal) {
-        case 'addTxn':    openAddTxn(action.seed); break;
-        case 'addBudget': openAddBudget(); break;
-        case 'addDebt':   openAddDebt();   break;
-        case 'addAsset':  openAddAsset();  break;
-      }
-      setShowExamples(false);
-    } else if (action.kind === 'navigate') {
-      navigate(action.to);
-    } else if (action.kind === 'ask') {
-      prepareQuestion(action.prompt);
-    }
-  }
 
   function prepareQuestion(question: string) {
     setInput(question);
@@ -415,8 +392,8 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             OF LABOUR, which is true and is the reassurance that actually
             matters, rather than a guarantee the code does not make. */}
         <p className="text-[11.5px] text-ink-mid leading-[1.4]">
-          <strong className="text-ink">Vyact does the maths, not the model.</strong> Every amount comes from your own
-          data, calculated here. The model reads your question and puts the answer into words.
+          <strong className="text-ink">Vyact does the maths.</strong> Every amount comes from your own
+          data, calculated here — Ask Vyact only puts the answer into words.
         </p>
       </div>
 
@@ -444,9 +421,9 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             <div className="py-2">
                 <>
                   <div className="text-sm text-ink-mid mb-3 leading-relaxed">
-                    Use an example, replace its details, then Send. Form shortcuts open an editor without asking the model or saving a record.
+                    Use an example, replace its details, then Send.
                   </div>
-                  <p className="text-xs text-ink-dim mb-4">Examples use your household currency. Check accounts, dates and amounts before saving a proposed transaction. Answers need a reachable model service.</p>
+                  <p className="text-xs text-ink-dim mb-4">Examples use your household currency. Check accounts, dates and amounts before saving a proposed transaction. Ask Vyact needs to be reachable to answer.</p>
                   {/* Board D M6 §.intent — the empty state IS the hero: intent
                       rows in the four production buckets, each an inset icon
                       tile beside its label. */}
@@ -473,12 +450,6 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                                 </div>
                                 {example && <p className="text-sm text-ink-mid mt-2 leading-relaxed [overflow-wrap:anywhere]">{example}</p>}
                                 {intent.inputHint && <p className="text-xs text-ink-dim mt-2 leading-relaxed">{intent.inputHint}</p>}
-                                {intent.action?.kind === 'open-modal' && <div className="flex items-center gap-2 flex-wrap mt-2">
-                                  <Button variant="ghost" aria-label={`Open form: ${intent.label}`}
-                                    onClick={() => dispatchAction(intent.action!, intent.id, 1)} disabled={thinking}>
-                                    <Plus size={14} aria-hidden /> Open form
-                                  </Button>
-                                </div>}
                               </div>;
                             })}
                           </div>

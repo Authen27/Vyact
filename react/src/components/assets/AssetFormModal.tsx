@@ -177,7 +177,7 @@ export default function AssetFormModal(props: Props) {
   );
 
   return (
-    <FormPage open={open} title={initial ? 'Edit Asset' : 'Add Asset'} onClose={onClose} footer={footer}>
+    <FormPage open={open} title={initial ? 'Edit Asset' : 'Add Asset'} onClose={onClose} footer={footer} helpTopicId="assets">
       <FieldRow>
         <Field label="Type">
           <Select value={form.type} disabled={hasActivity}

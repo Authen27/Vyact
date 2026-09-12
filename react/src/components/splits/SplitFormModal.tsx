@@ -350,7 +350,7 @@ export default function SplitFormModal(props: Props) {
   const sharesOk = Math.abs(sharesSum - bill) < 0.01 && bill > 0;
 
   return (
-    <FormPage open={open} onClose={onClose} title={editing ? 'Edit Split' : 'Add Split'} footer={footer}>
+    <FormPage open={open} onClose={onClose} title={editing ? 'Edit Split' : 'Add Split'} footer={footer} helpTopicId="split">
       {splitLocked && (
         <div className="mb-3 rounded-md px-3 py-2 text-[0.72rem] leading-snug border border-line text-ink-mid" style={{ background: 'var(--sunken)' }}>
           A member has already settled, so the total, type and settled rows are locked. You can still edit unpaid members.

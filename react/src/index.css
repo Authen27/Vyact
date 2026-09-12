@@ -605,6 +605,10 @@ body::before {
 .reading-surface :is(h2, h3, .font-medium, .font-semibold),
 .ui-pilot.reading-surface .ui-field > label { font-weight: 400; }
 .reading-surface strong { font-weight: 500; }
+/* Help & Guide's page title stays at the bold display weight, matching
+   Settings/Households — the reading-surface lightening above is for body
+   copy and subheadings, not the h1 itself. */
+.help-guide > header h1.display-italic { font-weight: 600; }
 .field-control.ff-select {
   min-width: 0;
   max-width: 100%;

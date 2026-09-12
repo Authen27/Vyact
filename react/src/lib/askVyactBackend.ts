@@ -483,7 +483,7 @@ export async function runAssistant(
 export type UnavailableReason = 'not_configured' | 'unreachable' | 'unverified_figures';
 
 const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
-  not_configured: "Ask Vyact isn't set up yet — no assistant model is configured.",
+  not_configured: "Ask Vyact isn't set up yet.",
   unreachable: "I can't reach the assistant right now. Your data is untouched — please try again shortly.",
   unverified_figures: "I couldn't verify the numbers in that answer, so I haven't shown it. Please ask again.",
 };

@@ -329,7 +329,7 @@ export default function AccountFormModal(props: Props) {
 
   return (
     <>
-      <FormPage open={open} title={title} onClose={onClose} footer={footer} className="ui-pilot" size={isEdit && !isCash && !isSystem ? 'lg' : 'md'}>
+      <FormPage open={open} title={title} onClose={onClose} footer={footer} className="ui-pilot" size={isEdit && !isCash && !isSystem ? 'lg' : 'md'} helpTopicId="accounts-cards">
         <div className="ui-form-stack">
         <div className="ui-label">
           {isEdit ? 'Edit account' : 'New account'}

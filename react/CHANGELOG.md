@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.33.2`** (consumer)
+> **Current production version: `v10.34.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,38 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.34.0 — Contextual help on every form, and an internal-wording audit *(2026-09-12)*
+
+- **Removed the "Open form" shortcut from Ask Vyact.** The intent list's per-bucket "Open form:
+  ___" buttons (Add expense/income/transfer/investment/budget/debt/asset) are gone; the newly-dead
+  `dispatchAction` open-modal path, and the `openAddBudget`/`openAddDebt`/`openAddAsset` store
+  hooks it alone called, were removed with it. `openAddTxn` stays — it is still used separately
+  when a proposed-transaction reply seeds the Add Transaction form. Relocated the one piece of real
+  coverage this shortcut carried (a transfer/investment transaction has no Category field) into
+  `transactions-create.spec.ts` as `CON-E2E-055`, opened via the real Add Transaction entry point.
+- **A help icon on every entity form page.** `components/ui/FormPage.tsx` (the shared container
+  for all seven routed forms — transaction, split, debt, budget, account, asset, reconcile) takes
+  a new `helpTopicId` prop: an (i) button in the header opens a `HalfSheet` showing that Help &
+  Guide FAQ entry, verbatim — via a new shared `HelpTopicBody` (extracted from `Help.tsx`, so the
+  two surfaces render the identical answer/steps/note, never a second copy that can drift) and
+  `HelpInfoButton`. Each form is matched to its own topic; the transaction form picks
+  `expense-income`/`transfer`/`investment` dynamically from the selected type.
+- **Help & Guide's page title now matches Settings/Households.** Its `<h1>` sat inside both
+  `.ui-pilot` and `.reading-surface`, which together lightened it to `font-weight: 400` — the
+  general "reading" weight meant for body copy and subheadings, not a page title. Added a scoped
+  override (`.help-guide > header h1.display-italic`) so the title stays at the bold `600` the
+  rest of the page's `display-italic` headings use elsewhere in the app, and fixed its bottom
+  margin (`mb-related`, not a real Tailwind utility — silently generated no CSS at all) to
+  `mb-1.5`, matching Settings/Households exactly.
+- **Removed internal-engine wording from user-facing copy.** "The model" — accurate but
+  meaningless to someone using the app — appeared in the Ask Vyact drawer/chat privacy line, the
+  chat screen's empty-state copy, the "Ask Vyact isn't set up yet" and "Why is Ask Vyact
+  unavailable?" strings. Reworded each to describe what happens (Vyact/Ask Vyact does X) rather
+  than which internal service does it, preserving the underlying claim each was making — audited
+  `pages/`, `components/`, and `lib/helpContent.ts` for the same pattern; **not** touched:
+  `Privacy.tsx`'s "How Ask Vyact uses a language model" section, which is a deliberate, accurate
+  disclosure of what a data-sharing policy requires, not incidental engine trivia.
 
 ## v10.33.2 — Landing page uses the real Pip logo *(2026-09-12)*
 

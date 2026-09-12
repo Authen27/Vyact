@@ -160,7 +160,7 @@ export default function DebtFormModal(props: Props) {
   );
 
   return (
-    <FormPage open={open} title={initial ? 'Edit Debt' : 'Add Debt'} onClose={onClose} footer={footer}>
+    <FormPage open={open} title={initial ? 'Edit Debt' : 'Add Debt'} onClose={onClose} footer={footer} helpTopicId="debt">
       {/* v10.17 — "Owed to me" (receivables) is deprecated from the UI; debts
           are liabilities only. The direction/counterparty model is retained in
           the data layer (reversible), just never surfaced here. */}

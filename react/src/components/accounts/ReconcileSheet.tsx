@@ -114,7 +114,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
   );
 
   return (
-    <FormPage open={open} onClose={onClose} title={account.name} footer={footer}>
+    <FormPage open={open} onClose={onClose} title={account.name} footer={footer} helpTopicId="cash-reconcile">
       <p className="text-[0.84rem] text-ink-dim -mt-1 mb-4">{isCash ? 'Reconcile cash on hand' : 'Reconcile against your statement'}</p>
 
       <label className="block font-mono text-[8.5px] tracking-[0.14em] uppercase text-ink-dim mb-1.5" htmlFor="recon-stated">
