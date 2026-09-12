@@ -535,11 +535,9 @@ export default function TransactionFormModal(props: Props) {
         options={TYPE_CHIPS.map(item => ({ value: item.type, label: item.label,
           disabled: !!initial && item.type !== form.type, testId: `txn-type-${item.type}` }))} />
 
-      {/* Amount hero — bare on the sheet per board M4 (no field chrome). The
-          caret lands here on a fresh entry (not on edits, where a value already
-          exists) so users stop typing amounts into the description field. */}
+      {/* Amount hero — bare on the sheet per board M4 (no field chrome). */}
       <div className="py-1 mb-1">
-        <AmountField value={form.amount} currencySymbol={currencySymbol} autoFocus={!initial}
+        <AmountField value={form.amount} currencySymbol={currencySymbol}
           onChange={v => setForm(f => ({ ...f, amount: v }))} />
       </div>
 

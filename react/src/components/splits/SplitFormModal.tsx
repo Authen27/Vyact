@@ -369,7 +369,7 @@ export default function SplitFormModal(props: Props) {
 
       {/* Total amount hero. */}
       <div className="py-1 mb-1">
-        <AmountField value={form.amount} currencySymbol={currencySymbol} autoFocus={!editing}
+        <AmountField value={form.amount} currencySymbol={currencySymbol}
           onChange={splitLocked ? () => {} : v => setForm(f => ({ ...f, amount: v }))} />
       </div>
       <div className="text-center mono-label mb-2">Total {isIncome ? 'payout' : 'bill'} — only your share counts toward you</div>

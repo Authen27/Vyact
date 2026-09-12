@@ -6,7 +6,7 @@
 
 | App | Path | Current | Live URL | Per-app changelog |
 |---|---|---|---|---|
-| **Consumer (React)** | `react/` | **v10.34.0** | https://vyact.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
+| **Consumer (React)** | `react/` | **v10.35.0** | https://vyact.app | [`react/CHANGELOG.md`](react/CHANGELOG.md) |
 | **Admin** | `admin/` | **v1.3.2** | https://admin.vyact.app | [`admin/CHANGELOG.md`](admin/CHANGELOG.md) |
 | **Database (Supabase)** | `supabase/migrations/` | **td-08-09-13-honest-residuals** | n/a — auto-applied by `deploy.yml` via `supabase db push` (TD-20 / PR #16) | [`db/MIGRATIONS.md`](db/MIGRATIONS.md) |
 | **Vanilla shell (archived)** | removed in v7.0.1 | **v5.0** *(final)* | archived — see git history | [§ Vanilla shell history](#vanilla-shell-history-v10--v50) below |

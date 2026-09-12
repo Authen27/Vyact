@@ -41,12 +41,21 @@ test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
     await transactions.openAdd();
     await txnModal.waitOpen();
 
-    // Amount takes initial focus — the first thing you type on a money form.
-    await expect(txnModal.dialog.getByLabel('Amount', { exact: true })).toBeFocused();
+    // Initial focus lands on the page heading (v10.35.0 — Amount no longer
+    // auto-focuses, so opening the form doesn't pop the OS keyboard uninvited).
+    await expect(txnModal.dialog.getByRole('heading', { level: 1 })).toBeFocused();
 
-    // Waypoint 1: the first category chip.
-    await page.keyboard.press('Tab');
-    await expect(txnModal.dialog.getByTestId('txn-category')).toBeFocused();
+    // Waypoint 1: the first category chip. Walk forward without assuming how
+    // many stops precede it (the header help icon, the transaction-type
+    // radiogroup, Amount) — those are an implementation detail, not the
+    // ordering this test pins.
+    const categoryPicker = txnModal.dialog.getByTestId('txn-category');
+    let headGuard = 0;
+    while (!(await categoryPicker.evaluate(el => el === document.activeElement)) && headGuard < 20) {
+      await page.keyboard.press('Tab');
+      headGuard++;
+    }
+    await expect(categoryPicker, 'Category picker must be reachable by Tab from the heading').toBeFocused();
 
     // Waypoint 2: Description comes after the whole category row. Walk forward
     // until it has focus rather than assuming the chip count.

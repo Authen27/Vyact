@@ -83,7 +83,6 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
   await expect(page.getByText('Monthly salary', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Add transaction/i }).first().click();
   await txnModal.waitOpen();
-  await expect(txnModal.amountDisplay).toBeFocused();
   await txnModal.setAmount(42);
   await txnModal.setCategory('groceries');
   await txnModal.setDescription('Weekly groceries');
@@ -94,7 +93,6 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
   await page.goto('/splits');
   await page.getByRole('button', { name: '+ Add Split', exact: true }).first().click();
   const split = page.getByRole('main', { name: 'Add Split', exact: true });
-  await expect(split.getByRole('textbox', { name: 'Amount', exact: true })).toBeFocused();
   await split.getByRole('textbox', { name: 'Amount', exact: true }).fill('84');
   await split.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner with friends');
   await split.getByRole('combobox', { name: 'Paid with', exact: true }).selectOption('cash');
