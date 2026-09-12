@@ -36,6 +36,7 @@ const Accounts     = React.lazy(() => import('./pages/Accounts'));
 const Splits       = React.lazy(() => import('./pages/Splits'));
 const Help         = React.lazy(() => import('./pages/Help'));
 const Insights     = React.lazy(() => import('./pages/Insights'));
+const Landing      = React.lazy(() => import('./pages/Landing'));
 const Privacy      = React.lazy(() => import('./pages/Privacy'));
 const Terms        = React.lazy(() => import('./pages/Terms'));
 const Cookies      = React.lazy(() => import('./pages/Cookies'));
@@ -200,6 +201,19 @@ function AppShell() {
     );
   }
 
+  // Landing page (rendered without Layout, and BEFORE the `loading` gate below,
+  // for the same reason legal docs are above) — an anonymous visitor or crawler
+  // hitting "/" must see content immediately, not an indefinite "Loading…"
+  // spinner (cloud-mode `loading` only resolves once init() runs, which never
+  // happens for a signed-out session).
+  if (location.pathname === '/') {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <Landing />
+      </Suspense>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -247,7 +261,6 @@ function AppShell() {
     <Layout>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
-          <Route path="/"             element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard"    element={<Dashboard />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/reports"      element={<Reports />} />

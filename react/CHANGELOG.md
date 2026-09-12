@@ -4,8 +4,8 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.32.0`** (consumer)
-> **Live URL:** https://vyact-twentyx.vercel.app
+> **Current production version: `v10.33.0`** (consumer)
+> **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
 > clients viewing the same household stay consistent. Promotes to `'on'` in
@@ -24,6 +24,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.33.0 — vyact.app: a real domain, a public landing page *(2026-09-12)*
+
+The consumer app's public identity moves from `vyact-twentyx.vercel.app` to **`vyact.app`**, and a
+signed-out visitor to the bare domain now sees a real landing page instead of an immediate
+redirect into the dashboard.
+
+- **Landing page at `/`.** A new `pages/Landing.tsx`, rendered Layout-less and before the
+  `loading` gate (same reasoning as the legal-doc routes) so it shows instantly for an anonymous
+  visitor or crawler. Hero, six short feature highlights drawn from this doc's own existing
+  descriptions (money model, budgets, Ask Vyact, WhatsApp logging, the Insights Hub, and
+  household sharing), and a call to action that reads real auth state:
+  - signed in → "Go to Dashboard";
+  - signed out (cloud mode) → "Sign in" / "Get started";
+  - local-only mode (no Supabase env) → a single "Open Vyact" straight into the app, since there
+    is no sign-in concept there.
+  - `AuthGate.tsx` now treats `/` as public via an **exact-match** check — not by adding it to
+    `PUBLIC_ROUTES`' `.startsWith()` scan, which would have silently disabled the sign-in gate
+    for every route in the app.
+  - The old `<Route path="/" element={<Navigate to="/dashboard"/>}/>` is removed; `/dashboard`
+    remains the stable authenticated destination everything else already points to.
+- **Every hardcoded reference to the old domain is gone**: `VITE_APP_URL` (drives every
+  `emailRedirectTo`/`redirectTo` for sign-up, magic-link, OAuth and password-reset), the shareable
+  "Learn" link base, the `/learn` · `/sitemap.xml` · `/robots.txt` server routes, `index.html`'s
+  OG/Twitter/JSON-LD, and the `ask-vyact` Edge Function's CORS allowlist default all now say
+  `vyact.app`.
+- **A real support inbox**: `support@vyact.app` replaces the personal Gmail address that Help,
+  Privacy, Terms and Cookies had all labeled "(temporary support inbox)".
+- **Fix — two e2e helpers that assumed `/` redirects.** `DashboardPage.goto()` now navigates
+  straight to `/dashboard` (and waits for the shell to actually render, since a direct navigation
+  resolves faster than the old client-side redirect did) rather than relying on a redirect that no
+  longer happens; `CON-E2E-001` and `ONB-FC-004` were updated the same way, and a new
+  `CON-E2E-054` covers the landing page itself in local-only mode.
+- No money, data or permission-model change. `vyact-twentyx.vercel.app` continues to work during
+  the cutover; Supabase's Redirect URLs and CORS allowlists carry both domains during a
+  transition window before the old entries are retired.
 
 ## v10.32.0 — an approval-aware bill calendar *(2026-09-11)*
 

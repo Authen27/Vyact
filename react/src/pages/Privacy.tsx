@@ -139,7 +139,7 @@ export default function Privacy() {
           <><strong className="text-ink">Portability</strong> — receive your data in a structured, machine-readable format (JSON/CSV).</>,
           <><strong className="text-ink">Withdraw consent</strong> — contact us to withdraw consent for optional processing (e.g. WhatsApp linking) without affecting the lawfulness of prior processing.</>,
         ]} />
-        <p>To exercise any right not self-serviceable in the app, email <a href="mailto:uday.kr27@gmail.com?subject=Vyact%20Privacy%20rights%20request" className="text-coral hover:underline">uday.kr27@gmail.com</a> (temporary support inbox). We respond to verifiable requests within 30 days (or the timeframe required by your local law, if shorter).</p>
+        <p>To exercise any right not self-serviceable in the app, email <a href="mailto:support@vyact.app?subject=Vyact%20Privacy%20rights%20request" className="text-coral hover:underline">support@vyact.app</a>. We respond to verifiable requests within 30 days (or the timeframe required by your local law, if shorter).</p>
       </Section>
 
       <Section title="7. Data erasure, deactivation, and deletion — what actually happens" id="erasure">
@@ -193,8 +193,8 @@ export default function Privacy() {
       <Section title="14. Contact" id="contact">
         <p>
           Questions about this policy or your data can be raised by emailing{' '}
-          <a href="mailto:uday.kr27@gmail.com?subject=Vyact%20Privacy%20question" className="text-coral hover:underline">uday.kr27@gmail.com</a>{' '}
-          (temporary support inbox — more channels are coming), or via the{' '}
+          <a href="mailto:support@vyact.app?subject=Vyact%20Privacy%20question" className="text-coral hover:underline">support@vyact.app</a>,{' '}
+          or via the{' '}
           <Link to="/help#contact" className="text-coral hover:underline">Help → Contact support</Link> form once signed in.
         </p>
       </Section>

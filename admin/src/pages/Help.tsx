@@ -52,7 +52,7 @@ const SECTIONS: Section[] = [
 
   // ─── Operational ─────────────────────────────────────────────
   { q: 'Where is the production deployment?', audience: ['super','roles','content'],
-    a: 'Consumer at https://react-taupe-xi.vercel.app · Admin at admin.* (set via VITE_APP_URL secret in GitHub Actions). Both deploy on push to main via .github/workflows/deploy.yml.' },
+    a: 'Consumer at https://vyact.app · Admin at https://admin.vyact.app. Both apps read their public URL from a committed VITE_APP_URL in react/.env.production / admin/.env.production, not a GitHub Actions secret. Both deploy on push to main via .github/workflows/deploy.yml.' },
   { q: 'How do I check what an admin did?', audience: ['super','roles'],
     a: 'Audit Log filters by actor email and action type. The diff column shows the before/after JSON for any row mutation. The IP column logs the originating address. Logs are retained for the lifetime of the project.' },
   { q: 'What if I see an error or unexpected behavior?', audience: ['super','roles','content'],

@@ -51,7 +51,7 @@ supabase secrets set RESEND_API_KEY=re_your_key_here \
   SPLIT_EMAIL_FROM="Vyact <splits@yourdomain.com>"
 
 # optional (all) — link target in emails; defaults to the live app URL:
-supabase secrets set APP_URL=https://vyact-twentyx.vercel.app
+supabase secrets set APP_URL=https://vyact.app
 ```
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically — do

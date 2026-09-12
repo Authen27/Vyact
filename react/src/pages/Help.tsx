@@ -5,7 +5,7 @@ import Button from '../components/ui/Button';
 import { Field, Input, Textarea } from '../components/ui/Input';
 import { HELP_TOPICS, searchHelpTopics, type HelpTopic } from '../lib/helpContent';
 
-const SUPPORT_EMAIL = 'uday.kr27@gmail.com';
+const SUPPORT_EMAIL = 'support@vyact.app';
 const GROUPS: HelpTopic['group'][] = ['Start here', 'Everyday money', 'Planning', 'Access and support'];
 
 function GuideImage({ image }: { image: NonNullable<HelpTopic['image']> }) {

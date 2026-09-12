@@ -171,6 +171,7 @@ The Vitest roster is the generated JSON above. The following historical browser 
 | CON-E2E-052 | `react/e2e/tests/budget-editor.spec.ts` | one row per category, so a duplicate allocation is unrepresentable | Catalogued during the 2026-09-09 reconciliation pass. |
 | CON-E2E-053 | `react/e2e/tests/budgets.spec.ts` | an annual budget is accepted alongside monthly | Replaces the retired CON-E2E-020/021. `month` and `annual` are the only two scopes left, so annual is what "non-monthly" now means. |
 | CON-E2E-043 | `react/e2e/tests/dialog-correction.spec.ts` | Budget form page title bounds, and focus back on its opener after closing, at desktop and mobile sizes | Playwright browser workflow. v10.28.0: the form became a routed page, so "restores focus" is now proven across a history back, not a dialog close. |
+| CON-E2E-054 | `react/e2e/tests/smoke.spec.ts` | the landing page itself renders at "/" in local-only mode with a single dashboard CTA | Added v10.33.0: "/" now renders the public Landing page instead of redirecting to /dashboard; CON-E2E-001/ONB-FC-004 were updated to reach the dashboard via `dashboard.goto()` (→ /dashboard directly) instead. |
 
 ## 5. Retired IDs
 

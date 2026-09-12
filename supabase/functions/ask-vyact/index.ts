@@ -111,8 +111,8 @@ const env = (k: string, fallback = ''): string => Deno.env.get(k) ?? fallback;
 // are DELIBERATELY not defaulted in: this endpoint spends money, and an
 // allowlisted origin is a standing capability, not a convenience. Add them
 // explicitly for a dev project:
-//   supabase secrets set ASK_VYACT_ALLOWED_ORIGINS="https://vyact-twentyx.vercel.app,http://localhost:5173"
-const DEFAULT_ORIGINS = ['https://vyact-twentyx.vercel.app'];
+//   supabase secrets set ASK_VYACT_ALLOWED_ORIGINS="https://vyact.app,http://localhost:5173"
+const DEFAULT_ORIGINS = ['https://vyact.app'];
 
 const ALLOWED_ORIGINS: string[] = (() => {
   const configured = env('ASK_VYACT_ALLOWED_ORIGINS')

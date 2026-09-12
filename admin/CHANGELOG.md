@@ -4,10 +4,22 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.3.1`**
-> **Live URL:** https://vyact-admin.vercel.app
+> **Current production version: `v1.3.2`**
+> **Live URL:** https://admin.vyact.app
 
 ---
+
+## v1.3.2 — admin.vyact.app *(2026-09-12)*
+
+The admin app's public identity moves from `vyact-admin.vercel.app` to **`admin.vyact.app`**, a
+true subdomain of the consumer app's new `vyact.app` domain. `VITE_APP_URL` in
+`admin/.env.production` updated to match; the live-URL reference in the in-app FAQ
+(`pages/Help.tsx`) corrected — it had drifted to an even older orphaned URL
+(`react-taupe-xi.vercel.app`) and a stale description of how `VITE_APP_URL` is set. No Supabase
+changes needed for this move: admin sign-in is `signInWithPassword` only (no
+`emailRedirectTo`/`redirectTo`), and nothing in `admin/src` calls a Supabase Edge Function, so
+neither Auth's Redirect URLs nor CORS is affected. `vyact-admin.vercel.app` continues to work
+during the cutover.
 
 ## v1.3.1 — Infographic upload on every Content item *(2026-07-04)*
 
