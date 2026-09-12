@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.33.0`** (consumer)
+> **Current production version: `v10.33.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,29 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.33.1 — Landing page redesign, matching the Airo-drafted marketing copy *(2026-09-12)*
+
+`pages/Landing.tsx` rebuilt to mirror the structure and copy of the marketing page drafted in
+GoDaddy Airo Builder, rendered with Vyact's own Aurora tokens (so a visitor lands in a visual
+language consistent with the app they click into, rather than a one-off pastiche):
+
+- Hero: "Your household deserves to understand its money."
+- "Sound familiar?" — three pain-point cards (money tracked in too many places; the month ends
+  with no idea where it went; net worth as a spreadsheet chore).
+- "One app. Everything your household needs." — Track / Understand / Plan / Build, four feature
+  cards with `lucide-react` icons.
+- A coral "Meet your Pulse Score" spotlight — captioned as an illustrative score, since Pulse is
+  hidden by default on the real Dashboard (`FEATURES.dashboard`, v10.27.0) and a specific number
+  shown to an anonymous visitor is never real household data.
+- "Your money, explained back to you" — three sample Insights, captioned "Example household, not
+  your data," the same honesty convention `Help.tsx`'s guide screenshots already use.
+- Footer tagline "Built for Indian households. Privacy-first, no bank connection required."
+
+The session-aware CTA logic from v10.33.0 (signed in → Dashboard; signed out → Sign in / Get
+started; local-only → straight into the app) is unchanged — only the page's content and layout
+moved. Updated `CON-E2E-054`'s heading/link assertions to match the new copy and the now-multiple
+"Open Vyact" links on the page (hero, final CTA, footer) — scoped to `exact: true` + `.first()`.
 
 ## v10.33.0 — vyact.app: a real domain, a public landing page *(2026-09-12)*
 
