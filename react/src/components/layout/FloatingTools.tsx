@@ -55,7 +55,8 @@ interface DrawerProps {
 }
 /** Board D3 — a right GLASS drawer over the dimmed app, so you keep your
  *  context while you ask. Header carries the ✦ tile, the name and the honesty
- *  line; the footer states how to leave.
+ *  line. Esc and click-outside still close it (wired above); v10.35.0 dropped
+ *  the footer line stating that, giving the composer the reclaimed space.
  *
  *  v10.20 — that line used to read "On-device · private". Removing
  *  `RulesBackend` made it false: a question now leaves the device for the
@@ -98,9 +99,6 @@ function Drawer({ title, onClose, children }: DrawerProps) {
         </div>
         <div className="flex-1 min-h-0 flex flex-col p-4">
           {children}
-        </div>
-        <div className="px-4 py-2 border-t border-line">
-          <span className="mono-label text-ink-dim">Esc or click outside to close</span>
         </div>
       </div>
     </div>

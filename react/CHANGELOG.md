@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.34.0`** (consumer)
+> **Current production version: `v10.35.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,29 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.35.0 — Ask Vyact composer redesign, and Amount stops grabbing the keyboard *(2026-09-12)*
+
+- **Amount no longer auto-focuses on a fresh entry.** `components/ui/NumericKeypad.tsx`'s
+  `AmountField` used to `.focus()` + `.select()` itself ~60ms after Add Transaction/Split/Reconcile
+  opened, so users would start typing straight into the amount instead of the description. On a
+  touch device, programmatically focusing a real `<input>` pops the OS keyboard immediately and
+  uninvited, and the auto-focus + `.select()` combination on an empty, currency-adjacent,
+  `inputMode="decimal"` field also triggered Chrome's own autofill-candidate outline around it
+  (tinted from the page's `theme-color`, which is why it looked like app chrome). Removed the
+  `autoFocus` prop and its effect entirely; the field is still the first, largest control on the
+  page. Updated `keyboard-accessibility.spec.ts` (A11Y-FC-004 now starts its tab-order walk from
+  the page heading, which is where `FormPage`'s own focus-management effect lands when no field
+  claims it) and dropped now-stale focus assertions from `help-guide.spec.ts` and
+  `category-picker.spec.ts` that only existed because of the old auto-focus.
+- **Ask Vyact drawer composer reclaims the "Esc or click outside to close" footer line.**
+  `components/layout/FloatingTools.tsx`'s drawer had a permanent instructional strip below the
+  chat — that space now belongs to the composer, which sits lower with more padding. `pages/
+  Chat.tsx`'s Send control is icon-only now (matching the mic button's circular shape, `bg-coral`
+  like the app's other primary round actions) instead of a labeled button, and the placeholder
+  shortened from a full example question to "Ask a question…" — both free up room for the input
+  itself. The "Your question or entry" label is kept for screen readers (`sr-only`) rather than
+  removed outright.
 
 ## v10.34.0 — Contextual help on every form, and an internal-wording audit *(2026-09-12)*
 

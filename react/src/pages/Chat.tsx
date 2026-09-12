@@ -506,26 +506,29 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         {history.length > 0 && <Button variant="ghost" onClick={() => setShowExamples(value => !value)} aria-expanded={showExamples}>
           <List size={14} aria-hidden /> {showExamples ? 'Hide examples' : 'Show examples'}
         </Button>}
-        <div className="border-t border-line p-3 flex gap-2 flex-shrink-0 flex-wrap">
-          <label htmlFor={embedded ? 'ask-drawer-input' : 'ask-page-input'} className="w-full text-xs text-ink-dim">Your question or entry</label>
+        <div className="border-t border-line px-3 pt-4 pb-5 flex gap-2 items-center flex-shrink-0">
+          <label htmlFor={embedded ? 'ask-drawer-input' : 'ask-page-input'} className="sr-only">Your question or entry</label>
           <Input ref={inputRef} id={embedded ? 'ask-drawer-input' : 'ask-page-input'}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
-            placeholder={listening ? (interimText || 'Listening…') : 'e.g. How much did I spend this month?'}
+            placeholder={listening ? (interimText || 'Listening…') : 'Ask a question…'}
             className="flex-1 min-w-0"
           />
           {Boolean(SpeechRec) && (
             <button
               type="button" onClick={listening ? stopVoice : startVoice} aria-label={listening ? 'Stop listening' : 'Voice input'}
               title={listening ? 'Stop' : 'Speak'}
-              className={`px-2.5 rounded-md border transition-all ${listening ? 'border-coral text-coral bg-coral/10 shadow-[0_0_0_3px_rgba(229,115,115,0.25)] animate-pulse' : 'border-line text-ink-mid hover:text-ink hover:border-coral'}`}>
+              className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full border transition-all ${listening ? 'border-coral text-coral bg-coral/10 shadow-[0_0_0_3px_rgba(229,115,115,0.25)] animate-pulse' : 'border-line text-ink-mid hover:text-ink hover:border-coral'}`}>
               <Mic size={16} />
             </button>
           )}
-          <Button onClick={() => send(input)} disabled={!input.trim() || thinking}>
-            <Send size={14} /> Send
-          </Button>
+          <button
+            type="button" onClick={() => send(input)} disabled={!input.trim() || thinking}
+            aria-label="Send"
+            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-coral text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none">
+            <Send size={16} />
+          </button>
         </div>
       </Panel>
     </div>

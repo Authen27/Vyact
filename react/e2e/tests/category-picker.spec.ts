@@ -47,7 +47,6 @@ test('CAT-FC-002 - category dropdown matches Debt Type without allowing text ent
       await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
       await page.getByRole('button', { name: /Add Transaction/i }).first().click();
       await txnModal.waitOpen();
-      await expect(txnModal.amountDisplay).toBeFocused();
       const picker = txnModal.dialog.getByRole('combobox', { name: 'Category', exact: true });
       expect(await picker.evaluate(element => {
         const style = getComputedStyle(element);
@@ -85,7 +84,6 @@ test('CAT-FC-003 - recurring and split forms use the same select-only category c
     const dialog = surface.path === '/splits'
       ? page.getByRole('main', { name: 'Add Split', exact: true })
       : page.getByRole('dialog');
-    if (surface.path === '/splits') await expect(dialog.getByRole('textbox', { name: 'Amount', exact: true })).toBeFocused();
     const picker = dialog.getByRole('combobox', { name: 'Category', exact: true });
     expect(await picker.evaluate(element => element.tagName)).toBe('SELECT');
     await picker.selectOption('groceries');
