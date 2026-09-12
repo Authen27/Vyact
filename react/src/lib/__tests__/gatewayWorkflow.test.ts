@@ -22,7 +22,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 function request(body: unknown) {
   return new Request('https://edge.example.com/ask-vyact', { method: 'POST', headers: {
-    Authorization: `Bearer ${userToken()}`, Origin: 'https://vyact-twentyx.vercel.app', 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    Authorization: `Bearer ${userToken()}`, Origin: 'https://vyact.app', 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 }
 
 describe('actual Ask Vyact gateway handler', () => {
@@ -34,7 +34,7 @@ describe('actual Ask Vyact gateway handler', () => {
     expect(result.status).toBe(200);
     expect(await result.json()).toMatchObject({ ok: true, enabled: true, text: 'Computed facts received.',
       usage: { promptTokens: 12, completionTokens: 4, totalTokens: 16 } });
-    expect(result.headers.get('Access-Control-Allow-Origin')).toBe('https://vyact-twentyx.vercel.app');
+    expect(result.headers.get('Access-Control-Allow-Origin')).toBe('https://vyact.app');
     expect(api.auth.getUser).toHaveBeenCalledWith(userToken());
     expect(api.rpc).toHaveBeenCalledWith('reserve_ai_usage', { p_user_id: 'user', p_household_id: householdId, p_surface: 'chat', p_cap: 200 });
     expect(api.rpc.mock.invocationCallOrder[0]).toBeLessThan(provider.mock.invocationCallOrder[0]);

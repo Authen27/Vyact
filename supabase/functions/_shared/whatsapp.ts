@@ -101,7 +101,7 @@ export async function sendText(to: string, body: string): Promise<void> {
 }
 
 /** The consumer app URL used in reply links (override via env). */
-export const APP_URL = env('VYACT_APP_URL', 'https://vyact-twentyx.vercel.app');
+export const APP_URL = env('VYACT_APP_URL', 'https://vyact.app');
 
 // ── Outbound follow-through gating ────────────────────────────────────────────
 // Proactive template sends (partner split, budget alert, bill reminder, …) stay

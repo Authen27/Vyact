@@ -39,17 +39,26 @@ const LEGAL_PAGES = [
 
 test.describe('App shell (unseeded)', () => {
   test('CON-E2E-001 · boots into the dashboard in local-only mode', async ({ page, dashboard }) => {
-    await page.goto('/');
+    // Since v10.33.0, "/" renders the public Landing page instead of
+    // redirecting — going straight to /dashboard is how the app shell is
+    // reached now. The no-auth-gate proof is that /dashboard renders directly
+    // with no bounce to a sign-in route (a cloud build would show one).
+    await dashboard.goto();
     await expect(page).toHaveTitle(/Vyact/i);
-    // '/' redirects to /dashboard, and the app shell renders (no auth gate,
-    // confirming local-only mode — a cloud build would show the sign-in route).
-    await page.waitForURL('**/dashboard');
     await expect(dashboard.logoLink).toBeVisible();
   });
 
   test('CON-E2E-002 · does not render a cloud auth screen', async ({ page }) => {
     await page.goto('/');
     await expect(page).not.toHaveURL(/\/auth\//);
+  });
+
+  test('CON-E2E-054 · the landing page itself renders at "/" in local-only mode with a single dashboard CTA', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).not.toHaveURL(/\/(dashboard|auth)/);
+    await expect(page.getByRole('heading', { name: /Household finance, planned together/i })).toBeVisible();
+    await page.getByRole('link', { name: 'Open Vyact' }).click();
+    await page.waitForURL('**/dashboard');
   });
 
   test('CON-E2E-040 · tolerates corrupt localStorage payloads and falls back to clean defaults', async ({ page, transactions }) => {

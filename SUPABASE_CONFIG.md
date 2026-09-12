@@ -28,10 +28,15 @@ Supabase dashboard → Settings → API → CORS
 
 Allow the live production hosts and local dev:
 
-- [ ] `https://vyact-twentyx.vercel.app`
+- [x] `https://vyact.app` (added v10.33.0 — the consumer app's live domain since the cutover)
+- [ ] `https://vyact-twentyx.vercel.app` (retire after the transition window — see v10.33.0 changelog)
 - [ ] `https://vyact-admin.vercel.app`
 - [ ] `http://localhost:5173`
 - [ ] `http://localhost:5174`
+
+The admin app moved to `admin.vyact.app` in v1.3.2, but needs no CORS entry here — it never
+calls a Supabase Edge Function (only direct table/RPC access via the client SDK, which isn't
+subject to this allowlist).
 
 Symptom of a missing entry: 403 / CORS errors in browser devtools.
 
@@ -46,8 +51,12 @@ Supabase dashboard → Authentication → Providers
 
 Supabase dashboard → Authentication → URL Configuration
 
-- [ ] Site URL: `https://vyact-twentyx.vercel.app`
-- [ ] Redirect URLs (one per line):
+- [ ] Site URL: `https://vyact.app` (flip from `vyact-twentyx.vercel.app` only after the v10.33.0
+      code is deployed and live — see the ordering in the v10.33.0 changelog entry)
+- [x] Redirect URLs (one per line) — `vyact.app` entries added v10.33.0, old ones kept during the
+      transition window:
+  - `https://vyact.app/auth/verified`
+  - `https://vyact.app/auth/reset-password`
   - `https://vyact-twentyx.vercel.app/auth/verified`
   - `https://vyact-twentyx.vercel.app/auth/reset-password`
   - `https://vyact-admin.vercel.app/auth/verified`

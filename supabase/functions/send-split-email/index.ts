@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
-  const appUrl = env('APP_URL') || 'https://vyact-twentyx.vercel.app';
+  const appUrl = env('APP_URL') || 'https://vyact.app';
 
   const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
   const { data: { user }, error: authErr } = await admin.auth.getUser(jwt);
