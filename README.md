@@ -4,7 +4,7 @@ Three deliverables in one repo, each independently runnable, each on its own Sem
 
 | Path | What | Current | Live | Stack | Run |
 |---|---|---|---|---|---|
-| `react/` | **Consumer (React)** | **v10.33.1** | [vyact.app](https://vyact.app) | Vite · React 18 · TS · Tailwind · Recharts · Zustand · Supabase | `cd react && npm install && npm run dev` → `:5173` |
+| `react/` | **Consumer (React)** | **v10.33.2** | [vyact.app](https://vyact.app) | Vite · React 18 · TS · Tailwind · Recharts · Zustand · Supabase | `cd react && npm install && npm run dev` → `:5173` |
 | `admin/` | **Admin** | **v1.3.2** | [admin.vyact.app](https://admin.vyact.app) | Vite · React 18 · TS · Tailwind · Recharts · Supabase | `cd admin && npm install && npm run dev` → `:5174` |
 | archived | Vanilla shell | **v5.0** *(final)* | git history only | removed from working tree | see `VERSIONS.md` |
 

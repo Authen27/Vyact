@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.33.1`** (consumer)
+> **Current production version: `v10.33.2`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,14 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.33.2 — Landing page uses the real Pip logo *(2026-09-12)*
+
+`pages/Landing.tsx`'s header and footer used a placeholder 🙂 emoji in place of the app's actual
+mascot. Replaced both with `<Pip>` from `components/layout/Brand.tsx` — the same SVG already used
+in the app's own TopBar/MobileHeader, the web favicon (`public/favicon.svg`), and the Android
+adaptive-icon foreground, so the landing page, the app, the browser tab, and the installed app
+icon all show one consistent logo. The favicon itself was already correct and untouched.
 
 ## v10.33.1 — Landing page redesign, matching the Airo-drafted marketing copy *(2026-09-12)*
 

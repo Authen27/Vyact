@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { Layers, CalendarX2, BarChart3, Lightbulb, Target, TrendingUp } from 'lucide-react';
 import { useStore } from '../store';
 import { isCloudEnabled } from '../lib/supabase';
+import { Pip } from '../components/layout/Brand';
 
 function badgeIcon(Icon: typeof Layers) {
   return (
@@ -66,7 +67,7 @@ export default function Landing() {
       <header className="border-b border-line">
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl leading-none" aria-hidden>🙂</span>
+            <Pip size={30} />
             <div>
               <div className="display-italic text-lg text-ink leading-none">Vyact</div>
               <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-coral">Family Finance OS</div>
@@ -220,7 +221,7 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto px-5 py-8 flex flex-wrap justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-lg leading-none" aria-hidden>🙂</span>
+              <Pip size={22} />
               <div>
                 <div className="display-italic text-base text-ink leading-none">Vyact</div>
                 <div className="font-mono text-[0.5rem] tracking-[0.14em] uppercase text-coral">Family Finance OS</div>
