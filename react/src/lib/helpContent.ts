@@ -129,9 +129,9 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   {
     id: 'ask-unavailable', group: 'Access and support',
     question: 'Why is Ask Vyact unavailable?',
-    answer: 'Ask Vyact needs a configured, reachable model service. When it is unavailable, Vyact shows an unavailable response instead of substituting a canned financial answer.',
-    note: 'You can still use Transactions, Accounts and your other available pages directly. Model-written explanations are not a guarantee that every figure is framed correctly; check the underlying records when something looks wrong.',
-    keywords: ['ask', 'chat', 'AI', 'unavailable', 'model', 'offline'],
+    answer: 'Ask Vyact needs to be configured and reachable. When it is not, Vyact shows an unavailable response instead of substituting a canned financial answer.',
+    note: 'You can still use Transactions, Accounts and your other available pages directly. Ask Vyact\'s explanations are not a guarantee that every figure is framed correctly; check the underlying records when something looks wrong.',
+    keywords: ['ask', 'chat', 'AI', 'unavailable', 'offline'],
     link: { to: '/chat', label: 'Open Ask Vyact' },
   },
   {

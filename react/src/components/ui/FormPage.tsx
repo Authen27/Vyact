@@ -15,6 +15,7 @@
 // form (the delete-account sheet, a popover) is open and owns that key.
 import { type ReactNode, useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
+import HelpInfoButton from '../help/HelpInfoButton';
 
 interface Props {
   /** Kept for drop-in parity with HalfSheet; a routed page is always open. */
@@ -29,6 +30,10 @@ interface Props {
   /** Column width: 'md' for single-column forms, 'lg'/'xl' for two-column ones. */
   size?: 'md' | 'lg' | 'xl';
   className?: string;
+  /** HELP_TOPICS id shown behind an info icon in the header — the same FAQ
+   *  entry Help & Guide renders, so "how do I create a ___" never drifts
+   *  between the two surfaces. */
+  helpTopicId?: string;
 }
 
 // Whole class strings so Tailwind's scanner sees them.
@@ -39,7 +44,7 @@ const COLUMN: Record<NonNullable<Props['size']>, string> = {
 };
 
 export default function FormPage({
-  open = true, onClose, title, ariaLabel, children, footer, size = 'md', className = '',
+  open = true, onClose, title, ariaLabel, children, footer, size = 'md', className = '', helpTopicId,
 }: Props) {
   const titleId = useId();
   const rootRef = useRef<HTMLElement>(null);
@@ -98,6 +103,7 @@ export default function FormPage({
           >
             {title ?? ariaLabel}
           </h1>
+          {helpTopicId && <div className="ml-auto -mr-2"><HelpInfoButton topicId={helpTopicId} /></div>}
         </div>
       </header>
 

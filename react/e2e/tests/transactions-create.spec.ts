@@ -271,6 +271,26 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
     expect(count).toBe(1);
   });
 
+  test('CON-E2E-055 · a transfer or investment has no category field', async ({
+    page, transactions, txnModal,
+  }) => {
+    // ── ARRANGE ──────────────────────────────────────────────────────────
+    await transactions.goto();
+
+    // ── ACT + ASSERT ─────────────────────────────────────────────────────
+    // Money-model rule: a transfer/investment is one spend/income-neutral
+    // row with no category — see CLAUDE.md's binding money-model section.
+    // Moved here from a removed Ask Vyact "Open form" shortcut (v10.34.0);
+    // opened via the real Add Transaction entry point instead.
+    for (const type of ['transfer', 'investment'] as const) {
+      await transactions.openAdd();
+      await txnModal.waitOpen();
+      await txnModal.setType(type);
+      await expect(page.getByRole('combobox', { name: 'Category', exact: true })).toHaveCount(0);
+      await txnModal.cancel();
+    }
+  });
+
   test.describe('track picker and time entry', () => {
     test.use({
       seed: {

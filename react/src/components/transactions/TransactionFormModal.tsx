@@ -201,6 +201,9 @@ export default function TransactionFormModal(props: Props) {
   const isTransfer   = form.type === 'transfer';
   const isInvestment = form.type === 'investment';
   const isIncome     = form.type === 'income';
+  // Context-matched Help & Guide entry for the info icon — transfer/investment
+  // have their own FAQ; expense and income share one ("expense-income").
+  const helpTopicId = isTransfer ? 'transfer' : isInvestment ? 'investment' : 'expense-income';
   const needsToAccount = isTransfer || isInvestment;
   // v10.17 §2 — "Took money out" reorients the pickers: the FROM slot shows
   // the investment account (bound to `paymentMethodTo`) and the destination
@@ -525,7 +528,7 @@ export default function TransactionFormModal(props: Props) {
   );
 
   return (
-    <FormPage open={open} onClose={onClose} title={modalTitle} footer={footer} className="ui-pilot">
+    <FormPage open={open} onClose={onClose} title={modalTitle} footer={footer} className="ui-pilot" helpTopicId={helpTopicId}>
       <div className="ui-form-stack">
       {/* Track chips — centered row per board M4. */}
       <SegmentedControl label="Transaction type" value={form.type} onChange={setType}

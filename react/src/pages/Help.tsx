@@ -4,25 +4,10 @@ import { ArrowRight, Banknote, CalendarClock, ChevronDown, ExternalLink, Mail, S
 import Button from '../components/ui/Button';
 import { Field, Input, Textarea } from '../components/ui/Input';
 import { HELP_TOPICS, searchHelpTopics, type HelpTopic } from '../lib/helpContent';
+import HelpTopicBody from '../components/help/HelpTopicBody';
 
 const SUPPORT_EMAIL = 'support@vyact.app';
 const GROUPS: HelpTopic['group'][] = ['Start here', 'Everyday money', 'Planning', 'Access and support'];
-
-function GuideImage({ image }: { image: NonNullable<HelpTopic['image']> }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <figure className="mt-5 max-w-2xl">
-      {failed ? <p role="status" className="text-sm text-ink-dim">Screenshot unavailable. The steps above still apply.</p> : (
-        <a href={image.src} target="_blank" rel="noreferrer" className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral"
-          aria-label={`Open full-size screenshot: ${image.alt}`}>
-          <img src={image.src} alt={image.alt} width={image.width} height={image.height} loading="lazy"
-            className="w-full h-auto rounded-lg border border-line" onError={() => setFailed(true)} />
-        </a>
-      )}
-      <figcaption className="mt-2 text-xs text-ink-dim leading-relaxed">{image.alt} · Example household, not your data.</figcaption>
-    </figure>
-  );
-}
 
 export default function Help() {
   const [query, setQuery] = useState('');
@@ -43,7 +28,7 @@ export default function Help() {
   return (
     <div className="ui-pilot reading-surface help-guide mx-auto max-w-5xl">
       <header className="mb-section">
-        <h1 className="display-italic text-4xl text-ink mb-related">Help &amp; Guide</h1>
+        <h1 className="display-italic text-4xl text-ink mb-1.5">Help &amp; Guide</h1>
         <p className="text-base text-ink-mid leading-relaxed">Get your first entry right. Build a routine you can trust.</p>
         <a href="#contact" className="inline-flex items-center gap-2 text-sm text-coral mt-3 min-h-[44px]">
           <Mail size={16} aria-hidden /> Contact support
@@ -102,14 +87,8 @@ export default function Help() {
                 <h3 className="text-base font-medium leading-snug">{topic.question}</h3>
                 <ChevronDown size={18} aria-hidden className="shrink-0 group-open:rotate-180" />
               </summary>
-              <div className="pb-5 text-sm text-ink-mid leading-relaxed max-w-3xl">
-                <p>{topic.answer}</p>
-                {topic.steps && <ol className="list-decimal pl-5 space-y-2 mt-3">{topic.steps.map(step => <li key={step}>{step}</li>)}</ol>}
-                {topic.note && <p className="mt-4 border-l-2 border-line2 pl-3 text-ink-dim">{topic.note}</p>}
-                <Link to={topic.link.to} className="inline-flex items-center gap-2 text-coral font-medium mt-3 min-h-[44px]">
-                  {topic.link.label}<ArrowRight size={16} aria-hidden />
-                </Link>
-                {topic.image && <GuideImage image={topic.image} />}
+              <div className="pb-5">
+                <HelpTopicBody topic={topic} />
               </div>
             </details>)}
           </div>

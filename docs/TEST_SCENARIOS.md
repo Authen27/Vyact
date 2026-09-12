@@ -172,6 +172,7 @@ The Vitest roster is the generated JSON above. The following historical browser 
 | CON-E2E-053 | `react/e2e/tests/budgets.spec.ts` | an annual budget is accepted alongside monthly | Replaces the retired CON-E2E-020/021. `month` and `annual` are the only two scopes left, so annual is what "non-monthly" now means. |
 | CON-E2E-043 | `react/e2e/tests/dialog-correction.spec.ts` | Budget form page title bounds, and focus back on its opener after closing, at desktop and mobile sizes | Playwright browser workflow. v10.28.0: the form became a routed page, so "restores focus" is now proven across a history back, not a dialog close. |
 | CON-E2E-054 | `react/e2e/tests/smoke.spec.ts` | the landing page itself renders at "/" in local-only mode with a single dashboard CTA | Added v10.33.0: "/" now renders the public Landing page instead of redirecting to /dashboard; CON-E2E-001/ONB-FC-004 were updated to reach the dashboard via `dashboard.goto()` (→ /dashboard directly) instead. |
+| CON-E2E-055 | `react/e2e/tests/transactions-create.spec.ts` | a transfer or investment has no category field | Added v10.34.0, relocated from a removed Ask Vyact "Open form" shortcut (`finance-guidance.spec.ts` FIN-FC-002) — opens via the real Add Transaction entry point instead, since the shortcut button was removed. |
 
 ## 5. Retired IDs
 

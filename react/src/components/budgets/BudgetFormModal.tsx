@@ -269,7 +269,7 @@ export default function BudgetFormModal(props: Props) {
   );
 
   return (
-    <FormPage open={open} title={initial ? 'Edit Budget' : 'Add Budget'} onClose={onClose} footer={footer}>
+    <FormPage open={open} title={initial ? 'Edit Budget' : 'Add Budget'} onClose={onClose} footer={footer} helpTopicId="budget">
       {/* Board M2 — period chips (forms doctrine: chips, not scope buttons +
           month/year dropdowns). */}
       <div className="mb-4">

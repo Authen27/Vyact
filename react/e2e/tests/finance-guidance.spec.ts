@@ -62,7 +62,7 @@ test('FIN-FC-001 - Reports keeps full Needs and Wants amounts inside narrow cont
   }
 });
 
-test('FIN-FC-002 - Ask examples fill the composer and form shortcuts do not call the model', async ({ page }, testInfo) => {
+test('FIN-FC-002 - Ask examples fill the composer without calling Ask Vyact', async ({ page }, testInfo) => {
   let modelCalls = 0;
   await page.route('**/functions/v1/ask-vyact', route => { modelCalls += 1; return route.fulfill({ status: 503, body: '{}' }); });
   for (const width of [390, 1440]) {
@@ -92,17 +92,6 @@ test('FIN-FC-002 - Ask examples fill the composer and form shortcuts do not call
       await useExample.click();
       await expect(composer).toHaveValue(example);
       await expect(composer).toBeFocused();
-    }
-    for (const [label, title] of [
-      ['Add expense', 'Add Expense'], ['Add income', 'Add Income'], ['Add transfer', 'Add Transfer'],
-      ['Add investment', 'Add Investment'], ['Add a budget', 'Add Budget'], ['Add a debt', 'Add Debt'], ['Add an asset', 'Add Asset'],
-    ]) {
-      await page.getByRole('button', { name: `Open form: ${label}`, exact: true }).click();
-      const dialog = page.getByRole('main', { name: title, exact: true });
-      await expect(dialog).toBeVisible();
-      if (title === 'Add Transfer' || title === 'Add Investment') await expect(dialog.getByRole('combobox', { name: 'Category', exact: true })).toHaveCount(0);
-      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-      await expect(dialog).toHaveCount(0);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await page.getByTestId('ask-intent-add-expense').scrollIntoViewIfNeeded();

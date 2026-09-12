@@ -154,7 +154,10 @@ test('HELP-FC-002 - search, task links and support fields work on desktop and mo
       await page.goto('/help');
       await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
       await expect(page.getByRole('heading', { name: 'Help & Guide', exact: true })).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Help & Guide', exact: true })).toHaveCSS('font-weight', '400');
+      // v10.34.0 — the page h1 stays at the bold display weight, matching
+      // Settings/Households; only body copy and subheadings use the lighter
+      // reading-surface weight.
+      await expect(page.getByRole('heading', { name: 'Help & Guide', exact: true })).toHaveCSS('font-weight', '600');
       await expect(page.getByRole('heading', { name: 'Your next step', exact: true })).toHaveCSS('font-weight', '400');
       await expect(page.locator('summary')).toHaveCount(HELP_TOPICS.length);
       const first = page.locator('summary').first();
