@@ -56,8 +56,10 @@ test.describe('App shell (unseeded)', () => {
   test('CON-E2E-054 · the landing page itself renders at "/" in local-only mode with a single dashboard CTA', async ({ page }) => {
     await page.goto('/');
     await expect(page).not.toHaveURL(/\/(dashboard|auth)/);
-    await expect(page.getByRole('heading', { name: /Household finance, planned together/i })).toBeVisible();
-    await page.getByRole('link', { name: 'Open Vyact' }).click();
+    await expect(page.getByRole('heading', { name: /understand its money/i })).toBeVisible();
+    // Multiple "Open Vyact" links exist on the page (hero, final CTA, footer) —
+    // the hero one is first in DOM order.
+    await page.getByRole('link', { name: 'Open Vyact', exact: true }).first().click();
     await page.waitForURL('**/dashboard');
   });
 
