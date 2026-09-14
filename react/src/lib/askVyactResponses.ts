@@ -132,6 +132,27 @@ export interface ResolveResult {
   seed?: Partial<Transaction>;
   /** True when any figure leans on onboarding estimates (provenance, §5). */
   usesEstimate?: boolean;
+  /**
+   * v10.36 — structured, service-computed facts for the model to EXPLAIN.
+   *
+   * `vars` was sized to fill one canned sentence for the retired rules engine, so
+   * the model inherited a pre-written `{headline} {detail}` and could only
+   * paraphrase it — the root cause of shallow answers. `facts` carries the data
+   * `resolve()` already computes (every category, budget, debt, bill) instead of
+   * collapsing it to the single top item.
+   *
+   * Every money value is pre-formatted through the same `money()` rounding as
+   * `vars`. That is load-bearing: the invented-figure guard only allows numbers
+   * it finds in the data, so a figure the model copies verbatim from here always
+   * passes. `vars` is kept unchanged for the template path and existing tests.
+   */
+  facts?: Record<string, unknown>;
+  /**
+   * Human-readable description of what `resolve()` examined and found, shown
+   * live as the "analysis" steps while the model writes. Deterministic and
+   * derived from the same computation — never model-authored text.
+   */
+  analysis?: string[];
 }
 
 type VariantKey = string; // `${intentId}.${outcome}`

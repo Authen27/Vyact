@@ -117,6 +117,36 @@ function categoryUsesEstimate(ctx: AssistantContext, category: string): boolean 
   return ctx.transactions.some(t => t.category === category && t.confidence && t.confidence !== 'confirmed');
 }
 
+/**
+ * v10.36 — every category spent in this month, largest first, with its usual
+ * (rolling average) and the gap, pre-formatted for the model.
+ *
+ * Several intents used to compute exactly this and then keep only the single top
+ * or worst category, which is why "where can I cut back?" could name just one.
+ * Amounts go through `money()` so the model can cite them verbatim and pass
+ * assertNoInventedFigures. Category LABELS only — never descriptions or merchant
+ * text, which SafeSummary deliberately excludes from egress.
+ */
+function categoryBreakdown(ctx: AssistantContext) {
+  const spend = spendByCategory(ctx.transactions, nowMonthKey(), cur(ctx), ctx.rates);
+  return Object.entries(spend)
+    .sort(([, a], [, b]) => b - a)
+    .map(([c, amt]) => {
+      const usual = categoryRollingAvg(ctx, c);
+      const gap = amt - usual;
+      const nw = NEEDS_WANTS_MAP[c];
+      return {
+        category: getCat(c).label,
+        spent: money(amt, ctx),
+        usual_month: usual > 0 ? money(usual, ctx) : 'no history yet',
+        compared_with_usual: usual > 0
+          ? (gap >= 0 ? `${money(gap, ctx)} above` : `${money(-gap, ctx)} below`)
+          : 'no history yet',
+        kind: nw === 'want' ? 'discretionary' : nw === 'need' ? 'essential' : 'unclassified',
+      };
+    });
+}
+
 // ── Stage 4 — resolve (the ONLY place money is computed) ────────────────────────
 export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveResult {
   const e = intent.entities;
@@ -198,9 +228,24 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         { label: 'Why is it up?', prompt: `why is my ${getCat(category).label.toLowerCase()} spending so high` },
         { label: 'Where else is it going?', prompt: 'where is my money going' },
       ];
+      const breakdown = categoryBreakdown(ctx);
+      const label = getCat(category).label;
+      const facts = {
+        period: 'this month',
+        asked_about: label,
+        spent: money(amount, ctx),
+        budget: budget && budget.limit > 0 ? money(budget.limit, ctx) : 'no budget set',
+        share_of_budget: budget && budget.limit > 0 ? `${Math.round((amount / budget.limit) * 100)}%` : 'no budget set',
+        usual_month: breakdown.find(r => r.category === label)?.usual_month ?? 'no history yet',
+        every_category_this_month: breakdown,
+      };
+      const analysis = [
+        `Totalled this month's spending across ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'}`,
+        budget && budget.limit > 0 ? `Compared ${label} with its budget` : `Compared ${label} with your usual month`,
+      ];
       if (budget && budget.limit > 0) {
         return {
-          kind: 'interpret', outcome: 'vs_budget', usesEstimate, chips: lookupChips,
+          kind: 'interpret', outcome: 'vs_budget', usesEstimate, chips: lookupChips, facts, analysis,
           vars: {
             amount: money(amount, ctx), category: getCat(category).label.toLowerCase(),
             pct: `${Math.round((amount / budget.limit) * 100)}%`, budget: money(budget.limit, ctx),
@@ -208,26 +253,47 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         };
       }
       return {
-        kind: 'interpret', outcome: 'ok', usesEstimate, chips: lookupChips,
+        kind: 'interpret', outcome: 'ok', usesEstimate, chips: lookupChips, facts, analysis,
         vars: { amount: money(amount, ctx), category: getCat(category).label.toLowerCase() },
       };
     }
     case 'interpret.status': {
       const s = ctx.summary;
+      // One overview serves all three branches: net worth, balances and "how am I
+      // doing" are the same question at different zoom levels, and each used to
+      // get a single pre-written sentence.
+      const facts = {
+        net_worth: money(s.netWorth.netWorth, ctx),
+        total_assets: money(s.netWorth.totalAssets, ctx),
+        total_debt: money(s.netWorth.totalLiabilities, ctx),
+        months_of_liquid_cover: s.netWorth.liquidityMonths.toFixed(1),
+        income_this_month: money(s.thisMonth.income, ctx),
+        spending_this_month: money(s.thisMonth.expense, ctx),
+        savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
+        pulse_score: s.pulseScore.total == null ? 'not enough data yet' : `${s.pulseScore.total}/100`,
+        budgets_over_limit: s.budgets.filter(b => b.spentPct > 100).map(b => getCat(b.category).label),
+        largest_categories_this_month: s.thisMonth.topCategories.slice(0, 5)
+          .map(t => ({ category: getCat(t.category).label, spent: money(t.amount, ctx) })),
+      };
+      const analysis = [
+        'Read your net worth, assets and debt',
+        "Compared this month's income with your spending",
+        `Checked ${s.budgets.length} ${s.budgets.length === 1 ? 'budget' : 'budgets'} and your largest categories`,
+      ];
       if (/net ?worth|wealth/.test(e.text)) {
-        return { kind: 'interpret', outcome: 'ok', vars: {
+        return { kind: 'interpret', outcome: 'ok', facts, analysis, vars: {
           headline: `Your net worth is ${money(s.netWorth.netWorth, ctx)}.`,
           detail: `That's ${money(s.netWorth.totalAssets, ctx)} in assets minus ${money(s.netWorth.totalLiabilities, ctx)} of debt, with about ${s.netWorth.liquidityMonths.toFixed(1)} months of liquid cover.`,
         } };
       }
       if (/balance/.test(e.text)) {
-        return { kind: 'interpret', outcome: 'ok', vars: {
+        return { kind: 'interpret', outcome: 'ok', facts, analysis, vars: {
           headline: `You've got about ${money(s.netWorth.totalAssets, ctx)} across your accounts.`,
           detail: `Roughly ${s.netWorth.liquidityMonths.toFixed(1)} months of expenses in liquid savings.`,
         } };
       }
       const total = s.pulseScore.total ?? 0;
-      return { kind: 'interpret', outcome: 'ok', vars: {
+      return { kind: 'interpret', outcome: 'ok', facts, analysis, vars: {
         headline: `Your Pulse Score is ${total}/100.`,
         detail: total >= 80 ? 'Strong — keep doing what you are doing.'
           : total >= 65 ? 'Solid, with a little room to push.'
@@ -244,23 +310,39 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         const delta = amt - avg;
         if (avg > 0 && delta > 0 && (!worst || delta > worst.delta)) worst = { cat: c, now: amt, avg, delta };
       }
+      const breakdown = categoryBreakdown(ctx);
+      const compared = `Compared each of ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'} with its usual month`;
       if (worst && worst.delta / Math.max(worst.avg, 1) >= 0.2) {
         const pct = Math.round((worst.delta / worst.avg) * 100);
         // The chips deliberately exclude "Why so high?" — this reply has just
         // said why, and the deck bans a chip that repeats the answer.
-        return { kind: 'interpret', outcome: 'found', usesEstimate: categoryUsesEstimate(ctx, worst.cat), vars: {
-          headline: `${getCat(worst.cat).label} is ${pct}% above your usual.`,
-          detail: `It's at ${money(worst.now, ctx)} this month vs about ${money(worst.avg, ctx)} normally — that's the main pull on your cash.`,
-        }, chips: [
-          { label: `See ${getCat(worst.cat).label}`, prompt: `how much on ${worst.cat} this month` },
-          { label: 'Where can I cut back?', prompt: 'where can I cut back' },
-        ] };
+        return { kind: 'interpret', outcome: 'found', usesEstimate: categoryUsesEstimate(ctx, worst.cat),
+          facts: {
+            every_category_this_month: breakdown,
+            biggest_rise: {
+              category: getCat(worst.cat).label,
+              spent: money(worst.now, ctx),
+              usual_month: money(worst.avg, ctx),
+              above_usual: `${pct}%`,
+            },
+          },
+          analysis: [compared, `${getCat(worst.cat).label} is furthest above its usual`],
+          vars: {
+            headline: `${getCat(worst.cat).label} is ${pct}% above your usual.`,
+            detail: `It's at ${money(worst.now, ctx)} this month vs about ${money(worst.avg, ctx)} normally — that's the main pull on your cash.`,
+          }, chips: [
+            { label: `See ${getCat(worst.cat).label}`, prompt: `how much on ${worst.cat} this month` },
+            { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+          ] };
       }
-      return { kind: 'interpret', outcome: 'clear', vars: {
-        detail: `your spending is tracking close to your normal pattern this month.`,
-      }, chips: [
-        { label: 'What did I spend most on?', prompt: 'what did I spend the most on this month' },
-      ] };
+      return { kind: 'interpret', outcome: 'clear',
+        facts: { every_category_this_month: breakdown, biggest_rise: 'nothing is well above its usual' },
+        analysis: [compared, 'Nothing is running well above its usual'],
+        vars: {
+          detail: `your spending is tracking close to your normal pattern this month.`,
+        }, chips: [
+          { label: 'What did I spend most on?', prompt: 'what did I spend the most on this month' },
+        ] };
     }
     case 'interpret.budgets': {
       const over = ctx.summary.budgets.filter(b => b.spentPct > 100);
@@ -273,7 +355,23 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       // Chips only when there is something to chase — "Budgets look healthy"
       // needs no follow-up, and an offer of one implies a problem there isn't.
       const worstBudget = over[0] ?? near[0];
-      return { kind: 'interpret', outcome: 'ok', vars: {
+      const count = ctx.summary.budgets.length;
+      return { kind: 'interpret', outcome: 'ok',
+        facts: {
+          budgets_most_used_first: [...ctx.summary.budgets].sort((a, b) => b.spentPct - a.spentPct).map(b => ({
+            category: getCat(b.category).label,
+            limit: money(b.limit, ctx),
+            used: `${Math.round(b.spentPct)}%`,
+            status: b.spentPct > 100 ? 'over budget' : b.spentPct > 80 ? 'close to limit' : 'on track',
+          })),
+          over_budget: over.map(b => getCat(b.category).label),
+          close_to_limit: near.map(b => getCat(b.category).label),
+        },
+        analysis: [
+          `Checked ${count} ${count === 1 ? 'budget' : 'budgets'} against spending`,
+          over.length ? `${over.length} over budget` : near.length ? `${near.length} close to the limit` : 'All on track',
+        ],
+        vars: {
         headline: over.length ? 'Some budgets need attention.' : near.length ? 'A couple of budgets are getting close.' : 'Budgets look healthy.',
         detail,
       }, chips: worstBudget ? [
@@ -283,13 +381,35 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
     }
     case 'interpret.debts': {
       const d = ctx.summary.debts;
-      if (!d.length) return { kind: 'interpret', outcome: 'ok', vars: { headline: "You're debt-free.", detail: 'Nothing to pay down right now.' } };
+      if (!d.length) return { kind: 'interpret', outcome: 'ok',
+        facts: { debts: [], note: 'no debts recorded' }, analysis: ['Checked your debts — none recorded'],
+        vars: { headline: "You're debt-free.", detail: 'Nothing to pay down right now.' } };
       const totalDebt = d.reduce((s, x) => s + x.balance, 0);
       const top = [...d].sort((a, b) => b.aprPct - a.aprPct)[0];
-      return { kind: 'interpret', outcome: 'ok', vars: {
-        headline: `You owe ${money(totalDebt, ctx)} across ${d.length} debt${d.length === 1 ? '' : 's'}.`,
-        detail: `Highest rate: ${getCat(top.type).label || top.type} at ${top.aprPct}% — the avalanche method targets it first.`,
-      } };
+      const smallest = [...d].sort((a, b) => a.balance - b.balance)[0];
+      // SafeSummary debts carry a TYPE, never the user's own name for the debt —
+      // that is deliberate egress minimisation, so the label comes from the type.
+      const debtLabel = (x: { type: string }) => getCat(x.type).label || x.type;
+      return { kind: 'interpret', outcome: 'ok',
+        facts: {
+          total_owed: money(totalDebt, ctx),
+          debts_highest_rate_first: [...d].sort((a, b) => b.aprPct - a.aprPct).map(x => ({
+            debt: debtLabel(x),
+            balance: money(x.balance, ctx),
+            interest_rate: `${x.aprPct}%`,
+            months_remaining: x.monthsRemaining ?? 'not set',
+          })),
+          avalanche_pays_first: `${debtLabel(top)} (highest interest rate, saves the most interest)`,
+          snowball_pays_first: `${debtLabel(smallest)} (smallest balance, quickest to clear)`,
+        },
+        analysis: [
+          `Reviewed ${d.length} ${d.length === 1 ? 'debt' : 'debts'}`,
+          'Ranked them by interest rate and by balance',
+        ],
+        vars: {
+          headline: `You owe ${money(totalDebt, ctx)} across ${d.length} debt${d.length === 1 ? '' : 's'}.`,
+          detail: `Highest rate: ${getCat(top.type).label || top.type} at ${top.aprPct}% — the avalanche method targets it first.`,
+        } };
     }
     case 'interpret.bills': {
       const today = new Date();
@@ -298,21 +418,52 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         .filter(x => x.due >= new Date(today.getFullYear(), today.getMonth(), today.getDate()))
         .sort((a, b) => a.due.getTime() - b.due.getTime())
         .slice(0, 3);
-      if (!soon.length) return { kind: 'interpret', outcome: 'ok', vars: { headline: 'No upcoming bills tracked.', detail: 'Add a recurring schedule to see what is due.' } };
+      if (!soon.length) return { kind: 'interpret', outcome: 'ok',
+        facts: { upcoming_soonest_first: [] }, analysis: ['Looked for upcoming bills — none tracked'],
+        vars: { headline: 'No upcoming bills tracked.', detail: 'Add a recurring schedule to see what is due.' } };
       const detail = soon.map(x => `${x.r.transactionTemplate.description || getCat(x.r.transactionTemplate.category).label} (${x.r.nextDueDate})`).join(', ');
-      return { kind: 'interpret', outcome: 'ok', vars: { headline: `Next up: ${soon.length} bill${soon.length === 1 ? '' : 's'}.`, detail } };
+      return { kind: 'interpret', outcome: 'ok',
+        // Facts use the category label, NOT `transactionTemplate.description`: the
+        // description is user-authored text that SafeSummary excludes from egress.
+        facts: {
+          upcoming_soonest_first: soon.map(x => ({
+            category: getCat(x.r.transactionTemplate.category).label,
+            amount: money(x.r.transactionTemplate.amount, ctx),
+            due: x.r.nextDueDate,
+            posts: x.r.autoConfirm ? 'automatically' : 'after you approve it',
+          })),
+        },
+        analysis: [`Found the next ${soon.length} upcoming ${soon.length === 1 ? 'bill' : 'bills'}`],
+        vars: { headline: `Next up: ${soon.length} bill${soon.length === 1 ? '' : 's'}.`, detail } };
     }
 
     // ── Forecast (Planner-grounded) ──────────────────────────────────────────────
     case 'forecast.affordability': {
       // No chip: the reply itself asks "how much?", and a chip that repeats the
       // answer is exactly what the deck's rule forbids.
-      if (e.amount == null) return { kind: 'forecast', outcome: 'missing_amount', vars: {} };
+      if (e.amount == null) return { kind: 'forecast', outcome: 'missing_amount', vars: {},
+        facts: { needs: 'the purchase amount' }, analysis: ['Need the purchase amount to check affordability'] };
       const liquid = liquidAssets(ctx.assets, cur(ctx), ctx.rates);
       const floor = emergencyFloor(ctx);
       const headroom = liquid - floor;
+      const affordFacts = {
+        purchase: money(e.amount, ctx),
+        liquid_savings: money(liquid, ctx),
+        typical_monthly_spending: money(monthlyBurn(ctx), ctx),
+        safety_floor: money(floor, ctx),
+        safety_floor_basis: 'three months of your typical spending',
+        available_above_floor: money(headroom, ctx),
+      };
+      const affordAnalysis = [
+        'Totalled your liquid savings',
+        'Kept three months of typical spending aside as a safety floor',
+        'Compared the purchase with what is left above it',
+      ];
       if (headroom >= e.amount) {
-        return { kind: 'forecast', outcome: 'fits', vars: {
+        return { kind: 'forecast', outcome: 'fits',
+          facts: { ...affordFacts, verdict: 'fits', left_above_floor_after: money(headroom - e.amount, ctx) },
+          analysis: affordAnalysis,
+          vars: {
           amount: money(e.amount, ctx), headroom: money(headroom, ctx),
           cushion: money(headroom - e.amount, ctx),
         }, chips: [
@@ -324,7 +475,10 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       // `payday` is only a trigger keyword. The old chip carried no prompt, so
       // it would have been untappable even had it reached a screen. These two
       // are answerable now.
-      return { kind: 'forecast', outcome: 'tight', vars: {
+      return { kind: 'forecast', outcome: 'tight',
+        facts: { ...affordFacts, verdict: 'would dip into the safety floor', shortfall: money(e.amount - headroom, ctx) },
+        analysis: affordAnalysis,
+        vars: {
         amount: money(e.amount, ctx), shortfall: money(e.amount - headroom, ctx),
       }, chips: [
         { label: 'Where can I cut back?', prompt: 'where can I cut back' },
@@ -335,7 +489,19 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       const liquid = liquidAssets(ctx.assets, cur(ctx), ctx.rates);
       const burn = monthlyBurn(ctx) || (totalMonthlyDebtPayment(ctx.debts, cur(ctx), ctx.rates) + 1);
       const months = burn > 0 ? liquid / burn : 0;
-      return { kind: 'forecast', outcome: 'ok', vars: { months: months.toFixed(1) }, chips: [
+      return { kind: 'forecast', outcome: 'ok',
+        facts: {
+          months_money_would_last: months.toFixed(1),
+          liquid_savings: money(liquid, ctx),
+          typical_monthly_spending: money(burn, ctx),
+          largest_categories_this_month: categoryBreakdown(ctx).slice(0, 5),
+        },
+        analysis: [
+          'Totalled your liquid savings',
+          'Worked out your typical monthly spending',
+          'Measured how many months the savings would cover',
+        ],
+        vars: { months: months.toFixed(1) }, chips: [
         { label: 'Where can I cut back?', prompt: 'where can I cut back' },
         { label: 'What is driving my spending?', prompt: 'where is my money going' },
       ] };
@@ -346,6 +512,10 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
       // Rank "want" categories by overage vs rolling average — least-painful trims.
       let best: { cat: string; over: number } | null = null;
+      // Whether `best.over` is an amount ABOVE usual, or (fallback) the category's
+      // whole spend because there is no history yet. The model must not describe a
+      // total as an overage, so the facts say which one it is.
+      let basis: 'above_usual' | 'total_spent' = 'above_usual';
       for (const [c, amt] of Object.entries(spend)) {
         if (NEEDS_WANTS_MAP[c] !== 'want') continue;
         const over = amt - categoryRollingAvg(ctx, c);
@@ -355,14 +525,37 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         // fall back to the single biggest discretionary category
         const top = Object.entries(spend).filter(([c]) => NEEDS_WANTS_MAP[c] === 'want')
           .sort(([, a], [, b]) => b - a)[0];
-        if (top) best = { cat: top[0], over: top[1] };
+        if (top) { best = { cat: top[0], over: top[1] }; basis = 'total_spent'; }
       }
-      if (!best) return { kind: 'forecast', outcome: 'ok', vars: { months: '0' } };
-      return { kind: 'forecast', outcome: 'suggest', vars: {
-        target: target ? money(target, ctx) : 'some room',
-        category: getCat(best.cat).label.toLowerCase(),
-        over: money(best.over, ctx),
-      } };
+      const breakdown = categoryBreakdown(ctx);
+      const prescriptiveFacts = {
+        savings_goal: target ? money(target, ctx) : 'not specified',
+        discretionary_categories: breakdown.filter(r => r.kind === 'discretionary'),
+        essential_categories: breakdown.filter(r => r.kind === 'essential'),
+      };
+      const compared = `Compared ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'} with your usual month`;
+      if (!best) return { kind: 'forecast', outcome: 'ok', vars: { months: '0' },
+        facts: { ...prescriptiveFacts, note: 'no discretionary spending recorded this month' },
+        analysis: [compared, 'No discretionary spending found to trim'] };
+      return { kind: 'forecast', outcome: 'suggest',
+        facts: {
+          ...prescriptiveFacts,
+          easiest_trim: getCat(best.cat).label,
+          easiest_trim_figure: money(best.over, ctx),
+          easiest_trim_figure_means: basis === 'above_usual'
+            ? 'how much this category is above its usual month'
+            : 'total spent in this category this month (no history yet to compare)',
+        },
+        analysis: [
+          compared,
+          'Separated discretionary spending from essentials',
+          `${getCat(best.cat).label} is the easiest place to trim`,
+        ],
+        vars: {
+          target: target ? money(target, ctx) : 'some room',
+          category: getCat(best.cat).label.toLowerCase(),
+          over: money(best.over, ctx),
+        } };
     }
 
     default:
@@ -428,17 +621,43 @@ export function selectAssistantBackend(): AssistantBackend | null {
 // ── The orchestrator — runs all five stages ─────────────────────────────────────
 // The `backend` default is evaluated PER CALL (not captured at module load), so a
 // runtime change to `FEATURES.askVyact.backend` takes effect on the next turn.
+/** Plain-English name for each intent, shown as the "Recognised: …" step. */
+const INTENT_LABEL: Record<string, string> = {
+  'capture.expense': 'recording an expense',
+  'capture.income': 'recording income',
+  'capture.transfer': 'recording a transfer',
+  'capture.investment': 'recording an investment',
+  'capture.split': 'splitting a bill',
+  'interpret.lookup': 'looking up your spending',
+  'interpret.status': 'reviewing your overall position',
+  'interpret.diagnostic': "working out what's driving your spending",
+  'interpret.budgets': 'checking your budgets',
+  'interpret.debts': 'reviewing your debts',
+  'interpret.bills': 'finding your upcoming bills',
+  'forecast.affordability': 'checking whether you can afford it',
+  'forecast.runway': 'working out how long your money lasts',
+  'forecast.prescriptive': 'finding where you could save',
+};
+
 export async function runAssistant(
   utterance: string,
   ctx: AssistantContext,
   backend: AssistantBackend | null = selectAssistantBackend(),
   seed = Date.now(),
+  /**
+   * v10.36 — receives each analysis step as it ACTUALLY happens, so the chat can
+   * print real progress while the model works. Each step maps to a real stage;
+   * none is a timed placeholder. Optional: every existing caller and test passes
+   * four arguments and is unaffected.
+   */
+  onProgress?: (step: string) => void,
 ): Promise<AssistantTurn> {
   // No model configured or reachable. Say so — never fake an answer. There is no
   // rules fallback by design (v10.20), and a finance assistant that invents a
   // reply when it cannot think is worse than one that admits it is offline.
   if (!backend) return unavailableTurn('not_configured');
 
+  onProgress?.('Understanding your question');
   let intent: IntentResult;
   try {
     intent = await backend.classifyIntent(utterance, ctx);         // stages 1–3
@@ -452,8 +671,11 @@ export async function runAssistant(
   const effective: IntentResult = gated
     ? { ...intent, id: 'fallback', bucket: 'none' }
     : intent;
+  if (INTENT_LABEL[effective.id]) onProgress?.(`Recognised: ${INTENT_LABEL[effective.id]}`);
   const result = gated ? fallback() : resolve(effective, ctx);     // stage 4 (never LLM)
+  for (const step of result.analysis ?? []) onProgress?.(step);
 
+  onProgress?.('Writing your answer');
   let reply: string;
   try {
     reply = await backend.phraseResponse(effective, result, ctx, seed);

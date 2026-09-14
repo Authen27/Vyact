@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, MessageCircle, Trash2, Mic, PencilLine, List } from 'lucide-react';
+import { Send, MessageCircle, Trash2, Mic, PencilLine, List, Sparkles } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
+import { Textarea } from '../components/ui/Input';
 import {
   buildSafeSummary, type ChatMessage,
 } from '../lib/aiSummary';
@@ -66,7 +66,9 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     const key = `chat_history_${householdId}`;
     try {
       const scoped = ls.readJson<ChatMessage[]>(key);
-      if (scoped) return scoped;
+      // A turn interrupted mid-flight (tab closed, reload) was persisted with
+      // `pending: true`; drop it so it never renders as permanently thinking.
+      if (scoped) return scoped.filter(m => !m.pending);
       const legacy = ls.readJson<ChatMessage[]>('chat_history');
       if (legacy) {
         try { ls.setJson(key, legacy); } catch { /* noop */ }
@@ -88,7 +90,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   // v7.4.5 — when an intent has secondary chips, hold it here so the
   // empty-state grid swaps to the tap-2 row.
   const [showExamples, setShowExamples] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Skip the very first history-effect run (mount/hydration) so opening Ask
   // Vyact stays scrolled to the TOP showing the intent options, instead of
@@ -133,6 +135,16 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // v10.36 — the composer is a multi-line textarea that grows with its content
+  // up to max-h-48 (192px), then scrolls. Keyed on `input`, so it also resizes
+  // when text is set programmatically (an example prefill) or cleared on send.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 192)}px`;
+  }, [input]);
+
   function prepareQuestion(question: string) {
     setInput(question);
     inputRef.current?.focus();
@@ -143,17 +155,26 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     // send during an in-flight stream is refused and can never interleave rows.
     if (!question.trim() || activeTurn) return;
     const userMsg: ChatMessage = { role: 'user', content: question };
-    setHistory(h => [...h, userMsg]);
+    // v10.36 — the reply row is created at the START of the turn rather than
+    // after it, so its analysis steps can be printed live while the model works.
+    // Every later write targets this row by turnId (audit 6.5): a message
+    // appended mid-turn can never be corrupted by this turn's writes.
+    const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setHistory(h => [...h, userMsg, { role: 'assistant', content: '', turnId, steps: [], pending: true }]);
     setInput('');
     // Mark the turn active immediately (streamReply replaces this with the
-    // cancellable record once the reply row exists). An id of 'pending' keeps
-    // the finally-block guard from clearing it early.
+    // cancellable record). An id of 'pending' keeps the finally-block guard from
+    // clearing it early.
     setActiveTurn({ id: 'pending', cancel: () => {} });
 
     // AI-P0 — telemetry is logged AFTER the turn so it can carry which engine
     // answered and the outcome. Still privacy-safe: intent + sentiment + length
     // + call metadata only, never the message text.
     const startedAt = Date.now();
+    const patchTurn = (patch: Partial<ChatMessage>) =>
+      setHistory(h => h.map(m => (m.turnId === turnId ? { ...m, ...patch } : m)));
+    const addStep = (step: string) =>
+      setHistory(h => h.map(m => (m.turnId === turnId ? { ...m, steps: [...(m.steps ?? []), step] } : m)));
 
     try {
       // Ask Vyact assistant (spec §3). When the flag is OFF this whole branch is
@@ -166,7 +187,8 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         };
         // A null backend means no model is configured. runAssistant turns that
         // into an explicit "unavailable" turn rather than a fabricated answer.
-        const turn = await runAssistant(question, ctx, assistantBackend);
+        // `addStep` receives each real pipeline stage as it happens.
+        const turn = await runAssistant(question, ctx, assistantBackend, Date.now(), addStep);
         void logAiUsage({
           householdId, text: question, surface: 'chat',
           backend: assistantBackend?.id ?? 'llm',
@@ -178,13 +200,13 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         });
         // Capture intents seed the EXISTING TransactionFormModal — no parallel path.
         if (turn.seed) openAddTxn(turn.seed);
-        // #4 — human-like: a brief "thinking" pause, then stream word-by-word.
-        await new Promise(r => setTimeout(r, 600));
-        // Audit 6.5 — the turn's reply row is created NOW (its id is the turn's
-        // anchor) and the stream writes THAT row by id. The turn stays active
-        // until the stream resolves, so a concurrent send is blocked by
-        // `thinking` (activeTurn) and can never clobber this row.
-        await streamReply(turn.reply, turn.chips);
+        // The analysis is finished: freeze its duration, then stream the answer
+        // into the same row. The turn stays active until the stream resolves, so
+        // a concurrent send is blocked by `thinking` and can never clobber it.
+        // (The old artificial 600ms "thinking" pause is gone — the real analysis
+        // steps now show that work is happening.)
+        patchTurn({ pending: false, thinkingMs: Date.now() - startedAt });
+        await streamReply(turnId, turn.reply, turn.chips);
         setActiveTurn(null);
         return;
       }
@@ -196,16 +218,13 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         householdId, text: question, surface: 'chat',
         outcome: 'error', latencyMs: Date.now() - startedAt,
       });
-      setHistory(h => [...h, {
-        role: 'assistant',
-        content: 'The assistant is turned off right now.',
-      }]);
+      patchTurn({ content: 'The assistant is turned off right now.', pending: false });
     } catch (e) {
       void logAiUsage({
         householdId, text: question, surface: 'chat',
         outcome: 'error', latencyMs: Date.now() - startedAt,
       });
-      setHistory(h => [...h, { role: 'assistant', content: `Error: ${(e as Error).message}` }]);
+      patchTurn({ content: `Error: ${(e as Error).message}`, pending: false });
     } finally {
       // The stream path clears activeTurn itself after the reply settles; the
       // off / error paths never started a stream, so clear any pending marker.
@@ -219,20 +238,19 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   // THAT row, matched by id, never "the last item". A new message arriving
   // mid-stream appends its own rows; this stream keeps writing its own row and
   // cannot corrupt it. `chips` attach only once the last word lands (#62).
-  function streamReply(text: string, chips?: AssistantChip[]): Promise<void> {
+  function streamReply(turnId: string, text: string, chips?: AssistantChip[]): Promise<void> {
     return new Promise(resolve => {
-      const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const words = text.split(' ');
-      // The reply row is appended with its id. From here every update targets
-      // this id — immune to anything appended after it.
-      setHistory(h => [...h, { role: 'assistant', content: '', turnId } as ChatMessage]);
+      // v10.36 — the row already exists: it was created when the turn started so
+      // its analysis could print live. Every update targets it by id — immune to
+      // anything appended after it.
       let i = 0;
       const id = setInterval(() => {
         i += 1;
         const partial = words.slice(0, i).join(' ');
         const done = i >= words.length;
         setHistory(h => h.map(msg =>
-          (msg as ChatMessage & { turnId?: string }).turnId === turnId
+          msg.turnId === turnId
             ? { ...msg, content: partial, ...(done && chips ? { chips } : {}) }
             : msg,
         ));
@@ -460,17 +478,49 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                 </>
             </div>
           )}
-          {history.map((m, i) => (
+          {history.map((m, i) => {
+            const steps = m.steps ?? [];
+            return (
             <div key={i}>
-              <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {/* Board D — .bub: user coral + accent-ink, AI neu canvas. */}
-                <div className="max-w-[85%] px-4 py-2.5 text-[0.86rem] leading-relaxed"
-                  style={m.role === 'user'
-                    ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderRadius: '18px 18px 6px 18px', boxShadow: 'var(--neu-sm)' }
-                    : { background: 'var(--canvas)', color: 'var(--ff-ink)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
-                  <div className="whitespace-pre-wrap">{m.content}</div>
+              {/* v10.36 — the analysis behind an assistant turn. Printed live while
+                  the turn is in flight (each line is a real pipeline stage, never a
+                  timed placeholder), then collapsed into "Analysed in Ns". */}
+              {m.role === 'assistant' && m.pending && (
+                <ol className="mb-2 space-y-1 text-[0.8rem]" aria-live="polite" aria-label="Ask Vyact is analysing your question">
+                  {(steps.length ? steps : ['Thinking']).map((step, si, all) => {
+                    const live = si === all.length - 1;
+                    return (
+                      <li key={si} className="ask-step flex items-start gap-2" style={{ color: 'var(--ff-ink-3)' }}>
+                        <span aria-hidden className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${live ? 'ask-step-live' : ''}`}
+                          style={{ background: live ? 'var(--accent)' : 'var(--ff-ink-3)' }} />
+                        <span>{step}{live ? '…' : ''}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              {m.role === 'assistant' && !m.pending && steps.length > 0 && (
+                <details className="mb-1.5 text-[0.78rem]" style={{ color: 'var(--ff-ink-3)' }}>
+                  <summary className="cursor-pointer select-none inline-flex items-center gap-1.5 min-h-[32px]">
+                    <Sparkles size={12} aria-hidden />
+                    Analysed{m.thinkingMs ? ` in ${(m.thinkingMs / 1000).toFixed(1)}s` : ''} · {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+                  </summary>
+                  <ol className="mt-1 mb-1 space-y-0.5 pl-5 list-decimal">
+                    {steps.map((step, si) => <li key={si}>{step}</li>)}
+                  </ol>
+                </details>
+              )}
+              {(m.role === 'user' || m.content) && (
+                <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {/* Board D — .bub: user coral + accent-ink, AI neu canvas. */}
+                  <div className="max-w-[85%] px-4 py-2.5 text-[0.86rem] leading-relaxed"
+                    style={m.role === 'user'
+                      ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderRadius: '18px 18px 6px 18px', boxShadow: 'var(--neu-sm)' }
+                      : { background: 'var(--canvas)', color: 'var(--ff-ink)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
+                    <div className="whitespace-pre-wrap">{m.content}</div>
+                  </div>
                 </div>
-              </div>
+              )}
               {/* Follow-up chips (#62) — the deck's response anatomy part 4.
                   Only under the LAST turn: a chip is "the next question", and
                   the next question only makes sense after the newest answer.
@@ -489,46 +539,44 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                 </div>
               )}
             </div>
-          ))}
-          {thinking && (
-            <div className="flex justify-start">
-              <div className="max-w-[85%] px-4 py-2.5" style={{ background: 'var(--canvas)', color: 'var(--ff-ink-3)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
-                <div className="flex gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: 'var(--ff-ink-3)', animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: 'var(--ff-ink-3)', animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: 'var(--ff-ink-3)', animationDelay: '300ms' }} />
-                </div>
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
 
         {history.length > 0 && <Button variant="ghost" onClick={() => setShowExamples(value => !value)} aria-expanded={showExamples}>
           <List size={14} aria-hidden /> {showExamples ? 'Hide examples' : 'Show examples'}
         </Button>}
-        <div className="border-t border-line px-3 pt-4 pb-5 flex gap-2 items-center flex-shrink-0">
-          <label htmlFor={embedded ? 'ask-drawer-input' : 'ask-page-input'} className="sr-only">Your question or entry</label>
-          <Input ref={inputRef} id={embedded ? 'ask-drawer-input' : 'ask-page-input'}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
-            placeholder={listening ? (interimText || 'Listening…') : 'Ask a question…'}
-            className="flex-1 min-w-0"
-          />
-          {Boolean(SpeechRec) && (
+        <div className="border-t border-line px-3 pt-4 pb-5 flex-shrink-0">
+          {/* v10.36 — `is-thinking` animates a ring around the composer while a
+              turn is in flight (static under reduced motion; see index.css). */}
+          <div className={`ask-composer flex gap-2 items-end ${thinking ? 'is-thinking' : ''}`}>
+            <label htmlFor={embedded ? 'ask-drawer-input' : 'ask-page-input'} className="sr-only">Your question or entry</label>
+            {/* Enter sends; Shift+Enter inserts a new line. `isComposing` stops an
+                IME confirmation keystroke from sending a half-typed question. */}
+            <Textarea ref={inputRef} id={embedded ? 'ask-drawer-input' : 'ask-page-input'}
+              rows={2}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(input); } }}
+              placeholder={thinking ? 'Vyact is thinking…' : listening ? (interimText || 'Listening…') : 'Ask a question… (Shift+Enter for a new line)'}
+              aria-busy={thinking}
+              className="flex-1 min-w-0 !min-h-[3.25rem] max-h-48 !resize-none leading-snug"
+            />
+            {Boolean(SpeechRec) && (
+              <button
+                type="button" onClick={listening ? stopVoice : startVoice} aria-label={listening ? 'Stop listening' : 'Voice input'}
+                title={listening ? 'Stop' : 'Speak'}
+                className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full border transition-all ${listening ? 'border-coral text-coral bg-coral/10 shadow-[0_0_0_3px_rgba(229,115,115,0.25)] animate-pulse' : 'border-line text-ink-mid hover:text-ink hover:border-coral'}`}>
+                <Mic size={16} />
+              </button>
+            )}
             <button
-              type="button" onClick={listening ? stopVoice : startVoice} aria-label={listening ? 'Stop listening' : 'Voice input'}
-              title={listening ? 'Stop' : 'Speak'}
-              className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full border transition-all ${listening ? 'border-coral text-coral bg-coral/10 shadow-[0_0_0_3px_rgba(229,115,115,0.25)] animate-pulse' : 'border-line text-ink-mid hover:text-ink hover:border-coral'}`}>
-              <Mic size={16} />
+              type="button" onClick={() => send(input)} disabled={!input.trim() || thinking}
+              aria-label="Send"
+              className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-coral text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none">
+              <Send size={16} />
             </button>
-          )}
-          <button
-            type="button" onClick={() => send(input)} disabled={!input.trim() || thinking}
-            aria-label="Send"
-            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-coral text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none">
-            <Send size={16} />
-          </button>
+          </div>
         </div>
       </Panel>
     </div>

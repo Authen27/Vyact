@@ -191,4 +191,17 @@ export interface ChatMessage {
    * persisted transcripts carry it harmlessly.
    */
   turnId?: string;
+  /**
+   * v10.36 — analysis steps printed live while the turn is in flight, then kept
+   * (collapsed) with the reply. Deterministic progress labels from the pipeline,
+   * never model-authored text.
+   */
+  steps?: string[];
+  /** Wall-clock time from send until the answer was ready — "Analysed in Ns". */
+  thinkingMs?: number;
+  /**
+   * True while the turn is in flight. Stripped when the transcript is reloaded,
+   * so a turn interrupted mid-flight never renders as permanently thinking.
+   */
+  pending?: boolean;
 }
