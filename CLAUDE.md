@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.35.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.36.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -31,6 +31,13 @@ Authoritative changelogs: [`VERSIONS.md`](VERSIONS.md) (master index),
 `scripts/version-drift-check.mjs` fails the build if the version drifts across
 README / VERSIONS / CHANGELOG / package.json — bump all together. Dated
 per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
+
+## Technical debt — one register, deprioritized
+
+[`TECH_DEBT.md`](TECH_DEBT.md) is the **single** debt register (43 items; never open a parallel
+`*_REMEDIATION.md` — they get folded in and deleted). **Paydown is deprioritized right now:** the
+current priority is completing Ask Vyact — see [`docs/ASK_VYACT_STATUS.md`](docs/ASK_VYACT_STATUS.md)
+for what is done vs pending there. Do not start TD work unless explicitly asked.
 
 ## Binding conventions (violating one is a regression)
 
@@ -195,6 +202,14 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
   canned answer.** The provider key lives server-side in the `ask-vyact` Edge
   Function; the browser-direct Gemini client, `ChatBackend`, `StubChatBackend`,
   `SupabaseChatBackend` and the `SubAgent` registry were all retired with it.
+  **Stage 4 returns `facts` (v10.36)** — structured, service-computed data the
+  model explains, alongside the legacy one-line `vars`; the phrase payload also
+  carries the user's `question`. **Every money value in `facts` MUST go through
+  `money()`**: the guard only allows figures it finds in the data, so a raw or
+  differently-rounded number makes the model's correct answer get discarded.
+  Facts use category labels and SafeSummary debt *types* — never descriptions or
+  user-named debts. **`params.max_tokens` in `ai_model_configs` is NOT read for
+  this seam** — `askVyactLlm.ts` passes its own caps, and the caller's wins.
 - **Agent = an INDEPENDENT SERVICE, never a second app** (v10.19+, in build).
   📖 **Working on the agent? Read [`vyact-agent-architecture.md`](vyact-agent-architecture.md)
   and stop there — it is self-contained by design.** Do NOT load the Aurora design

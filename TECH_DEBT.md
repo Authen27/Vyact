@@ -10,15 +10,33 @@
 > **Effort key:** XS ≤ ½ day · S ≈ 1–2 days · M ≈ 1 week · L ≈ 1–2 weeks.
 > **Severity:** Critical / High / Medium / Low.
 
-## Status at a glance (2026-09-10)
+## Status at a glance (revalidated 2026-09-13 against production)
 
-**35 items total — 25 ✅ resolved · 2 ⚠ partial · 8 ⬜ open.**
+**43 items total — 24 ✅ resolved · 2 ⚠ partial · 17 ⬜ open.**
 
 | Bucket | IDs |
 |---|---|
-| ✅ **Resolved** (25) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-15, TD-17, TD-18, TD-20, TD-21, **TD-23**, **TD-24**, **TD-25**, **TD-26**, **TD-27**, **TD-28**, **TD-33** |
-| ⚠ **Partial** (2) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B now runs green — 10 specs incl. RLS isolation; Lane A red, tracked as TD-29) |
-| ⬜ **Open** (9) | TD-16, TD-22, **TD-29**, **TD-30**, **TD-31**, **TD-32**, **TD-34**, **TD-35**, **TD-36** |
+| ✅ **Resolved** (24) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, TD-33 |
+| ⚠ **Partial** (2) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B green — 10 specs incl. RLS isolation; Lane A red, tracked as TD-29) |
+| ⬜ **Open** (17) | TD-15 ⚠**REOPENED**, TD-16, TD-22, TD-29, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-39**, **TD-40**, **TD-41**, **TD-42**, **TD-43** |
+
+> ### 🔻 Paydown is DEPRIORITIZED (2026-09-13)
+> The current priority is **completing Ask Vyact** — see
+> [`docs/ASK_VYACT_STATUS.md`](docs/ASK_VYACT_STATUS.md). This register is the parking
+> place, not the work queue. Do not start TD work unless explicitly asked.
+
+> **2026-09-13 revalidation.** Every open item was re-checked against the live database and
+> the v10.35.0 tree, and the register absorbed the debt that had been stranded in nine other
+> docs (TD-37…TD-41). Three corrections to the register's own bookkeeping:
+> - The header said "35 items" but TD-01…TD-36 is **36**; and "8 open" while the table listed
+>   **9**. Both counts were wrong and are fixed above.
+> - **TD-15 is REOPENED.** It was marked resolved on the strength of "enable MFA, leaked-password
+>   protection and auth rate limits", but the Supabase security advisor reports
+>   *"Leaked password protection is currently disabled"* as of 2026-09-13. MFA did ship; this
+>   one sub-item did not, or was later switched off.
+> - TD-29 was re-measured: **55 failed · 56 passed · 82 skipped** (see the entry for method and
+>   caveats). Lane A is also confirmed **still red on `main`** — it is the only failing job in the
+>   v10.35.0 CI run; Automation gates and Lane B both pass.
 
 > **2026-09-10 intake (TD-29…TD-35).** Parked at the close of the v10.22.x test-hardening releases,
 > before the Accounts redesign starts. TD-29 is the Lane A triage that remains; TD-30…TD-32 are the
@@ -60,7 +78,7 @@
 | TD-12 | ✅ Derived metrics recompute per render *(resolved · PR #13 batch; selectors retyped 2026-06-01)* | Performance | Medium | S–M |
 | TD-13 | ✅ Budget `period` is a per-device localStorage overlay *(resolved · PR #13 batch + PR #20 in prod; `budgetMeta.ts` removed 2026-06-01)* | Functional / Data integrity | Medium | S |
 | TD-14 | ✅ localStorage quota ceiling; failures swallowed *(resolved · 2026-06-01: kvStore IndexedDB substrate + storageEvents quota fan-out)* | Scalability | Medium | S–M |
-| TD-15 | ✅ No MFA / documented auth rate limiting *(resolved · PR #13 batch)* | Security | Medium | XS |
+| TD-15 | ⚠ **REOPENED 2026-09-13** — MFA shipped, but leaked-password protection is DISABLED in production (advisor `auth_leaked_password_protection`) | Security | Medium | XS |
 | TD-16 | Backups/exports unencrypted at rest | Security / Privacy | Medium | S |
 | TD-17 | ✅ No transaction list virtualization *(resolved · PR #3)* | Performance | Low | S |
 | TD-18 | ✅ Hand-run SQL file instead of a migrations tool *(resolved · PR #6)* | Technical / Process | Medium | S |
@@ -81,6 +99,13 @@
 | TD-34 | `pg_trgm` installed in the `public` schema | Security / Hygiene | Low | S |
 | TD-35 | Remaining audit release blockers: historical loan repair, webhook inbox recovery, ownerless outbox recovery | Technical / Reliability | High | M |
 | TD-36 | Investments as assets (v10.26.0) — the agent resolver, the Lane A investment spec and local-only legacy investment accounts still assume the two-account model | Technical / Consistency | Medium | S |
+| TD-37 | R6 atomic reconcile — specced and deferred in `docs/SYNC_FIXPLAN.md`; no `reconcile_account` RPC exists | Technical / Correctness | Low | S |
+| TD-38 | 17 npm audit advisories reported during install, never triaged | Security / Dependencies | Unknown until triaged | XS to triage |
+| TD-39 | `budget_threshold` notification type exists but nothing emits it on threshold crossing | Functional / Product | Low | S |
+| TD-40 | UI Standardization Pilot — Ask-drawer redesign, native-confirm replacement, all-screen spacing rollout and admin standardization still unshipped | Technical / Design system | Low | M |
+| TD-41 | No governance step retires a doc when the product moves past it — 5 docs actively misdescribe the current app | Technical / Process / Docs | Medium | S |
+| TD-42 | Production security advisors: 8 tables RLS-enabled with no policy, 38 SECURITY DEFINER functions callable by `authenticated` | Security | Medium | S–M |
+| TD-43 | No test exercises the deployed `ask-vyact` gateway against a real provider — a 2-day production outage went unnoticed | Technical / QA | High | S |
 
 ---
 
@@ -937,9 +962,23 @@ four in `transactions-create` share one cause — the "All details" disclosure p
 reachable the way the POM expects). The e2e seed also still uses legacy category ids (`housing`,
 `food`) that only render through `LEGACY_CATEGORY_ALIASES`.
 
+**Re-measured 2026-09-13 (v10.35.0): `55 failed · 56 passed · 82 skipped`, 193 total, 13.8 min.**
+Counted from Playwright's own `e2e/.results/.last-run.json` `failedTests` array (55 ids across 14
+distinct spec files), not from scraped console output. Read against the 2026-09-10 baseline of
+53 / 32 / 82 (167 total): **failures are roughly flat (+2) while passes nearly doubled (+24)** —
+the suite grew by ~26 tests and the new ones largely pass. Identical skip count (82) in both runs
+suggests the two are comparable.
+
+⚠️ **Two caveats on that number.** It is a **local, chromium-only** run on Windows, whereas the
+baseline came from CI — environment differences alone can move results. And the per-file breakdown
+below is still the 2026-09-10 figure: `.last-run.json` stores hashed test ids, so mapping 55
+failures back to files needs a re-run under `--reporter=json`, which was not worth 14 minutes for a
+deprioritized item. Treat the totals as measured and the per-file split as indicative.
+
 **Impact — tech / architecture.** A permanently red lane is ignored, so it catches nothing. It has
 already hidden real defects: the budget overrun that read "100%" (v10.22.1) and two INVERTED tests
-whose failure was the correct behaviour (TXN-FC-003, CON-E2E-012 — v10.22.3).
+whose failure was the correct behaviour (TXN-FC-003, CON-E2E-012 — v10.22.3). The Ask Vyact outage
+in TD-43 is the newest instance of the same pattern.
 
 **Impact — functional / business.** Regressions in settings, backup, debt payment, search, onboarding
 and reports journeys reach production without a browser test noticing.
@@ -1118,6 +1157,157 @@ and rewrite the spec; offer an explicit, user-tapped "move to an investment asse
 account (the same fold, run once, on consent).
 
 **Acceptance.** No code path proposes or writes a two-account investment, and each surface has a test.
+
+---
+
+## TD-37 — R6 atomic reconcile (deferred, spec ready)
+
+**Description.** `docs/SYNC_FIXPLAN.md` R1–R5 shipped; **R6 is marked "⏸ deferred — spec below"**
+and never built. Confirmed 2026-09-13: no `reconcile_account` RPC exists in any migration.
+
+**Impact.** A device refreshing mid-reconcile shows a transient half-state. The fix plan's own
+reasoning for deferring still holds: it **self-heals on the next refresh** under the accepted
+refresh-based model, and shipping it needs a money-mutating SQL RPC whose risk outweighs a
+transient, self-correcting display issue.
+
+**Effort.** S. **Acceptance.** Reconcile applies atomically, or the deferral is made permanent
+and R6 is struck from the fix plan rather than left dangling.
+
+---
+
+## TD-38 — 17 npm audit advisories, never triaged
+
+**Description.** `docs/CORRECTIVE_REVIEW_2026-09-09.md`: *"The 17 npm audit advisories reported
+during dependency installation need separate dependency triage; no automatic major-version
+upgrade was attempted."* No triage has happened since.
+
+**Impact.** Unknown by definition — that is the problem. Severity cannot be assessed until run.
+
+**Effort.** XS to triage (`npm audit` in `react/` and `admin/`), unknown to remediate.
+**Acceptance.** Each advisory is classified reachable/unreachable, with a decision recorded.
+
+---
+
+## TD-39 — `budget_threshold` notification is never emitted
+
+**Description.** The notification TYPE exists, but nothing fires it when a budget crosses its
+threshold. `docs/TEST_SCENARIOS.md` keeps CON-E2E-019 as a deliberate **`test.fixme`**: *"kept as
+a documented gap rather than a test asserting a notification the app never sends."*
+
+**Impact — functional.** A budget alert the data model implies and the user never receives.
+Related to TD-22 (push delivery), but distinct: this one never generates the notification at all.
+
+**Effort.** S. **Acceptance.** Crossing a threshold emits the notification; CON-E2E-019 unfixmed.
+
+---
+
+## TD-40 — UI Standardization Pilot: remaining gates
+
+**Description.** `docs/UI_STANDARDIZATION_PILOT.md` scopes out, as explicitly not done: the Ask
+drawer redesign, native-confirm replacement, all-screen spacing rollout, and admin
+standardization. Also records an unresolved observation: a **modal backdrop staying transparent**
+in some flows, and a Cash-in-Hand summary showing **-$95 where the parts read $95 and $0** —
+flagged at the time as "investigate the summary display path before release" and not since
+closed.
+
+**Effort.** M. **Acceptance.** Each named gate is either shipped or formally dropped; the two
+observed display bugs are reproduced and fixed or disproved.
+
+---
+
+## TD-41 — Superseded docs are never retired
+
+**Description.** There is no step in the release process that retires a document when the
+product moves past it. `docs/handoff-plans/archive/README.md` establishes the pattern —
+*"Briefs in this folder describe completed handoff work… not part of the active task surface"* —
+but only one brief was ever moved there. Five documents now actively misdescribe the app, and
+none is flagged in `CLAUDE.md`, `docs/HISTORY.md` or this register.
+
+**Verified stale, 2026-09-13 — recommended action per doc:**
+
+| Doc | Problem | Action |
+|---|---|---|
+| `docs/ROADMAP_AUTO_LINKING.md` | Titled **"FinFlow"** (pre-rename), targets v6.5–v7.0, all phases 🟡 Designed. Its generic `linkedAssetId` asset-reflection model contradicts the binding v10.26.0 investment model. Nothing in it is current. | **Archive** |
+| `docs/handoff-plans/todo.yaml` | Header pins v7.2.0-rc and the dead `vyact-twentyx.vercel.app`. Documents the retired `__tg:` transfer encoding as "done". `money_map_retire_flag` still reads `status: not-started` though CLAUDE.md calls that flag retired. | **Move to `archive/`** |
+| `CLAUDE-1.md` § Known Limitations | Describes the vanilla shell archived in v7.0.1. Claims no sync, no auth, no recurring auto-generation, SVG charts — all false. Only "no bank aggregation" and "no P&L/A-R/A-P" still hold. File also self-contradicts on version (says v10.13.0 in one place). | **Prune section + add "frozen snapshot" banner** |
+| `docs/UI_STANDARDIZATION_PILOT.md` L20-27 | Describes the searchable Headless-UI combobox picker. Binding v10.27.1 convention is a select-only native `Select`. The doc's own supersession note sits *above* the wrong text, so a top-to-bottom reader still gets the wrong picture. | **Delete the stale passage** |
+| `docs/MEASUREMENT_PLAN.md` L56-67 | "North-star metrics by initiative" maps to pre-v10 UI (track-specific modal, type-specific categories). **Keep the rest** — its privacy guardrails and naming rules are still the live contract, cited as a review-block by `react/src/lib/analytics.ts:10`. | **Prune the table only** |
+
+Also update the `test.fixme` comment in `react/e2e/tests/networth-impact.spec.ts:10-27`, which
+cites `docs/ROADMAP_AUTO_LINKING.md` as a live gate and references a `store.ts` that no longer
+exists (decomposed into slices under TD-25).
+
+**Confirmed NOT stale, leave alone:** `docs/SYNC_FIXPLAN.md` (only R6 open → TD-37),
+`docs/budget-sync-fix-plan.md` (correctly labelled historical), `docs/UI_ADOPTION_AND_HELP.md`
+(current), `docs/CORRECTIVE_REVIEW_2026-09-09.md` (recent; its blockers map to TD-29/31/35/38).
+
+**Effort.** S. **Acceptance.** The five are archived/pruned, and retiring superseded docs
+becomes a named step in the release checklist so this does not recur.
+
+---
+
+## TD-42 — Production security advisor findings
+
+**Description.** Run 2026-09-13 against production; none of these are in the register:
+
+- **`rls_enabled_no_policy` (INFO, 8 tables)** — `whatsapp_identities`,
+  `whatsapp_inbound_messages`, `whatsapp_verification_otps`, `migration_issues`, and four
+  `_backup_v9*` tables have RLS on with no policies. For the WhatsApp tables this is *probably*
+  intended (service-role-only by design), but "probably" is not a record — each needs a one-line
+  confirmation or a policy. The `_backup_v9*` tables raise a separate question: they are empty
+  and may simply be droppable.
+- **`authenticated_security_definer_function_executable` (WARN, 38 functions)** — every
+  SECURITY DEFINER function is callable by any signed-in user via `/rest/v1/rpc/…`, including
+  `admin_dashboard_kpis`, `admin_list_users`, `admin_ai_usage_summary` and `erase_household_data`.
+  The admin ones gate internally on `is_admin()`, so this is likely defence-in-depth rather than
+  a live hole — but it is unverified, and `erase_household_data` is worth checking first.
+
+**Effort.** S–M. **Acceptance.** Every finding is either remediated or recorded as accepted with
+its reason; `get_advisors` output is clean or annotated.
+
+---
+
+## TD-43 — The deployed Ask Vyact gateway has no real-provider test
+
+**Description.** Nothing exercises the deployed `ask-vyact` edge function against a live model.
+`gatewayWorkflow.test.ts` is fully mocked; `askVyactLive.test.ts` is `describe.skipIf(!KEY)`,
+excluded from default CI, and its own header states it *"does not validate deployed gateway
+authentication, quota, consent, configuration or metering."*
+
+⚠️ **A stale run command — corrected 2026-09-13.** The suite's own header comment documented plain
+`vitest run src/lib/__tests__/askVyactLive.test.ts`, which returns *"No test files found"* because
+`vitest.config.ts` excludes the file. The **working** route has existed since v10.22.2:
+`npm --prefix react run test:live`, which runs `vitest.live.config.ts` — a config that inherits the
+base and sets `exclude: []`.
+*(Correction: an earlier revision of this entry called the suite "UNRUNNABLE" and said a new config
+was "the only way to run it". Both were wrong. The config and the `test:live` script already
+existed; only the header comment was stale, and it is now fixed.)*
+
+**Extended 2026-09-13.** `askVyactLive.test.ts` gained a **14-scenario matrix** covering all 10
+model-reaching intents plus 4 free-text capture utterances, printing per-scenario evidence and
+failing on provider-unreachable or majority mis-bucketing. Run it with
+`npm --prefix react run test:live` — or, where npm is blocked, from `react/`:
+`node ./node_modules/vitest/vitest.mjs run --config vitest.live.config.ts` — with
+`OPENROUTER_API_KEY` and optionally `VYACT_LIVE_MODEL` set.
+
+**Still open, and why this item stays open.** That harness calls OpenRouter **directly**, exactly as
+the old smoke tests did — it validates the `classify → resolve → phrase` chain and the
+invented-figure guard against a real model, but **not the deployed edge function**: not its JWT
+auth, not the quota reservation, not `ai_model_configs` resolution, not metering. A regression in
+any of those still ships unnoticed. Closing TD-43 needs a post-deploy smoke test that calls the
+real endpoint with a real user JWT.
+
+**Impact — proven, not theoretical.** Ask Vyact was enabled in production and **failed 6/6
+requests over two days (2026-09-11 → 2026-09-12) without anyone noticing**, because
+`OPENROUTER_API_KEY` was never set. (6 POSTs in `function_edge_logs`, all 503, against 12
+`ai_usage` rows — two rows per request; see `ASK_VYACT_STATUS.md` for the metering discrepancy
+that implies.) A single post-deploy smoke test would have caught it
+immediately. Compounding it, the gateway returns the failure code in the HTTP body but never
+logs it, so the outage is invisible in Supabase logs. Full analysis:
+[`docs/ASK_VYACT_STATUS.md`](docs/ASK_VYACT_STATUS.md).
+
+**Effort.** S. **Acceptance.** A CI-gated end-to-end test hits the deployed gateway and asserts a
+successful `ai_usage` row; the `!result.ok` path emits a log line.
 
 ---
 

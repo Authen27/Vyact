@@ -61,11 +61,32 @@ export class InventedFigureError extends Error {
 
 // ── stage 3: classify ────────────────────────────────────────────────────────
 
+// v10.36 — each intent now carries its meaning and example phrasings. The model
+// used to see bare ids ("interpret.diagnostic", "forecast.prescriptive") with no
+// definition, and was told to fall back to interpret.* when unsure — which pulled
+// advice questions ("where can I cut back?") into plain lookups. `Valid ids` stays
+// interpolated from INTENT_IDS so the machine-checked list can never drift.
 const CLASSIFY_SYSTEM = `You classify a personal-finance question into exactly one intent.
 
 Return ONLY minified JSON: {"id":"<intent>","entities":{...},"confidence":0.0-1.0}
 
 Valid ids: ${INTENT_IDS.join(', ')}
+
+WHAT EACH INTENT MEANS
+  capture.expense        recording money already spent       "spent 45 on fuel", "paid rent"
+  capture.income         recording money already received    "got paid today", "received salary"
+  capture.transfer       moving money between own accounts   "moved money from bank to cash"
+  capture.investment     putting money into an investment    "invested in my index fund"
+  capture.split          a shared bill split with others     "split dinner three ways"
+  interpret.lookup       spend on ONE category or period     "how much on dining this month?"
+  interpret.status       overall position or net worth       "how am I doing?", "what's my net worth?"
+  interpret.diagnostic   why spending moved, where it goes   "why is spending up?", "where is my money going?"
+  interpret.budgets      budget status or budgets at risk    "which budgets are at risk?"
+  interpret.debts        debts, balances, payoff strategy    "tell me about my debts", "best way to pay them off"
+  interpret.bills        upcoming or recurring bills         "what bills are coming up?"
+  forecast.affordability whether a purchase is affordable    "can I afford a new laptop?"
+  forecast.runway        how long money lasts without income "how long would my savings last?"
+  forecast.prescriptive  where to cut back or how to save    "where can I cut back?", "how do I save more?"
 
 Entities you may extract when the user states them explicitly:
   amount (number), currency (3-letter code), category (string), account (string),
@@ -73,10 +94,10 @@ Entities you may extract when the user states them explicitly:
 
 RULES
 - Never invent an entity the user did not state. Omit it instead.
-- capture.* means the user is RECORDING a transaction they made.
-- interpret.* means they are ASKING about existing data.
-- forecast.* means they are asking about the future or affordability.
-- If you cannot tell, use the closest interpret.* and set confidence below 0.5.
+- capture.* ONLY when the user is recording a transaction that already happened.
+- A request for advice, a strategy, or where to save is forecast.prescriptive (or
+  interpret.debts for debt payoff) — never interpret.lookup.
+- If genuinely unsure, choose the closest meaning and set confidence below 0.5.
 - Output JSON only. No prose, no markdown, no code fences.`;
 
 function stripFences(raw: string): string {
@@ -226,39 +247,67 @@ export function assertNoInventedFigures(
 
 // ── stage 5: phrase ──────────────────────────────────────────────────────────
 
-const PHRASE_SYSTEM = `You are Vyact's finance assistant. You will be given the
-COMPUTED RESULT of a user's question as structured data. Put it into one or two
-short, calm sentences.
+// v10.36 — rewritten. The previous prompt capped answers at "one or two short
+// sentences" and forbade advice outright, so questions that ASK for advice ("where
+// can I cut back?", "best payoff strategy") could only get a restated number. The
+// money rule is unchanged and still absolute: the model explains figures Vyact
+// computed; it never produces one. Relaxing THAT would break the binding
+// "services compute" rule, and assertNoInventedFigures still enforces it.
+const PHRASE_SYSTEM = `You are Vyact's household-finance assistant. You are given
+the user's QUESTION and FACTS that Vyact has already computed from their own data.
+Answer the question they actually asked, using those facts.
 
-ABSOLUTE RULES
-- Use ONLY the numbers given to you. Never calculate, estimate, round, convert,
-  total, or infer any figure. If a number is not in the data, it does not exist.
-- Never add advice, caveats, disclaimers or apologies unless the data says so.
-- Plain language. No markdown, no bullet points, no emoji, no headings.
-- Speak to the user as "you". Be direct and warm, never chirpy.
-- If the outcome indicates something is missing, say plainly what you need.`;
+HOW TO ANSWER
+- Lead with the direct answer, then explain the supporting facts that matter most.
+- When there are several items (categories, budgets, debts, bills), name the ones
+  that matter most, in order of importance, and say why each matters.
+- For where-to-save questions, point to the specific categories that are highest or
+  furthest above the user's usual, citing their figures.
+- For debt questions, say which debt to prioritise and why, using the balances and
+  interest rates given.
+- Two to five sentences. Plain language, warm and direct. Speak to the user as "you".
+- No markdown, no bullet points, no headings, no emoji.
+
+ABSOLUTE RULES ABOUT NUMBERS
+- Use ONLY figures that appear in FACTS or DATA, copied exactly as written: same
+  currency symbol, same rounding. Never calculate, estimate, total, convert, round
+  or infer a new figure. If a number is not given, do not state one.
+- Describe relationships in words ("your largest", "well above your usual") rather
+  than inventing a number for them.
+- You are explaining the user's own data, not giving regulated investment, tax or
+  legal advice. Do not recommend specific financial products.
+- If FACTS show something is missing, say plainly what you need from the user.`;
 
 /**
  * Turn a computed `ResolveResult` into prose.
  *
- * The model sees ONLY the resolved variables — never the raw transaction list —
- * so it cannot leak detail the summary deliberately excludes, and cannot base a
- * figure on anything but a computed one.
+ * The model sees the user's own question plus COMPUTED aggregates — never the raw
+ * transaction list — so it cannot leak detail the summary deliberately excludes,
+ * and cannot base a figure on anything but a computed one.
  */
 export async function phraseViaModel(
   intent: IntentResult,
   result: ResolveResult,
   call: ModelCall,
 ): Promise<string> {
+  // v10.36 — `question` and `facts` are new. The model previously never saw the
+  // question it was answering (only `question_type`), so it answered the intent
+  // CATEGORY rather than what was asked. `data` is kept, and kept under that key,
+  // deliberately: it is the legacy one-line summary, and the offline test fakes
+  // read `JSON.parse(user).data`.
   const payload = JSON.stringify({
+    question: intent.entities.text,
     question_type: intent.id,
     outcome: result.outcome,
+    facts: result.facts ?? {},
     data: result.vars ?? {},
   });
 
   let reply: string;
   try {
-    reply = (await call({ system: PHRASE_SYSTEM, user: payload, maxTokens: 200 })).trim();
+    // 200 → 700: room for a real explanation. Reasoning tokens are metered
+    // separately and are not bound by this visible-output cap.
+    reply = (await call({ system: PHRASE_SYSTEM, user: payload, maxTokens: 700 })).trim();
   } catch (err) {
     throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
   }
@@ -267,6 +316,12 @@ export async function phraseViaModel(
   if (!reply) throw new ModelUnavailableError('empty reply');
 
   // Guard, then return. A reply that invents money is discarded, never shown.
-  assertNoInventedFigures(reply, result.vars ?? {});
+  // The allowlist now includes every figure in `facts` (flattened via JSON), so
+  // richer facts give the model MORE legitimate numbers to cite — fewer rejections,
+  // not more — while anything outside both sources is still discarded.
+  assertNoInventedFigures(reply, {
+    ...(result.vars ?? {}),
+    __facts: JSON.stringify(result.facts ?? {}),
+  });
   return reply;
 }

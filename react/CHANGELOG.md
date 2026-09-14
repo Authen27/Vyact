@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.35.0`** (consumer)
+> **Current production version: `v10.36.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,52 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.36.0 — Ask Vyact answers the question you asked, and shows its working *(2026-09-14)*
+
+- **Answers were shallow because the model was starved, not weak.** `resolve()` already computed a
+  rich picture — spend and usual month for every category, every budget, every debt, upcoming
+  bills — then collapsed it to one pre-written sentence (`vars.headline`/`vars.detail`) sized for the
+  retired rules engine. The phrase model was told to reword that in "one or two short sentences"
+  with "no advice", and never saw the user's question. Fixed without touching the "services
+  compute" rule:
+  - `ResolveResult` gains `facts` (structured, service-computed) and `analysis` (human-readable
+    steps). Every interpret and forecast intent now returns the data it computes rather than only
+    the top item; a shared `categoryBreakdown()` serves lookup, diagnostic, prescriptive and runway.
+    All money goes through `money()`, so a figure copied verbatim always passes
+    `assertNoInventedFigures` — and since the guard's allowlist now includes `facts`, richer data
+    means *fewer* rejections. `vars` is unchanged, so every existing test is untouched.
+  - The phrase payload now carries `question` and `facts`. The phrase prompt was rewritten to answer
+    the question actually asked and to prioritise and explain (two to five sentences, still no
+    invented figures, no product recommendations). Phrase `maxTokens` 200 → 700.
+  - The classify prompt defines every intent with example phrasings, and routes advice and strategy
+    questions to `forecast.prescriptive`/`interpret.debts` instead of defaulting to `interpret.*`.
+  - Egress: new facts use category labels and SafeSummary debt *types* only — never user-authored
+    descriptions or debt names.
+- **Ask Vyact shows its working.** `runAssistant` takes an optional `onProgress` callback and emits
+  each real stage: "Understanding your question", "Recognised: …", the resolve analysis ("Compared 6
+  categories with your usual month"…) and "Writing your answer" — no timed placeholders. `Chat.tsx`
+  now creates the reply row when the turn *starts* (still addressed by `turnId`, audit 6.5), prints
+  the steps live, then folds them into an expandable "Analysed in Ns · N steps". The artificial
+  600ms pause is gone; pending rows are stripped on reload.
+- **Thinking ring on the composer.** An animated gradient ring in the design system's AI palette
+  (`--rail`) while a turn is in flight, with `aria-busy` and a "Vyact is thinking…" placeholder.
+  Under `prefers-reduced-motion` the ring shows but does not move: the global reduce-motion rule
+  shortens duration without stopping `infinite` iteration, so this animation is disabled explicitly.
+- **Multi-line composer.** An auto-growing textarea (two lines up to 192px, then it scrolls). Enter
+  sends, Shift+Enter inserts a newline, and an IME composition keystroke never sends.
+- **Live test harness.** `askVyactLive.test.ts` gains a 14-scenario matrix — the 10 model-reaching
+  intents plus 4 free-text capture utterances — printing per-scenario evidence. Run it with
+  `npm --prefix react run test:live`. Its header previously documented a command that returns "No
+  test files found"; corrected.
+- **Docs.** `TECH_DEBT.md` consolidated and revalidated against production: 43 items, TD-15 reopened
+  (leaked-password protection is disabled), TD-37…TD-43 added, TD-29 re-measured at 55 failed / 56
+  passed / 82 skipped. New `docs/ASK_VYACT_STATUS.md` (done vs pending) and
+  `docs/ASK_VYACT_LLM_RUN_LOG.md` (every question to date). `CLAUDE.md` names the single debt
+  register and marks paydown deprioritized.
+- **Known, not changed here.** `interpret.bills` still sends each bill's user-authored description
+  in `vars.detail`, which the egress rule forbids. Flagged for a follow-up rather than changing
+  output silently in this release.
 
 ## v10.35.0 — Ask Vyact composer redesign, and Amount stops grabbing the keyboard *(2026-09-12)*
 
