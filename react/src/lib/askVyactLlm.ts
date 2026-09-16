@@ -66,7 +66,7 @@ export class InventedFigureError extends Error {
 // definition, and was told to fall back to interpret.* when unsure — which pulled
 // advice questions ("where can I cut back?") into plain lookups. `Valid ids` stays
 // interpolated from INTENT_IDS so the machine-checked list can never drift.
-const CLASSIFY_SYSTEM = `You classify a personal-finance question into exactly one intent.
+export const CLASSIFY_SYSTEM = `You classify a personal-finance question into exactly one intent.
 
 Return ONLY minified JSON: {"id":"<intent>","entities":{...},"confidence":0.0-1.0}
 
@@ -253,7 +253,7 @@ export function assertNoInventedFigures(
 // money rule is unchanged and still absolute: the model explains figures Vyact
 // computed; it never produces one. Relaxing THAT would break the binding
 // "services compute" rule, and assertNoInventedFigures still enforces it.
-const PHRASE_SYSTEM = `You are Vyact's household-finance assistant. You are given
+export const PHRASE_SYSTEM = `You are Vyact's household-finance assistant. You are given
 the user's QUESTION and FACTS that Vyact has already computed from their own data.
 Answer the question they actually asked, using those facts.
 

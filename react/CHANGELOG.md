@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.36.0`** (consumer)
+> **Current production version: `v10.37.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,29 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.37.0 — Claude Code relay for Ask Vyact validation (test-only) *(2026-09-15)*
+
+- **Why.** The free Nemotron model now takes longer than the gateway's 20 s budget, so nearly
+  every question ended in HTTP 504 and the chat said "I can't reach the assistant" (production:
+  `ai_usage` latency 20008 ms, edge log 504). For the validation window the product owner asked
+  for a Claude Code session to stand in as the model, on their own account only.
+- **How.** A new provider row, `provider='claude-code-relay'`, allowlisted by
+  `params.allowed_user_ids`. For an allowlisted caller `ask-vyact` reserves quota as usual, queues
+  the exact messages in the new service-role-only `ask_vyact_relay` table and answers **202
+  `relay_pending`**; the client polls `{ relayPoll }` every 3 s for up to 5 min
+  (`askVyactModelCall.ts`), and the poll finalises the `ai_usage` reservation. Everyone else
+  resolves the next enabled config exactly as before. The classify → resolve → phrase pipeline and
+  `assertNoInventedFigures` are unchanged, so the relay is judged by the same guard as any model.
+  A count-only `ask-vyact-relay-status` function (no JWT, no ids, no content) lets the local
+  watcher know a call is waiting.
+- **Privacy.** `ask_vyact_relay` stores message content — a deliberate, temporary exception to the
+  metadata-only rule, scoped to the owner's test household. Tracked as **TD-44**: remove the relay
+  and purge the rows once validation ends.
+- **Correction.** `params.max_tokens` (600) IS the live cap for every call: the gateway never
+  forwards the client's `maxOutputTokens`. v10.36's CLAUDE.md / status-doc claim was backwards.
+- Tests: `agentRelay.test.ts` (allowlist, call labelling, poll states), 5 gateway relay cases in
+  `gatewayWorkflow.test.ts`, 2 client polling cases in `cloudTransport.test.ts`.
 
 ## v10.36.0 — Ask Vyact answers the question you asked, and shows its working *(2026-09-14)*
 

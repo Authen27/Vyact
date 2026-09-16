@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.36.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.37.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -34,7 +34,7 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
 
 ## Technical debt — one register, deprioritized
 
-[`TECH_DEBT.md`](TECH_DEBT.md) is the **single** debt register (43 items; never open a parallel
+[`TECH_DEBT.md`](TECH_DEBT.md) is the **single** debt register (44 items; never open a parallel
 `*_REMEDIATION.md` — they get folded in and deleted). **Paydown is deprioritized right now:** the
 current priority is completing Ask Vyact — see [`docs/ASK_VYACT_STATUS.md`](docs/ASK_VYACT_STATUS.md)
 for what is done vs pending there. Do not start TD work unless explicitly asked.
@@ -208,8 +208,16 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `money()`**: the guard only allows figures it finds in the data, so a raw or
   differently-rounded number makes the model's correct answer get discarded.
   Facts use category labels and SafeSummary debt *types* — never descriptions or
-  user-named debts. **`params.max_tokens` in `ai_model_configs` is NOT read for
-  this seam** — `askVyactLlm.ts` passes its own caps, and the caller's wins.
+  user-named debts. **`params.max_tokens` in `ai_model_configs` IS the cap for
+  every call (corrected v10.37)** — the client sends `maxOutputTokens` (256
+  classify / 700 phrase) but `ask-vyact/index.ts` never forwards it to
+  `chatCompletion`, so the router falls through to `params.max_tokens` (600).
+  🧪 **Claude Code relay (v10.37, TEMPORARY — TD-44):** an enabled
+  `provider='claude-code-relay'` row allowlisted by `params.allowed_user_ids`
+  makes the gateway QUEUE that user's calls in `ask_vyact_relay` (202 +
+  client polling) for a Claude Code session to answer. It stores message
+  content (a scoped exception to metadata-only), applies to the product
+  owner's own test household only, and is removed after validation.
 - **Agent = an INDEPENDENT SERVICE, never a second app** (v10.19+, in build).
   📖 **Working on the agent? Read [`vyact-agent-architecture.md`](vyact-agent-architecture.md)
   and stop there — it is self-contained by design.** Do NOT load the Aurora design
