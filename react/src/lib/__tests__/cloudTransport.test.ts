@@ -34,6 +34,36 @@ describe('cloud command transports', () => {
       messages: [{ role: 'system', content: 'Use computed facts' }, { role: 'user', content: 'Summarize' }], responseFormat: 'json', maxOutputTokens: 100 } });
   });
 
+  it('a relay-queued call polls the gateway until the answer arrives (v10.37, test-only)', async () => {
+    vi.useFakeTimers();
+    try {
+      transport.invoke
+        .mockResolvedValueOnce({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-1' }, error: null })
+        .mockResolvedValueOnce({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-1' }, error: null })
+        .mockResolvedValueOnce({ data: { ok: true, enabled: true, text: 'Relayed explanation' }, error: null });
+      const pending = resolveConfiguredModelCall()!({ system: 'Use computed facts', user: 'Summarize' });
+      await vi.advanceTimersByTimeAsync(6_000);
+      expect(await pending).toBe('Relayed explanation');
+      expect(transport.invoke).toHaveBeenCalledTimes(3);
+      expect(transport.invoke).toHaveBeenLastCalledWith('ask-vyact', { body: { seam: 'assistant', relayPoll: 'relay-1' } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a relay call that is never answered becomes an error, not a silent empty answer', async () => {
+    vi.useFakeTimers();
+    try {
+      transport.invoke.mockResolvedValue({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-2' }, error: null });
+      const pending = resolveConfiguredModelCall()!({ system: 's', user: 'u' });
+      const outcome = expect(pending).rejects.toThrow('relay did not answer in time');
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 3_000);
+      await outcome;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('reads link status and unlinks through the authenticated endpoint without profile writes', async () => {
     transport.invoke.mockResolvedValueOnce({ data: { status: 'linked', phone: '111', householdId: 'household' }, error: null })
       .mockResolvedValueOnce({ data: { status: 'unlinked' }, error: null });

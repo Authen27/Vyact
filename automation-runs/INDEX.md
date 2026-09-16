@@ -27,3 +27,4 @@
 | 2026-09-10T14:41:02.606Z | ✅ PASS | `feat/r1-accounts-data-hygiene` | `ce87eef` | local | 238/238 | [report](2026-09-10T14-35-14-415Z__ce87eef/report.md) |
 | 2026-09-12T13:24:27.100Z | ✅ PASS | `release/form-help-and-copy-audit` | `a6bb749` | local | 239/239 | [report](2026-09-12T13-19-00-199Z__a6bb749/report.md) |
 | 2026-09-14T05:29:38.331Z | ✅ PASS | `release/ask-vyact-answer-quality` | `8de7cc8` | local | 239/239 | [report](2026-09-14T05-23-50-689Z__8de7cc8/report.md) |
+| 2026-09-15T06:05:17.070Z | ✅ PASS | `release/ask-vyact-claude-code-relay` | `e2f68e5` | local | 244/244 | [report](2026-09-15T05-58-31-580Z__e2f68e5/report.md) |

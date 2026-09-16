@@ -179,7 +179,17 @@ coverage of all 14 scenarios. As of 2026-09-13: **8 of 14 scenarios have passed 
 | classify completion tokens | 21-71 | **87-564** |
 | failures | 0 | 0 |
 
-### ⚠️ `params.max_tokens` is dead config for Ask Vyact (corrected 2026-09-13)
+### ⚠️ `params.max_tokens` — corrected AGAIN (2026-09-15, v10.37)
+
+**The section below is wrong, and so was the CLAUDE.md rule derived from it.** The client does
+send `maxOutputTokens`, but [`ask-vyact/index.ts`](../supabase/functions/ask-vyact/index.ts) never
+reads `body.maxOutputTokens` or passes it to `chatCompletion`. The router therefore resolves
+`undefined ?? params.max_tokens` — **`params.max_tokens` (600) IS the live cap for every call**, and
+the client's 256/700 never reach the provider. This also explains the "564 completion tokens on a
+256-capped classify call" puzzle below without needing the reasoning-token theory: the cap was 600.
+Kept for the record; do not act on it.
+
+### ~~`params.max_tokens` is dead config for Ask Vyact~~ (superseded — see above)
 
 An earlier revision of this section claimed a classify call burned "564 of 600 tokens" and
 recommended raising `params.max_tokens`. **Both halves were wrong**, and the recommended UPDATE

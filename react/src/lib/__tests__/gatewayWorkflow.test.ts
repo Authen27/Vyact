@@ -61,6 +61,70 @@ describe('actual Ask Vyact gateway handler', () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
+  describe('Claude Code relay (v10.37, test-only)', () => {
+    const relayId = '30000000-0000-4000-8000-000000000001';
+    const relayConfig = { id: 'relay', seam: 'assistant', provider: 'claude-code-relay', model: 'claude-opus-5 (Claude Code)',
+      base_url: 'https://claude-code.relay', key_env_var: null, params: { allowed_user_ids: ['user'] }, enabled: true, priority: 200 };
+    const messages = [{ role: 'system', content: 'You classify a personal-finance question' }, { role: 'user', content: 'How am I doing?' }];
+
+    it('queues an allowlisted user\'s call instead of calling a provider and answers 202', async () => {
+      api.from.mockReturnValueOnce(queryResult([relayConfig, config]));
+      const queue = queryResult({ id: relayId });
+      api.from.mockReturnValueOnce(queue);
+      const result = await handler(request({ messages }));
+      expect(result.status).toBe(202);
+      expect(await result.json()).toMatchObject({ ok: false, enabled: true, error: 'relay_pending', relayId });
+      expect(api.from).toHaveBeenLastCalledWith('ask_vyact_relay');
+      expect(queue.insert).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'user', reservation_id: 'reservation',
+        call_kind: 'classify', messages }));
+      expect(api.rpc).toHaveBeenCalledWith('reserve_ai_usage', expect.objectContaining({ p_user_id: 'user' }));
+      expect(provider).not.toHaveBeenCalled();
+    });
+
+    it('a user who is not allowlisted resolves the next config and never touches the relay', async () => {
+      api.auth.getUser.mockResolvedValue({ data: { user: { id: 'other' } }, error: null });
+      api.from.mockReturnValueOnce(queryResult([relayConfig, config])).mockReturnValueOnce(queryResult(null));
+      const result = await handler(new Request('https://edge.example.com/ask-vyact', { method: 'POST', headers: {
+        Authorization: `Bearer ${userToken('other')}`, Origin: 'https://vyact.app', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }) }));
+      expect(result.status).toBe(200);
+      expect(await result.json()).toMatchObject({ ok: true, text: 'Computed facts received.' });
+      expect(provider).toHaveBeenCalledOnce();
+      expect(api.from).not.toHaveBeenCalledWith('ask_vyact_relay');
+    });
+
+    it('a poll returns the relay answer and finalises the reservation as ok', async () => {
+      const row = queryResult({ id: relayId, status: 'answered', created_at: '2026-09-15T10:00:00Z',
+        answered_at: '2026-09-15T10:00:09Z', response: 'You spent less than usual.', reservation_id: 'reservation' });
+      const meter = queryResult(null);
+      api.from.mockReturnValueOnce(row).mockReturnValueOnce(meter);
+      const result = await handler(request({ relayPoll: relayId }));
+      expect(result.status).toBe(200);
+      expect(await result.json()).toMatchObject({ ok: true, text: 'You spent less than usual.', provider: 'claude-code-relay', latencyMs: 9000 });
+      expect(row.eq).toHaveBeenCalledWith('user_id', 'user');
+      expect(meter.update).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'ok', provider: 'claude-code-relay', latency_ms: 9000 }));
+      expect(api.rpc).not.toHaveBeenCalled();
+      expect(provider).not.toHaveBeenCalled();
+    });
+
+    it('a poll for a row the caller does not own is not found', async () => {
+      api.from.mockReturnValueOnce(queryResult(null));
+      const result = await handler(request({ relayPoll: relayId }));
+      expect(result.status).toBe(404);
+    });
+
+    it('a poll still pending is 202; past the TTL it expires as a 504 timeout', async () => {
+      api.from.mockReturnValueOnce(queryResult({ id: relayId, status: 'pending', created_at: new Date().toISOString(), reservation_id: null }));
+      expect((await handler(request({ relayPoll: relayId }))).status).toBe(202);
+      const stale = queryResult(null);
+      api.from.mockReturnValueOnce(queryResult({ id: relayId, status: 'pending', created_at: '2020-01-01T00:00:00Z', reservation_id: 'reservation' }))
+        .mockReturnValueOnce(stale).mockReturnValueOnce(queryResult(null));
+      const expired = await handler(request({ relayPoll: relayId }));
+      expect(expired.status).toBe(504);
+      expect(stale.update).toHaveBeenCalledWith({ status: 'expired' });
+    });
+  });
+
   it('blocks provider spend when reservation is refused', async () => {
     api.from.mockReturnValueOnce(queryResult([config]));
     api.rpc.mockResolvedValue({ data: null, error: { code: '42901', message: 'quota_exceeded' } });

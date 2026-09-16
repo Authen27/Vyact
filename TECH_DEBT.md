@@ -12,13 +12,13 @@
 
 ## Status at a glance (revalidated 2026-09-13 against production)
 
-**43 items total — 24 ✅ resolved · 2 ⚠ partial · 17 ⬜ open.**
+**44 items total — 24 ✅ resolved · 2 ⚠ partial · 18 ⬜ open.**
 
 | Bucket | IDs |
 |---|---|
 | ✅ **Resolved** (24) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, TD-33 |
 | ⚠ **Partial** (2) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B green — 10 specs incl. RLS isolation; Lane A red, tracked as TD-29) |
-| ⬜ **Open** (17) | TD-15 ⚠**REOPENED**, TD-16, TD-22, TD-29, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-39**, **TD-40**, **TD-41**, **TD-42**, **TD-43** |
+| ⬜ **Open** (18) | TD-15 ⚠**REOPENED**, TD-16, TD-22, TD-29, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-39**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44** |
 
 > ### 🔻 Paydown is DEPRIORITIZED (2026-09-13)
 > The current priority is **completing Ask Vyact** — see
@@ -106,6 +106,7 @@
 | TD-41 | No governance step retires a doc when the product moves past it — 5 docs actively misdescribe the current app | Technical / Process / Docs | Medium | S |
 | TD-42 | Production security advisors: 8 tables RLS-enabled with no policy, 38 SECURITY DEFINER functions callable by `authenticated` | Security | Medium | S–M |
 | TD-43 | No test exercises the deployed `ask-vyact` gateway against a real provider — a 2-day production outage went unnoticed | Technical / QA | High | S |
+| TD-44 | TEMPORARY Claude Code relay (v10.37.0) stores Ask Vyact message content for the owner's test account — remove after validation | Security / Privacy | Medium | S |
 
 ---
 
@@ -1296,6 +1297,22 @@ invented-figure guard against a real model, but **not the deployed edge function
 auth, not the quota reservation, not `ai_model_configs` resolution, not metering. A regression in
 any of those still ships unnoticed. Closing TD-43 needs a post-deploy smoke test that calls the
 real endpoint with a real user JWT.
+
+## TD-44 — Remove the Claude Code relay after Ask Vyact validation
+
+**Description.** v10.37.0 added a TEST-ONLY relay so a developer's Claude Code session could stand
+in as the Ask Vyact model while the free provider timed out: a `provider='claude-code-relay'` row in
+`ai_model_configs` (allowlisted by `params.allowed_user_ids` to the product owner's own account),
+the `ask_vyact_relay` queue table, the relay branch + `relayPoll` op in `ask-vyact/index.ts`,
+`_shared/agent/relay.ts`, the count-only `ask-vyact-relay-status` function (no JWT) and the client
+polling in `askVyactModelCall.ts`.
+
+**Why it is debt.** `ask_vyact_relay` stores message CONTENT — a scoped, temporary exception to the
+metadata-only rule — and the relay only works while a developer session is watching.
+
+**Close when validation ends:** disable the relay row, move to a secure hosted model, purge
+`ask_vyact_relay` rows (with the owner's OK), then remove the table, the function, the relay code
+and its tests in one release.
 
 **Impact — proven, not theoretical.** Ask Vyact was enabled in production and **failed 6/6
 requests over two days (2026-09-11 → 2026-09-12) without anyone noticing**, because

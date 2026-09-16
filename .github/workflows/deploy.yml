@@ -132,7 +132,11 @@ jobs:
       - name: Deploy agent gateway
         # WITH JWT verification (default). Inert until a super-admin enables an
         # ai_model_configs row.
-        run: supabase functions deploy ask-vyact
+        run: |
+          supabase functions deploy ask-vyact
+          # v10.37 TEST-ONLY relay watcher endpoint (TD-44): returns a pending count
+          # only — no ids, no content — so it needs no JWT.
+          supabase functions deploy ask-vyact-relay-status --no-verify-jwt
 
   consumer:
     # TD-33 (v10.22.4) — also waits for the Edge Functions. Needing only

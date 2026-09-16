@@ -152,10 +152,10 @@ logged as `other` — so it was a different 20-character question. `net-worth` h
 ### Tokens
 - **Nemotron emits 3–8× more output tokens.** Classify should return a few bytes of JSON; Sonnet
   used 31–71 tokens, Nemotron 87–564. This is reasoning output, and it is free here.
-- **These counts do not threaten truncation.** Classify is capped at 256 tokens in code, yet Q18
-  reported 564 and succeeded — `completion_tokens` includes reasoning that the visible-output cap
-  doesn't bound. (`params.max_tokens` in `ai_model_configs` is never read for this seam; see
-  `ASK_VYACT_STATUS.md`.)
+- ~~Classify is capped at 256 tokens in code, yet Q18 reported 564~~ **Corrected 2026-09-15:** the
+  gateway never forwards the client's cap, so every call was capped by `params.max_tokens` = **600**.
+  Q18's 564 tokens sat just under that cap — no reasoning-token theory needed. See
+  `ASK_VYACT_STATUS.md`.
 
 ### Cost
 - **Sonnet: $0.0081 for 4 questions, $0.0020 each.** Prompt tokens dominate (~390 in / ~280 in per
@@ -186,3 +186,54 @@ How much did I spend this month?
 The first six have never passed; the last is a Nemotron retry. Pace them roughly a minute apart on
 the free tier. Any 502 is a provider rejection — retry it rather than recording it as a failure of
 Ask Vyact.
+
+---
+
+## Period 5 — Claude Code relay (v10.37.0) · content validation
+
+**Why this period exists.** From 2026-09-14 the free Nemotron model exceeded the gateway's 20 s
+budget (HTTP 504, `ai_usage` latency 20008 ms), so almost every question failed. For the validation
+window the product owner authorised a Claude Code session (Claude Opus 5) to answer Ask Vyact for
+**their own account and household only** (`c89fe12a-…`), via the TEST-ONLY relay (TD-44).
+
+**What is held constant.** The app runs its normal pipeline: the client classifies (model), resolves
+every figure deterministically, then asks the model to phrase — and `assertNoInventedFigures` still
+discards any reply carrying a figure the data does not contain. The relay session answers **only
+from the payload each call carries** (system prompt + question, or question + facts), and reads no
+other data about the household.
+
+**What this log records.** Unlike Periods 1–4, the reply text is available (`ask_vyact_relay`), so
+each entry records **the content** of the answer:
+
+| Field | Source |
+|---|---|
+| Question as typed | classify call's user message |
+| Intent chosen | classify response |
+| Facts given | phrase call's `question_type`, `outcome`, `facts` (abridged) |
+| Reply (verbatim) | phrase response |
+| Shown / discarded | client `ai_usage` row for the turn (`outcome`) — a guard discard shows the "unverified figures" turn |
+| Latency | relay `answered_at − created_at`, both hops |
+
+**Content rubric** — each line Pass / Partial / Fail with a one-line reason:
+- **Relevance** — answers the question actually asked.
+- **Accuracy** — every figure and claim matches the facts, including sign, period and framing.
+- **Usefulness** — prioritises, explains or gives a next step; not generic.
+- **Length / tone** — 2–5 sentences, calm, plain language, no product recommendations.
+
+⚠️ **Self-graded.** The verdicts are written by the same session that wrote the answers. They are a
+first pass; the product owner's review is the final call.
+
+### Rebuild query
+
+```sql
+select r.created_at, r.call_kind, r.status,
+       extract(epoch from (r.answered_at - r.created_at))::int as secs,
+       r.messages -> 1 ->> 'content' as user_payload,
+       r.response
+from public.ask_vyact_relay r
+order by r.created_at;
+```
+
+### Entries
+
+*(Appended as each question is answered.)*

@@ -24,7 +24,15 @@ interface GatewayResponse {
   text?: string;
   error?: string;
   message?: string;
+  /** v10.37 Claude Code relay (test-only): the queued call to poll. */
+  relayId?: string;
 }
+
+/** Relay polling cadence and budget (v10.37, TEST-ONLY — TD-44). */
+export const RELAY_POLL_INTERVAL_MS = 3_000;
+export const RELAY_POLL_BUDGET_MS = 5 * 60 * 1000;
+
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 /**
  * Build the transport, or null when the app has no cloud backend at all
@@ -51,6 +59,26 @@ export function resolveConfiguredModelCall(): ModelCall | null {
     // Transport failure — the caller turns this into an "unavailable" turn.
     if (error) throw new Error(error.message ?? 'gateway request failed');
     if (!data) throw new Error('empty gateway response');
+
+    // v10.37 Claude Code relay (TEST-ONLY, allowlisted accounts): the gateway queued
+    // the call instead of answering. Poll until the relay session writes the reply.
+    if (data.error === 'relay_pending' && data.relayId) {
+      const relayId = data.relayId;
+      const deadline = Date.now() + RELAY_POLL_BUDGET_MS;
+      while (Date.now() < deadline) {
+        await sleep(RELAY_POLL_INTERVAL_MS);
+        const polled = await client.functions.invoke<GatewayResponse>('ask-vyact', {
+          body: { seam: 'assistant', relayPoll: relayId },
+        });
+        if (polled.error) throw new Error(polled.error.message ?? 'relay poll failed');
+        if (!polled.data) throw new Error('empty relay poll response');
+        if (polled.data.error === 'relay_pending') continue;
+        if (!polled.data.ok) throw new Error(polled.data.message ?? polled.data.error ?? 'relay error');
+        if (!polled.data.text) throw new Error('relay returned no text');
+        return polled.data.text;
+      }
+      throw new Error('relay did not answer in time');
+    }
 
     // The kill switch is off, or no model row is enabled. This is a normal
     // configuration state, not a bug, and it must surface as unavailable rather

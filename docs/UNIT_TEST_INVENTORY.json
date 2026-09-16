@@ -367,6 +367,22 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/agentRelay.test.ts",
+      "feature": "Ask Vyact",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "runAssistant / router / Claude Code relay (test-only)",
+      "count": 5,
+      "tests": [
+        "Claude Code relay — allowlist CON-UNIT-RELAY-001 · routes only an explicitly allowlisted user",
+        "Claude Code relay — allowlist CON-UNIT-RELAY-002 · an empty, missing or malformed allowlist routes nobody",
+        "Claude Code relay — allowlist CON-UNIT-RELAY-003 · filtering drops the relay for others and keeps every non-relay row",
+        "Claude Code relay — call labelling and polling CON-UNIT-RELAY-004 · labels the real classify and phrase prompts correctly",
+        "Claude Code relay — call labelling and polling CON-UNIT-RELAY-005 · a poll is pending, answered with latency, or expired after the TTL"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/agentResolver.test.ts",
       "feature": "Learned ingestion (not connected to entrypoints)",
       "availability": "infrastructure",
@@ -418,7 +434,7 @@
       "feature": "Ask Vyact",
       "availability": "conditional",
       "layer": "unit",
-      "owner": "runAssistant / router",
+      "owner": "runAssistant / router / Claude Code relay (test-only)",
       "count": 11,
       "tests": [
         "secret handling never reads a denylisted env var name",
@@ -499,7 +515,7 @@
       "feature": "Ask Vyact",
       "availability": "conditional",
       "layer": "unit",
-      "owner": "runAssistant / router",
+      "owner": "runAssistant / router / Claude Code relay (test-only)",
       "count": 31,
       "tests": [
         "askVyact chips — delivery + the max-three rule CON-UNIT-ASK-057 · extras are DROPPED at three, never wrapped",
@@ -719,8 +735,10 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "SupabaseAdapter / askVyactModelCall / whatsappLink",
-      "count": 4,
+      "count": 6,
       "tests": [
+        "cloud command transports a relay call that is never answered becomes an error, not a silent empty answer",
+        "cloud command transports a relay-queued call polls the gateway until the answer arrives (v10.37, test-only)",
         "cloud command transports atomic budget create forwards identity and returns authoritative allocations",
         "cloud command transports atomic budget replace forwards identity and returns authoritative allocations",
         "cloud command transports reads link status and unlinks through the authenticated endpoint without profile writes",
@@ -842,8 +860,13 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "ask-vyact/index.ts",
-      "count": 4,
+      "count": 9,
       "tests": [
+        "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) a poll for a row the caller does not own is not found",
+        "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) a poll returns the relay answer and finalises the reservation as ok",
+        "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) a poll still pending is 202; past the TTL it expires as a 504 timeout",
+        "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) a user who is not allowlisted resolves the next config and never touches the relay",
+        "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) queues an allowlisted user's call instead of calling a provider and answers 202",
         "actual Ask Vyact gateway handler authenticates, reserves quota, calls provider, finalizes metadata and returns the response",
         "actual Ask Vyact gateway handler blocks provider spend when reservation is refused",
         "actual Ask Vyact gateway handler probes enabled readiness without reserving quota or calling a provider",

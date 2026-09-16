@@ -87,7 +87,12 @@
 // DEPLOY: WITH JWT verification (this function identifies the user).
 //   supabase functions deploy ask-vyact
 //
-// STATUS: UNDEPLOYED AND UNEXECUTED. Written, typechecked, never run.
+// STATUS: deployed by deploy.yml on every push to main.
+//
+// v10.37 CLAUDE CODE RELAY (TEST-ONLY, TD-44): an enabled `claude-code-relay` row
+// allowlisted to a test user makes this function QUEUE the messages in
+// `ask_vyact_relay` and answer 202 `{ error: 'relay_pending', relayId }`; the client
+// then polls with `{ relayPoll: relayId }`. See `_shared/agent/relay.ts`.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import {
@@ -100,6 +105,15 @@ import {
   type ModelConfigRow,
   type Seam,
 } from '../_shared/agent/router.ts';
+import {
+  detectCallKind,
+  filterRelayRows,
+  isRelayConfig,
+  relayPollState,
+  RELAY_MODEL_LABEL,
+  RELAY_PROVIDER,
+  type RelayRowLike,
+} from '../_shared/agent/relay.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
@@ -172,6 +186,9 @@ interface RequestBody {
   householdId?: unknown;
   surface?: unknown;
   probe?: unknown;
+  /** v10.37 Claude Code relay: poll a queued call by id (see _shared/agent/relay.ts). */
+  relayPoll?: unknown;
+  maxOutputTokens?: unknown;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -254,6 +271,64 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const isProbe = body.probe === true;
   const surface = typeof body.surface === 'string' && SURFACES.has(body.surface) ? body.surface : 'chat';
 
+  // ── 3b. Claude Code relay poll (v10.37, TEST-ONLY). ───────────────────────
+  // Returns a queued call's answer once the relay session has written it. Scoped
+  // to the caller's own rows, so an id guessed from elsewhere reveals nothing.
+  if (typeof body.relayPoll === 'string') {
+    if (!UUID_RE.test(body.relayPoll)) {
+      return respond({ ok: false, error: 'invalid_request', message: 'relayPoll must be an id.', requestId }, 400, origin);
+    }
+    const { data: row } = await admin
+      .from('ask_vyact_relay')
+      .select('id, status, created_at, answered_at, response, reservation_id')
+      .eq('id', body.relayPoll)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!row) {
+      return respond({ ok: false, enabled: true, seam, error: 'not_found', message: 'No such relay call.', requestId }, 404, origin);
+    }
+    const poll = relayPollState(row as RelayRowLike);
+    if (poll.state === 'pending') {
+      return respond({ ok: false, enabled: true, seam, error: 'relay_pending', relayId: row.id, requestId }, 202, origin);
+    }
+    const reservationId = (row as { reservation_id?: string | null }).reservation_id ?? null;
+    if (poll.state === 'expired') {
+      if ((row as RelayRowLike).status !== 'expired') {
+        await admin.from('ask_vyact_relay').update({ status: 'expired' }).eq('id', row.id).eq('status', 'pending');
+        if (reservationId) {
+          await admin.from('ai_usage').update({
+            outcome: 'error', provider: RELAY_PROVIDER, model: RELAY_MODEL_LABEL,
+            prompt_tokens: 0, completion_tokens: 0, cost_usd: 0,
+          }).eq('id', reservationId);
+        }
+      }
+      return respond({
+        ok: false, enabled: true, seam, error: 'timeout',
+        message: 'The relay did not answer in time.', requestId,
+      }, STATUS_FOR.timeout, origin);
+    }
+    if (reservationId) {
+      const { error } = await admin.from('ai_usage').update({
+        outcome: 'ok', provider: RELAY_PROVIDER, model: RELAY_MODEL_LABEL,
+        prompt_tokens: 0, completion_tokens: 0, cost_usd: 0, latency_ms: poll.latencyMs,
+      }).eq('id', reservationId);
+      if (error) console.error('[ask-vyact] relay metering finalise failed', reservationId, error.message);
+    }
+    return respond({
+      ok: true, enabled: true, seam,
+      // UNTRUSTED MODEL OUTPUT — same contract as a provider answer.
+      text: poll.text,
+      toolCalls: [],
+      provider: RELAY_PROVIDER,
+      model: RELAY_MODEL_LABEL,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      costUsd: 0,
+      latencyMs: poll.latencyMs,
+      finishReason: 'stop',
+      requestId,
+    }, 200, origin);
+  }
+
   // Tool schemas are NOT accepted from a client. The tool registry is
   // server-owned (P7/P8) and read tools are separated from write tools there; a
   // client-supplied schema would be both an unbounded token cost and a way to
@@ -275,7 +350,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, 200, origin);
   }
 
-  const config = selectModelConfig((configRows ?? []) as ModelConfigRow[], seam);
+  // v10.37: a Claude Code relay row applies ONLY to its allowlisted test users;
+  // everyone else resolves exactly the config they did before.
+  const eligibleRows = filterRelayRows((configRows ?? []) as ModelConfigRow[], user.id);
+  const config = selectModelConfig(eligibleRows, seam);
+  const relay = isRelayConfig(config);
 
   if (!config) {
     // 🔴 THE INERT DEFAULT. One read happened. Nothing was called, nothing was
@@ -291,7 +370,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Deliberately omits provider/model — readiness is operational, model identity
   // is not something an end user needs from this endpoint.
   if (isProbe) {
-    const check = checkConfig(config);
+    // A relay row has no URL or key to validate; it is ready when it is selected.
+    const check = relay ? { ok: true } as ReturnType<typeof checkConfig> : checkConfig(config);
     return respond({
       ok: true, enabled: true, seam, ready: check.ok,
       reason: check.ok ? undefined : check.code,
@@ -355,6 +435,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }, over ? 429 : 503, origin);
     }
     reservationId = resId as string;
+  }
+
+  // ── 8b. Claude Code relay (v10.37, TEST-ONLY): queue, don't call. ─────────
+  // The reservation stays 'reserved' until the poll finalises it. Nothing waits
+  // inside this function, so the edge wall-clock limit is never in play.
+  if (relay) {
+    const requestedMax = typeof body.maxOutputTokens === 'number' && Number.isFinite(body.maxOutputTokens)
+      ? Math.floor(body.maxOutputTokens) : null;
+    const { data: queued, error: queueErr } = await admin
+      .from('ask_vyact_relay')
+      .insert({
+        user_id: user.id,
+        household_id: householdId,
+        reservation_id: reservationId,
+        call_kind: detectCallKind(clean.messages),
+        messages: clean.messages,
+        max_tokens: requestedMax ?? (typeof config.params?.max_tokens === 'number' ? config.params.max_tokens : null),
+      })
+      .select('id')
+      .single();
+    if (queueErr || !queued) {
+      if (reservationId) {
+        await admin.from('ai_usage').update({ outcome: 'error', provider: RELAY_PROVIDER, model: RELAY_MODEL_LABEL,
+          prompt_tokens: 0, completion_tokens: 0 }).eq('id', reservationId);
+      }
+      return respond({
+        ok: false, enabled: true, seam, error: 'unreachable',
+        message: 'Could not queue the relay call.', requestId,
+      }, STATUS_FOR.unreachable, origin);
+    }
+    return respond({ ok: false, enabled: true, seam, error: 'relay_pending', relayId: queued.id, requestId }, 202, origin);
   }
 
   // ── 9. The call. Bounded, and it cannot throw. ────────────────────────────
