@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1132 passing deterministic cases in 75 files. Zero failed, skipped or TODO cases at generation.**
+**1135 passing deterministic cases in 75 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -39,7 +39,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | store-integration | available | 48 |
 | react | store-integration | conditional | 2 |
 | react | unit | available | 271 |
-| react | unit | conditional | 99 |
+| react | unit | conditional | 102 |
 | react | unit | infrastructure | 600 |
 
 ### Executed Files
@@ -59,7 +59,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/agentPipeline.test.ts](../react/src/lib/__tests__/agentPipeline.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 18 |
 | [react/src/lib/__tests__/agentRecipe.test.ts](../react/src/lib/__tests__/agentRecipe.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 34 |
 | [react/src/lib/__tests__/agentRecipeStore.test.ts](../react/src/lib/__tests__/agentRecipeStore.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |
-| [react/src/lib/__tests__/agentRelay.test.ts](../react/src/lib/__tests__/agentRelay.test.ts) | Ask Vyact | unit | conditional | 5 |
+| [react/src/lib/__tests__/agentRelay.test.ts](../react/src/lib/__tests__/agentRelay.test.ts) | Ask Vyact | unit | conditional | 8 |
 | [react/src/lib/__tests__/agentResolver.test.ts](../react/src/lib/__tests__/agentResolver.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 36 |
 | [react/src/lib/__tests__/agentRouter.test.ts](../react/src/lib/__tests__/agentRouter.test.ts) | Ask Vyact | unit | conditional | 11 |
 | [react/src/lib/__tests__/agentValidator.test.ts](../react/src/lib/__tests__/agentValidator.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 22 |

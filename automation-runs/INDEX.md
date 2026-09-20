@@ -30,3 +30,4 @@
 | 2026-09-15T06:05:17.070Z | ✅ PASS | `release/ask-vyact-claude-code-relay` | `e2f68e5` | local | 244/244 | [report](2026-09-15T05-58-31-580Z__e2f68e5/report.md) |
 | 2026-09-16T04:56:22.958Z | ✅ PASS | `docs/ask-vyact-validation-findings` | `ad2e867` | local | 244/244 | [report](2026-09-16T04-46-34-784Z__ad2e867/report.md) |
 | 2026-09-17T05:49:02.438Z | ✅ PASS | `docs/ask-vyact-validation-findings` | `ad2e867` | local | 269/269 | [report](2026-09-17T05-41-02-031Z__ad2e867/report.md) |
+| 2026-09-20T07:03:07.681Z | ❌ FAIL | `release/ask-vyact-fact-fixes` | `3bbbdea` | local | 272/272 | [report](2026-09-20T06-52-26-926Z__3bbbdea/report.md) |

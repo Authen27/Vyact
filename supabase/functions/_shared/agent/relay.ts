@@ -51,6 +51,34 @@ export function filterRelayRows<T extends RelayConfigLike>(rows: readonly T[], u
 }
 
 /**
+ * v10.38 — does this config row apply to this caller?
+ *
+ * `params.allowed_user_ids` PILOTS A MODEL ON ONE ACCOUNT. A row carrying the key
+ * serves only those user ids; every other caller skips it and resolves the next
+ * row by priority. A row WITHOUT the key serves everyone, exactly as before — so
+ * adding the key to nothing changes nothing.
+ *
+ * The rule exists because a pilot model is not a production model: a self-hosted
+ * endpoint on somebody's desk is offline when that machine sleeps, and the whole
+ * household should not be routed through it to find out. When the pilot is proven,
+ * removing the key from the row promotes it to everyone in one edit, with no deploy.
+ *
+ * A relay row is the strict case: it REQUIRES an allowlist (see `relayAllows`),
+ * because an unanswered relay call is a five-minute wait and a failed turn.
+ */
+export function rowAppliesToUser<T extends RelayConfigLike>(row: T, userId: string): boolean {
+  if (isRelayConfig(row)) return relayAllows(row, userId);
+  const ids = row?.params?.allowed_user_ids;
+  if (!Array.isArray(ids)) return true;                 // no allowlist ⇒ everyone
+  return ids.some(id => typeof id === 'string' && id === userId);
+}
+
+/** Keep only the config rows that apply to this caller (see `rowAppliesToUser`). */
+export function filterRowsForUser<T extends RelayConfigLike>(rows: readonly T[], userId: string): T[] {
+  return rows.filter(row => rowAppliesToUser(row, userId));
+}
+
+/**
  * Label a queued call for the run log. CLASSIFY_SYSTEM names the task ("classify");
  * PHRASE_SYSTEM deliberately never contains that word. Labelling only — nothing
  * branches on it.

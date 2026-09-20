@@ -67,6 +67,12 @@ because every number was real, present in the data, and copied correctly.
   household data; "what do I call you?" used to build net worth, debts and budgets.
 - **`CAPABILITIES`** — an explicit can/cannot list travels with unmatched questions, so a
   question outside the app's reach gets an honest answer plus the nearest thing that works.
+- **Pilot a model on one account.** A config row carrying `params.allowed_user_ids` now
+  applies to ANY provider, not just the test relay: it serves only those users, and every
+  other caller resolves the next row by priority. Promotion is removing the key — one SQL
+  edit, no deploy. Written up for LM Studio / Gemma over a tunnel in
+  [`docs/LOCAL_LLM.md`](../docs/LOCAL_LLM.md), including the three gateway constraints
+  (public HTTPS only, no `/v1` suffix, the 20 s default budget).
 - Tests: `askVyactFacts.test.ts` (25 cases), including the cross-seam agreement test that
   would have caught the liquidity and debt-total splits.
 

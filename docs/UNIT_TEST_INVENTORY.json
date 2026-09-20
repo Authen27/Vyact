@@ -372,13 +372,16 @@
       "availability": "conditional",
       "layer": "unit",
       "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
-      "count": 5,
+      "count": 8,
       "tests": [
         "Claude Code relay — allowlist CON-UNIT-RELAY-001 · routes only an explicitly allowlisted user",
         "Claude Code relay — allowlist CON-UNIT-RELAY-002 · an empty, missing or malformed allowlist routes nobody",
         "Claude Code relay — allowlist CON-UNIT-RELAY-003 · filtering drops the relay for others and keeps every non-relay row",
         "Claude Code relay — call labelling and polling CON-UNIT-RELAY-004 · labels the real classify and phrase prompts correctly",
-        "Claude Code relay — call labelling and polling CON-UNIT-RELAY-005 · a poll is pending, answered with latency, or expired after the TTL"
+        "Claude Code relay — call labelling and polling CON-UNIT-RELAY-005 · a poll is pending, answered with latency, or expired after the TTL",
+        "per-account model pilot (v10.38) CON-UNIT-RELAY-006 · an allowlisted row serves only those users; everyone else falls through",
+        "per-account model pilot (v10.38) CON-UNIT-RELAY-007 · a row with NO allowlist serves everyone — adding the key to nothing changes nothing",
+        "per-account model pilot (v10.38) CON-UNIT-RELAY-008 · a relay row still REQUIRES its allowlist, empty or missing means nobody"
       ]
     },
     {
