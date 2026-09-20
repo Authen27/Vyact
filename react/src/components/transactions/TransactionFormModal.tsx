@@ -293,6 +293,9 @@ export default function TransactionFormModal(props: Props) {
         category: seed?.category ?? base.category,
         note: seed?.note ?? base.note,
         date: seed?.date ?? base.date,
+        // v10.38 — the paying account an Ask Vyact capture identified (a card named
+        // in a bank message, say). `paymentMethod` IS the account field here.
+        paymentMethod: seed?.accountId ?? base.paymentMethod,
         linkedDebtId: seed?.linkedDebtId ?? seed?.debtId ?? base.linkedDebtId,
       };
       setForm(blankForm);

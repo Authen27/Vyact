@@ -107,7 +107,7 @@ import {
 } from '../_shared/agent/router.ts';
 import {
   detectCallKind,
-  filterRelayRows,
+  filterRowsForUser,
   isRelayConfig,
   relayPollState,
   RELAY_MODEL_LABEL,
@@ -350,9 +350,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, 200, origin);
   }
 
-  // v10.37: a Claude Code relay row applies ONLY to its allowlisted test users;
-  // everyone else resolves exactly the config they did before.
-  const eligibleRows = filterRelayRows((configRows ?? []) as ModelConfigRow[], user.id);
+  // v10.37/v10.38: a row carrying `params.allowed_user_ids` applies only to those
+  // users — a relay, or a self-hosted model being piloted on one account before it
+  // is promoted to the household. Everyone else resolves the next row by priority,
+  // exactly as before. Remove the key to promote the row to all users, no deploy.
+  const eligibleRows = filterRowsForUser((configRows ?? []) as ModelConfigRow[], user.id);
   const config = selectModelConfig(eligibleRows, seam);
   const relay = isRelayConfig(config);
 

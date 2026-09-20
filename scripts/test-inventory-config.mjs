@@ -27,7 +27,7 @@ export const groups = [
   group('Ledger and recurring workflows', 'available', 'store-integration', ['ledgerWorkflow', 'recurringApproval', 'loanPaymentWorkflow'], 'useStore / LocalStorageAdapter / IndexedDB'),
   group('Session transitions', 'conditional', 'store-integration', ['sessionWorkflow'], 'cloudAuthSlice / cacheInvalidation / outbox'),
   group('Loan SQL command', 'conditional', 'sql-integration', ['loanPaymentSql'], 'record_loan_payment migrations (focused PGlite fixture)'),
-  group('Ask Vyact', 'conditional', 'unit', ['askVyact', 'agentRouter', 'agentRelay'], 'runAssistant / router / Claude Code relay (test-only)'),
+  group('Ask Vyact', 'conditional', 'unit', ['askVyact', 'askVyactFacts', 'agentRouter', 'agentRelay'], 'runAssistant / resolve facts / router / Claude Code relay (test-only)'),
   group('Ask gateway', 'conditional', 'handler-integration', ['gatewayWorkflow'], 'ask-vyact/index.ts'),
   group('WhatsApp parser', 'conditional', 'unit', ['whatsappParser'], 'whatsapp-parser'),
   group('WhatsApp handlers', 'conditional', 'handler-integration', ['whatsappWorkflow'], 'whatsapp-webhook / whatsapp-verify-otp'),

@@ -8,9 +8,11 @@ import { describe, expect, it } from 'vitest';
 import {
   detectCallKind,
   filterRelayRows,
+  filterRowsForUser,
   isRelayConfig,
   relayAllows,
   relayPollState,
+  rowAppliesToUser,
   RELAY_PROVIDER,
   RELAY_TTL_MS,
 } from '../../../../supabase/functions/_shared/agent/relay';
@@ -40,6 +42,35 @@ describe('Claude Code relay — allowlist', () => {
     const rows = [relayRow([TESTER]), modelRow];
     expect(filterRelayRows(rows, TESTER)).toEqual(rows);
     expect(filterRelayRows(rows, 'someone-else')).toEqual([modelRow]);
+  });
+});
+
+// v10.38 — the same allowlist pilots ANY provider on one account (a self-hosted
+// model, say) before it is promoted to the household.
+describe('per-account model pilot (v10.38)', () => {
+  const piloted = { provider: 'lmstudio', priority: 200, params: { allowed_user_ids: [TESTER] } };
+  const shared = { provider: 'openrouter', priority: 110, params: { max_tokens: 600 } };
+
+  it('CON-UNIT-RELAY-006 · an allowlisted row serves only those users; everyone else falls through', () => {
+    expect(rowAppliesToUser(piloted, TESTER)).toBe(true);
+    expect(rowAppliesToUser(piloted, 'someone-else')).toBe(false);
+    expect(filterRowsForUser([piloted, shared], TESTER)).toEqual([piloted, shared]);
+    expect(filterRowsForUser([piloted, shared], 'someone-else')).toEqual([shared]);
+  });
+
+  it('CON-UNIT-RELAY-007 · a row with NO allowlist serves everyone — adding the key to nothing changes nothing', () => {
+    expect(rowAppliesToUser(shared, TESTER)).toBe(true);
+    expect(rowAppliesToUser(shared, 'anyone')).toBe(true);
+    expect(rowAppliesToUser({ provider: 'openrouter', params: null }, 'anyone')).toBe(true);
+    // Promotion = removing the key. The same row then applies to every caller.
+    const promoted = { ...piloted, params: {} };
+    expect(rowAppliesToUser(promoted, 'someone-else')).toBe(true);
+  });
+
+  it('CON-UNIT-RELAY-008 · a relay row still REQUIRES its allowlist, empty or missing means nobody', () => {
+    expect(rowAppliesToUser(relayRow([]), TESTER)).toBe(false);
+    expect(rowAppliesToUser(relayRow(), TESTER)).toBe(false);
+    expect(rowAppliesToUser(relayRow([TESTER]), TESTER)).toBe(true);
   });
 });
 

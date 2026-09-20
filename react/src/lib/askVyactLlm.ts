@@ -25,6 +25,11 @@ export const INTENT_IDS = [
   'interpret.lookup', 'interpret.status', 'interpret.diagnostic',
   'interpret.budgets', 'interpret.debts', 'interpret.bills',
   'forecast.affordability', 'forecast.runway', 'forecast.prescriptive',
+  // v10.38 — questions about the ASSISTANT, not the household's money. Without
+  // this route they landed on interpret.status, which built the user's net worth,
+  // debts and budgets to answer "what do I call you?" — wasted work and an
+  // avoidable egress of financial facts.
+  'meta.assistant',
 ] as const;
 export type KnownIntentId = typeof INTENT_IDS[number];
 
@@ -87,13 +92,21 @@ WHAT EACH INTENT MEANS
   forecast.affordability whether a purchase is affordable    "can I afford a new laptop?"
   forecast.runway        how long money lasts without income "how long would my savings last?"
   forecast.prescriptive  where to cut back or how to save    "where can I cut back?", "how do I save more?"
+  meta.assistant         about YOU, not their money          "what do I call you?", "why so slow?", "use bullet points"
 
 Entities you may extract when the user states them explicitly:
   amount (number), currency (3-letter code), category (string), account (string),
-  toAccount (string), merchant (string), period (string), target (string)
+  toAccount (string), merchant (string), target (string),
+  period (string — the month or window they named: "August", "last month", "2026-07"),
+  date (string — a date they or a bank message stated: "15-Sep-26", "yesterday")
 
 RULES
 - Never invent an entity the user did not state. Omit it instead.
+- Copy \`period\` and \`date\` VERBATIM as the user wrote them. Do not translate a
+  month into a number or resolve it yourself — the app resolves them.
+- A question about the assistant itself (its name, speed, formatting, what it can
+  do) is meta.assistant, never interpret.*: those fetch the household's finances,
+  which a question about the assistant has no need of.
 - capture.* ONLY when the user is recording a transaction that already happened.
 - A request for advice, a strategy, or where to save is forecast.prescriptive (or
   interpret.debts for debt payoff) — never interpret.lookup.
@@ -213,20 +226,53 @@ function figuresIn(text: string): string[] {
  * the audit describes: services return facts with units, the UI renders the
  * amounts, and the model only explains them.
  */
+/**
+ * v10.38 — figures the guard accepts on top of what the tools computed.
+ *
+ * Validation showed the guard destroying three CORRECT answers in sixteen, each
+ * for a figure that was real but absent from that turn's data: one quoted from the
+ * PREVIOUS turn (the correction to a contradictory cover figure — the most useful
+ * answer of the session, lost), one quoting the user's OWN words back to them
+ * ("spent 45 on groceries"), and one that was simply a date ("13 September").
+ * Rejection replaces the whole reply, so the user saw "I can't verify" and never
+ * the sentence. None of these is an invented figure; all three are now allowed.
+ */
+export interface FigureGuardOptions {
+  /** The user's own utterance — a number they typed is theirs to hear back. */
+  question?: string;
+  /** Figures the PREVIOUS assistant turn was allowed to use (one turn only). */
+  alsoAllowed?: readonly string[];
+}
+
+/** A date, not money: "13 September", "15-Sep-26", "13/09", "September 13". */
+function looksLikeDate(reply: string, index: number, value: string): boolean {
+  if (value.includes('.') || Number(value) > 31 || Number(value) < 1) return false;
+  const before = reply.slice(Math.max(0, index - 14), index).toLowerCase();
+  const after = reply.slice(index + value.length, index + value.length + 14).toLowerCase();
+  const MONTH = /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/;
+  if (CURRENCY_PREFIX.test(reply.slice(0, index))) return false;      // money wins
+  if (MONTH.test(after) || MONTH.test(before)) return true;
+  return /\d\s*[-/]\s*$/.test(before) || /^\s*[-/]\s*\d/.test(after); // 13/09, 15-09
+}
+
 export function assertNoInventedFigures(
   reply: string,
   vars: Record<string, string | number>,
+  opts: FigureGuardOptions = {},
 ): void {
   // Everything the tools computed, normalised the same way as the reply.
   const allowed = new Set<string>();
-  for (const v of Object.values(vars ?? {})) {
-    for (const f of figuresIn(String(v))) {
+  const admit = (raw: string) => {
+    for (const f of figuresIn(raw)) {
       allowed.add(f);
       // Accept 850 for a computed 850.00 and vice versa.
       if (f.includes('.')) allowed.add(f.replace(/\.0+$/, ''));
       else allowed.add(`${f}.00`);
     }
-  }
+  };
+  for (const v of Object.values(vars ?? {})) admit(String(v));
+  if (opts.question) admit(opts.question);
+  for (const f of opts.alsoAllowed ?? []) admit(String(f));
 
   const offending = figuresWithPos(reply).filter(({ value: f, index }) => {
     if (allowed.has(f) || HARMLESS.has(f)) return false;
@@ -239,6 +285,8 @@ export function assertNoInventedFigures(
     // guard completely un-computed. That is a realistic amount range, not a
     // theoretical one, and it was the largest hole in this function.
     if (/^(19|20)\d{2}$/.test(f) && !CURRENCY_PREFIX.test(reply.slice(0, index))) return false;
+    // A day-of-month next to a month name is a date, not a sum (v10.38).
+    if (looksLikeDate(reply, index, f)) return false;
     return true;
   }).map(f => f.value);
 
@@ -265,8 +313,22 @@ HOW TO ANSWER
   furthest above the user's usual, citing their figures.
 - For debt questions, say which debt to prioritise and why, using the balances and
   interest rates given.
-- Two to five sentences. Plain language, warm and direct. Speak to the user as "you".
+- Two to five sentences, and prefer the shorter end: one idea per sentence, no
+  preamble, no restating the question.
+- Plain language, warm and direct. Speak to the user as "you".
 - No markdown, no bullet points, no headings, no emoji.
+
+WHEN THE FACTS DO NOT COVER THE QUESTION
+- FACTS carrying \`cannot_answer_yet\` means Vyact cannot compute what was asked.
+  Say so in the first sentence, plainly and without apology, then offer the closest
+  thing from \`can_answer\` that would actually help. Never approximate the answer
+  from figures that describe something else.
+- \`period\` names the window every figure belongs to. If it is not the window the
+  user asked about, say which window you are reporting before giving any figure.
+- \`months_considered\` says how much history an average rests on. When an answer
+  leans on a typical-month figure, say what it is based on.
+- FACTS with \`outcome: "needs_period"\` means the month could not be identified: ask
+  which month they mean, and state that a named month or "last month" works.
 
 ABSOLUTE RULES ABOUT NUMBERS
 - Use ONLY figures that appear in FACTS or DATA, copied exactly as written: same
@@ -289,6 +351,8 @@ export async function phraseViaModel(
   intent: IntentResult,
   result: ResolveResult,
   call: ModelCall,
+  /** Figures the previous assistant turn was allowed to use (v10.38). */
+  prevAllowed: readonly string[] = [],
 ): Promise<string> {
   // v10.36 — `question` and `facts` are new. The model previously never saw the
   // question it was answering (only `question_type`), so it answered the intent
@@ -303,25 +367,49 @@ export async function phraseViaModel(
     data: result.vars ?? {},
   });
 
-  let reply: string;
-  try {
-    // 200 → 700: room for a real explanation. Reasoning tokens are metered
-    // separately and are not bound by this visible-output cap.
-    reply = (await call({ system: PHRASE_SYSTEM, user: payload, maxTokens: 700 })).trim();
-  } catch (err) {
-    throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
-  }
-
-  reply = stripFences(reply);
-  if (!reply) throw new ModelUnavailableError('empty reply');
-
-  // Guard, then return. A reply that invents money is discarded, never shown.
-  // The allowlist now includes every figure in `facts` (flattened via JSON), so
-  // richer facts give the model MORE legitimate numbers to cite — fewer rejections,
-  // not more — while anything outside both sources is still discarded.
-  assertNoInventedFigures(reply, {
+  const guardVars = {
     ...(result.vars ?? {}),
     __facts: JSON.stringify(result.facts ?? {}),
-  });
-  return reply;
+  };
+  const guardOpts = {
+    question: typeof intent.entities.text === 'string' ? intent.entities.text : undefined,
+    alsoAllowed: prevAllowed,
+  };
+
+  const ask = async (extraSystem = ''): Promise<string> => {
+    let raw: string;
+    try {
+      // 200 → 700: room for a real explanation. Reasoning tokens are metered
+      // separately and are not bound by this visible-output cap.
+      raw = (await call({ system: PHRASE_SYSTEM + extraSystem, user: payload, maxTokens: 700 })).trim();
+    } catch (err) {
+      throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
+    }
+    const cleaned = stripFences(raw);
+    if (!cleaned) throw new ModelUnavailableError('empty reply');
+    return cleaned;
+  };
+
+  // Guard, then return. A reply that invents money is discarded, never shown. The
+  // allowlist includes every figure in `facts` (flattened via JSON), the user's own
+  // question, and the previous turn's figures.
+  //
+  // v10.38 — ONE retry before giving up. A rejection used to replace the entire
+  // answer with "I can't verify that", so a single stray number cost the user a
+  // whole correct explanation. Naming the offending figures back to the model fixes
+  // most slips; a second failure still refuses, because showing an invented figure
+  // in a finance app is the one outcome this system exists to prevent.
+  const reply = await ask();
+  try {
+    assertNoInventedFigures(reply, guardVars, guardOpts);
+    return reply;
+  } catch (err) {
+    if (!(err instanceof InventedFigureError)) throw err;
+    const retry = await ask(
+      `\n\nIMPORTANT: your previous attempt was rejected for using figures that are not in FACTS: ${err.offending.join(', ')}. `
+      + 'Write the answer again without those numbers. Use only figures that appear in FACTS or DATA, copied exactly.',
+    );
+    assertNoInventedFigures(retry, guardVars, guardOpts);
+    return retry;
+  }
 }

@@ -12,12 +12,71 @@ import {
   spendByCategory, reportableTxns, budgetLinesForMonth,
 } from './calculations';
 import { computeNetWorth } from './netWorth';
+import { NEEDS_WANTS_MAP } from '../constants';
 import { convert } from './format';
 import { nowMonthKey, getMonthKey } from './format';
 // Type-only, and one-directional: askVyactResponses does not import this module,
 // so the transcript can carry chips without creating an import cycle.
 import type { AssistantChip } from './askVyactResponses';
 
+
+/**
+ * v10.38 — the household's typical monthly spending, and how much history that
+ * average actually rests on.
+ *
+ * WHY IT EXISTS. "Months of cover" and the emergency floor were each computed
+ * from a different denominator: the status seam divided by THIS month's expense
+ * (so cover looked huge on the 2nd and shrank all month), while affordability and
+ * runway used a 6-month mean. One definition, stated to the user: the average over
+ * up to six COMPLETED months, fewer when that is all the history there is, and
+ * `monthsConsidered` says which — an answer may never imply more history than the
+ * household has. The needs/wants split comes from `NEEDS_WANTS_MAP`, so an answer
+ * can separate the part of spending that is genuinely flexible.
+ */
+export interface SpendBasis {
+  /** Completed months the averages rest on; 0 when only the current month exists. */
+  monthsConsidered: number;
+  /** True when the figures come from the current, still-incomplete month. */
+  partialMonthOnly: boolean;
+  averageMonthly: number;
+  averageEssential: number;
+  averageDiscretionary: number;
+}
+
+/**
+ * Average monthly spend over up to `maxMonths` completed months.
+ *
+ * Uses `spendByCategory` (already currency-converted) so the needs/wants split and
+ * the total cannot drift apart, and excludes the current month because a partial
+ * month understates every average. A household with no completed month at all
+ * falls back to the current month with `partialMonthOnly: true`.
+ */
+export function spendBasis(
+  txns: Transaction[], baseCurrency: string, rates: ExchangeRates, maxMonths = 6,
+): SpendBasis {
+  const current = nowMonthKey();
+  const months = [...new Set(txns.map(t => getMonthKey(t.date)))]
+    .filter(mk => mk < current)
+    .sort()
+    .slice(-maxMonths);
+  const keys = months.length > 0 ? months : [current];
+  let total = 0, essential = 0, discretionary = 0;
+  for (const mk of keys) {
+    for (const [category, amount] of Object.entries(spendByCategory(txns, mk, baseCurrency, rates))) {
+      total += amount;
+      if (NEEDS_WANTS_MAP[category] === 'want') discretionary += amount;
+      else essential += amount;   // 'need' and anything unmapped count as essential
+    }
+  }
+  const n = keys.length;
+  return {
+    monthsConsidered: months.length,
+    partialMonthOnly: months.length === 0,
+    averageMonthly: round2(total / n),
+    averageEssential: round2(essential / n),
+    averageDiscretionary: round2(discretionary / n),
+  };
+}
 
 // The structure sent to the LLM. NO PII. NO descriptions.
 export interface SafeSummary {
@@ -46,9 +105,24 @@ export interface SafeSummary {
     totalAssets: number;
     totalLiabilities: number;
     netWorth: number;
-    liquidityMonths: number;             // liquid / monthly expenses
+    /**
+     * v10.38 — THE canonical liquid figure: `computeNetWorth().liquidAssets`,
+     * i.e. live account balances plus liquid-tier assets, the same projection the
+     * Dashboard and Net Worth pages render.
+     *
+     * 🔴 Ask Vyact's affordability and runway seams used to call
+     * `calculations.liquidAssets(assets)` instead — the assets ARRAY only, at its
+     * static `value`, with no account balances. On a real household that read
+     * ₹24,000 against this field's ₹11.7 lakh, so the same app reported 1.2 and
+     * 68.6 months of cover for the same money in the same minute. Every seam
+     * reads this field now; `askVyactFacts.test.ts` fails if one diverges again.
+     */
+    liquidAssets: number;
+    liquidityMonths: number;             // liquidAssets / spendBasis.averageMonthly
     debtToAssetPct: number;
   };
+  /** v10.38 — the ONE spend baseline every cover/floor figure divides by. */
+  spendBasis: SpendBasis;
   budgets: { category: string; limit: number; spentPct: number }[];
   goals:   { type: string; targetPct: number; daysToDeadline: number | null }[];
   debts:   { type: string; balance: number; aprPct: number; monthsRemaining?: number }[];
@@ -76,8 +150,11 @@ export function buildSafeSummary(
   const ta = nwProjection.totalAssets;
   const tl = nwProjection.totalLiabilities;
   const liquid = nwProjection.liquidAssets;
-  const monthlyExpFor6m = month.expense;
-  const liquidityMonths = monthlyExpFor6m > 0 ? liquid / monthlyExpFor6m : 0;
+  // v10.38 — cover divides by the TYPICAL month (see SpendBasis), not by this
+  // month's partial expense, which made cover look enormous early in a month and
+  // disagreed with the floor every other seam used.
+  const basis = spendBasis(txns, cur, rates);
+  const liquidityMonths = basis.averageMonthly > 0 ? liquid / basis.averageMonthly : 0;
   // Audit F5 — Pulse sees the allocation-derived budget lines.
   const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations);
 
@@ -146,9 +223,11 @@ export function buildSafeSummary(
       totalAssets: round2(ta),
       totalLiabilities: round2(tl),
       netWorth: round2(ta - tl),
+      liquidAssets: round2(liquid),
       liquidityMonths: round2(liquidityMonths),
       debtToAssetPct: ta > 0 ? round2(tl / ta * 100) : 0,
     },
+    spendBasis: basis,
     budgets: safeBudgets,
     goals: safeGoals,
     debts: safeDebts,
@@ -191,6 +270,16 @@ export interface ChatMessage {
    * persisted transcripts carry it harmlessly.
    */
   turnId?: string;
+  /**
+   * v10.38 — the money-shaped figures this assistant turn was allowed to use.
+   *
+   * Carried so the NEXT turn's invented-figure guard can accept a figure the user
+   * is challenging ("you said ₹1,200 — that doesn't sound right"). The guard is
+   * per-turn, so without this a follow-up citing the previous answer's number was
+   * discarded wholesale — which is exactly how a correction to a contradictory
+   * figure was lost during v10.37 validation. Figures only; never prose.
+   */
+  allowedFigures?: string[];
   /**
    * v10.36 — analysis steps printed live while the turn is in flight, then kept
    * (collapsed) with the reply. Deterministic progress labels from the pipeline,

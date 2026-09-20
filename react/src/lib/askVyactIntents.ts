@@ -107,6 +107,8 @@ export type AssistantIntentId =
   | 'interpret.status' | 'interpret.diagnostic' | 'interpret.lookup'
   | 'interpret.budgets' | 'interpret.bills' | 'interpret.debts'
   | 'forecast.affordability' | 'forecast.runway' | 'forecast.prescriptive'
+  /** v10.38 — about the assistant, not the household's money. Reads no data. */
+  | 'meta.assistant'
   | 'fallback';
 
 export interface IntentResult {
@@ -125,6 +127,8 @@ const BUCKET_OF: Record<AssistantIntentId, AssistantBucket | 'none'> = {
   'interpret.budgets': 'interpret', 'interpret.bills': 'interpret', 'interpret.debts': 'interpret',
   'forecast.affordability': 'forecast', 'forecast.runway': 'forecast',
   'forecast.prescriptive': 'forecast',
+  // No bucket: meta questions are not a money feature and are not gated by one.
+  'meta.assistant': 'none',
   fallback: 'none',
 };
 

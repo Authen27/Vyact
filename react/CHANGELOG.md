@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.37.0`** (consumer)
+> **Current production version: `v10.38.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,57 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.38.0 — Ask Vyact: the figures, not the wording *(2026-09-17)*
+
+The v10.37 validation session asked 16 real questions through a Claude model and found
+ten defects. Classification was right **16/16** — every one sat downstream, in the
+figures `resolve()` handed over. None could be caught by the invented-figure guard,
+because every number was real, present in the data, and copied correctly.
+
+- **One liquidity figure, one spend baseline.** Affordability and runway called
+  `calculations.liquidAssets(assets)` — the assets array only, no account balances —
+  while status used the canonical net-worth projection. The same household saw
+  **1.2 months** and **68.6 months** of cover in the same minute, and an affordable
+  purchase was refused. Every seam now reads `SafeSummary.netWorth.liquidAssets`, and
+  every cover/floor figure divides by the new `spendBasis`: the average over up to six
+  **completed** months, fewer when that is all the history there is, with the month
+  count stated in the answer. Debts and status likewise share one debt total (they
+  differed by ₹724).
+- **The safety floor is needs, not everything.** Three months of typical *essential*
+  spending, with the needs and wants averages both in the facts so an answer can say
+  which part is flexible.
+- **A negative figure can no longer read as positive.** `money()` formats through
+  `fmt`, which takes the absolute value, so `available_above_floor` reported a
+  ₹34,956 *deficit* as ₹34,956 *above* the floor. Facts that cross zero now go through
+  `signedMoney()`.
+- **Named periods are honoured.** "How much on food in August" answered with *this*
+  month's figure under an August label. Periods now resolve ("August", "last month",
+  "2026-07"), an unplaceable one asks which month and attaches **no figures**, and a
+  period question with no category returns the **period total**.
+- **Advice sees the household.** `forecast.prescriptive` received only this month's
+  categories, so it could suggest trimming ₹54 from a household with a 95% savings rate
+  and a mortgage at 8.75%. It now shares `positionFacts` with status, plus debts by rate.
+- **Capture keeps what it extracted, and acknowledges before navigating.** The merchant
+  now implies a category (`swiggy → food_dining`), and the stated date and account reach
+  the form. A seeded capture is acknowledged **deterministically with no model call**,
+  and the form opens after the acknowledgement is on screen rather than before.
+- **The guard stops destroying good answers.** It discarded 3 of 16 — a figure quoted
+  from the previous turn, the user's own words, and a date. It now exempts the user's
+  question and non-money dates, accepts the previous turn's figures, and **retries once**
+  naming what was rejected before refusing.
+- **`meta.assistant`** answers questions about the assistant without reading any
+  household data; "what do I call you?" used to build net worth, debts and budgets.
+- **`CAPABILITIES`** — an explicit can/cannot list travels with unmatched questions, so a
+  question outside the app's reach gets an honest answer plus the nearest thing that works.
+- **Pilot a model on one account.** A config row carrying `params.allowed_user_ids` now
+  applies to ANY provider, not just the test relay: it serves only those users, and every
+  other caller resolves the next row by priority. Promotion is removing the key — one SQL
+  edit, no deploy. Written up for LM Studio / Gemma over a tunnel in
+  [`docs/LOCAL_LLM.md`](../docs/LOCAL_LLM.md), including the three gateway constraints
+  (public HTTPS only, no `/v1` suffix, the 20 s default budget).
+- Tests: `askVyactFacts.test.ts` (25 cases), including the cross-seam agreement test that
+  would have caught the liquidity and debt-total splits.
 
 ## v10.37.0 — Claude Code relay for Ask Vyact validation (test-only) *(2026-09-15)*
 
