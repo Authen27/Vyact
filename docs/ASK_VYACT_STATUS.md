@@ -30,6 +30,79 @@ ceiling, and at Sonnet rates that cap permits roughly $0.40/user/day.
 
 ---
 
+## ✅ v10.38.0 — all ten validation findings fixed (2026-09-17)
+
+| # | Fix | Where |
+|---|---|---|
+| F1 | A named period is resolved (`resolvePeriod`) and honoured; an unplaceable one returns `needs_period` and asks, with **no figures attached** | `askVyactParser.ts`, `interpret.lookup` |
+| F2 | ONE liquidity source — `SafeSummary.netWorth.liquidAssets`, the canonical projection including live account balances — read by status, affordability and runway alike; ONE spend baseline (`spendBasis`) | `aiSummary.ts`, `askVyactBackend.ts` |
+| F3 | `signedMoney()` states direction in words, so a deficit can never read as a surplus; `available_above_floor` is replaced by `headroom_against_floor` | `askVyactBackend.ts` |
+| F4 | `positionFacts()` (income, savings rate, cover, debts with rates) is shared by status **and** prescriptive advice | `askVyactBackend.ts` |
+| F5 | A period question with no category returns the **period total** plus the per-category breakdown | `interpret.lookup` |
+| F6 | Capture keeps what was extracted: category inferred from the merchant via `matchCategory`, plus `date` and `accountId` (matched by name, masked tail, then kind) | `askVyactBackend.ts`, `askVyactParser.ts`, `TransactionFormModal.tsx` |
+| F7 | A seeded capture is acknowledged deterministically **before** the form opens, with **no phrase model call at all** | `runAssistant`, `Chat.tsx` |
+| F8 | The guard exempts the user's own figures and dates, accepts the previous turn's figures, and **retries once** naming what was rejected before refusing | `askVyactLlm.ts`, `Chat.tsx` |
+| F9 | `meta.assistant` answers about the assistant and reads **no household data** | `askVyactLlm.ts`, `askVyactIntents.ts`, `askVyactBackend.ts` |
+| F10 | Debts and status read the same `totalLiabilities` | `interpret.debts` |
+
+**The regression that would have caught F2/F10:** `askVyactFacts.test.ts` asserts that status, affordability and runway report the *same* liquid figure and months of cover, and that debts and status report the *same* total owed. 25 cases; the suite also pins period resolution, the needs/wants baseline, capture seeding, the guard's new exemptions and the retry.
+
+Also shipped: `CAPABILITIES` — an explicit can/cannot list handed to the model for `meta.assistant` and for any unmatched question, so "I can't do that" always arrives with the nearest thing that works. See the coverage matrix below.
+
+### Coverage matrix — the 11 richer questions (2026-09-17 review)
+
+Assessed against the shipped v10.38 pipeline. "Honest decline" means the question reaches the model with `cannot_answer_yet`, so the user is told plainly and pointed at what does work — never given an approximation of a different question.
+
+| # | Question | v10.38 behaviour | To answer properly |
+|---|---|---|---|
+| 1 | Can we afford a $150 dinner tonight without blowing this month's discretionary budget? | **Partial.** Affordability answers against the safety floor and now carries the needs/wants split, but not the *discretionary budget remaining this month* | Budget-remaining facts per category group (small) |
+| 2 | Extra $500 to the highest-interest card — how many months off the payoff date? | **Honest decline.** `amortization.ts` can compute it; no intent routes there | New `forecast.debt_payoff` intent over the existing amortisation engine (medium) |
+| 3 | Did my partner log the electricity bill, or is it pending? | **Honest decline.** Recurring schedules carry status, but nothing answers "who logged it" | Member attribution on bill occurrences (medium; decide the privacy line first) |
+| 4 | Liquid cash vs total debt right now? | **Answered.** Both figures are in `positionFacts`, from one source each | — |
+| 5 | Spend on quick-delivery groceries and takeout over the past 60 days? | **Honest decline.** Periods resolve to whole months only | Day-range periods (`last N days`) through `resolvePeriod` + a range-aware `spendByCategory` (medium) |
+| 6 | Which category is closest to breaching its limit before next payday? | **Partial.** `interpret.budgets` ranks by percentage used; "before payday" needs a payday date the app does not model | Budget headroom ranking now; payday modelling later (small + large) |
+| 7 | Halfway through the month — are we on pace to overrun dining? | **Honest decline.** No daily-rate projection | Pace facts: elapsed days, daily rate, projected month-end vs limit (small) |
+| 8 | Biggest contributor to net worth change over 90 days? | **Honest decline.** `net_worth_snapshots` records monthly totals only, with no attribution | Snapshot deltas plus a contribution breakdown (large) |
+| 9 | Redirect the surplus to the highest-interest balance — how much sooner do we hit the next milestone? | **Honest decline.** Needs #2 plus a milestone concept that does not exist | Depends on F#2; milestones are a product decision |
+| 10 | Who has covered more of the shared household expenses, and what is our split? | **Honest decline.** `memberId` and split data exist; no intent reads them | New `interpret.contributions` over existing split fields (medium) |
+| 11 | Do allocations cover the annual insurance premium and December travel? | **Honest decline.** Annual budgets and recurring schedules exist; no forward-commitment check | A commitment-coverage check over annual allocations + dated recurring (medium) |
+
+Two of these (#4 answered, #1 and #6 partial) need no new capability. The rest split into three cheap wins — **day-range periods (#5), budget pace (#7), budget headroom (#6)** — and three genuine features: **debt-payoff simulation (#2, #9), household contributions (#10), commitment coverage (#11)**. #3 and #8 need a product decision first (member attribution, and whether snapshots should carry attribution).
+
+---
+
+## 🔴 Validation findings — 2026-09-16 (v10.37.0 relay session, 16 questions)
+
+The first end-to-end validation of the **fixed** pipeline, with a Claude model answering through the
+test relay. Evidence for every line: [`ASK_VYACT_LLM_RUN_LOG.md`](ASK_VYACT_LLM_RUN_LOG.md) § Period 5.
+
+**Classification is not the problem — it was right 16/16.** Every defect below is downstream of it, in
+`resolve()`, the capture seeding path, or the guard. Fix in this order:
+
+| # | Finding | Where | Why it matters |
+|---|---|---|---|
+| F1 | **A named past period is silently ignored.** "How much on food in August" returned `period: "this month"`, `spent: ₹0`. Classification extracted `period: "August"` correctly. | `askVyactBackend.ts` — `interpret.lookup` resolve | A right number under a wrong label. Passes the invented-figure guard, reads as authoritative, and is simply false. **Worst defect found.** |
+| F2 | **Liquidity is computed two different ways.** Same household, same minute: `forecast.affordability`/`runway` said ₹24,000 liquid and **1.2 months** of cover; `interpret.status` said **68.6 months**. The affordability seam is the one that tells the user "no". | affordability + runway vs status facts | The app refused an affordable purchase and told the owner they were ₹36,156 short of a safety floor they are in fact far above. The owner spotted it; the app never would. |
+| F3 | **`available_above_floor` has the wrong sign.** Reported `₹34,956` *above* the floor while savings (₹24,000) sat below it (₹58,956), contradicting the same row's `verdict` and `shortfall`. | affordability facts | A plausible, real-looking figure that the guard cannot catch, because it *is* in the data. |
+| F4 | **`forecast.prescriptive` is starved.** It receives only this month's categories, so "give me 2 key pieces of advice" could only suggest trimming **₹54** — for a household with a 95% savings rate and a ₹25,45,000 mortgage at 8.75%. | prescriptive facts | This is the original "answers are high level or irrelevant" complaint, still unfixed for the advice intent. It needs the status facts (income, savings rate, debts with rates, cushion). |
+| F5 | **A period-only lookup answers for one category.** "How much did I spend this month?" resolved to `asked_about: "Rent / Mortgage"` and provided no total. | `interpret.lookup` resolve | The commonest question in the product cannot be answered as asked without breaking the no-arithmetic rule. |
+| F6 | **Capture discards most of what was extracted.** From a bank SMS, classify returned amount, merchant, card and date; the seed carried only `amount` + `category: other` — and filed Swiggy as "other". | capture seeding | Kills the value of SMS paste: the user retypes the date and picks the card. Note the WhatsApp path *does* have a deterministic parser handling these fields; the chat path does not use it. |
+| F7 | **The form opens before any acknowledgement, and capture's model call has no facts.** The owner noticed: the app navigates on classify, and the confirming sentence is written afterwards. | `Chat.tsx` + capture phrase call | A deterministic acknowledgement written before navigation would be clearer *and* remove a model call, making capture instant. |
+| F8 | **The guard silently destroys good answers.** It discarded 3 of 16, each for a figure that was genuinely absent from *that turn's* data: a figure quoted from the **previous turn** (the correction to F2), the user's **own words** ("spent 45 on groceries"), and a **date** ("13 September"). Rejection replaces the whole answer. | `assertNoInventedFigures` | No follow-up can ever cite a figure from the answer before it — which is exactly what a challenged number needs. Consider allowing the prior turn's facts, the user's own utterance, and non-monetary dates. |
+| F9 | **No intent for anything that is not a finance query.** Name, formatting, latency and "why do you check my budget when I ask about you" all routed to `interpret.status`, which built the owner's net worth, debts and budgets to answer a question about the assistant. | `INTENT_IDS` / classify | Wasted work and an avoidable egress of financial facts. Add a `meta` route that skips `resolve()` entirely. |
+| F10 | **Two seams disagree on total debt** — `₹25,74,533` (debts) vs `₹25,73,809` (status), a ₹724 gap. | debts vs status facts | Whichever figure the UI shows depends on which question was asked. |
+
+Also: a relay reservation is finalised only by a successful poll, so an abandoned turn leaves an
+`ai_usage` row stuck at `outcome='reserved'` that still counts against the daily cap.
+
+**What this validates.** Where `resolve()` supplied good facts, answer quality was strong: the debt
+question produced a genuinely useful, prioritised answer ("the mortgage is the only debt costing you
+anything; the other two are at 0%") in place of v10.35's *"You owe … the avalanche method targets it
+first."* **F1–F3 and F10 are the case for the audit's A1 recommendation** — render authoritative figures
+in the UI with their period stated, and let the model explain them rather than narrate them.
+
+---
+
 ## v10.36.0 — answer quality fix (shipped 2026-09-14)
 
 Every answer recorded in [`ASK_VYACT_LLM_RUN_LOG.md`](ASK_VYACT_LLM_RUN_LOG.md) predates this fix,

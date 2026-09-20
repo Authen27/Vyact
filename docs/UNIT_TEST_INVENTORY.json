@@ -371,7 +371,7 @@
       "feature": "Ask Vyact",
       "availability": "conditional",
       "layer": "unit",
-      "owner": "runAssistant / router / Claude Code relay (test-only)",
+      "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
       "count": 5,
       "tests": [
         "Claude Code relay — allowlist CON-UNIT-RELAY-001 · routes only an explicitly allowlisted user",
@@ -434,7 +434,7 @@
       "feature": "Ask Vyact",
       "availability": "conditional",
       "layer": "unit",
-      "owner": "runAssistant / router / Claude Code relay (test-only)",
+      "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
       "count": 11,
       "tests": [
         "secret handling never reads a denylisted env var name",
@@ -515,7 +515,7 @@
       "feature": "Ask Vyact",
       "availability": "conditional",
       "layer": "unit",
-      "owner": "runAssistant / router / Claude Code relay (test-only)",
+      "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
       "count": 31,
       "tests": [
         "askVyact chips — delivery + the max-three rule CON-UNIT-ASK-057 · extras are DROPPED at three, never wrapped",
@@ -563,6 +563,42 @@
         "Ask examples and shortcut contracts does not invent typed creation commands or categories for neutral movements",
         "Ask examples and shortcut contracts maps transaction and decision examples to supported intent vocabulary",
         "Ask examples and shortcut contracts offers a real example or an explicit form-only hint for every action"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/askVyactFacts.test.ts",
+      "feature": "Ask Vyact",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
+      "count": 25,
+      "tests": [
+        "advice facts (F4) CON-UNIT-FACT-012 · prescriptive carries income, savings rate, cover and debts",
+        "capture seeding (F6, F7) CON-UNIT-FACT-013 · a merchant implies a category when the user named none",
+        "capture seeding (F6, F7) CON-UNIT-FACT-014 · a stated date and account reach the form seed",
+        "capture seeding (F6, F7) CON-UNIT-FACT-015 · parseDateEntity reads bank formats and refuses the future",
+        "capture seeding (F6, F7) CON-UNIT-FACT-016 · matchAccountId matches by name, by masked tail, then by kind",
+        "capture seeding (F6, F7) CON-UNIT-FACT-017 · a seeded capture is acknowledged WITHOUT a model call",
+        "cross-seam agreement (F2, F10) CON-UNIT-FACT-001 · every seam reports the SAME liquid savings and months of cover",
+        "cross-seam agreement (F2, F10) CON-UNIT-FACT-002 · debts and status report the SAME total owed",
+        "invented-figure guard (F8) CON-UNIT-FACT-018 · still refuses money no tool produced",
+        "invented-figure guard (F8) CON-UNIT-FACT-019 · accepts a figure the USER typed",
+        "invented-figure guard (F8) CON-UNIT-FACT-020 · accepts a date, and still refuses the same number as money",
+        "invented-figure guard (F8) CON-UNIT-FACT-021 · accepts a figure from the PREVIOUS turn when challenged",
+        "invented-figure guard (F8) CON-UNIT-FACT-022 · one retry, told which figures were rejected, before giving up",
+        "invented-figure guard (F8) CON-UNIT-FACT-023 · a second invented reply is still discarded",
+        "meta.assistant (F9) CON-UNIT-FACT-024 · answers about the assistant with NO financial facts",
+        "meta.assistant (F9) CON-UNIT-FACT-025 · an unplaceable question offers what CAN be answered",
+        "periods (F1, F5) CON-UNIT-FACT-008 · resolvePeriod places named months, relative months and ISO — and refuses the rest",
+        "periods (F1, F5) CON-UNIT-FACT-009 · a named past month is honoured, not silently swapped for this month",
+        "periods (F1, F5) CON-UNIT-FACT-010 · an unplaceable period ASKS instead of answering",
+        "periods (F1, F5) CON-UNIT-FACT-011 · no category named → the PERIOD TOTAL, not the biggest category",
+        "signed figures (F3) CON-UNIT-FACT-003 · being below the safety floor is stated as \"below\", never as a bare amount",
+        "signed figures (F3) CON-UNIT-FACT-004 · headroom above the floor says \"above\"",
+        "spendBasis — the one denominator CON-UNIT-FACT-005 · averages over completed months only, and says how many",
+        "spendBasis — the one denominator CON-UNIT-FACT-006 · with no completed month it falls back and SAYS it is partial",
+        "spendBasis — the one denominator CON-UNIT-FACT-007 · the affordability answer states the history it rests on"
       ]
     },
     {

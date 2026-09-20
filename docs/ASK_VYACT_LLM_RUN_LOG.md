@@ -236,4 +236,127 @@ order by r.created_at;
 
 ### Entries
 
-*(Appended as each question is answered.)*
+> 🔐 **Real figures, by the account owner's explicit instruction (2026-09-16).** This section quotes the
+> owner's own household data verbatim so the defects below are provable. One deviation: the UPI payee's
+> name and the helpline/short-code numbers in the test SMS bodies are masked, because a third party's
+> details are not the owner's to publish.
+
+**Session 1 — 2026-09-16 03:52 → 04:28 UTC · 16 questions · 32 relay calls · all answered, none expired.**
+Model: Claude Opus 5 through the Claude Code relay. Account: the owner's own household.
+Latency 30–48 s per question (two calls, ~10–25 s each). One 291 s outlier: the watcher woke only on a
+*rising* pending count, so the second call of a question went unseen — fixed mid-session.
+
+| # | Question | Intent (conf.) | Verdict | Shown? |
+|---|---|---|---|---|
+| 1 | How much did I spend this month? | interpret.lookup (0.93) | Partial — **app defect** | shown |
+| 2 | why is my rent / mortgage spending so high | interpret.diagnostic (0.88) | Pass | shown |
+| 3 | Can I afford a 1200 purchase? | forecast.affordability (0.95) | **Fail — app defect** | shown |
+| 4 | how long would my savings last | forecast.runway (0.96) | Pass on its own facts | shown |
+| 5 | My salary is high around 3.4lakhs yet I can't spend 1200 .. Doesn't sound right | interpret.status (0.62) | Pass | **DISCARDED** |
+| 6 | How am I doing financially? | interpret.status (0.97) | Pass | shown |
+| 7 | Spent 45 on groceries today | capture.expense (0.97) | Pass | shown (291 s) |
+| 8 | Looks like bot can't capture spend or income | interpret.status (0.28) | Pass | **DISCARDED** |
+| 9 | Received 5000 salary today | capture.income (0.96) | Pass | shown |
+| 10 | INR 653.00 … SWIGGY PVT LTD … Avl Limit: INR 12,62,773.25 | capture.expense (0.94) | Partial — **app defect** | shown |
+| 11 | ICICI … debited for Rs 10000.00 … UPI | capture.expense (0.72) | Pass | **DISCARDED** |
+| 12 | You don't seem to message an acknowledgement before launching capture | interpret.status (0.18) | Pass | shown |
+| 13 | Which debt should I clear fast? | interpret.debts (0.94) | **Pass — best of the run** | shown |
+| 14 | Review my financials and give 2 key advices … next 2 weeks | forecast.prescriptive (0.91) | Partial — **app defect** | shown |
+| 15 | How much money did I spend on food in August | interpret.lookup (0.95) | **Fail — silent wrong period** | shown |
+| 16 | How much budget should I plan for October given festival season | forecast.prescriptive (0.68) | Declined honestly — capability gap | shown |
+
+Four further meta questions (formatting, name, latency, "why do you check my budget when I ask about
+you") all fell through to `interpret.status`; each is counted above where it carries a finding.
+
+### The owner's position, as the facts reported it
+
+| Figure | `interpret.status` | `forecast.affordability` / `runway` | `interpret.debts` |
+|---|---|---|---|
+| Net worth | ₹38,45,057 | — | — |
+| Total assets | ₹64,18,866 | — | — |
+| Total debt | ₹25,73,809 | — | **₹25,74,533** |
+| Liquid cover | **68.6 months** | **1.2 months** (₹24,000 liquid) | — |
+| Monthly spending | ₹17,054 (actual) | ₹19,652 (typical) | — |
+| Income this month | ₹3,14,000 | — | — |
+| Savings rate | 95% | — | — |
+| Pulse | 100/100 | — | — |
+| Mortgage | — | — | ₹25,45,000 @ 8.75% |
+| Credit card | — | — | ₹28,288 @ 0% |
+| Other debt | — | — | ₹1,245 @ 0% |
+
+Two columns describing the same household on the same day, disagreeing by **57×** on liquidity and by
+**₹724** on total debt.
+
+### Rubric
+
+| Line | Pass | Partial | Fail | Note |
+|---|---|---|---|---|
+| Relevance | 14 | 1 | 1 | Q1 answered one category, not the period asked |
+| Accuracy vs facts | 15 | 0 | 1 | Q15's facts were the wrong month; the reply refused rather than repeat them |
+| Usefulness | 12 | 4 | 0 | Q14/Q16 thin — prescriptive facts carry no income, debt or cushion |
+| Length / tone | 13 | 3 | 0 | Owner asked for shorter answers and bullets; bullets are forbidden by `PHRASE_SYSTEM` |
+
+**Classification was right 16/16** — advice → prescriptive, debt payoff → debts, bank SMS → expense with
+the available limit excluded, and a challenge to a prior answer → status. **Every failure sat downstream
+of classification**, in `resolve()` or the capture seeding path.
+
+### Answers worth reading verbatim
+
+**Q13 — what the v10.36 facts change bought.** The app's own pre-written line was *"You owe ₹25,74,533
+across 3 debts. Highest rate: mortgage at 8.75% — the avalanche method targets it first."* Given the
+structured facts, the model wrote:
+
+> Your mortgage is the only debt actually costing you anything, so it is the one to attack: ₹25,45,000
+> at 8.75%, against a total of ₹25,74,533 owed. Both of your other balances, the credit card at ₹28,288
+> and other at ₹1,245, are sitting at 0%, so clearing them quickly saves you no interest at all — only
+> simplicity. If that 0% on the card is a promotional rate with an end date, clear it before that date,
+> because it stops being free the moment the rate resets. Otherwise every spare rupee does the most work
+> against the mortgage.
+
+**Q3 → Q5 — the app contradicting itself, and the owner catching it.** Q3 was told `liquid_savings:
+₹24,000`, `safety_floor: ₹58,956`, `shortfall: ₹36,156`, `verdict: would dip into the safety floor`, and
+answered *"You can cover it, but it is tight."* The owner replied *"My salary is high around 3.4lakhs yet
+I can't spend 1200 .. Doesn't sound right"* — and they were right. Q5's facts showed ₹3,14,000 income,
+95% savings rate and 68.6 months of cover. The correction was written, then **discarded by the guard**
+(below), so the owner never saw it.
+
+**Q15 — the near-miss that shows the guard is not a correctness check.** Asked about **August**, handed
+`period: "this month"`, `spent: ₹0`. A compliant model would have answered *"you spent ₹0 on food in
+August"*: sourced from real data, passing every safeguard, and wrong. The reply refused and pointed at
+Reports instead.
+
+### Guard behaviour (`assertNoInventedFigures`)
+
+Discarded **3 of 16** answers. All three were correct by its own rule, and all three lost a useful answer:
+
+| # | Offending figure | Why it was not in the data |
+|---|---|---|
+| 5 | `₹1,200` | Came from the **previous turn's** facts; the guard is per-turn |
+| 8 | `45` | Quoted the owner's own words ("spent 45 on groceries") back to them |
+| 11 | `13` | Part of the date "dated 13 September" |
+
+Exempt set, read from the code: figures present in the data, `0`–`10`, and 4-digit years 1900–2099 when
+not preceded by a currency symbol. **Dates, quoted user input and prior-turn figures are not exempt, and
+a rejection replaces the entire answer** with the unavailable turn — the owner sees "I can't verify",
+never the sentence that was wrong.
+
+### Period 6 — v10.38.0 re-test *(pending)*
+
+The ten findings above are fixed in v10.38.0. Re-run these through the relay and record
+each answer here before declaring any of them closed:
+
+```
+How much money did I spend on food in August      → answers for August, or says which month it needs
+Can I afford a 1200 purchase?                     → affordable; states months considered + needs/wants
+How much did I spend this month?                  → a period TOTAL
+Review my financials and give 2 key advices       → cites income, savings rate, the 8.75% mortgage
+INR 653.00 spent ... SWIGGY ... (bank SMS)        → food_dining, dated, on the card, acknowledged first
+What do I call you?                               → no household figures fetched (check the steps)
+"you said ₹X — that doesn't sound right"          → not discarded by the guard
+```
+
+### Metering residue
+
+One `ai_usage` row remains at `outcome='reserved'` (04:07:35). A relay reservation is finalised only by a
+successful poll, so an abandoned turn leaves the row reserved for good and it still counts against the
+daily cap.

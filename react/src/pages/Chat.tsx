@@ -184,11 +184,19 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         const ctx: AssistantContext = {
           summary, transactions: txns, budgets, goals, debts, assets, recurring,
           profile, rates, baseCurrency: profile.baseCurrency,
+          // v10.38 — ids and names only, so a bank message naming a card can seed the
+          // paying account on the form.
+          accounts: accounts.map(a => ({ id: a.id, name: a.name, kind: a.kind })),
         };
         // A null backend means no model is configured. runAssistant turns that
         // into an explicit "unavailable" turn rather than a fabricated answer.
         // `addStep` receives each real pipeline stage as it happens.
-        const turn = await runAssistant(question, ctx, assistantBackend, Date.now(), addStep);
+        // v10.38 — the previous assistant turn's figures travel with the question so
+        // a follow-up can cite the number it is challenging without the guard
+        // discarding the whole answer.
+        const prevAllowed = [...history].reverse()
+          .find(m => m.role === 'assistant' && m.allowedFigures?.length)?.allowedFigures ?? [];
+        const turn = await runAssistant(question, ctx, assistantBackend, Date.now(), addStep, prevAllowed);
         void logAiUsage({
           householdId, text: question, surface: 'chat',
           backend: assistantBackend?.id ?? 'llm',
@@ -198,15 +206,18 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             : turn.intentId === 'fallback' ? 'fallback' : 'ok',
           latencyMs: Date.now() - startedAt,
         });
-        // Capture intents seed the EXISTING TransactionFormModal — no parallel path.
-        if (turn.seed) openAddTxn(turn.seed);
         // The analysis is finished: freeze its duration, then stream the answer
         // into the same row. The turn stays active until the stream resolves, so
         // a concurrent send is blocked by `thinking` and can never clobber it.
         // (The old artificial 600ms "thinking" pause is gone — the real analysis
         // steps now show that work is happening.)
         patchTurn({ pending: false, thinkingMs: Date.now() - startedAt });
-        await streamReply(turnId, turn.reply, turn.chips);
+        await streamReply(turnId, turn.reply, turn.chips, turn.allowedFigures);
+        // v10.38 — capture seeds the EXISTING TransactionFormModal, and only AFTER
+        // the acknowledgement is on screen. Navigating first replaced the chat with
+        // the form before the user could read what had been understood, so the
+        // confirmation they expected first arrived last or not at all.
+        if (turn.seed) openAddTxn(turn.seed);
         setActiveTurn(null);
         return;
       }
@@ -238,7 +249,11 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   // THAT row, matched by id, never "the last item". A new message arriving
   // mid-stream appends its own rows; this stream keeps writing its own row and
   // cannot corrupt it. `chips` attach only once the last word lands (#62).
-  function streamReply(turnId: string, text: string, chips?: AssistantChip[]): Promise<void> {
+  function streamReply(
+    turnId: string, text: string, chips?: AssistantChip[],
+    /** v10.38 — kept on the row so the NEXT turn's guard accepts a figure the user challenges. */
+    allowedFigures?: string[],
+  ): Promise<void> {
     return new Promise(resolve => {
       const words = text.split(' ');
       // v10.36 — the row already exists: it was created when the turn started so
@@ -251,7 +266,9 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         const done = i >= words.length;
         setHistory(h => h.map(msg =>
           msg.turnId === turnId
-            ? { ...msg, content: partial, ...(done && chips ? { chips } : {}) }
+            ? { ...msg, content: partial,
+                ...(done && chips ? { chips } : {}),
+                ...(done && allowedFigures?.length ? { allowedFigures } : {}) }
             : msg,
         ));
         if (done) { clearInterval(id); resolve(); }

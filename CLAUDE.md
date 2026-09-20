@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.37.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.38.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -208,7 +208,26 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `money()`**: the guard only allows figures it finds in the data, so a raw or
   differently-rounded number makes the model's correct answer get discarded.
   Facts use category labels and SafeSummary debt *types* — never descriptions or
-  user-named debts. **`params.max_tokens` in `ai_model_configs` IS the cap for
+  user-named debts.
+  🔴 **ONE figure per question, whichever seam is asked (v10.38).** Liquidity is
+  `SafeSummary.netWorth.liquidAssets` (the canonical `computeNetWorth` projection,
+  live account balances included) and the debt total is `netWorth.totalLiabilities`
+  — never `calculations.liquidAssets(assets)` and never a re-sum of `ctx.debts`.
+  Every cover/floor figure divides by `summary.spendBasis` (up to 6 COMPLETED
+  months, fewer when that is all there is, `monthsConsidered` stated in the facts);
+  the emergency floor is 3× typical **essential** spend. Two seams disagreeing about
+  the same household is the v10.37 bug class: 1.2 vs 68.6 months of cover, and a
+  ₹724 debt gap. `askVyactFacts.test.ts` fails if they diverge.
+  **A fact that can cross zero goes through `signedMoney()`** — `money()` formats via
+  `fmt`, which takes `Math.abs`, so a deficit silently reads as a surplus.
+  **A stated period is resolved (`resolvePeriod`), never assumed**: an unplaceable
+  period returns `needs_period` with NO figures, because a right number under the
+  wrong month passes every guard. A period question with no category returns the
+  period TOTAL. **A seeded capture never calls the phrase model** — it is
+  acknowledged deterministically, before the form opens. `meta.assistant` answers
+  about the assistant and reads no household data; unmatched questions carry
+  `CAPABILITIES` so a decline names what does work.
+  **`params.max_tokens` in `ai_model_configs` IS the cap for
   every call (corrected v10.37)** — the client sends `maxOutputTokens` (256
   classify / 700 phrase) but `ask-vyact/index.ts` never forwards it to
   `chatCompletion`, so the router falls through to `params.max_tokens` (600).

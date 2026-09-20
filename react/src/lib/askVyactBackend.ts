@@ -14,8 +14,11 @@ import type {
   Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, SplitInfo, TxnType, RecurringSchedule,
 } from '../types';
 import {
-  spendByCategory, monthlyData, liquidAssets, totalMonthlyDebtPayment,
+  spendByCategory, monthlyData, totalMonthlyDebtPayment,
 } from './calculations';
+// v10.38 — period/date/account resolution lives in the parser, next to the entity
+// shape it reads, and is unit-tested there.
+import { resolvePeriod, parseDateEntity, matchAccountId, matchCategory } from './askVyactParser';
 import { getCat, NEEDS_WANTS_MAP } from '../constants';
 import { fmt } from './format';
 import { nowMonthKey, getMonthKey } from './format';
@@ -42,6 +45,13 @@ export interface AssistantContext {
   baseCurrency: string;
   /** Recurring schedules — for "upcoming bills". Optional; defaults to none. */
   recurring?: RecurringSchedule[];
+  /**
+   * v10.38 — the household's accounts, for seeding the paying account when a bank
+   * message names one. Ids and names only; no balances are read here (money still
+   * comes from the summary's canonical projection). Optional: callers that never
+   * capture can omit it.
+   */
+  accounts?: { id: string; name: string; kind?: string }[];
 }
 
 // ── The two-method seam (rules now, LLM later) ─────────────────────────────────
@@ -65,6 +75,8 @@ export interface AssistantBackend {
     result: ResolveResult,
     ctx: AssistantContext,
     seed?: number,
+    /** v10.38 — figures the previous turn was allowed to state (guard context). */
+    prevAllowed?: readonly string[],
   ): Promise<string>; // stage 5
 }
 
@@ -82,32 +94,142 @@ export interface AssistantTurn {
   chips?: AssistantChip[];
   /** True when the turn is a clarifying chip / fallback rather than an answer. */
   clarify: boolean;
+  /**
+   * v10.38 — the money-shaped figures this turn was allowed to state. The chat keeps
+   * them on the message so the next turn's guard can accept a figure the user quotes
+   * back when challenging this answer.
+   */
+  allowedFigures?: string[];
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 const cur = (ctx: AssistantContext) => ctx.baseCurrency;
 const money = (n: number, ctx: AssistantContext) => fmt(Math.round(n), cur(ctx));
 
+/** The default period when the user names none. */
+const CURRENT_PERIOD = { monthKey: nowMonthKey(), label: 'this month', isCurrent: true } as const;
+
 /** Rolling monthly average expense for a category over the last `n` months
  *  (excluding the current month). Pure composition of `spendByCategory`. */
-function categoryRollingAvg(ctx: AssistantContext, category: string, n = 3): number {
+function categoryRollingAvg(ctx: AssistantContext, category: string, n = 3, excludeMonth = nowMonthKey()): number {
   const months = [...new Set(ctx.transactions.map(t => getMonthKey(t.date)))]
-    .sort().filter(m => m !== nowMonthKey()).slice(-n);
+    .sort().filter(m => m !== excludeMonth).slice(-n);
   if (!months.length) return 0;
   const sum = months.reduce((s, mk) => s + (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0), 0);
   return sum / months.length;
 }
 
-/** Average monthly expense (burn) over recent months — for runway/affordability. */
-function monthlyBurn(ctx: AssistantContext): number {
-  const t = ctx.summary.trend6m;
-  if (t.length) return t.reduce((s, m) => s + m.expense, 0) / t.length;
-  return ctx.summary.thisMonth.expense;
+/**
+ * v10.38 — a money fact that may be NEGATIVE, stated with its direction in words.
+ *
+ * `money()` formats through `fmt`, which takes `Math.abs` for display, so
+ * `money(-34956)` reads "₹34,956". A fact called `available_above_floor` carrying
+ * that string told the model a household was ₹34,956 ABOVE a floor it was
+ * ₹34,956 BELOW — a real number, correctly copied, and the opposite of the truth.
+ * Any fact that can cross zero goes through here.
+ */
+const signedMoney = (n: number, ctx: AssistantContext, up = 'above', down = 'below'): string =>
+  `${money(Math.abs(n), ctx)} ${n < 0 ? down : up}`;
+
+/**
+ * Typical monthly spend and how many months it rests on — THE one baseline.
+ * Cover, the emergency floor and every "your usual month" phrase divide by this.
+ */
+const basisOf = (ctx: AssistantContext) => ctx.summary.spendBasis;
+
+/** How much history the averages rest on, in words the model can repeat. */
+function basisLabel(ctx: AssistantContext): string {
+  const b = basisOf(ctx);
+  if (b.partialMonthOnly) return 'this month only — no completed month of history yet';
+  return `${b.monthsConsidered} ${b.monthsConsidered === 1 ? 'completed month' : 'completed months'} of history`;
 }
 
-/** Emergency-fund floor: 3× monthly burn (goals are no longer a module). */
+/**
+ * Emergency-fund floor: three months of typical ESSENTIAL spending.
+ *
+ * v10.38 — needs, not everything. A floor built on total spend treats
+ * discretionary spending as something you must keep funding through a crisis,
+ * which overstates the cushion a household needs and made an affordable purchase
+ * read as unaffordable. Both figures reach the model, so the answer can explain
+ * which part is flexible.
+ */
 function emergencyFloor(ctx: AssistantContext): number {
-  return monthlyBurn(ctx) * 3;
+  return basisOf(ctx).averageEssential * 3;
+}
+
+/**
+ * The household position, shared by `interpret.status` and `forecast.prescriptive`.
+ *
+ * v10.38 — advice used to see only this month's categories, so "what should I do?"
+ * could suggest trimming ₹54 from a household with a 95% savings rate and a
+ * ₹25,45,000 mortgage at 8.75%. Advice needs the position, and the position is
+ * already computed here.
+ */
+function positionFacts(ctx: AssistantContext) {
+  const s = ctx.summary;
+  return {
+    net_worth: money(s.netWorth.netWorth, ctx),
+    total_assets: money(s.netWorth.totalAssets, ctx),
+    total_debt: money(s.netWorth.totalLiabilities, ctx),
+    liquid_savings: money(s.netWorth.liquidAssets, ctx),
+    months_of_liquid_cover: s.netWorth.liquidityMonths.toFixed(1),
+    cover_basis: `typical monthly spending of ${money(basisOf(ctx).averageMonthly, ctx)}, averaged over ${basisLabel(ctx)}`,
+    income_this_month: money(s.thisMonth.income, ctx),
+    spending_this_month: money(s.thisMonth.expense, ctx),
+    savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
+    pulse_score: s.pulseScore.total == null ? 'not enough data yet' : `${s.pulseScore.total}/100`,
+    budgets_over_limit: s.budgets.filter(b => b.spentPct > 100).map(b => getCat(b.category).label),
+    largest_categories_this_month: s.thisMonth.topCategories.slice(0, 5)
+      .map(t => ({ category: getCat(t.category).label, spent: money(t.amount, ctx) })),
+  };
+}
+
+/**
+ * The sentence shown when a capture pre-fills the form (v10.38, F7).
+ *
+ * Deterministic on purpose: it states exactly what was understood — amount,
+ * category, date, account — and that nothing is recorded until the user saves.
+ * A model adds nothing here (there are no facts to explain) and its output could
+ * be discarded by the guard, leaving a form open with no explanation at all.
+ */
+/**
+ * Every money-shaped figure this turn was allowed to state (v10.38).
+ *
+ * Kept on the transcript row so the NEXT turn's guard accepts a figure the user
+ * quotes back when they challenge an answer. Same extraction the guard uses, so the
+ * two cannot disagree.
+ */
+function figuresAllowedBy(result: ResolveResult): string[] {
+  const source = JSON.stringify({ ...(result.vars ?? {}), facts: result.facts ?? {} });
+  return [...new Set(source.match(/\d[\d,]*(?:\.\d+)?/g) ?? [])];
+}
+
+function captureAcknowledgement(result: ResolveResult): string {
+  const v = result.vars ?? {};
+  const bits: string[] = [];
+  if (v.amount) bits.push(String(v.amount));
+  if (v.category) bits.push(`under ${String(v.category)}`);
+  if (v.account) bits.push(`on ${String(v.account)}`);
+  if (v.date) bits.push(`dated ${String(v.date)}`);
+  const what = bits.length ? bits.join(' ') : 'the details you gave';
+  return `I've pre-filled ${what}. Check it over and save it — nothing is recorded until you do.`;
+}
+
+/**
+ * Debts, highest rate first — shared by `interpret.debts` and advice.
+ *
+ * SafeSummary debts carry a TYPE, never the user's own name for the debt: that is
+ * deliberate egress minimisation, so the label comes from the type.
+ */
+function debtFacts(ctx: AssistantContext) {
+  return [...ctx.summary.debts]
+    .sort((a, b) => b.aprPct - a.aprPct)
+    .map(d => ({
+      debt: getCat(d.type).label || d.type,
+      balance: money(d.balance, ctx),
+      interest_rate: `${d.aprPct}%`,
+      months_remaining: d.monthsRemaining != null ? String(d.monthsRemaining) : 'not set',
+    }));
 }
 
 /** Does this category lean on onboarding estimates? (provenance, spec §5). */
@@ -127,12 +249,14 @@ function categoryUsesEstimate(ctx: AssistantContext, category: string): boolean 
  * assertNoInventedFigures. Category LABELS only — never descriptions or merchant
  * text, which SafeSummary deliberately excludes from egress.
  */
-function categoryBreakdown(ctx: AssistantContext) {
-  const spend = spendByCategory(ctx.transactions, nowMonthKey(), cur(ctx), ctx.rates);
+function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey()) {
+  const spend = spendByCategory(ctx.transactions, monthKey, cur(ctx), ctx.rates);
   return Object.entries(spend)
     .sort(([, a], [, b]) => b - a)
     .map(([c, amt]) => {
-      const usual = categoryRollingAvg(ctx, c);
+      // "Usual" always excludes the month being reported, so a past month is
+      // compared with its neighbours rather than with itself.
+      const usual = categoryRollingAvg(ctx, c, 3, monthKey);
       const gap = amt - usual;
       const nw = NEEDS_WANTS_MAP[c];
       return {
@@ -169,11 +293,24 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         : intent.id === 'capture.investment' ? 'investment' : 'expense';
       // v9 §3 — transfer-class rows carry no category ('' → null at the adapter).
       const transferClass = type === 'transfer' || type === 'investment';
+      // v10.38 (F6) — a merchant the user or a bank message named is a category
+      // signal, and KEYWORD_MAP already knows the common ones (swiggy → food_dining).
+      // Without this, a pasted card alert filed every spend under "other", so the
+      // user's category totals silently drifted with every SMS they forwarded.
       const category = transferClass ? ''
-        : (e.category ?? (type === 'income' ? 'salary' : 'other_expense'));
+        : (e.category
+          ?? (type === 'expense' ? matchCategory(String(e.merchant ?? '').toLowerCase()) : undefined)
+          ?? (type === 'income' ? 'salary' : 'other_expense'));
+      // The date and the account the message stated. Both were extracted and then
+      // dropped, so a bank paste still made the user retype the date and pick the card.
+      const statedDate = parseDateEntity(typeof e.date === 'string' ? e.date : undefined);
+      const accountId = matchAccountId(typeof e.account === 'string' ? e.account : undefined, ctx.accounts ?? []);
+      const accountName = accountId ? (ctx.accounts ?? []).find(a => a.id === accountId)?.name : undefined;
       const seed: Partial<Transaction> = {
         type, amount: e.amount, category,
         description: e.merchant ? e.merchant.charAt(0).toUpperCase() + e.merchant.slice(1) : '',
+        ...(statedDate ? { date: statedDate } : {}),
+        ...(accountId ? { accountId } : {}),
       };
       return {
         kind: 'capture', outcome: 'seeded', seed,
@@ -182,6 +319,8 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
           category: transferClass
             ? (type === 'investment' ? 'investment' : 'transfer')
             : getCat(category).label.toLowerCase(),
+          ...(statedDate ? { date: statedDate } : {}),
+          ...(accountName ? { account: accountName } : {}),
         },
       };
     }
@@ -214,11 +353,53 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
 
     // ── Interpret ───────────────────────────────────────────────────────────────
     case 'interpret.lookup': {
-      const mk = nowMonthKey();
+      // v10.38 (F1/F5) — the PERIOD the user named is honoured, and a question with
+      // no category returns the period TOTAL.
+      //
+      // 🔴 What this replaced: the month was hard-coded to `nowMonthKey()` and an
+      // absent category fell back to the biggest one. So "how much on food in
+      // August" answered with THIS month's food figure under an August label, and
+      // "how much did I spend this month?" answered for Rent alone with no total.
+      // Both are true numbers answering a question nobody asked, and the
+      // invented-figure guard cannot see the difference. When a stated period
+      // cannot be placed we now say so instead of substituting today.
+      const stated = typeof e.period === 'string' ? e.period : undefined;
+      const period = resolvePeriod(stated) ?? (stated ? null : CURRENT_PERIOD);
+      if (!period) {
+        return {
+          kind: 'interpret', outcome: 'needs_period',
+          facts: { requested_period: String(stated), can_answer_for: 'this month or a named past month' },
+          analysis: [`Could not place the period "${stated}"`],
+          vars: { period: String(stated) },
+        };
+      }
+      const mk = period.monthKey;
       const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
-      const category = e.category
-        ?? Object.entries(spend).sort(([, a], [, b]) => b - a)[0]?.[0];
-      if (!category) return fallback();
+      const breakdown = categoryBreakdown(ctx, mk);
+      const total = Object.values(spend).reduce((a, b) => a + b, 0);
+
+      // No category named ⇒ the question is about the whole period.
+      if (!e.category) {
+        return {
+          kind: 'interpret', outcome: breakdown.length ? 'period_total' : 'no_activity',
+          chips: [
+            { label: 'Where is it going?', prompt: 'where is my money going' },
+            { label: 'Which budgets are at risk?', prompt: 'which budgets are at risk' },
+          ],
+          facts: {
+            period: period.label,
+            total_spent: money(total, ctx),
+            categories_in_period: breakdown,
+            category_count: String(breakdown.length),
+          },
+          analysis: [
+            `Totalled ${period.label}'s spending across ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'}`,
+          ],
+          vars: { amount: money(total, ctx), period: period.label },
+        };
+      }
+
+      const category = e.category;
       const amount = spend[category] || 0;
       const budget = ctx.budgets.find(b => b.category === category);
       const usesEstimate = categoryUsesEstimate(ctx, category);
@@ -228,19 +409,19 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         { label: 'Why is it up?', prompt: `why is my ${getCat(category).label.toLowerCase()} spending so high` },
         { label: 'Where else is it going?', prompt: 'where is my money going' },
       ];
-      const breakdown = categoryBreakdown(ctx);
       const label = getCat(category).label;
       const facts = {
-        period: 'this month',
+        period: period.label,
         asked_about: label,
         spent: money(amount, ctx),
         budget: budget && budget.limit > 0 ? money(budget.limit, ctx) : 'no budget set',
         share_of_budget: budget && budget.limit > 0 ? `${Math.round((amount / budget.limit) * 100)}%` : 'no budget set',
         usual_month: breakdown.find(r => r.category === label)?.usual_month ?? 'no history yet',
-        every_category_this_month: breakdown,
+        total_spent_in_period: money(total, ctx),
+        every_category_in_period: breakdown,
       };
       const analysis = [
-        `Totalled this month's spending across ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'}`,
+        `Totalled ${period.label}'s spending across ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'}`,
         budget && budget.limit > 0 ? `Compared ${label} with its budget` : `Compared ${label} with your usual month`,
       ];
       if (budget && budget.limit > 0) {
@@ -257,24 +438,23 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         vars: { amount: money(amount, ctx), category: getCat(category).label.toLowerCase() },
       };
     }
+    // v10.38 (F9) — about the assistant, not the money. Reads NOTHING from the
+    // household: no summary, no transactions, no budgets. "What do I call you?"
+    // used to route to interpret.status and send the user's net worth, debts and
+    // budgets to the model to answer a question about a name.
+    case 'meta.assistant':
+      return {
+        kind: 'interpret', outcome: 'about_me',
+        facts: { assistant_name: 'Ask Vyact', ...CAPABILITIES },
+        analysis: ['Answered about myself — no household data read'],
+        vars: {},
+      };
     case 'interpret.status': {
       const s = ctx.summary;
       // One overview serves all three branches: net worth, balances and "how am I
       // doing" are the same question at different zoom levels, and each used to
       // get a single pre-written sentence.
-      const facts = {
-        net_worth: money(s.netWorth.netWorth, ctx),
-        total_assets: money(s.netWorth.totalAssets, ctx),
-        total_debt: money(s.netWorth.totalLiabilities, ctx),
-        months_of_liquid_cover: s.netWorth.liquidityMonths.toFixed(1),
-        income_this_month: money(s.thisMonth.income, ctx),
-        spending_this_month: money(s.thisMonth.expense, ctx),
-        savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
-        pulse_score: s.pulseScore.total == null ? 'not enough data yet' : `${s.pulseScore.total}/100`,
-        budgets_over_limit: s.budgets.filter(b => b.spentPct > 100).map(b => getCat(b.category).label),
-        largest_categories_this_month: s.thisMonth.topCategories.slice(0, 5)
-          .map(t => ({ category: getCat(t.category).label, spent: money(t.amount, ctx) })),
-      };
+      const facts = positionFacts(ctx);
       const analysis = [
         'Read your net worth, assets and debt',
         "Compared this month's income with your spending",
@@ -384,21 +564,17 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       if (!d.length) return { kind: 'interpret', outcome: 'ok',
         facts: { debts: [], note: 'no debts recorded' }, analysis: ['Checked your debts — none recorded'],
         vars: { headline: "You're debt-free.", detail: 'Nothing to pay down right now.' } };
-      const totalDebt = d.reduce((s, x) => s + x.balance, 0);
+      // v10.38 (F10) — ONE total. This case used to sum the debts array while
+      // `interpret.status` reported the live liabilities from the canonical net-worth
+      // projection, so the same session saw ₹25,74,533 and ₹25,73,809.
+      const totalDebt = ctx.summary.netWorth.totalLiabilities;
       const top = [...d].sort((a, b) => b.aprPct - a.aprPct)[0];
       const smallest = [...d].sort((a, b) => a.balance - b.balance)[0];
-      // SafeSummary debts carry a TYPE, never the user's own name for the debt —
-      // that is deliberate egress minimisation, so the label comes from the type.
       const debtLabel = (x: { type: string }) => getCat(x.type).label || x.type;
       return { kind: 'interpret', outcome: 'ok',
         facts: {
           total_owed: money(totalDebt, ctx),
-          debts_highest_rate_first: [...d].sort((a, b) => b.aprPct - a.aprPct).map(x => ({
-            debt: debtLabel(x),
-            balance: money(x.balance, ctx),
-            interest_rate: `${x.aprPct}%`,
-            months_remaining: x.monthsRemaining ?? 'not set',
-          })),
+          debts_highest_rate_first: debtFacts(ctx),
           avalanche_pays_first: `${debtLabel(top)} (highest interest rate, saves the most interest)`,
           snowball_pays_first: `${debtLabel(smallest)} (smallest balance, quickest to clear)`,
         },
@@ -443,20 +619,30 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       // answer is exactly what the deck's rule forbids.
       if (e.amount == null) return { kind: 'forecast', outcome: 'missing_amount', vars: {},
         facts: { needs: 'the purchase amount' }, analysis: ['Need the purchase amount to check affordability'] };
-      const liquid = liquidAssets(ctx.assets, cur(ctx), ctx.rates);
+      // v10.38 — ONE liquidity source (the canonical net-worth projection, which
+      // includes live account balances) and ONE spend baseline. The old
+      // `liquidAssets(ctx.assets)` read the assets array only, so this seam and
+      // `interpret.status` reported 1.2 and 68.6 months of cover for the same money.
+      const liquid = ctx.summary.netWorth.liquidAssets;
+      const basis = basisOf(ctx);
       const floor = emergencyFloor(ctx);
       const headroom = liquid - floor;
       const affordFacts = {
         purchase: money(e.amount, ctx),
         liquid_savings: money(liquid, ctx),
-        typical_monthly_spending: money(monthlyBurn(ctx), ctx),
+        typical_monthly_spending: money(basis.averageMonthly, ctx),
+        typical_essential_monthly: money(basis.averageEssential, ctx),
+        typical_discretionary_monthly: money(basis.averageDiscretionary, ctx),
+        months_considered: basisLabel(ctx),
         safety_floor: money(floor, ctx),
-        safety_floor_basis: 'three months of your typical spending',
-        available_above_floor: money(headroom, ctx),
+        safety_floor_basis: `three months of your typical essential spending, averaged over ${basisLabel(ctx)}`,
+        // Signed: this crosses zero, and `money()` would print a deficit as a surplus.
+        headroom_against_floor: signedMoney(headroom, ctx),
       };
       const affordAnalysis = [
         'Totalled your liquid savings',
-        'Kept three months of typical spending aside as a safety floor',
+        `Averaged your spending over ${basisLabel(ctx)}`,
+        'Kept three months of essential spending aside as a safety floor',
         'Compared the purchase with what is left above it',
       ];
       if (headroom >= e.amount) {
@@ -486,19 +672,24 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       ] };
     }
     case 'forecast.runway': {
-      const liquid = liquidAssets(ctx.assets, cur(ctx), ctx.rates);
-      const burn = monthlyBurn(ctx) || (totalMonthlyDebtPayment(ctx.debts, cur(ctx), ctx.rates) + 1);
+      // Same single source as affordability and status (v10.38).
+      const liquid = ctx.summary.netWorth.liquidAssets;
+      const basis = basisOf(ctx);
+      const burn = basis.averageMonthly || (totalMonthlyDebtPayment(ctx.debts, cur(ctx), ctx.rates) + 1);
       const months = burn > 0 ? liquid / burn : 0;
       return { kind: 'forecast', outcome: 'ok',
         facts: {
           months_money_would_last: months.toFixed(1),
           liquid_savings: money(liquid, ctx),
           typical_monthly_spending: money(burn, ctx),
+          typical_essential_monthly: money(basis.averageEssential, ctx),
+          typical_discretionary_monthly: money(basis.averageDiscretionary, ctx),
+          months_considered: basisLabel(ctx),
           largest_categories_this_month: categoryBreakdown(ctx).slice(0, 5),
         },
         analysis: [
           'Totalled your liquid savings',
-          'Worked out your typical monthly spending',
+          `Averaged your spending over ${basisLabel(ctx)}`,
           'Measured how many months the savings would cover',
         ],
         vars: { months: months.toFixed(1) }, chips: [
@@ -528,15 +719,22 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         if (top) { best = { cat: top[0], over: top[1] }; basis = 'total_spent'; }
       }
       const breakdown = categoryBreakdown(ctx);
+      // v10.38 (F4) — advice sees the POSITION, not just this month's categories.
+      // Without it, "what should I do?" could only suggest trimming the largest
+      // discretionary line — ₹54 for a household with a 95% savings rate and a
+      // mortgage at 8.75%. The biggest lever is rarely a category.
       const prescriptiveFacts = {
         savings_goal: target ? money(target, ctx) : 'not specified',
+        ...positionFacts(ctx),
+        debts_highest_rate_first: debtFacts(ctx),
         discretionary_categories: breakdown.filter(r => r.kind === 'discretionary'),
         essential_categories: breakdown.filter(r => r.kind === 'essential'),
       };
       const compared = `Compared ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'} with your usual month`;
+      const positionRead = 'Read your income, savings rate, cushion and debts';
       if (!best) return { kind: 'forecast', outcome: 'ok', vars: { months: '0' },
         facts: { ...prescriptiveFacts, note: 'no discretionary spending recorded this month' },
-        analysis: [compared, 'No discretionary spending found to trim'] };
+        analysis: [positionRead, compared, 'No discretionary spending found to trim'] };
       return { kind: 'forecast', outcome: 'suggest',
         facts: {
           ...prescriptiveFacts,
@@ -547,6 +745,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
             : 'total spent in this category this month (no history yet to compare)',
         },
         analysis: [
+          positionRead,
           compared,
           'Separated discretionary spending from essentials',
           `${getCat(best.cat).label} is the easiest place to trim`,
@@ -564,8 +763,49 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
 }
 
 function fallback(): ResolveResult {
-  return { kind: 'fallback', outcome: 'default', vars: {} };
+  // v10.38 — a question we cannot place now arrives at the model WITH the
+  // capability list, so the reply names the nearest thing that does work instead of
+  // being a dead end. Validation produced a run of these ("plan October for the
+  // festival season", "how much over the last 60 days") and every one deserved a
+  // useful redirect rather than a shrug.
+  return {
+    kind: 'fallback', outcome: 'default',
+    facts: { ...CAPABILITIES },
+    analysis: ['Could not match this to something I can compute'],
+    vars: {},
+  };
 }
+
+/**
+ * What Ask Vyact can and cannot answer, in the assistant's own words (v10.38).
+ *
+ * Handed to the model for `meta.assistant` and for any question whose data the app
+ * does not hold, so "I can't do that" arrives WITH the nearest thing that works
+ * instead of as a dead end. Kept beside `resolve()` because it must change whenever
+ * the intent set does — a capability list that drifts is worse than none.
+ */
+export const CAPABILITIES = {
+  can_answer: [
+    'spending for this month or a named past month, by category or in total',
+    'why spending moved, and which categories are above their usual',
+    'your overall position: net worth, assets, debt, liquid cover, savings rate',
+    'budget status, and which budgets are over their limit',
+    'debts with balances and interest rates, and which to clear first',
+    'upcoming and recurring bills',
+    'whether a purchase fits above your safety floor',
+    'how long your savings would last without income',
+    'where you could cut back',
+    'recording an expense, income, transfer, investment or split (you confirm the form)',
+  ],
+  cannot_answer_yet: [
+    'windows other than whole months (last 60 days, since payday, daily pace)',
+    'simulations: what an extra payment does to a payoff date, or to a net worth milestone',
+    'who in the household logged or paid something, and how a shared split is balanced',
+    'what changed over a period and why (net worth attribution)',
+    'whether allocations cover a future dated commitment such as an annual premium',
+    'anything about a future month: seasonal or festival planning',
+  ],
+} as const;
 
 // ── LlmBackend — the ONLY assistant backend (v10.20) ────────────────────────────
 //
@@ -595,8 +835,9 @@ export class LlmBackend implements AssistantBackend {
    *  variant table, so phrasing variety comes from the model itself. */
   async phraseResponse(
     intent: IntentResult, result: ResolveResult, _ctx?: AssistantContext, _seed?: number,
+    prevAllowed: readonly string[] = [],
   ): Promise<string> {
-    return phraseViaModel(intent, result, this.call);
+    return phraseViaModel(intent, result, this.call, prevAllowed);
   }
 }
 
@@ -637,6 +878,7 @@ const INTENT_LABEL: Record<string, string> = {
   'forecast.affordability': 'checking whether you can afford it',
   'forecast.runway': 'working out how long your money lasts',
   'forecast.prescriptive': 'finding where you could save',
+  'meta.assistant': 'answering about me, not your money',
 };
 
 export async function runAssistant(
@@ -651,6 +893,12 @@ export async function runAssistant(
    * four arguments and is unaffected.
    */
   onProgress?: (step: string) => void,
+  /**
+   * v10.38 — figures the PREVIOUS assistant turn was allowed to use. Passed to the
+   * guard so a follow-up may cite the number it is challenging; the guard is
+   * otherwise per-turn, and discarded exactly that kind of correction.
+   */
+  prevAllowed: readonly string[] = [],
 ): Promise<AssistantTurn> {
   // No model configured or reachable. Say so — never fake an answer. There is no
   // rules fallback by design (v10.20), and a finance assistant that invents a
@@ -675,10 +923,30 @@ export async function runAssistant(
   const result = gated ? fallback() : resolve(effective, ctx);     // stage 4 (never LLM)
   for (const step of result.analysis ?? []) onProgress?.(step);
 
+  // v10.38 (F7) — a seeded capture is acknowledged DETERMINISTICALLY, with no model
+  // call at all.
+  //
+  // Capture handed the model `facts: {}` — there was nothing to phrase — and the
+  // chat navigated to the pre-filled form as soon as the turn resolved, so the
+  // sentence the model was writing arrived after the form had replaced the chat, or
+  // (when the guard rejected a date or the user's own amount) never arrived at all.
+  // One less call, half the latency, and the acknowledgement always exists.
+  if (result.kind === 'capture' && result.outcome === 'seeded') {
+    return {
+      reply: captureAcknowledgement(result),
+      bucket: effective.bucket,
+      intentId: effective.id,
+      seed: result.seed,
+      chips: normaliseChips(result.chips),
+      clarify: false,
+      allowedFigures: figuresAllowedBy(result),
+    };
+  }
+
   onProgress?.('Writing your answer');
   let reply: string;
   try {
-    reply = await backend.phraseResponse(effective, result, ctx, seed);
+    reply = await backend.phraseResponse(effective, result, ctx, seed, prevAllowed);
   } catch (err) {
     if (err instanceof ModelUnavailableError) return unavailableTurn('unreachable');
     // The model put a figure in the reply that no tool computed. Discard the
@@ -697,6 +965,7 @@ export async function runAssistant(
     // channel gets the same list and no call site can opt out of the limit.
     chips: normaliseChips(result.chips),
     clarify: gated || result.kind === 'fallback' || result.outcome === 'missing_amount',
+    allowedFigures: figuresAllowedBy(result),
   };
 }
 
