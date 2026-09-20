@@ -32,7 +32,29 @@ Read these before you start; each one refuses a configuration that looks reasona
 | **The path is appended for you** | `checkConfig` builds `base_url + '/v1/chat/completions'` | The row holds `https://vyact-llm.example.com` — **no** `/v1` suffix. |
 | **20-second budget by default** | `ASK_VYACT_TIMEOUT_MS`, clamped to 55 s by `MAX_TIMEOUT_MS` | This is exactly what killed the free Nemotron model. Measure your first token latency and raise it. |
 
-## Step 1 — expose LM Studio over HTTPS
+## The short path: one script on the LLM machine
+
+`scripts/local-llm/start-vyact-llm.ps1` does steps 1–2 for you. Copy that folder to the
+machine running LM Studio and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-vyact-llm.ps1
+```
+
+It checks LM Studio is up and names the loaded model, generates a 256-bit key (once,
+stored readable only by you at `%LOCALAPPDATA%\Vyact\local-llm-key.txt`), starts the auth
+bridge, starts the tunnel, and prints the public hostname plus the one command you run to
+store the key server-side. Add `-Named <tunnel> -HostName <host>` once you want a stable
+hostname instead of a per-restart `trycloudflare.com` one.
+
+**The bridge is the part that matters.** `scripts/local-llm/vyact-llm-bridge.mjs` sits
+between the tunnel and LM Studio and refuses any request without
+`Authorization: Bearer <key>` — the same header the gateway sends every provider. It
+proxies `/v1/*` only, answers `/healthz` without the key so a tunnel check needs no
+credential, caps the request body, and applies its own timeout. Point the tunnel at the
+bridge (`:1235`), **never at LM Studio directly**.
+
+## Step 1 — expose LM Studio over HTTPS (what the script automates)
 
 In LM Studio: load Gemma, start the local server (default `:1234`), and leave
 "serve on local network" off — the tunnel is the only way in.
