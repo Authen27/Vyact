@@ -575,7 +575,7 @@
       "availability": "conditional",
       "layer": "unit",
       "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
-      "count": 35,
+      "count": 41,
       "tests": [
         "advice facts (F4) CON-UNIT-FACT-012 · prescriptive carries income, savings rate, cover and debts",
         "capture seeding (F6, F7) CON-UNIT-FACT-013 · a merchant implies a category when the user named none",
@@ -611,7 +611,13 @@
         "signed figures (F3) CON-UNIT-FACT-004 · headroom above the floor says \"above\"",
         "spendBasis — the one denominator CON-UNIT-FACT-005 · averages over completed months only, and says how many",
         "spendBasis — the one denominator CON-UNIT-FACT-006 · with no completed month it falls back and SAYS it is partial",
-        "spendBasis — the one denominator CON-UNIT-FACT-007 · the affordability answer states the history it rests on"
+        "spendBasis — the one denominator CON-UNIT-FACT-007 · the affordability answer states the history it rests on",
+        "where the money sits (P4) CON-UNIT-FACT-036 · the liquidity breakdown sums EXACTLY to the total it decomposes",
+        "where the money sits (P4) CON-UNIT-FACT-037 · a card never appears among the liquid sources (P1 holds here too)",
+        "where the money sits (P4) CON-UNIT-FACT-038 · spending is grouped by the account it left",
+        "where the money sits (P4) CON-UNIT-FACT-039 · spending with no account recorded is reported, never dropped",
+        "where the money sits (P4) CON-UNIT-FACT-040 · advice can see what is owned, grouped by how soon it is reachable",
+        "where the money sits (P4) CON-UNIT-FACT-041 · the breakdown carries NAMES and amounts only — no ids, no account numbers"
       ]
     },
     {

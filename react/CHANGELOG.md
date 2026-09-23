@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.38.1`** (consumer)
+> **Current production version: `v10.39.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,34 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.39.0 — where the money sits *(2026-09-23)*
+
+Three questions in one validation session died for want of an account dimension: *"₹58k or
+₹33k — which is right?"*, *"which account am I spending from?"*, *"what should I sell?"*.
+`SafeSummary` carried totals only, so the assistant could quote a liquidity figure but
+never show the accounts behind it — the week after production proved that very figure
+could be wrong.
+
+- **`liquid_by_source`** — the liquidity total, decomposed by the account or holding it
+  sits in, largest first. Built from **the same rows the projection totalled**, so the
+  parts cannot disagree with the whole; a test asserts they sum exactly. A credit card
+  never appears (v10.38.1 keeps borrowing out of savings).
+- **`spend_by_account`** — spending grouped by the account it left, for the resolved
+  period. Spending with no account recorded is reported as such rather than dropped: a
+  total that quietly omits part of itself is the failure mode this line of work exists
+  to stop.
+- **`what_you_own`** — every holding with its value and how soon it could be reached
+  ("reachable now", "a few days or weeks", "locked up or slow to sell"), so advice can
+  name what exists. It still must not recommend selling a specific holding — that needs
+  tax, lock-ins and purpose the app cannot see.
+
+🔴 **This widens what leaves the device, once and deliberately.** Facts previously carried
+category labels and debt *types* only, never anything the customer wrote. They now carry
+**account and asset names** — names and amounts only, no account numbers, no masked
+digits, and transaction descriptions and merchant text remain excluded. The reason is
+narrow and specific: a liquidity total nobody can decompose is a number you must take on
+trust, and this one was overstated for months. `CLAUDE.md` records the rule and its limit.
 
 ## v10.38.1 — borrowing is not savings *(2026-09-23)*
 

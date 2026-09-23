@@ -172,6 +172,9 @@ function positionFacts(ctx: AssistantContext) {
     total_assets: money(s.netWorth.totalAssets, ctx),
     total_debt: money(s.netWorth.totalLiabilities, ctx),
     liquid_savings: money(s.netWorth.liquidAssets, ctx),
+    // v10.39 (P4) — the same figure, decomposed. A total nobody can trace is a
+    // figure the customer has to take on trust, and this one was wrong for months.
+    liquid_by_source: liquidBySource(ctx),
     months_of_liquid_cover: s.netWorth.liquidityMonths.toFixed(1),
     cover_basis: `typical monthly spending of ${money(basisOf(ctx).averageMonthly, ctx)}, averaged over ${basisLabel(ctx)}`,
     income_this_month: money(s.thisMonth.income, ctx),
@@ -219,6 +222,50 @@ function captureAcknowledgement(result: ResolveResult): string {
   if (v.date) bits.push(`dated ${String(v.date)}`);
   const what = bits.length ? bits.join(' ') : 'the details you gave';
   return `I've pre-filled ${what}. Check it over and save it — nothing is recorded until you do.`;
+}
+
+/**
+ * WHERE the liquid money sits (v10.39, P4).
+ *
+ * The parts come from the same rows the projection totalled, so this breakdown
+ * cannot disagree with `liquid_savings`. Largest first, because the answer to
+ * "where is it?" is usually the top one or two.
+ */
+function liquidBySource(ctx: AssistantContext) {
+  return ctx.summary.holdings
+    .filter(h => h.liquidity === 'liquid')
+    .sort((a, b) => b.value - a.value)
+    .map(h => ({ held_in: h.name, amount: money(h.value, ctx), kind: h.source }));
+}
+
+/** Everything owned, grouped by how quickly it could be reached (v10.39, P4). */
+function assetsByLiquidity(ctx: AssistantContext) {
+  const LABEL = { liquid: 'reachable now', short: 'a few days or weeks', long: 'locked up or slow to sell' };
+  return ctx.summary.holdings
+    .slice()
+    .sort((a, b) => b.value - a.value)
+    .map(h => ({ holding: h.name, value: money(h.value, ctx), how_soon: LABEL[h.liquidity] }));
+}
+
+/**
+ * Spending grouped by the account it left (v10.39, P4).
+ *
+ * Every spend carries its account, but nothing ever aggregated by it, so "which card
+ * am I using most?" was unanswerable while the data sat right there. Rows with no
+ * account recorded are reported as such rather than silently dropped — a total that
+ * quietly omits part of the spending is the failure mode this release exists to stop.
+ */
+function spendByAccount(ctx: AssistantContext, monthKey: string) {
+  const names = new Map((ctx.accounts ?? []).map(a => [a.id, a.name]));
+  const totals = new Map<string, number>();
+  for (const t of ctx.transactions) {
+    if (t.type !== 'expense' || getMonthKey(t.date) !== monthKey) continue;
+    const key = t.accountId ? (names.get(t.accountId) ?? 'another account') : 'no account recorded';
+    totals.set(key, (totals.get(key) ?? 0) + t.amount);
+  }
+  return [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([paid_from, amount]) => ({ paid_from, spent: money(amount, ctx) }));
 }
 
 /**
@@ -396,6 +443,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
             period: period.label,
             total_spent: money(total, ctx),
             categories_in_period: breakdown,
+            spend_by_account: spendByAccount(ctx, mk),
             category_count: String(breakdown.length),
           },
           analysis: [
@@ -436,6 +484,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         usual_month: breakdown.find(r => r.category === label)?.usual_month ?? 'no history yet',
         total_spent_in_period: money(total, ctx),
         every_category_in_period: breakdown,
+        spend_by_account: spendByAccount(ctx, mk),
       };
       const analysis = [
         `Totalled ${period.label}'s spending across ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'}`,
@@ -516,6 +565,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         return { kind: 'interpret', outcome: 'found', usesEstimate: categoryUsesEstimate(ctx, worst.cat),
           facts: {
             every_category_this_month: breakdown,
+            spend_by_account: spendByAccount(ctx, mk),
             biggest_rise: {
               category: getCat(worst.cat).label,
               spent: money(worst.now, ctx),
@@ -533,7 +583,8 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
           ] };
       }
       return { kind: 'interpret', outcome: 'clear',
-        facts: { every_category_this_month: breakdown, biggest_rise: 'nothing is well above its usual' },
+        facts: { every_category_this_month: breakdown, spend_by_account: spendByAccount(ctx, mk),
+          biggest_rise: 'nothing is well above its usual' },
         analysis: [compared, 'Nothing is running well above its usual'],
         vars: {
           detail: `your spending is tracking close to your normal pattern this month.`,
@@ -744,6 +795,11 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         savings_goal: target ? money(target, ctx) : 'not specified',
         ...positionFacts(ctx),
         debts_highest_rate_first: debtFacts(ctx),
+        // v10.39 (P4) — "what should I sell?" needs to see WHAT is owned, and how
+        // quickly each part could be reached. The answer still must not recommend
+        // selling a specific holding (PHRASE_SYSTEM), but it can now name what
+        // exists rather than declining for want of a list.
+        what_you_own: assetsByLiquidity(ctx),
         discretionary_categories: breakdown.filter(r => r.kind === 'discretionary'),
         essential_categories: breakdown.filter(r => r.kind === 'essential'),
       };
@@ -806,6 +862,8 @@ export const CAPABILITIES = {
     'spending for this month or a named past month, by category or in total',
     'why spending moved, and which categories are above their usual',
     'your overall position: net worth, assets, debt, liquid cover, savings rate',
+    'which accounts hold your money, and which account or card a spend came from',
+    'what you own and how quickly each part could be reached',
     'budget status, and which budgets are over their limit',
     'debts with balances and interest rates, and which to clear first',
     'upcoming and recurring bills',
@@ -815,6 +873,7 @@ export const CAPABILITIES = {
     'recording an expense, income, transfer, investment or split (you confirm the form)',
   ],
   cannot_answer_yet: [
+    'which specific holding to sell — that needs tax, lock-ins and what each is for',
     'windows other than whole months (last 60 days, since payday, daily pace)',
     'simulations: what an extra payment does to a payoff date, or to a net worth milestone',
     'who in the household logged or paid something, and how a shared split is balanced',

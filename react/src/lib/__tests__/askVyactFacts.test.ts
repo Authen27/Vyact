@@ -139,6 +139,69 @@ describe('one household, one cover figure (P1, P1b)', () => {
   });
 });
 
+// ── P4 (v10.39) — the account and asset dimension ───────────────────────────
+//
+// Three questions in one validation session died for want of this: "₹58k or ₹33k?",
+// "which account am I spending from?", "what should I sell?". The breakdown's whole
+// job is to make a total checkable, so the first test is that the parts add up.
+describe('where the money sits (P4)', () => {
+  it('CON-UNIT-FACT-036 · the liquidity breakdown sums EXACTLY to the total it decomposes', () => {
+    const ctx = makeCtx();
+    const facts = resolve(intent('interpret.status'), ctx).facts as Record<string, unknown>;
+    const parts = facts.liquid_by_source as { held_in: string; amount: string }[];
+    expect(parts.length).toBeGreaterThan(0);
+    const sum = parts.reduce((s, p) => s + Number(p.amount.replace(/[^\d.-]/g, '')), 0);
+    expect(sum).toBe(Math.round(ctx.summary.netWorth.liquidAssets));
+    expect(facts.liquid_savings).toBe(`₹${Math.round(ctx.summary.netWorth.liquidAssets).toLocaleString('en-IN')}`);
+  });
+
+  it('CON-UNIT-FACT-037 · a card never appears among the liquid sources (P1 holds here too)', () => {
+    const ctx = makeCtx({ assets: [], accounts: [
+      { id: 'acc-bank', name: 'ICICI Bank', kind: 'bank', currency: 'INR', openingBalance: 34_000 },
+      { id: 'acc-card', name: 'Federal', kind: 'credit_card', currency: 'INR', openingBalance: 24_000 },
+    ] as unknown as Account[], transactions: [] });
+    const facts = resolve(intent('interpret.status'), ctx).facts as Record<string, unknown>;
+    const parts = facts.liquid_by_source as { held_in: string }[];
+    expect(parts.map(p => p.held_in)).toEqual(['ICICI Bank']);
+  });
+
+  it('CON-UNIT-FACT-038 · spending is grouped by the account it left', () => {
+    const facts = resolve(intent('interpret.lookup', { period: 'this month' }), makeCtx()).facts as Record<string, unknown>;
+    const rows = facts.spend_by_account as { paid_from: string; spent: string }[];
+    // The fixture spends ₹17,000 from the bank and ₹2,000 on the card this month.
+    expect(rows).toEqual([
+      { paid_from: 'ICICI Bank', spent: '₹17,000' },
+      { paid_from: 'ICICI Card 3003', spent: '₹2,000' },
+    ]);
+  });
+
+  it('CON-UNIT-FACT-039 · spending with no account recorded is reported, never dropped', () => {
+    const ctx = makeCtx({ transactions: [
+      txn({ amount: 500, category: 'food_dining', accountId: 'acc-bank' }),
+      txn({ amount: 300, category: 'food_dining' }),          // no accountId
+    ] });
+    const rows = (resolve(intent('interpret.lookup', { period: 'this month' }), ctx).facts as Record<string, unknown>)
+      .spend_by_account as { paid_from: string; spent: string }[];
+    expect(rows).toContainEqual({ paid_from: 'no account recorded', spent: '₹300' });
+    // …and the parts still account for the whole period total.
+    const sum = rows.reduce((s, r) => s + Number(r.spent.replace(/[^\d.-]/g, '')), 0);
+    expect(sum).toBe(800);
+  });
+
+  it('CON-UNIT-FACT-040 · advice can see what is owned, grouped by how soon it is reachable', () => {
+    const facts = resolve(intent('forecast.prescriptive'), makeCtx()).facts as Record<string, unknown>;
+    const owned = facts.what_you_own as { holding: string; how_soon: string }[];
+    expect(owned.some(o => o.holding === 'Emergency cash' && o.how_soon === 'reachable now')).toBe(true);
+  });
+
+  it('CON-UNIT-FACT-041 · the breakdown carries NAMES and amounts only — no ids, no account numbers', () => {
+    const ctx = makeCtx();
+    const json = JSON.stringify((resolve(intent('interpret.status'), ctx).facts as Record<string, unknown>).liquid_by_source);
+    expect(json).not.toContain('acc-bank');        // no internal ids
+    expect(json).not.toMatch(/\bXX\d|\d{4,}\d{4,}/); // no masked or full card digits
+  });
+});
+
 // ── F3 — a negative fact must never read as positive ─────────────────────────
 describe('signed figures (F3)', () => {
   it('CON-UNIT-FACT-003 · being below the safety floor is stated as "below", never as a bare amount', () => {
