@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.38.1**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.39.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -208,7 +208,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `money()`**: the guard only allows figures it finds in the data, so a raw or
   differently-rounded number makes the model's correct answer get discarded.
   Facts use category labels and SafeSummary debt *types* — never descriptions or
-  user-named debts.
+  user-named debts. **v10.39 widens this once, deliberately: ACCOUNT and ASSET
+  NAMES may egress** (`summary.holdings` → `liquid_by_source`, `spend_by_account`,
+  `what_you_own`) because a liquidity total nobody can decompose is not checkable —
+  and production proved that total can be wrong. Names and amounts ONLY: no account
+  numbers, no masked digits, no transaction descriptions or merchant text, which
+  stay excluded. Do not widen it further without the same kind of reason.
   🔴 **BORROWING IS NEVER SAVINGS (v10.38.1).** A `credit_card`/`loan` account is
   never `liquidity: 'liquid'`, whatever the sign of its balance — a positive one is
   an overpayment (an asset, but `short`) or a sign error. Production counted ₹23,990

@@ -125,6 +125,28 @@ export interface SafeSummary {
   /** v10.38 — the ONE spend baseline every cover/floor figure divides by. */
   spendBasis: SpendBasis;
   /**
+   * v10.39 — WHERE THE MONEY SITS, not just how much of it there is.
+   *
+   * Three questions in one validation session died on the absence of this: "₹58k or
+   * ₹33k — which is right?", "which account am I spending from?", "what should I
+   * sell?". A total nobody can decompose is a figure you have to take on trust, and
+   * the household had just caught the app being wrong about that very total.
+   *
+   * 🔴 EGRESS NOTE. These are ACCOUNT AND ASSET NAMES, which the customer wrote
+   * ("Federal Bank", "Emergency cash"). Until now facts carried category labels and
+   * debt *types* only, never anything user-authored. This is a deliberate, narrow
+   * widening — names and amounts, no account numbers, no masked digits, no
+   * descriptions — made because a liquidity figure that cannot be traced to the
+   * accounts holding it is not checkable. Do not extend it to transaction
+   * descriptions or merchant text: those remain excluded.
+   */
+  holdings: {
+    name: string;
+    source: 'account' | 'asset';
+    liquidity: 'liquid' | 'short' | 'long';
+    value: number;
+  }[];
+  /**
    * v10.38.1 — data-quality signals the assistant may RAISE but must never
    * silently correct.
    *
@@ -250,6 +272,14 @@ export function buildSafeSummary(
       debtToAssetPct: ta > 0 ? round2(tl / ta * 100) : 0,
     },
     spendBasis: basis,
+    // The SAME rows the projection totalled, so a breakdown can never disagree with
+    // the total it decomposes (asserted by askVyactFacts).
+    holdings: nwProjection.assetRows.map(r => ({
+      name: r.name,
+      source: r.source === 'asset' ? 'asset' as const : 'account' as const,
+      liquidity: (r.liquidity ?? 'liquid') as 'liquid' | 'short' | 'long',
+      value: round2(r.value),
+    })),
     dataQuality: {
       cashBalanceNegative: accounts.some(a =>
         a.kind === 'cash' && !a.isArchived
