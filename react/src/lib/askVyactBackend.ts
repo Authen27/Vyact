@@ -18,7 +18,7 @@ import {
 } from './calculations';
 // v10.38 — period/date/account resolution lives in the parser, next to the entity
 // shape it reads, and is unit-tested there.
-import { resolvePeriod, parseDateEntity, matchAccountId, matchCategory } from './askVyactParser';
+import { resolvePeriod, parseDateEntity, matchAccountId, matchCategory, resolveCategoryId } from './askVyactParser';
 import { getCat, NEEDS_WANTS_MAP } from '../constants';
 import { fmt } from './format';
 import { nowMonthKey, getMonthKey } from './format';
@@ -179,6 +179,12 @@ function positionFacts(ctx: AssistantContext) {
     savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
     pulse_score: s.pulseScore.total == null ? 'not enough data yet' : `${s.pulseScore.total}/100`,
     budgets_over_limit: s.budgets.filter(b => b.spentPct > 100).map(b => getCat(b.category).label),
+    // v10.38.1 (P3) — raised, never silently corrected. Cash cannot be negative in
+    // reality, so this means spending was recorded against cash that was never
+    // recorded as received; the answer should say so rather than quietly absorbing it.
+    ...(s.dataQuality?.cashBalanceNegative
+      ? { data_warning: 'recorded cash is below zero — some cash received has not been entered' }
+      : {}),
     largest_categories_this_month: s.thisMonth.topCategories.slice(0, 5)
       .map(t => ({ category: getCat(t.category).label, spent: money(t.amount, ctx) })),
   };
@@ -399,7 +405,18 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         };
       }
 
-      const category = e.category;
+      // v10.38.1 (P6) — the model names a category in the customer's words
+      // ("food"); the ledger is keyed by id (`food_dining`). Resolve, or ask.
+      const category = resolveCategoryId(e.category);
+      if (!category) {
+        return {
+          kind: 'interpret', outcome: 'needs_category',
+          facts: { requested_category: String(e.category), period: period.label,
+            categories_in_period: breakdown },
+          analysis: [`Could not place the category "${String(e.category)}"`],
+          vars: { category: String(e.category) },
+        };
+      }
       const amount = spend[category] || 0;
       const budget = ctx.budgets.find(b => b.category === category);
       const usesEstimate = categoryUsesEstimate(ctx, category);

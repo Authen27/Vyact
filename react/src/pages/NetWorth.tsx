@@ -7,6 +7,9 @@ import { fmt, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
 import { monthlyData } from '../lib/calculations';
 import { computeNetWorth } from '../lib/netWorth';
+// v10.38.1 — the one spend baseline, shared with Ask Vyact so the two screens
+// cannot quote different months of cover for the same household.
+import { spendBasis } from '../lib/aiSummary';
 import { netWorthHistory, monthLabel, type NetWorthSnapshot } from '../lib/netWorthSnapshots';
 import { NetWorthHistoryChart } from '../components/charts/ReportCharts';
 import { computeAssetValue, type LiveAssetRow } from '../lib/accountBalance';
@@ -82,11 +85,29 @@ export default function NetWorth() {
   const { income, expense } = monthlyData(transactions, nowMonthKey(), c, rates);
   const monthlyIncome = income || 1;
 
-  // Financial ratios
-  const liquidityRatio   = expense > 0 ? la / expense : 0;
+  // v10.38.1 — ONE cover figure, on the SAME baseline as everywhere else.
+  //
+  // There used to be two: `liquidityRatio` and `emergencyCover`, computed from
+  // identical expressions (`la / expense`) and rendered as separate tiles — the same
+  // number twice, in different units ("2.9x" and "2.9mo"), with different thresholds,
+  // so one could read green while the other read amber. And both divided by THIS
+  // month's expense, which on the 2nd of a month is barely any spending at all: the
+  // page reported enormous cover early in the month and shrinking cover through it.
+  //
+  // The assistant moved onto `spendBasis` (up to six COMPLETED months) in v10.38 for
+  // exactly that reason, so this page was about to quote a different number for the
+  // same household. Both now read the one baseline; `askVyactFacts` pins them equal.
+  const basis = useMemo(
+    () => spendBasis(transactions, c, rates),
+    [transactions, c, rates],
+  );
+  const typicalMonthly   = basis.averageMonthly;
+  const monthsOfCover    = typicalMonthly > 0 ? la / typicalMonthly : 0;
   const debtToAsset      = ta > 0 ? tl / ta * 100 : 0;
-  const emergencyCover   = expense > 0 ? la / expense : 0;
   const savingsRatio     = monthlyIncome > 0 ? ((monthlyIncome - expense) / monthlyIncome) * 100 : 0;
+  const coverBasisLabel  = basis.partialMonthOnly
+    ? 'based on this month so far'
+    : `based on your usual ${fmt(Math.round(typicalMonthly), c)} a month`;
 
   // Board C — liquidity stacked bar totals (presentation of existing values).
   const liqMix = { liquid: 0, short: 0, long: 0 };
@@ -202,31 +223,34 @@ export default function NetWorth() {
       {/* Financial ratios — 2×2 in the desktop right column (board D3). */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3 mb-4 lg:mb-0">
         {[
+          // v10.38.1 — plain words, same figures. "Liquidity Ratio", "leverage
+          // ratio" and "Savings Ratio" are analyst vocabulary; a household app
+          // should say what it means. Thresholds are unchanged.
           {
-            label: 'Liquidity Ratio',
-            value: `${liquidityRatio.toFixed(1)}x`,
-            sub: 'months liquid coverage',
-            good: liquidityRatio >= 3,
-            warn: liquidityRatio >= 1,
+            label: 'Money you can reach',
+            value: fmt(Math.round(la), c),
+            sub: 'cash and savings you could use today',
+            good: la >= typicalMonthly * 6,
+            warn: la >= typicalMonthly * 3,
           },
           {
-            label: 'Debt-to-Asset',
+            label: 'How long it would last',
+            value: `${monthsOfCover.toFixed(1)} months`,
+            sub: coverBasisLabel,
+            good: monthsOfCover >= 6,
+            warn: monthsOfCover >= 3,
+          },
+          {
+            label: 'What you owe vs own',
             value: `${debtToAsset.toFixed(1)}%`,
-            sub: 'leverage ratio',
+            sub: 'of everything you own is borrowed',
             good: debtToAsset < 30,
             warn: debtToAsset < 50,
           },
           {
-            label: 'Emergency Cover',
-            value: `${emergencyCover.toFixed(1)}mo`,
-            sub: 'months of expenses',
-            good: emergencyCover >= 6,
-            warn: emergencyCover >= 3,
-          },
-          {
-            label: 'Savings Ratio',
+            label: 'Kept this month',
             value: `${savingsRatio.toFixed(1)}%`,
-            sub: 'income saved this month',
+            sub: 'of what came in this month',
             good: savingsRatio >= 20,
             warn: savingsRatio >= 10,
           },

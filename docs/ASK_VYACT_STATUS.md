@@ -30,6 +30,35 @@ ceiling, and at Sonnet rates that cap permits roughly $0.40/user/day.
 
 ---
 
+## ✅ v10.38.1 — the money model, not the wording (2026-09-23)
+
+Re-validating v10.38.0 in production (22 questions, Period 6 in the run log) confirmed **7 of its
+10 fixes** and found something worse beneath them. All of these are now fixed:
+
+| # | Finding | Fix |
+|---|---|---|
+| **P1** 🔴 | A credit card's **outstanding counted as liquid savings**, while `liveLiabilityRows` read its debt as `max(0, −balance)` = **zero**. ₹23,990 owed became ₹23,990 held; net worth overstated ~₹48,000; every cover and affordability answer inflated — on the Dashboard and Net Worth too, since all three read one projection | A liability account is **never** liquid (`netWorth.ts`). A genuinely overpaid card stays an asset but as `short`. **INV-10** |
+| **P2** 🔴 | Reconciling a card wrote the **wrong sign** — the stated figure for a card is what you *owe*, not a balance | `reconcileAccount` targets `−outstanding` for `credit_card`, idempotent with the UI which already negates. **INV-11** |
+| **P1b** 🔴 | Net Worth rendered **the same number twice** (`liquidityRatio` and `emergencyCover` were identical expressions) with different thresholds, and divided by *this month's* partial spending — a different baseline from the assistant | One cover tile, on `spendBasis`; a test pins it equal to the assistant's `months_of_liquid_cover`. Jargon replaced with plain words, thresholds unchanged |
+| **P5** | The **previous turn's figures never reached the guard** — v10.38 read them from React state in a stale closure, so a challenged figure was still rejected (the retry rescued it) | A ref written when the turn resolves; the test now drives **two real turns** instead of calling the guard directly |
+| **P6** | A **category name** was never resolved to a category id — "food" reported **₹0** beside a breakdown showing ₹616 | `resolveCategoryId` (id → alias → keyword); an unplaceable category **asks** rather than reporting zero |
+| **P3** | **Cash could go negative** (−₹341.66) with nothing said | Raised as `data_warning` in the facts. Deliberately **not** clamped — that would fabricate money |
+| **P16** | A **receivable listed among the household's debts** (`owed_to_me`), with advice offered on clearing it | Same direction filter the liability side already uses |
+
+**Data repair, once, with the owner's approval (2026-09-23):** the Federal Bank card's June offset
+`+24,000 → −24,000`, appended as its own dated log entry rather than rewriting history. Cash's
+−₹341.66 was left alone: only the owner can say what income went unrecorded.
+
+**Still open from that session:** P4 (no account/asset dimension — three questions died on it),
+P7 (Pulse 100/100 beside 2.9 months of cover, to re-check against the corrected liquidity),
+P8 (a phone number parsed as ₹8.9bn).
+
+⚠️ **Two claims made during the session were wrong and were retracted the same day:** a "−₹8.9bn
+ledger corruption" (the row is soft-deleted; the query omitted `deleted_at is null`) and a
+"duplicate live cash account" (both others are soft-deleted). The credit-card mechanism was also
+mis-diagnosed first — blamed on credit limits, which this household does not set — before the
+reconcile log established what actually happened. Verify before raising an alarm.
+
 ## ✅ v10.38.0 — all ten validation findings fixed (2026-09-17)
 
 | # | Fix | Where |

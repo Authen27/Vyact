@@ -8,6 +8,10 @@
 //
 // No PII ever leaves the device — there is no network call in this pipeline.
 
+// v10.38.1 — the canonical category set, so a name the model returns can be
+// resolved to the id the ledger is keyed by (see `resolveCategoryId`).
+import { ALL_CATEGORIES, LEGACY_CATEGORY_ALIASES } from '../constants';
+
 // ── [1] normalise ─────────────────────────────────────────────────────────────
 
 /** Pure string hygiene: lowercase, collapse whitespace, normalise currency
@@ -279,6 +283,29 @@ function parseHorizon(text: string): ExtractedEntities['horizon'] {
   if (/\bnext month\b/.test(text)) return 'next_month';
   if (/\bthis month\b/.test(text)) return 'this_month';
   return null;
+}
+
+/**
+ * Turn whatever names a category into the app's category ID (v10.38.1).
+ *
+ * 🔴 WHY: the model returns the word the customer used — "food", "dining",
+ * "petrol" — while the ledger is keyed by id (`food_dining`, `travel`). `resolve()`
+ * looked the raw word up directly, so `spend['food']` missed and reported **₹0**
+ * beside a breakdown showing ₹616 for the same category and period. A confident
+ * zero is worse than an error: it reads as "you spent nothing".
+ *
+ * Three chances, most exact first: an id as given, a known legacy alias, then the
+ * keyword map. `undefined` means "I could not place this" — callers must ask,
+ * never fall back to a total or a zero.
+ */
+export function resolveCategoryId(raw: string | undefined | null): string | undefined {
+  const text = (raw ?? '').trim().toLowerCase();
+  if (!text) return undefined;
+  const id = text.replace(/[\s-]+/g, '_');
+  if (ALL_CATEGORIES.some(c => c.id === id)) return id;
+  const alias = LEGACY_CATEGORY_ALIASES[id];
+  if (alias && ALL_CATEGORIES.some(c => c.id === alias)) return alias;
+  return matchCategory(text);
 }
 
 /** Longest-match category lookup over the keyword map. */

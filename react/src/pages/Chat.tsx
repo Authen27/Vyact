@@ -96,6 +96,17 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   // Vyact stays scrolled to the TOP showing the intent options, instead of
   // auto-jumping to the bottom of the list.
   const didMountScroll = useRef(false);
+  /**
+   * v10.38.1 — the figures the LAST answered turn was allowed to state.
+   *
+   * 🔴 v10.38 read this off the transcript (`history.find(...)`), and in production
+   * the guard still rejected a follow-up that quoted the previous answer's figures:
+   * `history` is the value captured in this render's closure, so `send()` can read a
+   * transcript older than the turn that just finished, and a rehydrated transcript
+   * need not carry the field at all. A ref is written synchronously the moment a
+   * turn resolves and cannot go stale — the transcript copy stays for persistence.
+   */
+  const lastAllowedRef = useRef<string[]>([]);
 
   // Proactive "what to know" card (spec §5) — at most one per session, dismissible,
   // only when the flag + bucket + proactiveInsight are on.
@@ -194,9 +205,14 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         // v10.38 — the previous assistant turn's figures travel with the question so
         // a follow-up can cite the number it is challenging without the guard
         // discarding the whole answer.
-        const prevAllowed = [...history].reverse()
-          .find(m => m.role === 'assistant' && m.allowedFigures?.length)?.allowedFigures ?? [];
+        // Prefer the ref (never stale); fall back to the transcript so a reloaded
+        // session still lets the first follow-up cite what it can see on screen.
+        const prevAllowed = lastAllowedRef.current.length
+          ? lastAllowedRef.current
+          : [...history].reverse()
+            .find(m => m.role === 'assistant' && m.allowedFigures?.length)?.allowedFigures ?? [];
         const turn = await runAssistant(question, ctx, assistantBackend, Date.now(), addStep, prevAllowed);
+        lastAllowedRef.current = turn.allowedFigures ?? [];
         void logAiUsage({
           householdId, text: question, surface: 'chat',
           backend: assistantBackend?.id ?? 'llm',

@@ -31,3 +31,5 @@
 | 2026-09-16T04:56:22.958Z | ✅ PASS | `docs/ask-vyact-validation-findings` | `ad2e867` | local | 244/244 | [report](2026-09-16T04-46-34-784Z__ad2e867/report.md) |
 | 2026-09-17T05:49:02.438Z | ✅ PASS | `docs/ask-vyact-validation-findings` | `ad2e867` | local | 269/269 | [report](2026-09-17T05-41-02-031Z__ad2e867/report.md) |
 | 2026-09-20T07:03:07.681Z | ❌ FAIL | `release/ask-vyact-fact-fixes` | `3bbbdea` | local | 272/272 | [report](2026-09-20T06-52-26-926Z__3bbbdea/report.md) |
+| 2026-09-23T04:00:09.638Z | ✅ PASS | `fix/liquidity-and-card-reconcile` | `530c7b9` | local | 281/281 | [report](2026-09-23T03-56-25-778Z__530c7b9/report.md) |
+| 2026-09-23T08:08:28.435Z | ✅ PASS | `fix/liquidity-and-card-reconcile` | `530c7b9` | local | 282/282 | [report](2026-09-23T08-04-47-751Z__530c7b9/report.md) |

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.38.0`** (consumer)
+> **Current production version: `v10.38.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,48 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.38.1 — borrowing is not savings *(2026-09-23)*
+
+Re-validating v10.38 on a real household confirmed 7 of its 10 fixes in production and
+found a worse one underneath them — in the money model, not the assistant.
+
+- **A credit card's outstanding was counted as liquid savings, and its debt vanished.**
+  `computeNetWorth` pushed any liability account with a positive balance onto the asset
+  side as `liquid`, while `liveLiabilityRows` read its outstanding as `max(0, −balance)`
+  = **zero**. On the owner's household ₹23,990 *owed* became ₹23,990 *held*: liquidity
+  read ₹58,035 against ₹33.7k of genuinely spendable accounts, and net worth was
+  overstated by roughly ₹48,000. The Dashboard, Net Worth and Ask Vyact all read that
+  one projection, so all three were wrong together. A liability account is now **never**
+  liquid; a genuinely overpaid card stays an asset but as `short`. (INV-10)
+- **Reconciling a card wrote the wrong sign.** `reconcileAccount` was written for bank
+  and investment accounts, where the stated figure IS the balance; for a card the stated
+  figure is what you **owe**. It now targets `−outstanding`, idempotent with the UI which
+  already negates. The owner's row came from June, logged as `kind: "bank"` — legacy data
+  the current UI would not write today. (INV-11)
+- **Net Worth: two tiles showed the same number.** "Liquidity Ratio" and "Emergency
+  Cover" were computed from *identical* expressions, rendered in different units with
+  different thresholds — so one could read green while the other read amber. One tile now,
+  on the **same baseline as the assistant** (`spendBasis`, up to six completed months)
+  rather than this month's partial spending, which inflated the page early in a month.
+- **Plain words on Net Worth.** "Money you can reach", "How long it would last", "What you
+  owe vs own", "Kept this month" — same figures, same thresholds, no "leverage ratio".
+- **A category name now resolves to a category id.** The model answers "food"; the ledger
+  is keyed `food_dining`, so the lookup reported **₹0** beside a breakdown showing ₹616.
+  `resolveCategoryId` tries id, alias, then keyword, and an unplaceable category **asks**
+  instead of reporting zero.
+- **A challenged figure survives to the next turn.** v10.38 threaded the previous turn's
+  figures to the guard but read them from React state in a stale closure, so production
+  still rejected follow-ups (the retry rescued them). A ref, written when the turn
+  resolves, replaces it — and the test now drives **two real turns** instead of calling
+  the guard directly.
+- **A receivable is no longer listed among your debts.** `direction: 'owed_to_me'` is money
+  owed TO the household; net worth has excluded it from liabilities since v10.17, but the
+  assistant's debt list passed every row through — so a ₹1,245 loan the owner had *made*
+  appeared among their debts, with advice on clearing it. Same filter as `liveLiabilityRows`.
+- **Negative recorded cash is raised, not silently corrected.** Cash computed to −₹342,
+  which cannot happen; the facts now carry a warning so the answer can say what is missing.
+  Clamping to zero would fabricate money.
 
 ## v10.38.0 — Ask Vyact: the figures, not the wording *(2026-09-17)*
 

@@ -12,6 +12,7 @@ import {
   spendByCategory, reportableTxns, budgetLinesForMonth,
 } from './calculations';
 import { computeNetWorth } from './netWorth';
+import { computeAccountBalance } from './accountBalance';
 import { NEEDS_WANTS_MAP } from '../constants';
 import { convert } from './format';
 import { nowMonthKey, getMonthKey } from './format';
@@ -123,6 +124,18 @@ export interface SafeSummary {
   };
   /** v10.38 — the ONE spend baseline every cover/floor figure divides by. */
   spendBasis: SpendBasis;
+  /**
+   * v10.38.1 — data-quality signals the assistant may RAISE but must never
+   * silently correct.
+   *
+   * `cashBalanceNegative` was found on a real household: physical cash computed to
+   * −₹342, which cannot happen — it means spends were recorded against cash that
+   * was never recorded as received. Clamping it to zero would fabricate money and
+   * hide the gap; saying so lets the customer fix the cause.
+   */
+  dataQuality: {
+    cashBalanceNegative: boolean;
+  };
   budgets: { category: string; limit: number; spentPct: number }[];
   goals:   { type: string; targetPct: number; daysToDeadline: number | null }[];
   debts:   { type: string; balance: number; aprPct: number; monthsRemaining?: number }[];
@@ -199,12 +212,21 @@ export function buildSafeSummary(
   // Debts with balance + APR only — no lender name, no account number.
   // Audit F4: the old `* rates[d.currency] / rates[cur]` inverted the ratio
   // (an INR debt came out 83× too small against a USD base).
-  const safeDebts = debts.map(d => ({
-    type: d.type,
-    balance: round2(convert(d.currentBalance, d.currency, cur, rates)),
-    aprPct: d.interestRate,
-    monthsRemaining: d.remainingMonths,
-  }));
+  // v10.38.1 — RECEIVABLES ARE NOT YOUR DEBTS.
+  //
+  // `direction: 'owed_to_me'` is money someone owes the household. Net worth has
+  // excluded it from liabilities since v10.17, but this mapping passed every debt
+  // through, so the assistant listed a ₹1,245 receivable among "your debts" and
+  // advised on clearing it. Same filter as `liveLiabilityRows`, so the assistant's
+  // debt list and the liability side cannot disagree about what a debt is.
+  const safeDebts = debts
+    .filter(d => d.direction !== 'owed_to_me')
+    .map(d => ({
+      type: d.type,
+      balance: round2(convert(d.currentBalance, d.currency, cur, rates)),
+      aprPct: d.interestRate,
+      monthsRemaining: d.remainingMonths,
+    }));
 
   return {
     asOf: new Date().toISOString().split('T')[0],
@@ -228,6 +250,11 @@ export function buildSafeSummary(
       debtToAssetPct: ta > 0 ? round2(tl / ta * 100) : 0,
     },
     spendBasis: basis,
+    dataQuality: {
+      cashBalanceNegative: accounts.some(a =>
+        a.kind === 'cash' && !a.isArchived
+        && computeAccountBalance(a, txns, cur, rates) < 0),
+    },
     budgets: safeBudgets,
     goals: safeGoals,
     debts: safeDebts,

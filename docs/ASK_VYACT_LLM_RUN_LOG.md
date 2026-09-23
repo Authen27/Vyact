@@ -340,20 +340,56 @@ not preceded by a currency symbol. **Dates, quoted user input and prior-turn fig
 a rejection replaces the entire answer** with the unavailable turn — the owner sees "I can't verify",
 never the sentence that was wrong.
 
-### Period 6 — v10.38.0 re-test *(pending)*
+### Period 6 — v10.38.0 on production · 2026-09-23 · 22 questions
 
-The ten findings above are fixed in v10.38.0. Re-run these through the relay and record
-each answer here before declaring any of them closed:
+Same relay, same account, same method as Period 5. **7 of the 10 v10.38 fixes confirmed on
+live data; 5 new findings**, every one of them again a figure rather than a phrasing.
 
-```
-How much money did I spend on food in August      → answers for August, or says which month it needs
-Can I afford a 1200 purchase?                     → affordable; states months considered + needs/wants
-How much did I spend this month?                  → a period TOTAL
-Review my financials and give 2 key advices       → cites income, savings rate, the 8.75% mortgage
-INR 653.00 spent ... SWIGGY ... (bank SMS)        → food_dining, dated, on the card, acknowledged first
-What do I call you?                               → no household figures fetched (check the steps)
-"you said ₹X — that doesn't sound right"          → not discarded by the guard
-```
+| v10.38 fix | Evidence in production |
+|---|---|
+| F1 named periods | "spend on food last month" returned **last month's** ledger (₹25,174 total, a ₹7,000 Loan/EMI row absent from this month) |
+| F2 one liquidity source | affordability, runway and status all read **₹11,70,086** and **58.0 months** within minutes; **1.2 vs 68.6** is gone. Also tracked a live balance edit: ₹11,70,086 → **₹58,035**, 58.0 → **2.9** |
+| F3 signed figures | `headroom_against_floor: "₹11,16,337 above"` |
+| F4 advice sees the position | "where can I cut back" answered with income ₹3,14,000, 95% savings rate and the 8.75% mortgage — not "trim ₹54" |
+| F5 period total | "how much did I spend this month" → `period_total`, **₹17,054** |
+| F9 meta intent | "Hi" → `meta.assistant`, `data: {}`, **no financial facts fetched** |
+| F8 (2 of 3) | the user's own "33k" was accepted; a rejection **retried once** naming `1170086, 58.0` instead of discarding |
+
+### New findings
+
+| # | What | Evidence |
+|---|---|---|
+| **P1** 🔴 | A credit card's outstanding counted as liquid savings, and its debt read as zero | Card balance **+₹23,990** → liquid ₹58,035 vs ₹33.7k spendable; `liveLiabilityRows` reported ₹0 owed. Net worth overstated ~₹48,000 |
+| **P2** 🔴 | Reconciling a card wrote the wrong sign (cause of P1) | Log: `2026-06-14 · kind:"bank" · delta +24,000` on a `credit_card` account |
+| **P1b** 🔴 | Net Worth showed the same number twice, on a different baseline from the assistant | `liquidityRatio` and `emergencyCover` were identical expressions with different thresholds; both divided by *this month's* expense |
+| **P5** | The previous turn's figures never reached the guard | A follow-up quoting ₹11,70,086 / 58.0 was rejected; only the retry saved it |
+| **P6** | A category name is not resolved to a category id | "food" → `spent: ₹0` beside a breakdown showing **₹616** |
+| **P3** | Cash may go negative | Cash computed **−₹341.66** |
+| **P7** | Pulse says 100/100 beside 2.9 months of cover | Same payload, contradictory headlines |
+| **P8** | A phone number parsed as an amount | WhatsApp test message → a **₹8,897,882,803** draft (user-deleted 26 min later) |
+| **P16** | A receivable listed among the household's debts | "Naveen" ₹1,245 is `owed_to_me`; the assistant advised on clearing it |
+
+### Two corrections to claims made during the session
+
+- **No −₹8.9bn ledger corruption.** The row is soft-deleted; the query behind the alarm omitted
+  `deleted_at is null`. The app excluded it correctly all along.
+- **No duplicate live cash account.** The other two "Cash in Hand" rows are soft-deleted.
+
+Both were raised from unverified reads and retracted the same session. The credit-card mechanism
+was also mis-diagnosed first (blamed on credit limits, which this household does not set) before
+the account data and reconcile log established what actually happened.
+
+### Capability gaps that surfaced as questions
+
+Three questions died on the missing **account/asset dimension** — the ₹58k vs ₹33k split, "which
+account am I spending from", "what assets should I sell" — and two more on macro context (inflation,
+global trends) and income growth, both correctly declined. `SafeSummary` carries totals only.
+
+### Data repair (2026-09-23, with the owner's approval)
+
+Federal Bank card offset **+24,000 → −24,000**, appended as its own dated log entry rather than
+rewriting June's. Balance now −₹24,010, so the amount owed reads as debt. Cash's −₹341.66 was
+**deliberately left alone**: correcting it would mean inventing income that was never recorded.
 
 ### Metering residue
 
