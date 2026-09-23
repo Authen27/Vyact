@@ -113,10 +113,28 @@ export function computeNetWorth(
         account: accounts.find(account => account.id === row.id),
         value: convert(computeAccountBalance(row.account, transactions, row.account.currency, rates), row.account.currency, baseCurrency, rates),
       } : row);
+    // v10.38.1 — a liability account is NEVER liquid.
+    //
+    // 🔴 This loop used to push any credit-card or loan account with a POSITIVE
+    // balance into the asset side as `liquidity: 'liquid'`. On a real household it
+    // counted ₹23,990 of card OUTSTANDING as spendable savings, while
+    // `liveLiabilityRows` — which reads outstanding as max(0, −balance) — reported
+    // that same card's debt as ZERO. One error, counted twice: net worth overstated
+    // by the amount owed plus the amount invented, and every months-of-cover and
+    // affordability answer inflated with it.
+    //
+    // A positive balance on a liability account means one of two things: the sign is
+    // wrong (the case above — see reconcileAccount's card handling), or the card is
+    // genuinely overpaid. Overpayment IS real money, so the row stays on the asset
+    // side and net worth is unchanged; but it is a refund owed by an issuer, not a
+    // cushion you can spend down, so it is 'short' and never counts toward
+    // `liquidAssets`. Asserted by moneyModel.invariants.
     for (const account of accounts.filter(account => LIABILITY_KINDS.has(account.kind))) {
       const value = convert(computeAccountBalance(account, transactions, account.currency, rates), account.currency, baseCurrency, rates);
-      if (value > 0) assetRows.push({ id: account.id, name: account.name, value,
-        currency: baseCurrency, liquidity: 'liquid', source: 'account', account });
+      if (value > 0) {
+        assetRows.push({ id: account.id, name: account.name, value,
+          currency: baseCurrency, liquidity: 'short', source: 'account', account });
+      }
     }
   const liabilityRows = liveLiabilityRows(debts, accounts, transactions, baseCurrency, rates);
   const totalAssets = liveTotalAssets(assetRows);

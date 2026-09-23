@@ -12,8 +12,9 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { resolve, runAssistant, LlmBackend, type AssistantContext } from '../askVyactBackend';
-import { resolvePeriod, parseDateEntity, matchAccountId } from '../askVyactParser';
+import { resolvePeriod, parseDateEntity, matchAccountId, resolveCategoryId } from '../askVyactParser';
 import { buildSafeSummary, spendBasis } from '../aiSummary';
+import { computeNetWorth } from '../netWorth';
 import { assertNoInventedFigures, InventedFigureError, type ModelCall } from '../askVyactLlm';
 import type { IntentResult } from '../askVyactIntents';
 import type { Transaction, Budget, Goal, Debt, Asset, Account, Profile } from '../../types';
@@ -89,11 +90,52 @@ describe('cross-seam agreement (F2, F10)', () => {
     expect(status.liquid_savings).not.toBe('₹24,000');
   });
 
+  it('CON-UNIT-FACT-035 · a receivable is never listed among the household\'s debts', () => {
+    // Found in production: a ₹1,245 loan the household had MADE was listed among
+    // its debts, and advice was offered on clearing it. Net worth already excluded
+    // it from liabilities; the assistant's list did not.
+    const ctx = makeCtx({ debts: [
+      { id: 'd1', type: 'mortgage', name: 'Home', principal: 100_000, currentBalance: 100_000, interestRate: 8.75, currency: 'INR', direction: 'owed_by_me' },
+      { id: 'd2', type: 'other', name: 'Lent to a friend', principal: 1_245, currentBalance: 1_245, interestRate: 0, currency: 'INR', direction: 'owed_to_me' },
+    ] as unknown as Debt[] });
+    const facts = resolve(intent('interpret.debts'), ctx).facts as Record<string, unknown>;
+    expect(JSON.stringify(facts.debts_highest_rate_first)).not.toContain('1,245');
+    expect(ctx.summary.debts).toHaveLength(1);
+  });
+
   it('CON-UNIT-FACT-002 · debts and status report the SAME total owed', () => {
     const ctx = makeCtx();
     const status = resolve(intent('interpret.status'), ctx).facts as Record<string, string>;
     const debts = resolve(intent('interpret.debts'), ctx).facts as Record<string, string>;
     expect(debts.total_owed).toBe(status.total_debt);
+  });
+});
+
+// ── v10.38.1 — the Net Worth screen and the assistant quote the same figures ──
+describe('one household, one cover figure (P1, P1b)', () => {
+  it('CON-UNIT-FACT-026 · Net Worth\'s months-of-cover equals the assistant\'s, on the same baseline', () => {
+    const ctx = makeCtx();
+    const facts = resolve(intent('interpret.status'), ctx).facts as Record<string, string>;
+    // What pages/NetWorth.tsx renders: canonical liquid ÷ the shared spend basis.
+    const projection = computeNetWorth(
+      { assets: ctx.assets, accounts: ctx.accounts as Account[], debts: ctx.debts, transactions: ctx.transactions },
+      'INR', rates);
+    const basis = spendBasis(ctx.transactions, 'INR', rates);
+    const screenCover = basis.averageMonthly > 0 ? projection.liquidAssets / basis.averageMonthly : 0;
+    expect(screenCover.toFixed(1)).toBe(facts.months_of_liquid_cover);
+    expect(projection.liquidAssets).toBe(ctx.summary.netWorth.liquidAssets);
+  });
+
+  it('CON-UNIT-FACT-027 · a card that owes money never inflates the assistant\'s liquidity', () => {
+    // The production case: ₹24,000 outstanding stored as a positive balance.
+    // `assets: []` matters — the default fixture holds a ₹24,000 liquid asset, so
+    // leaving it in would make ₹58,000 ambiguous between the asset and the card.
+    const withOwing = makeCtx({ assets: [], accounts: [
+      { id: 'acc-bank', name: 'ICICI Bank', kind: 'bank', currency: 'INR', openingBalance: 34_000 },
+      { id: 'acc-card', name: 'Federal', kind: 'credit_card', currency: 'INR', openingBalance: 24_000 },
+    ] as unknown as Account[], transactions: [] });
+    const facts = resolve(intent('interpret.status'), withOwing).facts as Record<string, string>;
+    expect(facts.liquid_savings).toBe('₹34,000');      // not ₹58,000
   });
 });
 
@@ -196,6 +238,59 @@ describe('periods (F1, F5)', () => {
     expect(facts.total_spent).toBe('₹19,000');          // 17,000 rent + 2,000 dining
     expect(facts.categories_in_period).toBeTruthy();
     expect(facts).not.toHaveProperty('asked_about');
+  });
+});
+
+// ── P6 — a category NAME is resolved to the ledger's category ID ─────────────
+describe('category resolution (P6)', () => {
+  it('CON-UNIT-FACT-030 · resolveCategoryId maps names, aliases and keywords to ids', () => {
+    expect(resolveCategoryId('food_dining')).toBe('food_dining');   // already an id
+    expect(resolveCategoryId('food')).toBe('food_dining');          // legacy alias
+    expect(resolveCategoryId('dining')).toBe('food_dining');        // keyword
+    expect(resolveCategoryId('petrol')).toBe('travel');
+    expect(resolveCategoryId('Rent')).toBe('rent_mortgage');
+    expect(resolveCategoryId('sdfkjh')).toBeUndefined();            // unknown ⇒ ask
+    expect(resolveCategoryId(undefined)).toBeUndefined();
+  });
+
+  it('CON-UNIT-FACT-031 · "food" reports the real figure, never ₹0 beside a breakdown that shows it', () => {
+    // The production case: classify returned "food", the ledger key is food_dining,
+    // and the lookup reported ₹0 next to a breakdown listing ₹616.
+    const facts = resolve(intent('interpret.lookup',
+      { category: 'food', period: 'last month' }), makeCtx()).facts as Record<string, string>;
+    expect(facts.asked_about).toBe('Food & Dining');
+    expect(facts.spent).toBe('₹3,000');          // last month's dining in the fixture
+    expect(facts.spent).not.toBe('₹0');
+  });
+
+  it('CON-UNIT-FACT-032 · an unplaceable category asks instead of reporting zero', () => {
+    const result = resolve(intent('interpret.lookup', { category: 'qwertyuiop' }), makeCtx());
+    const facts = result.facts as Record<string, unknown>;
+    expect(result.outcome).toBe('needs_category');
+    // No figure is attributed to the category we could not place…
+    expect(facts.spent).toBeUndefined();
+    expect(facts.asked_about).toBeUndefined();
+    // …but the real categories travel, so the answer can offer them back.
+    expect(facts.categories_in_period).toBeTruthy();
+  });
+});
+
+// ── P3 — a negative cash balance is raised, never silently corrected ─────────
+describe('data quality (P3)', () => {
+  it('CON-UNIT-FACT-033 · negative recorded cash surfaces as a warning in the facts', () => {
+    const ctx = makeCtx({
+      accounts: [{ id: 'acc-cash', name: 'Cash', kind: 'cash', currency: 'INR', openingBalance: 0 }] as unknown as Account[],
+      transactions: [txn({ amount: 500, category: 'food_dining', accountId: 'acc-cash' })],
+    });
+    const facts = resolve(intent('interpret.status'), ctx).facts as Record<string, string>;
+    expect(facts.data_warning).toContain('below zero');
+    // …and the figure is NOT clamped: clamping would fabricate money.
+    expect(ctx.summary.dataQuality.cashBalanceNegative).toBe(true);
+  });
+
+  it('CON-UNIT-FACT-034 · a healthy household carries no warning', () => {
+    const facts = resolve(intent('interpret.status'), makeCtx()).facts as Record<string, string>;
+    expect(facts.data_warning).toBeUndefined();
   });
 });
 
@@ -315,6 +410,54 @@ describe('invented-figure guard (F8)', () => {
         ? JSON.stringify({ id: 'interpret.status', entities: {}, confidence: 0.9 })
         : 'Your net worth is ₹99,99,999.';
     const turn = await runAssistant('how am I doing', makeCtx(), new LlmBackend(call), 0);
+    expect(turn.intentId).toBe('unavailable');
+  });
+});
+
+// ── P5 — the SEAM: one turn's figures reach the next turn's guard ────────────
+//
+// v10.38 tested the guard directly with `alsoAllowed` and passed, while production
+// still rejected a follow-up quoting the previous answer. The unit test proved the
+// function; nothing proved the JOIN. This drives two real turns and asserts the
+// second may cite the first — the same lesson as the cross-seam liquidity test.
+describe('challenging a figure across turns (P5)', () => {
+  it('CON-UNIT-FACT-028 · turn 2 may quote turn 1\'s figure, and is not discarded', async () => {
+    const ctx = makeCtx();
+    const first = await runAssistant('how am I doing', ctx, new LlmBackend(async ({ system, user }) => {
+      if (system.includes('classify')) return JSON.stringify({ id: 'interpret.status', entities: {}, confidence: 0.9 });
+      const facts = JSON.parse(user).facts as Record<string, string>;
+      return `Your net worth is ${facts.net_worth}.`;
+    }), 0);
+    expect(first.allowedFigures?.length).toBeGreaterThan(0);
+
+    // The follow-up's own facts are a DIFFERENT intent, so the challenged figure
+    // is absent from this turn's data — exactly the production case.
+    const challenged = (ctx.summary.netWorth.liquidAssets).toString();
+    const second = await runAssistant(
+      'that does not sound right', ctx,
+      new LlmBackend(async ({ system }) => {
+        if (system.includes('classify')) return JSON.stringify({ id: 'interpret.debts', entities: {}, confidence: 0.9 });
+        return `You said ₹${challenged} before; here is the debt picture.`;
+      }),
+      0, undefined,
+      first.allowedFigures,          // what Chat.tsx now passes from its ref
+    );
+    expect(second.intentId).toBe('interpret.debts');      // not 'unavailable'
+    expect(second.reply).toContain(challenged);
+  });
+
+  it('CON-UNIT-FACT-029 · without the previous turn\'s figures, the same reply is refused', async () => {
+    const ctx = makeCtx();
+    const challenged = (ctx.summary.netWorth.liquidAssets).toString();
+    const turn = await runAssistant(
+      'that does not sound right', ctx,
+      new LlmBackend(async ({ system }) => {
+        if (system.includes('classify')) return JSON.stringify({ id: 'interpret.debts', entities: {}, confidence: 0.9 });
+        return `You said ₹${challenged} before; here is the debt picture.`;
+      }),
+      0, undefined, [],
+    );
+    // Retried once, refused twice, so the turn degrades honestly.
     expect(turn.intentId).toBe('unavailable');
   });
 });

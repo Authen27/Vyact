@@ -198,7 +198,20 @@ export function reconcileAccount(
   statedValue: number,
   kind: ReconciliationEntry['kind'],
 ): ReconcileResult {
-  const delta = Math.round((statedValue - computedBalance) * 100) / 100;
+  // v10.38.1 — A CARD IS STATED AS WHAT YOU OWE, AND A CARD'S BALANCE IS THAT
+  // NEGATED (the convention `openingBalanceForCard` and `cardFigures` already use:
+  // outstanding = max(0, −balance)).
+  //
+  // 🔴 This function was written for bank and investment accounts, where the stated
+  // figure IS the balance — but the UI let a card through, so typing an outstanding
+  // of ₹24,000 stored a +₹24,000 offset. The card then read as money held, not owed:
+  // it was counted as a liquid asset AND its liability floored to zero, overstating
+  // net worth by twice the amount. Interpreting the statement for what it is keeps
+  // the sign honest at the point of entry rather than compensating downstream.
+  const target = account.kind === 'credit_card'
+    ? -Math.abs(statedValue)
+    : statedValue;
+  const delta = Math.round((target - computedBalance) * 100) / 100;
   const entry: ReconciliationEntry = {
     at: new Date().toISOString(),
     delta,

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.38.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.38.1**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -209,6 +209,17 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   differently-rounded number makes the model's correct answer get discarded.
   Facts use category labels and SafeSummary debt *types* — never descriptions or
   user-named debts.
+  🔴 **BORROWING IS NEVER SAVINGS (v10.38.1).** A `credit_card`/`loan` account is
+  never `liquidity: 'liquid'`, whatever the sign of its balance — a positive one is
+  an overpayment (an asset, but `short`) or a sign error. Production counted ₹23,990
+  of card OUTSTANDING as liquid while `liveLiabilityRows` floored that same card's
+  debt to zero: one error, counted twice, ~₹48,000 of overstated net worth across
+  the Dashboard, Net Worth AND Ask Vyact, which all read this one projection.
+  **A card is reconciled against what it OWES** — `reconcileAccount` targets
+  `−outstanding` for a card (the convention `openingBalanceForCard`/`cardFigures`
+  already use); a card reconciled as if it were a bank is how the sign broke.
+  INV-10/INV-11 fail if either regresses. **Receivables (`owed_to_me`) are not the
+  household's debts** — `buildSafeSummary` filters them, as the liability side does.
   🔴 **ONE figure per question, whichever seam is asked (v10.38).** Liquidity is
   `SafeSummary.netWorth.liquidAssets` (the canonical `computeNetWorth` projection,
   live account balances included) and the debt total is `netWorth.totalLiabilities`

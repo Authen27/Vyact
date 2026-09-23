@@ -37,6 +37,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeAccountBalance, reconcileAccount, liveAssetRows, liveTotalAssets, computeAssetValue, reconcileAssetValue } from '../accountBalance';
 import { monthlyData, reportableTxns, spendByCategory, splitEmiPortions, totalAssets, totalLiabilities } from '../calculations';
+import { computeNetWorth } from '../netWorth';
 import { CATEGORIES_BY_TYPE } from '../../constants';
 import type { Transaction, Account, Asset, Debt, ExchangeRates } from '../../types';
 
@@ -247,5 +248,79 @@ describe('§7 INV-9 — categories are type-scoped; transfers/investments carry 
     // no id appears in both the expense and income pools (disjoint scopes).
     const exp = new Set(CATEGORIES_BY_TYPE.expense.map(c => c.id));
     expect(CATEGORIES_BY_TYPE.income.some(c => exp.has(c.id))).toBe(false);
+  });
+});
+
+// ── INV-10 (v10.38.1) — borrowing is never savings ──────────────────────────
+//
+// Found in production on a real household: a credit card carrying ₹23,990 of
+// OUTSTANDING was stored with a positive balance, so `computeNetWorth` counted it
+// as a liquid asset while `liveLiabilityRows` — reading outstanding as
+// max(0, −balance) — reported its debt as zero. The same error twice: money the
+// household owed became money it had, and the debt vanished. Every months-of-cover
+// and affordability figure inherited it, on the assistant AND on Net Worth, because
+// both read this one projection.
+//
+// The guard cannot catch this class: every figure involved is real and correctly
+// copied. Only an invariant can.
+describe('§7 INV-10 — a liability account is never liquid', () => {
+  const R2: ExchangeRates = { USD: 1, INR: 1 };
+  const owing: Account = { id: 'acc-card', kind: 'credit_card', name: 'Federal', currency: 'INR', openingBalance: -24000 };
+  const bank: Account = { id: 'acc-b', kind: 'bank', name: 'HDFC', currency: 'INR', openingBalance: 34000 };
+
+  it('INV-10 · a card that owes money is a liability, and contributes nothing to liquid assets', () => {
+    const p = computeNetWorth({ assets: [], accounts: [bank, owing], debts: [], transactions: [] }, 'INR', R2);
+    expect(p.liquidAssets).toBe(34000);
+    expect(p.liabilityRows.find(r => r.id === 'acc-card')!.value).toBe(24000);
+    expect(p.netWorth).toBe(34000 - 24000);
+  });
+
+  it('INV-10b · even an OVERPAID card stays out of liquid savings', () => {
+    // A positive card balance is a refund owed by the issuer — real money, so it
+    // still counts in total assets, but it is not a cushion anyone can spend down.
+    const overpaid: Account = { ...owing, openingBalance: 5000 };
+    const p = computeNetWorth({ assets: [], accounts: [bank, overpaid], debts: [], transactions: [] }, 'INR', R2);
+    expect(p.liquidAssets).toBe(34000);                 // NOT 39000
+    expect(p.totalAssets).toBe(34000 + 5000);
+    expect(p.assetRows.find(r => r.id === 'acc-card')!.liquidity).not.toBe('liquid');
+  });
+
+  it('INV-10c · no liability kind can ever reach the liquid total, whatever its sign', () => {
+    for (const balance of [-50000, -1, 0, 1, 50000]) {
+      for (const kind of ['credit_card', 'loan'] as const) {
+        const p = computeNetWorth(
+          { assets: [], accounts: [bank, { id: 'x', kind, name: 'L', currency: 'INR', openingBalance: balance }], debts: [], transactions: [] },
+          'INR', R2);
+        expect(p.liquidAssets).toBe(34000);
+      }
+    }
+  });
+});
+
+// ── INV-11 (v10.38.1) — a card is reconciled against what it OWES ───────────
+//
+// `reconcileAccount` was written for bank and investment accounts, where the
+// stated figure IS the balance. A card reconciled through that path stored the
+// owner's ₹24,000 outstanding as +₹24,000 — the sign error behind INV-10. The
+// stated figure for a card is an outstanding, and a card's balance is that negated.
+describe('§7 INV-11 — reconciling a card states an outstanding, not a balance', () => {
+  const card: Account = { id: 'acc-card', kind: 'credit_card', name: 'Federal', currency: 'INR', openingBalance: 0 };
+
+  it('INV-11 · stating ₹24,000 owed drives the balance to −24,000, never +24,000', () => {
+    const { patch, delta } = reconcileAccount(card, 0, 24000, 'credit_card');
+    expect(delta).toBe(-24000);
+    expect(patch.reconciliationOffset).toBe(-24000);
+    // …and the audit log keeps what the customer actually typed.
+    expect(patch.reconciliationLog![0].stated_value).toBe(24000);
+  });
+
+  it('INV-11b · already-negative input is not double-negated (idempotent with the UI)', () => {
+    // ReconcileSheet negates before calling; this must not flip it back.
+    expect(reconcileAccount(card, 0, -24000, 'credit_card').delta).toBe(-24000);
+  });
+
+  it('INV-11c · a bank reconcile is unchanged — stated IS the balance', () => {
+    const bank: Account = { id: 'acc-b', kind: 'bank', name: 'HDFC', currency: 'INR', openingBalance: 0 };
+    expect(reconcileAccount(bank, 0, 34000, 'bank').delta).toBe(34000);
   });
 });
