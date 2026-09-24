@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Repeat, Trash2, Pencil } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
@@ -13,6 +14,7 @@ import BillCalendar from '../components/recurring/BillCalendar';
 import { formatDate } from '../lib/format';
 import { getCat, CURRENCIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
+import type { RecurringSeed } from '../lib/askVyactResponses';
 import { nextDueAfterSave } from '../lib/recurring';
 import { formatRRule, parseRRule, describeRRule } from '../lib/rrule';
 
@@ -233,6 +235,29 @@ export default function Recurring() {
       setMonthlyMode('dom');
     }
   }
+
+  // v10.39.1 (P21) — an Ask Vyact draft ("add Netflix 649 every month") arrives as
+  // router state and opens this sheet pre-filled. It is a DRAFT: the account is left
+  // for the user to choose and nothing is saved until they tap Save. The state is
+  // cleared at once so a reload or Back does not reopen it.
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const seed = (location.state as { recurringSeed?: RecurringSeed } | null)?.recurringSeed;
+    if (!seed) return;
+    resetForm();
+    setEditing(null);
+    setType(seed.type);
+    setFreq(seed.frequency);
+    setName(seed.name);
+    setAmount(String(seed.amount));
+    setCategory(seed.category);
+    if (seed.dayOfMonth) { setMonthlyMode('dom'); setDayOfMonth(seed.dayOfMonth); }
+    setOpen(true);
+    navigate(location.pathname, { replace: true, state: null });
+    // resetForm and the setters are stable for this purpose; run once per arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const FREQ_TABS: { key: RecurrenceFreq; label: string }[] = [
     { key: 'daily',   label: 'Daily' },

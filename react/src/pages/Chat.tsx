@@ -10,6 +10,7 @@ import {
 import type { AssistantChip } from '../lib/askVyactResponses';
 import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
+import { appNavigate } from '../lib/appNavigation';
 import {
   BUCKET_LABEL, intentsByBucket, intentExample, type Bucket,
 } from '../lib/askVyactIntents';
@@ -234,6 +235,9 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         // the form before the user could read what had been understood, so the
         // confirmation they expected first arrived last or not at all.
         if (turn.seed) openAddTxn(turn.seed);
+        // v10.39.1 (P21) — a recurring draft opens the Recurring section's own sheet,
+        // the only place a schedule is authored; the user picks the account and saves.
+        if (turn.recurringSeed) appNavigate('/recurring', { state: { recurringSeed: turn.recurringSeed } });
         setActiveTurn(null);
         return;
       }

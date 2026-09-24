@@ -30,6 +30,30 @@ ceiling, and at Sonnet rates that cap permits roughly $0.40/user/day.
 
 ---
 
+## ✅ v10.39.0 / v10.39.1 — where the money sits, and what is really free (2026-09-23/24)
+
+**v10.39.0** closed P4: account and asset names (names and amounts only) now reach the facts as
+`liquid_by_source`, `spend_by_account` and `what_you_own`, summing exactly to the totals they
+decompose.
+
+**v10.39.1** closes everything else open from Periods 6–7 (run log):
+
+| # | Finding | Fix |
+|---|---|---|
+| **P20** 🔴 | "$150 dinner" checked as ₹150 — currency dropped | Stated currency converted at the app's rate before any figure; a **missing rate** is said out loud with no figures (`convert()` would silently use 1) |
+| **P19** | "Free to spend" was the gross liquid figure, card bill still unpaid | `cardDues()` from the projection → `free_to_spend_after_card_dues`; affordability headroom subtracts dues; Net Worth tile states it |
+| **P7** | Pulse 100/100 said "Strong" beside 1.7 months of cover | Pulse measures the month's habits, not cover — scoring unchanged; the status line now says both, facts carry `pulse_measures` / `cushion_note` |
+| **P8** | A phone number parsed as ₹8.9bn | `parseAmount` (client + WhatsApp, pinned equal) skips identifier-shaped runs; a model amount that only appears as an identifier makes capture ask |
+| **P17** | A greeting cost two model calls | Greetings / name / capabilities answered locally, zero calls; `meta.assistant` needs no phrase call |
+| **P21** | No recurring bill from chat | `capture.recurring` drafts the Recurring sheet; the user picks the account and saves |
+| **P22** | No "can't do that" route | `unsupported` intent; `CAPABILITIES` wording corrected |
+
+**Still open:** R1 (world context as a separate labelled channel), the coverage-matrix items
+(day-range periods, payoff simulation, contributions, dated commitments, budget pace, net-worth
+attribution), the local-model (Gemma) connection, and relay removal after validation (TD-44).
+
+---
+
 ## ✅ v10.38.1 — the money model, not the wording (2026-09-23)
 
 Re-validating v10.38.0 in production (22 questions, Period 6 in the run log) confirmed **7 of its

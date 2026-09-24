@@ -117,6 +117,22 @@ export function chipPromptFromReply(reply: string, chips?: AssistantChip[]): str
 /** The deterministic outcome of stage 4 (`resolve`). Carries pre-formatted
  *  interpolation values and a variant key — NEVER raw template-computed money
  *  (every figure in `vars` came from a Vyact service). */
+/**
+ * v10.39.1 (P21) — a recurring bill described in chat, handed to the Recurring
+ * section's own form. Like a transaction seed it is a PROPOSAL: the schedule exists
+ * only once the user picks the paying account and saves (writes are propose →
+ * confirm). Base currency only — a foreign amount is converted before it gets here.
+ */
+export interface RecurringSeed {
+  name: string;
+  type: 'expense' | 'income';
+  amount: number;
+  category: string;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  /** 1–31, monthly schedules only, when the user named a day. */
+  dayOfMonth?: number;
+}
+
 export interface ResolveResult {
   kind: 'capture' | 'interpret' | 'forecast' | 'fallback';
   /** Variant selector, e.g. 'fits' | 'tight' | 'no' | 'missing_amount' | 'ok'. */
@@ -130,6 +146,8 @@ export interface ResolveResult {
   chips?: AssistantChip[];
   /** Capture only — the seed for the existing TransactionFormModal. */
   seed?: Partial<Transaction>;
+  /** v10.39.1 (P21) — the draft for the Recurring schedule sheet. Never saved here. */
+  recurringSeed?: RecurringSeed;
   /** True when any figure leans on onboarding estimates (provenance, §5). */
   usesEstimate?: boolean;
   /**

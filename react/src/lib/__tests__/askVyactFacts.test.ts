@@ -11,11 +11,14 @@
 // have two liquidity figures or two debt totals depending on which question was asked.
 
 import { describe, it, expect, vi } from 'vitest';
-import { resolve, runAssistant, LlmBackend, type AssistantContext } from '../askVyactBackend';
-import { resolvePeriod, parseDateEntity, matchAccountId, resolveCategoryId } from '../askVyactParser';
+import { resolve, runAssistant, LlmBackend, quickReply, CAPABILITIES, type AssistantContext } from '../askVyactBackend';
+import {
+  resolvePeriod, parseDateEntity, matchAccountId, resolveCategoryId,
+  parseAmount, statedCurrency, amountLooksLikeIdentifier,
+} from '../askVyactParser';
 import { buildSafeSummary, spendBasis } from '../aiSummary';
-import { computeNetWorth } from '../netWorth';
-import { assertNoInventedFigures, InventedFigureError, type ModelCall } from '../askVyactLlm';
+import { computeNetWorth, cardDues } from '../netWorth';
+import { assertNoInventedFigures, InventedFigureError, INTENT_IDS, CLASSIFY_SYSTEM, type ModelCall } from '../askVyactLlm';
 import type { IntentResult } from '../askVyactIntents';
 import type { Transaction, Budget, Goal, Debt, Asset, Account, Profile } from '../../types';
 
@@ -542,5 +545,182 @@ describe('meta.assistant (F9)', () => {
     expect(facts.cannot_answer_yet).toBeTruthy();
     expect(facts.can_answer).toBeTruthy();
     expect(JSON.stringify(facts)).not.toMatch(/₹/);
+  });
+});
+
+// ── v10.39.1 — P20 · a stated currency is converted before anything is computed ──
+describe('foreign amounts (P20)', () => {
+  const fx = { USD: 1, INR: 83.2 };
+
+  it('CON-UNIT-FACT-042 · "$150 dinner" is checked as ₹12,480, not ₹150', () => {
+    const ctx = makeCtx({ rates: fx });
+    const r = resolve(intent('forecast.affordability', { amount: 150, text: 'can i afford a $150 dinner' }), ctx);
+    const f = r.facts as Record<string, string>;
+    expect(f.purchase).toBe('₹12,480');
+    expect(f.amount_as_stated).toBe('150 USD');
+    expect(f.converted_at).toContain('1 USD = 83.20 INR');
+  });
+
+  it('CON-UNIT-FACT-043 · a foreign capture seeds the converted amount and says so, with no phrase call', async () => {
+    const call = vi.fn<ModelCall>(async () =>
+      JSON.stringify({ id: 'capture.expense', entities: { amount: 150, currency: 'USD', category: 'food_dining' }, confidence: 0.9 }));
+    const turn = await runAssistant('spent $150 on dinner', makeCtx({ rates: fx }), new LlmBackend(call), 0);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(turn.seed?.amount).toBe(12480);
+    expect(turn.reply).toContain("150 USD at the app's exchange rate");
+  });
+
+  it('CON-UNIT-FACT-044 · with no rate for the currency, NO figure is produced', () => {
+    const r = resolve(intent('forecast.affordability', { amount: 40, currency: 'EUR', text: 'can i afford €40' }),
+      makeCtx({ rates: fx }));
+    expect(r.outcome).toBe('needs_rate');
+    expect(JSON.stringify(r.facts)).not.toMatch(/₹/);
+  });
+
+  it('CON-UNIT-FACT-045 · statedCurrency reads entities, symbols and words, and $ against the base', () => {
+    expect(statedCurrency(undefined, '$150 dinner', 'INR', '₹')).toBe('USD');
+    expect(statedCurrency(undefined, '$150 dinner', 'AUD', 'A$')).toBe('AUD');
+    expect(statedCurrency(undefined, '₹500 lunch', 'INR', '₹')).toBe('INR');
+    expect(statedCurrency('gbp', '150 dinner', 'INR', '₹')).toBe('GBP');
+    expect(statedCurrency(undefined, '40 euros', 'INR', '₹')).toBe('EUR');
+    expect(statedCurrency(undefined, 'spent 150 on dinner', 'INR', '₹')).toBeUndefined();
+  });
+
+  it('CON-UNIT-FACT-046 · the base currency stated explicitly is not converted', () => {
+    const r = resolve(intent('forecast.affordability', { amount: 1500, text: 'can i afford ₹1500 shoes' }), makeCtx({ rates: fx }));
+    expect((r.facts as Record<string, string>).purchase).toBe('₹1,500');
+    expect((r.facts as Record<string, string>).amount_as_stated).toBeUndefined();
+  });
+});
+
+// ── v10.39.1 — P8 · an identifier is never an amount ────────────────────────────
+describe('identifier-shaped numbers (P8)', () => {
+  it('CON-UNIT-FACT-047 · the client parser skips phone, card and reference numbers', () => {
+    expect(parseAmount('send from 8897882803')).toBeUndefined();
+    expect(parseAmount('card xx3003 debited rs 1,250')).toBe(1250);
+    expect(parseAmount('spent 500 on lunch')).toBe(500);
+  });
+
+  it('CON-UNIT-FACT-048 · a model-extracted phone number asks for the amount instead of seeding it', () => {
+    const text = 'This message is from test number. Send from 8897882803';
+    const r = resolve({ ...intent('capture.expense', { amount: 8_897_882_803, text }), bucket: 'capture' }, makeCtx());
+    expect(r.outcome).toBe('missing_amount');
+    expect(r.seed).toBeUndefined();
+    expect(amountLooksLikeIdentifier(text.toLowerCase(), 8_897_882_803)).toBe(true);
+    expect(amountLooksLikeIdentifier('spent 500 on lunch', 500)).toBe(false);
+  });
+});
+
+// ── v10.39.1 — P19 · free to spend is cash less what the cards owe ─────────────
+describe('card dues (P19)', () => {
+  it('CON-UNIT-FACT-049 · cardDues is the card account outstanding, read from the projection', () => {
+    const ctx = makeCtx();
+    // The card account carries ₹6,000 of spend with no repayment.
+    expect(ctx.summary.netWorth.cardDues).toBe(6000);
+    const nw = computeNetWorth({ assets: ctx.assets, accounts: ctx.accounts as Account[], debts: ctx.debts, transactions: ctx.transactions }, 'INR', rates);
+    expect(cardDues(nw)).toBe(ctx.summary.netWorth.cardDues);
+  });
+
+  it('CON-UNIT-FACT-050 · status and affordability state free-to-spend, and headroom subtracts the dues', () => {
+    const ctx = makeCtx();
+    const liquid = ctx.summary.netWorth.liquidAssets;
+    const status = resolve(intent('interpret.status'), ctx).facts as Record<string, string>;
+    expect(status.card_dues_to_pay).toBe('₹6,000');
+    expect(status.free_to_spend_after_card_dues).toBe(`₹${Math.round(liquid - 6000).toLocaleString('en-IN')} free`);
+    const afford = resolve(intent('forecast.affordability', { amount: 1000 }), ctx).facts as Record<string, string>;
+    const floor = ctx.summary.spendBasis.averageEssential * 3;
+    const headroom = Math.round(liquid - 6000 - floor);
+    expect(afford.headroom_against_floor).toBe(`₹${Math.abs(headroom).toLocaleString('en-IN')} ${headroom < 0 ? 'below' : 'above'}`);
+  });
+});
+
+// ── v10.39.1 — P7 · Pulse is not a verdict on the cushion ──────────────────────
+describe('Pulse beside a thin cushion (P7)', () => {
+  it('CON-UNIT-FACT-051 · a strong score with under three months of cover does not say "Strong"', () => {
+    const base = makeCtx();
+    const ctx = { ...base, summary: { ...base.summary,
+      pulseScore: { total: 100, components: {} },
+      netWorth: { ...base.summary.netWorth, liquidityMonths: 1.7 } } };
+    const r = resolve(intent('interpret.status', { text: 'how am i doing' }), ctx);
+    expect(String(r.vars.detail)).not.toContain('Strong');
+    expect(String(r.vars.detail)).toContain('1.7 months');
+    const f = r.facts as Record<string, string>;
+    expect(f.pulse_measures).toContain('not how long your savings would last');
+    expect(f.cushion_note).toContain('1.7 months');
+  });
+
+  it('CON-UNIT-FACT-052 · a healthy cushion carries no cushion note', () => {
+    const base = makeCtx();
+    const ctx = { ...base, summary: { ...base.summary, netWorth: { ...base.summary.netWorth, liquidityMonths: 8 } } };
+    expect((resolve(intent('interpret.status'), ctx).facts as Record<string, string>).cushion_note).toBeUndefined();
+  });
+});
+
+// ── v10.39.1 — P17 · greetings and questions about me need no model ────────────
+describe('instant replies (P17)', () => {
+  it('CON-UNIT-FACT-053 · a greeting is answered with ZERO model calls, even with no model at all', async () => {
+    const call = vi.fn<ModelCall>(async () => 'never');
+    const turn = await runAssistant('Hi!', makeCtx(), new LlmBackend(call), 0);
+    expect(call).not.toHaveBeenCalled();
+    expect(turn.reply).toMatch(/^Hi!/);
+    expect(turn.chips?.length).toBeGreaterThan(0);
+    const offline = await runAssistant('thanks', makeCtx(), null, 0);
+    expect(offline.intentId).toBe('meta.assistant');
+  });
+
+  it('CON-UNIT-FACT-054 · a greeting WITH a question still goes to the model', () => {
+    expect(quickReply('hi, how much did I spend this month?')).toBeNull();
+    expect(quickReply('what can you do?')).toContain('I can help with');
+    expect(quickReply('What do I call you')).toContain('Ask Vyact');
+  });
+
+  it('CON-UNIT-FACT-055 · a classified meta question costs one call (classify), no phrase call', async () => {
+    const call = vi.fn<ModelCall>(async () => JSON.stringify({ id: 'meta.assistant', entities: {}, confidence: 0.9 }));
+    const turn = await runAssistant('why are you so slow today', makeCtx(), new LlmBackend(call), 0);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(turn.reply).toContain('two steps');
+    expect(turn.reply).not.toMatch(/₹/);
+  });
+});
+
+// ── v10.39.1 — P21 · set up a recurring bill from chat ─────────────────────────
+describe('recurring drafts (P21)', () => {
+  it('CON-UNIT-FACT-056 · "add Netflix 649 every month on the 5th" drafts a schedule, never saves one', async () => {
+    const call = vi.fn<ModelCall>(async () => JSON.stringify({
+      id: 'capture.recurring', entities: { amount: 649, merchant: 'netflix', frequency: 'monthly' }, confidence: 0.9 }));
+    const turn = await runAssistant('add Netflix 649 every month on the 5th', makeCtx(), new LlmBackend(call), 0);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(turn.recurringSeed).toEqual({
+      name: 'Netflix', type: 'expense', amount: 649, category: 'entertainment', frequency: 'monthly', dayOfMonth: 5 });
+    expect(turn.seed).toBeUndefined();
+    expect(turn.reply).toContain('nothing is set up until you do');
+  });
+
+  it('CON-UNIT-FACT-057 · a bare number is never taken as the day; frequency and income are read', () => {
+    const r = resolve(intent('capture.recurring', { amount: 50000, text: 'set up my salary 50000 weekly' }), makeCtx());
+    expect(r.recurringSeed).toMatchObject({ type: 'income', frequency: 'weekly', category: 'salary' });
+    expect(r.recurringSeed?.dayOfMonth).toBeUndefined();
+  });
+
+  it('CON-UNIT-FACT-058 · a recurring bill with no amount asks for one', () => {
+    expect(resolve(intent('capture.recurring', { text: 'add my rent every month' }), makeCtx()).outcome).toBe('missing_amount');
+  });
+});
+
+// ── v10.39.1 — P22 · "I can't do that" is a route, not a misclassification ──────
+describe('unsupported requests (P22)', () => {
+  it('CON-UNIT-FACT-059 · an unsupported request reads no household data and says what does work', () => {
+    const r = resolve(intent('unsupported', { text: 'pay my card bill' }), makeCtx());
+    expect(r.outcome).toBe('unsupported');
+    const json = JSON.stringify(r.facts);
+    expect(json).not.toMatch(/₹/);
+    expect(json).toContain('paying, sending or moving real money');
+  });
+
+  it('CON-UNIT-FACT-060 · the capability list no longer implies bills can be managed', () => {
+    expect(CAPABILITIES.can_answer).not.toContain('upcoming and recurring bills');
+    expect(CAPABILITIES.can_answer.join(' ')).toContain('set up as recurring schedules');
+    expect(INTENT_IDS).toEqual(expect.arrayContaining(['capture.recurring', 'unsupported']));
+    expect(CLASSIFY_SYSTEM).toContain('unsupported');
   });
 });

@@ -11,6 +11,7 @@ import {
   INCOME_IDS,
   type AccountLite,
 } from '../../../../supabase/functions/_shared/whatsapp-parser';
+import { parseAmount as clientParseAmount } from '../askVyactParser';
 
 const ACCOUNTS: AccountLite[] = [
   { name: 'HDFC', kind: 'bank' },
@@ -27,6 +28,29 @@ describe('parseAmount shorthands', () => {
     expect(parseAmount('1,200')).toBe(1200);
     expect(parseAmount('850')).toBe(850);
     expect(parseAmount('no number here')).toBeUndefined();
+  });
+});
+
+// v10.39.1 (P8) — "…Send from 8897882803" was logged as an ₹8.9bn expense.
+describe('parseAmount refuses identifiers (P8)', () => {
+  const CASES: [string, number | undefined][] = [
+    ['this message is from test number. send from 8897882803', undefined],
+    ['card xx1234 debited rs 500', 500],
+    ['paid 500 via upi ref 409123', 500],
+    ['a/c no 5521 debited 2,000', 2000],
+    ['bought a gift card 500', 500],
+    ['paid 500', 500],
+    ['txn id: 88213 amount 1,250', 1250],
+  ];
+  it('CON-UNIT-WA-P8-001 · skips phone, account, card and reference numbers', () => {
+    for (const [text, want] of CASES) expect(parseAmount(text), text).toBe(want);
+  });
+  it('CON-UNIT-WA-P8-002 · the WhatsApp and Ask Vyact copies agree on every case', () => {
+    for (const [text] of CASES) expect(parseAmount(text), text).toBe(clientParseAmount(text));
+  });
+  it('CON-UNIT-WA-P8-003 · a message whose only number is a phone number is not logged', () => {
+    const r = parseWhatsAppMessage('This message is from test number. Send from 8897882803', ACCOUNTS, 'INR');
+    expect(r.ok).toBe(false);
   });
 });
 

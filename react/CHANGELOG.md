@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.39.0`** (consumer)
+> **Current production version: `v10.39.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,52 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.39.1 — the right amount, in the right currency, and what is really free *(2026-09-24)*
+
+Seven fixes from the 23 Sep validation session on the owner's household. As before,
+classification was right every time; each defect sat in what `resolve()` computed or
+what it was handed.
+
+- **P20 · a foreign amount is converted before anything is computed.** "$150 dinner"
+  was checked as ₹150 — the currency was read and dropped, understating the purchase
+  ~83×. `resolve()` now reads the stated currency (model entity, then symbols and
+  words; `$` means the base when the base is written with `$`) and converts at the
+  app's own rate before capture or affordability. `convert()` silently uses rate 1 for
+  a missing code, so the rate's existence is checked explicitly: with no rate the
+  answer says so (`needs_rate`) and carries **no figures**. The capture
+  acknowledgement names the original amount and the rate used.
+- **P19 · free to spend = money you can reach − credit-card dues.** New
+  `cardDues()` (from the projection's own liability rows) → `SafeSummary.netWorth.cardDues`
+  → `card_dues_to_pay` and `free_to_spend_after_card_dues` facts. Affordability
+  headroom now subtracts the dues before the safety floor (it used to let a purchase
+  "fit" into money already owed to the card issuer). The Net Worth "Money you can
+  reach" tile states what is free after card dues (or how far short of them it is).
+- **P7 · Pulse is not a verdict on the cushion.** Investigated: Pulse's savings
+  component is this month's savings *rate*, not cover, so 100/100 beside 1.7 months of
+  cover is the score working as defined — the defect was the status line "Strong —
+  keep doing what you are doing". A strong score with under three months of cover now
+  says both; facts carry `pulse_measures` and `cushion_note`. Pulse scoring unchanged.
+- **P8 · a phone number is never an amount.** `parseAmount` (client and the WhatsApp
+  Deno copy, pinned to agree) now skips identifier-shaped digit runs: ten or more
+  ungrouped digits, or a number right after phone / a/c / UPI ref / txn id / card
+  ending / masked `XX1234`. A model-extracted amount that only appears in the text as
+  an identifier makes capture ask for the amount instead of pre-filling ₹8.9bn.
+- **P17 · instant replies.** Greetings, thanks, "what's your name" and "what can you
+  do" are answered locally with **zero** model calls (and still work when the model is
+  unreachable — there is no household figure to fake). A classifier-routed
+  `meta.assistant` question no longer makes a phrase call.
+- **P21 · set up a recurring bill from chat.** New `capture.recurring` intent ("add
+  Netflix 649 every month on the 5th") drafts the Recurring section's own schedule
+  sheet — amount, frequency, category, day. It is a proposal: the user picks the paying
+  account and saves; Recurring stays the only place a schedule is authored.
+- **P22 · "I can't do that" is a route.** New `unsupported` intent for requests to
+  pay, send or move money, contact someone or trade — answered plainly with what does
+  work, reading no household data. `CAPABILITIES` no longer says "upcoming and recurring
+  bills" (which read as if bills could be managed); it lists the ones set up.
+
+Golden snapshot: one additive line (`netWorth.cardDues: 0`); no existing figure moved.
+Tests: CON-UNIT-FACT-042…060, CON-UNIT-WA-P8-001…003.
 
 ## v10.39.0 — where the money sits *(2026-09-23)*
 

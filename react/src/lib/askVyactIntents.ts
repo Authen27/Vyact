@@ -109,6 +109,10 @@ export type AssistantIntentId =
   | 'forecast.affordability' | 'forecast.runway' | 'forecast.prescriptive'
   /** v10.38 — about the assistant, not the household's money. Reads no data. */
   | 'meta.assistant'
+  /** v10.39.1 (P21) — set up a recurring bill, subscription or salary (proposed). */
+  | 'capture.recurring'
+  /** v10.39.1 (P22) — a request the app cannot carry out; answered with what it can. */
+  | 'unsupported'
   | 'fallback';
 
 export interface IntentResult {
@@ -129,6 +133,8 @@ const BUCKET_OF: Record<AssistantIntentId, AssistantBucket | 'none'> = {
   'forecast.prescriptive': 'forecast',
   // No bucket: meta questions are not a money feature and are not gated by one.
   'meta.assistant': 'none',
+  'capture.recurring': 'capture',
+  'unsupported': 'none',
   fallback: 'none',
 };
 
@@ -149,6 +155,9 @@ const RULES: IntentRule[] = [
 
   // ── Interpret (questions about current/past state) ──────────────────────────
   { id: 'interpret.budgets',    test: e => /\b(budgets?\b.*\b(risk|over|left|track|exceed)|which budgets|over budget|budget status)\b/.test(e.text) },
+  // v10.39.1 (P21) — SETTING UP a schedule, tested before interpret.bills, which
+  // would otherwise read "add my netflix subscription" as a question about bills.
+  { id: 'capture.recurring', test: e => /\b(set ?up|add|create|schedule|start)\b.*\b(recurring|every (day|week|month|year)|daily|weekly|monthly|yearly|annual(ly)?|subscription)\b/.test(e.text) },
   { id: 'interpret.bills',      test: e => /\b(upcoming bills?|bills? due|what bills|recurring|subscriptions?)\b/.test(e.text) },
   { id: 'interpret.debts',      test: e => /\b(my debts?|payoff|pay off|avalanche|snowball|debt strategy|loans?|owe)\b/.test(e.text) },
   { id: 'interpret.status',     test: e => /\b(pulse score|net worth|networth|my balance|how am i doing|am i ok|financial health)\b/.test(e.text) },

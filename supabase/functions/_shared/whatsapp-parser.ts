@@ -67,22 +67,36 @@ export function normalise(raw: string): string {
 }
 
 // ── [2] amount (ported: k / lakh / cr shorthands, grouping commas) ────────────
+// v10.39.1 (P8) — ported from askVyactParser.isIdentifierRun; keep the two identical
+// (whatsappParser.test.ts pins the pair). A message reading "…Send from 8897882803"
+// was logged as an ₹8.9bn expense because the phone number was the first number.
+const IDENTIFIER_CUE = /(?:^|[^a-z])(?:phone|mobile|mob|number|no\.?|num|a\/c|acct|account\s+(?:no|number)|upi(?:\s+id)?|ref(?:erence)?(?:\s+no)?|txn\s*id|transaction\s+id|order\s*id|otp|id|card\s+(?:ending(?:\s+in|\s+with)?|no\.?|number)|ending(?:\s+in|\s+with)?|call)\s*[:#.-]?\s*$|(?:x{2,}|\*{2,})$/i;
+
+export function isIdentifierRun(run: string, before: string): boolean {
+  if (/^\d+$/.test(run) && run.length >= 10) return true;
+  return IDENTIFIER_CUE.test(before.slice(-32));
+}
+
 export function parseAmount(text: string): number | undefined {
   const t = text
     .replace(/[$£€₹]/g, ' ')
     .replace(/\b(rs|inr|usd|gbp|eur|bucks?|rupees?|dollars?|quid)\b/gi, ' ');
-  const m = t.match(/(\d[\d,]*\.?\d*)\s*(k|lakhs?|lacs?|l|cr|crores?|m|mn)?\b/i);
-  if (!m) return undefined;
-  const base = Number(m[1].replace(/,/g, ''));
-  if (!isFinite(base)) return undefined;
-  const scale = (m[2] || '').toLowerCase();
-  let mult = 1;
-  if (scale === 'k') mult = 1_000;
-  else if (scale === 'm' || scale === 'mn') mult = 1_000_000;
-  else if (scale === 'l' || scale.startsWith('lakh') || scale.startsWith('lac')) mult = 100_000;
-  else if (scale === 'cr' || scale.startsWith('crore')) mult = 10_000_000;
-  const value = base * mult;
-  return value > 0 ? Math.round(value * 100) / 100 : undefined;
+  const re = /(\d[\d,]*\.?\d*)\s*(k|lakhs?|lacs?|l|cr|crores?|m|mn)?\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t)) !== null) {
+    if (isIdentifierRun(m[1], t.slice(0, m.index))) continue;
+    const base = Number(m[1].replace(/,/g, ''));
+    if (!isFinite(base)) continue;
+    const scale = (m[2] || '').toLowerCase();
+    let mult = 1;
+    if (scale === 'k') mult = 1_000;
+    else if (scale === 'm' || scale === 'mn') mult = 1_000_000;
+    else if (scale === 'l' || scale.startsWith('lakh') || scale.startsWith('lac')) mult = 100_000;
+    else if (scale === 'cr' || scale.startsWith('crore')) mult = 10_000_000;
+    const value = base * mult;
+    if (value > 0) return Math.round(value * 100) / 100;
+  }
+  return undefined;
 }
 
 // ── keyword → category id (ported; longest keyword wins) ──────────────────────
