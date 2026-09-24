@@ -97,3 +97,155 @@ describe('actual WhatsApp Edge handlers', () => {
     expect(inboxQueries.flatMap(query => query.update.mock.calls).filter(([patch]) => patch.status === 'done')).toHaveLength(2);
   });
 });
+
+// ── v10.40.0 (W0) — failures are recorded, replayed and bounded ──────────────────
+const sign = (body: string) => `sha256=${createHmac('sha256', 'test-app-secret').update(body).digest('hex')}`;
+const inbound = (text: string) => JSON.stringify({ entry: [{ changes: [{ value: {
+  messages: [{ id: 'm-1', from: '111', timestamp: String(Date.UTC(2026, 8, 24, 6, 0) / 1000), text: { body: text } }] } }] }] });
+
+/** Route every table to a fresh query; the inbox claim reports `attempts`. */
+function webhookTables(attempts = 0) {
+  const inbox: ReturnType<typeof queryResult>[] = [];
+  api.from.mockImplementation((table: string) => {
+    if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
+    if (table === 'assets') return queryResult([]);
+    if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+    if (table === 'whatsapp_inbound_messages') {
+      const q = queryResult([{ wa_message_id: 'm-1', attempts }]);
+      inbox.push(q);
+      return q;
+    }
+    throw new Error(`Unexpected table ${table}`);
+  });
+  const patches = () => inbox.flatMap(q => q.update.mock.calls.map(([patch]) => patch as Record<string, unknown>));
+  return { patches };
+}
+const sentTexts = () => vi.mocked(fetch).mock.calls.map(([, o]) => JSON.parse(String(o?.body))?.text?.body as string);
+
+describe('webhook failure handling (W0)', () => {
+  it('CON-UNIT-WA-W0-001 · a ledger error marks the row FAILED (not done), attempt 1, and says it is queued', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const { patches } = webhookTables(0);
+    api.rpc.mockResolvedValue({ data: null, error: { message: 'connection reset' } });
+    const body = inbound('450 lunch');
+    await handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+    const failed = patches().filter(p => p.status === 'failed');
+    expect(failed[0]).toEqual(expect.objectContaining({ status: 'failed', attempts: 1, last_error: 'rpc: connection reset' }));
+    expect(patches().some(p => p.status === 'done')).toBe(false);
+    expect(sentTexts()[0]).toContain('queued');
+  });
+
+  it('CON-UNIT-WA-W0-002 · the attempt counter climbs from the row, and the last retry asks the user to resend', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const { patches } = webhookTables(2);
+    api.rpc.mockResolvedValue({ data: null, error: { message: 'timeout' } });
+    const body = inbound('450 lunch');
+    await handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+    expect(patches().find(p => p.status === 'failed')).toEqual(expect.objectContaining({ attempts: 3 }));
+    expect(sentTexts()[0]).toContain('send it again');
+  });
+
+  it('CON-UNIT-WA-W0-003 · a stated date reaches p_date and is never read as the amount', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0);
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', amount: 450, currency: 'INR', type: 'expense', category_id: 'food_dining', account_name: 'Bank' } });
+    const body = inbound('yesterday 450 lunch');
+    await handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_log_transaction', expect.objectContaining({ p_amount: 450, p_date: '2026-09-23' }));
+    expect(sentTexts()[0]).toContain('on 2026-09-23');
+  });
+
+  it('CON-UNIT-WA-W0-004 · a button reply is recorded as done without a reply', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const { patches } = webhookTables(0);
+    const body = JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ id: 'm-1', from: '111', type: 'button', button: { text: 'Mark as paid' } }] } }] }] });
+    await handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+    expect(patches().find(p => p.status === 'done')).toEqual(expect.objectContaining({ last_error: 'ignored_button' }));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-W0-005 · the sweep needs the service key, then replays failed rows through the ledger', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const denied = await handler(new Request('https://edge.example.com/webhook?mode=sweep', { method: 'POST', headers: { Authorization: 'Bearer nope' } }));
+    expect(denied.status).toBe(403);
+    api.from.mockImplementation((table: string) => {
+      if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
+      if (table === 'assets') return queryResult([]);
+      if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+      return queryResult([{ wa_message_id: 'm-9', attempts: 1, payload: { id: 'm-9', from: '111', text: { body: '80 coffee' } } }]);
+    });
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'duplicate' } });
+    const res = await handler(new Request('https://edge.example.com/webhook?mode=sweep', { method: 'POST', headers: { Authorization: 'Bearer test-service-key' } }));
+    expect((await res.json()).replayed).toBeGreaterThan(0);
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_log_transaction', expect.objectContaining({ p_wa_message_id: 'm-9', p_amount: 80 }));
+    expect(fetch).not.toHaveBeenCalled();   // a replay that already landed stays silent
+  });
+});
+
+describe('whatsapp-notify guards (W0)', () => {
+  const ENABLED = { WHATSAPP_OUTBOUND_ENABLED: 'true', WHATSAPP_APPROVED_TEMPLATES: 'bill_due_reminder,reengagement_nudge' };
+  const call = (handler: (r: Request) => Promise<Response>, token: string, body: Record<string, unknown>) =>
+    handler(new Request('https://edge.example.com/notify', { method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ householdId: 'h', toProfileId: 'p2', ...body }) }));
+  function tables(opts: { role?: string; claimError?: unknown; sentToday?: number } = {}) {
+    const inbox: ReturnType<typeof queryResult>[] = [];
+    api.from.mockImplementation((table: string) => {
+      if (table === 'memberships') return queryResult({ role: opts.role ?? 'member' });
+      if (table === 'whatsapp_identities') return queryResult({ phone_number: '222', household_id: 'h' });
+      if (table === 'whatsapp_inbound_messages') {
+        // Call order: [0] the 24h count, [1] the dedupe claim, then status updates.
+        const q = queryResult(null, inbox.length === 1 ? (opts.claimError ?? null) : null, opts.sentToday ?? 0);
+        inbox.push(q);
+        return q;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+    return inbox;
+  }
+
+  it('CON-UNIT-WA-W0-006 · a server job authenticates with the service key and sends', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
+    tables();
+    const res = await call(handler, 'test-service-key', { event: 'bill_due', params: ['Rohan', 'BESCOM\nbill', 'Tuesday', '3,200'] });
+    expect(await res.json()).toEqual({ status: 'sent', template: 'bill_due_reminder' });
+    expect(api.auth.getUser).not.toHaveBeenCalled();
+    const sent = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+    expect(sent.template.components[0].parameters[1].text).toBe('BESCOM bill');   // newline cleaned
+  });
+
+  it('CON-UNIT-WA-W0-007 · a viewer cannot message other members', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
+    api.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+    tables({ role: 'viewer' });
+    const res = await call(handler, 'user-jwt', { event: 'bill_due' });
+    expect(res.status).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-W0-008 · marketing is refused until the recipient has opted in', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
+    tables();
+    expect(await (await call(handler, 'test-service-key', { event: 'reengagement' })).json())
+      .toEqual(expect.objectContaining({ status: 'skipped', reason: 'marketing_consent_required' }));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-W0-009 · a second send of the same event is refused as a duplicate', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
+    tables({ claimError: { code: '23505' } });
+    expect(await (await call(handler, 'test-service-key', { event: 'bill_due', dedupeKey: 'sched-1:2026-09-24' })).json())
+      .toEqual(expect.objectContaining({ status: 'skipped', reason: 'duplicate' }));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-W0-010 · the daily cap and the outbound switch both stop a send', async () => {
+    let handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
+    tables({ sentToday: 6 });
+    expect((await (await call(handler, 'test-service-key', { event: 'bill_due' })).json()).reason).toBe('daily_cap');
+    vi.resetModules();
+    handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'));
+    tables();
+    expect((await (await call(handler, 'test-service-key', { event: 'bill_due' })).json()).reason).toBe('outbound_disabled');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

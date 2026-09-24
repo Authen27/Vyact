@@ -13,11 +13,15 @@ export const env = (k: string, fallback = ''): string => Deno.env.get(k) ?? fall
 
 export const GRAPH_VERSION = env('WHATSAPP_GRAPH_VERSION', 'v21.0');
 
-// Non-sensitive Meta identifiers — safe to keep in code (they are IDs, not secrets).
-// An env var of the same name overrides, so no code change is needed to rotate.
-//   Phone Number ID = the sending number; WABA ID = the WhatsApp Business Account.
-export const WHATSAPP_PHONE_NUMBER_ID = env('WHATSAPP_PHONE_NUMBER_ID', '1180086958501828');
-export const WHATSAPP_BUSINESS_ACCOUNT_ID = env('WHATSAPP_WABA_ID', '1690737521937003');
+// Meta identifiers. Phone Number ID = the sending number; WABA ID = the WhatsApp
+// Business Account.
+//
+// v10.40.0 — NO in-code fallbacks. The old defaults ('1180086958501828' /
+// '1690737521937003') were the retired TEST account, which holds only the +1 555
+// test number; a missing secret would have silently sent from it. A missing value
+// now fails loudly at send time ("sender not configured") instead.
+export const WHATSAPP_PHONE_NUMBER_ID = env('WHATSAPP_PHONE_NUMBER_ID');
+export const WHATSAPP_BUSINESS_ACCOUNT_ID = env('WHATSAPP_WABA_ID');
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -61,13 +65,26 @@ export async function verifyMetaSignature(rawBody: string, header: string | null
   return constantTimeEqual(provided, expected);
 }
 
+/**
+ * A template parameter Meta will accept. Parameters may not contain newlines or
+ * tabs, nor more than four consecutive spaces (error 132018), and are capped here
+ * well under Meta's limit so a runaway value cannot fill a whole message.
+ */
+export function cleanParam(value: unknown, max = 200): string {
+  return String(value ?? '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/ {2,}/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
 /** Send an approved WhatsApp template message. `params` fill {{1}},{{2}},… in the body. */
 export async function sendTemplate(to: string, templateName: string, params: string[] = [], lang = 'en_US'): Promise<void> {
   const phoneId = WHATSAPP_PHONE_NUMBER_ID;
   const token = env('WHATSAPP_ACCESS_TOKEN');
   if (!phoneId || !token) throw new Error('WhatsApp sender not configured (PHONE_NUMBER_ID / ACCESS_TOKEN).');
   const components = params.length
-    ? [{ type: 'body', parameters: params.map((text) => ({ type: 'text', text })) }]
+    ? [{ type: 'body', parameters: params.map((text) => ({ type: 'text', text: cleanParam(text) })) }]
     : [];
   const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${phoneId}/messages`, {
     method: 'POST',
@@ -114,13 +131,20 @@ const APPROVED_TEMPLATES = new Set(
 );
 export function isTemplateApproved(name: string): boolean { return APPROVED_TEMPLATES.has(name); }
 
+/** Why a proactive send would be skipped before reaching Meta, or null to send. */
+export function gateReason(templateName: string): 'outbound_disabled' | 'template_not_approved' | null {
+  if (!OUTBOUND_ENABLED) return 'outbound_disabled';
+  if (!isTemplateApproved(templateName)) return 'template_not_approved';
+  return null;
+}
+
 /** Guarded proactive template send. Never throws for a gating miss — returns the
  *  reason so callers can log-and-continue. Real dispatch failures still throw. */
 export async function dispatchTemplate(
   to: string, templateName: string, params: string[] = [], lang = 'en_US',
 ): Promise<{ sent: boolean; reason?: string }> {
-  if (!OUTBOUND_ENABLED) return { sent: false, reason: 'outbound_disabled' };
-  if (!isTemplateApproved(templateName)) return { sent: false, reason: 'template_not_approved' };
+  const gated = gateReason(templateName);
+  if (gated) return { sent: false, reason: gated };
   await sendTemplate(to, templateName, params, lang);
   return { sent: true };
 }

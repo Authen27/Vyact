@@ -1956,7 +1956,7 @@
       "availability": "conditional",
       "layer": "unit",
       "owner": "whatsapp-parser",
-      "count": 30,
+      "count": 34,
       "tests": [
         "category id sets stay valid matchCategory only yields ids in the valid sets",
         "command grammar → expense amount + category + account",
@@ -1987,6 +1987,10 @@
         "payment mode from a WhatsApp line every detected mode is in the allowlist",
         "payment mode sets — the client, WhatsApp and agent copies must not drift the WhatsApp parser accepts exactly the modes the app offers, with the same labels",
         "payment mode sets — the client, WhatsApp and agent copies must not drift the agent accepts exactly the modes the app offers",
+        "question vs log, and stated dates (W0) CON-UNIT-WA-W0-011 · questions are still blocked; logging lines with query words are not",
+        "question vs log, and stated dates (W0) CON-UNIT-WA-W0-012 · extractStatedDate reads the common forms and removes them from the line",
+        "question vs log, and stated dates (W0) CON-UNIT-WA-W0-013 · a future or impossible date is dropped, never guessed",
+        "question vs log, and stated dates (W0) CON-UNIT-WA-W0-014 · the day of the month never becomes the amount",
         "transfer detection moved X to <account> → transfer with source+dest, null category"
       ]
     },
@@ -1997,12 +2001,22 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 4,
+      "count": 14,
       "tests": [
         "actual WhatsApp Edge handlers accepts the configured Meta handshake without database or message traffic",
         "actual WhatsApp Edge handlers processes every signed batch message using its own sender and confirms authoritative results",
         "actual WhatsApp Edge handlers reads and unlinks only the authenticated identity, consuming pending relink codes",
-        "actual WhatsApp Edge handlers verifies a valid OTP, persists the server-owned identity and consumes the OTP"
+        "actual WhatsApp Edge handlers verifies a valid OTP, persists the server-owned identity and consumes the OTP",
+        "webhook failure handling (W0) CON-UNIT-WA-W0-001 · a ledger error marks the row FAILED (not done), attempt 1, and says it is queued",
+        "webhook failure handling (W0) CON-UNIT-WA-W0-002 · the attempt counter climbs from the row, and the last retry asks the user to resend",
+        "webhook failure handling (W0) CON-UNIT-WA-W0-003 · a stated date reaches p_date and is never read as the amount",
+        "webhook failure handling (W0) CON-UNIT-WA-W0-004 · a button reply is recorded as done without a reply",
+        "webhook failure handling (W0) CON-UNIT-WA-W0-005 · the sweep needs the service key, then replays failed rows through the ledger",
+        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-006 · a server job authenticates with the service key and sends",
+        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-007 · a viewer cannot message other members",
+        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-008 · marketing is refused until the recipient has opted in",
+        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-009 · a second send of the same event is refused as a duplicate",
+        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-010 · the daily cap and the outbound switch both stop a send"
       ]
     }
   ]

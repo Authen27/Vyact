@@ -130,17 +130,25 @@ text simply will not arrive if the user has been quiet, and fails silently.
 
 #### Live in Meta — Vyact product templates
 
+> ⚠️ **Corrected 2026-09-24.**
+> - **None of these templates is wired.** No app code, trigger or scheduler calls `whatsapp-notify`,
+>   so nothing has ever been sent.
+> - **"Live" is unconfirmed.** The runbook (15 Aug) recorded all nine as *In review* on the live WABA
+>   `1887272231954080`.
+> - The W1 `templates-status.mjs` script reads the real status back from Meta; until it runs, treat
+>   every row below as *submitted, approval unconfirmed*.
+
 | Template | Category | Mode | Status |
 | :--- | :--- | :--- | :--- |
-| `bill_due_reminder` | UTILITY | Template | Live · has A/B variants in the design spec |
-| `budget_threshold_alert` | UTILITY | **Template + session text** | Live · see dual-mode note below |
-| `large_transaction_alert` | UTILITY | **Template + session text** | Live · see dual-mode note below |
-| `weekly_summary` | UTILITY | Template | Live · opt-in |
-| `split_settled` | UTILITY | Template | Live |
-| `partner_split_prompt` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
-| `split_shared_with_you` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
-| `recurring_auto_logged` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
-| `reengagement_nudge` | **MARKETING** | Template | Live · separate consent + opt-out (see below) |
+| `bill_due_reminder` | UTILITY | Template | Submitted · approval unconfirmed · not wired · has A/B variants in the design spec |
+| `budget_threshold_alert` | UTILITY | **Template + session text** | Submitted · approval unconfirmed · not wired · see dual-mode note below |
+| `large_transaction_alert` | UTILITY | **Template + session text** | Submitted · approval unconfirmed · not wired · see dual-mode note below |
+| `weekly_summary` | UTILITY | Template | Submitted · approval unconfirmed · not wired · opt-in |
+| `split_settled` | UTILITY | Template | Submitted · approval unconfirmed · not wired |
+| `partner_split_prompt` | UTILITY | Template | Submitted · approval unconfirmed · not wired · **design spec does not cover it yet** |
+| `split_shared_with_you` | UTILITY | Template | Submitted · approval unconfirmed · not wired · **design spec does not cover it yet** |
+| `recurring_auto_logged` | UTILITY | Template | Submitted · approval unconfirmed · not wired · **design spec does not cover it yet** |
+| `reengagement_nudge` | **MARKETING** | Template | Submitted · approval unconfirmed · not wired · separate consent + opt-out (see below) |
 
 #### Live in Meta — not Vyact copy, scheduled for deletion
 

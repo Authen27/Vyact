@@ -47,6 +47,8 @@ export interface ParsedTx {
   /** How the account was used, when the message says so. The RPC keeps it only
    *  if the paying account lists that mode; null for every investment. */
   payment_mode: string | null;
+  /** v10.40.0 — the date the message stated (ISO), or null for "today". Sent as p_date. */
+  date: string | null;
 }
 
 export interface AccountLite { name: string; kind: string }
@@ -136,10 +138,75 @@ export function matchCategory(text: string): string | undefined {
 
 // ── WhatsApp-specific extraction ──────────────────────────────────────────────
 
-/** Hard-block detector: a request to READ data (never answered over chat). */
+/**
+ * Hard-block detector: a request to READ data (never answered over chat).
+ *
+ * v10.40.0 — narrowed. Any line containing "total", "list" or "left" used to be
+ * refused unless it began with a digit, so "paid 1200 total groceries" was treated
+ * as a question. A line that opens like a question, or ends with "?", is still a
+ * question; otherwise a spend/income verb plus an amount means the user is LOGGING.
+ */
 export function isQueryAttempt(text: string): boolean {
-  return /\b(how much|how many|what'?s|what is|balance|net worth|networth|left|remaining|owe|owed|statement|summary|report|show me|list|history|total)\b/.test(text)
-    && !/^\s*[+\-]?\s*\d/.test(text);   // "how much..." but NOT a leading amount like "1200 lunch"
+  const asksForData = /\b(how much|how many|what'?s|what is|balance|net worth|networth|left|remaining|owe|owed|statement|summary|report|show me|list|history|total)\b/.test(text);
+  if (!asksForData) return false;
+  if (/^\s*[+\-]?\s*\d/.test(text)) return false;   // "1200 lunch …" — a leading amount
+  const opensAsQuestion = /^\s*(how|what|which|when|where|why|show|list|tell|give|can|do|did|am|is|are)\b/.test(text) || /\?\s*$/.test(text);
+  if (opensAsQuestion) return true;
+  const logs = /\b(spent|spend|paid|pay|bought|received|got|credited|debited|moved|transferred|invested|gave|lent)\b/.test(text);
+  return !(logs && parseAmount(text) != null);
+}
+
+const DATE_MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/**
+ * v10.40.0 — a date the message states, as ISO `YYYY-MM-DD`, plus the text with that
+ * date REMOVED. Removing it matters: "15/09/2026 450 lunch" used to log ₹15, because
+ * the day was the first number in the line.
+ *
+ * `today` is the user's local calendar day (the webhook derives it from the message
+ * timestamp). Relative words resolve against it; a future or impossible date is
+ * ignored rather than guessed, and the RPC still clamps whatever it receives.
+ * Ported from askVyactParser.parseDateEntity — keep the formats aligned.
+ */
+export function extractStatedDate(text: string, today: Date): { date: string | null; rest: string } {
+  const iso = (d: Date) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  const day0 = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const build = (y: number, m: number, d: number): string | null => {
+    if (y < 2000 || m < 0 || m > 11 || d < 1 || d > 31) return null;
+    const t = Date.UTC(y, m, d);
+    const back = new Date(t);
+    if (back.getUTCMonth() !== m || back.getUTCDate() !== d) return null;   // 31 Feb
+    if (t > day0) return null;                                              // future
+    return iso(back);
+  };
+  const year = (s: string) => (s.length === 2 ? 2000 + Number(s) : Number(s));
+  const PATTERNS: [RegExp, (m: RegExpMatchArray) => string | null][] = [
+    [/\byesterday\b/, () => iso(new Date(day0 - 86_400_000))],
+    [/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/, m => build(Number(m[1]), Number(m[2]) - 1, Number(m[3]))],
+    // Year is 2 or 4 digits only, so "15 sep 450 lunch" never reads 450 as a year.
+    [/\b(\d{1,2})[-/ ]([a-z]{3,9})[-/ ](\d{4}|\d{2})\b/, m => {
+      const mi = DATE_MONTHS.indexOf(m[2].slice(0, 3));
+      return mi < 0 ? null : build(year(m[3]), mi, Number(m[1]));
+    }],
+    [/\b(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})\b/, m => build(year(m[3]), Number(m[2]) - 1, Number(m[1]))],
+    // "on 15 sep" — no year: the most recent such day that is not in the future.
+    [/\bon (\d{1,2})(?:st|nd|rd|th)? ([a-z]{3,9})\b/, m => {
+      const mi = DATE_MONTHS.indexOf(m[2].slice(0, 3));
+      if (mi < 0) return null;
+      const y = today.getUTCFullYear();
+      return build(y, mi, Number(m[1])) ?? build(y - 1, mi, Number(m[1]));
+    }],
+  ];
+  for (const [re, toIso] of PATTERNS) {
+    const m = text.match(re);
+    if (!m) continue;
+    const date = toIso(m);
+    const rest = text.replace(m[0], ' ').replace(/\s+/g, ' ').trim();
+    // An unusable date is still removed from the amount search — it was a date.
+    return { date, rest };
+  }
+  return { date: null, rest: text };
 }
 
 function detectCurrency(text: string, base: string): string {
@@ -214,11 +281,16 @@ export function parseWhatsAppMessage(
   raw: string,
   accounts: AccountLite[] = [],
   baseCurrency = 'USD',
+  /** The sender's local calendar day, for "yesterday". Defaults to now (UTC). */
+  today: Date = new Date(),
 ): ParseResult {
-  const norm = normalise(raw);
-  if (!norm) return { ok: false, reason: 'empty' };
-  if (isQueryAttempt(norm)) return { ok: false, reason: 'query' };
+  const whole = normalise(raw);
+  if (!whole) return { ok: false, reason: 'empty' };
+  if (isQueryAttempt(whole)) return { ok: false, reason: 'query' };
 
+  // The stated date is taken out BEFORE anything else reads the line, so its digits
+  // can never become the amount.
+  const { date, rest: norm } = extractStatedDate(whole, today);
   const amount = parseAmount(norm);
   if (amount == null) return { ok: false, reason: 'no_amount' };
 
@@ -260,6 +332,7 @@ export function parseWhatsAppMessage(
       to_account_alias,
       description: (raw || '').trim().slice(0, 280),
       payment_mode: type === 'investment' ? null : detectPaymentMode(norm),
+      date,
     },
   };
 }

@@ -8,13 +8,17 @@
 //
 // MVP write-only logging: an inbound text → deterministic parser → whatsapp_log_transaction
 // RPC → a session-text confirmation. Data queries are hard-blocked (nothing sensitive
-// leaves over chat). Interactive/button replies are accepted & ignored for now.
+// leaves over chat). Interactive/button replies are recorded, not acted on yet.
+//
+// v10.40.0 — a failure is recorded as one: a ledger error marks the inbox row
+// 'failed' and it is replayed (up to 3 attempts) by the sweep — on every delivery,
+// and on demand via POST ?mode=sweep with the service key.
 //
 // Deploy WITHOUT JWT (Meta has no Supabase JWT):
 //   supabase functions deploy whatsapp-webhook --no-verify-jwt
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { env, verifyMetaSignature, sendText, APP_URL } from '../_shared/whatsapp.ts';
+import { env, verifyMetaSignature, sendText, APP_URL, constantTimeEqual } from '../_shared/whatsapp.ts';
 import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite } from '../_shared/whatsapp-parser.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
@@ -51,6 +55,20 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+
+  // v10.40.0 — replay sweep. Called by a scheduler with the SERVICE key (never by
+  // Meta, which signs its calls instead). Re-queues failed inbound rows that have
+  // retries left, and claims abandoned by a worker that died mid-run.
+  if (url.searchParams.get('mode') === 'sweep') {
+    const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+    const serviceKey = env('SUPABASE_SERVICE_ROLE_KEY');
+    if (!serviceKey || !constantTimeEqual(bearer, serviceKey)) return new Response('Forbidden', { status: 403 });
+    const supabase = createClient(env('SUPABASE_URL'), serviceKey);
+    const replayed = await sweepInbox(supabase);
+    return new Response(JSON.stringify({ status: 'ok', replayed }), {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   // 2. Authenticate the payload (constant-time HMAC).
   const rawBody = await req.text();
@@ -100,7 +118,9 @@ Deno.serve(async (req: Request) => {
       }, { onConflict: 'wa_message_id', ignoreDuplicates: true });
     }
 
-    const work = drainInbox(supabase, incoming);
+    // Opportunistic replay: every real delivery also retries a few failed rows, so a
+    // transient outage heals on the next message even before a scheduler is wired.
+    const work = drainInbox(supabase, incoming).then(() => sweepInbox(supabase, 5)).then(() => undefined);
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
     else await work;   // local/dev fallback
   }
@@ -109,6 +129,11 @@ Deno.serve(async (req: Request) => {
     status: 200, headers: { 'Content-Type': 'application/json' },
   });
 });
+
+/** Retries a failed inbound row gets before it is left for a human. */
+const MAX_ATTEMPTS = 3;
+/** A claim older than this belonged to a worker that died; it is re-queued. */
+const STALE_CLAIM_MS = 10 * 60_000;
 
 /**
  * Claim-and-process each recorded message. The claim is atomic — status flips
@@ -122,31 +147,95 @@ async function drainInbox(
   incoming: Array<{ message: any; phone: string }>,
 ): Promise<void> {
   for (const { message, phone } of incoming) {
-    // Atomic claim.
+    // Atomic claim. `attempts` comes back with it: v10.40.0 fixed the counter, which
+    // read a field that never existed (`message.__attempts`) and so was always 1.
     const { data: claimed } = await supabase
       .from('whatsapp_inbound_messages')
       .update({ status: 'claimed', claimed_at: new Date().toISOString() })
       .eq('wa_message_id', message.id)
       .eq('status', 'pending')
-      .select('wa_message_id');
+      .select('wa_message_id, attempts');
     if (!claimed || claimed.length === 0) continue;   // already claimed/processed
+    const priorAttempts = Number((claimed as any[])[0]?.attempts ?? 0);
 
     const profile = await lookupIdentity(supabase, phone);
+    let outcome: InboundOutcome;
     try {
-      await processInbound(supabase, message, phone, profile);
-      await supabase.from('whatsapp_inbound_messages')
-        .update({ status: 'done', processed_at: new Date().toISOString() })
-        .eq('wa_message_id', message.id);
+      outcome = await processInbound(supabase, message, phone, profile, priorAttempts);
     } catch (e) {
+      outcome = { status: 'retry', error: (e as Error)?.message ?? String(e) };
+    }
+    if (outcome.status === 'done') {
       await supabase.from('whatsapp_inbound_messages')
-        .update({
-          status: 'failed',
-          attempts: (message.__attempts ?? 0) + 1,
-          last_error: (e as Error)?.message ?? String(e),
-        })
+        .update({ status: 'done', processed_at: new Date().toISOString(), last_error: outcome.note ?? null })
+        .eq('wa_message_id', message.id);
+    } else {
+      // v10.40.0 — a failure is RECORDED as one. It used to be marked `done` (the
+      // handler swallowed every error), so nothing could ever find it to replay.
+      await supabase.from('whatsapp_inbound_messages')
+        .update({ status: 'failed', attempts: priorAttempts + 1, last_error: outcome.error })
         .eq('wa_message_id', message.id);
     }
   }
+}
+
+/**
+ * Re-queue failed rows with retries left, and stale claims, then drain them.
+ * Replaying is safe: `whatsapp_log_transaction` claims the message id before it
+ * writes, so a row whose transaction DID land comes back `duplicate` and is silent.
+ */
+async function sweepInbox(supabase: SupabaseClient, limit = 25): Promise<number> {
+  const staleBefore = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
+  const { data: failed } = await supabase
+    .from('whatsapp_inbound_messages')
+    .select('wa_message_id, payload')
+    .eq('direction', 'inbound')
+    .eq('status', 'failed')
+    .lt('attempts', MAX_ATTEMPTS)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+  const { data: stale } = await supabase
+    .from('whatsapp_inbound_messages')
+    .select('wa_message_id, payload')
+    .eq('direction', 'inbound')
+    .eq('status', 'claimed')
+    .lt('claimed_at', staleBefore)
+    .limit(limit);
+  const rows = [...((failed as any[]) ?? []), ...((stale as any[]) ?? [])];
+  const requeued: Array<{ message: any; phone: string }> = [];
+  for (const row of rows) {
+    const message = row.payload;
+    if (!message?.id) continue;
+    // Re-queue only if it is still in the state we read (another sweep may have won).
+    const { data: flipped } = await supabase
+      .from('whatsapp_inbound_messages')
+      .update({ status: 'pending' })
+      .eq('wa_message_id', row.wa_message_id)
+      .in('status', ['failed', 'claimed'])
+      .select('wa_message_id');
+    if (flipped && (flipped as any[]).length) {
+      requeued.push({ message, phone: String(message.from ?? '').replace(/[^\d]/g, '') });
+    }
+  }
+  if (requeued.length) await drainInbox(supabase, requeued);
+  return requeued.length;
+}
+
+/**
+ * What happened to one inbound message.
+ *  done  — finished (logged, clarified, refused…). `note` records a reply that could
+ *          not be delivered, without replaying a transaction that did land.
+ *  retry — the ledger could not be reached; the row is marked failed and replayed.
+ */
+type InboundOutcome = { status: 'done'; note?: string } | { status: 'retry'; error: string };
+
+/** The sender's local calendar day, for "yesterday". Meta stamps each message in
+ *  unix seconds; the offset defaults to IST, the market the ₹ copy is written for. */
+function localDay(message: any): Date {
+  const tsMs = Number(message?.timestamp) > 0 ? Number(message.timestamp) * 1000 : Date.now();
+  const offsetMin = Number(env('VYACT_TZ_OFFSET_MINUTES', '330')) || 0;
+  const local = new Date(tsMs + offsetMin * 60_000);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
 }
 
 const CAT_LABEL: Record<string, string> = {
@@ -161,101 +250,130 @@ const CAT_LABEL: Record<string, string> = {
   rental_income: 'Rental income', business_revenue: 'Business revenue', other_income: 'Other income',
 };
 
+/**
+ * Send a reply without letting a delivery failure replay the message. The ledger
+ * work is already done (or deliberately skipped) by the time we reply; retrying the
+ * row would only re-run an idempotent RPC and still not deliver. So a failed reply
+ * is RECORDED on the row, not retried.
+ */
+async function reply(to: string, body: string): Promise<string | undefined> {
+  if (!to) return 'no_sender_phone';
+  try { await sendText(to, body); return undefined; }
+  catch (e) { return `reply_failed: ${(e as Error)?.message ?? String(e)}`; }
+}
+
 /** Background handler: parse → log → confirm (or clarify / hard-block / notice). */
 async function processInbound(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile | null,
-): Promise<void> {
-  try {
-    // Unregistered / unlinked sender.
-    if (!profile || !profile.whatsapp_household_id) {
-      if (fromPhone) await sendText(fromPhone, "This number isn't linked to a Vyact account yet. Link it in Settings → WhatsApp.");
-      return;
-    }
-    const householdId = profile.whatsapp_household_id;
-
-    // MVP: only free-text logging. Button/interactive replies are accepted & ignored.
-    const text: string | undefined = message?.text?.body;
-    if (!text) return;
-
-    const { data: accounts } = await supabase
-      .from('accounts')
-      .select('name, kind, currency')
-      .eq('household_id', householdId)
-      .eq('is_archived', false);
-    // v10.26.0 (R4) — investments live in Net Worth as assets. Offer their names
-    // to the parser so "invested 5000 in <fund>" resolves; the RPC matches the
-    // alias against assets for an investment, never against accounts.
-    // A READ for parser context only: if it fails, the message still logs — the
-    // RPC resolves a household's only investment on its own, and every other
-    // type never needs it. Nothing is written or dropped here.
-    let investmentAssets: { name: string }[] = [];
-    try {
-      const { data } = await supabase
-        .from('assets')
-        .select('name')
-        .eq('household_id', householdId)
-        .eq('type', 'investment')
-        .is('deleted_at', null);
-      investmentAssets = (data as { name: string }[] | null) ?? [];
-    } catch (_e) {
-      investmentAssets = [];
-    }
-    const accountList: AccountLite[] = [
-      ...(accounts ?? []).map((a: any) => ({ name: a.name, kind: a.kind })),
-      ...(investmentAssets ?? []).map((a: any) => ({ name: a.name, kind: 'investment' })),
-    ];
-    const baseCurrency: string = (accounts as any)?.[0]?.currency ?? 'USD';
-
-    const parsed = parseWhatsAppMessage(text, accountList, baseCurrency);
-    if (!parsed.ok) {
-      await sendText(fromPhone, clarifyReply(parsed.reason, `${APP_URL}/dashboard`));
-      return;
-    }
-    const tx = parsed.tx;
-
-    const { data: result, error } = await supabase.rpc('whatsapp_log_transaction', {
-      p_profile_id: profile.id,
-      p_household_id: householdId,
-      p_amount: tx.amount,
-      p_currency: tx.currency,
-      p_txn_type: tx.transaction_type,
-      p_category_id: tx.category_id,
-      p_account_alias: tx.account_alias,
-      p_to_account_alias: tx.to_account_alias,
-      p_wa_message_id: message.id,
-      p_description: tx.description,
-      // v10.25.0 — stored only if the paying account uses this mode.
-      p_payment_mode: tx.payment_mode,
-    });
-
-    if (error) {
-      await sendText(fromPhone, "Couldn't log that just now — please try again in a moment.");
-      return;
-    }
-    const r = result as any;
-    if (r?.status === 'success') {
-      await sendText(fromPhone, confirmation(r));
-    } else if (r?.status === 'duplicate') {
-      /* already handled — stay silent */
-    } else if (r?.reason === 'not_a_member' || r?.reason === 'read_only_member') {
-      // Audit S1: the RPC revalidates membership + write role on EVERY inbound
-      // operation, so a revoked member (or a viewer) hears about it rather than
-      // silently logging nothing.
-      await sendText(fromPhone, 'This number is no longer able to log to that household. Relink it in Settings → WhatsApp, or ask the household owner about your access.');
-    } else if (r?.reason === 'no_investment_asset') {
-      await sendText(fromPhone, 'Which investment is this for? Name it as it appears in Net Worth, e.g. `invested 5000 in Nifty fund`.');
-    } else if (r?.reason === 'no_destination_account' || r?.reason === 'same_account') {
-      await sendText(fromPhone, 'Which account should this move to? e.g. `moved 10000 to icici`.');
-    } else {
-      await sendText(fromPhone, "I couldn't place that in an account. Try naming one, e.g. `850 groceries hdfc`.");
-    }
-  } catch (_e) {
-    try { if (fromPhone) await sendText(fromPhone, 'Something went wrong logging that. Please try again.'); } catch { /* best effort */ }
+  priorAttempts = 0,
+): Promise<InboundOutcome> {
+  // Unregistered / unlinked sender.
+  if (!profile || !profile.whatsapp_household_id) {
+    const note = await reply(fromPhone, "This number isn't linked to a Vyact account yet. Link it in Settings → WhatsApp.");
+    return { status: 'done', note };
   }
+  const householdId = profile.whatsapp_household_id;
+
+  // Only free-text logging so far. Button/interactive replies are recorded, not acted on.
+  const text: string | undefined = message?.text?.body;
+  if (!text) return { status: 'done', note: `ignored_${String(message?.type ?? 'unknown')}` };
+
+  const { data: accounts, error: accountsError } = await supabase
+    .from('accounts')
+    .select('name, kind, currency')
+    .eq('household_id', householdId)
+    .eq('is_archived', false);
+  // Without the accounts the parser cannot place the money, and guessing "cash"
+  // would move the wrong balance. The ledger is unreachable: replay later.
+  if (accountsError) return retryOrGiveUp(fromPhone, priorAttempts, `accounts: ${accountsError.message}`);
+  // v10.26.0 (R4) — investments live in Net Worth as assets. Offer their names
+  // to the parser so "invested 5000 in <fund>" resolves; the RPC matches the
+  // alias against assets for an investment, never against accounts.
+  // A READ for parser context only: if it fails, the message still logs — the
+  // RPC resolves a household's only investment on its own, and every other
+  // type never needs it. Nothing is written or dropped here.
+  let investmentAssets: { name: string }[] = [];
+  try {
+    const { data } = await supabase
+      .from('assets')
+      .select('name')
+      .eq('household_id', householdId)
+      .eq('type', 'investment')
+      .is('deleted_at', null);
+    investmentAssets = (data as { name: string }[] | null) ?? [];
+  } catch (_e) {
+    investmentAssets = [];
+  }
+  const accountList: AccountLite[] = [
+    ...(accounts ?? []).map((a: any) => ({ name: a.name, kind: a.kind })),
+    ...(investmentAssets ?? []).map((a: any) => ({ name: a.name, kind: 'investment' })),
+  ];
+  const baseCurrency: string = (accounts as any)?.[0]?.currency ?? 'USD';
+
+  const parsed = parseWhatsAppMessage(text, accountList, baseCurrency, localDay(message));
+  if (!parsed.ok) {
+    return { status: 'done', note: await reply(fromPhone, clarifyReply(parsed.reason, `${APP_URL}/dashboard`)) };
+  }
+  const tx = parsed.tx;
+
+  const { data: result, error } = await supabase.rpc('whatsapp_log_transaction', {
+    p_profile_id: profile.id,
+    p_household_id: householdId,
+    p_amount: tx.amount,
+    p_currency: tx.currency,
+    p_txn_type: tx.transaction_type,
+    p_category_id: tx.category_id,
+    p_account_alias: tx.account_alias,
+    p_to_account_alias: tx.to_account_alias,
+    p_wa_message_id: message.id,
+    p_description: tx.description,
+    // v10.25.0 — stored only if the paying account uses this mode.
+    p_payment_mode: tx.payment_mode,
+    // v10.40.0 — a date the message stated ("yesterday", "15/09/2026"). The RPC
+    // has accepted p_date since v10.20; the parser used to drop it, so every
+    // WhatsApp entry was dated today.
+    ...(tx.date ? { p_date: tx.date } : {}),
+  });
+
+  if (error) return retryOrGiveUp(fromPhone, priorAttempts, `rpc: ${error.message}`);
+  const r = result as any;
+  let body: string | null;
+  if (r?.status === 'success') {
+    body = confirmation(r, tx.date);
+  } else if (r?.status === 'duplicate') {
+    body = null;   // already handled (or a replay of one that landed) — stay silent
+  } else if (r?.reason === 'not_a_member' || r?.reason === 'read_only_member') {
+    // Audit S1: the RPC revalidates membership + write role on EVERY inbound
+    // operation, so a revoked member (or a viewer) hears about it rather than
+    // silently logging nothing.
+    body = 'This number is no longer able to log to that household. Relink it in Settings → WhatsApp, or ask the household owner about your access.';
+  } else if (r?.reason === 'no_investment_asset') {
+    body = 'Which investment is this for? Name it as it appears in Net Worth, e.g. `invested 5000 in Nifty fund`.';
+  } else if (r?.reason === 'no_destination_account' || r?.reason === 'same_account') {
+    body = 'Which account should this move to? e.g. `moved 10000 to icici`.';
+  } else {
+    body = "I couldn't place that in an account. Try naming one, e.g. `850 groceries hdfc`.";
+  }
+  return { status: 'done', note: body ? await reply(fromPhone, body) : undefined };
+}
+
+/**
+ * The ledger could not be reached. The user is told ONCE, on the first failure, that
+ * the entry is queued (so they do not resend it and double-log). Only if every retry
+ * fails are they asked to send it again.
+ */
+async function retryOrGiveUp(fromPhone: string, priorAttempts: number, error: string): Promise<InboundOutcome> {
+  const attempt = priorAttempts + 1;
+  if (attempt === 1) {
+    await reply(fromPhone, "Your data is safe. I couldn't reach the ledger just now, so that entry is queued — it'll post by itself. Nothing for you to redo.");
+  } else if (attempt >= MAX_ATTEMPTS) {
+    await reply(fromPhone, "That entry still hasn't gone through after several tries, so I've stopped retrying. Please send it again, or add it in the app.");
+  }
+  return { status: 'retry', error };
 }
 
 /** Session-text confirmation (within the 24h window — no template needed). */
-function confirmation(r: any): string {
+function confirmation(r: any, statedDate: string | null = null): string {
   const amt = `${r.amount} ${r.currency}`;
   const cat = r.category_id ? ` · ${CAT_LABEL[r.category_id] ?? r.category_id}` : '';
   let where = '';
@@ -265,5 +383,8 @@ function confirmation(r: any): string {
   } else where = r.account_name ? ` from ${r.account_name}` : '';
   // The RPC echoes the mode only when it was actually stored.
   const mode = r.payment_mode ? ` via ${PAYMENT_MODE_LABEL[r.payment_mode] ?? r.payment_mode}` : '';
-  return `✅ Logged ${amt}${cat}${where}${mode}. Send another anytime.`;
+  // v10.40.0 — say which day it was filed under when the message named one, so a
+  // backdated entry is never mistaken for today's (capture_backdated_notice).
+  const when = statedDate ? ` on ${statedDate}` : '';
+  return `✅ Logged ${amt}${cat}${where}${mode}${when}. Send another anytime.`;
 }

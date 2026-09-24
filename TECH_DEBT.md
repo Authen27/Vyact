@@ -1112,7 +1112,16 @@ creation.
 **Description.** From the 2026-09 audit, still open after the v10.22.x releases:
 - **Historical loan repair** — loan balances written before the corrected `record_loan_payment`
   contract have not been re-derived.
-- **Webhook inbox recovery** — failed `whatsapp_inbound_messages` rows have no retry or replay path.
+- ~~**Webhook inbox recovery** — failed `whatsapp_inbound_messages` rows have no retry or replay path.~~
+  ✅ **Resolved v10.40.0.** Worse than filed: failures were not recorded at all. `processInbound`
+  swallowed every error, so a ledger failure was marked `done`, and the attempts counter read a field
+  that never existed.
+  - A failure is now recorded as `failed`, with the real attempt count and `last_error`.
+  - Replay runs on every delivery and on `?mode=sweep` with the service key, up to 3 attempts, and
+    also covers claims older than 10 minutes.
+  - Replaying is safe because the RPC claims the message id before it writes.
+  - Tests: CON-UNIT-WA-W0-001/002/005.
+  - Still to do: verify against production data.
 - **Ownerless outbox recovery** — outbox entries whose owner is unknown are quarantined, but nothing
   resolves or surfaces them.
 
