@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.39.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.39.1**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -243,6 +243,14 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   acknowledged deterministically, before the form opens. `meta.assistant` answers
   about the assistant and reads no household data; unmatched questions carry
   `CAPABILITIES` so a decline names what does work.
+  **A stated amount is checked before it is used (v10.39.1):** a foreign currency is
+  converted at the app's rate in the `resolve()` wrapper, and a MISSING rate returns
+  `needs_rate` with no figures — `convert()` silently treats a missing rate as 1, so
+  never call it on a user-stated code without checking the rate exists. An amount that
+  only appears in the text as a phone/account/reference number is not an amount
+  (`isIdentifierRun`, identical in the WhatsApp parser). **Free to spend is liquid −
+  `cardDues()`**, read from the projection's liability rows, and affordability headroom
+  subtracts it; greetings and `meta.assistant` need no phrase call.
   **`params.max_tokens` in `ai_model_configs` IS the cap for
   every call (corrected v10.37)** — the client sends `maxOutputTokens` (256
   classify / 700 phrase) but `ask-vyact/index.ts` never forwards it to

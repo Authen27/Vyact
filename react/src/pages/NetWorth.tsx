@@ -6,7 +6,7 @@ import { Panel } from '../components/ui/Card';
 import { fmt, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
 import { monthlyData } from '../lib/calculations';
-import { computeNetWorth } from '../lib/netWorth';
+import { computeNetWorth, cardDues } from '../lib/netWorth';
 // v10.38.1 — the one spend baseline, shared with Ask Vyact so the two screens
 // cannot quote different months of cover for the same household.
 import { spendBasis } from '../lib/aiSummary';
@@ -82,6 +82,9 @@ export default function NetWorth() {
   // displayed Net Worth — the projection excludes them, so no addend here.
   const nw  = projection.netWorth;
   const la  = projection.liquidAssets;
+  // v10.39.1 (P19) — the card bill is paid from `la`, so what is FREE is less by it.
+  // Same helper as the assistant's facts: one figure, whichever screen asks.
+  const dues = cardDues(projection);
   const { income, expense } = monthlyData(transactions, nowMonthKey(), c, rates);
   const monthlyIncome = income || 1;
 
@@ -229,7 +232,10 @@ export default function NetWorth() {
           {
             label: 'Money you can reach',
             value: fmt(Math.round(la), c),
-            sub: 'cash and savings you could use today',
+            sub: dues <= 0 ? 'cash and savings you could use today'
+              : la >= dues
+                ? `${fmt(Math.round(la - dues), c)} free after ${fmt(Math.round(dues), c)} card dues`
+                : `${fmt(Math.round(dues - la), c)} short of ${fmt(Math.round(dues), c)} card dues`,
             good: la >= typicalMonthly * 6,
             warn: la >= typicalMonthly * 3,
           },

@@ -63,6 +63,15 @@ export interface ExtractedEntities {
   date?: string;
   /** v10.38 — an account the user or a bank message named ("ICICI Bank Card XX3003"). */
   account?: string;
+  /**
+   * v10.39.1 (P20) — the 3-letter currency the user stated, when they stated one.
+   * Read through `statedCurrency()`, which also recognises symbols in the text.
+   */
+  currency?: string;
+  /** v10.39.1 (P21) — how often a recurring bill repeats ("monthly", "weekly"). */
+  frequency?: string;
+  /** v10.39.1 (P21) — the day of the month a recurring bill falls on (1–31). */
+  dayOfMonth?: number;
   /** Raw normalised text, for downstream classification. */
   text: string;
 }
@@ -245,22 +254,109 @@ const KEYWORDS_BY_LEN = Object.keys(KEYWORD_MAP).sort((a, b) => b.length - a.len
 /** Parse an amount, supporting k / lakh / cr shorthands and grouping commas.
  *  "10k" → 10000, "2.5k" → 2500, "3 lakh"/"3l" → 300000, "1,200" → 1200,
  *  "5 bucks" → 5, "85000" → 85000. Returns undefined when no number present. */
+/**
+ * v10.39.1 (P8) — words that mark the number after them as an IDENTIFIER, not money.
+ * "card XX1234", "a/c no 5521", "UPI ref 40913", "call 98480 22113".
+ */
+// Anchored to a word start: "paid 500" ends in "id", and must not read as one.
+// Bare "card" is deliberately absent — "gift card 500" is an amount; masked digits
+// ("XX1234", "**1234") and "card ending/no" are the identifier forms.
+const IDENTIFIER_CUE = /(?:^|[^a-z])(?:phone|mobile|mob|number|no\.?|num|a\/c|acct|account\s+(?:no|number)|upi(?:\s+id)?|ref(?:erence)?(?:\s+no)?|txn\s*id|transaction\s+id|order\s*id|otp|id|card\s+(?:ending(?:\s+in|\s+with)?|no\.?|number)|ending(?:\s+in|\s+with)?|call)\s*[:#.-]?\s*$|(?:x{2,}|\*{2,})$/i;
+
+/**
+ * Is this digit run an identifier rather than an amount? (v10.39.1, P8)
+ *
+ * 🔴 A WhatsApp message reading "…Send from 8897882803" was logged as an ₹8.9bn
+ * expense: the phone number was the first number in the text, so it became the
+ * amount. Two tests, either sufficient: ten or more digits with no grouping (no
+ * household writes a sum of money that way — ₹100 crore is "100cr" or has commas),
+ * or a cue word immediately before it.
+ */
+export function isIdentifierRun(run: string, before: string): boolean {
+  const digitsOnly = /^\d+$/.test(run);
+  if (digitsOnly && run.length >= 10) return true;
+  return IDENTIFIER_CUE.test(before.slice(-32));
+}
+
 export function parseAmount(text: string): number | undefined {
   // Strip currency symbols/words so the numeric matcher is clean.
   const t = text.replace(/[$£€₹]/g, ' ').replace(/\b(rs|inr|usd|gbp|eur|bucks?|rupees?|dollars?|quid)\b/gi, ' ');
-  // number + optional scale suffix (k, lakh/lac/l, cr/crore, m)
-  const m = t.match(/(\d[\d,]*\.?\d*)\s*(k|lakhs?|lacs?|l|cr|crores?|m|mn)?\b/i);
-  if (!m) return undefined;
-  const base = Number(m[1].replace(/,/g, ''));
-  if (!isFinite(base)) return undefined;
-  const scale = (m[2] || '').toLowerCase();
-  let mult = 1;
-  if (scale === 'k') mult = 1_000;
-  else if (scale === 'm' || scale === 'mn') mult = 1_000_000;
-  else if (scale === 'l' || scale.startsWith('lakh') || scale.startsWith('lac')) mult = 100_000;
-  else if (scale === 'cr' || scale.startsWith('crore')) mult = 10_000_000;
-  const value = base * mult;
-  return value > 0 ? Math.round(value * 100) / 100 : undefined;
+  // number + optional scale suffix (k, lakh/lac/l, cr/crore, m). The FIRST number
+  // that is not an identifier wins — it used to be the first number, full stop.
+  const re = /(\d[\d,]*\.?\d*)\s*(k|lakhs?|lacs?|l|cr|crores?|m|mn)?\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t)) !== null) {
+    if (isIdentifierRun(m[1], t.slice(0, m.index))) continue;
+    const base = Number(m[1].replace(/,/g, ''));
+    if (!isFinite(base)) continue;
+    const scale = (m[2] || '').toLowerCase();
+    let mult = 1;
+    if (scale === 'k') mult = 1_000;
+    else if (scale === 'm' || scale === 'mn') mult = 1_000_000;
+    else if (scale === 'l' || scale.startsWith('lakh') || scale.startsWith('lac')) mult = 100_000;
+    else if (scale === 'cr' || scale.startsWith('crore')) mult = 10_000_000;
+    const value = base * mult;
+    if (value > 0) return Math.round(value * 100) / 100;
+  }
+  return undefined;
+}
+
+/**
+ * v10.39.1 (P8) — the model-extracted amount, checked against the user's own words.
+ *
+ * In the model-backed path the AMOUNT comes from the classifier, which can make the
+ * same mistake the regex did. True when every place that amount appears in the text
+ * is an identifier — then it is not an amount the user stated, and capture must ask
+ * rather than pre-fill ₹8.9bn.
+ */
+export function amountLooksLikeIdentifier(text: string, amount: number): boolean {
+  if (!Number.isFinite(amount) || !Number.isInteger(amount)) return false;
+  const target = String(amount);
+  const re = /\d[\d,]*/g;
+  let m: RegExpExecArray | null;
+  let seen = false;
+  while ((m = re.exec(text)) !== null) {
+    if (m[0].replace(/,/g, '') !== target) continue;
+    seen = true;
+    if (!isIdentifierRun(m[0], text.slice(0, m.index))) return false;
+  }
+  return seen;
+}
+
+/** Symbol → code. `$` is resolved against the household's base currency. */
+const SYMBOL_CURRENCY: Record<string, string> = { '£': 'GBP', '€': 'EUR', '¥': 'JPY', '₹': 'INR' };
+const WORD_CURRENCY: [RegExp, string][] = [
+  [/\b(usd|us\s?dollars?|dollars?|bucks?)\b/i, 'USD'],
+  [/\b(inr|rs\.?|rupees?)(?=\s|\d|$)/i, 'INR'],
+  [/\b(eur|euros?)\b/i, 'EUR'],
+  [/\b(gbp|pounds?|quid)\b/i, 'GBP'],
+  [/\b(aed|dirhams?)\b/i, 'AED'],
+  [/\b(sgd)\b/i, 'SGD'],
+  [/\b(aud)\b/i, 'AUD'],
+  [/\b(cad)\b/i, 'CAD'],
+  [/\b(jpy|yen)\b/i, 'JPY'],
+];
+
+/**
+ * The currency the user stated, or undefined when they stated none (v10.39.1, P20).
+ *
+ * 🔴 "$150 dinner" was checked as ₹150: the amount was read and its currency thrown
+ * away, so an answer about affordability ran on a figure ~83× too small. The model's
+ * `currency` entity wins when it is a real code; otherwise symbols and words in the
+ * text decide. `$` means the base currency when the base itself is written with `$`
+ * (USD, AUD, CAD, SGD), and USD otherwise.
+ */
+export function statedCurrency(
+  entityCurrency: unknown, text: string, baseCurrency: string, baseSymbol?: string,
+): string | undefined {
+  if (typeof entityCurrency === 'string' && /^[A-Za-z]{3}$/.test(entityCurrency.trim())) {
+    return entityCurrency.trim().toUpperCase();
+  }
+  const sym = Object.keys(SYMBOL_CURRENCY).find(s => text.includes(s));
+  if (sym) return SYMBOL_CURRENCY[sym];
+  if (text.includes('$')) return baseSymbol?.includes('$') ? baseCurrency : 'USD';
+  for (const [re, code] of WORD_CURRENCY) if (re.test(text)) return code;
+  return undefined;
 }
 
 /** "split 3600 4 ways" → 4; "between me and 2 friends" → 3; "dinner 80 with 3 of us" → 3. */

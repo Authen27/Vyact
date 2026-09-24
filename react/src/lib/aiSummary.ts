@@ -11,7 +11,7 @@ import {
   monthlyData, computePulseScore,
   spendByCategory, reportableTxns, budgetLinesForMonth,
 } from './calculations';
-import { computeNetWorth } from './netWorth';
+import { computeNetWorth, cardDues } from './netWorth';
 import { computeAccountBalance } from './accountBalance';
 import { NEEDS_WANTS_MAP } from '../constants';
 import { convert } from './format';
@@ -121,6 +121,13 @@ export interface SafeSummary {
     liquidAssets: number;
     liquidityMonths: number;             // liquidAssets / spendBasis.averageMonthly
     debtToAssetPct: number;
+    /**
+     * v10.39.1 (P19) — credit-card outstanding, from the same liability rows
+     * (`cardDues`). `liquidAssets − cardDues` is what is FREE to spend: a card bill
+     * is paid out of the liquid money, so quoting the gross figure as spendable
+     * overstates it by exactly the bill.
+     */
+    cardDues: number;
   };
   /** v10.38 — the ONE spend baseline every cover/floor figure divides by. */
   spendBasis: SpendBasis;
@@ -270,6 +277,7 @@ export function buildSafeSummary(
       liquidAssets: round2(liquid),
       liquidityMonths: round2(liquidityMonths),
       debtToAssetPct: ta > 0 ? round2(tl / ta * 100) : 0,
+      cardDues: cardDues(nwProjection),
     },
     spendBasis: basis,
     // The SAME rows the projection totalled, so a breakdown can never disagree with

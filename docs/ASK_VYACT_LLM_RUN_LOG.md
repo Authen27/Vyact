@@ -396,3 +396,39 @@ rewriting June's. Balance now −₹24,010, so the amount owed reads as debt. Ca
 One `ai_usage` row remains at `outcome='reserved'` (04:07:35). A relay reservation is finalised only by a
 successful poll, so an abandoned turn leaves the row reserved for good and it still counts against the
 daily cap.
+
+### Period 7 — v10.39.0 on production · 2026-09-23/24 · relay, owner's household
+
+The corrected money model held under questioning. Figures the facts reported, each checked against
+the app's own calculation (not hand SQL):
+
+| Figure | Value | Decomposition |
+|---|---|---|
+| Money you can reach | ₹34,045 | HDFC Bank ₹34,000 + Cash ₹45 + ICICI ₹0 — the card excluded (P1 holds) |
+| Total debt | ₹25,97,819 | the Federal Bank card now counts as a liability after the repair |
+| Net worth | ₹26,85,006 | |
+| Months of cover | 1.7 | on `spendBasis` |
+| Pulse | 100/100 | see P7 below |
+
+**New findings (all fixed in v10.39.1):**
+
+| # | Finding |
+|---|---|
+| **P20** | A `$` amount was treated as `₹` — "$150 dinner" checked as ₹150, understated ~83×. The only item that fed a wrong figure into a calculation |
+| **P19** | "Free to spend" quoted the gross ₹34,045 with card dues still to be paid out of it |
+| **P7** | Pulse 100/100 with "Strong — keep doing what you are doing" beside 1.7 months of cover. Pulse's savings component is the month's savings *rate*; it never measured cover. The verdict line was the defect |
+| **P17** | A greeting took as long as a net-worth question — two model calls to say hello |
+| **P21** | No way to set up a recurring bill from chat |
+| **P22** | No explicit "I can't do that" route; `CAPABILITIES` said "upcoming and recurring bills", which read as if bills could be managed |
+| **P8** | (from Period 6) a phone number parsed as ₹8.9bn on the WhatsApp path |
+
+Dropped after review: a suspected Sapphiro double count — the owner confirmed the Net Worth asset
+and the account of that name are **independent holdings**, not one counted twice.
+
+### Snapshot correction (2026-09-24, with the owner's approval)
+
+September's `net_worth_snapshots` row had been recorded (first write wins) while the card's sign was
+wrong. It was corrected **once**, deliberately, to the verified position: `total_assets` 52,82,825,
+`total_liabilities` 25,97,819, `liquid_assets` 34,045, `net_worth` 26,85,006; `recorded_at`
+unchanged. This is the only exception to first-write-wins, made because the recorded row was
+produced by a since-fixed bug, not by a real position.

@@ -18,13 +18,16 @@ import {
 } from './calculations';
 // v10.38 — period/date/account resolution lives in the parser, next to the entity
 // shape it reads, and is unit-tested there.
-import { resolvePeriod, parseDateEntity, matchAccountId, matchCategory, resolveCategoryId } from './askVyactParser';
-import { getCat, NEEDS_WANTS_MAP } from '../constants';
-import { fmt } from './format';
+import {
+  resolvePeriod, parseDateEntity, matchAccountId, matchCategory, resolveCategoryId,
+  statedCurrency, amountLooksLikeIdentifier, normalise,
+} from './askVyactParser';
+import { getCat, NEEDS_WANTS_MAP, CURRENCIES } from '../constants';
+import { fmt, convert } from './format';
 import { nowMonthKey, getMonthKey } from './format';
 import type { SafeSummary } from './aiSummary';
 import type { IntentResult, AssistantBucket } from './askVyactIntents';
-import { normaliseChips, type AssistantChip, type ResolveResult } from './askVyactResponses';
+import { normaliseChips, type AssistantChip, type ResolveResult, type RecurringSeed } from './askVyactResponses';
 import {
   classifyIntentViaModel, phraseViaModel,
   InventedFigureError, ModelUnavailableError, type ModelCall,
@@ -86,6 +89,8 @@ export interface AssistantTurn {
   intentId: string;
   /** Capture only — seed for the existing TransactionFormModal (openAddTxn). */
   seed?: Partial<Transaction>;
+  /** v10.39.1 (P21) — draft for the Recurring section's schedule sheet. */
+  recurringSeed?: RecurringSeed;
   /**
    * Up to three one-tap follow-ups (#62). Already normalised and capped by
    * `runAssistant` — a renderer may show these verbatim without re-checking.
@@ -175,7 +180,18 @@ function positionFacts(ctx: AssistantContext) {
     // v10.39 (P4) — the same figure, decomposed. A total nobody can trace is a
     // figure the customer has to take on trust, and this one was wrong for months.
     liquid_by_source: liquidBySource(ctx),
+    // v10.39.1 (P19) — what is actually FREE: the card bill comes out of the money
+    // above. Signed, because dues can exceed the cash that will pay them.
+    card_dues_to_pay: money(s.netWorth.cardDues, ctx),
+    free_to_spend_after_card_dues: signedMoney(s.netWorth.liquidAssets - s.netWorth.cardDues, ctx, 'free', 'short'),
     months_of_liquid_cover: s.netWorth.liquidityMonths.toFixed(1),
+    // v10.39.1 (P7) — Pulse scores this month's habits (budgets, savings RATE, trend,
+    // debt). It says nothing about how long savings would last, so a 100/100 beside a
+    // thin cushion is not a contradiction — but an answer must not read it as one.
+    pulse_measures: "budgets, this month's savings rate, spending trend and debt — not how long your savings would last",
+    ...(s.netWorth.liquidityMonths < 3
+      ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months of typical spending, under the usual three-month cushion, whatever the Pulse score says` }
+      : {}),
     cover_basis: `typical monthly spending of ${money(basisOf(ctx).averageMonthly, ctx)}, averaged over ${basisLabel(ctx)}`,
     income_this_month: money(s.thisMonth.income, ctx),
     spending_this_month: money(s.thisMonth.expense, ctx),
@@ -216,12 +232,81 @@ function figuresAllowedBy(result: ResolveResult): string[] {
 function captureAcknowledgement(result: ResolveResult): string {
   const v = result.vars ?? {};
   const bits: string[] = [];
-  if (v.amount) bits.push(String(v.amount));
+  if (v.amount) bits.push(v.converted_from
+    ? `${String(v.amount)} (${String(v.converted_from)} at the app's exchange rate)`
+    : String(v.amount));
   if (v.category) bits.push(`under ${String(v.category)}`);
   if (v.account) bits.push(`on ${String(v.account)}`);
   if (v.date) bits.push(`dated ${String(v.date)}`);
   const what = bits.length ? bits.join(' ') : 'the details you gave';
   return `I've pre-filled ${what}. Check it over and save it — nothing is recorded until you do.`;
+}
+
+/** v10.39.1 (P21) — the recurring counterpart: what was understood, and what is left to do. */
+function recurringAcknowledgement(result: ResolveResult): string {
+  const v = result.vars ?? {};
+  const amount = v.converted_from
+    ? `${String(v.amount)} (${String(v.converted_from)} at the app's exchange rate)`
+    : String(v.amount);
+  const when = v.day ? ` on the ${String(v.day)}` : '';
+  return `I've drafted a ${String(v.frequency)} schedule for ${amount} under ${String(v.category)}${when}. `
+    + 'Choose the account it comes from and save it — nothing is set up until you do.';
+}
+
+// ── v10.39.1 (P17) — replies that need no model ─────────────────────────────────
+//
+// "Hi" took as long as a net-worth question: two model calls, through a queue, to
+// say hello. These answers read no household data and contain no figures, so they
+// are written here and returned at once — and they still work when the model is
+// unreachable, which is honest: nothing about the household is being answered.
+// Matched against the WHOLE message, so "hi, how much did I spend?" is still a
+// question and goes to the model.
+const QUICK_CHIPS: AssistantChip[] = [
+  { label: 'Spend this month', prompt: 'How much did I spend this month?' },
+  { label: 'How am I doing?', prompt: 'How am I doing financially?' },
+  { label: 'Upcoming bills', prompt: 'What are my upcoming bills?' },
+];
+
+function capabilitySummary(): string {
+  return `I can help with ${CAPABILITIES.can_answer.slice(0, 6).join('; ')}; and more. `
+    + `I can't yet do ${CAPABILITIES.cannot_answer_yet.slice(0, 3).join('; ')}.`;
+}
+
+export function quickReply(utterance: string): string | null {
+  const t = normalise(utterance).replace(/[!?.,:;~*]+/g, ' ').replace(/\s+/g, ' ').trim()
+    .replace(/\s+(vyact|ask vyact|there|buddy|team)$/, '');
+  if (!t) return null;
+  if (/^(hi|hii+|hello|hey|hiya|namaste|namaskar|yo|good (morning|afternoon|evening))$/.test(t)) {
+    return "Hi! Ask me anything about your household's money — what you spent, whether a purchase fits, or what bills are coming up.";
+  }
+  if (/^(thanks|thank you|thank u|thx|ty|ok thanks|okay thanks|thanks a lot|great thanks|cool|great|ok|okay|got it|perfect|nice)$/.test(t)) {
+    return "You're welcome. Anything else about your money?";
+  }
+  if (/^(who are you|what('?s| is) your name|what (do|should|can) i call you|your name)$/.test(t)) {
+    return "I'm Ask Vyact. I answer questions about your household's money from your own records, and pre-fill forms for you to check and save.";
+  }
+  if (/^(help|what can you do|what do you do|how can you help( me)?|what can i ask( you)?|what can you help (me )?with)$/.test(t)) {
+    return `I'm Ask Vyact. ${capabilitySummary()}`;
+  }
+  return null;
+}
+
+/**
+ * v10.39.1 (P17) — `meta.assistant` answered without a phrase call. The facts it
+ * used to send the model were the capability list and a name; the model added
+ * seconds and nothing else.
+ */
+function aboutMeReply(text: string): string {
+  const t = normalise(text);
+  if (/\b(slow|fast|quick|long|wait|lag|delay|taking)\b/.test(t)) {
+    return 'Each answer takes two steps: I work out your figures from your own records, then a language model writes the reply. '
+      + 'The writing step can take several seconds, longer when the service is busy. Greetings and questions about me are answered instantly.';
+  }
+  if (/\b(bullet|format|table|shorter|longer|brief|concise|detail|style|tone)\b/.test(t)) {
+    return "I can't change how my answers are formatted on request yet. "
+      + 'I lead with the figure you asked for and keep the rest short.';
+  }
+  return `I'm Ask Vyact. ${capabilitySummary()}`;
 }
 
 /**
@@ -324,8 +409,104 @@ function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey()) {
     });
 }
 
+const ordinal = (n: number): string => {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+};
+
+/** v10.39.1 (P21) — the recurring draft, from what the user actually said. */
+function recurringSeedFrom(e: IntentResult['entities']): RecurringSeed {
+  const text = e.text;
+  const stated = String(e.frequency ?? '').toLowerCase();
+  const frequency: RecurringSeed['frequency'] =
+    /daily|every day/.test(stated || text) ? 'daily'
+    : /week/.test(stated || text) ? 'weekly'
+    : /year|annual/.test(stated || text) ? 'yearly'
+    : 'monthly';
+  const type: RecurringSeed['type'] = /\b(salary|paycheck|pay ?day|income|stipend|pension|rent (received|income))\b/.test(text)
+    ? 'income' : 'expense';
+  const category = resolveCategoryId(typeof e.category === 'string' ? e.category : undefined)
+    ?? matchCategory(String(e.merchant ?? text).toLowerCase())
+    ?? (type === 'income' ? 'salary' : 'other_expense');
+  // A day only when it is unambiguous: the entity, or an ordinal in the text
+  // ("on the 5th") — never a bare number, which is usually the amount.
+  const fromText = text.match(/\b([1-9]|[12]\d|3[01])(st|nd|rd|th)\b/);
+  const rawDay = typeof e.dayOfMonth === 'number' ? e.dayOfMonth : fromText ? Number(fromText[1]) : undefined;
+  const dayOfMonth = frequency === 'monthly' && rawDay && rawDay >= 1 && rawDay <= 31 ? Math.trunc(rawDay) : undefined;
+  const name = e.merchant
+    ? e.merchant.charAt(0).toUpperCase() + e.merchant.slice(1)
+    : getCat(category).label;
+  return { name, type, amount: e.amount ?? 0, category, frequency, ...(dayOfMonth ? { dayOfMonth } : {}) };
+}
+
+/** Intents whose `amount` entity is a sum of money the user stated. */
+const AMOUNT_INTENTS = new Set([
+  'capture.expense', 'capture.income', 'capture.transfer', 'capture.investment',
+  'capture.split', 'capture.recurring', 'forecast.affordability', 'forecast.prescriptive',
+]);
+
+/** A rate exists for this code. USD is the table's anchor, so it always does. */
+const hasRate = (rates: AssistantContext['rates'], code: string) =>
+  code === 'USD' || (typeof rates[code] === 'number' && rates[code] > 0);
+
 // ── Stage 4 — resolve (the ONLY place money is computed) ────────────────────────
+/**
+ * v10.39.1 — two checks on the stated AMOUNT before any figure is computed.
+ *
+ * P8: an amount that only ever appears in the text as a phone/account/reference
+ * number is not an amount. Capture asks for one instead of pre-filling it.
+ *
+ * P20: an amount stated in another currency is converted to the base currency
+ * FIRST, at the app's own rate — or, when the app holds no rate for it, not used at
+ * all. "$150 dinner" was checked as ₹150 because the currency was read and dropped.
+ * `convert()` quietly treats a missing rate as 1, which is how a wrong answer would
+ * come back; so the rate's existence is checked here, explicitly, and a missing one
+ * is said out loud with no figures.
+ */
 export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveResult {
+  const e = intent.entities;
+  if (!AMOUNT_INTENTS.has(intent.id) || e.amount == null) return resolveCore(intent, ctx);
+  const kind: ResolveResult['kind'] = intent.id.startsWith('capture') ? 'capture' : 'forecast';
+
+  if (kind === 'capture' && amountLooksLikeIdentifier(normalise(e.text), e.amount)) {
+    return {
+      kind, outcome: 'missing_amount', vars: {},
+      facts: { needs: 'the amount', note: 'the only number given looks like a phone, account or reference number, not an amount' },
+      analysis: ['The number given looks like a phone or account number, not an amount'],
+    };
+  }
+
+  const base = cur(ctx);
+  const stated = statedCurrency(e.currency, e.text, base, CURRENCIES[base]?.symbol);
+  if (!stated || stated === base) return resolveCore(intent, ctx);
+
+  if (!hasRate(ctx.rates, stated) || !hasRate(ctx.rates, base)) {
+    return {
+      kind, outcome: 'needs_rate', vars: {},
+      facts: {
+        amount_currency: stated,
+        household_currency: base,
+        note: `no exchange rate for ${stated} is set in the app, so this amount cannot be converted to ${base}; add the rate in Settings, or ask again in ${base}`,
+      },
+      analysis: [`No ${stated} → ${base} rate is set, so I can't convert this amount`],
+    };
+  }
+
+  const converted = Math.round(convert(e.amount, stated, base, ctx.rates) * 100) / 100;
+  const rate = convert(1, stated, base, ctx.rates);
+  const asStated = `${e.amount} ${stated}`;
+  const rateText = `1 ${stated} = ${rate.toFixed(rate >= 1 ? 2 : 4)} ${base}, the rate set in the app`;
+  const result = resolveCore({ ...intent, entities: { ...e, amount: converted } }, ctx);
+  return {
+    ...result,
+    vars: { ...result.vars, converted_from: asStated },
+    facts: { ...(result.facts ?? {}), amount_as_stated: asStated, converted_at: rateText },
+    analysis: [`Converted ${asStated} to ${base} at ${rateText.split(',')[0]}`, ...(result.analysis ?? [])],
+  };
+}
+
+function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult {
   const e = intent.entities;
 
   switch (intent.id) {
@@ -401,6 +582,23 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       return {
         kind: 'capture', outcome: 'seeded', seed,
         vars: { amount: money(e.amount, ctx), ways, share: money(share, ctx) },
+      };
+    }
+    // v10.39.1 (P21) — a REPEATING bill, proposed to the Recurring section's own form.
+    // Nothing is scheduled here: the user picks the paying account and saves, exactly
+    // as for a one-off capture. v9.1 made Recurring the only place a schedule is
+    // authored, and this keeps it so — chat only fills the draft in.
+    case 'capture.recurring': {
+      if (e.amount == null) return { kind: 'capture', outcome: 'missing_amount', vars: {} };
+      const seed = recurringSeedFrom(e);
+      return {
+        kind: 'capture', outcome: 'recurring_seeded', recurringSeed: seed,
+        vars: {
+          amount: money(seed.amount, ctx),
+          category: getCat(seed.category).label.toLowerCase(),
+          frequency: seed.frequency,
+          ...(seed.dayOfMonth ? { day: ordinal(seed.dayOfMonth) } : {}),
+        },
       };
     }
 
@@ -515,6 +713,16 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         analysis: ['Answered about myself — no household data read'],
         vars: {},
       };
+    // v10.39.1 (P22) — asked to DO something the app cannot. Said plainly, with the
+    // list of what does work, and no household data read: forcing these into the
+    // nearest money intent produced a confident answer to a different question.
+    case 'unsupported':
+      return {
+        kind: 'fallback', outcome: 'unsupported',
+        facts: { request: 'something I cannot do from here', ...CAPABILITIES },
+        analysis: ["That's outside what I can do — listing what I can"],
+        vars: {},
+      };
     case 'interpret.status': {
       const s = ctx.summary;
       // One overview serves all three branches: net worth, balances and "how am I
@@ -539,9 +747,15 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
         } };
       }
       const total = s.pulseScore.total ?? 0;
+      // v10.39.1 (P7) — "Strong — keep doing what you are doing" was said beside 1.7
+      // months of cover. Pulse does not measure the cushion, so the verdict line must
+      // not speak for it: a strong score with a thin cushion says both.
+      const thinCushion = s.netWorth.liquidityMonths < 3 && total >= 65;
       return { kind: 'interpret', outcome: 'ok', facts, analysis, vars: {
         headline: `Your Pulse Score is ${total}/100.`,
-        detail: total >= 80 ? 'Strong — keep doing what you are doing.'
+        detail: thinCushion
+          ? `Your monthly habits score well, but your cushion is thin — about ${s.netWorth.liquidityMonths.toFixed(1)} months of cover.`
+          : total >= 80 ? 'Strong — keep doing what you are doing.'
           : total >= 65 ? 'Solid, with a little room to push.'
           : 'There is room to improve — Insights lists your next steps.',
       } };
@@ -694,10 +908,16 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       const liquid = ctx.summary.netWorth.liquidAssets;
       const basis = basisOf(ctx);
       const floor = emergencyFloor(ctx);
-      const headroom = liquid - floor;
+      // v10.39.1 (P19) — the card bill is paid from this same money, so it comes off
+      // before anything is "spare". Headroom used to be liquid − floor, which let a
+      // purchase "fit" into money already owed to the card issuer.
+      const dues = ctx.summary.netWorth.cardDues;
+      const headroom = liquid - dues - floor;
       const affordFacts = {
         purchase: money(e.amount, ctx),
         liquid_savings: money(liquid, ctx),
+        card_dues_to_pay: money(dues, ctx),
+        free_to_spend_after_card_dues: signedMoney(liquid - dues, ctx, 'free', 'short'),
         typical_monthly_spending: money(basis.averageMonthly, ctx),
         typical_essential_monthly: money(basis.averageEssential, ctx),
         typical_discretionary_monthly: money(basis.averageDiscretionary, ctx),
@@ -709,6 +929,7 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
       };
       const affordAnalysis = [
         'Totalled your liquid savings',
+        ...(dues > 0 ? ['Set aside what your credit cards owe'] : []),
         `Averaged your spending over ${basisLabel(ctx)}`,
         'Kept three months of essential spending aside as a safety floor',
         'Compared the purchase with what is left above it',
@@ -866,13 +1087,19 @@ export const CAPABILITIES = {
     'what you own and how quickly each part could be reached',
     'budget status, and which budgets are over their limit',
     'debts with balances and interest rates, and which to clear first',
-    'upcoming and recurring bills',
-    'whether a purchase fits above your safety floor',
+    // v10.39.1 (P22) — was "upcoming and recurring bills", which read as if the
+    // assistant could manage them. It lists the ones already set up; it does not
+    // pay or change them.
+    'listing upcoming bills you have set up as recurring schedules',
+    'how much is free to spend once your credit card dues are paid',
+    'whether a purchase fits above your safety floor, in your currency or another',
     'how long your savings would last without income',
     'where you could cut back',
     'recording an expense, income, transfer, investment or split (you confirm the form)',
+    'setting up a recurring bill, subscription or salary (you choose the account and save)',
   ],
   cannot_answer_yet: [
+    'paying, sending or moving real money, or contacting anyone — I read your records and pre-fill forms only',
     'which specific holding to sell — that needs tax, lock-ins and what each is for',
     'windows other than whole months (last 60 days, since payday, daily pace)',
     'simulations: what an extra payment does to a payoff date, or to a net worth milestone',
@@ -955,6 +1182,8 @@ const INTENT_LABEL: Record<string, string> = {
   'forecast.runway': 'working out how long your money lasts',
   'forecast.prescriptive': 'finding where you could save',
   'meta.assistant': 'answering about me, not your money',
+  'capture.recurring': 'setting up a recurring bill',
+  'unsupported': "something I can't do from here",
 };
 
 export async function runAssistant(
@@ -979,6 +1208,16 @@ export async function runAssistant(
   // No model configured or reachable. Say so — never fake an answer. There is no
   // rules fallback by design (v10.20), and a finance assistant that invents a
   // reply when it cannot think is worse than one that admits it is offline.
+  //
+  // v10.39.1 (P17) — except for a greeting or a question about the assistant, which
+  // has no household answer to fake: those are answered here, before any model.
+  const quick = quickReply(utterance);
+  if (quick) {
+    return {
+      reply: quick, bucket: 'none', intentId: 'meta.assistant',
+      chips: normaliseChips(QUICK_CHIPS), clarify: false, allowedFigures: [],
+    };
+  }
   if (!backend) return unavailableTurn('not_configured');
 
   onProgress?.('Understanding your question');
@@ -1018,6 +1257,25 @@ export async function runAssistant(
       allowedFigures: figuresAllowedBy(result),
     };
   }
+  // v10.39.1 (P21) — same rule for a recurring draft: acknowledged here, then the
+  // Recurring sheet opens with it.
+  if (result.kind === 'capture' && result.outcome === 'recurring_seeded') {
+    return {
+      reply: recurringAcknowledgement(result),
+      bucket: effective.bucket,
+      intentId: effective.id,
+      recurringSeed: result.recurringSeed,
+      clarify: false,
+      allowedFigures: figuresAllowedBy(result),
+    };
+  }
+  // v10.39.1 (P17) — about the assistant: no household data, no phrase call.
+  if (effective.id === 'meta.assistant') {
+    return {
+      reply: aboutMeReply(utterance), bucket: 'none', intentId: effective.id,
+      chips: normaliseChips(QUICK_CHIPS), clarify: false, allowedFigures: [],
+    };
+  }
 
   onProgress?.('Writing your answer');
   let reply: string;
@@ -1040,7 +1298,8 @@ export async function runAssistant(
     // The ONE place the cap and the well-formedness rule are applied, so every
     // channel gets the same list and no call site can opt out of the limit.
     chips: normaliseChips(result.chips),
-    clarify: gated || result.kind === 'fallback' || result.outcome === 'missing_amount',
+    clarify: gated || result.kind === 'fallback' || result.outcome === 'missing_amount'
+      || result.outcome === 'needs_rate',
     allowedFigures: figuresAllowedBy(result),
   };
 }
