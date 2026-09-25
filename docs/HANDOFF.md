@@ -43,7 +43,7 @@
 >   function (runbook §2).
 > - **W2b (v10.43.0):** approval bills due today get `bill_due_reminder` at 09:00 IST. "paid <name>"
 >   approves the bill through `whatsapp_approve_recurring`, which posts the app's own row and moves the
->   schedule on atomically. **Next: W3**, the capture conversation (undo, missing amount, duplicates).
+>   schedule on atomically. **W3 (v10.44.0):** UNDO, corrections, missing-amount and duplicate questions (`whatsapp_pending_turns`). **Next: W4**, Ask Vyact on WhatsApp.
 >
 > Operational detail: [`whatsapp-closure-runbook.md`](../whatsapp-closure-runbook.md). The CI
 > deploy token was fixed in v10.20.5, so edge functions deploy on push again.
