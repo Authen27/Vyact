@@ -82,6 +82,10 @@ const gates = [
     cmd: 'node scripts/db-migrations-check.mjs' },
   { id: 'version-drift',       name: 'Version drift (README/VERSIONS/CHANGELOG vs package.json)', cwd: '.',
     cmd: 'node scripts/version-drift-check.mjs' },
+  // v10.45.0 (W4) — the server runs a BUNDLE of the app's Ask Vyact engine. A change
+  // to the app code without a rebuild would make WhatsApp answer from old rules.
+  { id: 'agent-engine-bundle', name: 'Agent engine bundle (server copy of Ask Vyact in sync)', cwd: '.',
+    cmd: 'node scripts/build-agent-engine.mjs --check' },
 ];
 if (runE2E) {
   // --reporter=json prints to stdout; redirect to a file the report can parse.

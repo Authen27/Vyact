@@ -42,3 +42,4 @@
 | 2026-09-25T09:08:49.545Z | ✅ PASS | `feat/whatsapp-w2` | `b613c58` | local | 369/369 | [report](2026-09-25T09-02-04-965Z__b613c58/report.md) |
 | 2026-09-25T09:58:00.284Z | ✅ PASS | `feat/whatsapp-w2b` | `efdedbe` | local | 377/377 | [report](2026-09-25T09-47-14-993Z__efdedbe/report.md) |
 | 2026-09-25T10:37:28.292Z | ✅ PASS | `feat/whatsapp-w3` | `b63e8bf` | local | 384/384 | [report](2026-09-25T10-31-04-633Z__b63e8bf/report.md) |
+| 2026-09-25T10:49:18.605Z | ✅ PASS | `feat/whatsapp-w4` | `873d327` | local | 393/393 | [report](2026-09-25T10-47-59-756Z__873d327/report.md) |

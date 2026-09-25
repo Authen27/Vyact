@@ -646,6 +646,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/assistantCore.test.ts",
+      "feature": "Ask Vyact on the server",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "serverEngine + its generated bundle (parity) / assistantCore model call (not a live provider)",
+      "count": 2,
+      "tests": [
+        "assistantCore — the server model call (W4) CON-UNIT-W4-005 · uses the production model (never the relay), reserves the cap and meters as whatsapp",
+        "assistantCore — the server model call (W4) CON-UNIT-W4-006 · over the cap fails closed before any provider call; no model means unavailable"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/authTransport.test.ts",
       "feature": "Authentication and invitations",
       "availability": "conditional",
@@ -1868,6 +1881,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/serverEngine.test.ts",
+      "feature": "Ask Vyact on the server",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "serverEngine + its generated bundle (parity) / assistantCore model call (not a live provider)",
+      "count": 4,
+      "tests": [
+        "Ask Vyact on the server (W4) CON-UNIT-W4-001 · the context from rows is the one the app builds (same summary, members, rates rule)",
+        "Ask Vyact on the server (W4) CON-UNIT-W4-002 · the generated bundle gives the SAME turn as the source",
+        "Ask Vyact on the server (W4) CON-UNIT-W4-003 · an invented figure is discarded on the server path too",
+        "Ask Vyact on the server (W4) CON-UNIT-W4-004 · WhatsApp rendering: no markdown, numbered chips, the length limit, and no form to open"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/sessionWorkflow.test.ts",
       "feature": "Session transitions",
       "availability": "conditional",
@@ -2086,11 +2114,14 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 33,
+      "count": 36,
       "tests": [
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-003 · \"paid rent\" after a reminder approves THAT occurrence with the app’s row and next date",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder \"paid X\" is an ordinary entry",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-005 · already approved in the app, or not approvable from chat, is said plainly",
+        "WhatsApp answers (W4) CON-UNIT-W4-007 · with answers OFF, a question stays hard-blocked, says where to turn them on, and reads nothing",
+        "WhatsApp answers (W4) CON-UNIT-W4-008 · with answers ON, Ask Vyact answers from this household; \"1\" asks the follow-up with the stated figures",
+        "WhatsApp answers (W4) CON-UNIT-W4-009 · the menu’s Check rows ask Ask Vyact when answers are on; a failed read says so plainly",
         "WhatsApp capture conversation (W3) CON-UNIT-WA-C-001 · a missing amount is asked for, and the next bare number completes the SAME entry",
         "WhatsApp capture conversation (W3) CON-UNIT-WA-C-002 · a same-amount twin within two hours asks first; 1 logs it, 2 logs nothing",
         "WhatsApp capture conversation (W3) CON-UNIT-WA-C-003 · an answer to an expired question is refused, never logged as ₹1",
