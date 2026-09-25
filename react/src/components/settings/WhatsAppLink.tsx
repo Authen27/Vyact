@@ -15,8 +15,103 @@ import { Input, Select, Field } from '../ui/Input';
 import { useStore } from '../../store';
 import { supabase, isCloudEnabled } from '../../lib/supabase';
 import { readWhatsAppLink } from '../../lib/whatsappLink';
+import { readWhatsAppPreferences, saveWhatsAppPreferences, type WhatsAppPreferences } from '../../lib/whatsappPreferences';
 
 type Phase = 'loading' | 'unlinked' | 'code-sent' | 'linked';
+
+/** Topics a person can switch off here. Bills and large-spend alerts are always on. */
+const MUTABLE_TOPICS: { id: string; label: string; hint: string }[] = [
+  { id: 'budgets', label: 'Budget alerts', hint: 'When a budget line reaches 80%.' },
+  { id: 'splits', label: 'Split updates', hint: 'When someone settles their share.' },
+];
+
+/**
+ * v10.42.0 (W2) — what Vyact may send to this number. Mirrors the chat commands
+ * (STOP BUDGETS…), which change the same record. Marketing is off until turned on
+ * here, where the consent and its time are recorded.
+ */
+function WhatsAppMessages() {
+  const toast = useStore(s => s.toast);
+  const [prefs, setPrefs] = useState<WhatsAppPreferences | null>(null);
+  const [threshold, setThreshold] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    readWhatsAppPreferences()
+      .then(p => { if (!cancelled) { setPrefs(p); setThreshold(String(p.large_txn_threshold)); } })
+      .catch(() => { if (!cancelled) toast('Could not load WhatsApp message settings.', 'error'); });
+    return () => { cancelled = true; };
+  }, [toast]);
+
+  if (!prefs) return <p className="text-[0.8rem] text-ink-dim">Loading message settings…</p>;
+
+  async function save(patch: Parameters<typeof saveWhatsAppPreferences>[0]) {
+    setBusy(true);
+    try {
+      const next = await saveWhatsAppPreferences(patch);
+      setPrefs(next); setThreshold(String(next.large_txn_threshold));
+    } catch (error) {
+      toast(`Couldn't save: ${(error as Error).message}`, 'error');
+    } finally { setBusy(false); }
+  }
+
+  function toggleTopic(id: string, on: boolean) {
+    const muted = new Set(prefs!.muted_topics);
+    if (on) muted.delete(id); else muted.add(id);
+    void save({ mutedTopics: [...muted] });
+  }
+
+  function saveThreshold() {
+    const n = Number(threshold.replace(/[^\d.]/g, ''));
+    if (!(n > 0)) { setThreshold(String(prefs!.large_txn_threshold)); return; }
+    if (n !== prefs!.large_txn_threshold) void save({ largeTxnThreshold: n });
+  }
+
+  const row = 'flex items-center justify-between gap-3 px-3.5 py-2.5';
+  return (
+    <div>
+      <div className="mono-label mb-1.5">Messages I send you</div>
+      <div className="rounded-r3 overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+        <div className={`${row} opacity-60`}>
+          <span className="text-[0.84rem] text-ink">Bill reminders and large-spend alerts
+            <span className="mono-label ml-2 text-ink-dim">always on</span></span>
+          <input type="checkbox" checked disabled className="accent-coral flex-shrink-0" aria-label="Bill reminders and large-spend alerts, always on" />
+        </div>
+        <label className={`${row} border-t border-line`}>
+          <span className="text-[0.84rem] text-ink">Large-spend alert from</span>
+          <Input inputMode="decimal" value={threshold} disabled={busy} aria-label="Large-spend alert threshold"
+            onChange={e => setThreshold(e.target.value)} onBlur={saveThreshold}
+            className="w-28 text-right" />
+        </label>
+        {MUTABLE_TOPICS.map(t => (
+          <label key={t.id} className={`${row} border-t border-line cursor-pointer`}>
+            <span>
+              <span className="block text-[0.84rem] text-ink">{t.label}</span>
+              <span className="block text-[0.74rem] text-ink-dim">{t.hint}</span>
+            </span>
+            <input type="checkbox" checked={!prefs.muted_topics.includes(t.id)} disabled={busy}
+              onChange={e => toggleTopic(t.id, e.target.checked)} className="accent-coral flex-shrink-0" />
+          </label>
+        ))}
+        <label className={`${row} border-t border-line cursor-pointer`}>
+          <span>
+            <span className="block text-[0.84rem] text-ink">Weekly summary and balance reminders</span>
+            <span className="block text-[0.74rem] text-ink-dim">
+              WhatsApp counts these as promotional, so they only come if you turn them on.
+            </span>
+          </span>
+          <input type="checkbox" checked={prefs.marketing_opt_in} disabled={busy}
+            onChange={e => void save({ marketingOptIn: e.target.checked })} className="accent-coral flex-shrink-0" />
+        </label>
+      </div>
+      <p className="mt-1.5 text-[0.72rem] text-ink-dim">
+        You can also reply STOP BUDGETS, STOP SPLITS or STOP in the chat. The alerts are only sent once each
+        message is approved by WhatsApp.
+      </p>
+    </div>
+  );
+}
 
 export default function WhatsAppLink() {
   const households = useStore(s => s.households);
@@ -143,6 +238,8 @@ export default function WhatsAppLink() {
             <p className="mt-2 text-[0.72rem] text-ink-dim">Asking for balances or reports? Vyact replies with a secure link to the app instead.</p>
           </div>
         )}
+
+        {phase === 'linked' && <WhatsAppMessages />}
 
         {phase === 'unlinked' && (
           <>

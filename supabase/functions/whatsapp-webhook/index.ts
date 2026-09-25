@@ -23,6 +23,12 @@ import {
   isReceptionistTrigger, receptionistList, menuReply, welcomeButtonAction, UNLINKED_GREETING, UNLINKED_OTHER,
 } from '../_shared/whatsapp-receptionist.ts';
 import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite } from '../_shared/whatsapp-parser.ts';
+import {
+  parsePrefCommand, applyPrefCommand, prefsSummary, buttonReply, unsupportedButtonReply,
+  LATE_TAP_DAYS, LATE_TAP_REPLY, type WaPrefs,
+} from '../_shared/whatsapp-prefs.ts';
+import { loadPrefs, advancesDelivery } from '../_shared/whatsapp-send.ts';
+import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
@@ -41,6 +47,51 @@ async function lookupIdentity(
     .maybeSingle();
   if (!data) return null;
   return { id: data.profile_id, whatsapp_household_id: data.household_id };
+}
+
+/** Meta's report on a message we sent: move the outbound row's status forward. */
+async function recordDeliveryStatus(supabase: SupabaseClient, status: any): Promise<void> {
+  const wamid = String(status?.id ?? '');
+  const next = String(status?.status ?? '');
+  if (!wamid || !next) return;
+  const { data: row } = await supabase.from('whatsapp_inbound_messages')
+    .select('wa_message_id, delivery_status').eq('provider_message_id', wamid).maybeSingle();
+  if (!row || !advancesDelivery((row as { delivery_status?: string }).delivery_status, next)) return;
+  const error = next === 'failed' ? String(status?.errors?.[0]?.title ?? status?.errors?.[0]?.code ?? 'failed') : undefined;
+  await supabase.from('whatsapp_inbound_messages').update({
+    delivery_status: next,
+    delivery_updated_at: new Date().toISOString(),
+    ...(error ? { last_error: `delivery: ${error}` } : {}),
+  }).eq('wa_message_id', (row as { wa_message_id: string }).wa_message_id);
+}
+
+/**
+ * Meta's own "stop promotions" (the user_preferences webhook): marketing consent is
+ * withdrawn and the source recorded. A "resume" is NOT taken as consent — turning
+ * marketing back on is done in the app, where it is recorded properly.
+ */
+async function recordMetaOptOut(supabase: SupabaseClient, pref: any): Promise<void> {
+  if (pref?.category !== 'marketing_messages' || pref?.value !== 'stop') return;
+  const profile = await lookupIdentity(supabase, String(pref?.wa_id ?? '').replace(/[^\d]/g, ''));
+  if (!profile) return;
+  await supabase.from('whatsapp_preferences').upsert({
+    profile_id: profile.id, marketing_opt_in: false, marketing_opt_in_at: null,
+    marketing_source: 'meta_opt_out', updated_at: new Date().toISOString(),
+  }, { onConflict: 'profile_id' });
+}
+
+/** Store preferences changed from chat (STOP / START / a Stop button). */
+async function savePrefs(supabase: SupabaseClient, profileId: string, before: WaPrefs, after: WaPrefs): Promise<void> {
+  await supabase.from('whatsapp_preferences').upsert({
+    profile_id: profileId,
+    marketing_opt_in: after.marketing_opt_in,
+    insights_opt_in: after.insights_opt_in,
+    muted_topics: after.muted_topics,
+    // Consent withdrawn from chat clears when it was given; giving it happens in the app.
+    ...(before.marketing_opt_in && !after.marketing_opt_in ? { marketing_opt_in_at: null, marketing_source: null } : {}),
+    ...(before.insights_opt_in && !after.insights_opt_in ? { insights_opt_in_at: null } : {}),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'profile_id' });
 }
 
 Deno.serve(async (req: Request) => {
@@ -102,6 +153,15 @@ Deno.serve(async (req: Request) => {
       for (const message of value?.messages ?? []) {
         const phone = String(message?.from ?? value?.contacts?.[0]?.wa_id ?? '').replace(/[^\d]/g, '');
         if (message?.id) incoming.push({ message, phone });
+      }
+      // v10.42.0 (W2) — what happened to what we sent, and Meta's own marketing
+      // opt-out. Small writes, recorded before the ACK; a failure here must not
+      // cost Meta a retry of the whole batch, so each is best-effort.
+      for (const status of value?.statuses ?? []) {
+        try { await recordDeliveryStatus(supabase, status); } catch (_e) { /* recorded next status */ }
+      }
+      for (const pref of value?.user_preferences ?? []) {
+        try { await recordMetaOptOut(supabase, pref); } catch (_e) { /* Meta also enforces it */ }
       }
     }
   }
@@ -285,6 +345,42 @@ async function sendMenu(
   }
 }
 
+/**
+ * v10.42.0 (W2) — a tap on a template button (not the welcome's). Every tap gets a
+ * reply that says what changed, or where to do it when nothing can change from
+ * chat (design: "Template button replies"). A tap on a message older than a week
+ * is not acted on. A payload we never issued is recorded and left alone.
+ */
+async function handleTemplateButton(
+  supabase: SupabaseClient, message: any, fromPhone: string, profileId: string,
+): Promise<InboundOutcome> {
+  const m = /^([a-z0-9_]+):(\d+)(?::|$)/.exec(String(message?.button?.payload ?? ''));
+  const def = m ? TEMPLATES[m[1]] : undefined;
+  if (!m || !def) return { status: 'done', note: 'ignored_button' };
+  const label = def.buttons?.[Number(m[2])]?.text ?? String(message?.button?.text ?? '');
+
+  // The message the tap answers, by Meta's id: how old is it?
+  const repliedTo = String(message?.context?.id ?? '');
+  if (repliedTo) {
+    const { data: sent } = await supabase.from('whatsapp_inbound_messages')
+      .select('created_at').eq('provider_message_id', repliedTo).maybeSingle();
+    const at = Date.parse(String((sent as { created_at?: string } | null)?.created_at ?? ''));
+    if (Number.isFinite(at) && Date.now() - at > LATE_TAP_DAYS * 86_400_000) {
+      return { status: 'done', note: await reply(fromPhone, LATE_TAP_REPLY) };
+    }
+  }
+
+  const answer = buttonReply(def.name, label, APP_URL);
+  if (!answer) return { status: 'done', note: await reply(fromPhone, unsupportedButtonReply(APP_URL)) ?? `unsupported_button:${def.name}:${label}` };
+  if (answer.mute) {
+    const before = await loadPrefs(supabase, profileId);
+    const after = { ...before, muted_topics: [...new Set([...before.muted_topics, answer.mute])].sort() };
+    try { await savePrefs(supabase, profileId, before, after); }
+    catch (e) { return { status: 'retry', error: `prefs: ${(e as Error)?.message ?? String(e)}` }; }
+  }
+  return { status: 'done', note: await reply(fromPhone, answer.reply) };
+}
+
 /** Background handler: parse → log → confirm (or clarify / hard-block / notice). */
 async function processInbound(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile | null,
@@ -303,19 +399,32 @@ async function processInbound(
   // v10.41.0 — the receptionist. A tapped menu row gets its reply…
   const rowId: string | undefined = message?.interactive?.list_reply?.id;
   if (message?.type === 'interactive' && rowId) {
-    const body = menuReply(rowId, APP_URL);
+    // v10.42.0 — "Messages I send you" reads this person's own preferences.
+    const body = rowId === 'menu:messages'
+      ? prefsSummary(await loadPrefs(supabase, profile.id), APP_URL)
+      : menuReply(rowId, APP_URL);
     return { status: 'done', note: body ? await reply(fromPhone, body) : `unknown_menu_row:${rowId}` };
   }
-  // The welcome template's quick replies (Menu · Log a spend · What can I send?)
-  // land here as a `button` message. Other templates' taps (Flag it, Undo, Stop
-  // these…) are handled in W2/W3; until then they are recorded, not acted on.
+  // A tap on a template's quick-reply button arrives as a `button` message whose
+  // payload is `template:index:context` (set when we sent it).
   if (message?.type === 'button') {
     const action = welcomeButtonAction(message?.button?.payload, message?.button?.text);
     if (action === 'menu') return sendMenu(supabase, fromPhone, profile.id, 'menu');
-    const body = action ? menuReply(action, APP_URL) : null;
-    return { status: 'done', note: body ? await reply(fromPhone, body) : 'ignored_button' };
+    if (action) return { status: 'done', note: await reply(fromPhone, menuReply(action, APP_URL) ?? '') };
+    return handleTemplateButton(supabase, message, fromPhone, profile.id);
   }
   if (!text) return { status: 'done', note: `ignored_${String(message?.type ?? 'unknown')}` };
+
+  // v10.42.0 (W2) — STOP, STOP <TOPIC>, START <TOPIC>. Before anything else reads
+  // the text: "stop" must never be parsed as a spend or answered with the menu.
+  const command = parsePrefCommand(text);
+  if (command) {
+    const before = await loadPrefs(supabase, profile.id);
+    const { prefs: after, reply: body } = applyPrefCommand(before, command);
+    try { await savePrefs(supabase, profile.id, before, after); }
+    catch (e) { return { status: 'retry', error: `prefs: ${(e as Error)?.message ?? String(e)}` }; }
+    return { status: 'done', note: await reply(fromPhone, body) };
+  }
 
   // …and a greeting, MENU or HELP opens the action list.
   if (isReceptionistTrigger(text)) return sendMenu(supabase, fromPhone, profile.id, text);

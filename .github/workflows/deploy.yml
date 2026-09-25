@@ -129,6 +129,10 @@ jobs:
           supabase functions deploy whatsapp-send-otp
           supabase functions deploy whatsapp-verify-otp
           supabase functions deploy whatsapp-notify
+          # v10.42.0 (W2) — called by pg_cron, which has no user JWT. It checks
+          # its own secret (WHATSAPP_DISPATCH_SECRET) or the service key in code,
+          # and is inert until that secret exists in both Vault and the function.
+          supabase functions deploy whatsapp-dispatch --no-verify-jwt
       - name: Deploy agent gateway
         # WITH JWT verification (default). Inert until a super-admin enables an
         # ai_model_configs row.
