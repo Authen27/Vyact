@@ -1798,6 +1798,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/recurringPort.test.ts",
+      "feature": "Server recurring port parity",
+      "availability": "infrastructure",
+      "layer": "unit",
+      "owner": "_shared/recurring / client generateTransaction + txnToRow + advanceSchedule",
+      "count": 3,
+      "tests": [
+        "recurring posting parity CON-UNIT-REC-P-001 · the occurrence id is the app’s deterministic id",
+        "recurring posting parity CON-UNIT-REC-P-002 · the next due date matches advanceSchedule across frequencies and month ends",
+        "recurring posting parity CON-UNIT-REC-P-003 · the row is what the app’s generateTransaction → txnToRow writes"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/reportRange.test.ts",
       "feature": "Reports consultation",
       "availability": "available",
@@ -1961,8 +1975,10 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "consent / STOP / scheduler rules / whatsapp-dispatch handler (not a live cron run)",
-      "count": 12,
+      "count": 14,
       "tests": [
+        "bill reminders and \"paid X\" (W2b) CON-UNIT-WA-B-001 · only approval bills due TODAY, to approvers; never auto-posting, EMI, income or future ones",
+        "bill reminders and \"paid X\" (W2b) CON-UNIT-WA-B-002 · \"paid\" replies parse, and match only a reminder of that name that was sent",
         "the dispatcher CON-UNIT-WA-D-011 · refuses without its secret or the service key, and is inert when neither is set",
         "the dispatcher CON-UNIT-WA-D-012 · a large spend flows through the guarded send (gated off: recorded, not sent)",
         "topics and consent CON-UNIT-WA-D-001 · the server’s category labels match constants.ts",
@@ -2056,8 +2072,11 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 26,
+      "count": 29,
       "tests": [
+        "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-003 · \"paid rent\" after a reminder approves THAT occurrence with the app’s row and next date",
+        "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder \"paid X\" is an ordinary entry",
+        "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-005 · already approved in the app, or not approvable from chat, is said plainly",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-001 · STOP BUDGETS mutes budgets, says what still comes, and logs nothing",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-002 · bare STOP withdraws marketing and insights and mutes every mutable topic, never bills",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-003 · a \"Stop these\" tap mutes that template’s topic; \"Flag it\" advises the bank and writes nothing",

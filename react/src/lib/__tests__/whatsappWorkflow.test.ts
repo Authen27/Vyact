@@ -241,11 +241,6 @@ describe('whatsapp-notify guards (W0)', () => {
     expect(component('body').parameters[1].text).toBe('BESCOM bill');   // newline cleaned
     // W1 — an image template carries its header image on the send.
     expect(component('header').parameters[0].image.link).toMatch(/\/whatsapp\/08-split-settled\.jpg$/);
-    // v10.42.0 — bill reminders are held until "paid X" can approve the occurrence (W2b), even when listed.
-    vi.mocked(fetch).mockClear();
-    expect((await (await call(handler, 'test-service-key', { event: 'bill_due', params: ['Rent', '₹25,000', '5 Aug', 'Rent'] })).json()).reason)
-      .toBe('held_until_paid_reply_approves');
-    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('CON-UNIT-WA-W0-007 · a viewer cannot message other members', async () => {
@@ -349,6 +344,72 @@ describe('WhatsApp receptionist', () => {
     expect(fetch).not.toHaveBeenCalled();
     expect(patches().at(-1)).toEqual(expect.objectContaining({ status: 'done', last_error: 'ignored_button' }));
     expect(api.rpc).not.toHaveBeenCalled();
+  });
+});
+
+// ── v10.43.0 (W2b) — "paid Rent" approves the reminded bill, atomically ─────────
+describe('WhatsApp "paid X" (W2b)', () => {
+  const SID = '44444444-4444-4444-8444-444444444444';
+  const schedule = { id: SID, household_id: 'alice-house', frequency: 'monthly', start_date: '2026-01-25', next_due_date: '2026-09-24',
+    last_generated: null, day_of_month: 24, weekday: null, auto_confirm: false, active: true, owner_member_id: null,
+    txn_template: { type: 'expense', amount: 25000, currency: 'INR', description: 'Rent', category: 'rent_mortgage', accountId: '22222222-2222-4222-8222-222222222222' } };
+  function tables(reminders: unknown[]) {
+    api.from.mockImplementation((table: string) => {
+      if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+      if (table === 'recurring_schedules') return queryResult(schedule);
+      if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
+      if (table === 'assets') return queryResult([]);
+      if (table === 'whatsapp_inbound_messages') {
+        const q = queryResult([{ wa_message_id: 'm-1', attempts: 0 }]);
+        q.like.mockReturnValue(queryResult(reminders));   // the sent-reminder lookup
+        return q;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+  }
+  const post = async (handler: (r: Request) => Promise<Response>, body: string) =>
+    handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+  const reminder = { wa_message_id: `out:bill_due_reminder:alice:bill:${SID}:2026-09-24`, payload: { params: ['Rent', '₹25,000', '24 Sep', 'Rent'] } };
+
+  it('CON-UNIT-WA-B-003 · "paid rent" after a reminder approves THAT occurrence with the app’s row and next date', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    tables([reminder]);
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', already_posted: false, next_due_date: '2026-10-24' } });
+    await post(handler, inbound('paid rent'));
+    const { recurringInstanceId } = await import('../../../../supabase/functions/_shared/recurring');
+    expect(api.rpc).toHaveBeenCalledTimes(1);
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_approve_recurring', expect.objectContaining({
+      p_profile_id: 'alice', p_household_id: 'alice-house', p_schedule_id: SID, p_occurrence: '2026-09-24',
+      p_today: '2026-09-24', p_next_due: '2026-10-24', p_wa_message_id: 'm-1',
+      p_row: expect.objectContaining({ id: recurringInstanceId(SID, '2026-09-24'), amount: 25000, date: '2026-09-24', recurring_schedule_id: SID }),
+    }));
+    expect(sentTexts()[0]).toBe('Logged: Rent, ₹25,000, for 24 Sep, as scheduled. The next one is due 24 Oct.');
+  });
+
+  it('CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder "paid X" is an ordinary entry', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    tables([reminder]);
+    await post(handler, inbound('paid rent 24000'));
+    expect(api.rpc).not.toHaveBeenCalled();
+    expect(sentTexts()[0]).toMatch(/^Rent is scheduled at ₹25,000, so I haven't logged 24000\./);
+    vi.mocked(fetch).mockClear();
+    tables([]);
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', amount: 450, currency: 'INR', type: 'expense', category_id: 'food_dining', account_name: 'Bank' } });
+    await post(handler, inbound('paid 450 lunch'));
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_log_transaction', expect.objectContaining({ p_amount: 450 }));
+    expect(api.rpc).not.toHaveBeenCalledWith('whatsapp_approve_recurring', expect.anything());
+  });
+
+  it('CON-UNIT-WA-B-005 · already approved in the app, or not approvable from chat, is said plainly', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    tables([reminder]);
+    api.rpc.mockResolvedValueOnce({ error: null, data: { status: 'already_done' } });
+    await post(handler, inbound('paid Rent'));
+    expect(sentTexts()[0]).toBe("Rent for 24 Sep was already approved in the app, so I've left it.");
+    vi.mocked(fetch).mockClear();
+    api.rpc.mockResolvedValueOnce({ error: null, data: { status: 'error', reason: 'approve_in_app' } });
+    await post(handler, inbound('paid Rent'));
+    expect(sentTexts()[0]).toMatch(/^Rent has to be approved in the app/);
   });
 });
 

@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 export function queryResult(data: unknown, error: unknown = null, count: number | null = null) {
-  const query = { select: vi.fn(), eq: vi.fn(), neq: vi.fn(), gt: vi.fn(), lt: vi.fn(), gte: vi.fn(), lte: vi.fn(), order: vi.fn(), limit: vi.fn(),
+  const query = { select: vi.fn(), eq: vi.fn(), neq: vi.fn(), gt: vi.fn(), lt: vi.fn(), gte: vi.fn(), lte: vi.fn(), like: vi.fn(), order: vi.fn(), limit: vi.fn(),
     maybeSingle: vi.fn(), single: vi.fn(), update: vi.fn(), insert: vi.fn(), upsert: vi.fn(), delete: vi.fn(), in: vi.fn(), is: vi.fn(),
     then: (resolve: (result: { data: unknown; error: unknown; count: number | null }) => unknown) =>
       Promise.resolve({ data, error, count }).then(resolve) };

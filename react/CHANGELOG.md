@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.42.0`** (consumer)
+> **Current production version: `v10.43.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,49 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.43.0 — "paid Rent" approves the bill (W2b) *(2026-09-26)*
+
+Bill reminders, sent in a way that can be answered honestly.
+
+- **"paid Rent" does what Approve does in the app.** A reply naming a bill this person was reminded
+  of in the last week runs `whatsapp_approve_recurring`. In one transaction it:
+  - claims the message, so a replay is silent;
+  - checks the sender can write in the household;
+  - locks the schedule and checks this occurrence is the one due, and due today or earlier (the app
+    never approves early);
+  - checks the row matches the locked template;
+  - posts it under the app's deterministic occurrence id;
+  - moves the schedule on.
+
+  The row and the next due date come from a server port of the recurring engine
+  (`_shared/recurring.ts`), parity-tested against the client's `generateTransaction` → `txnToRow` and
+  `advanceSchedule`. If the app already posted the occurrence, nothing is inserted twice.
+- **Why not just log it.** A plain transaction would leave the schedule due, and the app would then ask
+  for the same bill again: a double count. So a bill is never logged any other way from chat.
+- **What it answers.**
+  - "Logged: Rent, ₹25,000, for 24 Sep, as scheduled. The next one is due 24 Oct."
+  - Already approved in the app: says so, and leaves it.
+  - A different amount ("paid rent 24000"): nothing is logged, and it says the scheduled amount.
+  - Two bills with the same name: nothing is guessed, and it links to the app.
+  - "paid 450 lunch" with no such reminder: an ordinary entry, as before.
+- **Reminders** (`bill_due_reminder`) go out daily at 09:00 IST, only for approval bills due that
+  day, only to linked members who can approve them. A bill that posts itself needs no reply and gets
+  no reminder. Loan EMIs, transfers and investments are approved in the app (an EMI posts through the
+  loan-payment split), so they get none either. The v10.42.0 hold on this template is lifted.
+
+Tests: CON-UNIT-REC-P-001…003 (parity), CON-UNIT-WA-B-001…005. The RPC was validated against
+production in a rolled-back `DO` block with a temporary schedule:
+
+| Case | Result |
+|---|---|
+| Wrong amount | `row_mismatch` |
+| Early | `not_due_yet` |
+| Success | Posted as the approver; the schedule moved 24 Sep → 24 Oct |
+| Replayed message | `duplicate` |
+| Second approval | `already_done` |
+| Unused payment mode | Dropped |
+| Signed-in users calling it | Cannot execute |
 
 ## v10.42.0 — WhatsApp consent, STOP, and a scheduler (W2a) *(2026-09-26)*
 

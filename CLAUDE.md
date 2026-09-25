@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.42.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.43.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -361,8 +361,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   (marketing and insights OFF until given in the app; `START` in chat never grants it). Bills and
   large-spend alerts cannot be muted. Scheduler figures come from the money port only, and a rule
   SKIPS a household it cannot state truly (foreign currency with no server rates, ₹ templates for
-  non-INR). Never send `bill_due_reminder` until W2b's atomic approve path exists: "paid X" must
-  advance the schedule, or the app asks for the same bill again.
+  non-INR). **v10.43.0 (W2b): "paid X" approves a reminded bill ONLY through
+  `whatsapp_approve_recurring`**, which posts the app's own row (deterministic id; `_shared/recurring.ts`
+  is parity-tested against `generateTransaction` + `txnToRow` + `advanceSchedule`) AND advances the
+  schedule in one transaction. Never log a plain transaction for a bill: the schedule stays due and
+  the app asks for it again. Reminders go on the due day only; EMIs, transfers and investments are
+  approved in the app.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has
