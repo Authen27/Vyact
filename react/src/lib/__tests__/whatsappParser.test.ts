@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseWhatsAppMessage,
   isQueryAttempt,
+  extractStatedDate,
   parseAmount,
   matchCategory,
   EXPENSE_IDS,
@@ -51,6 +52,42 @@ describe('parseAmount refuses identifiers (P8)', () => {
   it('CON-UNIT-WA-P8-003 · a message whose only number is a phone number is not logged', () => {
     const r = parseWhatsAppMessage('This message is from test number. Send from 8897882803', ACCOUNTS, 'INR');
     expect(r.ok).toBe(false);
+  });
+});
+
+// v10.40.0 (W0) — a logging line that mentions "total" is not a question, and a
+// stated date reaches the ledger instead of becoming the amount.
+describe('question vs log, and stated dates (W0)', () => {
+  it('CON-UNIT-WA-W0-011 · questions are still blocked; logging lines with query words are not', () => {
+    const QUESTIONS = ["what's my balance", 'how much did i spend on food', 'show me this month', 'total spent this week?', 'net worth'];
+    const LOGS = ['paid 1200 total groceries', 'spent 300 on lunch, 500 left in wallet', '1200 lunch total', 'bought shoes 2500 from the list'];
+    for (const q of QUESTIONS) expect(isQueryAttempt(q), q).toBe(true);
+    for (const l of LOGS) expect(isQueryAttempt(l), l).toBe(false);
+  });
+
+  const today = new Date(Date.UTC(2026, 8, 24));
+  it('CON-UNIT-WA-W0-012 · extractStatedDate reads the common forms and removes them from the line', () => {
+    expect(extractStatedDate('yesterday 450 lunch', today)).toEqual({ date: '2026-09-23', rest: '450 lunch' });
+    expect(extractStatedDate('15/09/2026 450 lunch', today)).toEqual({ date: '2026-09-15', rest: '450 lunch' });
+    expect(extractStatedDate('450 lunch 15-sep-26', today).date).toBe('2026-09-15');
+    expect(extractStatedDate('450 lunch on 3 aug', today).date).toBe('2026-08-03');
+    expect(extractStatedDate('450 lunch on 30 dec', today).date).toBe('2025-12-30');   // most recent past
+    expect(extractStatedDate('2026-09-20 1200 rent', today).date).toBe('2026-09-20');
+    expect(extractStatedDate('450 lunch', today)).toEqual({ date: null, rest: '450 lunch' });
+  });
+
+  it('CON-UNIT-WA-W0-013 · a future or impossible date is dropped, never guessed', () => {
+    expect(extractStatedDate('30/09/2026 450 lunch', today).date).toBeNull();   // future
+    expect(extractStatedDate('31/02/2026 450 lunch', today).date).toBeNull();   // no such day
+    expect(extractStatedDate('15 sep 450 lunch', today).date).toBeNull();       // 450 is not a year
+  });
+
+  it('CON-UNIT-WA-W0-014 · the day of the month never becomes the amount', () => {
+    const r = parseWhatsAppMessage('15/09/2026 450 groceries hdfc', ACCOUNTS, 'INR', today);
+    expect(r.ok && r.tx.amount).toBe(450);
+    expect(r.ok && r.tx.date).toBe('2026-09-15');
+    const plain = parseWhatsAppMessage('450 groceries hdfc', ACCOUNTS, 'INR', today);
+    expect(plain.ok && plain.tx.date).toBeNull();
   });
 });
 

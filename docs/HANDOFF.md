@@ -14,19 +14,24 @@
 
 ## 0. ⛔ ACTIVE / STALLED WORK — WhatsApp integration (resume here first)
 
-> **WhatsApp write-only logging shipped as v10.18.0 (2026-08-10) but is STALLED, unexercised.**
-> All Vyact/Supabase code is built, deployed, and inert-safe; the channel has **0 linked numbers /
-> 0 messages** because **Meta Business Verification is incomplete** (the `phone_verification_otp`
-> template is rejected → no self-serve phone link).
+> **Updated 2026-09-24 (v10.40.0).** Inbound WhatsApp logging is **live** on the business number
+> +918897882803 (WABA `1887272231954080`) and was validated end to end on 2026-08-15. The phone
+> linked then was seeded by hand. **Self-serve linking is still blocked:** the `phone_verification_otp`
+> template needs Meta Business Verification.
 >
-> **The authoritative resume state, ordered task list, and exact resume command are in
-> [`whatsapp-closure-runbook.md`](../whatsapp-closure-runbook.md) §3b (RESUME STATE).** Read it first.
-> A closure agent monitors every 3h (routine `trig_01QtsmxCV95urbLaKhfyrXrc`).
-> Deploy note: CI's Supabase jobs fail on an expired `SUPABASE_ACCESS_TOKEN` — deploy edge fns via
-> the Supabase MCP until it's rotated.
+> **Not live yet:** proactive templates. **Nothing calls `whatsapp-notify` yet.** Templates: the nine
+> original ones were approved; on 24–25 Sep four got image headers and seven new image templates were
+> submitted. All are in review; see [`WHATSAPP_TEMPLATES.md`](WHATSAPP_TEMPLATES.md). Image templates
+> cannot be sent until W1 adds the header to `sendTemplate`. **Next level:** the
+> W0–W5 plan (templates with images, scheduled nudges, the capture conversation, and Ask Vyact on
+> WhatsApp). v10.40.0 = W0: failed logs are recorded and replayed, `whatsapp-notify` takes a service
+> caller with role, consent, dedupe and cap guards, and a stated date reaches the ledger.
+>
+> Operational detail: [`whatsapp-closure-runbook.md`](../whatsapp-closure-runbook.md). The CI
+> deploy token was fixed in v10.20.5, so edge functions deploy on push again.
 >
 > (The rest of this brief below is older, v6.4.x-era context — still-useful gotchas, but the version
-> numbers are stale; consumer is now **v10.18.0**.)
+> numbers are stale.)
 
 ---
 

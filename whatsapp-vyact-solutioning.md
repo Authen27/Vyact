@@ -130,19 +130,32 @@ text simply will not arrive if the user has been quiet, and fails silently.
 
 #### Live in Meta — Vyact product templates
 
+> ⚠️ **Corrected 2026-09-25.**
+> - **None of these templates is wired.** No app code, trigger or scheduler calls `whatsapp-notify`,
+>   so nothing has ever been sent.
+> - **Status checked in WhatsApp Manager on 2026-09-24:** all nine were **Active** (approved) on the
+>   live WABA `1887272231954080`. Four were then edited to add image headers and are back **In review**,
+>   and seven new image templates were submitted.
+> - The current per-template status and the exact submitted bodies are in
+>   [`docs/WHATSAPP_TEMPLATES.md`](docs/WHATSAPP_TEMPLATES.md).
+
 | Template | Category | Mode | Status |
 | :--- | :--- | :--- | :--- |
-| `bill_due_reminder` | UTILITY | Template | Live · has A/B variants in the design spec |
-| `budget_threshold_alert` | UTILITY | **Template + session text** | Live · see dual-mode note below |
-| `large_transaction_alert` | UTILITY | **Template + session text** | Live · see dual-mode note below |
-| `weekly_summary` | UTILITY | Template | Live · opt-in |
-| `split_settled` | UTILITY | Template | Live |
-| `partner_split_prompt` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
-| `split_shared_with_you` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
-| `recurring_auto_logged` | UTILITY | Template | Live + wired · **design spec does not cover it yet** |
-| `reengagement_nudge` | **MARKETING** | Template | Live · separate consent + opt-out (see below) |
+| `bill_due_reminder` | UTILITY | Template | Image added 24 Sep → In review · not wired · has A/B variants in the design spec |
+| `budget_threshold_alert` | UTILITY | **Template + session text** | Enriched 25 Sep → In review · not wired · see dual-mode note below |
+| `large_transaction_alert` | UTILITY | **Template + session text** | Enriched 25 Sep → In review · not wired · see dual-mode note below |
+| `weekly_summary` | UTILITY ⚠ flagged → Marketing | Template | Image added 24 Sep → In review · not wired · opt-in |
+| `split_settled` | UTILITY | Template | Image added 24 Sep → In review · not wired |
+| `partner_split_prompt` | UTILITY | Template | Enriched 25 Sep → In review · not wired · **design spec does not cover it yet** |
+| `split_shared_with_you` | UTILITY | Template | Enriched 25 Sep → In review · not wired · **design spec does not cover it yet** |
+| `recurring_auto_logged` | UTILITY | Template | Enriched 25 Sep → In review · not wired · **design spec does not cover it yet** |
+| `reengagement_nudge` | **MARKETING** | Template | Image added 24 Sep → In review · not wired · separate consent + opt-out (see below) |
 
-#### Live in Meta — not Vyact copy, scheduled for deletion
+#### Live in Meta — not Vyact copy (cleaned up 25 Sep)
+
+> **Done 25 Sep:** `recurring`, `feedback` and `3p_direct_integration_test_template` were deleted.
+> `hello_world` is a Meta sample that cannot be deleted; it stays for test sends. The paragraph
+> below is the original rationale.
 
 `hello_world`, `3p_direct_integration_test_template`, `feedback`, `recurring` are
 Meta samples and integration-test artifacts sitting in the production namespace.

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.39.1**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.40.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -343,6 +343,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `WHATSAPP_OUTBOUND_ENABLED` AND the template name in `WHATSAPP_APPROVED_TEMPLATES`**.
   RLS-locked service-role tables + Edge fns; no secrets in code. The OTP *link* flow is
   blocked on Meta business verification (its template is rejected until then).
+  **v10.40.0 (W0):** an inbound failure is RECORDED (`failed` + attempts + `last_error`) and
+  replayed by the sweep. Never mark a row `done` to hide an error; replay is safe because the
+  RPC claims the message id first. `whatsapp-notify` takes a member JWT (write role) or the
+  service key, and every send goes through the same guards: linked recipient, no marketing
+  without consent, a dedupe slot claimed before sending, and a daily cap. There are no in-code
+  Meta ID fallbacks. The next-level plan (templates, nudges, conversation, Ask Vyact on
+  WhatsApp) is W1–W5 in `docs/HANDOFF.md` §0.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

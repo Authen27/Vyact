@@ -42,11 +42,15 @@ supabase secrets set \
 
 > **Note on the OTP link flow:** the `phone_verification_otp` template is **rejected until Meta
 > Business Verification completes**, so the in-app *Send code* path can't deliver until then. Inbound
-> logging does **not** depend on it — to test now, seed a verified link directly (service role):
+> logging does **not** depend on it — to test now, seed a verified link directly (service role).
+> Since audit S1 (2026-09-08) the link lives in **`whatsapp_identities`**. The old `profiles.phone_*`
+> columns are blocked for clients and are **no longer read** by the webhook, so updating them links
+> nothing:
 > ```sql
-> update public.profiles
->    set phone_number='<E164 digits>', phone_verified_at=now(), whatsapp_household_id='<household_uuid>'
->  where id='<auth_uid>';
+> insert into public.whatsapp_identities (profile_id, phone_number, household_id, verified_at)
+> values ('<auth_uid>', '<E164 digits, no +>', '<household_uuid>', now())
+> on conflict (profile_id) do update
+>   set phone_number = excluded.phone_number, household_id = excluded.household_id, verified_at = now();
 > ```
 
 ## 2. Activate PROACTIVE templates (partner-split, budget/bill alerts, digests)
@@ -56,8 +60,33 @@ supabase secrets set \
   WHATSAPP_OUTBOUND_ENABLED=1 \
   WHATSAPP_APPROVED_TEMPLATES="partner_split_prompt,split_shared_with_you,split_settled,budget_threshold_alert,bill_due_reminder,large_transaction_alert,recurring_auto_logged,weekly_summary,reengagement_nudge"
 ```
-The app / edge functions call `whatsapp-notify { event, householdId, toProfileId, params }`; it maps the
-event to its template and dispatches only if enabled + approved (else returns `{skipped, reason}`).
+The app / edge functions call `whatsapp-notify { event, householdId, toProfileId, params, dedupeKey? }`;
+it maps the event to its template and dispatches only if enabled + approved (else returns `{skipped, reason}`).
+
+**v10.40.0 guards** (every caller):
+- **Callers.** A member's JWT, which needs a write role (owner, admin or member; viewers get 403), or
+  the **service key** for scheduled/server jobs.
+- **Recipient** must be linked to the same household.
+- **MARKETING** (`reengagement_nudge`) is refused (`marketing_consent_required`) until the W2 consent
+  record exists.
+- **Dedupe:** one send per `(event, recipient, dedupeKey)`. `dedupeKey` defaults to the UTC day; pass
+  e.g. a schedule id plus due date for per-occurrence events.
+- **Cap:** at most `WHATSAPP_DAILY_CAP` (default 6) sends per recipient in any 24 h.
+- **Audit rows** carry `status` `sending` → `sent` / `failed` / `skipped`.
+
+**Required secrets** (no in-code fallbacks since v10.40.0 — a missing one fails the send loudly):
+`WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (the live +91 number's ID on WABA
+`1887272231954080`), `WHATSAPP_WABA_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`. Optional:
+`WHATSAPP_DAILY_CAP`, `VYACT_TZ_OFFSET_MINUTES` (default 330, used to resolve "yesterday").
+
+**Inbound replay (v10.40.0).**
+- A ledger error marks the inbox row `failed` with `attempts` and `last_error`; it is no longer
+  marked `done`.
+- Failed rows with fewer than 3 attempts, and claims older than 10 minutes, are replayed on every
+  delivery and on `POST …/whatsapp-webhook?mode=sweep` with the service key as the bearer.
+- A replay of an entry that did land comes back `duplicate` and stays silent.
+- Find stuck rows with
+  `select * from whatsapp_inbound_messages where direction='inbound' and status='failed' order by created_at desc;`.
 
 ## 3. Validate (what the closure agent checks)
 - **Webhook GET:** right token → echoes challenge; wrong token → 403.

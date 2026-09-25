@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1179 passing deterministic cases in 75 files. Zero failed, skipped or TODO cases at generation.**
+**1193 passing deterministic cases in 75 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -33,13 +33,13 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 8 |
 | react | contract-unit | conditional | 38 |
-| react | handler-integration | conditional | 13 |
+| react | handler-integration | conditional | 23 |
 | react | sql-integration | conditional | 5 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 48 |
 | react | store-integration | conditional | 2 |
 | react | unit | available | 277 |
-| react | unit | conditional | 140 |
+| react | unit | conditional | 144 |
 | react | unit | infrastructure | 600 |
 
 ### Executed Files
@@ -119,8 +119,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/supabaseAdapter.test.ts](../react/src/lib/__tests__/supabaseAdapter.test.ts) | Cloud adapter contracts | contract-unit | conditional | 14 |
 | [react/src/lib/__tests__/sync.test.ts](../react/src/lib/__tests__/sync.test.ts) | Storage and synchronization | storage-integration | available | 6 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
-| [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 30 |
-| [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 4 |
+| [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 34 |
+| [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 14 |
 
 ## 4. Roster
 

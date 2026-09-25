@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.39.1`** (consumer)
+> **Current production version: `v10.40.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,49 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.40.0 — WhatsApp foundations (W0): failures recorded, sends guarded *(2026-09-24)*
+
+The first release of the WhatsApp next-level plan (W0–W5). Nothing user-visible changes for
+households that do not use WhatsApp; there is no new template and still no proactive send. This
+fixes what the next phases would have been built on.
+
+- **A failed log is recorded as one, and replayed.** `processInbound` swallowed every error, so a
+  ledger failure was marked `done` and could never be found again; the attempts counter read a
+  field that never existed.
+  - A ledger error now marks the inbox row `failed` with the real attempt count and `last_error`.
+  - The user is told once that the entry is queued, so they do not resend and double-log.
+  - A sweep replays it (up to 3 attempts), both on every delivery and on `?mode=sweep` with the
+    service key.
+  - Replay is safe because the RPC claims the message id first.
+  - This closes TD-35's webhook part.
+- **`whatsapp-notify` can be called by a server job.** It accepted only a user's JWT, so every
+  scheduled reminder would have been refused with 401; it now also accepts the service key. The same
+  guards apply to both callers:
+  - a write role is required (a viewer could previously message any member);
+  - the recipient must be linked to the household;
+  - MARKETING is refused until the W2 consent record exists;
+  - one send per event, recipient and dedupe key, claimed before sending;
+  - a per-recipient 24-hour cap (`WHATSAPP_DAILY_CAP`, default 6);
+  - parameters are cleaned of the newlines and tabs Meta rejects.
+
+  Outbound audit rows now carry an explicit status instead of defaulting to `pending`.
+- **A stated date reaches the ledger.** "yesterday 450 lunch" or "15/09/2026 1200 rent" now passes
+  `p_date`. The function has accepted it since v10.20, but the parser dropped it, so every WhatsApp
+  entry was dated today. The date is removed before the amount is read: "15/09/2026 450 lunch" used
+  to log ₹15. The confirmation names the day it was filed under.
+- **Question detection no longer refuses logging lines.** "paid 1200 total groceries" was treated as
+  a question because it contains "total".
+- **No hard-coded Meta IDs.** The in-code fallbacks were the retired *test* account's; a missing
+  secret now fails loudly instead of sending from the wrong number.
+- **Docs corrected.**
+  - The HANDOFF status is updated.
+  - The runbook's seeding SQL wrote to `profiles`, which nothing reads since audit S1; it now uses
+    `whatsapp_identities`.
+  - The solutioning doc called the nine templates "Live + wired"; none is wired, and approval is
+    unconfirmed.
+
+Tests: CON-UNIT-WA-W0-001…014.
 
 ## v10.39.1 — the right amount, in the right currency, and what is really free *(2026-09-24)*
 
