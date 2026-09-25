@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parse, normalise, parseAmount, parseParticipantCount, matchCategory } from '../askVyactParser';
 import { classifyIntent, type AssistantIntentId, type IntentResult } from '../askVyactIntents';
 import {
-  variantCount, normaliseChips, renderChipsAsNumberedList, chipPromptFromReply,
+  normaliseChips, renderChipsAsNumberedList, chipPromptFromReply,
   MAX_CHIPS, type AssistantChip,
 } from '../askVyactResponses';
 import {
@@ -196,15 +196,9 @@ describe('resolve + phrase — answers trace to services (spec §5/§6)', () => 
 
 // ── Tone, fallback, seam ──────────────────────────────────────────────────────
 describe('tone + seam (spec §7/§3)', () => {
-  it('CON-UNIT-ASK-050 · ≥3 phrasing variants per key intent+outcome', () => {
-    for (const key of [
-      ['capture.expense', 'seeded'], ['capture.income', 'seeded'], ['capture.split', 'seeded'],
-      ['interpret.lookup', 'ok'], ['forecast.affordability', 'fits'], ['forecast.affordability', 'tight'],
-      ['fallback', 'default'],
-    ] as [string, string][]) {
-      expect(variantCount(key[0], key[1]), key.join('.')).toBeGreaterThanOrEqual(3);
-    }
-  });
+  // CON-UNIT-ASK-050 retired in v10.46.0: it pinned the count of the VARIANTS phrase
+  // tables, which no user ever saw (the model phrases; captures are deterministic)
+  // and which were removed. The phrasing contract lives in PHRASE_SYSTEM (W5-005).
   it('CON-UNIT-ASK-051 · an unrecognised intent is a clarifier, never a dead end', async () => {
     // The model returns something outside the known intent set.
     const turn = await runAssistant('asdfghjkl', makeCtx(), llm('not.a.real.intent'), 0);

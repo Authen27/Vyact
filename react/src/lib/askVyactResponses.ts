@@ -1,28 +1,19 @@
-// Vyact — Ask Vyact response/tone layer (engineering spec §7, stage 5).
+// Vyact — Pip's response contract: chips and the resolved-turn shape (stage 4 → 5).
 //
-// This is the SECOND of the two seams a future LlmBackend swaps in (the
-// `phraseResponse` interface, §3). Tone lives here and ONLY here — tuning the
-// voice never touches extraction (stages 1–2) or computation (stage 4).
+// v10.46.0 (W5) — the rotating phrase tables that lived here (`VARIANTS`,
+// `phraseResponse`, 19 outcomes × 3 phrasings) were REMOVED. Since v10.20 the model
+// phrases every answer and v10.38 acknowledges captures deterministically, so none of
+// that copy had reached a user; the responses spec still described it as shipping.
+// How Pip speaks is now ONE contract in `PHRASE_SYSTEM` (askVyactLlm.ts), the same
+// for the app and WhatsApp. See `vyact-ask-vyact-responses-spec.md`.
 //
-// Rules baked in (§7): answer-first, specific, open-ended (always a next step),
-// warm-not-chummy, honest about estimates.
+// What stays here is the part both channels render the same way: chips (max three,
+// each must ask something, never model-authored) and the numbered-list rendering
+// WhatsApp uses, plus the `ResolveResult` shape stage 4 returns.
 //
-// 📖 BEFORE CHANGING COPY HERE, read `vyact-ask-vyact-responses-spec.md` at the
-// repo root. It reconciles this file against the design deck in
-// `WhatsApp & Ask Vyact Message Templates/…/Vyact - Ask Vyact Responses.html`
-// and records which side wins where they disagree. Two things it settles that
-// are easy to get wrong from this file alone:
-//
-//   * VARIANT COUNT IS NO LONGER UNIFORM. The ≥3 rotating phrasings stay only
-//     for the turns a user actually repeats — capture confirmations and the
-//     missing-amount ask. Everything else moves to ONE composed response in the
-//     deck's four-part anatomy. Do not "tidy" one convention into the other.
-//   * COPY CANNOT INTRODUCE A FIGURE THE ENGINE DOES NOT COMPUTE. A reply
-//     carrying an unbacked number is DISCARDED by `assertNoInventedFigures`, so
-//     it fails closed rather than degrading. Several designed responses are
-//     blocked on engine work for exactly this reason — see §2 of that doc.
+// COPY CANNOT INTRODUCE A FIGURE THE ENGINE DOES NOT COMPUTE: a reply carrying an
+// unbacked number is DISCARDED by `assertNoInventedFigures`, so it fails closed.
 
-import type { IntentResult } from './askVyactIntents';
 import type { Transaction } from '../types';
 
 // ── Chips — the "next question", not navigation (deck §4, ticket #62) ──────────
@@ -90,11 +81,9 @@ export function normaliseChips(chips?: AssistantChip[]): AssistantChip[] | undef
  * One definition, two renderings — the in-app row and this string are built from
  * the same `AssistantChip[]`, so a chip cannot exist on one channel only.
  *
- * NOTE: no WhatsApp caller exists yet — the webhook is still write-only and
- * hard-blocks queries (v10.18). This ships with the contract so that wiring the
- * agent into the webhook is a call site, not a redesign. When that lands it must
- * be PORTED to `supabase/functions/_shared/` under a parity test, the way
- * `whatsapp-parser.ts` was — Deno cannot import from `react/src`.
+ * Used by WhatsApp since v10.45.0 through `serverEngine.renderForWhatsApp`. Not
+ * ported: the server runs this very function, bundled into
+ * `supabase/functions/_shared/agent/engine.generated.js`.
  */
 export function renderChipsAsNumberedList(chips?: AssistantChip[]): string {
   const list = normaliseChips(chips);
@@ -171,151 +160,4 @@ export interface ResolveResult {
    * derived from the same computation — never model-authored text.
    */
   analysis?: string[];
-}
-
-type VariantKey = string; // `${intentId}.${outcome}`
-
-// ── Variant arrays — keyed by `${intentId}.${outcome}` ──────────────────────────
-// {tokens} interpolate from ResolveResult.vars. Keep them answer-first.
-const VARIANTS: Record<VariantKey, string[]> = {
-  // ── Capture ───────────────────────────────────────────────────────────────
-  'capture.expense.seeded': [
-    "Got it — {amount} on {category}. Just confirm and it is logged.",
-    "Logged a {amount} {category} expense for you — tap confirm to save.",
-    "{amount} on {category}, ready to go. Check it and hit confirm.",
-  ],
-  'capture.income.seeded': [
-    "Nice — {amount} coming in. Confirm and it's in.",
-    "Logged {amount} of income — give it a quick check and confirm.",
-    "{amount} income ready. Confirm to save it.",
-  ],
-  'capture.transfer.seeded': [
-    "Set up a {amount} transfer — confirm to record it.",
-    "Moving {amount} — tap confirm and it's done.",
-    "{amount} transfer ready to log. Confirm when it looks right.",
-  ],
-  'capture.investment.seeded': [
-    "Nice — {amount} into your investments. Pick the account and confirm.",
-    "{amount} investment contribution ready — confirm to record it.",
-    "Logging {amount} toward your investments — check the account and confirm.",
-  ],
-  'capture.split.seeded': [
-    "Split {amount} {ways} ways — your share is {share}. Confirm to log it.",
-    "Got it: {amount} across {ways}, you owe {share}. Check and confirm.",
-    "{amount} split {ways} ways → {share} each. Confirm to save your part.",
-  ],
-  'capture.missing_amount': [
-    "Got it — how much was it?",
-    "Sure — what did that come to?",
-    "Happy to log that. How much?",
-  ],
-
-  // ── Interpret ───────────────────────────────────────────────────────────────
-  'interpret.lookup.ok': [
-    "You've spent {amount} on {category} this month.",
-    "{category} is at {amount} so far this month.",
-    "So far this month: {amount} on {category}.",
-  ],
-  'interpret.lookup.vs_budget': [
-    "{amount} on {category} this month — that's {pct} of your {budget} budget.",
-    "Your {category} is {amount}, {pct} of the {budget} you set.",
-    "{category}: {amount} spent, {pct} of budget ({budget}).",
-  ],
-  'interpret.status.ok': [
-    "{headline} {detail}",
-    "{headline} — {detail}",
-    "Here's the read: {headline} {detail}",
-  ],
-  'interpret.budgets.ok': [
-    "{headline} {detail}",
-    "{headline} — {detail}",
-    "Budgets: {detail}",
-  ],
-  'interpret.debts.ok': [
-    "{headline} {detail}",
-    "{headline} — {detail}",
-    "Debts: {headline} {detail}",
-  ],
-  'interpret.bills.ok': [
-    "{headline} {detail}",
-    "{headline} — {detail}",
-    "Upcoming: {detail}",
-  ],
-  'interpret.diagnostic.found': [
-    "{headline} {detail}",
-    "Looks like {headline} {detail}",
-    "Here's what stands out: {headline} {detail}",
-  ],
-  'interpret.diagnostic.clear': [
-    "Nothing jumping out — {detail}",
-    "Looks healthy: {detail}",
-    "No red flags right now. {detail}",
-  ],
-
-  // ── Forecast ──────────────────────────────────────────────────────────────
-  'forecast.affordability.fits': [
-    "Yes — after your bills you'd have about {headroom} above your emergency fund, so {amount} fits with {cushion} to spare.",
-    "You can swing it — {amount} leaves roughly {cushion} cushion once fixed costs are out.",
-    "That works. {amount} fits and still keeps about {cushion} above your safety net.",
-  ],
-  'forecast.affordability.tight': [
-    "It'd be tight — {amount} would dip about {shortfall} into your emergency fund. Wait till payday and it's comfortable.",
-    "Doable but snug: you'd eat into your cushion by ~{shortfall}. A week's patience makes it easy.",
-    "I'd hold off — {amount} now dips {shortfall} below your safety floor. Right after payday it's fine.",
-  ],
-  'forecast.runway.ok': [
-    "About {months} months — that's your liquid savings divided by your usual monthly burn.",
-    "You'd last roughly {months} months at your current spending.",
-    "Around {months} months of runway as things stand.",
-  ],
-  'forecast.prescriptive.suggest': [
-    "To free up {target}, your easiest trim is {category} — it's running {over} above usual.",
-    "Quickest path to {target}: ease back on {category} ({over} over its norm).",
-    "You could find {target} by trimming {category}, which is up {over} lately.",
-  ],
-
-  // ── Fallback ────────────────────────────────────────────────────────────────
-  'fallback.default': [
-    "I didn't quite catch that — want to log something, ask about your spending, or check what you can afford?",
-    "Not sure what you meant there. I can capture an expense, explain your numbers, or look ahead — which is it?",
-    "Let's try again — tell me an amount to log, or ask me about your money.",
-  ],
-};
-
-const ESTIMATE_SUFFIXES = [
-  " (leaning on a couple of setup estimates — confirm them and I will tighten this).",
-  " — that includes some estimates from setup; confirm them for an exact figure.",
-  " (a couple of these are still estimates).",
-];
-
-function pick<T>(arr: T[], seed: number): T {
-  return arr[Math.abs(seed) % arr.length];
-}
-
-function interpolate(template: string, vars: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (_, k) => (k in vars ? String(vars[k]) : `{${k}}`));
-}
-
-/**
- * Stage 5 — phrase a resolved result in a warm, human voice. Pure: picks a
- * variant by `${intentId}.${outcome}`, interpolates the service-computed values,
- * appends an honest-estimate note when relevant, and never returns a dead end.
- *
- * `seed` rotates the variant so repeated identical questions don't echo verbatim;
- * tests can pass a fixed seed for determinism.
- */
-export function phraseResponse(intent: IntentResult, result: ResolveResult, seed = Date.now()): string {
-  const key = `${intent.id}.${result.outcome}`;
-  // Bucket-level fallback so shared outcomes (e.g. capture.missing_amount) serve
-  // every intent in the bucket without duplicating variant arrays per intent id.
-  const bucketKey = `${intent.id.split('.')[0]}.${result.outcome}`;
-  const variants = VARIANTS[key] ?? VARIANTS[bucketKey] ?? VARIANTS['fallback.default'];
-  let text = interpolate(pick(variants, seed), result.vars);
-  if (result.usesEstimate) text += pick(ESTIMATE_SUFFIXES, seed);
-  return text;
-}
-
-/** Exposed for tests: how many phrasing variants exist for an intent+outcome. */
-export function variantCount(intentId: string, outcome: string): number {
-  return (VARIANTS[`${intentId}.${outcome}`] ?? []).length;
 }

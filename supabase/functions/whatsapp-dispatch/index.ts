@@ -22,7 +22,7 @@ import { env, json, constantTimeEqual } from '../_shared/whatsapp.ts';
 import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 import { guardedSend, type SendResult } from '../_shared/whatsapp-send.ts';
 import {
-  largeSpendAlerts, budgetAlerts, splitSettledAlerts, weeklySummary, staleBalanceNudge, billReminders,
+  largeSpendAlerts, budgetAlerts, splitSettledAlerts, weeklySummary, staleBalanceNudge, billReminders, overdueBillReminders, OVERDUE_AFTER_DAYS,
   localDay, isoWeek, type PlannedSend, type Household, type Member, type TxnRow,
 } from '../_shared/whatsapp-dispatch-rules.ts';
 
@@ -197,12 +197,17 @@ async function billsFor(admin: SupabaseClient, household: Household, members: Me
   const { data: schedules, error } = await admin.from('recurring_schedules')
     .select('id, household_id, next_due_date, auto_confirm, active, txn_template')
     .eq('household_id', household.id).is('deleted_at', null).eq('active', true).eq('auto_confirm', false)
-    .eq('next_due_date', today);
+    // Due today, or OVERDUE_AFTER_DAYS past due and still waiting (v10.46.0).
+    .in('next_due_date', [today, new Date(Date.parse(`${today}T00:00:00Z`) - OVERDUE_AFTER_DAYS * 86_400_000).toISOString().slice(0, 10)]);
   if (error) throw new Error(`schedules: ${error.message}`);
   if (!schedules?.length) return [];
   const { data: roles } = await admin.from('memberships').select('user_id, role')
     .eq('household_id', household.id).in('user_id', members.map((m) => m.profile_id));
   const writers = new Set(((roles ?? []) as { user_id: string; role: string }[])
     .filter((r) => r.role !== 'viewer').map((r) => r.user_id));
-  return billReminders({ today, schedules: schedules as never, approvers: members.filter((m) => writers.has(m.profile_id)) });
+  const approvers = members.filter((m) => writers.has(m.profile_id));
+  return [
+    ...billReminders({ today, schedules: schedules as never, approvers }),
+    ...overdueBillReminders({ today, schedules: schedules as never, approvers }),
+  ];
 }

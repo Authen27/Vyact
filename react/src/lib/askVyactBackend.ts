@@ -14,12 +14,12 @@ import type {
   Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, SplitInfo, TxnType, RecurringSchedule,
 } from '../types';
 import {
-  spendByCategory, monthlyData, totalMonthlyDebtPayment,
+  spendByCategory, spendByCategoryInRange, reportableTxns, effectiveAmount, monthlyData, totalMonthlyDebtPayment,
 } from './calculations';
 // v10.38 — period/date/account resolution lives in the parser, next to the entity
 // shape it reads, and is unit-tested there.
 import {
-  resolvePeriod, parseDateEntity, matchAccountId, matchCategory, resolveCategoryId,
+  resolvePeriod, resolveDayWindow, parseDateEntity, matchAccountId, matchCategory, resolveCategoryId,
   statedCurrency, amountLooksLikeIdentifier, normalise,
 } from './askVyactParser';
 import { getCat, NEEDS_WANTS_MAP, CURRENCIES } from '../constants';
@@ -55,6 +55,11 @@ export interface AssistantContext {
    * capture can omit it.
    */
   accounts?: { id: string; name: string; kind?: string }[];
+  /**
+   * v10.46.0 — where the answer will be read. WhatsApp answers are shorter, carry no
+   * links and are English only; the app mirrors Hinglish. Defaults to the app.
+   */
+  channel?: 'app' | 'whatsapp';
 }
 
 // ── The two-method seam (rules now, LLM later) ─────────────────────────────────
@@ -111,8 +116,29 @@ export interface AssistantTurn {
 const cur = (ctx: AssistantContext) => ctx.baseCurrency;
 const money = (n: number, ctx: AssistantContext) => fmt(Math.round(n), cur(ctx));
 
-/** The default period when the user names none. */
-const CURRENT_PERIOD = { monthKey: nowMonthKey(), label: 'this month', isCurrent: true } as const;
+/**
+ * The default period when the user names none — computed per question. v10.46.0: it
+ * was a module constant, fixed when the file loaded, so a tab left open over a month
+ * end (or a long-lived server isolate) kept answering "this month" for the old month.
+ */
+const currentPeriod = () => ({ monthKey: nowMonthKey(), label: 'this month', isCurrent: true } as const);
+
+/** Local `YYYY-MM-DD`, as the ledger stores dates. */
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/**
+ * v10.46.0 (#63) — the same stretch of LAST month: day 1 up to today's day number
+ * (clamped to that month's length). "₹2,100 more than this point in August" compares
+ * like with like; a full previous month against a part month always reads as "less".
+ */
+function samePointLastMonth(now = new Date()): { start: string; end: string; label: string } {
+  const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+  const end = new Date(first.getFullYear(), first.getMonth(), Math.min(now.getDate(), lastDay));
+  const monthName = first.toLocaleString('en-GB', { month: 'long' });
+  return { start: isoDay(first), end: isoDay(end), label: `the same point in ${monthName}` };
+}
 
 /** Rolling monthly average expense for a category over the last `n` months
  *  (excluding the current month). Pure composition of `spendByCategory`. */
@@ -296,7 +322,7 @@ export function receptionist(salutation: string, ctx?: AssistantContext): QuickR
   const hello = first ? `${salutation}, ${first}.` : `${salutation}.`;
   if (!ctx || ctx.transactions.length === 0) {
     return {
-      reply: `${hello} I'm Ask Vyact. I keep your household's money straight, from what you record here.\n`
+      reply: `${hello} I'm Pip. I keep your household's money straight, from what you record here.\n`
         + "Nothing's recorded yet, so let's start with one thing.",
       chips: [
         { label: 'Log an expense', prompt: 'Log an expense' },
@@ -359,7 +385,7 @@ export function quickReply(utterance: string, ctx?: AssistantContext): QuickRepl
     return { reply: "Any time. I'm here when you need me." };
   }
   if (/^(who are you|what('?s| is) your name|what (do|should|can) i call you|your name|are you (a )?(real )?(person|human|bot))$/.test(t)) {
-    return { reply: "I'm Ask Vyact, the assistant built into Vyact. I work from your own records, and anything I'm unsure about, I ask rather than guess.", chips: QUICK_CHIPS };
+    return { reply: "I'm Pip, the assistant built into Vyact. I work from your own records, and anything I'm unsure about, I ask rather than guess.", chips: QUICK_CHIPS };
   }
   if (/^(help|what can you do|what else can you do|what do you do|how can you help( me)?|what can i ask( you)?|what can you help (me )?with)$/.test(t)) {
     return { reply: capabilitySummary(), chips: QUICK_CHIPS };
@@ -388,7 +414,7 @@ function aboutMeReply(text: string): string {
     return "I can't change how my answers are formatted on request yet. "
       + 'I lead with the figure you asked for and keep the rest short.';
   }
-  return `I'm Ask Vyact. Here's what I do:\n${capabilitySummary()}`;
+  return `I'm Pip. Here's what I do:\n${capabilitySummary()}`;
 }
 
 /**
@@ -423,12 +449,23 @@ function assetsByLiquidity(ctx: AssistantContext) {
  * quietly omits part of the spending is the failure mode this release exists to stop.
  */
 function spendByAccount(ctx: AssistantContext, monthKey: string) {
+  return spendByAccountWhere(ctx, date => getMonthKey(date) === monthKey);
+}
+
+/**
+ * v10.46.0 — by account, counted exactly as the period totals are: reportable rows
+ * only, each at its effective amount in the household currency. It used to add the
+ * raw `amount` of every expense, so a PRIVATE entry was counted, a split counted in
+ * full instead of your share, and a foreign amount was added unconverted — beside a
+ * period total that did none of those. Two figures about the same money disagreed.
+ */
+function spendByAccountWhere(ctx: AssistantContext, inWindow: (date: string) => boolean) {
   const names = new Map((ctx.accounts ?? []).map(a => [a.id, a.name]));
   const totals = new Map<string, number>();
-  for (const t of ctx.transactions) {
-    if (t.type !== 'expense' || getMonthKey(t.date) !== monthKey) continue;
+  for (const t of reportableTxns(ctx.transactions)) {
+    if (t.type !== 'expense' || !inWindow(t.date)) continue;
     const key = t.accountId ? (names.get(t.accountId) ?? 'another account') : 'no account recorded';
-    totals.set(key, (totals.get(key) ?? 0) + t.amount);
+    totals.set(key, (totals.get(key) ?? 0) + effectiveAmount(t, cur(ctx), ctx.rates));
   }
   return [...totals.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -471,6 +508,13 @@ function categoryUsesEstimate(ctx: AssistantContext, category: string): boolean 
  */
 function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey()) {
   const spend = spendByCategory(ctx.transactions, monthKey, cur(ctx), ctx.rates);
+  const total = Object.values(spend).reduce((a, b) => a + b, 0);
+  // v10.46.0 — how many entries and what share of the period each category is, so
+  // "most of it went on food" can be said with its number rather than guessed.
+  const entries = new Map<string, number>();
+  for (const t of reportableTxns(ctx.transactions)) {
+    if (t.type === 'expense' && getMonthKey(t.date) === monthKey) entries.set(t.category, (entries.get(t.category) ?? 0) + 1);
+  }
   return Object.entries(spend)
     .sort(([, a], [, b]) => b - a)
     .map(([c, amt]) => {
@@ -482,6 +526,8 @@ function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey()) {
       return {
         category: getCat(c).label,
         spent: money(amt, ctx),
+        entries: String(entries.get(c) ?? 0),
+        share_of_period: total > 0 ? `${Math.round((amt / total) * 100)}%` : '0%',
         usual_month: usual > 0 ? money(usual, ctx) : 'no history yet',
         compared_with_usual: usual > 0
           ? (gap >= 0 ? `${money(gap, ctx)} above` : `${money(-gap, ctx)} below`)
@@ -489,6 +535,88 @@ function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey()) {
         kind: nw === 'want' ? 'discretionary' : nw === 'need' ? 'essential' : 'unclassified',
       };
     });
+}
+
+/**
+ * v10.46.0 (#65) — how steadily the household records: consecutive days with at
+ * least one entry, ending today (or yesterday, when today has nothing yet — a
+ * streak is not broken before the day is over), and days recorded this month.
+ */
+function loggingFacts(ctx: AssistantContext, now = new Date()) {
+  const days = new Set(ctx.transactions.map(t => t.date));
+  let cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (!days.has(isoDay(cursor))) cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 1);
+  let streak = 0;
+  while (days.has(isoDay(cursor)) && streak < 3660) {
+    streak += 1;
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 1);
+  }
+  const monthPrefix = isoDay(now).slice(0, 8);
+  const loggedThisMonth = [...days].filter(d => d.startsWith(monthPrefix) && d <= isoDay(now)).length;
+  return {
+    logging_streak: streak > 0 ? `${streak} ${streak === 1 ? 'day' : 'days'} running` : 'nothing recorded yesterday or today',
+    days_recorded_this_month: `${loggedThisMonth} of ${now.getDate()}`,
+  };
+}
+
+/**
+ * v10.46.0 (#63) — this month so far against the SAME point last month, for the
+ * total or one category. With no spending recorded last month there is no
+ * comparison to make, and it says so rather than reporting "₹X more than ₹0".
+ */
+function samePointFacts(ctx: AssistantContext, amountNow: number, category?: string) {
+  const sp = samePointLastMonth();
+  const spend = spendByCategoryInRange(ctx.transactions, sp.start, sp.end, cur(ctx), ctx.rates);
+  const then = category ? (spend[category] || 0) : Object.values(spend).reduce((a, b) => a + b, 0);
+  if (then <= 0) return { same_point_last_month: 'nothing recorded at that point last month' };
+  return {
+    same_point_last_month: money(then, ctx),
+    same_point_is: sp.label,
+    compared_with_same_point: signedMoney(amountNow - then, ctx, 'more', 'less'),
+  };
+}
+
+/** v10.46.0 — spending over a window shorter than a month ("today", "this week"). */
+function lookupWindow(ctx: AssistantContext, span: { start: string; end: string; label: string }, rawCategory?: string): ResolveResult {
+  const spend = spendByCategoryInRange(ctx.transactions, span.start, span.end, cur(ctx), ctx.rates);
+  const total = Object.values(spend).reduce((a, b) => a + b, 0);
+  const inWindow = (d: string) => d >= span.start && d <= span.end;
+  const counts = new Map<string, number>();
+  for (const t of reportableTxns(ctx.transactions)) {
+    if (t.type === 'expense' && inWindow(t.date)) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+  }
+  const entryCount = [...counts.values()].reduce((a, b) => a + b, 0);
+  const rows = Object.entries(spend).sort(([, a], [, b]) => b - a).map(([c, amt]) => ({
+    category: getCat(c).label,
+    spent: money(amt, ctx),
+    entries: String(counts.get(c) ?? 0),
+    share_of_period: total > 0 ? `${Math.round((amt / total) * 100)}%` : '0%',
+  }));
+  const base = {
+    period: span.label,
+    from: span.start,
+    to: span.end,
+    total_spent: money(total, ctx),
+    entries: String(entryCount),
+    categories_in_period: rows,
+    spend_by_account: spendByAccountWhere(ctx, inWindow),
+  };
+  const chips: AssistantChip[] = [{ label: 'This month so far', prompt: 'how much have I spent this month' }];
+  if (rawCategory) {
+    const category = resolveCategoryId(rawCategory);
+    if (!category) {
+      return { kind: 'interpret', outcome: 'needs_category', facts: { requested_category: rawCategory, ...base },
+        analysis: [`Could not place the category "${rawCategory}"`], vars: { category: rawCategory } };
+    }
+    const amount = spend[category] || 0;
+    return { kind: 'interpret', outcome: 'ok', chips,
+      facts: { ...base, asked_about: getCat(category).label, spent: money(amount, ctx), entries_in_category: String(counts.get(category) ?? 0) },
+      analysis: [`Totalled ${getCat(category).label} for ${span.label}`],
+      vars: { amount: money(amount, ctx), category: getCat(category).label.toLowerCase(), period: span.label } };
+  }
+  return { kind: 'interpret', outcome: total > 0 ? 'period_total' : 'no_activity', chips, facts: base,
+    analysis: [`Totalled ${span.label}'s spending across ${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`],
+    vars: { amount: money(total, ctx), period: span.label } };
 }
 
 const ordinal = (n: number): string => {
@@ -697,7 +825,11 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // invented-figure guard cannot see the difference. When a stated period
       // cannot be placed we now say so instead of substituting today.
       const stated = typeof e.period === 'string' ? e.period : undefined;
-      const period = resolvePeriod(stated) ?? (stated ? null : CURRENT_PERIOD);
+      // v10.46.0 — a window shorter than a month ("today", "this week"), answered over
+      // its own dates. It used to fall to needs_period, or worse, to the month.
+      const span = resolveDayWindow(stated);
+      if (span) return lookupWindow(ctx, span, typeof e.category === 'string' ? e.category : undefined);
+      const period = resolvePeriod(stated) ?? (stated ? null : currentPeriod());
       if (!period) {
         return {
           kind: 'interpret', outcome: 'needs_period',
@@ -725,6 +857,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
             categories_in_period: breakdown,
             spend_by_account: spendByAccount(ctx, mk),
             category_count: String(breakdown.length),
+            ...(period.isCurrent ? samePointFacts(ctx, total) : {}),
           },
           analysis: [
             `Totalled ${period.label}'s spending across ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'}`,
@@ -765,6 +898,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         total_spent_in_period: money(total, ctx),
         every_category_in_period: breakdown,
         spend_by_account: spendByAccount(ctx, mk),
+        ...(period.isCurrent ? samePointFacts(ctx, amount, category) : {}),
       };
       const analysis = [
         `Totalled ${period.label}'s spending across ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'}`,
@@ -791,7 +925,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
     case 'meta.assistant':
       return {
         kind: 'interpret', outcome: 'about_me',
-        facts: { assistant_name: 'Ask Vyact', ...CAPABILITIES },
+        facts: { assistant_name: 'Pip', ...CAPABILITIES },
         analysis: ['Answered about myself — no household data read'],
         vars: {},
       };
@@ -810,7 +944,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // One overview serves all three branches: net worth, balances and "how am I
       // doing" are the same question at different zoom levels, and each used to
       // get a single pre-written sentence.
-      const facts = positionFacts(ctx);
+      const facts = { ...positionFacts(ctx), ...loggingFacts(ctx) };
       const analysis = [
         'Read your net worth, assets and debt',
         "Compared this month's income with your spending",
@@ -900,6 +1034,12 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // needs no follow-up, and an offer of one implies a problem there isn't.
       const worstBudget = over[0] ?? near[0];
       const count = ctx.summary.budgets.length;
+      // v10.46.0 (#66) — pace: a budget used faster than the month has gone is
+      // "ahead of pace" even while under its limit. 60% used with 40% of the month
+      // gone is the early warning "close to limit" only gives at 80%.
+      const now = new Date();
+      const monthGone = (now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) * 100;
+      const onPace = ctx.summary.budgets.filter(b => b.spentPct <= monthGone).length;
       return { kind: 'interpret', outcome: 'ok',
         facts: {
           budgets_most_used_first: [...ctx.summary.budgets].sort((a, b) => b.spentPct - a.spentPct).map(b => ({
@@ -907,9 +1047,11 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
             limit: money(b.limit, ctx),
             used: `${Math.round(b.spentPct)}%`,
             status: b.spentPct > 100 ? 'over budget' : b.spentPct > 80 ? 'close to limit' : 'on track',
+            pace: b.spentPct <= monthGone ? 'within pace' : 'ahead of pace',
           })),
           over_budget: over.map(b => getCat(b.category).label),
           close_to_limit: near.map(b => getCat(b.category).label),
+          ...(count ? { within_pace: `${onPace} of ${count}`, month_gone: `${Math.round(monthGone)}%` } : {}),
         },
         analysis: [
           `Checked ${count} ${count === 1 ? 'budget' : 'budgets'} against spending`,
@@ -952,28 +1094,54 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         } };
     }
     case 'interpret.bills': {
-      const today = new Date();
-      const soon = (ctx.recurring ?? [])
-        .map(r => ({ r, due: new Date(r.nextDueDate) }))
-        .filter(x => x.due >= new Date(today.getFullYear(), today.getMonth(), today.getDate()))
-        .sort((a, b) => a.due.getTime() - b.due.getTime())
-        .slice(0, 3);
-      if (!soon.length) return { kind: 'interpret', outcome: 'ok',
-        facts: { upcoming_soonest_first: [] }, analysis: ['Looked for upcoming bills — none tracked'],
+      // v10.46.0 — dates compared as local `YYYY-MM-DD` strings, as the ledger
+      // stores them. `new Date(nextDueDate)` is UTC midnight, which set against a
+      // local midnight dropped or kept a bill due today depending on the time zone.
+      // Bills are EXPENSE schedules: a salary is not a bill.
+      const now = new Date();
+      const today = isoDay(now);
+      const weekEnd = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6));
+      const monthAgo = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 45));
+      const bills = (ctx.recurring ?? [])
+        .filter(r => r.active !== false && (r.transactionTemplate.type ?? 'expense') === 'expense')
+        .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
+      const upcoming = bills.filter(r => r.nextDueDate >= today);
+      const thisWeek = upcoming.filter(r => r.nextDueDate <= weekEnd);
+      // Waiting on the user: due, not self-posting, not so old it is corrupt data.
+      const awaiting = bills.filter(r => r.nextDueDate < today && r.nextDueDate >= monthAgo && !r.autoConfirm);
+      const billFact = (r: RecurringSchedule) => ({
+        // The category label, NOT `transactionTemplate.description`: the description
+        // is user-authored text that SafeSummary excludes from egress.
+        category: getCat(r.transactionTemplate.category).label,
+        amount: money(r.transactionTemplate.amount, ctx),
+        due: r.nextDueDate,
+        posts: r.autoConfirm ? 'automatically' : 'after you approve it',
+      });
+      if (!upcoming.length && !awaiting.length) return { kind: 'interpret', outcome: 'ok',
+        facts: { upcoming_soonest_first: [], due_this_week: [] }, analysis: ['Looked for upcoming bills — none tracked'],
         vars: { headline: 'No upcoming bills tracked.', detail: 'Add a recurring schedule to see what is due.' } };
-      const detail = soon.map(x => `${x.r.transactionTemplate.description || getCat(x.r.transactionTemplate.category).label} (${x.r.nextDueDate})`).join(', ');
+      // A total only when every bill in it is in (or convertible to) the household
+      // currency: `convert` treats a missing rate as 1, so a foreign bill with no
+      // rate would be added at face value.
+      const convertible = thisWeek.every(r => !r.transactionTemplate.currency || r.transactionTemplate.currency === cur(ctx)
+        || (hasRate(ctx.rates, r.transactionTemplate.currency) && hasRate(ctx.rates, cur(ctx))));
+      const weekTotal = thisWeek.reduce((s, r) =>
+        s + convert(r.transactionTemplate.amount, r.transactionTemplate.currency || cur(ctx), cur(ctx), ctx.rates), 0);
+      const soon = upcoming.slice(0, 3);
+      const detail = soon.map(r => `${r.transactionTemplate.description || getCat(r.transactionTemplate.category).label} (${r.nextDueDate})`).join(', ');
       return { kind: 'interpret', outcome: 'ok',
-        // Facts use the category label, NOT `transactionTemplate.description`: the
-        // description is user-authored text that SafeSummary excludes from egress.
         facts: {
-          upcoming_soonest_first: soon.map(x => ({
-            category: getCat(x.r.transactionTemplate.category).label,
-            amount: money(x.r.transactionTemplate.amount, ctx),
-            due: x.r.nextDueDate,
-            posts: x.r.autoConfirm ? 'automatically' : 'after you approve it',
-          })),
+          due_this_week: thisWeek.map(billFact),
+          due_this_week_count: String(thisWeek.length),
+          total_due_this_week: !thisWeek.length ? 'nothing due this week'
+            : convertible ? money(weekTotal, ctx) : 'not totalled: a bill is in a currency with no exchange rate set',
+          upcoming_soonest_first: soon.map(billFact),
+          ...(awaiting.length ? { overdue_waiting_for_your_approval: awaiting.map(billFact) } : {}),
         },
-        analysis: [`Found the next ${soon.length} upcoming ${soon.length === 1 ? 'bill' : 'bills'}`],
+        analysis: [
+          thisWeek.length ? `Found ${thisWeek.length} ${thisWeek.length === 1 ? 'bill' : 'bills'} due in the next 7 days` : 'Nothing due in the next 7 days',
+          ...(awaiting.length ? [`${awaiting.length} past due and waiting for your approval`] : []),
+        ],
         vars: { headline: `Next up: ${soon.length} bill${soon.length === 1 ? '' : 's'}.`, detail } };
     }
 
@@ -1219,10 +1387,10 @@ export class LlmBackend implements AssistantBackend {
   /** `seed` is accepted for interface conformance; a model does not use a
    *  variant table, so phrasing variety comes from the model itself. */
   async phraseResponse(
-    intent: IntentResult, result: ResolveResult, _ctx?: AssistantContext, _seed?: number,
+    intent: IntentResult, result: ResolveResult, ctx?: AssistantContext, _seed?: number,
     prevAllowed: readonly string[] = [],
   ): Promise<string> {
-    return phraseViaModel(intent, result, this.call, prevAllowed);
+    return phraseViaModel(intent, result, this.call, prevAllowed, ctx?.channel ?? 'app');
   }
 }
 
@@ -1391,7 +1559,7 @@ export async function runAssistant(
 export type UnavailableReason = 'not_configured' | 'unreachable' | 'unverified_figures';
 
 const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
-  not_configured: "Ask Vyact isn't set up yet.",
+  not_configured: "Pip isn't set up yet.",
   unreachable: "I can't reach the assistant right now. Your data is untouched — please try again shortly.",
   unverified_figures: "I couldn't verify the numbers in that answer, so I haven't shown it. Please ask again.",
 };
@@ -1441,7 +1609,8 @@ export function proactiveInsight(ctx: AssistantContext): ProactiveInsight | null
   }
   // 3) Positive: beating the savings target.
   if (s.thisMonth.netSavingsRate >= 0.2) {
-    return { text: `You're on track to save ${Math.round(s.thisMonth.netSavingsRate * 100)}% this month — nicely done.` };
+    // v10.46.0 — the response contract: state it, no praise (was "— nicely done.").
+    return { text: `You're on track to save ${Math.round(s.thisMonth.netSavingsRate * 100)}% of your income this month.` };
   }
   return null;
 }

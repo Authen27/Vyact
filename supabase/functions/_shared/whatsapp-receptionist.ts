@@ -36,6 +36,14 @@ export function isReceptionistTrigger(text: string): boolean {
   return /^(hi+|hello|hey|hiya|yo|namaste|namaskar|good (morning|afternoon|evening)|menu|help|start|options)$/.test(t);
 }
 
+/**
+ * v10.46.0 — "LOG" on its own (the re-engagement nudge says "Reply LOG and we'll do
+ * today's in one line"). Answered with the one-line format; nothing is written.
+ */
+export function isLogTrigger(text: string): boolean {
+  return /^(log|log today|log it|log now|log today's)[.!]*$/i.test((text ?? '').trim());
+}
+
 /** "Hi Rohan." / "Morning, Rohan." — mirrors the greeting's time of day. */
 function salutation(text: string, firstName?: string | null): string {
   const tod = /good (morning|afternoon|evening)/i.exec(text ?? '')?.[1];

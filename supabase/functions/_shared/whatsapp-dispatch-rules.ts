@@ -255,6 +255,36 @@ export function billReminders(input: { today: string; schedules: BillSchedule[];
   return out;
 }
 
+/** An approval bill still waiting this many days after its due date gets the overdue reminder, once. */
+export const OVERDUE_AFTER_DAYS = 3;
+
+/**
+ * v10.46.0 — an approval bill still due OVERDUE_AFTER_DAYS after its date → the
+ * overdue reminder (no greeting, "Already paid" first), once per occurrence. The
+ * schedule's pointer not having moved is what "still waiting" means: approving it
+ * anywhere — app or chat — moves the pointer, and the rule stops matching.
+ */
+export function overdueBillReminders(input: { today: string; schedules: BillSchedule[]; approvers: Member[] }): PlannedSend[] {
+  const due = new Date(Date.parse(`${input.today}T00:00:00Z`) - OVERDUE_AFTER_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const out: PlannedSend[] = [];
+  for (const s of input.schedules) {
+    const t = s.txn_template ?? {};
+    if (!s.active || s.auto_confirm || s.next_due_date !== due) continue;
+    if (t.type !== 'expense' || t.category === 'loan_emi' || t.debtId) continue;
+    const name = String(t.description ?? '').trim();
+    const amount = Number(t.amount);
+    if (!name || !(amount > 0) || !t.currency) continue;
+    for (const m of input.approvers.filter((a) => a.household_id === s.household_id)) {
+      out.push({
+        template: 'bill_overdue_reminder', householdId: s.household_id, toProfileId: m.profile_id,
+        values: [name, `${countWord(OVERDUE_AFTER_DAYS)} days ago`, moneyText(amount, String(t.currency).trim()), name],
+        dedupeKey: `bill:${s.id}:${s.next_due_date}`,
+      });
+    }
+  }
+  return out;
+}
+
 /** A reminder this person was sent, read back from its audit row. */
 export interface SentReminder { scheduleId: string; occurrence: string; replyWord: string }
 

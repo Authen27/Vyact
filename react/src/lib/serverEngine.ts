@@ -27,6 +27,7 @@ import { mapCloudRow, profileFromRows, type ProfileRowCols, type HouseholdRowCol
 import { buildSafeSummary } from './aiSummary';
 import { runAssistant, LlmBackend, type AssistantContext, type AssistantTurn } from './askVyactBackend';
 import type { ModelCall } from './askVyactLlm';
+import { normaliseChips, renderChipsAsNumberedList } from './askVyactResponses';
 
 /** Everything the engine needs about one household, as rows straight from Postgres. */
 export interface HouseholdRows {
@@ -68,6 +69,7 @@ export function contextFromRows(rows: HouseholdRows): AssistantContext {
     summary, transactions, budgets, goals, debts, assets, recurring,
     profile, rates, baseCurrency: profile.baseCurrency,
     accounts: accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind })),
+    channel: 'whatsapp',
   };
 }
 
@@ -106,10 +108,9 @@ export function renderForWhatsApp(turn: AssistantTurn, appUrl: string): WhatsApp
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/^\s*[-*]\s+/gm, '• ')
     .trim();
-  const chips = (turn.chips ?? []).slice(0, 3);
-  const menu = chips.length
-    ? `\n\n${chips.map((c, i) => `${i + 1}. ${c.label}`).join('\n')}\n\nReply with a number, or ask anything.`
-    : '';
+  // The one chip contract (askVyactResponses): max three, each asks something.
+  const chips = normaliseChips(turn.chips) ?? [];
+  const menu = chips.length ? `\n\n${renderChipsAsNumberedList(chips)}\n\nReply with a number, or ask anything.` : '';
   const room = WHATSAPP_MAX_CHARS - menu.length;
   const body = plain.length > room ? `${plain.slice(0, room - 1).trimEnd()}…` : plain;
   return { text: `${body}${menu}`, chipPrompts: chips.map((c) => c.prompt) };

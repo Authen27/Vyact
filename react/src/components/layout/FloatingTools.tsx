@@ -36,7 +36,7 @@ export default function FloatingTools() {
   if (suppressed || !askOpen) return null;
 
   return (
-    <Drawer onClose={closeAsk} title="Ask Vyact">
+    <Drawer onClose={closeAsk} title="Pip">
       <Suspense fallback={<DrawerLoadingState />}>
         <Chat embedded />
       </Suspense>

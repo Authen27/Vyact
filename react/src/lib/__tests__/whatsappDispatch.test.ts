@@ -5,11 +5,11 @@ import { EXPENSE_CATEGORIES } from '../../constants';
 import { spendByCategoryInRange as clientSpend } from '../calculations';
 import { TEMPLATES } from '../../../../supabase/functions/_shared/whatsapp-templates';
 import {
-  TOPICS, TEMPLATE_TOPIC, DEFAULT_PREFS, refusalFor, parsePrefCommand, applyPrefCommand, buttonReply, consentOf,
+  TOPICS, TEMPLATE_TOPIC, DEFAULT_PREFS, refusalFor, parsePrefCommand, applyPrefCommand, buttonReply, buttonQuestion, consentOf,
 } from '../../../../supabase/functions/_shared/whatsapp-prefs';
 import {
   EXPENSE_LABEL, largeSpendAlerts, budgetAlerts, splitSettledAlerts, weeklySummary, staleBalanceNudge,
-  isoWeek, localDay, rowToTxn, billReminders, parsePaidReply, reminderFromAudit, matchReminders,
+  isoWeek, localDay, rowToTxn, billReminders, overdueBillReminders, parsePaidReply, reminderFromAudit, matchReminders,
   type TxnRow, type BillSchedule, type SentReminder,
 } from '../../../../supabase/functions/_shared/whatsapp-dispatch-rules';
 import type { Transaction as ClientTxn } from '../../types';
@@ -71,11 +71,14 @@ describe('topics and consent', () => {
 
   it('CON-UNIT-WA-D-005 · every quick reply in the manifest is answered, or is a named W3 button', () => {
     const W3 = new Set(['Undo', 'Pause this one', 'Split 50/50', "It's all mine", 'Not shared', 'Show the working',
-      'Menu', 'Log a spend', 'What can I send?']);   // the last three are the welcome's, answered in W1
+      'Menu', 'Log a spend', 'What can I send?',   // the welcome's, answered in W1
+      'Already paid']);                           // bill_overdue_reminder: the webhook's approve path (W5)
     for (const def of Object.values(TEMPLATES)) {
       for (const b of def.buttons ?? []) {
         if (b.type !== 'quick_reply' || W3.has(b.text)) continue;
-        expect(buttonReply(def.name, b.text, 'https://vyact.app'), `${def.name} · ${b.text}`).not.toBeNull();
+        // Answered with a reply, or (v10.46.0) a question Pip answers in the chat.
+        const handled = buttonReply(def.name, b.text, 'https://vyact.app') ?? buttonQuestion(def.name, b.text, 'budget:b:food_dining:80');
+        expect(handled, `${def.name} · ${b.text}`).not.toBeNull();
       }
     }
   });
@@ -169,6 +172,19 @@ describe('bill reminders and "paid X" (W2b)', () => {
     ] });
     expect(sends).toEqual([{ template: 'bill_due_reminder', householdId: 'h', toProfileId: 'alice',
       values: ['Rent', '₹25,000', '25 Sep', 'Rent'], dedupeKey: 'bill:44444444-4444-4444-8444-444444444444:2026-09-25' }]);
+  });
+
+  it('CON-UNIT-W5-012 · the overdue reminder goes once, three days after an approval bill fell due, with a relative date', () => {
+    const sends = overdueBillReminders({ today: '2026-09-28', approvers: [MEMBERS[0]], schedules: [
+      sched({ next_due_date: '2026-09-25' }),                          // 3 days overdue
+      sched({ id: 'fresh', next_due_date: '2026-09-27' }),             // 1 day: not yet
+      sched({ id: 'auto', next_due_date: '2026-09-25', auto_confirm: true }),
+    ] });
+    expect(sends).toEqual([{ template: 'bill_overdue_reminder', householdId: 'h', toProfileId: 'alice',
+      values: ['Rent', 'three days ago', '₹25,000', 'Rent'], dedupeKey: 'bill:44444444-4444-4444-8444-444444444444:2026-09-25' }]);
+    // The same occurrence's due-day reminder and overdue reminder are different events, so both can go.
+    expect(billReminders({ today: '2026-09-25', approvers: [MEMBERS[0]], schedules: [sched({ next_due_date: '2026-09-25' })] })[0].dedupeKey)
+      .toBe(sends[0].dedupeKey);
   });
 
   it('CON-UNIT-WA-B-002 · "paid" replies parse, and match only a reminder of that name that was sent', () => {

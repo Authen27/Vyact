@@ -38,13 +38,14 @@ export type SendResult =
 /** A person's preferences, or the defaults when they have never changed one. */
 export async function loadPrefs(admin: SupabaseClient, profileId: string): Promise<WaPrefs> {
   const { data } = await admin.from('whatsapp_preferences')
-    .select('marketing_opt_in, insights_opt_in, muted_topics, large_txn_threshold')
+    .select('marketing_opt_in, insights_opt_in, reads_enabled, muted_topics, large_txn_threshold')
     .eq('profile_id', profileId).maybeSingle();
   if (!data) return { ...DEFAULT_PREFS };
   const row = data as Partial<WaPrefs>;
   return {
     marketing_opt_in: !!row.marketing_opt_in,
     insights_opt_in: !!row.insights_opt_in,
+    reads_enabled: !!row.reads_enabled,
     muted_topics: Array.isArray(row.muted_topics) ? row.muted_topics : [],
     large_txn_threshold: Number(row.large_txn_threshold ?? DEFAULT_PREFS.large_txn_threshold),
   };

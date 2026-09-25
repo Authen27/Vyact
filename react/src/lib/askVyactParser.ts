@@ -135,6 +135,38 @@ export function resolvePeriod(period: string | undefined | null, now = new Date(
 
 const titleCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** v10.46.0 (W5) — a window shorter than a month: dates inclusive, `YYYY-MM-DD`. */
+export interface DayWindow { start: string; end: string; label: string }
+
+/**
+ * "today", "yesterday", "this week" (Monday to today), "last week" (the previous
+ * Monday–Sunday), "last 7 days" — or null. A month question goes to `resolvePeriod`;
+ * this only answers windows a month key cannot express. Local dates, as the ledger
+ * stores them.
+ */
+export function resolveDayWindow(period: string | undefined | null, now = new Date()): DayWindow | null {
+  const raw = (period ?? '').trim().toLowerCase().replace(/^(for|in|during)\s+/, '');
+  if (!raw) return null;
+  const day = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const shift = (n: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + n);
+  const today = day(now);
+  if (raw === 'today' || raw === 'so far today') return { start: today, end: today, label: 'today' };
+  if (raw === 'yesterday') { const y = day(shift(-1)); return { start: y, end: y, label: 'yesterday' }; }
+  const sinceMonday = (now.getDay() + 6) % 7;
+  if (/^(this|current)\s+week$/.test(raw) || raw === 'week to date') {
+    return { start: day(shift(-sinceMonday)), end: today, label: 'this week' };
+  }
+  if (/^(last|previous)\s+week$/.test(raw)) {
+    return { start: day(shift(-sinceMonday - 7)), end: day(shift(-sinceMonday - 1)), label: 'last week' };
+  }
+  const lastN = /^(?:the\s+)?(?:last|past)\s+(\d{1,2})\s+days?$/.exec(raw);
+  if (lastN && Number(lastN[1]) >= 1 && Number(lastN[1]) <= 31) {
+    const n = Number(lastN[1]);
+    return { start: day(shift(-(n - 1))), end: today, label: `the last ${n} days` };
+  }
+  return null;
+}
+
 /**
  * Resolve a stated date to `YYYY-MM-DD`, or null.
  *

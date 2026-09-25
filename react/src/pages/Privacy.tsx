@@ -92,13 +92,13 @@ export default function Privacy() {
           'Cloud database and authentication infrastructure (Supabase) — stores your account and household data, encrypted at rest and in transit.',
           'Hosting/CDN and application infrastructure (Vercel) — serves the application.',
           'Messaging channel providers (e.g. WhatsApp Business Platform / Meta) — only if you explicitly link your account to that channel.',
-          'AI-assistant infrastructure (large-language-model providers) — only when you ask Ask Vyact a question, and only your question plus the figures Vyact has already calculated for that one answer. Your transaction history is never sent. See "How Ask Vyact uses a language model" below.',
+          'AI-assistant infrastructure (large-language-model providers) — only when you ask Pip, Vyact\'s assistant, a question, and only your question plus the figures Vyact has already calculated for that one answer. Your transaction history is never sent. See "How Pip uses a language model" below.',
         ]} />
         <p>We may disclose information where required by law, to protect the rights, property, or safety of Vyact, our users, or the public, or in connection with a merger, acquisition, or sale of assets — in which case we will notify affected users before data is transferred under materially different terms.</p>
 
-        <h3 className="font-display font-bold text-ink text-[15px] mt-6 mb-2">How Ask Vyact uses a language model</h3>
+        <h3 className="font-display font-bold text-ink text-[15px] mt-6 mb-2">How Pip uses a language model</h3>
         <p>
-          Ask Vyact answers your questions with the help of a large-language-model provider.
+          Pip, Vyact's assistant, answers your questions with the help of a large-language-model provider.
           Exactly two things leave Vyact each time you ask a question, and nothing else:
         </p>
         <List items={[
@@ -119,13 +119,19 @@ export default function Privacy() {
         <p>
           That screening is a safeguard, not a guarantee of correctness: it compares the numbers in a
           reply against the ones Vyact calculated, so it will not catch a correct figure that has
-          been described the wrong way round. Ask Vyact is here to help you understand your money,
+          been described the wrong way round. Pip is here to help you understand your money,
           not to replace your own judgement — and it is never financial advice.
         </p>
         <p>
           These requests are made by Vyact's own server, never by your browser, so no provider
           credential is ever present in the app you are running. If no model is configured or
-          reachable, Ask Vyact tells you it is unavailable — it does not fall back to a guess.
+          reachable, Pip tells you it is unavailable — it does not fall back to a guess.
+        </p>
+        <p>
+          <strong className="text-ink">On WhatsApp.</strong> If you link a WhatsApp number and turn on
+          &quot;Answer my questions here&quot;, Pip answers in that chat, so the answer, including its
+          figures, is delivered through WhatsApp (Meta) and can appear in your phone&apos;s notifications.
+          It is off until you turn it on, and you can turn it off at any time in Settings.
         </p>
       </Section>
 

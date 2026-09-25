@@ -116,11 +116,14 @@ furthest status Meta reported (`delivery_status`). STOP / STOP <TOPIC> / START <
 template buttons change `whatsapp_preferences`.
 
 **Ask Vyact on WhatsApp (v10.45.0).** A question is answered in the chat only when both hold:
-1. The person turned on **Settings › WhatsApp › "Answer my questions here"** (`reads_enabled`).
+1. The person turned answers on (`reads_enabled`): in **Settings › WhatsApp › "Answer my questions
+   here"** (`reads_source = 'app_settings'`), or by replying **ANSWERS ON** in the chat
+   (`'whatsapp_keyword'`, v10.46.0). ANSWERS OFF turns it off.
 2. An `ai_model_configs` row is enabled for the `assistant` seam. The test-only Claude Code relay row
    does not count: WhatsApp needs a real model.
 
-Otherwise questions stay hard-blocked, as before. Calls share the app's daily cap
+With answers off, a question gets the ANSWERS ON offer (a `reads_offer` pending turn), never a link;
+the question is answered as soon as the person says ANSWERS ON. Calls share the app's daily cap
 (`ASK_VYACT_DAILY_CALL_CAP`) and appear in `ai_usage` with surface `whatsapp`. The engine is
 `_shared/agent/engine.generated.js`, built from the app; rebuild with
 `node scripts/build-agent-engine.mjs` after changing Ask Vyact code.

@@ -297,6 +297,78 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
     note: 'Meta template id 2569691853498726. Its quick replies are answered by the webhook (welcomeButtonReply).',
   }),
+
+  // ── Design variant B, submitted 26 Sep (W5) — each a separate template because the
+  //    sentence differs, with its own header image. ─────────────────────────────
+  bill_overdue_reminder: t({
+    // Sent once, three days after an APPROVAL bill fell due and is still waiting.
+    // No greeting and no emoji: an overdue bill is not neutral news. "Already paid"
+    // is the likeliest truth by then, so it leads.
+    name: 'bill_overdue_reminder', category: 'utility', language: 'en_US', status: 'in_review',
+    headerImage: '13-bill-overdue.jpg',
+    body: 'Overdue: your {{1}} bill was due {{2}}.\nAmount: {{3}}\n\nIf you\'ve already paid it, tap Already paid or reply "paid {{4}}" and I\'ll close it off. If not, it\'s worth paying before a late fee lands.',
+    params: [
+      { name: 'biller', sample: 'BESCOM' },
+      { name: 'dueWhen', sample: '3 days ago', note: 'relative within a week, else "on 15 Sep"' },
+      { name: 'amount', sample: '₹3,200', note: 'formatted WITH the currency symbol' },
+      { name: 'replyWord', sample: 'BESCOM' },
+    ],
+    buttons: [{ type: 'quick_reply', text: 'Already paid' }],
+  }),
+  payday_headroom_variable: t({
+    // For pay that is not the same twice: the fact that matters is the difference from
+    // a usual month. No 🎉 — a light month should not be cheered. Needs #68 to send.
+    name: 'payday_headroom_variable', category: 'utility', language: 'en_US', status: 'in_review',
+    headerImage: '14-payday-variable.jpg',
+    body: "Money's in, {{1}}.\n\n₹{{2}} landed. That's {{3}} than your usual month.\nAfter your bills, you've got about ₹{{4}} of room.\n\nAssumes your {{5}} fixed bills at last month's amounts, ₹{{6}} together.",
+    params: [
+      { name: 'firstName', sample: 'Rohan' },
+      { name: 'income', sample: '92,000' },
+      { name: 'versusUsual', sample: '₹8,400 more', note: 'composed: amount and direction' },
+      { name: 'headroom', sample: '56,900' },
+      { name: 'fixedBillCount', sample: 'five', note: 'spelled out' },
+      { name: 'fixedBillTotal', sample: '35,100' },
+    ],
+    footer: 'Once a pay cycle. Reply STOP PAYDAY to end these.',
+    buttons: [
+      { type: 'quick_reply', text: 'Plan this month' },
+      { type: 'quick_reply', text: 'Stop these' },
+    ],
+  }),
+  reengagement_nudge_quiet: t({
+    // Nothing pending, so no invented urgency: it names the gap and one small ask.
+    // "Reply LOG" is answered by the webhook (isLogTrigger / the Log today button).
+    name: 'reengagement_nudge_quiet', category: 'marketing', language: 'en_US', status: 'in_review',
+    headerImage: '15-reengage-quiet.jpg',
+    body: "Hi {{1}}, it's been {{2}} days since anything was logged, so this month's picture is going stale.\n\nA week of logging is usually enough for a forecast worth trusting. Reply LOG and we'll do today's in one line.",
+    params: [
+      { name: 'firstName', sample: 'Rohan' },
+      { name: 'daysQuiet', sample: '11' },
+    ],
+    footer: 'You opted into tips. Reply STOP TIPS to end them.',
+    buttons: [
+      { type: 'quick_reply', text: 'Log today' },
+      { type: 'url', text: 'Open Vyact', url: 'https://vyact.app' },
+    ],
+  }),
+  runway_recovered_alert: t({
+    // Pip should be able to give good news about the same metric, or the runway note
+    // becomes a message people learn to dread. Keeps the assumption line.
+    name: 'runway_recovered_alert', category: 'marketing', language: 'en_US', status: 'in_review',
+    headerImage: '16-runway-recovered.jpg',
+    body: 'Good news, {{1}}.\n\nYour savings would now cover about {{2}} months, up from {{3}}. {{4}} is what moved it.\n\nAssumes your recent spending continues.',
+    params: [
+      { name: 'firstName', sample: 'Rohan' },
+      { name: 'coverNow', sample: '5.1', note: 'one decimal' },
+      { name: 'coverBefore', sample: '4.2' },
+      { name: 'mainDriver', sample: 'A quieter month on dining', note: 'the single biggest driver, named' },
+    ],
+    footer: 'Only on a real change. Reply STOP RUNWAY to end these.',
+    buttons: [
+      { type: 'quick_reply', text: 'See the detail' },
+      { type: 'quick_reply', text: 'Stop these' },
+    ],
+  }),
 };
 
 /** Legacy `whatsapp-notify` event names → template. New templates use their own name. */
