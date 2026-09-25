@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.40.0`** (consumer)
+> **Current production version: `v10.41.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,55 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.41.0 — WhatsApp templates (W1): one manifest, image headers, owner-run submission *(2026-09-25)*
+
+The second release of the WhatsApp plan. Still no proactive send is switched on; this makes the
+templates now in Meta review actually sendable once they are approved.
+
+- **Meta side, done in WhatsApp Manager (24–25 Sep).**
+  - Four existing templates got image headers: `bill_due_reminder`, `split_settled`,
+    `weekly_summary`, `reengagement_nudge`.
+  - Seven new image templates were submitted: payday, household digest, runway, month close,
+    budget setup, stale balances, affordability.
+  - Five text templates were enriched with new wording, values and buttons, and their links moved
+    from the old `vyact-twentyx` domain to vyact.app: `large_transaction_alert`,
+    `budget_threshold_alert`, `partner_split_prompt`, `split_shared_with_you`,
+    `recurring_auto_logged`.
+  - `recurring` (a "pay now" overdue-card message), `feedback` and the integration test template
+    were deleted. `hello_world` stays; Meta does not allow deleting it.
+  - `weekly_summary` was flagged by Meta as marketing, and `runway_shift_alert` was submitted as
+    marketing on Meta's pre-check.
+  - Every body, variable order, button and sample is recorded in `docs/WHATSAPP_TEMPLATES.md`.
+- **One manifest: `_shared/whatsapp-templates.ts`.**
+  - It holds each template's name, the category Vyact treats it as, the header image, body, the
+    ordered values each send must supply (with Meta's samples), footer and buttons.
+  - `whatsapp-notify` resolves events through it: the legacy names still work, and a new template
+    is sent by its own name. It now refuses a send with the wrong number of values (400, listing
+    what was expected) instead of letting Meta reject it.
+  - A template Meta flagged as marketing is treated as marketing, so it needs consent.
+- **Image templates can be sent.** Meta needs the header image on every send; `sendTemplate` sent a
+  text body only.
+  - `sendTemplateMessage` / `buildTemplateMessage` add the header image link from
+    `vyact.app/whatsapp/<file>`.
+  - Quick-reply buttons carry `template:index:context` payloads, so a tap can be routed back to
+    the event it answers (the W2/W3 handlers).
+  - Template language comes from the manifest.
+- **Header images are served by the app.** The 11 design PNGs (6.6 MB, deliberately kept out of
+  git) were re-encoded as 1200×628 JPEGs of 33–43 KB each, about 430 KB in all, into
+  `react/public/whatsapp/`.
+- **Meta's rules are a test.** `lintTemplate` checks variables run `{{1}}…{{n}}` in order, the body
+  neither starts nor ends with a variable, no two variables sit side by side, the body is not
+  mostly variables, the footer is at most 60 characters, button text is at most 25 characters,
+  links are https, and every value has a clean sample. It runs over the whole manifest, so a bad
+  template cannot land quietly.
+- **Owner-run scripts** (`scripts/whatsapp/`, `node --experimental-strip-types`; your token stays
+  in your shell):
+  - `templates-status.mjs` is read-only. It compares Meta with the manifest and exits 1 on drift.
+  - `templates-submit.mjs` is a dry run by default. It creates or edits named templates only with
+    `--apply`, uploading the header through Meta's resumable upload.
+
+Tests: CON-UNIT-WA-T-001…012, plus the W0 notify tests updated for the value count and header.
 
 ## v10.40.0 — WhatsApp foundations (W0): failures recorded, sends guarded *(2026-09-24)*
 

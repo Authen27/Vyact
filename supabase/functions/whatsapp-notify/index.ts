@@ -26,23 +26,13 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import {
-  env, json, corsHeaders, sendTemplate, gateReason, cleanParam, constantTimeEqual,
+  env, json, corsHeaders, sendTemplateMessage, gateReason, cleanParam, constantTimeEqual, APP_URL,
 } from '../_shared/whatsapp.ts';
+import { templateForEvent } from '../_shared/whatsapp-templates.ts';
 
-type Category = 'utility' | 'marketing';
-
-// event → approved template name and its Meta category (see the template catalog).
-const EVENT_TEMPLATE: Record<string, { template: string; category: Category }> = {
-  partner_split:     { template: 'partner_split_prompt',   category: 'utility' },
-  split_shared:      { template: 'split_shared_with_you',  category: 'utility' },
-  split_settled:     { template: 'split_settled',          category: 'utility' },
-  budget_threshold:  { template: 'budget_threshold_alert', category: 'utility' },
-  bill_due:          { template: 'bill_due_reminder',      category: 'utility' },
-  large_transaction: { template: 'large_transaction_alert', category: 'utility' },
-  recurring_logged:  { template: 'recurring_auto_logged',  category: 'utility' },
-  weekly_summary:    { template: 'weekly_summary',         category: 'utility' },
-  reengagement:      { template: 'reengagement_nudge',     category: 'marketing' },
-};
+// W1 (v10.41.0) — the event → template table and each template's category now come
+// from the manifest (_shared/whatsapp-templates.ts), the one record of what Meta
+// approved. An event is a legacy alias (bill_due, partner_split…) or a template name.
 
 /** Roles that may send on the household's behalf. Viewers and children read only. */
 const WRITE_ROLES = new Set(['owner', 'admin', 'member']);
@@ -64,10 +54,16 @@ Deno.serve(async (req: Request) => {
   }
 
   const { event, householdId, toProfileId, params, dedupeKey } = await req.json().catch(() => ({}));
-  const mapping = EVENT_TEMPLATE[event ?? ''];
-  if (!mapping) return json({ error: 'unknown_event' }, 400);
+  const def = templateForEvent(String(event ?? ''));
+  if (!def) return json({ error: 'unknown_event' }, 400);
   if (!householdId || !toProfileId) return json({ error: 'missing_target' }, 400);
-  const templateName = mapping.template;
+  const templateName = def.name;
+  // Every value the approved template needs, no more, no fewer: Meta rejects a
+  // mismatch, so it is refused here with the names of what was expected.
+  const values = Array.isArray(params) ? params : [];
+  if (values.length !== def.params.length) {
+    return json({ error: 'param_count', expected: def.params.map((p) => p.name), got: values.length }, 400);
+  }
 
   // A member may only notify about their own household, and only with a write role.
   if (callerId) {
@@ -89,7 +85,7 @@ Deno.serve(async (req: Request) => {
     return json({ status: 'skipped', reason: 'recipient_not_linked', template: templateName });
   }
 
-  const cleaned = (Array.isArray(params) ? params : []).map((p: unknown) => cleanParam(p));
+  const cleaned = values.map((p: unknown) => cleanParam(p));
   const audit = (id: string, status: string, result: Record<string, unknown>) =>
     admin.from('whatsapp_inbound_messages').insert({
       wa_message_id: id,
@@ -112,7 +108,7 @@ Deno.serve(async (req: Request) => {
 
   // Marketing needs the recipient's own opt-in. The consent record arrives in W2;
   // until it exists, a marketing send is refused rather than assumed.
-  if (mapping.category === 'marketing') return skip('marketing_consent_required');
+  if (def.category === 'marketing') return skip('marketing_consent_required');
 
   const gated = gateReason(templateName);
   if (gated) return skip(gated);
@@ -141,7 +137,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    await sendTemplate(recipient.phone_number, templateName, cleaned);
+    // The dedupe key rides on quick-reply payloads, so a tap can be traced back to
+    // the exact event it answers.
+    await sendTemplateMessage(recipient.phone_number, def, cleaned, { appUrl: APP_URL, context: key });
   } catch (e) {
     await admin.from('whatsapp_inbound_messages')
       .update({ status: 'failed', last_error: (e as Error)?.message ?? String(e) })

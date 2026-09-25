@@ -210,14 +210,17 @@ describe('whatsapp-notify guards (W0)', () => {
     expect(await res.json()).toEqual({ status: 'sent', template: 'bill_due_reminder' });
     expect(api.auth.getUser).not.toHaveBeenCalled();
     const sent = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
-    expect(sent.template.components[0].parameters[1].text).toBe('BESCOM bill');   // newline cleaned
+    const component = (type: string) => sent.template.components.find((c: { type: string }) => c.type === type);
+    expect(component('body').parameters[1].text).toBe('BESCOM bill');   // newline cleaned
+    // W1 — an image template carries its header image on the send.
+    expect(component('header').parameters[0].image.link).toMatch(/\/whatsapp\/01-bill-reminder\.jpg$/);
   });
 
   it('CON-UNIT-WA-W0-007 · a viewer cannot message other members', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     api.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
     tables({ role: 'viewer' });
-    const res = await call(handler, 'user-jwt', { event: 'bill_due' });
+    const res = await call(handler, 'user-jwt', { event: 'bill_due', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] });
     expect(res.status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -233,7 +236,7 @@ describe('whatsapp-notify guards (W0)', () => {
   it('CON-UNIT-WA-W0-009 · a second send of the same event is refused as a duplicate', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     tables({ claimError: { code: '23505' } });
-    expect(await (await call(handler, 'test-service-key', { event: 'bill_due', dedupeKey: 'sched-1:2026-09-24' })).json())
+    expect(await (await call(handler, 'test-service-key', { event: 'bill_due', dedupeKey: 'sched-1:2026-09-24', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] })).json())
       .toEqual(expect.objectContaining({ status: 'skipped', reason: 'duplicate' }));
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -241,11 +244,11 @@ describe('whatsapp-notify guards (W0)', () => {
   it('CON-UNIT-WA-W0-010 · the daily cap and the outbound switch both stop a send', async () => {
     let handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     tables({ sentToday: 6 });
-    expect((await (await call(handler, 'test-service-key', { event: 'bill_due' })).json()).reason).toBe('daily_cap');
+    expect((await (await call(handler, 'test-service-key', { event: 'bill_due', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] })).json()).reason).toBe('daily_cap');
     vi.resetModules();
     handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'));
     tables();
-    expect((await (await call(handler, 'test-service-key', { event: 'bill_due' })).json()).reason).toBe('outbound_disabled');
+    expect((await (await call(handler, 'test-service-key', { event: 'bill_due', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] })).json()).reason).toBe('outbound_disabled');
     expect(fetch).not.toHaveBeenCalled();
   });
 });

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.40.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.41.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -350,6 +350,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   without consent, a dedupe slot claimed before sending, and a daily cap. There are no in-code
   Meta ID fallbacks. The next-level plan (templates, nudges, conversation, Ask Vyact on
   WhatsApp) is W1–W5 in `docs/HANDOFF.md` §0.
+  **v10.41.0 (W1): `_shared/whatsapp-templates.ts` is the ONE record of every template**, and it must
+  match what Meta approved field for field (`docs/WHATSAPP_TEMPLATES.md`; `templates-status.mjs`
+  reports drift). Change Meta first, wait for approval, then the manifest. Never send an image
+  template through the old body-only `sendTemplate`: Meta needs the header image on every send
+  (`sendTemplateMessage`). A template Meta flagged as marketing is treated as marketing. Never run
+  `templates-submit.mjs --apply` yourself; submitting is the owner's action with the owner's token.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

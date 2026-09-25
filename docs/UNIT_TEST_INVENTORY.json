@@ -1996,6 +1996,29 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/whatsappTemplates.test.ts",
+      "feature": "WhatsApp templates",
+      "availability": "conditional",
+      "layer": "contract-unit",
+      "owner": "whatsapp-templates manifest / Meta rules / sendTemplate components (not Meta approval)",
+      "count": 12,
+      "tests": [
+        "the manifest follows Meta’s template rules CON-UNIT-WA-T-001 · every template passes lintTemplate",
+        "the manifest follows Meta’s template rules CON-UNIT-WA-T-002 · the lint catches each rule the design board broke",
+        "the manifest follows Meta’s template rules CON-UNIT-WA-T-003 · every header image exists in react/public/whatsapp and is a small JPEG",
+        "the manifest follows Meta’s template rules CON-UNIT-WA-T-004 · every legacy event resolves, and templates resolve by their own name",
+        "the manifest follows Meta’s template rules CON-UNIT-WA-T-005 · every template is recorded in docs/WHATSAPP_TEMPLATES.md",
+        "the manifest follows Meta’s template rules CON-UNIT-WA-T-006 · a template Meta flagged as marketing is treated as marketing",
+        "the wire shape of a send CON-UNIT-WA-T-007 · an image template carries its header image link on every send",
+        "the wire shape of a send CON-UNIT-WA-T-008 · quick replies carry template:index:context payloads; URL buttons take none",
+        "the wire shape of a send CON-UNIT-WA-T-009 · a wrong value count throws, naming what was expected",
+        "the wire shape of a send CON-UNIT-WA-T-010 · values are cleaned of the newlines Meta rejects",
+        "the wire shape of a send CON-UNIT-WA-T-011 · every template builds from its own samples",
+        "the wire shape of a send CON-UNIT-WA-T-012 · the Meta submission carries header handle, body samples, footer and buttons"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/whatsappWorkflow.test.ts",
       "feature": "WhatsApp handlers",
       "availability": "conditional",

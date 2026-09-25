@@ -9,6 +9,8 @@
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY — injected by the platform
 //   WHATSAPP_GRAPH_VERSION     — optional, defaults to v21.0
 
+import { MAX_PAYLOAD, type TemplateDef } from './whatsapp-templates.ts';
+
 export const env = (k: string, fallback = ''): string => Deno.env.get(k) ?? fallback;
 
 export const GRAPH_VERSION = env('WHATSAPP_GRAPH_VERSION', 'v21.0');
@@ -96,6 +98,55 @@ export async function sendTemplate(to: string, templateName: string, params: str
       type: 'template',
       template: { name: templateName, language: { code: lang }, components },
     }),
+  });
+  if (!res.ok) throw new Error(`Meta dispatch failed (${res.status}): ${await res.text()}`);
+}
+
+/**
+ * W1 (v10.41.0) — the template message for a manifest template, exactly as Meta
+ * needs it on the wire. `sendTemplate` above sent a text body only; every image
+ * template now requires its header image on EVERY send (Meta fixes the header TYPE
+ * at approval, not the image), and quick replies carry a payload so a tap can be
+ * routed back to what it was about (W2/W3 handlers read `template:index:context`).
+ *
+ * Throws on a wrong value count rather than letting Meta reject the send: the
+ * caller's contract is broken, and that is a bug to surface, not retry.
+ */
+export function buildTemplateMessage(
+  def: TemplateDef,
+  values: readonly unknown[],
+  opts: { appUrl: string; context?: string },
+): { name: string; language: { code: string }; components: Record<string, unknown>[] } {
+  if (values.length !== def.params.length) {
+    throw new Error(`${def.name} needs ${def.params.length} values (${def.params.map((p) => p.name).join(', ')}), got ${values.length}`);
+  }
+  const components: Record<string, unknown>[] = [];
+  if (def.headerImage) {
+    components.push({ type: 'header', parameters: [{ type: 'image', image: { link: `${opts.appUrl}/whatsapp/${def.headerImage}` } }] });
+  }
+  if (values.length) {
+    components.push({ type: 'body', parameters: values.map((v) => ({ type: 'text', text: cleanParam(v) })) });
+  }
+  (def.buttons ?? []).forEach((b, index) => {
+    if (b.type !== 'quick_reply') return;   // static URL buttons take no send-time value
+    const payload = `${def.name}:${index}:${cleanParam(opts.context ?? '', 60)}`.slice(0, MAX_PAYLOAD);
+    components.push({ type: 'button', sub_type: 'quick_reply', index: String(index), parameters: [{ type: 'payload', payload }] });
+  });
+  return { name: def.name, language: { code: def.language }, components };
+}
+
+/** Send a manifest template (see `buildTemplateMessage`). */
+export async function sendTemplateMessage(
+  to: string, def: TemplateDef, values: readonly unknown[], opts: { appUrl: string; context?: string },
+): Promise<void> {
+  const phoneId = WHATSAPP_PHONE_NUMBER_ID;
+  const token = env('WHATSAPP_ACCESS_TOKEN');
+  if (!phoneId || !token) throw new Error('WhatsApp sender not configured (PHONE_NUMBER_ID / ACCESS_TOKEN).');
+  const template = buildTemplateMessage(def, values, opts);
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${phoneId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'template', template }),
   });
   if (!res.ok) throw new Error(`Meta dispatch failed (${res.status}): ${await res.text()}`);
 }

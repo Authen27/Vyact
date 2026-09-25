@@ -74,6 +74,21 @@ it maps the event to its template and dispatches only if enabled + approved (els
 - **Cap:** at most `WHATSAPP_DAILY_CAP` (default 6) sends per recipient in any 24 h.
 - **Audit rows** carry `status` `sending` → `sent` / `failed` / `skipped`.
 
+**Templates (v10.41.0).** `supabase/functions/_shared/whatsapp-templates.ts` is the manifest of
+every template Vyact sends, matching what Meta approved (`docs/WHATSAPP_TEMPLATES.md`).
+
+To switch a template on:
+1. Wait until it is **Approved** in WhatsApp Manager.
+2. Run `node --experimental-strip-types scripts/whatsapp/templates-status.mjs` with
+   `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_WABA_ID` in your shell. It must report no drift for that
+   template.
+3. Add its name to `WHATSAPP_APPROVED_TEMPLATES`.
+
+Image headers are served from `https://vyact.app/whatsapp/<file>.jpg`, so a template's image must
+be deployed before it is switched on. To change a template, edit it at Meta (WhatsApp Manager, or
+`templates-submit.mjs --apply`, which is a dry run without `--apply`), wait for approval, then update
+the manifest in the same change as any send code that depends on it.
+
 **Required secrets** (no in-code fallbacks since v10.40.0 — a missing one fails the send loudly):
 `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (the live +91 number's ID on WABA
 `1887272231954080`), `WHATSAPP_WABA_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`. Optional:

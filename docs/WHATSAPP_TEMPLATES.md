@@ -7,7 +7,12 @@
 > WABA **Vyact App `1887272231954080`** (+91 88978 82803). All templates are language **English (US)**
 > (`en_US`). Submitted through WhatsApp Manager on 24–25 Sep 2026.
 
-## ⚠️ Before any image template can be sent
+## Sending image templates (resolved in v10.41.0)
+
+> **Resolved.** `sendTemplateMessage` adds the header image from `vyact.app/whatsapp/` (optimised JPEGs
+> in `react/public/whatsapp/`), and the manifest `_shared/whatsapp-templates.ts` mirrors this file.
+> The original warning is kept below for history.
+
 
 Once a template has an IMAGE header, Meta requires the image (a link or an uploaded media id) on
 **every** send. `sendTemplate` in `_shared/whatsapp.ts` sends body parameters only. **W1.6 must add the
@@ -30,7 +35,6 @@ fails. The 11 header images are in
 | `budget_setup_reminder` | **Marketing** (as planned) | 07-budget-setup | New | In review |
 | `balance_stale_nudge` | **Marketing** (as planned) | 10-balance-recheck | New | In review |
 | `affordability_reply` | Utility | 11-forecast-response | New | In review |
-
 | `large_transaction_alert` | Utility | — | Enriched 25 Sep (below) | In review |
 | `budget_threshold_alert` | Utility | — | Enriched 25 Sep | In review |
 | `partner_split_prompt` | Utility | — (split image requested from design) | Enriched 25 Sep | In review |
