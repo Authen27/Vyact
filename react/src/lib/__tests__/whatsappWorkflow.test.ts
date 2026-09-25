@@ -77,6 +77,8 @@ describe('actual WhatsApp Edge handlers', () => {
     api.from.mockImplementation((table: string) => {
       if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'USD' }]);
       // v10.26.0 (R4) — investment assets are offered to the parser as aliases.
+      if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
+      if (table === 'transactions') return queryResult([]);             // W3: no same-amount twin
       if (table === 'assets') return queryResult([{ name: 'Nifty fund' }]);
       if (table === 'whatsapp_identities') {
         const query = queryResult(null);
@@ -128,6 +130,8 @@ function webhookTables(attempts = 0, linked = true, prefs: Record<string, unknow
   const prefWrites: Record<string, unknown>[] = [];
   api.from.mockImplementation((table: string) => {
     if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
+    if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
+    if (table === 'transactions') return queryResult([]);             // W3: no same-amount twin
     if (table === 'assets') return queryResult([]);
     if (table === 'whatsapp_identities') return queryResult(linked ? { profile_id: 'alice', household_id: 'alice-house' } : null);
     if (table === 'profiles') return queryResult({ display_name: 'Rohan Mehta' });
@@ -197,6 +201,8 @@ describe('webhook failure handling (W0)', () => {
     api.from.mockImplementation((table: string) => {
       if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
       if (table === 'assets') return queryResult([]);
+      if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
+      if (table === 'transactions') return queryResult([]);             // W3: no same-amount twin
       if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
       return queryResult([{ wa_message_id: 'm-9', attempts: 1, payload: { id: 'm-9', from: '111', text: { body: '80 coffee' } } }]);
     });
@@ -356,6 +362,8 @@ describe('WhatsApp "paid X" (W2b)', () => {
   function tables(reminders: unknown[]) {
     api.from.mockImplementation((table: string) => {
       if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+      if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
+      if (table === 'transactions') return queryResult([]);             // W3: no same-amount twin
       if (table === 'recurring_schedules') return queryResult(schedule);
       if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
       if (table === 'assets') return queryResult([]);
@@ -531,5 +539,102 @@ describe('WhatsApp preferences and taps (W2)', () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ messages: [{ id: 'wamid.SENT' }] })));
     expect(await (await call(budget)).json()).toEqual({ status: 'sent', template: 'budget_threshold_alert' });
     expect(updates.at(-1)).toEqual(expect.objectContaining({ status: 'sent', provider_message_id: 'wamid.SENT', delivery_status: 'accepted' }));
+  });
+});
+
+// ── v10.44.0 (W3) — the capture conversation ─────────────────────────────────────
+describe('WhatsApp capture conversation (W3)', () => {
+  const post = async (handler: (r: Request) => Promise<Response>, text: string, id = 'm-1') => {
+    const body = JSON.stringify({ entry: [{ changes: [{ value: { messages: [
+      { id, from: '111', timestamp: String(Date.UTC(2026, 8, 24, 6, 0) / 1000), text: { body: text } }] } }] }] });
+    return handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+  };
+  /** A stateful pending-turn table, and a switchable "twin" for the duplicate check. */
+  function convTables(opts: { twin?: boolean; lastType?: string } = {}) {
+    let open: Record<string, unknown> | null = null;
+    api.from.mockImplementation((table: string) => {
+      if (table === 'accounts') return queryResult([{ name: 'HDFC', kind: 'bank', currency: 'INR' }]);
+      if (table === 'assets') return queryResult([]);
+      if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+      if (table === 'profiles') return queryResult({ display_name: 'Rohan' });
+      if (table === 'transactions') return queryResult(opts.twin ? [{ created_at: new Date(Date.now() - 20 * 60_000).toISOString() }] : []);
+      if (table === 'whatsapp_pending_turns') {
+        const q = queryResult(open);
+        q.insert.mockImplementation((row: Record<string, unknown>) => { open = { id: 'p-1', ...row }; return q; });
+        q.update.mockImplementation(() => { open = null; return q; });
+        return q;
+      }
+      if (table === 'whatsapp_inbound_messages') {
+        const q = queryResult([{ wa_message_id: 'm-1', attempts: 0 }]);
+        q.maybeSingle.mockReturnValue(queryResult({ payload: { parsed: { type: opts.lastType ?? 'expense' } } }));
+        return q;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+    api.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => ({ error: null, data:
+      name === 'whatsapp_log_transaction'
+        ? { status: 'success', amount: args.p_amount, currency: 'INR', type: 'expense', category_id: args.p_category_id, account_name: 'HDFC' }
+        : name === 'whatsapp_undo_last' ? { status: 'undone', amount: 450, currency: 'INR', category_id: 'groceries' }
+        : { status: 'corrected', amount: 450, currency: 'INR' } }));
+    return { open: () => open };
+  }
+  const logCalls = () => api.rpc.mock.calls.filter(([n]) => n === 'whatsapp_log_transaction');
+
+  it('CON-UNIT-WA-C-001 · a missing amount is asked for, and the next bare number completes the SAME entry', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const state = convTables();
+    await post(handler, 'groceries hdfc');
+    expect(sentTexts()[0]).toBe('How much was it? Reply with just the amount, like 450.');
+    expect(state.open()).toEqual(expect.objectContaining({ kind: 'missing_amount' }));
+    expect(logCalls()).toHaveLength(0);                                     // nothing written without an answer
+    vi.mocked(fetch).mockClear();
+    await post(handler, '450', 'm-2');
+    expect(logCalls()).toHaveLength(1);
+    expect(logCalls()[0][1]).toEqual(expect.objectContaining({ p_amount: 450, p_category_id: 'groceries', p_wa_message_id: 'm-2' }));
+    expect(sentTexts()[0]).toMatch(/^✅ Logged ₹450 · Groceries from HDFC\. Reply UNDO within 15 minutes to remove it\.$/);
+  });
+
+  it('CON-UNIT-WA-C-002 · a same-amount twin within two hours asks first; 1 logs it, 2 logs nothing', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    convTables({ twin: true });
+    await post(handler, '450 groceries hdfc');
+    expect(sentTexts()[0]).toBe('You logged ₹450 · Groceries 20 minutes ago. Log this one too?\n\nReply 1 to log it, 2 to skip.');
+    expect(logCalls()).toHaveLength(0);
+    await post(handler, '1', 'm-2');
+    expect(logCalls()).toHaveLength(1);
+    vi.mocked(fetch).mockClear();
+    api.rpc.mockClear();
+    await post(handler, '450 groceries hdfc', 'm-3');
+    await post(handler, 'no', 'm-4');
+    expect(sentTexts().at(-1)).toBe('Skipped. Nothing was logged.');
+    expect(logCalls()).toHaveLength(0);
+  });
+
+  it('CON-UNIT-WA-C-003 · an answer to an expired question is refused, never logged as ₹1', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const state = convTables({ twin: true });
+    await post(handler, '450 groceries hdfc');
+    (state.open() as Record<string, unknown>).expires_at = new Date(Date.now() - 60_000).toISOString();
+    vi.mocked(fetch).mockClear();
+    await post(handler, '1', 'm-2');
+    expect(sentTexts()[0]).toMatch(/^That question has expired/);
+    expect(logCalls()).toHaveLength(0);
+  });
+
+  it('CON-UNIT-WA-C-004 · UNDO and a correction go to their RPCs; a category of the wrong type is refused', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    convTables();
+    await post(handler, 'undo');
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_undo_last', { p_profile_id: 'alice', p_household_id: 'alice-house', p_wa_message_id: 'm-1' });
+    expect(sentTexts()[0]).toBe('Undone. ₹450 · Groceries is removed from Vyact.');
+    vi.mocked(fetch).mockClear();
+    await post(handler, 'no, that was fuel', 'm-2');
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_correct_last', expect.objectContaining({ p_category: 'travel' }));
+    expect(sentTexts()[0]).toBe('Changed. ₹450 is now under Travel.');
+    vi.mocked(fetch).mockClear();
+    api.rpc.mockClear();
+    await post(handler, 'actually salary', 'm-3');                              // an income category for a spend
+    expect(api.rpc).not.toHaveBeenCalledWith('whatsapp_correct_last', expect.anything());
+    expect(sentTexts()[0]).toMatch(/isn't a category for a spend/);
   });
 });

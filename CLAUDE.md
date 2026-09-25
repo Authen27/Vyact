@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.43.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.44.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -367,6 +367,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   schedule in one transaction. Never log a plain transaction for a bill: the schedule stays due and
   the app asks for it again. Reminders go on the due day only; EMIs, transfers and investments are
   approved in the app.
+  **v10.44.0 (W3): UNDO / "no, that was X" act ONLY on the entry `whatsapp_log_transaction` wrote for
+  that person in the last 15 minutes** (`whatsapp_undo_last` / `whatsapp_correct_last`), never on an
+  app-written or app-edited row, never on a "paid X" approval. Questions (missing amount, possible
+  duplicate) live in `whatsapp_pending_turns`; nothing is written until they are answered.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

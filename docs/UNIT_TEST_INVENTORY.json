@@ -1970,6 +1970,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/whatsappConversation.test.ts",
+      "feature": "WhatsApp dispatch",
+      "availability": "conditional",
+      "layer": "contract-unit",
+      "owner": "consent / STOP / scheduler rules / whatsapp-dispatch handler (not a live cron run)",
+      "count": 3,
+      "tests": [
+        "capture conversation replies CON-UNIT-WA-C-005 · UNDO, yes/no and a bare amount are recognised only as the whole message",
+        "capture conversation replies CON-UNIT-WA-C-006 · corrections name a category; the category must fit the entry’s type",
+        "capture conversation replies CON-UNIT-WA-C-007 · only a message naming what it was for is worth asking the amount of"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/whatsappDispatch.test.ts",
       "feature": "WhatsApp dispatch",
       "availability": "conditional",
@@ -2072,11 +2086,15 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 29,
+      "count": 33,
       "tests": [
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-003 · \"paid rent\" after a reminder approves THAT occurrence with the app’s row and next date",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder \"paid X\" is an ordinary entry",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-005 · already approved in the app, or not approvable from chat, is said plainly",
+        "WhatsApp capture conversation (W3) CON-UNIT-WA-C-001 · a missing amount is asked for, and the next bare number completes the SAME entry",
+        "WhatsApp capture conversation (W3) CON-UNIT-WA-C-002 · a same-amount twin within two hours asks first; 1 logs it, 2 logs nothing",
+        "WhatsApp capture conversation (W3) CON-UNIT-WA-C-003 · an answer to an expired question is refused, never logged as ₹1",
+        "WhatsApp capture conversation (W3) CON-UNIT-WA-C-004 · UNDO and a correction go to their RPCs; a category of the wrong type is refused",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-001 · STOP BUDGETS mutes budgets, says what still comes, and logs nothing",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-002 · bare STOP withdraws marketing and insights and mutes every mutable topic, never bills",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-003 · a \"Stop these\" tap mutes that template’s topic; \"Flag it\" advises the bank and writes nothing",

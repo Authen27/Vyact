@@ -22,7 +22,11 @@ import { env, verifyMetaSignature, sendText, sendInteractiveList, APP_URL, const
 import {
   isReceptionistTrigger, receptionistList, menuReply, welcomeButtonAction, UNLINKED_GREETING, UNLINKED_OTHER,
 } from '../_shared/whatsapp-receptionist.ts';
-import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite } from '../_shared/whatsapp-parser.ts';
+import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite, type ParsedTx } from '../_shared/whatsapp-parser.ts';
+import {
+  isUndo, yesNo, bareAmount, parseCorrection, categoryFitsType, worthAskingAmount, duplicateQuestion, undoReply,
+  ASK_AMOUNT, SKIPPED, EXPIRED, UNDO_HINT, DUPLICATE_WINDOW_MINUTES, PENDING_MINUTES, type PendingKind,
+} from '../_shared/whatsapp-conversation.ts';
 import {
   parsePrefCommand, applyPrefCommand, prefsSummary, buttonReply, unsupportedButtonReply,
   LATE_TAP_DAYS, LATE_TAP_REPLY, type WaPrefs,
@@ -430,6 +434,39 @@ async function processInbound(
     return { status: 'done', note: await reply(fromPhone, body) };
   }
 
+  // v10.44.0 (W3) — UNDO and a correction act on the entry WhatsApp just logged.
+  if (isUndo(text)) {
+    const { data, error } = await supabase.rpc('whatsapp_undo_last', {
+      p_profile_id: profile.id, p_household_id: householdId, p_wa_message_id: message.id,
+    });
+    if (error) return retryOrGiveUp(fromPhone, priorAttempts, `undo: ${error.message}`);
+    const r = (data ?? {}) as { status?: string; amount?: number; currency?: string; category_id?: string };
+    if (r.status === 'duplicate') return { status: 'done' };
+    const what = r.amount != null ? `${moneyOf(r.amount, r.currency ?? '')}${r.category_id ? ` · ${CAT_LABEL[r.category_id] ?? r.category_id}` : ''}` : undefined;
+    return { status: 'done', note: await reply(fromPhone, blockedReply(r.status) ?? undoReply(r.status ?? '', what)) };
+  }
+  const corrected = parseCorrection(text);
+  if (corrected) return correctLast(supabase, message, fromPhone, profile, corrected, priorAttempts);
+
+  // An open question (a missing amount, a possible duplicate) takes the answer.
+  // Anything else drops the question and is read as a new message.
+  const pending = await openPending(supabase, profile.id);
+  if (pending) {
+    await resolvePending(supabase, pending.id);
+    const expired = Date.parse(pending.expires_at) < Date.now();
+    const answer = pending.kind === 'missing_amount' ? bareAmount(text) : yesNo(text);
+    if (answer !== null && expired) return { status: 'done', note: await reply(fromPhone, EXPIRED) };
+    if (answer !== null && pending.kind === 'missing_amount') {
+      const again = parseWhatsAppMessage(`${answer} ${pending.payload.text}`, pending.payload.accounts ?? [],
+        pending.payload.baseCurrency ?? 'INR', localDay(message));
+      if (again.ok) return logParsed(supabase, message, fromPhone, profile, again.tx, priorAttempts, { skipDuplicateCheck: true });
+    }
+    if (answer === 'no') return { status: 'done', note: await reply(fromPhone, SKIPPED) };
+    if (answer === 'yes' && pending.kind === 'duplicate_check') {
+      return logParsed(supabase, message, fromPhone, profile, pending.payload.tx, priorAttempts, { skipDuplicateCheck: true });
+    }
+  }
+
   // …and a greeting, MENU or HELP opens the action list.
   if (isReceptionistTrigger(text)) return sendMenu(supabase, fromPhone, profile.id, text);
 
@@ -476,9 +513,43 @@ async function processInbound(
 
   const parsed = parseWhatsAppMessage(text, accountList, baseCurrency, localDay(message));
   if (!parsed.ok) {
+    // v10.44.0 (W3) — "groceries hdfc" names what it was for: ask for the amount
+    // and keep the rest, rather than asking for the whole line again.
+    if (parsed.reason === 'no_amount' && worthAskingAmount(text)) {
+      await askPending(supabase, profile.id, householdId, 'missing_amount', { text, accounts: accountList, baseCurrency });
+      return { status: 'done', note: await reply(fromPhone, ASK_AMOUNT) };
+    }
     return { status: 'done', note: await reply(fromPhone, clarifyReply(parsed.reason, `${APP_URL}/dashboard`)) };
   }
-  const tx = parsed.tx;
+  return logParsed(supabase, message, fromPhone, profile, parsed.tx, priorAttempts);
+}
+
+/**
+ * Log a parsed entry through `whatsapp_log_transaction` and confirm it. Unless the
+ * person already answered a question about it, an expense or income matching one
+ * logged in the last two hours (same amount, type and category) is asked about
+ * first: nothing is written until they reply.
+ */
+async function logParsed(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, tx: ParsedTx,
+  priorAttempts: number, opts: { skipDuplicateCheck?: boolean } = {},
+): Promise<InboundOutcome> {
+  const householdId = profile.whatsapp_household_id!;
+  if (!opts.skipDuplicateCheck && (tx.transaction_type === 'expense' || tx.transaction_type === 'income')) {
+    const since = new Date(Date.now() - DUPLICATE_WINDOW_MINUTES * 60_000).toISOString();
+    const { data: twins, error: twinError } = await supabase.from('transactions').select('created_at')
+      .eq('household_id', householdId).is('deleted_at', null).eq('type', tx.transaction_type)
+      .eq('amount', tx.amount).eq('category', tx.category_id).gt('created_at', since)
+      .order('created_at', { ascending: false }).limit(1);
+    if (twinError) return retryOrGiveUp(fromPhone, priorAttempts, `duplicates: ${twinError.message}`);
+    const twin = (twins as { created_at: string }[] | null)?.[0];
+    if (twin) {
+      await askPending(supabase, profile.id, householdId, 'duplicate_check', { tx });
+      const minutes = Math.max(0, Math.round((Date.now() - Date.parse(twin.created_at)) / 60_000));
+      return { status: 'done', note: await reply(fromPhone,
+        duplicateQuestion(moneyOf(tx.amount, tx.currency), CAT_LABEL[tx.category_id ?? ''] ?? '', minutes)) };
+    }
+  }
 
   const { data: result, error } = await supabase.rpc('whatsapp_log_transaction', {
     p_profile_id: profile.id,
@@ -622,12 +693,7 @@ async function retryOrGiveUp(fromPhone: string, priorAttempts: number, error: st
 function confirmation(r: any, statedDate: string | null = null): string {
   // v10.41.0 — "₹450", not "450 INR" (design: receptionist canvas). Indian digit
   // grouping for INR; an unknown currency keeps its code.
-  const SYMBOL: Record<string, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' };
-  const n = Number(r.amount);
-  const grouped = Number.isFinite(n)
-    ? n.toLocaleString(r.currency === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: 2 })
-    : String(r.amount);
-  const amt = SYMBOL[r.currency] ? `${SYMBOL[r.currency]}${grouped}` : `${grouped} ${r.currency}`;
+  const amt = moneyOf(r.amount, r.currency);
   const cat = r.category_id ? ` · ${CAT_LABEL[r.category_id] ?? r.category_id}` : '';
   let where = '';
   if (r.type === 'income') where = r.to_account_name ? ` to ${r.to_account_name}` : '';
@@ -639,5 +705,79 @@ function confirmation(r: any, statedDate: string | null = null): string {
   // v10.40.0 — say which day it was filed under when the message named one, so a
   // backdated entry is never mistaken for today's (capture_backdated_notice).
   const when = statedDate ? ` on ${statedDate}` : '';
-  return `✅ Logged ${amt}${cat}${where}${mode}${when}. Send another anytime.`;
+  // v10.44.0 (W3) — the undo window is said once, where it applies.
+  return `✅ Logged ${amt}${cat}${where}${mode}${when}. ${UNDO_HINT}`;
+}
+
+/** "₹450" — Indian grouping for INR; an unknown currency keeps its code. */
+function moneyOf(amount: unknown, currency: string): string {
+  const SYMBOL: Record<string, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' };
+  const n = Number(amount);
+  const grouped = Number.isFinite(n)
+    ? n.toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: 2 })
+    : String(amount);
+  return SYMBOL[currency] ? `${SYMBOL[currency]}${grouped}` : `${grouped} ${currency}`;
+}
+
+/** The reply when the sender may not write here any more, or null. */
+function blockedReply(status: string | undefined): string | null {
+  if (status === 'not_a_member' || status === 'read_only_member') {
+    return 'This number is no longer able to log to that household. Relink it in Settings → WhatsApp, or ask the household owner about your access.';
+  }
+  return null;
+}
+
+/** "no, that was groceries" → re-categorise the entry WhatsApp just logged (same type only). */
+async function correctLast(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, category: string, priorAttempts: number,
+): Promise<InboundOutcome> {
+  const householdId = profile.whatsapp_household_id!;
+  // The entry's type decides which categories fit (categories are type-scoped).
+  const { data: last } = await supabase.from('whatsapp_inbound_messages').select('payload')
+    .eq('direction', 'inbound').eq('profile_id', profile.id).neq('wa_message_id', message.id)
+    .order('processed_at', { ascending: false }).limit(1).maybeSingle();
+  const type = String((last as { payload?: { parsed?: { type?: string } } } | null)?.payload?.parsed?.type ?? '');
+  if (type && !categoryFitsType(category, type)) {
+    const label = CAT_LABEL[category] ?? category;
+    return { status: 'done', note: await reply(fromPhone, `${label} isn't a category for ${type === 'income' ? 'income' : 'a spend'}, so I've left it. You can change it in the app.`) };
+  }
+  const { data, error } = await supabase.rpc('whatsapp_correct_last', {
+    p_profile_id: profile.id, p_household_id: householdId, p_category: category, p_wa_message_id: message.id,
+  });
+  if (error) return retryOrGiveUp(fromPhone, priorAttempts, `correct: ${error.message}`);
+  const r = (data ?? {}) as { status?: string; amount?: number; currency?: string };
+  if (r.status === 'duplicate') return { status: 'done' };
+  const REASON: Record<string, string> = {
+    corrected: `Changed. ${moneyOf(r.amount, r.currency ?? '')} is now under ${CAT_LABEL[category] ?? category}.`,
+    no_category: 'That entry is a transfer, so it has no category to change.',
+    too_late: "That's past the 15 minutes, so I've left it. You can change it in the app.",
+    edited: "That entry has been changed in the app since, so I've left it.",
+  };
+  const body = blockedReply(r.status) ?? REASON[r.status ?? ''] ?? "There's nothing I logged in the last 15 minutes to change.";
+  return { status: 'done', note: await reply(fromPhone, body) };
+}
+
+interface PendingTurn { id: string; kind: PendingKind; payload: any; expires_at: string }
+
+/** This person's open question, if any (an expired one too: its answer gets EXPIRED). */
+async function openPending(supabase: SupabaseClient, profileId: string): Promise<PendingTurn | null> {
+  const { data } = await supabase.from('whatsapp_pending_turns').select('id, kind, payload, expires_at')
+    .eq('profile_id', profileId).is('resolved_at', null).maybeSingle();
+  return (data as PendingTurn | null) ?? null;
+}
+
+async function resolvePending(supabase: SupabaseClient, id: string): Promise<void> {
+  await supabase.from('whatsapp_pending_turns').update({ resolved_at: new Date().toISOString() }).eq('id', id);
+}
+
+/** Ask a question: it replaces any open one, and waits PENDING_MINUTES for its answer. */
+async function askPending(
+  supabase: SupabaseClient, profileId: string, householdId: string, kind: PendingKind, payload: Record<string, unknown>,
+): Promise<void> {
+  await supabase.from('whatsapp_pending_turns').update({ resolved_at: new Date().toISOString() })
+    .eq('profile_id', profileId).is('resolved_at', null);
+  await supabase.from('whatsapp_pending_turns').insert({
+    profile_id: profileId, household_id: householdId, kind, payload,
+    expires_at: new Date(Date.now() + PENDING_MINUTES * 60_000).toISOString(),
+  });
 }
