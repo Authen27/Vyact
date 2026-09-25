@@ -25,21 +25,21 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1193 passing deterministic cases in 75 files. Zero failed, skipped or TODO cases at generation.**
+**1219 passing deterministic cases in 76 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 8 |
-| react | contract-unit | conditional | 38 |
-| react | handler-integration | conditional | 23 |
+| react | contract-unit | conditional | 54 |
+| react | handler-integration | conditional | 28 |
 | react | sql-integration | conditional | 5 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 48 |
 | react | store-integration | conditional | 2 |
 | react | unit | available | 277 |
-| react | unit | conditional | 144 |
+| react | unit | conditional | 149 |
 | react | unit | infrastructure | 600 |
 
 ### Executed Files
@@ -66,7 +66,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/amortization.test.ts](../react/src/lib/__tests__/amortization.test.ts) | Money model | unit | available | 15 |
 | [react/src/lib/__tests__/askVyact.test.ts](../react/src/lib/__tests__/askVyact.test.ts) | Ask Vyact | unit | conditional | 31 |
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
-| [react/src/lib/__tests__/askVyactFacts.test.ts](../react/src/lib/__tests__/askVyactFacts.test.ts) | Ask Vyact | unit | conditional | 60 |
+| [react/src/lib/__tests__/askVyactFacts.test.ts](../react/src/lib/__tests__/askVyactFacts.test.ts) | Ask Vyact | unit | conditional | 65 |
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/budgetOrdering.test.ts](../react/src/lib/__tests__/budgetOrdering.test.ts) | Recurring and budgets | unit | available | 13 |
@@ -120,7 +120,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/sync.test.ts](../react/src/lib/__tests__/sync.test.ts) | Storage and synchronization | storage-integration | available | 6 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 34 |
-| [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 14 |
+| [react/src/lib/__tests__/whatsappTemplates.test.ts](../react/src/lib/__tests__/whatsappTemplates.test.ts) | WhatsApp templates | contract-unit | conditional | 16 |
+| [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 19 |
 
 ## 4. Roster
 

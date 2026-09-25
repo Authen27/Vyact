@@ -25,14 +25,15 @@ describe('actual WhatsApp Edge handlers', () => {
     expect(identityDelete.delete).toHaveBeenCalledOnce();
   });
 
-  it('verifies a valid OTP, persists the server-owned identity and consumes the OTP', async () => {
+  it('verifies a valid OTP, persists the server-owned identity, consumes the OTP and asks notify for the welcome', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-verify-otp/index'));
     api.auth.getUser.mockResolvedValue({ data: { user: { id: 'alice' } }, error: null });
     const otp = queryResult({ id: 'otp', household_id: 'alice-house', phone_number: '111', attempts: 0,
       otp_hash: createHash('sha256').update('123456:111:test-pepper').digest('hex') });
     const identity = queryResult(null);
     const cleanup = queryResult(null);
-    api.from.mockReturnValueOnce(otp).mockReturnValueOnce(identity).mockReturnValueOnce(cleanup);
+    api.from.mockReturnValueOnce(otp).mockReturnValueOnce(identity).mockReturnValueOnce(cleanup)
+      .mockReturnValueOnce(queryResult({ display_name: 'Alice Rao' })).mockReturnValueOnce(queryResult({ name: 'Rao Household' }));
     const result = await handler(new Request('https://edge.example.com/verify', { method: 'POST',
       headers: { Authorization: 'Bearer test-user' }, body: JSON.stringify({ code: '123456' }) }));
     expect(result.status).toBe(200);
@@ -40,7 +41,25 @@ describe('actual WhatsApp Edge handlers', () => {
     expect(identity.upsert).toHaveBeenCalledWith(expect.objectContaining({ profile_id: 'alice', phone_number: '111', household_id: 'alice-house' }), { onConflict: 'profile_id' });
     expect(cleanup.delete).toHaveBeenCalledOnce();
     expect(cleanup.eq).toHaveBeenCalledWith('profile_id', 'alice');
-    expect(fetch).not.toHaveBeenCalled();
+    // v10.41.0 — the welcome goes through whatsapp-notify as the service, never straight to Meta.
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).toMatch(/\/functions\/v1\/whatsapp-notify$/);
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer test-service-key');
+    expect(JSON.parse(String(init?.body))).toEqual({ event: 'whatsapp_welcome', householdId: 'alice-house', toProfileId: 'alice',
+      params: ['Alice', 'Rao Household'], dedupeKey: 'link:alice-house:111' });
+  });
+
+  it('CON-UNIT-WA-R-006 · a welcome that cannot be sent never fails the link', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-verify-otp/index'));
+    api.auth.getUser.mockResolvedValue({ data: { user: { id: 'alice' } }, error: null });
+    api.from.mockReturnValueOnce(queryResult({ id: 'otp', household_id: 'alice-house', phone_number: '111', attempts: 0,
+      otp_hash: createHash('sha256').update('123456:111:test-pepper').digest('hex') })).mockReturnValue(queryResult(null));
+    vi.mocked(fetch).mockRejectedValue(new Error('network down'));
+    const result = await handler(new Request('https://edge.example.com/verify', { method: 'POST',
+      headers: { Authorization: 'Bearer test-user' }, body: JSON.stringify({ code: '123456' }) }));
+    expect(await result.json()).toEqual({ status: 'linked', phone: '111', householdId: 'alice-house' });
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).params).toEqual(['friend', 'your household']);
   });
 
   it('accepts the configured Meta handshake without database or message traffic', async () => {
@@ -90,8 +109,8 @@ describe('actual WhatsApp Edge handlers', () => {
     ]);
     const sends = vi.mocked(fetch).mock.calls.map(([, options]) => JSON.parse(String(options?.body)));
     expect(sends).toEqual([
-      expect.objectContaining({ to: '111', text: { body: expect.stringContaining('50 USD') } }),
-      expect.objectContaining({ to: '222', text: { body: expect.stringContaining('75 USD') } }),
+      expect.objectContaining({ to: '111', text: { body: expect.stringContaining('$50') } }),
+      expect.objectContaining({ to: '222', text: { body: expect.stringContaining('$75') } }),
     ]);
     expect(inboxQueries.flatMap(query => query.upsert.mock.calls)).toHaveLength(2);
     expect(inboxQueries.flatMap(query => query.update.mock.calls).filter(([patch]) => patch.status === 'done')).toHaveLength(2);
@@ -104,12 +123,13 @@ const inbound = (text: string) => JSON.stringify({ entry: [{ changes: [{ value: 
   messages: [{ id: 'm-1', from: '111', timestamp: String(Date.UTC(2026, 8, 24, 6, 0) / 1000), text: { body: text } }] } }] }] });
 
 /** Route every table to a fresh query; the inbox claim reports `attempts`. */
-function webhookTables(attempts = 0) {
+function webhookTables(attempts = 0, linked = true) {
   const inbox: ReturnType<typeof queryResult>[] = [];
   api.from.mockImplementation((table: string) => {
     if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
     if (table === 'assets') return queryResult([]);
-    if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+    if (table === 'whatsapp_identities') return queryResult(linked ? { profile_id: 'alice', household_id: 'alice-house' } : null);
+    if (table === 'profiles') return queryResult({ display_name: 'Rohan Mehta' });
     if (table === 'whatsapp_inbound_messages') {
       const q = queryResult([{ wa_message_id: 'm-1', attempts }]);
       inbox.push(q);
@@ -210,14 +230,17 @@ describe('whatsapp-notify guards (W0)', () => {
     expect(await res.json()).toEqual({ status: 'sent', template: 'bill_due_reminder' });
     expect(api.auth.getUser).not.toHaveBeenCalled();
     const sent = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
-    expect(sent.template.components[0].parameters[1].text).toBe('BESCOM bill');   // newline cleaned
+    const component = (type: string) => sent.template.components.find((c: { type: string }) => c.type === type);
+    expect(component('body').parameters[1].text).toBe('BESCOM bill');   // newline cleaned
+    // W1 — an image template carries its header image on the send.
+    expect(component('header').parameters[0].image.link).toMatch(/\/whatsapp\/01-bill-reminder\.jpg$/);
   });
 
   it('CON-UNIT-WA-W0-007 · a viewer cannot message other members', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     api.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
     tables({ role: 'viewer' });
-    const res = await call(handler, 'user-jwt', { event: 'bill_due' });
+    const res = await call(handler, 'user-jwt', { event: 'bill_due', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] });
     expect(res.status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -233,7 +256,7 @@ describe('whatsapp-notify guards (W0)', () => {
   it('CON-UNIT-WA-W0-009 · a second send of the same event is refused as a duplicate', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     tables({ claimError: { code: '23505' } });
-    expect(await (await call(handler, 'test-service-key', { event: 'bill_due', dedupeKey: 'sched-1:2026-09-24' })).json())
+    expect(await (await call(handler, 'test-service-key', { event: 'bill_due', dedupeKey: 'sched-1:2026-09-24', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] })).json())
       .toEqual(expect.objectContaining({ status: 'skipped', reason: 'duplicate' }));
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -241,11 +264,78 @@ describe('whatsapp-notify guards (W0)', () => {
   it('CON-UNIT-WA-W0-010 · the daily cap and the outbound switch both stop a send', async () => {
     let handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     tables({ sentToday: 6 });
-    expect((await (await call(handler, 'test-service-key', { event: 'bill_due' })).json()).reason).toBe('daily_cap');
+    expect((await (await call(handler, 'test-service-key', { event: 'bill_due', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] })).json()).reason).toBe('daily_cap');
     vi.resetModules();
     handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'));
     tables();
-    expect((await (await call(handler, 'test-service-key', { event: 'bill_due' })).json()).reason).toBe('outbound_disabled');
+    expect((await (await call(handler, 'test-service-key', { event: 'bill_due', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] })).json()).reason).toBe('outbound_disabled');
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+// ── v10.41.0 — the receptionist: a greeting opens the action menu ───────────────
+describe('WhatsApp receptionist', () => {
+  const post = async (handler: (r: Request) => Promise<Response>, body: string) =>
+    handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+  const sentBodies = () => vi.mocked(fetch).mock.calls.map(([, o]) => JSON.parse(String(o?.body)));
+
+  it('CON-UNIT-WA-R-001 · "Hi" from a linked number gets the action list by first name, and logs nothing', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0);
+    await post(handler, inbound('Hi'));
+    const [msg] = sentBodies();
+    expect(msg.type).toBe('interactive');
+    expect(msg.interactive.type).toBe('list');
+    expect(msg.interactive.body.text).toMatch(/^Hi, Rohan\. What would you like to do\?/);
+    expect(msg.interactive.action.button).toBe('Choose an action');
+    expect(msg.interactive.action.sections.map((s: { title: string }) => s.title)).toEqual(['Record', 'Check', 'Help and settings']);
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-R-002 · a tapped row gets its reply; a Check row links to the app, no figures', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0);
+    const tap = (id: string) => JSON.stringify({ entry: [{ changes: [{ value: { messages: [
+      { id: 'm-1', from: '111', type: 'interactive', interactive: { type: 'list_reply', list_reply: { id, title: 'x' } } }] } }] }] });
+    await post(handler, tap('menu:log_spend'));
+    expect(sentTexts()[0]).toContain('450 lunch hdfc');
+    vi.mocked(fetch).mockClear();
+    await post(handler, tap('menu:budgets'));
+    expect(sentTexts()[0]).toMatch(/budgets$/);
+    expect(sentTexts()[0]).not.toMatch(/₹\d/);
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-R-003 · an unlinked number gets who we are on a greeting, a one-line reminder otherwise', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0, false);
+    await post(handler, inbound('hello'));
+    expect(sentTexts()[0]).toContain("isn't linked to an account yet");
+    vi.mocked(fetch).mockClear();
+    await post(handler, inbound('450 lunch'));
+    expect(sentTexts()[0]).toBe("I can't record that until this number is linked. Settings › WhatsApp in the app.");
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-R-007 · the welcome template’s buttons open the menu or answer as its rows; other templates’ taps wait for W2', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const { patches } = webhookTables(0);
+    const tap = (button: Record<string, string>) => JSON.stringify({ entry: [{ changes: [{ value: { messages: [
+      { id: 'm-1', from: '111', type: 'button', button } ] } }] }] });
+    await post(handler, tap({ payload: 'whatsapp_welcome:0:link:alice-house:111', text: 'Menu' }));
+    const [menu] = sentBodies();
+    expect(menu.interactive.type).toBe('list');
+    expect(menu.interactive.body.text).toBe("Here's everything I can do in this chat.");
+    vi.mocked(fetch).mockClear();
+    await post(handler, tap({ payload: 'whatsapp_welcome:1:link:alice-house:111', text: 'Log a spend' }));
+    expect(sentTexts()[0]).toContain('450 lunch hdfc');
+    vi.mocked(fetch).mockClear();
+    await post(handler, tap({ payload: 'What can I send?', text: 'What can I send?' }));   // a test send from WhatsApp Manager
+    expect(sentTexts()[0]).toContain('Send MENU any time');
+    vi.mocked(fetch).mockClear();
+    await post(handler, tap({ payload: 'large_transaction_alert:1:sched-9', text: 'Flag it' }));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(patches().at(-1)).toEqual(expect.objectContaining({ status: 'done', last_error: 'ignored_button' }));
+    expect(api.rpc).not.toHaveBeenCalled();
   });
 });

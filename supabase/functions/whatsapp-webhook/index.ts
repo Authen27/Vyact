@@ -18,7 +18,10 @@
 //   supabase functions deploy whatsapp-webhook --no-verify-jwt
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { env, verifyMetaSignature, sendText, APP_URL, constantTimeEqual } from '../_shared/whatsapp.ts';
+import { env, verifyMetaSignature, sendText, sendInteractiveList, APP_URL, constantTimeEqual } from '../_shared/whatsapp.ts';
+import {
+  isReceptionistTrigger, receptionistList, menuReply, welcomeButtonAction, UNLINKED_GREETING, UNLINKED_OTHER,
+} from '../_shared/whatsapp-receptionist.ts';
 import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite } from '../_shared/whatsapp-parser.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
@@ -262,21 +265,60 @@ async function reply(to: string, body: string): Promise<string | undefined> {
   catch (e) { return `reply_failed: ${(e as Error)?.message ?? String(e)}`; }
 }
 
+/**
+ * The receptionist list, greeted by first name. Fails soft: a menu that cannot be
+ * delivered is recorded on the row, never replayed as a ledger write.
+ */
+async function sendMenu(
+  supabase: SupabaseClient, to: string, profileId: string, text: string,
+): Promise<InboundOutcome> {
+  let firstName: string | null = null;
+  try {
+    const { data } = await supabase.from('profiles').select('display_name').eq('id', profileId).maybeSingle();
+    firstName = String((data as { display_name?: string } | null)?.display_name ?? '').trim().split(/\s+/)[0] || null;
+  } catch (_e) { firstName = null; }
+  try {
+    await sendInteractiveList(to, receptionistList(text, firstName));
+    return { status: 'done' };
+  } catch (e) {
+    return { status: 'done', note: `menu_failed: ${(e as Error)?.message ?? String(e)}` };
+  }
+}
+
 /** Background handler: parse → log → confirm (or clarify / hard-block / notice). */
 async function processInbound(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile | null,
   priorAttempts = 0,
 ): Promise<InboundOutcome> {
-  // Unregistered / unlinked sender.
+  const text: string | undefined = message?.text?.body;
+
+  // Unregistered / unlinked sender: a greeting gets who we are and how to link;
+  // anything else a one-line reminder. Never the menu, never a record, never data.
   if (!profile || !profile.whatsapp_household_id) {
-    const note = await reply(fromPhone, "This number isn't linked to a Vyact account yet. Link it in Settings → WhatsApp.");
+    const note = await reply(fromPhone, text && isReceptionistTrigger(text) ? UNLINKED_GREETING : UNLINKED_OTHER);
     return { status: 'done', note };
   }
   const householdId = profile.whatsapp_household_id;
 
-  // Only free-text logging so far. Button/interactive replies are recorded, not acted on.
-  const text: string | undefined = message?.text?.body;
+  // v10.41.0 — the receptionist. A tapped menu row gets its reply…
+  const rowId: string | undefined = message?.interactive?.list_reply?.id;
+  if (message?.type === 'interactive' && rowId) {
+    const body = menuReply(rowId, APP_URL);
+    return { status: 'done', note: body ? await reply(fromPhone, body) : `unknown_menu_row:${rowId}` };
+  }
+  // The welcome template's quick replies (Menu · Log a spend · What can I send?)
+  // land here as a `button` message. Other templates' taps (Flag it, Undo, Stop
+  // these…) are handled in W2/W3; until then they are recorded, not acted on.
+  if (message?.type === 'button') {
+    const action = welcomeButtonAction(message?.button?.payload, message?.button?.text);
+    if (action === 'menu') return sendMenu(supabase, fromPhone, profile.id, 'menu');
+    const body = action ? menuReply(action, APP_URL) : null;
+    return { status: 'done', note: body ? await reply(fromPhone, body) : 'ignored_button' };
+  }
   if (!text) return { status: 'done', note: `ignored_${String(message?.type ?? 'unknown')}` };
+
+  // …and a greeting, MENU or HELP opens the action list.
+  if (isReceptionistTrigger(text)) return sendMenu(supabase, fromPhone, profile.id, text);
 
   const { data: accounts, error: accountsError } = await supabase
     .from('accounts')
@@ -374,7 +416,14 @@ async function retryOrGiveUp(fromPhone: string, priorAttempts: number, error: st
 
 /** Session-text confirmation (within the 24h window — no template needed). */
 function confirmation(r: any, statedDate: string | null = null): string {
-  const amt = `${r.amount} ${r.currency}`;
+  // v10.41.0 — "₹450", not "450 INR" (design: receptionist canvas). Indian digit
+  // grouping for INR; an unknown currency keeps its code.
+  const SYMBOL: Record<string, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' };
+  const n = Number(r.amount);
+  const grouped = Number.isFinite(n)
+    ? n.toLocaleString(r.currency === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: 2 })
+    : String(r.amount);
+  const amt = SYMBOL[r.currency] ? `${SYMBOL[r.currency]}${grouped}` : `${grouped} ${r.currency}`;
   const cat = r.category_id ? ` · ${CAT_LABEL[r.category_id] ?? r.category_id}` : '';
   let where = '';
   if (r.type === 'income') where = r.to_account_name ? ` to ${r.to_account_name}` : '';

@@ -6,10 +6,38 @@
 // longer write the legacy profiles.phone_* columns (trigger-frozen).
 // Includes an attempt limiter (online brute-force protection over the 10^6 space).
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { env, json, corsHeaders, sha256Hex, constantTimeEqual } from '../_shared/whatsapp.ts';
+import { welcomeParams } from '../_shared/whatsapp-receptionist.ts';
+
+declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
 const MAX_ATTEMPTS = 5;
+
+/** Ask whatsapp-notify (as the service) to send the welcome to a newly linked number. */
+async function sendWelcome(admin: SupabaseClient, profileId: string, householdId: string, phone: string): Promise<void> {
+  const [{ data: profile }, { data: household }] = await Promise.all([
+    admin.from('profiles').select('display_name').eq('id', profileId).maybeSingle(),
+    admin.from('households').select('name').eq('id', householdId).maybeSingle(),
+  ]);
+  const serviceKey = env('SUPABASE_SERVICE_ROLE_KEY');
+  await fetch(`${env('SUPABASE_URL')}/functions/v1/whatsapp-notify`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event: 'whatsapp_welcome',
+      householdId,
+      toProfileId: profileId,
+      params: welcomeParams(
+        (profile as { display_name?: string } | null)?.display_name,
+        (household as { name?: string } | null)?.name,
+      ),
+      // One welcome per number per household: re-linking the same number is not a
+      // new welcome; linking a different number is.
+      dedupeKey: `link:${householdId}:${phone}`,
+    }),
+  });
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -69,6 +97,14 @@ Deno.serve(async (req: Request) => {
   }, { onConflict: 'profile_id' });
   if (upErr) return json({ error: 'link_failed', detail: upErr.message }, 500);
   await admin.from('whatsapp_verification_otps').delete().eq('profile_id', user.id);
+
+  // v10.41.0 — the welcome (`whatsapp_welcome`), once per linked number. It goes
+  // through whatsapp-notify so it meets the same guards as every other send (inert
+  // until the template is approved and listed, dedupe, daily cap, audit row). Never
+  // blocks or fails the link: the background task's errors are swallowed on purpose.
+  const welcome = sendWelcome(admin, user.id, otp.household_id, otp.phone_number).catch(() => undefined);
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(welcome);
+  else await welcome;
 
   return json({ status: 'linked', phone: otp.phone_number, householdId: otp.household_id });
 });

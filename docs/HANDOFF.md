@@ -21,11 +21,17 @@
 >
 > **Not live yet:** proactive templates. **Nothing calls `whatsapp-notify` yet.** Templates: the nine
 > original ones were approved; on 24–25 Sep four got image headers and seven new image templates were
-> submitted. All are in review; see [`WHATSAPP_TEMPLATES.md`](WHATSAPP_TEMPLATES.md). Image templates
-> cannot be sent until W1 adds the header to `sendTemplate`. **Next level:** the
+> submitted. All are in review; see [`WHATSAPP_TEMPLATES.md`](WHATSAPP_TEMPLATES.md). v10.41.0 (W1) makes
+> them sendable (header image on every send) from one manifest, `_shared/whatsapp-templates.ts`. **Next level:** the
 > W0–W5 plan (templates with images, scheduled nudges, the capture conversation, and Ask Vyact on
 > WhatsApp). v10.40.0 = W0: failed logs are recorded and replayed, `whatsapp-notify` takes a service
 > caller with role, consent, dedupe and cap guards, and a stated date reaches the ledger.
+>
+> **Receptionist (v10.41.0):** a greeting, MENU or HELP from a linked number gets a list message of
+> frequent actions (session text, no template). **`whatsapp_welcome`** (submitted 25 Sep, in review) is
+> sent once after a self-serve link via `whatsapp-notify`. Its Menu / Log a spend / What can I send?
+> buttons are already handled by the webhook. It stays inert until it is approved and added to
+> `WHATSAPP_APPROVED_TEMPLATES`, and until OTP linking is unblocked.
 >
 > Operational detail: [`whatsapp-closure-runbook.md`](../whatsapp-closure-runbook.md). The CI
 > deploy token was fixed in v10.20.5, so edge functions deploy on push again.

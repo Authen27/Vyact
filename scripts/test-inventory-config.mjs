@@ -31,6 +31,7 @@ export const groups = [
   group('Ask gateway', 'conditional', 'handler-integration', ['gatewayWorkflow'], 'ask-vyact/index.ts'),
   group('WhatsApp parser', 'conditional', 'unit', ['whatsappParser'], 'whatsapp-parser'),
   group('WhatsApp handlers', 'conditional', 'handler-integration', ['whatsappWorkflow'], 'whatsapp-webhook / whatsapp-verify-otp'),
+  group('WhatsApp templates', 'conditional', 'contract-unit', ['whatsappTemplates'], 'whatsapp-templates manifest / Meta rules / sendTemplate components (not Meta approval)'),
   group('Learned ingestion (not connected to entrypoints)', 'infrastructure', 'unit', ['agentAmbiguity', 'agentClassify', 'agentDedupe', 'agentGrammar', 'agentPipeline', 'agentRecipe', 'agentRecipeStore', 'agentResolver', 'agentValidator'], '_shared/agent ingestion modules'),
   group('Server money port parity', 'infrastructure', 'unit', ['moneyPortParity'], '_shared/agent/tools / client money engines'),
   { feature: 'Estimate provenance', availability: 'available', layer: 'unit', owner: 'estimatedTagCopy', files: ['react/src/components/ui/__tests__/estimatedTag.test.ts'] },
