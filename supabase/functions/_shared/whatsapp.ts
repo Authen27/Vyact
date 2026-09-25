@@ -136,10 +136,14 @@ export function buildTemplateMessage(
   return { name: def.name, language: { code: def.language }, components };
 }
 
-/** Send a manifest template (see `buildTemplateMessage`). */
+/**
+ * Send a manifest template (see `buildTemplateMessage`). Returns Meta's message id
+ * (wamid), which delivery statuses and button taps refer back to, or null when
+ * Meta's reply carries none.
+ */
 export async function sendTemplateMessage(
   to: string, def: TemplateDef, values: readonly unknown[], opts: { appUrl: string; context?: string },
-): Promise<void> {
+): Promise<string | null> {
   const phoneId = WHATSAPP_PHONE_NUMBER_ID;
   const token = env('WHATSAPP_ACCESS_TOKEN');
   if (!phoneId || !token) throw new Error('WhatsApp sender not configured (PHONE_NUMBER_ID / ACCESS_TOKEN).');
@@ -150,6 +154,8 @@ export async function sendTemplateMessage(
     body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'template', template }),
   });
   if (!res.ok) throw new Error(`Meta dispatch failed (${res.status}): ${await res.text()}`);
+  const sent = await res.json().catch(() => null) as { messages?: { id?: string }[] } | null;
+  return sent?.messages?.[0]?.id ?? null;
 }
 
 /**

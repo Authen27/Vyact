@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.41.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.42.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -356,6 +356,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   template through the old body-only `sendTemplate`: Meta needs the header image on every send
   (`sendTemplateMessage`). A template Meta flagged as marketing is treated as marketing. Never run
   `templates-submit.mjs --apply` yourself; submitting is the owner's action with the owner's token.
+  **v10.42.0 (W2a): every proactive send goes through `guardedSend` (`_shared/whatsapp-send.ts`)** —
+  notify and the `whatsapp-dispatch` scheduler alike. Consent lives in `whatsapp_preferences`
+  (marketing and insights OFF until given in the app; `START` in chat never grants it). Bills and
+  large-spend alerts cannot be muted. Scheduler figures come from the money port only, and a rule
+  SKIPS a household it cannot state truly (foreign currency with no server rates, ₹ templates for
+  non-INR). Never send `bill_due_reminder` until W2b's atomic approve path exists: "paid X" must
+  advance the schedule, or the app asks for the same bill again.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

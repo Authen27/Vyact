@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.41.0`** (consumer)
+> **Current production version: `v10.42.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,75 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.42.0 — WhatsApp consent, STOP, and a scheduler (W2a) *(2026-09-26)*
+
+The third WhatsApp release. It adds the consent record and the scheduled alerts. Nothing reaches a
+phone until Meta approves a template, the owner lists it in `WHATSAPP_APPROVED_TEMPLATES`, and the
+scheduler secret is set.
+
+- **Preferences (`whatsapp_preferences`, new table).** One row per person:
+  - Marketing consent and insights consent are **off until given**, and record when and where.
+  - Muted topics.
+  - A large-spend threshold, ₹10,000 by default.
+
+  The table is server-owned like the other WhatsApp tables. People read and change their own row
+  through `get_my_whatsapp_preferences` / `set_my_whatsapp_preferences`, which `anon` cannot call.
+- **Every send is checked against it.** `whatsapp-notify` and the new scheduler share one guarded
+  path (`_shared/whatsapp-send.ts`). It checks, in order:
+  - the recipient is linked;
+  - consent;
+  - mutes;
+  - approval;
+  - the daily cap;
+  - the dedupe slot;
+  - and it writes the audit row.
+
+  Marketing needs its opt-in and insights needs its own. **Bill reminders and large-spend alerts
+  cannot be muted**, so STOP never silences a possible fraud warning.
+- **STOP in the chat.** Each command is answered with what changed:
+  - `STOP` withdraws marketing and insights and mutes everything that can be muted.
+  - `STOP BUDGETS` and the other named topics (the words the template footers promise) mute one topic.
+  - `START <topic>` unmutes it. It never grants marketing consent: that is given in the app.
+  - Meta's own "stop promotions" event also withdraws marketing consent.
+- **Template buttons answer.** Replies come from the design board:
+  - "Stop these" mutes its topic.
+  - "Flag it" says to call the bank and links to the transaction list. It does not claim a flag, which
+    the app has no place to show yet.
+  - "What's driving it?" and similar buttons link to the right screen.
+  - A tap on a message more than 7 days old is not acted on.
+  - Undo, Pause and the split choices wait for W3.
+- **Delivery tracking.** Each sent message keeps Meta's id. Delivery statuses move it forward only
+  (accepted → sent → delivered → read, or failed), whatever order Meta reports them in.
+- **The scheduler.** `pg_cron` calls the new `whatsapp-dispatch` function through `pg_net`.
+
+  | Job | When | What it sends |
+  |---|---|---|
+  | alerts | every 15 minutes | Large spends (to the *other* linked members); a budget line reaching 80% (once per line per period); a split share settled |
+  | weekly | Sundays, 18:00 IST | The weekly summary and stale balances. Both are marketing, so only to people who opted in |
+
+  The job is **inert until the owner stores `whatsapp_dispatch_secret` in Vault** and the same value as
+  `WHATSAPP_DISPATCH_SECRET` on the function. A preview branch has no secret, so it never calls
+  production.
+- **The figures are the app's own.** Budget spend is `spendByCategoryInRange` over the budget's
+  period, from the parity-tested server port, so it is the Budgets screen's number. The scheduler
+  skips rather than guesses:
+  - a household with any foreign-currency spend gets no budget or weekly figure, because there are no
+    rates on the server and `convert()` treats a missing rate as 1;
+  - templates with ₹ in their approved text go only to INR households;
+  - a private transaction is never announced;
+  - scheduled payments are not "large spends";
+  - at 100% the "still in the pot" text would be untrue, so no alert is sent.
+- **Settings › WhatsApp › Messages I send you.** Shows what is always on, the large-spend threshold,
+  budget and split alerts, and one opt-in for the weekly summary and balance reminders.
+- **Held back to W2b: bill reminders.** The approved text says *Reply "paid Rent" to log it*.
+  - Logging a plain transaction would leave the recurring schedule unmoved, so the app would ask for
+    the same bill again: a double count.
+  - Answering before the due date would break the app's own no-early-approval rule.
+  - W2b sends them on the due date and approves through one atomic RPC.
+
+Tests: CON-UNIT-WA-P-001…007, CON-UNIT-WA-D-001…012. The migration was validated against production
+in a rolled-back `DO` block.
 
 ## v10.41.0 — WhatsApp templates (W1): one manifest, image headers, owner-run submission *(2026-09-25)*
 

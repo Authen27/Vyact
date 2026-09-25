@@ -33,6 +33,17 @@
 > buttons are already handled by the webhook. It stays inert until it is approved and added to
 > `WHATSAPP_APPROVED_TEMPLATES`, and until OTP linking is unblocked.
 >
+> **Consent and scheduler (v10.42.0, W2a):**
+> - `whatsapp_preferences` holds consent (marketing and insights off until given in Settings) and
+>   muted topics. STOP / STOP <TOPIC> work in chat.
+> - Every send goes through `_shared/whatsapp-send.ts`.
+> - `pg_cron` → `whatsapp-dispatch` sends large-spend, budget-80% and split-settled alerts every 15
+>   minutes, and the weekly summary and stale balances (opted-in people only) on Sundays.
+> - The scheduler is **inert until the owner sets `whatsapp_dispatch_secret`** in Vault and on the
+>   function (runbook §2).
+> - **W2b next:** bill reminders with "paid X" approving the occurrence atomically. `bill_due_reminder`
+>   is held in code until then.
+>
 > Operational detail: [`whatsapp-closure-runbook.md`](../whatsapp-closure-runbook.md). The CI
 > deploy token was fixed in v10.20.5, so edge functions deploy on push again.
 >

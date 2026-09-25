@@ -67,8 +67,9 @@ it maps the event to its template and dispatches only if enabled + approved (els
 - **Callers.** A member's JWT, which needs a write role (owner, admin or member; viewers get 403), or
   the **service key** for scheduled/server jobs.
 - **Recipient** must be linked to the same household.
-- **MARKETING** (`reengagement_nudge`) is refused (`marketing_consent_required`) until the W2 consent
-  record exists.
+- **Consent (v10.42.0).** Marketing templates go only to people who turned on "Weekly summary and
+  balance reminders" in Settings. Insights templates (payday, digest, month close) need their own
+  opt-in. A muted topic is skipped (`muted`). Bill reminders and large-spend alerts cannot be muted.
 - **Dedupe:** one send per `(event, recipient, dedupeKey)`. `dedupeKey` defaults to the UTC day; pass
   e.g. a schedule id plus due date for per-occurrence events.
 - **Cap:** at most `WHATSAPP_DAILY_CAP` (default 6) sends per recipient in any 24 h.
@@ -93,6 +94,24 @@ the manifest in the same change as any send code that depends on it.
 `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (the live +91 number's ID on WABA
 `1887272231954080`), `WHATSAPP_WABA_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`. Optional:
 `WHATSAPP_DAILY_CAP`, `VYACT_TZ_OFFSET_MINUTES` (default 330, used to resolve "yesterday").
+
+**The scheduler (v10.42.0).** `pg_cron` calls `whatsapp-dispatch` every 15 minutes (`job=alerts`:
+large spends, budget lines at 80%, settled splits) and on Sundays at 18:00 IST (`job=weekly`: the
+weekly summary and stale balances, opted-in people only). It is **inert** until you set one secret in
+two places. Generate a long random value yourself and never paste it into a chat:
+1. In the SQL editor: `select vault.create_secret('<your value>', 'whatsapp_dispatch_secret');`
+2. `supabase secrets set WHATSAPP_DISPATCH_SECRET=<the same value>`
+
+Each send still needs its template approved and listed. To check a run, look at
+`select jobid, status, return_message, start_time from cron.job_run_details order by start_time desc limit 10;`
+and `select id, status_code, content from net._http_response order by created desc limit 5;`. The
+response body tallies what was planned, sent and skipped, and why. A manual run is
+`POST …/whatsapp-dispatch?job=alerts` with the service key as the bearer. To stop it,
+`select cron.unschedule('whatsapp-dispatch-alerts');` (and `…-weekly`).
+
+**Delivery and taps (v10.42.0).** Outbound rows keep Meta's id (`provider_message_id`) and the
+furthest status Meta reported (`delivery_status`). STOP / STOP <TOPIC> / START <TOPIC> and the
+template buttons change `whatsapp_preferences`.
 
 **Inbound replay (v10.40.0).**
 - A ledger error marks the inbox row `failed` with `attempts` and `last_error`; it is no longer
