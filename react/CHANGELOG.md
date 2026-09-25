@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.45.0`** (consumer)
+> **Current production version: `v10.46.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,55 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.46.0 — Pip, one response contract, and sharper facts (W5) *(2026-09-26)*
+
+- **The assistant is Pip.** It's named that everywhere a person reads it: the chat title, the Ask
+  button and menu, the drawer, help, Settings › WhatsApp, the Privacy page, and Pip's own answers
+  ("I'm Pip, the assistant built into Vyact"). Code names (`askVyact*`) are unchanged. Browser-test
+  locators were updated to match.
+- **One response contract, for the app and WhatsApp**, in `PHRASE_SYSTEM`:
+  - the answer, then its context, then the assumption it rests on;
+  - forecasts always state their assumption;
+  - thin history says "not enough history yet" instead of estimating;
+  - comparisons are only against the user's own past;
+  - no exclamation marks, apologies or praise;
+  - follow-ups are chips, never listed in prose.
+
+  The phrase step now knows its **channel**. WhatsApp answers get at most four short sentences, no
+  links and English only; the app mirrors Hinglish. "— nicely done." is gone from the proactive
+  savings note.
+- **The dead phrase tables are removed** (`VARIANTS`, `phraseResponse`, `variantCount`, 19 outcomes ×
+  3 phrasings). None of it had reached a user since the model took over phrasing, and the responses
+  spec described it as shipping. The one test that pinned their count is retired. The WhatsApp
+  renderer now uses the single chip contract (`normaliseChips` + `renderChipsAsNumberedList`).
+- **Engine, Wave 1:**
+  - **Same point last month (#63):** "this month" and any single category are compared with day 1
+    to today's date of last month (`compared_with_same_point`), never a whole month against part
+    of one.
+  - **Day windows:** "today", "yesterday", "this week" (Mon–today), "last week", "last N days" are
+    answered over their own dates.
+  - **Budgets on pace (#66):** each budget says whether it's used faster than the month has gone,
+    plus "5 of 7 within pace".
+  - **Logging streak (#65):** days running (a day not yet over doesn't break it), and days recorded
+    this month.
+  - **Counts and shares:** entries and share of the total per category.
+  - **Bills:** due in the next 7 days, with the count and a **total**, plus overdue bills waiting
+    for approval. A salary is no longer listed as a bill.
+- **Correctness fixes found on the way:**
+  - "Spend by account" added raw amounts, so a **private** entry was counted, a **split** counted in
+    full instead of your share, and a foreign amount went in unconverted. It now counts exactly what
+    the totals count.
+  - The bills list compared a UTC date with a local one, so a bill due today could drop out. Bills
+    now compare local dates.
+  - "This month" was fixed when the code loaded, so a tab left open over a month end, or the
+    long-lived server, answered for the old month. It's now computed per question.
+- **WhatsApp answer rule** (spec §6): a question is answered in the chat, and a link is never the
+  answer. A budget alert's "What's driving it?" and a runway note's "What moved?" are now asked of
+  Pip (for that alert's own category) when answers are on, instead of linking out.
+
+Tests: CON-UNIT-W5-001…009. The server engine bundle was rebuilt and parity re-checked. The bundle
+guard caught a variable named `window` in the new code.
 
 ## v10.45.0 — Ask Vyact on WhatsApp (W4) *(2026-09-26)*
 

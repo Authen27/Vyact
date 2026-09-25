@@ -671,7 +671,7 @@ describe('instant replies (P17)', () => {
   it('CON-UNIT-FACT-054 · a greeting WITH a question still goes to the model', () => {
     expect(quickReply('hi, how much did I spend this month?')).toBeNull();
     expect(quickReply('what can you do?')?.reply).toMatch(/^Record — .*\nCheck — .*\nPlan — /);
-    expect(quickReply('What do I call you')?.reply).toContain('Ask Vyact');
+    expect(quickReply('What do I call you')?.reply).toContain('Pip');
   });
 
   it('CON-UNIT-FACT-055 · a classified meta question costs one call (classify), no phrase call', async () => {

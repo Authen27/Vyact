@@ -108,7 +108,7 @@ function WhatsAppMessages() {
           <span>
             <span className="block text-[0.84rem] text-ink">Answer my questions here</span>
             <span className="block text-[0.74rem] text-ink-dim">
-              Ask Vyact replies in the chat, like &quot;how much did I spend this month?&quot;. Figures can show on
+              Pip replies in the chat, like &quot;how much did I spend this month?&quot;. Figures can show on
               your phone&apos;s lock screen, so it is off until you turn it on.
             </span>
           </span>

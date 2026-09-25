@@ -17,6 +17,7 @@
 //                 the time and place they did so recorded.
 
 import { TEMPLATES, type TemplateDef } from './whatsapp-templates.ts';
+import { EXPENSE_LABEL } from './whatsapp-dispatch-rules.ts';
 
 export type Consent = 'service' | 'insights' | 'marketing';
 
@@ -214,6 +215,23 @@ export function buttonReply(
     default:
       return null;   // Undo, Pause, Split 50/50… need the W3 conversation state.
   }
+}
+
+/**
+ * v10.46.0 (W5) — a button that ASKS something, as the question Pip should answer.
+ * A question is answered in the chat, never with a link (the WhatsApp answer rule);
+ * the webhook asks Pip when the person has answers on. `context` is the payload's
+ * context — for a budget alert, `budget:<id>:<category>:80` — so the answer is about
+ * the exact category the alert was about. Null for a button that is not a question.
+ */
+export function buttonQuestion(templateName: string, label: string, context: string): string | null {
+  if (templateName === 'budget_threshold_alert' && label === "What's driving it?") {
+    const category = /^budget:[^:]+:([a-z_]+):/.exec(context)?.[1];
+    const label = category ? EXPENSE_LABEL[category] : undefined;
+    return label ? `why is my ${label.toLowerCase()} spending so high` : 'where is my money going this month';
+  }
+  if (templateName === 'runway_shift_alert' && label === 'What moved?') return 'how long will my savings last, and what changed';
+  return null;
 }
 
 /** A tap on a template message this old is not acted on (design: "any late tap"). */

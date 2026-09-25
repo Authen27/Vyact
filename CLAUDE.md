@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.45.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.46.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -378,6 +378,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `--check` fails on a stale bundle). `serverEngine.ts` must stay pure (no store, no browser API,
   no Supabase client). Answers only with `whatsapp_preferences.reads_enabled` (off by default); the
   WhatsApp model path excludes the test-only relay and meters as surface `whatsapp`.
+  **v10.46.0 (W5): the assistant is "Pip" in every user-facing string** (code keeps `askVyact*`). How
+  Pip speaks is ONE contract in `PHRASE_SYSTEM` for both channels (`ctx.channel`: WhatsApp = ≤4
+  sentences, no links, English). The old `VARIANTS` phrase tables are gone; do not reintroduce copy
+  tables. **On WhatsApp a question is answered in the chat, never with a link** (responses spec §6).
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

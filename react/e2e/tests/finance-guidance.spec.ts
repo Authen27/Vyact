@@ -69,7 +69,7 @@ test('FIN-FC-002 - Ask examples fill the composer without calling Ask Vyact', as
     await page.setViewportSize({ width, height: 1000 });
     await page.goto('/chat');
     const composer = page.getByRole('textbox', { name: 'Your question or entry', exact: true });
-    await expect(page.getByRole('heading', { name: 'Ask Vyact', exact: true })).toHaveCSS('font-weight', '400');
+    await expect(page.getByRole('heading', { name: 'Pip', exact: true })).toHaveCSS('font-weight', '400');
     for (const intent of INTENTS) {
       const example = intentExample(intent);
       if (!example) continue;
@@ -98,7 +98,7 @@ test('FIN-FC-002 - Ask examples fill the composer without calling Ask Vyact', as
     await page.evaluate(() => window.scrollTo(0, 0));
     await testInfo.attach(`ask-examples-${width}`, { body: await page.screenshot(), contentType: 'image/png' });
     await page.goto('/reports');
-    await page.getByRole('button', { name: 'Ask Vyact', exact: true }).click();
+    await page.getByRole('button', { name: 'Ask Pip', exact: true }).click();
     await expect(page.getByTestId('ask-intent-spend-month').getByRole('heading')).toHaveCSS('font-weight', '400');
     await page.getByRole('button', { name: 'Use example: Spend this month', exact: true }).click();
     await expect(page.locator('#ask-drawer-input')).toHaveValue('How much did I spend this month?');

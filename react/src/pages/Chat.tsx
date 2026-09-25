@@ -397,7 +397,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
           <div>
             <h1 className="display-italic text-4xl text-ink mb-1.5 flex items-center gap-2.5">
-              <MessageCircle className="text-coral" /> Ask Vyact
+              <MessageCircle className="text-coral" /> Pip
             </h1>
             {/* v10.20 — "On-device" was retired with RulesBackend; see the
                 privacy block below. Ask Vyact still captures, inquires and
@@ -448,7 +448,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             matters, rather than a guarantee the code does not make. */}
         <p className="text-[11.5px] text-ink-mid leading-[1.4]">
           <strong className="text-ink">Vyact does the maths.</strong> Every amount comes from your own
-          data, calculated here — Ask Vyact only puts the answer into words.
+          data, calculated here — Pip only puts the answer into words.
         </p>
       </div>
 
@@ -478,7 +478,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                   <div className="text-sm text-ink-mid mb-3 leading-relaxed">
                     Use an example, replace its details, then Send.
                   </div>
-                  <p className="text-xs text-ink-dim mb-4">Examples use your household currency. Check accounts, dates and amounts before saving a proposed transaction. Ask Vyact needs to be reachable to answer.</p>
+                  <p className="text-xs text-ink-dim mb-4">Examples use your household currency. Check accounts, dates and amounts before saving a proposed transaction. Pip needs to be reachable to answer.</p>
                   {/* Board D M6 §.intent — the empty state IS the hero: intent
                       rows in the four production buckets, each an inset icon
                       tile beside its label. */}
@@ -523,7 +523,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                   the turn is in flight (each line is a real pipeline stage, never a
                   timed placeholder), then collapsed into "Analysed in Ns". */}
               {m.role === 'assistant' && m.pending && (
-                <ol className="mb-2 space-y-1 text-[0.8rem]" aria-live="polite" aria-label="Ask Vyact is analysing your question">
+                <ol className="mb-2 space-y-1 text-[0.8rem]" aria-live="polite" aria-label="Pip is analysing your question">
                   {(steps.length ? steps : ['Thinking']).map((step, si, all) => {
                     const live = si === all.length - 1;
                     return (

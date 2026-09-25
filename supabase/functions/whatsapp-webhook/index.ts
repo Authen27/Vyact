@@ -28,7 +28,7 @@ import {
   ASK_AMOUNT, SKIPPED, EXPIRED, UNDO_HINT, DUPLICATE_WINDOW_MINUTES, PENDING_MINUTES, type PendingKind,
 } from '../_shared/whatsapp-conversation.ts';
 import {
-  parsePrefCommand, applyPrefCommand, prefsSummary, buttonReply, unsupportedButtonReply,
+  parsePrefCommand, applyPrefCommand, prefsSummary, buttonReply, buttonQuestion, unsupportedButtonReply,
   LATE_TAP_DAYS, LATE_TAP_REPLY, type WaPrefs,
 } from '../_shared/whatsapp-prefs.ts';
 import { loadPrefs, advancesDelivery } from '../_shared/whatsapp-send.ts';
@@ -363,9 +363,10 @@ async function sendMenu(
  * is not acted on. A payload we never issued is recorded and left alone.
  */
 async function handleTemplateButton(
-  supabase: SupabaseClient, message: any, fromPhone: string, profileId: string,
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile,
 ): Promise<InboundOutcome> {
-  const m = /^([a-z0-9_]+):(\d+)(?::|$)/.exec(String(message?.button?.payload ?? ''));
+  const profileId = profile.id;
+  const m = /^([a-z0-9_]+):(\d+)(?::(.*))?$/.exec(String(message?.button?.payload ?? ''));
   const def = m ? TEMPLATES[m[1]] : undefined;
   if (!m || !def) return { status: 'done', note: 'ignored_button' };
   const label = def.buttons?.[Number(m[2])]?.text ?? String(message?.button?.text ?? '');
@@ -379,6 +380,13 @@ async function handleTemplateButton(
     if (Number.isFinite(at) && Date.now() - at > LATE_TAP_DAYS * 86_400_000) {
       return { status: 'done', note: await reply(fromPhone, LATE_TAP_REPLY) };
     }
+  }
+
+  // v10.46.0 (W5) — a button that asks a question is answered by Pip in the chat when
+  // answers are on, instead of linking out (the WhatsApp answer rule).
+  const question = buttonQuestion(def.name, label, m[3] ?? '');
+  if (question && await readsEnabled(supabase, profileId)) {
+    return answerQuestion(supabase, fromPhone, profile, question);
   }
 
   const answer = buttonReply(def.name, label, APP_URL);
@@ -427,7 +435,7 @@ async function processInbound(
     const action = welcomeButtonAction(message?.button?.payload, message?.button?.text);
     if (action === 'menu') return sendMenu(supabase, fromPhone, profile.id, 'menu');
     if (action) return { status: 'done', note: await reply(fromPhone, menuReply(action, APP_URL) ?? '') };
-    return handleTemplateButton(supabase, message, fromPhone, profile.id);
+    return handleTemplateButton(supabase, message, fromPhone, profile);
   }
   if (!text) return { status: 'done', note: `ignored_${String(message?.type ?? 'unknown')}` };
 
