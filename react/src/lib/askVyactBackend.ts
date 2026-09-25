@@ -267,26 +267,108 @@ const QUICK_CHIPS: AssistantChip[] = [
   { label: 'Upcoming bills', prompt: 'What are my upcoming bills?' },
 ];
 
+/** What Ask Vyact does, grouped the way the receptionist offers it (design: InAppCalm). */
 function capabilitySummary(): string {
-  return `I can help with ${CAPABILITIES.can_answer.slice(0, 6).join('; ')}; and more. `
-    + `I can't yet do ${CAPABILITIES.cannot_answer_yet.slice(0, 3).join('; ')}.`;
+  return 'Record — a spend, income, a transfer, a split, or a bill that repeats.\n'
+    + 'Check — what you spent, where it went, your budgets, what is due.\n'
+    + 'Plan — whether a purchase fits, how long savings last, where to cut back.';
 }
 
-export function quickReply(utterance: string): string | null {
+/** A quick reply: the text, and the chips to offer after it (none on a close). */
+export interface QuickReply { reply: string; chips?: AssistantChip[] }
+
+/**
+ * v10.41.0 — the RECEPTIONIST (design: "Vyact receptionist and button replies").
+ *
+ * A greeting used to get a generic line and the same three chips for everyone. It is
+ * the most common way a conversation starts, so it is now the entry point: it asks
+ * what the person wants to do and offers the three most useful next steps FOR THIS
+ * HOUSEHOLD, from data the app already holds on the device. No model call; any
+ * figure comes from the same calculations as the rest of the app.
+ *
+ *   chip 1  the most frequent action: Log an expense
+ *   chip 2  a bill due in the next 7 days → "What's due this week", else Spend this month
+ *   chip 3  a budget over 80% → "Why is <category> high?", else How am I doing?
+ *   new household (nothing recorded): Log an expense · Add an account · What can you do?
+ */
+export function receptionist(salutation: string, ctx?: AssistantContext): QuickReply {
+  const first = (ctx?.profile?.name ?? '').trim().split(/\s+/)[0];
+  const hello = first ? `${salutation}, ${first}.` : `${salutation}.`;
+  if (!ctx || ctx.transactions.length === 0) {
+    return {
+      reply: `${hello} I'm Ask Vyact. I keep your household's money straight, from what you record here.\n`
+        + "Nothing's recorded yet, so let's start with one thing.",
+      chips: [
+        { label: 'Log an expense', prompt: 'Log an expense' },
+        { label: 'Add an account', prompt: 'Add an account' },
+        { label: 'What can you do?', prompt: 'What can you do?' },
+      ],
+    };
+  }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const weekOut = new Date(today); weekOut.setDate(weekOut.getDate() + 7);
+  const bill = (ctx.recurring ?? [])
+    .filter(r => r.active && r.transactionTemplate.type === 'expense')
+    .map(r => ({ r, due: new Date(`${r.nextDueDate}T00:00:00`) }))
+    .filter(x => x.due >= today && x.due <= weekOut)
+    .sort((a, b) => a.due.getTime() - b.due.getTime())[0];
+  const hot = [...ctx.summary.budgets].filter(b => b.spentPct > 80).sort((a, b) => b.spentPct - a.spentPct)[0];
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const daysLeft = Math.max(0, Math.round((monthEnd.getTime() - today.getTime()) / 86_400_000));
+  const weekday = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long' });
+
+  const billText = bill
+    ? `${bill.r.transactionTemplate.description || getCat(bill.r.transactionTemplate.category).label}, ${money(bill.r.transactionTemplate.amount, ctx)}, is due ${bill.due.getTime() === today.getTime() ? 'today' : weekday(bill.due)}`
+    : '';
+  const hotLabel = hot ? getCat(hot.category).label : '';
+  const hotText = hot ? `${hotLabel} is at ${Math.round(hot.spentPct)}% of its budget with ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} to go` : '';
+  const context = bill && hot ? `${billText}, and ${hotText}.`
+    : bill ? `${billText}.`
+    : hot ? `${hotText}.`
+    : "Nothing's due this week and your budgets are on track.";
+
+  return {
+    reply: `${hello} What would you like to do?\n${context.charAt(0).toUpperCase()}${context.slice(1)}`,
+    chips: [
+      { label: 'Log an expense', prompt: 'Log an expense' },
+      bill
+        ? { label: "What's due this week", prompt: 'What bills are due this week?' }
+        : { label: 'Spend this month', prompt: 'How much did I spend this month?' },
+      hot
+        ? { label: `Why is ${hotLabel} high?`, prompt: `Why is my ${hotLabel.toLowerCase()} spending so high?` }
+        : { label: 'How am I doing?', prompt: 'How am I doing financially?' },
+    ],
+  };
+}
+
+/**
+ * Replies that need no model: greetings (the receptionist), thanks, who-are-you,
+ * what-can-you-do, and the two entry actions the receptionist offers. Matched
+ * against the WHOLE message, so "hi, how much did I spend?" is still a question.
+ */
+export function quickReply(utterance: string, ctx?: AssistantContext): QuickReply | null {
   const t = normalise(utterance).replace(/[!?.,:;~*]+/g, ' ').replace(/\s+/g, ' ').trim()
     .replace(/\s+(vyact|ask vyact|there|buddy|team)$/, '');
   if (!t) return null;
-  if (/^(hi|hii+|hello|hey|hiya|namaste|namaskar|yo|good (morning|afternoon|evening))$/.test(t)) {
-    return "Hi! Ask me anything about your household's money — what you spent, whether a purchase fits, or what bills are coming up.";
+  const greeting = t.match(/^(?:hi|hii+|hello|hey|hiya|namaste|namaskar|yo|menu|start|good (morning|afternoon|evening))$/);
+  if (greeting) {
+    const part = greeting[1];
+    return receptionist(part ? part.charAt(0).toUpperCase() + part.slice(1) : 'Hi', ctx);
   }
   if (/^(thanks|thank you|thank u|thx|ty|ok thanks|okay thanks|thanks a lot|great thanks|cool|great|ok|okay|got it|perfect|nice)$/.test(t)) {
-    return "You're welcome. Anything else about your money?";
+    return { reply: "Any time. I'm here when you need me." };
   }
-  if (/^(who are you|what('?s| is) your name|what (do|should|can) i call you|your name)$/.test(t)) {
-    return "I'm Ask Vyact. I answer questions about your household's money from your own records, and pre-fill forms for you to check and save.";
+  if (/^(who are you|what('?s| is) your name|what (do|should|can) i call you|your name|are you (a )?(real )?(person|human|bot))$/.test(t)) {
+    return { reply: "I'm Ask Vyact, the assistant built into Vyact. I work from your own records, and anything I'm unsure about, I ask rather than guess.", chips: QUICK_CHIPS };
   }
-  if (/^(help|what can you do|what do you do|how can you help( me)?|what can i ask( you)?|what can you help (me )?with)$/.test(t)) {
-    return `I'm Ask Vyact. ${capabilitySummary()}`;
+  if (/^(help|what can you do|what else can you do|what do you do|how can you help( me)?|what can i ask( you)?|what can you help (me )?with)$/.test(t)) {
+    return { reply: capabilitySummary(), chips: QUICK_CHIPS };
+  }
+  if (/^(log|add|record) (an |a )?(expense|spend)$/.test(t)) {
+    return { reply: "Tell me like you'd tell a friend. For example:\n450 lunch\n1200 groceries on hdfc\nspent 800 on fuel yesterday\nI'll fill in the form. Nothing is saved until you check it." };
+  }
+  if (/^add (an |a )?account$/.test(t)) {
+    return { reply: 'Accounts live on the Accounts screen: Plan › Accounts › Add account. Add the bank or card you spend from most, with its balance today, and the rest follows.' };
   }
   return null;
 }
@@ -306,7 +388,7 @@ function aboutMeReply(text: string): string {
     return "I can't change how my answers are formatted on request yet. "
       + 'I lead with the figure you asked for and keep the rest short.';
   }
-  return `I'm Ask Vyact. ${capabilitySummary()}`;
+  return `I'm Ask Vyact. Here's what I do:\n${capabilitySummary()}`;
 }
 
 /**
@@ -1211,11 +1293,11 @@ export async function runAssistant(
   //
   // v10.39.1 (P17) — except for a greeting or a question about the assistant, which
   // has no household answer to fake: those are answered here, before any model.
-  const quick = quickReply(utterance);
+  const quick = quickReply(utterance, ctx);
   if (quick) {
     return {
-      reply: quick, bucket: 'none', intentId: 'meta.assistant',
-      chips: normaliseChips(QUICK_CHIPS), clarify: false, allowedFigures: [],
+      reply: quick.reply, bucket: 'none', intentId: 'meta.assistant',
+      chips: normaliseChips(quick.chips), clarify: false, allowedFigures: [],
     };
   }
   if (!backend) return unavailableTurn('not_configured');

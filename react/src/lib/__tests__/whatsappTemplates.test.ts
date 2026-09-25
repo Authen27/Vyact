@@ -9,6 +9,10 @@ import {
   TEMPLATES, EVENT_ALIASES, templateForEvent, lintTemplate, variablesIn, metaSubmissionComponents, type TemplateDef,
 } from '../../../../supabase/functions/_shared/whatsapp-templates';
 
+import {
+  MENU, LIST_LIMITS, receptionistList, menuReply, isReceptionistTrigger,
+} from '../../../../supabase/functions/_shared/whatsapp-receptionist';
+
 const ROOT = resolve(__dirname, '../../../..');
 let buildTemplateMessage: typeof import('../../../../supabase/functions/_shared/whatsapp')['buildTemplateMessage'];
 
@@ -62,6 +66,31 @@ describe('the manifest follows Meta’s template rules', () => {
     for (const n of ['runway_shift_alert', 'budget_setup_reminder', 'balance_stale_nudge', 'reengagement_nudge']) {
       expect(TEMPLATES[n].category, n).toBe('marketing');
     }
+  });
+});
+
+describe('the receptionist menu stays inside Meta’s list limits', () => {
+  it('CON-UNIT-WA-R-004 · rows, titles, descriptions, ids and the button fit, and every row has a reply', () => {
+    const rows = MENU.flatMap(s => s.rows);
+    expect(rows.length).toBeLessThanOrEqual(LIST_LIMITS.rows);
+    for (const s of MENU) expect(s.title.length, s.title).toBeLessThanOrEqual(LIST_LIMITS.sectionTitle);
+    for (const r of rows) {
+      expect(r.title.length, r.title).toBeLessThanOrEqual(LIST_LIMITS.rowTitle);
+      expect(r.description.length, r.id).toBeLessThanOrEqual(LIST_LIMITS.rowDescription);
+      expect(menuReply(r.id, 'https://vyact.app'), r.id).toBeTruthy();
+    }
+    expect(new Set(rows.map(r => r.id)).size).toBe(rows.length);
+    const list = receptionistList('good morning', 'Rohan');
+    expect(list.button.length).toBeLessThanOrEqual(LIST_LIMITS.button);
+    expect((list.footer ?? '').length).toBeLessThanOrEqual(LIST_LIMITS.footer);
+    expect(list.body).toMatch(/^Morning, Rohan\./);
+    expect(receptionistList('menu').body).toBe("Here's everything I can do in this chat.");
+    expect(menuReply('menu:unknown', 'https://vyact.app')).toBeNull();
+  });
+
+  it('CON-UNIT-WA-R-005 · only a whole-message greeting or MENU/HELP opens it', () => {
+    for (const t of ['hi', 'Hello!', 'hey vyact', 'Good morning', 'MENU', 'help', 'hiii']) expect(isReceptionistTrigger(t), t).toBe(true);
+    for (const t of ['hi 450 lunch', '450 lunch', 'help me log 200 fuel', 'history']) expect(isReceptionistTrigger(t), t).toBe(false);
   });
 });
 

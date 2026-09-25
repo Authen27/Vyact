@@ -72,7 +72,26 @@ templates now in Meta review actually sendable once they are approved.
   - `templates-submit.mjs` is a dry run by default. It creates or edits named templates only with
     `--apply`, uploading the header through Meta's resumable upload.
 
-Tests: CON-UNIT-WA-T-001…012, plus the W0 notify tests updated for the value count and header.
+- **The receptionist: a greeting is now the entry point.** Designed on the canvas "Vyact receptionist
+  and button replies".
+  - **In the app.** "hi", "hello", "good morning" or "menu" gets *"Hi, <first name>. What would you
+    like to do?"*. It adds one context line when something needs attention (a bill due within 7 days,
+    a budget over 80%) and otherwise says plainly that nothing is due.
+  - **Three chips for this household:** Log an expense; What's due this week or Spend this month;
+    Why is <category> high? or How am I doing?
+  - A new household gets Log an expense · Add an account · What can you do?.
+  - No model call, no exclamation marks. "thanks" closes without new chips, and "what can you do"
+    answers in three groups (Record · Check · Plan).
+  - **On WhatsApp**, a greeting, MENU or HELP opens a **list message** ("Choose an action", 8 rows in
+    Record / Check / Help and settings). It is a session message, so no template or approval is
+    needed.
+    - Record rows teach the one-line format.
+    - Check rows link to the app until W4, so no figure sits in a chat thread.
+    - An unlinked number gets who Vyact is and how to link, and is never shown the menu or logged.
+  - WhatsApp confirmations read "₹450" instead of "450 INR".
+
+Tests: CON-UNIT-WA-T-001…012, CON-UNIT-WA-R-001…005, CON-UNIT-FACT-061…065, plus the W0 notify tests
+updated for the value count and header.
 
 ## v10.40.0 — WhatsApp foundations (W0): failures recorded, sends guarded *(2026-09-24)*
 

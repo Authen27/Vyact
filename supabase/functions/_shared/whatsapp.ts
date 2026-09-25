@@ -10,6 +10,7 @@
 //   WHATSAPP_GRAPH_VERSION     — optional, defaults to v21.0
 
 import { MAX_PAYLOAD, type TemplateDef } from './whatsapp-templates.ts';
+import type { InteractiveList } from './whatsapp-receptionist.ts';
 
 export const env = (k: string, fallback = ''): string => Deno.env.get(k) ?? fallback;
 
@@ -149,6 +150,31 @@ export async function sendTemplateMessage(
     body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'template', template }),
   });
   if (!res.ok) throw new Error(`Meta dispatch failed (${res.status}): ${await res.text()}`);
+}
+
+/**
+ * v10.41.0 — send an interactive LIST message (the receptionist's "Choose an
+ * action"). Session-only: allowed inside the 24-hour window after the person
+ * writes, which is the only time the receptionist runs. No template needed.
+ */
+export async function sendInteractiveList(to: string, list: InteractiveList): Promise<void> {
+  const phoneId = WHATSAPP_PHONE_NUMBER_ID;
+  const token = env('WHATSAPP_ACCESS_TOKEN');
+  if (!phoneId || !token) throw new Error('WhatsApp sender not configured (PHONE_NUMBER_ID / ACCESS_TOKEN).');
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${phoneId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'interactive',
+      interactive: {
+        type: 'list',
+        body: { text: list.body },
+        ...(list.footer ? { footer: { text: list.footer } } : {}),
+        action: { button: list.button, sections: list.sections },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Meta list dispatch failed (${res.status}): ${await res.text()}`);
 }
 
 /** Send a free-form session text. Allowed within the 24h customer-service window

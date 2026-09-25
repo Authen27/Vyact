@@ -20,7 +20,7 @@ import { buildSafeSummary, spendBasis } from '../aiSummary';
 import { computeNetWorth, cardDues } from '../netWorth';
 import { assertNoInventedFigures, InventedFigureError, INTENT_IDS, CLASSIFY_SYSTEM, type ModelCall } from '../askVyactLlm';
 import type { IntentResult } from '../askVyactIntents';
-import type { Transaction, Budget, Goal, Debt, Asset, Account, Profile } from '../../types';
+import type { Transaction, Budget, Goal, Debt, Asset, Account, Profile, RecurringSchedule } from '../../types';
 
 const profile = { baseCurrency: 'INR', household: 'family', language: 'en' } as unknown as Profile;
 const rates = { INR: 1 };
@@ -662,7 +662,7 @@ describe('instant replies (P17)', () => {
     const call = vi.fn<ModelCall>(async () => 'never');
     const turn = await runAssistant('Hi!', makeCtx(), new LlmBackend(call), 0);
     expect(call).not.toHaveBeenCalled();
-    expect(turn.reply).toMatch(/^Hi!/);
+    expect(turn.reply).toMatch(/^Hi\. What would you like to do\?/);   // no exclamation marks (deck rule)
     expect(turn.chips?.length).toBeGreaterThan(0);
     const offline = await runAssistant('thanks', makeCtx(), null, 0);
     expect(offline.intentId).toBe('meta.assistant');
@@ -670,8 +670,8 @@ describe('instant replies (P17)', () => {
 
   it('CON-UNIT-FACT-054 · a greeting WITH a question still goes to the model', () => {
     expect(quickReply('hi, how much did I spend this month?')).toBeNull();
-    expect(quickReply('what can you do?')).toContain('I can help with');
-    expect(quickReply('What do I call you')).toContain('Ask Vyact');
+    expect(quickReply('what can you do?')?.reply).toMatch(/^Record — .*\nCheck — .*\nPlan — /);
+    expect(quickReply('What do I call you')?.reply).toContain('Ask Vyact');
   });
 
   it('CON-UNIT-FACT-055 · a classified meta question costs one call (classify), no phrase call', async () => {
@@ -722,5 +722,52 @@ describe('unsupported requests (P22)', () => {
     expect(CAPABILITIES.can_answer.join(' ')).toContain('set up as recurring schedules');
     expect(INTENT_IDS).toEqual(expect.arrayContaining(['capture.recurring', 'unsupported']));
     expect(CLASSIFY_SYSTEM).toContain('unsupported');
+  });
+});
+
+// ── v10.41.0 — the receptionist: a greeting is the entry point ─────────────────
+describe('receptionist (greeting entry point)', () => {
+  const iso = (offsetDays: number) => {
+    const d = new Date(); d.setDate(d.getDate() + offsetDays);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const bill = { active: true, nextDueDate: iso(2),
+    transactionTemplate: { type: 'expense', amount: 1840, description: 'Electricity', category: 'utilities' } } as unknown as RecurringSchedule;
+  const withAttention = () => {
+    const base = makeCtx({ profile: { ...profile, name: 'Rohan Mehta' } as Profile, recurring: [bill] });
+    return { ...base, summary: { ...base.summary, budgets: [{ category: 'food_dining', limit: 5000, spentPct: 92 }] } };
+  };
+
+  it('CON-UNIT-FACT-061 · something due and a budget at risk: both named, and the chips follow them', () => {
+    const q = quickReply('hi', withAttention())!;
+    expect(q.reply).toMatch(/^Hi, Rohan\. What would you like to do\?\nElectricity, ₹1,840, is due \w+, and Food & Dining is at 92% of its budget with \d+ days? to go\.$/);
+    expect(q.chips?.map(c => c.label)).toEqual(['Log an expense', "What's due this week", 'Why is Food & Dining high?']);
+  });
+
+  it('CON-UNIT-FACT-062 · nothing pending: says so plainly, and offers the everyday checks', () => {
+    const q = quickReply('good morning', makeCtx({ recurring: [] }))!;
+    expect(q.reply).toBe("Morning. What would you like to do?\nNothing's due this week and your budgets are on track.");
+    expect(q.chips?.map(c => c.label)).toEqual(['Log an expense', 'Spend this month', 'How am I doing?']);
+  });
+
+  it('CON-UNIT-FACT-063 · a new household is welcomed and pointed at its first action', () => {
+    const q = quickReply('hello', makeCtx({ transactions: [] }))!;
+    expect(q.reply).toContain("Nothing's recorded yet");
+    expect(q.chips?.map(c => c.label)).toEqual(['Log an expense', 'Add an account', 'What can you do?']);
+  });
+
+  it('CON-UNIT-FACT-064 · the receptionist chips lead somewhere real, with no model call', async () => {
+    const call = vi.fn<ModelCall>(async () => 'never');
+    const log = await runAssistant('log an expense', makeCtx(), new LlmBackend(call), 0);
+    expect(log.reply).toContain('450 lunch');
+    const account = await runAssistant('add an account', makeCtx(), new LlmBackend(call), 0);
+    expect(account.reply).toContain('Accounts');
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-FACT-065 · thanks closes without new chips; a bill beyond 7 days is not "due this week"', () => {
+    expect(quickReply('thanks')).toEqual({ reply: "Any time. I'm here when you need me." });
+    const far = { ...bill, nextDueDate: iso(12) } as RecurringSchedule;
+    expect(quickReply('hi', makeCtx({ recurring: [far] }))!.reply).toContain("Nothing's due this week");
   });
 });

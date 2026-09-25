@@ -90,8 +90,8 @@ describe('actual WhatsApp Edge handlers', () => {
     ]);
     const sends = vi.mocked(fetch).mock.calls.map(([, options]) => JSON.parse(String(options?.body)));
     expect(sends).toEqual([
-      expect.objectContaining({ to: '111', text: { body: expect.stringContaining('50 USD') } }),
-      expect.objectContaining({ to: '222', text: { body: expect.stringContaining('75 USD') } }),
+      expect.objectContaining({ to: '111', text: { body: expect.stringContaining('$50') } }),
+      expect.objectContaining({ to: '222', text: { body: expect.stringContaining('$75') } }),
     ]);
     expect(inboxQueries.flatMap(query => query.upsert.mock.calls)).toHaveLength(2);
     expect(inboxQueries.flatMap(query => query.update.mock.calls).filter(([patch]) => patch.status === 'done')).toHaveLength(2);
@@ -104,12 +104,13 @@ const inbound = (text: string) => JSON.stringify({ entry: [{ changes: [{ value: 
   messages: [{ id: 'm-1', from: '111', timestamp: String(Date.UTC(2026, 8, 24, 6, 0) / 1000), text: { body: text } }] } }] }] });
 
 /** Route every table to a fresh query; the inbox claim reports `attempts`. */
-function webhookTables(attempts = 0) {
+function webhookTables(attempts = 0, linked = true) {
   const inbox: ReturnType<typeof queryResult>[] = [];
   api.from.mockImplementation((table: string) => {
     if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
     if (table === 'assets') return queryResult([]);
-    if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+    if (table === 'whatsapp_identities') return queryResult(linked ? { profile_id: 'alice', household_id: 'alice-house' } : null);
+    if (table === 'profiles') return queryResult({ display_name: 'Rohan Mehta' });
     if (table === 'whatsapp_inbound_messages') {
       const q = queryResult([{ wa_message_id: 'm-1', attempts }]);
       inbox.push(q);
@@ -250,5 +251,50 @@ describe('whatsapp-notify guards (W0)', () => {
     tables();
     expect((await (await call(handler, 'test-service-key', { event: 'bill_due', params: ['Rohan', '₹3,200', 'Tuesday', 'BESCOM'] })).json()).reason).toBe('outbound_disabled');
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+// ── v10.41.0 — the receptionist: a greeting opens the action menu ───────────────
+describe('WhatsApp receptionist', () => {
+  const post = async (handler: (r: Request) => Promise<Response>, body: string) =>
+    handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+  const sentBodies = () => vi.mocked(fetch).mock.calls.map(([, o]) => JSON.parse(String(o?.body)));
+
+  it('CON-UNIT-WA-R-001 · "Hi" from a linked number gets the action list by first name, and logs nothing', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0);
+    await post(handler, inbound('Hi'));
+    const [msg] = sentBodies();
+    expect(msg.type).toBe('interactive');
+    expect(msg.interactive.type).toBe('list');
+    expect(msg.interactive.body.text).toMatch(/^Hi, Rohan\. What would you like to do\?/);
+    expect(msg.interactive.action.button).toBe('Choose an action');
+    expect(msg.interactive.action.sections.map((s: { title: string }) => s.title)).toEqual(['Record', 'Check', 'Help and settings']);
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-R-002 · a tapped row gets its reply; a Check row links to the app, no figures', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0);
+    const tap = (id: string) => JSON.stringify({ entry: [{ changes: [{ value: { messages: [
+      { id: 'm-1', from: '111', type: 'interactive', interactive: { type: 'list_reply', list_reply: { id, title: 'x' } } }] } }] }] });
+    await post(handler, tap('menu:log_spend'));
+    expect(sentTexts()[0]).toContain('450 lunch hdfc');
+    vi.mocked(fetch).mockClear();
+    await post(handler, tap('menu:budgets'));
+    expect(sentTexts()[0]).toMatch(/budgets$/);
+    expect(sentTexts()[0]).not.toMatch(/₹\d/);
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-R-003 · an unlinked number gets who we are on a greeting, a one-line reminder otherwise', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0, false);
+    await post(handler, inbound('hello'));
+    expect(sentTexts()[0]).toContain("isn't linked to an account yet");
+    vi.mocked(fetch).mockClear();
+    await post(handler, inbound('450 lunch'));
+    expect(sentTexts()[0]).toBe("I can't record that until this number is linked. Settings › WhatsApp in the app.");
+    expect(api.rpc).not.toHaveBeenCalled();
   });
 });
