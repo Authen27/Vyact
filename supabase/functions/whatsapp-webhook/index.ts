@@ -29,6 +29,10 @@ import {
 } from '../_shared/whatsapp-prefs.ts';
 import { loadPrefs, advancesDelivery } from '../_shared/whatsapp-send.ts';
 import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
+import {
+  parsePaidReply, reminderFromAudit, matchReminders, moneyText, dueDayText, type SentReminder,
+} from '../_shared/whatsapp-dispatch-rules.ts';
+import { occurrenceRow, advancedDueDate, type ScheduleRow } from '../_shared/recurring.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
@@ -429,6 +433,15 @@ async function processInbound(
   // …and a greeting, MENU or HELP opens the action list.
   if (isReceptionistTrigger(text)) return sendMenu(supabase, fromPhone, profile.id, text);
 
+  // v10.43.0 (W2b) — "paid Rent" answering a bill reminder approves that bill.
+  // Only when a reminder with that name was sent to this person in the last week;
+  // otherwise "paid 450 lunch" is an ordinary entry and falls through to the parser.
+  const paid = parsePaidReply(text);
+  if (paid) {
+    const outcome = await approveFromReply(supabase, message, fromPhone, profile, paid, priorAttempts);
+    if (outcome) return outcome;
+  }
+
   const { data: accounts, error: accountsError } = await supabase
     .from('accounts')
     .select('name, kind, currency')
@@ -513,6 +526,88 @@ async function processInbound(
  * the entry is queued (so they do not resend it and double-log). Only if every retry
  * fails are they asked to send it again.
  */
+/**
+ * "paid <name>" → the bill reminder it answers → `whatsapp_approve_recurring`, which
+ * posts the due occurrence and moves the schedule on in one transaction, exactly as
+ * Approve does in the app. Null when no reminder of that name was sent (the text is
+ * then an ordinary entry). Never logs a plain transaction for a bill: that would
+ * leave the bill due and the app would ask for it again.
+ */
+async function approveFromReply(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile,
+  paid: { name: string; amount?: number }, priorAttempts: number,
+): Promise<InboundOutcome | null> {
+  const householdId = profile.whatsapp_household_id!;
+  const since = new Date(Date.now() - LATE_TAP_DAYS * 86_400_000).toISOString();
+  const { data: sentRows, error: sentError } = await supabase.from('whatsapp_inbound_messages')
+    .select('wa_message_id, payload')
+    .eq('profile_id', profile.id).eq('direction', 'outbound').eq('status', 'sent')
+    .like('wa_message_id', `out:bill_due_reminder:${profile.id}:bill:%`)
+    .gt('created_at', since)
+    .order('created_at', { ascending: false });
+  if (sentError) return retryOrGiveUp(fromPhone, priorAttempts, `reminders: ${sentError.message}`);
+  const sent = ((sentRows ?? []) as any[]).map(reminderFromAudit).filter(Boolean) as SentReminder[];
+  const matches = matchReminders(paid.name, sent);
+  if (!matches.length) return null;
+  if (matches.length > 1) {
+    return { status: 'done', note: await reply(fromPhone, `You have more than one bill called ${paid.name}, so I haven't guessed. Approve the right one in the app: ${APP_URL}/recurring`) };
+  }
+
+  const { data: schedule, error: sError } = await supabase.from('recurring_schedules')
+    .select('id, household_id, frequency, start_date, next_due_date, last_generated, day_of_month, weekday, auto_confirm, active, owner_member_id, txn_template')
+    .eq('id', matches[0].scheduleId).eq('household_id', householdId).is('deleted_at', null).maybeSingle();
+  if (sError) return retryOrGiveUp(fromPhone, priorAttempts, `schedule: ${sError.message}`);
+  if (!schedule) {
+    return { status: 'done', note: await reply(fromPhone, `I can't find that bill any more. It may have been changed in the app: ${APP_URL}/recurring`) };
+  }
+  const s = schedule as ScheduleRow;
+  const template = s.txn_template ?? {};
+  const amountText = moneyText(Number(template.amount), String(template.currency ?? 'INR').trim());
+  if (paid.amount !== undefined && Math.abs(paid.amount - Number(template.amount)) > 0.005) {
+    return { status: 'done', note: await reply(fromPhone,
+      `${s.txn_template.description} is scheduled at ${amountText}, so I haven't logged ${paid.amount}. Reply "paid ${matches[0].replyWord}" to log ${amountText}, or change the amount in the app: ${APP_URL}/recurring`) };
+  }
+
+  const today = localDay(message).toISOString().slice(0, 10);
+  const { data, error } = await supabase.rpc('whatsapp_approve_recurring', {
+    p_profile_id: profile.id,
+    p_household_id: householdId,
+    p_schedule_id: s.id,
+    p_occurrence: matches[0].occurrence,
+    p_today: today,
+    p_next_due: advancedDueDate(s),
+    p_row: occurrenceRow(s),
+    p_wa_message_id: message.id,
+  });
+  if (error) return retryOrGiveUp(fromPhone, priorAttempts, `approve: ${error.message}`);
+  const r = (data ?? {}) as { status?: string; reason?: string; already_posted?: boolean; next_due_date?: string };
+  const name = String(template.description ?? matches[0].replyWord);
+  const on = dueDayText(matches[0].occurrence);
+  let body: string | undefined;
+  switch (r.status) {
+    case 'duplicate': return { status: 'done' };   // a replay of a message that already landed stays silent
+    case 'success':
+      body = r.already_posted
+        ? `${name} for ${on} was already in Vyact, so nothing was added twice. The schedule has moved on.`
+        : `Logged: ${name}, ${amountText}, for ${on}, as scheduled.`;
+      if (r.next_due_date) body += ` The next one is due ${dueDayText(r.next_due_date)}.`;
+      break;
+    case 'already_done':
+      body = `${name} for ${on} was already approved in the app, so I've left it.`;
+      break;
+    default: {
+      const why: Record<string, string> = {
+        not_due_yet: `${name} isn't due until ${on}. You can approve it on the day.`,
+        approve_in_app: `${name} has to be approved in the app: ${APP_URL}/recurring`,
+        read_only_member: 'You can view this household but not record in it.',
+        not_a_member: "This number isn't a member of that household any more.",
+      };
+      body = why[r.reason ?? ''] ?? `I couldn't approve ${name} from here. You can do it in the app: ${APP_URL}/recurring`;
+    }
+  }
+  return { status: 'done', note: await reply(fromPhone, body) };
+}
+
 async function retryOrGiveUp(fromPhone: string, priorAttempts: number, error: string): Promise<InboundOutcome> {
   const attempt = priorAttempts + 1;
   if (attempt === 1) {

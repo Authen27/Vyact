@@ -53,10 +53,10 @@ export async function loadPrefs(admin: SupabaseClient, profileId: string): Promi
 /**
  * Templates whose approved text promises a reply we cannot honour yet. Held here,
  * not just left off the approved list, so listing one by mistake still sends nothing.
- * bill_due_reminder says "Reply 'paid Rent' to log it": logging without advancing
- * the recurring schedule would make the app ask for the same bill again. W2b.
+ * (bill_due_reminder was held here in v10.42.0 until "paid Rent" could approve the
+ * occurrence atomically; v10.43.0 released it.)
  */
-const HELD: Record<string, string> = { bill_due_reminder: 'held_until_paid_reply_approves' };
+const HELD: Record<string, string> = {};
 
 const DELIVERY_RANK: Record<string, number> = { accepted: 0, sent: 1, delivered: 2, read: 3 };
 

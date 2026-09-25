@@ -97,7 +97,9 @@ the manifest in the same change as any send code that depends on it.
 
 **The scheduler (v10.42.0).** `pg_cron` calls `whatsapp-dispatch` every 15 minutes (`job=alerts`:
 large spends, budget lines at 80%, settled splits) and on Sundays at 18:00 IST (`job=weekly`: the
-weekly summary and stale balances, opted-in people only). It is **inert** until you set one secret in
+weekly summary and stale balances, opted-in people only), and daily at 09:00 IST (`job=bills`,
+v10.43.0: approval bills due that day; "paid <name>" in reply approves the bill through
+`whatsapp_approve_recurring`, which also moves the schedule on). It is **inert** until you set one secret in
 two places. Generate a long random value yourself and never paste it into a chat:
 1. In the SQL editor: `select vault.create_secret('<your value>', 'whatsapp_dispatch_secret');`
 2. `supabase secrets set WHATSAPP_DISPATCH_SECRET=<the same value>`

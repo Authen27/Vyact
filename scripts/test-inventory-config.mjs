@@ -35,6 +35,7 @@ export const groups = [
   group('WhatsApp dispatch', 'conditional', 'contract-unit', ['whatsappDispatch'], 'consent / STOP / scheduler rules / whatsapp-dispatch handler (not a live cron run)'),
   group('Learned ingestion (not connected to entrypoints)', 'infrastructure', 'unit', ['agentAmbiguity', 'agentClassify', 'agentDedupe', 'agentGrammar', 'agentPipeline', 'agentRecipe', 'agentRecipeStore', 'agentResolver', 'agentValidator'], '_shared/agent ingestion modules'),
   group('Server money port parity', 'infrastructure', 'unit', ['moneyPortParity'], '_shared/agent/tools / client money engines'),
+  group('Server recurring port parity', 'infrastructure', 'unit', ['recurringPort'], '_shared/recurring / client generateTransaction + txnToRow + advanceSchedule'),
   { feature: 'Estimate provenance', availability: 'available', layer: 'unit', owner: 'estimatedTagCopy', files: ['react/src/components/ui/__tests__/estimatedTag.test.ts'] },
   { feature: 'Admin content and permissions', availability: 'conditional', layer: 'unit', owner: 'rowToArticle / slugify / canAccessPage', files: ['contentApi', 'roleGating'].map(file => `${admin}${file}.test.ts`) },
   { feature: 'Admin publication', availability: 'conditional', layer: 'contract-unit', owner: 'contentApi', files: [`${admin}contentWorkflow.test.ts`] },

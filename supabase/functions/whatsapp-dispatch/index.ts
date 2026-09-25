@@ -4,6 +4,8 @@
 //   POST ?job=alerts  every 15 minutes — large spends, budget lines at 80%, settled splits
 //   POST ?job=weekly  Sundays 18:00 IST — weekly summary and stale balances (marketing:
 //                     only people who opted in)
+//   POST ?job=bills   daily 09:00 IST (W2b, v10.43.0) — approval bills due today, to the
+//                     linked members who can approve them ("paid Rent" in reply)
 //
 // Auth: the `x-dispatch-secret` header must equal WHATSAPP_DISPATCH_SECRET, or the
 // bearer must be the service key (for a manual run). With no secret configured the
@@ -20,7 +22,7 @@ import { env, json, constantTimeEqual } from '../_shared/whatsapp.ts';
 import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 import { guardedSend, type SendResult } from '../_shared/whatsapp-send.ts';
 import {
-  largeSpendAlerts, budgetAlerts, splitSettledAlerts, weeklySummary, staleBalanceNudge,
+  largeSpendAlerts, budgetAlerts, splitSettledAlerts, weeklySummary, staleBalanceNudge, billReminders,
   localDay, isoWeek, type PlannedSend, type Household, type Member, type TxnRow,
 } from '../_shared/whatsapp-dispatch-rules.ts';
 
@@ -37,7 +39,7 @@ Deno.serve(async (req: Request) => {
   if (!allowed) return json({ error: 'forbidden' }, 403);
 
   const job = new URL(req.url).searchParams.get('job');
-  if (job !== 'alerts' && job !== 'weekly') return json({ error: 'unknown_job' }, 400);
+  if (job !== 'alerts' && job !== 'weekly' && job !== 'bills') return json({ error: 'unknown_job' }, 400);
 
   const admin = createClient(env('SUPABASE_URL'), serviceKey);
   const now = new Date();
@@ -58,7 +60,8 @@ Deno.serve(async (req: Request) => {
       const household = await loadHousehold(admin, householdId);
       if (!household) continue;
       if (job === 'alerts') planned.push(...await alertsFor(admin, household, members, now, today));
-      else planned.push(...await weeklyFor(admin, household, members, now, today));
+      else if (job === 'weekly') planned.push(...await weeklyFor(admin, household, members, now, today));
+      else planned.push(...await billsFor(admin, household, members, today));
     } catch (e) {
       problems.push(`${householdId}: ${(e as Error)?.message ?? String(e)}`);   // one household never stops the rest
     }
@@ -187,4 +190,19 @@ async function weeklyFor(
     if (s) out.push(s);
   }
   return out;
+}
+
+/** Approval bills due today, to the linked members who hold a write role. */
+async function billsFor(admin: SupabaseClient, household: Household, members: Member[], today: string): Promise<PlannedSend[]> {
+  const { data: schedules, error } = await admin.from('recurring_schedules')
+    .select('id, household_id, next_due_date, auto_confirm, active, txn_template')
+    .eq('household_id', household.id).is('deleted_at', null).eq('active', true).eq('auto_confirm', false)
+    .eq('next_due_date', today);
+  if (error) throw new Error(`schedules: ${error.message}`);
+  if (!schedules?.length) return [];
+  const { data: roles } = await admin.from('memberships').select('user_id, role')
+    .eq('household_id', household.id).in('user_id', members.map((m) => m.profile_id));
+  const writers = new Set(((roles ?? []) as { user_id: string; role: string }[])
+    .filter((r) => r.role !== 'viewer').map((r) => r.user_id));
+  return billReminders({ today, schedules: schedules as never, approvers: members.filter((m) => writers.has(m.profile_id)) });
 }

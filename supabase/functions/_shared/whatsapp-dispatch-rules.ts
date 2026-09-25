@@ -215,6 +215,80 @@ export function staleBalanceNudge(input: {
   };
 }
 
+// ── Bill reminders (W2b) ────────────────────────────────────────────────────
+export interface BillSchedule {
+  id: string; household_id: string; next_due_date: string; auto_confirm: boolean; active: boolean;
+  txn_template: { type?: string; amount?: number | string; currency?: string; description?: string; category?: string; debtId?: string };
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "25 Sep" — how the reminder names the due day. A fixed table: ICU builds differ ("Sept"). */
+export function dueDayText(day: string): string {
+  const [, m, d] = day.split('-').map(Number);
+  return `${d} ${MONTHS[m - 1]}`;
+}
+
+/**
+ * An approval bill due TODAY → every linked member who can approve it. Sent on the
+ * due day, never before: "paid Rent" approves it, and the app never approves early.
+ * A schedule that posts itself needs no reply, so it gets no reminder; an EMI,
+ * transfer or investment cannot be approved from chat, so it gets none either.
+ */
+export function billReminders(input: { today: string; schedules: BillSchedule[]; approvers: Member[] }): PlannedSend[] {
+  const out: PlannedSend[] = [];
+  for (const s of input.schedules) {
+    const t = s.txn_template ?? {};
+    if (!s.active || s.auto_confirm || s.next_due_date !== input.today) continue;
+    if (t.type !== 'expense' || t.category === 'loan_emi' || t.debtId) continue;
+    const name = String(t.description ?? '').trim();
+    const amount = Number(t.amount);
+    if (!name || !(amount > 0) || !t.currency) continue;
+    for (const m of input.approvers.filter((a) => a.household_id === s.household_id)) {
+      out.push({
+        template: 'bill_due_reminder', householdId: s.household_id, toProfileId: m.profile_id,
+        values: [name, moneyText(amount, String(t.currency).trim()), dueDayText(s.next_due_date), name],
+        dedupeKey: `bill:${s.id}:${s.next_due_date}`,
+      });
+    }
+  }
+  return out;
+}
+
+/** A reminder this person was sent, read back from its audit row. */
+export interface SentReminder { scheduleId: string; occurrence: string; replyWord: string }
+
+/** The reminder a sent bill_due_reminder audit row stands for, or null. */
+export function reminderFromAudit(row: { wa_message_id: string; payload?: { params?: unknown[] } | null }): SentReminder | null {
+  const m = /:bill:([0-9a-f-]{36}):(\d{4}-\d{2}-\d{2})$/i.exec(row.wa_message_id);
+  const word = row.payload?.params?.[3];
+  if (!m || typeof word !== 'string' || !word.trim()) return null;
+  return { scheduleId: m[1], occurrence: m[2], replyWord: word.trim() };
+}
+
+/**
+ * "paid Rent" / "paid rent 25000" → the name and any amount stated. Null when the
+ * message is not a "paid <name>" reply at all.
+ */
+export function parsePaidReply(text: string): { name: string; amount?: number } | null {
+  const m = /^paid\s+(.+)$/i.exec((text ?? '').trim().replace(/[.!]+$/, ''));
+  if (!m) return null;
+  const amountAtEnd = /^(.*?)\s+(?:rs\.?|inr|₹)?\s*(\d[\d,]*(?:\.\d+)?)$/i.exec(m[1]);
+  if (amountAtEnd && amountAtEnd[1].trim()) {
+    return { name: amountAtEnd[1].trim(), amount: Number(amountAtEnd[2].replace(/,/g, '')) };
+  }
+  return { name: m[1].trim() };
+}
+
+const norm = (s: string) => s.toLowerCase().normalize('NFKC').replace(/\s+/g, ' ').trim();
+
+/** The sent reminders a "paid <name>" reply answers (same name, any case). */
+export function matchReminders(name: string, sent: SentReminder[]): SentReminder[] {
+  const want = norm(name);
+  const seen = new Set<string>();
+  return sent.filter((r) => norm(r.replyWord) === want && !seen.has(r.scheduleId) && seen.add(r.scheduleId));
+}
+
 /** ISO week key ("2026-W39") for weekly dedupe. */
 export function isoWeek(day: string): string {
   const d = new Date(`${day}T00:00:00Z`);

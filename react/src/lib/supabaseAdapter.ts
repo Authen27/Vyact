@@ -196,7 +196,8 @@ const fkOrNull = (v: string | undefined | null): string | null =>
 // v9 txn-redesign §2.4 — the per-type account matrix is enforced at the write
 // boundary so no caller can produce a row that violates CK_txn_accounts_by_type
 // or CK_txn_category_by_type.
-const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<TransactionRow> => {
+// Exported (v10.43.0) for the server port parity test: WhatsApp "paid X" must write the row this writes.
+export const txnToRow = (t: Partial<Transaction>, householdId: string): Partial<TransactionRow> => {
   const type = t.type as Transaction['type'];
   const transferClass = type === 'transfer' || type === 'investment';
   return {

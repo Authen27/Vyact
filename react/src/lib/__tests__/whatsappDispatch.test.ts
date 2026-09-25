@@ -9,7 +9,8 @@ import {
 } from '../../../../supabase/functions/_shared/whatsapp-prefs';
 import {
   EXPENSE_LABEL, largeSpendAlerts, budgetAlerts, splitSettledAlerts, weeklySummary, staleBalanceNudge,
-  isoWeek, localDay, rowToTxn, type TxnRow,
+  isoWeek, localDay, rowToTxn, billReminders, parsePaidReply, reminderFromAudit, matchReminders,
+  type TxnRow, type BillSchedule, type SentReminder,
 } from '../../../../supabase/functions/_shared/whatsapp-dispatch-rules';
 import type { Transaction as ClientTxn } from '../../types';
 import { captureHandler, queryResult } from './helpers/edgeHarness';
@@ -149,6 +150,40 @@ describe('what the scheduler sends', () => {
     expect(localDay(new Date('2026-09-25T20:00:00Z'))).toBe('2026-09-26');    // 01:30 IST
     expect(isoWeek('2026-09-27')).toBe('2026-W39');
     expect(isoWeek('2026-01-01')).toBe('2026-W01');
+  });
+});
+
+describe('bill reminders and "paid X" (W2b)', () => {
+  const sched = (p: Partial<BillSchedule> = {}): BillSchedule => ({
+    id: '44444444-4444-4444-8444-444444444444', household_id: 'h', next_due_date: '2026-09-25', auto_confirm: false, active: true,
+    txn_template: { type: 'expense', amount: 25000, currency: 'INR', description: 'Rent', category: 'rent_mortgage' }, ...p,
+  });
+
+  it('CON-UNIT-WA-B-001 · only approval bills due TODAY, to approvers; never auto-posting, EMI, income or future ones', () => {
+    const sends = billReminders({ today: '2026-09-25', approvers: [MEMBERS[0]], schedules: [
+      sched(),
+      sched({ id: 'auto', auto_confirm: true }),
+      sched({ id: 'emi', txn_template: { type: 'expense', amount: 9000, currency: 'INR', description: 'Car EMI', category: 'loan_emi' } }),
+      sched({ id: 'pay', txn_template: { type: 'income', amount: 92000, currency: 'INR', description: 'Salary', category: 'salary' } }),
+      sched({ id: 'later', next_due_date: '2026-09-26' }),
+    ] });
+    expect(sends).toEqual([{ template: 'bill_due_reminder', householdId: 'h', toProfileId: 'alice',
+      values: ['Rent', '₹25,000', '25 Sep', 'Rent'], dedupeKey: 'bill:44444444-4444-4444-8444-444444444444:2026-09-25' }]);
+  });
+
+  it('CON-UNIT-WA-B-002 · "paid" replies parse, and match only a reminder of that name that was sent', () => {
+    expect(parsePaidReply('paid Rent')).toEqual({ name: 'Rent' });
+    expect(parsePaidReply('Paid rent 25,000.')).toEqual({ name: 'rent', amount: 25000 });
+    expect(parsePaidReply('paid 450 lunch')).toEqual({ name: '450 lunch' });   // no reminder by that name → an ordinary entry
+    expect(parsePaidReply('450 lunch')).toBeNull();
+    const sent = [
+      reminderFromAudit({ wa_message_id: 'out:bill_due_reminder:alice:bill:44444444-4444-4444-8444-444444444444:2026-09-25', payload: { params: ['Rent', '₹25,000', '25 Sep', 'Rent'] } }),
+      reminderFromAudit({ wa_message_id: 'out:bill_due_reminder:alice:bill:44444444-4444-4444-8444-444444444444:2026-08-25', payload: { params: ['Rent', '₹25,000', '25 Aug', 'Rent'] } }),
+      reminderFromAudit({ wa_message_id: 'out:split_settled:alice:split:s1', payload: { params: ['x'] } }),
+    ].filter(Boolean) as SentReminder[];
+    expect(sent).toHaveLength(2);
+    expect(matchReminders('RENT', sent)).toEqual([{ scheduleId: '44444444-4444-4444-8444-444444444444', occurrence: '2026-09-25', replyWord: 'Rent' }]);
+    expect(matchReminders('Netflix', sent)).toEqual([]);
   });
 });
 
