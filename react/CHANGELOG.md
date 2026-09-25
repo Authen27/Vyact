@@ -70,8 +70,26 @@ The numbering history has some non-monotonic stretches that we keep documented h
 - **WhatsApp answer rule** (spec §6): a question is answered in the chat, and a link is never the
   answer. A budget alert's "What's driving it?" and a runway note's "What moved?" are now asked of
   Pip (for that alert's own category) when answers are on, instead of linking out.
+- **Answers can be turned on from the chat.** With answers off, a question (or a Check row, or a
+  question button) no longer gets a link. Pip says it can answer here, that figures would show in
+  the chat and on the lock screen, and asks for **ANSWERS ON**. That reply records the consent
+  (`reads_source = 'whatsapp_keyword'`, dated) and answers the question that was waiting at once.
+  **ANSWERS OFF** withdraws it; "Messages I send you" lists it. The Settings toggle still works and is
+  stamped `app_settings`. Migration `20260930120000_w5_whatsapp_answers_optin.sql` adds
+  `reads_source` and the `reads_offer` pending-turn kind, validated on production in a rolled-back
+  block.
+- **Reply LOG.** "LOG", "log today" or the **Log today** button gets the one-line logging prompt
+  (the same as the Log a spend menu row). Nothing is written until the line arrives.
+- **Four variant templates, with their own header images** (13–16), submitted to Meta and in review:
+  `bill_overdue_reminder` and `payday_headroom_variable` (Utility), `reengagement_nudge_quiet` and
+  `runway_recovered_alert` (Marketing). None sends until approved and listed in
+  `WHATSAPP_APPROVED_TEMPLATES`.
+  - **Overdue bills:** a bill still awaiting approval three days after its due date gets one
+    reminder. Its **Already paid** button approves that exact occurrence through
+    `whatsapp_approve_recurring`, like "paid Rent".
+  - "See the detail" and "Plan this month" are asked of Pip, like the other question buttons.
 
-Tests: CON-UNIT-W5-001…009. The server engine bundle was rebuilt and parity re-checked. The bundle
+Tests: CON-UNIT-W5-001…013. The server engine bundle was rebuilt and parity re-checked. The bundle
 guard caught a variable named `window` in the new code.
 
 ## v10.45.0 — Ask Vyact on WhatsApp (W4) *(2026-09-26)*

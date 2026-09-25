@@ -20,7 +20,7 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { env, verifyMetaSignature, sendText, sendInteractiveList, APP_URL, constantTimeEqual } from '../_shared/whatsapp.ts';
 import {
-  isReceptionistTrigger, receptionistList, menuReply, welcomeButtonAction, UNLINKED_GREETING, UNLINKED_OTHER,
+  isReceptionistTrigger, isLogTrigger, receptionistList, menuReply, welcomeButtonAction, UNLINKED_GREETING, UNLINKED_OTHER,
 } from '../_shared/whatsapp-receptionist.ts';
 import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite, type ParsedTx } from '../_shared/whatsapp-parser.ts';
 import {
@@ -28,7 +28,7 @@ import {
   ASK_AMOUNT, SKIPPED, EXPIRED, UNDO_HINT, DUPLICATE_WINDOW_MINUTES, PENDING_MINUTES, type PendingKind,
 } from '../_shared/whatsapp-conversation.ts';
 import {
-  parsePrefCommand, applyPrefCommand, prefsSummary, buttonReply, buttonQuestion, unsupportedButtonReply,
+  parsePrefCommand, applyPrefCommand, prefsSummary, buttonReply, buttonQuestion, unsupportedButtonReply, READS_OFFER,
   LATE_TAP_DAYS, LATE_TAP_REPLY, type WaPrefs,
 } from '../_shared/whatsapp-prefs.ts';
 import { loadPrefs, advancesDelivery } from '../_shared/whatsapp-send.ts';
@@ -97,8 +97,12 @@ async function savePrefs(supabase: SupabaseClient, profileId: string, before: Wa
     profile_id: profileId,
     marketing_opt_in: after.marketing_opt_in,
     insights_opt_in: after.insights_opt_in,
+    reads_enabled: after.reads_enabled,
     muted_topics: after.muted_topics,
-    // Consent withdrawn from chat clears when it was given; giving it happens in the app.
+    // Consent withdrawn from chat clears when it was given. Marketing and insights are
+    // given in the app; answers (v10.46.0) may be given here, and say so.
+    ...(!before.reads_enabled && after.reads_enabled ? { reads_enabled_at: new Date().toISOString(), reads_source: 'whatsapp_keyword' } : {}),
+    ...(before.reads_enabled && !after.reads_enabled ? { reads_enabled_at: null, reads_source: null } : {}),
     ...(before.marketing_opt_in && !after.marketing_opt_in ? { marketing_opt_in_at: null, marketing_source: null } : {}),
     ...(before.insights_opt_in && !after.insights_opt_in ? { insights_opt_in_at: null } : {}),
     updated_at: new Date().toISOString(),
@@ -385,8 +389,21 @@ async function handleTemplateButton(
   // v10.46.0 (W5) — a button that asks a question is answered by Pip in the chat when
   // answers are on, instead of linking out (the WhatsApp answer rule).
   const question = buttonQuestion(def.name, label, m[3] ?? '');
-  if (question && await readsEnabled(supabase, profileId)) {
-    return answerQuestion(supabase, fromPhone, profile, question);
+  if (question) {
+    // The answer rule both ways: answered here, or answers offered here. Never a link.
+    if (await readsEnabled(supabase, profileId)) return answerQuestion(supabase, fromPhone, profile, question);
+    return offerAnswers(supabase, fromPhone, profile, question);
+  }
+
+  // v10.46.0 — "Already paid" on an overdue reminder approves THAT occurrence (its
+  // payload context is `bill:<schedule>:<date>`), through the same atomic path as
+  // "paid Rent": posted with the app's row and the schedule moved on.
+  if (def.name === 'bill_overdue_reminder' && label === 'Already paid') {
+    const occ = /^bill:([0-9a-f-]{36}):(\d{4}-\d{2}-\d{2})$/i.exec(m[3] ?? '');
+    if (!occ) return { status: 'done', note: await reply(fromPhone, unsupportedButtonReply(APP_URL)) };
+    const outcome = await approveFromReply(supabase, message, fromPhone, profile, { name: '' }, 0,
+      { scheduleId: occ[1], occurrence: occ[2], replyWord: '' });
+    return outcome ?? { status: 'done' };
   }
 
   const answer = buttonReply(def.name, label, APP_URL);
@@ -420,8 +437,9 @@ async function processInbound(
   if (message?.type === 'interactive' && rowId) {
     // v10.45.0 (W4) — with answers on, a Check row asks Ask Vyact instead of linking out.
     const checkQuestion = CHECK_QUESTIONS[rowId];
-    if (checkQuestion && await readsEnabled(supabase, profile.id)) {
-      return answerQuestion(supabase, fromPhone, profile, checkQuestion);
+    if (checkQuestion) {
+      if (await readsEnabled(supabase, profile.id)) return answerQuestion(supabase, fromPhone, profile, checkQuestion);
+      return offerAnswers(supabase, fromPhone, profile, checkQuestion);   // never a link as the answer
     }
     // v10.42.0 — "Messages I send you" reads this person's own preferences.
     const body = rowId === 'menu:messages'
@@ -447,7 +465,17 @@ async function processInbound(
     const { prefs: after, reply: body } = applyPrefCommand(before, command);
     try { await savePrefs(supabase, profile.id, before, after); }
     catch (e) { return { status: 'retry', error: `prefs: ${(e as Error)?.message ?? String(e)}` }; }
-    return { status: 'done', note: await reply(fromPhone, body) };
+    const said = await reply(fromPhone, body);
+    // v10.46.0 — ANSWERS ON after an offer answers the question that prompted it.
+    if (command.kind === 'answers_on') {
+      const offer = await openPending(supabase, profile.id);
+      if (offer?.kind === 'reads_offer' && typeof offer.payload?.question === 'string'
+          && Date.parse(offer.expires_at) >= Date.now()) {
+        await resolvePending(supabase, offer.id);
+        return answerQuestion(supabase, fromPhone, profile, offer.payload.question);
+      }
+    }
+    return { status: 'done', note: said };
   }
 
   // v10.44.0 (W3) — UNDO and a correction act on the entry WhatsApp just logged.
@@ -478,7 +506,7 @@ async function processInbound(
       if (prompt) return answerQuestion(supabase, fromPhone, profile, prompt, pending.payload?.allowedFigures ?? []);
     }
     // A chips list takes only its numbers; anything else is a new message.
-    const answer = pending.kind === 'chips' ? null
+    const answer = pending.kind === 'chips' || pending.kind === 'reads_offer' ? null
       : pending.kind === 'missing_amount' ? bareAmount(text) : yesNo(text);
     if (answer !== null && expired) return { status: 'done', note: await reply(fromPhone, EXPIRED) };
     if (answer !== null && pending.kind === 'missing_amount') {
@@ -494,6 +522,8 @@ async function processInbound(
 
   // …and a greeting, MENU or HELP opens the action list.
   if (isReceptionistTrigger(text)) return sendMenu(supabase, fromPhone, profile.id, text);
+  // v10.46.0 — "LOG" (the re-engagement nudge's "Reply LOG") starts today's entry.
+  if (isLogTrigger(text)) return { status: 'done', note: await reply(fromPhone, menuReply('menu:log_spend', APP_URL) ?? '') };
 
   // v10.43.0 (W2b) — "paid Rent" answering a bill reminder approves that bill.
   // Only when a reminder with that name was sent to this person in the last week;
@@ -544,8 +574,7 @@ async function processInbound(
     // turned on "Answer my questions here" (figures reach the lock screen).
     if (parsed.reason === 'query') {
       if (await readsEnabled(supabase, profile.id)) return answerQuestion(supabase, fromPhone, profile, text);
-      return { status: 'done', note: await reply(fromPhone,
-        `${clarifyReply('query', `${APP_URL}/dashboard`)}\n\nTo get answers here instead, turn on "Answer my questions here" in Settings › WhatsApp.`) };
+      return offerAnswers(supabase, fromPhone, profile, text);
     }
     if (parsed.reason === 'no_amount' && worthAskingAmount(text)) {
       await askPending(supabase, profile.id, householdId, 'missing_amount', { text, accounts: accountList, baseCurrency });
@@ -639,21 +668,29 @@ async function logParsed(
 async function approveFromReply(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile,
   paid: { name: string; amount?: number }, priorAttempts: number,
+  /** v10.46.0 — the occurrence an "Already paid" tap names (its payload), skipping the name lookup. */
+  direct?: SentReminder,
 ): Promise<InboundOutcome | null> {
   const householdId = profile.whatsapp_household_id!;
-  const since = new Date(Date.now() - LATE_TAP_DAYS * 86_400_000).toISOString();
-  const { data: sentRows, error: sentError } = await supabase.from('whatsapp_inbound_messages')
-    .select('wa_message_id, payload')
-    .eq('profile_id', profile.id).eq('direction', 'outbound').eq('status', 'sent')
-    .like('wa_message_id', `out:bill_due_reminder:${profile.id}:bill:%`)
-    .gt('created_at', since)
-    .order('created_at', { ascending: false });
-  if (sentError) return retryOrGiveUp(fromPhone, priorAttempts, `reminders: ${sentError.message}`);
-  const sent = ((sentRows ?? []) as any[]).map(reminderFromAudit).filter(Boolean) as SentReminder[];
-  const matches = matchReminders(paid.name, sent);
-  if (!matches.length) return null;
-  if (matches.length > 1) {
-    return { status: 'done', note: await reply(fromPhone, `You have more than one bill called ${paid.name}, so I haven't guessed. Approve the right one in the app: ${APP_URL}/recurring`) };
+  let matches: SentReminder[];
+  if (direct) {
+    matches = [direct];
+  } else {
+    const since = new Date(Date.now() - LATE_TAP_DAYS * 86_400_000).toISOString();
+    // Both reminders count: due today (bill_due_reminder) and overdue (bill_overdue_reminder).
+    const { data: sentRows, error: sentError } = await supabase.from('whatsapp_inbound_messages')
+      .select('wa_message_id, payload')
+      .eq('profile_id', profile.id).eq('direction', 'outbound').eq('status', 'sent')
+      .like('wa_message_id', `out:bill_%:${profile.id}:bill:%`)
+      .gt('created_at', since)
+      .order('created_at', { ascending: false });
+    if (sentError) return retryOrGiveUp(fromPhone, priorAttempts, `reminders: ${sentError.message}`);
+    const sent = ((sentRows ?? []) as any[]).map(reminderFromAudit).filter(Boolean) as SentReminder[];
+    matches = matchReminders(paid.name, sent);
+    if (!matches.length) return null;
+    if (matches.length > 1) {
+      return { status: 'done', note: await reply(fromPhone, `You have more than one bill called ${paid.name}, so I haven't guessed. Approve the right one in the app: ${APP_URL}/recurring`) };
+    }
   }
 
   const { data: schedule, error: sError } = await supabase.from('recurring_schedules')
@@ -795,6 +832,16 @@ const CHECK_QUESTIONS: Record<string, string> = {
   'menu:budgets': 'How are my budgets doing this month?',
   'menu:whats_due': 'What bills are due this week?',
 };
+
+/**
+ * v10.46.0 — a question from someone with answers off. The WhatsApp answer rule: never
+ * a link as the answer. Offer to answer here instead, and keep the question, so
+ * ANSWERS ON answers it at once.
+ */
+async function offerAnswers(supabase: SupabaseClient, fromPhone: string, profile: Profile, question: string): Promise<InboundOutcome> {
+  await askPending(supabase, profile.id, profile.whatsapp_household_id!, 'reads_offer', { question });
+  return { status: 'done', note: await reply(fromPhone, READS_OFFER) };
+}
 
 /** Has this person turned on "Answer my questions here"? Off when unknown. */
 async function readsEnabled(supabase: SupabaseClient, profileId: string): Promise<boolean> {

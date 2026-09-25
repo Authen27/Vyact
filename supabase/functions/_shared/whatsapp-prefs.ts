@@ -18,6 +18,7 @@
 
 import { TEMPLATES, type TemplateDef } from './whatsapp-templates.ts';
 import { EXPENSE_LABEL } from './whatsapp-dispatch-rules.ts';
+import { menuReply } from './whatsapp-receptionist.ts';
 
 export type Consent = 'service' | 'insights' | 'marketing';
 
@@ -68,6 +69,10 @@ export const TEMPLATE_TOPIC: Record<string, TopicId> = {
   balance_stale_nudge: 'balances',
   weekly_summary: 'weekly',
   reengagement_nudge: 'tips',
+  bill_overdue_reminder: 'bills',
+  payday_headroom_variable: 'payday',
+  reengagement_nudge_quiet: 'tips',
+  runway_recovered_alert: 'runway',
 };
 
 /** The words after STOP / START that name a topic. Footers promise the first six. */
@@ -81,12 +86,14 @@ const STOP_WORDS: Record<string, TopicId> = {
 export interface WaPrefs {
   marketing_opt_in: boolean;
   insights_opt_in: boolean;
+  /** v10.45.0 — "Answer my questions here" (figures reach the lock screen). */
+  reads_enabled: boolean;
   muted_topics: string[];
   large_txn_threshold: number;
 }
 
 export const DEFAULT_PREFS: WaPrefs = {
-  marketing_opt_in: false, insights_opt_in: false, muted_topics: [], large_txn_threshold: 10000,
+  marketing_opt_in: false, insights_opt_in: false, reads_enabled: false, muted_topics: [], large_txn_threshold: 10000,
 };
 
 export function topicOf(def: TemplateDef): TopicId {
@@ -112,7 +119,9 @@ export type PrefCommand =
   | { kind: 'stop_all' }
   | { kind: 'stop'; topic: TopicId }
   | { kind: 'start'; topic: TopicId }
-  | { kind: 'unknown_topic'; word: string };
+  | { kind: 'unknown_topic'; word: string }
+  | { kind: 'answers_on' }
+  | { kind: 'answers_off' };
 
 /**
  * STOP, STOP <TOPIC> or START <TOPIC>, as the WHOLE message. Bare START is not
@@ -122,6 +131,9 @@ export type PrefCommand =
 export function parsePrefCommand(text: string): PrefCommand | null {
   const t = (text ?? '').trim().toLowerCase().replace(/[.!]+$/, '').replace(/\s+/g, ' ');
   if (t === 'stop' || t === 'stop all' || t === 'unsubscribe') return { kind: 'stop_all' };
+  // v10.46.0 — answers in this chat, turned on or off from the chat itself.
+  if (/^answers? on$/.test(t)) return { kind: 'answers_on' };
+  if (/^answers? off$/.test(t)) return { kind: 'answers_off' };
   const m = /^(stop|start) ([a-z]+)$/.exec(t);
   if (!m) return null;
   const topic = STOP_WORDS[m[2]];
@@ -164,8 +176,24 @@ export function applyPrefCommand(prefs: WaPrefs, cmd: PrefCommand): { prefs: WaP
     }
     case 'unknown_topic':
       return { prefs, reply: `I don't send anything called "${cmd.word}". Send STOP to stop everything I can, or MENU › Messages I send you to see the list.` };
+    case 'answers_on':
+      return { prefs: { ...prefs, reads_enabled: true }, reply: ANSWERS_ON_REPLY };
+    case 'answers_off':
+      return { prefs: { ...prefs, reads_enabled: false }, reply: "Done. I won't answer questions here any more. Your figures stay in the app." };
   }
 }
+
+/**
+ * v10.46.0 — the offer to someone who asked a question with answers off. The WhatsApp
+ * answer rule: a link is never the answer. They can allow it right here; the consent
+ * is recorded as given in WhatsApp, and the question they asked is answered at once.
+ */
+export const READS_OFFER =
+  "I can answer that here. Your figures would show in this chat and on your phone's lock screen.\n\n"
+  + 'Reply ANSWERS ON to allow it. You can turn it off any time with ANSWERS OFF.';
+
+export const ANSWERS_ON_REPLY =
+  "Done. I'll answer your questions here. Figures will show in this chat and on your lock screen; send ANSWERS OFF to stop.";
 
 /** "Messages I send you" — what this person gets now, from their own preferences. */
 export function prefsSummary(prefs: WaPrefs, appUrl: string): string {
@@ -173,6 +201,7 @@ export function prefsSummary(prefs: WaPrefs, appUrl: string): string {
   const off: string[] = [];
   for (const id of ['budgets', 'splits'] as TopicId[]) (prefs.muted_topics.includes(id) ? off : on).push(cap(TOPICS[id].label));
   (prefs.marketing_opt_in ? on : off).push('Tips and weekly summaries');
+  (prefs.reads_enabled ? on : off).push('Answers to your questions (ANSWERS ON / ANSWERS OFF)');
   const lines = [`What I send you here:\n• ${on.join('\n• ')}`];
   if (off.length) lines.push(`Off:\n• ${off.join('\n• ')}`);
   lines.push(`Send STOP <name>, like STOP BUDGETS, to switch one off. Change them all in the app: ${appUrl}/settings`);
@@ -197,6 +226,8 @@ export function buttonReply(
       return { mute: topic, reply: `Done. No more ${TOPICS[topic].label}.\n\n${STILL_COMES}` };
     case 'Stop budget alerts':
       return { mute: 'budgets', reply: 'Done. No more budget alerts here. Your budgets still track in the app.' };
+    case 'Log today':
+      return { reply: menuReply('menu:log_spend', appUrl) ?? '' };
     case 'That was me':
       return { reply: 'Noted, nothing to do.' };
     case 'Flag it':
@@ -231,6 +262,8 @@ export function buttonQuestion(templateName: string, label: string, context: str
     return label ? `why is my ${label.toLowerCase()} spending so high` : 'where is my money going this month';
   }
   if (templateName === 'runway_shift_alert' && label === 'What moved?') return 'how long will my savings last, and what changed';
+  if (templateName === 'runway_recovered_alert' && label === 'See the detail') return 'how long will my savings last, and what changed';
+  if (templateName === 'payday_headroom_variable' && label === 'Plan this month') return 'how much can I spend this month after my bills';
   return null;
 }
 

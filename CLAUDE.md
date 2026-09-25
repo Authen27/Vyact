@@ -381,7 +381,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   **v10.46.0 (W5): the assistant is "Pip" in every user-facing string** (code keeps `askVyact*`). How
   Pip speaks is ONE contract in `PHRASE_SYSTEM` for both channels (`ctx.channel`: WhatsApp = ≤4
   sentences, no links, English). The old `VARIANTS` phrase tables are gone; do not reintroduce copy
-  tables. **On WhatsApp a question is answered in the chat, never with a link** (responses spec §6).
+  tables. **On WhatsApp a question is answered in the chat, never with a link** (responses spec §6). With
+  answers off, Pip offers ANSWERS ON (consent given in chat is recorded as `reads_source =
+  'whatsapp_keyword'`); it never falls back to a link. An overdue bill's "Already paid" approves through
+  `whatsapp_approve_recurring`, exactly like "paid X".
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

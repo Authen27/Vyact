@@ -314,7 +314,7 @@ describe('WhatsApp receptionist', () => {
     expect(api.rpc).not.toHaveBeenCalled();
   });
 
-  it('CON-UNIT-WA-R-002 · a tapped row gets its reply; a Check row links to the app, no figures', async () => {
+  it('CON-UNIT-WA-R-002 · a tapped row gets its reply; with answers off a Check row offers answers here — no link, no figures', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
     webhookTables(0);
     const tap = (id: string) => JSON.stringify({ entry: [{ changes: [{ value: { messages: [
@@ -323,7 +323,8 @@ describe('WhatsApp receptionist', () => {
     expect(sentTexts()[0]).toContain('450 lunch hdfc');
     vi.mocked(fetch).mockClear();
     await post(handler, tap('menu:budgets'));
-    expect(sentTexts()[0]).toMatch(/budgets$/);
+    expect(sentTexts()[0]).toMatch(/^I can answer that here\./);
+    expect(sentTexts()[0]).not.toMatch(/https?:\/\//);                       // the WhatsApp answer rule
     expect(sentTexts()[0]).not.toMatch(/₹\d/);
     expect(api.rpc).not.toHaveBeenCalled();
   });
@@ -415,6 +416,20 @@ describe('WhatsApp "paid X" (W2b)', () => {
     await post(handler, inbound('paid 450 lunch'));
     expect(api.rpc).toHaveBeenCalledWith('whatsapp_log_transaction', expect.objectContaining({ p_amount: 450 }));
     expect(api.rpc).not.toHaveBeenCalledWith('whatsapp_approve_recurring', expect.anything());
+  });
+
+  it('CON-UNIT-W5-013 · "Already paid" on an overdue reminder approves THAT occurrence through the same atomic path', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    tables([]);                                                              // no name lookup is needed
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', already_posted: false, next_due_date: '2026-10-24' } });
+    const body = JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ id: 'm-1', from: '111', type: 'button',
+      timestamp: String(Date.UTC(2026, 8, 27, 6, 0) / 1000),
+      button: { payload: `bill_overdue_reminder:0:bill:${SID}:2026-09-24`, text: 'Already paid' } }] } }] }] });
+    await post(handler, body);
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_approve_recurring', expect.objectContaining({
+      p_schedule_id: SID, p_occurrence: '2026-09-24', p_today: '2026-09-27', p_next_due: '2026-10-24',
+    }));
+    expect(sentTexts()[0]).toBe('Logged: Rent, ₹25,000, for 24 Sep, as scheduled. The next one is due 24 Oct.');
   });
 
   it('CON-UNIT-WA-B-005 · already approved in the app, or not approvable from chat, is said plainly', async () => {
@@ -676,14 +691,40 @@ describe('WhatsApp answers (W4)', () => {
       chips: [{ label: 'By category', prompt: 'Where did it go?' }], allowedFigures: ['2,000'] });
   }
 
-  it('CON-UNIT-W4-007 · with answers OFF, a question stays hard-blocked, says where to turn them on, and reads nothing', async () => {
+  it('CON-UNIT-W4-007 · with answers OFF, a question is offered answers here (no link) and reads nothing', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
     answerTables(false);
     await post(handler, say('how much did I spend this month?'));
-    expect(sentTexts()[0]).toMatch(/balances and reports live in the app/);
-    expect(sentTexts()[0]).toContain('turn on "Answer my questions here" in Settings › WhatsApp');
+    expect(sentTexts()[0]).toBe("I can answer that here. Your figures would show in this chat and on your phone's lock screen.\n\nReply ANSWERS ON to allow it. You can turn it off any time with ANSWERS OFF.");
     expect(engine.loadHouseholdRows).not.toHaveBeenCalled();
     expect(engine.answerOnServer).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-W5-010 · ANSWERS ON records consent as given in WhatsApp, then answers the question that prompted it', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    answerTables(false);
+    const prefWrites: Record<string, unknown>[] = [];
+    const base = api.from.getMockImplementation()!;
+    api.from.mockImplementation((table: string) => {
+      const q = base(table);
+      if (table === 'whatsapp_preferences') q.upsert.mockImplementation((row: Record<string, unknown>) => { prefWrites.push(row); return q; });
+      return q;
+    });
+    await post(handler, say('how much did I spend this month?'));
+    vi.mocked(fetch).mockClear();
+    await post(handler, say('answers on', 'm-2'));
+    expect(prefWrites[0]).toEqual(expect.objectContaining({ reads_enabled: true, reads_source: 'whatsapp_keyword' }));
+    expect(sentTexts()[0]).toMatch(/^Done\. I'll answer your questions here\./);
+    expect(engine.answerOnServer).toHaveBeenCalledWith('how much did I spend this month?', expect.anything(), expect.any(Function), []);
+    expect(sentTexts()[1]).toBe('You spent ₹2,000 this month.\n\n1. By category\n\nReply with a number, or ask anything.');
+  });
+
+  it('CON-UNIT-W5-011 · LOG answers with the one-line format and writes nothing', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    answerTables(false);
+    await post(handler, say('LOG'));
+    expect(sentTexts()[0]).toMatch(/^Send it in one line:\n450 lunch hdfc/);
+    expect(api.rpc).not.toHaveBeenCalled();
   });
 
   it('CON-UNIT-W4-008 · with answers ON, Ask Vyact answers from this household; "1" asks the follow-up with the stated figures', async () => {

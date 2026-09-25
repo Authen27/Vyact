@@ -17,7 +17,7 @@ export const UNDO_MINUTES = 15;
 /** A second entry of the same amount and category this soon is asked about first. */
 export const DUPLICATE_WINDOW_MINUTES = 120;
 
-export type PendingKind = 'missing_amount' | 'duplicate_check' | 'chips';
+export type PendingKind = 'missing_amount' | 'duplicate_check' | 'chips' | 'reads_offer';
 
 export function isUndo(text: string): boolean {
   return /^(undo|undo that|undo it|delete (that|it|last)|remove (that|it|last))[.!]*$/i.test((text ?? '').trim());
