@@ -37,6 +37,9 @@ import {
   parsePaidReply, reminderFromAudit, matchReminders, moneyText, dueDayText, type SentReminder,
 } from '../_shared/whatsapp-dispatch-rules.ts';
 import { occurrenceRow, advancedDueDate, type ScheduleRow } from '../_shared/recurring.ts';
+import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
+import { contextFromRows, answerOnServer, renderForWhatsApp } from '../_shared/agent/engine.ts';
+import { serverModelCall } from '../_shared/agent/assistantCore.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
@@ -407,6 +410,11 @@ async function processInbound(
   // v10.41.0 — the receptionist. A tapped menu row gets its reply…
   const rowId: string | undefined = message?.interactive?.list_reply?.id;
   if (message?.type === 'interactive' && rowId) {
+    // v10.45.0 (W4) — with answers on, a Check row asks Ask Vyact instead of linking out.
+    const checkQuestion = CHECK_QUESTIONS[rowId];
+    if (checkQuestion && await readsEnabled(supabase, profile.id)) {
+      return answerQuestion(supabase, fromPhone, profile, checkQuestion);
+    }
     // v10.42.0 — "Messages I send you" reads this person's own preferences.
     const body = rowId === 'menu:messages'
       ? prefsSummary(await loadPrefs(supabase, profile.id), APP_URL)
@@ -454,7 +462,16 @@ async function processInbound(
   if (pending) {
     await resolvePending(supabase, pending.id);
     const expired = Date.parse(pending.expires_at) < Date.now();
-    const answer = pending.kind === 'missing_amount' ? bareAmount(text) : yesNo(text);
+    // v10.45.0 (W4) — "1", "2" or "3" after an answer asks that follow-up.
+    if (pending.kind === 'chips') {
+      const pick = /^\s*([1-3])\s*[.)]?\s*$/.exec(text)?.[1];
+      const prompt = pick ? (pending.payload?.prompts ?? [])[Number(pick) - 1] : undefined;
+      if (pick && expired) return { status: 'done', note: await reply(fromPhone, 'That list has expired. Ask again, or send MENU.') };
+      if (prompt) return answerQuestion(supabase, fromPhone, profile, prompt, pending.payload?.allowedFigures ?? []);
+    }
+    // A chips list takes only its numbers; anything else is a new message.
+    const answer = pending.kind === 'chips' ? null
+      : pending.kind === 'missing_amount' ? bareAmount(text) : yesNo(text);
     if (answer !== null && expired) return { status: 'done', note: await reply(fromPhone, EXPIRED) };
     if (answer !== null && pending.kind === 'missing_amount') {
       const again = parseWhatsAppMessage(`${answer} ${pending.payload.text}`, pending.payload.accounts ?? [],
@@ -515,6 +532,13 @@ async function processInbound(
   if (!parsed.ok) {
     // v10.44.0 (W3) — "groceries hdfc" names what it was for: ask for the amount
     // and keep the rest, rather than asking for the whole line again.
+    // v10.45.0 (W4) — a question is answered by Ask Vyact, but only for someone who
+    // turned on "Answer my questions here" (figures reach the lock screen).
+    if (parsed.reason === 'query') {
+      if (await readsEnabled(supabase, profile.id)) return answerQuestion(supabase, fromPhone, profile, text);
+      return { status: 'done', note: await reply(fromPhone,
+        `${clarifyReply('query', `${APP_URL}/dashboard`)}\n\nTo get answers here instead, turn on "Answer my questions here" in Settings › WhatsApp.`) };
+    }
     if (parsed.reason === 'no_amount' && worthAskingAmount(text)) {
       await askPending(supabase, profile.id, householdId, 'missing_amount', { text, accounts: accountList, baseCurrency });
       return { status: 'done', note: await reply(fromPhone, ASK_AMOUNT) };
@@ -755,6 +779,54 @@ async function correctLast(
   };
   const body = blockedReply(r.status) ?? REASON[r.status ?? ''] ?? "There's nothing I logged in the last 15 minutes to change.";
   return { status: 'done', note: await reply(fromPhone, body) };
+}
+
+/** v10.45.0 (W4) — the menu's Check rows, asked of Ask Vyact when answers are on. */
+const CHECK_QUESTIONS: Record<string, string> = {
+  'menu:this_month': 'How much have I spent this month?',
+  'menu:budgets': 'How are my budgets doing this month?',
+  'menu:whats_due': 'What bills are due this week?',
+};
+
+/** Has this person turned on "Answer my questions here"? Off when unknown. */
+async function readsEnabled(supabase: SupabaseClient, profileId: string): Promise<boolean> {
+  const { data } = await supabase.from('whatsapp_preferences').select('reads_enabled').eq('profile_id', profileId).maybeSingle();
+  return (data as { reads_enabled?: boolean } | null)?.reads_enabled === true;
+}
+
+/**
+ * v10.45.0 (W4) — Ask Vyact on WhatsApp. The app's own engine (bundled from
+ * react/src/lib/serverEngine.ts) answers from this household's rows, with the
+ * production model through the same config, cap and metering as the gateway. Every
+ * figure comes from resolve(); a reply carrying a figure no tool produced is
+ * discarded by the engine's guard. Chips become a numbered follow-up list.
+ * A read that fails is said plainly and not replayed: re-asking is the person's call.
+ */
+async function answerQuestion(
+  supabase: SupabaseClient, fromPhone: string, profile: Profile, question: string, prevAllowed: readonly string[] = [],
+): Promise<InboundOutcome> {
+  const householdId = profile.whatsapp_household_id!;
+  let rendered: { text: string; chipPrompts: string[] };
+  let allowed: string[] = [];
+  try {
+    const rows = await loadHouseholdRows(supabase, profile.id, householdId);
+    const call = serverModelCall(supabase, {
+      userId: profile.id, householdId, surface: 'whatsapp',
+      dailyCap: Number.parseInt(env('ASK_VYACT_DAILY_CALL_CAP', '200'), 10),
+      timeoutMs: Number.parseInt(env('ASK_VYACT_TIMEOUT_MS', '20000'), 10) || undefined,
+      waitUntil: typeof EdgeRuntime !== 'undefined' ? (p) => EdgeRuntime!.waitUntil(p) : undefined,
+    });
+    const turn = await answerOnServer(question, contextFromRows(rows), call, prevAllowed);
+    rendered = renderForWhatsApp(turn, APP_URL);
+    allowed = turn.allowedFigures ?? [];
+  } catch (e) {
+    console.error('[whatsapp-webhook] answer failed', (e as Error)?.message);
+    return { status: 'done', note: await reply(fromPhone, "I couldn't reach your figures just now, so I haven't answered. Please ask again in a minute.") };
+  }
+  if (rendered.chipPrompts.length) {
+    await askPending(supabase, profile.id, householdId, 'chips', { prompts: rendered.chipPrompts, allowedFigures: allowed });
+  }
+  return { status: 'done', note: await reply(fromPhone, rendered.text) };
 }
 
 interface PendingTurn { id: string; kind: PendingKind; payload: any; expires_at: string }

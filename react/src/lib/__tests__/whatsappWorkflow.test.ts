@@ -4,6 +4,15 @@ import { captureHandler, queryResult } from './helpers/edgeHarness';
 
 const api = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), auth: { getUser: vi.fn() } }));
 vi.mock('https://esm.sh/@supabase/supabase-js@2.45.0', () => ({ createClient: () => api }));
+// W4 — the webhook's answer path, stubbed at the module seams (the engine itself is
+// tested in serverEngine.test.ts, the model call in assistantCore.test.ts).
+const engine = vi.hoisted(() => ({ loadHouseholdRows: vi.fn(), answerOnServer: vi.fn(), serverModelCall: vi.fn() }));
+vi.mock('../../../../supabase/functions/_shared/agent/householdLoader.ts', () => ({ loadHouseholdRows: engine.loadHouseholdRows }));
+vi.mock('../../../../supabase/functions/_shared/agent/assistantCore.ts', () => ({ serverModelCall: engine.serverModelCall }));
+vi.mock('../../../../supabase/functions/_shared/agent/engine.ts', async () => {
+  const { renderForWhatsApp } = await import('../serverEngine');
+  return { contextFromRows: () => ({}), answerOnServer: engine.answerOnServer, renderForWhatsApp };
+});
 beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}'))); });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -636,5 +645,70 @@ describe('WhatsApp capture conversation (W3)', () => {
     await post(handler, 'actually salary', 'm-3');                              // an income category for a spend
     expect(api.rpc).not.toHaveBeenCalledWith('whatsapp_correct_last', expect.anything());
     expect(sentTexts()[0]).toMatch(/isn't a category for a spend/);
+  });
+});
+// ── v10.45.0 (W4) — Ask Vyact on WhatsApp, with consent ──────────────────────────
+describe('WhatsApp answers (W4)', () => {
+  const post = async (handler: (r: Request) => Promise<Response>, body: string) =>
+    handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+  const say = (text: string, id = 'm-1') => JSON.stringify({ entry: [{ changes: [{ value: { messages: [
+    { id, from: '111', timestamp: String(Date.UTC(2026, 8, 24, 6, 0) / 1000), text: { body: text } }] } }] }] });
+  function answerTables(readsEnabled: boolean) {
+    let open: Record<string, unknown> | null = null;
+    api.from.mockImplementation((table: string) => {
+      if (table === 'accounts') return queryResult([{ name: 'HDFC', kind: 'bank', currency: 'INR' }]);
+      if (table === 'assets') return queryResult([]);
+      if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+      if (table === 'whatsapp_preferences') return queryResult({ reads_enabled: readsEnabled, marketing_opt_in: false, insights_opt_in: false, muted_topics: [], large_txn_threshold: 10000 });
+      if (table === 'transactions') return queryResult([]);
+      if (table === 'whatsapp_pending_turns') {
+        const q = queryResult(open);
+        q.insert.mockImplementation((row: Record<string, unknown>) => { open = { id: 'p-1', expires_at: new Date(Date.now() + 60_000).toISOString(), ...row }; return q; });
+        q.update.mockImplementation(() => { open = null; return q; });
+        return q;
+      }
+      if (table === 'whatsapp_inbound_messages') return queryResult([{ wa_message_id: 'm-1', attempts: 0 }]);
+      throw new Error(`Unexpected table ${table}`);
+    });
+    engine.loadHouseholdRows.mockResolvedValue({});
+    engine.serverModelCall.mockReturnValue(async () => 'unused');
+    engine.answerOnServer.mockResolvedValue({ reply: '**You spent ₹2,000** this month.', intentId: 'interpret.lookup',
+      chips: [{ label: 'By category', prompt: 'Where did it go?' }], allowedFigures: ['2,000'] });
+  }
+
+  it('CON-UNIT-W4-007 · with answers OFF, a question stays hard-blocked, says where to turn them on, and reads nothing', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    answerTables(false);
+    await post(handler, say('how much did I spend this month?'));
+    expect(sentTexts()[0]).toMatch(/balances and reports live in the app/);
+    expect(sentTexts()[0]).toContain('turn on "Answer my questions here" in Settings › WhatsApp');
+    expect(engine.loadHouseholdRows).not.toHaveBeenCalled();
+    expect(engine.answerOnServer).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-W4-008 · with answers ON, Ask Vyact answers from this household; "1" asks the follow-up with the stated figures', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    answerTables(true);
+    await post(handler, say('how much did I spend this month?'));
+    expect(engine.loadHouseholdRows).toHaveBeenCalledWith(expect.anything(), 'alice', 'alice-house');
+    expect(engine.serverModelCall).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ userId: 'alice', householdId: 'alice-house', surface: 'whatsapp' }));
+    expect(engine.answerOnServer).toHaveBeenCalledWith('how much did I spend this month?', expect.anything(), expect.any(Function), []);
+    expect(sentTexts()[0]).toBe('You spent ₹2,000 this month.\n\n1. By category\n\nReply with a number, or ask anything.');
+    vi.mocked(fetch).mockClear();
+    await post(handler, say('1', 'm-2'));
+    expect(engine.answerOnServer).toHaveBeenLastCalledWith('Where did it go?', expect.anything(), expect.any(Function), ['2,000']);
+    expect(api.rpc).not.toHaveBeenCalled();                                     // a question writes nothing
+  });
+
+  it('CON-UNIT-W4-009 · the menu’s Check rows ask Ask Vyact when answers are on; a failed read says so plainly', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    answerTables(true);
+    await post(handler, JSON.stringify({ entry: [{ changes: [{ value: { messages: [
+      { id: 'm-1', from: '111', type: 'interactive', interactive: { type: 'list_reply', list_reply: { id: 'menu:budgets', title: 'x' } } }] } }] }] }));
+    expect(engine.answerOnServer).toHaveBeenCalledWith('How are my budgets doing this month?', expect.anything(), expect.any(Function), []);
+    vi.mocked(fetch).mockClear();
+    engine.loadHouseholdRows.mockRejectedValueOnce(new Error('timeout'));
+    await post(handler, say('what is my net worth?', 'm-3'));
+    expect(sentTexts()[0]).toBe("I couldn't reach your figures just now, so I haven't answered. Please ask again in a minute.");
   });
 });

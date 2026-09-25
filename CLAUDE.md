@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.44.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.45.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -371,6 +371,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   that person in the last 15 minutes** (`whatsapp_undo_last` / `whatsapp_correct_last`), never on an
   app-written or app-edited row, never on a "paid X" approval. Questions (missing amount, possible
   duplicate) live in `whatsapp_pending_turns`; nothing is written until they are answered.
+  **v10.45.0 (W4): WhatsApp answers run the APP's engine, bundled** —
+  `supabase/functions/_shared/agent/engine.generated.js` is GENERATED from
+  `react/src/lib/serverEngine.ts` by `scripts/build-agent-engine.mjs`. Never edit it by hand, never
+  hand-port engine logic into `_shared/`: change the app code and rebuild (the gate's
+  `--check` fails on a stale bundle). `serverEngine.ts` must stay pure (no store, no browser API,
+  no Supabase client). Answers only with `whatsapp_preferences.reads_enabled` (off by default); the
+  WhatsApp model path excludes the test-only relay and meters as surface `whatsapp`.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

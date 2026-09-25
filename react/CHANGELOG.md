@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.44.0`** (consumer)
+> **Current production version: `v10.45.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,53 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.45.0 — Ask Vyact on WhatsApp (W4) *(2026-09-26)*
+
+Questions on WhatsApp are answered by the **same** Ask Vyact engine as the app, but only for someone who
+turned that on.
+
+- **One engine, not a port.** `react/src/lib/serverEngine.ts` builds the assistant's context from
+  database rows with the app's own mappers (`mapCloudRow` and `profileFromRows`, now exported from
+  `supabaseAdapter.ts`; the class delegates to them). It runs `buildSafeSummary` → `runAssistant`
+  exactly as `Chat.tsx` does.
+  - `scripts/build-agent-engine.mjs` bundles it with Rolldown into
+    `supabase/functions/_shared/agent/engine.generated.js` (29 modules, self-contained, no browser APIs).
+  - A new gate step fails when that file is stale.
+  - Every money rule, fact and guard is the app's code: parity by construction, not by a second
+    implementation.
+- **The server model call** (`_shared/agent/assistantCore.ts`) runs the gateway's sequence from the
+  gateway's shared pieces:
+  - the enabled `ai_model_configs` row;
+  - the atomic `reserve_ai_usage` daily cap (fail closed);
+  - `chatCompletion`;
+  - metering with surface `whatsapp`.
+
+  The test-only Claude Code relay is excluded, because a webhook can't wait for a person to answer.
+- **Household loader** (`_shared/agent/householdLoader.ts`): one household, scoped by id under the
+  service role, live rows only. Drained page by page, so a large ledger isn't silently truncated. No
+  email is read.
+- **Consent.** Questions stay hard-blocked unless the person turns on **"Answer my questions here"** in
+  Settings › WhatsApp. It is `reads_enabled`: off by default, recorded with a time, never bundled with
+  marketing. The hard-block reply now says where to turn it on.
+- **In the chat.**
+  - Answers are plain text: markdown is removed, and the length is kept under 4,096.
+  - Chips become "1. …" and a reply of "1", "2" or "3" asks that follow-up, carrying the figures already
+    stated so the guard lets it cite them.
+  - The menu's Check rows (This month, Budgets, What's due) are answered in the chat when answers are
+    on.
+  - A capture or a recurring draft says what works here instead of opening a form.
+  - A failed read is said plainly and not replayed.
+
+**Known limitation: time zone.** The engine's "today" and "this month" use the runtime's local time.
+That is IST in the app but UTC on the Edge runtime, so between 00:00 and 05:30 IST the server's "today" is
+the previous day (and on the 1st, "this month" is the previous month). The fix is `TZ=Asia/Kolkata` as a
+function secret. Whether Supabase's runtime honours it needs checking with a question asked in that
+window (runbook).
+
+Tests: CON-UNIT-W4-001…009. They include the **generated bundle and the source giving the same turn** for
+three real intents, the invented-figure guard on the server path, relay exclusion, and the cap failing
+closed. The migration was validated against production in a rolled-back `DO` block.
 
 ## v10.44.0 — The capture conversation on WhatsApp (W3) *(2026-09-26)*
 

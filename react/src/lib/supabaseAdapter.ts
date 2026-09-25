@@ -580,6 +580,49 @@ const rowToRecurring = (r: RecurringRow): RecurringSchedule => ({
 //
 // Callers that don't pass `expectedUpdatedAt` see the legacy last-write-
 // wins behaviour — no breakage.
+/**
+ * A database row → its app shape. Pure (no client, no I/O), exported so the
+ * server-side Ask Vyact engine (v10.45.0, W4) builds its context from rows with
+ * exactly the mapping the app uses.
+ */
+export function mapCloudRow(entity: Entity, row: unknown): unknown {
+  if (entity === 'transactions') return rowToTxn   (row as TransactionRow);
+  if (entity === 'budgets')      return rowToBudget(row as BudgetRow);
+  if (entity === 'goals')        return rowToGoal  (row as GoalRow);
+  if (entity === 'debts')        return rowToDebt  (row as DebtRow);
+  if (entity === 'assets')       return rowToAsset (row as AssetRow);
+  if (entity === 'accounts')     return rowToAccount(row as AccountRow);
+  if (entity === 'savedViews')   return rowToSavedView(row as SavedViewRow);
+  if (entity === 'recurring')    return rowToRecurring(row as RecurringRow);
+  if (entity === 'budgetAllocations') return rowToBudgetAllocation(row as BudgetAllocationRow);
+  if (entity === 'members')      return rowToMember(row as MembershipRow);
+  return row;
+}
+
+export interface ProfileRowCols {
+  display_name?: string | null; default_currency?: string | null; language?: string | null;
+  date_format?: string | null; education_progress?: unknown;
+}
+export interface HouseholdRowCols {
+  type?: string | null; base_currency?: string | null; language?: string | null;
+  payoff_strategy?: string | null; extra_payment?: number | string | null;
+}
+
+/** The app's Profile from the user's profile row and the household row (getProfile's merge). */
+export function profileFromRows(prof: ProfileRowCols, hh: HouseholdRowCols, email: string): Profile {
+  return {
+    name: prof.display_name || '',
+    email,
+    baseCurrency: hh.base_currency || prof.default_currency || 'USD',
+    language: hh.language || prof.language || 'en',
+    household: (hh.type || 'family') as ProfileTypeKey,
+    dateFormat: (prof.date_format as Profile['dateFormat']) || 'us',
+    payoffStrategy: (hh.payoff_strategy as Profile['payoffStrategy']) || 'avalanche',
+    extraPayment: Number(hh.extra_payment) || 0,
+    educationProgress: (prof.education_progress as Profile['educationProgress']) || {},
+  };
+}
+
 export class ConcurrencyConflictError extends Error {
   override readonly name = 'ConcurrencyConflictError';
   constructor(
@@ -731,17 +774,7 @@ export class SupabaseAdapter implements DataAdapter {
       .select('name,type,base_currency,language,payoff_strategy,extra_payment')
       .eq('id', householdId).single();
     if (!prof || !hh) return null;
-    return {
-      name: prof.display_name || '',
-      email: user.email || '',
-      baseCurrency: hh.base_currency || prof.default_currency || 'USD',
-      language: hh.language || prof.language || 'en',
-      household: (hh.type || 'family') as ProfileTypeKey,
-      dateFormat: (prof.date_format as Profile['dateFormat']) || 'us',
-      payoffStrategy: (hh.payoff_strategy as Profile['payoffStrategy']) || 'avalanche',
-      extraPayment: Number(hh.extra_payment) || 0,
-      educationProgress: (prof.education_progress as Profile['educationProgress']) || {},
-    };
+    return profileFromRows(prof, hh, user.email || '');
   }
   async updateProfile(householdId: string, patch: Partial<Profile>): Promise<Profile> {
     const { data: { user } } = await this.sb.auth.getUser();
@@ -1258,17 +1291,7 @@ export class SupabaseAdapter implements DataAdapter {
 
   // Private helper — convert a returned row back to its JS shape
   private mapRowBack(entity: Entity, row: unknown): unknown {
-    if (entity === 'transactions') return rowToTxn   (row as TransactionRow);
-    if (entity === 'budgets')      return rowToBudget(row as BudgetRow);
-    if (entity === 'goals')        return rowToGoal  (row as GoalRow);
-    if (entity === 'debts')        return rowToDebt  (row as DebtRow);
-    if (entity === 'assets')       return rowToAsset (row as AssetRow);
-    if (entity === 'accounts')     return rowToAccount(row as AccountRow);
-    if (entity === 'savedViews')   return rowToSavedView(row as SavedViewRow);
-    if (entity === 'recurring')    return rowToRecurring(row as RecurringRow);
-    if (entity === 'budgetAllocations') return rowToBudgetAllocation(row as BudgetAllocationRow);
-    if (entity === 'members')      return rowToMember(row as MembershipRow);
-    return row;
+    return mapCloudRow(entity, row);
   }
 
   // Map an Entity to its actual Postgres table name. Most are 1:1; the

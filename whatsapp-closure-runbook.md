@@ -115,6 +115,19 @@ response body tallies what was planned, sent and skipped, and why. A manual run 
 furthest status Meta reported (`delivery_status`). STOP / STOP <TOPIC> / START <TOPIC> and the
 template buttons change `whatsapp_preferences`.
 
+**Ask Vyact on WhatsApp (v10.45.0).** A question is answered in the chat only when both hold:
+1. The person turned on **Settings › WhatsApp › "Answer my questions here"** (`reads_enabled`).
+2. An `ai_model_configs` row is enabled for the `assistant` seam. The test-only Claude Code relay row
+   does not count: WhatsApp needs a real model.
+
+Otherwise questions stay hard-blocked, as before. Calls share the app's daily cap
+(`ASK_VYACT_DAILY_CALL_CAP`) and appear in `ai_usage` with surface `whatsapp`. The engine is
+`_shared/agent/engine.generated.js`, built from the app; rebuild with
+`node scripts/build-agent-engine.mjs` after changing Ask Vyact code.
+Time zone: the engine uses the runtime's local time, which is UTC on the edge. Between 00:00 and 05:30
+IST it would treat "today" as yesterday. Set `supabase secrets set TZ=Asia/Kolkata`, then ask "how much
+did I spend today?" after midnight IST to confirm the runtime honours it.
+
 **Inbound replay (v10.40.0).**
 - A ledger error marks the inbox row `failed` with `attempts` and `last_error`; it is no longer
   marked `done`.

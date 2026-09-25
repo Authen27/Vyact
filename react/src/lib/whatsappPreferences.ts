@@ -7,6 +7,8 @@ export interface WhatsAppPreferences {
   marketing_opt_in: boolean;
   marketing_opt_in_at: string | null;
   insights_opt_in: boolean;
+  /** v10.45.0 — answer questions on WhatsApp (figures appear on the phone). */
+  reads_enabled: boolean;
   muted_topics: string[];
   large_txn_threshold: number;
   linked: boolean;
@@ -16,6 +18,7 @@ export interface WhatsAppPreferencesPatch {
   marketingOptIn?: boolean;
   mutedTopics?: string[];
   largeTxnThreshold?: number;
+  readsEnabled?: boolean;
 }
 
 function parse(data: unknown): WhatsAppPreferences {
@@ -24,6 +27,7 @@ function parse(data: unknown): WhatsAppPreferences {
     marketing_opt_in: !!d.marketing_opt_in,
     marketing_opt_in_at: d.marketing_opt_in_at ?? null,
     insights_opt_in: !!d.insights_opt_in,
+    reads_enabled: !!d.reads_enabled,
     muted_topics: Array.isArray(d.muted_topics) ? d.muted_topics : [],
     large_txn_threshold: Number(d.large_txn_threshold ?? 10000),
     linked: !!d.linked,
@@ -42,6 +46,7 @@ export async function saveWhatsAppPreferences(patch: WhatsAppPreferencesPatch): 
     p_insights_opt_in: null,
     p_muted_topics: patch.mutedTopics ?? null,
     p_large_txn_threshold: patch.largeTxnThreshold ?? null,
+    p_reads_enabled: patch.readsEnabled ?? null,
   });
   if (error) throw new Error(error.message);
   return parse(data);

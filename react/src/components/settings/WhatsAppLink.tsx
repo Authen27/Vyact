@@ -104,6 +104,17 @@ function WhatsAppMessages() {
           <input type="checkbox" checked={prefs.marketing_opt_in} disabled={busy}
             onChange={e => void save({ marketingOptIn: e.target.checked })} className="accent-coral flex-shrink-0" />
         </label>
+        <label className={`${row} border-t border-line cursor-pointer`}>
+          <span>
+            <span className="block text-[0.84rem] text-ink">Answer my questions here</span>
+            <span className="block text-[0.74rem] text-ink-dim">
+              Ask Vyact replies in the chat, like &quot;how much did I spend this month?&quot;. Figures can show on
+              your phone&apos;s lock screen, so it is off until you turn it on.
+            </span>
+          </span>
+          <input type="checkbox" checked={prefs.reads_enabled} disabled={busy}
+            onChange={e => void save({ readsEnabled: e.target.checked })} className="accent-coral flex-shrink-0" />
+        </label>
       </div>
       <p className="mt-1.5 text-[0.72rem] text-ink-dim">
         You can also reply STOP BUDGETS, STOP SPLITS or STOP in the chat. The alerts are only sent once each
@@ -235,7 +246,7 @@ export default function WhatsAppLink() {
               <div><span className="text-ink">+50000 salary</span> — income</div>
               <div><span className="text-ink">moved 10000 to icici</span> — a transfer</div>
             </div>
-            <p className="mt-2 text-[0.72rem] text-ink-dim">Asking for balances or reports? Vyact replies with a secure link to the app instead.</p>
+            <p className="mt-2 text-[0.72rem] text-ink-dim">Asking for balances or reports? Vyact replies with a link to the app, unless you turn on &quot;Answer my questions here&quot; below.</p>
           </div>
         )}
 
