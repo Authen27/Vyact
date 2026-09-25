@@ -40,6 +40,7 @@ fails. The 11 header images are in
 | `partner_split_prompt` | Utility | — (split image requested from design) | Enriched 25 Sep | In review |
 | `split_shared_with_you` | Utility | — | Enriched 25 Sep | In review |
 | `recurring_auto_logged` | Utility | — | Enriched 25 Sep | In review |
+| `whatsapp_welcome` | Utility | 12-welcome | New; sent once after linking. Its buttons already work | In review |
 | `hello_world` | Utility | — | Meta sample; cannot be deleted. Kept for test sends | Active |
 
 **Deleted 25 Sep:** `recurring` (a "pay now" overdue-card message that Vyact never sends),
@@ -190,6 +191,24 @@ Assumes your card dues are paid first, and a floor of ₹{{4}} (three months of 
 - Quick reply: `Show the working`.
 - Variables: 1 name · 2 purchase · 3 cushion above floor · 4 floor.
 - Samples: Rohan · 40,000 · 4,300 · 50,000.
+
+### The welcome (submitted 25 Sep)
+
+**`whatsapp_welcome`** · Utility · header `12-welcome.jpg` · Meta id 2569691853498726. Sent once,
+right after a number is linked (`whatsapp-verify-otp` → `whatsapp-notify`, dedupe key
+`link:<household>:<phone>`). It is the one moment Vyact speaks first. A greeting the person sends
+needs no template: inside the 24-hour window the receptionist list answers it as session text.
+```
+You're linked, {{1}}. This number now logs to {{2}} in Vyact.
+
+Send me a spend in one line, like 450 lunch hdfc, or tap Menu to see everything I can do.
+```
+- Footer: `Sent once, when a number is linked.`
+- Quick replies: `Menu` (opens the receptionist list) · `Log a spend` · `What can I send?` (answer as
+  the matching menu rows). Handled by the webhook today (`welcomeButtonAction`), not deferred to W2.
+- Variables: 1 first name (falls back to "friend") · 2 household name (falls back to "your household").
+- Samples: Rohan · Mehta Household.
+- Image: warm coral card, "Your money, one message away", with a one-line message and a ticked reply.
 
 ## Not submitted yet
 

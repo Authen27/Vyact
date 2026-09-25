@@ -25,14 +25,15 @@ describe('actual WhatsApp Edge handlers', () => {
     expect(identityDelete.delete).toHaveBeenCalledOnce();
   });
 
-  it('verifies a valid OTP, persists the server-owned identity and consumes the OTP', async () => {
+  it('verifies a valid OTP, persists the server-owned identity, consumes the OTP and asks notify for the welcome', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-verify-otp/index'));
     api.auth.getUser.mockResolvedValue({ data: { user: { id: 'alice' } }, error: null });
     const otp = queryResult({ id: 'otp', household_id: 'alice-house', phone_number: '111', attempts: 0,
       otp_hash: createHash('sha256').update('123456:111:test-pepper').digest('hex') });
     const identity = queryResult(null);
     const cleanup = queryResult(null);
-    api.from.mockReturnValueOnce(otp).mockReturnValueOnce(identity).mockReturnValueOnce(cleanup);
+    api.from.mockReturnValueOnce(otp).mockReturnValueOnce(identity).mockReturnValueOnce(cleanup)
+      .mockReturnValueOnce(queryResult({ display_name: 'Alice Rao' })).mockReturnValueOnce(queryResult({ name: 'Rao Household' }));
     const result = await handler(new Request('https://edge.example.com/verify', { method: 'POST',
       headers: { Authorization: 'Bearer test-user' }, body: JSON.stringify({ code: '123456' }) }));
     expect(result.status).toBe(200);
@@ -40,7 +41,25 @@ describe('actual WhatsApp Edge handlers', () => {
     expect(identity.upsert).toHaveBeenCalledWith(expect.objectContaining({ profile_id: 'alice', phone_number: '111', household_id: 'alice-house' }), { onConflict: 'profile_id' });
     expect(cleanup.delete).toHaveBeenCalledOnce();
     expect(cleanup.eq).toHaveBeenCalledWith('profile_id', 'alice');
-    expect(fetch).not.toHaveBeenCalled();
+    // v10.41.0 — the welcome goes through whatsapp-notify as the service, never straight to Meta.
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).toMatch(/\/functions\/v1\/whatsapp-notify$/);
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer test-service-key');
+    expect(JSON.parse(String(init?.body))).toEqual({ event: 'whatsapp_welcome', householdId: 'alice-house', toProfileId: 'alice',
+      params: ['Alice', 'Rao Household'], dedupeKey: 'link:alice-house:111' });
+  });
+
+  it('CON-UNIT-WA-R-006 · a welcome that cannot be sent never fails the link', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-verify-otp/index'));
+    api.auth.getUser.mockResolvedValue({ data: { user: { id: 'alice' } }, error: null });
+    api.from.mockReturnValueOnce(queryResult({ id: 'otp', household_id: 'alice-house', phone_number: '111', attempts: 0,
+      otp_hash: createHash('sha256').update('123456:111:test-pepper').digest('hex') })).mockReturnValue(queryResult(null));
+    vi.mocked(fetch).mockRejectedValue(new Error('network down'));
+    const result = await handler(new Request('https://edge.example.com/verify', { method: 'POST',
+      headers: { Authorization: 'Bearer test-user' }, body: JSON.stringify({ code: '123456' }) }));
+    expect(await result.json()).toEqual({ status: 'linked', phone: '111', householdId: 'alice-house' });
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).params).toEqual(['friend', 'your household']);
   });
 
   it('accepts the configured Meta handshake without database or message traffic', async () => {
@@ -295,6 +314,28 @@ describe('WhatsApp receptionist', () => {
     vi.mocked(fetch).mockClear();
     await post(handler, inbound('450 lunch'));
     expect(sentTexts()[0]).toBe("I can't record that until this number is linked. Settings › WhatsApp in the app.");
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-R-007 · the welcome template’s buttons open the menu or answer as its rows; other templates’ taps wait for W2', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const { patches } = webhookTables(0);
+    const tap = (button: Record<string, string>) => JSON.stringify({ entry: [{ changes: [{ value: { messages: [
+      { id: 'm-1', from: '111', type: 'button', button } ] } }] }] });
+    await post(handler, tap({ payload: 'whatsapp_welcome:0:link:alice-house:111', text: 'Menu' }));
+    const [menu] = sentBodies();
+    expect(menu.interactive.type).toBe('list');
+    expect(menu.interactive.body.text).toBe("Here's everything I can do in this chat.");
+    vi.mocked(fetch).mockClear();
+    await post(handler, tap({ payload: 'whatsapp_welcome:1:link:alice-house:111', text: 'Log a spend' }));
+    expect(sentTexts()[0]).toContain('450 lunch hdfc');
+    vi.mocked(fetch).mockClear();
+    await post(handler, tap({ payload: 'What can I send?', text: 'What can I send?' }));   // a test send from WhatsApp Manager
+    expect(sentTexts()[0]).toContain('Send MENU any time');
+    vi.mocked(fetch).mockClear();
+    await post(handler, tap({ payload: 'large_transaction_alert:1:sched-9', text: 'Flag it' }));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(patches().at(-1)).toEqual(expect.objectContaining({ status: 'done', last_error: 'ignored_button' }));
     expect(api.rpc).not.toHaveBeenCalled();
   });
 });

@@ -20,7 +20,7 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { env, verifyMetaSignature, sendText, sendInteractiveList, APP_URL, constantTimeEqual } from '../_shared/whatsapp.ts';
 import {
-  isReceptionistTrigger, receptionistList, menuReply, UNLINKED_GREETING, UNLINKED_OTHER,
+  isReceptionistTrigger, receptionistList, menuReply, welcomeButtonAction, UNLINKED_GREETING, UNLINKED_OTHER,
 } from '../_shared/whatsapp-receptionist.ts';
 import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite } from '../_shared/whatsapp-parser.ts';
 
@@ -265,6 +265,26 @@ async function reply(to: string, body: string): Promise<string | undefined> {
   catch (e) { return `reply_failed: ${(e as Error)?.message ?? String(e)}`; }
 }
 
+/**
+ * The receptionist list, greeted by first name. Fails soft: a menu that cannot be
+ * delivered is recorded on the row, never replayed as a ledger write.
+ */
+async function sendMenu(
+  supabase: SupabaseClient, to: string, profileId: string, text: string,
+): Promise<InboundOutcome> {
+  let firstName: string | null = null;
+  try {
+    const { data } = await supabase.from('profiles').select('display_name').eq('id', profileId).maybeSingle();
+    firstName = String((data as { display_name?: string } | null)?.display_name ?? '').trim().split(/\s+/)[0] || null;
+  } catch (_e) { firstName = null; }
+  try {
+    await sendInteractiveList(to, receptionistList(text, firstName));
+    return { status: 'done' };
+  } catch (e) {
+    return { status: 'done', note: `menu_failed: ${(e as Error)?.message ?? String(e)}` };
+  }
+}
+
 /** Background handler: parse → log → confirm (or clarify / hard-block / notice). */
 async function processInbound(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile | null,
@@ -286,25 +306,19 @@ async function processInbound(
     const body = menuReply(rowId, APP_URL);
     return { status: 'done', note: body ? await reply(fromPhone, body) : `unknown_menu_row:${rowId}` };
   }
-  // Template quick-reply taps (Flag it, Undo, Stop these…) are handled in W2/W3;
-  // until then they are recorded, not acted on.
+  // The welcome template's quick replies (Menu · Log a spend · What can I send?)
+  // land here as a `button` message. Other templates' taps (Flag it, Undo, Stop
+  // these…) are handled in W2/W3; until then they are recorded, not acted on.
+  if (message?.type === 'button') {
+    const action = welcomeButtonAction(message?.button?.payload, message?.button?.text);
+    if (action === 'menu') return sendMenu(supabase, fromPhone, profile.id, 'menu');
+    const body = action ? menuReply(action, APP_URL) : null;
+    return { status: 'done', note: body ? await reply(fromPhone, body) : 'ignored_button' };
+  }
   if (!text) return { status: 'done', note: `ignored_${String(message?.type ?? 'unknown')}` };
 
-  // …and a greeting, MENU or HELP opens the action list. Fails soft: a menu that
-  // cannot be delivered is recorded on the row, never replayed as a ledger write.
-  if (isReceptionistTrigger(text)) {
-    let firstName: string | null = null;
-    try {
-      const { data } = await supabase.from('profiles').select('display_name').eq('id', profile.id).maybeSingle();
-      firstName = String((data as { display_name?: string } | null)?.display_name ?? '').trim().split(/\s+/)[0] || null;
-    } catch (_e) { firstName = null; }
-    try {
-      await sendInteractiveList(fromPhone, receptionistList(text, firstName));
-      return { status: 'done' };
-    } catch (e) {
-      return { status: 'done', note: `menu_failed: ${(e as Error)?.message ?? String(e)}` };
-    }
-  }
+  // …and a greeting, MENU or HELP opens the action list.
+  if (isReceptionistTrigger(text)) return sendMenu(supabase, fromPhone, profile.id, text);
 
   const { data: accounts, error: accountsError } = await supabase
     .from('accounts')

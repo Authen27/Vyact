@@ -10,7 +10,7 @@ import {
 } from '../../../../supabase/functions/_shared/whatsapp-templates';
 
 import {
-  MENU, LIST_LIMITS, receptionistList, menuReply, isReceptionistTrigger,
+  MENU, LIST_LIMITS, receptionistList, menuReply, isReceptionistTrigger, welcomeButtonAction, welcomeParams,
 } from '../../../../supabase/functions/_shared/whatsapp-receptionist';
 
 const ROOT = resolve(__dirname, '../../../..');
@@ -91,6 +91,30 @@ describe('the receptionist menu stays inside Meta’s list limits', () => {
   it('CON-UNIT-WA-R-005 · only a whole-message greeting or MENU/HELP opens it', () => {
     for (const t of ['hi', 'Hello!', 'hey vyact', 'Good morning', 'MENU', 'help', 'hiii']) expect(isReceptionistTrigger(t), t).toBe(true);
     for (const t of ['hi 450 lunch', '450 lunch', 'help me log 200 fuel', 'history']) expect(isReceptionistTrigger(t), t).toBe(false);
+  });
+
+  it('CON-UNIT-WA-R-008 · every welcome button, by payload index and by label, maps to the menu or a real row', () => {
+    const def = TEMPLATES.whatsapp_welcome;
+    expect(def.category).toBe('utility');
+    expect(def.headerImage).toBe('12-welcome.jpg');
+    const quick = (def.buttons ?? []).filter(b => b.type === 'quick_reply');
+    expect(quick.map(b => b.text)).toEqual(['Menu', 'Log a spend', 'What can I send?']);
+    (def.buttons ?? []).forEach((b, i) => {
+      const byPayload = welcomeButtonAction(`whatsapp_welcome:${i}:ctx`);
+      expect(byPayload, b.text).toBe(welcomeButtonAction(b.text));   // the two paths agree
+      expect(byPayload === 'menu' || !!menuReply(String(byPayload), 'https://vyact.app'), b.text).toBe(true);
+    });
+    expect(welcomeButtonAction('whatsapp_welcome:9:ctx')).toBeNull();
+    expect(welcomeButtonAction('partner_split_prompt:0:ctx', 'Menu')).toBeNull();   // another template's payload wins
+    expect(welcomeButtonAction(undefined, 'Mark as paid')).toBeNull();
+  });
+
+  it('CON-UNIT-WA-R-009 · the welcome values never go out empty', () => {
+    expect(welcomeParams('Rohan Mehta', 'Mehta Household')).toEqual(['Rohan', 'Mehta Household']);
+    expect(welcomeParams('  ', null)).toEqual(['friend', 'your household']);
+    const msg = buildTemplateMessage(TEMPLATES.whatsapp_welcome, welcomeParams(null, 'Rao Household'), { appUrl: 'https://vyact.app', context: 'link:h:111' });
+    expect(msg.components.filter(c => c.type === 'button').map(c => (c as { parameters: { payload: string }[] }).parameters[0].payload))
+      .toEqual(['whatsapp_welcome:0:link:h:111', 'whatsapp_welcome:1:link:h:111', 'whatsapp_welcome:2:link:h:111']);
   });
 });
 

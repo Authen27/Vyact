@@ -96,6 +96,32 @@ export function menuReply(rowId: string, appUrl: string): string | null {
   }
 }
 
+/**
+ * The two values `whatsapp_welcome` needs, in order. Meta refuses an empty value, so
+ * a missing name reads "friend" and a missing household "your household".
+ */
+export function welcomeParams(displayName?: string | null, householdName?: string | null): [string, string] {
+  const first = String(displayName ?? '').trim().split(/\s+/)[0];
+  const household = String(householdName ?? '').trim();
+  return [first || 'friend', household || 'your household'];
+}
+
+/**
+ * A tap on one of the `whatsapp_welcome` quick replies → what to do: open the menu,
+ * or answer as the matching menu row. Meta returns the payload we set when sending
+ * (`whatsapp_welcome:<index>:<context>`); a send without one (a test from WhatsApp
+ * Manager) returns the button's label as the payload, so the label is matched too.
+ * Null for any other template's button — those are W2/W3's (Undo, Stop these…).
+ */
+export function welcomeButtonAction(payload?: string | null, label?: string | null): 'menu' | string | null {
+  const byIndex: Record<string, string> = { '0': 'menu', '1': 'menu:log_spend', '2': 'menu:what_can_i_send' };
+  const byLabel: Record<string, string> = { 'menu': 'menu', 'log a spend': 'menu:log_spend', 'what can i send?': 'menu:what_can_i_send' };
+  const m = /^whatsapp_welcome:(\d+)(?::|$)/.exec(payload ?? '');
+  if (m) return byIndex[m[1]] ?? null;
+  if (payload && payload.includes(':')) return null;          // another template's payload
+  return byLabel[(payload || label || '').trim().toLowerCase()] ?? null;
+}
+
 /** A greeting from a number that is not linked: who we are, and how to link. No data. */
 export const UNLINKED_GREETING =
   "Hi. I'm Vyact, the household money app.\n\nThis number isn't linked to an account yet, so I can't record anything for it.\n\n"

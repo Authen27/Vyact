@@ -90,8 +90,20 @@ templates now in Meta review actually sendable once they are approved.
     - An unlinked number gets who Vyact is and how to link, and is never shown the menu or logged.
   - WhatsApp confirmations read "₹450" instead of "450 INR".
 
-Tests: CON-UNIT-WA-T-001…012, CON-UNIT-WA-R-001…005, CON-UNIT-FACT-061…065, plus the W0 notify tests
-updated for the value count and header.
+- **A welcome when a number is linked (`whatsapp_welcome`, submitted 25 Sep, in review).** This is the
+  one moment Vyact messages first, so it needs a template. A greeting the person sends does not.
+  - Image header `12-welcome.jpg`. Body: *"You're linked, <name>. This number now logs to <household>
+    in Vyact."* followed by the one-line format.
+  - Three quick replies: **Menu** opens the receptionist list; **Log a spend** and **What can I send?**
+    answer as the matching menu rows. The webhook handles these taps now. Other templates' taps still
+    wait for W2/W3.
+  - `whatsapp-verify-otp` asks `whatsapp-notify` (as the service) to send it after a successful link,
+    so it gets the same guards as any send: inert until approved and listed, deduped per household
+    and number, daily cap, audit row. A failed welcome never fails the link. The OTP link itself is
+    still blocked on Meta business verification.
+
+Tests: CON-UNIT-WA-T-001…012, CON-UNIT-WA-R-001…009, CON-UNIT-FACT-061…065, plus the W0 notify tests
+updated for the value count and header, and the verify-otp test asserting the welcome request.
 
 ## v10.40.0 — WhatsApp foundations (W0): failures recorded, sends guarded *(2026-09-24)*
 

@@ -276,6 +276,27 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     buttons: [{ type: 'quick_reply', text: 'Show the working' }],
     note: 'Only for a reply after the 24-hour window; inside it Ask Vyact answers as session text.',
   }),
+
+  // ── The welcome, submitted 25 Sep ─────────────────────────────────────────────
+  whatsapp_welcome: t({
+    // Sent once, right after a number is linked: the only moment Vyact speaks
+    // first without the person having messaged. A greeting inside the 24-hour
+    // window needs no template; the receptionist list answers it as session text.
+    name: 'whatsapp_welcome', category: 'utility', language: 'en_US', status: 'in_review',
+    headerImage: '12-welcome.jpg',
+    body: "You're linked, {{1}}. This number now logs to {{2}} in Vyact.\n\nSend me a spend in one line, like 450 lunch hdfc, or tap Menu to see everything I can do.",
+    params: [
+      { name: 'firstName', sample: 'Rohan' },
+      { name: 'householdName', sample: 'Mehta Household' },
+    ],
+    footer: 'Sent once, when a number is linked.',
+    buttons: [
+      { type: 'quick_reply', text: 'Menu' },
+      { type: 'quick_reply', text: 'Log a spend' },
+      { type: 'quick_reply', text: 'What can I send?' },
+    ],
+    note: 'Meta template id 2569691853498726. Its quick replies are answered by the webhook (welcomeButtonReply).',
+  }),
 };
 
 /** Legacy `whatsapp-notify` event names → template. New templates use their own name. */
