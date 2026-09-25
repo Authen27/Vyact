@@ -25,15 +25,15 @@ fails. The 11 header images are in
 | Template | Category | Image | Change | Status |
 |---|---|---|---|---|
 | `bill_due_reminder` | Utility | 01-bill-reminder | Image added; body unchanged | In review |
-| `split_settled` | Utility | 08-split-settled | Image added; body unchanged | In review |
-| `weekly_summary` | Utility → **flagged as Marketing** | 09-weekly-summary | Image added; body unchanged | In review · ⚠ Meta: "did not meet our utility guidelines". Review can be requested until **15 Oct 2026** |
-| `reengagement_nudge` | Marketing | 04-reengagement | Image added; body unchanged. ⚠ The image says "Some spending has no name" while the body is about inactivity | In review |
-| `payday_headroom` | Utility | 02-payday | New | In review |
-| `household_daily_digest` | Utility | 03-household-digest | New | In review |
-| `runway_shift_alert` | **Marketing** (Meta's pre-check: "Utility will be rejected") | 05-runway-shift | New | In review |
-| `month_close_summary` | Utility | 06-month-close | New | In review |
-| `budget_setup_reminder` | **Marketing** (as planned) | 07-budget-setup | New | In review |
-| `balance_stale_nudge` | **Marketing** (as planned) | 10-balance-recheck | New | In review |
+| `split_settled` | Utility | 08-split-settled | Image added; body unchanged | Active – quality pending (seen 26 Sep) |
+| `weekly_summary` | Utility → **flagged as Marketing** | 09-weekly-summary | Image added; body unchanged | Active, edit in review (seen 26 Sep) · ⚠ Meta: "did not meet our utility guidelines". Review can be requested until **15 Oct 2026** |
+| `reengagement_nudge` | Marketing | 04-reengagement | **Edited 26 Sep (W6)**: the board's unnamed-spending variant, a **Name them here** quick reply, Open Vyact → vyact.app. The image now matches the body | Approved version active; edit in review |
+| `payday_headroom` | Utility | 02-payday | New | Active – quality pending (seen 26 Sep) |
+| `household_daily_digest` | Utility | 03-household-digest | New | Active – quality pending (seen 26 Sep) |
+| `runway_shift_alert` | **Marketing** (Meta's pre-check: "Utility will be rejected") | 05-runway-shift | New | Active – quality pending (seen 26 Sep) |
+| `month_close_summary` | Utility | 06-month-close | New | Active – quality pending (seen 26 Sep) |
+| `budget_setup_reminder` | **Marketing** (as planned) | 07-budget-setup | New | Active – quality pending (seen 26 Sep) |
+| `balance_stale_nudge` | **Marketing** (as planned) | 10-balance-recheck | New. An "Update here" button + "Reply UPDATE" line is planned (W6); Meta locks a template during its first review, so the edit waits for approval | In review |
 | `affordability_reply` | Utility | 11-forecast-response | New | In review |
 | `large_transaction_alert` | Utility | — | Enriched 25 Sep (below) | In review |
 | `budget_threshold_alert` | Utility | — | Enriched 25 Sep | In review |
@@ -41,10 +41,10 @@ fails. The 11 header images are in
 | `split_shared_with_you` | Utility | — | Enriched 25 Sep | In review |
 | `recurring_auto_logged` | Utility | — | Enriched 25 Sep | In review |
 | `whatsapp_welcome` | Utility | 12-welcome | New; sent once after linking. Its buttons already work | In review |
-| `bill_overdue_reminder` | Utility | 13-bill-overdue | Variant B of the bill reminder (W5). Sent once, 3 days past due | Submitting 26 Sep |
-| `payday_headroom_variable` | Utility | 14-payday-variable | Variant B of payday (W5). Sends once payday is a date (#68) | Submitting 26 Sep |
-| `reengagement_nudge_quiet` | **Marketing** | 15-reengage-quiet | Variant B of re-engagement (W5). "Reply LOG" works | Submitting 26 Sep |
-| `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | Submitting 26 Sep |
+| `bill_overdue_reminder` | Utility | 13-bill-overdue | Variant B of the bill reminder (W5). Sent once, 3 days past due | In review (submitted 25 Sep) |
+| `payday_headroom_variable` | Utility | 14-payday-variable | Variant B of payday (W5). Sends once payday is a date (#68) | In review (submitted 25 Sep) |
+| `reengagement_nudge_quiet` | **Marketing** | 15-reengage-quiet | Variant B of re-engagement (W5). "Reply LOG" works; the weekly job sends it after 7 quiet days (W6) | In review (submitted 25 Sep) |
+| `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | In review (submitted 25 Sep) |
 | `hello_world` | Utility | — | Meta sample; cannot be deleted. Kept for test sends | Active |
 
 **Deleted 25 Sep:** `recurring` (a "pay now" overdue-card message that Vyact never sends),
@@ -69,8 +69,11 @@ Variables are numbered in reading order. The sample values are the ones Meta rev
 - **`weekly_summary`**. `Your week on Vyact: {{1}} spent across {{2}} transactions. Top category: {{3}} this week.`
   - Samples: ₹12,400 · 23 · Food & Dining.
   - Button: link "See details".
-- **`reengagement_nudge`**. `It's been a while since you tracked an expense. A quick tap keeps your money picture accurate.`
-  - Button: link "Open Vyact", which points at an old `vyact-twentyx…` Vercel URL, not vyact.app. **Fix this in a later edit.**
+- **`reengagement_nudge`** (approved version, until the 26 Sep edit is approved). `It's been a while since you tracked an expense. A quick tap keeps your money picture accurate.`
+  - Button: link "Open Vyact" to the old `vyact-twentyx…` URL.
+  - **Edit submitted 26 Sep (W6):** `Hi {{1}}, ₹{{2}} of this month's spending has no category yet. That's {{3}} entries, and until they're named your category totals are guessing.` / `Tap Name them here and we'll sort them in this chat, one line each.`
+    - Samples: Rohan · 6,850 · four. Footer: `You opted into tips. Reply STOP TIPS to end them.`
+    - Buttons (Meta's order): link "Open Vyact" → https://vyact.app (link tracking off), quick reply "Name them here".
 
 ### Enriched 25 Sep (text only; wording, values and buttons changed)
 

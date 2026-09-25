@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.46.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.47.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -385,6 +385,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   answers off, Pip offers ANSWERS ON (consent given in chat is recorded as `reads_source =
   'whatsapp_keyword'`); it never falls back to a link. An overdue bill's "Already paid" approves through
   `whatsapp_approve_recurring`, exactly like "paid X".
+  **v10.47.0 (W6): "Reply UPDATE" reconciles through the APP's reconcile, run on the server**
+  (`serverEngine.reconcileOnServer` → `accountBalance.reconcileAccount`, applied by
+  `whatsapp_reconcile_account`): offset + dated log + `last_reconciled_at` + the Asset/Debt bridge,
+  NEVER a transaction; a card is asked what it OWES. Never compute a reconcile in `_shared/` by hand.
+  "Name them here" changes ONLY the category of an expense still in Other, never to Loan / EMI (a
+  system split), never someone else's private entry.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

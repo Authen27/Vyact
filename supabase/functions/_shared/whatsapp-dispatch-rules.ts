@@ -215,6 +215,43 @@ export function staleBalanceNudge(input: {
   };
 }
 
+// ── Re-engagement (W6, v10.47.0) — the nudges that open a conversation ─────────
+/** An expense this month still in Other, as the weekly job reads it. */
+export interface UnnamedRow { amount: number | string; currency: string; created_by: string | null; extras: { excluded?: boolean } | null }
+
+/** Nothing logged for this many days = quiet. */
+export const QUIET_AFTER_DAYS = 7;
+/** Unnamed spending worth a nudge: at least two entries and ₹500 together. */
+export const UNNAMED_MIN_COUNT = 2;
+export const UNNAMED_MIN_TOTAL = 500;
+
+/**
+ * At most one re-engagement nudge a week per opted-in member (marketing):
+ *   • quiet — nothing logged for 7+ days (the household has logged before):
+ *     reengagement_nudge_quiet, answered by LOG;
+ *   • otherwise unnamed spending this month (≥ 2 entries, ≥ ₹500, INR households;
+ *     another member's private entry is not theirs to name): reengagement_nudge,
+ *     answered by "Name them here".
+ */
+export function reengagementNudge(input: {
+  household: Household; member: Member; weekKey: string; today: string;
+  lastLoggedDay: string | null; unnamed: UnnamedRow[];
+}): PlannedSend | null {
+  const first = input.member.first_name;
+  if (!first) return null;
+  const base = { householdId: input.household.id, toProfileId: input.member.profile_id, dedupeKey: `nudge:${input.weekKey}` };
+  if (input.lastLoggedDay) {
+    const quiet = daysBetween(input.lastLoggedDay, input.today);
+    if (quiet >= QUIET_AFTER_DAYS) return { ...base, template: 'reengagement_nudge_quiet', values: [first, String(quiet)] };
+  }
+  if (input.household.base_currency.trim() !== 'INR') return null;   // the body says ₹
+  const mine = input.unnamed.filter((r) => String(r.currency).trim() === 'INR'
+    && (!r.extras?.excluded || r.created_by === input.member.profile_id));
+  const total = Math.round(mine.reduce((s, r) => s + Number(r.amount), 0) * 100) / 100;
+  if (mine.length < UNNAMED_MIN_COUNT || total < UNNAMED_MIN_TOTAL) return null;
+  return { ...base, template: 'reengagement_nudge', values: [first, amountText(total), countWord(mine.length)] };
+}
+
 // ── Bill reminders (W2b) ────────────────────────────────────────────────────
 export interface BillSchedule {
   id: string; household_id: string; next_due_date: string; auto_confirm: boolean; active: boolean;

@@ -45,3 +45,4 @@
 | 2026-09-25T10:49:18.605Z | ✅ PASS | `feat/whatsapp-w4` | `873d327` | local | 393/393 | [report](2026-09-25T10-47-59-756Z__873d327/report.md) |
 | 2026-09-25T12:42:06.305Z | ✅ PASS | `feat/ask-vyact-w5` | `5cfd712` | local | 401/401 | [report](2026-09-25T12-35-49-516Z__5cfd712/report.md) |
 | 2026-09-25T17:35:39.681Z | ✅ PASS | `feat/ask-vyact-w5` | `7edc8e4` | local | 405/405 | [report](2026-09-25T17-31-09-978Z__7edc8e4/report.md) |
+| 2026-09-25T22:04:28.955Z | ✅ PASS | `feat/whatsapp-w6-followups` | `a47797c` | local | 416/416 | [report](2026-09-25T22-00-30-279Z__a47797c/report.md) |

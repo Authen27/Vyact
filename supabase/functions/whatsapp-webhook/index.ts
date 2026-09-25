@@ -38,7 +38,13 @@ import {
 } from '../_shared/whatsapp-dispatch-rules.ts';
 import { occurrenceRow, advancedDueDate, type ScheduleRow } from '../_shared/recurring.ts';
 import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
-import { contextFromRows, answerOnServer, renderForWhatsApp } from '../_shared/agent/engine.ts';
+import {
+  contextFromRows, answerOnServer, renderForWhatsApp, balancesToCheck, reconcileOnServer, type BalanceToCheck,
+} from '../_shared/agent/engine.ts';
+import {
+  isNameTrigger, isUpdateTrigger, isStopWord, nameListReply, parseNamePicks, nameResultReply, statedAmount, isSame, isSkip,
+  balancePrompt, UPDATE_HOW, updateStartReply, reconcileLine, updateSummary, type UnnamedEntry, type NameOutcome, type NamePick,
+} from '../_shared/whatsapp-followups.ts';
 import { serverModelCall } from '../_shared/agent/assistantCore.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
@@ -386,6 +392,10 @@ async function handleTemplateButton(
     }
   }
 
+  // v10.47.0 (W6) — the nudges' conversation buttons start the conversation here.
+  if (def.name === 'reengagement_nudge' && label === 'Name them here') return startNaming(supabase, message, fromPhone, profile);
+  if (def.name === 'balance_stale_nudge' && label === 'Update here') return startUpdate(supabase, fromPhone, profile);
+
   // v10.46.0 (W5) — a button that asks a question is answered by Pip in the chat when
   // answers are on, instead of linking out (the WhatsApp answer rule).
   const question = buttonQuestion(def.name, label, m[3] ?? '');
@@ -505,8 +515,19 @@ async function processInbound(
       if (pick && expired) return { status: 'done', note: await reply(fromPhone, 'That list has expired. Ask again, or send MENU.') };
       if (prompt) return answerQuestion(supabase, fromPhone, profile, prompt, pending.payload?.allowedFigures ?? []);
     }
+    // v10.47.0 (W6) — the two follow-up conversations. Each returns null when the
+    // message is not an answer to it, and the message is then read as a new one.
+    if (pending.kind === 'name_entries') {
+      const outcome = await continueNaming(supabase, message, fromPhone, profile, pending, text, expired, priorAttempts);
+      if (outcome) return outcome;
+    }
+    if (pending.kind === 'balance_update') {
+      const outcome = await continueUpdate(supabase, message, fromPhone, profile, pending, text, expired, priorAttempts);
+      if (outcome) return outcome;
+    }
     // A chips list takes only its numbers; anything else is a new message.
-    const answer = pending.kind === 'chips' || pending.kind === 'reads_offer' ? null
+    const answer = pending.kind === 'chips' || pending.kind === 'reads_offer'
+      || pending.kind === 'name_entries' || pending.kind === 'balance_update' ? null
       : pending.kind === 'missing_amount' ? bareAmount(text) : yesNo(text);
     if (answer !== null && expired) return { status: 'done', note: await reply(fromPhone, EXPIRED) };
     if (answer !== null && pending.kind === 'missing_amount') {
@@ -524,6 +545,9 @@ async function processInbound(
   if (isReceptionistTrigger(text)) return sendMenu(supabase, fromPhone, profile.id, text);
   // v10.46.0 — "LOG" (the re-engagement nudge's "Reply LOG") starts today's entry.
   if (isLogTrigger(text)) return { status: 'done', note: await reply(fromPhone, menuReply('menu:log_spend', APP_URL) ?? '') };
+  // v10.47.0 (W6) — "Name them here" and "Reply UPDATE", typed.
+  if (isNameTrigger(text)) return startNaming(supabase, message, fromPhone, profile);
+  if (isUpdateTrigger(text)) return startUpdate(supabase, fromPhone, profile);
 
   // v10.43.0 (W2b) — "paid Rent" answering a bill reminder approves that bill.
   // Only when a reminder with that name was sent to this person in the last week;
@@ -824,6 +848,177 @@ async function correctLast(
   };
   const body = blockedReply(r.status) ?? REASON[r.status ?? ''] ?? "There's nothing I logged in the last 15 minutes to change.";
   return { status: 'done', note: await reply(fromPhone, body) };
+}
+
+// ── v10.47.0 (W6) — follow-up conversations ────────────────────────────────
+
+/** Both conversations write, so a viewer is told before a list is shown. */
+async function writeBlocked(supabase: SupabaseClient, profile: Profile): Promise<string | null> {
+  const { data } = await supabase.from('memberships').select('role')
+    .eq('household_id', profile.whatsapp_household_id!).eq('user_id', profile.id).limit(1).maybeSingle();
+  const role = (data as { role?: string } | null)?.role;
+  return blockedReply(!role ? 'not_a_member' : role === 'viewer' ? 'read_only_member' : undefined);
+}
+
+/**
+ * "Name them here": this month's expenses still in Other, biggest first, up to five.
+ * Each line is amount · day · account — never the description.
+ */
+async function startNaming(supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile): Promise<InboundOutcome> {
+  const blocked = await writeBlocked(supabase, profile);
+  if (blocked) return { status: 'done', note: await reply(fromPhone, blocked) };
+  const monthStart = `${localDay(message).toISOString().slice(0, 7)}-01`;
+  const { data, error } = await supabase.rpc('whatsapp_unnamed_expenses', {
+    p_profile_id: profile.id, p_household_id: profile.whatsapp_household_id, p_from: monthStart, p_limit: 5,
+  });
+  if (error) return { status: 'done', note: await reply(fromPhone, "I couldn't reach your entries just now. Please try again in a minute.") };
+  const entries: UnnamedEntry[] = ((data ?? []) as { id: string; amount: number | string; currency: string; date: string; account_name: string | null }[])
+    .map((r, i) => ({ n: i + 1, id: r.id, amount: Number(r.amount), currency: r.currency, date: String(r.date).slice(0, 10), account: r.account_name ?? null }));
+  if (entries.length) await askPending(supabase, profile.id, profile.whatsapp_household_id!, 'name_entries', { entries });
+  return { status: 'done', note: await reply(fromPhone, nameListReply(entries)) };
+}
+
+/** "1 groceries", "2 travel, 3 dining", DONE. Null when the message is not an answer. */
+async function continueNaming(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, pending: PendingTurn,
+  text: string, expired: boolean, priorAttempts: number,
+): Promise<InboundOutcome | null> {
+  const entries: UnnamedEntry[] = pending.payload?.entries ?? [];
+  const picks = isStopWord(text) ? 'done' as const : parseNamePicks(text);
+  if (!picks) return null;
+  if (expired) return { status: 'done', note: await reply(fromPhone, 'That list has expired. Send NAME THEM to see it again.') };
+  if (picks === 'done') {
+    const body = entries.length
+      ? `Stopped. ${entries.length === 1 ? 'One is' : `${entries.length} are`} still in Other; send NAME THEM any time.`
+      : 'Stopped.';
+    return { status: 'done', note: await reply(fromPhone, body) };
+  }
+  const byN = new Map(entries.map((e) => [e.n, e]));
+  const outcomes: NameOutcome[] = [];
+  const problems: NamePick[] = [];
+  const items: { id: string; category: string; n: number }[] = [];
+  for (const p of picks) {
+    if (!('category' in p)) { problems.push(p); continue; }
+    const e = byN.get(p.n);
+    if (!e) outcomes.push({ n: p.n, status: 'no_such' });
+    else items.push({ id: e.id, category: p.category, n: p.n });
+  }
+  const done = new Set<number>();
+  if (items.length) {
+    const { data, error } = await supabase.rpc('whatsapp_name_entries', {
+      p_profile_id: profile.id, p_household_id: profile.whatsapp_household_id,
+      p_wa_message_id: message.id, p_items: items.map(({ id, category }) => ({ id, category })),
+    });
+    if (error) return retryOrGiveUp(fromPhone, priorAttempts, `name: ${error.message}`);
+    const r = (data ?? {}) as { status?: string; results?: { id: string; status: string; category: string }[] };
+    if (r.status === 'duplicate') return { status: 'done' };
+    const blocked = blockedReply(r.status);
+    if (blocked) return { status: 'done', note: await reply(fromPhone, blocked) };
+    const byId = new Map((r.results ?? []).map((x) => [x.id, x]));
+    for (const it of items) {
+      const x = byId.get(it.id);
+      const status = x?.status ?? 'gone';
+      outcomes.push({ n: it.n, status, category: it.category });
+      if (status !== 'not_expense') done.add(it.n);   // named, or no longer nameable here
+    }
+  }
+  const left = entries.filter((e) => !done.has(e.n));
+  if (left.length) await askPending(supabase, profile.id, profile.whatsapp_household_id!, 'name_entries', { entries: left });
+  return { status: 'done', note: await reply(fromPhone, nameResultReply(outcomes, problems, left)) };
+}
+
+interface UpdateState { queue: string[]; index: number; total: number; checked: number; net: number; skipped: string[]; currency: string }
+
+/**
+ * "Reply UPDATE": stale bank, card and cash balances, one at a time, oldest check
+ * first — the list and the figures are the app's (balancesToCheck in the engine).
+ */
+async function startUpdate(supabase: SupabaseClient, fromPhone: string, profile: Profile): Promise<InboundOutcome> {
+  const blocked = await writeBlocked(supabase, profile);
+  if (blocked) return { status: 'done', note: await reply(fromPhone, blocked) };
+  let items: BalanceToCheck[]; let currency = 'INR';
+  try {
+    const rows = await loadHouseholdRows(supabase, profile.id, profile.whatsapp_household_id!);
+    currency = String(rows.household?.base_currency ?? 'INR');
+    items = balancesToCheck(rows, Date.now());
+  } catch (e) {
+    console.error('[whatsapp-webhook] update list failed', (e as Error)?.message);
+    return { status: 'done', note: await reply(fromPhone, "I couldn't reach your balances just now. Please try again in a minute.") };
+  }
+  if (!items.length) return { status: 'done', note: await reply(fromPhone, updateStartReply(0)) };
+  const state: UpdateState = { queue: items.map((i) => i.id), index: 0, total: items.length, checked: 0, net: 0, skipped: [], currency };
+  await askPending(supabase, profile.id, profile.whatsapp_household_id!, 'balance_update', state as unknown as Record<string, unknown>);
+  return { status: 'done', note: await reply(fromPhone,
+    `${updateStartReply(items.length)}\n\n${balancePrompt(items[0], 0, items.length, currency, Date.now())}\n\n${UPDATE_HOW}`) };
+}
+
+/**
+ * An amount, SAME, SKIP or DONE for the balance being asked about. The correction is
+ * the app's reconcile (reconcileOnServer), applied by `whatsapp_reconcile_account`:
+ * an offset + dated log, never a transaction. Null when the message is not an answer.
+ */
+async function continueUpdate(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, pending: PendingTurn,
+  text: string, expired: boolean, priorAttempts: number,
+): Promise<InboundOutcome | null> {
+  const same = isSame(text); const skip = isSkip(text); const stop = isStopWord(text);
+  const amount = statedAmount(text);
+  if (!same && !skip && !stop && amount === null) return null;
+  if (expired) return { status: 'done', note: await reply(fromPhone, 'That update has expired. Send UPDATE to start again.') };
+  const st = pending.payload as UpdateState;
+  if (stop) return { status: 'done', note: await reply(fromPhone, updateSummary(st.checked, st.skipped, st.net, st.currency)) };
+
+  const householdId = profile.whatsapp_household_id!;
+  let rows: Awaited<ReturnType<typeof loadHouseholdRows>>;
+  try { rows = await loadHouseholdRows(supabase, profile.id, householdId); }
+  catch (e) { return retryOrGiveUp(fromPhone, priorAttempts, `update rows: ${(e as Error)?.message}`); }
+  const accountId = st.queue[st.index];
+  let line = '';
+  const now = new Date();
+  if (skip) {
+    const name = (balancesToCheck(rows, now.getTime()).find((b) => b.id === accountId)?.name) ?? 'That one';
+    st.skipped.push(name);
+  } else {
+    const plan = reconcileOnServer(rows, accountId, same ? 'same' : amount!, now.toISOString());
+    if (!plan) {
+      line = "That account isn't there any more, so I've moved on.";
+    } else {
+      const { data, error } = await supabase.rpc('whatsapp_reconcile_account', {
+        p_profile_id: profile.id, p_household_id: householdId, p_wa_message_id: message.id,
+        p_account_id: plan.accountId, p_expected_offset: plan.expectedOffset, p_offset: plan.offset,
+        p_log: plan.log, p_at: plan.at, p_bridge: plan.bridge,
+      });
+      if (error) return retryOrGiveUp(fromPhone, priorAttempts, `reconcile: ${error.message}`);
+      const r = (data ?? {}) as { status?: string };
+      if (r.status === 'duplicate') return { status: 'done' };
+      const blocked = blockedReply(r.status);
+      if (blocked) return { status: 'done', note: await reply(fromPhone, blocked) };
+      if (r.status === 'reconciled') {
+        line = reconcileLine(plan, st.currency);
+        st.checked += 1;
+        st.net = Math.round((st.net + plan.delta) * 100) / 100;
+      } else if (r.status === 'changed') {
+        line = `${plan.name} was just updated somewhere else, so I've left it. Check it in the app.`;
+      } else {
+        line = `I couldn't update ${plan.name}, so I've left it.`;
+      }
+    }
+  }
+
+  // The next account still waiting (one checked in the app meanwhile drops out).
+  const waiting = balancesToCheck(rows, now.getTime());
+  let next: BalanceToCheck | null = null;
+  while (++st.index < st.queue.length) {
+    next = waiting.find((b) => b.id === st.queue[st.index]) ?? null;
+    if (next) break;
+  }
+  if (!next) {
+    const summary = updateSummary(st.checked, st.skipped, st.net, st.currency);
+    return { status: 'done', note: await reply(fromPhone, [line, summary].filter(Boolean).join('\n\n')) };
+  }
+  await askPending(supabase, profile.id, householdId, 'balance_update', st as unknown as Record<string, unknown>);
+  const prompt = balancePrompt(next, st.index, st.total, st.currency, now.getTime());
+  return { status: 'done', note: await reply(fromPhone, [line, prompt].filter(Boolean).join('\n\n')) };
 }
 
 /** v10.45.0 (W4) — the menu's Check rows, asked of Ask Vyact when answers are on. */

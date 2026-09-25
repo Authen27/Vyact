@@ -72,7 +72,8 @@ describe('topics and consent', () => {
   it('CON-UNIT-WA-D-005 · every quick reply in the manifest is answered, or is a named W3 button', () => {
     const W3 = new Set(['Undo', 'Pause this one', 'Split 50/50', "It's all mine", 'Not shared', 'Show the working',
       'Menu', 'Log a spend', 'What can I send?',   // the welcome's, answered in W1
-      'Already paid']);                           // bill_overdue_reminder: the webhook's approve path (W5)
+      'Already paid',                             // bill_overdue_reminder: the webhook's approve path (W5)
+      'Name them here', 'Update here']);          // start the W6 conversations in the webhook
     for (const def of Object.values(TEMPLATES)) {
       for (const b of def.buttons ?? []) {
         if (b.type !== 'quick_reply' || W3.has(b.text)) continue;

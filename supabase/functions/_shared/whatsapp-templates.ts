@@ -91,11 +91,21 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   }),
   reengagement_nudge: t({
     name: 'reengagement_nudge', category: 'marketing', language: 'en_US', status: 'in_review',
+    // v10.47.0 — edited in place 26 Sep (in review): the board's variant A, unnamed
+    // spending. "Name them here" starts the naming conversation in the chat; the
+    // Open Vyact link now points at vyact.app. Meta's button order: URL first.
     headerImage: '04-reengagement.jpg',
-    body: "It's been a while since you tracked an expense. A quick tap keeps your money picture accurate.",
-    params: [],
-    buttons: [{ type: 'url', text: 'Open Vyact' }],
-    note: 'The Open Vyact link still points at the old vyact-twentyx domain; fix in the next edit.',
+    body: "Hi {{1}}, ₹{{2}} of this month's spending has no category yet. That's {{3}} entries, and until they're named your category totals are guessing.\n\nTap Name them here and we'll sort them in this chat, one line each.",
+    params: [
+      { name: 'firstName', sample: 'Rohan' },
+      { name: 'unnamedTotal', sample: '6,850', note: 'WITHOUT the currency symbol' },
+      { name: 'unnamedCount', sample: 'four', note: 'spelled out' },
+    ],
+    footer: 'You opted into tips. Reply STOP TIPS to end them.',
+    buttons: [
+      { type: 'url', text: 'Open Vyact', url: 'https://vyact.app' },
+      { type: 'quick_reply', text: 'Name them here' },
+    ],
   }),
 
   // ── Existing templates, enriched 25 Sep ───────────────────────────────────────

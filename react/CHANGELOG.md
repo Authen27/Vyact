@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.46.0`** (consumer)
+> **Current production version: `v10.47.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,49 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.47.0 — Name them here, and Reply UPDATE (W6) *(2026-09-26)*
+
+Two follow-up conversations on WhatsApp, designed on the receptionist canvas and approved.
+
+- **"Name them here".** NAME THEM (or the nudge's **Name them here** button) lists this month's
+  expenses still in Other, biggest first, up to five: amount, day and account, never the
+  description. "1 groceries" or "2 travel, 3 dining" names them.
+  - Only the category changes. The amount, account and date stay as they are.
+  - The category must be an expense category, and never Loan / EMI: an EMI is a system split in
+    the app, and relabelling a plain expense would make the debt figures untrue.
+  - An unknown word gets the real options back; nothing is guessed.
+  - Another member's private entry is never listed or changed.
+  - DONE stops, and what is left stays open for 30 minutes.
+- **"Reply UPDATE".** UPDATE walks the bank, card and cash accounts not checked in 30 days, oldest
+  first, one at a time.
+  - A card is asked what it **owes**. The correction targets −outstanding, as the app's Reconcile
+    sheet does (INV-10/11).
+  - Each answer is the app's own reconcile, run on the server from the app's code
+    (`serverEngine.reconcileOnServer` → `accountBalance.reconcileAccount`): the offset moves with a
+    dated log entry, `last_reconciled_at` is stamped, and the linked Asset or Debt gets the stated
+    value. It is **never a transaction**, so no month's figures move, and the reply says so.
+  - SAME marks an account as checked and books nothing. SKIP leaves it. The summary gives the net
+    worth change from the corrections.
+  - If the account's offset moved since the question (a reconcile in the app meanwhile), the
+    answer is refused rather than applied twice.
+- **Migration** `20261001120000_w6_whatsapp_name_and_update.sql`: `whatsapp_unnamed_expenses`,
+  `whatsapp_name_entries` and `whatsapp_reconcile_account`, plus two pending-turn kinds. Each RPC
+  claims the message first and needs a write role; a viewer is told before any list. Validated on
+  production inside a rolled-back block: naming, replay, already named, stale offset refused,
+  offset moved by exactly the plan, stamp and provenance.
+- **The nudges that open them.** `reengagement_nudge` was edited in Meta (in review) to the
+  design's unnamed-spending version with a **Name them here** button; its Open Vyact link now
+  points at vyact.app. The weekly job sends at most one re-engagement nudge per opted-in member:
+  - the quiet nudge after 7 days with nothing logged;
+  - otherwise the unnamed-spending nudge at two entries and ₹500.
+
+  `balance_stale_nudge` gets its UPDATE button once Meta approves the current version (Meta
+  locks a template while its first review is pending); typing UPDATE already works.
+
+Tests: CON-UNIT-W6-001…011 (the parser, list and reply copy, engine parity with the app's
+reconcile in both the source and the bundle, the card-owed rule, SAME, the nudge rule, and the
+webhook conversations end to end).
 
 ## v10.46.0 — Pip, one response contract, and sharper facts (W5) *(2026-09-26)*
 

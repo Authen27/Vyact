@@ -1514,6 +1514,30 @@ function liveAssetRows(assets, accounts, txns, baseCurrency, rates) {
 function liveTotalAssets(rows) {
 	return Math.round(rows.reduce((s, r) => s + r.value, 0) * 100) / 100;
 }
+/**
+* §2.6 — reconcile an account (kind 'bank') or update an investment's value
+* (kind 'investment') to a user-stated value. Computes
+* delta = stated − computed and absorbs it into the reconciliation offset with
+* a dated quiet-log entry. WRITES NO TRANSACTION — the drift is forgiven, not
+* fabricated into an event. Returns a null-delta no-op when already reconciled.
+*/
+function reconcileAccount(account, computedBalance, statedValue, kind) {
+	const target = account.kind === "credit_card" ? -Math.abs(statedValue) : statedValue;
+	const delta = Math.round((target - computedBalance) * 100) / 100;
+	const entry = {
+		at: (/* @__PURE__ */ new Date()).toISOString(),
+		delta,
+		kind,
+		stated_value: statedValue
+	};
+	return {
+		delta,
+		patch: {
+			reconciliationOffset: Math.round(((account.reconciliationOffset ?? 0) + delta) * 100) / 100,
+			reconciliationLog: [...account.reconciliationLog ?? [], ...delta !== 0 ? [entry] : []]
+		}
+	};
+}
 //#endregion
 //#region react/src/lib/netWorth.ts
 const LIABILITY_KINDS = new Set(["credit_card", "loan"]);
@@ -3948,20 +3972,28 @@ function unavailableTurn(reason) {
 }
 //#endregion
 //#region react/src/lib/serverEngine.ts
-/** The AssistantContext Chat.tsx would build for this household. */
-function contextFromRows(rows) {
+/** Rows → the app's own shapes, with the adapter's mappers and the store's rate rule. */
+function shapesFromRows(rows) {
 	const map = (entity, list) => list.map((r) => mapCloudRow(entity, r));
-	const transactions = map("transactions", rows.transactions);
-	const budgets = map("budgets", rows.budgets);
-	const budgetAllocations = map("budgetAllocations", rows.budgetAllocations);
-	const goals = map("goals", rows.goals);
-	const debts = map("debts", rows.debts);
-	const assets = map("assets", rows.assets);
-	const accounts = map("accounts", rows.accounts);
-	const recurring = map("recurring", rows.recurring);
 	const profile = profileFromRows(rows.profile, rows.household, rows.email);
 	const saved = Object.fromEntries(rows.rates.map((r) => [r.currency_code, Number(r.rate_to_usd)]));
 	const rates = Object.keys(saved).length ? saved : { ...DEFAULT_RATES };
+	return {
+		transactions: map("transactions", rows.transactions),
+		budgets: map("budgets", rows.budgets),
+		budgetAllocations: map("budgetAllocations", rows.budgetAllocations),
+		goals: map("goals", rows.goals),
+		debts: map("debts", rows.debts),
+		assets: map("assets", rows.assets),
+		accounts: map("accounts", rows.accounts),
+		recurring: map("recurring", rows.recurring),
+		profile,
+		rates
+	};
+}
+/** The AssistantContext Chat.tsx would build for this household. */
+function contextFromRows(rows) {
+	const { transactions, budgets, budgetAllocations, goals, debts, assets, accounts, recurring, profile, rates } = shapesFromRows(rows);
 	const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations);
 	summary.household.members = rows.memberCount;
 	return {
@@ -3981,6 +4013,76 @@ function contextFromRows(rows) {
 			kind: a.kind
 		})),
 		channel: "whatsapp"
+	};
+}
+/** The accounts "Reply UPDATE" walks through: the ones on the Accounts screen. */
+const UPDATABLE_KINDS = [
+	"bank",
+	"credit_card",
+	"cash"
+];
+/** Not reconciled in this many days = stale (the nudge and the list agree). */
+const STALE_AFTER_DAYS = 30;
+/** Stale bank, card and cash accounts, oldest check first. */
+function balancesToCheck(rows, nowMs) {
+	const { accounts, transactions, profile, rates } = shapesFromRows(rows);
+	const cutoff = nowMs - 30 * 864e5;
+	return accounts.filter((a) => !a.isArchived && UPDATABLE_KINDS.includes(a.kind)).map((a) => ({
+		a,
+		lastChecked: a.lastReconciledAt ?? a.createdAt ?? ""
+	})).filter(({ lastChecked }) => !lastChecked || Date.parse(lastChecked) < cutoff).sort((x, y) => (Date.parse(x.lastChecked) || 0) - (Date.parse(y.lastChecked) || 0)).map(({ a, lastChecked }) => {
+		const balance = computeAccountBalance(a, transactions, profile.baseCurrency, rates);
+		return {
+			id: a.id,
+			name: a.name,
+			kind: a.kind,
+			balance,
+			lastChecked,
+			...a.kind === "credit_card" ? { owed: Math.max(0, -balance) } : {}
+		};
+	});
+}
+/**
+* Exactly what the Reconcile sheet does (ReconcileSheet → reconcileSlice), without
+* the store: delta = stated − computed goes into the reconciliation offset with a
+* dated log entry — never a transaction. A card is stated as what is OWED
+* (accountBalance.reconcileAccount targets −outstanding, INV-10/11). 'same' is the
+* sheet's no-drift path: it reconciles to the computed balance itself, which books
+* nothing but still stamps the check.
+*/
+function reconcileOnServer(rows, accountId, stated, at) {
+	const { accounts, transactions, debts, assets, profile, rates } = shapesFromRows(rows);
+	const account = accounts.find((a) => a.id === accountId);
+	if (!account || account.isArchived || !UPDATABLE_KINDS.includes(account.kind)) return null;
+	const computed = computeAccountBalance(account, transactions, profile.baseCurrency, rates);
+	const realBalance = stated === "same" ? computed : stated;
+	const { patch, delta } = reconcileAccount(account, computed, realBalance, account.kind === "credit_card" ? "credit_card" : "bank");
+	let bridge = null;
+	if (delta !== 0 && account.assetId) if (account.kind === "credit_card") {
+		const debt = debts.find((x) => x.id === account.assetId);
+		if (debt) bridge = {
+			debt_id: debt.id,
+			current_balance: Math.max(0, Math.abs(realBalance))
+		};
+	} else {
+		const asset = assets.find((x) => x.id === account.assetId);
+		if (asset) bridge = {
+			asset_id: asset.id,
+			value: realBalance
+		};
+	}
+	return {
+		accountId,
+		name: account.name,
+		kind: account.kind,
+		before: computed,
+		after: Math.round((computed + delta) * 100) / 100,
+		delta,
+		expectedOffset: account.reconciliationOffset ?? 0,
+		offset: patch.reconciliationOffset ?? 0,
+		log: patch.reconciliationLog ?? [],
+		at,
+		bridge
 	};
 }
 /** One question, answered by the app's own pipeline with the given model call. */
@@ -4012,4 +4114,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { WHATSAPP_MAX_CHARS, answerOnServer, contextFromRows, renderForWhatsApp };
+export { STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, contextFromRows, reconcileOnServer, renderForWhatsApp };

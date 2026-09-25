@@ -2021,7 +2021,7 @@
       "feature": "WhatsApp dispatch",
       "availability": "conditional",
       "layer": "contract-unit",
-      "owner": "consent / STOP / scheduler rules / whatsapp-dispatch handler (not a live cron run)",
+      "owner": "consent / STOP / scheduler rules / follow-up conversations / whatsapp-dispatch handler (not a live cron run)",
       "count": 3,
       "tests": [
         "capture conversation replies CON-UNIT-WA-C-005 · UNDO, yes/no and a bare amount are recognised only as the whole message",
@@ -2035,7 +2035,7 @@
       "feature": "WhatsApp dispatch",
       "availability": "conditional",
       "layer": "contract-unit",
-      "owner": "consent / STOP / scheduler rules / whatsapp-dispatch handler (not a live cron run)",
+      "owner": "consent / STOP / scheduler rules / follow-up conversations / whatsapp-dispatch handler (not a live cron run)",
       "count": 15,
       "tests": [
         "bill reminders and \"paid X\" (W2b) CON-UNIT-W5-012 · the overdue reminder goes once, three days after an approval bill fell due, with a relative date",
@@ -2053,6 +2053,25 @@
         "what the scheduler sends CON-UNIT-WA-D-008 · a household with any foreign-currency spend gets no budget alert (no rates on the server)",
         "what the scheduler sends CON-UNIT-WA-D-009 · split settled, weekly summary and stale balances",
         "what the scheduler sends CON-UNIT-WA-D-010 · local day and ISO week"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/whatsappFollowups.test.ts",
+      "feature": "WhatsApp dispatch",
+      "availability": "conditional",
+      "layer": "contract-unit",
+      "owner": "consent / STOP / scheduler rules / follow-up conversations / whatsapp-dispatch handler (not a live cron run)",
+      "count": 8,
+      "tests": [
+        "\"Name them here\" (W6) CON-UNIT-W6-001 · picks name expense categories only; income, EMI and unknown words are refused, never guessed",
+        "\"Name them here\" (W6) CON-UNIT-W6-002 · the list shows amount, day and account (never a description); results say what changed and what is left",
+        "\"Reply UPDATE\" — the app's reconcile on the server (W6) CON-UNIT-W6-003 · the list is the stale bank, card and cash accounts, oldest check first, with the app's balances",
+        "\"Reply UPDATE\" — the app's reconcile on the server (W6) CON-UNIT-W6-004 · a bank correction is the app's: offset + dated log, bridged to the linked asset, never a transaction",
+        "\"Reply UPDATE\" — the app's reconcile on the server (W6) CON-UNIT-W6-005 · a card is stated as what is OWED (INV-10/11): 12,450 owed moves the balance to −12,450",
+        "\"Reply UPDATE\" — the app's reconcile on the server (W6) CON-UNIT-W6-006 · SAME books nothing and bridges nothing, but is still a check; a loan or archived account is refused",
+        "\"Reply UPDATE\" — the app's reconcile on the server (W6) CON-UNIT-W6-007 · the prompts ask a card what is owed; amounts, SAME and SKIP are read; the summary adds the corrections",
+        "the nudges that open these conversations (W6) CON-UNIT-W6-008 · quiet for 7+ days → the quiet nudge; else unnamed spending ≥ 2 entries and ₹500 → \"Name them here\""
       ]
     },
     {
@@ -2134,7 +2153,7 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 39,
+      "count": 42,
       "tests": [
         "WhatsApp \"paid X\" (W2b) CON-UNIT-W5-013 · \"Already paid\" on an overdue reminder approves THAT occurrence through the same atomic path",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-003 · \"paid rent\" after a reminder approves THAT occurrence with the app’s row and next date",
@@ -2149,6 +2168,9 @@
         "WhatsApp capture conversation (W3) CON-UNIT-WA-C-002 · a same-amount twin within two hours asks first; 1 logs it, 2 logs nothing",
         "WhatsApp capture conversation (W3) CON-UNIT-WA-C-003 · an answer to an expired question is refused, never logged as ₹1",
         "WhatsApp capture conversation (W3) CON-UNIT-WA-C-004 · UNDO and a correction go to their RPCs; a category of the wrong type is refused",
+        "WhatsApp follow-up conversations (W6) CON-UNIT-W6-009 · NAME THEM lists this month’s unnamed entries; \"1 groceries, 2 salary\" names 1 only and keeps 2 open",
+        "WhatsApp follow-up conversations (W6) CON-UNIT-W6-010 · UPDATE walks the stale balances oldest first: a card is asked what it OWES; SAME books nothing; a summary ends it",
+        "WhatsApp follow-up conversations (W6) CON-UNIT-W6-011 · a viewer is told before any list; the nudge’s Name them here button starts the naming conversation",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-001 · STOP BUDGETS mutes budgets, says what still comes, and logs nothing",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-002 · bare STOP withdraws marketing and insights and mutes every mutable topic, never bills",
         "WhatsApp preferences and taps (W2) CON-UNIT-WA-P-003 · a \"Stop these\" tap mutes that template’s topic; \"Flag it\" advises the bank and writes nothing",

@@ -23,7 +23,7 @@ import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 import { guardedSend, type SendResult } from '../_shared/whatsapp-send.ts';
 import {
   largeSpendAlerts, budgetAlerts, splitSettledAlerts, weeklySummary, staleBalanceNudge, billReminders, overdueBillReminders, OVERDUE_AFTER_DAYS,
-  localDay, isoWeek, type PlannedSend, type Household, type Member, type TxnRow,
+  reengagementNudge, localDay, isoWeek, type PlannedSend, type Household, type Member, type TxnRow, type UnnamedRow,
 } from '../_shared/whatsapp-dispatch-rules.ts';
 
 const WINDOW_MS = 30 * 60_000;
@@ -177,6 +177,15 @@ async function weeklyFor(
   const { data: accounts } = await admin.from('accounts').select('id, created_at, last_reconciled_at')
     .eq('household_id', household.id).is('deleted_at', null).eq('is_archived', false)
     .in('kind', ['bank', 'credit_card', 'cash']);
+  // v10.47.0 (W6) — what the re-engagement nudges read: when anything was last
+  // logged, and this month's expenses still in Other.
+  const { data: lastRow } = await admin.from('transactions').select('created_at')
+    .eq('household_id', household.id).is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const lastLogged = (lastRow as { created_at?: string } | null)?.created_at;
+  const lastLoggedDay = lastLogged ? localDay(new Date(lastLogged)) : null;
+  const { data: unnamed } = await admin.from('transactions').select('amount, currency, created_by, extras')
+    .eq('household_id', household.id).is('deleted_at', null).eq('type', 'expense')
+    .in('category', ['other_expense', 'other']).gte('date', `${today.slice(0, 7)}-01`).lte('date', today);
   const { data: names } = await admin.from('profiles').select('id, display_name').in('id', audience.map((m) => m.profile_id));
   const first = new Map(((names ?? []) as { id: string; display_name: string | null }[])
     .map((p) => [p.id, String(p.display_name ?? '').trim().split(/\s+/)[0] || null]));
@@ -188,6 +197,8 @@ async function weeklyFor(
     if (w) out.push(w);
     const s = staleBalanceNudge({ household, now, accounts: (accounts ?? []) as never, member, weekKey });
     if (s) out.push(s);
+    const r = reengagementNudge({ household, member, weekKey, today, lastLoggedDay, unnamed: (unnamed ?? []) as UnnamedRow[] });
+    if (r) out.push(r);
   }
   return out;
 }

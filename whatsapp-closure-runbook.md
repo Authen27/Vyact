@@ -115,6 +115,11 @@ response body tallies what was planned, sent and skipped, and why. A manual run 
 furthest status Meta reported (`delivery_status`). STOP / STOP <TOPIC> / START <TOPIC> and the
 template buttons change `whatsapp_preferences`.
 
+**Follow-up conversations (v10.47.0).**
+- NAME THEM (or the re-engagement nudge's "Name them here") lists this month's expenses still in Other; "1 groceries" renames through `whatsapp_name_entries` (category only).
+- UPDATE walks stale bank, card and cash balances; each answer is applied by `whatsapp_reconcile_account` with the plan the app's engine computed (offset + dated log, never a transaction). A `changed` status means the offset moved meanwhile and nothing was applied.
+- Both live in `whatsapp_pending_turns` (`name_entries`, `balance_update`) for 30 minutes. DONE ends either. The weekly job may send one re-engagement nudge per opted-in member.
+
 **Ask Vyact on WhatsApp (v10.45.0).** A question is answered in the chat only when both hold:
 1. The person turned answers on (`reads_enabled`): in **Settings › WhatsApp › "Answer my questions
    here"** (`reads_source = 'app_settings'`), or by replying **ANSWERS ON** in the chat
