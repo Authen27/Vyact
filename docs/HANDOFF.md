@@ -19,8 +19,10 @@
 > linked then was seeded by hand. **Self-serve linking is still blocked:** the `phone_verification_otp`
 > template needs Meta Business Verification.
 >
-> **Not live yet:** proactive templates. **Nothing calls `whatsapp-notify` yet**; which templates are
-> approved is unconfirmed until the W1 status script reads them back from Meta. **Next level:** the
+> **Not live yet:** proactive templates. **Nothing calls `whatsapp-notify` yet.** Templates: the nine
+> original ones were approved; on 24–25 Sep four got image headers and seven new image templates were
+> submitted. All are in review; see [`WHATSAPP_TEMPLATES.md`](WHATSAPP_TEMPLATES.md). Image templates
+> cannot be sent until W1 adds the header to `sendTemplate`. **Next level:** the
 > W0–W5 plan (templates with images, scheduled nudges, the capture conversation, and Ask Vyact on
 > WhatsApp). v10.40.0 = W0: failed logs are recorded and replayed, `whatsapp-notify` takes a service
 > caller with role, consent, dedupe and cap guards, and a stated date reaches the ledger.
