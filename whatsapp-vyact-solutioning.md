@@ -142,16 +142,20 @@ text simply will not arrive if the user has been quiet, and fails silently.
 | Template | Category | Mode | Status |
 | :--- | :--- | :--- | :--- |
 | `bill_due_reminder` | UTILITY | Template | Image added 24 Sep → In review · not wired · has A/B variants in the design spec |
-| `budget_threshold_alert` | UTILITY | **Template + session text** | Approved (Active 24 Sep) · not wired · see dual-mode note below |
-| `large_transaction_alert` | UTILITY | **Template + session text** | Approved (Active 24 Sep) · not wired · see dual-mode note below |
+| `budget_threshold_alert` | UTILITY | **Template + session text** | Enriched 25 Sep → In review · not wired · see dual-mode note below |
+| `large_transaction_alert` | UTILITY | **Template + session text** | Enriched 25 Sep → In review · not wired · see dual-mode note below |
 | `weekly_summary` | UTILITY ⚠ flagged → Marketing | Template | Image added 24 Sep → In review · not wired · opt-in |
 | `split_settled` | UTILITY | Template | Image added 24 Sep → In review · not wired |
-| `partner_split_prompt` | UTILITY | Template | Approved (Active 24 Sep) · not wired · **design spec does not cover it yet** |
-| `split_shared_with_you` | UTILITY | Template | Approved (Active 24 Sep) · not wired · **design spec does not cover it yet** |
-| `recurring_auto_logged` | UTILITY | Template | Approved (Active 24 Sep) · not wired · **design spec does not cover it yet** |
+| `partner_split_prompt` | UTILITY | Template | Enriched 25 Sep → In review · not wired · **design spec does not cover it yet** |
+| `split_shared_with_you` | UTILITY | Template | Enriched 25 Sep → In review · not wired · **design spec does not cover it yet** |
+| `recurring_auto_logged` | UTILITY | Template | Enriched 25 Sep → In review · not wired · **design spec does not cover it yet** |
 | `reengagement_nudge` | **MARKETING** | Template | Image added 24 Sep → In review · not wired · separate consent + opt-out (see below) |
 
-#### Live in Meta — not Vyact copy, scheduled for deletion
+#### Live in Meta — not Vyact copy (cleaned up 25 Sep)
+
+> **Done 25 Sep:** `recurring`, `feedback` and `3p_direct_integration_test_template` were deleted.
+> `hello_world` is a Meta sample that cannot be deleted; it stays for test sends. The paragraph
+> below is the original rationale.
 
 `hello_world`, `3p_direct_integration_test_template`, `feedback`, `recurring` are
 Meta samples and integration-test artifacts sitting in the production namespace.

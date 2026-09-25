@@ -31,9 +31,15 @@ fails. The 11 header images are in
 | `balance_stale_nudge` | **Marketing** (as planned) | 10-balance-recheck | New | In review |
 | `affordability_reply` | Utility | 11-forecast-response | New | In review |
 
-**Unchanged and text-only, all Active:** `partner_split_prompt`, `split_shared_with_you`,
-`budget_threshold_alert`, `large_transaction_alert` and `recurring_auto_logged`. No image was designed
-for any of these.
+| `large_transaction_alert` | Utility | — | Enriched 25 Sep (below) | In review |
+| `budget_threshold_alert` | Utility | — | Enriched 25 Sep | In review |
+| `partner_split_prompt` | Utility | — (split image requested from design) | Enriched 25 Sep | In review |
+| `split_shared_with_you` | Utility | — | Enriched 25 Sep | In review |
+| `recurring_auto_logged` | Utility | — | Enriched 25 Sep | In review |
+| `hello_world` | Utility | — | Meta sample; cannot be deleted. Kept for test sends | Active |
+
+**Deleted 25 Sep:** `recurring` (a "pay now" overdue-card message that Vyact never sends),
+`feedback`, and `3p_direct_integration_test_template`. None was used by the app.
 
 The runbook's 15 Aug "In review" for the original nine was stale: on 24 Sep all nine showed
 **Active – Quality pending** (approved) before these edits.
@@ -56,6 +62,31 @@ Variables are numbered in reading order. The sample values are the ones Meta rev
   - Button: link "See details".
 - **`reengagement_nudge`**. `It's been a while since you tracked an expense. A quick tap keeps your money picture accurate.`
   - Button: link "Open Vyact", which points at an old `vyact-twentyx…` Vercel URL, not vyact.app. **Fix this in a later edit.**
+
+### Enriched 25 Sep (text only; wording, values and buttons changed)
+
+⚠️ The values changed for several of these. The W1 send code must send exactly these.
+
+- **`large_transaction_alert`**. `Heads-up: ₹{{1}} just went out on your {{2}}.⏎⏎If that was you, there's nothing to do. If it wasn't, tap Flag it and I'll mark it for review.`
+  - {{1}} amount without ₹ · {{2}} **account name** (was the payee).
+  - Samples: 18,000 · HDFC card.
+  - Buttons: link `Review` → https://vyact.app/transactions (was the old domain) · quick replies `Flag it` · `That was me`.
+- **`budget_threshold_alert`**. `Heads-up: {{1}} is at {{2}}% of its budget, with {{3}} days to go.⏎⏎₹{{4}} is still in the pot.`
+  - {{1}} category · {{2}} % used (a number) · {{3}} days left · {{4}} remaining, without ₹. **Was 3 values in a different order.**
+  - Samples: Dining · 78 · 18 · 1,540.
+  - Buttons: link `View budget` → https://vyact.app/budgets · quick replies `What's driving it?` · `Stop budget alerts`.
+- **`partner_split_prompt`**. `New shared expense: {{1}} logged ₹{{2}} for "{{3}}".⏎⏎How should it split? Nothing changes until you pick.`
+  - {{2}} amount **without ₹** (the symbol is now in the wording).
+  - Samples: Priya · 1,200 · Dinner at Olive.
+  - Quick replies unchanged: `Split 50/50` · `It's all mine` · `Not shared`.
+- **`split_shared_with_you`**. `Update: {{1}} shared a split with you on Vyact: ₹{{2}} for "{{3}}".⏎⏎Your share: ₹{{4}}. Settle it in the app whenever you're ready.`
+  - {{2}} total without ₹ · **{{4}} the recipient's share (new)**.
+  - Samples: Priya · 2,400 · Dinner at Olive · 800.
+  - Button: link `See your share` → https://vyact.app/splits (was "Open Vyact", old domain).
+- **`recurring_auto_logged`**. `Logged as scheduled: your {{1}} of ₹{{2}} on {{3}}.⏎⏎If it didn't go out this time, tap Undo within 15 minutes.`
+  - {{1}} schedule name · {{2}} amount without ₹ · {{3}} date.
+  - Samples: Netflix · 649 · 1 Aug.
+  - Quick replies: `Undo` · `Pause this one`.
 
 ### New templates
 
