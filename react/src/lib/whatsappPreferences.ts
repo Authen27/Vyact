@@ -16,6 +16,8 @@ export interface WhatsAppPreferences {
 
 export interface WhatsAppPreferencesPatch {
   marketingOptIn?: boolean;
+  /** v10.47.0 — payday, evening digest and month close: insights about your own money. */
+  insightsOptIn?: boolean;
   mutedTopics?: string[];
   largeTxnThreshold?: number;
   readsEnabled?: boolean;
@@ -43,7 +45,7 @@ export async function readWhatsAppPreferences(): Promise<WhatsAppPreferences> {
 export async function saveWhatsAppPreferences(patch: WhatsAppPreferencesPatch): Promise<WhatsAppPreferences> {
   const { data, error } = await sb().rpc('set_my_whatsapp_preferences', {
     p_marketing_opt_in: patch.marketingOptIn ?? null,
-    p_insights_opt_in: null,
+    p_insights_opt_in: patch.insightsOptIn ?? null,
     p_muted_topics: patch.mutedTopics ?? null,
     p_large_txn_threshold: patch.largeTxnThreshold ?? null,
     p_reads_enabled: patch.readsEnabled ?? null,

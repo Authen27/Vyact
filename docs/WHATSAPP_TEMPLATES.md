@@ -24,28 +24,30 @@ fails. The 11 header images are in
 
 | Template | Category | Image | Change | Status |
 |---|---|---|---|---|
-| `bill_due_reminder` | Utility | 01-bill-reminder | Image added; body unchanged | In review |
-| `split_settled` | Utility | 08-split-settled | Image added; body unchanged | In review |
-| `weekly_summary` | Utility → **flagged as Marketing** | 09-weekly-summary | Image added; body unchanged | In review · ⚠ Meta: "did not meet our utility guidelines". Review can be requested until **15 Oct 2026** |
-| `reengagement_nudge` | Marketing | 04-reengagement | Image added; body unchanged. ⚠ The image says "Some spending has no name" while the body is about inactivity | In review |
-| `payday_headroom` | Utility | 02-payday | New | In review |
-| `household_daily_digest` | Utility | 03-household-digest | New | In review |
-| `runway_shift_alert` | **Marketing** (Meta's pre-check: "Utility will be rejected") | 05-runway-shift | New | In review |
-| `month_close_summary` | Utility | 06-month-close | New | In review |
-| `budget_setup_reminder` | **Marketing** (as planned) | 07-budget-setup | New | In review |
-| `balance_stale_nudge` | **Marketing** (as planned) | 10-balance-recheck | New | In review |
-| `affordability_reply` | Utility | 11-forecast-response | New | In review |
-| `large_transaction_alert` | Utility | — | Enriched 25 Sep (below) | In review |
-| `budget_threshold_alert` | Utility | — | Enriched 25 Sep | In review |
-| `partner_split_prompt` | Utility | — (split image requested from design) | Enriched 25 Sep | In review |
-| `split_shared_with_you` | Utility | — | Enriched 25 Sep | In review |
-| `recurring_auto_logged` | Utility | — | Enriched 25 Sep | In review |
-| `whatsapp_welcome` | Utility | 12-welcome | New; sent once after linking. Its buttons already work | In review |
-| `bill_overdue_reminder` | Utility | 13-bill-overdue | Variant B of the bill reminder (W5). Sent once, 3 days past due | Submitting 26 Sep |
-| `payday_headroom_variable` | Utility | 14-payday-variable | Variant B of payday (W5). Sends once payday is a date (#68) | Submitting 26 Sep |
-| `reengagement_nudge_quiet` | **Marketing** | 15-reengage-quiet | Variant B of re-engagement (W5). "Reply LOG" works | Submitting 26 Sep |
-| `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | Submitting 26 Sep |
+| `bill_due_reminder` | Utility | 01-bill-reminder | Image added; body unchanged | Active, verified field by field on 26 Sep |
+| `split_settled` | Utility | 08-split-settled | Image added; body unchanged | Active, verified field by field on 26 Sep |
+| `weekly_summary` | Utility → **flagged as Marketing** | 09-weekly-summary | Image added; body unchanged | Sample sent to the owner and **delivered** 26 Sep 15:05 UTC. Then the See details link was edited from the old vyact-twentyx site to https://vyact.app/reports (link tracking off): **in review**, and out of the approved list until approved |
+| `reengagement_nudge` | Marketing | 04-reengagement | **Edited 26 Sep (W6)**: the board's unnamed-spending variant, a **Name them here** quick reply, Open Vyact → vyact.app. The image now matches the body | Approved version active; edit in review |
+| `payday_headroom` | Utility | 02-payday | New | Active, verified field by field on 26 Sep |
+| `household_daily_digest` | Utility | 03-household-digest | New | Active, verified field by field on 26 Sep |
+| `runway_shift_alert` | **Marketing** (Meta's pre-check: "Utility will be rejected") | 05-runway-shift | New | Active, verified field by field on 26 Sep |
+| `month_close_summary` | Utility | 06-month-close | New | Active, verified field by field on 26 Sep |
+| `budget_setup_reminder` | **Marketing** (as planned) | 07-budget-setup | New | Active, verified field by field on 26 Sep |
+| `balance_stale_nudge` | **Marketing** (as planned) | 10-balance-recheck | New. An "Update here" button + "Reply UPDATE" line is planned (W6); Meta locks a template during its first review, so the edit waits for approval | Active, verified field by field on 26 Sep |
+| `affordability_reply` | Utility | 11-forecast-response | New | Active, verified field by field on 26 Sep |
+| `large_transaction_alert` | Utility | — | Enriched 25 Sep (below) | Active, verified field by field on 26 Sep |
+| `budget_threshold_alert` | Utility | — | Enriched 25 Sep | Active, verified field by field on 26 Sep |
+| `partner_split_prompt` | Utility | — (split image requested from design) | Enriched 25 Sep | Active, verified field by field on 26 Sep |
+| `split_shared_with_you` | Utility | — | Enriched 25 Sep | Active, verified field by field on 26 Sep |
+| `recurring_auto_logged` | Utility | 17-recurring-logged (pending) | Enriched 25 Sep. **26 Sep:** edit submitted adding the image header; the manifest gets `headerImage` after approval | Was active and verified 26 Sep; image edit in review |
+| `whatsapp_welcome` | Utility | 12-welcome | New; sent once after linking. Its buttons already work | Active, verified field by field on 26 Sep |
+| `bill_overdue_reminder` | Utility | 13-bill-overdue | Variant B of the bill reminder (W5). Sent once, 3 days past due | Active, verified field by field on 26 Sep |
+| `payday_headroom_variable` | Utility | 14-payday-variable | Variant B of payday (W5). Sends once payday is a date (#68) | Active, verified field by field on 26 Sep |
+| `reengagement_nudge_quiet` | **Marketing** | 15-reengage-quiet | Variant B of re-engagement (W5). "Reply LOG" works; the weekly job sends it after 7 quiet days (W6) | Active, verified field by field on 26 Sep |
+| `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | In review (submitted 25 Sep) |
 | `hello_world` | Utility | — | Meta sample; cannot be deleted. Kept for test sends | Active |
+
+**Activation (26 Sep).** `WHATSAPP_OUTBOUND_ENABLED=true`, and `WHATSAPP_APPROVED_TEMPLATES` lists the templates verified above: 16 on 26 Sep 03:07 UTC, then 18 at 13:25 UTC (adding bill_overdue_reminder, payday_headroom_variable and reengagement_nudge_quiet; recurring_auto_logged removed while its image edit is in review), then 17 at 15:09 UTC (weekly_summary out while its link edit is in review). Each one was checked field by field against the manifest in the Meta edit form: body, variables, samples, header, footer, buttons and links. Templates still in review are left out; add each one only after it is approved and checked. The scheduler (`whatsapp-dispatch`) still needs the Vault secret `whatsapp_dispatch_secret` and the matching `WHATSAPP_DISPATCH_SECRET` before any scheduled message goes out.
 
 **Deleted 25 Sep:** `recurring` (a "pay now" overdue-card message that Vyact never sends),
 `feedback`, and `3p_direct_integration_test_template`. None was used by the app.
@@ -55,6 +57,38 @@ The runbook's 15 Aug "In review" for the original nine was stale: on 24 Sep all 
 
 **Marketing** templates are sent only to people who have opted in to marketing messages
 (`whatsapp-notify` refuses them until the W2 consent record exists).
+
+## Validation (26 Sep 2026, v10.47.0)
+
+Live samples went to the owner's number (+91 97405 56606) through `whatsapp-notify` with the service key; delivery is from Meta's status callbacks (`delivery_status`).
+
+| Template | Meta | Sender in code | Buttons answered | Live sample |
+|---|---|---|---|---|
+| `bill_due_reminder` | Active | dispatch `bills` | Mark as paid, Remind me tomorrow | Delivered |
+| `bill_overdue_reminder` | Active | dispatch `bills` | Already paid | Delivered |
+| `split_settled` | Active | dispatch `alerts` | — | Delivered |
+| `split_shared_with_you` | Active | dispatch `alerts` (**new, W6b**) | — | Delivered |
+| `large_transaction_alert` | Active | dispatch `alerts` | — | Delivered |
+| `budget_threshold_alert` | Active | dispatch `alerts` | yes | Delivered |
+| `payday_headroom` / `_variable` | Active | dispatch `alerts` (**new, W6b**) | yes | Delivered / Delivered |
+| `household_daily_digest` | Active | dispatch `digest` (**new, W6b**, 15:00 UTC) | — | Delivered |
+| `month_close_summary` | Active | dispatch `monthly` on the 1st (**new, W6b**) | — | Delivered |
+| `budget_setup_reminder` | Active | dispatch `monthly`, 2 days before month end (**new, W6b**) | — | Delivered |
+| `runway_shift_alert` | Active | dispatch `monthly` (**new, W6b**; first reading is a silent baseline) | yes | Delivered |
+| `runway_recovered_alert` | In review | dispatch `monthly` (**new, W6b**) | yes | Not sendable until approved |
+| `balance_stale_nudge` | Active | dispatch `weekly` | UPDATE (typed) | Delivered |
+| `reengagement_nudge_quiet` | Active | dispatch `weekly` | LOG | Delivered |
+| `reengagement_nudge` | Edit in review | dispatch `weekly` | Name them here | Held until the edit is approved |
+| `weekly_summary` | Link edit in review | dispatch `weekly` | — | Delivered 15:05 (before the edit) |
+| `partner_split_prompt` | Active | webhook: an expense logged with "shared" (**new, W6b**) | Split 50/50, It's all mine, Not shared | Delivered |
+| `recurring_auto_logged` | Image edit in review | dispatch `alerts` for auto-confirm schedules (**new, W6b**) | Undo (15 min), Pause | Held until the edit is approved |
+| `affordability_reply` | Active | webhook: a "can I afford" answer that fits (**new, W6b**) | Show the working | **Accepted by Meta, no delivery receipt** — owner to check the phone |
+| `whatsapp_welcome` | Active | `whatsapp-verify-otp` after linking | yes | Delivered |
+| `phone_verification_otp` | Does not exist | `whatsapp-send-otp` now says "not available yet" (503 `otp_unavailable`) | — | Blocked on Meta business verification |
+
+**Bugs found and fixed in v10.47.0:** "can I afford 40000 for a phone?" was logged as a ₹40,000 spend, and "Can I afford to spend 5 rupees for tea" as ₹5 (parser; the 27 Sep production report, since production still runs v10.46.1); the outbound audit row recorded `result: {sent:false}` on a successful send; linking by code failed with a raw error while the OTP template does not exist; Settings had no insights consent, so payday/digest/runway could never be switched on in the app.
+
+**Open (owner / Meta):** approvals for the four templates in review, then add each to `WHATSAPP_APPROVED_TEMPLATES` after a field check; the `balance_stale_nudge` UPDATE button edit (now possible); the `weekly_summary` STOP footer after its approval; the Vault secret `whatsapp_dispatch_secret` + `WHATSAPP_DISPATCH_SECRET` before anything scheduled goes out; Meta business verification for linking.
 
 ## Bodies as submitted
 
@@ -69,8 +103,11 @@ Variables are numbered in reading order. The sample values are the ones Meta rev
 - **`weekly_summary`**. `Your week on Vyact: {{1}} spent across {{2}} transactions. Top category: {{3}} this week.`
   - Samples: ₹12,400 · 23 · Food & Dining.
   - Button: link "See details".
-- **`reengagement_nudge`**. `It's been a while since you tracked an expense. A quick tap keeps your money picture accurate.`
-  - Button: link "Open Vyact", which points at an old `vyact-twentyx…` Vercel URL, not vyact.app. **Fix this in a later edit.**
+- **`reengagement_nudge`** (approved version, until the 26 Sep edit is approved). `It's been a while since you tracked an expense. A quick tap keeps your money picture accurate.`
+  - Button: link "Open Vyact" to the old `vyact-twentyx…` URL.
+  - **Edit submitted 26 Sep (W6):** `Hi {{1}}, ₹{{2}} of this month's spending has no category yet. That's {{3}} entries, and until they're named your category totals are guessing.` / `Tap Name them here and we'll sort them in this chat, one line each.`
+    - Samples: Rohan · 6,850 · four. Footer: `You opted into tips. Reply STOP TIPS to end them.`
+    - Buttons (Meta's order): link "Open Vyact" → https://vyact.app (link tracking off), quick reply "Name them here".
 
 ### Enriched 25 Sep (text only; wording, values and buttons changed)
 

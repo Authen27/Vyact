@@ -264,6 +264,12 @@ export function buttonQuestion(templateName: string, label: string, context: str
   if (templateName === 'runway_shift_alert' && label === 'What moved?') return 'how long will my savings last, and what changed';
   if (templateName === 'runway_recovered_alert' && label === 'See the detail') return 'how long will my savings last, and what changed';
   if (templateName === 'payday_headroom_variable' && label === 'Plan this month') return 'how much can I spend this month after my bills';
+  // v10.47.0 — the affordability card's "Show the working": the same question again,
+  // answered in full (its payload context is `aff:<amount>:<stamp>`).
+  if (templateName === 'affordability_reply' && label === 'Show the working') {
+    const amount = /^aff:(\d+(?:\.\d+)?)/.exec(context)?.[1];
+    return amount ? `can I afford ${amount}? show me the working` : 'can I afford it? show me the working';
+  }
   return null;
 }
 

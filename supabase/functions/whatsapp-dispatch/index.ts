@@ -24,8 +24,12 @@ import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 import { guardedSend, type SendResult } from '../_shared/whatsapp-send.ts';
 import {
   largeSpendAlerts, budgetAlerts, splitSettledAlerts, weeklySummary, staleBalanceNudge, billReminders, overdueBillReminders, OVERDUE_AFTER_DAYS,
-  localDay, isoWeek, type PlannedSend, type Household, type Member, type TxnRow,
+  reengagementNudge, localDay, isoWeek, type PlannedSend, type Household, type Member, type TxnRow, type UnnamedRow,
+  splitSharedAlerts, recurringLoggedAlerts, paydayAlerts, dailyDigest, monthClose, budgetSetup, runwayAlerts,
+  type ShareRecipientRow, type ScheduleRow, type RuleState,
 } from '../_shared/whatsapp-dispatch-rules.ts';
+import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
+import { runwaySnapshot } from '../_shared/agent/engine.ts';
 
 const WINDOW_MS = 30 * 60_000;
 const TXN_COLUMNS = 'id, household_id, created_by, type, amount, currency, date, description, category, account_id, to_account_id, asset_id, recurring_schedule_id, extras, created_at';
@@ -40,7 +44,7 @@ Deno.serve(async (req: Request) => {
   if (!allowed) return json({ error: 'forbidden' }, 403);
 
   const job = new URL(req.url).searchParams.get('job');
-  if (job !== 'alerts' && job !== 'weekly' && job !== 'bills') return json({ error: 'unknown_job' }, 400);
+  if (!['alerts', 'weekly', 'bills', 'digest', 'monthly'].includes(job ?? '')) return json({ error: 'unknown_job' }, 400);
 
   const admin = createClient(env('SUPABASE_URL'), serviceKey);
   const now = new Date();
@@ -62,7 +66,9 @@ Deno.serve(async (req: Request) => {
       if (!household) continue;
       if (job === 'alerts') planned.push(...await alertsFor(admin, household, members, now, today));
       else if (job === 'weekly') planned.push(...await weeklyFor(admin, household, members, now, today));
-      else planned.push(...await billsFor(admin, household, members, today));
+      else if (job === 'bills') planned.push(...await billsFor(admin, household, members, today));
+      else if (job === 'digest') planned.push(...await digestFor(admin, household, members, today));
+      else planned.push(...await monthlyFor(admin, household, members, now, today));
     } catch (e) {
       problems.push(`${householdId}: ${(e as Error)?.message ?? String(e)}`);   // one household never stops the rest
     }
@@ -70,6 +76,8 @@ Deno.serve(async (req: Request) => {
   if (job === 'alerts') {
     try { planned.push(...await settledSplits(admin, now)); }
     catch (e) { problems.push(`splits: ${(e as Error)?.message ?? String(e)}`); }
+    try { planned.push(...await newSharedSplits(admin, now)); }
+    catch (e) { problems.push(`shared splits: ${(e as Error)?.message ?? String(e)}`); }
   }
 
   const results: SendResult[] = [];
@@ -128,6 +136,10 @@ async function alertsFor(
       txns: (txns ?? []) as TxnRow[], members,
     }));
   }
+
+  // v10.47.0 (W6b) — a schedule that posts itself just did; a salary landed today.
+  out.push(...await recurringPosted(admin, household, members, since));
+  out.push(...await paydayFor(admin, household, members, since, today));
   return out;
 }
 
@@ -178,6 +190,15 @@ async function weeklyFor(
   const { data: accounts } = await admin.from('accounts').select('id, created_at, last_reconciled_at')
     .eq('household_id', household.id).is('deleted_at', null).eq('is_archived', false)
     .in('kind', ['bank', 'credit_card', 'cash']);
+  // v10.47.0 (W6) — what the re-engagement nudges read: when anything was last
+  // logged, and this month's expenses still in Other.
+  const { data: lastRow } = await admin.from('transactions').select('created_at')
+    .eq('household_id', household.id).is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const lastLogged = (lastRow as { created_at?: string } | null)?.created_at;
+  const lastLoggedDay = lastLogged ? localDay(new Date(lastLogged)) : null;
+  const { data: unnamed } = await admin.from('transactions').select('amount, currency, created_by, extras')
+    .eq('household_id', household.id).is('deleted_at', null).eq('type', 'expense')
+    .in('category', ['other_expense', 'other']).gte('date', `${today.slice(0, 7)}-01`).lte('date', today);
   const { data: names } = await admin.from('profiles').select('id, display_name').in('id', audience.map((m) => m.profile_id));
   const first = new Map(((names ?? []) as { id: string; display_name: string | null }[])
     .map((p) => [p.id, String(p.display_name ?? '').trim().split(/\s+/)[0] || null]));
@@ -189,6 +210,8 @@ async function weeklyFor(
     if (w) out.push(w);
     const s = staleBalanceNudge({ household, now, accounts: (accounts ?? []) as never, member, weekKey });
     if (s) out.push(s);
+    const r = reengagementNudge({ household, member, weekKey, today, lastLoggedDay, unnamed: (unnamed ?? []) as UnnamedRow[] });
+    if (r) out.push(r);
   }
   return out;
 }
@@ -211,4 +234,124 @@ async function billsFor(admin: SupabaseClient, household: Household, members: Me
     ...billReminders({ today, schedules: schedules as never, approvers }),
     ...overdueBillReminders({ today, schedules: schedules as never, approvers }),
   ];
+}
+
+// ── v10.47.0 (W6b) — the senders for templates that had none ────────────────────
+
+/** First names for profile ids ("Rohan Mehta" → "Rohan"). */
+async function firstNames(admin: SupabaseClient, ids: string[]): Promise<Record<string, string>> {
+  if (!ids.length) return {};
+  const { data } = await admin.from('profiles').select('id, display_name').in('id', [...new Set(ids)]);
+  return Object.fromEntries(((data ?? []) as { id: string; display_name: string | null }[])
+    .map((p) => [p.id, String(p.display_name ?? '').trim().split(/\s+/)[0]]).filter(([, n]) => n));
+}
+
+async function withNames(admin: SupabaseClient, members: Member[]): Promise<Member[]> {
+  const names = await firstNames(admin, members.map((m) => m.profile_id));
+  return members.map((m) => ({ ...m, first_name: names[m.profile_id] ?? null }));
+}
+
+/** Shares created in the window → the participant, if their number is linked. */
+async function newSharedSplits(admin: SupabaseClient, now: Date): Promise<PlannedSend[]> {
+  const since = new Date(now.getTime() - WINDOW_MS).toISOString();
+  const { data, error } = await admin.rpc('whatsapp_split_share_recipients', { p_since: since });
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as ShareRecipientRow[];
+  if (!rows.length) return [];
+  return splitSharedAlerts(rows, await firstNames(admin, rows.map((r) => r.owner_user_id)));
+}
+
+/** Entries a self-posting schedule created in the window. */
+async function recurringPosted(admin: SupabaseClient, household: Household, members: Member[], since: string): Promise<PlannedSend[]> {
+  const { data: posted, error } = await admin.from('transactions').select(TXN_COLUMNS)
+    .eq('household_id', household.id).is('deleted_at', null).not('recurring_schedule_id', 'is', null).gt('created_at', since);
+  if (error) throw new Error(`recurring posts: ${error.message}`);
+  if (!posted?.length) return [];
+  const ids = [...new Set((posted as TxnRow[]).map((r) => r.recurring_schedule_id).filter(Boolean))] as string[];
+  if (!ids.length) return [];
+  const { data: schedules } = await admin.from('recurring_schedules').select('id, auto_confirm, created_by, txn_template').in('id', ids);
+  return recurringLoggedAlerts({ household, posted: posted as TxnRow[], schedules: (schedules ?? []) as ScheduleRow[], members });
+}
+
+/** A salary dated today, logged in the window → the payday note for its earner. */
+async function paydayFor(admin: SupabaseClient, household: Household, members: Member[], since: string, today: string): Promise<PlannedSend[]> {
+  const { data: salaries, error } = await admin.from('transactions').select(TXN_COLUMNS)
+    .eq('household_id', household.id).is('deleted_at', null).eq('type', 'income').eq('category', 'salary')
+    .eq('date', today).gt('created_at', since);
+  if (error) throw new Error(`salaries: ${error.message}`);
+  const landed = ((salaries ?? []) as TxnRow[]).filter((r) => r.type === 'income' && r.category === 'salary' && r.date === today);
+  if (!landed.length) return [];
+  const from = new Date(Date.parse(`${today}T00:00:00Z`) - 190 * 86_400_000).toISOString().slice(0, 10);
+  const { data: earlierRows } = await admin.from('transactions').select('id, amount, currency, date, extras')
+    .eq('household_id', household.id).is('deleted_at', null).eq('type', 'income').eq('category', 'salary')
+    .gte('date', from).lt('date', today);
+  const earlier = ((earlierRows ?? []) as { amount: number | string; currency: string; extras: { excluded?: boolean } | null }[])
+    .filter((r) => String(r.currency).trim() === 'INR' && !r.extras?.excluded).map((r) => Number(r.amount));
+  const { data: schedules } = await admin.from('recurring_schedules').select('frequency, rrule, txn_template')
+    .eq('household_id', household.id).is('deleted_at', null).eq('active', true);
+  const monthly = ((schedules ?? []) as { frequency: string | null; rrule: string | null; txn_template: { type?: string; amount?: number | string; currency?: string } }[])
+    .filter((s) => s.txn_template?.type === 'expense' && String(s.txn_template?.currency ?? '').trim() === 'INR'
+      && (s.frequency === 'monthly' || /FREQ=MONTHLY/i.test(s.rrule ?? '')) && Number(s.txn_template?.amount) > 0);
+  const bills = { count: monthly.length, total: Math.round(monthly.reduce((a, s) => a + Number(s.txn_template.amount), 0) * 100) / 100 };
+  return paydayAlerts({ household, today, salaries: landed, earlier, bills, members: await withNames(admin, members) });
+}
+
+/** The evening digest: today's household spending, to each linked member. */
+async function digestFor(admin: SupabaseClient, household: Household, members: Member[], today: string): Promise<PlannedSend[]> {
+  const { count: memberCount } = await admin.from('memberships').select('id', { count: 'exact', head: true }).eq('household_id', household.id);
+  if ((memberCount ?? 0) < 2) return [];
+  const { data: txns, error } = await admin.from('transactions').select(TXN_COLUMNS)
+    .eq('household_id', household.id).is('deleted_at', null).eq('type', 'expense').eq('date', today);
+  if (error) throw new Error(`digest: ${error.message}`);
+  const rows = (txns ?? []) as TxnRow[];
+  if (!rows.length) return [];
+  const names = await firstNames(admin, rows.map((r) => r.created_by).filter(Boolean) as string[]);
+  return dailyDigest({ household, today, txns: rows, members: await withNames(admin, members), names, memberCount: memberCount ?? 0 });
+}
+
+/** Month close (the 1st), budget set-up (two days before a month), runway (on a real change). */
+async function monthlyFor(admin: SupabaseClient, household: Household, members: Member[], now: Date, today: string): Promise<PlannedSend[]> {
+  const named = await withNames(admin, members);
+  const out: PlannedSend[] = [];
+  const ym = today.slice(0, 7);
+
+  if (today.slice(8, 10) === '01') {
+    const from = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 3, 1)).toISOString().slice(0, 10);
+    const { data: txns, error } = await admin.from('transactions').select(TXN_COLUMNS)
+      .eq('household_id', household.id).is('deleted_at', null).gte('date', from).lt('date', today);
+    if (error) throw new Error(`month close: ${error.message}`);
+    out.push(...monthClose({ household, today, txns: (txns ?? []) as TxnRow[], members: named }));
+  }
+
+  const next = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 1));
+  if (Math.round((next.getTime() - Date.parse(`${today}T00:00:00Z`)) / 86_400_000) === 2) {
+    const { data: budgets } = await admin.from('budgets').select('id')
+      .eq('household_id', household.id).is('deleted_at', null).eq('scope', 'month')
+      .eq('period_year', next.getUTCFullYear()).eq('period_month', next.getUTCMonth() + 1).limit(1);
+    const { data: spend } = await admin.from('transactions').select('category, extras')
+      .eq('household_id', household.id).is('deleted_at', null).eq('type', 'expense').gte('date', `${ym}-01`).lte('date', today);
+    const cats = new Set(((spend ?? []) as { category: string | null; extras: { excluded?: boolean } | null }[])
+      .filter((r) => r.category && r.category !== 'transfer' && r.category !== 'balance_adjustment' && !r.extras?.excluded).map((r) => r.category));
+    const { data: roles } = await admin.from('memberships').select('user_id, role').eq('household_id', household.id);
+    const setters = new Set(((roles ?? []) as { user_id: string; role: string }[]).filter((r) => r.role === 'owner' || r.role === 'admin').map((r) => r.user_id));
+    out.push(...budgetSetup({ household, today, categoriesWithSpend: cats.size, hasNextMonthBudget: !!budgets?.length, members: named.filter((m) => setters.has(m.profile_id)) }));
+  }
+
+  // Runway: the app's own forecast, against the last value this household was told.
+  const anyone = members[0];
+  if (anyone) {
+    const rows = await loadHouseholdRows(admin, anyone.profile_id, household.id);
+    const snap = runwaySnapshot(rows, now);
+    const { data: st } = await admin.from('whatsapp_rule_state').select('value, detail')
+      .eq('household_id', household.id).eq('rule', 'runway').maybeSingle();
+    const state: RuleState | null = st
+      ? { value: (st as { value: number | null }).value == null ? null : Number((st as { value: number }).value), detail: ((st as { detail: RuleState['detail'] }).detail ?? {}) }
+      : null;
+    const r = runwayAlerts({ household, monthKey: ym, months: snap.months, quieterCategory: snap.quieterCategory, state, members: named });
+    if (r.state && r.state !== state) {
+      await admin.from('whatsapp_rule_state').upsert({ household_id: household.id, rule: 'runway', value: r.state.value, detail: r.state.detail, updated_at: new Date().toISOString() });
+    }
+    out.push(...r.sends);
+  }
+  return out;
 }

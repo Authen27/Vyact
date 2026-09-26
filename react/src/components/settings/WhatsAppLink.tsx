@@ -22,7 +22,15 @@ type Phase = 'loading' | 'unlinked' | 'code-sent' | 'linked';
 /** Topics a person can switch off here. Bills and large-spend alerts are always on. */
 const MUTABLE_TOPICS: { id: string; label: string; hint: string }[] = [
   { id: 'budgets', label: 'Budget alerts', hint: 'When a budget line reaches 80%.' },
-  { id: 'splits', label: 'Split updates', hint: 'When someone settles their share.' },
+  { id: 'splits', label: 'Split updates', hint: 'A split shared with you, one settled, or one to split.' },
+  { id: 'recurring', label: 'Scheduled payments', hint: 'When a payment that posts itself has posted, with Undo.' },
+];
+
+/** v10.47.0 — insight topics, sent only with insights on. */
+const INSIGHT_TOPICS: { id: string; label: string; hint: string }[] = [
+  { id: 'payday', label: 'Payday', hint: 'When your salary lands: the room left after your fixed bills.' },
+  { id: 'digest', label: 'Evening digest', hint: 'At 8:30 pm, what your household spent today (households of two or more).' },
+  { id: 'summary', label: 'Month close', hint: 'On the 1st, how last month went.' },
 ];
 
 /**
@@ -96,9 +104,30 @@ function WhatsAppMessages() {
         ))}
         <label className={`${row} border-t border-line cursor-pointer`}>
           <span>
-            <span className="block text-[0.84rem] text-ink">Weekly summary and balance reminders</span>
+            <span className="block text-[0.84rem] text-ink">Insights about my money</span>
             <span className="block text-[0.74rem] text-ink-dim">
-              WhatsApp counts these as promotional, so they only come if you turn them on.
+              Payday, the evening digest and the month close read your figures, so they only come if you turn them on.
+            </span>
+          </span>
+          <input type="checkbox" checked={prefs.insights_opt_in} disabled={busy}
+            onChange={e => void save({ insightsOptIn: e.target.checked })} className="accent-coral flex-shrink-0" />
+        </label>
+        {prefs.insights_opt_in && INSIGHT_TOPICS.map(t => (
+          <label key={t.id} className={`${row} border-t border-line cursor-pointer pl-7`}>
+            <span>
+              <span className="block text-[0.84rem] text-ink">{t.label}</span>
+              <span className="block text-[0.74rem] text-ink-dim">{t.hint}</span>
+            </span>
+            <input type="checkbox" checked={!prefs.muted_topics.includes(t.id)} disabled={busy}
+              onChange={e => toggleTopic(t.id, e.target.checked)} className="accent-coral flex-shrink-0" />
+          </label>
+        ))}
+        <label className={`${row} border-t border-line cursor-pointer`}>
+          <span>
+            <span className="block text-[0.84rem] text-ink">Tips, weekly summary and reminders</span>
+            <span className="block text-[0.74rem] text-ink-dim">
+              Weekly summary, balance and budget set-up reminders, runway notes and tips. WhatsApp counts these as
+              promotional, so they only come if you turn them on.
             </span>
           </span>
           <input type="checkbox" checked={prefs.marketing_opt_in} disabled={busy}
@@ -117,8 +146,8 @@ function WhatsAppMessages() {
         </label>
       </div>
       <p className="mt-1.5 text-[0.72rem] text-ink-dim">
-        You can also reply STOP BUDGETS, STOP SPLITS or STOP in the chat. The alerts are only sent once each
-        message is approved by WhatsApp.
+        You can also reply STOP with a topic in the chat (STOP BUDGETS, STOP PAYDAY, STOP TIPS…), or STOP for
+        everything optional. Each message goes out only once WhatsApp has approved it.
       </p>
     </div>
   );
@@ -174,8 +203,14 @@ export default function WhatsAppLink() {
       const { data, error } = await supabase.functions.invoke('whatsapp-send-otp', {
         body: { phone, householdId },
       });
-      if (error || data?.error) {
-        toast(`Couldn't send code: ${data?.error ?? 'try again'}`, 'error');
+      // A non-2xx reply leaves `data` null; the function's reason is on the response body.
+      const reason: string | undefined = data?.error ?? (error
+        ? await (error as { context?: Response }).context?.json?.().then((b: { error?: string }) => b?.error).catch(() => undefined)
+        : undefined);
+      if (reason === 'otp_unavailable') {
+        toast("Linking by WhatsApp code isn't available yet: Meta is still verifying the business. Please try again later.", 'error');
+      } else if (error || reason) {
+        toast(`Couldn't send code: ${reason ?? 'try again'}`, 'error');
       } else {
         setPhase('code-sent'); setCooldown(60);
         toast('Code sent on WhatsApp — enter it below.', 'success');
@@ -219,9 +254,9 @@ export default function WhatsAppLink() {
     <Panel title="WhatsApp">
       <div className="p-4 space-y-3">
         <p className="text-[0.82rem] text-ink-mid">
-          Link a WhatsApp number to a household, then log money by texting Vyact —
-          no app needed. Your messages are parsed on our server (no third-party AI),
-          and balances are never sent over chat.
+          Link a WhatsApp number to a household, then log money by texting Vyact,
+          no app needed. Entries you send are read on our server without AI. Pip answers
+          questions in the chat only if you turn that on below.
         </p>
 
         {phase === 'loading' && <p className="text-[0.8rem] text-ink-dim">Checking status…</p>}
@@ -246,7 +281,7 @@ export default function WhatsAppLink() {
               <div><span className="text-ink">+50000 salary</span> — income</div>
               <div><span className="text-ink">moved 10000 to icici</span> — a transfer</div>
             </div>
-            <p className="mt-2 text-[0.72rem] text-ink-dim">Asking for balances or reports? Vyact replies with a link to the app, unless you turn on &quot;Answer my questions here&quot; below.</p>
+            <p className="mt-2 text-[0.72rem] text-ink-dim">Asking for balances or reports? With &quot;Answer my questions here&quot; on, Pip answers in the chat. Otherwise it asks you to turn that on first; it never sends a link instead of an answer.</p>
           </div>
         )}
 

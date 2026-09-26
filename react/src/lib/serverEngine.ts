@@ -28,6 +28,10 @@ import { buildSafeSummary } from './aiSummary';
 import { runAssistant, LlmBackend, type AssistantContext, type AssistantTurn } from './askVyactBackend';
 import type { ModelCall } from './askVyactLlm';
 import { normaliseChips, renderChipsAsNumberedList } from './askVyactResponses';
+import { computeAccountBalance, reconcileAccount as buildReconcileOffset } from './accountBalance';
+import { resolve } from './askVyactBackend';
+import { spendByCategory } from './calculations';
+import { getCat } from '../constants';
 
 /** Everything the engine needs about one household, as rows straight from Postgres. */
 export interface HouseholdRows {
@@ -46,22 +50,30 @@ export interface HouseholdRows {
   email: string;
 }
 
-/** The AssistantContext Chat.tsx would build for this household. */
-export function contextFromRows(rows: HouseholdRows): AssistantContext {
+/** Rows → the app's own shapes, with the adapter's mappers and the store's rate rule. */
+function shapesFromRows(rows: HouseholdRows) {
   const map = <T>(entity: Parameters<typeof mapCloudRow>[0], list: unknown[]): T[] =>
     list.map((r) => mapCloudRow(entity, r) as T);
-  const transactions = map<Transaction>('transactions', rows.transactions);
-  const budgets = map<Budget>('budgets', rows.budgets);
-  const budgetAllocations = map<BudgetAllocation>('budgetAllocations', rows.budgetAllocations);
-  const goals = map<Goal>('goals', rows.goals);
-  const debts = map<Debt>('debts', rows.debts);
-  const assets = map<Asset>('assets', rows.assets);
-  const accounts = map<Account>('accounts', rows.accounts);
-  const recurring = map<RecurringSchedule>('recurring', rows.recurring);
   const profile = profileFromRows(rows.profile, rows.household, rows.email);
   // The store's rule: the household's saved rates when it has any, else the defaults.
   const saved: ExchangeRates = Object.fromEntries(rows.rates.map((r) => [r.currency_code, Number(r.rate_to_usd)]));
   const rates: ExchangeRates = Object.keys(saved).length ? saved : { ...DEFAULT_RATES };
+  return {
+    transactions: map<Transaction>('transactions', rows.transactions),
+    budgets: map<Budget>('budgets', rows.budgets),
+    budgetAllocations: map<BudgetAllocation>('budgetAllocations', rows.budgetAllocations),
+    goals: map<Goal>('goals', rows.goals),
+    debts: map<Debt>('debts', rows.debts),
+    assets: map<Asset>('assets', rows.assets),
+    accounts: map<Account>('accounts', rows.accounts),
+    recurring: map<RecurringSchedule>('recurring', rows.recurring),
+    profile, rates,
+  };
+}
+
+/** The AssistantContext Chat.tsx would build for this household. */
+export function contextFromRows(rows: HouseholdRows): AssistantContext {
+  const { transactions, budgets, budgetAllocations, goals, debts, assets, accounts, recurring, profile, rates } = shapesFromRows(rows);
 
   const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations);
   summary.household.members = rows.memberCount;
@@ -71,6 +83,131 @@ export function contextFromRows(rows: HouseholdRows): AssistantContext {
     accounts: accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind })),
     channel: 'whatsapp',
   };
+}
+
+// ── "Reply UPDATE" (W6, v10.47.0) — the app's reconcile, run on the server ─────
+
+/** The accounts "Reply UPDATE" walks through: the ones on the Accounts screen. */
+const UPDATABLE_KINDS: readonly Account['kind'][] = ['bank', 'credit_card', 'cash'];
+/** Not reconciled in this many days = stale (the nudge and the list agree). */
+export const STALE_AFTER_DAYS = 30;
+
+export interface BalanceToCheck {
+  id: string;
+  name: string;
+  kind: Account['kind'];
+  /** The live balance, exactly as the Accounts screen computes it. */
+  balance: number;
+  /** A card's outstanding (what is owed), max(0, −balance); undefined for others. */
+  owed?: number;
+  /** When it was last checked against a statement (or created, if never). */
+  lastChecked: string;
+}
+
+/** Stale bank, card and cash accounts, oldest check first. */
+export function balancesToCheck(rows: HouseholdRows, nowMs: number): BalanceToCheck[] {
+  const { accounts, transactions, profile, rates } = shapesFromRows(rows);
+  const cutoff = nowMs - STALE_AFTER_DAYS * 86_400_000;
+  return accounts
+    .filter((a) => !a.isArchived && UPDATABLE_KINDS.includes(a.kind))
+    .map((a) => ({ a, lastChecked: a.lastReconciledAt ?? a.createdAt ?? '' }))
+    .filter(({ lastChecked }) => !lastChecked || Date.parse(lastChecked) < cutoff)
+    .sort((x, y) => (Date.parse(x.lastChecked) || 0) - (Date.parse(y.lastChecked) || 0))
+    .map(({ a, lastChecked }) => {
+      const balance = computeAccountBalance(a, transactions, profile.baseCurrency, rates);
+      return {
+        id: a.id, name: a.name, kind: a.kind, balance, lastChecked,
+        ...(a.kind === 'credit_card' ? { owed: Math.max(0, -balance) } : {}),
+      };
+    });
+}
+
+export interface ReconcilePlan {
+  accountId: string;
+  name: string;
+  kind: Account['kind'];
+  /** The balance before, and after the correction. */
+  before: number;
+  after: number;
+  delta: number;
+  /** The offset the plan was computed from (the RPC refuses if it has moved). */
+  expectedOffset: number;
+  offset: number;
+  log: unknown[];
+  at: string;
+  /** reconcileSlice's net-worth bridge to the linked Asset or Debt. */
+  bridge: { debt_id: string; current_balance: number } | { asset_id: string; value: number } | null;
+}
+
+/**
+ * Exactly what the Reconcile sheet does (ReconcileSheet → reconcileSlice), without
+ * the store: delta = stated − computed goes into the reconciliation offset with a
+ * dated log entry — never a transaction. A card is stated as what is OWED
+ * (accountBalance.reconcileAccount targets −outstanding, INV-10/11). 'same' is the
+ * sheet's no-drift path: it reconciles to the computed balance itself, which books
+ * nothing but still stamps the check.
+ */
+export function reconcileOnServer(rows: HouseholdRows, accountId: string, stated: number | 'same', at: string): ReconcilePlan | null {
+  const { accounts, transactions, debts, assets, profile, rates } = shapesFromRows(rows);
+  const account = accounts.find((a) => a.id === accountId);
+  if (!account || account.isArchived || !UPDATABLE_KINDS.includes(account.kind)) return null;
+  const computed = computeAccountBalance(account, transactions, profile.baseCurrency, rates);
+  const realBalance = stated === 'same' ? computed : stated;
+  const kind = account.kind === 'credit_card' ? 'credit_card' as const : 'bank' as const;
+  const { patch, delta } = buildReconcileOffset(account, computed, realBalance, kind);
+
+  let bridge: ReconcilePlan['bridge'] = null;
+  if (delta !== 0 && account.assetId) {
+    if (account.kind === 'credit_card') {
+      const debt = debts.find((x) => x.id === account.assetId);
+      if (debt) bridge = { debt_id: debt.id, current_balance: Math.max(0, Math.abs(realBalance)) };
+    } else {
+      const asset = assets.find((x) => x.id === account.assetId);
+      if (asset) bridge = { asset_id: asset.id, value: realBalance };
+    }
+  }
+  return {
+    accountId, name: account.name, kind: account.kind,
+    before: computed, after: Math.round((computed + delta) * 100) / 100, delta,
+    expectedOffset: account.reconciliationOffset ?? 0,
+    offset: patch.reconciliationOffset ?? 0,
+    log: (patch.reconciliationLog ?? []) as unknown[],
+    at, bridge,
+  };
+}
+
+// ── Runway (W6, v10.47.0) — the runway alerts read the app's own forecast ─────────
+
+export interface RunwaySnapshot {
+  /** Months the liquid savings would last, one decimal; null with no spending basis. */
+  months: number | null;
+  /** The category that fell most from the month before last to last month, named. */
+  quieterCategory: string | null;
+}
+
+/**
+ * The runway exactly as Pip states it (`forecast.runway`: liquid savings over typical
+ * monthly spending, both from the one SafeSummary projection), plus the category
+ * whose spending fell most between the last two COMPLETED months, for "what moved it".
+ * `now` is the caller's clock, so a scheduled run is reproducible.
+ */
+export function runwaySnapshot(rows: HouseholdRows, now: Date): RunwaySnapshot {
+  const ctx = contextFromRows(rows);
+  const r = resolve({ id: 'forecast.runway', bucket: 'forecast', confidence: 1, entities: { text: 'how long would my savings last' } }, ctx);
+  const raw = Number((r.facts as { months_money_would_last?: string } | undefined)?.months_money_would_last);
+  const basisMonths = ctx.summary.spendBasis?.monthsConsidered ?? 0;
+  const months = Number.isFinite(raw) && basisMonths > 0 ? Math.round(raw * 10) / 10 : null;
+  const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const last = key(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const before = key(new Date(now.getFullYear(), now.getMonth() - 2, 1));
+  const a = spendByCategory(ctx.transactions, before, ctx.baseCurrency, ctx.rates);
+  const b = spendByCategory(ctx.transactions, last, ctx.baseCurrency, ctx.rates);
+  let best: { cat: string; drop: number } | null = null;
+  for (const [cat, was] of Object.entries(a)) {
+    const drop = was - (b[cat] ?? 0);
+    if (drop > 0 && (!best || drop > best.drop)) best = { cat, drop };
+  }
+  return { months, quieterCategory: best ? getCat(best.cat).label : null };
 }
 
 /** One question, answered by the app's own pipeline with the given model call. */

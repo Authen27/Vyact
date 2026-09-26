@@ -160,7 +160,9 @@ describe('the wire shape of a send', () => {
       { type: 'QUICK_REPLY', text: 'Not now' },
     ] });
     // A link whose approved URL was never recorded cannot be resubmitted by guesswork.
-    expect(() => metaSubmissionComponents(TEMPLATES.weekly_summary, 'h:abc')).toThrow(/no recorded URL/);
+    // (Every live link has its URL recorded since 26 Sep, so the guard is tested on a copy without one.)
+    const unrecorded = { ...TEMPLATES.weekly_summary, buttons: [{ type: 'url' as const, text: 'See details' }] };
+    expect(() => metaSubmissionComponents(unrecorded, 'h:abc')).toThrow(/no recorded URL/);
     expect(() => metaSubmissionComponents(TEMPLATES.payday_headroom)).toThrow(/upload handle/);
   });
 

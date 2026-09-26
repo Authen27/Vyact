@@ -110,6 +110,12 @@ export interface AssistantTurn {
    * back when challenging this answer.
    */
   allowedFigures?: string[];
+  /**
+   * v10.47.0 — the outcome resolve() reached and, when it has them, its figures as
+   * raw numbers (ResolveResult.amounts). WhatsApp uses it to send the affordability
+   * card; the app ignores it.
+   */
+  resolved?: { outcome: string; amounts?: Record<string, number> };
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -1187,6 +1193,11 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       if (headroom >= e.amount) {
         return { kind: 'forecast', outcome: 'fits',
           facts: { ...affordFacts, verdict: 'fits', left_above_floor_after: money(headroom - e.amount, ctx) },
+          // v10.47.0 — the card's figures, rounded exactly as money() rounds them.
+          amounts: {
+            purchase: Math.round(e.amount), cushion: Math.round(headroom - e.amount), floor: Math.round(floor),
+            free_to_spend: Math.round(liquid - dues),
+          },
           analysis: affordAnalysis,
           vars: {
           amount: money(e.amount, ctx), headroom: money(headroom, ctx),
@@ -1551,6 +1562,8 @@ export async function runAssistant(
     clarify: gated || result.kind === 'fallback' || result.outcome === 'missing_amount'
       || result.outcome === 'needs_rate',
     allowedFigures: figuresAllowedBy(result),
+    // v10.47.0 — what resolve() decided, for a channel that renders a fixed card.
+    resolved: { outcome: result.outcome, ...(result.amounts ? { amounts: result.amounts } : {}) },
   };
 }
 

@@ -155,6 +155,12 @@ export interface ResolveResult {
    */
   facts?: Record<string, unknown>;
   /**
+   * v10.47.0 — the same figures as raw numbers, for a channel that renders them into
+   * a fixed layout (the WhatsApp affordability card). Never shown to the model; the
+   * values are exactly the ones `facts` formats, so a card and a reply cannot differ.
+   */
+  amounts?: Record<string, number>;
+  /**
    * Human-readable description of what `resolve()` examined and found, shown
    * live as the "analysis" steps while the model writes. Deterministic and
    * derived from the same computation — never model-authored text.

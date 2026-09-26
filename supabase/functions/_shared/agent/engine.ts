@@ -28,6 +28,8 @@ export interface EngineTurn {
   allowedFigures?: string[];
   seed?: unknown;
   recurringSeed?: unknown;
+  /** v10.47.0 — what resolve() decided (see EngineResolved). */
+  resolved?: EngineResolved;
 }
 
 export interface WhatsAppAnswer { text: string; chipPrompts: string[] }
@@ -37,3 +39,26 @@ export const answerOnServer = generated.answerOnServer as (
   utterance: string, ctx: EngineContext, call: ServerModelCall, prevAllowed?: readonly string[],
 ) => Promise<EngineTurn>;
 export const renderForWhatsApp = generated.renderForWhatsApp as (turn: EngineTurn, appUrl: string) => WhatsAppAnswer;
+
+// ── "Reply UPDATE" (W6, v10.47.0) ────────────────────────────────────────────
+export interface BalanceToCheck {
+  id: string; name: string; kind: string; balance: number; owed?: number; lastChecked: string;
+}
+export interface ReconcilePlan {
+  accountId: string; name: string; kind: string;
+  before: number; after: number; delta: number;
+  expectedOffset: number; offset: number; log: unknown[]; at: string;
+  bridge: { debt_id: string; current_balance: number } | { asset_id: string; value: number } | null;
+}
+export const STALE_AFTER_DAYS = generated.STALE_AFTER_DAYS as number;
+export const balancesToCheck = generated.balancesToCheck as (rows: HouseholdRows, nowMs: number) => BalanceToCheck[];
+export const reconcileOnServer = generated.reconcileOnServer as (
+  rows: HouseholdRows, accountId: string, stated: number | 'same', at: string,
+) => ReconcilePlan | null;
+
+// ── Runway (W6b, v10.47.0) ───────────────────────────────────────────────────
+export interface RunwaySnapshot { months: number | null; quieterCategory: string | null }
+export const runwaySnapshot = generated.runwaySnapshot as (rows: HouseholdRows, now: Date) => RunwaySnapshot;
+
+/** What resolve() decided for a turn (v10.47.0): the affordability card reads its amounts. */
+export interface EngineResolved { outcome: string; amounts?: Record<string, number> }

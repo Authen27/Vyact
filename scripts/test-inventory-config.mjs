@@ -33,7 +33,7 @@ export const groups = [
   group('WhatsApp parser', 'conditional', 'unit', ['whatsappParser'], 'whatsapp-parser'),
   group('WhatsApp handlers', 'conditional', 'handler-integration', ['whatsappWorkflow'], 'whatsapp-webhook / whatsapp-verify-otp'),
   group('WhatsApp templates', 'conditional', 'contract-unit', ['whatsappTemplates'], 'whatsapp-templates manifest / Meta rules / sendTemplate components (not Meta approval)'),
-  group('WhatsApp dispatch', 'conditional', 'contract-unit', ['whatsappDispatch', 'whatsappConversation'], 'consent / STOP / scheduler rules / whatsapp-dispatch handler (not a live cron run)'),
+  group('WhatsApp dispatch', 'conditional', 'contract-unit', ['whatsappDispatch', 'whatsappConversation', 'whatsappFollowups', 'whatsappTemplateSenders', 'whatsappTemplateValidation'], 'consent / STOP / scheduler rules / follow-up conversations / whatsapp-dispatch handler (not a live cron run)'),
   group('Learned ingestion (not connected to entrypoints)', 'infrastructure', 'unit', ['agentAmbiguity', 'agentClassify', 'agentDedupe', 'agentGrammar', 'agentPipeline', 'agentRecipe', 'agentRecipeStore', 'agentResolver', 'agentValidator'], '_shared/agent ingestion modules'),
   group('Server money port parity', 'infrastructure', 'unit', ['moneyPortParity'], '_shared/agent/tools / client money engines'),
   group('Server recurring port parity', 'infrastructure', 'unit', ['recurringPort'], '_shared/recurring / client generateTransaction + txnToRow + advanceSchedule'),

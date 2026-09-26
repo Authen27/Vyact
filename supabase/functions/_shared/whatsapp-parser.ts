@@ -146,10 +146,32 @@ export function matchCategory(text: string): string | undefined {
  * as a question. A line that opens like a question, or ends with "?", is still a
  * question; otherwise a spend/income verb plus an amount means the user is LOGGING.
  */
+const AFFORDABILITY_ASK = [
+  /\bafford(able|ability)?\b/,
+  /\b(can|could|should|shall|may)\s+(i|we)\s+(really\s+)?(buy|spend|get|splurge|go for)\b/,
+  /\b(is|would) it\s+(be\s+)?(ok|okay|fine|alright|wise|safe|sensible)\s+(for (me|us)\s+)?to\s+(spend|buy|get)\b/,
+  /\b(do|have)\s+(i|we)\s+(got\s+|have\s+)?enough\b/,
+  /\b(am i|are we)\s+(able|allowed)\s+to\s+(spend|buy)\b/,
+];
+
+/** "Can I afford …", "is it ok to spend …", "do I have enough for …": a question,
+ *  wherever it sits in the line and with or without a "?". */
+export function isAffordabilityAsk(text: string): boolean {
+  return AFFORDABILITY_ASK.some(re => re.test(text));
+}
+
 export function isQueryAttempt(text: string): boolean {
-  const asksForData = /\b(how much|how many|what'?s|what is|balance|net worth|networth|left|remaining|owe|owed|statement|summary|report|show me|list|history|total)\b/.test(text);
-  if (!asksForData) return false;
+  if (isAffordabilityAsk(text)) return true;         // even "5k tea, can I afford it"
   if (/^\s*[+\-]?\s*\d/.test(text)) return false;   // "1200 lunch …" — a leading amount
+  // v10.47.0 — a line ending in "?", or "can/should I afford/buy/spend …", is a
+  // question even with no data word. "can I afford 40000 for a phone?" used to be
+  // LOGGED as a ₹40,000 spend, because "afford" was not a data word.
+  // 27 Sep: "Can I afford to spend 5 rupees for tea" (no "?") was logged as ₹5 on
+  // production. The ask can sit anywhere in the line ("pip, can I afford…"), and
+  // "afford" is never how anyone LOGS a spend.
+  if (/\?\s*$/.test(text) || isAffordabilityAsk(text)) return true;
+  const asksForData = /\b(how much|how many|what'?s|what is|balance|net worth|networth|left|remaining|owe|owed|statement|summary|report|show me|list|history|total|afford)\b/.test(text);
+  if (!asksForData) return false;
   const opensAsQuestion = /^\s*(how|what|which|when|where|why|show|list|tell|give|can|do|did|am|is|are)\b/.test(text) || /\?\s*$/.test(text);
   if (opensAsQuestion) return true;
   const logs = /\b(spent|spend|paid|pay|bought|received|got|credited|debited|moved|transferred|invested|gave|lent)\b/.test(text);
