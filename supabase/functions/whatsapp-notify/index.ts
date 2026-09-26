@@ -21,9 +21,10 @@
 // person's own preferences, approval gate, daily cap, dedupe slot, audit row.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { env, json, corsHeaders, constantTimeEqual } from '../_shared/whatsapp.ts';
+import { env, json, corsHeaders } from '../_shared/whatsapp.ts';
 import { templateForEvent } from '../_shared/whatsapp-templates.ts';
 import { guardedSend } from '../_shared/whatsapp-send.ts';
+import { isServiceCaller } from '../_shared/service-auth.ts';
 
 /** Roles that may send on the household's behalf. Viewers and children read only. */
 const WRITE_ROLES = new Set(['owner', 'admin', 'member']);
@@ -36,7 +37,7 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(env('SUPABASE_URL'), serviceKey);
 
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-  const asService = !!serviceKey && constantTimeEqual(bearer, serviceKey);
+  const asService = await isServiceCaller(bearer);
   let callerId: string | null = null;
   if (!asService) {
     const { data: { user }, error: aErr } = await admin.auth.getUser(bearer);

@@ -2153,7 +2153,7 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 42,
+      "count": 44,
       "tests": [
         "WhatsApp \"paid X\" (W2b) CON-UNIT-W5-013 · \"Already paid\" on an overdue reminder approves THAT occurrence through the same atomic path",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-003 · \"paid rent\" after a reminder approves THAT occurrence with the app’s row and next date",
@@ -2196,7 +2196,9 @@
         "whatsapp-notify guards (W0) CON-UNIT-WA-W0-007 · a viewer cannot message other members",
         "whatsapp-notify guards (W0) CON-UNIT-WA-W0-008 · marketing is refused until the recipient has opted in",
         "whatsapp-notify guards (W0) CON-UNIT-WA-W0-009 · a second send of the same event is refused as a duplicate",
-        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-010 · the daily cap and the outbound switch both stop a send"
+        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-010 · the daily cap and the outbound switch both stop a send",
+        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-011 · a service-role key that is not byte-equal to the runtime's is accepted once PostgREST verifies it",
+        "whatsapp-notify guards (W0) CON-UNIT-WA-W0-012 · a forged service-role claim is refused: the claim alone is never trusted"
       ]
     }
   ]

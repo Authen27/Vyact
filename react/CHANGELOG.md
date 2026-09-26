@@ -68,6 +68,27 @@ Tests: CON-UNIT-W6-001…011 (the parser, list and reply copy, engine parity wit
 reconcile in both the source and the bundle, the card-owed rule, SAME, the nudge rule, and the
 webhook conversations end to end).
 
+## v10.46.1 — Server calls accept the service role as Supabase now issues it *(2026-09-26)*
+
+- **Fix: a correct service-role key was refused (401) by `whatsapp-notify`.** The function
+  compared the bearer byte for byte with the runtime's `SUPABASE_SERVICE_ROLE_KEY`. With Supabase's
+  new API keys that variable is not necessarily the legacy `service_role` JWT the dashboard shows.
+  So the owner's first test send from the dashboard's Test panel (26 Sep) got
+  `{"error":"unauthorized"}`, even though the token was the project's own service-role key and not
+  expired.
+- **What changed:** a bearer that claims the service role (a legacy JWT whose role claim says so, or
+  an `sb_secret_` key) is now verified by PostgREST. Only a service-role credential can read
+  `whatsapp_pending_turns`, which is revoked from anon and authenticated. The claim alone is never
+  trusted, and a forged one still gets 401. The byte-for-byte match still works as before.
+- **One helper, three callers:** `_shared/service-auth.ts` (`isServiceCaller`) is used by
+  `whatsapp-notify`, the webhook's `?mode=sweep` and `whatsapp-dispatch`, which all had the same
+  check.
+- **Internal calls were never affected:** `whatsapp-verify-otp`'s welcome sends the runtime's own
+  value, which always matched.
+
+Tests: CON-UNIT-WA-W0-011 (a verified service credential that is not byte-equal is accepted) and
+W0-012 (a forged service-role claim is refused, nothing sent).
+
 ## v10.46.0 — Pip, one response contract, and sharper facts (W5) *(2026-09-26)*
 
 - **The assistant is Pip.** It's named that everywhere a person reads it: the chat title, the Ask

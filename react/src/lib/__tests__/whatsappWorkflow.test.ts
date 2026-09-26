@@ -259,6 +259,39 @@ describe('whatsapp-notify guards (W0)', () => {
     expect(component('header').parameters[0].image.link).toMatch(/\/whatsapp\/08-split-settled\.jpg$/);
   });
 
+  // v10.47.1 — the runtime's SUPABASE_SERVICE_ROLE_KEY need not equal the legacy
+  // service_role JWT the dashboard shows (a correct key got 401 on 26 Sep).
+  const jwt = (claims: Record<string, unknown>) => {
+    const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+    return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(claims)}.signature`;
+  };
+  function withProbe(ok: boolean) {
+    const base = api.from.getMockImplementation()!;
+    api.from.mockImplementation((table: string) => table === 'whatsapp_pending_turns'
+      ? queryResult(null, ok ? null : { code: '42501', message: 'permission denied' }, ok ? 0 : null)
+      : base(table));
+  }
+
+  it('CON-UNIT-WA-W0-011 · a service-role key that is not byte-equal to the runtime\'s is accepted once PostgREST verifies it', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
+    tables();
+    withProbe(true);
+    const res = await call(handler, jwt({ role: 'service_role', ref: 'dmxq' }), { event: 'split_settled', params: ['Priya', '₹600', 'Dinner'] });
+    expect(await res.json()).toEqual({ status: 'sent', template: 'split_settled' });
+    expect(api.from).toHaveBeenCalledWith('whatsapp_pending_turns');
+    expect(api.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-WA-W0-012 · a forged service-role claim is refused: the claim alone is never trusted', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
+    api.auth.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'invalid JWT' } });
+    tables();
+    withProbe(false);
+    const res = await call(handler, jwt({ role: 'service_role' }), { event: 'split_settled', params: ['Priya', '₹600', 'Dinner'] });
+    expect(res.status).toBe(401);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('CON-UNIT-WA-W0-007 · a viewer cannot message other members', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-notify/index'), ENABLED);
     api.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });

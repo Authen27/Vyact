@@ -19,6 +19,7 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { env, json, constantTimeEqual } from '../_shared/whatsapp.ts';
+import { isServiceCaller } from '../_shared/service-auth.ts';
 import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 import { guardedSend, type SendResult } from '../_shared/whatsapp-send.ts';
 import {
@@ -35,7 +36,7 @@ Deno.serve(async (req: Request) => {
   const serviceKey = env('SUPABASE_SERVICE_ROLE_KEY');
   const given = req.headers.get('x-dispatch-secret') ?? '';
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-  const allowed = (!!secret && constantTimeEqual(given, secret)) || (!!serviceKey && constantTimeEqual(bearer, serviceKey));
+  const allowed = (!!secret && constantTimeEqual(given, secret)) || (await isServiceCaller(bearer));
   if (!allowed) return json({ error: 'forbidden' }, 403);
 
   const job = new URL(req.url).searchParams.get('job');
