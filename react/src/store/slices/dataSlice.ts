@@ -30,6 +30,7 @@ import {
   hasPositionData, mergeSnapshot, shouldRecordSnapshot, snapshotFromProjection, type NetWorthSnapshot,
 } from '../../lib/netWorthSnapshots';
 import { readLocalJson, readLocalString, setLocalString, removeLocal } from '../localJson';
+import { syncPush } from '../../lib/webPush';
 
 export interface DataSlice {
   // ── data ────────────────────────────────────────────────────
@@ -252,6 +253,9 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     await get().runRecurringEngine();
     void get().refreshNotifications();
     void get().refreshSharedSplits();
+    // v10.48.0 — keep this device's push registration right (active household, a
+    // subscription the browser replaced or an update wiped). Silent; never prompts.
+    if (get().cloudEnabled && active && active !== 'local') void syncPush(active, get().notificationPrefs);
 
     // Every household gets a default Cash account from day one (idempotent —
     // no-op once one exists). Runs after refresh()/seeding so `accounts` is
@@ -426,6 +430,8 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     await get().refresh();
     void get().refreshNotifications();   // reload the new household's notifications (cross-device)
     void get().refreshSharedSplits();
+    // v10.48.0 — this device's pushes follow the household it has open.
+    if (cloudEnabled && id !== 'local') void syncPush(id, get().notificationPrefs);
     try { await get().ensureDefaultCashAccount(); } catch { /* best-effort */ }
     void get().recordNetWorthSnapshot();
     get().toast('Switched profile', 'success');
@@ -575,6 +581,9 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const saved = await adapter.upsert('transactions', currentHouseholdId, t, expectedUpdatedAt);
     const idx = transactions.findIndex(x => x.id === saved.id);
     set({ transactions: idx >= 0 ? transactions.map(x => x.id === saved.id ? saved as Transaction : x) : [...transactions, saved as Transaction] });
+    // v10.48.0 — an expense can cross a budget line's 80% / 100%: raise it now,
+    // not at the next reload (TD-39).
+    if (saved.type === 'expense') void get().refreshNotifications();
     return saved as Transaction;
   },
   removeTransaction: async (id) => {

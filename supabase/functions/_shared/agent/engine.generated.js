@@ -29,6 +29,9 @@
 //   react/src/lib/format.ts
 //   react/src/lib/money.ts
 //   react/src/lib/netWorth.ts
+//   react/src/lib/notificationRows.ts
+//   react/src/lib/notifications.ts
+//   react/src/lib/recurring.ts
 //   react/src/lib/serverEngine.ts
 //   react/src/lib/supabaseAdapter.ts
 // @ts-nocheck
@@ -1210,6 +1213,15 @@ function profileFromRows(prof, hh, email) {
 //#endregion
 //#region react/src/lib/format.ts
 const today = () => (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+const uid = () => {
+	try {
+		if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+	} catch {}
+	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+		const r = Math.random() * 16 | 0;
+		return (c === "x" ? r : r & 3 | 8).toString(16);
+	});
+};
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const getMonthKey = (d) => d.slice(0, 7);
 const nowMonthKey = () => today().slice(0, 7);
@@ -1747,7 +1759,7 @@ const round2 = (n) => Math.round(n * 100) / 100;
 function normalise(raw) {
 	return raw.normalize("NFKC").replace(/[‘’“”]/g, "'").replace(/[–—]/g, "-").replace(/\s+/g, " ").trim().toLowerCase();
 }
-const MONTH_NAMES = [
+const MONTH_NAMES$1 = [
 	"january",
 	"february",
 	"march",
@@ -1795,19 +1807,19 @@ function resolvePeriod(period, now = /* @__PURE__ */ new Date()) {
 		const key = monthKeyOf(Number(iso[1]), monthIndex);
 		return {
 			monthKey: key,
-			label: `${titleCase(MONTH_NAMES[monthIndex])} ${iso[1]}`,
+			label: `${titleCase(MONTH_NAMES$1[monthIndex])} ${iso[1]}`,
 			isCurrent: key === currentKey
 		};
 	}
 	const named = /^(?:in\s+)?([a-z]+)(?:\s+(\d{4}))?$/.exec(raw);
 	if (named) {
-		const monthIndex = MONTH_NAMES.findIndex((m) => m === named[1] || m.slice(0, 3) === named[1]);
+		const monthIndex = MONTH_NAMES$1.findIndex((m) => m === named[1] || m.slice(0, 3) === named[1]);
 		if (monthIndex >= 0) {
 			const year = named[2] ? Number(named[2]) : monthIndex > now.getMonth() ? now.getFullYear() - 1 : now.getFullYear();
 			const key = monthKeyOf(year, monthIndex);
 			return {
 				monthKey: key,
-				label: `${titleCase(MONTH_NAMES[monthIndex])} ${year}`,
+				label: `${titleCase(MONTH_NAMES$1[monthIndex])} ${year}`,
 				isCurrent: key === currentKey
 			};
 		}
@@ -1886,7 +1898,7 @@ function parseDateEntity(value, now = /* @__PURE__ */ new Date()) {
 		m = Number(ymd[2]) - 1;
 		d = Number(ymd[3]);
 	} else if (dMonY) {
-		const monthIndex = MONTH_NAMES.findIndex((name) => name.slice(0, 3) === dMonY[2].slice(0, 3));
+		const monthIndex = MONTH_NAMES$1.findIndex((name) => name.slice(0, 3) === dMonY[2].slice(0, 3));
 		if (monthIndex < 0) return null;
 		d = Number(dMonY[1]);
 		m = monthIndex;
@@ -3981,6 +3993,367 @@ function unavailableTurn(reason) {
 	};
 }
 //#endregion
+//#region react/src/lib/recurring.ts
+function upcomingSchedules(schedules, leadDays = 3, now = today()) {
+	const cutoff = new Date(now);
+	cutoff.setDate(cutoff.getDate() + leadDays);
+	const cutoffISO = cutoff.toISOString().split("T")[0];
+	return schedules.filter((s) => s.active && s.nextDueDate <= cutoffISO && s.nextDueDate > now);
+}
+//#endregion
+//#region react/src/lib/notifications.ts
+const NOTIF_META = {
+	recurring_due_confirm: {
+		icon: "↻",
+		tint: "var(--accent)",
+		priority: "P1"
+	},
+	recurring_reminder: {
+		icon: "↻",
+		tint: "var(--ff-ink-3)",
+		priority: "P2"
+	},
+	recurring_posted: {
+		icon: "↻",
+		tint: "var(--ff-ink-3)",
+		priority: "P2"
+	},
+	budget_threshold: {
+		icon: "◐",
+		tint: "var(--warn)",
+		priority: "P1"
+	},
+	income_landed: {
+		icon: "✓",
+		tint: "var(--good)",
+		priority: "P2"
+	},
+	insight_fresh: {
+		icon: "✦",
+		tint: "var(--fore)",
+		priority: "P2"
+	},
+	trend_alert: {
+		icon: "✦",
+		tint: "var(--fore)",
+		priority: "P2"
+	},
+	debt_payment_due: {
+		icon: "⚠",
+		tint: "var(--warn)",
+		priority: "P1"
+	},
+	stale_balance: {
+		icon: "◌",
+		tint: "var(--warn)",
+		priority: "P1"
+	},
+	invite_received: {
+		icon: "⌂",
+		tint: "var(--accent)",
+		priority: "P1"
+	},
+	member_activity: {
+		icon: "⌂",
+		tint: "var(--info)",
+		priority: "P2"
+	},
+	sync_conflict: {
+		icon: "!",
+		tint: "var(--crit)",
+		priority: "P1"
+	},
+	milestone: {
+		icon: "✦",
+		tint: "var(--good)",
+		priority: "P2"
+	},
+	split_received: {
+		icon: "🤝",
+		tint: "var(--accent)",
+		priority: "P1"
+	},
+	split_settled: {
+		icon: "🤝",
+		tint: "var(--good)",
+		priority: "P2"
+	},
+	split_closed: {
+		icon: "🤝",
+		tint: "var(--ff-ink-3)",
+		priority: "P2"
+	}
+};
+/** `sync_conflict` can never be silenced (spec §4). */
+const NOTIF_LOCKED = ["sync_conflict"];
+const DEFAULT_PREFS = {
+	master: true,
+	perType: {},
+	quietStart: "22:00",
+	quietEnd: "07:00",
+	webPushEnabled: false,
+	defaultLeadDays: 3
+};
+function typeEnabled(prefs, type) {
+	if (!prefs.master && !NOTIF_LOCKED.includes(type)) return false;
+	return prefs.perType[type] !== false;
+}
+const iso = () => (/* @__PURE__ */ new Date()).toISOString();
+function daysUntil(dateStr) {
+	const d = (/* @__PURE__ */ new Date(dateStr + "T00:00:00")).getTime();
+	const now = (/* @__PURE__ */ new Date(today() + "T00:00:00")).getTime();
+	return Math.round((d - now) / 864e5);
+}
+function relDate(dateStr) {
+	const n = daysUntil(dateStr);
+	if (n === 0) return "today";
+	if (n === 1) return "tomorrow";
+	if (n === -1) return "yesterday";
+	return n > 0 ? `in ${n} days` : `${Math.abs(n)} days ago`;
+}
+const A = (id, label, kind) => ({
+	id,
+	label,
+	kind
+});
+function base(type, dedupeKey, ctx) {
+	return {
+		id: uid(),
+		type,
+		priority: NOTIF_META[type].priority,
+		status: "unread",
+		createdAt: iso(),
+		householdId: ctx.householdId,
+		dedupeKey
+	};
+}
+/** 1 · recurring_due_confirm (P1) — due/overdue, active, auto-confirm OFF. */
+function recurringDueNotifs(schedules, prefs, existing, ctx) {
+	if (!typeEnabled(prefs, "recurring_due_confirm")) return [];
+	const now = today();
+	const out = [];
+	for (const s of schedules) {
+		if (!s.active || s.autoConfirm || s.nextDueDate > now) continue;
+		const key = `recurring_due_confirm:${s.id}:${s.nextDueDate}`;
+		if (existing.some((n) => n.dedupeKey === key)) continue;
+		const amt = s.transactionTemplate.amount ?? 0;
+		out.push({
+			...base("recurring_due_confirm", key, ctx),
+			title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — due ${relDate(s.nextDueDate)}`,
+			body: "Auto-approve is off for this schedule",
+			dueAt: s.nextDueDate,
+			amountRef: amt,
+			scheduleId: s.id,
+			deepLink: `/recurring?id=${s.id}`,
+			actions: [
+				A("approve", "Approve", "primary"),
+				A("skip", "Skip once", "neu"),
+				A("edit", "Edit schedule", "ghost")
+			]
+		});
+	}
+	return out;
+}
+/** 2 · recurring_reminder (P2) — lead-time reminder for upcoming schedules. */
+function recurringReminderNotifs(schedules, prefs, existing, ctx) {
+	if (!typeEnabled(prefs, "recurring_reminder")) return [];
+	const out = [];
+	for (const s of schedules) {
+		const lead = s.reminderLeadDays ?? prefs.defaultLeadDays;
+		if (!upcomingSchedules([s], lead).length) continue;
+		const key = `recurring_reminder:${s.id}:${s.nextDueDate}`;
+		if (existing.some((n) => n.dedupeKey === key)) continue;
+		const amt = s.transactionTemplate.amount ?? 0;
+		out.push({
+			...base("recurring_reminder", key, ctx),
+			title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — ${relDate(s.nextDueDate)}`,
+			body: "Upcoming recurring charge",
+			dueAt: s.nextDueDate,
+			amountRef: amt,
+			scheduleId: s.id,
+			deepLink: `/recurring?id=${s.id}`,
+			actions: [A("view", "View schedule", "neu")]
+		});
+	}
+	return out;
+}
+const MONTH_NAMES = [
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December"
+];
+/**
+* 4 · budget_threshold (P1) — a budget LINE crosses 80% / 100% of its allocation.
+*
+* v10.48.0 (TD-39) — since v9.1 a budget is a period container whose categories live
+* in `BudgetAllocation` rows; the budget itself has no `category`. This rule used to
+* read `b.category`, so for every current budget it looked up spend for '' and never
+* fired (production had zero budget_threshold notifications). It now checks each
+* allocation over the budget's own period with the Budgets screen's figure
+* (`spendByCategoryInRange` in base currency). A legacy single-category budget (no
+* allocations) is still checked as one line for the current month.
+*/
+function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx, now = today()) {
+	if (!typeEnabled(prefs, "budget_threshold")) return [];
+	const out = [];
+	const cur = ctx.baseCurrency;
+	for (const b of budgets) {
+		const own = allocations.filter((a) => a.budgetId === b.id);
+		let start = b.periodStart, end = b.periodEnd;
+		const lines = own.length ? own.map((a) => ({
+			category: a.category,
+			limit: convert(a.amount, b.currency, cur, ctx.rates)
+		})) : b.category ? [{
+			category: b.category,
+			limit: convert(b.limit, b.currency, cur, ctx.rates)
+		}] : [];
+		if (!own.length && (!start || !end)) {
+			const mk = getMonthKey(now);
+			start = `${mk}-01`;
+			end = `${mk}-31`;
+		}
+		if (!lines.length || !start || !end || start > now || end < now) continue;
+		const spend = spendByCategoryInRange(txns, start, end, cur, ctx.rates);
+		const period = b.scope === "annual" ? `${b.periodYear ?? start.slice(0, 4)}` : MONTH_NAMES[Number(start.slice(5, 7)) - 1] ?? start.slice(0, 7);
+		for (const line of lines) {
+			if (!(line.limit > 0)) continue;
+			const spent = spend[line.category] || 0;
+			const pct = spent / line.limit;
+			const threshold = pct >= 1 ? 100 : pct >= .8 ? 80 : null;
+			if (!threshold) continue;
+			const key = `budget_threshold:${b.id}:${line.category}:${start}:${threshold}`;
+			if (existing.some((n) => n.dedupeKey === key)) continue;
+			const remaining = Math.max(0, line.limit - spent);
+			out.push({
+				...base("budget_threshold", key, ctx),
+				tint: threshold === 100 ? "var(--crit)" : "var(--warn)",
+				title: `${getCat(line.category).label} at ${Math.round(pct * 100)}% of the ${period} budget`,
+				body: spent > line.limit ? `${fmt(spent - line.limit, cur)} over` : `${fmt(remaining, cur)} left`,
+				budgetId: b.id,
+				amountRef: remaining,
+				deepLink: `/budgets?budgetId=${b.id}`,
+				actions: [A("review", "Review budget", "primary"), A("see_txns", "See transactions", "ghost")]
+			});
+		}
+	}
+	return out;
+}
+/** 8 · debt_payment_due (P1) — liability min-payment due in ≤3 days. */
+function debtDueNotifs(debts, prefs, existing, ctx) {
+	if (!typeEnabled(prefs, "debt_payment_due")) return [];
+	const out = [];
+	for (const d of debts) {
+		if (d.direction === "owed_to_me" || !d.dueDate || d.currentBalance <= 0) continue;
+		const n = daysUntil(d.dueDate);
+		if (n < 0 || n > 3) continue;
+		const key = `debt_payment_due:${d.id}:${d.dueDate}`;
+		if (existing.some((x) => x.dedupeKey === key)) continue;
+		const amt = d.minimumPayment ?? 0;
+		out.push({
+			...base("debt_payment_due", key, ctx),
+			title: `${d.name} payment · ${fmt(amt, d.currency)} — due ${relDate(d.dueDate)}`,
+			body: "Minimum payment coming up",
+			dueAt: d.dueDate,
+			amountRef: amt,
+			debtId: d.id,
+			deepLink: `/debts?debtId=${d.id}`,
+			actions: [A("record", "Record payment", "primary"), A("view", "View debt", "ghost")]
+		});
+	}
+	return out;
+}
+/** 5 · income_landed (P2) — income transaction posted today. */
+function incomeLandedNotifs(txns, prefs, existing, ctx) {
+	if (!typeEnabled(prefs, "income_landed")) return [];
+	const now = today();
+	const out = [];
+	for (const t of txns) {
+		if (t.type !== "income" || t.date !== now) continue;
+		const key = `income_landed:${t.id}`;
+		if (existing.some((n) => n.dedupeKey === key)) continue;
+		out.push({
+			...base("income_landed", key, ctx),
+			title: `${t.description || "Income"} landed — +${fmt(t.amount, t.currency || ctx.baseCurrency)}`,
+			body: "Money in",
+			amountRef: t.amount,
+			txnId: t.id,
+			deepLink: `/transactions?id=${t.id}`,
+			actions: [A("view", "View", "neu")]
+		});
+	}
+	return out;
+}
+/** 9 · stale_balance (P1) — liquid account balances >30 d old (aggregated, ≤1/wk). */
+function staleBalanceNotifs(accounts, prefs, existing, ctx) {
+	if (!typeEnabled(prefs, "stale_balance")) return [];
+	const LIQUID = [
+		"bank",
+		"cash",
+		"investment"
+	];
+	const cutoff = Date.now() - 30 * 864e5;
+	const lastTouched = (a) => {
+		const rec = a.reconciliationLog?.length ? a.reconciliationLog[a.reconciliationLog.length - 1].at : void 0;
+		const stamp = a.confirmedAt || rec || a.estimatedAt;
+		return stamp ? new Date(stamp).getTime() : 0;
+	};
+	const stale = accounts.filter((a) => !a.isArchived && LIQUID.includes(a.kind) && lastTouched(a) < cutoff);
+	if (!stale.length) return [];
+	const key = `stale_balance:${Math.floor(Date.now() / (7 * 864e5))}`;
+	if (existing.some((n) => n.dedupeKey === key)) return [];
+	return [{
+		...base("stale_balance", key, ctx),
+		title: `${stale.length} balance${stale.length === 1 ? "" : "s"} may be out of date`,
+		body: "Last updated over 30 days ago",
+		deepLink: "/accounts",
+		actions: [A("update", "Update balances", "primary"), A("dismiss", "Dismiss", "ghost")]
+	}];
+}
+//#endregion
+//#region react/src/lib/notificationRows.ts
+const CTX_KEYS = [
+	"scheduleId",
+	"budgetId",
+	"debtId",
+	"accountId",
+	"txnId",
+	"inviteToken",
+	"splitId"
+];
+function toInsertRow(n) {
+	const context = {};
+	for (const k of CTX_KEYS) {
+		const v = n[k];
+		if (v != null) context[k] = v;
+	}
+	return {
+		household_id: n.householdId,
+		type: n.type,
+		priority: n.priority,
+		title: n.title,
+		body: n.body ?? null,
+		status: n.status,
+		created_at: n.createdAt,
+		due_at: n.dueAt ?? null,
+		member_id: n.memberId ?? null,
+		amount_ref: n.amountRef ?? null,
+		deep_link: n.deepLink ?? null,
+		tint: n.tint ?? null,
+		actions: n.actions ?? null,
+		context: Object.keys(context).length ? context : null,
+		dedupe_key: n.dedupeKey
+	};
+}
+//#endregion
 //#region react/src/lib/serverEngine.ts
 /** Rows → the app's own shapes, with the adapter's mappers and the store's rate rule. */
 function shapesFromRows(rows) {
@@ -4130,6 +4503,37 @@ function runwaySnapshot(rows, now) {
 		quieterCategory: best ? getCat(best.cat).label : null
 	};
 }
+/**
+* The bell notifications the APP would raise for this household right now, as
+* `notifications` rows: the same generators (lib/notifications.ts) over the same
+* mapped shapes, so a phone is told about a due bill or a budget line at 80% even
+* when no device has the app open. `existingKeys` are the household's stored
+* dedupe keys: anything already raised (by a device or an earlier run) is skipped,
+* and the insert is ignore-duplicates on (household_id, dedupe_key) besides.
+*
+* Generated with the default preferences (every type on): which of them reach a
+* lock screen is each device's own choice, applied when pushing.
+* Split notifications are not generated here: they come from the devices, which
+* hold the verified-email split lists.
+*/
+function notificationsOnServer(rows, existingKeys, householdId) {
+	const { transactions, budgets, budgetAllocations, debts, accounts, recurring, profile, rates } = shapesFromRows(rows);
+	const existing = existingKeys.map((dedupeKey) => ({ dedupeKey }));
+	const ctx = {
+		householdId,
+		baseCurrency: profile.baseCurrency,
+		rates
+	};
+	const prefs = DEFAULT_PREFS;
+	return [
+		...recurringDueNotifs(recurring, prefs, existing, ctx),
+		...recurringReminderNotifs(recurring, prefs, existing, ctx),
+		...budgetThresholdNotifs(budgets, budgetAllocations, transactions, prefs, existing, ctx),
+		...debtDueNotifs(debts, prefs, existing, ctx),
+		...incomeLandedNotifs(transactions, prefs, existing, ctx),
+		...staleBalanceNotifs(accounts, prefs, existing, ctx)
+	].map(toInsertRow);
+}
 /** One question, answered by the app's own pipeline with the given model call. */
 function answerOnServer(utterance, ctx, call, prevAllowed = []) {
 	return runAssistant(utterance, ctx, new LlmBackend(call), Date.now(), void 0, prevAllowed);
@@ -4159,4 +4563,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, contextFromRows, reconcileOnServer, renderForWhatsApp, runwaySnapshot };
+export { STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, contextFromRows, notificationsOnServer, reconcileOnServer, renderForWhatsApp, runwaySnapshot };
