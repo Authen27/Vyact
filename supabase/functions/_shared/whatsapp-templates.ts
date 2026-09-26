@@ -317,7 +317,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     // Sent once, three days after an APPROVAL bill fell due and is still waiting.
     // No greeting and no emoji: an overdue bill is not neutral news. "Already paid"
     // is the likeliest truth by then, so it leads.
-    name: 'bill_overdue_reminder', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'bill_overdue_reminder', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '13-bill-overdue.jpg',
     body: 'Overdue: your {{1}} bill was due {{2}}.\nAmount: {{3}}\n\nIf you\'ve already paid it, tap Already paid or reply "paid {{4}}" and I\'ll close it off. If not, it\'s worth paying before a late fee lands.',
     params: [
@@ -331,7 +331,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   payday_headroom_variable: t({
     // For pay that is not the same twice: the fact that matters is the difference from
     // a usual month. No 🎉 — a light month should not be cheered. Needs #68 to send.
-    name: 'payday_headroom_variable', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'payday_headroom_variable', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '14-payday-variable.jpg',
     body: "Money's in, {{1}}.\n\n₹{{2}} landed. That's {{3}} than your usual month.\nAfter your bills, you've got about ₹{{4}} of room.\n\nAssumes your {{5}} fixed bills at last month's amounts, ₹{{6}} together.",
     params: [
@@ -351,7 +351,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   reengagement_nudge_quiet: t({
     // Nothing pending, so no invented urgency: it names the gap and one small ask.
     // "Reply LOG" is answered by the webhook (isLogTrigger / the Log today button).
-    name: 'reengagement_nudge_quiet', category: 'marketing', language: 'en_US', status: 'in_review',
+    name: 'reengagement_nudge_quiet', category: 'marketing', language: 'en_US', status: 'active',
     headerImage: '15-reengage-quiet.jpg',
     body: "Hi {{1}}, it's been {{2}} days since anything was logged, so this month's picture is going stale.\n\nA week of logging is usually enough for a forecast worth trusting. Reply LOG and we'll do today's in one line.",
     params: [
