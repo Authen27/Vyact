@@ -55,7 +55,7 @@ const t = (def: TemplateDef): TemplateDef => def;
 export const TEMPLATES: Record<string, TemplateDef> = {
   // ── Existing templates, image header added 24 Sep ────────────────────────────
   bill_due_reminder: t({
-    name: 'bill_due_reminder', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'bill_due_reminder', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '01-bill-reminder.jpg',
     body: 'Reminder: your {{1}} of {{2}} is due on {{3}}. Reply "paid {{4}}" to log it.',
     params: [
@@ -66,7 +66,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   split_settled: t({
-    name: 'split_settled', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'split_settled', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '08-split-settled.jpg',
     body: 'Update: {{1}} settled their {{2}} share of "{{3}}". You\'re all square.',
     params: [
@@ -78,7 +78,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   weekly_summary: t({
     // Meta flagged it as marketing on 24 Sep ("did not meet our utility
     // guidelines"); treated as marketing until that is resolved.
-    name: 'weekly_summary', category: 'marketing', language: 'en_US', status: 'in_review',
+    name: 'weekly_summary', category: 'marketing', language: 'en_US', status: 'active',
     headerImage: '09-weekly-summary.jpg',
     body: 'Your week on Vyact: {{1}} spent across {{2}} transactions. Top category: {{3}} this week.',
     params: [
@@ -110,7 +110,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
 
   // ── Existing templates, enriched 25 Sep ───────────────────────────────────────
   large_transaction_alert: t({
-    name: 'large_transaction_alert', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'large_transaction_alert', category: 'utility', language: 'en_US', status: 'active',
     body: "Heads-up: ₹{{1}} just went out on your {{2}}.\n\nIf that was you, there's nothing to do. If it wasn't, tap Flag it and I'll mark it for review.",
     params: [
       { name: 'amount', sample: '18,000', note: 'WITHOUT the currency symbol' },
@@ -123,7 +123,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   budget_threshold_alert: t({
-    name: 'budget_threshold_alert', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'budget_threshold_alert', category: 'utility', language: 'en_US', status: 'active',
     body: 'Heads-up: {{1}} is at {{2}}% of its budget, with {{3}} days to go.\n\n₹{{4}} is still in the pot.',
     params: [
       { name: 'category', sample: 'Dining' },
@@ -138,7 +138,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   partner_split_prompt: t({
-    name: 'partner_split_prompt', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'partner_split_prompt', category: 'utility', language: 'en_US', status: 'active',
     body: 'New shared expense: {{1}} logged ₹{{2}} for "{{3}}".\n\nHow should it split? Nothing changes until you pick.',
     params: [
       { name: 'person', sample: 'Priya' },
@@ -152,7 +152,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   split_shared_with_you: t({
-    name: 'split_shared_with_you', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'split_shared_with_you', category: 'utility', language: 'en_US', status: 'active',
     body: 'Update: {{1}} shared a split with you on Vyact: ₹{{2}} for "{{3}}".\n\nYour share: ₹{{4}}. Settle it in the app whenever you\'re ready.',
     params: [
       { name: 'person', sample: 'Priya' },
@@ -163,6 +163,9 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     buttons: [{ type: 'url', text: 'See your share', url: 'https://vyact.app/splits' }],
   }),
   recurring_auto_logged: t({
+    // 26 Sep: edit submitted adding header 17-recurring-logged.jpg (in review). Add
+    // headerImage here only once Meta approves it: until then a send with an image
+    // header would not match the live template.
     name: 'recurring_auto_logged', category: 'utility', language: 'en_US', status: 'in_review',
     body: "Logged as scheduled: your {{1}} of ₹{{2}} on {{3}}.\n\nIf it didn't go out this time, tap Undo within 15 minutes.",
     params: [
@@ -178,7 +181,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
 
   // ── New image templates, submitted 24–25 Sep ─────────────────────────────────
   payday_headroom: t({
-    name: 'payday_headroom', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'payday_headroom', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '02-payday.jpg',
     body: "Payday's in, {{1}}.\n\n₹{{2}} landed today.\nAfter your usual bills, you've got about ₹{{3}} of room this month.\n\nAssumes your {{4}} fixed bills at last month's amounts, ₹{{5}} together.",
     params: [
@@ -195,7 +198,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   household_daily_digest: t({
-    name: 'household_daily_digest', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'household_daily_digest', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '03-household-digest.jpg',
     body: 'Evening, {{1}}.\n\nYour household spent ₹{{2}} today, across {{3}} entries.\n\nWho spent: {{4}}\n\nOne message a day, never one per spend.',
     params: [
@@ -211,7 +214,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   runway_shift_alert: t({
-    name: 'runway_shift_alert', category: 'marketing', language: 'en_US', status: 'in_review',
+    name: 'runway_shift_alert', category: 'marketing', language: 'en_US', status: 'active',
     headerImage: '05-runway-shift.jpg',
     body: "Heads-up, {{1}}.\n\nAt this month's pace, your savings would cover about {{2}} months, down from {{3}}.\n\nAssumes your recent spending continues.\n\nNothing's wrong, and nothing needs doing today. Better to see it now than in three months.",
     params: [
@@ -227,7 +230,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     note: "Meta's pre-check said Utility would be rejected; submitted as Marketing.",
   }),
   month_close_summary: t({
-    name: 'month_close_summary', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'month_close_summary', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '06-month-close.jpg',
     body: 'Your {{1}} summary is ready, {{2}}.\n\nSpent: ₹{{3}}\nCompared with last month: {{4}}\nBiggest slice: {{5}}\n\nYou logged something on {{6}} days this month.',
     params: [
@@ -245,7 +248,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   budget_setup_reminder: t({
-    name: 'budget_setup_reminder', category: 'marketing', language: 'en_US', status: 'in_review',
+    name: 'budget_setup_reminder', category: 'marketing', language: 'en_US', status: 'active',
     headerImage: '07-budget-setup.jpg',
     body: "Next month starts in two days, {{1}}. That's {{2}}.\n\nWant me to set your budgets from what you actually spent this month? I'll suggest a limit for each of your {{3}} categories.\n\nYou adjust anything before it goes live. Nothing locks in without you.",
     params: [
@@ -260,7 +263,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   balance_stale_nudge: t({
-    name: 'balance_stale_nudge', category: 'marketing', language: 'en_US', status: 'in_review',
+    name: 'balance_stale_nudge', category: 'marketing', language: 'en_US', status: 'active',
     headerImage: '10-balance-recheck.jpg',
     body: "Quick one, {{1}}.\n\nSome of your balances, {{2}} in all, haven't been updated in a month, so your net worth is drifting from what's actually there.\n\nA couple of minutes in Vyact brings it back in line.",
     params: [
@@ -274,7 +277,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     ],
   }),
   affordability_reply: t({
-    name: 'affordability_reply', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'affordability_reply', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '11-forecast-response.jpg',
     body: "Here's how that would land, {{1}}.\n\nIt fits. ₹{{2}} would still leave about ₹{{3}} above your safety floor.\n\nAssumes your card dues are paid first, and a floor of ₹{{4}} (three months of essential spending).",
     params: [
@@ -292,7 +295,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     // Sent once, right after a number is linked: the only moment Vyact speaks
     // first without the person having messaged. A greeting inside the 24-hour
     // window needs no template; the receptionist list answers it as session text.
-    name: 'whatsapp_welcome', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'whatsapp_welcome', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '12-welcome.jpg',
     body: "You're linked, {{1}}. This number now logs to {{2}} in Vyact.\n\nSend me a spend in one line, like 450 lunch hdfc, or tap Menu to see everything I can do.",
     params: [

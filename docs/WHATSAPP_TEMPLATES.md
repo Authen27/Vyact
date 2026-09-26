@@ -24,28 +24,30 @@ fails. The 11 header images are in
 
 | Template | Category | Image | Change | Status |
 |---|---|---|---|---|
-| `bill_due_reminder` | Utility | 01-bill-reminder | Image added; body unchanged | In review |
-| `split_settled` | Utility | 08-split-settled | Image added; body unchanged | Active – quality pending (seen 26 Sep) |
-| `weekly_summary` | Utility → **flagged as Marketing** | 09-weekly-summary | Image added; body unchanged | Active, edit in review (seen 26 Sep) · ⚠ Meta: "did not meet our utility guidelines". Review can be requested until **15 Oct 2026** |
+| `bill_due_reminder` | Utility | 01-bill-reminder | Image added; body unchanged | Active, verified field by field on 26 Sep |
+| `split_settled` | Utility | 08-split-settled | Image added; body unchanged | Active, verified field by field on 26 Sep |
+| `weekly_summary` | Utility → **flagged as Marketing** | 09-weekly-summary | Image added; body unchanged | Active, verified field by field on 26 Sep · ⚠ the See details link still opens the old vyact-twentyx site; category review pending (Meta files it as Utility, the manifest treats it as marketing) |
 | `reengagement_nudge` | Marketing | 04-reengagement | **Edited 26 Sep (W6)**: the board's unnamed-spending variant, a **Name them here** quick reply, Open Vyact → vyact.app. The image now matches the body | Approved version active; edit in review |
-| `payday_headroom` | Utility | 02-payday | New | Active – quality pending (seen 26 Sep) |
-| `household_daily_digest` | Utility | 03-household-digest | New | Active – quality pending (seen 26 Sep) |
-| `runway_shift_alert` | **Marketing** (Meta's pre-check: "Utility will be rejected") | 05-runway-shift | New | Active – quality pending (seen 26 Sep) |
-| `month_close_summary` | Utility | 06-month-close | New | Active – quality pending (seen 26 Sep) |
-| `budget_setup_reminder` | **Marketing** (as planned) | 07-budget-setup | New | Active – quality pending (seen 26 Sep) |
-| `balance_stale_nudge` | **Marketing** (as planned) | 10-balance-recheck | New. An "Update here" button + "Reply UPDATE" line is planned (W6); Meta locks a template during its first review, so the edit waits for approval | In review |
-| `affordability_reply` | Utility | 11-forecast-response | New | In review |
-| `large_transaction_alert` | Utility | — | Enriched 25 Sep (below) | In review |
-| `budget_threshold_alert` | Utility | — | Enriched 25 Sep | In review |
-| `partner_split_prompt` | Utility | — (split image requested from design) | Enriched 25 Sep | In review |
-| `split_shared_with_you` | Utility | — | Enriched 25 Sep | In review |
-| `recurring_auto_logged` | Utility | — | Enriched 25 Sep | In review |
-| `whatsapp_welcome` | Utility | 12-welcome | New; sent once after linking. Its buttons already work | In review |
+| `payday_headroom` | Utility | 02-payday | New | Active, verified field by field on 26 Sep |
+| `household_daily_digest` | Utility | 03-household-digest | New | Active, verified field by field on 26 Sep |
+| `runway_shift_alert` | **Marketing** (Meta's pre-check: "Utility will be rejected") | 05-runway-shift | New | Active, verified field by field on 26 Sep |
+| `month_close_summary` | Utility | 06-month-close | New | Active, verified field by field on 26 Sep |
+| `budget_setup_reminder` | **Marketing** (as planned) | 07-budget-setup | New | Active, verified field by field on 26 Sep |
+| `balance_stale_nudge` | **Marketing** (as planned) | 10-balance-recheck | New. An "Update here" button + "Reply UPDATE" line is planned (W6); Meta locks a template during its first review, so the edit waits for approval | Active, verified field by field on 26 Sep |
+| `affordability_reply` | Utility | 11-forecast-response | New | Active, verified field by field on 26 Sep |
+| `large_transaction_alert` | Utility | — | Enriched 25 Sep (below) | Active, verified field by field on 26 Sep |
+| `budget_threshold_alert` | Utility | — | Enriched 25 Sep | Active, verified field by field on 26 Sep |
+| `partner_split_prompt` | Utility | — (split image requested from design) | Enriched 25 Sep | Active, verified field by field on 26 Sep |
+| `split_shared_with_you` | Utility | — | Enriched 25 Sep | Active, verified field by field on 26 Sep |
+| `recurring_auto_logged` | Utility | 17-recurring-logged (pending) | Enriched 25 Sep. **26 Sep:** edit submitted adding the image header; the manifest gets `headerImage` after approval | Was active and verified 26 Sep; image edit in review |
+| `whatsapp_welcome` | Utility | 12-welcome | New; sent once after linking. Its buttons already work | Active, verified field by field on 26 Sep |
 | `bill_overdue_reminder` | Utility | 13-bill-overdue | Variant B of the bill reminder (W5). Sent once, 3 days past due | In review (submitted 25 Sep) |
 | `payday_headroom_variable` | Utility | 14-payday-variable | Variant B of payday (W5). Sends once payday is a date (#68) | In review (submitted 25 Sep) |
 | `reengagement_nudge_quiet` | **Marketing** | 15-reengage-quiet | Variant B of re-engagement (W5). "Reply LOG" works; the weekly job sends it after 7 quiet days (W6) | In review (submitted 25 Sep) |
 | `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | In review (submitted 25 Sep) |
 | `hello_world` | Utility | — | Meta sample; cannot be deleted. Kept for test sends | Active |
+
+**Activation (26 Sep).** `WHATSAPP_OUTBOUND_ENABLED=true`, and `WHATSAPP_APPROVED_TEMPLATES` lists the 16 templates verified above. Each one was checked field by field against the manifest in the Meta edit form: body, variables, samples, header, footer, buttons and links. Templates still in review are left out; add each one only after it is approved and checked. The scheduler (`whatsapp-dispatch`) still needs the Vault secret `whatsapp_dispatch_secret` and the matching `WHATSAPP_DISPATCH_SECRET` before any scheduled message goes out.
 
 **Deleted 25 Sep:** `recurring` (a "pay now" overdue-card message that Vyact never sends),
 `feedback`, and `3p_direct_integration_test_template`. None was used by the app.
