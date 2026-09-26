@@ -18,7 +18,7 @@
 //   supabase functions deploy whatsapp-webhook --no-verify-jwt
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { env, verifyMetaSignature, sendText, sendInteractiveList, APP_URL, constantTimeEqual } from '../_shared/whatsapp.ts';
+import { env, verifyMetaSignature, sendText, sendInteractiveList, APP_URL } from '../_shared/whatsapp.ts';
 import {
   isReceptionistTrigger, isLogTrigger, receptionistList, menuReply, welcomeButtonAction, UNLINKED_GREETING, UNLINKED_OTHER,
 } from '../_shared/whatsapp-receptionist.ts';
@@ -40,6 +40,7 @@ import { occurrenceRow, advancedDueDate, type ScheduleRow } from '../_shared/rec
 import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
 import { contextFromRows, answerOnServer, renderForWhatsApp } from '../_shared/agent/engine.ts';
 import { serverModelCall } from '../_shared/agent/assistantCore.ts';
+import { isServiceCaller } from '../_shared/service-auth.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
@@ -130,9 +131,8 @@ Deno.serve(async (req: Request) => {
   // retries left, and claims abandoned by a worker that died mid-run.
   if (url.searchParams.get('mode') === 'sweep') {
     const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-    const serviceKey = env('SUPABASE_SERVICE_ROLE_KEY');
-    if (!serviceKey || !constantTimeEqual(bearer, serviceKey)) return new Response('Forbidden', { status: 403 });
-    const supabase = createClient(env('SUPABASE_URL'), serviceKey);
+    if (!(await isServiceCaller(bearer))) return new Response('Forbidden', { status: 403 });
+    const supabase = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
     const replayed = await sweepInbox(supabase);
     return new Response(JSON.stringify({ status: 'ok', replayed }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
