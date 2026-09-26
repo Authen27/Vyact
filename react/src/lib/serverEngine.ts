@@ -29,6 +29,9 @@ import { runAssistant, LlmBackend, type AssistantContext, type AssistantTurn } f
 import type { ModelCall } from './askVyactLlm';
 import { normaliseChips, renderChipsAsNumberedList } from './askVyactResponses';
 import { computeAccountBalance, reconcileAccount as buildReconcileOffset } from './accountBalance';
+import { resolve } from './askVyactBackend';
+import { spendByCategory } from './calculations';
+import { getCat } from '../constants';
 
 /** Everything the engine needs about one household, as rows straight from Postgres. */
 export interface HouseholdRows {
@@ -171,6 +174,40 @@ export function reconcileOnServer(rows: HouseholdRows, accountId: string, stated
     log: (patch.reconciliationLog ?? []) as unknown[],
     at, bridge,
   };
+}
+
+// ── Runway (W6, v10.47.0) — the runway alerts read the app's own forecast ─────────
+
+export interface RunwaySnapshot {
+  /** Months the liquid savings would last, one decimal; null with no spending basis. */
+  months: number | null;
+  /** The category that fell most from the month before last to last month, named. */
+  quieterCategory: string | null;
+}
+
+/**
+ * The runway exactly as Pip states it (`forecast.runway`: liquid savings over typical
+ * monthly spending, both from the one SafeSummary projection), plus the category
+ * whose spending fell most between the last two COMPLETED months, for "what moved it".
+ * `now` is the caller's clock, so a scheduled run is reproducible.
+ */
+export function runwaySnapshot(rows: HouseholdRows, now: Date): RunwaySnapshot {
+  const ctx = contextFromRows(rows);
+  const r = resolve({ id: 'forecast.runway', bucket: 'forecast', confidence: 1, entities: { text: 'how long would my savings last' } }, ctx);
+  const raw = Number((r.facts as { months_money_would_last?: string } | undefined)?.months_money_would_last);
+  const basisMonths = ctx.summary.spendBasis?.monthsConsidered ?? 0;
+  const months = Number.isFinite(raw) && basisMonths > 0 ? Math.round(raw * 10) / 10 : null;
+  const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const last = key(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const before = key(new Date(now.getFullYear(), now.getMonth() - 2, 1));
+  const a = spendByCategory(ctx.transactions, before, ctx.baseCurrency, ctx.rates);
+  const b = spendByCategory(ctx.transactions, last, ctx.baseCurrency, ctx.rates);
+  let best: { cat: string; drop: number } | null = null;
+  for (const [cat, was] of Object.entries(a)) {
+    const drop = was - (b[cat] ?? 0);
+    if (drop > 0 && (!best || drop > best.drop)) best = { cat, drop };
+  }
+  return { months, quieterCategory: best ? getCat(best.cat).label : null };
 }
 
 /** One question, answered by the app's own pipeline with the given model call. */

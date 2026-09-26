@@ -147,9 +147,13 @@ export function matchCategory(text: string): string | undefined {
  * question; otherwise a spend/income verb plus an amount means the user is LOGGING.
  */
 export function isQueryAttempt(text: string): boolean {
-  const asksForData = /\b(how much|how many|what'?s|what is|balance|net worth|networth|left|remaining|owe|owed|statement|summary|report|show me|list|history|total)\b/.test(text);
-  if (!asksForData) return false;
   if (/^\s*[+\-]?\s*\d/.test(text)) return false;   // "1200 lunch …" — a leading amount
+  // v10.47.0 — a line ending in "?", or "can/should I afford/buy/spend …", is a
+  // question even with no data word. "can I afford 40000 for a phone?" used to be
+  // LOGGED as a ₹40,000 spend, because "afford" was not a data word.
+  if (/\?\s*$/.test(text) || /^\s*(can|could|should|shall)\s+(i|we)\s+(afford|buy|spend|get)\b/.test(text)) return true;
+  const asksForData = /\b(how much|how many|what'?s|what is|balance|net worth|networth|left|remaining|owe|owed|statement|summary|report|show me|list|history|total|afford)\b/.test(text);
+  if (!asksForData) return false;
   const opensAsQuestion = /^\s*(how|what|which|when|where|why|show|list|tell|give|can|do|did|am|is|are)\b/.test(text) || /\?\s*$/.test(text);
   if (opensAsQuestion) return true;
   const logs = /\b(spent|spend|paid|pay|bought|received|got|credited|debited|moved|transferred|invested|gave|lent)\b/.test(text);

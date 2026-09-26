@@ -31,10 +31,14 @@ import {
   parsePrefCommand, applyPrefCommand, prefsSummary, buttonReply, buttonQuestion, unsupportedButtonReply, READS_OFFER,
   LATE_TAP_DAYS, LATE_TAP_REPLY, type WaPrefs,
 } from '../_shared/whatsapp-prefs.ts';
-import { loadPrefs, advancesDelivery } from '../_shared/whatsapp-send.ts';
+import { loadPrefs, advancesDelivery, guardedSend } from '../_shared/whatsapp-send.ts';
+import {
+  sharedCapture, evenSplit, splitDoneReply, keptAsYoursReply, SPLIT_REFUSED, recurringUndoneReply, RECURRING_UNDO_MINUTES,
+  RECURRING_TOO_LATE, pausedReply,
+} from '../_shared/whatsapp-template-replies.ts';
 import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 import {
-  parsePaidReply, reminderFromAudit, matchReminders, moneyText, dueDayText, type SentReminder,
+  parsePaidReply, reminderFromAudit, matchReminders, moneyText, dueDayText, amountText, type SentReminder,
 } from '../_shared/whatsapp-dispatch-rules.ts';
 import { occurrenceRow, advancedDueDate, type ScheduleRow } from '../_shared/recurring.ts';
 import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
@@ -383,11 +387,12 @@ async function handleTemplateButton(
 
   // The message the tap answers, by Meta's id: how old is it?
   const repliedTo = String(message?.context?.id ?? '');
+  let sentAt = NaN;
   if (repliedTo) {
     const { data: sent } = await supabase.from('whatsapp_inbound_messages')
       .select('created_at').eq('provider_message_id', repliedTo).maybeSingle();
-    const at = Date.parse(String((sent as { created_at?: string } | null)?.created_at ?? ''));
-    if (Number.isFinite(at) && Date.now() - at > LATE_TAP_DAYS * 86_400_000) {
+    sentAt = Date.parse(String((sent as { created_at?: string } | null)?.created_at ?? ''));
+    if (Number.isFinite(sentAt) && Date.now() - sentAt > LATE_TAP_DAYS * 86_400_000) {
       return { status: 'done', note: await reply(fromPhone, LATE_TAP_REPLY) };
     }
   }
@@ -395,6 +400,10 @@ async function handleTemplateButton(
   // v10.47.0 (W6) — the nudges' conversation buttons start the conversation here.
   if (def.name === 'reengagement_nudge' && label === 'Name them here') return startNaming(supabase, message, fromPhone, profile);
   if (def.name === 'balance_stale_nudge' && label === 'Update here') return startUpdate(supabase, fromPhone, profile);
+
+  // v10.47.0 (W6b) — the buttons of the templates that got senders.
+  if (def.name === 'recurring_auto_logged') return recurringButton(supabase, message, fromPhone, profile, label, m[3] ?? '', sentAt);
+  if (def.name === 'partner_split_prompt') return partnerSplitButton(supabase, message, fromPhone, profile, label, m[3] ?? '');
 
   // v10.46.0 (W5) — a button that asks a question is answered by Pip in the chat when
   // answers are on, instead of linking out (the WhatsApp answer rule).
@@ -590,7 +599,9 @@ async function processInbound(
   ];
   const baseCurrency: string = (accounts as any)?.[0]?.currency ?? 'USD';
 
-  const parsed = parseWhatsAppMessage(text, accountList, baseCurrency, localDay(message));
+  // v10.47.0 — "1200 dinner shared": log it, then ask how to split it.
+  const shared = sharedCapture(text);
+  const parsed = parseWhatsAppMessage(shared.text, accountList, baseCurrency, localDay(message));
   if (!parsed.ok) {
     // v10.44.0 (W3) — "groceries hdfc" names what it was for: ask for the amount
     // and keep the rest, rather than asking for the whole line again.
@@ -606,7 +617,7 @@ async function processInbound(
     }
     return { status: 'done', note: await reply(fromPhone, clarifyReply(parsed.reason, `${APP_URL}/dashboard`)) };
   }
-  return logParsed(supabase, message, fromPhone, profile, parsed.tx, priorAttempts);
+  return logParsed(supabase, message, fromPhone, profile, parsed.tx, priorAttempts, { shared: shared.shared });
 }
 
 /**
@@ -617,7 +628,7 @@ async function processInbound(
  */
 async function logParsed(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, tx: ParsedTx,
-  priorAttempts: number, opts: { skipDuplicateCheck?: boolean } = {},
+  priorAttempts: number, opts: { skipDuplicateCheck?: boolean; shared?: boolean } = {},
 ): Promise<InboundOutcome> {
   const householdId = profile.whatsapp_household_id!;
   if (!opts.skipDuplicateCheck && (tx.transaction_type === 'expense' || tx.transaction_type === 'income')) {
@@ -674,7 +685,12 @@ async function logParsed(
   } else {
     body = "I couldn't place that in an account. Try naming one, e.g. `850 groceries hdfc`.";
   }
-  return { status: 'done', note: body ? await reply(fromPhone, body) : undefined };
+  const note = body ? await reply(fromPhone, body) : undefined;
+  if (opts.shared && r?.status === 'success') {
+    try { await promptSplit(supabase, fromPhone, profile, r, tx); }
+    catch (e) { console.error('[whatsapp-webhook] split prompt failed', (e as Error)?.message); }
+  }
+  return { status: 'done', note };
 }
 
 /**
@@ -1067,6 +1083,11 @@ async function answerQuestion(
       waitUntil: typeof EdgeRuntime !== 'undefined' ? (p) => EdgeRuntime!.waitUntil(p) : undefined,
     });
     const turn = await answerOnServer(question, contextFromRows(rows), call, prevAllowed);
+    // v10.47.0 — an affordability answer that fits goes out as the card, with the engine's figures.
+    if (turn.intentId === 'forecast.affordability' && turn.resolved?.outcome === 'fits' && turn.resolved.amounts
+        && await affordabilityCard(supabase, profile, rows, turn.resolved.amounts)) {
+      return { status: 'done' };
+    }
     rendered = renderForWhatsApp(turn, APP_URL);
     allowed = turn.allowedFigures ?? [];
   } catch (e) {
@@ -1102,4 +1123,131 @@ async function askPending(
     profile_id: profileId, household_id: householdId, kind, payload,
     expires_at: new Date(Date.now() + PENDING_MINUTES * 60_000).toISOString(),
   });
+}
+
+// ── v10.47.0 (W6b) — replies for the templates that got senders ─────────────────
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** "Undo" / "Pause this one" on recurring_auto_logged (payload context `rec:<txnId>`). */
+async function recurringButton(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, label: string, context: string, sentAt: number,
+): Promise<InboundOutcome> {
+  const txnId = /^rec:(.+)$/.exec(context)?.[1] ?? '';
+  if (!UUID.test(txnId)) return { status: 'done', note: await reply(fromPhone, unsupportedButtonReply(APP_URL)) };
+  const householdId = profile.whatsapp_household_id!;
+  if (label === 'Undo') {
+    if (Number.isFinite(sentAt) && Date.now() - sentAt > RECURRING_UNDO_MINUTES * 60_000) {
+      return { status: 'done', note: await reply(fromPhone, RECURRING_TOO_LATE) };
+    }
+    const { data, error } = await supabase.rpc('whatsapp_undo_recurring_post', {
+      p_profile_id: profile.id, p_household_id: householdId, p_wa_message_id: message.id, p_txn_id: txnId,
+    });
+    if (error) return retryOrGiveUp(fromPhone, 0, `undo recurring: ${error.message}`);
+    const r = (data ?? {}) as { status?: string; description?: string; amount?: number; currency?: string; date?: string };
+    if (r.status === 'duplicate') return { status: 'done' };
+    const body = blockedReply(r.status)
+      ?? (r.status === 'undone' ? recurringUndoneReply(r.description || 'That entry', Number(r.amount), r.currency ?? 'INR', String(r.date))
+        : r.status === 'edited' ? "That entry has been changed in the app since, so I've left it."
+        : "That entry isn't there any more, so there's nothing to undo.");
+    return { status: 'done', note: await reply(fromPhone, body) };
+  }
+  if (label === 'Pause this one') {
+    const { data: txn } = await supabase.from('transactions').select('recurring_schedule_id')
+      .eq('id', txnId).eq('household_id', householdId).maybeSingle();
+    const scheduleId = (txn as { recurring_schedule_id?: string } | null)?.recurring_schedule_id;
+    if (!scheduleId) return { status: 'done', note: await reply(fromPhone, "I couldn't find that schedule. You can pause it in the app, under Recurring.") };
+    const { data, error } = await supabase.rpc('whatsapp_pause_schedule', {
+      p_profile_id: profile.id, p_household_id: householdId, p_wa_message_id: message.id, p_schedule_id: scheduleId,
+    });
+    if (error) return retryOrGiveUp(fromPhone, 0, `pause schedule: ${error.message}`);
+    const r = (data ?? {}) as { status?: string; name?: string };
+    if (r.status === 'duplicate') return { status: 'done' };
+    const body = blockedReply(r.status)
+      ?? (r.status === 'paused' || r.status === 'already_paused' ? pausedReply(r.name ?? 'that schedule', r.status === 'already_paused')
+        : "I couldn't find that schedule. You can pause it in the app, under Recurring.");
+    return { status: 'done', note: await reply(fromPhone, body) };
+  }
+  return { status: 'done', note: await reply(fromPhone, unsupportedButtonReply(APP_URL)) };
+}
+
+/** The logger's usual split partner: email, and a first name when it is a Vyact account. */
+async function usualSplitPartner(supabase: SupabaseClient, profileId: string): Promise<{ email: string; name: string | null } | null> {
+  const { data } = await supabase.rpc('whatsapp_usual_split_partner', { p_profile_id: profileId });
+  const row = ((data ?? []) as { email: string; first_name: string | null }[])[0];
+  return row?.email ? { email: row.email, name: row.first_name } : null;
+}
+
+/** The three buttons of partner_split_prompt (payload context `ps:<txnId>`). */
+async function partnerSplitButton(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, label: string, context: string,
+): Promise<InboundOutcome> {
+  const txnId = /^ps:(.+)$/.exec(context)?.[1] ?? '';
+  if (!UUID.test(txnId)) return { status: 'done', note: await reply(fromPhone, unsupportedButtonReply(APP_URL)) };
+  const householdId = profile.whatsapp_household_id!;
+  const { data: txn } = await supabase.from('transactions').select('amount, currency, description, category, deleted_at')
+    .eq('id', txnId).eq('household_id', householdId).maybeSingle();
+  const t = txn as { amount: number | string; currency: string; description: string | null; category: string | null; deleted_at: string | null } | null;
+  if (!t || t.deleted_at) return { status: 'done', note: await reply(fromPhone, SPLIT_REFUSED.gone) };
+  const what = (t.description || CAT_LABEL[t.category ?? ''] || 'that spend').trim();
+  const currency = String(t.currency).trim();
+  if (label === "It's all mine" || label === 'Not shared') {
+    return { status: 'done', note: await reply(fromPhone, keptAsYoursReply(Number(t.amount), what, currency)) };
+  }
+  if (label !== 'Split 50/50') return { status: 'done', note: await reply(fromPhone, unsupportedButtonReply(APP_URL)) };
+  const partner = await usualSplitPartner(supabase, profile.id);
+  if (!partner) return { status: 'done', note: await reply(fromPhone, SPLIT_REFUSED.no_partner) };
+  const even = evenSplit(Number(t.amount), partner);
+  const { data, error } = await supabase.rpc('whatsapp_split_even', {
+    p_profile_id: profile.id, p_household_id: householdId, p_wa_message_id: message.id, p_txn_id: txnId,
+    p_partner_email: partner.email, p_split: even.split, p_partner_share: even.partnerShare,
+  });
+  if (error) return retryOrGiveUp(fromPhone, 0, `split: ${error.message}`);
+  const r = (data ?? {}) as { status?: string };
+  if (r.status === 'duplicate') return { status: 'done' };
+  const body = blockedReply(r.status)
+    ?? (r.status === 'split' ? splitDoneReply(what, even.yourShare, even.partnerShare, partner.name || partner.email.split('@')[0], currency)
+      : SPLIT_REFUSED[r.status ?? ''] ?? "I couldn't split that. You can do it in the app, under Splits.");
+  return { status: 'done', note: await reply(fromPhone, body) };
+}
+
+/**
+ * "1200 dinner shared" → after the entry is logged, ask its logger how to split it
+ * (partner_split_prompt, {{1}} = "You"). Only with a usual split partner to split
+ * with, and only in INR (the body says ₹). Never blocks the log itself.
+ */
+async function promptSplit(supabase: SupabaseClient, fromPhone: string, profile: Profile, r: any, tx: ParsedTx): Promise<void> {
+  if (tx.transaction_type !== 'expense' || !r?.transaction_id || String(r.currency ?? tx.currency).trim() !== 'INR') return;
+  if (!(await usualSplitPartner(supabase, profile.id))) {
+    await reply(fromPhone, SPLIT_REFUSED.no_partner);
+    return;
+  }
+  const what = String(tx.description || CAT_LABEL[tx.category_id ?? ''] || 'this spend').trim();
+  await guardedSend(supabase, {
+    def: TEMPLATES.partner_split_prompt, event: 'partner_split_prompt',
+    householdId: profile.whatsapp_household_id!, toProfileId: profile.id,
+    values: ['You', amountText(Number(r.amount ?? tx.amount)), what], dedupeKey: `ps:${r.transaction_id}`, caller: 'webhook',
+  });
+}
+
+/**
+ * v10.47.0 — "can I afford X" that fits → the affordability card (affordability_reply)
+ * with the engine's own figures, instead of plain text. True when the card was sent;
+ * otherwise the caller sends the text answer as before.
+ */
+async function affordabilityCard(
+  supabase: SupabaseClient, profile: Profile, rows: { profile?: { display_name?: string | null }; household?: { base_currency?: string | null } },
+  amounts: Record<string, number>,
+): Promise<boolean> {
+  if (String(rows.household?.base_currency ?? '').trim() !== 'INR') return false;
+  const first = String(rows.profile?.display_name ?? '').trim().split(/\s+/)[0];
+  const { purchase, cushion, floor } = amounts;
+  if (!first || !(purchase > 0) || !(cushion >= 0) || !(floor >= 0)) return false;
+  const res = await guardedSend(supabase, {
+    def: TEMPLATES.affordability_reply, event: 'affordability_reply',
+    householdId: profile.whatsapp_household_id!, toProfileId: profile.id,
+    values: [first, amountText(purchase), amountText(cushion), amountText(floor)],
+    dedupeKey: `aff:${purchase}:${Date.now().toString(36)}`, caller: 'webhook',
+  });
+  return res.status === 'sent';
 }

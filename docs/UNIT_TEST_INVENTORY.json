@@ -2148,13 +2148,55 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/whatsappTemplateSenders.test.ts",
+      "feature": "WhatsApp dispatch",
+      "availability": "conditional",
+      "layer": "contract-unit",
+      "owner": "consent / STOP / scheduler rules / follow-up conversations / whatsapp-dispatch handler (not a live cron run)",
+      "count": 12,
+      "tests": [
+        "W6b replies CON-UNIT-W6B-008 · \"shared\" on a capture is recognised as a whole word and removed before parsing",
+        "W6b replies CON-UNIT-W6B-009 · the 50/50 split is the app's split: only your half counts, the shares add to the total",
+        "W6b replies CON-UNIT-W6B-010 · recurring Undo / Pause replies read as the board; \"Show the working\" asks Pip about that amount",
+        "W6b replies CON-UNIT-W6B-011 · the runway snapshot is the engine's own forecast, and names the category that fell most",
+        "W6b senders CON-UNIT-W6B-001 · split_shared_with_you: each new INR share → the linked participant, owner named, amounts without ₹",
+        "W6b senders CON-UNIT-W6B-002 · recurring_auto_logged: only a self-posting schedule, to its owner, keyed by the entry for Undo",
+        "W6b senders CON-UNIT-W6B-003 · payday: steady pay → payday_headroom; 5%+ off the median → the variable one; no bills or no room → nothing",
+        "W6b senders CON-UNIT-W6B-004 · digest: households of two+, today only, private and transfers out, split at your share, \"you\" for the reader",
+        "W6b senders CON-UNIT-W6B-005 · month close: on the 1st, last month vs the one before, biggest slice, days with an entry",
+        "W6b senders CON-UNIT-W6B-006 · budget set-up: exactly two days before a month with no budget, to owners/admins given",
+        "W6b senders CON-UNIT-W6B-007 · runway: silent baseline, then only a 0.5-month change, at most once a month, the right variant",
+        "the question that was logged as a spend (found by the 26 Sep validation) CON-UNIT-W6B-015 · \"can I afford 40000 for a phone?\" is a question, never a ₹40,000 entry; a leading amount is still a log"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/whatsappTemplateValidation.test.ts",
+      "feature": "WhatsApp dispatch",
+      "availability": "conditional",
+      "layer": "contract-unit",
+      "owner": "consent / STOP / scheduler rules / follow-up conversations / whatsapp-dispatch handler (not a live cron run)",
+      "count": 5,
+      "tests": [
+        "every template, on every layer CON-UNIT-WA-V-001 · every template belongs to a topic, and its STOP footer stops that topic",
+        "every template, on every layer CON-UNIT-WA-V-002 · every header image exists in react/public/whatsapp (served at vyact.app/whatsapp)",
+        "every template, on every layer CON-UNIT-WA-V-003 · every template has a sender in the code — none is approved but never sent",
+        "every template, on every layer CON-UNIT-WA-V-004 · every quick reply is answered: by the reply table, by Pip, or by a named webhook handler",
+        "every template, on every layer CON-UNIT-WA-V-005 · every marketing template tells the reader how to stop it (weekly_summary: after its link edit)"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/whatsappWorkflow.test.ts",
       "feature": "WhatsApp handlers",
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 44,
+      "count": 47,
       "tests": [
+        "W6b template replies in the webhook CON-UNIT-W6B-012 · recurring Undo within 15 minutes removes that entry; Pause pauses its schedule; a late Undo is refused",
+        "W6b template replies in the webhook CON-UNIT-W6B-013 · \"1200 dinner shared\" logs it, then prompts the logger; Split 50/50 writes the app's split for the usual partner",
+        "W6b template replies in the webhook CON-UNIT-W6B-014 · an affordability answer that fits goes out as the card with the engine's figures, not as text",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-W5-013 · \"Already paid\" on an overdue reminder approves THAT occurrence through the same atomic path",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-003 · \"paid rent\" after a reminder approves THAT occurrence with the app’s row and next date",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder \"paid X\" is an ordinary entry",

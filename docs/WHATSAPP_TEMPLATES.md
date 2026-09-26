@@ -58,6 +58,38 @@ The runbook's 15 Aug "In review" for the original nine was stale: on 24 Sep all 
 **Marketing** templates are sent only to people who have opted in to marketing messages
 (`whatsapp-notify` refuses them until the W2 consent record exists).
 
+## Validation (26 Sep 2026, v10.47.0)
+
+Live samples went to the owner's number (+91 97405 56606) through `whatsapp-notify` with the service key; delivery is from Meta's status callbacks (`delivery_status`).
+
+| Template | Meta | Sender in code | Buttons answered | Live sample |
+|---|---|---|---|---|
+| `bill_due_reminder` | Active | dispatch `bills` | Mark as paid, Remind me tomorrow | Delivered |
+| `bill_overdue_reminder` | Active | dispatch `bills` | Already paid | Delivered |
+| `split_settled` | Active | dispatch `alerts` | — | Delivered |
+| `split_shared_with_you` | Active | dispatch `alerts` (**new, W6b**) | — | Delivered |
+| `large_transaction_alert` | Active | dispatch `alerts` | — | Delivered |
+| `budget_threshold_alert` | Active | dispatch `alerts` | yes | Delivered |
+| `payday_headroom` / `_variable` | Active | dispatch `alerts` (**new, W6b**) | yes | Delivered / Delivered |
+| `household_daily_digest` | Active | dispatch `digest` (**new, W6b**, 15:00 UTC) | — | Delivered |
+| `month_close_summary` | Active | dispatch `monthly` on the 1st (**new, W6b**) | — | Delivered |
+| `budget_setup_reminder` | Active | dispatch `monthly`, 2 days before month end (**new, W6b**) | — | Delivered |
+| `runway_shift_alert` | Active | dispatch `monthly` (**new, W6b**; first reading is a silent baseline) | yes | Delivered |
+| `runway_recovered_alert` | In review | dispatch `monthly` (**new, W6b**) | yes | Not sendable until approved |
+| `balance_stale_nudge` | Active | dispatch `weekly` | UPDATE (typed) | Delivered |
+| `reengagement_nudge_quiet` | Active | dispatch `weekly` | LOG | Delivered |
+| `reengagement_nudge` | Edit in review | dispatch `weekly` | Name them here | Held until the edit is approved |
+| `weekly_summary` | Link edit in review | dispatch `weekly` | — | Delivered 15:05 (before the edit) |
+| `partner_split_prompt` | Active | webhook: an expense logged with "shared" (**new, W6b**) | Split 50/50, It's all mine, Not shared | Delivered |
+| `recurring_auto_logged` | Image edit in review | dispatch `alerts` for auto-confirm schedules (**new, W6b**) | Undo (15 min), Pause | Held until the edit is approved |
+| `affordability_reply` | Active | webhook: a "can I afford" answer that fits (**new, W6b**) | Show the working | **Accepted by Meta, no delivery receipt** — owner to check the phone |
+| `whatsapp_welcome` | Active | `whatsapp-verify-otp` after linking | yes | Delivered |
+| `phone_verification_otp` | Does not exist | `whatsapp-send-otp` now says "not available yet" (503 `otp_unavailable`) | — | Blocked on Meta business verification |
+
+**Bugs found and fixed in v10.47.0:** "can I afford 40000 for a phone?" was logged as a ₹40,000 spend (parser); the outbound audit row recorded `result: {sent:false}` on a successful send; linking by code failed with a raw error while the OTP template does not exist; Settings had no insights consent, so payday/digest/runway could never be switched on in the app.
+
+**Open (owner / Meta):** approvals for the four templates in review, then add each to `WHATSAPP_APPROVED_TEMPLATES` after a field check; the `balance_stale_nudge` UPDATE button edit (now possible); the `weekly_summary` STOP footer after its approval; the Vault secret `whatsapp_dispatch_secret` + `WHATSAPP_DISPATCH_SECRET` before anything scheduled goes out; Meta business verification for linking.
+
 ## Bodies as submitted
 
 Variables are numbered in reading order. The sample values are the ones Meta reviewed.

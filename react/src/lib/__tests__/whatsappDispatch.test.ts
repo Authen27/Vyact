@@ -239,6 +239,7 @@ describe('the dispatcher', () => {
       }
       throw new Error(`Unexpected table ${table}`);
     });
+    api.rpc.mockResolvedValue({ data: [], error: null });   // W6b: no new shared splits
     const res = await handler(new Request('https://edge.example.com/dispatch?job=alerts', { method: 'POST', headers: { 'x-dispatch-secret': 's3cret' } }));
     const out = await res.json();
     expect(out).toEqual(expect.objectContaining({ status: 'ok', job: 'alerts', planned: 1, results: { 'skipped:outbound_disabled': 1 }, problems: [] }));

@@ -882,3 +882,93 @@ describe('WhatsApp follow-up conversations (W6)', () => {
     expect(sentTexts()[0]).toMatch(/^Two entries this month have no category/);
   });
 });
+
+// ── v10.47.0 (W6b) — the replies of the templates that got senders ──────────────
+describe('W6b template replies in the webhook', () => {
+  const ENABLED = { WHATSAPP_OUTBOUND_ENABLED: 'true', WHATSAPP_APPROVED_TEMPLATES: 'partner_split_prompt,affordability_reply' };
+  const TXN = '11111111-2222-4333-8444-555555555555';
+  const post = async (handler: (r: Request) => Promise<Response>, message: Record<string, unknown>) => {
+    const body = JSON.stringify({ entry: [{ changes: [{ value: { messages: [
+      { from: '111', timestamp: String(Math.floor(Date.now() / 1000)), ...message }] } }] }] });
+    return handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+  };
+  const templateSends = () => vi.mocked(fetch).mock.calls
+    .map(([, o]) => JSON.parse(String(o?.body)))
+    .filter((b) => b?.type === 'template')
+    .map((b) => ({ name: b.template.name, body: b.template.components.find((c: { type: string }) => c.type === 'body')?.parameters.map((p: { text: string }) => p.text) }));
+  function tables(opts: { sentMinutesAgo?: number; txn?: Record<string, unknown> } = {}) {
+    api.from.mockImplementation((table: string) => {
+      if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house', phone_number: '111' });
+      if (table === 'memberships') return queryResult({ role: 'owner' });
+      if (table === 'profiles') return queryResult({ display_name: 'Rohan' });
+      if (table === 'accounts') return queryResult([{ name: 'HDFC', kind: 'bank', currency: 'INR' }]);
+      if (table === 'assets') return queryResult([]);
+      if (table === 'whatsapp_preferences') return queryResult({ reads_enabled: true, marketing_opt_in: false, insights_opt_in: false, muted_topics: [], large_txn_threshold: 10000 });
+      if (table === 'whatsapp_pending_turns') return queryResult(null);
+      if (table === 'transactions') return queryResult(opts.txn ?? []);
+      if (table === 'whatsapp_inbound_messages') {
+        const q = queryResult([{ wa_message_id: 'm-1', attempts: 0 }], null, 0);
+        q.maybeSingle.mockReturnValue(queryResult({ created_at: new Date(Date.now() - (opts.sentMinutesAgo ?? 1) * 60_000).toISOString() }));
+        return q;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+  }
+
+  it('CON-UNIT-W6B-012 · recurring Undo within 15 minutes removes that entry; Pause pauses its schedule; a late Undo is refused', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    tables({ txn: { recurring_schedule_id: 'sched-1' } });
+    api.rpc.mockImplementation(async (name: string) => ({ error: null, data:
+      name === 'whatsapp_undo_recurring_post' ? { status: 'undone', description: 'Netflix', amount: 649, currency: 'INR', date: '2026-08-01' }
+      : name === 'whatsapp_pause_schedule' ? { status: 'paused', name: 'Netflix' } : null }));
+    await post(handler, { id: 'm-1', type: 'button', context: { id: 'wamid.X' }, button: { payload: `recurring_auto_logged:0:rec:${TXN}`, text: 'Undo' } });
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_undo_recurring_post', { p_profile_id: 'alice', p_household_id: 'alice-house', p_wa_message_id: 'm-1', p_txn_id: TXN });
+    expect(sentTexts()[0]).toBe('Undone. Netflix ₹649 for 1 Aug is removed. The schedule stays on for next month.');
+    vi.mocked(fetch).mockClear();
+    await post(handler, { id: 'm-2', type: 'button', context: { id: 'wamid.X' }, button: { payload: `recurring_auto_logged:1:rec:${TXN}`, text: 'Pause this one' } });
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_pause_schedule', { p_profile_id: 'alice', p_household_id: 'alice-house', p_wa_message_id: 'm-2', p_schedule_id: 'sched-1' });
+    expect(sentTexts()[0]).toBe('Paused Netflix. Nothing more will post until you turn it back on in Recurring.');
+    vi.mocked(fetch).mockClear();
+    api.rpc.mockClear();
+    tables({ sentMinutesAgo: 30 });
+    await post(handler, { id: 'm-3', type: 'button', context: { id: 'wamid.X' }, button: { payload: `recurring_auto_logged:0:rec:${TXN}`, text: 'Undo' } });
+    expect(api.rpc).not.toHaveBeenCalledWith('whatsapp_undo_recurring_post', expect.anything());
+    expect(sentTexts()[0]).toMatch(/^That's past the 15 minutes/);
+  });
+
+  it('CON-UNIT-W6B-013 · "1200 dinner shared" logs it, then prompts the logger; Split 50/50 writes the app\'s split for the usual partner', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'), ENABLED);
+    tables({ txn: { amount: 1200, currency: 'INR', description: 'dinner', category: 'food_dining', deleted_at: null } });
+    api.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => ({ error: null, data:
+      name === 'whatsapp_log_transaction' ? { status: 'success', transaction_id: TXN, amount: args.p_amount, currency: 'INR', type: 'expense', category_id: 'food_dining', account_name: 'HDFC' }
+      : name === 'whatsapp_usual_split_partner' ? [{ email: 'priya@example.com', first_name: 'Priya', times: 3 }]
+      : name === 'whatsapp_split_even' ? { status: 'split' } : null }));
+    await post(handler, { id: 'm-1', text: { body: '1200 dinner shared' } });
+    const logged = api.rpc.mock.calls.find(([n]) => n === 'whatsapp_log_transaction')![1] as Record<string, unknown>;
+    expect(logged).toEqual(expect.objectContaining({ p_amount: 1200 }));
+    expect(String(logged.p_description ?? '')).not.toMatch(/shared/i);
+    expect(templateSends()).toEqual([{ name: 'partner_split_prompt', body: ['You', '1,200', expect.any(String)] }]);
+    vi.mocked(fetch).mockClear();
+    await post(handler, { id: 'm-2', type: 'button', button: { payload: `partner_split_prompt:0:ps:${TXN}`, text: 'Split 50/50' } });
+    const split = api.rpc.mock.calls.find(([n]) => n === 'whatsapp_split_even')![1] as Record<string, any>;
+    expect(split).toEqual(expect.objectContaining({ p_txn_id: TXN, p_partner_email: 'priya@example.com', p_partner_share: 600 }));
+    expect(split.p_split).toEqual(expect.objectContaining({ isSplit: true, totalAmount: 1200, yourShare: 600, paidBy: 'me' }));
+    expect(sentTexts()[0]).toBe("Split. Your share of dinner is ₹600, and so is Priya's. It's under Splits in Vyact.");
+    vi.mocked(fetch).mockClear();
+    await post(handler, { id: 'm-3', type: 'button', button: { payload: `partner_split_prompt:2:ps:${TXN}`, text: 'Not shared' } });
+    expect(sentTexts()[0]).toBe('Kept as yours: ₹1,200 for dinner.');
+  });
+
+  it('CON-UNIT-W6B-014 · an affordability answer that fits goes out as the card with the engine\'s figures, not as text', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'), ENABLED);
+    tables();
+    engine.loadHouseholdRows.mockResolvedValue({ profile: { display_name: 'Rohan Mehta' }, household: { base_currency: 'INR' } });
+    engine.serverModelCall.mockReturnValue(async () => 'unused');
+    engine.answerOnServer.mockResolvedValue({ reply: 'It fits.', intentId: 'forecast.affordability',
+      resolved: { outcome: 'fits', amounts: { purchase: 40000, cushion: 4300, floor: 50000, free_to_spend: 94300 } } });
+    api.rpc.mockResolvedValue({ error: null, data: null });
+    await post(handler, { id: 'm-1', text: { body: 'can I afford 40000 for a phone?' } });
+    expect(templateSends()).toEqual([{ name: 'affordability_reply', body: ['Rohan', '40,000', '4,300', '50,000'] }]);
+    expect(sentTexts().filter(Boolean)).toEqual([]);
+  });
+});

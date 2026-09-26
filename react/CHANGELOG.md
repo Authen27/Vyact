@@ -64,7 +64,21 @@ Two follow-up conversations on WhatsApp, designed on the receptionist canvas and
   `balance_stale_nudge` gets its UPDATE button once Meta approves the current version (Meta
   locks a template while its first review is pending); typing UPDATE already works.
 
-Tests: CON-UNIT-W6-001…011 (the parser, list and reply copy, engine parity with the app's
+- **Every template now has a sender (W6b).** New rules in `whatsapp-dispatch`: shared-with-you,
+  auto-logged recurring (Undo within 15 minutes, Pause), payday headroom (steady and variable), the
+  household daily digest (new `digest` job, 15:00 UTC), month close, budget setup and the runway
+  shift/recovered notes (new `monthly` job; the first runway reading is a silent baseline kept in
+  `whatsapp_rule_state`). In the chat: an expense logged with "shared" asks the logger to split it
+  50/50 with their usual split partner; a "can I afford" answer that fits comes as the
+  `affordability_reply` card. Migration `20261002120000_w6b_whatsapp_template_senders.sql`,
+  validated on production in a rolled-back block (split, replay, already split, undo, pause, cron jobs).
+- **Fixes from the 26 Sep template validation:** "can I afford 40000 for a phone?" was logged as a
+  ₹40,000 spend; the outbound audit row said `sent:false` on a successful send; linking by code now
+  says it is not available yet (Meta verification) instead of failing; Settings › WhatsApp gains the
+  **Insights about my money** consent and its topic mutes. Per-template status:
+  `docs/WHATSAPP_TEMPLATES.md` › Validation.
+
+Tests: CON-UNIT-W6B-001…015, WA-V-001…005, CON-UNIT-W6-001…011 (the parser, list and reply copy, engine parity with the app's
 reconcile in both the source and the bundle, the card-owed rule, SAME, the nudge rule, and the
 webhook conversations end to end).
 

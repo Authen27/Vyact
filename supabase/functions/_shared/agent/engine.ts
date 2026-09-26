@@ -28,6 +28,8 @@ export interface EngineTurn {
   allowedFigures?: string[];
   seed?: unknown;
   recurringSeed?: unknown;
+  /** v10.47.0 — what resolve() decided (see EngineResolved). */
+  resolved?: EngineResolved;
 }
 
 export interface WhatsAppAnswer { text: string; chipPrompts: string[] }
@@ -53,3 +55,10 @@ export const balancesToCheck = generated.balancesToCheck as (rows: HouseholdRows
 export const reconcileOnServer = generated.reconcileOnServer as (
   rows: HouseholdRows, accountId: string, stated: number | 'same', at: string,
 ) => ReconcilePlan | null;
+
+// ── Runway (W6b, v10.47.0) ───────────────────────────────────────────────────
+export interface RunwaySnapshot { months: number | null; quieterCategory: string | null }
+export const runwaySnapshot = generated.runwaySnapshot as (rows: HouseholdRows, now: Date) => RunwaySnapshot;
+
+/** What resolve() decided for a turn (v10.47.0): the affordability card reads its amounts. */
+export interface EngineResolved { outcome: string; amounts?: Record<string, number> }

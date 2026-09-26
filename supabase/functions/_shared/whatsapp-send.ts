@@ -86,6 +86,9 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
   }
 
   const cleaned = req.values.map((v) => cleanParam(v));
+  // v10.47.0 — the payload's `result` is rewritten when the send settles; it used to
+  // keep the claim's { sent: false } on a message Meta had delivered.
+  const payloadWith = (result: Record<string, unknown>) => ({ event, templateName: template, params: cleaned, caller: req.caller, result });
   const audit = (id: string, status: string, result: Record<string, unknown>) =>
     admin.from('whatsapp_inbound_messages').insert({
       wa_message_id: id,
@@ -95,7 +98,7 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
       // Outbound audit rows are never inbox work: an explicit status keeps them
       // out of the replay sweep, which would otherwise see them as 'pending'.
       status,
-      payload: { event, templateName: template, params: cleaned, caller: req.caller, result },
+      payload: payloadWith(result),
       processed_at: new Date().toISOString(),
     });
 
@@ -140,12 +143,12 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
     wamid = await sendTemplateMessage(recipient.phone_number, def, cleaned, { appUrl: APP_URL, context: key });
   } catch (e) {
     await admin.from('whatsapp_inbound_messages')
-      .update({ status: 'failed', last_error: (e as Error)?.message ?? String(e) })
+      .update({ status: 'failed', last_error: (e as Error)?.message ?? String(e), payload: payloadWith({ sent: false, reason: 'meta_error' }) })
       .eq('wa_message_id', slot);
     return { status: 'failed', reason: 'meta_error', template };
   }
   await admin.from('whatsapp_inbound_messages')
-    .update({ status: 'sent', provider_message_id: wamid, delivery_status: wamid ? 'accepted' : null })
+    .update({ status: 'sent', provider_message_id: wamid, delivery_status: wamid ? 'accepted' : null, payload: payloadWith({ sent: true }) })
     .eq('wa_message_id', slot);
   return { status: 'sent', template };
 }

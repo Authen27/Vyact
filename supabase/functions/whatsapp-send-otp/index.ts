@@ -64,7 +64,15 @@ Deno.serve(async (req: Request) => {
   try {
     await sendTemplate(e164, 'phone_verification_otp', [otp]);
   } catch (e) {
-    return json({ error: 'dispatch_failed', detail: (e as Error).message }, 502);
+    // v10.47.0 — the code template does not exist yet: Meta approves authentication
+    // templates only after business verification (132001 = template not found). Say
+    // so, and drop the code that can never arrive, instead of a bare "dispatch_failed".
+    const detail = (e as Error).message;
+    if (/132001|template name|does not exist/i.test(detail)) {
+      await admin.from('whatsapp_verification_otps').delete().eq('profile_id', user.id).eq('phone_number', e164);
+      return json({ error: 'otp_unavailable' }, 503);
+    }
+    return json({ error: 'dispatch_failed', detail }, 502);
   }
   return json({ status: 'sent', expiresInSeconds: OTP_TTL_MS / 1000 });
 });

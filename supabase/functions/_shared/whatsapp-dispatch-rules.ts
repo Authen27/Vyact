@@ -14,7 +14,7 @@
 //   • templates with "₹" in the approved text go only to INR households;
 //   • a private (excluded) transaction is never announced to anyone.
 
-import { spendByCategoryInRange, reportableTxns, type Transaction } from './money/calculations.ts';
+import { spendByCategoryInRange, reportableTxns, effectiveAmount, type Transaction } from './money/calculations.ts';
 
 /** MUST mirror react/src/constants.ts EXPENSE_CATEGORIES labels (parity test: WA-D-001). */
 export const EXPENSE_LABEL: Record<string, string> = {
@@ -364,4 +364,231 @@ export function isoWeek(day: string): string {
   const firstThu = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
   const week = 1 + Math.round(((d.getTime() - firstThu.getTime()) / 86_400_000 - 3 + ((firstThu.getUTCDay() + 6) % 7)) / 7);
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+// ── W6b (v10.47.0) — senders for the approved templates that had none ────────────
+//
+// Each rule is pure and states its trigger in one line. Every one sends only what it
+// can state truly: ₹ templates go to INR only, a household with any foreign-currency
+// row in the figures is skipped, and a private (excluded) entry is never counted or
+// announced. guardedSend then applies consent (insights / marketing), mutes, the
+// approval list, the daily cap and the dedupe slot.
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "2026-09" → "September". */
+export function monthName(ym: string): string {
+  return MONTH_NAMES[Number(ym.slice(5, 7)) - 1] ?? ym;
+}
+
+function daysInMonth(ym: string): number {
+  return new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
+}
+
+function addMonths(ym: string, n: number): string {
+  const d = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+}
+
+function isInr(c: string | null | undefined): boolean { return String(c ?? '').trim() === 'INR'; }
+
+/** A row the household's totals count: reportable and not private. */
+function counted(r: TxnRow): boolean {
+  return !r.extras?.excluded && reportableTxns([rowToTxn(r)]).length === 1;
+}
+
+/** What the row adds to spending: the person's share for a split, else the amount. */
+function spendOf(r: TxnRow): number {
+  return effectiveAmount(rowToTxn(r), String(r.currency).trim(), {});
+}
+
+// ── split_shared_with_you: a split someone shared with you (alerts job) ──────────
+export interface ShareRecipientRow {
+  share_id: string; share: number | string; split_id: string; description: string; currency: string;
+  total_amount: number | string; owner_user_id: string; recipient_profile_id: string; recipient_household_id: string;
+}
+
+/** Each new share of an INR split → the participant whose number is linked. */
+export function splitSharedAlerts(rows: ShareRecipientRow[], ownerNames: Record<string, string>): PlannedSend[] {
+  return rows.filter((r) => isInr(r.currency) && Number(r.share) > 0).map((r) => ({
+    template: 'split_shared_with_you', householdId: r.recipient_household_id, toProfileId: r.recipient_profile_id,
+    values: [ownerNames[r.owner_user_id] || 'Someone', amountText(Number(r.total_amount)), String(r.description ?? '').trim() || 'a shared expense', amountText(Number(r.share))],
+    dedupeKey: `share:${r.share_id}`,
+  }));
+}
+
+// ── recurring_auto_logged: a schedule that posts itself just did (alerts job) ──────
+export interface ScheduleRow { id: string; auto_confirm: boolean; created_by: string | null; txn_template?: { description?: string } | null }
+
+/**
+ * An entry the recurring engine posted (it carries recurring_schedule_id) for a
+ * schedule that posts WITHOUT approval → the schedule's owner, once. Approval
+ * schedules are announced by the bill reminder instead. The dedupe key doubles as
+ * the button payload, so "Undo" and "Pause this one" know the entry.
+ */
+export function recurringLoggedAlerts(input: {
+  household: Household; posted: TxnRow[]; schedules: ScheduleRow[]; members: Member[];
+}): PlannedSend[] {
+  if (!isInr(input.household.base_currency)) return [];
+  const byId = new Map(input.schedules.map((s) => [s.id, s]));
+  const linked = new Set(input.members.map((m) => m.profile_id));
+  const out: PlannedSend[] = [];
+  for (const r of input.posted) {
+    const s = r.recurring_schedule_id ? byId.get(r.recurring_schedule_id) : undefined;
+    if (!s || !s.auto_confirm || r.type !== 'expense' || !isInr(r.currency) || r.extras?.excluded) continue;
+    const to = [s.created_by, r.created_by].find((p): p is string => !!p && linked.has(p));
+    if (!to) continue;
+    const name = String(s.txn_template?.description || r.description || EXPENSE_LABEL[r.category ?? ''] || 'scheduled payment').trim();
+    out.push({
+      template: 'recurring_auto_logged', householdId: input.household.id, toProfileId: to,
+      values: [name, amountText(Number(r.amount)), dueDayText(r.date)], dedupeKey: `rec:${r.id}`,
+    });
+  }
+  return out;
+}
+
+// ── payday_headroom / payday_headroom_variable: a salary landed today (alerts job) ─
+export interface FixedBills { count: number; total: number }
+
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/**
+ * A salary dated today → its earner (if linked). Headroom = income − the household's
+ * fixed monthly bills (active monthly expense schedules, at their template amounts:
+ * "at last month's amounts"). Steady pay → payday_headroom; pay that differs from the
+ * median of earlier salaries by 5% or more → payday_headroom_variable, which says by
+ * how much. No fixed bills, or no room left, → nothing (the copy would be untrue).
+ */
+export function paydayAlerts(input: {
+  household: Household; today: string; salaries: TxnRow[]; earlier: number[]; bills: FixedBills; members: Member[];
+}): PlannedSend[] {
+  if (!isInr(input.household.base_currency) || input.bills.count < 1) return [];
+  const out: PlannedSend[] = [];
+  for (const r of input.salaries) {
+    if (r.type !== 'income' || r.category !== 'salary' || r.date !== input.today || !isInr(r.currency) || r.extras?.excluded) continue;
+    const member = input.members.find((m) => m.profile_id === r.created_by);
+    if (!member?.first_name) continue;
+    const income = Number(r.amount);
+    const headroom = Math.round((income - input.bills.total) * 100) / 100;
+    if (!(headroom > 0)) continue;
+    const base = { householdId: input.household.id, toProfileId: member.profile_id, dedupeKey: `payday:${r.id}` };
+    const usual = input.earlier.length >= 2 ? median(input.earlier) : null;
+    const diff = usual ? Math.round((income - usual) * 100) / 100 : 0;
+    if (usual && Math.abs(diff) >= usual * 0.05) {
+      out.push({ ...base, template: 'payday_headroom_variable', values: [
+        member.first_name, amountText(income), `${moneyText(Math.abs(diff), 'INR')} ${diff > 0 ? 'more' : 'less'}`,
+        amountText(headroom), countWord(input.bills.count), amountText(input.bills.total),
+      ] });
+    } else {
+      out.push({ ...base, template: 'payday_headroom', values: [
+        member.first_name, amountText(income), amountText(headroom), countWord(input.bills.count), amountText(input.bills.total),
+      ] });
+    }
+  }
+  return out;
+}
+
+// ── household_daily_digest: the evening digest (digest job, 20:30 IST) ────────────
+/**
+ * One message a day per member, never one per spend, and only for a household of two
+ * or more (a digest of your own spending is just your spending). The total and the
+ * per-member line count what the app's totals count: no private entries, no
+ * transfers, a split at your share. Nothing logged today → nothing sent (the quiet-day
+ * variant was never approved).
+ */
+export function dailyDigest(input: {
+  household: Household; today: string; txns: TxnRow[]; members: Member[]; names: Record<string, string>; memberCount: number;
+}): PlannedSend[] {
+  if (input.memberCount < 2 || !isInr(input.household.base_currency)) return [];
+  const rows = input.txns.filter((r) => r.date === input.today && r.type === 'expense' && counted(r));
+  if (!rows.length || rows.some((r) => !isInr(r.currency))) return [];
+  const byPerson = new Map<string, number>();
+  for (const r of rows) byPerson.set(r.created_by ?? '', (byPerson.get(r.created_by ?? '') ?? 0) + spendOf(r));
+  const total = Math.round([...byPerson.values()].reduce((a, b) => a + b, 0) * 100) / 100;
+  const out: PlannedSend[] = [];
+  for (const m of input.members) {
+    if (!m.first_name) continue;
+    const ranked = [...byPerson.entries()].sort((a, b) => b[1] - a[1]);
+    const shown = ranked.slice(0, 4).map(([id, amt]) =>
+      `${id === m.profile_id ? 'you' : (input.names[id] || 'someone')} ${moneyText(Math.round(amt * 100) / 100, 'INR')}`);
+    const line = shown.join(' · ') + (ranked.length > 4 ? ` · +${ranked.length - 4} others` : '');
+    out.push({
+      template: 'household_daily_digest', householdId: input.household.id, toProfileId: m.profile_id,
+      values: [m.first_name, amountText(total), String(rows.length), line], dedupeKey: `digest:${input.today}`,
+    });
+  }
+  return out;
+}
+
+// ── month_close_summary: the month just closed (monthly job, on the 1st) ─────────
+export function monthClose(input: { household: Household; today: string; txns: TxnRow[]; members: Member[] }): PlannedSend[] {
+  if (input.today.slice(8, 10) !== '01' || !isInr(input.household.base_currency)) return [];
+  const month = addMonths(input.today.slice(0, 7), -1);
+  const prior = addMonths(month, -1);
+  const inMonth = (ym: string) => input.txns.filter((r) => r.date.slice(0, 7) === ym);
+  const spendRows = (ym: string) => inMonth(ym).filter((r) => r.type === 'expense' && counted(r));
+  if ([...spendRows(month), ...spendRows(prior)].some((r) => !isInr(r.currency))) return [];
+  const range = (ym: string) => spendByCategoryInRange(spendRows(ym).map(rowToTxn), `${ym}-01`, `${ym}-${String(daysInMonth(ym)).padStart(2, '0')}`, 'INR', {});
+  const cats = range(month);
+  const total = Math.round(Object.values(cats).reduce((a, b) => a + b, 0) * 100) / 100;
+  if (!(total > 0)) return [];
+  const priorTotal = Math.round(Object.values(range(prior)).reduce((a, b) => a + b, 0) * 100) / 100;
+  const diff = Math.round((total - priorTotal) * 100) / 100;
+  const comparison = priorTotal > 0
+    ? (diff === 0 ? `the same as ${monthName(prior)}` : `${moneyText(Math.abs(diff), 'INR')} ${diff < 0 ? 'less' : 'more'} than ${monthName(prior)}`)
+    : 'nothing to compare with yet';
+  const [topCat, topAmt] = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+  const biggest = `${EXPENSE_LABEL[topCat] ?? topCat} ${moneyText(Math.round(topAmt * 100) / 100, 'INR')}`;
+  const days = new Set(inMonth(month).filter((r) => !r.extras?.excluded).map((r) => r.date)).size;
+  return input.members.filter((m) => m.first_name).map((m) => ({
+    template: 'month_close_summary', householdId: input.household.id, toProfileId: m.profile_id,
+    values: [monthName(month), m.first_name!, amountText(total), comparison, biggest, `${days} of ${daysInMonth(month)}`],
+    dedupeKey: `month:${month}`,
+  }));
+}
+
+// ── budget_setup_reminder: two days before a month with no budget (monthly job) ──
+export function budgetSetup(input: {
+  household: Household; today: string; categoriesWithSpend: number; hasNextMonthBudget: boolean; members: Member[];
+}): PlannedSend[] {
+  const next = addMonths(input.today.slice(0, 7), 1);
+  const gap = Math.round((Date.parse(`${next}-01T00:00:00Z`) - Date.parse(`${input.today}T00:00:00Z`)) / 86_400_000);
+  if (gap !== 2 || input.hasNextMonthBudget || input.categoriesWithSpend < 1) return [];
+  return input.members.filter((m) => m.first_name).map((m) => ({
+    template: 'budget_setup_reminder', householdId: input.household.id, toProfileId: m.profile_id,
+    values: [m.first_name!, monthName(next), String(input.categoriesWithSpend)], dedupeKey: `setup:${next}`,
+  }));
+}
+
+// ── runway_shift_alert / runway_recovered_alert: a real change (monthly job) ──────
+export interface RuleState { value: number | null; detail: { lastSent?: string } }
+
+/**
+ * Only on a change of half a month or more against the last runway a person was told
+ * (or the first one measured), and at most once a calendar month. The first
+ * measurement is a silent baseline. Returns the new state to store.
+ */
+export function runwayAlerts(input: {
+  household: Household; monthKey: string; months: number | null; quieterCategory: string | null;
+  state: RuleState | null; members: Member[];
+}): { sends: PlannedSend[]; state: RuleState | null } {
+  if (input.months == null) return { sends: [], state: input.state };
+  if (!input.state || input.state.value == null) return { sends: [], state: { value: input.months, detail: {} } };
+  const before = input.state.value;
+  const delta = Math.round((input.months - before) * 10) / 10;
+  if (Math.abs(delta) < 0.5 || input.state.detail.lastSent === input.monthKey) return { sends: [], state: input.state };
+  const one = (n: number) => n.toFixed(1);
+  const now = input.months;
+  const sends: PlannedSend[] = input.members.filter((m) => m.first_name).map((m) => delta < 0
+    ? { template: 'runway_shift_alert', householdId: input.household.id, toProfileId: m.profile_id,
+        values: [m.first_name!, one(now), one(before)], dedupeKey: `runway:${input.monthKey}` }
+    : { template: 'runway_recovered_alert', householdId: input.household.id, toProfileId: m.profile_id,
+        values: [m.first_name!, one(now), one(before),
+          input.quieterCategory ? `A quieter month on ${input.quieterCategory.toLowerCase()}` : 'More left over each month'],
+        dedupeKey: `runway:${input.monthKey}` });
+  return { sends, state: { value: now, detail: { lastSent: input.monthKey } } };
 }

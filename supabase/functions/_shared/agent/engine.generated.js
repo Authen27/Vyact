@@ -3650,6 +3650,12 @@ function resolveCore(intent, ctx) {
 					verdict: "fits",
 					left_above_floor_after: money(headroom - e.amount, ctx)
 				},
+				amounts: {
+					purchase: Math.round(e.amount),
+					cushion: Math.round(headroom - e.amount),
+					floor: Math.round(floor),
+					free_to_spend: Math.round(liquid - dues)
+				},
 				analysis: affordAnalysis,
 				vars: {
 					amount: money(e.amount, ctx),
@@ -3954,7 +3960,11 @@ async function runAssistant(utterance, ctx, backend = selectAssistantBackend(), 
 		seed: result.seed,
 		chips: normaliseChips(result.chips),
 		clarify: gated || result.kind === "fallback" || result.outcome === "missing_amount" || result.outcome === "needs_rate",
-		allowedFigures: figuresAllowedBy(result)
+		allowedFigures: figuresAllowedBy(result),
+		resolved: {
+			outcome: result.outcome,
+			...result.amounts ? { amounts: result.amounts } : {}
+		}
 	};
 }
 const UNAVAILABLE_COPY = {
@@ -4085,6 +4095,41 @@ function reconcileOnServer(rows, accountId, stated, at) {
 		bridge
 	};
 }
+/**
+* The runway exactly as Pip states it (`forecast.runway`: liquid savings over typical
+* monthly spending, both from the one SafeSummary projection), plus the category
+* whose spending fell most between the last two COMPLETED months, for "what moved it".
+* `now` is the caller's clock, so a scheduled run is reproducible.
+*/
+function runwaySnapshot(rows, now) {
+	const ctx = contextFromRows(rows);
+	const r = resolve({
+		id: "forecast.runway",
+		bucket: "forecast",
+		confidence: 1,
+		entities: { text: "how long would my savings last" }
+	}, ctx);
+	const raw = Number(r.facts?.months_money_would_last);
+	const basisMonths = ctx.summary.spendBasis?.monthsConsidered ?? 0;
+	const months = Number.isFinite(raw) && basisMonths > 0 ? Math.round(raw * 10) / 10 : null;
+	const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+	const last = key(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+	const before = key(new Date(now.getFullYear(), now.getMonth() - 2, 1));
+	const a = spendByCategory(ctx.transactions, before, ctx.baseCurrency, ctx.rates);
+	const b = spendByCategory(ctx.transactions, last, ctx.baseCurrency, ctx.rates);
+	let best = null;
+	for (const [cat, was] of Object.entries(a)) {
+		const drop = was - (b[cat] ?? 0);
+		if (drop > 0 && (!best || drop > best.drop)) best = {
+			cat,
+			drop
+		};
+	}
+	return {
+		months,
+		quieterCategory: best ? getCat(best.cat).label : null
+	};
+}
 /** One question, answered by the app's own pipeline with the given model call. */
 function answerOnServer(utterance, ctx, call, prevAllowed = []) {
 	return runAssistant(utterance, ctx, new LlmBackend(call), Date.now(), void 0, prevAllowed);
@@ -4114,4 +4159,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, contextFromRows, reconcileOnServer, renderForWhatsApp };
+export { STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, contextFromRows, reconcileOnServer, renderForWhatsApp, runwaySnapshot };
