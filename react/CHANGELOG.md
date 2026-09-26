@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.46.0`** (consumer)
+> **Current production version: `v10.46.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.46.1 — Server calls accept the service role as Supabase now issues it *(2026-09-26)*
+
+- **Fix: a correct service-role key was refused (401) by `whatsapp-notify`.** The function
+  compared the bearer byte for byte with the runtime's `SUPABASE_SERVICE_ROLE_KEY`. With Supabase's
+  new API keys that variable is not necessarily the legacy `service_role` JWT the dashboard shows.
+  So the owner's first test send from the dashboard's Test panel (26 Sep) got
+  `{"error":"unauthorized"}`, even though the token was the project's own service-role key and not
+  expired.
+- **What changed:** a bearer that claims the service role (a legacy JWT whose role claim says so, or
+  an `sb_secret_` key) is now verified by PostgREST. Only a service-role credential can read
+  `whatsapp_pending_turns`, which is revoked from anon and authenticated. The claim alone is never
+  trusted, and a forged one still gets 401. The byte-for-byte match still works as before.
+- **One helper, three callers:** `_shared/service-auth.ts` (`isServiceCaller`) is used by
+  `whatsapp-notify`, the webhook's `?mode=sweep` and `whatsapp-dispatch`, which all had the same
+  check.
+- **Internal calls were never affected:** `whatsapp-verify-otp`'s welcome sends the runtime's own
+  value, which always matched.
+
+Tests: CON-UNIT-WA-W0-011 (a verified service credential that is not byte-equal is accepted) and
+W0-012 (a forged service-role claim is refused, nothing sent).
 
 ## v10.46.0 — Pip, one response contract, and sharper facts (W5) *(2026-09-26)*
 
