@@ -184,3 +184,25 @@ describe('the question that was logged as a spend (found by the 26 Sep validatio
     expect(parseWhatsAppMessage('can I afford 40000 for a phone?', [], 'INR', new Date('2026-09-26T00:00:00Z'))).toEqual({ ok: false, reason: 'query' });
   });
 });
+
+describe('affordability asks in any wording (found on production 27 Sep)', () => {
+  const ASKS = [
+    'Can I afford to spend 5 rupees for tea',
+    'can i afford to spend 5 rupees for tea',
+    'pip, can I afford a 2000 dinner',
+    'hey can we afford a 50k trip',
+    '5k on shoes, can I afford it',
+    'is it ok to spend 800 on a movie',
+    'would it be wise to buy a 30000 phone',
+    'do I have enough for a 1500 dinner',
+    'can I spend 300 on snacks',
+    'is 20000 affordable for a tv',
+  ];
+  const LOGS = ['5 tea', '5 rupees tea cash', 'spent 5 on tea', 'paid 1200 total groceries', 'tea 5', 'bought shoes 5000'];
+  it('CON-UNIT-W6B-017 · every affordability wording is a question, never an entry; plain captures still log', () => {
+    const d = new Date('2026-09-27T00:00:00Z');
+    for (const q of ASKS) expect(parseWhatsAppMessage(q, [], 'INR', d), q).toEqual({ ok: false, reason: 'query' });
+    for (const l of LOGS) expect(parseWhatsAppMessage(l, [], 'INR', d).ok, l).toBe(true);
+    expect(isQueryAttempt('1200 lunch?')).toBe(false);
+  });
+});

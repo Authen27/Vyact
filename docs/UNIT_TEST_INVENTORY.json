@@ -2153,7 +2153,7 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "consent / STOP / scheduler rules / follow-up conversations / whatsapp-dispatch handler (not a live cron run)",
-      "count": 12,
+      "count": 13,
       "tests": [
         "W6b replies CON-UNIT-W6B-008 · \"shared\" on a capture is recognised as a whole word and removed before parsing",
         "W6b replies CON-UNIT-W6B-009 · the 50/50 split is the app's split: only your half counts, the shares add to the total",
@@ -2166,6 +2166,7 @@
         "W6b senders CON-UNIT-W6B-005 · month close: on the 1st, last month vs the one before, biggest slice, days with an entry",
         "W6b senders CON-UNIT-W6B-006 · budget set-up: exactly two days before a month with no budget, to owners/admins given",
         "W6b senders CON-UNIT-W6B-007 · runway: silent baseline, then only a 0.5-month change, at most once a month, the right variant",
+        "affordability asks in any wording (found on production 27 Sep) CON-UNIT-W6B-017 · every affordability wording is a question, never an entry; plain captures still log",
         "the question that was logged as a spend (found by the 26 Sep validation) CON-UNIT-W6B-015 · \"can I afford 40000 for a phone?\" is a question, never a ₹40,000 entry; a leading amount is still a log"
       ]
     },
@@ -2192,11 +2193,12 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 47,
+      "count": 48,
       "tests": [
         "W6b template replies in the webhook CON-UNIT-W6B-012 · recurring Undo within 15 minutes removes that entry; Pause pauses its schedule; a late Undo is refused",
         "W6b template replies in the webhook CON-UNIT-W6B-013 · \"1200 dinner shared\" logs it, then prompts the logger; Split 50/50 writes the app's split for the usual partner",
         "W6b template replies in the webhook CON-UNIT-W6B-014 · an affordability answer that fits goes out as the card with the engine's figures, not as text",
+        "W6b template replies in the webhook CON-UNIT-W6B-016 · \"Can I afford to spend 5 rupees for tea\" (no \"?\", found on production 27 Sep) is answered, never logged",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-W5-013 · \"Already paid\" on an overdue reminder approves THAT occurrence through the same atomic path",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-003 · \"paid rent\" after a reminder approves THAT occurrence with the app’s row and next date",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder \"paid X\" is an ordinary entry",

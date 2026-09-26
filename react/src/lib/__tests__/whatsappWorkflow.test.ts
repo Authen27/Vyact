@@ -971,4 +971,18 @@ describe('W6b template replies in the webhook', () => {
     expect(templateSends()).toEqual([{ name: 'affordability_reply', body: ['Rohan', '40,000', '4,300', '50,000'] }]);
     expect(sentTexts().filter(Boolean)).toEqual([]);
   });
+
+  it('CON-UNIT-W6B-016 · "Can I afford to spend 5 rupees for tea" (no "?", found on production 27 Sep) is answered, never logged', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'), ENABLED);
+    tables();
+    engine.loadHouseholdRows.mockResolvedValue({ profile: { display_name: 'Rohan Mehta' }, household: { base_currency: 'INR' } });
+    engine.serverModelCall.mockReturnValue(async () => 'unused');
+    engine.answerOnServer.mockResolvedValue({ reply: 'It fits.', intentId: 'forecast.affordability',
+      resolved: { outcome: 'fits', amounts: { purchase: 5, cushion: 44295, floor: 50000, free_to_spend: 94300 } } });
+    api.rpc.mockResolvedValue({ error: null, data: null });
+    await post(handler, { id: 'm-1', text: { body: 'Can I afford to spend 5 rupees for tea' } });
+    expect(engine.answerOnServer).toHaveBeenCalledTimes(1);
+    expect(api.rpc.mock.calls.map(c => c[0])).not.toContain('whatsapp_log_transaction');
+    expect(templateSends()).toEqual([{ name: 'affordability_reply', body: ['Rohan', '5', '44,295', '50,000'] }]);
+  });
 });

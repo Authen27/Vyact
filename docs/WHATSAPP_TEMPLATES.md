@@ -86,7 +86,7 @@ Live samples went to the owner's number (+91 97405 56606) through `whatsapp-noti
 | `whatsapp_welcome` | Active | `whatsapp-verify-otp` after linking | yes | Delivered |
 | `phone_verification_otp` | Does not exist | `whatsapp-send-otp` now says "not available yet" (503 `otp_unavailable`) | — | Blocked on Meta business verification |
 
-**Bugs found and fixed in v10.47.0:** "can I afford 40000 for a phone?" was logged as a ₹40,000 spend (parser); the outbound audit row recorded `result: {sent:false}` on a successful send; linking by code failed with a raw error while the OTP template does not exist; Settings had no insights consent, so payday/digest/runway could never be switched on in the app.
+**Bugs found and fixed in v10.47.0:** "can I afford 40000 for a phone?" was logged as a ₹40,000 spend, and "Can I afford to spend 5 rupees for tea" as ₹5 (parser; the 27 Sep production report, since production still runs v10.46.1); the outbound audit row recorded `result: {sent:false}` on a successful send; linking by code failed with a raw error while the OTP template does not exist; Settings had no insights consent, so payday/digest/runway could never be switched on in the app.
 
 **Open (owner / Meta):** approvals for the four templates in review, then add each to `WHATSAPP_APPROVED_TEMPLATES` after a field check; the `balance_stale_nudge` UPDATE button edit (now possible); the `weekly_summary` STOP footer after its approval; the Vault secret `whatsapp_dispatch_secret` + `WHATSAPP_DISPATCH_SECRET` before anything scheduled goes out; Meta business verification for linking.
 

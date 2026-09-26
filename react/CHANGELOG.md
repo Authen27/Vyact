@@ -73,12 +73,14 @@ Two follow-up conversations on WhatsApp, designed on the receptionist canvas and
   `affordability_reply` card. Migration `20261002120000_w6b_whatsapp_template_senders.sql`,
   validated on production in a rolled-back block (split, replay, already split, undo, pause, cron jobs).
 - **Fixes from the 26 Sep template validation:** "can I afford 40000 for a phone?" was logged as a
-  ₹40,000 spend; the outbound audit row said `sent:false` on a successful send; linking by code now
+  ₹40,000 spend, and on 27 Sep "Can I afford to spend 5 rupees for tea" (no "?") was logged as ₹5 on
+  production. An affordability ask is now a question wherever it sits and however it is worded
+  ("is it ok to spend…", "do I have enough for…", "5k on shoes, can I afford it"); the outbound audit row said `sent:false` on a successful send; linking by code now
   says it is not available yet (Meta verification) instead of failing; Settings › WhatsApp gains the
   **Insights about my money** consent and its topic mutes. Per-template status:
   `docs/WHATSAPP_TEMPLATES.md` › Validation.
 
-Tests: CON-UNIT-W6B-001…015, WA-V-001…005, CON-UNIT-W6-001…011 (the parser, list and reply copy, engine parity with the app's
+Tests: CON-UNIT-W6B-001…017, WA-V-001…005, CON-UNIT-W6-001…011 (the parser, list and reply copy, engine parity with the app's
 reconcile in both the source and the bundle, the card-owed rule, SAME, the nudge rule, and the
 webhook conversations end to end).
 
