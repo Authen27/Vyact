@@ -13,11 +13,12 @@ import {
   sendAccountActionCode, verifyAccountActionCode,
 } from '../lib/auth';
 import WhatsAppLink from '../components/settings/WhatsAppLink';
+import PushNotifications from '../components/settings/PushNotifications';
 import { POLICY_VERSION } from './Privacy';
 import Chip from '../components/ui/Chip';
 import { Select } from '../components/ui/Input';
 import {
-  NOTIF_GROUPS, NOTIF_TYPE_LABEL, NOTIF_LOCKED, typeEnabled, requestWebPushPermission,
+  NOTIF_GROUPS, NOTIF_TYPE_LABEL, NOTIF_LOCKED, typeEnabled,
 } from '../lib/notifications';
 import type { Profile, Theme, NotifType } from '../types';
 import type { Factor } from '@supabase/supabase-js';
@@ -507,24 +508,7 @@ export default function Settings() {
                 </div>
               </div>
 
-              <label className="flex items-center justify-between gap-3 cursor-pointer">
-                <div>
-                  <div className="text-sm font-semibold text-ink">Browser push</div>
-                  <div className="text-[0.76rem] text-ink-dim mt-0.5">Show a system notification for action-required alerts.</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.webPushEnabled}
-                  onChange={async e => {
-                    if (e.target.checked) {
-                      const granted = await requestWebPushPermission();
-                      if (!granted) { toast('Enable notifications for Vyact in your browser settings first', 'error'); return; }
-                    }
-                    updateNotificationPrefs({ webPushEnabled: e.target.checked });
-                  }}
-                  className="accent-coral w-[18px] h-[18px] flex-shrink-0"
-                />
-              </label>
+              <PushNotifications />
             </div>
           </SettingRow>
 

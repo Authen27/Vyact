@@ -32,6 +32,12 @@ import { computeAccountBalance, reconcileAccount as buildReconcileOffset } from 
 import { resolve } from './askVyactBackend';
 import { spendByCategory } from './calculations';
 import { getCat } from '../constants';
+import {
+  DEFAULT_PREFS, recurringDueNotifs, recurringReminderNotifs, budgetThresholdNotifs, debtDueNotifs,
+  incomeLandedNotifs, staleBalanceNotifs,
+} from './notifications';
+import { toInsertRow, type NotifInsertRow } from './notificationRows';
+import type { Notification } from '../types';
 
 /** Everything the engine needs about one household, as rows straight from Postgres. */
 export interface HouseholdRows {
@@ -208,6 +214,36 @@ export function runwaySnapshot(rows: HouseholdRows, now: Date): RunwaySnapshot {
     if (drop > 0 && (!best || drop > best.drop)) best = { cat, drop };
   }
   return { months, quieterCategory: best ? getCat(best.cat).label : null };
+}
+
+// ── Notifications, generated on the server (v10.48.0, TD-22) ─────────────────
+
+/**
+ * The bell notifications the APP would raise for this household right now, as
+ * `notifications` rows: the same generators (lib/notifications.ts) over the same
+ * mapped shapes, so a phone is told about a due bill or a budget line at 80% even
+ * when no device has the app open. `existingKeys` are the household's stored
+ * dedupe keys: anything already raised (by a device or an earlier run) is skipped,
+ * and the insert is ignore-duplicates on (household_id, dedupe_key) besides.
+ *
+ * Generated with the default preferences (every type on): which of them reach a
+ * lock screen is each device's own choice, applied when pushing.
+ * Split notifications are not generated here: they come from the devices, which
+ * hold the verified-email split lists.
+ */
+export function notificationsOnServer(rows: HouseholdRows, existingKeys: readonly string[], householdId: string): NotifInsertRow[] {
+  const { transactions, budgets, budgetAllocations, debts, accounts, recurring, profile, rates } = shapesFromRows(rows);
+  const existing = existingKeys.map((dedupeKey) => ({ dedupeKey }) as Notification);
+  const ctx = { householdId, baseCurrency: profile.baseCurrency, rates };
+  const prefs = DEFAULT_PREFS;
+  return [
+    ...recurringDueNotifs(recurring, prefs, existing, ctx),
+    ...recurringReminderNotifs(recurring, prefs, existing, ctx),
+    ...budgetThresholdNotifs(budgets, budgetAllocations, transactions, prefs, existing, ctx),
+    ...debtDueNotifs(debts, prefs, existing, ctx),
+    ...incomeLandedNotifs(transactions, prefs, existing, ctx),
+    ...staleBalanceNotifs(accounts, prefs, existing, ctx),
+  ].map(toInsertRow);
 }
 
 /** One question, answered by the app's own pipeline with the given model call. */

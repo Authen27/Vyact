@@ -48,6 +48,9 @@ export default defineConfig({
           // 192/512 entries can be added under /public/icons/ later for
           // richer install UI and iOS home-screen tiles.
           { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          // v10.48.0 — PNGs for the Home Screen tile (iOS ignores SVG) and notification icons.
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
         ],
         shortcuts: [
           { name: 'Add transaction', short_name: 'Add', url: '/transactions?add=1',     description: 'Quick add a new transaction' },
@@ -56,6 +59,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // v10.48.0 (TD-22) — the push + notification-click handlers (public/push-sw.js).
+        importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,woff2}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,

@@ -133,6 +133,10 @@ jobs:
           # its own secret (WHATSAPP_DISPATCH_SECRET) or the service key in code,
           # and is inert until that secret exists in both Vault and the function.
           supabase functions deploy whatsapp-dispatch --no-verify-jwt
+      - name: Deploy web push
+        # v10.48.0 (TD-22) — pg_cron calls it with no user JWT; every mode checks its
+        # own auth (member JWT for key/test, the Vault cron secret or service key for dispatch).
+        run: supabase functions deploy web-push --no-verify-jwt
       - name: Deploy agent gateway
         # WITH JWT verification (default). Inert until a super-admin enables an
         # ai_model_configs row.

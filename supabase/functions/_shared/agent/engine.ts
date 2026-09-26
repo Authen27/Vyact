@@ -62,3 +62,15 @@ export const runwaySnapshot = generated.runwaySnapshot as (rows: HouseholdRows, 
 
 /** What resolve() decided for a turn (v10.47.0): the affordability card reads its amounts. */
 export interface EngineResolved { outcome: string; amounts?: Record<string, number> }
+
+// ── Notifications for web push (v10.48.0) ────────────────────────────────────
+/** A `notifications` row as the app writes it (lib/notificationRows.ts). */
+export interface NotifInsertRow {
+  household_id: string; type: string; priority: 'P1' | 'P2'; title: string; body: string | null;
+  status: 'unread' | 'read' | 'dismissed'; created_at: string; due_at: string | null; member_id: string | null;
+  amount_ref: number | null; deep_link: string | null; tint: string | null; actions: unknown[] | null;
+  context: Record<string, string> | null; dedupe_key: string;
+}
+export const notificationsOnServer = generated.notificationsOnServer as (
+  rows: HouseholdRows, existingKeys: readonly string[], householdId: string,
+) => NotifInsertRow[];

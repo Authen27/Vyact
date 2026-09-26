@@ -906,8 +906,9 @@
       "availability": "available",
       "layer": "unit",
       "owner": "calculations / evaluateRecommendations / buildInsightFeed / notifications",
-      "count": 5,
+      "count": 6,
       "tests": [
+        "Reports, Planner, Insights and notification outputs CON-UNIT-TD39-001 · a v9.1 container budget (no category, per-category allocations) fires per LINE over its own period",
         "Reports, Planner, Insights and notification outputs Insights shows the independently calculated savings win and stable category links",
         "Reports, Planner, Insights and notification outputs Planner explains 85 percent consumption and groups the recommendation under expenses",
         "Reports, Planner, Insights and notification outputs budget notifications progress from 80 percent to 100 percent without repeating the earlier threshold",
@@ -2013,6 +2014,25 @@
         "v9.1 §4 — budget identity resolveBudgetPeriod gives exact month / annual ranges (incl. leap Feb)",
         "v9.1 §5 — RRULE composition COUNT and UNTIL are mutually exclusive (never both)",
         "v9.1 §5 — RRULE composition encodes frequency + ends correctly (quarterly = monthly interval 3)"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/webPush.test.ts",
+      "feature": "Web Push",
+      "availability": "conditional",
+      "layer": "contract-unit",
+      "owner": "RFC 8291/8292 crypto / push rules / server-raised notifications / web-push handler (not a live push service)",
+      "count": 8,
+      "tests": [
+        "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-001 · a message encrypted for a subscription is read back by an independent receiver; each send is freshly keyed",
+        "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-002 · the VAPID token is ES256, verifies with the advertised public key, and names the push service origin",
+        "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-003 · only real push services are contacted; 201 is accepted, 404/410 retire the device",
+        "notifications raised on the server CON-UNIT-WP-006 · the server raises exactly the app's notifications for the same rows (source and bundle), skipping what exists",
+        "push rules CON-UNIT-WP-004 · P1 only, unread only, never a backlog, the device's switches, quiet hours in the device's own zone",
+        "push rules CON-UNIT-WP-005 · the payload opens inside the app only; the test message states the device's local time",
+        "web-push function CON-UNIT-WP-007 · a test goes to the caller's own devices, readable by each, with the push service's answer; signed out → 401; rate-limited",
+        "web-push function CON-UNIT-WP-008 · dispatch: raises the app's notifications, pushes new P1s to eligible devices, stamps them, retires a gone device"
       ]
     },
     {

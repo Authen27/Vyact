@@ -12,13 +12,13 @@
 
 ## Status at a glance (revalidated 2026-09-13 against production)
 
-**44 items total — 24 ✅ resolved · 2 ⚠ partial · 18 ⬜ open.**
+**44 items total — 26 ✅ resolved · 2 ⚠ partial · 16 ⬜ open.**
 
 | Bucket | IDs |
 |---|---|
-| ✅ **Resolved** (24) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, TD-33 |
+| ✅ **Resolved** (26) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, **TD-22**, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, TD-33, **TD-39** |
 | ⚠ **Partial** (2) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B green — 10 specs incl. RLS isolation; Lane A red, tracked as TD-29) |
-| ⬜ **Open** (18) | TD-15 ⚠**REOPENED**, TD-16, TD-22, TD-29, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-39**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44** |
+| ⬜ **Open** (16) | TD-15 ⚠**REOPENED**, TD-16, TD-29, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44** |
 
 > ### 🔻 Paydown is DEPRIORITIZED (2026-09-13)
 > The current priority is **completing Ask Vyact** — see
@@ -84,7 +84,7 @@
 | TD-18 | ✅ Hand-run SQL file instead of a migrations tool *(resolved · PR #6)* | Technical / Process | Medium | S |
 | TD-19 | ⚠ E2E / browser test automation — Lane A (7 specs) shipped; Lane B (cloud + RLS isolation) open | Technical / Process / QA | High | M (phased) |
 | TD-21 | ✅ RLS performance: un-wrapped `auth.<fn>()` initplan + overlapping permissive policies *(resolved · 2026-06-01 migration)* | Performance / Scalability | Medium | S–M |
-| TD-22 | PWA push notifications wired only as a stored preference; no actual subscription, service-worker handler, or backend fan-out | Functional / Product | Low | M |
+| TD-22 | ✅ **Resolved v10.48.0** — real Web Push: SW handler, push_subscriptions, VAPID in Vault, web-push Edge fan-out every 15 min | Functional / Product | Low | M |
 | TD-23 | ✅ Doc drift — README pinned stale consumer version *(resolved 2026-06-15: README v9.3.3 + source-of-truth note; guarded by TD-28 script)* | Technical / Process / Docs | Medium | XS |
 | TD-24 | ✅ Error opacity — `lib/faults.ts` taxonomy + silent-write-loss instrumentation + read-parse classification + dev `FaultsPanel` diagnostics *(resolved 2026-06-17; trivial storage-removeItem/decode noops intentionally terse per acceptance)* | Technical / Reliability | High | M |
 | TD-25 | ✅ Consumer `store.ts` god-module → Zustand slices *(resolved 2026-06-17: 1,167-line store.ts → 35-line `store/index.ts` + 9 slices; useStore byte-identical; all <300 except `dataSlice` 559 = cohesive bootstrap+txn-money core)* | Technical / Maintainability | High | L |
@@ -101,7 +101,7 @@
 | TD-36 | Investments as assets (v10.26.0) — the agent resolver, the Lane A investment spec and local-only legacy investment accounts still assume the two-account model | Technical / Consistency | Medium | S |
 | TD-37 | R6 atomic reconcile — specced and deferred in `docs/SYNC_FIXPLAN.md`; no `reconcile_account` RPC exists | Technical / Correctness | Low | S |
 | TD-38 | 17 npm audit advisories reported during install, never triaged | Security / Dependencies | Unknown until triaged | XS to triage |
-| TD-39 | `budget_threshold` notification type exists but nothing emits it on threshold crossing | Functional / Product | Low | S |
+| TD-39 | ✅ **Resolved v10.48.0** — the rule now checks each budget allocation (it read a category v9.1 budgets do not have) | Functional / Product | Low | S |
 | TD-40 | UI Standardization Pilot — Ask-drawer redesign, native-confirm replacement, all-screen spacing rollout and admin standardization still unshipped | Technical / Design system | Low | M |
 | TD-41 | No governance step retires a doc when the product moves past it — 5 docs actively misdescribe the current app | Technical / Process / Docs | Medium | S |
 | TD-42 | Production security advisors: 8 tables RLS-enabled with no policy, 38 SECURITY DEFINER functions callable by `authenticated` | Security | Medium | S–M |
@@ -592,6 +592,8 @@ Also reported at INFO level (lower priority, bundled here): `unindexed_foreign_k
 ---
 
 ## TD-22 — PWA push notifications wired only as a stored preference
+
+> ✅ **Resolved in v10.48.0.** Phases A–D shipped: `public/push-sw.js` (push + click handlers, imported into the Workbox worker); subscribe flow in `lib/webPush.ts` + `register_push_subscription`; the `web-push` Edge Function raises the app's own rules server-side (`serverEngine.notificationsOnServer`) and pushes unread P1s every 15 min; Settings shows this device's registration and a **Send a test notification** button. VAPID key pair and cron secret are generated server-side and kept in Vault. Split notifications are still raised by the devices only (they hold the verified-email split lists). Tests: CON-UNIT-WP-001…008.
 
 **Description.** [`react/src/types.ts`](react/src/types.ts) defines `NotificationPrefs.webPushEnabled` and the store at [`react/src/store.ts`](react/src/store.ts) gates a code path on it (`if (notificationPrefs.webPushEnabled && !isInQuietHours(...))`), but the rest of the web-push contract is missing. Specifically:
 
@@ -1199,6 +1201,8 @@ upgrade was attempted."* No triage has happened since.
 ---
 
 ## TD-39 — `budget_threshold` notification is never emitted
+
+> ✅ **Resolved in v10.48.0.** Root cause: the generator read `budget.category`, which v9.1 container budgets do not have (categories live in `BudgetAllocation`), so it looked up spend for '' and never fired — production had zero budget_threshold rows. It now checks each allocation over the budget's own period (`spendByCategoryInRange`, the Budgets screen's figure) and runs right after an expense is saved. CON-UNIT-TD39-001 covers the production shape. CON-E2E-019 stays `fixme` with Lane A (TD-29).
 
 **Description.** The notification TYPE exists, but nothing fires it when a budget crosses its
 threshold. `docs/TEST_SCENARIOS.md` keeps CON-E2E-019 as a deliberate **`test.fixme`**: *"kept as

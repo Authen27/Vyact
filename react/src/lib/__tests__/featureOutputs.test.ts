@@ -4,6 +4,8 @@ import { spendByCategoryInRange, cumulativeSpendSeries } from '../calculations';
 import { evaluateRecommendations, recsByDomain } from '../plannerRules';
 import { buildInsightFeed } from '../insightsFeed';
 import { DEFAULT_PREFS, recurringDueNotifs, budgetThresholdNotifs } from '../notifications';
+import { fmt } from '../format';
+import { getCat } from '../../constants';
 
 const expense = (overrides: Partial<Transaction> = {}): Transaction => ({ id: crypto.randomUUID(), type: 'expense', amount: 100,
   date: '2026-09-09', category: 'groceries', currency: 'USD', accountId: 'bank', description: 'Food', ...overrides });
@@ -59,10 +61,41 @@ describe('Reports, Planner, Insights and notification outputs', () => {
   it('budget notifications progress from 80 percent to 100 percent without repeating the earlier threshold', () => {
     const budgets = [{ id: 'budget', category: 'groceries', limit: 100, currency: 'USD' }];
     const ctx = { householdId: 'household', baseCurrency: 'USD', rates: { USD: 1 } };
-    const first = budgetThresholdNotifs(budgets, [expense({ amount: 80 })], DEFAULT_PREFS, [], ctx);
-    expect(first).toEqual([expect.objectContaining({ amountRef: 20, title: 'groceries at 80% of 2026-09 budget' })]);
-    expect(budgetThresholdNotifs(budgets, [expense({ amount: 80 })], DEFAULT_PREFS, first, ctx)).toEqual([]);
-    expect(budgetThresholdNotifs(budgets, [expense()], DEFAULT_PREFS, first, ctx))
-      .toEqual([expect.objectContaining({ amountRef: 0, title: 'groceries at 100% of 2026-09 budget' })]);
+    const first = budgetThresholdNotifs(budgets, [], [expense({ amount: 80 })], DEFAULT_PREFS, [], ctx);
+    expect(first).toEqual([expect.objectContaining({ amountRef: 20, title: 'Groceries at 80% of the September budget' })]);
+    expect(budgetThresholdNotifs(budgets, [], [expense({ amount: 80 })], DEFAULT_PREFS, first, ctx)).toEqual([]);
+    expect(budgetThresholdNotifs(budgets, [], [expense()], DEFAULT_PREFS, first, ctx))
+      .toEqual([expect.objectContaining({ amountRef: 0, title: 'Groceries at 100% of the September budget' })]);
+  });
+
+  it('CON-UNIT-TD39-001 · a v9.1 container budget (no category, per-category allocations) fires per LINE over its own period', () => {
+    // The production shape: the budget has no category. Before v10.48.0 this never fired.
+    const budgets = [{ id: 'sep', limit: 1000, currency: 'USD', scope: 'month' as const, periodYear: 2026, periodMonth: 9,
+      periodStart: '2026-09-01', periodEnd: '2026-09-30' }];
+    const allocations = [
+      { id: 'a1', budgetId: 'sep', category: 'groceries', amount: 200 },
+      { id: 'a2', budgetId: 'sep', category: 'food_dining', amount: 100 },
+      { id: 'a3', budgetId: 'sep', category: 'shopping', amount: 300 },
+    ];
+    const ctx = { householdId: 'household', baseCurrency: 'USD', rates: { USD: 1 } };
+    const txns = [
+      expense({ amount: 170, category: 'groceries' }),                       // 85% → 80 alert
+      expense({ amount: 130, category: 'food_dining' }),                     // 130% → 100 alert, 30 over
+      expense({ amount: 100, category: 'shopping' }),                        // 33% → nothing
+      expense({ amount: 500, category: 'shopping', date: '2026-08-20' }),    // outside the period
+    ];
+    const got = budgetThresholdNotifs(budgets, allocations, txns, DEFAULT_PREFS, [], ctx);
+    expect(got.map(n => [n.title, n.body])).toEqual([
+      ['Groceries at 85% of the September budget', `${fmt(30, 'USD')} left`],
+      ['Food & Dining at 130% of the September budget', `${fmt(30, 'USD')} over`],
+    ].map(([t, b]) => [t.replace('Food & Dining', getCat('food_dining').label), b]));
+    expect(got.every(n => n.budgetId === 'sep' && n.priority === 'P1')).toBe(true);
+    // Once per line per threshold: a second refresh raises nothing new.
+    expect(budgetThresholdNotifs(budgets, allocations, txns, DEFAULT_PREFS, got, ctx)).toEqual([]);
+    // A budget for another month is not checked today.
+    expect(budgetThresholdNotifs([{ ...budgets[0], id: 'aug', periodStart: '2026-08-01', periodEnd: '2026-08-31' }],
+      allocations.map(a => ({ ...a, budgetId: 'aug' })), txns, DEFAULT_PREFS, [], ctx)).toEqual([]);
+    // The per-type switch is honoured.
+    expect(budgetThresholdNotifs(budgets, allocations, txns, { ...DEFAULT_PREFS, perType: { budget_threshold: false } }, [], ctx)).toEqual([]);
   });
 });
