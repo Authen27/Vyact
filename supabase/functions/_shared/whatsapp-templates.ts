@@ -77,8 +77,10 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   }),
   weekly_summary: t({
     // Meta flagged it as marketing on 24 Sep ("did not meet our utility
-    // guidelines"); treated as marketing until that is resolved.
-    name: 'weekly_summary', category: 'marketing', language: 'en_US', status: 'active',
+    // guidelines"); treated as marketing until that is resolved. Meta now files it
+    // as Utility. 26 Sep: a sample was sent to the owner and delivered; then the
+    // See details link was edited from the old vyact-twentyx site to /reports (in review).
+    name: 'weekly_summary', category: 'marketing', language: 'en_US', status: 'in_review',
     headerImage: '09-weekly-summary.jpg',
     body: 'Your week on Vyact: {{1}} spent across {{2}} transactions. Top category: {{3}} this week.',
     params: [
@@ -86,8 +88,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
       { name: 'transactionCount', sample: '23' },
       { name: 'topCategory', sample: 'Food & Dining' },
     ],
-    buttons: [{ type: 'url', text: 'See details' }],
-    note: 'Flagged as marketing by Meta 24 Sep; a review can be requested until 15 Oct 2026.',
+    buttons: [{ type: 'url', text: 'See details', url: 'https://vyact.app/reports' }],
   }),
   reengagement_nudge: t({
     name: 'reengagement_nudge', category: 'marketing', language: 'en_US', status: 'in_review',

@@ -26,7 +26,7 @@ fails. The 11 header images are in
 |---|---|---|---|---|
 | `bill_due_reminder` | Utility | 01-bill-reminder | Image added; body unchanged | Active, verified field by field on 26 Sep |
 | `split_settled` | Utility | 08-split-settled | Image added; body unchanged | Active, verified field by field on 26 Sep |
-| `weekly_summary` | Utility → **flagged as Marketing** | 09-weekly-summary | Image added; body unchanged | Active, verified field by field on 26 Sep · ⚠ the See details link still opens the old vyact-twentyx site; Meta files it as Utility; the manifest still treats it as marketing (consent-gated) |
+| `weekly_summary` | Utility → **flagged as Marketing** | 09-weekly-summary | Image added; body unchanged | Sample sent to the owner and **delivered** 26 Sep 15:05 UTC. Then the See details link was edited from the old vyact-twentyx site to https://vyact.app/reports (link tracking off): **in review**, and out of the approved list until approved |
 | `reengagement_nudge` | Marketing | 04-reengagement | **Edited 26 Sep (W6)**: the board's unnamed-spending variant, a **Name them here** quick reply, Open Vyact → vyact.app. The image now matches the body | Approved version active; edit in review |
 | `payday_headroom` | Utility | 02-payday | New | Active, verified field by field on 26 Sep |
 | `household_daily_digest` | Utility | 03-household-digest | New | Active, verified field by field on 26 Sep |
@@ -47,7 +47,7 @@ fails. The 11 header images are in
 | `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | In review (submitted 25 Sep) |
 | `hello_world` | Utility | — | Meta sample; cannot be deleted. Kept for test sends | Active |
 
-**Activation (26 Sep).** `WHATSAPP_OUTBOUND_ENABLED=true`, and `WHATSAPP_APPROVED_TEMPLATES` lists the templates verified above: 16 on 26 Sep 03:07 UTC, then 18 at 13:25 UTC (adding bill_overdue_reminder, payday_headroom_variable and reengagement_nudge_quiet; recurring_auto_logged removed while its image edit is in review). Each one was checked field by field against the manifest in the Meta edit form: body, variables, samples, header, footer, buttons and links. Templates still in review are left out; add each one only after it is approved and checked. The scheduler (`whatsapp-dispatch`) still needs the Vault secret `whatsapp_dispatch_secret` and the matching `WHATSAPP_DISPATCH_SECRET` before any scheduled message goes out.
+**Activation (26 Sep).** `WHATSAPP_OUTBOUND_ENABLED=true`, and `WHATSAPP_APPROVED_TEMPLATES` lists the templates verified above: 16 on 26 Sep 03:07 UTC, then 18 at 13:25 UTC (adding bill_overdue_reminder, payday_headroom_variable and reengagement_nudge_quiet; recurring_auto_logged removed while its image edit is in review), then 17 at 15:09 UTC (weekly_summary out while its link edit is in review). Each one was checked field by field against the manifest in the Meta edit form: body, variables, samples, header, footer, buttons and links. Templates still in review are left out; add each one only after it is approved and checked. The scheduler (`whatsapp-dispatch`) still needs the Vault secret `whatsapp_dispatch_secret` and the matching `WHATSAPP_DISPATCH_SECRET` before any scheduled message goes out.
 
 **Deleted 25 Sep:** `recurring` (a "pay now" overdue-card message that Vyact never sends),
 `feedback`, and `3p_direct_integration_test_template`. None was used by the app.
