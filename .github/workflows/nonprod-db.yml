@@ -1,0 +1,56 @@
+name: Non-production database (staging / develop)
+
+# Keeps the shared non-production Supabase project (vyact-test) in sync with
+# supabase/migrations whenever the staging or develop branch changes.
+# Production is NEVER touched: the guard step below refuses the production ref.
+#
+# One-time setup (GitHub → Settings → Environments → New environment):
+#   Environment name: nonprod-database
+#   Secrets:
+#     SUPABASE_ACCESS_TOKEN          personal access token (supabase.com/dashboard/account/tokens)
+#     NONPROD_SUPABASE_DB_PASSWORD   database password of the vyact-test project
+# Then run it once from Actions → this workflow → "Run workflow" to seed vyact-test.
+
+on:
+  push:
+    branches: [staging, develop]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch:
+
+concurrency:
+  group: nonprod-database
+  cancel-in-progress: false
+
+env:
+  NONPROD_PROJECT_REF: xdbfzwltqocyljbgztmv   # vyact-test
+  PROD_PROJECT_REF: dmxqkvploojokffuhxnz      # vyact (production) — must never be targeted here
+
+jobs:
+  db-migrations:
+    name: Apply migrations to vyact-test
+    runs-on: ubuntu-latest
+    environment: nonprod-database
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: 1.226.4 }
+
+      - name: Guard — refuse to run against production
+        run: |
+          if [ "${NONPROD_PROJECT_REF}" = "${PROD_PROJECT_REF}" ]; then
+            echo "::error::Non-production workflow is pointed at the production project. Aborting."
+            exit 1
+          fi
+
+      - name: Validate migrations directory (same gate as production)
+        run: node scripts/db-migrations-check.mjs
+
+      - name: Link vyact-test
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase link --project-ref "${NONPROD_PROJECT_REF}" --password "${{ secrets.NONPROD_SUPABASE_DB_PASSWORD }}"
+
+      - name: Push migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase db push --password "${{ secrets.NONPROD_SUPABASE_DB_PASSWORD }}" --include-all
