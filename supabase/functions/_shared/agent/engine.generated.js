@@ -1949,6 +1949,11 @@ const KEYWORD_MAP = {
 	lunch: "food_dining",
 	dinner: "food_dining",
 	breakfast: "food_dining",
+	tea: "food_dining",
+	chai: "food_dining",
+	snack: "food_dining",
+	snacks: "food_dining",
+	juice: "food_dining",
 	restaurant: "food_dining",
 	dining: "food_dining",
 	food: "food_dining",
@@ -2437,6 +2442,12 @@ HOW TO ANSWER
   each is worth, and leave the choice to the customer.
 - \`free_to_spend_after_card_dues\` is what is genuinely spare once the card bill is
   paid. When asked what they can spend, lead with it, not with \`liquid_savings\`.
+- "Can I afford …": the answer is \`verdict\`, and it rests on \`verdict_rests_on\` — the
+  category's budget this month (\`budget_left_this_month\`) and the money free after card
+  dues. The SAFETY FLOOR IS NOT THE VERDICT: it is a risk to know about. When
+  \`safety_floor_note\` says savings are below it (or would go below), say so LAST, in its
+  own paragraph after a blank line, as a risk (for example, less of a cushion if income
+  stopped) — never as the reason for the answer, and never turning a "yes" into a "no".
 - \`cushion_note\` outranks a good Pulse score: say the habits score well AND that the
   cushion is thin. \`pulse_measures\` says what Pulse does and does not cover.
 - \`compared_with_same_point\` compares this month so far with the same days of last
@@ -2623,6 +2634,28 @@ function categoryRollingAvg(ctx, category, n = 3, excludeMonth = nowMonthKey()) 
 * ₹34,956 BELOW — a real number, correctly copied, and the opposite of the truth.
 * Any fact that can cross zero goes through here.
 */
+/**
+* v10.48.1 — a category's budget for a month, in the base currency: its allocation in
+* that month's container budget (or a legacy per-category budget). Reading
+* `budgets.find(b => b.category === …)` found nothing for every v9.1 budget (TD-39's
+* class), so Pip said "no budget set" for a category that had one.
+*/
+function categoryBudget(ctx, category, monthKey) {
+	const lines = budgetLinesForMonth(ctx.budgets, ctx.budgetAllocations ?? [], monthKey).filter((b) => b.category === category);
+	if (!lines.length) return void 0;
+	const monthly = lines.filter((b) => b.scope !== "annual");
+	const use = monthly.length ? monthly : lines;
+	return {
+		limit: use.reduce((sum, b) => sum + convert(b.limit, b.currency, cur(ctx), ctx.rates), 0),
+		estimated: use.some((b) => !!b.confidence && b.confidence !== "confirmed")
+	};
+}
+const EXPENSE_IDS = new Set(EXPENSE_CATEGORIES.map((c) => c.id));
+/** What a purchase is for: the category the model named, else one read from the words ("tea" → Food & Dining). */
+function purchaseCategory(e) {
+	const id = resolveCategoryId(typeof e.category === "string" ? e.category : void 0) ?? matchCategory(normalise(String(e.text ?? "")));
+	return id && EXPENSE_IDS.has(id) && id !== "loan_emi" ? id : void 0;
+}
 const signedMoney = (n, ctx, up = "above", down = "below") => `${money(Math.abs(n), ctx)} ${n < 0 ? down : up}`;
 /**
 * Typical monthly spend and how many months it rests on — THE one baseline.
@@ -2922,8 +2955,7 @@ function debtFacts(ctx) {
 }
 /** Does this category lean on onboarding estimates? (provenance, spec §5). */
 function categoryUsesEstimate(ctx, category) {
-	const b = ctx.budgets.find((x) => x.category === category);
-	if (b && b.confidence && b.confidence !== "confirmed") return true;
+	if (categoryBudget(ctx, category, nowMonthKey())?.estimated) return true;
 	return ctx.transactions.some((t) => t.category === category && t.confidence && t.confidence !== "confirmed");
 }
 /**
@@ -3320,7 +3352,7 @@ function resolveCore(intent, ctx) {
 				vars: { category: String(e.category) }
 			};
 			const amount = spend[category] || 0;
-			const budget = ctx.budgets.find((b) => b.category === category);
+			const budget = categoryBudget(ctx, category, mk);
 			const usesEstimate = categoryUsesEstimate(ctx, category);
 			const lookupChips = [{
 				label: "Why is it up?",
@@ -3633,50 +3665,94 @@ function resolveCore(intent, ctx) {
 			const basis = basisOf(ctx);
 			const floor = emergencyFloor(ctx);
 			const dues = ctx.summary.netWorth.cardDues;
-			const headroom = liquid - dues - floor;
+			const free = liquid - dues;
+			const headroom = free - floor;
+			const category = purchaseCategory(e);
+			const label = category ? getCat(category).label : void 0;
+			const mk = nowMonthKey();
+			const line = category ? categoryBudget(ctx, category, mk) : void 0;
+			const lineLeft = category && line ? line.limit - (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0) : void 0;
+			const covered = e.amount <= free;
+			const inBudget = lineLeft == null || e.amount <= lineLeft;
+			const outcome = !covered ? "tight" : !inBudget ? "over_budget" : "fits";
+			const verdict = !covered ? "more than the money free after card dues" : !inBudget ? `over the ${label} budget this month` : line ? `fits the ${label} budget this month` : "fits";
+			const floorPosition = headroom < 0 ? "already below the safety floor, before this purchase" : headroom < e.amount ? "this purchase would take savings below the safety floor" : "savings stay above the safety floor";
 			const affordFacts = {
 				purchase: money(e.amount, ctx),
+				...label ? { what_it_is_for: label } : {},
+				...line && lineLeft != null ? {
+					budget_this_month: money(line.limit, ctx),
+					budget_left_this_month: signedMoney(lineLeft, ctx, "left", "over"),
+					budget_left_after_purchase: signedMoney(lineLeft - e.amount, ctx, "left", "over")
+				} : label ? { budget_this_month: `no ${label} budget this month` } : {},
 				liquid_savings: money(liquid, ctx),
 				card_dues_to_pay: money(dues, ctx),
-				free_to_spend_after_card_dues: signedMoney(liquid - dues, ctx, "free", "short"),
+				free_to_spend_after_card_dues: signedMoney(free, ctx, "free", "short"),
+				free_after_purchase: signedMoney(free - e.amount, ctx, "free", "short"),
+				verdict,
+				verdict_rests_on: line ? `the ${label} budget and the money free after card dues` : "the money free after card dues",
 				typical_monthly_spending: money(basis.averageMonthly, ctx),
 				typical_essential_monthly: money(basis.averageEssential, ctx),
 				typical_discretionary_monthly: money(basis.averageDiscretionary, ctx),
 				months_considered: basisLabel(ctx),
 				safety_floor: money(floor, ctx),
 				safety_floor_basis: `three months of your typical essential spending, averaged over ${basisLabel(ctx)}`,
-				headroom_against_floor: signedMoney(headroom, ctx)
+				headroom_against_floor: signedMoney(headroom, ctx),
+				safety_floor_note: floorPosition,
+				safety_floor_is: "a risk to know about, not the verdict"
 			};
 			const affordAnalysis = [
+				...line ? [`Checked what is left in your ${label} budget this month`] : [],
 				"Totalled your liquid savings",
 				...dues > 0 ? ["Set aside what your credit cards owe"] : [],
-				`Averaged your spending over ${basisLabel(ctx)}`,
-				"Kept three months of essential spending aside as a safety floor",
-				"Compared the purchase with what is left above it"
+				"Compared the purchase with the money free after card dues",
+				`Noted where your savings stand against a three-month safety floor (averaged over ${basisLabel(ctx)})`
 			];
-			if (headroom >= e.amount) return {
+			if (outcome === "fits") {
+				const aboveFloorAfter = headroom - e.amount;
+				return {
+					kind: "forecast",
+					outcome: "fits",
+					facts: {
+						...affordFacts,
+						...aboveFloorAfter >= 0 ? { left_above_floor_after: money(aboveFloorAfter, ctx) } : {}
+					},
+					...aboveFloorAfter >= 0 ? { amounts: {
+						purchase: Math.round(e.amount),
+						cushion: Math.round(aboveFloorAfter),
+						floor: Math.round(floor),
+						free_to_spend: Math.round(free)
+					} } : {},
+					analysis: affordAnalysis,
+					vars: {
+						amount: money(e.amount, ctx),
+						headroom: money(headroom, ctx),
+						cushion: money(aboveFloorAfter, ctx)
+					},
+					chips: [{
+						label: "How long would my savings last?",
+						prompt: "how long would my savings last"
+					}]
+				};
+			}
+			if (outcome === "over_budget") return {
 				kind: "forecast",
-				outcome: "fits",
+				outcome: "over_budget",
 				facts: {
 					...affordFacts,
-					verdict: "fits",
-					left_above_floor_after: money(headroom - e.amount, ctx)
-				},
-				amounts: {
-					purchase: Math.round(e.amount),
-					cushion: Math.round(headroom - e.amount),
-					floor: Math.round(floor),
-					free_to_spend: Math.round(liquid - dues)
+					over_budget_by: money(e.amount - (lineLeft ?? 0), ctx)
 				},
 				analysis: affordAnalysis,
 				vars: {
 					amount: money(e.amount, ctx),
-					headroom: money(headroom, ctx),
-					cushion: money(headroom - e.amount, ctx)
+					category: label ?? ""
 				},
 				chips: [{
-					label: "How long would my savings last?",
-					prompt: "how long would my savings last"
+					label: "Where can I cut back?",
+					prompt: "where can I cut back"
+				}, {
+					label: `How much on ${label} this month?`,
+					prompt: `how much on ${(label ?? "").toLowerCase()} this month`
 				}]
 			};
 			return {
@@ -3684,13 +3760,12 @@ function resolveCore(intent, ctx) {
 				outcome: "tight",
 				facts: {
 					...affordFacts,
-					verdict: "would dip into the safety floor",
-					shortfall: money(e.amount - headroom, ctx)
+					shortfall: money(e.amount - Math.max(0, free), ctx)
 				},
 				analysis: affordAnalysis,
 				vars: {
 					amount: money(e.amount, ctx),
-					shortfall: money(e.amount - headroom, ctx)
+					shortfall: money(e.amount - Math.max(0, free), ctx)
 				},
 				chips: [{
 					label: "Where can I cut back?",
@@ -4383,6 +4458,7 @@ function contextFromRows(rows) {
 		summary,
 		transactions,
 		budgets,
+		budgetAllocations,
 		goals,
 		debts,
 		assets,

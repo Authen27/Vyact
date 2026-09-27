@@ -135,7 +135,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     if (!isAskVyactEnabled() || !FEATURES.askVyact.proactiveInsight) return;
     try { if (sessionStorage.getItem('askvyact_proactive_shown') === '1') return; } catch { /* noop */ }
     const ctx: AssistantContext = {
-      summary, transactions: txns, budgets, goals, debts, assets, recurring,
+      summary, transactions: txns, budgets, budgetAllocations, goals, debts, assets, recurring,
       profile, rates, baseCurrency: profile.baseCurrency,
     };
     const insight = proactiveInsight(ctx);
@@ -194,7 +194,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       if (isAskVyactEnabled()) {
         const assistantBackend = selectAssistantBackend();
         const ctx: AssistantContext = {
-          summary, transactions: txns, budgets, goals, debts, assets, recurring,
+          summary, transactions: txns, budgets, budgetAllocations, goals, debts, assets, recurring,
           profile, rates, baseCurrency: profile.baseCurrency,
           // v10.38 — ids and names only, so a bank message naming a card can seed the
           // paying account on the form.

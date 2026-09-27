@@ -14,9 +14,35 @@ import type { NotificationPrefs } from '../types';
 
 const ENDPOINT_KEY = 'vyact_push_endpoint';
 
-export type EnableResult =
-  | { ok: true }
-  | { ok: false; reason: 'unsupported' | 'ios_not_installed' | 'denied' | 'update_needed' | 'server'; detail?: string };
+export type RefusalReason = 'unsupported' | 'ios_not_installed' | 'denied' | 'update_needed' | 'push_service' | 'server';
+export type EnableResult = { ok: true } | { ok: false; reason: RefusalReason; detail?: string };
+
+/** Brave exposes `navigator.brave`; it can block the Google push service Chromium uses. */
+export function isBrave(): boolean {
+  return typeof navigator !== 'undefined' && !!(navigator as Navigator & { brave?: unknown }).brave;
+}
+
+/** What to tell the person, in Settings and in the bell alike. */
+export function pushRefusalMessage(reason: RefusalReason, detail?: string): string {
+  switch (reason) {
+    case 'ios_not_installed':
+      return 'On iPhone, add Vyact to your Home Screen first (Share → Add to Home Screen), open it from there, then turn this on.';
+    case 'unsupported':
+      return "This browser can't receive push notifications.";
+    case 'denied':
+      return "Notifications are blocked for Vyact. Allow them in your phone's (or browser's) site settings, then turn this on again.";
+    case 'update_needed':
+      return 'Vyact needs to update before it can receive notifications. Reload, then turn this on again.';
+    case 'push_service':
+      // v10.48.1 — the browser refused to create a push subscription. Chromium browsers
+      // deliver through Google's push service; Brave can have that switched off.
+      return isBrave()
+        ? `Brave couldn't set up push on this phone${detail ? ` (${detail})` : ''}. Brave can block Google's push service, which web notifications use. If Brave's settings offer "Use Google services for push messaging", turn it on and try again; otherwise open vyact.app in Chrome and turn this on there.`
+        : `This browser couldn't set up push${detail ? ` (${detail})` : ''}. Please try again, or use Chrome.`;
+    case 'server':
+      return `This device couldn't be registered with Vyact${detail ? ` (${detail})` : ''}. Please try again in a moment.`;
+  }
+}
 
 export function pushSupported(): boolean {
   return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -109,8 +135,17 @@ export async function enablePush(householdId: string, prefs: NotificationPrefs):
   const reg = await registration();
   if (!reg) return { ok: false, reason: 'unsupported', detail: 'no service worker' };
   if (!(await workerHandlesPush(reg))) return { ok: false, reason: 'update_needed' };
+  let sub: PushSubscription;
   try {
-    await register(await subscribe(reg), householdId, prefs);
+    sub = await subscribe(reg);
+  } catch (e) {
+    const err = e as Error;
+    // Our key endpoint failing is ours; anything else is the browser's push service refusing.
+    if (err?.message === 'push_key_unavailable') return { ok: false, reason: 'server', detail: err.message };
+    return { ok: false, reason: 'push_service', detail: [err?.name, err?.message].filter(Boolean).join(': ') };
+  }
+  try {
+    await register(sub, householdId, prefs);
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: 'server', detail: (e as Error)?.message };

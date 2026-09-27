@@ -248,6 +248,7 @@ export function matchAccountId(
 const KEYWORD_MAP: Record<string, string> = {
   // food & dining
   coffee: 'food_dining', lunch: 'food_dining', dinner: 'food_dining', breakfast: 'food_dining',
+  tea: 'food_dining', chai: 'food_dining', snack: 'food_dining', snacks: 'food_dining', juice: 'food_dining',
   restaurant: 'food_dining', dining: 'food_dining', food: 'food_dining', eat: 'food_dining',
   'eating out': 'food_dining', starbucks: 'food_dining', mcdonalds: 'food_dining',
   swiggy: 'food_dining', zomato: 'food_dining', takeaway: 'food_dining',

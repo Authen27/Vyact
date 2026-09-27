@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.48.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.48.1**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -404,7 +404,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   device first. Every push must show a notification (the SW always does) or the browser revokes the
   subscription. iPhone/iPad receive web push only when Vyact is added to the Home Screen.
   **`budget_threshold` checks each ALLOCATION (TD-39):** a v9.1 budget has no `category`; reading
-  `b.category` made the rule silently never fire.
+  `b.category` made the rule silently never fire. The same class hit Pip's category lookup: a category's
+  budget is `categoryBudget()` (its allocation, via `budgetLinesForMonth`), never `budgets.find(b => b.category)`.
+  **The push switch shows the DEVICE's registration (v10.48.1)**, not the saved preference.
+- **"Can I afford …" is budget-first; the safety floor is SOFT (v10.48.1, owner's rule).** The verdict rests on
+  the purchase's category budget this month (`purchaseCategory` → `categoryBudget`) and the money free after
+  card dues. The three-month floor is stated separately (`safety_floor_note`), last, in its own paragraph, as a
+  risk — never the reason for the answer and never turning a yes into a no (PHRASE_SYSTEM). A household below its
+  floor was told no to ₹5 of tea before this. The WhatsApp `affordability_reply` card goes out only when its
+  "above your safety floor" sentence is true.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

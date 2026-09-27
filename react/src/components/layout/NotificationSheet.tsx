@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import PullDownSheet from '../ui/PullDownSheet';
+import PhonePushPrompt from './PhonePushPrompt';
 import { Pip } from './Brand';
 import { NOTIF_META } from '../../lib/notifications';
 import { advanceSchedule } from '../../lib/recurring';
@@ -167,6 +168,7 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
         </button>
       }
     >
+      <PhonePushPrompt />
       {empty ? (
         <div className="flex flex-col items-center justify-center text-center py-16 gap-3">
           <Pip size={52} />

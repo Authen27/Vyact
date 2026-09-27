@@ -12,9 +12,11 @@
 
 import type {
   Transaction, Budget, Goal, Debt, Asset, Profile, ExchangeRates, SplitInfo, TxnType, RecurringSchedule,
+  BudgetAllocation,
 } from '../types';
 import {
   spendByCategory, spendByCategoryInRange, reportableTxns, effectiveAmount, monthlyData, totalMonthlyDebtPayment,
+  budgetLinesForMonth,
 } from './calculations';
 // v10.38 — period/date/account resolution lives in the parser, next to the entity
 // shape it reads, and is unit-tested there.
@@ -22,7 +24,7 @@ import {
   resolvePeriod, resolveDayWindow, parseDateEntity, matchAccountId, matchCategory, resolveCategoryId,
   statedCurrency, amountLooksLikeIdentifier, normalise,
 } from './askVyactParser';
-import { getCat, NEEDS_WANTS_MAP, CURRENCIES } from '../constants';
+import { getCat, NEEDS_WANTS_MAP, CURRENCIES, EXPENSE_CATEGORIES } from '../constants';
 import { fmt, convert } from './format';
 import { nowMonthKey, getMonthKey } from './format';
 import type { SafeSummary } from './aiSummary';
@@ -40,6 +42,12 @@ export interface AssistantContext {
   summary: SafeSummary;
   transactions: Transaction[];
   budgets: Budget[];
+  /**
+   * v10.48.1 — the budgets' per-category allocations. Since v9.1 a budget is a period
+   * container with NO category of its own; its categories live here. Without them a
+   * "what's my Groceries budget" lookup finds nothing. Optional for older callers.
+   */
+  budgetAllocations?: BudgetAllocation[];
   goals: Goal[];
   debts: Debt[];
   assets: Asset[];
@@ -165,6 +173,33 @@ function categoryRollingAvg(ctx: AssistantContext, category: string, n = 3, excl
  * ₹34,956 BELOW — a real number, correctly copied, and the opposite of the truth.
  * Any fact that can cross zero goes through here.
  */
+/**
+ * v10.48.1 — a category's budget for a month, in the base currency: its allocation in
+ * that month's container budget (or a legacy per-category budget). Reading
+ * `budgets.find(b => b.category === …)` found nothing for every v9.1 budget (TD-39's
+ * class), so Pip said "no budget set" for a category that had one.
+ */
+function categoryBudget(ctx: AssistantContext, category: string, monthKey: string): { limit: number; estimated: boolean } | undefined {
+  const lines = budgetLinesForMonth(ctx.budgets, ctx.budgetAllocations ?? [], monthKey).filter(b => b.category === category);
+  if (!lines.length) return undefined;
+  // A month's own line wins over an annual one covering the same category.
+  const monthly = lines.filter(b => b.scope !== 'annual');
+  const use = monthly.length ? monthly : lines;
+  return {
+    limit: use.reduce((sum, b) => sum + convert(b.limit, b.currency, cur(ctx), ctx.rates), 0),
+    estimated: use.some(b => !!b.confidence && b.confidence !== 'confirmed'),
+  };
+}
+
+const EXPENSE_IDS = new Set<string>(EXPENSE_CATEGORIES.map(c => c.id));
+
+/** What a purchase is for: the category the model named, else one read from the words ("tea" → Food & Dining). */
+function purchaseCategory(e: { category?: unknown; text?: unknown }): string | undefined {
+  const named = resolveCategoryId(typeof e.category === 'string' ? e.category : undefined);
+  const id = named ?? matchCategory(normalise(String(e.text ?? '')));
+  return id && EXPENSE_IDS.has(id) && id !== 'loan_emi' ? id : undefined;
+}
+
 const signedMoney = (n: number, ctx: AssistantContext, up = 'above', down = 'below'): string =>
   `${money(Math.abs(n), ctx)} ${n < 0 ? down : up}`;
 
@@ -497,8 +532,7 @@ function debtFacts(ctx: AssistantContext) {
 
 /** Does this category lean on onboarding estimates? (provenance, spec §5). */
 function categoryUsesEstimate(ctx: AssistantContext, category: string): boolean {
-  const b = ctx.budgets.find(x => x.category === category);
-  if (b && b.confidence && b.confidence !== 'confirmed') return true;
+  if (categoryBudget(ctx, category, nowMonthKey())?.estimated) return true;
   return ctx.transactions.some(t => t.category === category && t.confidence && t.confidence !== 'confirmed');
 }
 
@@ -885,7 +919,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         };
       }
       const amount = spend[category] || 0;
-      const budget = ctx.budgets.find(b => b.category === category);
+      const budget = categoryBudget(ctx, category, mk);
       const usesEstimate = categoryUsesEstimate(ctx, category);
       // The deck's canonical example of the rule: after a figure, the next
       // question is "why", never "open reports".
@@ -1165,61 +1199,100 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       const basis = basisOf(ctx);
       const floor = emergencyFloor(ctx);
       // v10.39.1 (P19) — the card bill is paid from this same money, so it comes off
-      // before anything is "spare". Headroom used to be liquid − floor, which let a
-      // purchase "fit" into money already owed to the card issuer.
+      // before anything is "spare".
       const dues = ctx.summary.netWorth.cardDues;
-      const headroom = liquid - dues - floor;
+      const free = liquid - dues;
+      const headroom = free - floor;
+      // v10.48.1 — WHAT DECIDES THE ANSWER. It used to be the savings floor alone: a
+      // household already below its floor was told "₹5 would dip into the safety floor,
+      // shortfall ₹44,831" for a cup of tea (production, 27 Sep). Now:
+      //   1. the purchase's category budget this month, when it has one ("tea" → Food &
+      //      Dining), and
+      //   2. whether the money free after card dues covers it.
+      // The safety floor is a SOFT constraint: stated separately, as a risk, and never
+      // the verdict (owner's rule, 27 Sep).
+      const category = purchaseCategory(e);
+      const label = category ? getCat(category).label : undefined;
+      const mk = nowMonthKey();
+      const line = category ? categoryBudget(ctx, category, mk) : undefined;
+      const lineLeft = category && line
+        ? line.limit - (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0)
+        : undefined;
+      const covered = e.amount <= free;
+      const inBudget = lineLeft == null || e.amount <= lineLeft;
+      const outcome = !covered ? 'tight' : !inBudget ? 'over_budget' : 'fits';
+      const verdict = !covered ? 'more than the money free after card dues'
+        : !inBudget ? `over the ${label} budget this month`
+        : line ? `fits the ${label} budget this month` : 'fits';
+      const floorPosition = headroom < 0 ? 'already below the safety floor, before this purchase'
+        : headroom < e.amount ? 'this purchase would take savings below the safety floor'
+        : 'savings stay above the safety floor';
       const affordFacts = {
         purchase: money(e.amount, ctx),
+        ...(label ? { what_it_is_for: label } : {}),
+        ...(line && lineLeft != null ? {
+          budget_this_month: money(line.limit, ctx),
+          budget_left_this_month: signedMoney(lineLeft, ctx, 'left', 'over'),
+          budget_left_after_purchase: signedMoney(lineLeft - e.amount, ctx, 'left', 'over'),
+        } : label ? { budget_this_month: `no ${label} budget this month` } : {}),
         liquid_savings: money(liquid, ctx),
         card_dues_to_pay: money(dues, ctx),
-        free_to_spend_after_card_dues: signedMoney(liquid - dues, ctx, 'free', 'short'),
+        free_to_spend_after_card_dues: signedMoney(free, ctx, 'free', 'short'),
+        free_after_purchase: signedMoney(free - e.amount, ctx, 'free', 'short'),
+        verdict,
+        verdict_rests_on: line ? `the ${label} budget and the money free after card dues` : 'the money free after card dues',
         typical_monthly_spending: money(basis.averageMonthly, ctx),
         typical_essential_monthly: money(basis.averageEssential, ctx),
         typical_discretionary_monthly: money(basis.averageDiscretionary, ctx),
         months_considered: basisLabel(ctx),
+        // The soft constraint, for its own paragraph (PHRASE_SYSTEM).
         safety_floor: money(floor, ctx),
         safety_floor_basis: `three months of your typical essential spending, averaged over ${basisLabel(ctx)}`,
         // Signed: this crosses zero, and `money()` would print a deficit as a surplus.
         headroom_against_floor: signedMoney(headroom, ctx),
+        safety_floor_note: floorPosition,
+        safety_floor_is: 'a risk to know about, not the verdict',
       };
       const affordAnalysis = [
+        ...(line ? [`Checked what is left in your ${label} budget this month`] : []),
         'Totalled your liquid savings',
         ...(dues > 0 ? ['Set aside what your credit cards owe'] : []),
-        `Averaged your spending over ${basisLabel(ctx)}`,
-        'Kept three months of essential spending aside as a safety floor',
-        'Compared the purchase with what is left above it',
+        'Compared the purchase with the money free after card dues',
+        `Noted where your savings stand against a three-month safety floor (averaged over ${basisLabel(ctx)})`,
       ];
-      if (headroom >= e.amount) {
+      if (outcome === 'fits') {
+        const aboveFloorAfter = headroom - e.amount;
         return { kind: 'forecast', outcome: 'fits',
-          facts: { ...affordFacts, verdict: 'fits', left_above_floor_after: money(headroom - e.amount, ctx) },
-          // v10.47.0 — the card's figures, rounded exactly as money() rounds them.
-          amounts: {
-            purchase: Math.round(e.amount), cushion: Math.round(headroom - e.amount), floor: Math.round(floor),
-            free_to_spend: Math.round(liquid - dues),
-          },
+          facts: { ...affordFacts, ...(aboveFloorAfter >= 0 ? { left_above_floor_after: money(aboveFloorAfter, ctx) } : {}) },
+          // v10.47.0 — the WhatsApp card says "…would still leave about ₹X above your safety
+          // floor", so its figures go out only when that sentence is true.
+          ...(aboveFloorAfter >= 0 ? { amounts: {
+            purchase: Math.round(e.amount), cushion: Math.round(aboveFloorAfter), floor: Math.round(floor),
+            free_to_spend: Math.round(free),
+          } } : {}),
           analysis: affordAnalysis,
-          vars: {
-          amount: money(e.amount, ctx), headroom: money(headroom, ctx),
-          cushion: money(headroom - e.amount, ctx),
-        }, chips: [
+          vars: { amount: money(e.amount, ctx), headroom: money(headroom, ctx), cushion: money(aboveFloorAfter, ctx) },
+          chips: [{ label: 'How long would my savings last?', prompt: 'how long would my savings last' }] };
+      }
+      if (outcome === 'over_budget') {
+        return { kind: 'forecast', outcome: 'over_budget',
+          facts: { ...affordFacts, over_budget_by: money(e.amount - (lineLeft ?? 0), ctx) },
+          analysis: affordAnalysis,
+          vars: { amount: money(e.amount, ctx), category: label ?? '' },
+          chips: [
+            { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+            { label: `How much on ${label} this month?`, prompt: `how much on ${(label ?? '').toLowerCase()} this month` },
+          ] };
+      }
+      // More than the money free after card dues. Not a flat "no": the chips are the way forward.
+      return { kind: 'forecast', outcome: 'tight',
+        facts: { ...affordFacts, shortfall: money(e.amount - Math.max(0, free), ctx) },
+        analysis: affordAnalysis,
+        vars: { amount: money(e.amount, ctx), shortfall: money(e.amount - Math.max(0, free), ctx) },
+        chips: [
+          { label: 'Where can I cut back?', prompt: 'where can I cut back' },
           { label: 'How long would my savings last?', prompt: 'how long would my savings last' },
         ] };
-      }
-      // The deck's chip here is "When is it comfortable?" — deliberately NOT
-      // shipped: answering it needs payday as a modelled date (#68), and today
-      // `payday` is only a trigger keyword. The old chip carried no prompt, so
-      // it would have been untappable even had it reached a screen. These two
-      // are answerable now.
-      return { kind: 'forecast', outcome: 'tight',
-        facts: { ...affordFacts, verdict: 'would dip into the safety floor', shortfall: money(e.amount - headroom, ctx) },
-        analysis: affordAnalysis,
-        vars: {
-        amount: money(e.amount, ctx), shortfall: money(e.amount - headroom, ctx),
-      }, chips: [
-        { label: 'Where can I cut back?', prompt: 'where can I cut back' },
-        { label: 'How long would my savings last?', prompt: 'how long would my savings last' },
-      ] };
     }
     case 'forecast.runway': {
       // Same single source as affordability and status (v10.38).

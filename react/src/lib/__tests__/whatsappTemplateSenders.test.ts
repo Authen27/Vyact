@@ -206,3 +206,22 @@ describe('affordability asks in any wording (found on production 27 Sep)', () =>
     expect(isQueryAttempt('1200 lunch?')).toBe(false);
   });
 });
+
+describe('a line that opens like a question is one (found on production 27 Sep)', () => {
+  it('CON-UNIT-W6B-018 · "Why can\'t I spend 5 rupees although…" is a question, never a ₹5 entry; entries still log', () => {
+    const d = new Date('2026-09-27T00:00:00Z');
+    const ASKS = [
+      "Why can't I spend 5 rupees although I have 80% of groceries budget and nearly 90% of food and dining budget",
+      "why can’t i spend 5 on tea",
+      'how come I spent 4000 on food',
+      "what's my budget for groceries",
+      'is 450 too much for lunch',
+      "can't I buy a 500 shirt",
+      'do I have 2000 left for groceries',
+      'show me 500 spends',
+    ];
+    const LOGS = ['spent 5 on tea', 'tea 5', 'paid 1200 total groceries', '450 lunch hdfc', 'may rent 25000', 'lunch 450 food budget', 'uber 300'];
+    for (const q of ASKS) expect(parseWhatsAppMessage(q, [], 'INR', d), q).toEqual({ ok: false, reason: 'query' });
+    for (const l of LOGS) expect(parseWhatsAppMessage(l, [], 'INR', d).ok, l).toBe(true);
+  });
+});
