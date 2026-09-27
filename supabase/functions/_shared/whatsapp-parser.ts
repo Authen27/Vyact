@@ -104,6 +104,7 @@ export function parseAmount(text: string): number | undefined {
 // ── keyword → category id (ported; longest keyword wins) ──────────────────────
 const KEYWORD_MAP: Record<string, string> = {
   coffee: 'food_dining', lunch: 'food_dining', dinner: 'food_dining', breakfast: 'food_dining',
+  tea: 'food_dining', chai: 'food_dining', snack: 'food_dining', snacks: 'food_dining', juice: 'food_dining',
   restaurant: 'food_dining', dining: 'food_dining', food: 'food_dining', eat: 'food_dining',
   'eating out': 'food_dining', starbucks: 'food_dining', mcdonalds: 'food_dining',
   swiggy: 'food_dining', zomato: 'food_dining', takeaway: 'food_dining',
@@ -148,7 +149,7 @@ export function matchCategory(text: string): string | undefined {
  */
 const AFFORDABILITY_ASK = [
   /\bafford(able|ability)?\b/,
-  /\b(can|could|should|shall|may)\s+(i|we)\s+(really\s+)?(buy|spend|get|splurge|go for)\b/,
+  /\b(can|could|should|shall|may|can'?t|cannot|couldn'?t|shouldn'?t)\s+(i|we)\s+(really\s+)?(buy|spend|get|splurge|go for)\b/,
   /\b(is|would) it\s+(be\s+)?(ok|okay|fine|alright|wise|safe|sensible)\s+(for (me|us)\s+)?to\s+(spend|buy|get)\b/,
   /\b(do|have)\s+(i|we)\s+(got\s+|have\s+)?enough\b/,
   /\b(am i|are we)\s+(able|allowed)\s+to\s+(spend|buy)\b/,
@@ -160,6 +161,9 @@ export function isAffordabilityAsk(text: string): boolean {
   return AFFORDABILITY_ASK.some(re => re.test(text));
 }
 
+/** Words a question starts with and an entry never does ("why …", "how come …", "can't I …"). */
+const QUESTION_OPENER = /^\s*(why|how|what|what'?s|whats|which|when|where|who|whom|whose|is|isn'?t|are|aren'?t|am|do|does|doesn'?t|did|didn'?t|don'?t|can|can'?t|cannot|could|couldn'?t|should|shouldn'?t|would|wouldn'?t|will|won'?t|shall|tell me|show me)\b/;   // never "may": "may rent 25000" is a month
+
 export function isQueryAttempt(text: string): boolean {
   if (isAffordabilityAsk(text)) return true;         // even "5k tea, can I afford it"
   if (/^\s*[+\-]?\s*\d/.test(text)) return false;   // "1200 lunch …" — a leading amount
@@ -170,6 +174,10 @@ export function isQueryAttempt(text: string): boolean {
   // production. The ask can sit anywhere in the line ("pip, can I afford…"), and
   // "afford" is never how anyone LOGS a spend.
   if (/\?\s*$/.test(text) || isAffordabilityAsk(text)) return true;
+  // v10.48.1 — a line that OPENS like a question is one, data word or not. "Why can't I
+  // spend 5 rupees although I have 80% of groceries budget…" was logged as a ₹5 expense:
+  // it had a spend verb and an amount, and no word from the data list below.
+  if (QUESTION_OPENER.test(text)) return true;
   const asksForData = /\b(how much|how many|what'?s|what is|balance|net worth|networth|left|remaining|owe|owed|statement|summary|report|show me|list|history|total|afford)\b/.test(text);
   if (!asksForData) return false;
   const opensAsQuestion = /^\s*(how|what|which|when|where|why|show|list|tell|give|can|do|did|am|is|are)\b/.test(text) || /\?\s*$/.test(text);

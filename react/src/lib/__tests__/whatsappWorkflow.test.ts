@@ -985,4 +985,20 @@ describe('W6b template replies in the webhook', () => {
     expect(api.rpc.mock.calls.map(c => c[0])).not.toContain('whatsapp_log_transaction');
     expect(templateSends()).toEqual([{ name: 'affordability_reply', body: ['Rohan', '5', '44,295', '50,000'] }]);
   });
+
+  it('CON-UNIT-W6B-019 · "Why can\'t I spend 5 rupees although…" (logged as ₹5 on production, 27 Sep) is answered in text, never logged', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'), ENABLED);
+    tables();
+    engine.loadHouseholdRows.mockResolvedValue({ profile: { display_name: 'Rohan Mehta' }, household: { base_currency: 'INR' } });
+    engine.serverModelCall.mockReturnValue(async () => 'unused');
+    // Below the floor: the answer is text (the card's "above your safety floor" would be untrue).
+    engine.answerOnServer.mockResolvedValue({ reply: 'Yes. ₹5 fits your Food & Dining budget.', intentId: 'forecast.affordability',
+      resolved: { outcome: 'fits' } });
+    api.rpc.mockResolvedValue({ error: null, data: null });
+    await post(handler, { id: 'm-1', text: { body: "Why can't I spend 5 rupees although I have 80% of groceries budget and nearly 90% of food and dining budget" } });
+    expect(engine.answerOnServer).toHaveBeenCalledTimes(1);
+    expect(api.rpc.mock.calls.map(c => c[0])).not.toContain('whatsapp_log_transaction');
+    expect(templateSends()).toEqual([]);
+    expect(sentTexts().filter(Boolean).join(' ')).toContain('fits your Food & Dining budget');
+  });
 });

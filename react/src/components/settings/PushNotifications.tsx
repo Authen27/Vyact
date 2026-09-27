@@ -4,22 +4,21 @@
 // registered with Vyact; the server raises and pushes, so alerts reach the lock screen
 // with the app closed. "Send a test" proves the whole path on THIS device and shows
 // what the push service answered.
+//
+// v10.48.1 — the switch shows what is TRUE for this device (registered with the
+// server), not the saved preference. v10.48.0 showed the old "Browser push" setting,
+// so a phone that had it on from before looked on and was never subscribed: the owner
+// saw alerts in the bell and none on the lock screen, and nothing said why.
+//
 // Local-only mode keeps the old behaviour: a popup from the open app only.
 import { useEffect, useState } from 'react';
 import { useStore } from '../../store';
 import { requestWebPushPermission } from '../../lib/notifications';
 import {
-  pushBlocker, enablePush, disablePush, sendTestPush, devicePushStatus, type DeviceStatus, type EnableResult,
+  pushBlocker, enablePush, disablePush, sendTestPush, devicePushStatus, pushRefusalMessage,
+  type DeviceStatus,
 } from '../../lib/webPush';
 import { forceReloadForUpdate } from '../../lib/pwa';
-
-const REFUSED: Record<Exclude<EnableResult, { ok: true }>['reason'], string> = {
-  ios_not_installed: 'On iPhone, add Vyact to your Home Screen first (Share → Add to Home Screen), open it from there, then turn this on.',
-  unsupported: "This browser can't receive push notifications.",
-  denied: "Notifications are blocked for Vyact. Allow them in your phone's (or browser's) settings, then turn this on again.",
-  update_needed: 'Vyact needs to update before it can receive notifications. Reload, then turn this on again.',
-  server: "This device couldn't be registered. Please try again in a moment.",
-};
 
 const TEST_ERRORS: Record<string, string> = {
   too_many_tests: 'Too many tests in a row. Try again in 10 minutes.',
@@ -28,8 +27,7 @@ const TEST_ERRORS: Record<string, string> = {
 
 function when(iso?: string | null): string {
   if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function PushNotifications() {
@@ -43,45 +41,63 @@ export default function PushNotifications() {
 
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<DeviceStatus | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
   const [testNote, setTestNote] = useState<string | null>(null);
   const [needsUpdate, setNeedsUpdate] = useState(false);
   const blocker = pushBlocker();
 
   useEffect(() => {
-    if (cloud && prefs.webPushEnabled) void devicePushStatus().then(setStatus);
-  }, [cloud, prefs.webPushEnabled]);
+    if (cloud) void devicePushStatus().then(setStatus);
+  }, [cloud]);
 
-  async function toggle(on: boolean) {
-    if (!cloud) {
-      if (on && !(await requestWebPushPermission())) {
-        toast('Enable notifications for Vyact in your browser settings first', 'error');
-        return;
-      }
-      updatePrefs({ webPushEnabled: on });
-      return;
-    }
+  const registered = !!status?.registered && status.active !== false;
+  // Cloud: on only when this device is really registered. Local-only: the preference.
+  const on = cloud ? registered : prefs.webPushEnabled;
+  // The saved setting says on, but this phone never subscribed (or was unsubscribed).
+  const notSetUpHere = cloud && status !== null && prefs.webPushEnabled && !registered;
+
+  async function turnOn() {
     setBusy(true);
+    setProblem(null);
     setTestNote(null);
     try {
-      if (on) {
-        // Straight from the tap: iOS only prompts from a user gesture.
-        const r = await enablePush(householdId!, { ...prefs, webPushEnabled: true });
-        if (!r.ok) {
-          setNeedsUpdate(r.reason === 'update_needed');
-          toast(REFUSED[r.reason], 'error');
-          return;
-        }
-        updatePrefs({ webPushEnabled: true });
-        setStatus(await devicePushStatus());
-        toast('Push notifications are on for this device', 'success');
-      } else {
-        await disablePush();
-        updatePrefs({ webPushEnabled: false });
-        setStatus(null);
+      // Straight from the tap: Android and iOS only prompt from a user gesture.
+      const r = await enablePush(householdId!, { ...prefs, webPushEnabled: true });
+      if (!r.ok) {
+        setNeedsUpdate(r.reason === 'update_needed');
+        setProblem(pushRefusalMessage(r.reason, r.detail));
+        return;
       }
+      updatePrefs({ webPushEnabled: true });
+      setStatus(await devicePushStatus());
+      toast('Phone notifications are on for this device', 'success');
     } finally {
       setBusy(false);
     }
+  }
+
+  async function turnOff() {
+    setBusy(true);
+    try {
+      await disablePush();
+      updatePrefs({ webPushEnabled: false });
+      setStatus({ registered: false });
+      setTestNote(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggle(next: boolean) {
+    if (!cloud) {
+      if (next && !(await requestWebPushPermission())) {
+        toast('Enable notifications for Vyact in your browser settings first', 'error');
+        return;
+      }
+      updatePrefs({ webPushEnabled: next });
+      return;
+    }
+    await (next ? turnOn() : turnOff());
   }
 
   async function runTest() {
@@ -92,7 +108,7 @@ export default function PushNotifications() {
       if (!r.ok) { setTestNote(TEST_ERRORS[r.error] ?? "The test couldn't be sent. Please try again."); return; }
       const mine = r.results[0];
       if (!mine) setTestNote("This device isn't registered any more. Turn push off and on again.");
-      else if (mine.accepted) setTestNote(`Sent. The push service accepted it (${mine.status}); it should appear on this device within a few seconds, even with Vyact closed.`);
+      else if (mine.accepted) setTestNote(`Sent. The push service accepted it (${mine.status}); it should appear in your phone's notifications within a few seconds, even with Vyact closed.`);
       else if (mine.gone) setTestNote("This device's subscription has expired. Turn push off and on again.");
       else setTestNote(`The push service refused it (${mine.status}). Turn push off and on again.`);
       setStatus(await devicePushStatus());
@@ -101,7 +117,6 @@ export default function PushNotifications() {
     }
   }
 
-  const on = prefs.webPushEnabled;
   return (
     <div className="space-y-2">
       <label className="flex items-center justify-between gap-3 cursor-pointer">
@@ -109,36 +124,48 @@ export default function PushNotifications() {
           <div className="text-sm font-semibold text-ink">Push notifications on this device</div>
           <div className="text-[0.76rem] text-ink-dim mt-0.5">
             {cloud
-              ? 'Bills due, budgets at 80% and balances to check, on your lock screen even when Vyact is closed. Action-required alerts only, never in quiet hours.'
+              ? "Bills due, budgets at 80% and balances to check, in your phone's notifications even when Vyact is closed. Action-required alerts only, never in quiet hours."
               : 'Show a system notification for action-required alerts while Vyact is open.'}
           </div>
         </div>
         <input
           type="checkbox"
           checked={on}
-          disabled={busy}
+          disabled={busy || (cloud && status === null)}
           onChange={e => void toggle(e.target.checked)}
           className="accent-coral w-[18px] h-[18px] flex-shrink-0"
           aria-label="Push notifications on this device"
         />
       </label>
 
+      {notSetUpHere && !problem && (
+        <div className="rounded-lg border border-coral/30 bg-coral/[0.06] px-3 py-2.5 space-y-2" data-testid="push-not-set-up">
+          <p className="text-[0.8rem] text-ink">
+            Notifications are on in Vyact, but this phone isn't set up to receive them yet, so they only appear inside the app.
+          </p>
+          <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void turnOn()}>
+            Turn on phone notifications
+          </button>
+        </div>
+      )}
+
       {cloud && blocker === 'ios_not_installed' && !on && (
-        <p className="text-[0.76rem] text-ink-dim">{REFUSED.ios_not_installed}</p>
+        <p className="text-[0.76rem] text-ink-dim">{pushRefusalMessage('ios_not_installed')}</p>
       )}
 
-      {needsUpdate && (
-        <button type="button" className="btn-ghost text-sm" onClick={() => void forceReloadForUpdate()}>Reload to update</button>
+      {problem && (
+        <div className="rounded-lg border border-line px-3 py-2.5 space-y-2" role="alert" data-testid="push-problem">
+          <p className="text-[0.8rem] text-ink">{problem}</p>
+          {needsUpdate
+            ? <button type="button" className="btn-ghost btn-sm" onClick={() => void forceReloadForUpdate()}>Reload to update</button>
+            : <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => void turnOn()}>Try again</button>}
+        </div>
       )}
 
-      {cloud && on && (
+      {cloud && registered && (
         <div className="rounded-lg border border-line px-3 py-2.5 space-y-2">
           <div className="text-[0.76rem] text-ink-dim" data-testid="push-status">
-            {status?.registered
-              ? status.active === false
-                ? 'This device stopped accepting notifications. Turn push off and on again.'
-                : `Registered on this device${status.last_success_at ? ` · last delivered ${when(status.last_success_at)}` : ''}`
-              : 'Not registered on this device yet. Turn push off and on again.'}
+            {`Registered on this device${status?.last_success_at ? ` · last delivered ${when(status.last_success_at)}` : ''}`}
           </div>
           <button type="button" className="btn-ghost text-sm" disabled={busy} onClick={() => void runTest()}>
             Send a test notification

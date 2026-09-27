@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.48.0`** (consumer)
+> **Current production version: `v10.48.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,40 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.48.1 — "Can I afford" answers from the budget; phone notifications you can actually turn on *(2026-09-27)*
+
+From the owner's first test of v10.48.0 on WhatsApp and an Android phone (Brave).
+
+- **"Can I afford ₹5 for tea?" was a no.** The answer was judged only against the savings safety floor
+  (three months of essential spending). The household's liquid money less card dues was already
+  ₹44,826 below that floor, so every amount, even ₹5, "would dip into the safety floor", while the Food &
+  Dining budget for the month was untouched. Now:
+  - the verdict rests on **the purchase's category budget this month** ("tea", "chai", "snacks" and
+    "juice" now read as Food & Dining) and **the money free after card dues**: fits / over the category
+    budget (by how much) / more than the free money (the shortfall is against free money, not the floor);
+  - **the safety floor is a soft constraint**, stated separately: last, in its own paragraph, as a risk
+    to know about, never the reason for the answer and never turning a yes into a no (Pip's contract);
+  - the WhatsApp card ("…would still leave about ₹X above your safety floor") goes out only when that
+    is true; otherwise the answer is text.
+- **Fix: Pip said "no budget set" for a category that had one.** "What's my budget for groceries" read the
+  budget's own category, which a v9.1 budget (a container with per-category allocations) does not have,
+  the same cause as TD-39. Pip now reads the category's allocation for the month.
+- **Fix: "Why can't I spend 5 rupees although…" was logged as a ₹5 expense** (the owner undid it). On
+  WhatsApp, a line that opens like a question (why, how, what, is, can't I, …) is now a question, whatever
+  else it contains; "may rent 25000" still logs.
+- **Phone notifications: the switch now tells the truth.** v10.48.0 showed the old "Browser push" setting,
+  so a phone that had it on looked on but had never subscribed to push: alerts appeared in the app and
+  never in the phone's notifications (production showed no registered device). Now:
+  - the switch is on only when THIS device is registered with the server;
+  - if notifications are on in Vyact but the phone isn't set up, Settings and the notification sheet both
+    say so, with a one-tap **Turn on phone notifications**;
+  - every way turning it on can fail is shown in place (blocked, update needed, iPhone outside the Home
+    Screen), and a browser whose push service refuses is told apart from a Vyact error. **Brave** can block
+    Google's push service, which web notifications use on Android; the message says what to switch on, or
+    to use Chrome.
+
+Tests: CON-UNIT-AFF-001…009, CON-UNIT-W6B-018/019, CON-UNIT-WPD-001…005.
 
 ## v10.48.0 — Real push notifications, and budget alerts that fire *(2026-09-27)*
 

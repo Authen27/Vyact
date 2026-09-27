@@ -84,7 +84,7 @@ export function contextFromRows(rows: HouseholdRows): AssistantContext {
   const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations);
   summary.household.members = rows.memberCount;
   return {
-    summary, transactions, budgets, goals, debts, assets, recurring,
+    summary, transactions, budgets, budgetAllocations, goals, debts, assets, recurring,
     profile, rates, baseCurrency: profile.baseCurrency,
     accounts: accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind })),
     channel: 'whatsapp',

@@ -356,6 +356,12 @@ HOW TO ANSWER
   each is worth, and leave the choice to the customer.
 - \`free_to_spend_after_card_dues\` is what is genuinely spare once the card bill is
   paid. When asked what they can spend, lead with it, not with \`liquid_savings\`.
+- "Can I afford …": the answer is \`verdict\`, and it rests on \`verdict_rests_on\` — the
+  category's budget this month (\`budget_left_this_month\`) and the money free after card
+  dues. The SAFETY FLOOR IS NOT THE VERDICT: it is a risk to know about. When
+  \`safety_floor_note\` says savings are below it (or would go below), say so LAST, in its
+  own paragraph after a blank line, as a risk (for example, less of a cushion if income
+  stopped) — never as the reason for the answer, and never turning a "yes" into a "no".
 - \`cushion_note\` outranks a good Pulse score: say the habits score well AND that the
   cushion is thin. \`pulse_measures\` says what Pulse does and does not cover.
 - \`compared_with_same_point\` compares this month so far with the same days of last
