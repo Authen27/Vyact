@@ -28,7 +28,7 @@ export const safeJsonLd = o => JSON.stringify(o).replace(/</g, '\\u003c');
 
 async function sb(path) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/content_items?${path}`, {
-    headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
+    headers: { apikey: ANON },
   });
   if (!r.ok) throw new Error(`supabase ${r.status}`);
   return r.json();
