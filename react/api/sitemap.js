@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   try {
     if (ANON) {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/content_items?select=slug,updated_at&format=eq.card&status=eq.published&order=updated_at.desc&limit=2000`, {
-        headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
+        headers: { apikey: ANON },
       });
       if (r.ok) cards = await r.json();
     }
