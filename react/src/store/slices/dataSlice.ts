@@ -701,9 +701,13 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
   // ck_txn_accounts_by_type rejects that row in cloud (23514), so it lived
   // only on the device that made it.
   recordDebtPayment: async (debtId, amount, choice) => {
-    if (!get().debts.find(d => d.id === debtId)) return { message: 'Debt not found', debt: null };
+    const debt = get().debts.find(d => d.id === debtId);
+    if (!debt) return { message: 'Debt not found', debt: null };
+    // The re-amortisation's own summary ("Loan now ends in N months…", "EMI reduced to…").
+    // It used to be dropped here and '' returned, so callers could not say what changed.
+    const { message } = applyPayment(debt, amount, choice, new Date().toISOString().split('T')[0]);
     await get().recordLoanPayment({ debtId, amount, partPaymentChoice: choice });
-    return { message: '', debt: get().debts.find(d => d.id === debtId) ?? null };
+    return { message, debt: get().debts.find(d => d.id === debtId) ?? null };
   },
 
   recordLoanPayment: async (input) => {

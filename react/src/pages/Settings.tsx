@@ -269,12 +269,27 @@ export default function Settings() {
     toast(`${code} rate updated`, 'success');
   }
 
-  function downloadBackup() {
-    const backup = {
+  // One snapshot for both 'Download Backup' and 'Copy to Clipboard' (the copy used to leave out
+  // members, rates and the version while its button said 'Full backup').
+  function backupSnapshot() {
+    return {
       version: '6.4.9', exported: today(),
       profile, transactions, budgets, goals, members, debts, assets,
       exchangeRates: rates,
     };
+  }
+
+  async function copyBackup() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(backupSnapshot(), null, 2));
+      toast('Backup copied', 'success');
+    } catch {
+      toast('Could not copy — use Download Backup instead', 'error');
+    }
+  }
+
+  function downloadBackup() {
+    const backup = backupSnapshot();
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `vyact-backup-${today()}.json`; a.click();
@@ -348,12 +363,12 @@ export default function Settings() {
         <Panel title="Profile">
           <div className="p-5 grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="mono-label mb-1.5 block">Display Name</label>
-              <input className="input w-full" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
+              <label htmlFor="settings-display-name" className="mono-label mb-1.5 block">Display Name</label>
+              <input id="settings-display-name" className="input w-full" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
             </div>
             <div>
-              <label className="mono-label mb-1.5 block">Email</label>
-              <input className="input w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+              <label htmlFor="settings-email" className="mono-label mb-1.5 block">Email</label>
+              <input id="settings-email" className="input w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
             </div>
             <div>
               <label htmlFor="settings-date-format" className="mono-label mb-1.5 block">Date Format</label>
@@ -481,13 +496,13 @@ export default function Settings() {
                 <div className="mono-label mb-1.5">Quiet hours</div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="mono-label mb-1 block">From</label>
-                    <input type="time" className="input w-full" value={notificationPrefs.quietStart}
+                    <label htmlFor="settings-quiet-start" className="mono-label mb-1 block">From</label>
+                    <input id="settings-quiet-start" type="time" className="input w-full" value={notificationPrefs.quietStart}
                       onChange={e => updateNotificationPrefs({ quietStart: e.target.value })} />
                   </div>
                   <div>
-                    <label className="mono-label mb-1 block">To</label>
-                    <input type="time" className="input w-full" value={notificationPrefs.quietEnd}
+                    <label htmlFor="settings-quiet-end" className="mono-label mb-1 block">To</label>
+                    <input id="settings-quiet-end" type="time" className="input w-full" value={notificationPrefs.quietEnd}
                       onChange={e => updateNotificationPrefs({ quietEnd: e.target.value })} />
                   </div>
                 </div>
@@ -594,8 +609,8 @@ export default function Settings() {
                 </Select>
               </div>
               <div>
-                <label className="mono-label mb-1.5 block">Monthly Extra Payment ({profile.baseCurrency})</label>
-                <input className="input w-full" type="number" min="0" value={extraPay}
+                <label htmlFor="settings-extra-payment" className="mono-label mb-1.5 block">Monthly Extra Payment ({profile.baseCurrency})</label>
+                <input id="settings-extra-payment" className="input w-full" type="number" min="0" value={extraPay}
                   onChange={e => setExtraPay(e.target.value)} placeholder="0" />
               </div>
               <div className="sm:col-span-2 flex justify-end">
@@ -610,6 +625,11 @@ export default function Settings() {
           <SettingRow icon="☁️" label="Sync & backup" value="JSON · CSV"
             open={openRow === 'sync'} onToggle={() => toggleRow('sync')}>
             <div className="px-3.5 pb-3 space-y-4">
+              {!cloudEnabled && (
+                <div className="rounded-md border border-line px-4 py-3 text-[0.84rem] text-ink">
+                  Cloud not configured. Running locally only. Your data lives in this browser — download a backup to keep a copy.
+                </div>
+              )}
               {cloudEnabled && (
                 <div className="flex items-center gap-2.5 bg-sage/10 border border-sage/30 rounded-md px-4 py-3">
                   <Cloud size={16} className="text-sage flex-shrink-0" />
@@ -632,7 +652,7 @@ export default function Settings() {
                   <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">Transactions</span>
                 </button>
                 <button className="btn-secondary flex flex-col items-center justify-center gap-2 py-5 h-auto"
-                  onClick={() => { navigator.clipboard.writeText(JSON.stringify({ profile, transactions, budgets, goals, debts, assets }, null, 2)); toast('Copied to clipboard', 'success'); }}>
+                  onClick={() => void copyBackup()}>
                   <Clipboard size={20} strokeWidth={1.6} />
                   <span className="font-mono text-[11px] tracking-[0.08em] uppercase">Copy to Clipboard</span>
                   <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">Full backup</span>
@@ -655,8 +675,9 @@ export default function Settings() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="mono-label mb-1.5 block">New password</label>
+                      <label htmlFor="settings-new-password" className="mono-label mb-1.5 block">New password</label>
                       <input
+                        id="settings-new-password"
                         type={pwShow ? 'text' : 'password'}
                         className="input w-full"
                         value={pwNew}
@@ -666,8 +687,9 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <label className="mono-label mb-1.5 block">Confirm new password</label>
+                      <label htmlFor="settings-confirm-password" className="mono-label mb-1.5 block">Confirm new password</label>
                       <input
+                        id="settings-confirm-password"
                         type={pwShow ? 'text' : 'password'}
                         className="input w-full"
                         value={pwConfirm}

@@ -21,7 +21,9 @@ export class DebtsPage {
 
   /** Debt card located by its user-supplied `name` (e.g. "Chase Sapphire"). */
   card(name: string): Locator {
-    return this.page.getByText(name, { exact: false });
+    // The name now appears in the list row, the selected card and the detail header;
+    // the first match is the list row.
+    return this.page.getByText(name, { exact: true }).filter({ visible: true }).first();
   }
 
   async openAdd() { await this.addButton.click(); }

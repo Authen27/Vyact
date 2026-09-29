@@ -70,8 +70,8 @@ test.describe('§7 DEBT-FC · Debt Payment Cascading', () => {
 
       await expect(dialog).toHaveCount(0);
       await expect(debts.card('DEBT-FC-001 Loan')).toBeVisible();
-      await expect(page.getByText('12.5% APR')).toBeVisible();
-      await expect(page.getByText('$180.00').first()).toBeVisible();
+      await expect(page.getByText('12.5% APR').filter({ visible: true }).first()).toBeVisible();
+      await expect(page.getByText('$180', { exact: true }).filter({ visible: true }).first()).toBeVisible();
 
       const created = await page.evaluate(() => {
         const win = window as typeof window & {
@@ -179,8 +179,10 @@ test.describe('§7 DEBT-FC · Debt Payment Cascading', () => {
       }, { debtId: sampleCreditCardDebt.id, amount: 150 });
 
       await transactions.goto();
-      await expect(transactions.row('E2E Credit Card — interest')).toBeVisible();
-      await expect(transactions.row('E2E Credit Card — principal')).toBeVisible();
+      // loan_emi is a system split (v10.26): the interest is a visible Loan / EMI expense named
+      // after the payment, and the principal is a transfer into the loan account.
+      await expect(transactions.row('E2E Credit Card EMI — principal')).toBeVisible();
+      await expect(page.getByRole('button', { name: /^💳 E2E Credit Card EMI Loan \/ EMI payment/ })).toBeVisible();
 
       const linkedRows = await page.evaluate((debtId: string) => {
         const win = window as typeof window & {
@@ -191,14 +193,16 @@ test.describe('§7 DEBT-FC · Debt Payment Cascading', () => {
         if (!store) throw new Error('Store oracle unavailable');
         return store.getState().transactions
           .filter(t => t.linkedDebtId === debtId)
-          .map(t => ({ description: t.description, linkedTxnId: t.linkedTxnId ?? null, type: t.type }));
+          .map(t => ({ id: (t as { id?: string }).id ?? null, description: t.description, linkedTxnId: t.linkedTxnId ?? null, type: t.type }));
       }, sampleCreditCardDebt.id);
 
       expect(linkedRows).toHaveLength(2);
-      expect(new Set(linkedRows.map(t => t.linkedTxnId)).size).toBe(1);
+      // The two legs are one event: one leg carries the link to the other.
+      const ids = new Set(linkedRows.map(t => t.id));
+      expect(linkedRows.filter(t => t.linkedTxnId && ids.has(t.linkedTxnId))).toHaveLength(1);
       expect(linkedRows.map(t => t.description).sort()).toEqual([
-        'E2E Credit Card — interest',
-        'E2E Credit Card — principal',
+        'E2E Credit Card EMI',
+        'E2E Credit Card EMI — principal',
       ]);
     });
 

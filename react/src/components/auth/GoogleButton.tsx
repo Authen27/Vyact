@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { signInOAuth } from '../../lib/auth';
+import { isCloudEnabled } from '../../lib/supabase';
 import { rememberNext } from '../../lib/postAuth';
 
 // Primary Google sign-in CTA. Always rendered — provider misconfiguration
@@ -13,6 +14,12 @@ export default function GoogleButton({ requireAgreement = false, agreed = true, 
   const [oauthError, setOauthError] = useState('');
 
   async function go() {
+    // Local-only build (no Supabase): there is no Google sign-in to start. Say so plainly —
+    // the raw "Cloud is not enabled" developer error used to fill the sign-in card here.
+    if (!isCloudEnabled()) {
+      setOauthError('Google sign-in coming soon — use email for now');
+      return;
+    }
     if (requireAgreement && !agreed) {
       setOauthError('Please accept the Terms of Service and Privacy Policy to continue');
       return;

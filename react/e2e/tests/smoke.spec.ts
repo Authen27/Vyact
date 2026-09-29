@@ -28,7 +28,7 @@ const PRIMARY_ROUTES = [
 const LEGAL_PAGES = [
   { path: '/privacy', heading: 'Privacy Policy' },
   { path: '/terms', heading: 'Terms of Service' },
-  { path: '/cookies', heading: 'Cookies Policy' },
+  { path: '/cookies', heading: 'Cookie Policy' },
 ] as const;
 
 // Test scenarios CON-E2E-001..004. See docs/TEST_SCENARIOS.md.
@@ -69,9 +69,13 @@ test.describe('App shell (unseeded)', () => {
       localStorage.setItem('vt_profile', '{bad json');
     });
 
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
     await transactions.goto();
+    // Corrupt payloads are discarded; an empty local store then gets the first-run demo data,
+    // so the page renders normally rather than empty. What matters: it boots, without errors.
     await expect(page.getByRole('heading', { name: /transactions/i })).toBeVisible();
-    await expect(page.getByText('No transactions found')).toBeVisible();
+    expect(pageErrors).toEqual([]);
   });
 });
 
@@ -111,7 +115,8 @@ test.describe('Seeded household', () => {
       await page.goto(legalPage.path);
       await page.waitForURL(`**${legalPage.path}`);
       await expect(page.getByRole('heading', { name: legalPage.heading })).toBeVisible();
-      await expect(dashboard.logoLink).toBeVisible();
+      // Legal pages render standalone (no app chrome, v10.16) but still link onward.
+      await expect(page.getByRole('link', { name: /settings|terms|privacy|cookie/i }).first()).toBeVisible();
     }
   });
 });
@@ -123,12 +128,9 @@ test.describe('Legacy localStorage boot path', () => {
     await transactions.goto();
     await expect(transactions.row('E2E Salary')).toBeVisible();
 
-    const storageState = await page.evaluate(() => ({
-      hasLegacy: Boolean(localStorage.getItem('ff_transactions')),
-      hasCurrent: Boolean(localStorage.getItem('vt_transactions')),
-    }));
-
-    expect(storageState.hasLegacy).toBe(true);
-    expect(storageState.hasCurrent).toBe(true);
+    // The cache now lives in IndexedDB and the localStorage copies are removed once written
+    // (kvStore, v10.20.7), so the proof is that the legacy data survives a reload.
+    await page.reload();
+    await expect(transactions.row('E2E Salary')).toBeVisible();
   });
 });

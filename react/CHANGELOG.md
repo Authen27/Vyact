@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.49.0`** (consumer)
+> **Current production version: `v10.49.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -25,6 +25,35 @@ The numbering history has some non-monotonic stretches that we keep documented h
 
 ---
 
+## v10.49.1 — Lane A green again: the browser suite matches the app *(2026-09-29)*
+
+The Playwright suite (Lane A) had been red on main since v10.0.0: 56 failures, mostly tests
+still describing screens the Aurora redesigns replaced. Each failure was classified as a
+product defect (fixed), a stale test (updated to the current screen), or a test for a removed
+feature (retired with its reason recorded, ID never reused).
+
+- **Product fixes found by the suite**
+  - **Settings fields have labels screen readers can use.** Display name, email, quiet hours,
+    extra payment and the password fields had a visible label that was not tied to the field.
+    The Households page's Household Type selector had the same gap.
+  - **Copy to Clipboard copies the same backup as Download Backup**, and says so ("Backup
+    copied"), or tells you to download instead when the browser refuses.
+  - **Local-only mode explains itself in Settings**: your data lives in this browser, so
+    download a backup to keep a copy.
+  - **Google sign-in in a build without cloud** says "coming soon — use email" instead of
+    failing silently.
+  - **Recording a debt payment shows what happened** (the payment engine's own message)
+    instead of a generic toast.
+  - **Transaction search finds a category by its name** ("travel" finds Travel entries), not only by
+    words in the description.
+- **Tests brought up to date** (no product change): the dashboard greeting heading, the
+  Track/Plan/Analyze navigation and mobile bottom bar, collapsible Settings rows, the Filters
+  sheet and day calendar, EMI payments as an expense plus a principal transfer, investments
+  into an investment asset (v10.26), v9.1 container budgets with allocations, the one-range
+  Reports (v10.31), "Money you can reach", and exchange rates as "1 USD = x units".
+- **Retired**: per-entry currency (no currency picker since v10.23), text time entry
+  (replaced by the time dial). The Pulse card tests skip themselves while Pulse is hidden on
+  the dashboard (`FEATURES.dashboard.showPulse`) and run again if it returns.
 ## v10.49.0 — The public site: Learn back online, a real landing page, and a measurable funnel *(2026-09-29)*
 
 Marketing master to-do, every item with Developer as executor.

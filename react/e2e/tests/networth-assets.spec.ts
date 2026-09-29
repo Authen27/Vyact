@@ -14,7 +14,8 @@ async function fillAssetModal(page: import('@playwright/test').Page, input: {
   if (input.type !== undefined) await dialog.getByLabel('Type').selectOption(input.type);
   if (input.liquidity !== undefined) await dialog.getByLabel('Liquidity').selectOption(input.liquidity);
   if (input.name !== undefined) await dialog.getByLabel('Name').fill(input.name);
-  if (input.value !== undefined) await dialog.getByLabel('Current value').fill(String(input.value));
+  // An investment asset's field reads "Value today" (v10.26.0); every other type, "Current value".
+  if (input.value !== undefined) await dialog.getByLabel(/^(Current value|Value today)$/).fill(String(input.value));
   if (input.currency !== undefined) await dialog.getByLabel('Currency').selectOption(input.currency);
   if (input.note !== undefined) await dialog.getByLabel('Note').fill(input.note);
   return dialog;
@@ -162,7 +163,7 @@ test.describe('§4/§8 NWRT-FC and ASSET-FC', () => {
     page, networth, debts,
   }) => {
     await networth.goto();
-    const before = await networth.readAmount(networth.totalLiabilitiesRow);
+    const before = await networth.readTotalLiabilities();
 
     await debts.goto();
     await debts.openAdd();
@@ -177,17 +178,18 @@ test.describe('§4/§8 NWRT-FC and ASSET-FC', () => {
     await expect(dialog).toBeHidden();
 
     await networth.goto();
-    const after = await networth.readAmount(networth.totalLiabilitiesRow);
+    const after = await networth.readTotalLiabilities();
     expect(after).toBeCloseTo(before + 300000, 2);
-    await expect(page.getByText('NWRT-FC-004 Mortgage')).toBeVisible();
+    await expect(page.getByText('NWRT-FC-004 Mortgage').filter({ visible: true }).first()).toBeVisible();
   });
 
   test('ASSET-FC-004 · liquidity ratio only uses liquid-tier assets', async ({
     page, networth,
   }) => {
     await networth.goto();
-    const before = page.getByText('Liquidity Ratio').locator('..');
-    await expect(before).toContainText('8.0x');
+    // The liquidity card is 'Money you can reach' since v10.38.1; a long-term asset must not move it.
+    const before = await networth.readAmount(networth.moneyYouCanReach());
+    expect(before).toBeGreaterThan(0);
 
     await networth.openAddAsset();
     const dialog = await fillAssetModal(page, {
@@ -199,7 +201,7 @@ test.describe('§4/§8 NWRT-FC and ASSET-FC', () => {
     await dialog.getByRole('button', { name: /^Add$/ }).click();
     await expect(dialog).toBeHidden();
 
-    await expect(page.getByText('ASSET-FC-004 Long Asset')).toBeVisible();
-    await expect(page.getByText('Liquidity Ratio').locator('..')).toContainText('8.0x');
+    await expect(page.getByText('ASSET-FC-004 Long Asset').filter({ visible: true }).first()).toBeVisible();
+    await expect.poll(() => networth.readAmount(networth.moneyYouCanReach())).toBe(before);
   });
 });

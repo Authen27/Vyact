@@ -5,6 +5,9 @@ test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
     page, transactions, txnModal,
   }) => {
     await transactions.goto();
+    // The shortcut listener mounts with the page; pressing N before it renders is lost
+    // (flaky under parallel workers).
+    await expect(page.getByRole('heading', { level: 1, name: 'Transactions' })).toBeVisible();
 
     await page.keyboard.press('N');
     await expect(txnModal.dialog).toBeVisible();
