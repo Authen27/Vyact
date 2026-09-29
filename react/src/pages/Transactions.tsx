@@ -14,7 +14,7 @@ import CategoryPicker from '../components/ui/CategoryPicker';
 import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
-import { ALL_CATEGORIES } from '../constants';
+import { ALL_CATEGORIES, getCat } from '../constants';
 import { getMonthKey, monthName, formatDate, nowMonthKey, today, compareTxnRecency, fmt } from '../lib/format';
 import { monthlyData, effectiveAmount } from '../lib/calculations';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
@@ -166,7 +166,9 @@ export default function Transactions() {
       f = f.filter(t =>
         t.description.toLowerCase().includes(q) ||
         (t.note || '').toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q)
+        t.category.toLowerCase().includes(q) ||
+        // What the person sees: 'Travel', not the stored id ('transport' / 'travel').
+        (t.category ? getCat(t.category).label.toLowerCase().includes(q) : false)
       );
     }
     const rows: TransactionListItem[] = f.map(txn => ({ txn }));
@@ -185,7 +187,8 @@ export default function Transactions() {
           const q = search.toLowerCase();
           return txn.description.toLowerCase().includes(q)
             || (txn.note || '').toLowerCase().includes(q)
-            || txn.category.toLowerCase().includes(q);
+            || txn.category.toLowerCase().includes(q)
+            || (txn.category ? getCat(txn.category).label.toLowerCase().includes(q) : false);
         })
         .filter(({ txn }) => !rows.some(existing =>
           existing.txn.date === txn.date

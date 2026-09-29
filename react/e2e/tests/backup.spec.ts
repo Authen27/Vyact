@@ -1,10 +1,14 @@
-import { expect, test } from '../fixtures/app';
+import { expect, test, openSettingsRow } from '../fixtures/app';
 import { readFile } from 'node:fs/promises';
+import { defaultSeed } from '../fixtures/seed';
 
 test.describe('§18 BACKUP-FC · Backup and data portability', () => {
+  test.use({ seed: defaultSeed });
+
   test('BACKUP-FC-001 · downloaded JSON backup contains the current snapshot payload', async ({ page }, testInfo) => {
     await page.goto('/settings');
     await page.waitForURL('**/settings');
+    await openSettingsRow(page, 'Sync & backup');
 
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download Backup' }).click();
@@ -45,6 +49,7 @@ test.describe('§18 BACKUP-FC · Backup and data portability', () => {
   test('BACKUP-FC-002 · Download Backup uses the shipped Vyact filename pattern and success toast', async ({ page }) => {
     await page.goto('/settings');
     await page.waitForURL('**/settings');
+    await openSettingsRow(page, 'Sync & backup');
 
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download Backup' }).click();
@@ -57,6 +62,7 @@ test.describe('§18 BACKUP-FC · Backup and data portability', () => {
   test('BACKUP-FC-003 · Copy to Clipboard writes the full JSON snapshot and surfaces success feedback', async ({ page }) => {
     await page.goto('/settings');
     await page.waitForURL('**/settings');
+    await openSettingsRow(page, 'Sync & backup');
 
     await page.evaluate(() => {
       Object.defineProperty(window, '__copiedBackup', {
@@ -92,6 +98,7 @@ test.describe('§18 BACKUP-FC · Backup and data portability', () => {
   test('BACKUP-FC-004 · CSV export contains the shipped transaction columns for the current dataset', async ({ page }, testInfo) => {
     await page.goto('/settings');
     await page.waitForURL('**/settings');
+    await openSettingsRow(page, 'Sync & backup');
 
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export CSV' }).click();
@@ -102,15 +109,16 @@ test.describe('§18 BACKUP-FC · Backup and data portability', () => {
     const csv = await readFile(filePath, 'utf8');
 
     expect(csv).toContain('"Date","Type","Description","Category","Amount","Currency","Note"');
-    expect(csv).toContain('"2026-05-05","income","E2E Salary","salary","5000","USD","seed income"');
-    expect(csv).toContain('"2026-05-07","expense","E2E Rent","housing","1500","USD","seed rent"');
-    expect(csv).toContain('"2026-05-10","expense","E2E Grocery","food","120","USD","seed grocery"');
+    expect(csv).toContain('"2026-05-01","income","E2E Salary","salary","5000","USD",""');
+    expect(csv).toContain('"2026-05-05","expense","E2E Rent","housing","1200","USD",""');
+    expect(csv).toContain('"2026-05-10","expense","E2E Grocery","food","350","USD",""');
     await expect(page.getByText('CSV exported')).toBeVisible();
   });
 
   test('BACKUP-FC-005 · backup and export actions remain reachable in local-only mode', async ({ page }) => {
     await page.goto('/settings');
     await page.waitForURL('**/settings');
+    await openSettingsRow(page, 'Sync & backup');
 
     await expect(page.getByRole('button', { name: 'Download Backup' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Export CSV' })).toBeVisible();

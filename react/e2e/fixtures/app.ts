@@ -85,3 +85,14 @@ export const test = base.extend<AppFixtures>({
 });
 
 export { expect, type Page };
+
+/**
+ * Settings keeps each group in a collapsed row (Board redesign): open the row before using
+ * its controls. `label` is matched against the row button's accessible name, e.g.
+ * 'Sync & backup', 'Debt preferences', 'Exchange rates'.
+ */
+export async function openSettingsRow(page: Page, label: string): Promise<void> {
+  const row = page.getByRole('button', { name: new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).first();
+  await expect(row).toBeVisible();
+  if ((await row.getAttribute('aria-expanded')) !== 'true') await row.click();
+}

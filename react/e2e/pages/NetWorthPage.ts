@@ -42,7 +42,8 @@ export class NetWorthPage {
 
   /** Asset row located by name (the user-supplied label). */
   assetRow(name: string): Locator {
-    return this.page.getByText(name, { exact: false });
+    // A name can appear more than once (the row and a linked account/summary); use the first visible.
+    return this.page.getByText(name, { exact: false }).filter({ visible: true }).first();
   }
 
   async openAddAsset() {
@@ -57,6 +58,17 @@ export class NetWorthPage {
   async readAmount(rowLocator: Locator): Promise<number> {
     const text = (await rowLocator.innerText()).trim();
     return parseMoney(text);
+  }
+
+  /** "Total Liabilities" is only rendered once the household has a debt: none means 0. */
+  async readTotalLiabilities(): Promise<number> {
+    if (await this.page.getByText('Total Liabilities').count() === 0) return 0;
+    return this.readAmount(this.totalLiabilitiesRow);
+  }
+
+  /** The "Money you can reach" ratio card (formerly "Liquidity Ratio", v10.38.1). */
+  moneyYouCanReach(): Locator {
+    return this.page.getByText('Money you can reach', { exact: true }).locator('..');
   }
 }
 

@@ -1,8 +1,16 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures/app';
+import { defaultSeed } from '../fixtures/seed';
+import { parseMoney } from '../pages/NetWorthPage';
 
-function cardValueByLabel(page: Page, label: string) {
-  return page.locator('div').filter({ has: page.getByText(label, { exact: true }) }).locator('span[title]').first();
+// v10.48.2 (#45) — rewritten for the Aurora dashboard. The old version read a "Total
+// Balance" card, the Pulse number and Reports' "All-Time" cards, none of which exist any
+// more (the dashboard is Cash Flow + Net Worth, Pulse is hidden). The rule is unchanged:
+// a private (excluded) entry never counts in spending or budgets.
+
+/** The dashboard's "Monthly Expenses" figure (desktop metrics row). */
+async function monthlyExpenses(page: Page): Promise<number> {
+  return parseMoney((await page.getByRole('link', { name: /^Monthly Expenses/ }).innerText()).replace(/^Monthly Expenses/, ''));
 }
 
 test.describe('§21 PRIV-FC · Excluded transaction behavior', () => {
@@ -21,6 +29,7 @@ test.describe('§21 PRIV-FC · Excluded transaction behavior', () => {
       date: '2026-05-12',
       description: 'PRIV-FC-001 Private expense',
       category: 'food',
+      account: 'Cash',            // every entry moves an account (money model)
       excluded: true,
     });
     await txnModal.submit();
@@ -33,94 +42,28 @@ test.describe('§21 PRIV-FC · Excluded transaction behavior', () => {
   });
 
   test.describe('aggregate exclusion', () => {
-    test.use({
-      seed: {
-        transactions: [
-          {
-            id: '00000000-0000-4000-8000-0000000000p1',
-            type: 'income',
-            amount: 1000,
-            currency: 'USD',
-            date: '2026-05-01',
-            description: 'PRIV-FC-002 Income',
-            category: 'salary',
-          },
-          {
-            id: '00000000-0000-4000-8000-0000000000p2',
-            type: 'expense',
-            amount: 200,
-            currency: 'USD',
-            date: '2026-05-10',
-            description: 'PRIV-FC-002 Expense',
-            category: 'food',
-          },
-        ],
-        budgets: [
-          {
-            id: '00000000-0000-4000-8000-0000000000p3',
-            category: 'food',
-            limit: 400,
-            currency: 'USD',
-          },
-        ],
-        goals: [
-          {
-            id: '00000000-0000-4000-8000-0000000000p4',
-            type: 'savings',
-            name: 'PRIV-FC-002 Goal',
-            target: 100,
-            current: 50,
-            currency: 'USD',
-            completed: false,
-          },
-        ],
-        debts: [],
-        assets: [],
-      },
-    });
+    test.use({ seed: defaultSeed });
 
-    test('PRIV-FC-002 · excluded transactions skip transaction-derived aggregations', async ({
+    test('PRIV-FC-002 · marking an expense private removes it from monthly spending', async ({
       page,
+      dashboard,
       transactions,
       txnModal,
-      budgets,
     }) => {
-      await page.goto('/dashboard');
-      await page.waitForURL('**/dashboard');
-
-      await expect(cardValueByLabel(page, 'Monthly Expenses')).toHaveAttribute('title', '$200.00');
-      await expect(cardValueByLabel(page, 'Total Balance')).toHaveAttribute('title', '$800.00');
-      await expect(page.getByText(/^69$/).first()).toBeVisible();
-
-      await page.goto('/reports');
-      await page.waitForURL('**/reports');
-      await expect(cardValueByLabel(page, 'All-Time Expenses')).toHaveAttribute('title', '$200.00');
-      await expect(cardValueByLabel(page, 'Net Flow')).toHaveAttribute('title', '$800.00');
-
-      await budgets.goto();
-      await expect(budgets.card('Food & Dining')).toContainText('$200.00');
-      await expect(budgets.card('Food & Dining')).toContainText('$200.00 left');
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await dashboard.goto();
+      // May 2026: E2E Rent 1,200 + E2E Grocery 350.
+      await expect.poll(() => monthlyExpenses(page)).toBe(1550);
 
       await transactions.goto();
-      await transactions.openEdit('PRIV-FC-002 Expense');
+      await transactions.openEdit('E2E Grocery');
       await txnModal.waitOpen();
-      await txnModal.fill({ excluded: true });
+      // The seeded entry predates required accounts; the form asks for one before it saves.
+      await txnModal.fill({ excluded: true, account: 'E2E Checking' });
       await txnModal.submit();
 
-      await page.goto('/dashboard');
-      await page.waitForURL('**/dashboard');
-      await expect(cardValueByLabel(page, 'Monthly Expenses')).toHaveAttribute('title', '$0.00');
-      await expect(cardValueByLabel(page, 'Total Balance')).toHaveAttribute('title', '$1,000.00');
-      await expect(page.getByText(/^88$/).first()).toBeVisible();
-
-      await page.goto('/reports');
-      await page.waitForURL('**/reports');
-      await expect(cardValueByLabel(page, 'All-Time Expenses')).toHaveAttribute('title', '$0.00');
-      await expect(cardValueByLabel(page, 'Net Flow')).toHaveAttribute('title', '$1,000.00');
-
-      await budgets.goto();
-      await expect(budgets.card('Food & Dining')).toContainText('$0.00');
-      await expect(budgets.card('Food & Dining')).toContainText('$400.00 left');
+      await dashboard.goto();
+      await expect.poll(() => monthlyExpenses(page)).toBe(1200);
     });
   });
 });

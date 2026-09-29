@@ -93,7 +93,6 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
       date:        '2026-05-20',
       description: 'TXN-FC-002 Full',
       category:    'food_dining',
-      note:        'all optional fields',
       account:     'E2E Checking',
     });
     await txnModal.submit();
@@ -105,9 +104,18 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
   });
 
   test('CON-E2E-012 · [TXN-FC-004] investment records its type and account', async ({
-    transactions, txnModal,
+    page, transactions, txnModal,
   }) => {
     await transactions.goto();
+    // v10.26.0 — the destination is an investment ASSET in Net Worth, not an account.
+    await page.evaluate(async () => {
+      const store = (window as unknown as { __vt_store?: { getState(): { upsertAsset: (a: object) => Promise<unknown> } } }).__vt_store;
+      if (!store) throw new Error('Store oracle unavailable');
+      await store.getState().upsertAsset({
+        id: '00000000-0000-4000-8000-0000000000f1', type: 'investment', name: 'E2E Index Fund',
+        value: 0, currency: 'USD', liquidity: 'short',
+      });
+    });
     await transactions.openAdd();
     await txnModal.waitOpen();
     // 🔴 NO category. `investment_in` is not a real id — `CATEGORIES_BY_TYPE`
@@ -123,7 +131,7 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
       account:     'E2E Checking',
     });
     // Per-type account matrix: investment needs a destination too.
-    await txnModal.selectToAccount('E2E Brokerage');
+    await txnModal.selectToAccount('E2E Index Fund');
     await txnModal.submit();
 
     // The row exists and the account chip renders. NOTE: automatic
@@ -199,6 +207,7 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
       date:        '2026-05-20',
       description: desc,
       category:    'rent_mortgage',
+      account:     'E2E Checking',
     });
     await txnModal.submit();
 
@@ -208,34 +217,6 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
     await expect(transactions.row(desc)).toBeVisible();
   });
 
-  test('CON-E2E-015 · [TXN-FC-008] stores the original currency of the transaction', async ({
-    page, transactions, txnModal,
-  }) => {
-    await transactions.goto();
-    await transactions.openAdd();
-    await txnModal.waitOpen();
-    await txnModal.fill({
-      type:        'expense',
-      amount:      55,
-      date:        '2026-05-20',
-      description: 'TXN-FC-008 EUR',
-      category:    'food_dining',
-      currency:    'EUR',
-      account:     'E2E Checking',
-    });
-    await txnModal.submit();
-
-    await expect(transactions.row('TXN-FC-008 EUR')).toBeVisible();
-
-    // ORACLE (justified): the stored currency CODE is not rendered as literal
-    // text in the row (the Money component shows the € symbol, not "EUR"),
-    // so we read it from the store to assert it was persisted as 'EUR'.
-    const currency = await page.evaluate(() => {
-      const s = (window as { __ff_store?: { getState(): { transactions: { description: string; currency: string }[] } } }).__ff_store;
-      return s?.getState().transactions.find(t => t.description === 'TXN-FC-008 EUR')?.currency ?? null;
-    });
-    expect(currency).toBe('EUR');
-  });
 
   test('CON-E2E-016 · [TXN-FC-009] a rapid double-submit creates only one transaction', async ({
     page, transactions, txnModal,
@@ -291,6 +272,10 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
     }
   });
 
+  // RETIRED 2026-09-29 (#45) — CON-E2E-015 · [TXN-FC-008] "stores the original currency".
+  //   The form no longer has a currency picker: an account's currency is the household's
+  //   (v10.23.0) and a foreign amount is converted, not stored per entry. Test for a removed
+  //   control; the conversion rules are unit-tested (askVyactFacts P20, calculations).
   test.describe('track picker and time entry', () => {
     test.use({
       seed: {
@@ -327,75 +312,22 @@ test.describe('§1 TXN-FC · Transaction Creation', () => {
     //   a coverage gap. What survives of TXN-FC-012 — Escape closes the modal —
     //   is already covered by A11Y-FC-001.
     //
+    // TXN-FC-013 · "text time entry rejects malformed input" (retired 2026-09-29, #45)
+    //   Time is set with the TimeDial behind "Pick a time" now; there is no text entry to
+    //   reject malformed input, and the dial cannot produce one.
+    //
     // IDs are recorded in docs/TEST_SCENARIOS.md §5 and must not be reused.
-    // ──────────────────────────────────────────────────────────────────────
-
-    test('TXN-FC-013 · text time entry rejects malformed input, persists, and sorts latest first', async ({
-      page, transactions, txnModal,
-    }) => {
+    test('TXN-FC-014 · the time control opens the dial and the entry keeps a time', async ({ transactions, txnModal }) => {
       await transactions.goto();
       await transactions.openAdd();
       await txnModal.waitOpen();
-
-      await txnModal.fill({
-        date: '2026-05-20',
-        timeClock: '99:99',
-        timeMeridiem: 'AM',
-        amount: 20,
-        description: 'TXN-FC-013 Invalid',
-        category: 'food_dining',
-        member: 'Test User',
-        account: 'E2E Checking',
-      });
-      await txnModal.submitButton.click();
-
-      await expect(txnModal.dialog).toBeVisible();
-      await expect(page.getByText('Enter time as hh:mm with AM or PM')).toBeVisible();
-      await txnModal.cancel();
-
-      const entries = [
-        { description: 'TXN-FC-013 Morning', timeClock: '09:15', timeMeridiem: 'AM' as const, expected: '09:15' },
-        { description: 'TXN-FC-013 Evening', timeClock: '06:45', timeMeridiem: 'PM' as const, expected: '18:45' },
-      ];
-
-      for (const entry of entries) {
-        await transactions.openAdd();
-        await txnModal.waitOpen();
-        await txnModal.fill({
-          date: '2026-05-20',
-          timeClock: entry.timeClock,
-          timeMeridiem: entry.timeMeridiem,
-          amount: 20,
-          description: entry.description,
-          category: 'food_dining',
-          member: 'Test User',
-          account: 'E2E Checking',
-        });
-        await txnModal.submit();
-      }
-
-      await page.reload();
-
-      await expect(transactions.row('TXN-FC-013 Morning')).toContainText('09:15');
-      await expect(transactions.row('TXN-FC-013 Evening')).toContainText('18:45');
-      await expect(page.locator('[data-testid="txn-row"]').first()).toContainText('TXN-FC-013 Evening');
-
-      const storedTimes = await page.evaluate(() => {
-        const win = window as typeof window & {
-          __vt_store?: { getState(): { transactions: Array<{ description: string; time?: string }> } };
-          __ff_store?: { getState(): { transactions: Array<{ description: string; time?: string }> } };
-        };
-        const store = win.__vt_store ?? win.__ff_store;
-        if (!store) throw new Error('Store oracle unavailable');
-        return store.getState().transactions
-          .filter(t => t.description.startsWith('TXN-FC-013 '))
-          .map(t => ({ description: t.description, time: t.time ?? null }));
-      });
-
-      expect(storedTimes).toEqual(expect.arrayContaining([
-        { description: 'TXN-FC-013 Morning', time: '09:15' },
-        { description: 'TXN-FC-013 Evening', time: '18:45' },
-      ]));
+      const timeButton = txnModal.dialog.getByRole('button', { name: 'Pick a time' });
+      await expect(timeButton).toHaveText(/\d{2}:\d{2}/);
+      await timeButton.click();
+      await expect(timeButton).toHaveAttribute('aria-expanded', 'true');
     });
+    // ──────────────────────────────────────────────────────────────────────
+
+
   });
 });

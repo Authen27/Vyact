@@ -156,8 +156,8 @@ export default function Households() {
                 </div>
               </div>
               <div>
-                <label className="mono-label mb-1.5 block">Household Type</label>
-                <Select value={active.type as ProfileTypeKey}
+                <label htmlFor="households-type" className="mono-label mb-1.5 block">Household Type</label>
+                <Select id="households-type" value={active.type as ProfileTypeKey}
                   onChange={e => updateProfile({ household: e.target.value as ProfileTypeKey })}>
                   {Object.entries(PROFILE_TYPES).map(([k, v]) => (
                     <option key={k} value={k}>{v.icon} {v.label}</option>
@@ -326,8 +326,8 @@ export default function Households() {
           <div className="mt-3.5">
             <Panel title="Household Settings">
               <div className="p-4 max-w-xs">
-                <label className="mono-label mb-1.5 block">Household Type</label>
-                <Select value={active.type as ProfileTypeKey}
+                <label htmlFor="households-type" className="mono-label mb-1.5 block">Household Type</label>
+                <Select id="households-type" value={active.type as ProfileTypeKey}
                   disabled={!can(myRole, 'edit_household_settings')}
                   onChange={e => updateProfile({ household: e.target.value as ProfileTypeKey })}>
                   {Object.entries(PROFILE_TYPES).map(([k, v]) => (
