@@ -62,6 +62,9 @@ export class NetWorthPage {
 
   /** "Total Liabilities" is only rendered once the household has a debt: none means 0. */
   async readTotalLiabilities(): Promise<number> {
+    // count() does not wait: settle on Total Assets (always rendered) first, or a page
+    // still loading reads as "no liabilities".
+    await this.totalAssetsRow.first().waitFor();
     if (await this.page.getByText('Total Liabilities').count() === 0) return 0;
     return this.readAmount(this.totalLiabilitiesRow);
   }
