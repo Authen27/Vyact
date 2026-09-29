@@ -1,0 +1,57 @@
+name: Deploy edge functions to vyact-test
+
+# v10.49.0 (marketing #41) — WhatsApp, push and AI testable on stage/dev without touching
+# production. Deploys every edge function to the vyact-test Supabase project
+# (ref xdbfzwltqocyljbgztmv) with the same flags as production (deploy.yml).
+#
+# Run it by hand (Actions → this workflow → Run workflow), or it runs on pushes to the
+# stage/dev branches. It deploys CODE only:
+#   • function secrets (WHATSAPP_*, OPENROUTER key, …) are set once in the vyact-test
+#     dashboard by the owner — never in this repo;
+#   • the vyact-test DATABASE is not migrated here (the non-production database pipeline
+#     is on hold by the owner's decision), so a function that needs a newer schema than
+#     vyact-test has will fail there until it is migrated.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop, staging]
+    paths: ['supabase/functions/**']
+
+concurrency:
+  group: deploy-test-functions
+  cancel-in-progress: false
+
+jobs:
+  functions:
+    name: Deploy functions → vyact-test
+    runs-on: ubuntu-latest
+    env:
+      TEST_PROJECT_REF: xdbfzwltqocyljbgztmv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: 1.226.4 }
+      - name: Normalise SUPABASE_ACCESS_TOKEN
+        env:
+          RAW_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          TOKEN="$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')"
+          echo "::add-mask::$TOKEN"
+          echo "SUPABASE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Deploy
+        run: |
+          set -e
+          # Same JWT settings as production: cron/webhook callers carry no user JWT.
+          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push ask-vyact-relay-status"
+          for dir in supabase/functions/*/; do
+            fn="$(basename "$dir")"
+            case "$fn" in _shared|_*) continue ;; esac
+            [ -f "$dir/index.ts" ] || continue
+            if echo " $NO_JWT " | grep -q " $fn "; then
+              supabase functions deploy "$fn" --project-ref "$TEST_PROJECT_REF" --no-verify-jwt
+            else
+              supabase functions deploy "$fn" --project-ref "$TEST_PROJECT_REF"
+            fi
+            echo "::notice title=Deployed to vyact-test::$fn"
+          done

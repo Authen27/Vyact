@@ -12,6 +12,21 @@ export async function signIn(email: string, password: string) {
   return data;
 }
 
+/**
+ * v1.4.0 (marketing #40) — Google sign-in for admins, no password step. Returns to THIS
+ * console (prod, stage or dev), so each origin must be in Supabase Auth → URL
+ * Configuration → Redirect URLs; otherwise Supabase falls back to the Site URL (the
+ * consumer app). Being signed in grants nothing by itself: the admin_roles check below
+ * still decides access.
+ */
+export async function signInWithGoogle() {
+  const { error } = await sb().auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/` },
+  });
+  if (error) throw error;
+}
+
 export async function signOut() {
   await sb().auth.signOut();
 }

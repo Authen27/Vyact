@@ -7,6 +7,16 @@ import { readFileSync } from 'node:fs';
 // read package.json at build time and inline it as the global __APP_VERSION__.
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
+// v10.49.0 (marketing #42) — a Vercel PREVIEW build (every feature branch) must never touch
+// production data. The committed .env.production points at production, and Vite would use it.
+// So: with the Preview environment's own VITE_SUPABASE_* set in Vercel (the vyact-test project),
+// previews use those; without them, the preview runs local-only (no database at all).
+// Shell env outranks .env files in Vite, so an empty value here disables cloud mode.
+if (process.env.VERCEL_ENV === 'preview' && !process.env.VITE_SUPABASE_URL) {
+  process.env.VITE_SUPABASE_URL = '';
+  process.env.VITE_SUPABASE_ANON_KEY = '';
+}
+
 export default defineConfig({
   plugins: [
     react(),
@@ -47,10 +57,13 @@ export default defineConfig({
           // SVG counts toward Chrome / Edge installability since 2022; PNG
           // 192/512 entries can be added under /public/icons/ later for
           // richer install UI and iOS home-screen tiles.
-          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
           // v10.48.0 — PNGs for the Home Screen tile (iOS ignores SVG) and notification icons.
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          // v10.49.0 (#13) — full-bleed with Pip inside the 80% safe zone, for Android's shaped icons.
+          { src: '/icons/maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
         shortcuts: [
           { name: 'Add transaction', short_name: 'Add', url: '/transactions?add=1',     description: 'Quick add a new transaction' },
@@ -66,7 +79,12 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: false, // we surface an update prompt via UpdateBanner instead of auto-reloading
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /version\.json$/],
+        // v10.49.0 (#14) — server-rendered and crawler files: a returning visitor must get the
+        // real page, not the app shell the worker has cached.
+        navigateFallbackDenylist: [
+          /^\/api\//, /^\/auth\//, /version\.json$/,
+          /^\/learn(\/|$)/, /^\/sitemap\.xml$/, /^\/robots\.txt$/, /^\/llms\.txt$/, /^\/\.well-known\//,
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',

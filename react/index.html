@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#E26D5C" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1B1612" media="(prefers-color-scheme: dark)" />
@@ -34,13 +33,23 @@
 
     <script src="https://t.contentsquare.net/uxa/86f8fcfc0d114.js"></script>
 
-    <!-- Google tag (gtag.js) — GA4 measurement -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E3XKWZP850"></script>
+    <!-- Google tag (gtag.js) — GA4, loaded ONLY on the real site (v10.49.0, #3): localhost, CI,
+         Vercel previews and stage/dev never count. window.gtag always exists, so lib/analytics.ts
+         can queue events anywhere; off vyact.app they go nowhere. -->
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-E3XKWZP850');
+      (function () {
+        var h = location.hostname;
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function () { dataLayer.push(arguments); };
+        window.__vyGaOn = h === 'vyact.app' || h === 'www.vyact.app';
+        if (!window.__vyGaOn) return;
+        gtag('js', new Date());
+        gtag('config', 'G-E3XKWZP850');
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-E3XKWZP850';
+        document.head.appendChild(s);
+      })();
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -974,6 +974,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/funnelAnalytics.test.ts",
+      "feature": "Marketing funnel and auth landing",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "analytics funnel events / post-auth next",
+      "count": 2,
+      "tests": [
+        "funnel events CON-UNIT-FUN-001 · every event carries platform (web / pwa)",
+        "funnel events CON-UNIT-FUN-002 · sign_up once, on a new account's first sign-in, with its ref; never for an existing account"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/fxCentralization.test.ts",
       "feature": "Money model",
       "availability": "available",
@@ -1798,6 +1811,42 @@
         "Merged personal Insights omits tax, goals and Pulse and ignores future/excluded spending without mutating inputs",
         "Merged personal Insights uses active schedules rather than summing already-posted recurring entries as a monthly cost",
         "Merged personal Insights uses live account-aware investment values once, including private balance movements"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/postAuth.test.ts",
+      "feature": "Marketing funnel and auth landing",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "analytics funnel events / post-auth next",
+      "count": 2,
+      "tests": [
+        "post-auth landing CON-UNIT-PA-001 · only in-app paths: other origins, protocol-relative, javascript: and auth loops are dropped",
+        "post-auth landing CON-UNIT-PA-002 · a `next` remembered before the Google redirect is used once; an invite wins; else the dashboard"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/publicPages.test.ts",
+      "feature": "Formatting and structured content",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "format / learnJsonLd",
+      "count": 12,
+      "tests": [
+        "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
+        "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
+        "analytics gating and deep links (#3, #4, #20) CON-UNIT-PUB-009 · GA loads only on vyact.app / www.vyact.app; elsewhere events go nowhere",
+        "analytics gating and deep links (#3, #4, #20) CON-UNIT-PUB-010 · every Learn topic maps to a real app route; sign-up links carry ref and next",
+        "lesson pages (#11, #12, #20) CON-UNIT-PUB-003 · Article + Breadcrumb through the topic hub; related lessons by shared tags and topic; try-it link to the feature with ref + next",
+        "lesson pages (#11, #12, #20) CON-UNIT-PUB-004 · a YouTube Shorts card gets VideoObject (thumbnail, embed, upload date) and a click-to-play facade, not an iframe on load",
+        "lesson pages (#11, #12, #20) CON-UNIT-PUB-005 · CMS text never becomes markup: body, title and tags are escaped; lists and bold render",
+        "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-006 · the library links every topic hub; a hub lists its lessons with CollectionPage + ItemList",
+        "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-007 · the sitemap lists home, library, one hub per topic and every lesson",
+        "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-008 · llms.txt: the one standard description and the live hubs",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-011 · one H1, the answer above the fold, trust line, SoftwareApplication + a FAQPage that matches the visible FAQ",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-012 · middleware serves \"/\" (only) from the landing function, keeping the query"
       ]
     },
     {

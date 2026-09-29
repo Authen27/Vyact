@@ -11,11 +11,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.48.1**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.49.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.3.2**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.0**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -413,6 +413,17 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   risk — never the reason for the answer and never turning a yes into a no (PHRASE_SYSTEM). A household below its
   floor was told no to ₹5 of tea before this. The WhatsApp `affordability_reply` card goes out only when its
   "above your safety floor" sentence is true.
+- **The public site is server-rendered, and every claim on it must be true (v10.49.0).** `/` (via
+  `react/middleware.js` → `api/home.js`; a vercel.json rewrite cannot beat the static index.html),
+  `/learn`, `/learn/topic/*`, `/learn/<slug>`, `/sitemap.xml`, `/llms.txt` are plain HTML from `react/api/`
+  on the shared kit `api/_page.js`: no framework, no web fonts, CMS text always escaped. They read
+  content with the PUBLISHABLE key from the committed `.env.production` (`api/_supabase.js`), `apikey`
+  header only; RLS lets `anon` read published rows with NO function call in the policy (an `is_admin()`
+  in an anon-reachable policy fails every read at plan time — the 9 Sep outage). Don't advertise a
+  feature a new user cannot use yet (WhatsApp logging, until number linking is open). **GA loads only
+  on vyact.app / www.vyact.app**; funnel events are in `docs/measurement/events.yaml`, never with
+  personal or financial data. **A Vercel preview never touches production data** (`vite.config.ts`).
+  `?next=` after auth is an in-app path only (`lib/postAuth.ts`).
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

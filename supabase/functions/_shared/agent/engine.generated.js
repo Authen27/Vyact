@@ -2554,6 +2554,11 @@ function resolveConfiguredModelCall() {
 //#endregion
 //#region react/src/config/features.ts
 const FEATURES = {
+	playStore: {
+		live: false,
+		packageId: "com.vyact.consumer",
+		reviewAfterEntries: 10
+	},
 	dashboard: {
 		showPulse: false,
 		showDebtSummary: false
