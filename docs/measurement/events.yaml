@@ -238,7 +238,13 @@ privacy:
     description: A call to action on a public Learn page was clicked.
     added_in: v10.49.0
     params:
-      placement: { type: enum, values: [try, sticky, nav] }
+      placement: { type: enum, values: [try, sticky, nav, footer] }
+      page: { type: string }
+  - name: landing_cta_click
+    description: A call to action on the landing page at "/" was clicked (sign-up links also carry ?ref=landing_<placement>).
+    added_in: v10.50.0
+    params:
+      placement: { type: enum, values: [nav, hero, footer, footer_link] }
       page: { type: string }
   - name: learn_video_play
     description: A lesson's video was started on its public page.

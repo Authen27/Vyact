@@ -3,7 +3,8 @@ import type { Config } from 'tailwindcss';
 // FinFlow paper-warm palette (from FinFlow Designs wireframes)
 // CSS variables drive the actual values so dark mode swaps cleanly
 const config: Config = {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  // api/*.js: the server-rendered Learn pages use the app's classes via /site.css (v10.50.0).
+  content: ['./index.html', './src/**/*.{ts,tsx}', './api/**/*.js'],
   darkMode: 'class',
   theme: {
     extend: {

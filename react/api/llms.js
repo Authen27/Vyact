@@ -5,9 +5,11 @@
 import { BASE, topicSlug } from './_page.js';
 import { readContent } from './_supabase.js';
 
-// The ONE standard description (#22 — site, Play Store, LinkedIn, directories). Keep it
-// true: WhatsApp logging joins it when number linking is open to everyone.
-export const DESCRIPTION = 'Vyact is a free family finance app for Indian households: log spending in seconds, share budgets and splits with your household, and see cash flow and net worth in one place. No bank linking and no SMS reading. It includes a free library of plain-English money lessons.';
+// The ONE standard description (#22 — site, Play Store, LinkedIn, directories). A copy of
+// STANDARD_DESCRIPTION in src/content/landingCopy.ts (this Node function cannot import the
+// app's TypeScript); CON-UNIT-PUB-013 fails if the two drift. Keep it true: WhatsApp logging
+// joins it when number linking is open to everyone.
+export const DESCRIPTION = 'Vyact is the money app a household runs together. Everyone logs spending in seconds, shares budgets and bills, splits costs and plans debt payoff, and sees the same cash flow and net worth. Pip, the built-in assistant, answers questions like “can we afford it?” from the household’s own numbers. Free to start, in your own currency, with a free library of plain-English money lessons.';
 
 export function llmsTxt(cards) {
   const counts = {};
@@ -20,7 +22,7 @@ export function llmsTxt(cards) {
     '',
     '## Learn (free, no sign-up)',
     '',
-    `- [All lessons](${BASE}/learn): ${cards.length} short personal-finance lessons`,
+    `- [All lessons](${BASE}/learn): ${cards.length} short, plain-English money lessons`,
     ...topics.map(t => `- [${t}](${BASE}/learn/topic/${topicSlug(t)}): ${counts[t]} lessons`),
     '',
     '## Product',

@@ -34,12 +34,14 @@ test.describe('§20 ONB-FC · onboarding', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Budget Progress' })).toBeVisible();
   });
 
-  test('ONB-FC-006 · the setup opens with the honest promise: no bank login, everything editable, a currency to start', async ({ page }) => {
+  test('ONB-FC-006 · the setup opens with its promise: built for the household, everything editable, a currency to start', async ({ page }) => {
     await page.goto('/onboarding');
     await page.waitForURL('**/onboarding');
 
     await expect(page.getByRole('heading', { level: 1, name: 'A clear money picture, in two minutes.' })).toBeVisible();
-    await expect(page.getByText(/No bank login, ever\./)).toBeVisible();
+    // v10.50.0 — positioning leads with what Vyact does, not what it doesn't (owner rule).
+    await expect(page.getByText(/Built for your whole household\./)).toBeVisible();
+    await expect(page.getByText(/No bank login/)).toHaveCount(0);
     await expect(page.getByText(/Nothing is locked in\./)).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Currency' })).toBeVisible();
     await expect(page.getByRole('button', { name: "Let's go" })).toBeEnabled();

@@ -15,6 +15,9 @@ import InstallBanner from './components/layout/InstallBanner';
 import HistoryRestoration from './components/layout/HistoryRestoration';
 import { bindAppNavigate } from './lib/appNavigation';
 import { isFormRoute } from './lib/formRoutes';
+// v10.50.0 — EAGER: dist/landing.html carries this page pre-rendered, and a lazy import
+// would replace that markup with the loading fallback on first paint.
+import Landing from './pages/Landing';
 
 
 import React, { Suspense } from 'react';
@@ -36,7 +39,6 @@ const Accounts     = React.lazy(() => import('./pages/Accounts'));
 const Splits       = React.lazy(() => import('./pages/Splits'));
 const Help         = React.lazy(() => import('./pages/Help'));
 const Insights     = React.lazy(() => import('./pages/Insights'));
-const Landing      = React.lazy(() => import('./pages/Landing'));
 const Privacy      = React.lazy(() => import('./pages/Privacy'));
 const Terms        = React.lazy(() => import('./pages/Terms'));
 const Cookies      = React.lazy(() => import('./pages/Cookies'));
