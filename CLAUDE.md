@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.50.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.51.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -425,7 +425,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   and not India-only (owner, 2026-09-29; PUB-011 bans those phrases). `/learn`, `/learn/topic/*`,
   `/learn/<slug>`, `/sitemap.xml`, `/llms.txt` are plain HTML from `react/api/` on `api/_page.js`, wearing
   the app theme through the build's stable `/site.css` (Tailwind scans `api/**/*.js`); Learn-only CSS is
-  scoped to `.lx-body` so it never overrides the shared header's classes. CMS text always escaped. They read
+  scoped to `.lx-body` so it never overrides the shared header's classes. **v10.51.0:** `/for/couples` and
+  `/for/families` (`api/for.js`) target the P1 searches; `api/_seo.js` gives 30 lessons a search-shaped
+  title + 40–60-word quick answer on the PUBLIC page only (keyed `ev-NNN`; the stored lesson is untouched);
+  robots.txt names the AI crawlers in ONE group with `*` and fences off app routes; `/llms-full.txt` lists
+  every lesson with its answer. Build regexes in these files with Edit, not template strings — a lost
+  backslash (`\d` → `d`) silently disabled every quick answer until PUB-014 caught it. CMS text always escaped. They read
   content with the PUBLISHABLE key from the committed `.env.production` (`api/_supabase.js`), `apikey`
   header only; RLS lets `anon` read published rows with NO function call in the policy (an `is_admin()`
   in an anon-reachable policy fails every read at plan time — the 9 Sep outage). Don't advertise a

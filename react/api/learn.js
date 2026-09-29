@@ -14,6 +14,7 @@ import {
   BASE, OG_IMAGE, esc, safeJsonLd as jsonLd, page, topicSlug, featureFor, signUpUrl, youtubeId,
 } from './_page.js';
 import { readContent } from './_supabase.js';
+import { seoFor } from './_seo.js';
 
 // Kept as a named export: learnJsonLd.test.ts pins the script-breakout guard from here.
 export const safeJsonLd = jsonLd;
@@ -75,14 +76,17 @@ function listItems(cards) {
 
 export function lessonPage(c, all = []) {
   const url = `${BASE}/learn/${c.slug}`;
-  const description = metaDesc(c.body_md);
+  // #21 — a search-shaped question title and a quick answer, for the lessons that answer a live search.
+  const seo = seoFor(c.slug);
+  const headline = seo ? seo.title : c.title;
+  const description = metaDesc(seo ? seo.answer : c.body_md);
   const feature = featureFor(c.category);
   const vid = youtubeId(c.video_url);
   const related = relatedLessons(c, all);
   const tags = (c.tags || []).map(t => `<span class="tag">#${esc(t)}</span>`).join('');
   const article = {
     '@context': 'https://schema.org', '@type': ['Article', 'LearningResource'],
-    headline: c.title, description, articleSection: c.category, keywords: (c.tags || []).join(', '),
+    headline, ...(seo ? { alternativeHeadline: c.title, abstract: seo.answer } : {}), description, articleSection: c.category, keywords: (c.tags || []).join(', '),
     inLanguage: 'en', isAccessibleForFree: true, learningResourceType: 'concept explainer', educationalLevel: 'beginner',
     timeRequired: `PT${c.reading_seconds || 30}S`,
     ...(c.published_at ? { datePublished: c.published_at } : {}), ...(c.updated_at ? { dateModified: c.updated_at } : {}),
@@ -95,7 +99,7 @@ export function lessonPage(c, all = []) {
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Learn', item: `${BASE}/learn` },
       { '@type': 'ListItem', position: 2, name: c.category, item: topicUrl(c.category) },
-      { '@type': 'ListItem', position: 3, name: c.title, item: url },
+      { '@type': 'ListItem', position: 3, name: headline, item: url },
     ],
   };
   // #12 — the 45 video cards are YouTube Shorts.
@@ -107,11 +111,17 @@ export function lessonPage(c, all = []) {
     contentUrl: `https://www.youtube.com/shorts/${vid}`, embedUrl: `https://www.youtube.com/embed/${vid}`,
     publisher: orgRef, inLanguage: 'en',
   } : null;
+  // The quick answer as a one-question FAQ: the shape answer engines quote.
+  const faq = seo ? {
+    '@context': 'https://schema.org', '@type': 'FAQPage',
+    mainEntity: [{ '@type': 'Question', name: seo.title, acceptedAnswer: { '@type': 'Answer', text: seo.answer } }],
+  } : null;
   const tryHref = signUpUrl(`learn_${c.slug}`, feature.next);
   const body = `<main>
 <div class="kicker"><a href="${BASE}/learn">Learn</a> · <a href="${topicUrl(c.category)}">${esc(c.category)}</a></div>
-<h1>${esc(c.title)}</h1>
-<div class="meta">${readTime(c.reading_seconds)} read · by Vyact</div>
+<h1>${esc(headline)}</h1>
+<div class="meta">${seo ? `${esc(c.title)} · ` : ''}${readTime(c.reading_seconds)} read · by Vyact</div>
+${seo ? `<section class="answer" aria-label="Quick answer"><div class="kicker">Quick answer</div><p>${esc(seo.answer)}</p></section>` : ''}
 <div class="lesson${vid ? ' has-video' : ''}">
 ${vid ? `<a class="video" href="https://www.youtube.com/shorts/${vid}" data-yt="${vid}" rel="noopener"><img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" width="480" height="360"><span>▶ Watch the 1-minute version</span></a>` : ''}
 <div>
@@ -126,8 +136,8 @@ ${related.length ? `<h2>Keep reading</h2>${listItems(related)}` : ''}
   const script = `if(window.vyTrack)vyTrack('learn_card_view',{slug:${JSON.stringify(c.slug)},category:${JSON.stringify(c.category)}});
 var v=document.querySelector('a[data-yt]');if(v)v.addEventListener('click',function(e){e.preventDefault();var id=v.getAttribute('data-yt');v.innerHTML='<iframe src="https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1" title="Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';if(window.vyTrack)vyTrack('learn_video_play',{slug:${JSON.stringify(c.slug)}});});`;
   return page({
-    title: `${c.title} · Vyact Learn`, description, canonical: url, ogType: 'article',
-    jsonld: [article, breadcrumb, video], body, script,
+    title: `${headline} · Vyact Learn`, description, canonical: url, ogType: 'article',
+    jsonld: [article, breadcrumb, video, faq], body, script,
     sticky: { text: 'Track your money free with Vyact', label: 'Get started', href: signUpUrl(`learn_${c.slug}_sticky`, feature.next) },
   });
 }

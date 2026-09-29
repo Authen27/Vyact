@@ -111,14 +111,14 @@ describe('library, hubs, sitemap, llms.txt (#10, #25)', () => {
     expect(hub.match(/<h1>/g)).toHaveLength(1);
   });
 
-  it('CON-UNIT-PUB-007 · the sitemap lists home, library, one hub per topic and every lesson', () => {
+  it('CON-UNIT-PUB-007 · the sitemap lists home, the use-case pages, library, one hub per topic and every lesson', () => {
     const xml = sitemapXml(ALL, '2026-09-29');
-    for (const loc of ['https://vyact.app/', 'https://vyact.app/learn', 'https://vyact.app/learn/topic/saving', 'https://vyact.app/learn/topic/net-worth', 'https://vyact.app/learn/ev-020-emi-basics']) {
+    for (const loc of ['https://vyact.app/', 'https://vyact.app/for/couples', 'https://vyact.app/for/families', 'https://vyact.app/learn', 'https://vyact.app/learn/topic/saving', 'https://vyact.app/learn/topic/net-worth', 'https://vyact.app/learn/ev-020-emi-basics']) {
       expect(xml).toContain(`<loc>${loc}</loc>`);
     }
-    expect(xml.match(/<url>/g)).toHaveLength(2 + 3 + ALL.length);
+    expect(xml.match(/<url>/g)).toHaveLength(4 + 3 + ALL.length);
     // With no lessons readable, the static pages are still listed.
-    expect(sitemapXml([], '2026-09-29').match(/<url>/g)).toHaveLength(2);
+    expect(sitemapXml([], '2026-09-29').match(/<url>/g)).toHaveLength(4);
   });
 
   it('CON-UNIT-PUB-008 · llms.txt: the one standard description and the live hubs', () => {
@@ -200,7 +200,9 @@ describe('the landing page (#9, #12, #19)', () => {
     const faq = ld.find(o => o['@type'] === 'FAQPage');
     expect(faq.mainEntity.map((q: { name: string }) => q.name)).toEqual(copy.FAQ.map(([q]) => q));
     for (const [q] of copy.FAQ) expect(markup).toContain(`<summary class="text-[0.95rem] font-semibold text-ink cursor-pointer">${q.replace(/'/g, '&#x27;')}</summary>`);
-    expect(html).toContain(`<title>${copy.SITE_TITLE}</title>`);
+    expect(html).toContain(`<title>${copy.SITE_TITLE.replace(/&/g, '&amp;')}</title>`);
+    expect(copy.SITE_TITLE).toMatch(/family budget app/i);                  // #7 — leads with the searched phrase
+    expect(copy.SITE_DESCRIPTION.length).toBeLessThanOrEqual(160);
     expect(html).toContain('<link rel="canonical" href="https://vyact.app/" />');
     expect(html).toContain(`<div id="root">${markup}</div>`);
     expect(html).toContain("localStorage.getItem('vt_theme')");      // saved theme before first paint
@@ -229,5 +231,79 @@ describe('the landing page (#9, #12, #19)', () => {
     expect(lesson).toContain('<link rel="stylesheet" href="/site.css">');
     expect(lesson).toContain('class="btn-primary');                 // the landing header, class for class
     expect(lesson.toLowerCase()).not.toContain('indian households');
+  });
+});
+
+// v10.51.0 — keyword targeting (marketing #7, #21) and AEO/GEO (robots.txt, llms.txt).
+describe('keywords, answers and AI crawlers (#7, #21, #25)', () => {
+  it('CON-UNIT-PUB-014 · a mapped lesson leads with its search-shaped question and a 40–60-word quick answer, also as FAQPage', async () => {
+    const { LESSON_SEO, seoFor } = await import('../../../api/_seo.js');
+    expect(Object.keys(LESSON_SEO)).toHaveLength(30);
+    for (const [k, v] of Object.entries(LESSON_SEO) as [string, { title: string; answer: string }][]) {
+      const words = v.answer.split(/\s+/).length;
+      expect(words, k).toBeGreaterThanOrEqual(40);
+      expect(words, k).toBeLessThanOrEqual(62);
+      expect(v.title.length, k).toBeLessThanOrEqual(70);
+    }
+    const slug = 'ev-003-the-50-30-20-starting-point';
+    const seo = seoFor(slug)!;
+    const html = lessonPage(card({ slug, title: 'The 50-30-20 starting point' }), ALL);
+    expect(html).toContain(`<h1>${seo.title.replace(/'/g, '&#39;')}</h1>`);
+    expect(html).toContain('aria-label="Quick answer"');
+    expect(html).toContain('The 50-30-20 starting point · ');           // the editorial title stays visible
+    const faq = jsonLdOf(html).find(o => o['@type'] === 'FAQPage');
+    expect(faq.mainEntity[0].acceptedAnswer.text).toBe(seo.answer);
+    // An unmapped lesson is unchanged.
+    expect(lessonPage(ALL[0], ALL)).not.toContain('Quick answer');     // ev-001 has no entry
+  });
+
+  it('CON-UNIT-PUB-015 · /for/couples and /for/families: one H1, a quick answer, a FAQPage that matches the visible FAQ; unknown → 404', async () => {
+    const { audiencePage, AUDIENCES, default: forHandler } = await import('../../../api/for.js');
+    for (const key of ['couples', 'families']) {
+      const html = audiencePage(key);
+      expect(html.match(/<h1>/g), key).toHaveLength(1);
+      expect(html).toContain(`<link rel="canonical" href="https://vyact.app/for/${key}">`);
+      expect(html).toContain('aria-label="Quick answer"');
+      const faq = jsonLdOf(html).find(o => o['@type'] === 'FAQPage');
+      expect(faq.mainEntity.map((q: { name: string }) => q.name)).toEqual(AUDIENCES[key].faq.map(([q]: string[]) => q));
+      expect(html).toContain(`ref=for_${key}`);
+      const words = html.toLowerCase();
+      for (const banned of ['sms', 'no bank', 'indian household', 'whatsapp']) expect(words, banned).not.toContain(banned);
+    }
+    expect(AUDIENCES.couples.title).toMatch(/budget app for couples/i);
+    expect(AUDIENCES.families.title).toMatch(/family budget app/i);
+    const res = { status: vi.fn().mockReturnThis(), send: vi.fn(), setHeader: vi.fn() };
+    forHandler({ query: { audience: 'pets' } }, res);
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it('CON-UNIT-PUB-016 · robots.txt welcomes the AI crawlers by name, repeats the same fences in every group, keeps the public site open', async () => {
+    const { robotsTxt, AI_CRAWLERS, PRIVATE_PATHS } = await import('../../../api/robots.js');
+    const txt = robotsTxt();
+    for (const bot of ['GPTBot', 'OAI-SearchBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended', 'Bingbot']) expect(txt).toContain(`User-agent: ${bot}`);
+    // One group: every user-agent line comes before the first rule, so all share the same rules.
+    const lines = txt.split('\n');
+    const firstRule = lines.findIndex(l => /^(Allow|Disallow):/.test(l));
+    const agents = lines.filter(l => l.startsWith('User-agent:'));
+    expect(agents).toHaveLength(1 + AI_CRAWLERS.length);
+    expect(lines.findLastIndex(l => l.startsWith('User-agent:'))).toBeLessThan(firstRule);
+    for (const p of PRIVATE_PATHS) expect(lines).toContain(`Disallow: ${p}`);
+    for (const open of ['/learn', '/for/', '/privacy', '/llms.txt']) expect(PRIVATE_PATHS.some((p: string) => open.startsWith(p))).toBe(false);
+    expect(txt).toContain('Sitemap: https://vyact.app/sitemap.xml');
+  });
+
+  it('CON-UNIT-PUB-017 · llms.txt carries key facts, the use-case pages and the answered lessons; llms-full.txt lists every lesson with an answer', async () => {
+    const { llmsFullTxt } = await import('../../../api/llms.js');
+    const cards = [...ALL, card({ slug: 'ev-003-the-50-30-20-starting-point', title: 'The 50-30-20 starting point' })];
+    const txt = llmsTxt(cards);
+    expect(txt).toContain('## Key facts');
+    expect(txt).toContain('(https://vyact.app/for/couples)');
+    expect(txt).toContain('(https://vyact.app/for/families)');
+    expect(txt).toContain('[What is the 50/30/20 rule? A simple budget starting point](https://vyact.app/learn/ev-003-the-50-30-20-starting-point)');
+    expect(txt).toContain('(https://vyact.app/llms-full.txt)');
+    const full = llmsFullTxt(cards);
+    for (const c of cards) expect(full).toContain(`(https://vyact.app/learn/${c.slug}): `);
+    expect(full).toContain('Small daily amounts add up.');            // unmapped → first sentence
+    expect(full.toLowerCase()).not.toContain('whatsapp');
   });
 });

@@ -34,6 +34,14 @@
       "destination": "/api/llms"
     },
     {
+      "source": "/llms-full.txt",
+      "destination": "/api/llms?full=1"
+    },
+    {
+      "source": "/for/:audience",
+      "destination": "/api/for?audience=:audience"
+    },
+    {
       "source": "/((?!api/|assets/|\\.well-known/).*)",
       "destination": "/index.html"
     }
