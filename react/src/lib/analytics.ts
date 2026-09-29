@@ -65,6 +65,7 @@ export type EventName =
   | 'budget_created'
   | 'learn_card_view'
   | 'learn_cta_click'
+  | 'landing_cta_click'
   | 'pwa_install'
   | 'whatsapp_linked';
 

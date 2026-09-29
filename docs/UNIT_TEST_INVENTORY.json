@@ -1833,7 +1833,7 @@
       "availability": "available",
       "layer": "unit",
       "owner": "format / learnJsonLd",
-      "count": 12,
+      "count": 13,
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
@@ -1845,8 +1845,9 @@
         "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-006 · the library links every topic hub; a hub lists its lessons with CollectionPage + ItemList",
         "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-007 · the sitemap lists home, library, one hub per topic and every lesson",
         "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-008 · llms.txt: the one standard description and the live hubs",
-        "the landing page (#9, #12, #19) CON-UNIT-PUB-011 · one H1, the answer above the fold, trust line, SoftwareApplication + a FAQPage that matches the visible FAQ",
-        "the landing page (#9, #12, #19) CON-UNIT-PUB-012 · middleware serves \"/\" (only) from the landing function, keeping the query"
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-011 · the restored landing: one H1, the SEO sections at the bottom, a FAQPage that matches the visible FAQ, and the landing head",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-012 · middleware serves \"/\" (only) from the pre-rendered landing, keeping the query",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet"
       ]
     },
     {

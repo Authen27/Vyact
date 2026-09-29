@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.49.1**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.50.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -21,7 +21,8 @@ Three independently-versioned deliverables:
   auto-applied by `deploy.yml` (`supabase db push`). Live project
   `dmxqkvploojokffuhxnz` (name "vyact"). The vanilla shell was archived in v7.0.1.
 
-**Deploys:** every push to `main` deploys (see [`DEPLOY.md`](DEPLOY.md)). The older
+**Deploys:** every push to `main` deploys (see [`DEPLOY.md`](DEPLOY.md)). Which branch runs where, on
+which database: [`docs/ENVIRONMENTS.md`](docs/ENVIRONMENTS.md). The older
 `react-taupe-xi` / `finflow-admin` URLs are orphaned on a different account — don't use.
 
 ## Versioning (CI-guarded)
@@ -413,10 +414,18 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   risk — never the reason for the answer and never turning a yes into a no (PHRASE_SYSTEM). A household below its
   floor was told no to ₹5 of tea before this. The WhatsApp `affordability_reply` card goes out only when its
   "above your safety floor" sentence is true.
-- **The public site is server-rendered, and every claim on it must be true (v10.49.0).** `/` (via
-  `react/middleware.js` → `api/home.js`; a vercel.json rewrite cannot beat the static index.html),
-  `/learn`, `/learn/topic/*`, `/learn/<slug>`, `/sitemap.xml`, `/llms.txt` are plain HTML from `react/api/`
-  on the shared kit `api/_page.js`: no framework, no web fonts, CMS text always escaped. They read
+- **The public site is crawlable HTML in the APP'S brand, and every claim on it must be true (v10.49.0;
+  v10.50.0).** `/` is the app's own landing page (`pages/LandingView.tsx`, owner's brand decision),
+  PRE-RENDERED at build time into `dist/landing.html` (`scripts/prerender-landing.mjs`) and served by
+  `react/middleware.js` (a vercel.json rewrite cannot beat the static index.html). `LandingView` must stay
+  pure (no store, no browser API) or the pre-render breaks, and `Landing` stays an EAGER import.
+  Positioning copy lives in ONE place, `src/content/landingCopy.ts` (the visible FAQ and its FAQPage
+  JSON-LD come from it; `api/llms.js` DESCRIPTION must equal STANDARD_DESCRIPTION — PUB-013).
+  **Lead with what Vyact does, for any household anywhere** — not with what it is not (no-bank / no-SMS)
+  and not India-only (owner, 2026-09-29; PUB-011 bans those phrases). `/learn`, `/learn/topic/*`,
+  `/learn/<slug>`, `/sitemap.xml`, `/llms.txt` are plain HTML from `react/api/` on `api/_page.js`, wearing
+  the app theme through the build's stable `/site.css` (Tailwind scans `api/**/*.js`); Learn-only CSS is
+  scoped to `.lx-body` so it never overrides the shared header's classes. CMS text always escaped. They read
   content with the PUBLISHABLE key from the committed `.env.production` (`api/_supabase.js`), `apikey`
   header only; RLS lets `anon` read published rows with NO function call in the policy (an `is_admin()`
   in an anon-reachable policy fails every read at plan time — the 9 Sep outage). Don't advertise a

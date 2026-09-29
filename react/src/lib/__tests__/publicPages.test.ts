@@ -125,7 +125,7 @@ describe('library, hubs, sitemap, llms.txt (#10, #25)', () => {
     const txt = llmsTxt(ALL);
     expect(txt.startsWith('# Vyact\n\n> ' + DESCRIPTION)).toBe(true);
     expect(txt).toContain('(https://vyact.app/learn/topic/saving): 3 lessons');
-    expect(txt).toContain(`${ALL.length} short personal-finance lessons`);
+    expect(txt).toContain(`${ALL.length} short, plain-English money lessons`);
   });
 });
 
@@ -158,32 +158,76 @@ describe('analytics gating and deep links (#3, #4, #20)', () => {
   });
 });
 
+// v10.50.0 — "/" is the app's own landing page again (the Aurora brand page, owner decision),
+// pre-rendered at build time into dist/landing.html (scripts/prerender-landing.mjs).
+const INDEX_FIXTURE = `<!DOCTYPE html><html lang="en"><head>
+<meta name="description" content="x" />
+<meta property="og:title" content="x" />
+<meta property="og:description" content="x" />
+<meta name="twitter:title" content="x" />
+<meta name="twitter:description" content="x" />
+<script type="application/ld+json">{"@type":"Organization"}</script>
+<title>Vyact — Family Finance OS</title>
+<link rel="stylesheet" crossorigin href="/assets/index-AbC123.css">
+</head><body><div id="root"></div><script type="module" src="/assets/index-XyZ.js"></script></body></html>`;
+
+async function renderedLanding(cloudMode = true) {
+  const React = await import('react');
+  const { renderToString } = await import('react-dom/server');
+  const { MemoryRouter } = await import('react-router-dom');
+  const { default: LandingView } = await import('../../pages/LandingView');
+  return renderToString(React.createElement(MemoryRouter, null, React.createElement(LandingView, { cloudMode, signedIn: false })));
+}
+
 describe('the landing page (#9, #12, #19)', () => {
-  it('CON-UNIT-PUB-011 · one H1, the answer above the fold, trust line, SoftwareApplication + a FAQPage that matches the visible FAQ', async () => {
-    const { homePage, FAQ } = await import('../../../api/home.js');
-    const many = Array.from({ length: 30 }, (_, i) => card({ slug: `s${i}`, title: `T${i}`, category: ['Saving', 'Debt', 'Budgeting', 'India', 'Mindset', 'Investing', 'Household'][i % 7] }));
-    const html = homePage(many);
-    expect(html.match(/<h1>/g)).toHaveLength(1);
-    expect(html.indexOf('<h1>')).toBeLessThan(html.indexOf('class="lede"'));
-    expect(html).toContain('No bank linking · No SMS reading');
+  it('CON-UNIT-PUB-011 · the restored landing: one H1, the SEO sections at the bottom, a FAQPage that matches the visible FAQ, and the landing head', async () => {
+    const copy = await import('../../content/landingCopy');
+    const { landingHtml } = await import('../../../scripts/landingHtml.mjs');
+    const markup = await renderedLanding();
+    const html = landingHtml(INDEX_FIXTURE, markup, copy);
+
+    expect(markup.match(/<h1[\s>]/g)).toHaveLength(1);
+    expect(markup).toContain('Your household deserves to understand its money.');
+    // The v10.49 content sits BELOW the brand sections, in the same theme.
+    const at = (s: string) => markup.indexOf(s);
+    expect(at('Sound familiar?')).toBeLessThan(at('Made for the way households actually run.'));
+    for (const s of ['Everything in one place.', 'Learn money in minutes.', 'Questions, answered.']) expect(at(s)).toBeGreaterThan(at('Your money, explained back to you.'));
+    for (const l of copy.LESSONS) expect(markup).toContain(`href="/learn/${l.slug}"`);
+    expect(markup).toContain('href="/auth/sign-up?ref=landing_hero"');
+
     const ld = jsonLdOf(html);
-    expect(ld.find(o => o['@type'] === 'SoftwareApplication')).toMatchObject({ applicationCategory: 'FinanceApplication', offers: { price: '0', priceCurrency: 'INR' } });
+    expect(ld.find(o => o['@type'] === 'SoftwareApplication')).toMatchObject({ applicationCategory: 'FinanceApplication', offers: { price: '0' } });
     const faq = ld.find(o => o['@type'] === 'FAQPage');
-    expect(faq.mainEntity.map((q: { name: string }) => q.name)).toEqual(FAQ.map(([q]: string[]) => q));
-    for (const [q] of FAQ) expect(html).toContain(`<summary>${q.replace(/'/g, '&#39;')}</summary>`);
-    // 12 featured lessons, 2 from each of the 6 largest topics.
-    expect((html.match(/href="https:\/\/vyact\.app\/learn\/s\d+"/g) ?? []).length).toBe(12);
-    expect(html).toContain('href="/auth/sign-up?ref=landing_hero&amp;next=%2Fdashboard"');
-    expect(html).toContain('class="sticky"');
-    expect(html).toContain('<link rel="canonical" href="https://vyact.app/">');
-    // Not advertised until number linking is open to everyone.
-    expect(html.toLowerCase()).not.toContain('whatsapp');
+    expect(faq.mainEntity.map((q: { name: string }) => q.name)).toEqual(copy.FAQ.map(([q]) => q));
+    for (const [q] of copy.FAQ) expect(markup).toContain(`<summary class="text-[0.95rem] font-semibold text-ink cursor-pointer">${q.replace(/'/g, '&#x27;')}</summary>`);
+    expect(html).toContain(`<title>${copy.SITE_TITLE}</title>`);
+    expect(html).toContain('<link rel="canonical" href="https://vyact.app/" />');
+    expect(html).toContain(`<div id="root">${markup}</div>`);
+    expect(html).toContain("localStorage.getItem('vt_theme')");      // saved theme before first paint
+
+    // Positioning (owner, 2026-09-29): lead with what Vyact does, for any household — not
+    // with what it is not, and not India-only. WhatsApp is not advertised yet.
+    const words = (markup + JSON.stringify(ld)).toLowerCase();
+    for (const banned of ['sms', 'bank link', 'no bank', 'indian household', 'for india', 'whatsapp']) expect(words, banned).not.toContain(banned);
   });
 
-  it('CON-UNIT-PUB-012 · middleware serves "/" (only) from the landing function, keeping the query', async () => {
+  it('CON-UNIT-PUB-012 · middleware serves "/" (only) from the pre-rendered landing, keeping the query', async () => {
     const mw = await import('../../../middleware.js');
     expect(mw.config).toEqual({ matcher: '/' });
     const res = mw.default(new Request('https://vyact.app/?ref=ig'));
-    expect(res.headers.get('x-middleware-rewrite')).toBe('https://vyact.app/api/home?ref=ig');
+    expect(res.headers.get('x-middleware-rewrite')).toBe('https://vyact.app/landing.html?ref=ig');
+  });
+
+  it('CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet', async () => {
+    const copy = await import('../../content/landingCopy');
+    const { landingHtml, builtCssHref } = await import('../../../scripts/landingHtml.mjs');
+    expect(DESCRIPTION).toBe(copy.STANDARD_DESCRIPTION);
+    expect(builtCssHref(INDEX_FIXTURE)).toBe('/assets/index-AbC123.css');
+    expect(() => landingHtml(INDEX_FIXTURE.replace('<div id="root"></div>', '<div id="root">x</div>'), '', copy)).toThrow(/empty #root/);
+    expect(() => landingHtml(INDEX_FIXTURE.replace(/<meta name="description"[^>]*>/, ''), '', copy)).toThrow(/meta description/);
+    const lesson = lessonPage(ALL[0], ALL);
+    expect(lesson).toContain('<link rel="stylesheet" href="/site.css">');
+    expect(lesson).toContain('class="btn-primary');                 // the landing header, class for class
+    expect(lesson.toLowerCase()).not.toContain('indian households');
   });
 });

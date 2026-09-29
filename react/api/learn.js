@@ -83,7 +83,7 @@ export function lessonPage(c, all = []) {
   const article = {
     '@context': 'https://schema.org', '@type': ['Article', 'LearningResource'],
     headline: c.title, description, articleSection: c.category, keywords: (c.tags || []).join(', '),
-    inLanguage: 'en-IN', isAccessibleForFree: true, learningResourceType: 'concept explainer', educationalLevel: 'beginner',
+    inLanguage: 'en', isAccessibleForFree: true, learningResourceType: 'concept explainer', educationalLevel: 'beginner',
     timeRequired: `PT${c.reading_seconds || 30}S`,
     ...(c.published_at ? { datePublished: c.published_at } : {}), ...(c.updated_at ? { dateModified: c.updated_at } : {}),
     author: orgRef, publisher: orgRef, mainEntityOfPage: url, image: OG_IMAGE,
@@ -105,17 +105,21 @@ export function lessonPage(c, all = []) {
     thumbnailUrl: [`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`],
     uploadDate: c.video_updated_at || c.published_at || c.updated_at,
     contentUrl: `https://www.youtube.com/shorts/${vid}`, embedUrl: `https://www.youtube.com/embed/${vid}`,
-    publisher: orgRef, inLanguage: 'en-IN',
+    publisher: orgRef, inLanguage: 'en',
   } : null;
   const tryHref = signUpUrl(`learn_${c.slug}`, feature.next);
   const body = `<main>
 <div class="kicker"><a href="${BASE}/learn">Learn</a> · <a href="${topicUrl(c.category)}">${esc(c.category)}</a></div>
 <h1>${esc(c.title)}</h1>
 <div class="meta">${readTime(c.reading_seconds)} read · by Vyact</div>
+<div class="lesson${vid ? ' has-video' : ''}">
 ${vid ? `<a class="video" href="https://www.youtube.com/shorts/${vid}" data-yt="${vid}" rel="noopener"><img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" width="480" height="360"><span>▶ Watch the 1-minute version</span></a>` : ''}
+<div>
 <article class="card">${renderBody(c.body_md)}${c.why_it_matters ? `<p><strong>Why it matters:</strong> ${esc(c.why_it_matters)}</p>` : ''}${tags ? `<div class="tags">${tags}</div>` : ''}
 ${c.source_url ? `<p class="source">Source: <a href="${esc(c.source_url)}" rel="nofollow noopener">${esc(c.source_name || new URL(c.source_url).hostname)}</a></p>` : ''}</article>
-<div class="try"><p>Put this into practice with your own numbers. Free, and your data stays yours.</p><a class="cta" href="${esc(tryHref)}" data-cta="try">${esc(feature.label)} →</a></div>
+<div class="try"><p>Put this into practice with your own household’s numbers — free to start.</p><a class="cta" href="${esc(tryHref)}" data-cta="try">${esc(feature.label)} →</a></div>
+</div>
+</div>
 ${related.length ? `<h2>Keep reading</h2>${listItems(related)}` : ''}
 <p><a href="${topicUrl(c.category)}">More on ${esc(c.category)}</a> · <a href="${BASE}/learn">All lessons</a></p>
 </main>`;
@@ -130,7 +134,7 @@ var v=document.querySelector('a[data-yt]');if(v)v.addEventListener('click',funct
 
 export function topicPage(topic, cards, topics) {
   const url = topicUrl(topic);
-  const description = `Free, plain-English lessons on ${topic.toLowerCase()} for Indian households: ${cards.slice(0, 3).map(c => c.title).join(', ')} and more.`;
+  const description = `Free, plain-English lessons on ${topic.toLowerCase()}: ${cards.slice(0, 3).map(c => c.title).join(', ')} and more, from Vyact Learn.`;
   const jsonld = [{
     '@context': 'https://schema.org', '@type': 'CollectionPage',
     name: `${topic} — Vyact Learn`, description, url, publisher: orgRef,
@@ -147,7 +151,7 @@ export function topicPage(topic, cards, topics) {
   const body = `<main>
 <div class="kicker"><a href="${BASE}/learn">Learn</a></div>
 <h1>${esc(topic)}: free money lessons</h1>
-<p class="lede">${cards.length} short lessons on ${esc(topic.toLowerCase())}, in plain English, for Indian households.</p>
+<p class="lede">${cards.length} short lessons on ${esc(topic.toLowerCase())}, in plain English. Read one in a minute, then try it with your own numbers.</p>
 ${listItems(cards)}
 <div class="try"><p>Ready to try it with your own money?</p><a class="cta" href="${esc(signUpUrl(`topic_${topicSlug(topic)}`, feature.next))}" data-cta="try">${esc(feature.label)} →</a></div>
 <h2>Other topics</h2>${topicPills(topics, topic)}
@@ -166,7 +170,7 @@ export function indexPage(cards) {
   const jsonld = {
     '@context': 'https://schema.org', '@type': 'CollectionPage',
     name: 'Vyact Learn — free money lessons in plain English',
-    description: 'A free library of short personal-finance lessons for Indian households: saving, budgeting, debt and EMIs, investing and SIPs, net worth and money mindset.',
+    description: 'A free library of short, plain-English money lessons for households: saving, budgeting, debt and loans, investing, net worth and the habits behind them.',
     url, publisher: orgRef,
     hasPart: topics.map(t => ({ '@type': 'CollectionPage', name: `${t} — Vyact Learn`, url: topicUrl(t) })),
     mainEntity: { '@type': 'ItemList', numberOfItems: cards.length,
@@ -174,14 +178,15 @@ export function indexPage(cards) {
   };
   const sections = topics.map(t => `<h2 id="${topicSlug(t)}"><a href="${topicUrl(t)}" style="color:inherit;text-decoration:none">${esc(t)}</a></h2>${listItems(byCat[t])}`).join('');
   const body = `<main>
-<h1>Free money lessons for Indian households</h1>
-<p class="lede">${cards.length} short lessons on saving, budgeting, debt and EMIs, investing, net worth and the habits behind them. No sign-up needed to read.</p>
+<div class="kicker">Vyact Learn</div>
+<h1>Money lessons you can read in a minute</h1>
+<p class="lede">${cards.length} short, plain-English lessons on saving, budgeting, debt, investing, net worth and the habits behind them — many with a one-minute video. Free, no sign-up to read.</p>
 ${topicPills(topics)}
 ${sections}
 </main>`;
   return page({
-    title: 'Free personal-finance lessons for India · Vyact Learn',
-    description: 'Free, plain-English personal-finance lessons for Indian households: emergency funds, budgets, EMIs, SIPs, net worth and money habits. No sign-up to read.',
+    title: 'Free money lessons in plain English · Vyact Learn',
+    description: 'Free, plain-English money lessons for households: emergency funds, budgets, debt payoff, investing, net worth and money habits. One-minute reads, no sign-up.',
     canonical: url, jsonld, body,
     sticky: { text: 'Lessons + a free family money tracker', label: 'Get started', href: signUpUrl('learn_index_sticky') },
   });

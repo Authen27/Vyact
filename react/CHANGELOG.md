@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.49.1`** (consumer)
+> **Current production version: `v10.50.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,40 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.50.0 — The brand landing page is back, Learn wears it too, and Vyact is positioned for every household *(2026-09-29)*
+
+**Owner decision:** the v10.49.0 server-rendered home page replaced the app's own landing page with a
+plain, narrow page. The brand page comes back, and everything v10.49.0 did for search stays — in the
+brand's theme.
+
+- **"/" is the app's landing page again** (the v10.33 Aurora page: "Your household deserves to understand
+  its money."). It is now **pre-rendered at build time** (`scripts/prerender-landing.mjs` →
+  `dist/landing.html`, served at "/" by `middleware.js`), so search engines, link previews and AI tools
+  get the whole page as HTML, and a first visit shows it before the app script loads. The app then takes
+  over as before (a signed-in visitor sees "Go to Dashboard").
+- **The v10.49.0 content now lives at the bottom of that page, in the same theme:** who it is for (six use
+  cases), everything it does (eight features), featured lessons, and a visible FAQ with matching FAQPage
+  structured data, plus SoftwareApplication and Organization data and a canonical URL. `api/home.js` is retired.
+- **Learn wears the brand.** `/learn`, the topic hubs and every lesson use the app's own stylesheet
+  (published at a stable `/site.css`), fonts, and the landing page's header and footer, in the visitor's
+  saved theme. The layout uses the full page width: a three-column lesson grid, and the lesson's video
+  beside the text on desktop.
+- **Positioning, rewritten for every household, anywhere.** Vyact is presented by what it does — a money
+  app the whole household runs together: shared budgets, bills, splits, debt payoff, cash flow and net
+  worth, and Pip answering "can we afford it?" from your own numbers. The "no bank linking / no SMS
+  reading / for Indian households" framing is gone from the landing page, Learn, `llms.txt`, the page
+  metadata and sign-up. One copy source, `src/content/landingCopy.ts`, feeds the page, its FAQ data and
+  (by a checked copy) `llms.txt`.
+- The landing's coral spotlight now introduces **Pip** instead of the Pulse Score, which the dashboard no
+  longer shows. Its example insights no longer use a currency symbol.
+- New analytics event `landing_cta_click` (placement: nav, hero, footer); sign-up links carry
+  `?ref=landing_<placement>`.
+- `docs/ENVIRONMENTS.md`: the environments and domain map from closed PR #128, corrected (previews of other
+  branches build local-only since v10.49.0; functions deploy to `vyact-test` by workflow).
+- Tests: CON-UNIT-PUB-011 renders the real landing page and checks section order, the FAQ ↔ FAQPage match,
+  the landing head and the banned framing; PUB-012 the middleware → `/landing.html`; PUB-013 the one
+  standard description, a loud build failure on a changed `index.html`, and Learn on `/site.css`.
 
 ## v10.49.1 — Lane A green again: the browser suite matches the app *(2026-09-29)*
 

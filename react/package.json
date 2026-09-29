@@ -1,12 +1,13 @@
 {
   "name": "vyact-react",
   "private": true,
-  "version": "10.49.1",
+  "version": "10.50.0",
   "type": "module",
   "description": "Vyact — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
     "dev": "vite",
     "build": "node check-env.js && tsc -b && vite build",
+    "postbuild": "node scripts/prerender-landing.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

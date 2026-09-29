@@ -113,7 +113,7 @@ export default function SignUp() {
           <button type="button" className="btn-ghost w-full mt-3 inline-flex items-center justify-center gap-2" onClick={() => setStep('email')}>
             <Mail size={14} /> Sign up with email
           </button>
-          <p className="text-center text-[0.78rem] text-ink-dim mt-3">Free. No bank linking, no credit card.</p>
+          <p className="text-center text-[0.78rem] text-ink-dim mt-3">Free to start. Invite your household once you’re in.</p>
         </>
       ) : (
       <form onSubmit={onSubmit}>

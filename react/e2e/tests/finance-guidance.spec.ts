@@ -63,6 +63,9 @@ test('FIN-FC-001 - Reports keeps full Needs and Wants amounts inside narrow cont
 });
 
 test('FIN-FC-002 - Ask examples fill the composer without calling Ask Vyact', async ({ page }, testInfo) => {
+  // Two widths, several page loads and screenshots: ~22 s on an idle machine, so the default
+  // 30 s budget timed out under parallel workers (a timing flake, not a product failure).
+  test.setTimeout(60_000);
   let modelCalls = 0;
   await page.route('**/functions/v1/ask-vyact', route => { modelCalls += 1; return route.fulfill({ status: 503, body: '{}' }); });
   for (const width of [390, 1440]) {
