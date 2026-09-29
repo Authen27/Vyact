@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { signInOAuth } from '../../lib/auth';
 import { isCloudEnabled } from '../../lib/supabase';
+import { rememberNext } from '../../lib/postAuth';
 
 // Primary Google sign-in CTA. Always rendered — provider misconfiguration
 // surfaces as an inline error, not a missing button. signInOAuth redirects the
@@ -8,7 +9,7 @@ import { isCloudEnabled } from '../../lib/supabase';
 // VerifiedAuth completes the session and routes to /dashboard. The Supabase
 // Google provider + client ID/secret + redirect allowlist are configured in the
 // Supabase dashboard (the secret lives only there, never in this repo).
-export default function GoogleButton({ requireAgreement = false, agreed = true }: { requireAgreement?: boolean; agreed?: boolean } = {}) {
+export default function GoogleButton({ requireAgreement = false, agreed = true, next }: { requireAgreement?: boolean; agreed?: boolean; next?: string | null } = {}) {
   const [busy, setBusy] = useState(false);
   const [oauthError, setOauthError] = useState('');
 
@@ -29,6 +30,8 @@ export default function GoogleButton({ requireAgreement = false, agreed = true }
       // Consumed by AuthGate on session hydration to record ToS/Privacy acceptance —
       // OAuth redirects away from this page, so we can't write it here directly.
       if (requireAgreement) sessionStorage.setItem('pending_policy_accept', '1');
+      // v10.49.0 (#20) — Google returns to /auth/verified; land them where the link meant.
+      rememberNext(next);
       await signInOAuth('google');   // redirects away on success
       // If we reach here the redirect didn't fire — treat as an error.
       setBusy(false);

@@ -3,7 +3,7 @@ import { test, expect } from '../fixtures/app';
 import { defaultSeed } from '../fixtures/seed';
 import { parseMoney } from '../pages/NetWorthPage';
 
-// v10.48.2 (#45) — rewritten for the Aurora dashboard. The old version read a "Total
+// v10.49.1 (#45) — rewritten for the Aurora dashboard. The old version read a "Total
 // Balance" card, the Pulse number and Reports' "All-Time" cards, none of which exist any
 // more (the dashboard is Cash Flow + Net Worth, Pulse is hidden). The rule is unchanged:
 // a private (excluded) entry never counts in spending or budgets.

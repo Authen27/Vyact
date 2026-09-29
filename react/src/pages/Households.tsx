@@ -5,6 +5,7 @@
 // remove, change roles. Anyone can leave (except sole owner).
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Users as UsersIcon, Mail, Trash2, LogOut, Shield, Activity, Copy, Check, Link as LinkIcon } from 'lucide-react';
 import { useStore } from '../store';
 import { Card, Panel } from '../components/ui/Card';
@@ -19,6 +20,7 @@ import {
   createInviteLink, listInvitations, revokeInvitation, INVITE_LABEL_SENTINEL,
   changeMemberRole, removeMembership, leaveHousehold, listActivity,
 } from '../lib/auth';
+import { track } from '../lib/analytics';
 import { sb } from '../lib/supabase';
 import { can, roleLabel, type Action } from '../lib/permissions';
 import type { ProfileTypeKey, AppRole } from '../types';
@@ -90,6 +92,15 @@ export default function Households() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  // v10.49.0 (#32) — the "Invite your partner" prompt after the first entry lands here.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('invite') !== '1') return;
+    if (can(myRole, 'invite_member')) setInviteOpen(true);
+    const rest = new URLSearchParams(searchParams);
+    rest.delete('invite');
+    setSearchParams(rest, { replace: true });
+  }, [searchParams, setSearchParams, myRole]);
 
   const [members, setMembers] = useState<Membership[]>([]);
   const [invites, setInvites] = useState<Invitation[]>([]);
@@ -676,6 +687,7 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
           setSubmitting(true);
           try {
             const inv = await createInviteLink(householdId, role, householdRole, label.trim() || undefined);
+            track('member_invited', { invite_role: role });
             const url = `${window.location.origin}/invite/${encodeURIComponent((inv as { token: string }).token)}`;
             setLink(url);
             void copyLink(url);

@@ -17,7 +17,7 @@
 | Bucket | IDs |
 |---|---|
 | ✅ **Resolved** (26) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, **TD-22**, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, TD-33, **TD-39** |
-| ⚠ **Partial** (3) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B green — 10 specs incl. RLS isolation; Lane A green since v10.48.2) · **TD-29** (Lane A 0 failures v10.48.2; required-check in branch protection is the owner's) |
+| ⚠ **Partial** (3) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B green — 10 specs incl. RLS isolation; Lane A green since v10.49.1) · **TD-29** (Lane A 0 failures v10.49.1; required-check in branch protection is the owner's) |
 | ⬜ **Open** (15) | TD-15 ⚠**REOPENED**, TD-16, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44** |
 
 > ### 🔻 Paydown is DEPRIORITIZED (2026-09-13)
@@ -91,7 +91,7 @@
 | TD-26 | ✅ Sync-queue mechanics extracted to `lib/sync/` (backoff/syncQueue/deadLetter/conflict) *(resolved 2026-06-15; hybridAdapter 508→400, each module unit-tested, queue-replay regression)* | Technical / Maintainability | Medium | M |
 | TD-27 | ✅ Risk-bearing `as any` on money + MFA/security paths *(resolved 2026-06-15: `Reports.tsx` typed `Transaction[]`; `Settings.tsx` MFA typed via `Factor` + enrol-response narrowing)* | Technical / Type-safety | Medium | S |
 | TD-28 | ✅ Doc-architecture *(resolved 2026-06-17)*: CI version-drift guard + CLAUDE.md trimmed (dated narrative → `docs/HISTORY.md`, replaced by a binding-conventions section) + README docs-map | Technical / Process / Docs | Low | S |
-| TD-29 | ⚠ Lane A: 53 e2e failures across 14 spec files — triage-first, not a selector sweep *(failures cleared v10.48.2; required-check pending)* | Technical / QA | High | M |
+| TD-29 | ⚠ Lane A: 53 e2e failures across 14 spec files — triage-first, not a selector sweep *(failures cleared v10.49.1; required-check pending)* | Technical / QA | High | M |
 | TD-30 | Vitest does not type-check `src/**/*.test.ts` — unit tests can reference removed code unseen | Technical / QA | Medium | S |
 | TD-31 | Spec INV-7 (atomicity) has no test — a failed leg of an EMI or transfer is not proven to roll back | Technical / Correctness | High | M |
 | TD-32 | Test-fidelity gaps: edge handlers run on npm `supabase-js` not the esm.sh build Deno loads; no cloud-mode unit coverage | Technical / QA | Medium | M |
@@ -954,7 +954,7 @@ recurring. The partner's "trim CLAUDE.md" (#6) and "README entry point" (#1) lan
 
 ## TD-29 — Lane A: 53 e2e failures across 14 spec files
 
-**⚠ Partial — failures cleared 2026-09-29 (v10.48.2, master-todo #45).** Full local run (chromium,
+**⚠ Partial — failures cleared 2026-09-29 (v10.49.1, master-todo #45).** Full local run (chromium,
 TZ=UTC, 4 workers): **105 passed · 0 failed · 84 skipped** (the documented backlog register plus the
 Pulse tests, which skip while `FEATURES.dashboard.showPulse` is off). Each of the 56 failures was
 classified: **product defects fixed** (unlabelled Settings and Household Type fields, Copy to

@@ -61,7 +61,7 @@ const REPORT_TXNS = [
   },
 ];
 
-// v10.48.2 (#45) — rewritten for the v10.31 Reports: ONE date range (default: last 12
+// v10.49.1 (#45) — rewritten for the v10.31 Reports: ONE date range (default: last 12
 // months) drives every panel, the grouping is a "Report period" tab rail, and a grouping
 // that would draw more than 60 bars is coarsened — so Day/Week are checked on "This month".
 // The unseeded app boots the demo household, so the empty state seeds an empty one.

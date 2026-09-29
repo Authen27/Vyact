@@ -201,3 +201,66 @@ privacy:
     - account_number
   bucketing:
     amount: bucketAmount()                  # see react/src/lib/analytics.ts
+
+  # ── Funnel: visit → active household (marketing #5, v10.49.0) ───────
+  # Every event also carries `platform` (enum: web | pwa | android-app).
+  # Key events in GA4 (#6): sign_up, first_transaction_logged, member_invited.
+  - name: budget_created
+    description: A new budget was created (not an edit).
+    added_in: v10.49.0
+    params:
+      surface: { type: enum, values: [budgets, onboarding] }
+      count: { type: int }
+  - name: first_transaction_logged
+    description: The household's first entry was saved.
+    added_in: v10.49.0
+    params:
+      track: { type: enum, values: [expense, income, transfer, investment] }
+  - name: household_created
+    description: A household was created from the app.
+    added_in: v10.49.0
+    params:
+      segment: { type: enum, values: [individual, household] }
+  - name: landing_cta_click
+    description: A call to action on the server-rendered landing page (/) was clicked.
+    added_in: v10.49.0
+    params:
+      placement: { type: enum, values: [hero, hero_signed_in, footer, sticky, nav] }
+      page: { type: string }
+  - name: learn_card_view
+    description: A Learn lesson was viewed — on its public page, or in the app's lesson reel.
+    added_in: v10.49.0
+    params:
+      slug: { type: string }
+      learn_category: { type: string }
+      surface: { type: enum, values: [public, app] }
+  - name: learn_cta_click
+    description: A call to action on a public Learn page was clicked.
+    added_in: v10.49.0
+    params:
+      placement: { type: enum, values: [try, sticky, nav] }
+      page: { type: string }
+  - name: learn_video_play
+    description: A lesson's video was started on its public page.
+    added_in: v10.49.0
+    params:
+      slug: { type: string }
+  - name: member_invited
+    description: An invite link to the household was created.
+    added_in: v10.49.0
+    params:
+      invite_role: { type: enum, values: [admin, member, viewer, child] }
+  - name: pwa_install
+    description: The browser reported the app was installed (appinstalled).
+    added_in: v10.49.0
+    params: {}
+  - name: sign_up
+    description: A new account's first sign-in (email after verification, or Google).
+    added_in: v10.49.0
+    params:
+      method: { type: enum, values: [email, google] }
+      ref: { type: string }
+  - name: whatsapp_linked
+    description: A WhatsApp number was linked to the account.
+    added_in: v10.49.0
+    params: {}

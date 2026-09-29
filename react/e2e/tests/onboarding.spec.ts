@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures/app';
 import { seedWith } from '../fixtures/seed';
 
-// v10.48.2 (#45) — the template wizard these tests were written for ("Which best describes
+// v10.49.1 (#45) — the template wizard these tests were written for ("Which best describes
 // you?", "Skip — use Family with Kids template", primary concern) was replaced by Pip's
 // two-minute setup (household-owned onboarding, v10.13+). ONB-FC-002/003/005 asserted the
 // retired wizard and are retired with it; the new flow's rules are covered by the unit

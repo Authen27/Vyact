@@ -10,6 +10,7 @@ import { useLocation, Navigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { reactivateIfNeeded, acceptPolicies } from '../../lib/auth';
+import { trackSignUpOnce } from '../../lib/analytics';
 
 const PUBLIC_ROUTES = [
   '/auth/sign-in', '/auth/sign-up', '/auth/reset', '/auth/reset-password', '/auth/verified',
@@ -53,6 +54,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   // verification pending) — see lib/auth.ts reactivateIfNeeded/acceptPolicies.
   useEffect(() => {
     if (!isCloudEnabled() || !session?.user) return;
+    trackSignUpOnce(session.user);
     (async () => {
       if (sessionStorage.getItem('pending_policy_accept')) {
         await acceptPolicies(session.user.id).catch(() => {});

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.48.2`** (consumer)
+> **Current production version: `v10.49.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -25,7 +25,7 @@ The numbering history has some non-monotonic stretches that we keep documented h
 
 ---
 
-## v10.48.2 — Lane A green again: the browser suite matches the app *(2026-09-29)*
+## v10.49.1 — Lane A green again: the browser suite matches the app *(2026-09-29)*
 
 The Playwright suite (Lane A) had been red on main since v10.0.0: 56 failures, mostly tests
 still describing screens the Aurora redesigns replaced. Each failure was classified as a
@@ -54,6 +54,47 @@ feature (retired with its reason recorded, ID never reused).
 - **Retired**: per-entry currency (no currency picker since v10.23), text time entry
   (replaced by the time dial). The Pulse card tests skip themselves while Pulse is hidden on
   the dashboard (`FEATURES.dashboard.showPulse`) and run again if it returns.
+## v10.49.0 — The public site: Learn back online, a real landing page, and a measurable funnel *(2026-09-29)*
+
+Marketing master to-do, every item with Developer as executor.
+
+- **#0 — The public Learn library is back.** Since ~9 Sep https://vyact.app/learn answered "Learn is
+  temporarily unavailable" and the sitemap listed no lessons. Two causes: the `content_items` read
+  policy called `is_admin()`, which logged-out visitors may not execute (Postgres checks it at plan
+  time, even when `status = 'published'` already decides the row) — split into an anon policy with no
+  function call (migration `20261004120000`, validated on production: before, `42501`; after, 116
+  published cards and no drafts); and the functions read the Supabase key from an empty Vercel env —
+  they now fall back to the committed `.env.production` and send the publishable key as `apikey` only.
+- **#9 / #12 / #19 — A server-rendered landing page at /** (`api/home.js`, served by Routing
+  Middleware for "/" only): one H1, the answer above the fold, a trust line, what Vyact does, 12 lessons,
+  a visible FAQ with `FAQPage`, `SoftwareApplication` JSON-LD, one call to action with `?ref=` and a slim
+  sticky mobile CTA. Every claim is true today (WhatsApp logging is not advertised until number linking
+  is open to everyone). The installed app is unaffected (its service worker answers "/").
+- **#10 / #11 / #12 / #20 — Learn, opened up.** Nine topic hubs (`/learn/topic/<topic>`), 3–5 related
+  lessons on every lesson, `VideoObject` on the 45 video lessons with a click-to-play (no iframe on
+  load), each lesson's "try it" link into the matching app feature (`?next=`), sources shown when a
+  lesson has one, in-app lesson views canonical to their public page, and "Browse free money lessons"
+  on sign-in / sign-up.
+- **#25 — /llms.txt** from the live library, with the one standard description (#22).
+- **#3 / #4 — GA counts real users only**: loaded only on vyact.app / www.vyact.app (the app and the
+  public pages); removed from the admin app.
+- **#5 — The funnel is measurable**: `sign_up` (once, with its `ref`), `household_created`,
+  `first_transaction_logged`, `member_invited`, `budget_created`, `learn_card_view`, `learn_cta_click`,
+  `pwa_install`, `whatsapp_linked`, each with `platform` (`docs/measurement/events.yaml`). No personal or
+  financial data is sent.
+- **#13 — Icons**: a 180px PNG touch icon, 192/512 PNG and maskable icons; the duplicate manifest link
+  is gone. **#14** — the service worker no longer answers /learn, /sitemap.xml, /robots.txt, /llms.txt
+  or /.well-known/ with the app shell.
+- **#20 — Two-step sign-up**: Google first, email one step later; `?next=` survives the Google redirect,
+  and only in-app paths are accepted. **#32** — after the household's first entry, a prompt to invite a
+  partner opens the invite sheet.
+- **#27** — `/.well-known/assetlinks.json` is served as JSON (an empty list until the Android app has a
+  release signing key). **#30 / #31** — a Play review prompt on the 10th entry and a Play Store install
+  banner on Android, both OFF until the listing is live (`FEATURES.playStore.live`).
+- **#42 — Previews never touch production**: a Vercel preview build without its own Supabase values runs
+  local-only. **#41** — a manual workflow deploys every edge function to vyact-test.
+
+Tests: CON-UNIT-PUB-001…012, CON-UNIT-FUN-001/002, CON-UNIT-PA-001/002.
 
 ## v10.48.1 — "Can I afford" answers from the budget; phone notifications you can actually turn on *(2026-09-27)*
 

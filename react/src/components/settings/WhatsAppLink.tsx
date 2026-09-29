@@ -13,6 +13,7 @@ import { Panel } from '../ui/Card';
 import Button from '../ui/Button';
 import { Input, Select, Field } from '../ui/Input';
 import { useStore } from '../../store';
+import { track } from '../../lib/analytics';
 import { supabase, isCloudEnabled } from '../../lib/supabase';
 import { readWhatsAppLink } from '../../lib/whatsappLink';
 import { readWhatsAppPreferences, saveWhatsAppPreferences, type WhatsAppPreferences } from '../../lib/whatsappPreferences';
@@ -230,6 +231,7 @@ export default function WhatsAppLink() {
       } else {
         setLinkedPhone(data.phone); setLinkedHouseholdId(data.householdId);
         setPhase('linked'); setCode('');
+        track('whatsapp_linked');
         toast('WhatsApp number linked.', 'success');
       }
     } finally { setBusy(false); }

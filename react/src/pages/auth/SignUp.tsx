@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Mail } from 'lucide-react';
 import Button from '../../components/ui/Button';
@@ -7,13 +7,12 @@ import { signUp, signIn, acceptPolicies } from '../../lib/auth';
 import GoogleButton from '../../components/auth/GoogleButton';
 import { AuthShell } from './SignIn';
 import { useStore } from '../../store';
+import { rememberSignupRef } from '../../lib/analytics';
+import { postAuthPath, rememberNext } from '../../lib/postAuth';
 
-function getPostAuthPath(next: string | null): string {
-  const pendingInvite = sessionStorage.getItem('pending_invite_token');
-  if (next) return next;
-  if (pendingInvite) return `/invite/${encodeURIComponent(pendingInvite)}`;
-  return '/dashboard';
-}
+// v10.49.0 (#20) — one rule for where sign-up lands (lib/postAuth.ts): a pending invite,
+// else the in-app `next` a landing / Learn link asked for, else the dashboard.
+const getPostAuthPath = (next: string | null): string => postAuthPath(next);
 
 export default function SignUp() {
   const [name, setName] = useState('');
@@ -25,6 +24,10 @@ export default function SignUp() {
   const [verificationPending, setVerificationPending] = useState(false);
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  // v10.49.0 (#5) — where this sign-up came from (landing / Learn links carry ?ref=).
+  useEffect(() => { rememberSignupRef(params.get('ref')); rememberNext(params.get('next')); }, [params]);
+  // v10.49.0 (#20) — two steps: choose Google or email first; the email form only when asked for.
+  const [step, setStep] = useState<'choose' | 'email'>(() => (params.get('method') === 'email' ? 'email' : 'choose'));
   const toast = useStore(s => s.toast);
 
   async function onSubmit(e: React.FormEvent) {
@@ -103,16 +106,16 @@ export default function SignUp() {
         </span>
       </label>
 
-      {/* Primary CTA — Google SSO */}
-      <GoogleButton requireAgreement agreed={agreed} />
-
-      <div className="my-4 flex items-center gap-3">
-        <div className="flex-1 h-px bg-line" />
-        <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">or sign up with email</span>
-        <div className="flex-1 h-px bg-line" />
-      </div>
-
-      {/* Secondary — email form */}
+      {step === 'choose' ? (
+        <>
+          {/* Step 1 — Google is one tap; email is one more step. */}
+          <GoogleButton requireAgreement agreed={agreed} next={params.get('next')} />
+          <button type="button" className="btn-ghost w-full mt-3 inline-flex items-center justify-center gap-2" onClick={() => setStep('email')}>
+            <Mail size={14} /> Sign up with email
+          </button>
+          <p className="text-center text-[0.78rem] text-ink-dim mt-3">Free. No bank linking, no credit card.</p>
+        </>
+      ) : (
       <form onSubmit={onSubmit}>
         <Field label="Full name">
           <Input type="text" value={name} onChange={e => setName(e.target.value)} required autoFocus placeholder="Alex Morgan" />
@@ -127,7 +130,11 @@ export default function SignUp() {
         <Button full type="submit" disabled={submitting || !agreed}>
           {submitting ? 'Creating account…' : <><UserPlus size={14} /> Sign up</>}
         </Button>
+        <button type="button" className="w-full text-center text-[0.82rem] text-ink-dim mt-3 hover:text-ink" onClick={() => setStep('choose')}>
+          ← Use Google instead
+        </button>
       </form>
+      )}
 
       <div className="mt-5 pt-4 border-t border-line text-center text-sm text-ink-mid">
         Already have an account? <Link to={params.get('next') ? `/auth/sign-in?next=${encodeURIComponent(params.get('next')!)}` : '/auth/sign-in'} className="text-coral font-medium hover:underline">Sign in</Link>

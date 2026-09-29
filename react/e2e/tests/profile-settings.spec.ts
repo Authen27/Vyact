@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { test, expect, openSettingsRow } from '../fixtures/app';
 import { defaultSeed } from '../fixtures/seed';
 
-// v10.48.2 (#45) — rewritten for the Board E Settings screen and the Aurora dashboard.
+// v10.49.1 (#45) — rewritten for the Board E Settings screen and the Aurora dashboard.
 //  · Settings are grouped rows that expand in place (`openSettingsRow`); only Profile
 //    stays open. Theme cards are Nocturne / Mist / System.
 //  · Household Type moved to the Households page (it lives on the household record).

@@ -11,6 +11,15 @@
 // the swap point.
 
 export const FEATURES = {
+  // v10.49.0 (marketing #30/#31) — the Android app on Google Play. OFF until the listing is
+  // live: then Android browsers are sent to the store instead of the PWA install prompt, and
+  // the app asks for a Play review after the household's 10th entry (needs the in-app-review
+  // plugin in the Android wrapper; a no-op without it).
+  playStore: {
+    live: false,
+    packageId: 'com.vyact.consumer',
+    reviewAfterEntries: 10,
+  },
   dashboard: {
     showPulse: false,
     showDebtSummary: false,

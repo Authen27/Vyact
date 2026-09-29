@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/app';
 
-// v10.48.2 (#45) — rewritten for the Aurora navigation (components/layout/navModel.ts):
+// v10.49.1 (#45) — rewritten for the Aurora navigation (components/layout/navModel.ts):
 // desktop has a top banner with Track / Plan / Analyze tabs and each section's links
 // beneath; mobile has a slim header and a bottom "Primary" bar (Track · Plan · Add ·
 // Analyze · Ask Pip). Settings, Households and Help live in the account menu on both.

@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures/app';
 import { defaultSeed, seedWith } from '../fixtures/seed';
 
-// v10.48.2 (#45) — seeds are v9.1 budgets now: a PERIOD CONTAINER (scope + year +
+// v10.49.1 (#45) — seeds are v9.1 budgets now: a PERIOD CONTAINER (scope + year +
 // month) with ALLOCATION rows. The old legacy per-category seed ({ category, limit })
 // renders a card titled "Budget" with no allocations, so a card keyed on
 // "Food & Dining" never appeared. Cards are keyed on their period title ("May 2026").

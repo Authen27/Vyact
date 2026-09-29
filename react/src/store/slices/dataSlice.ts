@@ -31,6 +31,10 @@ import {
 } from '../../lib/netWorthSnapshots';
 import { readLocalJson, readLocalString, setLocalString, removeLocal } from '../localJson';
 import { syncPush } from '../../lib/webPush';
+import { track } from '../../lib/analytics';
+import { appNavigate } from '../../lib/appNavigation';
+import { can } from '../../lib/permissions';
+import { maybeAskForReview } from '../../lib/playStore';
 
 export interface DataSlice {
   // ── data ────────────────────────────────────────────────────
@@ -446,6 +450,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     }
     const households = await adapter.listHouseholds();
     set({ households });
+    track('household_created', { segment: households.length > 1 ? 'household' : 'individual' });
     await get().switchHousehold(h.id);
     return h;
   },
@@ -579,6 +584,19 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     // last-write-wins insert path.
     const expectedUpdatedAt = t.id && t.updated_at ? t.updated_at : undefined;
     const saved = await adapter.upsert('transactions', currentHouseholdId, t, expectedUpdatedAt);
+    // v10.49.0 (#30) — a Play review ask on the household's 10th entry (Android app only; inert until launch).
+    if (isNewTxn) void maybeAskForReview(transactions.length + 1);
+    if (isNewTxn && transactions.length === 0 && t.type) {
+      track('first_transaction_logged', { track: t.type as 'expense' | 'income' | 'transfer' | 'investment' });
+      // v10.49.0 (marketing #32) — right after the household's first entry, invite a partner:
+      // money shared is money tracked. Cloud only (local mode has no one to invite), and only
+      // for someone allowed to invite.
+      if (get().cloudEnabled && can(get().myRole, 'invite_member')) {
+        get().toast('First entry saved. Invite your partner so you both see the same money.', 'success', {
+          label: 'Invite', run: () => appNavigate('/households?invite=1'),
+        });
+      }
+    }
     const idx = transactions.findIndex(x => x.id === saved.id);
     set({ transactions: idx >= 0 ? transactions.map(x => x.id === saved.id ? saved as Transaction : x) : [...transactions, saved as Transaction] });
     // v10.48.0 — an expense can cross a budget line's 80% / 100%: raise it now,

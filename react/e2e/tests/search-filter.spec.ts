@@ -57,7 +57,7 @@ const SEARCH_TXNS = [
   },
 ];
 
-// v10.48.2 (#45) — rewritten for the Board B toolbar: a "Search transactions" box, a
+// v10.49.1 (#45) — rewritten for the Board B toolbar: a "Search transactions" box, a
 // segmented type rail (All · Expense · Income · Transfer · Invest), and a Filters sheet
 // with category / month / member chips. On desktop the day calendar is always shown.
 test.describe('§19 SEARCH-FC · Search and empty-state behavior', () => {
