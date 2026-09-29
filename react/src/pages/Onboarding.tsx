@@ -19,7 +19,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Check, ShieldCheck, Lock } from 'lucide-react';
+import { ArrowRight, Check, ShieldCheck, Users } from 'lucide-react';
 import { useStore } from '../store';
 import { CURRENCIES } from '../constants';
 import { fmt } from '../lib/format';
@@ -218,8 +218,8 @@ export default function Onboarding() {
             </p>
             <div className="w-full space-y-3 mb-7 text-left">
               <div className="flex items-start gap-3 rounded-r3 p-3.5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-                <Lock size={16} className="text-sage mt-0.5 shrink-0" />
-                <div className="text-[0.85rem] text-ink-mid"><span className="font-semibold text-ink">No bank login, ever.</span> No statements or card numbers — you type what you know.</div>
+                <Users size={16} className="text-sage mt-0.5 shrink-0" />
+                <div className="text-[0.85rem] text-ink-mid"><span className="font-semibold text-ink">Built for your whole household.</span> Invite your partner or family any time — everyone works from the same numbers.</div>
               </div>
               <div className="flex items-start gap-3 rounded-r3 p-3.5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
                 <ShieldCheck size={16} className="text-denim mt-0.5 shrink-0" />

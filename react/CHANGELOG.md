@@ -47,7 +47,7 @@ brand's theme.
   app the whole household runs together: shared budgets, bills, splits, debt payoff, cash flow and net
   worth, and Pip answering "can we afford it?" from your own numbers. The "no bank linking / no SMS
   reading / for Indian households" framing is gone from the landing page, Learn, `llms.txt`, the page
-  metadata and sign-up. One copy source, `src/content/landingCopy.ts`, feeds the page, its FAQ data and
+  metadata, sign-up and onboarding (whose first promise is now "Built for your whole household"). One copy source, `src/content/landingCopy.ts`, feeds the page, its FAQ data and
   (by a checked copy) `llms.txt`.
 - The landing's coral spotlight now introduces **Pip** instead of the Pulse Score, which the dashboard no
   longer shows. Its example insights no longer use a currency symbol.
