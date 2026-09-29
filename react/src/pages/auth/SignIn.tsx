@@ -127,6 +127,11 @@ export function AuthShell({ title, children }: { title: string; children: React.
           <h1 className="display-italic text-2xl text-ink mb-5 text-center">{title}</h1>
           {children}
         </div>
+        {/* v10.49.0 (#10) — the public library needs no account. A plain <a>: /learn is
+            server-rendered, not an app route. */}
+        <p className="text-center text-[0.84rem] text-ink-dim mt-5">
+          Not ready to sign up? <a href="/learn" className="text-coral font-medium hover:underline">Browse free money lessons →</a>
+        </p>
       </div>
     </div>
   );

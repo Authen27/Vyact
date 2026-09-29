@@ -77,6 +77,25 @@ session_start
 
 Drop-off > 35 % between any two steps is a release blocker.
 
+## Marketing funnel (v10.49.0, marketing #5)
+
+From visit to active household. Sources: the server-rendered public pages (`/`, `/learn`,
+hubs, lessons — `react/api/_page.js` `vyTrack`) and the app (`lib/analytics.ts`). Every event
+carries `platform` (web / pwa / android-app). GA loads ONLY on vyact.app / www.vyact.app
+(`index.html` and `_page.js`), so localhost, CI, Vercel previews, stage/dev and the admin
+app never count (#3/#4).
+
+```
+learn_card_view / landing visit
+  └─ learn_cta_click / landing_cta_click   (carry ?ref= into sign-up)
+      └─ sign_up            [key event]   (method, ref)
+          └─ household_created
+              └─ first_transaction_logged [key event]
+                  ├─ member_invited       [key event]
+                  ├─ budget_created
+                  └─ whatsapp_linked / pwa_install
+```
+
 ## GA4 admin checklist (one-time, owned by Product Analytics)
 
 Each item below corresponds to clicks in **GA4 → Admin** for property

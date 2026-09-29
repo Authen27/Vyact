@@ -13,6 +13,7 @@ import type {
 } from '../../types';
 import { uid } from '../../lib/format';
 import { can } from '../../lib/permissions';
+import { track } from '../../lib/analytics';
 import { hasDependencies, localAccountDependencies, moveDestinations } from '../../lib/accountsView';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -110,6 +111,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     const { adapter, currentHouseholdId, budgets, budgetAllocations } = get();
     const mode: 'create' | 'replace' = budget.id ? 'replace' : 'create';
     const { budget: saved, allocations } = await adapter.upsertBudgetWithAllocations(currentHouseholdId, budget, allocs, mode);
+    if (mode === 'create') track('budget_created', { surface: 'budgets', count: allocations.length });
     const merged: Budget = { ...saved, period: saved.period || budget.period || 'monthly' };
     const idx = budgets.findIndex(x => x.id === saved.id);
     const others = budgetAllocations.filter(a => a.budgetId !== saved.id);
@@ -126,6 +128,7 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     const { budget: saved, allocations } = await adapter.upsertBudgetWithAllocations(
       currentHouseholdId, budget, allocs, 'create',
     );
+    track('budget_created', { surface: 'onboarding', count: allocations.length });
     const merged: Budget = { ...saved, period: saved.period || budget.period || 'monthly' };
     const idx = budgets.findIndex(x => x.id === saved.id);
     const others = budgetAllocations.filter(a => a.budgetId !== saved.id);

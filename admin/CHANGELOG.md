@@ -4,10 +4,20 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.3.2`**
+> **Current production version: `v1.4.0`**
 > **Live URL:** https://admin.vyact.app
 
 ---
+
+## v1.4.0 — Google sign-in, and no analytics *(2026-09-29)*
+
+- **Continue with Google** on the sign-in screen (marketing #40): no password step for admins.
+  Access is still decided server-side by `admin_roles`; signing in grants nothing by itself.
+  **Owner action:** add each admin origin (https://admin.vyact.app and the stage/dev admin
+  domains) to Supabase → Authentication → URL Configuration → Redirect URLs, or Google returns
+  to the consumer app instead.
+- **Google Analytics removed** from the admin app (marketing #3): admins are not users, and
+  their visits were counted as product traffic.
 
 ## v1.3.2 — admin.vyact.app *(2026-09-12)*
 
