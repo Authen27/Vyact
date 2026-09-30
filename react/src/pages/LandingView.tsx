@@ -179,6 +179,12 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {USE_CASES.map(([title, body], i) => <PainCard key={title} icon={USE_CASE_ICONS[i]} title={title}>{body}</PainCard>)}
           </div>
+          {/* Plain <a>: /for/* are server-rendered pages, not app routes. */}
+          <p className="text-center text-[0.9rem] text-ink-mid mt-5">
+            <a href="/for/couples" className="font-semibold text-coral hover:underline">Budgeting as a couple →</a>
+            <span className="mx-3 text-ink-dim">·</span>
+            <a href="/for/families" className="font-semibold text-coral hover:underline">Budgeting as a family →</a>
+          </p>
         </section>
 
         {/* Everything it does */}

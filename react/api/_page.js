@@ -99,6 +99,8 @@ body{margin:0;background:var(--canvas);color:hsl(var(--ink));font-family:Inter,s
 .item:hover{border-color:hsl(var(--coral))}.item .t{font-weight:600;font-size:.98rem;line-height:1.35}.item .d{color:hsl(var(--ink-mid));font-size:.88rem;line-height:1.55;margin-top:4px}
 .pill{display:inline-block;margin:0 8px 10px 0;padding:7px 14px;border-radius:999px;background:hsl(var(--bg3));border:1px solid hsl(var(--line));text-decoration:none;font-weight:500;font-size:.9rem}
 .lx-body .pill{color:hsl(var(--ink))}.pill:hover,.pill[aria-current]{border-color:hsl(var(--coral))}
+.answer{margin:0 0 26px;padding:18px 22px;border-radius:16px;background:hsl(var(--bg3));border:1px solid hsl(var(--line));border-left:4px solid hsl(var(--coral));max-width:46rem}
+.answer p{margin:.4rem 0 0;font-size:1.08rem;line-height:1.7;color:hsl(var(--ink))}
 .try{margin:28px 0;padding:22px 24px;border-radius:18px;background:color-mix(in srgb,hsl(var(--coral)) 12%,transparent);border:1px solid color-mix(in srgb,hsl(var(--coral)) 35%,transparent);max-width:46rem}
 .try p{margin:0 0 12px;color:hsl(var(--ink))}
 .cta{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px;box-shadow:var(--neu-sm)}
@@ -133,7 +135,7 @@ const footer = `<footer class="border-t border-line">
 <p class="text-[0.75rem] text-ink-dim mt-2">Lessons are educational, not individual financial advice.</p></div>
 <div class="text-right"><a href="${esc(signUpUrl('learn_footer', '/dashboard'))}" data-cta="footer" class="text-[0.85rem] font-medium text-coral hover:underline" style="text-decoration:none">Open Vyact →</a>
 <p class="text-[0.8rem] text-ink-dim mt-1">Budgets, bills, splits and net worth — shared with the people you share money with.</p>
-<div class="flex gap-4 justify-end mt-3 text-[0.75rem] text-ink-dim"><a href="${BASE}/" class="hover:text-ink" style="color:inherit;text-decoration:none">Home</a><a href="${BASE}/learn" class="hover:text-ink" style="color:inherit;text-decoration:none">Learn</a><a href="/privacy" class="hover:text-ink" style="color:inherit;text-decoration:none">Privacy</a><a href="/terms" class="hover:text-ink" style="color:inherit;text-decoration:none">Terms</a></div></div>
+<div class="flex gap-4 justify-end mt-3 text-[0.75rem] text-ink-dim"><a href="${BASE}/" class="hover:text-ink" style="color:inherit;text-decoration:none">Home</a><a href="${BASE}/learn" class="hover:text-ink" style="color:inherit;text-decoration:none">Learn</a><a href="${BASE}/for/couples" class="hover:text-ink" style="color:inherit;text-decoration:none">For couples</a><a href="${BASE}/for/families" class="hover:text-ink" style="color:inherit;text-decoration:none">For families</a><a href="/privacy" class="hover:text-ink" style="color:inherit;text-decoration:none">Privacy</a><a href="/terms" class="hover:text-ink" style="color:inherit;text-decoration:none">Terms</a></div></div>
 </div>
 </footer>`;
 

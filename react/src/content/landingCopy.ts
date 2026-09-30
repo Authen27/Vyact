@@ -11,11 +11,13 @@
 // Every claim here must be TRUE of the live app for a new sign-up. WhatsApp logging is not
 // advertised until number linking is open to everyone (Meta business verification).
 
-export const SITE_TITLE = 'Vyact — the money app your whole household shares';
+// v10.51.0 — the title and description lead with the phrases people search for in every market
+// (keyword sheet, marketing #7): family budget app, budget app for couples, shared/household budget.
+export const SITE_TITLE = 'Vyact: Family Budget App for Couples & Households';
 
 export const SITE_DESCRIPTION =
-  'Run your household’s money together: shared budgets, bills, splits, debt payoff, cash flow and net worth in one app, ' +
-  'with Pip to answer “can we afford it?” from your own numbers. Free to start.';
+  'A shared budget app for couples and families: one household budget, bills before they’re due, split costs, ' +
+  'debt payoff and net worth. Free to start.';
 
 /** The one standard description (llms.txt, JSON-LD, store listings, directories — #22). */
 export const STANDARD_DESCRIPTION =

@@ -1,6 +1,6 @@
 // Vyact — sitemap.xml (v9.5.5; v10.49.0 adds the home page and the topic hubs).
-// Lists the public pages search engines and AI crawlers should find: the landing page,
-// the Learn library, one hub per topic, and every published lesson.
+// Lists the public pages search engines and AI crawlers should find: the landing page, the
+// use-case pages (v10.51.0), the Learn library, one hub per topic, and every published lesson.
 import { BASE, topicSlug } from './_page.js';
 import { readContent } from './_supabase.js';
 
@@ -17,6 +17,8 @@ export function sitemapXml(cards, today = new Date().toISOString().slice(0, 10))
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` + [
     url(`${BASE}/`, newest, '1.0', 'weekly'),
+    url(`${BASE}/for/couples`, today, '0.9', 'monthly'),
+    url(`${BASE}/for/families`, today, '0.9', 'monthly'),
     url(`${BASE}/learn`, newest, '0.9', 'weekly'),
     ...Object.entries(topics).sort().map(([t, d]) => url(`${BASE}/learn/topic/${t}`, d, '0.8')),
     ...cards.map(c => url(`${BASE}/learn/${encodeURIComponent(c.slug)}`, (c.updated_at || today).slice(0, 10), '0.7')),

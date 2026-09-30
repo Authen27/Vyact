@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.50.0`** (consumer)
+> **Current production version: `v10.51.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,29 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.51.0 — Pages that match what people search for, and a site AI assistants can read *(2026-09-30)*
+
+- **Two new pages for the biggest searches** (marketing #7 keyword research): **/for/couples** ("budget
+  app for couples", "how to budget as a couple", "split bills by income") and **/for/families** ("family
+  budget app multiple users", "how to budget as a family"). Each answers first in 40–60 words, teaches the
+  question people ask alongside it, shows what Vyact does for that household, has a visible FAQ with FAQPage
+  data, and links to the matching lessons. Linked from the landing page and every Learn footer; in the sitemap.
+- **The landing page's title and description** now lead with the searched phrases: "Vyact: Family Budget App
+  for Couples & Households" (the brand page itself is unchanged).
+- **30 lessons answer the question people type** (#21): on their public page they lead with a search-shaped
+  title ("What is the 50/30/20 rule? A simple budget starting point") and a 40–60-word **Quick answer**, also
+  published as FAQPage data and used as the page description. The editorial title stays as the subtitle; the
+  in-app lesson is untouched (`api/_seo.js`, keyed by lesson number).
+- **robots.txt names the AI crawlers** — OpenAI, Anthropic, Perplexity, Google, Apple, Bing, DuckDuckGo, Common
+  Crawl, Meta, Mistral — and welcomes them to the public pages, while keeping every crawler out of the
+  signed-in app screens and `/api` so crawl budget goes to real content. One group, one rule set.
+- **llms.txt** now carries key facts an assistant can quote (what Vyact is, who it's for, price, platforms,
+  currency, sharing, data use), what it does, the use-case pages, and the lessons that answer common questions;
+  **/llms-full.txt** lists all lessons with a one-line answer each.
+- Tests: CON-UNIT-PUB-014 (quick answers, 40–60 words, FAQPage), PUB-015 (use-case pages, FAQ ↔ FAQPage,
+  positioning), PUB-016 (robots: crawlers named, one rule set, public site open), PUB-017 (llms / llms-full).
+  Writing them caught a lost backslash that had silently disabled every quick answer.
 
 ## v10.50.0 — The brand landing page is back, Learn wears it too, and Vyact is positioned for every household *(2026-09-29)*
 
