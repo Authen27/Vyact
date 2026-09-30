@@ -15,6 +15,12 @@ that mention the `bhushandandolus-projects` team or `vyact-twentyx.vercel.app` a
   deploying from `Authen27/Vyact`. 308 redirects: `www.vyact.app` and `vyact-twentyx.vercel.app` →
   `vyact.app`; `vyact-admin.vercel.app` → `admin.vyact.app`. Deployment Protection = Standard on both
   projects (every preview needs a Vercel login; production domains stay public).
+- **Who deploys what (1 Oct 2026):**
+  - **The apps** are deployed only by Vercel's GitHub connection above.
+  - **The Actions `Deploy` workflow** only applies Supabase migrations and deploys Edge Functions. Its
+    old consumer/admin jobs published to `bhushandandolus-projects`, never to vyact.app, and were removed.
+  - **Nothing makes the app wait for its migration.** A schema change ships as its own PR before the
+    app change that needs it.
 - **DNS:** GoDaddy hosts DNS for `vyact.app`. Apex A record and the `www`, `admin`, `stage`, `dev`,
   `stage-admin`, `dev-admin` CNAMEs point at Vercel. **Never edit the GoDaddy email records**
   (MX / SPF / DKIM / DMARC). Google Search Console: Domain property `vyact.app`, verified by TXT record.

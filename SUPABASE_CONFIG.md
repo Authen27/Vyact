@@ -107,7 +107,7 @@ Required for the `db-migrations` job in `.github/workflows/deploy.yml`:
 - [ ] `SUPABASE_PROJECT_REF`
 - [ ] `SUPABASE_DB_PASSWORD`
 
-The Vercel deploy jobs use `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_CONSUMER_PROJECT_ID`, and `VERCEL_ADMIN_PROJECT_ID`. There are no `VITE_SUPABASE_*` deploy secrets — the values come from the committed `.env.production` files.
+No workflow deploys the apps any more (1 Oct 2026). vyact.app and admin.vyact.app are built by Vercel's GitHub connection. The old Actions jobs, and the `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_CONSUMER_PROJECT_ID` and `VERCEL_ADMIN_PROJECT_ID` secrets they read, pointed at the retired `bhushandandolus-projects` team. There are no `VITE_SUPABASE_*` deploy secrets: the values come from the committed `.env.production` files.
 
 ## 8. Smoke tests after configuration changes
 
