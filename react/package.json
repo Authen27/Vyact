@@ -38,7 +38,7 @@
     "react-router-dom": "^6.27.0",
     "recharts": "^2.13.0",
     "vyact-react": "file:",
-    "zustand": "^5.0.1"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
