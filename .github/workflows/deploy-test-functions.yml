@@ -26,6 +26,7 @@ jobs:
   functions:
     name: Deploy functions → vyact-test
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # the 6-hour default would drain the Actions budget if a step hangs
     env:
       TEST_PROJECT_REF: xdbfzwltqocyljbgztmv
     steps:

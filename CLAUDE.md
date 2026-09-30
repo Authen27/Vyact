@@ -526,6 +526,13 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   test:live`; default CI never spends provider tokens. Mocked Edge handlers
   are not deployed Supabase/Meta verification. See `docs/UNIT_TEST_CI_HANDOFF.md`
   for the happy-path matrix and required deployment follow-through.
+- **Actions minutes are budgeted (30 Sep 2026).** The repo is private on GitHub
+  Free: 2,000 minutes a month, shared with Vyact-Android, and **no branch
+  protection**. So nothing is a required check, and nothing stops a red merge
+  except reading CI. `ci.yml` skips docs-only changes and runs Lane A and Lane B
+  on pull requests only. Every job has a `timeout-minutes` cap.
+  **If a gate starts reading a `.md` or `docs/` file, add it to both `paths`
+  lists in `ci.yml`**, or an edit to that file alone will skip the gate.
 
 ```bash
 cd react && npm install && npm run dev   # → http://localhost:5173
