@@ -1,20 +1,22 @@
 name: Deploy
 
-# Auto-deploy both apps to Vercel on push to main, after applying any
-# pending Supabase migrations.
-# Setup needed once (see DEPLOY.md):
-#   • In each Vercel project: Settings → Git → connect this repo
-#   • In GitHub: add these secrets at Settings → Secrets and variables → Actions:
-#       VERCEL_TOKEN              (account-level, https://vercel.com/account/tokens)
-#       VERCEL_ORG_ID             (team or personal scope id)
-#       VERCEL_CONSUMER_PROJECT_ID
-#       VERCEL_ADMIN_PROJECT_ID
-#       VITE_SUPABASE_URL         (Supabase project URL — injected at build time)
-#       VITE_SUPABASE_ANON_KEY    (Supabase anon key — injected at build time)
-#       VITE_APP_URL              (consumer app URL, e.g. https://react-taupe-xi.vercel.app)
-#       SUPABASE_ACCESS_TOKEN     (personal access token — https://supabase.com/dashboard/account/tokens)
-#       SUPABASE_PROJECT_REF      (the ref shown in the project URL, e.g. abcd1234efgh5678)
-#       SUPABASE_DB_PASSWORD      (DB password for the production project — Settings → Database)
+# Applies pending Supabase migrations, then deploys the Supabase Edge Functions,
+# on every push to main.
+#
+# The apps are NOT deployed here. vyact.app and admin.vyact.app are built and
+# deployed by Vercel's GitHub connection on the authen27 projects `vyact` and
+# `vyact-admin` (docs/ENVIRONMENTS.md). This workflow used to carry
+# `consumer` and `admin` jobs (vercel build/deploy --prebuilt --prod). Their
+# VERCEL_* secrets pointed at the old `bhushandandolus-projects` team, so they
+# never reached vyact.app. From 30 Sep 2026 they hung at "Building…" until the
+# job timeout, spending Actions minutes. Removed 1 Oct 2026.
+#
+# Secrets used (Settings → Secrets and variables → Actions):
+#   SUPABASE_ACCESS_TOKEN  (personal access token — https://supabase.com/dashboard/account/tokens)
+#   SUPABASE_PROJECT_REF   (the production project ref)
+#   SUPABASE_DB_PASSWORD   (DB password for the production project — Settings → Database)
+# VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_CONSUMER_PROJECT_ID and VERCEL_ADMIN_PROJECT_ID
+# are no longer read by any workflow.
 
 on:
   push:
@@ -26,8 +28,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # TD-20 (PR #16) — apply any pending Supabase migrations BEFORE the apps
-  # deploy. `supabase db push` is idempotent against the remote
+  # TD-20 (PR #16) — apply any pending Supabase migrations on every push to
+  # main. `supabase db push` is idempotent against the remote
   # `supabase_migrations.schema_migrations` tracker: it only applies
   # migrations the tracker hasn't already recorded. The TD-20 baseline
   # itself is pre-inserted into the tracker so production isn't touched
@@ -50,7 +52,15 @@ jobs:
     # would say so. That is the same silent-success shape as the defects this
     # stabilisation programme has been fixing.
     #
-    # A failure here now stops the release. Refresh the token when it expires.
+    # A failure here fails the run and stops the Edge Functions deploy. Refresh
+    # the token when it expires.
+    #
+    # ⚠️ It does NOT hold back the app (1 Oct 2026). Vercel's GitHub connection
+    # builds and publishes vyact.app on the same push, in parallel, whatever
+    # happens here. A release whose frontend needs new schema can briefly go live
+    # before its migration lands, and stays live if the migration fails. Ship
+    # schema first (migration-only PR, then the app PR) until Vercel waits on this
+    # workflow.
     steps:
       - uses: actions/checkout@v7
       # NOTE: do NOT use `version: latest` — it hits the unauthenticated GitHub
@@ -148,88 +158,3 @@ jobs:
           # only — no ids, no content — so it needs no JWT.
           supabase functions deploy ask-vyact-relay-status --no-verify-jwt
 
-  consumer:
-    # TD-33 (v10.22.4) — also waits for the Edge Functions. Needing only
-    # db-migrations let this job run in PARALLEL with deploy-edge-functions, so a
-    # consumer calling a new function action could go live before the function
-    # did (v10.22.2's WhatsApp status/unlink were the first real case). If the
-    # functions fail to deploy, the consumer that depends on them does not ship.
-    needs: [db-migrations, deploy-edge-functions]
-    # No longer if: always() — the app must not ship when its migrations did not.
-    name: Deploy consumer (react/)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20   # the 6-hour default would drain the Actions budget if a step hangs
-    environment:
-      name: production-consumer
-      url: ${{ steps.deploy.outputs.url }}
-    defaults: { run: { working-directory: react } }
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with: { node-version: '20', cache: 'npm', cache-dependency-path: react/package-lock.json }
-      - run: npm install -g vercel@latest
-      - name: Pull Vercel env
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_CONSUMER_PROJECT_ID }}
-      - name: Build
-        # Supabase config comes from the committed react/.env.production
-        # (public URL + publishable key). We deliberately do NOT inject
-        # VITE_SUPABASE_* from GitHub secrets here: Vite gives shell env vars
-        # higher precedence than .env files, so a missing/empty secret would
-        # silently override the committed values and ship a local-only "dummy
-        # data" build (root cause of the consumer DB-disconnect, 2026-05-29).
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_CONSUMER_PROJECT_ID }}
-      - name: Deploy
-        id: deploy
-        run: |
-          # `vercel deploy --prod` promotes the build to THIS project's own
-          # production domain (vyact-twentyx.vercel.app), which Vercel
-          # updates automatically — no manual alias step needed. (Note: the
-          # historical react-taupe-xi.vercel.app URL lives on a *different*
-          # Vercel account and is not reachable from this project's token.)
-          URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "::notice title=Consumer deployed::$URL"
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_CONSUMER_PROJECT_ID }}
-
-  admin:
-    needs: db-migrations
-    # No longer if: always() — the app must not ship when its migrations did not.
-    name: Deploy admin (admin/)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20   # the 6-hour default would drain the Actions budget if a step hangs
-    environment:
-      name: production-admin
-      url: ${{ steps.deploy.outputs.url }}
-    defaults: { run: { working-directory: admin } }
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with: { node-version: '20', cache: 'npm', cache-dependency-path: admin/package-lock.json }
-      - run: npm install -g vercel@latest
-      - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_ADMIN_PROJECT_ID }}
-      # Supabase config comes from the committed admin/.env.production
-      # (public URL + publishable key) — not from GitHub secrets (see the
-      # consumer Build step note on Vite env precedence).
-      - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_ADMIN_PROJECT_ID }}
-      - id: deploy
-        run: |
-          URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "::notice title=Admin deployed::$URL"
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_ADMIN_PROJECT_ID }}

@@ -533,6 +533,11 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   on pull requests only. Every job has a `timeout-minutes` cap.
   **If a gate starts reading a `.md` or `docs/` file, add it to both `paths`
   lists in `ci.yml`**, or an edit to that file alone will skip the gate.
+- 🔴 **Schema ships before the app that needs it (1 Oct 2026).** Vercel's GitHub
+  connection publishes vyact.app on every push to main, in parallel with the
+  Actions `Deploy` workflow (migrations + Edge Functions only). Nothing makes the
+  app wait. Merge the migration PR first, confirm its Deploy run is green, then
+  merge the app change. See `docs/ENVIRONMENTS.md`.
 
 ```bash
 cd react && npm install && npm run dev   # → http://localhost:5173
