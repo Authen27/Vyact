@@ -35,6 +35,7 @@ jobs:
   db-migrations:
     name: Apply Supabase migrations
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # the 6-hour default would drain the Actions budget if a step hangs
     environment: production-database
     # 🔴 NO LONGER BEST-EFFORT (v10.20.5).
     #
@@ -107,6 +108,7 @@ jobs:
     name: Deploy Supabase Edge Functions
     needs: db-migrations
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # the 6-hour default would drain the Actions budget if a step hangs
     environment: production-database
     # Gated with db-migrations (v10.20.5) — see the note on that job.
     steps:
@@ -156,6 +158,7 @@ jobs:
     # No longer if: always() — the app must not ship when its migrations did not.
     name: Deploy consumer (react/)
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # the 6-hour default would drain the Actions budget if a step hangs
     environment:
       name: production-consumer
       url: ${{ steps.deploy.outputs.url }}
@@ -201,6 +204,7 @@ jobs:
     # No longer if: always() — the app must not ship when its migrations did not.
     name: Deploy admin (admin/)
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # the 6-hour default would drain the Actions budget if a step hangs
     environment:
       name: production-admin
       url: ${{ steps.deploy.outputs.url }}

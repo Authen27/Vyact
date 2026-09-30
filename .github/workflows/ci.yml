@@ -1,10 +1,49 @@
 name: CI
 
+# Actions-minutes budget (30 Sep 2026): the repo is private, so CI draws on the
+# account's 2,000 free minutes a month (shared with Vyact-Android). Three rules:
+#   1. Docs-only changes don't run CI (the `paths` filter below). This is safe
+#      because a private repo on GitHub Free has no branch protection, so no
+#      required check sits waiting. The docs the gates READ are re-included:
+#      version-drift-check (README, VERSIONS, react/CHANGELOG), the scenario
+#      catalog + inventory (test-scenarios-check / test-inventory) and
+#      WHATSAPP_TEMPLATES.md (whatsappTemplates.test.ts). Add a file here if
+#      a gate starts reading it. Order matters: a later pattern overrides an
+#      earlier one.
+#   2. The E2E lanes run on the pull request only. The push to main after a merge
+#      re-runs just the cheap gates job (lint · unit · build · version drift).
+#   3. Every job has a timeout-minutes cap. In Sep 2026 a hung Lane A burned 30
+#      minutes a run, over 100 times; that, not normal use, was most of the bill.
 on:
   push:
     branches: [main]
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!**/*.md'
+      - '!automation-runs/**'
+      - '!.github/dependabot.yml'
+      - 'README.md'
+      - 'VERSIONS.md'
+      - 'react/CHANGELOG.md'
+      - 'docs/TEST_SCENARIOS.md'
+      - 'docs/UNIT_TEST_INVENTORY.json'
+      - 'docs/WHATSAPP_TEMPLATES.md'
   pull_request:
     branches: [main]
+    # Same list as push: above. Keep the two in step.
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!**/*.md'
+      - '!automation-runs/**'
+      - '!.github/dependabot.yml'
+      - 'README.md'
+      - 'VERSIONS.md'
+      - 'react/CHANGELOG.md'
+      - 'docs/TEST_SCENARIOS.md'
+      - 'docs/UNIT_TEST_INVENTORY.json'
+      - 'docs/WHATSAPP_TEMPLATES.md'
 
 # Cancel duplicate runs for the same PR/branch
 concurrency:
@@ -19,6 +58,7 @@ jobs:
   automation:
     name: Automation gates (lint · unit · build) + report
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # normally ~2 min
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -68,7 +108,11 @@ jobs:
 
   e2e:
     name: E2E — Lane A (local-only)
+    # PR only: the PR run already tested this change merged onto main. See the
+    # minutes-budget note at the top.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # normally ~3 min; a hang used to run to 30
     defaults: { run: { working-directory: react } }
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +150,9 @@ jobs:
   # that is exactly how the suite once stayed "green" while testing nothing.
   lane-b:
     name: E2E — Lane B (cloud, needs SUPABASE_TEST_SERVICE_ROLE_KEY)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # normally ~1 min
     defaults: { run: { working-directory: react } }
     steps:
       - uses: actions/checkout@v4
