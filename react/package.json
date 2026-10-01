@@ -52,7 +52,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "fake-indexeddb": "^6.2.5",
     "gifenc": "^1.0.3",
-    "globals": "^15.11.0",
+    "globals": "^17.12.0",
     "pngjs": "^7.0.0",
     "postcss": "^8.5.28",
     "puppeteer-core": "^23.11.1",
