@@ -86,8 +86,8 @@ export default function WhatsNew() {
   return (
     <div>
       <div className="relative flex-1 min-w-[220px] mb-4">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim" />
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search updates…" aria-label="Search updates" className="input w-full pl-9" />
+        <Search size={15} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none" />
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search updates…" aria-label="Search updates" className="input has-leading-icon w-full pl-9" />
       </div>
 
       {loading && <Panel><div className="px-6 py-10 text-center text-ink-mid text-sm">Loading…</div></Panel>}

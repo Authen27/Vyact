@@ -442,36 +442,9 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         </div>
       )}
 
-      {/* Board D M6 — the privacy line is a REASSURANCE, so it reads in sage
-          (good), not coral/terra. Crit is reserved for genuine failures; saying
-          where an answer is computed is not an alarm. Keep the claim scoped to
-          how Ask Vyact answers today — no forever-promises about egress.
-
-          CORRECTED IN v10.20. This block used to read "Answered on this device
-          … no model involved." That stopped being true the moment RulesBackend
-          was removed: a question now goes to the ask-vyact Edge Function and on
-          to a model provider. The old copy was a false statement about egress
-          on a finance app's chat screen, which is the worst place to leave one.
-
-          What IS still true, and is the more useful reassurance anyway, is that
-          the model never touches the arithmetic — `resolve()` computes every
-          figure and `assertNoInventedFigures` discards a reply carrying a number
-          no calculation produced. Claim that, because it is enforced. */}
-      <div className="flex items-start gap-2.5 rounded-r2 px-3 py-2.5 mb-3.5"
-        style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 14%, transparent)' }}>
-        <span className="text-[13px] leading-5 flex-shrink-0" aria-hidden>🔒</span>
-        {/* v10.20.1 — softened from "Your numbers are calculated, never guessed."
-            That claimed the guard proves every figure correct. It does not: it
-            checks numeric tokens against the computed values, exempts small
-            counts, and cannot see sign, unit or framing. Describe the DIVISION
-            OF LABOUR, which is true and is the reassurance that actually
-            matters, rather than a guarantee the code does not make. */}
-        <p className="text-[11.5px] text-ink-mid leading-[1.4]">
-          <strong className="text-ink">Vyact does the maths.</strong> Every amount comes from your own
-          data, calculated here — Pip only puts the answer into words.
-        </p>
-      </div>
-
+      {/* v10.52.0 (owner) — the green "Vyact does the maths…" banner above the
+          chat was removed. The honest caveat now sits under the composer, where
+          it's read at the moment of asking: Pip is AI-based and can be wrong. */}
       <Panel className={embedded ? 'flex-1 min-h-0 flex flex-col' : ''}>
         <div ref={scrollRef} className={`px-4 py-4 space-y-3 overflow-y-auto ${embedded ? 'flex-1 min-h-0' : 'max-h-[28rem] min-h-[20rem]'}`}>
           {history.length === 0 && proactive && (
@@ -617,7 +590,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         {history.length > 0 && <Button variant="ghost" onClick={() => setShowExamples(value => !value)} aria-expanded={showExamples}>
           <List size={14} aria-hidden /> {showExamples ? 'Hide examples' : 'Show examples'}
         </Button>}
-        <div className="border-t border-line px-3 pt-4 pb-5 flex-shrink-0">
+        <div className="border-t border-line px-3 pt-3 pb-3 flex-shrink-0">
           {/* v10.36 — `is-thinking` animates a ring around the composer while a
               turn is in flight (static under reduced motion; see index.css). */}
           <div className={`ask-composer flex gap-2 items-end ${thinking ? 'is-thinking' : ''}`}>
@@ -648,6 +621,10 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
               <Send size={16} />
             </button>
           </div>
+          {/* v10.52.0 (owner) — replaces the "Vyact does the maths" banner. */}
+          <p className="mt-2 px-1 text-[0.7rem] leading-snug text-ink-dim" data-testid="ask-ai-disclaimer">
+            Pip is AI-based and can make mistakes. Please double-check its responses.
+          </p>
         </div>
       </Panel>
     </div>

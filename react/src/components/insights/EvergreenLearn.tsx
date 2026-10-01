@@ -90,9 +90,9 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
         <>
           <div className="flex flex-wrap gap-2 mb-4">
             <div className="relative flex-1 min-w-[220px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim" />
+              <Search size={15} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none" />
               <input value={query} onChange={e => setQuery(e.target.value)} aria-label="Search lessons"
-                placeholder="Search lessons — saving, EMI, SIP, runway…" className="input w-full pl-9" />
+                placeholder="Search lessons — saving, EMI, SIP, runway…" className="input has-leading-icon w-full pl-9" />
             </div>
           </div>
           <div className="flex gap-1.5 flex-wrap mb-4">

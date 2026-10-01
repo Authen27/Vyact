@@ -170,7 +170,7 @@ ${robots ? `<meta name="robots" content="${esc(robots)}">` : ''}
 ${ld}
 ${analyticsSnippet()}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="${FONTS}">
+<link rel="preload" as="style" href="${FONTS}" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="${FONTS}"></noscript>
 <link rel="stylesheet" href="/site.css">
 <style>${CSS}</style></head>
 <body>

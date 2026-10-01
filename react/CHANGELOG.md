@@ -58,6 +58,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
   - **Tests:** FIN-FC-002 is rewritten for the chip design (still: examples fill the composer, no
     model call, no sideways scroll). New **FIN-FC-005** covers the three form buttons;
     `askVyactExamples.test.ts` pins the `setup` contract.
+- **Ask Vyact: the "Vyact does the maths…" banner is removed** (owner). In its place, under the
+  message box: "Pip is AI-based and can make mistakes. Please double-check its responses."
+  RESP-FC-004 asserts both.
+- **Fix: the search icon overlapped the placeholder** in Insights › Learn (and Updates). The
+  `.ui-pilot .input` padding shorthand outranks Tailwind's `pl-9`, so text started under the
+  icon. New `.has-leading-icon` modifier in `index.css`; the text now starts 9px clear of the icon.
+- **Landing page speed on mobile (PageSpeed 59; FCP 4.1 s, LCP 8.0 s).** Root causes from the
+  report:
+  - a **synchronous Contentsquare `<script src>` in `<head>`**. It blocked the parser and
+    chained ~171 KB before first paint;
+  - the **render-blocking Google Fonts stylesheet** (~780 ms);
+  - **Userback (~168 KB) and the service worker** starting during load and competing for a
+    throttled phone's bandwidth.
+
+  Fixes:
+  - Contentsquare and gtag.js are now injected after window `load` + idle. `window.gtag` and its
+    queue still exist from the first tick.
+  - Fonts load as a non-blocking `preload` (text paints in the fallback, then swaps), with a
+    `<noscript>` fallback. The same applies to the server-rendered Learn pages (`api/_page.js`).
+  - On `/` only, Userback and the service worker start after load + idle.
+  - New guard **PUB-018**: no synchronous external script in `<head>`, and the fonts must not
+    render-block.
+
+  Measured locally (Lighthouse 12, mobile, a production build served the way Vercel serves it;
+  GA is off on localhost), 3 runs each:
+
+  | | Before | After |
+  |---|---|---|
+  | Score | 66–69 | 81–93 |
+  | FCP | 4.1–4.7 s | 2.4–2.7 s |
+  | LCP | 5.1–6.7 s | 2.6–2.8 s |
+  | Render-blocking | 1.5–2.4 s | 0.15–0.3 s |
+  | CLS | 0 | ≤ 0.016 (the font swap; "good" is < 0.1) |
+
+  Not yet done: the 226 KB entry bundle still loads on the landing page (Supabase client,
+  store). Splitting it out is the next step if the field data needs more.
 - **Test fix: CON-UNIT-FACT-014 failed on the 1st–9th of every month.** It stated "the 10th of
   this month" as a capture date, which is a future date early in the month. `resolve()` correctly
   refuses future dates. It now uses the 10th of last month. First seen 1 Oct 2026; CI would have

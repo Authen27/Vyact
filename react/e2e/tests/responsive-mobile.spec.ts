@@ -53,6 +53,10 @@ test.describe('§25 RESP-FC · responsive layout', () => {
 
       await primary.getByRole('button', { name: 'Ask Pip' }).click();
       await expect(page.getByText('Vyact does the maths, not guesswork')).toBeVisible();
+      // v10.52.0 — the "Every amount comes from your own data" banner is gone;
+      // an AI caveat sits under the composer instead.
+      await expect(page.getByTestId('ask-ai-disclaimer')).toHaveText('Pip is AI-based and can make mistakes. Please double-check its responses.');
+      await expect(page.getByText(/Every amount comes from your own/)).toHaveCount(0);
     });
 
     test('RESP-FC-005 · section labels for Accounts and Insights stay title-cased and readable', async ({ page }) => {

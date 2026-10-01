@@ -569,6 +569,10 @@ body::before {
   line-height: 1.5;
   padding: .625rem .75rem;
 }
+/* v10.52.0 — an input with an icon drawn inside it on the left (search boxes). The
+   padding shorthand above outranks Tailwind's pl-9 (0,2,0 vs 0,1,0), so the
+   placeholder used to start underneath the icon. Mark such inputs instead. */
+.ui-pilot :is(.field-control, .input).has-leading-icon { padding-left: 2.25rem; }
 .ui-pilot :is(.field-control, .input):disabled { opacity: .55; cursor: not-allowed; }
 .ui-pilot [aria-invalid="true"] { border-color: var(--crit); }
 .ui-pilot .panel { box-shadow: none; }
