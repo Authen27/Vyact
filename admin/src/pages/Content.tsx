@@ -3,7 +3,7 @@
 // authenticated user as soon as status='published'.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, FileText, Trash2, GraduationCap, Link2, Youtube, Image as ImageIcon, X } from 'lucide-react';
+import { Plus, Eye, FileText, Trash2, GraduationCap, Link2, SquarePlay, Image as ImageIcon, X } from 'lucide-react';
 import { useAdminStore } from '../store';
 import {
   listAllContent, upsertContent, deleteContent, slugify, uploadInfographic, deleteInfographic,
@@ -160,7 +160,7 @@ export default function Content() {
                   <span className="text-[0.86rem] font-semibold text-ink truncate">{a.title}</span>
                   {a.videoUrl && (
                     <span title={`Video linked${a.videoUpdatedAt ? ` · ${new Date(a.videoUpdatedAt).toLocaleDateString()}` : ''}`}>
-                      <Youtube size={14} className="text-danger flex-shrink-0" />
+                      <SquarePlay size={14} className="text-danger flex-shrink-0" />
                     </span>
                   )}
                   {a.infographicUrl && (
@@ -661,7 +661,7 @@ function VideoUrlField({ value, onChange, updatedAt }: { value: string; onChange
   return (
     <FormField label="YouTube short URL" hint="watch / shorts / youtu.be link — optional">
       <div className="flex items-center gap-2">
-        <Youtube size={15} className="text-ink-dim flex-shrink-0" />
+        <SquarePlay size={15} className="text-ink-dim flex-shrink-0" />
         <input value={value} onChange={e => onChange(e.target.value)}
           placeholder="https://youtube.com/shorts/…" className={`${inp} font-mono`} />
       </div>
