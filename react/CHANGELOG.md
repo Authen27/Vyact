@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.52.0`** (consumer)
+> **Current production version: `v10.52.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,20 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.52.1 — Landing page: the feedback widget waits for the first interaction *(2026-10-01)*
+
+- **On the landing page (`/`), Userback loads on the visitor's first interaction** (tap, click,
+  key, wheel), not after load (owner). A visitor who only reads the page never needs the
+  feedback widget. PageSpeed, which never interacts, measured its script as a ~140 ms long task
+  after load. Every way into the app from `/` is itself an interaction, so the widget is ready
+  there. On every other route it still starts immediately.
+- **Context, PageSpeed mobile on production after v10.52.0:** score 59 → 69, FCP 4.1 → 3.5 s,
+  LCP 8.0 → 3.8 s, Speed Index 7.1 → 3.5 s, CLS 0. Total Blocking Time (490 ms) is now third-party
+  long tasks: Google tag ~230 ms, Contentsquare ~165 ms, Userback ~93 ms. This release removes
+  the Userback part. GA and Contentsquare stay after load + idle: starting them on interaction
+  would drop bounced visits from analytics.
+- No money, data or permission-model change.
 
 ## v10.52.0 — Insights matches its Analyze peers, mobile Analyze lands on Net Worth, and a compact Ask panel whose every button works *(2026-10-01)*
 

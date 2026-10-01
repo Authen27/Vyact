@@ -325,6 +325,11 @@ describe('first paint is not blocked by third parties', () => {
     expect(head).toContain("t.contentsquare.net/uxa/");      // still installed, just deferred
     expect(head).toMatch(/addEventListener\('load'/);
 
+    // v10.52.1 — on "/" the feedback widget waits for the first interaction.
+    const mainTsx = readFileSync(resolve(__dirname, '../../main.tsx'), 'utf8');
+    expect(mainTsx).toMatch(/if \(onLanding\) onFirstInteraction\(startUserback\); else startUserback\(\);/);
+    expect(mainTsx.match(/\bUserback\(/g)?.length).toBe(1);   // one call site: startUserback
+
     const lesson = lessonPage(ALL[0], ALL);
     const lessonHead = lesson.slice(0, lesson.indexOf('</head>'));
     expect(lessonHead.replace(/<noscript>[\s\S]*?<\/noscript>/g, '')).not.toMatch(/<link[^>]*rel="stylesheet"[^>]*fonts\.googleapis\.com/);
