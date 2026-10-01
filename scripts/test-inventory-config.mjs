@@ -17,6 +17,7 @@ export const groups = [
   group('Formatting and structured content', 'available', 'unit', ['format', 'learnJsonLd', 'publicPages'], 'format / learnJsonLd'),
   group('Recurring and budgets', 'available', 'unit', ['recurring', 'rrule', 'v91', 'budgetOrdering', 'billCalendar'], 'recurring / rrule / calculations / budgetOrdering / billCalendar'),
   group('Onboarding', 'available', 'unit', ['onboarding', 'onboardingWiring', 'onboardingWorkflow'], 'onboarding / wireOnboardingToMoney'),
+  group('First-run demo household', 'available', 'unit', ['demoSeed'], 'seed (local-only demo: current model, no future dates, valid due dates)'),
   group('Reports, Planner, Insights, notifications', 'available', 'unit', ['featureOutputs'], 'calculations / evaluateRecommendations / buildInsightFeed / notifications'),
   group('Marketing funnel and auth landing', 'available', 'unit', ['funnelAnalytics', 'postAuth'], 'analytics funnel events / post-auth next'),
   group('Permissions and faults', 'available', 'unit', ['permissionsRole', 'faults'], 'permissions / faults'),

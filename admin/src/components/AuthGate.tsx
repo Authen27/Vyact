@@ -100,7 +100,7 @@ function SignInPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-7">
           <div className="display-serif text-3xl text-claude leading-none">Vyact</div>
-          <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-ink-dim mt-1.5">Vyact Admin Console · v1.0.4</div>
+          <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-ink-dim mt-1.5">Vyact Admin Console · v{__APP_VERSION__}</div>
         </div>
         <div className="panel p-6 mb-3">
           <button type="button" disabled={submitting}

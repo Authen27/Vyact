@@ -4,6 +4,7 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "installCommand": "npm install",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':!*.md' ':!**/*.md' ':!docs'",
   "rewrites": [
     {
       "source": "/learn",

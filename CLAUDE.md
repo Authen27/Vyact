@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.52.1**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.53.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -533,6 +533,14 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   on pull requests only. Every job has a `timeout-minutes` cap.
   **If a gate starts reading a `.md` or `docs/` file, add it to both `paths`
   lists in `ci.yml`**, or an edit to that file alone will skip the gate.
+  `lighthouse.yml` (v10.53.0) runs a landing-page performance budget (median
+  mobile ≥ 85) only on PRs that touch the landing page or its loading. Vercel
+  skips docs-only commits via `ignoreCommand` in both `vercel.json` files.
+- **Funnel events (v10.53.0).** `sign_up` and the first `household_created` fire
+  together from `trackSignUpOnce` (account < 24 h old; once per device and per
+  account). A new account's first household comes from the `handle_new_user`
+  trigger, so `createHousehold`'s event only covers extra households. GA4
+  `user_id` is a SHA-256 of the user id; never send an email or the raw id.
 - 🔴 **Schema ships before the app that needs it (1 Oct 2026).** Vercel's GitHub
   connection publishes vyact.app on every push to main, in parallel with the
   Actions `Deploy` workflow (migrations + Edge Functions only). Nothing makes the

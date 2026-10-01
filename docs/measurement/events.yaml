@@ -204,7 +204,8 @@ privacy:
 
   # ── Funnel: visit → active household (marketing #5, v10.49.0) ───────
   # Every event also carries `platform` (enum: web | pwa | android-app).
-  # Key events in GA4 (#6): sign_up, first_transaction_logged, member_invited.
+  # Key events in GA4 (#6, #53): sign_up, household_created, first_transaction_logged, member_invited.
+  # GA4 user_id (v10.53.0, #55): SHA-256 of the internal user id, set while signed in, cleared on sign-out.
   - name: budget_created
     description: A new budget was created (not an edit).
     added_in: v10.49.0
@@ -217,7 +218,7 @@ privacy:
     params:
       track: { type: enum, values: [expense, income, transfer, investment] }
   - name: household_created
-    description: A household was created from the app.
+    description: A household was created — a new account's first household (the database trigger makes it; counted with sign_up, v10.53.0), or one added from the app.
     added_in: v10.49.0
     params:
       segment: { type: enum, values: [individual, household] }
@@ -261,7 +262,7 @@ privacy:
     added_in: v10.49.0
     params: {}
   - name: sign_up
-    description: A new account's first sign-in (email after verification, or Google).
+    description: A new account's first signed-in session (email after verification, or Google) — account created < 24 h ago, once per device and once per account (user_metadata.vy_signup_tracked). v10.53.0; was 'first sign-in within 60 s of creation', which missed email users who verified later.
     added_in: v10.49.0
     params:
       method: { type: enum, values: [email, google] }

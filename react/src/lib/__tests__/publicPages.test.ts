@@ -133,8 +133,9 @@ describe('analytics gating and deep links (#3, #4, #20)', () => {
   it('CON-UNIT-PUB-009 · GA loads only on vyact.app / www.vyact.app; elsewhere events go nowhere', () => {
     const run = (host: string) => {
       const appended: string[] = [];
-      const win: Record<string, unknown> = { matchMedia: () => ({ matches: false }) };
-      const doc = { createElement: () => ({}), head: { appendChild: (s: { src: string }) => appended.push(s.src) } };
+      // v10.53.0: gtag.js waits for load + idle; this page has loaded and is idle.
+      const win: Record<string, unknown> = { matchMedia: () => ({ matches: false }), requestIdleCallback: (fn: () => void) => fn() };
+      const doc = { readyState: 'complete', createElement: () => ({}), head: { appendChild: (s: { src: string }) => appended.push(s.src) } };
       const code = analyticsSnippet().replace(/<\/?script>/g, '');
       new Function('window', 'location', 'document', code)(win, { hostname: host }, doc);
       (win.vyTrack as (n: string) => void)('learn_card_view');
@@ -323,6 +324,10 @@ describe('first paint is not blocked by third parties', () => {
     expect(head.replace(/<noscript>[\s\S]*?<\/noscript>/g, '')).not.toMatch(/<link[^>]*rel="stylesheet"[^>]*fonts\.googleapis\.com/);
     expect(head).toMatch(/<link\s+rel="preload" as="style"[^>]*fonts\.googleapis\.com/);
     expect(head).toContain("t.contentsquare.net/uxa/");      // still installed, just deferred
+    // v10.53.0 — Contentsquare: real site only; on "/" only after the first interaction.
+    expect(head).toMatch(/if \(csAdded \|\| !window\.__vyGaOn\) return;/);
+    expect(head).toMatch(/if \(!onLanding\) contentsquare\(\);/);
+    expect(head).toMatch(/if \(onLanding && window\.__vyGaOn\)/);
     expect(head).toMatch(/addEventListener\('load'/);
 
     // v10.52.1 — on "/" the feedback widget waits for the first interaction.
@@ -334,5 +339,8 @@ describe('first paint is not blocked by third parties', () => {
     const lessonHead = lesson.slice(0, lesson.indexOf('</head>'));
     expect(lessonHead.replace(/<noscript>[\s\S]*?<\/noscript>/g, '')).not.toMatch(/<link[^>]*rel="stylesheet"[^>]*fonts\.googleapis\.com/);
     expect(lessonHead).toMatch(/rel="preload" as="style"[^>]*fonts\.googleapis\.com/);
+    // v10.53.0 — gtag.js on Learn / for pages is fetched after load + idle, not during parse.
+    expect(lessonHead).toMatch(/window\.requestIdleCallback\(late,\{timeout:3000\}\)/);
+    expect(lessonHead).toMatch(/addEventListener\('load',idle/);
   });
 });

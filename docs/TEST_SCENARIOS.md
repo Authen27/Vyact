@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1356 passing deterministic cases in 91 files. Zero failed, skipped or TODO cases at generation.**
+**1361 passing deterministic cases in 92 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 48 |
 | react | store-integration | conditional | 2 |
-| react | unit | available | 300 |
+| react | unit | available | 305 |
 | react | unit | conditional | 172 |
 | react | unit | infrastructure | 603 |
 
@@ -81,12 +81,13 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
 | [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 3 |
+| [react/src/lib/__tests__/demoSeed.test.ts](../react/src/lib/__tests__/demoSeed.test.ts) | First-run demo household | unit | available | 2 |
 | [react/src/lib/__tests__/essentialRunway.test.ts](../react/src/lib/__tests__/essentialRunway.test.ts) | Reports consultation | unit | available | 4 |
 | [react/src/lib/__tests__/faults.test.ts](../react/src/lib/__tests__/faults.test.ts) | Permissions and faults | unit | available | 3 |
 | [react/src/lib/__tests__/featureOutputs.test.ts](../react/src/lib/__tests__/featureOutputs.test.ts) | Reports, Planner, Insights, notifications | unit | available | 6 |
 | [react/src/lib/__tests__/format.test.ts](../react/src/lib/__tests__/format.test.ts) | Formatting and structured content | unit | available | 11 |
 | [react/src/lib/__tests__/formRoutes.test.ts](../react/src/lib/__tests__/formRoutes.test.ts) | Navigation and category selection | unit | available | 3 |
-| [react/src/lib/__tests__/funnelAnalytics.test.ts](../react/src/lib/__tests__/funnelAnalytics.test.ts) | Marketing funnel and auth landing | unit | available | 2 |
+| [react/src/lib/__tests__/funnelAnalytics.test.ts](../react/src/lib/__tests__/funnelAnalytics.test.ts) | Marketing funnel and auth landing | unit | available | 4 |
 | [react/src/lib/__tests__/fxCentralization.test.ts](../react/src/lib/__tests__/fxCentralization.test.ts) | Money model | unit | available | 2 |
 | [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 9 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
@@ -100,7 +101,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/moneyModel.invariants.test.ts](../react/src/lib/__tests__/moneyModel.invariants.test.ts) | Money model | unit | available | 19 |
 | [react/src/lib/__tests__/moneyModel.regression.test.ts](../react/src/lib/__tests__/moneyModel.regression.test.ts) | Money model | unit | available | 6 |
 | [react/src/lib/__tests__/moneyPortParity.test.ts](../react/src/lib/__tests__/moneyPortParity.test.ts) | Server money port parity | unit | infrastructure | 373 |
-| [react/src/lib/__tests__/navigationVisibility.test.ts](../react/src/lib/__tests__/navigationVisibility.test.ts) | Navigation and category selection | unit | available | 2 |
+| [react/src/lib/__tests__/navigationVisibility.test.ts](../react/src/lib/__tests__/navigationVisibility.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/netWorthProjection.test.ts](../react/src/lib/__tests__/netWorthProjection.test.ts) | Money model | unit | available | 6 |
 | [react/src/lib/__tests__/netWorthSnapshots.test.ts](../react/src/lib/__tests__/netWorthSnapshots.test.ts) | Net worth history | unit | available | 7 |
 | [react/src/lib/__tests__/onboarding.test.ts](../react/src/lib/__tests__/onboarding.test.ts) | Onboarding | unit | available | 16 |

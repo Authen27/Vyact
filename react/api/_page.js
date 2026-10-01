@@ -56,6 +56,9 @@ export function youtubeId(url) {
  * #3/#4 — GA only on the real site. localhost, CI, Vercel previews, stage/dev and the
  * admin app are never counted. `vyTrack(name, params)` queues events either way (a no-op
  * off vyact.app) so page scripts don't need to know. `platform` is on every event (#5).
+ * v10.53.0 (#66) — gtag.js itself is fetched after `load` + idle, as on the landing page
+ * (index.html), so it never competes with the lesson for the first paint. Events queue in
+ * dataLayer until it arrives.
  */
 export function analyticsSnippet() {
   return `<script>
@@ -64,7 +67,9 @@ window.dataLayer=window.dataLayer||[];window.gtag=function(){window.dataLayer.pu
 var plat=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)?'pwa':'web';
 window.vyTrack=function(n,p){if(on){var o=p||{};o.platform=plat;window.gtag('event',n,o);}};
 if(!on)return;window.gtag('js',new Date());window.gtag('config','${GA_ID}');
-var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=${GA_ID}';document.head.appendChild(s);})();
+function late(){var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=${GA_ID}';document.head.appendChild(s);}
+function idle(){if('requestIdleCallback' in window)window.requestIdleCallback(late,{timeout:3000});else window.setTimeout(late,1500);}
+if(document.readyState==='complete')idle();else window.addEventListener('load',idle,{once:true});})();
 </script>`;
 }
 

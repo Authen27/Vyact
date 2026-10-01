@@ -215,6 +215,21 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       await adapter.replaceAll('members',      active, seed.members);
       await adapter.replaceAll('debts',        active, seed.debts);
       await adapter.replaceAll('assets',       active, seed.assets);
+      // v10.53.0 (#68) — the demo now uses the current model: accounts, budget
+      // allocations and recurring schedules.
+      await adapter.replaceAll('accounts',          active, seed.accounts);
+      await adapter.replaceAll('budgetAllocations', active, seed.budgetAllocations);
+      await adapter.replaceAll('recurring',         active, seed.recurring);
+      // Put them in the store now, not only via the refresh() below: on first run that
+      // refresh can be superseded by another in flight (it then bails as stale), and
+      // ensureDefaultCashAccount would see no accounts and write a second Cash in Hand.
+      // Same for the rest: if transactions aren't in the store when loading ends, the
+      // onboarding gate takes the demo for a fresh household and sends it to /onboarding.
+      set({
+        transactions: seed.transactions, budgets: seed.budgets, goals: seed.goals, members: seed.members,
+        debts: seed.debts, assets: seed.assets,
+        accounts: seed.accounts, budgetAllocations: seed.budgetAllocations, recurringSchedules: seed.recurring,
+      });
       await adapter.updateProfile(active, seed.profile);
       for (const [code, rate] of Object.entries(seed.exchangeRates)) {
         await adapter.upsertRate(active, code, rate);

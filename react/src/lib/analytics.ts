@@ -10,9 +10,11 @@
 // - Event names use snake_case and live in `EventName` below — adding a name
 //   without updating docs/MEASUREMENT_PLAN.md is a review-block.
 
+import { sha256Hex } from './hash';
+
 type GtagFn = (
   command: 'event' | 'config' | 'set',
-  target: string,
+  target: string | Record<string, unknown>,
   params?: Record<string, unknown>,
 ) => void;
 
@@ -194,20 +196,53 @@ export function rememberSignupRef(ref: string | null): void {
   try { localStorage.setItem(REF_KEY, ref.slice(0, 80)); } catch { /* private mode */ }
 }
 
+/** How old an account can be and still count as "new" on its first session (v10.53.0). */
+export const NEW_ACCOUNT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 /**
- * sign_up fires once, on the FIRST sign-in of a new account (email after verifying, or
- * Google): created_at and last_sign_in_at within a minute of each other. A per-user flag
- * stops a reload of that first session counting twice.
+ * sign_up fires once, on the first signed-in session of a new account (email after
+ * verifying, or Google), and returns true when it did.
+ *
+ * v10.53.0 — two fixes (master to-do #46):
+ * - "New" now means the account was created less than 24 h ago. It used to require
+ *   last_sign_in_at within 60 s of created_at, so an email user who verified later was
+ *   never counted.
+ * - household_created fires here too. A new account's first household is created by the
+ *   database trigger (handle_new_user), not by the client's createHousehold, so the funnel's
+ *   household step never arrived for anyone.
+ *
+ * Dedupe: a per-device flag stops a reload counting twice. The account-wide flag
+ * `user_metadata.vy_signup_tracked` is set by the caller (AuthGate) after a true return,
+ * so the same person on a second phone isn't counted again.
  */
-export function trackSignUpOnce(user: { id: string; created_at?: string; last_sign_in_at?: string; app_metadata?: { provider?: string } }): void {
+export function trackSignUpOnce(
+  user: { id: string; created_at?: string; app_metadata?: { provider?: string }; user_metadata?: { vy_signup_tracked?: boolean } },
+  now: number = Date.now(),
+): boolean {
   try {
-    if (!user.created_at || !user.last_sign_in_at) return;
-    if (Math.abs(Date.parse(user.last_sign_in_at) - Date.parse(user.created_at)) > 60_000) return;
+    if (!user.created_at || user.user_metadata?.vy_signup_tracked) return false;
+    const age = now - Date.parse(user.created_at);
+    if (!(age >= 0 && age <= NEW_ACCOUNT_WINDOW_MS)) return false;
     const flag = `vy_signup_tracked_${user.id}`;
-    if (localStorage.getItem(flag)) return;
+    if (localStorage.getItem(flag)) return false;
     localStorage.setItem(flag, '1');
     const ref = localStorage.getItem(REF_KEY) ?? undefined;
     localStorage.removeItem(REF_KEY);
     track('sign_up', { method: user.app_metadata?.provider ?? 'email', ref });
-  } catch { /* never block sign-in */ }
+    track('household_created', { segment: 'individual' });
+    return true;
+  } catch { return false; /* never block sign-in */ }
+}
+
+/**
+ * v10.53.0 (#55) — GA4 user_id: a SHA-256 of the internal user id, never an email, so a
+ * couple on two phones counts as two people and one person on two devices as one.
+ * Pass null on sign-out to stop attributing later hits.
+ */
+export async function setAnalyticsUser(userId: string | null): Promise<void> {
+  if (!isEnabled()) return;
+  try {
+    const user_id = userId ? await sha256Hex(`vyact:${userId}`) : null;
+    window.gtag?.('set', { user_id });
+  } catch { /* analytics must never break the app */ }
 }
