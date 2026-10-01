@@ -73,25 +73,17 @@ test('FIN-FC-002 - Ask examples fill the composer without calling Ask Vyact', as
     await page.goto('/chat');
     const composer = page.getByRole('textbox', { name: 'Your question or entry', exact: true });
     await expect(page.getByRole('heading', { name: 'Pip', exact: true })).toHaveCSS('font-weight', '400');
+    // v10.52.0 — each example is one chip: its visible text is the label, the full
+    // sentence is its tooltip, and tapping it fills the composer. Touch target is
+    // 44px tall on phones (36px from sm up).
     for (const intent of INTENTS) {
       const example = intentExample(intent);
       if (!example) continue;
       const useExample = page.getByRole('button', { name: `Use example: ${intent.label}`, exact: true });
-      await expect(useExample).toHaveText('');
-      await expect(useExample).toHaveAttribute('title', `Use example: ${intent.label}`);
-      await expect(useExample.locator('svg')).toHaveAttribute('width', '16');
-      await expect(page.getByTestId(`ask-intent-${intent.id}`).getByRole('heading')).toHaveCSS('font-weight', '400');
-      const layout = await useExample.evaluate(button => {
-        const control = button.getBoundingClientRect();
-        const title = button.parentElement!.querySelector('h3')!.getBoundingClientRect();
-        return { width: control.width, height: control.height, separation: control.left - title.right,
-          alignment: Math.abs(control.top + control.height / 2 - title.top - title.height / 2) };
-      });
-      expect(layout.width).toBe(44);
-      expect(layout.height).toBe(44);
-      expect(layout.separation).toBeGreaterThanOrEqual(0);
-      expect(layout.separation).toBeLessThanOrEqual(8);
-      expect(layout.alignment).toBeLessThan(1);
+      await expect(useExample).toHaveText(new RegExp(intent.label.replace(/[?]/g, '\\?')));
+      await expect(useExample).toHaveAttribute('title', example);
+      const height = await useExample.evaluate(button => button.getBoundingClientRect().height);
+      expect(height).toBeGreaterThanOrEqual(width < 640 ? 44 : 36);
       await useExample.click();
       await expect(composer).toHaveValue(example);
       await expect(composer).toBeFocused();
@@ -102,7 +94,7 @@ test('FIN-FC-002 - Ask examples fill the composer without calling Ask Vyact', as
     await testInfo.attach(`ask-examples-${width}`, { body: await page.screenshot(), contentType: 'image/png' });
     await page.goto('/reports');
     await page.getByRole('button', { name: 'Ask Pip', exact: true }).click();
-    await expect(page.getByTestId('ask-intent-spend-month').getByRole('heading')).toHaveCSS('font-weight', '400');
+    await expect(page.getByTestId('ask-intent-spend-month')).toBeVisible();
     await page.getByRole('button', { name: 'Use example: Spend this month', exact: true }).click();
     await expect(page.locator('#ask-drawer-input')).toHaveValue('How much did I spend this month?');
     await expect(page.locator('#ask-drawer-input')).toBeFocused();
@@ -125,6 +117,20 @@ test('FIN-FC-003 - follow-up questions remain editable and examples stay availab
   await page.getByRole('button', { name: 'Show examples', exact: true }).click();
   await expect(page.getByTestId('ask-intent-add-expense')).toBeVisible();
   await expect(page.getByText('Review the recorded entries.', { exact: true })).toBeVisible();
+});
+
+test('FIN-FC-005 - Ask set-up buttons open the budget, debt and asset forms', async ({ page }) => {
+  // v10.52.0 — these three used to render as rows with no button and no action.
+  // From the drawer each one closes Ask and opens its form (forms are routes).
+  for (const [label, path] of [['Add budget', '/budgets/new'], ['Add debt', '/debts/new'], ['Add asset', '/networth/assets/new']] as const) {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.goto('/reports');
+    await page.getByRole('button', { name: 'Ask Pip', exact: true }).click();
+    const setup = page.getByRole('region', { name: 'Set up with a form', exact: true });
+    await setup.getByRole('button', { name: label }).click();
+    await page.waitForURL(`**${path}`);
+    await expect(page.locator('#ask-drawer-input')).toHaveCount(0);
+  }
 });
 
 test('FIN-FC-004 - current household position preserves a negative net worth', async ({ page }) => {

@@ -307,3 +307,27 @@ describe('keywords, answers and AI crawlers (#7, #21, #25)', () => {
     expect(full.toLowerCase()).not.toContain('whatsapp');
   });
 });
+
+// v10.52.0 — mobile PageSpeed (landing 59; LCP 8.0 s on 1 Oct 2026). Nothing third-party
+// may block the first paint: no synchronous external <script src> in <head>, and the
+// Google Fonts stylesheet loads as a non-blocking preload. Covers index.html (the
+// landing page and the app shell) and the server-rendered Learn pages.
+describe('first paint is not blocked by third parties', () => {
+  it('PUB-018 · index.html and Learn pages keep analytics and fonts off the critical path', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const indexHtml = readFileSync(resolve(__dirname, '../../../index.html'), 'utf8');
+    const head = indexHtml.slice(0, indexHtml.indexOf('</head>'));
+    const syncExternal = [...head.matchAll(/<script\b[^>]*\bsrc="https?:\/\/[^"]+"[^>]*>/g)].map(m => m[0]).filter(tag => !/\b(async|defer)\b/.test(tag));
+    expect(syncExternal).toEqual([]);
+    expect(head.replace(/<noscript>[\s\S]*?<\/noscript>/g, '')).not.toMatch(/<link[^>]*rel="stylesheet"[^>]*fonts\.googleapis\.com/);
+    expect(head).toMatch(/<link\s+rel="preload" as="style"[^>]*fonts\.googleapis\.com/);
+    expect(head).toContain("t.contentsquare.net/uxa/");      // still installed, just deferred
+    expect(head).toMatch(/addEventListener\('load'/);
+
+    const lesson = lessonPage(ALL[0], ALL);
+    const lessonHead = lesson.slice(0, lesson.indexOf('</head>'));
+    expect(lessonHead.replace(/<noscript>[\s\S]*?<\/noscript>/g, '')).not.toMatch(/<link[^>]*rel="stylesheet"[^>]*fonts\.googleapis\.com/);
+    expect(lessonHead).toMatch(/rel="preload" as="style"[^>]*fonts\.googleapis\.com/);
+  });
+});

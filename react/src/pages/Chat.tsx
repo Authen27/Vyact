@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, MessageCircle, Trash2, Mic, PencilLine, List, Sparkles } from 'lucide-react';
+import { Send, MessageCircle, Trash2, Mic, PencilLine, List, Sparkles, ArrowUpRight } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -12,8 +12,9 @@ import { logAiUsage } from '../lib/aiUsage';
 import ls from '../lib/localStorageCompat';
 import { appNavigate } from '../lib/appNavigation';
 import {
-  BUCKET_LABEL, intentsByBucket, intentExample, type Bucket,
+  BUCKET_LABEL, intentsByBucket, intentExample, type Bucket, type Intent,
 } from '../lib/askVyactIntents';
+import { can } from '../lib/permissions';
 import { isAskVyactEnabled, FEATURES } from '../config/features';
 import {
   runAssistant, proactiveInsight, selectAssistantBackend, type AssistantContext,
@@ -33,6 +34,7 @@ interface SpeechRecognitionLike {
   start: () => void; stop: () => void;
 }
 
+// 'setup' is not here: those intents open forms and render as their own row.
 const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan'];
 
 // Both backends are resolved PER TURN inside `send()`, never memoised here.
@@ -57,6 +59,11 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   const recurring = useStore(s => s.recurringSchedules);
   const householdId = useStore(s => s.currentHouseholdId);
   const openAddTxn    = useStore(s => s.openAddTxn);
+  const openAddBudget = useStore(s => s.openAddBudget);
+  const openAddDebt   = useStore(s => s.openAddDebt);
+  const openAddAsset  = useStore(s => s.openAddAsset);
+  const closeAsk      = useStore(s => s.closeAsk);
+  const myRole        = useStore(s => s.myRole);
   const toast         = useStore(s => s.toast);
 
   const [history, setHistory] = useState<ChatMessage[]>(() => {
@@ -156,6 +163,19 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 192)}px`;
   }, [input]);
+
+  /** v10.52.0 — a 'setup' intent opens its form. In the drawer, close the
+   *  drawer first: forms are routes (modalSlice), and navigating underneath an
+   *  open drawer is what made the old Manage chips read as dead (v10.17). */
+  const setupIntents = intentsByBucket('setup').filter(intent => !intent.requires || can(myRole, intent.requires));
+  function openSetup(intent: Intent) {
+    const action = intent.action;
+    if (action?.kind !== 'open-modal') return;
+    if (embedded) closeAsk();
+    if (action.modal === 'addBudget') openAddBudget();
+    else if (action.modal === 'addDebt') openAddDebt();
+    else if (action.modal === 'addAsset') openAddAsset();
+  }
 
   function prepareQuestion(question: string) {
     setInput(question);
@@ -422,36 +442,9 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         </div>
       )}
 
-      {/* Board D M6 — the privacy line is a REASSURANCE, so it reads in sage
-          (good), not coral/terra. Crit is reserved for genuine failures; saying
-          where an answer is computed is not an alarm. Keep the claim scoped to
-          how Ask Vyact answers today — no forever-promises about egress.
-
-          CORRECTED IN v10.20. This block used to read "Answered on this device
-          … no model involved." That stopped being true the moment RulesBackend
-          was removed: a question now goes to the ask-vyact Edge Function and on
-          to a model provider. The old copy was a false statement about egress
-          on a finance app's chat screen, which is the worst place to leave one.
-
-          What IS still true, and is the more useful reassurance anyway, is that
-          the model never touches the arithmetic — `resolve()` computes every
-          figure and `assertNoInventedFigures` discards a reply carrying a number
-          no calculation produced. Claim that, because it is enforced. */}
-      <div className="flex items-start gap-2.5 rounded-r2 px-3 py-2.5 mb-3.5"
-        style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 14%, transparent)' }}>
-        <span className="text-[13px] leading-5 flex-shrink-0" aria-hidden>🔒</span>
-        {/* v10.20.1 — softened from "Your numbers are calculated, never guessed."
-            That claimed the guard proves every figure correct. It does not: it
-            checks numeric tokens against the computed values, exempts small
-            counts, and cannot see sign, unit or framing. Describe the DIVISION
-            OF LABOUR, which is true and is the reassurance that actually
-            matters, rather than a guarantee the code does not make. */}
-        <p className="text-[11.5px] text-ink-mid leading-[1.4]">
-          <strong className="text-ink">Vyact does the maths.</strong> Every amount comes from your own
-          data, calculated here — Pip only puts the answer into words.
-        </p>
-      </div>
-
+      {/* v10.52.0 (owner) — the green "Vyact does the maths…" banner above the
+          chat was removed. The honest caveat now sits under the composer, where
+          it's read at the moment of asking: Pip is AI-based and can be wrong. */}
       <Panel className={embedded ? 'flex-1 min-h-0 flex flex-col' : ''}>
         <div ref={scrollRef} className={`px-4 py-4 space-y-3 overflow-y-auto ${embedded ? 'flex-1 min-h-0' : 'max-h-[28rem] min-h-[20rem]'}`}>
           {history.length === 0 && proactive && (
@@ -473,46 +466,60 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             </div>
           )}
           {(history.length === 0 || showExamples) && (
-            <div className="py-2">
-                <>
-                  <div className="text-sm text-ink-mid mb-3 leading-relaxed">
-                    Use an example, replace its details, then Send.
-                  </div>
-                  <p className="text-xs text-ink-dim mb-4">Examples use your household currency. Check accounts, dates and amounts before saving a proposed transaction. Pip needs to be reachable to answer.</p>
-                  {/* Board D M6 §.intent — the empty state IS the hero: intent
-                      rows in the four production buckets, each an inset icon
-                      tile beside its label. */}
-                  <div className="space-y-3">
-                    {BUCKETS.map(b => {
-                      const items = intentsByBucket(b);
-                      if (!items.length) return null;
-                      return (
-                        <div key={b}>
-                          <div className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-ink-dim mb-2 px-1">
-                            {BUCKET_LABEL[b]}
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
-                            {items.map(intent => {
-                              const example = intentExample(intent);
-                              return <div key={intent.id} className="min-w-0 border-b border-line py-3" data-testid={`ask-intent-${intent.id}`}>
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <h3 className="text-sm text-ink flex items-center gap-2 min-w-0"><span aria-hidden>{intent.icon}</span>{intent.label}</h3>
-                                  {example && <button type="button" aria-label={`Use example: ${intent.label}`} title={`Use example: ${intent.label}`}
-                                    onClick={() => prepareQuestion(example)} disabled={thinking}
-                                    className="inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-md text-ink-dim hover:text-coral hover:bg-bg3 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <PencilLine size={16} aria-hidden />
-                                  </button>}
-                                </div>
-                                {example && <p className="text-sm text-ink-mid mt-2 leading-relaxed [overflow-wrap:anywhere]">{example}</p>}
-                                {intent.inputHint && <p className="text-xs text-ink-dim mt-2 leading-relaxed">{intent.inputHint}</p>}
-                              </div>;
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
+            <div className="py-1">
+              {/* v10.52.0 — compact empty state. Each example is ONE chip: tapping
+                  it puts the full sentence in the box to edit and Send, so the
+                  sentence no longer needs printing under every row (it's the
+                  chip's tooltip). The old layout printed label, a 44px pencil
+                  button, the sentence and a hint per intent: 14 tall rows. The
+                  three that are not chat commands (budget, debt, asset) were
+                  rows with no button at all; they're now real buttons that open
+                  their form ('Set up with a form'). */}
+              <p className="text-xs text-ink-dim mb-3 leading-relaxed">
+                Tap an example to put it in the box, change the details, then Send. Check any proposed entry before you save it.
+              </p>
+              <div className="space-y-3">
+                {BUCKETS.map(b => {
+                  const items = intentsByBucket(b).filter(intent => intentExample(intent));
+                  if (!items.length) return null;
+                  return (
+                    <section key={b} aria-label={BUCKET_LABEL[b]}>
+                      <h3 className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-ink-dim mb-1.5">{BUCKET_LABEL[b]}</h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {items.map(intent => {
+                          const example = intentExample(intent)!;
+                          return (
+                            <button key={intent.id} type="button" data-testid={`ask-intent-${intent.id}`}
+                              aria-label={`Use example: ${intent.label}`} title={example}
+                              onClick={() => prepareQuestion(example)} disabled={thinking}
+                              className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 rounded-pill border border-line text-[0.8rem] text-ink hover:border-coral hover:text-coral disabled:opacity-50 disabled:cursor-not-allowed max-w-full">
+                              <span aria-hidden>{intent.icon}</span>
+                              <span className="truncate">{intent.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+                {setupIntents.length > 0 && (
+                  <section aria-label={BUCKET_LABEL.setup}>
+                    <h3 className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-ink-dim mb-1.5">{BUCKET_LABEL.setup}</h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {setupIntents.map(intent => (
+                        <button key={intent.id} type="button" data-testid={`ask-intent-${intent.id}`}
+                          title={intent.inputHint} onClick={() => openSetup(intent)}
+                          className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 rounded-pill text-[0.8rem] font-medium max-w-full"
+                          style={{ background: 'var(--sunken)', color: 'hsl(var(--ink))' }}>
+                          <span aria-hidden>{intent.icon}</span>
+                          <span className="truncate">{intent.label}</span>
+                          <ArrowUpRight size={13} aria-hidden className="text-ink-dim shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
             </div>
           )}
           {history.map((m, i) => {
@@ -583,7 +590,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         {history.length > 0 && <Button variant="ghost" onClick={() => setShowExamples(value => !value)} aria-expanded={showExamples}>
           <List size={14} aria-hidden /> {showExamples ? 'Hide examples' : 'Show examples'}
         </Button>}
-        <div className="border-t border-line px-3 pt-4 pb-5 flex-shrink-0">
+        <div className="border-t border-line px-3 pt-3 pb-3 flex-shrink-0">
           {/* v10.36 — `is-thinking` animates a ring around the composer while a
               turn is in flight (static under reduced motion; see index.css). */}
           <div className={`ask-composer flex gap-2 items-end ${thinking ? 'is-thinking' : ''}`}>
@@ -614,6 +621,10 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
               <Send size={16} />
             </button>
           </div>
+          {/* v10.52.0 (owner) — replaces the "Vyact does the maths" banner. */}
+          <p className="mt-2 px-1 text-[0.7rem] leading-snug text-ink-dim" data-testid="ask-ai-disclaimer">
+            Pip is AI-based and can make mistakes. Please double-check its responses.
+          </p>
         </div>
       </Panel>
     </div>

@@ -381,10 +381,13 @@ describe('capture seeding (F6, F7)', () => {
   });
 
   it('CON-UNIT-FACT-014 · a stated date and account reach the form seed', () => {
+    // The 10th of LAST month (monthKey counts back: offset 1 = previous month), always in the past. It was dayIn(0, 10), the 10th of the
+    // current month, which is a future date on the 1st–9th, and resolve() rightly
+    // refuses future dates, so this failed for nine days every month (first seen 1 Oct 2026).
     const result = resolve(intent('capture.expense', {
-      amount: 653, merchant: 'SWIGGY PVT LTD', date: dayIn(0, 10), account: 'ICICI Card 3003',
+      amount: 653, merchant: 'SWIGGY PVT LTD', date: dayIn(1, 10), account: 'ICICI Card 3003',
     }), makeCtx());
-    expect(result.seed?.date).toBe(dayIn(0, 10));
+    expect(result.seed?.date).toBe(dayIn(1, 10));
     expect(result.seed?.accountId).toBe('acc-card');
   });
 

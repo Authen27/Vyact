@@ -31,33 +31,42 @@
     </script>
     <title>Vyact — Family Finance OS</title>
 
-    <script src="https://t.contentsquare.net/uxa/86f8fcfc0d114.js"></script>
-
-    <!-- Google tag (gtag.js) — GA4, loaded ONLY on the real site (v10.49.0, #3): localhost, CI,
-         Vercel previews and stage/dev never count. window.gtag always exists, so lib/analytics.ts
-         can queue events anywhere; off vyact.app they go nowhere. -->
+    <!-- Analytics: Google tag (GA4) + Contentsquare (v10.52.0 — loaded AFTER the page has
+         painted). Contentsquare used to be a synchronous <script src> here, which stopped the
+         parser and pulled a ~171 KB chain into the critical path; on a throttled phone the
+         landing page's first paint waited ~1.8 s for it (PageSpeed mobile, 1 Oct 2026). Both
+         tags are now injected on window `load` + idle, so they never block the first render.
+         window.gtag still exists immediately, so lib/analytics.ts can queue events from the
+         first tick (dataLayer is read when gtag.js arrives).
+         GA4 runs ONLY on the real site (v10.49.0, #3): localhost, CI, Vercel previews and
+         stage/dev never count; off vyact.app events go nowhere. -->
     <script>
       (function () {
         var h = location.hostname;
         window.dataLayer = window.dataLayer || [];
         window.gtag = function () { dataLayer.push(arguments); };
         window.__vyGaOn = h === 'vyact.app' || h === 'www.vyact.app';
-        if (!window.__vyGaOn) return;
-        gtag('js', new Date());
-        gtag('config', 'G-E3XKWZP850');
-        var s = document.createElement('script');
-        s.async = true;
-        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-E3XKWZP850';
-        document.head.appendChild(s);
+        if (window.__vyGaOn) { gtag('js', new Date()); gtag('config', 'G-E3XKWZP850'); }
+        function add(src) { var s = document.createElement('script'); s.async = true; s.src = src; document.head.appendChild(s); }
+        function late() {
+          if (window.__vyGaOn) add('https://www.googletagmanager.com/gtag/js?id=G-E3XKWZP850');
+          add('https://t.contentsquare.net/uxa/86f8fcfc0d114.js');
+        }
+        function idle() { 'requestIdleCallback' in window ? requestIdleCallback(late, { timeout: 3000 }) : setTimeout(late, 1500); }
+        if (document.readyState === 'complete') idle(); else window.addEventListener('load', idle, { once: true });
       })();
     </script>
 
+    <!-- Fonts (v10.52.0): fetched without blocking the first paint. The stylesheet used to be
+         render-blocking (~780 ms on a throttled phone). Text now paints at once in the system
+         fallback and swaps when the fonts arrive (they already used display=swap). -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
     />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" /></noscript>
   </head>
   <body>
     <div id="root"></div>

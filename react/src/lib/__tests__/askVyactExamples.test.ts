@@ -27,12 +27,21 @@ describe('Ask examples and shortcut contracts', () => {
   });
 
   it('does not invent typed creation commands or categories for neutral movements', () => {
-    for (const id of ['add-budget', 'add-debt', 'add-asset']) {
+    // v10.52.0 — budget, debt and asset are 'setup' buttons that open their form,
+    // gated by the same permission as the page's own Add button. They have no chat
+    // example: creation of these is not a chat command.
+    const required = { 'add-budget': 'manage_budgets', 'add-debt': 'manage_debts', 'add-asset': 'manage_assets' };
+    for (const [id, permission] of Object.entries(required)) {
       const intent = INTENTS.find(row => row.id === id)!;
       expect(intentExample(intent)).toBeUndefined();
+      expect(intent.bucket).toBe('setup');
       expect(intent.action?.kind).toBe('open-modal');
-      expect(intent.inputHint).toContain('Form');
+      expect(intent.requires).toBe(permission);
+      expect(intent.inputHint).toContain('form');
     }
+    expect(INTENTS.filter(intent => intent.bucket === 'setup').map(intent => intent.id)).toEqual(Object.keys(required));
+    // Every non-setup intent has an example, so every chip the panel shows does something.
+    for (const intent of INTENTS.filter(row => row.bucket !== 'setup')) expect(intentExample(intent), intent.id).toBeTruthy();
     for (const id of ['add-transfer', 'add-investment']) {
       const action = INTENTS.find(row => row.id === id)!.action!;
       expect(action.kind === 'open-modal' && action.seed?.category).toBe('');

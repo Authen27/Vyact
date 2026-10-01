@@ -7,12 +7,22 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeftRight, Wallet, BarChart3, Sparkles, Plus } from 'lucide-react';
 import { useStore } from '../../store';
-import { sectionForPath } from './navModel';
+import { SECTIONS, sectionForPath } from './navModel';
+
+/** A section's landing page: its first route in the nav model. That's the
+ *  same target the desktop TopBar tab opens (`s.routes[0].to`), so the two
+ *  can't drift. v10.52.0: Analyze was hard-coded to /reports here while
+ *  desktop opened /networth. */
+function landingFor(id: string): string {
+  const s = SECTIONS.find(x => x.id === id);
+  if (!s) throw new Error(`navModel has no section "${id}"`);
+  return s.routes[0].to;
+}
 
 const SECTION_TABS = [
-  { id: 'track',   label: 'Track',   to: '/dashboard', icon: ArrowLeftRight },
-  { id: 'plan',    label: 'Plan',    to: '/budgets',   icon: Wallet },
-  { id: 'analyze', label: 'Analyze', to: '/reports',   icon: BarChart3 },
+  { id: 'track',   label: 'Track',   to: landingFor('track'),   icon: ArrowLeftRight },
+  { id: 'plan',    label: 'Plan',    to: landingFor('plan'),    icon: Wallet },
+  { id: 'analyze', label: 'Analyze', to: landingFor('analyze'), icon: BarChart3 },
 ] as const;
 
 export default function MobileTabBar() {

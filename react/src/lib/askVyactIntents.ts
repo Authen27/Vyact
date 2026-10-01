@@ -22,7 +22,11 @@ import type { Transaction, TxnType } from '../types';
 // v10.17 (item 16) — the 'manage' bucket (Open Budgets/Net Worth/Households)
 // was removed: those chips fired `navigate()` under the open Ask drawer and
 // read as dead. Deep navigation lives in the app's own nav.
-export type Bucket = 'capture' | 'inquire' | 'plan';
+// v10.52.0 — 'setup' holds the three creations that are NOT chat commands
+// (budget, debt, asset). They used to sit in 'capture' with no example and no
+// button, so they rendered as inert rows. In 'setup' each one is a real
+// button that opens its form.
+export type Bucket = 'capture' | 'inquire' | 'plan' | 'setup';
 
 export type IntentAction =
   | { kind: 'open-modal'; modal: 'addTxn' | 'addBudget' | 'addDebt' | 'addAsset'; seed?: Partial<Transaction> }
@@ -46,6 +50,10 @@ export interface Intent {
   secondary?: SubChip[];
   /** When `secondary` is absent, the chip fires this action on tap-1. */
   action?: IntentAction;
+  /** v10.52.0 — the household permission the action needs (lib/permissions.ts).
+   *  The Ask panel hides a 'setup' button the member can't use, the same rule
+   *  the Budgets / Debts / Net Worth pages apply to their Add buttons. */
+  requires?: 'manage_budgets' | 'manage_debts' | 'manage_assets';
 }
 
 export const INTENTS: Intent[] = [
@@ -54,9 +62,6 @@ export const INTENTS: Intent[] = [
   { id: 'add-income',      bucket: 'capture', icon: '💰', label: 'Add income', example: 'Received 5000 salary today', action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'income' } } },
   { id: 'add-transfer',    bucket: 'capture', icon: '🔄', label: 'Add transfer', example: 'Transferred 200 from my bank to cash', action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'transfer' as TxnType, category: '' } } },
   { id: 'add-investment',  bucket: 'capture', icon: '📈', label: 'Add investment', example: 'Invested 500 in my index fund', inputHint: 'Choose the investment asset and paying account in the form.', action: { kind: 'open-modal', modal: 'addTxn', seed: { type: 'investment' as TxnType, category: '' } } },
-  { id: 'add-budget',      bucket: 'capture', icon: '🎯', label: 'Add a budget', inputHint: 'Form example: monthly limit 3000, groceries 400. Budget creation is not a chat command.', action: { kind: 'open-modal', modal: 'addBudget' } },
-  { id: 'add-debt',        bucket: 'capture', icon: '⬇️', label: 'Add a debt', inputHint: 'Form example: Car loan, balance 6000, APR 6%, payment 250. Debt creation is not a chat command.', action: { kind: 'open-modal', modal: 'addDebt' } },
-  { id: 'add-asset',       bucket: 'capture', icon: '🏠', label: 'Add an asset', inputHint: 'Form example: Investment, Index fund, value 3000. Asset creation is not a chat command.', action: { kind: 'open-modal', modal: 'addAsset' } },
 
   // ── Inquire ─────────────────────────────────────────────────
   { id: 'spend-month',     bucket: 'inquire', icon: '💸', label: 'Spend this month', action: { kind: 'ask', prompt: 'How much did I spend this month?' } },
@@ -71,12 +76,18 @@ export const INTENTS: Intent[] = [
   { id: 'debts',           bucket: 'plan',    icon: '⬇️', label: 'Debt strategy',    action: { kind: 'ask', prompt: 'Tell me about my debts and the best payoff strategy.' } },
   { id: 'affordability', bucket: 'plan', icon: '🛒', label: 'Can I afford it?', action: { kind: 'ask', prompt: 'Can I afford a 1200 purchase?' } },
   { id: 'cut-back', bucket: 'plan', icon: '✂️', label: 'Find room to save', action: { kind: 'ask', prompt: 'Where can I cut back on spending?' } },
+
+  // ── Set up (forms, not chat) ───────────────────────────────
+  { id: 'add-budget', bucket: 'setup', icon: '🎯', label: 'Add budget', requires: 'manage_budgets', inputHint: 'Opens the budget form. Budgets are set up in the form, not in chat.', action: { kind: 'open-modal', modal: 'addBudget' } },
+  { id: 'add-debt',   bucket: 'setup', icon: '⬇️', label: 'Add debt',   requires: 'manage_debts',   inputHint: 'Opens the debt form. Debts are set up in the form, not in chat.', action: { kind: 'open-modal', modal: 'addDebt' } },
+  { id: 'add-asset',  bucket: 'setup', icon: '🏠', label: 'Add asset',  requires: 'manage_assets',  inputHint: 'Opens the asset form. Assets are set up in the form, not in chat.', action: { kind: 'open-modal', modal: 'addAsset' } },
 ];
 
 export const BUCKET_LABEL: Record<Bucket, string> = {
   capture: 'Record money',
   inquire: 'Understand my money',
   plan:    'Explore a decision',
+  setup:   'Set up with a form',
 };
 
 export function intentExample(intent: Intent): string | undefined {
