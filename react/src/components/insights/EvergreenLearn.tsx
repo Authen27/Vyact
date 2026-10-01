@@ -1,13 +1,15 @@
-// Vyact — "Learn" tab (Insights Hub). v9.5.5: combines the evergreen lesson
-// library AND editorial/curated "Updates" (the former What's New) under one tab
-// via a Lessons/Updates segment. Lessons are searchable, favoritable, shareable
-// (public /learn/<slug>), and viewable as a full-screen shorts reel.
+// Vyact — "Learn" tab (Insights Hub): the evergreen lesson library. Lessons are
+// searchable, favoritable, shareable (public /learn/<slug>), and viewable as a
+// full-screen shorts reel.
+//
+// v10.52.0 (owner) — the Lessons / Updates segment is gone. Updates (the former
+// What's New feed) only ever held 5 legacy articles, archived 1 Oct 2026 (to-do #15),
+// and without cloud sync it was a dead end. Learn is now just search, filters, lessons.
 import { useEffect, useMemo, useState } from 'react';
 import { Search, Heart, Clock, Share2 } from 'lucide-react';
 import EmptyState from '../ui/EmptyState';
 import CardVisual from './CardVisual';
 import EvergreenReel from './EvergreenReel';
-import WhatsNew from './WhatsNew';
 import {
   filterEvergreen, readingChip, EVERGREEN_CATEGORIES,
   loadFavorites, saveFavorites, type EvergreenCard,
@@ -15,8 +17,6 @@ import {
 import { shareEvergreen } from '../../lib/share';
 import { fetchEvergreenMedia, type CardMedia } from '../../lib/insightVideos';
 import { isCloudEnabled } from '../../lib/supabase';
-
-type Segment = 'lessons' | 'updates';
 
 function withMedia(card: EvergreenCard, media: Map<string, CardMedia>): EvergreenCard {
   const m = media.get(card.id);
@@ -29,7 +29,6 @@ interface Props {
 }
 
 export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
-  const [segment, setSegment] = useState<Segment>('lessons');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string | 'all'>('all');
   const [favOnly, setFavOnly] = useState(false);
@@ -49,12 +48,12 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
     fetchEvergreenMedia().then(setMedia).catch(() => {});
   }, []);
 
-  // Honor a deep-link open request from the feed reel (also forces Lessons).
+  // Honor a deep-link open request from the feed reel.
   useEffect(() => {
     if (!openId) return;
     const full = filterEvergreen('', 'all').map(c => withMedia(c, media));
     const idx = full.findIndex(c => c.id === openId);
-    if (idx !== -1) { setSegment('lessons'); setReel({ cards: full, index: idx }); }
+    if (idx !== -1) setReel({ cards: full, index: idx });
     onConsumedOpen?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openId]);
@@ -76,29 +75,19 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
 
   return (
     <div>
-      {/* Lessons / Updates segment — combines the old Learn + What's New tabs. */}
-      <div className="flex gap-1 mb-4 bg-bg3 border border-line rounded-lg p-1 w-fit">
-        {(['lessons', 'updates'] as Segment[]).map(s => (
-          <button key={s} onClick={() => setSegment(s)} aria-pressed={segment === s}
-            className={`px-3.5 py-1.5 rounded-md text-[0.78rem] font-medium capitalize transition-colors ${segment === s ? 'bg-bg2 text-ink shadow-sm' : 'text-ink-mid hover:text-ink'}`}>
-            {s === 'lessons' ? 'Lessons' : 'Updates'}
-          </button>
-        ))}
-      </div>
-
-      {segment === 'updates' ? <WhatsNew /> : (
-        <>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <div className="relative flex-1 min-w-[220px]">
+          {/* The toolbar slot directly under the page header. For You puts its
+              "Play highlights" button in this same slot (Insights.tsx). */}
+          <div className="flex flex-col gap-2.5 mb-4" data-testid="insights-toolbar">
+            <div className="relative min-w-0 max-w-xl">
               <Search size={15} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-dim pointer-events-none" />
               <input value={query} onChange={e => setQuery(e.target.value)} aria-label="Search lessons"
                 placeholder="Search lessons — saving, EMI, SIP, runway…" className="input has-leading-icon w-full pl-9" />
             </div>
-          </div>
-          <div className="flex gap-1.5 flex-wrap mb-4">
-            <Chip active={category === 'all'} onClick={() => setCategory('all')}>All</Chip>
-            {EVERGREEN_CATEGORIES.map(c => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}
-            <Chip active={favOnly} onClick={() => setFavOnly(v => !v)}><Heart size={11} className={favOnly ? 'fill-current' : ''} /> Saved</Chip>
+            <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Filter lessons">
+              <Chip active={category === 'all'} onClick={() => setCategory('all')}>All</Chip>
+              {EVERGREEN_CATEGORIES.map(c => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}
+              <Chip active={favOnly} onClick={() => setFavOnly(v => !v)}><Heart size={11} className={favOnly ? 'fill-current' : ''} /> Saved</Chip>
+            </div>
           </div>
 
           {cards.length === 0 ? (
@@ -127,8 +116,6 @@ export default function EvergreenLearn({ openId, onConsumedOpen }: Props) {
               ))}
             </div>
           )}
-        </>
-      )}
 
       {reel && (
         <EvergreenReel cards={reel.cards} startIndex={reel.index} onClose={() => setReel(null)} />

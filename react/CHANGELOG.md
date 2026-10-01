@@ -58,6 +58,22 @@ The numbering history has some non-monotonic stretches that we keep documented h
   - **Tests:** FIN-FC-002 is rewritten for the chip design (still: examples fill the composer, no
     model call, no sideways scroll). New **FIN-FC-005** covers the three form buttons;
     `askVyactExamples.test.ts` pins the `setup` contract.
+- **Insights navigation simplified to two tabs, For You and Learn** (owner direction). It used
+  to stack For You / Learn tabs, a "Review highlights" header button, a Lessons / Updates
+  segment, search and chips, then a reel.
+  - **Learn** is now just the lesson library: search and filters in one toolbar, then lessons.
+  - **The Updates segment is gone.** It only ever held 5 legacy articles, and without cloud sync
+    it was a dead end ("What's New requires cloud sync"). `WhatsNew.tsx` and its `ArticleReel.tsx`
+    are deleted.
+  - **For You:** the highlights reel is a **Play highlights** button in the same toolbar slot
+    Learn uses for search. The "as of" note sits beside it.
+  - **The header subtitle is now identical on both tabs**, so the toolbar never jumps when you
+    switch. New e2e **INS-FC-004** checks the layout and that the slot holds its position;
+    INS-FC-002/003 now use "Play highlights".
+- **Data (owner-approved, 1 Oct 2026; master to-do #15):** the 5 legacy `content_items` articles
+  were set to `status='archived'`: tax-loss harvesting, zero-based budgeting, Roth vs
+  Traditional 401(k), avalanche vs snowball, emergency fund 3 vs 6 months. They're 3 US-only and
+  2 duplicating stronger lessons. Reversible; the 116 lessons are untouched.
 - **Ask Vyact: the "Vyact does the maths…" banner is removed** (owner). In its place, under the
   message box: "Pip is AI-based and can make mistakes. Please double-check its responses."
   RESP-FC-004 asserts both.

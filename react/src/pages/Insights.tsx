@@ -6,7 +6,8 @@
 //     merged by lib/personalInsights.ts into Your next steps / What changed /
 //     Keep an eye on / Learn about this, deduplicated by issue and period. The
 //     reel is an optional "Review highlights" action, not the way in.
-//   • Learn   — the evergreen lesson library (What's New lives inside it).
+//   • Learn   — the evergreen lesson library: search, filters, lessons. (v10.52.0:
+//               the Lessons / Updates segment and the Updates feed were removed.)
 // /planner and ?tab=plan land on For You.
 //
 // "Services compute, never fabricate": both engines read existing aggregates
@@ -89,15 +90,12 @@ export default function Insights() {
         <div className="min-w-0">
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('insights') || 'Insights'}</h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            {tab === 'for-you' ? `Your review · as of ${review.asOf} · month to date unless stated` : 'Lessons · short reads on household money'}
+            {/* Same text on both tabs, so the header keeps one height and the toolbar
+                slot below it never moves between tabs. */}
+            Your review · money lessons
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          {tab === 'for-you' && review.highlights.length > 0 && !loading && (
-            <button ref={highlightsButton} type="button" className="btn-ghost inline-flex items-center gap-2 min-h-[44px] sm:min-h-[36px]" onClick={() => setReelStart(0)}>
-              <Play size={15} aria-hidden /> Review highlights
-            </button>
-          )}
           <div role="tablist" aria-label="Insights views" className="flex flex-1 sm:flex-none gap-1 p-1 rounded-pill" style={{ background: 'var(--sunken)' }}>
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
@@ -126,6 +124,22 @@ export default function Insights() {
 
       {tab === 'for-you' && (
         <div role="tabpanel" id="insights-panel-for-you" aria-labelledby="insights-tab-for-you" className="space-y-3.5 min-w-0">
+          {/* v10.52.0 (owner) — the toolbar slot under the header, the same place
+              Learn shows its search and filters: a quick play button for the
+              highlights reel. */}
+          <div data-testid="insights-toolbar" className="flex items-center justify-between gap-3 flex-wrap min-h-[44px]">
+            {review.highlights.length > 0 && !loading ? (
+              <button ref={highlightsButton} type="button" onClick={() => setReelStart(0)} aria-label="Play highlights"
+                className="inline-flex items-center gap-2.5 min-h-[44px] pl-1.5 pr-4 rounded-pill border border-line text-sm font-medium text-ink hover:border-coral">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>
+                  <Play size={14} aria-hidden className="ml-0.5" fill="currentColor" />
+                </span>
+                Play highlights
+                <span className="text-xs font-normal text-ink-dim">{review.highlights.length}</span>
+              </button>
+            ) : <span />}
+            <p className="text-xs text-ink-dim">As of {review.asOf} · month to date unless stated</p>
+          </div>
           {loading ? <Panel><p role="status" className="px-4 py-5 text-sm text-ink-mid">Loading your review…</p></Panel> : !review.hasActivity ? (
             <Panel>
               <section className="px-4 py-5">

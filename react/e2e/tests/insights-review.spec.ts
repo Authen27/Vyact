@@ -69,7 +69,7 @@ test.describe('Insights with recorded activity', () => {
 
   test('INS-FC-002 - highlights are optional, tabs are keyboard reachable, and old Plan links land on For You', async ({ page }) => {
     await page.goto('/insights');
-    const highlights = page.getByRole('button', { name: 'Review highlights', exact: true });
+    const highlights = page.getByRole('button', { name: 'Play highlights', exact: true });
     await highlights.click();
     const reel = page.getByRole('dialog', { name: 'Your insights' });
     await expect(reel).toBeVisible();
@@ -90,6 +90,25 @@ test.describe('Insights with recorded activity', () => {
     await expect(page.getByRole('tab', { name: 'For You' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('region', { name: 'Your next steps', exact: true })).toBeVisible();
   });
+
+  test('INS-FC-004 - two tabs only: Learn is search and filters, For You puts Play highlights in the same toolbar slot', async ({ page }) => {
+    // v10.52.0 (owner): no Lessons / Updates sub-tabs; the highlights reel is a play
+    // button where Learn shows its search and filters.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/insights');
+    const toolbarTop = async () => (await page.getByTestId('insights-toolbar').boundingBox())!.y;
+    await expect(page.getByTestId('insights-toolbar').getByRole('button', { name: 'Play highlights', exact: true })).toBeVisible();
+    const forYouTop = await toolbarTop();
+
+    await page.getByRole('tab', { name: 'Learn' }).click();
+    const toolbar = page.getByTestId('insights-toolbar');
+    await expect(toolbar.getByRole('textbox', { name: 'Search lessons' })).toBeVisible();
+    await expect(toolbar.getByRole('group', { name: 'Filter lessons' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Updates', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Lessons', exact: true })).toHaveCount(0);
+    await expect(page.getByText("What's New requires cloud sync.")).toHaveCount(0);
+    expect(Math.abs((await toolbarTop()) - forYouTop)).toBeLessThanOrEqual(2);
+  });
 });
 
 test.describe('Insights without recorded activity', () => {
@@ -99,7 +118,7 @@ test.describe('Insights without recorded activity', () => {
     await page.goto('/insights');
     await expect(page.getByRole('heading', { name: 'Not enough recorded activity yet', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Your next steps', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Review highlights', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Play highlights', exact: true })).toHaveCount(0);
     await expect(page.getByText(/healthy/i)).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Open Transactions' })).toBeVisible();
   });
