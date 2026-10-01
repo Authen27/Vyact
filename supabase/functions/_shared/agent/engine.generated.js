@@ -893,8 +893,9 @@ function currencyOf(code) {
 function toDinero(amount, code) {
 	const currency = currencyOf(code);
 	const scale = Math.pow(currency.base, currency.exponent);
+	const scaledAmount = Math.round((amount || 0) * scale);
 	return dinero({
-		amount: Math.round((amount || 0) * scale),
+		amount: scaledAmount,
 		currency
 	});
 }
@@ -944,8 +945,9 @@ function quantizeToCurrency(d) {
 	const native = snap.currency.exponent;
 	if (snap.scale <= native) return d;
 	const factor = Math.pow(10, snap.scale - native);
+	const requantized = bankersRound(snap.amount / factor);
 	return dinero({
-		amount: bankersRound(snap.amount / factor),
+		amount: requantized,
 		currency: snap.currency
 	});
 }
@@ -1371,7 +1373,8 @@ function computePulseScore(transactions, budgets, _goals, debts, baseCurrency, r
 		budgetScore = compliance.reduce((s, v) => s + v, 0) / compliance.length;
 	}
 	const savingsApplicable = income > 0;
-	const savingsScore = clamp((savingsApplicable ? (income - expense) / income * 100 : 0) * 5, 0, 100);
+	const rate = savingsApplicable ? (income - expense) / income * 100 : 0;
+	const savingsScore = clamp(rate * 5, 0, 100);
 	const [y, m] = mk.split("-").map(Number);
 	const prevExp = monthlyData(transactions, m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`, baseCurrency, rates).expense;
 	const trendApplicable = prevExp > 0;
@@ -1386,14 +1389,16 @@ function computePulseScore(transactions, budgets, _goals, debts, baseCurrency, r
 	}
 	const debtApplicable = debts.length > 0;
 	let debtScore = 0;
-	if (debtApplicable) if (income === 0) debtScore = 40;
-	else {
-		const dti = totalMonthlyDebtPayment(debts, baseCurrency, rates) / income * 100;
-		if (dti <= 15) debtScore = 100;
-		else if (dti <= 25) debtScore = 85;
-		else if (dti <= 36) debtScore = 65;
-		else if (dti <= 50) debtScore = 35;
-		else debtScore = 10;
+	if (debtApplicable) {
+		if (income === 0) debtScore = 40;
+		else {
+			const dti = totalMonthlyDebtPayment(debts, baseCurrency, rates) / income * 100;
+			if (dti <= 15) debtScore = 100;
+			else if (dti <= 25) debtScore = 85;
+			else if (dti <= 36) debtScore = 65;
+			else if (dti <= 50) debtScore = 35;
+			else debtScore = 10;
+		}
 	}
 	const parts = [
 		{
@@ -1552,7 +1557,7 @@ function reconcileAccount(account, computedBalance, statedValue, kind) {
 }
 //#endregion
 //#region react/src/lib/netWorth.ts
-const LIABILITY_KINDS = new Set(["credit_card", "loan"]);
+const LIABILITY_KINDS = /* @__PURE__ */ new Set(["credit_card", "loan"]);
 /** Liability-side rows: liability accounts at their live balances, plus any
 *  owed-by-me debt no account represents. */
 function liveLiabilityRows(debts, accounts, txns, baseCurrency, rates) {
@@ -2333,7 +2338,7 @@ async function classifyIntentViaModel(utterance, _ctx, call) {
 * computed value ("Your Pulse Score is 85/100") and is therefore already
 * allowed. Exempting it bought nothing and cost the guard its most obvious case.
 */
-const HARMLESS = new Set([
+const HARMLESS = /* @__PURE__ */ new Set([
 	"0",
 	"1",
 	"2",
@@ -3130,7 +3135,7 @@ function recurringSeedFrom(e) {
 	};
 }
 /** Intents whose `amount` entity is a sum of money the user stated. */
-const AMOUNT_INTENTS = new Set([
+const AMOUNT_INTENTS = /* @__PURE__ */ new Set([
 	"capture.expense",
 	"capture.income",
 	"capture.transfer",
@@ -4380,7 +4385,7 @@ function staleBalanceNotifs(accounts, prefs, existing, ctx) {
 		"cash",
 		"investment"
 	];
-	const cutoff = Date.now() - 30 * 864e5;
+	const cutoff = Date.now() - 2592e6;
 	const lastTouched = (a) => {
 		const rec = a.reconciliationLog?.length ? a.reconciliationLog[a.reconciliationLog.length - 1].at : void 0;
 		const stamp = a.confirmedAt || rec || a.estimatedAt;
@@ -4388,7 +4393,7 @@ function staleBalanceNotifs(accounts, prefs, existing, ctx) {
 	};
 	const stale = accounts.filter((a) => !a.isArchived && LIQUID.includes(a.kind) && lastTouched(a) < cutoff);
 	if (!stale.length) return [];
-	const key = `stale_balance:${Math.floor(Date.now() / (7 * 864e5))}`;
+	const key = `stale_balance:${Math.floor(Date.now() / 6048e5)}`;
 	if (existing.some((n) => n.dedupeKey === key)) return [];
 	return [{
 		...base("stale_balance", key, ctx),
@@ -4490,7 +4495,7 @@ const STALE_AFTER_DAYS = 30;
 /** Stale bank, card and cash accounts, oldest check first. */
 function balancesToCheck(rows, nowMs) {
 	const { accounts, transactions, profile, rates } = shapesFromRows(rows);
-	const cutoff = nowMs - 30 * 864e5;
+	const cutoff = nowMs - 2592e6;
 	return accounts.filter((a) => !a.isArchived && UPDATABLE_KINDS.includes(a.kind)).map((a) => ({
 		a,
 		lastChecked: a.lastReconciledAt ?? a.createdAt ?? ""
@@ -4522,18 +4527,20 @@ function reconcileOnServer(rows, accountId, stated, at) {
 	const realBalance = stated === "same" ? computed : stated;
 	const { patch, delta } = reconcileAccount(account, computed, realBalance, account.kind === "credit_card" ? "credit_card" : "bank");
 	let bridge = null;
-	if (delta !== 0 && account.assetId) if (account.kind === "credit_card") {
-		const debt = debts.find((x) => x.id === account.assetId);
-		if (debt) bridge = {
-			debt_id: debt.id,
-			current_balance: Math.max(0, Math.abs(realBalance))
-		};
-	} else {
-		const asset = assets.find((x) => x.id === account.assetId);
-		if (asset) bridge = {
-			asset_id: asset.id,
-			value: realBalance
-		};
+	if (delta !== 0 && account.assetId) {
+		if (account.kind === "credit_card") {
+			const debt = debts.find((x) => x.id === account.assetId);
+			if (debt) bridge = {
+				debt_id: debt.id,
+				current_balance: Math.max(0, Math.abs(realBalance))
+			};
+		} else {
+			const asset = assets.find((x) => x.id === account.assetId);
+			if (asset) bridge = {
+				asset_id: asset.id,
+				value: realBalance
+			};
+		}
 	}
 	return {
 		accountId,
