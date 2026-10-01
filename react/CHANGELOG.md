@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.51.0`** (consumer)
+> **Current production version: `v10.52.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,45 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.52.0 — Insights matches its Analyze peers, mobile Analyze lands on Net Worth, and a compact Ask panel whose every button works *(2026-10-01)*
+
+- **Insights uses the same page frame as Net Worth and Reports** (owner feedback). It was a single
+  `max-w-4xl` column (896px) of large cards inside a 1320px shell, visibly narrower than its
+  Analyze peers. It now uses the full content width with the shared header pattern: title and mono
+  subtitle on the left, the For You / Learn tabs and "Review highlights" on the right.
+  - **Panels:** content sits in Panels. "Your next steps" spans the page with its items two-up.
+    "What changed" and "Keep an eye on" sit side by side when both have items, and a lone one takes
+    the full width.
+  - **Compact rows:** each insight is a row (emoji, title, period and severity on one line, body,
+    evidence as a short list). The action, the related lesson and "Calculation basis" share one line,
+    and the basis only takes a full line when opened.
+  - **Measured on the demo household at 1366px:** 896 → 1264px wide, 1,775 → 763px tall, rows ~230
+    → 149px. Phone width has no sideways scroll; the tabs span the width.
+- **Fix: on mobile, Analyze opened Reports; desktop opened Net Worth.** `MobileTabBar` hard-coded
+  each section's target, Analyze to `/reports`, while the desktop `TopBar` opens each section's
+  first route from `navModel`. The bottom bar now reads the same first route (`landingFor()`), so
+  Track → Dashboard, Plan → Budgets and Analyze → Net Worth on both, and the two can't drift. New
+  e2e **RESP-FC-006**; RESP-FC-001 now asserts the desktop landing too.
+- **Ask Vyact panel: compact, and every button does something.**
+  - **Examples:** each example is now one chip: the label is visible, the full sentence is its
+    tooltip, and tapping it puts the sentence in the box to edit and Send. The old layout printed a
+    label, a 44px pencil button, the sentence and a hint for each of 17 intents.
+  - **Fix: Add a budget / Add a debt / Add an asset did nothing.** They had no example and their
+    `open-modal` action was never wired, so they rendered as inert rows that said "…is not a chat
+    command". They're now a **"Set up with a form"** row of real buttons. Each closes the Ask
+    drawer and opens its form (`/budgets/new`, `/debts/new`, `/networth/assets/new`). Each is
+    shown only to members allowed to use it: `manage_budgets` / `manage_debts` / `manage_assets`,
+    the same rule as the pages' own Add buttons. New `Bucket` value `'setup'` and `Intent.requires`
+    in `lib/askVyactIntents.ts`.
+  - **Tests:** FIN-FC-002 is rewritten for the chip design (still: examples fill the composer, no
+    model call, no sideways scroll). New **FIN-FC-005** covers the three form buttons;
+    `askVyactExamples.test.ts` pins the `setup` contract.
+- **Test fix: CON-UNIT-FACT-014 failed on the 1st–9th of every month.** It stated "the 10th of
+  this month" as a capture date, which is a future date early in the month. `resolve()` correctly
+  refuses future dates. It now uses the 10th of last month. First seen 1 Oct 2026; CI would have
+  gone red on main until the 10th.
+- No money, data or permission-model change.
 
 ## v10.51.0 — Pages that match what people search for, and a site AI assistants can read *(2026-09-30)*
 

@@ -18,6 +18,7 @@ test.describe('§25 RESP-FC · responsive layout', () => {
     await expect(page.getByRole('link', { name: 'Transactions', exact: true })).toBeVisible();
 
     await banner.getByRole('tab', { name: 'Analyze' }).click();
+    await page.waitForURL('**/networth');
     await expect(page.getByRole('link', { name: 'Reports', exact: true })).toBeVisible();
     // The mobile bottom bar is not shown on desktop.
     await expect(page.getByRole('navigation', { name: 'Primary' })).toBeHidden();
@@ -68,6 +69,23 @@ test.describe('§25 RESP-FC · responsive layout', () => {
       const insightsLink = page.getByRole('link', { name: 'Insights', exact: true });
       await expect(insightsLink).toBeVisible();
       await expect(insightsLink).toHaveText('Insights');
+    });
+
+    test('RESP-FC-006 · mobile Analyze opens Net Worth, the same landing page as desktop', async ({ page }) => {
+      // v10.52.0: the bottom bar hard-coded Analyze → /reports while the desktop
+      // tab opened /networth. Both now read the section's first route from navModel.
+      await page.goto('/dashboard');
+      await page.waitForURL('**/dashboard');
+      const primary = page.getByRole('navigation', { name: 'Primary' });
+
+      await primary.getByRole('button', { name: 'Analyze' }).click();
+      await page.waitForURL('**/networth');
+      await expect(primary.getByRole('button', { name: 'Analyze' })).toHaveAttribute('aria-current', 'page');
+
+      await primary.getByRole('button', { name: 'Track' }).click();
+      await page.waitForURL('**/dashboard');
+      await primary.getByRole('button', { name: 'Plan' }).click();
+      await page.waitForURL('**/budgets');
     });
   });
 });
