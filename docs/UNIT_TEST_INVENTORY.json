@@ -1083,7 +1083,7 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 39,
+      "count": 40,
       "tests": [
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be archived either — it would vanish from every picker",
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be deleted, and the refusal changes nothing",
@@ -1111,6 +1111,7 @@
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account does not use is dropped, and the money still posts",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account uses is kept, and the balance moves exactly as without one",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number an investment never carries a mode",
+        "base currency change (v10.54.0) relabels the open session's accounts, as the DB trigger does, so a balance is never converted twice",
         "ledger persisted happy paths 'expense' create, edit and delete persist correct account effects and reporting",
         "ledger persisted happy paths 'income' create, edit and delete persist correct account effects and reporting",
         "ledger persisted happy paths 'investment' create, edit and delete persist correct account effects and reporting",

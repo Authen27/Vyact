@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1364 passing deterministic cases in 93 files. Zero failed, skipped or TODO cases at generation.**
+**1365 passing deterministic cases in 93 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -36,7 +36,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | handler-integration | conditional | 58 |
 | react | sql-integration | conditional | 5 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 48 |
+| react | store-integration | available | 49 |
 | react | store-integration | conditional | 2 |
 | react | unit | available | 308 |
 | react | unit | conditional | 172 |
@@ -93,7 +93,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 9 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
 | [react/src/lib/__tests__/learnJsonLd.test.ts](../react/src/lib/__tests__/learnJsonLd.test.ts) | Formatting and structured content | unit | available | 2 |
-| [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 39 |
+| [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 40 |
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/loanPaymentSql.test.ts](../react/src/lib/__tests__/loanPaymentSql.test.ts) | Loan SQL command | sql-integration | conditional | 5 |
 | [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 8 |

@@ -52,6 +52,16 @@ Owner redesign of Pip (Ask Vyact), 2 Oct 2026.
   public site mentions WhatsApp. Events: `whatsapp_connect_opened`, `whatsapp_chat_opened`.
 - **The Ask drawer header loses its "Vyact does the maths, not guesswork" subtitle** (owner): the
   AI disclaimer under the composer is the one caveat.
+- **Fix: a new household could show a wildly wrong net worth right after onboarding** (owner,
+  2 Oct 2026: ₹16.6 lakh for ₹20,000 of cash). Onboarding wrote the cash balance while the
+  household was still in its old currency (USD) and switched to the chosen one (INR) afterwards;
+  the database relabelled the account, but the open session kept "20,000 USD" and converted it at
+  83.2. Onboarding now sets the currency first, and any base-currency change relabels the
+  session's accounts the way the database does. Stored data was never wrong.
+- **Fix: no net-worth snapshot before onboarding is finished.** Snapshots are permanent (first
+  write wins), and one was recorded as "0 USD" a minute before that household became INR.
+- **Onboarding no longer shows a "First Pulse" score** (owner): Pulse is hidden in the app, so the
+  number had no meaning for a new user. The reveal shows the month's fixed bills instead.
 - Schema: migration `20261005120000_ai_feedback` (table + RLS + `admin_ai_feedback_summary()`)
   ships first, in its own PR.
 

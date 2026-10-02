@@ -112,9 +112,6 @@ export default function Onboarding() {
   const fixedTotal = bills.reduce((s, b) => s + b.amount, 0);
   const roomLeft = incomeAmt - fixedTotal;
   const biggestBill = bills.filter(b => b.amount > 0).sort((a, b) => b.amount - a.amount)[0] ?? null;
-  const pulseEstimate = incomeAmt > 0
-    ? Math.max(30, Math.min(85, Math.round(52 + (roomLeft / incomeAmt) * 40)))
-    : null;
 
   function advance(next: Step) {
     track('onboarding_step_completed', { segment: segment ?? 'none', step_index: step, duration_ms: Date.now() - startedAt });
@@ -146,6 +143,12 @@ export default function Onboarding() {
         currency, segment, primaryConcern, capturedAt: new Date().toISOString(),
       };
       setBaseline(householdId, baseline);
+
+      // v10.54.0 — the currency goes FIRST. Writing the cash balance while the
+      // household was still in its old currency stored "20,000 USD" for a ₹20,000
+      // answer until the currency switch relabelled it, and the open session
+      // showed ₹16.6 lakh of net worth in between.
+      await updateProfile({ baseCurrency: currency });
 
       // The real money wiring (cash balance + paycheck + bill schedules + budget).
       const st = useStore.getState();
@@ -364,7 +367,9 @@ export default function Onboarding() {
             <h1 className="display-italic text-[1.7rem] text-ink mb-6">Here's your month{name.trim() ? `, ${name.trim()}` : ''}.</h1>
             <div className="grid grid-cols-2 gap-3 mb-4">
               <RevealStat label="Room left this month" value={fmt(roomLeft, currency)} hint="after fixed bills, before daily spend" tone="hsl(var(--sage))" />
-              <RevealStat label="First Pulse" value={pulseEstimate != null ? String(pulseEstimate) : '—'} hint="builds as you log" tone="hsl(var(--honey))" />
+              {/* v10.54.0 (owner) — was "First Pulse": Pulse is hidden in the app
+                  (FEATURES.dashboard), so a score here meant nothing to a new user. */}
+              <RevealStat label="Fixed bills" value={fmt(fixedTotal, currency)} hint="a month, ready to review in Recurring" tone="hsl(var(--honey))" />
             </div>
             {biggestBill && (
               <div className="flex items-center gap-3 rounded-r3 p-4 mb-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
