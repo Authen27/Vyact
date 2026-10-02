@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.56.1`** (consumer)
+> **Current production version: `v10.57.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.57.0 — From a one-minute video to the app *(2026-10-02)*
+
+Master to-do B17–B20: four steps between a YouTube Short and a sign-up.
+
+- **Short links for videos (B17).** `vyact.app/v/<n>` opens lesson `ev-<n>` (`/v/3` is ev-003)
+  with `utm_source=youtube&utm_medium=video&utm_campaign=ev-NNN`, so GA counts the visit as YouTube
+  traffic and names the lesson. Links in Shorts descriptions aren't clickable, so a video needs a URL
+  people can read off the screen and type. An unknown or unpublished number goes to the library
+  (`api/v.js`; vercel.json rewrite; the middleware lets `/v/*` through).
+- **"Learn money in 60 seconds" on the landing page (B18).** Three Shorts (50/30/20, emergency fund,
+  avalanche vs snowball), each with a link to its lesson and to @askvyact. These are lazy thumbnails
+  only, with no YouTube player, so the landing stays fast. Each Short is tracked as a CTA
+  (`short_003` …).
+- **Start here on Learn (B19).** Three 5-lesson paths: *Money as a couple*, *New to budgeting*,
+  *Get out of debt*.
+  - On `/learn` they sit at the top, with "n of 5 read" ticks.
+  - A lesson in a path says where it sits ("lesson 2 of 5") and links the next one.
+  - Read lessons are remembered in this browser only (localStorage), with no account and nothing
+    sent anywhere.
+  - Learn links to the YouTube channel.
+- **Try before signing up (B20).** A guest demo at `demo.vyact.app`.
+  - It is the app built local-only (`VYACT_DEMO=1`) on the first-run demo household: no account,
+    no database, its own origin.
+  - A banner says it's a demo and links to sign-up (`ref=demo`).
+  - Its "/" opens the dashboard. Every response is `noindex`, and its public pages redirect to
+    vyact.app.
+  - Linked from the landing hero ("Try the demo, no sign-up", signed-out production only) and from
+    every lesson, which opens the demo on the screen the lesson is about.
+- **Fix: Vercel previews ran against PRODUCTION.** The preview guard in `vite.config.ts` emptied
+  `VITE_SUPABASE_URL`, but the production fallback in `lib/supabase.ts` filled it straight back in.
+  The guard has done nothing since v10.49.0. Preview and demo builds now set `VITE_LOCAL_ONLY=1`,
+  which turns the fallback off. Checked: a `VERCEL_ENV=preview` build contains no production project
+  reference, and a production build still does.
+- Tests: PUB-023 (short links), PUB-024 (Start here), PUB-025 (Shorts strip), PUB-026 (guest demo);
+  PUB-011 and PUB-019 updated for the new heading and CTAs.
 
 ## v10.56.1 — Learn and the use-case pages fit the phone again *(2026-10-02)*
 

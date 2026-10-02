@@ -95,6 +95,18 @@ export const FEATURES: [string, string][] = [
   ['Everyone on the same page', 'Invite your partner and family, choose who can edit or just view, and keep personal spending out of the shared totals.'],
 ];
 
+/** v10.57.0 (B18) — "Learn money in 60 seconds": three Shorts from youtube.com/@askvyact, each
+ *  with its lesson. Thumbnails only (lazy, no YouTube player on the page), so the landing stays fast. */
+export const SHORTS: { id: string; slug: string; title: string }[] = [
+  { id: 'DzgUnupPTf8', slug: 'ev-003-the-50-30-20-starting-point', title: 'What is the 50/30/20 rule?' },
+  { id: 'DMv1S-9y8Fs', slug: 'ev-021-how-big-is-enough', title: 'How big should your emergency fund be?' },
+  { id: '0_b0iSIgZEM', slug: 'ev-027-avalanche-vs-snowball', title: 'Debt avalanche or snowball?' },
+];
+export const YOUTUBE_CHANNEL = 'https://www.youtube.com/@askvyact';
+
+/** v10.57.0 (B20) — the guest demo: the app on a demo household, no account, nothing saved to one. */
+export const DEMO_URL = 'https://demo.vyact.app/dashboard';
+
 /** Featured lessons (bottom of the page) — globally relevant picks from the live library. */
 export const LESSONS: { slug: string; title: string; topic: string }[] = [
   { slug: 'ev-002-pay-yourself-first', title: 'Pay yourself first', topic: 'Saving' },

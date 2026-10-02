@@ -46,6 +46,10 @@ export const featureFor = cat => FEATURE_BY_CATEGORY[cat] || { next: '/dashboard
 export const signUpUrl = (ref, next) =>
   `/auth/sign-up?ref=${encodeURIComponent(ref)}${next ? `&next=${encodeURIComponent(next)}` : ''}`;
 
+/** v10.57.0 (B20) — the guest demo (no account), opened on the screen a lesson is about. */
+export const DEMO_ORIGIN = 'https://demo.vyact.app';
+export const demoUrl = next => `${DEMO_ORIGIN}${next || '/dashboard'}`;
+
 /** YouTube id from a watch / shorts / youtu.be URL, or null. */
 export function youtubeId(url) {
   const m = /(?:youtube\.com\/(?:shorts\/|watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,20})/.exec(String(url || ''));
@@ -108,6 +112,7 @@ body{margin:0;background:var(--canvas);color:hsl(var(--ink));font-family:Inter,s
 .answer p{margin:.4rem 0 0;font-size:1.08rem;line-height:1.7;color:hsl(var(--ink))}
 .try{margin:28px 0;padding:22px 24px;border-radius:18px;background:color-mix(in srgb,hsl(var(--coral)) 12%,transparent);border:1px solid color-mix(in srgb,hsl(var(--coral)) 35%,transparent);max-width:46rem}
 .try p{margin:0 0 12px;color:hsl(var(--ink))}
+.try p.demo{margin:14px 0 0;font-size:.9rem;color:hsl(var(--ink-mid))}.try p.demo a{color:hsl(var(--coral));font-weight:600}
 .cta{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px;box-shadow:var(--neu-sm)}
 .lx-body .cta{color:var(--accent-ink)}.cta:hover{filter:brightness(1.05)}
 .source{font-size:.85rem;color:hsl(var(--ink-dim));margin-top:14px}

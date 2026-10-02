@@ -12,6 +12,7 @@ import FaultsPanel from './components/dev/FaultsPanel';
 import AuthGate from './components/auth/AuthGate';
 import UpdateBanner from './components/layout/UpdateBanner';
 import InstallBanner from './components/layout/InstallBanner';
+import DemoBanner, { IS_DEMO } from './components/layout/DemoBanner';
 import HistoryRestoration from './components/layout/HistoryRestoration';
 import { bindAppNavigate } from './lib/appNavigation';
 import { isFormRoute } from './lib/formRoutes';
@@ -58,6 +59,7 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <AuthGate>
+        <DemoBanner />
         <HistoryRestoration />
         <NavigationBridge />
         <AppShell />
@@ -75,10 +77,13 @@ export default function App() {
             them. What is gone is the interruption. */}
         {import.meta.env.DEV && <FaultsPanel />}
         <UpdateBanner />
-        <InstallBanner />
-        <Suspense fallback={null}>
-          <NudgeBanner />
-        </Suspense>
+        {/* v10.57.0 — the guest demo is not something to install or be nudged about. */}
+        {!IS_DEMO && <InstallBanner />}
+        {!IS_DEMO && (
+          <Suspense fallback={null}>
+            <NudgeBanner />
+          </Suspense>
+        )}
       </AuthGate>
     </MotionConfig>
   );
@@ -214,6 +219,8 @@ function AppShell() {
   // hitting "/" must see content immediately, not an indefinite "Loading…"
   // spinner (cloud-mode `loading` only resolves once init() runs, which never
   // happens for a signed-out session).
+  // v10.57.0 (B20) — on the guest demo, "/" (the logo, a client-side link) opens the demo household.
+  if (IS_DEMO && location.pathname === '/') return <Navigate to="/dashboard" replace />;
   if (location.pathname === '/') {
     return (
       <Suspense fallback={<LoadingFallback />}>
