@@ -50,6 +50,8 @@ Owner redesign of Pip (Ask Vyact), 2 Oct 2026.
   questions on WhatsApp" switch. The link flow is shared with Settings (`useWhatsAppLink`). Until
   Meta verifies the business, sending the code says linking isn't available yet. Nothing on the
   public site mentions WhatsApp. Events: `whatsapp_connect_opened`, `whatsapp_chat_opened`.
+- **The Ask drawer header loses its "Vyact does the maths, not guesswork" subtitle** (owner): the
+  AI disclaimer under the composer is the one caveat.
 - Schema: migration `20261005120000_ai_feedback` (table + RLS + `admin_ai_feedback_summary()`)
   ships first, in its own PR.
 

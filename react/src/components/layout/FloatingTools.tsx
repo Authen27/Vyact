@@ -87,11 +87,10 @@ function Drawer({ title, onClose, children }: DrawerProps) {
             style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 16%, transparent)', color: 'hsl(var(--denim))' }}
             aria-hidden
           >✦</span>
+          {/* v10.54.0 (owner) — the "Vyact does the maths, not guesswork" subtitle is
+              gone; the honest caveat is the AI disclaimer under the composer. */}
           <div className="flex-1 min-w-0">
             <div className="font-display font-normal text-[16px] leading-tight text-ink truncate">{title}</div>
-            {/* v10.20.1 — was "Your numbers, computed — never guessed", which
-                overstated the invented-figure guard. See Chat.tsx. */}
-            <div className="mono-label text-ink-dim">Vyact does the maths, not guesswork</div>
           </div>
           <button onClick={onClose} className="text-ink-dim hover:text-ink transition-colors p-1 flex-shrink-0" aria-label="Close">
             <X size={18} />
