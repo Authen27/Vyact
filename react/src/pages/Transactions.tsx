@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  CalendarDays, X, Search, SlidersHorizontal, RotateCcw, ChevronDown,
+  CalendarDays, X, Search, SlidersHorizontal, RotateCcw, ChevronDown, Download,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation, useShortcuts } from '../hooks';
@@ -18,6 +18,7 @@ import { ALL_CATEGORIES, getCat } from '../constants';
 import { getMonthKey, monthName, formatDate, nowMonthKey, today, compareTxnRecency, fmt } from '../lib/format';
 import { monthlyData, effectiveAmount } from '../lib/calculations';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
+import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
 import type { Transaction, TxnType } from '../types';
 
 type TransactionListItem = {
@@ -43,6 +44,7 @@ export default function Transactions() {
   const txns    = useStore(s => s.transactions);
   const rates   = useStore(s => s.rates);
   const members = useStore(s => s.members);
+  const toast   = useStore(s => s.toast);
   const schedules = useStore(s => s.recurringSchedules);
   const profile = useStore(s => s.profile);
   // Board B D1 — right-rail month summary: the CURRENT month's true (unfiltered)
@@ -283,6 +285,12 @@ export default function Transactions() {
     return list;
   }, [type, cat, month, memberId, members, ctx, setSearchParams]);
   const hasFilters = activeFilters.length > 0 || search.length > 0 || selectedDate !== null;
+  function exportShown() {
+    const shown = filtered.filter(i => !i.projected).map(i => i.txn);
+    if (!shown.length) return;
+    downloadCsv(transactionsCsv(shown, { members, accounts: accountsList }), `vyact-transactions-${today()}.csv`);
+    toast(`${shown.length} transaction${shown.length === 1 ? '' : 's'} exported`, 'success');
+  }
   function resetAllFilters() {
     setSearch(''); setType('all'); setCat('all'); setMonth('all'); setMemberId('all'); setSelectedDate(null);
     setSearchParams({}, { replace: true });
@@ -399,6 +407,19 @@ export default function Transactions() {
             : { color: 'var(--ff-ink-3)', background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
         >
           <SlidersHorizontal size={13} /> Filters{activeFilters.length > 0 ? ` · ${activeFilters.length}` : ''}
+        </button>
+        {/* v10.55.0 (#69) — export exactly what the list shows (filters applied), never the
+            projected future bills; Settings › Export CSV still exports everything. */}
+        <button
+          type="button"
+          onClick={exportShown}
+          disabled={!filtered.some(i => !i.projected)}
+          aria-label="Export these transactions as CSV"
+          title="Export these transactions as CSV"
+          className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] flex items-center gap-1.5 flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ color: 'var(--ff-ink-3)', background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
+        >
+          <Download size={13} /> CSV
         </button>
         <SavedViewsBar
           page="transactions"

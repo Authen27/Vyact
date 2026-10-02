@@ -85,6 +85,8 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
         </div>
         <div className="font-mono text-[0.59rem] text-ink-dim mt-px truncate">
           {(isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{acct ? ` · ${acct.label}` : ''}{t.paymentMode ? ` · ${PAYMENT_MODE_LABEL[t.paymentMode]}` : ''}{t.note ? ' · ' + t.note : ''}
+          {/* v10.55.0 (#69) — who added it, on phones too (the badge column is sm+ only). */}
+          {member && members.length > 1 && <span className="sm:hidden" data-testid="txn-added-by"> · {member.name}</span>}
         </div>
       </div>
       {unconfirmed && (

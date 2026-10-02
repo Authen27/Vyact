@@ -18,7 +18,7 @@ export function landingJsonLd(copy) {
     {
       '@context': 'https://schema.org', '@type': 'SoftwareApplication',
       name: 'Vyact', url: `${BASE}/`, image: `${BASE}/og-vyact.png`, description: copy.STANDARD_DESCRIPTION,
-      applicationCategory: 'FinanceApplication', operatingSystem: 'Web, Android, iOS',
+      applicationCategory: 'FinanceApplication', operatingSystem: 'Web',   // v10.55.0 (#62): only what ships today; add Android when it does
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
       publisher: { '@type': 'Organization', name: 'Vyact', url: BASE },
     },

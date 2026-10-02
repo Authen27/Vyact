@@ -63,9 +63,9 @@ describe('lesson pages (#11, #12, #20)', () => {
     const html = lessonPage(ALL[0], ALL);
     const ld = jsonLdOf(html);
     expect(ld[0]['@type']).toEqual(['Article', 'LearningResource']);
-    expect(ld[0].headline).toBe('The ₹500-a-day idea');
+    expect(ld[0].headline).toBe('How much should you save a day? Think small and daily');   // v10.55.0: every lesson has a search title
     expect(ld[1].itemListElement[1].item).toBe('https://vyact.app/learn/topic/saving');
-    expect(ld).toHaveLength(2);                                // no video → no VideoObject
+    expect(ld.map(o => o['@type'])).toEqual([['Article', 'LearningResource'], 'BreadcrumbList', 'FAQPage']);   // quick answer → FAQPage; no video → no VideoObject
     const related = relatedLessons(ALL[0], ALL);
     expect(related.map(c => c.slug)).toEqual(['ev-002-pay-yourself-first', 'ev-010-emergency-fund', 'ev-030-net-worth']);
     for (const r of related) expect(html).toContain(`/learn/${r.slug}`);
@@ -113,12 +113,12 @@ describe('library, hubs, sitemap, llms.txt (#10, #25)', () => {
 
   it('CON-UNIT-PUB-007 · the sitemap lists home, the use-case pages, library, one hub per topic and every lesson', () => {
     const xml = sitemapXml(ALL, '2026-09-29');
-    for (const loc of ['https://vyact.app/', 'https://vyact.app/for/couples', 'https://vyact.app/for/families', 'https://vyact.app/learn', 'https://vyact.app/learn/topic/saving', 'https://vyact.app/learn/topic/net-worth', 'https://vyact.app/learn/ev-020-emi-basics']) {
+    for (const loc of ['https://vyact.app/', 'https://vyact.app/for/couples', 'https://vyact.app/for/families', 'https://vyact.app/for/splitwise-users', 'https://vyact.app/for/money-owed', 'https://vyact.app/private', 'https://vyact.app/learn', 'https://vyact.app/learn/topic/saving', 'https://vyact.app/learn/topic/net-worth', 'https://vyact.app/learn/ev-020-emi-basics']) {
       expect(xml).toContain(`<loc>${loc}</loc>`);
     }
-    expect(xml.match(/<url>/g)).toHaveLength(4 + 3 + ALL.length);
-    // With no lessons readable, the static pages are still listed.
-    expect(sitemapXml([], '2026-09-29').match(/<url>/g)).toHaveLength(4);
+    expect(xml.match(/<url>/g)).toHaveLength(7 + 3 + ALL.length);
+    // With no lessons readable, the static pages are still listed (v10.55.0: + 3 use-case pages).
+    expect(sitemapXml([], '2026-09-29').match(/<url>/g)).toHaveLength(7);
   });
 
   it('CON-UNIT-PUB-008 · llms.txt: the one standard description and the live hubs', () => {
@@ -239,13 +239,18 @@ describe('the landing page (#9, #12, #19)', () => {
 describe('keywords, answers and AI crawlers (#7, #21, #25)', () => {
   it('CON-UNIT-PUB-014 · a mapped lesson leads with its search-shaped question and a 40–60-word quick answer, also as FAQPage', async () => {
     const { LESSON_SEO, seoFor } = await import('../../../api/_seo.js');
-    expect(Object.keys(LESSON_SEO)).toHaveLength(30);
+    // v10.55.0 (#58) — every one of the 116 lessons has a search-shaped title and quick answer,
+    // currency-neutral under the global stance (no ₹ on a public title or answer).
+    expect(Object.keys(LESSON_SEO)).toHaveLength(116);
     for (const [k, v] of Object.entries(LESSON_SEO) as [string, { title: string; answer: string }][]) {
       const words = v.answer.split(/\s+/).length;
       expect(words, k).toBeGreaterThanOrEqual(40);
       expect(words, k).toBeLessThanOrEqual(62);
       expect(v.title.length, k).toBeLessThanOrEqual(70);
+      expect(v.title + v.answer, k).not.toMatch(/₹/);
     }
+    const titles = Object.values(LESSON_SEO).map(v => (v as { title: string }).title.toLowerCase());
+    expect(new Set(titles).size).toBe(titles.length);
     const slug = 'ev-003-the-50-30-20-starting-point';
     const seo = seoFor(slug)!;
     const html = lessonPage(card({ slug, title: 'The 50-30-20 starting point' }), ALL);
@@ -254,25 +259,31 @@ describe('keywords, answers and AI crawlers (#7, #21, #25)', () => {
     expect(html).toContain('The 50-30-20 starting point · ');           // the editorial title stays visible
     const faq = jsonLdOf(html).find(o => o['@type'] === 'FAQPage');
     expect(faq.mainEntity[0].acceptedAnswer.text).toBe(seo.answer);
-    // An unmapped lesson is unchanged.
-    expect(lessonPage(ALL[0], ALL)).not.toContain('Quick answer');     // ev-001 has no entry
+    // A lesson with no entry (not ev-NNN) is unchanged.
+    expect(lessonPage(card({ slug: 'guest-post-on-saving', title: 'Guest post' }), ALL)).not.toContain('Quick answer');
   });
 
-  it('CON-UNIT-PUB-015 · /for/couples and /for/families: one H1, a quick answer, a FAQPage that matches the visible FAQ; unknown → 404', async () => {
-    const { audiencePage, AUDIENCES, default: forHandler } = await import('../../../api/for.js');
-    for (const key of ['couples', 'families']) {
+  it('CON-UNIT-PUB-015 · the use-case pages (couples, families, splitwise-users, money-owed, /private): one H1, a quick answer, a FAQPage that matches the visible FAQ, links to each other; unknown → 404', async () => {
+    const { audiencePage, audiencePath, AUDIENCES, default: forHandler } = await import('../../../api/for.js');
+    const keys = ['couples', 'families', 'splitwise-users', 'money-owed', 'private'];
+    expect(Object.keys(AUDIENCES)).toEqual(keys);
+    expect(audiencePath('private')).toBe('/private');
+    for (const key of keys) {
       const html = audiencePage(key);
       expect(html.match(/<h1>/g), key).toHaveLength(1);
-      expect(html).toContain(`<link rel="canonical" href="https://vyact.app/for/${key}">`);
+      expect(html).toContain(`<link rel="canonical" href="https://vyact.app${audiencePath(key)}">`);
+      for (const other of keys.filter(k => k !== key)) expect(html, `${key} → ${other}`).toContain(`href="https://vyact.app${audiencePath(other)}"`);
+      expect(AUDIENCES[key].title.length, key).toBeLessThanOrEqual(60);
       expect(html).toContain('aria-label="Quick answer"');
       const faq = jsonLdOf(html).find(o => o['@type'] === 'FAQPage');
       expect(faq.mainEntity.map((q: { name: string }) => q.name)).toEqual(AUDIENCES[key].faq.map(([q]: string[]) => q));
-      expect(html).toContain(`ref=for_${key}`);
+      expect(html).toContain(`ref=${AUDIENCES[key].ref}`);
       const words = html.toLowerCase();
       for (const banned of ['sms', 'no bank', 'indian household', 'whatsapp']) expect(words, banned).not.toContain(banned);
     }
     expect(AUDIENCES.couples.title).toMatch(/budget app for couples/i);
-    expect(AUDIENCES.families.title).toMatch(/family budget app/i);
+    expect(AUDIENCES.families.title).toMatch(/family expense tracker/i);   // v10.55.0 #59 keyword map
+    expect(AUDIENCES['splitwise-users'].title).toMatch(/splitwise alternative/i);
     const res = { status: vi.fn().mockReturnThis(), send: vi.fn(), setHeader: vi.fn() };
     forHandler({ query: { audience: 'pets' } }, res);
     expect(res.status).toHaveBeenCalledWith(404);
@@ -295,7 +306,8 @@ describe('keywords, answers and AI crawlers (#7, #21, #25)', () => {
 
   it('CON-UNIT-PUB-017 · llms.txt carries key facts, the use-case pages and the answered lessons; llms-full.txt lists every lesson with an answer', async () => {
     const { llmsFullTxt } = await import('../../../api/llms.js');
-    const cards = [...ALL, card({ slug: 'ev-003-the-50-30-20-starting-point', title: 'The 50-30-20 starting point' })];
+    const cards = [...ALL, card({ slug: 'ev-003-the-50-30-20-starting-point', title: 'The 50-30-20 starting point' }),
+      card({ slug: 'guest-post-on-saving', title: 'Guest post' })];
     const txt = llmsTxt(cards);
     expect(txt).toContain('## Key facts');
     expect(txt).toContain('(https://vyact.app/for/couples)');
@@ -304,7 +316,7 @@ describe('keywords, answers and AI crawlers (#7, #21, #25)', () => {
     expect(txt).toContain('(https://vyact.app/llms-full.txt)');
     const full = llmsFullTxt(cards);
     for (const c of cards) expect(full).toContain(`(https://vyact.app/learn/${c.slug}): `);
-    expect(full).toContain('Small daily amounts add up.');            // unmapped → first sentence
+    expect(full).toContain('(https://vyact.app/learn/guest-post-on-saving): Small daily amounts add up.');   // unmapped → first sentence
     expect(full.toLowerCase()).not.toContain('whatsapp');
   });
 });

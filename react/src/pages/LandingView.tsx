@@ -184,6 +184,10 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             <a href="/for/couples" className="font-semibold text-coral hover:underline">Budgeting as a couple →</a>
             <span className="mx-3 text-ink-dim">·</span>
             <a href="/for/families" className="font-semibold text-coral hover:underline">Budgeting as a family →</a>
+            <span className="mx-3 text-ink-dim">·</span>
+            <a href="/for/splitwise-users" className="font-semibold text-coral hover:underline">Coming from Splitwise →</a>
+            <span className="mx-3 text-ink-dim">·</span>
+            <a href="/for/money-owed" className="font-semibold text-coral hover:underline">Tracking money owed →</a>
           </p>
         </section>
 
@@ -257,6 +261,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             <p className="text-[0.8rem] text-ink-dim mt-1">Budgets, bills, splits and net worth — shared with the people you share money with.</p>
             <div className="flex gap-4 justify-end mt-3 text-[0.75rem] text-ink-dim">
               <a href="/learn" className="hover:text-ink">Learn</a>
+              <a href="/private" className="hover:text-ink">Private by design</a>
               <Link to="/privacy" className="hover:text-ink">Privacy</Link>
               <Link to="/terms" className="hover:text-ink">Terms</Link>
               <Link to="/cookies" className="hover:text-ink">Cookies</Link>

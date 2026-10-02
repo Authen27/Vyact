@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.54.1`** (consumer)
+> **Current production version: `v10.55.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,32 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.55.0 — Pages that rank: every lesson answers a search, three new use-case pages *(2026-10-02)*
+
+Release B of the CMO's v2 plan (master to-do #57–#69), under the owner's "global, no India tilt"
+stance.
+
+- **Every lesson has a search-shaped title and quick answer (#58).** The other 86 lessons join the
+  30 from v10.51.0 in `api/_seo.js`, on the public page only (the in-app card keeps its editorial
+  title). Titles are question-shaped and ≤ 60 characters, answers are 40–62 words and true to the
+  lesson, and none uses ₹; India-specific lessons say "India" plainly. PUB-014 enforces it for all 116.
+- **Keyword map (#59).** Title tags: `/` "Vyact – Family Budget App & Shared Expense Tracker";
+  `/for/couples` "Budget App for Couples – Track Expenses Together"; `/for/families` "Family Expense
+  Tracker – See Who Spent What". The landing H1 stays the brand line. The India cluster is dropped.
+- **New pages (#60, #61):**
+  - `/for/splitwise-users` (from the approved switching guide).
+  - `/for/money-owed` (Splits: who owes you, settle up; plain cash loans aren't claimed).
+  - `/private`, which leads with what the household controls; "nothing has to be connected to your bank" is one supporting line.
+  - All five use-case pages now link each other (it was couples ↔ families only).
+  - They're added to the sitemap, `llms.txt`, the Learn footer and the landing page.
+  - An installed app no longer answers `/for/*`, `/private` or `/llms-full.txt` with its own shell.
+- **Schema (#62):** SoftwareApplication `operatingSystem` is "Web" (it claimed Android and iOS).
+- **IndexNow (#57):** public key file plus `scripts/indexnow-ping.mjs`, to tell Bing, Copilot and DuckDuckGo which URLs changed after a release.
+- **Parity (#69):**
+  - Who added each entry now shows on phones too, in households with more than one member.
+  - **Transactions › CSV** exports exactly what the list shows.
+  - Both that export and Settings › Export CSV gain "Added by", "Account", "To account" and "Payment mode" columns. The first seven columns are unchanged.
 
 ## v10.54.1 — The WhatsApp drawer's icon is no longer cropped on phones *(2026-10-02)*
 

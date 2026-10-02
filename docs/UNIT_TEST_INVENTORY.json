@@ -1873,7 +1873,7 @@
         "first paint is not blocked by third parties CON-UNIT-PUB-019 · landing.html does not fetch the app bundle during load: it boots on interaction (or a saved session) and tracks CTA clicks until then",
         "first paint is not blocked by third parties PUB-018 · index.html and Learn pages keep analytics and fonts off the critical path",
         "keywords, answers and AI crawlers (#7, #21, #25) CON-UNIT-PUB-014 · a mapped lesson leads with its search-shaped question and a 40–60-word quick answer, also as FAQPage",
-        "keywords, answers and AI crawlers (#7, #21, #25) CON-UNIT-PUB-015 · /for/couples and /for/families: one H1, a quick answer, a FAQPage that matches the visible FAQ; unknown → 404",
+        "keywords, answers and AI crawlers (#7, #21, #25) CON-UNIT-PUB-015 · the use-case pages (couples, families, splitwise-users, money-owed, /private): one H1, a quick answer, a FAQPage that matches the visible FAQ, links to each other; unknown → 404",
         "keywords, answers and AI crawlers (#7, #21, #25) CON-UNIT-PUB-016 · robots.txt welcomes the AI crawlers by name, repeats the same fences in every group, keeps the public site open",
         "keywords, answers and AI crawlers (#7, #21, #25) CON-UNIT-PUB-017 · llms.txt carries key facts, the use-case pages and the answered lessons; llms-full.txt lists every lesson with an answer",
         "lesson pages (#11, #12, #20) CON-UNIT-PUB-003 · Article + Breadcrumb through the topic hub; related lessons by shared tags and topic; try-it link to the feature with ref + next",
@@ -2105,6 +2105,19 @@
         "sync/deadLetter — TD-26 CON-UNIT-077 · record → count → clear on both buckets; retry drains into the outbox owner-stamped",
         "sync/syncQueue — TD-26 CON-UNIT-075 · isQueueOpIdValid: upsert/remove require a UUID; id-less ops are always valid",
         "sync/syncQueue — TD-26 CON-UNIT-076 · enqueue/readQueue/writeQueue round-trip; the poisoned-op replay partitions cleanly"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/transactionsCsv.test.ts",
+      "feature": "Transactions CSV export",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "transactionsCsv (columns, escaping; Settings + Transactions page)",
+      "count": 2,
+      "tests": [
+        "transactions CSV CON-UNIT-CSV-001 · the first seven columns are unchanged; added-by, accounts and mode follow",
+        "transactions CSV CON-UNIT-CSV-002 · quotes and commas in text are escaped; unknown member or account is blank"
       ]
     },
     {
