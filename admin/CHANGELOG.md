@@ -4,10 +4,17 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.4.0`**
+> **Current production version: `v1.4.1`**
 > **Live URL:** https://admin.vyact.app
 
 ---
+
+## v1.4.1 — The sign-in screen shows the real version *(2026-10-01)*
+
+- The sign-in screen read "Vyact Admin Console · v1.0.4", hard-coded since v1.0.4 (master to-do
+  #67). It now shows the version from `package.json`, inlined at build time (`__APP_VERSION__`
+  via `vite.config.ts` `define`, the same pattern the consumer app uses).
+- No data or permission change.
 
 ## v1.4.0 — Google sign-in, and no analytics *(2026-09-29)*
 

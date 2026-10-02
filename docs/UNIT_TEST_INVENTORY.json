@@ -892,6 +892,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/demoSeed.test.ts",
+      "feature": "First-run demo household",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "seed (local-only demo: current model, no future dates, valid due dates)",
+      "count": 2,
+      "tests": [
+        "first-run demo household CON-UNIT-DEMO-001 · nothing is dated after today, and every due date is a real future date (1st of the month, December)",
+        "first-run demo household CON-UNIT-DEMO-002 · uses the current model: allocations within one month budget, accounts on every entry, who added it, money owed, an EMI"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/essentialRunway.test.ts",
       "feature": "Reports consultation",
       "availability": "available",
@@ -979,10 +992,12 @@
       "availability": "available",
       "layer": "unit",
       "owner": "analytics funnel events / post-auth next",
-      "count": 2,
+      "count": 4,
       "tests": [
         "funnel events CON-UNIT-FUN-001 · every event carries platform (web / pwa)",
-        "funnel events CON-UNIT-FUN-002 · sign_up once, on a new account's first sign-in, with its ref; never for an existing account"
+        "funnel events CON-UNIT-FUN-002 · sign_up once, on a new account's first sign-in, with its ref; never for an existing account",
+        "funnel events CON-UNIT-FUN-003 · an email user who verifies hours later still counts, with household_created; the account flag and the 24 h window hold",
+        "funnel events CON-UNIT-FUN-004 · GA user_id is a SHA-256 of the user id, never the id itself, and clears on sign-out"
       ]
     },
     {
@@ -1626,10 +1641,11 @@
       "availability": "available",
       "layer": "unit",
       "owner": "navModel / categoryOptions / formRoutes",
-      "count": 2,
+      "count": 3,
       "tests": [
         "Accounts has one canonical Plan route shared by navigation and the command palette",
-        "Accounts stays visible for every household template, including an unset template"
+        "Accounts stays visible for every household template, including an unset template",
+        "Pip (/chat) is a page of its own, not part of the account menu (v10.53.0)"
       ]
     },
     {

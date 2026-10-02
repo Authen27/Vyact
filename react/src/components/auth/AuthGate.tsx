@@ -10,7 +10,7 @@ import { useLocation, Navigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { reactivateIfNeeded, acceptPolicies } from '../../lib/auth';
-import { trackSignUpOnce } from '../../lib/analytics';
+import { trackSignUpOnce, setAnalyticsUser } from '../../lib/analytics';
 
 const PUBLIC_ROUTES = [
   '/auth/sign-in', '/auth/sign-up', '/auth/reset', '/auth/reset-password', '/auth/verified',
@@ -52,9 +52,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   // hold (Settings → Danger Zone) and record first-time ToS/Privacy consent
   // for flows that couldn't write it directly (OAuth redirect, email
   // verification pending) — see lib/auth.ts reactivateIfNeeded/acceptPolicies.
+  // v10.53.0 (#55) — GA4 user_id follows the session: a hash of the user id while signed
+  // in, cleared on sign-out.
+  useEffect(() => {
+    if (!isCloudEnabled()) return;
+    void setAnalyticsUser(session?.user?.id ?? null);
+  }, [session?.user?.id]);
+
   useEffect(() => {
     if (!isCloudEnabled() || !session?.user) return;
-    trackSignUpOnce(session.user);
+    // v10.53.0 (#46) — after counting a sign-up, mark the account so a second device
+    // doesn't count it again (fire-and-forget; the per-device flag still holds).
+    if (trackSignUpOnce(session.user)) {
+      void supabase?.auth.updateUser({ data: { vy_signup_tracked: true } }).catch(() => {});
+    }
     (async () => {
       if (sessionStorage.getItem('pending_policy_accept')) {
         await acceptPolicies(session.user.id).catch(() => {});

@@ -1,0 +1,57 @@
+name: Landing performance
+
+# v10.53.0 (master to-do #66) — a Lighthouse budget for the landing page: median mobile
+# performance >= 80 on "/" over 5 runs, on a production build served the way Vercel
+# serves it ("/" → landing.html). PR-only, and only when something that shapes the
+# landing page or its loading changes, so it costs Actions minutes rarely (see the
+# minutes-budget note in ci.yml).
+# 80, not 85 (owner, 2 Oct 2026): the landing scores a stable 82–83 here. Lighthouse's
+# simulated throttling counts the app bundle that finishes before the first paint, so the
+# pre-rendered H1 is scored as if it waited for it. The path to 85+ is not booting the
+# app bundle on "/" until idle or the first interaction (follow-up); raise this then.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'react/index.html'
+      - 'react/api/**'
+      - 'react/middleware.js'
+      - 'react/scripts/landingHtml.mjs'
+      - 'react/scripts/prerender-landing.mjs'
+      - 'react/scripts/lighthouse-budget.mjs'
+      - 'react/scripts/serve-dist.mjs'
+      - 'react/src/main.tsx'
+      - 'react/src/pages/Landing*.tsx'
+      - 'react/src/content/landingCopy.ts'
+      - 'react/src/index.css'
+      - 'react/package-lock.json'
+      - '.github/workflows/lighthouse.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  landing:
+    name: Lighthouse budget (landing, mobile, median of 5 ≥ 80)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15   # normally ~6 min
+    defaults: { run: { working-directory: react } }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.20.0'
+          cache: 'npm'
+          cache-dependency-path: react/package-lock.json
+      - run: npm ci
+      - name: Production build (+ pre-rendered landing)
+        run: npm run build
+      - name: Serve dist like production
+        run: |
+          node scripts/serve-dist.mjs 4180 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4180/ > /dev/null && break; sleep 1; done
+      - name: Lighthouse budget
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/lighthouse-budget.mjs http://localhost:4180/ 80 5

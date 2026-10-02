@@ -14,10 +14,12 @@ export default function SubNav() {
   const template = useStore(s => s.profile.template);
   const sectionId = sectionForPath(location.pathname);
   const section = SECTIONS.find(s => s.id === sectionId);
+  // v10.53.0 — a page of its own (Pip) has no sibling routes to switch between.
+  const standalone = sectionId === 'standalone';
   const routes = (section ? section.routes : ACCOUNT_ROUTES)
     .filter(r => visiblePages(template).has(r.page));
 
-  if (routes.length <= 1) return null;
+  if (standalone || routes.length <= 1) return null;
   const label = section ? section.label : 'Account';
 
   return (

@@ -39,7 +39,12 @@
          window.gtag still exists immediately, so lib/analytics.ts can queue events from the
          first tick (dataLayer is read when gtag.js arrives).
          GA4 runs ONLY on the real site (v10.49.0, #3): localhost, CI, Vercel previews and
-         stage/dev never count; off vyact.app events go nowhere. -->
+         stage/dev never count; off vyact.app events go nowhere.
+         v10.53.0 (#66) — Contentsquare also runs only on the real site, and on the landing
+         page ("/") it waits for the visitor's first interaction (tap, click, key, wheel)
+         instead of loading after paint: a reader who never interacts never downloads it,
+         and a visitor who goes on into the app is still recorded. In the app it loads
+         after load + idle, as before. -->
     <script>
       (function () {
         var h = location.hostname;
@@ -47,13 +52,28 @@
         window.gtag = function () { dataLayer.push(arguments); };
         window.__vyGaOn = h === 'vyact.app' || h === 'www.vyact.app';
         if (window.__vyGaOn) { gtag('js', new Date()); gtag('config', 'G-E3XKWZP850'); }
+        var onLanding = location.pathname === '/';
+        var csAdded = false;
         function add(src) { var s = document.createElement('script'); s.async = true; s.src = src; document.head.appendChild(s); }
+        function contentsquare() {
+          if (csAdded || !window.__vyGaOn) return;
+          csAdded = true;
+          add('https://t.contentsquare.net/uxa/86f8fcfc0d114.js');
+        }
         function late() {
           if (window.__vyGaOn) add('https://www.googletagmanager.com/gtag/js?id=G-E3XKWZP850');
-          add('https://t.contentsquare.net/uxa/86f8fcfc0d114.js');
+          if (!onLanding) contentsquare();
         }
         function idle() { 'requestIdleCallback' in window ? requestIdleCallback(late, { timeout: 3000 }) : setTimeout(late, 1500); }
         if (document.readyState === 'complete') idle(); else window.addEventListener('load', idle, { once: true });
+        if (onLanding && window.__vyGaOn) {
+          var events = ['pointerdown', 'keydown', 'touchstart', 'wheel'];
+          var first = function () {
+            events.forEach(function (e) { window.removeEventListener(e, first, true); });
+            contentsquare();
+          };
+          events.forEach(function (e) { window.addEventListener(e, first, { capture: true, passive: true }); });
+        }
       })();
     </script>
 

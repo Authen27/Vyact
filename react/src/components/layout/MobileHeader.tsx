@@ -11,7 +11,7 @@ import { Pip } from './Brand';
 import AccountMenu from './AccountMenu';
 import NotificationCenter from './NotificationCenter';
 import HouseholdSheet from './HouseholdSheet';
-import { SECTIONS, ACCOUNT_ROUTES, sectionForPath } from './navModel';
+import { SECTIONS, ACCOUNT_ROUTES, STANDALONE_ROUTES, sectionForPath } from './navModel';
 import { PROFILE_TYPES } from '../../constants';
 import type { ProfileTypeKey } from '../../types';
 
@@ -32,7 +32,8 @@ export default function MobileHeader() {
   const isHome = location.pathname === '/dashboard' || location.pathname === '/';
   const sectionId = sectionForPath(location.pathname);
   const section = SECTIONS.find(s => s.id === sectionId);
-  const route = (section ? section.routes : ACCOUNT_ROUTES).find(r => location.pathname.startsWith(r.to));
+  const standalone = sectionId === 'standalone';   // v10.53.0 — Pip's own page
+  const route = (section ? section.routes : standalone ? STANDALONE_ROUTES : ACCOUNT_ROUTES).find(r => location.pathname.startsWith(r.to));
   const firstName = (profile.name || '').trim().split(/\s+/)[0];
 
   return (
@@ -53,7 +54,7 @@ export default function MobileHeader() {
         ) : (
           <>
             <div className="font-mono text-[8.5px] tracking-[0.15em] uppercase text-ink-dim leading-tight">
-              {section ? section.label : 'Account'}
+              {section ? section.label : standalone ? 'Ask' : 'Account'}
             </div>
             <div className="font-display font-bold text-[18px] leading-tight tracking-tight text-ink truncate">
               {route?.label ?? 'Vyact'}

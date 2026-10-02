@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.52.1`** (consumer)
+> **Current production version: `v10.53.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,56 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.53.0 — The front door is measured, the demo matches the product, and the public pages load lighter *(2026-10-01)*
+
+From the CMO's v2 review (master to-do #46–#77, P0). Production has had no real sign-up since
+the week of 3 Aug, and the funnel couldn't have shown one properly anyway.
+
+- **Fix: `household_created` never arrived for a normal new user (#53).** A new account's first
+  household is created by the database trigger (`handle_new_user`), not by the client's
+  `createHousehold`, which is the only place the event fired. It now fires with `sign_up`, for
+  the household the trigger made.
+- **Fix: email sign-ups that verify later were never counted (#46).** `sign_up` required the
+  first sign-in within 60 s of account creation. It now counts any account less than 24 h old
+  on its first signed-in session, once per device (local flag) and once per account
+  (`user_metadata.vy_signup_tracked`, set after counting).
+- **GA4 `user_id` (#55):** a SHA-256 of the internal user id (never the email), set while
+  signed in and cleared on sign-out. A couple on two phones counts as two people; one person
+  on two devices as one. New `lib/hash.ts` (Web Crypto).
+- **Public pages load lighter (#66).**
+  - The Learn and /for pages fetch gtag.js after `load` + idle, as the landing page does.
+    It used to load during head parse.
+  - Contentsquare runs only on vyact.app (it also ran on localhost and previews). On the
+    landing page it waits for the visitor's first interaction, like Userback; in the app it
+    loads after load + idle as before.
+  - New **Lighthouse budget** workflow (`.github/workflows/lighthouse.yml`): median mobile
+    performance ≥ 80 on `/` over 5 runs (a regression guard: the landing scores 82–83 today), on a production build served the way Vercel serves it
+    (`scripts/serve-dist.mjs`, `scripts/lighthouse-budget.mjs`). PR-only, and only when the
+    landing page or its loading changes.
+- **The first-run demo household is rebuilt on the current money model (#68).**
+  - Local-only mode only: previews, screenshots, video.
+  - Contents: two adults with every entry attributed; one monthly budget with category
+    allocations; accounts with payment modes (joint checking, a named card, Cash in Hand);
+    recurring bills (mortgage auto-posts, streaming waits for approval); money owed to you (a
+    split dinner); a car loan paid by EMI (interest expense plus principal transfer, built with
+    the app's own `applyPayment`); assets.
+  - Fixed: nothing is dated after today any more (early in the month, "this month" rows used to
+    be in the future); December due dates roll into January (they were `<year>-13-…`);
+    investment rows without an account or asset are gone.
+  - Net worth snapshots are not seeded: history is recorded, never reconstructed. No UPI: the
+    demo is a US household (global stance). New `demoSeed.test.ts`.
+- **Content (#64, production + repo copy):** lesson ev-098 no longer recommends Sovereign Gold
+  Bonds, which have had no new issues since 2024. It points to gold ETFs / gold funds, and notes
+  existing bonds stay valid until maturity.
+- **Pip's page no longer shows the account menu's header (#67).** `/chat` belonged to no section,
+  so `sectionForPath` returned `'account'`: an "ACCOUNT ▸ Households / Settings / Help" sub-nav,
+  and "Account · Vyact" in the mobile header. It is now a standalone page (`STANDALONE_ROUTES`),
+  with no sub-nav and the mobile header "Ask · Pip".
+- **Vercel skips docs-only builds (#71):** `ignoreCommand` in `react/vercel.json` and
+  `admin/vercel.json`. If the command fails (e.g., a shallow clone), Vercel builds as before.
+- Admin v1.4.1 ships alongside: the sign-in screen shows the real version.
+- No money-model, data-model or permission change.
 
 ## v10.52.1 — Landing page: the feedback widget waits for the first interaction *(2026-10-01)*
 

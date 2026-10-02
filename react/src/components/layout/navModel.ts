@@ -4,7 +4,7 @@
 import {
   LayoutDashboard, ArrowLeftRight, Users, Repeat,
   Wallet, Banknote, Scale, CreditCard,
-  BarChart3, BookOpen, Home, Settings, HelpCircle,
+  BarChart3, BookOpen, Home, Settings, HelpCircle, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { pagesForTemplate } from '../../lib/templates';
@@ -38,9 +38,18 @@ export const ACCOUNT_ROUTES: NavRoute[] = [
   { to: '/help',       page: 'help',       label: 'Help & Guide', icon: HelpCircle },
 ];
 
-/** Section containing a pathname; 'account' when it lives in the avatar menu. */
+/** v10.53.0 (#67) — pages that belong to no section and not to the account menu. Pip's
+ *  full page used to fall through to 'account', so it showed an "ACCOUNT ▸" sub-nav of
+ *  Households / Settings / Help and an "Account · Vyact" mobile header. */
+export const STANDALONE_ROUTES: NavRoute[] = [
+  { to: '/chat', page: 'chat', label: 'Pip', icon: Sparkles },
+];
+
+/** Section containing a pathname; 'standalone' for a page of its own (Pip); 'account'
+ *  when it lives in the avatar menu. */
 export function sectionForPath(pathname: string): string {
   for (const s of SECTIONS) if (s.routes.some(r => pathname.startsWith(r.to))) return s.id;
+  if (STANDALONE_ROUTES.some(r => pathname.startsWith(r.to))) return 'standalone';
   return 'account';
 }
 
