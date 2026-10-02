@@ -69,7 +69,13 @@ export type EventName =
   | 'learn_cta_click'
   | 'landing_cta_click'
   | 'pwa_install'
-  | 'whatsapp_linked';
+  | 'whatsapp_linked'
+  // v10.54.0 — Pip: answer feedback, copy, new chat, and the WhatsApp entry point.
+  | 'ask_feedback'
+  | 'ask_copy'
+  | 'ask_new_chat'
+  | 'whatsapp_connect_opened'
+  | 'whatsapp_chat_opened';
 
 export type AmountBucket = '0-10' | '10-100' | '100-1k' | '1k-10k' | '10k+';
 export type TxnTrack = 'expense' | 'income' | 'transfer' | 'investment';
@@ -122,6 +128,9 @@ export interface EventParams {
   placement?: string;       // which call to action
   slug?: string;            // a PUBLIC Learn lesson's slug, never user data
   learn_category?: string;  // a public Learn topic
+  // Pip (v10.54.0) — never the question or the answer; only these labels.
+  rating?: 'up' | 'down' | 'none';   // ask_feedback: the rating now on the answer
+  intent?: string;                   // the classified intent of the question answered
   invite_role?: 'admin' | 'member' | 'viewer' | 'child';
   platform?: 'android-app' | 'pwa' | 'web';
 }

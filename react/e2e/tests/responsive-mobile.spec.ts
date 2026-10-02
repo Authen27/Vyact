@@ -52,7 +52,9 @@ test.describe('§25 RESP-FC · responsive layout', () => {
       const primary = page.getByRole('navigation', { name: 'Primary' });
 
       await primary.getByRole('button', { name: 'Ask Pip' }).click();
-      await expect(page.getByText('Vyact does the maths, not guesswork')).toBeVisible();
+      await expect(page.getByTestId('ask-composer')).toBeVisible();
+      // v10.54.0 (owner) — the drawer header's "Vyact does the maths" subtitle is removed.
+      await expect(page.getByText('Vyact does the maths, not guesswork')).toHaveCount(0);
       // v10.52.0 — the "Every amount comes from your own data" banner is gone;
       // an AI caveat sits under the composer instead.
       await expect(page.getByTestId('ask-ai-disclaimer')).toHaveText('Pip is AI-based and can make mistakes. Please double-check its responses.');

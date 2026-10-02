@@ -4,8 +4,11 @@
 // never any message content. Used to segment user types for the business.
 
 import { useEffect, useState } from 'react';
-import { Brain, RefreshCw, Users, MessageSquare, TrendingUp, type LucideIcon } from 'lucide-react';
-import { fetchAiUsageSummary, type AiUsageSummary, type AiUsageSegment } from '../lib/adminApi';
+import { Brain, RefreshCw, Users, MessageSquare, TrendingUp, ThumbsUp, ThumbsDown, type LucideIcon } from 'lucide-react';
+import {
+  fetchAiUsageSummary, fetchAiFeedbackSummary,
+  type AiUsageSummary, type AiUsageSegment, type AiFeedbackSummary,
+} from '../lib/adminApi';
 
 const INTENT_COLORS: Record<string, string> = {
   spending: '#4A6FA5', savings: '#85A88A', budget: '#E8A87C', debt: '#C2543F',
@@ -50,6 +53,19 @@ export default function Intelligence() {
         if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
+  }, [tick]);
+
+  // v1.4.2 — Pip answer feedback loads on its own, so a failure here (e.g. before
+  // the ai_feedback migration is deployed) never hides the usage metrics.
+  const [feedback, setFeedback] = useState<AiFeedbackSummary | null>(null);
+  const [feedbackError, setFeedbackError] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    setFeedbackError('');
+    fetchAiFeedbackSummary()
+      .then(d => { if (!cancelled) setFeedback(d); })
+      .catch(e => { if (!cancelled) setFeedbackError((e as Error).message); });
     return () => { cancelled = true; };
   }, [tick]);
 
@@ -145,6 +161,8 @@ export default function Intelligence() {
         </div>
       </div>
 
+      <PipFeedback data={feedback} error={feedbackError} />
+
       {/* Segments table */}
       <h2 className="font-mono text-[0.62rem] tracking-[0.16em] uppercase text-ink-dim mb-2.5">User segments</h2>
       <div className="panel overflow-hidden">
@@ -187,6 +205,84 @@ export default function Intelligence() {
         </table>
       </div>
     </div>
+  );
+}
+
+const UP = '#3a9d6b';
+const DOWN = '#c2543f';
+
+/** v1.4.2 — how members rate Pip's answers (👍 / 👎 under each answer). */
+function PipFeedback({ data, error }: { data: AiFeedbackSummary | null; error: string }) {
+  const rated = data ? data.up + data.down : 0;
+  return (
+    <section className="mb-6" aria-label="Pip answer feedback">
+      <h2 className="font-mono text-[0.62rem] tracking-[0.16em] uppercase text-ink-dim mb-2.5">Pip answer feedback</h2>
+      {error && <div className="panel p-4 text-danger text-sm">Could not load feedback: {error}</div>}
+      {!error && data && data.total === 0 && (
+        <div className="panel p-5 text-ink-mid text-sm">
+          No ratings yet. Members rate an answer with 👍 or 👎 under it in Pip; only the rating, the
+          question's intent and the answer's length are stored.
+        </div>
+      )}
+      {!error && data && data.total > 0 && (
+        <div className="grid lg:grid-cols-2 gap-4">
+          <div className="panel p-5">
+            <div className="flex items-end gap-6 mb-4">
+              <div>
+                <div className="font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim mb-1">Helpful</div>
+                <div className="display-serif text-3xl text-ink">{pct(data.up, rated)}%</div>
+              </div>
+              <div className="flex items-center gap-1.5 text-[0.82rem] font-mono" style={{ color: UP }}><ThumbsUp size={13} /> {data.up}</div>
+              <div className="flex items-center gap-1.5 text-[0.82rem] font-mono" style={{ color: DOWN }}><ThumbsDown size={13} /> {data.down}</div>
+              <div className="text-[0.78rem] text-ink-dim font-mono ml-auto">{data.last30} in 30 days</div>
+            </div>
+            <div className="space-y-2">
+              {data.byIntent.map(r => {
+                const n = r.up + r.down;
+                return (
+                  <div key={r.intent}>
+                    <div className="flex justify-between text-[0.8rem] mb-0.5">
+                      <span className="text-ink capitalize">{r.intent}</span>
+                      <span className="text-ink-mid font-mono">👍 {r.up} · 👎 {r.down}</span>
+                    </div>
+                    <div className="flex h-2 rounded-full bg-elev overflow-hidden">
+                      <div style={{ width: `${pct(r.up, n)}%`, background: UP }} />
+                      <div style={{ width: `${pct(r.down, n)}%`, background: DOWN }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="panel overflow-x-auto">
+            <table className="w-full text-[0.8rem]">
+              <thead>
+                <tr className="text-left font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim border-b border-line">
+                  <th className="px-4 py-2.5">When</th>
+                  <th className="px-4 py-2.5">Rating</th>
+                  <th className="px-4 py-2.5">Intent</th>
+                  <th className="px-4 py-2.5">Surface</th>
+                  <th className="px-4 py-2.5 text-right">Answer length</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recent.slice(0, 12).map((r, i) => (
+                  <tr key={`${r.at}-${i}`} className="border-b border-line/60">
+                    <td className="px-4 py-2 text-ink-dim font-mono text-[0.72rem]">{r.at.slice(0, 16).replace('T', ' ')}</td>
+                    <td className="px-4 py-2" style={{ color: r.rating === 1 ? UP : DOWN }}>
+                      {r.rating === 1 ? <ThumbsUp size={13} aria-label="Helpful" /> : <ThumbsDown size={13} aria-label="Not helpful" />}
+                    </td>
+                    <td className="px-4 py-2 text-ink-mid capitalize">{r.intent || '—'}</td>
+                    <td className="px-4 py-2 text-ink-mid">{r.surface}</td>
+                    <td className="px-4 py-2 text-right font-mono text-ink-mid">{r.responseLen ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -6,6 +6,7 @@ const group = (feature, availability, layer, files, owner) => ({ feature, availa
 export const groups = [
   group('Merged personal Insights', 'available', 'unit', ['personalInsights'], 'personalInsights / plannerRules / insightsFeed'),
   group('Reports and Ask guidance', 'available', 'unit', ['reportsModel', 'askVyactExamples'], 'reportsModel / intent examples (not provider verification)'),
+  group('Pip answer feedback', 'available', 'unit', ['aiFeedback'], 'aiFeedback (row privacy and bounds; local mode writes nothing)'),
   group('Reports consultation', 'available', 'unit', ['reportRange', 'budgetTrends', 'essentialRunway'], 'reportRange / budgetTrends / essentialRunway (range, scope-matched budgets, stated-baseline runway)'),
   group('Help and adoption guidance', 'available', 'contract-unit', ['helpContent'], 'helpContent / captured media (not deployed service verification)'),
   group('Navigation and category selection', 'available', 'unit', ['navigationVisibility', 'categoryOptions', 'formRoutes'], 'navModel / categoryOptions / formRoutes'),

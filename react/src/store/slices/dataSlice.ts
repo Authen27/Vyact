@@ -19,7 +19,7 @@ import { autoMigrateAnonToHousehold } from '../../lib/migration';
 import { uid, setNumberSystem, nowMonthKey } from '../../lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from '../../lib/numberSystemPref';
 import {
-  registerOnboardingSync, hydrateOnboardingFromCloud,
+  registerOnboardingSync, hydrateOnboardingFromCloud, shouldOnboard,
   type HouseholdOnboarding,
 } from '../../lib/onboardingState';
 import { accountValueOf } from '../../lib/accountBalance';
@@ -417,6 +417,14 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const { adapter, currentHouseholdId, loading, cloudEnabled } = get();
     if (typeof adapter.recordNetWorthSnapshot !== 'function') return;
     if (!cloudEnabled && readLocalString(DEMO_SEEDED_KEY, null) === currentHouseholdId) return;
+    // v10.54.0 — not before onboarding is done. Onboarding sets the currency and
+    // the opening balances, and a snapshot is permanent (first write wins):
+    // production recorded "0 USD" for a household a minute before it became INR
+    // with ₹20,000 in cash (2 Oct 2026).
+    // Same test as App.tsx's onboarding gate: an existing household (transactions, or
+    // onboardedAt) is never sent to onboarding, so it records as before.
+    const { transactions: txns, profile: prof } = get();
+    if (shouldOnboard(currentHouseholdId) && !(txns.length > 0 || !!prof.onboardedAt)) return;
     const month = nowMonthKey();
     if (snapshotAttempt && snapshotAttempt.household === currentHouseholdId && snapshotAttempt.month === month
         && Date.now() - snapshotAttempt.at < SNAPSHOT_RETRY_MS) return;
@@ -680,7 +688,14 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
               type: (patch.household ?? h.type) as HouseholdMeta['type'] }
           : h)
       : get().households;
-    set({ profile: merged, households });
+    // v10.54.0 — account currency IS the household's: the DB trigger relabels
+    // every account when the base currency changes. Mirror it here, or the open
+    // session keeps the old label and converts a balance it shouldn't (onboarding,
+    // 2 Oct 2026: ₹20,000 cash held as "20,000 USD" showed a ₹16.6 lakh net worth).
+    const accounts = patch.baseCurrency !== undefined
+      ? get().accounts.map(a => (a.currency === patch.baseCurrency ? a : { ...a, currency: patch.baseCurrency! }))
+      : get().accounts;
+    set({ profile: merged, households, accounts });
     setNumberSystem(merged.numberSystem === 'indian' ? 'indian' : 'western');
   },
   markEducation: async (topicId, patch) => {

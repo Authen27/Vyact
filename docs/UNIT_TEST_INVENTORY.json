@@ -508,6 +508,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/aiFeedback.test.ts",
+      "feature": "Pip answer feedback",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "aiFeedback (row privacy and bounds; local mode writes nothing)",
+      "count": 3,
+      "tests": [
+        "Pip answer feedback CON-UNIT-FDB-001 · the row carries no question or answer text",
+        "Pip answer feedback CON-UNIT-FDB-002 · bounds match the table constraints",
+        "Pip answer feedback CON-UNIT-FDB-003 · local-only mode is a silent no-op"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/amortization.test.ts",
       "feature": "Money model",
       "availability": "available",
@@ -1069,7 +1083,7 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 39,
+      "count": 40,
       "tests": [
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be archived either — it would vanish from every picker",
         "Accounts R1 — one Cash in Hand per household, currency from the household Cash in Hand cannot be deleted, and the refusal changes nothing",
@@ -1097,6 +1111,7 @@
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account does not use is dropped, and the money still posts",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number a mode the account uses is kept, and the balance moves exactly as without one",
         "Transactions R3 — the payment mode is one the paying account uses, and moves no number an investment never carries a mode",
+        "base currency change (v10.54.0) relabels the open session's accounts, as the DB trigger does, so a balance is never converted twice",
         "ledger persisted happy paths 'expense' create, edit and delete persist correct account effects and reporting",
         "ledger persisted happy paths 'income' create, edit and delete persist correct account effects and reporting",
         "ledger persisted happy paths 'investment' create, edit and delete persist correct account effects and reporting",
@@ -1849,12 +1864,13 @@
       "availability": "available",
       "layer": "unit",
       "owner": "format / learnJsonLd",
-      "count": 18,
+      "count": 19,
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
         "analytics gating and deep links (#3, #4, #20) CON-UNIT-PUB-009 · GA loads only on vyact.app / www.vyact.app; elsewhere events go nowhere",
         "analytics gating and deep links (#3, #4, #20) CON-UNIT-PUB-010 · every Learn topic maps to a real app route; sign-up links carry ref and next",
+        "first paint is not blocked by third parties CON-UNIT-PUB-019 · landing.html does not fetch the app bundle during load: it boots on interaction (or a saved session) and tracks CTA clicks until then",
         "first paint is not blocked by third parties PUB-018 · index.html and Learn pages keep analytics and fonts off the critical path",
         "keywords, answers and AI crawlers (#7, #21, #25) CON-UNIT-PUB-014 · a mapped lesson leads with its search-shaped question and a 40–60-word quick answer, also as FAQPage",
         "keywords, answers and AI crawlers (#7, #21, #25) CON-UNIT-PUB-015 · /for/couples and /for/families: one H1, a quick answer, a FAQPage that matches the visible FAQ; unknown → 404",

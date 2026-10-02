@@ -470,3 +470,18 @@ describe('Accounts R2 — delete, move, archive and reconcile change no number t
     expect(monthlyData(useStore.getState().transactions, '2026-09', 'USD', R)).toEqual(month);
   });
 });
+
+describe('base currency change (v10.54.0)', () => {
+  it('relabels the open session\'s accounts, as the DB trigger does, so a balance is never converted twice', async () => {
+    // Production, 2 Oct 2026: onboarding wrote ₹20,000 cash while the household was
+    // still USD; the store kept "20,000 USD" after the switch to INR and Net Worth
+    // showed ₹16.6 lakh. Account currency is the household's.
+    const household = await useStore.getState().adapter.createHousehold('Home', 'personal', 'USD');
+    useStore.setState({ currentHouseholdId: household.id });
+    await useStore.getState().updateProfile({ baseCurrency: 'INR' });
+    const state = useStore.getState();
+    expect(state.accounts.map(a => a.currency)).toEqual(['INR', 'INR']);
+    const nw = computeNetWorth({ assets: [], accounts: state.accounts, debts: [], transactions: [] }, 'INR', { USD: 1, INR: 83.2 });
+    expect(nw.netWorth).toBe(1200);
+  });
+});

@@ -358,4 +358,7 @@ export interface ChatMessage {
    * so a turn interrupted mid-flight never renders as permanently thinking.
    */
   pending?: boolean;
+  /** v10.54.0 — the person's 👍 (1) / 👎 (-1) on this answer, if any. Kept with the
+   *  transcript so the buttons show it after a reload; stored in ai_feedback too. */
+  feedback?: 1 | -1;
 }

@@ -1,14 +1,20 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, MessageCircle, Trash2, Mic, PencilLine, List, Sparkles, ArrowUpRight } from 'lucide-react';
+import {
+  MessageCircle, Mic, PencilLine, List, ArrowUpRight, ArrowUp, Square, Plus, Copy, Check, ThumbsUp, ThumbsDown,
+} from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { Textarea } from '../components/ui/Input';
 import {
   buildSafeSummary, type ChatMessage,
 } from '../lib/aiSummary';
 import type { AssistantChip } from '../lib/askVyactResponses';
-import { logAiUsage } from '../lib/aiUsage';
+import { logAiUsage, classifyIntent } from '../lib/aiUsage';
+import { saveFeedback } from '../lib/aiFeedback';
+import { track } from '../lib/analytics';
+import { isCloudEnabled } from '../lib/supabase';
+import WhatsAppIcon from '../components/whatsapp/WhatsAppIcon';
+import WhatsAppConnectSheet from '../components/whatsapp/WhatsAppConnectSheet';
 import ls from '../lib/localStorageCompat';
 import { appNavigate } from '../lib/appNavigation';
 import {
@@ -115,6 +121,9 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
    * turn resolves and cannot go stale — the transcript copy stays for persistence.
    */
   const lastAllowedRef = useRef<string[]>([]);
+  /** v10.54.0 — turns the person stopped (Stop, or New chat). A stopped turn writes nothing more. */
+  const cancelledTurns = useRef(new Set<string>());
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   // Proactive "what to know" card (spec §5) — at most one per session, dismissible,
   // only when the flag + bucket + proactiveInsight are on.
@@ -160,6 +169,9 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
+    // v10.54.0 — an empty field is always one row. Measuring it while the Ask
+    // drawer is still sliding in read a near-zero width and fixed it at 192px.
+    if (!input) { el.style.height = ''; return; }
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 192)}px`;
   }, [input]);
@@ -195,9 +207,13 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     setHistory(h => [...h, userMsg, { role: 'assistant', content: '', turnId, steps: [], pending: true }]);
     setInput('');
     // Mark the turn active immediately (streamReply replaces this with the
-    // cancellable record). An id of 'pending' keeps the finally-block guard from
-    // clearing it early.
-    setActiveTurn({ id: 'pending', cancel: () => {} });
+    // cancellable record). The 'pending:' id keeps the finally-block guard from
+    // clearing it early. v10.54.0 — Stop works here too: it marks the turn
+    // cancelled, so the answer is dropped when it arrives and no form opens. The
+    // marker carries this turn's id so a stopped turn's late `finally` can never
+    // clear the marker of a newer turn.
+    const pendingId = `pending:${turnId}`;
+    setActiveTurn({ id: pendingId, cancel: () => { cancelledTurns.current.add(turnId); } });
 
     // AI-P0 — telemetry is logged AFTER the turn so it can carry which engine
     // answered and the outcome. Still privacy-safe: intent + sentiment + length
@@ -233,7 +249,8 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
           : [...history].reverse()
             .find(m => m.role === 'assistant' && m.allowedFigures?.length)?.allowedFigures ?? [];
         const turn = await runAssistant(question, ctx, assistantBackend, Date.now(), addStep, prevAllowed);
-        lastAllowedRef.current = turn.allowedFigures ?? [];
+        const stopped = cancelledTurns.current.has(turnId);
+        if (!stopped) lastAllowedRef.current = turn.allowedFigures ?? [];
         void logAiUsage({
           householdId, text: question, surface: 'chat',
           backend: assistantBackend?.id ?? 'llm',
@@ -243,6 +260,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             : turn.intentId === 'fallback' ? 'fallback' : 'ok',
           latencyMs: Date.now() - startedAt,
         });
+        if (stopped) return;
         // The analysis is finished: freeze its duration, then stream the answer
         // into the same row. The turn stays active until the stream resolves, so
         // a concurrent send is blocked by `thinking` and can never clobber it.
@@ -250,6 +268,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         // steps now show that work is happening.)
         patchTurn({ pending: false, thinkingMs: Date.now() - startedAt });
         await streamReply(turnId, turn.reply, turn.chips, turn.allowedFigures);
+        if (cancelledTurns.current.has(turnId)) return;
         // v10.38 — capture seeds the EXISTING TransactionFormModal, and only AFTER
         // the acknowledgement is on screen. Navigating first replaced the chat with
         // the form before the user could read what had been understood, so the
@@ -279,7 +298,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     } finally {
       // The stream path clears activeTurn itself after the reply settles; the
       // off / error paths never started a stream, so clear any pending marker.
-      setActiveTurn(t => (t && t.id === 'pending' ? null : t));
+      setActiveTurn(t => (t && t.id === pendingId ? null : t));
     }
   }
 
@@ -317,7 +336,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       // (activeTurn) stays true until the stream settles.
       setActiveTurn({
         id: turnId,
-        cancel: () => { clearInterval(id); resolve(); },
+        cancel: () => { cancelledTurns.current.add(turnId); clearInterval(id); resolve(); },
       });
     });
   }
@@ -405,11 +424,79 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
     }
   }
 
-  function clearHistory() {
-    if (!confirm('Clear all chat history?')) return;
+  // v10.54.0 (owner) — "New chat" replaces "Clear history": no confirmation, no
+  // delete wording. It leaves the current conversation (an answer still being
+  // written is stopped) and starts a fresh one.
+  function newChat() {
+    activeTurn?.cancel();
+    setActiveTurn(null);
+    track('ask_new_chat', { count: history.length });
     setHistory([]);
+    setInput('');
+    setShowExamples(false);
     ls.removeBoth('chat_history');
+    inputRef.current?.focus();
   }
+
+  /** Stop the answer in progress. One that never started leaves nothing behind;
+   *  a partly written one stays as written. */
+  function stopTurn() {
+    if (!activeTurn) return;
+    activeTurn.cancel();
+    setActiveTurn(null);
+    setHistory(h => h
+      .filter(m => !(m.role === 'assistant' && !m.content))
+      .map(m => (m.pending ? { ...m, pending: false } : m)));
+  }
+
+  /** The question an answer replied to — read only to classify its intent. */
+  function questionFor(i: number): string {
+    for (let j = i - 1; j >= 0; j--) if (history[j].role === 'user') return history[j].content;
+    return '';
+  }
+
+  async function copyAnswer(i: number) {
+    const m = history[i];
+    if (!m?.content) return;
+    try { await navigator.clipboard.writeText(m.content); }
+    catch { toast("Couldn't copy the answer", 'error'); return; }
+    setCopiedIdx(i);
+    setTimeout(() => setCopiedIdx(c => (c === i ? null : c)), 1500);
+    track('ask_copy', { intent: classifyIntent(questionFor(i)) });
+  }
+
+  /** 👍 / 👎 — tapping the chosen one again takes the rating back. */
+  function rateAnswer(i: number, rating: 1 | -1) {
+    const m = history[i];
+    if (!m || m.role !== 'assistant') return;
+    const next = m.feedback === rating ? null : rating;
+    setHistory(h => h.map((row, idx) => (idx === i ? { ...row, feedback: next ?? undefined } : row)));
+    const question = questionFor(i);
+    track('ask_feedback', { rating: next === 1 ? 'up' : next === -1 ? 'down' : 'none', intent: classifyIntent(question) });
+    if (m.turnId) void saveFeedback({ householdId, turnId: m.turnId, rating: next, question, answerLength: m.content.length });
+  }
+
+  // v10.54.0 — the WhatsApp entry point lives in Pip itself (no trip to Settings).
+  const [waOpen, setWaOpen] = useState(false);
+  function openWhatsApp() {
+    track('whatsapp_connect_opened', { surface: embedded ? 'ask_drawer' : 'ask_page' });
+    setWaOpen(true);
+  }
+
+  const toolbar = (
+    <div className="flex items-center gap-1.5">
+      {isCloudEnabled() && (
+        <button type="button" onClick={openWhatsApp} aria-label="Chat with Pip on WhatsApp" title="Chat with Pip on WhatsApp"
+          className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-pill border border-line text-[0.78rem] text-ink-mid hover:text-ink hover:border-line2">
+          <WhatsAppIcon size={15} className="text-[#25D366]" /> WhatsApp
+        </button>
+      )}
+      <button type="button" onClick={newChat} disabled={history.length === 0 && !thinking} aria-label="New chat" title="New chat"
+        className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-pill border border-line text-[0.78rem] text-ink-mid hover:text-ink hover:border-line2 disabled:opacity-40 disabled:cursor-not-allowed">
+        <Plus size={15} aria-hidden /> New chat
+      </button>
+    </div>
+  );
 
   return (
     <div className={`ui-pilot reading-surface ${embedded ? 'flex flex-col flex-1 min-h-0' : ''}`}>
@@ -426,27 +513,17 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
               Record money · understand your household · explore a decision
             </p>
           </div>
-          {history.length > 0 && (
-            <Button variant="ghost" onClick={clearHistory}>
-              <Trash2 size={14} /> Clear history
-            </Button>
-          )}
+          {toolbar}
         </div>
       )}
-      {embedded && history.length > 0 && (
-        <div className="flex justify-end mb-2.5">
-          <button onClick={clearHistory}
-            className="font-mono text-[0.62rem] tracking-wider uppercase text-ink-dim hover:text-ink">
-            Clear
-          </button>
-        </div>
-      )}
+      {embedded && <div className="flex justify-end mb-2.5">{toolbar}</div>}
+      <WhatsAppConnectSheet open={waOpen} onClose={() => setWaOpen(false)} />
 
       {/* v10.52.0 (owner) — the green "Vyact does the maths…" banner above the
           chat was removed. The honest caveat now sits under the composer, where
           it's read at the moment of asking: Pip is AI-based and can be wrong. */}
       <Panel className={embedded ? 'flex-1 min-h-0 flex flex-col' : ''}>
-        <div ref={scrollRef} className={`px-4 py-4 space-y-3 overflow-y-auto ${embedded ? 'flex-1 min-h-0' : 'max-h-[28rem] min-h-[20rem]'}`}>
+        <div ref={scrollRef} className={`px-4 py-4 space-y-3 overflow-y-auto overflow-x-hidden ${embedded ? 'flex-1 min-h-0' : 'max-h-[28rem] min-h-[20rem]'}`}>
           {history.length === 0 && proactive && (
             <div className="mb-4 bg-coral-tint border border-coral/30 rounded-md p-3 flex items-start gap-3">
               <div className="flex-1 text-[0.84rem] text-ink leading-snug">{proactive.text}</div>
@@ -523,36 +600,21 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
             </div>
           )}
           {history.map((m, i) => {
-            const steps = m.steps ?? [];
+            // v10.54.0 (owner) — while Pip works on an answer nothing is offered and
+            // nothing is narrated: no "Thinking…", no pipeline steps, no "Analysed
+            // in Ns". Just a quiet typing indicator until the answer appears.
+            const streaming = !!m.turnId && activeTurn?.id === m.turnId;
+            const answered = m.role === 'assistant' && !m.pending && !!m.content && !streaming;
             return (
             <div key={i}>
-              {/* v10.36 — the analysis behind an assistant turn. Printed live while
-                  the turn is in flight (each line is a real pipeline stage, never a
-                  timed placeholder), then collapsed into "Analysed in Ns". */}
-              {m.role === 'assistant' && m.pending && (
-                <ol className="mb-2 space-y-1 text-[0.8rem]" aria-live="polite" aria-label="Pip is analysing your question">
-                  {(steps.length ? steps : ['Thinking']).map((step, si, all) => {
-                    const live = si === all.length - 1;
-                    return (
-                      <li key={si} className="ask-step flex items-start gap-2" style={{ color: 'var(--ff-ink-3)' }}>
-                        <span aria-hidden className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${live ? 'ask-step-live' : ''}`}
-                          style={{ background: live ? 'var(--accent)' : 'var(--ff-ink-3)' }} />
-                        <span>{step}{live ? '…' : ''}</span>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-              {m.role === 'assistant' && !m.pending && steps.length > 0 && (
-                <details className="mb-1.5 text-[0.78rem]" style={{ color: 'var(--ff-ink-3)' }}>
-                  <summary className="cursor-pointer select-none inline-flex items-center gap-1.5 min-h-[32px]">
-                    <Sparkles size={12} aria-hidden />
-                    Analysed{m.thinkingMs ? ` in ${(m.thinkingMs / 1000).toFixed(1)}s` : ''} · {steps.length} {steps.length === 1 ? 'step' : 'steps'}
-                  </summary>
-                  <ol className="mt-1 mb-1 space-y-0.5 pl-5 list-decimal">
-                    {steps.map((step, si) => <li key={si}>{step}</li>)}
-                  </ol>
-                </details>
+              {m.role === 'assistant' && !m.content && (m.pending || streaming) && (
+                <div className="flex justify-start" data-testid="ask-typing">
+                  <span className="sr-only" role="status">Pip is answering</span>
+                  <div aria-hidden className="ask-typing inline-flex items-center gap-1 px-4 py-3"
+                    style={{ background: 'var(--canvas)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
+                    <span /><span /><span />
+                  </div>
+                </div>
               )}
               {(m.role === 'user' || m.content) && (
                 <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -563,6 +625,25 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
                       : { background: 'var(--canvas)', color: 'var(--ff-ink)', borderRadius: '18px 18px 18px 6px', boxShadow: 'var(--neu-sm)' }}>
                     <div className="whitespace-pre-wrap">{m.content}</div>
                   </div>
+                </div>
+              )}
+              {/* v10.54.0 (owner) — under every finished answer: copy, 👍, 👎. Ratings
+                  go to GA (ask_feedback) and the admin console (ai_feedback); never
+                  the question or the answer itself. */}
+              {answered && (
+                <div className="flex items-center gap-0.5 mt-1 ml-1" data-testid="ask-answer-actions">
+                  <button type="button" onClick={() => void copyAnswer(i)} aria-label="Copy answer" title="Copy"
+                    className="w-8 h-8 inline-flex items-center justify-center rounded-full text-ink-dim hover:text-ink hover:bg-bg3">
+                    {copiedIdx === i ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
+                  </button>
+                  <button type="button" onClick={() => rateAnswer(i, 1)} aria-label="Good answer" title="Good answer" aria-pressed={m.feedback === 1}
+                    className={`w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-bg3 ${m.feedback === 1 ? 'text-coral' : 'text-ink-dim hover:text-ink'}`}>
+                    <ThumbsUp size={14} aria-hidden fill={m.feedback === 1 ? 'currentColor' : 'none'} />
+                  </button>
+                  <button type="button" onClick={() => rateAnswer(i, -1)} aria-label="Bad answer" title="Bad answer" aria-pressed={m.feedback === -1}
+                    className={`w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-bg3 ${m.feedback === -1 ? 'text-coral' : 'text-ink-dim hover:text-ink'}`}>
+                    <ThumbsDown size={14} aria-hidden fill={m.feedback === -1 ? 'currentColor' : 'none'} />
+                  </button>
                 </div>
               )}
               {/* Follow-up chips (#62) — the deck's response anatomy part 4.
@@ -591,35 +672,44 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
           <List size={14} aria-hidden /> {showExamples ? 'Hide examples' : 'Show examples'}
         </Button>}
         <div className="border-t border-line px-3 pt-3 pb-3 flex-shrink-0">
-          {/* v10.36 — `is-thinking` animates a ring around the composer while a
-              turn is in flight (static under reduced motion; see index.css). */}
-          <div className={`ask-composer flex gap-2 items-end ${thinking ? 'is-thinking' : ''}`}>
+          {/* v10.54.0 (owner design) — one rounded field: the question on top, the
+              mic and send beneath it. While Pip answers, send becomes stop; the
+              field never says "thinking". */}
+          <div className="ask-composer px-3.5 pt-2.5 pb-2" data-testid="ask-composer">
             <label htmlFor={embedded ? 'ask-drawer-input' : 'ask-page-input'} className="sr-only">Your question or entry</label>
             {/* Enter sends; Shift+Enter inserts a new line. `isComposing` stops an
                 IME confirmation keystroke from sending a half-typed question. */}
-            <Textarea ref={inputRef} id={embedded ? 'ask-drawer-input' : 'ask-page-input'}
-              rows={2}
+            <textarea ref={inputRef} id={embedded ? 'ask-drawer-input' : 'ask-page-input'}
+              rows={1}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(input); } }}
-              placeholder={thinking ? 'Vyact is thinking…' : listening ? (interimText || 'Listening…') : 'Ask a question… (Shift+Enter for a new line)'}
-              aria-busy={thinking}
-              className="flex-1 min-w-0 !min-h-[3.25rem] max-h-48 !resize-none leading-snug"
+              placeholder={listening ? (interimText || 'Listening…') : 'Ask me anything…'}
+              className="block w-full min-h-[2rem] max-h-48 py-1 overflow-x-hidden text-[0.92rem] leading-snug text-ink placeholder:text-ink-dim"
             />
-            {Boolean(SpeechRec) && (
-              <button
-                type="button" onClick={listening ? stopVoice : startVoice} aria-label={listening ? 'Stop listening' : 'Voice input'}
-                title={listening ? 'Stop' : 'Speak'}
-                className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full border transition-all ${listening ? 'border-coral text-coral bg-coral/10 shadow-[0_0_0_3px_rgba(229,115,115,0.25)] animate-pulse' : 'border-line text-ink-mid hover:text-ink hover:border-coral'}`}>
-                <Mic size={16} />
-              </button>
-            )}
-            <button
-              type="button" onClick={() => send(input)} disabled={!input.trim() || thinking}
-              aria-label="Send"
-              className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-coral text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none">
-              <Send size={16} />
-            </button>
+            <div className="flex items-center justify-end gap-1.5 mt-1">
+              {Boolean(SpeechRec) && (
+                <button
+                  type="button" onClick={listening ? stopVoice : startVoice} aria-label={listening ? 'Stop listening' : 'Voice input'}
+                  title={listening ? 'Stop' : 'Speak'} aria-pressed={listening}
+                  className={`w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full transition-colors ${listening ? 'text-coral bg-coral/10 animate-pulse' : 'text-ink-mid hover:text-ink hover:bg-bg3'}`}>
+                  <Mic size={18} aria-hidden />
+                </button>
+              )}
+              {thinking ? (
+                <button type="button" onClick={stopTurn} aria-label="Stop" title="Stop"
+                  className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-ink text-bg transition-transform active:scale-95">
+                  <Square size={13} aria-hidden fill="currentColor" />
+                </button>
+              ) : (
+                <button
+                  type="button" onClick={() => send(input)} disabled={!input.trim()}
+                  aria-label="Send" title="Send"
+                  className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-coral text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-35 disabled:pointer-events-none">
+                  <ArrowUp size={18} aria-hidden />
+                </button>
+              )}
+            </div>
           </div>
           {/* v10.52.0 (owner) — replaces the "Vyact does the maths" banner. */}
           <p className="mt-2 px-1 text-[0.7rem] leading-snug text-ink-dim" data-testid="ask-ai-disclaimer">

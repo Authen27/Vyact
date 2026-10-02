@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1362 passing deterministic cases in 92 files. Zero failed, skipped or TODO cases at generation.**
+**1367 passing deterministic cases in 93 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -36,9 +36,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | handler-integration | conditional | 58 |
 | react | sql-integration | conditional | 5 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 48 |
+| react | store-integration | available | 49 |
 | react | store-integration | conditional | 2 |
-| react | unit | available | 305 |
+| react | unit | available | 309 |
 | react | unit | conditional | 172 |
 | react | unit | infrastructure | 603 |
 
@@ -64,6 +64,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/agentResolver.test.ts](../react/src/lib/__tests__/agentResolver.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 36 |
 | [react/src/lib/__tests__/agentRouter.test.ts](../react/src/lib/__tests__/agentRouter.test.ts) | Ask Vyact | unit | conditional | 11 |
 | [react/src/lib/__tests__/agentValidator.test.ts](../react/src/lib/__tests__/agentValidator.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 22 |
+| [react/src/lib/__tests__/aiFeedback.test.ts](../react/src/lib/__tests__/aiFeedback.test.ts) | Pip answer feedback | unit | available | 3 |
 | [react/src/lib/__tests__/amortization.test.ts](../react/src/lib/__tests__/amortization.test.ts) | Money model | unit | available | 15 |
 | [react/src/lib/__tests__/askVyact.test.ts](../react/src/lib/__tests__/askVyact.test.ts) | Ask Vyact | unit | conditional | 30 |
 | [react/src/lib/__tests__/askVyactContract.test.ts](../react/src/lib/__tests__/askVyactContract.test.ts) | Ask Vyact | unit | conditional | 9 |
@@ -92,7 +93,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 9 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
 | [react/src/lib/__tests__/learnJsonLd.test.ts](../react/src/lib/__tests__/learnJsonLd.test.ts) | Formatting and structured content | unit | available | 2 |
-| [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 39 |
+| [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 40 |
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/loanPaymentSql.test.ts](../react/src/lib/__tests__/loanPaymentSql.test.ts) | Loan SQL command | sql-integration | conditional | 5 |
 | [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 8 |
@@ -113,7 +114,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/permissionsRole.test.ts](../react/src/lib/__tests__/permissionsRole.test.ts) | Permissions and faults | unit | available | 3 |
 | [react/src/lib/__tests__/personalInsights.test.ts](../react/src/lib/__tests__/personalInsights.test.ts) | Merged personal Insights | unit | available | 10 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 2 |
-| [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 18 |
+| [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 19 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
 | [react/src/lib/__tests__/recurring.test.ts](../react/src/lib/__tests__/recurring.test.ts) | Recurring and budgets | unit | available | 12 |
 | [react/src/lib/__tests__/recurringApproval.test.ts](../react/src/lib/__tests__/recurringApproval.test.ts) | Ledger and recurring workflows | store-integration | available | 1 |

@@ -4,10 +4,20 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.4.1`**
+> **Current production version: `v1.4.2`**
 > **Live URL:** https://admin.vyact.app
 
 ---
+
+## v1.4.2 — Pip answer feedback *(2026-10-02)*
+
+- **Intelligence › Pip answer feedback:** how members rate Pip's answers (👍 / 👎, consumer
+  v10.54.0): the helpful share, counts, the last 30 days, the split by question intent, and the
+  latest ratings (when, rating, intent, surface, answer length). Read through
+  `admin_ai_feedback_summary()` (admin-gated, migration `20261005120000_ai_feedback`). No question
+  or answer text is stored or shown.
+- It loads separately from the usage metrics, so if the feedback read fails the rest of the page
+  still shows.
 
 ## v1.4.1 — The sign-in screen shows the real version *(2026-10-01)*
 

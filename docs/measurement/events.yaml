@@ -271,3 +271,32 @@ privacy:
     description: A WhatsApp number was linked to the account.
     added_in: v10.49.0
     params: {}
+  # ── Pip (Ask Vyact) answers and the WhatsApp entry point (v10.54.0) ──
+  # Never the question or the answer: only the classified intent and the rating.
+  # The same ratings are stored in ai_feedback for the admin console.
+  - name: ask_feedback
+    description: A thumbs up / down on a Pip answer, or taking it back.
+    added_in: v10.54.0
+    params:
+      rating: { type: enum, values: [up, down, none] }
+      intent: { type: string }
+  - name: ask_copy
+    description: A Pip answer was copied.
+    added_in: v10.54.0
+    params:
+      intent: { type: string }
+  - name: ask_new_chat
+    description: New chat — the conversation was left and a fresh one started.
+    added_in: v10.54.0
+    params:
+      count: { type: int }
+  - name: whatsapp_connect_opened
+    description: The WhatsApp connect drawer was opened from Pip.
+    added_in: v10.54.0
+    params:
+      surface: { type: string }
+  - name: whatsapp_chat_opened
+    description: Open WhatsApp was tapped to continue the chat with Pip there.
+    added_in: v10.54.0
+    params:
+      surface: { type: string }
