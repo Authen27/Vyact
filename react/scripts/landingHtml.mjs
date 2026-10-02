@@ -34,6 +34,22 @@ export function landingJsonLd(copy) {
 // Mist user does not see Nocturne flash. Mirrors syncSlice.applyTheme.
 const THEME_BOOT = `<script>(function(){try{var t=localStorage.getItem('vt_theme')||localStorage.getItem('ff_theme');if(!t)return;t=t.replace(/"/g,'');var r=document.documentElement;if(t==='system'){var d=matchMedia('(prefers-color-scheme: dark)').matches;r.classList.toggle('dark',d);r.dataset.theme=d?'dark':'warm';}else{r.classList.toggle('dark',t==='dark');r.dataset.theme=t;}}catch(e){}})();</script>`;
 
+// v10.54.0 — the app bundle waits on "/" (PageSpeed mobile 69, 2 Oct 2026: ~211 KB of
+// unused JavaScript, and Lighthouse scored the pre-rendered H1 as if it waited for it).
+// The page is complete HTML (links are real <a href>s), so the app only adds the CTA's
+// signed-in label, the feedback widget and the service worker. It boots on the first
+// scroll / tap / key / wheel, or right after load when a saved session exists (so a
+// signed-in visitor still gets "Go to Dashboard"). Until it is up, this script records
+// CTA clicks itself; once the app is up (window.__vyLandingLive) the app's own onClick
+// does, so nothing is counted twice.
+const appBoot = src => `<script>(function(){var src=${JSON.stringify(src)},done=false,evs=['scroll','wheel','touchstart','pointerdown','keydown'];
+function boot(){if(done)return;done=true;evs.forEach(function(e){removeEventListener(e,boot,true)});var s=document.createElement('script');s.type='module';s.crossOrigin='';s.src=src;document.head.appendChild(s);}
+evs.forEach(function(e){addEventListener(e,boot,{capture:true,passive:true})});
+try{for(var i=0;i<localStorage.length;i++){if(/^sb-.+-auth-token$/.test(localStorage.key(i)||'')){if(document.readyState==='complete')boot();else addEventListener('load',boot,{once:true});break;}}}catch(e){}
+addEventListener('click',function(e){if(window.__vyLandingLive)return;var a=e.target&&e.target.closest&&e.target.closest('[data-cta]');if(!a||!window.gtag)return;
+var p='web';try{if(matchMedia('(display-mode: standalone)').matches||navigator.standalone)p='pwa';}catch(x){}
+window.gtag('event','landing_cta_click',{placement:a.getAttribute('data-cta'),page:'/',platform:p,transport_type:'beacon'});},true);})();</script>`;
+
 function must(html, re, what) {
   if (!re.test(html)) throw new Error(`landing.html: index.html is missing ${what}`);
   return html;
@@ -53,6 +69,11 @@ export function landingHtml(indexHtml, markup, copy) {
     + `\n    <link rel="canonical" href="${BASE}/" />`);
   sub(/<head>/, '<head>', `<head>\n    ${THEME_BOOT}`);
   sub(/<div id="root"><\/div>/, 'an empty #root', `<div id="root">${markup}</div>`);
+  // The app bundle is not fetched during load (see appBoot): drop the entry script and
+  // its modulepreloads, and boot it on interaction instead.
+  const entry = /<script type="module"[^>]*\ssrc="(\/assets\/[^"]+\.js)"[^>]*><\/script>/.exec(h);
+  if (!entry) throw new Error('landing.html: index.html is missing the app entry script');
+  h = h.replace(entry[0], appBoot(entry[1])).replace(/\s*<link rel="modulepreload"[^>]*>/g, '');
   return h;
 }
 

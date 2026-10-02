@@ -314,6 +314,25 @@ describe('keywords, answers and AI crawlers (#7, #21, #25)', () => {
 // Google Fonts stylesheet loads as a non-blocking preload. Covers index.html (the
 // landing page and the app shell) and the server-rendered Learn pages.
 describe('first paint is not blocked by third parties', () => {
+  it('CON-UNIT-PUB-019 · landing.html does not fetch the app bundle during load: it boots on interaction (or a saved session) and tracks CTA clicks until then', async () => {
+    const { landingHtml } = await import('../../../scripts/landingHtml.mjs');
+    const copy = await import('../../content/landingCopy');
+    const markup = await renderedLanding();
+    const built = INDEX_FIXTURE.replace('<script type="module" src="/assets/index-XyZ.js"></script>',
+      '<script type="module" crossorigin src="/assets/index-XyZ.js"></script>\n<link rel="modulepreload" crossorigin href="/assets/react-dom-1.js">');
+    const html = landingHtml(built, markup, copy);
+    expect(html).not.toMatch(/<script type="module"/);
+    expect(html).not.toContain('modulepreload');
+    expect(html).toContain('var src="/assets/index-XyZ.js"');
+    expect(html).toMatch(/evs=\['scroll','wheel','touchstart','pointerdown','keydown'\]/);
+    expect(html).toMatch(/\/\^sb-\.\+-auth-token\$\//);
+    expect(html).toContain("'landing_cta_click'");
+    expect(html).toContain('if(window.__vyLandingLive)return;');
+    // Every CTA the app tracks is marked for the boot script, with the same placement.
+    expect([...markup.matchAll(/data-cta="([a-z_]+)"/g)].map(m => m[1])).toEqual(['nav', 'hero', 'footer', 'footer_link']);
+    expect(() => landingHtml(INDEX_FIXTURE.replace(/<script type="module"[^>]*><\/script>/, ''), markup, copy)).toThrow(/app entry script/);
+  });
+
   it('PUB-018 · index.html and Learn pages keep analytics and fonts off the critical path', async () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');

@@ -92,7 +92,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             {cloudMode && !signedIn && (
               <Link to="/auth/sign-in" className="text-[0.85rem] font-medium text-ink-mid hover:text-ink">Sign in</Link>
             )}
-            <Link to={primary('landing_nav')} onClick={cta('nav')} className="btn-primary px-5 py-2.5 text-[0.9rem] font-semibold rounded-full">
+            <Link to={primary('landing_nav')} onClick={cta('nav')} data-cta="nav" className="btn-primary px-5 py-2.5 text-[0.9rem] font-semibold rounded-full">
               Open app
             </Link>
           </nav>
@@ -104,7 +104,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
         <section className="pt-16 pb-16 md:pt-20 md:pb-20 max-w-2xl">
           <h1 className="display-italic text-4xl md:text-5xl text-ink mb-5 leading-[1.1]">{HERO.title}</h1>
           <p className="text-[1.05rem] leading-7 text-ink-mid mb-8">{HERO.lede}</p>
-          <Link to={primary('landing_hero')} onClick={cta('hero')} className="btn-primary inline-block px-6 py-3.5 text-[0.95rem] font-semibold rounded-full">
+          <Link to={primary('landing_hero')} onClick={cta('hero')} data-cta="hero" className="btn-primary inline-block px-6 py-3.5 text-[0.95rem] font-semibold rounded-full">
             {primaryLabel}
           </Link>
           <p className="text-[0.8rem] text-ink-dim mt-3">{HERO.fine}</p>
@@ -234,7 +234,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
         {/* Final CTA */}
         <section className="pb-16 text-center">
           <h2 className="display-italic text-2xl md:text-3xl text-ink mb-5">Set up your household in two minutes.</h2>
-          <Link to={primary('landing_footer')} onClick={cta('footer')} className="btn-primary inline-block px-6 py-3.5 text-[0.95rem] font-semibold rounded-full">
+          <Link to={primary('landing_footer')} onClick={cta('footer')} data-cta="footer" className="btn-primary inline-block px-6 py-3.5 text-[0.95rem] font-semibold rounded-full">
             {toApp ? primaryLabel : "Open Vyact — it's free"}
           </Link>
         </section>
@@ -253,7 +253,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             <p className="text-[0.8rem] text-ink-dim">Your household’s money, understood together.</p>
           </div>
           <div className="text-right">
-            <Link to={primary('landing_footer_link')} onClick={cta('footer_link')} className="text-[0.85rem] font-medium text-coral hover:underline">Open Vyact →</Link>
+            <Link to={primary('landing_footer_link')} onClick={cta('footer_link')} data-cta="footer_link" className="text-[0.85rem] font-medium text-coral hover:underline">Open Vyact →</Link>
             <p className="text-[0.8rem] text-ink-dim mt-1">Budgets, bills, splits and net worth — shared with the people you share money with.</p>
             <div className="flex gap-4 justify-end mt-3 text-[0.75rem] text-ink-dim">
               <a href="/learn" className="hover:text-ink">Learn</a>
