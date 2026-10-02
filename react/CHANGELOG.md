@@ -48,7 +48,7 @@ the week of 3 Aug, and the funnel couldn't have shown one properly anyway.
     landing page it waits for the visitor's first interaction, like Userback; in the app it
     loads after load + idle as before.
   - New **Lighthouse budget** workflow (`.github/workflows/lighthouse.yml`): median mobile
-    performance ≥ 85 on `/` over 5 runs, on a production build served the way Vercel serves it
+    performance ≥ 80 on `/` over 5 runs (a regression guard: the landing scores 82–83 today), on a production build served the way Vercel serves it
     (`scripts/serve-dist.mjs`, `scripts/lighthouse-budget.mjs`). PR-only, and only when the
     landing page or its loading changes.
 - **The first-run demo household is rebuilt on the current money model (#68).**

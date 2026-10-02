@@ -1,10 +1,14 @@
 name: Landing performance
 
 # v10.53.0 (master to-do #66) — a Lighthouse budget for the landing page: median mobile
-# performance >= 85 on "/" over 5 runs, on a production build served the way Vercel
+# performance >= 80 on "/" over 5 runs, on a production build served the way Vercel
 # serves it ("/" → landing.html). PR-only, and only when something that shapes the
 # landing page or its loading changes, so it costs Actions minutes rarely (see the
 # minutes-budget note in ci.yml).
+# 80, not 85 (owner, 2 Oct 2026): the landing scores a stable 82–83 here. Lighthouse's
+# simulated throttling counts the app bundle that finishes before the first paint, so the
+# pre-rendered H1 is scored as if it waited for it. The path to 85+ is not booting the
+# app bundle on "/" until idle or the first interaction (follow-up); raise this then.
 on:
   pull_request:
     branches: [main]
@@ -29,7 +33,7 @@ concurrency:
 
 jobs:
   landing:
-    name: Lighthouse budget (landing, mobile, median of 5 ≥ 85)
+    name: Lighthouse budget (landing, mobile, median of 5 ≥ 80)
     runs-on: ubuntu-latest
     timeout-minutes: 15   # normally ~6 min
     defaults: { run: { working-directory: react } }
@@ -50,4 +54,4 @@ jobs:
       - name: Lighthouse budget
         env:
           CHROME_PATH: /usr/bin/google-chrome
-        run: node scripts/lighthouse-budget.mjs http://localhost:4180/ 85 5
+        run: node scripts/lighthouse-budget.mjs http://localhost:4180/ 80 5

@@ -4,7 +4,7 @@
 // MEDIAN performance score is under MIN. The median, because a single run on a shared CI
 // runner swings by 10+ points. Needs a Chrome on the machine (CHROME_PATH, or the runner's).
 //
-//   node scripts/lighthouse-budget.mjs http://localhost:4180/ [min=85] [runs=3]
+//   node scripts/lighthouse-budget.mjs http://localhost:4180/ [min=80] [runs=3]
 //
 // Note: on localhost the analytics tags stay off (GA and Contentsquare run only on
 // vyact.app) and Userback waits for an interaction, so this measures the page itself.
@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const url = process.argv[2] || 'http://localhost:4180/';
-const MIN = Number(process.argv[3] || 85);
+const MIN = Number(process.argv[3] || 80);
 const RUNS = Number(process.argv[4] || 5);
 const out = mkdtempSync(join(tmpdir(), 'lh-'));
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
