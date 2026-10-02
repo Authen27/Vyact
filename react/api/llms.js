@@ -15,7 +15,7 @@ import { firstSentence } from './learn.js';
 // STANDARD_DESCRIPTION in src/content/landingCopy.ts (this Node function cannot import the
 // app's TypeScript); CON-UNIT-PUB-013 fails if the two drift. Keep it true: WhatsApp logging
 // joins it when number linking is open to everyone.
-export const DESCRIPTION = 'Vyact is the money app a household runs together. Everyone logs spending in seconds, shares budgets and bills, splits costs and plans debt payoff, and sees the same cash flow and net worth. Pip, the built-in assistant, answers questions like “can we afford it?” from the household’s own numbers. Free to start, in your own currency, with a free library of plain-English money lessons.';
+export const DESCRIPTION = 'Vyact is the family budget app a household runs together. Everyone logs spending in seconds, shares budgets and bills, splits costs and plans debt payoff, and sees the same cash flow and net worth. Pip, the built-in assistant, answers questions like “can we afford it?” from the household’s own numbers. Free to start, in your own currency, with a free library of plain-English money lessons.';
 
 // Facts an assistant can state about Vyact. Each must stay true of the live app (landingCopy.ts).
 const FACTS = [
@@ -62,6 +62,7 @@ export function llmsTxt(cards) {
     '',
     '## Pages',
     '',
+    `- [What is Vyact?](${BASE}/about): the facts, and which Vyact this is (not the open-source AI workspace of the same name)`,
     `- [Home](${BASE}/): what Vyact does and who it is for`,
     `- [Budget app for couples](${BASE}/for/couples): how couples budget and split money, and how Vyact helps`,
     `- [Family budget app](${BASE}/for/families): how families budget together with multiple users`,

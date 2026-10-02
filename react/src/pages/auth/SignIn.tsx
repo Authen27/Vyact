@@ -120,7 +120,7 @@ export function AuthShell({ title, children }: { title: string; children: React.
           <Pip size={40} />
           <div>
             <div className="display-italic text-2xl text-ink leading-none">Vy<span style={{ color: 'var(--accent)' }}>act</span></div>
-            <div className="font-mono text-[0.58rem] tracking-[0.2em] uppercase text-ink-dim mt-1.5">Family Finance OS</div>
+            <div className="font-mono text-[0.58rem] tracking-[0.2em] uppercase text-ink-dim mt-1.5">Family budget app</div>
           </div>
         </Link>
         <div className="rounded-r4 p-7" style={{ background: 'var(--glass-strong)', backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)', border: '1px solid var(--glass-line)', boxShadow: 'var(--cast-3)' }}>

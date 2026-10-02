@@ -84,7 +84,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             <Pip size={30} />
             <div>
               <div className="display-italic text-lg text-ink leading-none">Vyact</div>
-              <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-coral">Family Finance OS</div>
+              <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-coral">Family budget app</div>
             </div>
           </Link>
           <nav className="flex items-center gap-4" aria-label="Main">
@@ -102,6 +102,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
       <main className="max-w-5xl mx-auto px-5">
         {/* Hero */}
         <section className="pt-16 pb-16 md:pt-20 md:pb-20 max-w-2xl">
+          <p className="font-mono text-[0.7rem] tracking-[0.12em] uppercase text-coral mb-3">{HERO.kicker}</p>
           <h1 className="display-italic text-4xl md:text-5xl text-ink mb-5 leading-[1.1]">{HERO.title}</h1>
           <p className="text-[1.05rem] leading-7 text-ink-mid mb-8">{HERO.lede}</p>
           <Link to={primary('landing_hero')} onClick={cta('hero')} data-cta="hero" className="btn-primary inline-block px-6 py-3.5 text-[0.95rem] font-semibold rounded-full">
@@ -251,7 +252,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
               <Pip size={22} />
               <div>
                 <div className="display-italic text-base text-ink leading-none">Vyact</div>
-                <div className="font-mono text-[0.5rem] tracking-[0.14em] uppercase text-coral">Family Finance OS</div>
+                <div className="font-mono text-[0.5rem] tracking-[0.14em] uppercase text-coral">Family budget app</div>
               </div>
             </div>
             <p className="text-[0.8rem] text-ink-dim">Your household’s money, understood together.</p>
@@ -260,6 +261,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             <Link to={primary('landing_footer_link')} onClick={cta('footer_link')} data-cta="footer_link" className="text-[0.85rem] font-medium text-coral hover:underline">Open Vyact →</Link>
             <p className="text-[0.8rem] text-ink-dim mt-1">Budgets, bills, splits and net worth — shared with the people you share money with.</p>
             <div className="flex gap-4 justify-end mt-3 text-[0.75rem] text-ink-dim">
+              <a href="/about" className="hover:text-ink">About</a>
               <a href="/learn" className="hover:text-ink">Learn</a>
               <a href="/private" className="hover:text-ink">Private by design</a>
               <Link to="/privacy" className="hover:text-ink">Privacy</Link>

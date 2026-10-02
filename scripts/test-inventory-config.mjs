@@ -13,6 +13,7 @@ export const groups = [
   { feature: 'Dashboard MVP presentation', availability: 'available', layer: 'contract-unit', owner: 'Dashboard / feature flags (static rendering, not browser geometry)', files: [`${consumer}dashboardPresentation.test.tsx`] },
   group('Money model', 'available', 'unit', ['money', 'moneyModel.engines', 'moneyModel.invariants', 'moneyModel.regression', 'calculations', 'amortization', 'netWorthProjection', 'fxCentralization', 'pulseBudget'], 'calculations / money / netWorth / amortization'),
   group('Categories and ordering', 'available', 'unit', ['categoryModel', 'ordering'], 'constants / categorization / ordering'),
+  group('Page titles', 'available', 'unit', ['pageTitle'], 'pageTitle (per-route document titles)'),
   group('Transactions CSV export', 'available', 'unit', ['transactionsCsv'], 'transactionsCsv (columns, escaping; Settings + Transactions page)'),
   group('Accounts', 'available', 'unit', ['accountsView'], 'accountsView (card figures · cycles · staleness · summary · delete guard)'),
   group('Net worth history', 'available', 'unit', ['netWorthSnapshots'], 'netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed)'),

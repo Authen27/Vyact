@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.55.0`** (consumer)
+> **Current production version: `v10.56.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,37 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.56.0 — One clear brand: "Vyact, the family budget app" *(2026-10-02)*
+
+Master to-do B3, from the CMO's brand-reachability review (#78, #79), with the owner's decisions:
+Vyact is not trademarked, the brand is positioned toward the app, and the only alias is "Vyact app".
+Another product already uses the name (an open-source local AI workspace), and an AI summary had
+mixed the two up, so this release makes every page describe the same, unambiguous entity.
+
+- **`/about`, "What is Vyact?"** — a server-rendered page with:
+  - a quick answer, and a plain sentence on which Vyact this is;
+  - a facts list (what it is, what it does, who it's for, where it works, price, currency, contact);
+  - an FAQ, including "Is Vyact the open-source AI workspace called Vyact? No.";
+  - `AboutPage` + `FAQPage` markup.
+  - It's linked from every footer, listed first in `llms.txt`, and in the sitemap.
+- **One Organization entity** (`api/_brand.js`): stable `@id`, `alternateName` "Vyact app", a
+  `disambiguatingDescription`, contact email, and `sameAs` with the YouTube channel. The landing
+  page, every Learn page and `/about` reference that same `@id`; the app's SoftwareApplication is
+  published by it.
+- **Positioning toward the app:**
+  - The tagline under the logo is now "Family budget app" (landing, Learn and use-case pages, sign-in), and the installed app's name follows.
+  - The landing page opens with "Vyact · the family budget app for couples and households" above the brand headline.
+  - The standard description now starts "Vyact is the family budget app…".
+  - The app shell gains `og:site_name`.
+- **Every app route names itself** in the browser title (e.g. "Sign up · Vyact — Family budget app")
+  instead of sharing one generic title.
+- **Unknown paths are a real 404.** A made-up URL used to answer 200 with the app shell and a generic
+  title, so search engines could index thin duplicate pages. Now only the app's own routes and the
+  public pages are served; anything else is a `noindex` 404 that points home. PUB-020 checks that
+  every route in `App.tsx` and `formRoutes.ts` still gets through.
+- CI: artifact uploads no longer fail a passing run when the private repo's artifact quota is full
+  (shipped with v10.55.0).
 
 ## v10.55.0 — Pages that rank: every lesson answers a search, three new use-case pages *(2026-10-02)*
 

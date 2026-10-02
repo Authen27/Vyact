@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.55.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.56.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -536,6 +536,12 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   `lighthouse.yml` (v10.53.0) runs a landing-page performance budget (median
   mobile ≥ 90; since v10.54.0 the app bundle boots on "/" only on interaction) only on PRs that touch the landing page or its loading. Vercel
   skips docs-only commits via `ignoreCommand` in both `vercel.json` files.
+- **Brand entity (v10.56.0, owner 2 Oct 2026).**
+  - Vyact is "the family budget app"; the logo tagline is "Family budget app".
+  - The only alias is "Vyact app"; no other alias, ever.
+  - Another product shares the name (an open-source local AI workspace), so the Organization is defined ONCE, in `react/api/_brand.js` (`@id` `https://vyact.app/#organization`, `disambiguatingDescription`, `sameAs`). Every page references that `@id`, and `/about` states which Vyact this is. Add new profiles to `SAME_AS` only once they're live.
+  - PUB-021 enforces this.
+- **Unknown paths are a real 404 (v10.56.0).** `react/middleware.js` lets only the app's own top-level routes (`APP_SEGMENTS`) and the public pages reach the app shell; everything else gets a `noindex` 404. **A new top-level app route must be added to `APP_SEGMENTS`**, or users get a 404. PUB-020 parses `App.tsx` and `formRoutes.ts` to catch a miss.
 - **Funnel events (v10.53.0).** `sign_up` and the first `household_created` fire
   together from `trackSignUpOnce` (account < 24 h old; once per device and per
   account). A new account's first household comes from the `handle_new_user`

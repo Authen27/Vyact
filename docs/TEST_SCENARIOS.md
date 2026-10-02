@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1369 passing deterministic cases in 94 files. Zero failed, skipped or TODO cases at generation.**
+**1372 passing deterministic cases in 95 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 49 |
 | react | store-integration | conditional | 2 |
-| react | unit | available | 311 |
+| react | unit | available | 314 |
 | react | unit | conditional | 172 |
 | react | unit | infrastructure | 603 |
 
@@ -111,10 +111,11 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/ordering.test.ts](../react/src/lib/__tests__/ordering.test.ts) | Categories and ordering | unit | available | 5 |
 | [react/src/lib/__tests__/outbox.test.ts](../react/src/lib/__tests__/outbox.test.ts) | Outbox algorithm | unit | available | 8 |
 | [react/src/lib/__tests__/outboxIndexedDb.test.ts](../react/src/lib/__tests__/outboxIndexedDb.test.ts) | Storage and synchronization | storage-integration | available | 5 |
+| [react/src/lib/__tests__/pageTitle.test.ts](../react/src/lib/__tests__/pageTitle.test.ts) | Page titles | unit | available | 1 |
 | [react/src/lib/__tests__/permissionsRole.test.ts](../react/src/lib/__tests__/permissionsRole.test.ts) | Permissions and faults | unit | available | 3 |
 | [react/src/lib/__tests__/personalInsights.test.ts](../react/src/lib/__tests__/personalInsights.test.ts) | Merged personal Insights | unit | available | 10 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 2 |
-| [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 19 |
+| [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 21 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
 | [react/src/lib/__tests__/recurring.test.ts](../react/src/lib/__tests__/recurring.test.ts) | Recurring and budgets | unit | available | 12 |
 | [react/src/lib/__tests__/recurringApproval.test.ts](../react/src/lib/__tests__/recurringApproval.test.ts) | Ledger and recurring workflows | store-integration | available | 1 |

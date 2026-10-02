@@ -39,7 +39,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg'],
       manifest: {
         id: '/',
-        name: 'Vyact — Family Finance OS',
+        name: 'Vyact — Family budget app',
         short_name: 'Vyact',
         description: 'Household finance, planned together. Track spend, budgets, debts, goals, and net worth across the family.',
         start_url: '/',
@@ -85,7 +85,7 @@ export default defineConfig({
           /^\/api\//, /^\/auth\//, /version\.json$/,
           /^\/learn(\/|$)/, /^\/sitemap\.xml$/, /^\/robots\.txt$/, /^\/llms\.txt$/, /^\/\.well-known\//,
           // v10.55.0 — public pages an installed app must not answer with its own shell.
-          /^\/for\//, /^\/private$/, /^\/llms-full\.txt$/,
+          /^\/for\//, /^\/private$/, /^\/about$/, /^\/llms-full\.txt$/,
         ],
         runtimeCaching: [
           {

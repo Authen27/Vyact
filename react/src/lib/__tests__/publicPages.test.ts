@@ -113,12 +113,12 @@ describe('library, hubs, sitemap, llms.txt (#10, #25)', () => {
 
   it('CON-UNIT-PUB-007 · the sitemap lists home, the use-case pages, library, one hub per topic and every lesson', () => {
     const xml = sitemapXml(ALL, '2026-09-29');
-    for (const loc of ['https://vyact.app/', 'https://vyact.app/for/couples', 'https://vyact.app/for/families', 'https://vyact.app/for/splitwise-users', 'https://vyact.app/for/money-owed', 'https://vyact.app/private', 'https://vyact.app/learn', 'https://vyact.app/learn/topic/saving', 'https://vyact.app/learn/topic/net-worth', 'https://vyact.app/learn/ev-020-emi-basics']) {
+    for (const loc of ['https://vyact.app/', 'https://vyact.app/about', 'https://vyact.app/for/couples', 'https://vyact.app/for/families', 'https://vyact.app/for/splitwise-users', 'https://vyact.app/for/money-owed', 'https://vyact.app/private', 'https://vyact.app/learn', 'https://vyact.app/learn/topic/saving', 'https://vyact.app/learn/topic/net-worth', 'https://vyact.app/learn/ev-020-emi-basics']) {
       expect(xml).toContain(`<loc>${loc}</loc>`);
     }
-    expect(xml.match(/<url>/g)).toHaveLength(7 + 3 + ALL.length);
+    expect(xml.match(/<url>/g)).toHaveLength(8 + 3 + ALL.length);
     // With no lessons readable, the static pages are still listed (v10.55.0: + 3 use-case pages).
-    expect(sitemapXml([], '2026-09-29').match(/<url>/g)).toHaveLength(7);
+    expect(sitemapXml([], '2026-09-29').match(/<url>/g)).toHaveLength(8);   // v10.56.0: + /about
   });
 
   it('CON-UNIT-PUB-008 · llms.txt: the one standard description and the live hubs', () => {
@@ -214,11 +214,71 @@ describe('the landing page (#9, #12, #19)', () => {
     for (const banned of ['sms', 'bank link', 'no bank', 'indian household', 'for india', 'whatsapp']) expect(words, banned).not.toContain(banned);
   });
 
-  it('CON-UNIT-PUB-012 · middleware serves "/" (only) from the pre-rendered landing, keeping the query', async () => {
+  it('CON-UNIT-PUB-012 · middleware serves "/" from the pre-rendered landing, keeping the query', async () => {
     const mw = await import('../../../middleware.js');
-    expect(mw.config).toEqual({ matcher: '/' });
     const res = mw.default(new Request('https://vyact.app/?ref=ig'));
     expect(res.headers.get('x-middleware-rewrite')).toBe('https://vyact.app/landing.html?ref=ig');
+  });
+
+  it('CON-UNIT-PUB-021 · one brand entity: /about answers "What is Vyact?", says which Vyact this is, and every page points at the same Organization @id', async () => {
+    const { aboutPage, FAQ } = await import('../../../api/about.js');
+    const brand = await import('../../../api/_brand.js');
+    const html = aboutPage();
+    expect(html.match(/<h1>/g)).toHaveLength(1);
+    expect(html).toContain('<h1>What is Vyact?</h1>');
+    expect(html).toContain('<link rel="canonical" href="https://vyact.app/about">');
+    expect(html).toContain('not related to the open-source AI workspace');
+    const ld = jsonLdOf(html);
+    const org = ld.find(o => o['@type'] === 'Organization');
+    expect(org['@id']).toBe('https://vyact.app/#organization');
+    expect(org.alternateName).toEqual(['Vyact app']);
+    expect(org.sameAs).toContain('https://www.youtube.com/channel/UCMYdD2TEFJaCSJnsSBs8T7A');
+    expect(ld.find(o => o['@type'] === 'AboutPage').mainEntity).toEqual({ '@id': brand.ORG_ID });
+    expect(ld.find(o => o['@type'] === 'FAQPage').mainEntity.map((q: { name: string }) => q.name)).toEqual(FAQ.map(([q]: string[]) => q));
+    // The landing page carries the same entity; its app node is published by it.
+    const copy = await import('../../content/landingCopy');
+    const { landingJsonLd } = await import('../../../scripts/landingHtml.mjs');
+    const landing = landingJsonLd(copy);
+    expect(landing.find((o: { '@type': string }) => o['@type'] === 'Organization')['@id']).toBe(brand.ORG_ID);
+    expect(landing.find((o: { '@type': string }) => o['@type'] === 'SoftwareApplication').publisher['@id']).toBe(brand.ORG_ID);
+    expect(copy.STANDARD_DESCRIPTION).toMatch(/^Vyact is the family budget app/);
+    // Owner rule: never "Vyact Finance"; the tagline is "Family budget app", not "Family Finance OS".
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const apiDir = resolve(__dirname, '../../../api');
+    const sources = [
+      ...readdirSync(apiDir).filter(f => f.endsWith('.js')).map(f => readFileSync(resolve(apiDir, f), 'utf8')),
+      readFileSync(resolve(__dirname, '../../../index.html'), 'utf8'),
+      readFileSync(resolve(__dirname, '../../pages/LandingView.tsx'), 'utf8'),
+      readFileSync(resolve(__dirname, '../../content/landingCopy.ts'), 'utf8'),
+    ].join('\n');
+    expect(sources).not.toMatch(/Vyact Finance/i);
+    expect(sources).not.toMatch(/Family Finance OS/);
+  });
+
+  it('CON-UNIT-PUB-020 · unknown paths are a noindex 404; every app route, public page and static file still gets through', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const mw = await import('../../../middleware.js');
+    // Every top-level route the app declares must reach the app shell (else users get a 404).
+    const app = readFileSync(resolve(__dirname, '../../App.tsx'), 'utf8');
+    const forms = readFileSync(resolve(__dirname, '../formRoutes.ts'), 'utf8');
+    const declared = new Set([...app.matchAll(/path="\/([^"/*]+)/g), ...forms.matchAll(/'\/([a-z_-]+)\//g)].map(m => m[1]));
+    expect(declared.size).toBeGreaterThan(15);
+    for (const seg of declared) expect(mw.routeFor(`/${seg}`), seg).toBe('next');
+    for (const p of ['/onboarding', '/auth/sign-up', '/invite/abc', '/transactions/new', '/about', '/private']) expect(mw.routeFor(p), p).toBe('next');
+    // Made-up paths are a real 404 with noindex.
+    for (const p of ['/this-page-does-not-exist', '/vyact-finance', '/blog']) expect(mw.routeFor(p), p).toBe('not-found');
+    const res = mw.default(new Request('https://vyact.app/this-page-does-not-exist'));
+    expect(res.status).toBe(404);
+    expect(res.headers.get('x-robots-tag')).toBe('noindex');
+    expect(await res.text()).toContain('<meta name="robots" content="noindex">');
+    // The matcher skips static files, api, assets, icons, Learn, /for/* and .well-known.
+    const re = new RegExp(`^${mw.config.matcher[0]}$`);
+    for (const p of ['/assets/index-1.js', '/favicon.svg', '/landing.html', '/1ad202c3ca28f7e2c7245752d1f27eba.txt', '/api/for', '/learn', '/learn/ev-001-x', '/for/couples', '/.well-known/assetlinks.json', '/icons/a.png']) {
+      expect(re.test(p), p).toBe(false);
+    }
+    for (const p of ['/', '/about', '/dashboard', '/nope']) expect(re.test(p), p).toBe(true);
   });
 
   it('CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet', async () => {
