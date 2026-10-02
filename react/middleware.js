@@ -45,9 +45,11 @@ const NOT_FOUND = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><m
 <body><main><h1 style="font-weight:600">Page not found</h1><p>Vyact is the family budget app for couples and households.</p>
 <p><a href="/">Go to the home page</a> · <a href="/learn">Free money lessons</a> · <a href="/auth/sign-in">Sign in</a></p></main></body></html>`;
 
-/** v10.57.0 (B20) — the guest demo host. Its "/" opens the demo household, not the landing page. */
-export function isDemoHost(hostname) {
-  return hostname === 'demo.vyact.app';
+/** v10.57.0 (B20) — the guest demo. Its "/" opens the demo household, not the landing page.
+ *  v10.57.1 — any host of the demo project (VYACT_DEMO=1, e.g. vyact-demo.vercel.app), not only
+ *  demo.vyact.app, so no address of the demo serves a second copy of the landing page. */
+export function isDemoHost(hostname, env = typeof process !== 'undefined' ? process.env : {}) {
+  return hostname === 'demo.vyact.app' || env.VYACT_DEMO === '1';
 }
 
 export default function middleware(request) {

@@ -566,6 +566,10 @@ describe('video short links, Start here paths, the Shorts strip and the guest de
     expect(r.status).toBe(302);
     expect(r.headers.get('location')).toBe('https://demo.vyact.app/dashboard?utm_source=x');
     expect(mw.default(new Request('https://vyact.app/')).headers.get('x-middleware-rewrite')).toContain('/landing.html');
+    // v10.57.1 — every address of the demo project counts (vyact-demo.vercel.app has no host rule).
+    expect(mw.isDemoHost('vyact-demo.vercel.app', { VYACT_DEMO: '1' })).toBe(true);
+    expect(mw.isDemoHost('vyact.app', {})).toBe(false);
+    expect(vite).toMatch(/name: 'vyact-demo-noindex'[\s\S]*?process\.env\.VITE_DEMO === '1'[\s\S]*?<meta name="robots" content="noindex, nofollow">/);
 
     // Every response on the demo host is noindex, and its public pages go to vyact.app.
     const vercel = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'));
