@@ -11,11 +11,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.53.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.54.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.0**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.2**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -541,6 +541,11 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   account). A new account's first household comes from the `handle_new_user`
   trigger, so `createHousehold`'s event only covers extra households. GA4
   `user_id` is a SHA-256 of the user id; never send an email or the raw id.
+- **Pip answer feedback (v10.54.0).** `ai_feedback` holds the rating, the
+  question's classified intent, the answer's length and the surface, never the
+  question or answer (the `ai_usage` rule). While Pip answers, the UI shows
+  typing dots only (owner rule): don't bring back step narration, "thinking"
+  copy or the "Analysed in Ns" line.
 - 🔴 **Schema ships before the app that needs it (1 Oct 2026).** Vercel's GitHub
   connection publishes vyact.app on every push to main, in parallel with the
   Actions `Deploy` workflow (migrations + Edge Functions only). Nothing makes the

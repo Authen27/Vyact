@@ -74,6 +74,36 @@ export async function fetchAiUsageSummary(): Promise<AiUsageSummary> {
   };
 }
 
+// ── Pip answer feedback (v1.4.2) ────────────────────────────────────
+// The 👍 / 👎 members give Pip's answers (consumer v10.54.0, table ai_feedback).
+// Rating, classified intent, answer length and surface only — never the question
+// or the answer.
+export interface AiFeedbackIntentRow { intent: string; up: number; down: number; }
+export interface AiFeedbackRecentRow {
+  at: string; rating: 1 | -1; intent: string | null; surface: string; responseLen: number | null;
+}
+export interface AiFeedbackSummary {
+  total: number;
+  up: number;
+  down: number;
+  last30: number;
+  byIntent: AiFeedbackIntentRow[];
+  recent: AiFeedbackRecentRow[];
+}
+export async function fetchAiFeedbackSummary(): Promise<AiFeedbackSummary> {
+  const { data, error } = await sb().rpc('admin_ai_feedback_summary');
+  if (error) throw error;
+  const d = (data || {}) as Partial<AiFeedbackSummary>;
+  return {
+    total: d.total ?? 0,
+    up: d.up ?? 0,
+    down: d.down ?? 0,
+    last30: d.last30 ?? 0,
+    byIntent: d.byIntent ?? [],
+    recent: d.recent ?? [],
+  };
+}
+
 // ── Users ───────────────────────────────────────────────────────────
 export interface AdminUserRow {
   id: string;

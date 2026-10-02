@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.53.0`** (consumer)
+> **Current production version: `v10.54.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,34 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.54.0 — Pip: a quieter answer, a rating under each one, and WhatsApp one tap away *(2026-10-02)*
+
+Owner redesign of Pip (Ask Vyact), 2 Oct 2026.
+
+- **The composer is one rounded field (owner design 1).** The question sits on top ("Ask me
+  anything…"), with the mic and a round send button beneath it. While Pip answers, send becomes
+  **Stop**; stopping an answer that hasn't started leaves nothing behind, and a stopped turn never
+  opens a form afterwards. The disclaimer stays under the field.
+- **Nothing is narrated while Pip works.** The live pipeline steps, "Thinking", "Vyact is
+  thinking…", the gradient ring and the "Analysed in Ns · N steps" line are gone; an answer in
+  progress shows three typing dots only (screen readers hear "Pip is answering").
+- **Copy, 👍 and 👎 under every finished answer.** Tapping the chosen rating again takes it back.
+  Each tap is sent to GA (`ask_copy`, `ask_feedback` with `rating` and the question's classified
+  `intent`) and, for cloud households, stored in the new `ai_feedback` table (rating, intent,
+  answer length and surface only — never the question or the answer), one rating per answer per
+  person. The admin console shows them (admin v1.4.2). The rating also stays on the answer in the
+  saved transcript.
+- **"Clear history" is replaced by New chat.** No confirmation and no delete wording: it leaves the
+  current conversation (stopping an answer in progress) and starts a fresh one (`ask_new_chat`).
+- **WhatsApp from inside Pip.** A WhatsApp button next to New chat (cloud accounts) opens a
+  WhatsApp-styled drawer: connect your number with the same one-time-code flow as Settings,
+  enter the code, then "Open WhatsApp" to carry on with Pip there, plus the "Let Pip answer my
+  questions on WhatsApp" switch. The link flow is shared with Settings (`useWhatsAppLink`). Until
+  Meta verifies the business, sending the code says linking isn't available yet. Nothing on the
+  public site mentions WhatsApp. Events: `whatsapp_connect_opened`, `whatsapp_chat_opened`.
+- Schema: migration `20261005120000_ai_feedback` (table + RLS + `admin_ai_feedback_summary()`)
+  ships first, in its own PR.
 
 ## v10.53.0 — The front door is measured, the demo matches the product, and the public pages load lighter *(2026-10-01)*
 

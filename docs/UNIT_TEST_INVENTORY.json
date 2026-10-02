@@ -508,6 +508,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/aiFeedback.test.ts",
+      "feature": "Pip answer feedback",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "aiFeedback (row privacy and bounds; local mode writes nothing)",
+      "count": 3,
+      "tests": [
+        "Pip answer feedback CON-UNIT-FDB-001 · the row carries no question or answer text",
+        "Pip answer feedback CON-UNIT-FDB-002 · bounds match the table constraints",
+        "Pip answer feedback CON-UNIT-FDB-003 · local-only mode is a silent no-op"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/amortization.test.ts",
       "feature": "Money model",
       "availability": "available",
