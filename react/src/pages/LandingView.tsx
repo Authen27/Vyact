@@ -260,7 +260,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
           <div className="text-right">
             <Link to={primary('landing_footer_link')} onClick={cta('footer_link')} data-cta="footer_link" className="text-[0.85rem] font-medium text-coral hover:underline">Open Vyact →</Link>
             <p className="text-[0.8rem] text-ink-dim mt-1">Budgets, bills, splits and net worth — shared with the people you share money with.</p>
-            <div className="flex gap-4 justify-end mt-3 text-[0.75rem] text-ink-dim">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 justify-end mt-3 text-[0.75rem] text-ink-dim">
               <a href="/about" className="hover:text-ink">About</a>
               <a href="/learn" className="hover:text-ink">Learn</a>
               <a href="/private" className="hover:text-ink">Private by design</a>
