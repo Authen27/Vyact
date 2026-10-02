@@ -217,6 +217,22 @@ describe('the dispatcher', () => {
     expect(api.from).not.toHaveBeenCalled();
   });
 
+  it('CON-UNIT-WA-D-013 · accepts the cron header when the Vault check confirms it, and only then', async () => {
+    // 2 Oct 2026 — the secret is generated in Vault (migration 20261006120000); no env var.
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-dispatch/index'));
+    const header = 'a'.repeat(64);
+    const call = () => handler(new Request('https://edge.example.com/dispatch?job=nope', { method: 'POST', headers: { 'x-dispatch-secret': header } }));
+    api.rpc.mockResolvedValueOnce({ data: false, error: null });
+    expect((await call()).status).toBe(403);
+    expect(api.rpc).toHaveBeenLastCalledWith('whatsapp_dispatch_ok', { p: header });
+    api.rpc.mockResolvedValueOnce({ data: true, error: null });
+    expect((await call()).status).toBe(400);   // past auth: the job name is checked next
+    api.rpc.mockClear();
+    const short = await handler(new Request('https://edge.example.com/dispatch?job=alerts', { method: 'POST', headers: { 'x-dispatch-secret': 'short' } }));
+    expect(short.status).toBe(403);
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
   it('CON-UNIT-WA-D-012 · a large spend flows through the guarded send (gated off: recorded, not sent)', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-dispatch/index'), { WHATSAPP_DISPATCH_SECRET: 's3cret' });
     const audits: Record<string, unknown>[] = [];

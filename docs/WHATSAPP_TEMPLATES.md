@@ -47,7 +47,7 @@ fails. The 11 header images are in
 | `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | In review (submitted 25 Sep) |
 | `hello_world` | Utility | — | Meta sample; cannot be deleted. Kept for test sends | Active |
 
-**Activation (26 Sep).** `WHATSAPP_OUTBOUND_ENABLED=true`, and `WHATSAPP_APPROVED_TEMPLATES` lists the templates verified above: 16 on 26 Sep 03:07 UTC, then 18 at 13:25 UTC (adding bill_overdue_reminder, payday_headroom_variable and reengagement_nudge_quiet; recurring_auto_logged removed while its image edit is in review), then 17 at 15:09 UTC (weekly_summary out while its link edit is in review). Each one was checked field by field against the manifest in the Meta edit form: body, variables, samples, header, footer, buttons and links. Templates still in review are left out; add each one only after it is approved and checked. The scheduler (`whatsapp-dispatch`) still needs the Vault secret `whatsapp_dispatch_secret` and the matching `WHATSAPP_DISPATCH_SECRET` before any scheduled message goes out.
+**Activation (26 Sep).** `WHATSAPP_OUTBOUND_ENABLED=true`, and `WHATSAPP_APPROVED_TEMPLATES` lists the templates verified above: 16 on 26 Sep 03:07 UTC, then 18 at 13:25 UTC (adding bill_overdue_reminder, payday_headroom_variable and reengagement_nudge_quiet; recurring_auto_logged removed while its image edit is in review), then 17 at 15:09 UTC (weekly_summary out while its link edit is in review). Each one was checked field by field against the manifest in the Meta edit form: body, variables, samples, header, footer, buttons and links. Templates still in review are left out; add each one only after it is approved and checked. The scheduler (`whatsapp-dispatch`) needed the Vault secret `whatsapp_dispatch_secret`, which was never created, so nothing scheduled went out until 2 Oct 2026: migration 20261006120000 now generates it in Vault and the function checks it through `whatsapp_dispatch_ok()`.
 
 **Deleted 25 Sep:** `recurring` (a "pay now" overdue-card message that Vyact never sends),
 `feedback`, and `3p_direct_integration_test_template`. None was used by the app.
@@ -88,7 +88,7 @@ Live samples went to the owner's number (+91 97405 56606) through `whatsapp-noti
 
 **Bugs found and fixed in v10.47.0:** "can I afford 40000 for a phone?" was logged as a ₹40,000 spend, and "Can I afford to spend 5 rupees for tea" as ₹5 (parser; the 27 Sep production report, since production still runs v10.46.1); the outbound audit row recorded `result: {sent:false}` on a successful send; linking by code failed with a raw error while the OTP template does not exist; Settings had no insights consent, so payday/digest/runway could never be switched on in the app.
 
-**Open (owner / Meta):** approvals for the four templates in review, then add each to `WHATSAPP_APPROVED_TEMPLATES` after a field check; the `balance_stale_nudge` UPDATE button edit (now possible); the `weekly_summary` STOP footer after its approval; the Vault secret `whatsapp_dispatch_secret` + `WHATSAPP_DISPATCH_SECRET` before anything scheduled goes out; Meta business verification for linking.
+**Open (owner / Meta):** approvals for the four templates in review, then add each to `WHATSAPP_APPROVED_TEMPLATES` after a field check; the `balance_stale_nudge` UPDATE button edit (now possible); the `weekly_summary` STOP footer after its approval; Meta business verification for linking.
 
 ## Bodies as submitted
 
