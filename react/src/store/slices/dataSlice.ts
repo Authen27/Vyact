@@ -421,7 +421,10 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     // the opening balances, and a snapshot is permanent (first write wins):
     // production recorded "0 USD" for a household a minute before it became INR
     // with ₹20,000 in cash (2 Oct 2026).
-    if (shouldOnboard(currentHouseholdId)) return;
+    // Same test as App.tsx's onboarding gate: an existing household (transactions, or
+    // onboardedAt) is never sent to onboarding, so it records as before.
+    const { transactions: txns, profile: prof } = get();
+    if (shouldOnboard(currentHouseholdId) && !(txns.length > 0 || !!prof.onboardedAt)) return;
     const month = nowMonthKey();
     if (snapshotAttempt && snapshotAttempt.household === currentHouseholdId && snapshotAttempt.month === month
         && Date.now() - snapshotAttempt.at < SNAPSHOT_RETRY_MS) return;
