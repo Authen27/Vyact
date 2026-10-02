@@ -11,7 +11,7 @@
 // RLS lets anon see published rows only (migration 20261004120000).
 
 import {
-  BASE, OG_IMAGE, esc, safeJsonLd as jsonLd, page, topicSlug, featureFor, signUpUrl, youtubeId,
+  BASE, OG_IMAGE, esc, safeJsonLd as jsonLd, page, topicSlug, featureFor, signUpUrl, demoUrl, youtubeId,
 } from './_page.js';
 import { readContent } from './_supabase.js';
 import { seoFor } from './_seo.js';
@@ -59,6 +59,29 @@ export function relatedLessons(card, all, max = 4) {
     .sort((a, b) => b.score - a.score || a.c.title.localeCompare(b.c.title))
     .slice(0, max)
     .map(x => x.c);
+}
+
+// v10.57.0 (B19) — "Start here": three short paths through the library for the people Vyact
+// serves first. Each lesson page shows its place in a path and links the next one; read lessons are
+// ticked from this browser's own record (localStorage, no account, nothing sent anywhere).
+export const START_PATHS = [
+  { id: 'couples', title: 'Money as a couple', blurb: 'Share money without fighting about it.',
+    slugs: ['ev-105-yours-mine-and-ours', 'ev-106-the-monthly-money-date', 'ev-086-talk-money-with-your-household', 'ev-104-shared-goals-shared-motivation', 'ev-107-one-person-shouldn-t-hold-it-all'] },
+  { id: 'budgeting', title: 'New to budgeting', blurb: 'A budget you can actually keep.',
+    slugs: ['ev-003-the-50-30-20-starting-point', 'ev-042-track-before-you-trim', 'ev-043-needs-vs-wants-gently', 'ev-045-the-category-that-ate-the-month', 'ev-050-review-beats-restrict'] },
+  { id: 'debt', title: 'Get out of debt', blurb: 'What it really costs, and the order to pay it off.',
+    slugs: ['ev-028-interest-is-the-real-cost', 'ev-027-avalanche-vs-snowball', 'ev-034-avalanche-in-one-line', 'ev-035-snowball-in-one-line', 'ev-039-clear-the-card-before-it-compounds'] },
+];
+export const YOUTUBE_CHANNEL = 'https://www.youtube.com/@askvyact';
+const READ_KEY = 'vy_learn_read';
+
+/** The path a lesson belongs to, its position, and the next lesson's slug (or null). */
+export function pathFor(slug) {
+  for (const p of START_PATHS) {
+    const i = p.slugs.indexOf(slug);
+    if (i >= 0) return { path: p, index: i, next: p.slugs[i + 1] || null };
+  }
+  return null;
 }
 
 const readTime = s => (s >= 60 ? `${Math.round(s / 60)} min` : `${s || 30} sec`);
@@ -119,6 +142,11 @@ export function lessonPage(c, all = []) {
     mainEntity: [{ '@type': 'Question', name: seo.title, acceptedAnswer: { '@type': 'Answer', text: seo.answer } }],
   } : null;
   const tryHref = signUpUrl(`learn_${c.slug}`, feature.next);
+  const inPath = pathFor(c.slug);
+  const nextCard = inPath && inPath.next ? all.find(x => x.slug === inPath.next) : null;
+  const pathNote = inPath ? `<div class="answer" style="border-left-color:hsl(var(--sage))"><div class="kicker">Start here · ${esc(inPath.path.title)} · lesson ${inPath.index + 1} of ${inPath.path.slugs.length}</div>${nextCard
+    ? `<p><a href="${BASE}/learn/${esc(nextCard.slug)}">Next: ${esc((seoFor(nextCard.slug) || {}).title || nextCard.title)} →</a></p>`
+    : `<p>You’ve reached the end of this path. <a href="${BASE}/learn">More paths →</a></p>`}</div>` : '';
   const body = `<main>
 <div class="kicker"><a href="${BASE}/learn">Learn</a> · <a href="${topicUrl(c.category)}">${esc(c.category)}</a></div>
 <h1>${esc(headline)}</h1>
@@ -129,13 +157,15 @@ ${vid ? `<a class="video" href="https://www.youtube.com/shorts/${vid}" data-yt="
 <div>
 <article class="card">${renderBody(c.body_md)}${c.why_it_matters ? `<p><strong>Why it matters:</strong> ${esc(c.why_it_matters)}</p>` : ''}${tags ? `<div class="tags">${tags}</div>` : ''}
 ${c.source_url ? `<p class="source">Source: <a href="${esc(c.source_url)}" rel="nofollow noopener">${esc(c.source_name || new URL(c.source_url).hostname)}</a></p>` : ''}</article>
-<div class="try"><p>Put this into practice with your own household’s numbers — free to start.</p><a class="cta" href="${esc(tryHref)}" data-cta="try">${esc(feature.label)} →</a></div>
+<div class="try"><p>Put this into practice with your own household’s numbers — free to start.</p><a class="cta" href="${esc(tryHref)}" data-cta="try">${esc(feature.label)} →</a><p class="demo">Or <a href="${esc(demoUrl(feature.next))}" data-cta="demo">look around a demo household first</a>, no sign-up.</p></div>
 </div>
 </div>
+${pathNote}
 ${related.length ? `<h2>Keep reading</h2>${listItems(related)}` : ''}
-<p><a href="${topicUrl(c.category)}">More on ${esc(c.category)}</a> · <a href="${BASE}/learn">All lessons</a></p>
+<p><a href="${topicUrl(c.category)}">More on ${esc(c.category)}</a> · <a href="${BASE}/learn">All lessons</a> · <a href="${YOUTUBE_CHANNEL}" rel="noopener">1-minute lessons on YouTube</a></p>
 </main>`;
   const script = `if(window.vyTrack)vyTrack('learn_card_view',{slug:${JSON.stringify(c.slug)},category:${JSON.stringify(c.category)}});
+try{var r=JSON.parse(localStorage.getItem('${READ_KEY}')||'[]');if(r.indexOf(${JSON.stringify(c.slug)})<0){r.push(${JSON.stringify(c.slug)});localStorage.setItem('${READ_KEY}',JSON.stringify(r.slice(-300)));}}catch(e){}
 var v=document.querySelector('a[data-yt]');if(v)v.addEventListener('click',function(e){e.preventDefault();var id=v.getAttribute('data-yt');v.innerHTML='<iframe src="https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1" title="Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';if(window.vyTrack)vyTrack('learn_video_play',{slug:${JSON.stringify(c.slug)}});});`;
   return page({
     title: `${headline} · Vyact Learn`, description, canonical: url, ogType: 'article',
@@ -189,14 +219,23 @@ export function indexPage(cards) {
       itemListElement: cards.map((c, i) => ({ '@type': 'ListItem', position: i + 1, url: `${BASE}/learn/${c.slug}`, name: c.title })) },
   };
   const sections = topics.map(t => `<h2 id="${topicSlug(t)}"><a href="${topicUrl(t)}" style="color:inherit;text-decoration:none">${esc(t)}</a></h2>${listItems(byCat[t])}`).join('');
+  const bySlug = Object.fromEntries(cards.map(c => [c.slug, c]));
+  const paths = START_PATHS.map(p => ({ ...p, items: p.slugs.filter(s => bySlug[s]) })).filter(p => p.items.length);
+  const startHere = paths.length ? `<h2 id="start-here">Start here</h2>
+<div class="grid two">${paths.map(p => `<div class="item" data-path="${p.id}"><div class="t">${esc(p.title)}</div><div class="d">${esc(p.blurb)} <span data-progress>${p.items.length} short lessons</span></div>
+<ol style="margin:10px 0 0;padding-left:20px">${p.items.map(s => `<li style="margin:4px 0"><a href="${BASE}/learn/${esc(s)}" data-slug="${esc(s)}">${esc((seoFor(s) || {}).title || bySlug[s].title)}</a><span data-done hidden> ✓</span></li>`).join('')}</ol></div>`).join('')}</div>` : '';
   const body = `<main>
 <div class="kicker">Vyact Learn</div>
 <h1>Money lessons you can read in a minute</h1>
-<p class="lede">${cards.length} short, plain-English lessons on saving, budgeting, debt, investing, net worth and the habits behind them — many with a one-minute video. Free, no sign-up to read.</p>
+<p class="lede">${cards.length} short, plain-English lessons on saving, budgeting, debt, investing, net worth and the habits behind them — many with a one-minute video on <a href="${YOUTUBE_CHANNEL}" rel="noopener">YouTube</a>. Free, no sign-up to read.</p>
 ${topicPills(topics)}
+${startHere}
 ${sections}
 </main>`;
+  // Ticks for lessons this browser has read, and "n of 5 read" per path.
+  const script = `try{var r=JSON.parse(localStorage.getItem('${READ_KEY}')||'[]');document.querySelectorAll('[data-path]').forEach(function(p){var n=0,a=p.querySelectorAll('a[data-slug]');a.forEach(function(l){if(r.indexOf(l.getAttribute('data-slug'))>=0){n++;l.nextElementSibling.hidden=false;}});if(n)p.querySelector('[data-progress]').textContent=n+' of '+a.length+' read';});}catch(e){}`;
   return page({
+    script,
     title: 'Free money lessons in plain English · Vyact Learn',
     description: 'Free, plain-English money lessons for households: emergency funds, budgets, debt payoff, investing, net worth and money habits. One-minute reads, no sign-up.',
     canonical: url, jsonld, body,

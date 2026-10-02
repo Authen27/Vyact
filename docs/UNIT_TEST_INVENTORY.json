@@ -1876,7 +1876,7 @@
       "availability": "available",
       "layer": "unit",
       "owner": "format / learnJsonLd",
-      "count": 22,
+      "count": 26,
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
@@ -1899,7 +1899,11 @@
         "the landing page (#9, #12, #19) CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet",
         "the landing page (#9, #12, #19) CON-UNIT-PUB-020 · unknown paths are a noindex 404; every app route, public page and static file still gets through",
         "the landing page (#9, #12, #19) CON-UNIT-PUB-021 · one brand entity: /about answers \"What is Vyact?\", says which Vyact this is, and every page points at the same Organization @id",
-        "the landing page (#9, #12, #19) CON-UNIT-PUB-022 · footer link rows wrap and the mobile sticky bar never covers the page end"
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-022 · footer link rows wrap and the mobile sticky bar never covers the page end",
+        "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-023 · /v/<n> redirects to lesson ev-<n> with YouTube utm tags, and to the library when the number is unknown",
+        "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-024 · Start here: three 5-lesson paths of real lessons; a path lesson names its place and links the next; the index lists the paths with progress",
+        "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-025 · the landing \"Learn money in 60 seconds\" strip: three Shorts, lazy thumbnails, each with its lesson",
+        "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-026 · the guest demo: local-only build, never production data, noindex on its own host, and linked from the landing and lessons"
       ]
     },
     {

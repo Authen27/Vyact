@@ -35,6 +35,7 @@ export function routeFor(pathname) {
   if (pathname === '/' || pathname === '') return 'landing';
   if (PUBLIC_PATHS.has(pathname)) return 'next';
   const seg = pathname.split('/')[1] || '';
+  if (seg === 'v') return 'next';   // v10.57.0 — video short links (/v/<n>, api/v.js)
   return APP_SEGMENTS.has(seg) ? 'next' : 'not-found';
 }
 
@@ -44,8 +45,16 @@ const NOT_FOUND = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><m
 <body><main><h1 style="font-weight:600">Page not found</h1><p>Vyact is the family budget app for couples and households.</p>
 <p><a href="/">Go to the home page</a> · <a href="/learn">Free money lessons</a> · <a href="/auth/sign-in">Sign in</a></p></main></body></html>`;
 
+/** v10.57.0 (B20) — the guest demo host. Its "/" opens the demo household, not the landing page. */
+export function isDemoHost(hostname) {
+  return hostname === 'demo.vyact.app';
+}
+
 export default function middleware(request) {
   const url = new URL(request.url);
+  if (isDemoHost(url.hostname) && (url.pathname === '/' || url.pathname === '')) {
+    return Response.redirect(new URL(`/dashboard${url.search}`, url.origin).toString(), 302);
+  }
   const route = routeFor(url.pathname);
   if (route === 'landing') {
     // Keep ?ref= and other query parameters: the page's script reads them like any app route.

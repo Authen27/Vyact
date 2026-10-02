@@ -192,7 +192,7 @@ describe('the landing page (#9, #12, #19)', () => {
     // The v10.49 content sits BELOW the brand sections, in the same theme.
     const at = (s: string) => markup.indexOf(s);
     expect(at('Sound familiar?')).toBeLessThan(at('Made for the way households actually run.'));
-    for (const s of ['Everything in one place.', 'Learn money in minutes.', 'Questions, answered.']) expect(at(s)).toBeGreaterThan(at('Your money, explained back to you.'));
+    for (const s of ['Everything in one place.', 'Learn money in 60 seconds.', 'Questions, answered.']) expect(at(s)).toBeGreaterThan(at('Your money, explained back to you.'));
     for (const l of copy.LESSONS) expect(markup).toContain(`href="/learn/${l.slug}"`);
     expect(markup).toContain('href="/auth/sign-up?ref=landing_hero"');
 
@@ -414,7 +414,8 @@ describe('first paint is not blocked by third parties', () => {
     expect(html).toContain("'landing_cta_click'");
     expect(html).toContain('if(window.__vyLandingLive)return;');
     // Every CTA the app tracks is marked for the boot script, with the same placement.
-    expect([...markup.matchAll(/data-cta="([a-z_]+)"/g)].map(m => m[1])).toEqual(['nav', 'hero', 'footer', 'footer_link']);
+    // v10.57.0 — plus the guest demo link and the three Shorts.
+    expect([...markup.matchAll(/data-cta="([a-z0-9_]+)"/g)].map(m => m[1])).toEqual(['nav', 'hero', 'demo', 'short_003', 'short_021', 'short_027', 'footer', 'footer_link']);
     expect(() => landingHtml(INDEX_FIXTURE.replace(/<script type="module"[^>]*><\/script>/, ''), markup, copy)).toThrow(/app entry script/);
   });
 
@@ -446,5 +447,150 @@ describe('first paint is not blocked by third parties', () => {
     // v10.53.0 — gtag.js on Learn / for pages is fetched after load + idle, not during parse.
     expect(lessonHead).toMatch(/window\.requestIdleCallback\(late,\{timeout:3000\}\)/);
     expect(lessonHead).toMatch(/addEventListener\('load',idle/);
+  });
+});
+
+// v10.57.0 — the YouTube → site → app path (master to-do B17–B20).
+describe('video short links, Start here paths, the Shorts strip and the guest demo', () => {
+  it('CON-UNIT-PUB-023 · /v/<n> redirects to lesson ev-<n> with YouTube utm tags, and to the library when the number is unknown', async () => {
+    const v = await import('../../../api/v.js');
+    expect(v.lessonId('3')).toBe('ev-003');
+    expect(v.lessonId('27')).toBe('ev-027');
+    expect(v.lessonId('106')).toBe('ev-106');
+    for (const bad of ['', 'abc', '1234', '3;drop', undefined]) expect(v.lessonId(bad), String(bad)).toBeNull();
+    expect(v.target('ev-003', 'ev-003-the-50-30-20-starting-point'))
+      .toBe('/learn/ev-003-the-50-30-20-starting-point?utm_source=youtube&utm_medium=video&utm_campaign=ev-003');
+    expect(v.target(null, null)).toBe('/learn?utm_source=youtube&utm_medium=video');
+
+    const run = async (n: string | undefined, read: (q: string) => Promise<unknown>) => {
+      const res = { headers: {} as Record<string, string>, to: '', code: 0,
+        setHeader(k: string, val: string) { this.headers[k] = val; },
+        redirect(code: number, to: string) { this.code = code; this.to = to; } };
+      await v.default({ query: n === undefined ? {} : { n } }, res, read);
+      return res;
+    };
+    const queries: string[] = [];
+    const found = await run('3', async q => { queries.push(q); return [{ slug: 'ev-003-the-50-30-20-starting-point' }]; });
+    expect(found.code).toBe(302);
+    expect(found.to).toContain('/learn/ev-003-the-50-30-20-starting-point?');
+    expect(queries[0]).toBe('select=slug&slug=like.ev-003-*&format=eq.card&status=eq.published&limit=1');
+    expect(found.headers['Cache-Control']).toMatch(/s-maxage/);
+    const missing = await run('999', async () => []);
+    expect(missing.to).toBe('/learn?utm_source=youtube&utm_medium=video');
+    expect(missing.headers['Cache-Control']).toBe('no-store');
+    const broken = await run('3', async () => { throw new Error('down'); });
+    expect(broken.to).toBe('/learn?utm_source=youtube&utm_medium=video');
+    let called = false;
+    const invalid = await run('x', async () => { called = true; return []; });
+    expect(called).toBe(false);                       // nothing user-typed reaches the query
+    expect(invalid.to).toBe('/learn?utm_source=youtube&utm_medium=video');
+
+    // Routed: the middleware lets /v/* through and vercel.json rewrites it before the app catch-all.
+    const mw = await import('../../../middleware.js');
+    expect(mw.routeFor('/v/3')).toBe('next');
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const vercel = JSON.parse(readFileSync(resolve(__dirname, '../../../vercel.json'), 'utf8'));
+    const sources = vercel.rewrites.map((r: { source: string }) => r.source);
+    expect(sources.indexOf('/v/:n')).toBeGreaterThanOrEqual(0);
+    expect(sources.indexOf('/v/:n')).toBeLessThan(sources.length - 1);
+  });
+
+  it('CON-UNIT-PUB-024 · Start here: three 5-lesson paths of real lessons; a path lesson names its place and links the next; the index lists the paths with progress', async () => {
+    const { START_PATHS, pathFor } = await import('../../../api/learn.js');
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const library = JSON.parse(readFileSync(resolve(__dirname, '../../data/evergreenCards.json'), 'utf8')) as { cards: { id: string }[] };
+    const ids = new Set(library.cards.map(c => c.id));
+    expect(START_PATHS.map(p => p.id)).toEqual(['couples', 'budgeting', 'debt']);
+    for (const p of START_PATHS) {
+      expect(p.slugs).toHaveLength(5);
+      for (const s of p.slugs) expect(ids.has(s), s).toBe(true);
+    }
+    expect(pathFor('ev-027-avalanche-vs-snowball')).toMatchObject({ index: 1, next: 'ev-034-avalanche-in-one-line' });
+    expect(pathFor('ev-039-clear-the-card-before-it-compounds')?.next).toBeNull();
+    expect(pathFor('ev-001-the-500-a-day-idea')).toBeNull();
+
+    const debt = START_PATHS[2].slugs.map((slug, i) => card({ slug, title: `Debt lesson ${i + 1}`, category: 'Debt' }));
+    const first = lessonPage(debt[0], debt);
+    expect(first).toContain('Start here · Get out of debt · lesson 1 of 5');
+    expect(first).toContain(`/learn/${debt[1].slug}"`);
+    expect(first).toContain('vy_learn_read');           // this browser remembers what it read
+    expect(lessonPage(debt[4], debt)).toContain('You’ve reached the end of this path.');
+    expect(lessonPage(ALL[0], ALL)).not.toContain('Start here ·');
+
+    const index = indexPage([...ALL, ...debt]);
+    expect(index).toContain('<h2 id="start-here">Start here</h2>');
+    expect(index).toContain('data-path="debt"');
+    expect(index).not.toContain('data-path="couples"');  // a path with no published lesson is left out
+    expect((index.match(/data-slug="/g) || []).length).toBe(5);
+    expect(index).toContain('https://www.youtube.com/@askvyact');
+  });
+
+  it('CON-UNIT-PUB-025 · the landing "Learn money in 60 seconds" strip: three Shorts, lazy thumbnails, each with its lesson', async () => {
+    const copy = await import('../../content/landingCopy');
+    const markup = await renderedLanding();
+    expect(markup).toContain('Learn money in 60 seconds.');
+    const strip = /data-testid="landing-shorts"[\s\S]*?<\/p>/.exec(markup)?.[0] ?? '';
+    expect(copy.SHORTS).toHaveLength(3);
+    for (const s of copy.SHORTS) {
+      expect(strip).toContain(`https://www.youtube.com/shorts/${s.id}`);
+      expect(strip).toContain(`/learn/${s.slug}"`);
+      expect(strip).toContain(`https://i.ytimg.com/vi/${s.id}/hqdefault.jpg`);
+    }
+    expect((strip.match(/loading="lazy"/g) || []).length).toBe(3);
+    expect(strip).not.toContain('<iframe');               // no YouTube player on the landing page
+    expect(strip).toContain('@askvyact');
+  });
+
+  it('CON-UNIT-PUB-026 · the guest demo: local-only build, never production data, noindex on its own host, and linked from the landing and lessons', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const root = resolve(__dirname, '../../..');
+    // The fallback that put previews on PRODUCTION is off whenever VITE_LOCAL_ONLY=1 …
+    const sb = readFileSync(resolve(root, 'src/lib/supabase.ts'), 'utf8');
+    expect(sb).toMatch(/USE_FALLBACK = import\.meta\.env\.PROD && import\.meta\.env\.MODE !== 'test' && import\.meta\.env\.VITE_LOCAL_ONLY !== '1'/);
+    // … and both the preview build and the demo build set it, with no database.
+    const vite = readFileSync(resolve(root, 'vite.config.ts'), 'utf8').replace(/\r\n/g, '\n');
+    const preview = /if \(process\.env\.VERCEL_ENV === 'preview'[\s\S]*?\n\}/.exec(vite)?.[0] ?? '';
+    const demo = /if \(process\.env\.VYACT_DEMO === '1'\)[\s\S]*?\n\}/.exec(vite)?.[0] ?? '';
+    for (const block of [preview, demo]) {
+      expect(block).toContain("process.env.VITE_LOCAL_ONLY = '1'");
+      expect(block).toContain("process.env.VITE_SUPABASE_URL = ''");
+    }
+    expect(demo).toContain("process.env.VITE_DEMO = '1'");
+
+    // The demo host opens the demo household, not the landing page; vyact.app is unchanged.
+    const mw = await import('../../../middleware.js');
+    const r = mw.default(new Request('https://demo.vyact.app/?utm_source=x'));
+    expect(r.status).toBe(302);
+    expect(r.headers.get('location')).toBe('https://demo.vyact.app/dashboard?utm_source=x');
+    expect(mw.default(new Request('https://vyact.app/')).headers.get('x-middleware-rewrite')).toContain('/landing.html');
+
+    // Every response on the demo host is noindex, and its public pages go to vyact.app.
+    const vercel = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'));
+    const onDemo = (x: { has?: { type: string; value: string }[] }) => x.has?.some(h => h.type === 'host' && h.value === 'demo.vyact.app');
+    const noindex = vercel.headers.find(onDemo);
+    expect(noindex.source).toBe('/(.*)');
+    expect(noindex.headers).toContainEqual({ key: 'X-Robots-Tag', value: 'noindex, nofollow' });
+    const redirects = vercel.redirects.filter(onDemo);
+    expect(redirects.map((x: { source: string }) => x.source)).toEqual(expect.arrayContaining(['/learn/:path*', '/for/:path*']));
+    for (const x of redirects) expect(x.destination).toMatch(/^https:\/\/vyact\.app\//);
+
+    // Entry points: the landing hero (signed-out, production build only) and every lesson.
+    const copy = await import('../../content/landingCopy');
+    expect(copy.DEMO_URL).toBe('https://demo.vyact.app/dashboard');
+    expect(await renderedLanding(true)).toContain(`href="${copy.DEMO_URL}"`);
+    expect(await renderedLanding(false)).not.toContain('demo.vyact.app');
+    const lesson = lessonPage(ALL[3], ALL);               // a Debt lesson opens the demo on Debts
+    expect(lesson).toContain('href="https://demo.vyact.app/debts" data-cta="demo"');
+
+    // In the app: the banner and its sign-up link (ref=demo), and no install prompt on the demo.
+    const banner = readFileSync(resolve(root, 'src/components/layout/DemoBanner.tsx'), 'utf8');
+    expect(banner).toContain("import.meta.env.VITE_DEMO === '1'");
+    expect(banner).toContain('https://vyact.app/auth/sign-up?ref=demo');
+    const app = readFileSync(resolve(root, 'src/App.tsx'), 'utf8');
+    expect(app).toContain('{!IS_DEMO && <InstallBanner />}');
+    expect(app).toMatch(/if \(IS_DEMO && location\.pathname === '\/'\) return <Navigate to="\/dashboard" replace \/>;/);
   });
 });

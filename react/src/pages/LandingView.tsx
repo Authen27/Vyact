@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Pip } from '../components/layout/Brand';
 import {
-  HERO, PAINS, PILLARS, PIP, INSIGHTS, USE_CASES, FEATURES, LESSONS, FAQ,
+  HERO, PAINS, PILLARS, PIP, INSIGHTS, USE_CASES, FEATURES, LESSONS, FAQ, SHORTS, YOUTUBE_CHANNEL, DEMO_URL,
 } from '../content/landingCopy';
 
 type Icon = typeof Layers;
@@ -105,9 +105,17 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
           <p className="font-mono text-[0.7rem] tracking-[0.12em] uppercase text-coral mb-3">{HERO.kicker}</p>
           <h1 className="display-italic text-4xl md:text-5xl text-ink mb-5 leading-[1.1]">{HERO.title}</h1>
           <p className="text-[1.05rem] leading-7 text-ink-mid mb-8">{HERO.lede}</p>
-          <Link to={primary('landing_hero')} onClick={cta('hero')} data-cta="hero" className="btn-primary inline-block px-6 py-3.5 text-[0.95rem] font-semibold rounded-full">
-            {primaryLabel}
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+            <Link to={primary('landing_hero')} onClick={cta('hero')} data-cta="hero" className="btn-primary inline-block px-6 py-3.5 text-[0.95rem] font-semibold rounded-full">
+              {primaryLabel}
+            </Link>
+            {/* v10.57.0 (B20) — a look inside before signing up. Production only: a local build is the app already. */}
+            {cloudMode && !signedIn && (
+              <a href={DEMO_URL} onClick={cta('demo')} data-cta="demo" className="py-2 text-[0.95rem] font-semibold text-coral hover:underline">
+                Try the demo, no sign-up
+              </a>
+            )}
+          </div>
           <p className="text-[0.8rem] text-ink-dim mt-3">{HERO.fine}</p>
         </section>
 
@@ -206,11 +214,30 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
         <section className="pb-16" aria-labelledby="learn">
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
             <div>
-              <h2 id="learn" className="display-italic text-2xl md:text-3xl text-ink mb-2">Learn money in minutes.</h2>
+              <h2 id="learn" className="display-italic text-2xl md:text-3xl text-ink mb-2">Learn money in 60 seconds.</h2>
               <p className="text-[0.95rem] leading-6 text-ink-mid">Short, plain-English lessons and one-minute videos. Free, no sign-up to read.</p>
             </div>
             <a href="/learn" className="text-[0.9rem] font-semibold text-coral hover:underline">Browse the library →</a>
           </div>
+          {/* v10.57.0 (B18) — three one-minute Shorts. Plain links + lazy thumbnails: no player loads. */}
+          <div className="grid grid-cols-3 gap-3 mb-4" data-testid="landing-shorts">
+            {SHORTS.map(s => (
+              <div key={s.id} className="min-w-0">
+                <a href={`https://www.youtube.com/shorts/${s.id}`} target="_blank" rel="noopener" data-cta={`short_${s.slug.slice(3, 6)}`} onClick={cta(`short_${s.slug.slice(3, 6)}`)}
+                  className="relative block rounded-xl overflow-hidden border border-line bg-black" style={{ aspectRatio: '9 / 16' }}
+                  aria-label={`Watch on YouTube: ${s.title}`}>
+                  <img src={`https://i.ytimg.com/vi/${s.id}/hqdefault.jpg`} alt="" loading="lazy" width={480} height={360}
+                    className="absolute inset-0 w-full h-full object-cover opacity-85" />
+                  <span className="absolute inset-x-0 bottom-0 p-2.5 text-[0.75rem] sm:text-[0.85rem] font-semibold text-white leading-snug"
+                    style={{ background: 'linear-gradient(transparent, rgba(0,0,0,.8))' }}>▶ {s.title}</span>
+                </a>
+                <a href={`/learn/${s.slug}`} className="block mt-1.5 text-[0.75rem] sm:text-[0.8rem] font-medium text-coral hover:underline">Read the lesson →</a>
+              </div>
+            ))}
+          </div>
+          <p className="text-[0.85rem] text-ink-mid mb-6">
+            New one-minute lessons on <a href={YOUTUBE_CHANNEL} target="_blank" rel="noopener" className="font-semibold text-coral hover:underline">YouTube · @askvyact</a>
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {LESSONS.map(l => (
               <a key={l.slug} href={`/learn/${l.slug}`} className="bg-bg3 border border-line rounded-xl p-4 hover:border-coral transition-colors">

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.56.1**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.57.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -437,6 +437,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   feature a new user cannot use yet (WhatsApp logging, until number linking is open). **GA loads only
   on vyact.app / www.vyact.app**; funnel events are in `docs/measurement/events.yaml`, never with
   personal or financial data. **A Vercel preview never touches production data** (`vite.config.ts`).
+  🔴 Emptying `VITE_SUPABASE_URL` is NOT enough: `lib/supabase.ts` refills it with the production
+  fallback in any PROD build. A build that must stay off production sets `VITE_LOCAL_ONLY=1` too
+  (until v10.57.0 every preview silently ran on production; PUB-026 guards it).
+  **Guest demo (v10.57.0):** `demo.vyact.app` is a separate Vercel project building this same app with
+  `VYACT_DEMO=1` (local-only, demo household, `IS_DEMO` banner). Its host is `noindex` and redirects
+  public pages to vyact.app (`vercel.json` `has: host`). Never give that project Supabase env vars.
   `?next=` after auth is an in-app path only (`lib/postAuth.ts`).
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied

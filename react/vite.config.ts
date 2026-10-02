@@ -12,9 +12,22 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 // So: with the Preview environment's own VITE_SUPABASE_* set in Vercel (the vyact-test project),
 // previews use those; without them, the preview runs local-only (no database at all).
 // Shell env outranks .env files in Vite, so an empty value here disables cloud mode.
+// v10.57.0 — and VITE_LOCAL_ONLY=1, or lib/supabase.ts's production fallback refilled the empty
+// values and every preview ran against production (verified with a local VERCEL_ENV=preview build).
 if (process.env.VERCEL_ENV === 'preview' && !process.env.VITE_SUPABASE_URL) {
   process.env.VITE_SUPABASE_URL = '';
   process.env.VITE_SUPABASE_ANON_KEY = '';
+  process.env.VITE_LOCAL_ONLY = '1';
+}
+// v10.57.0 (B20) — the guest demo (demo.vyact.app): its own Vercel project builds the same app with
+// VYACT_DEMO=1, i.e. local-only on the first-run demo household, no account, no database. A separate
+// origin keeps its browser storage apart from vyact.app, so nothing from the demo can reach a real
+// account (the anon → cloud first-sign-in import reads only its own origin's storage).
+if (process.env.VYACT_DEMO === '1') {
+  process.env.VITE_SUPABASE_URL = '';
+  process.env.VITE_SUPABASE_ANON_KEY = '';
+  process.env.VITE_LOCAL_ONLY = '1';
+  process.env.VITE_DEMO = '1';
 }
 
 export default defineConfig({

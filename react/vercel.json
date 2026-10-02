@@ -5,6 +5,32 @@
   "framework": "vite",
   "installCommand": "npm install",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':!*.md' ':!**/*.md' ':!docs'",
+  "redirects": [
+    {
+      "source": "/learn/:path*",
+      "has": [{ "type": "host", "value": "demo.vyact.app" }],
+      "destination": "https://vyact.app/learn/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/for/:path*",
+      "has": [{ "type": "host", "value": "demo.vyact.app" }],
+      "destination": "https://vyact.app/for/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/:page(about|private|sitemap.xml|llms.txt|llms-full.txt)",
+      "has": [{ "type": "host", "value": "demo.vyact.app" }],
+      "destination": "https://vyact.app/:page",
+      "permanent": false
+    },
+    {
+      "source": "/v/:n",
+      "has": [{ "type": "host", "value": "demo.vyact.app" }],
+      "destination": "https://vyact.app/v/:n",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/learn",
@@ -43,6 +69,10 @@
       "destination": "/api/for?audience=:audience"
     },
     {
+      "source": "/v/:n",
+      "destination": "/api/v?n=:n"
+    },
+    {
       "source": "/about",
       "destination": "/api/about"
     },
@@ -78,6 +108,16 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(self), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "demo.vyact.app" }],
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
         }
       ]
     },
