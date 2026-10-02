@@ -62,6 +62,12 @@ Owner redesign of Pip (Ask Vyact), 2 Oct 2026.
   write wins), and one was recorded as "0 USD" a minute before that household became INR.
 - **Onboarding no longer shows a "First Pulse" score** (owner): Pulse is hidden in the app, so the
   number had no meaning for a new user. The reveal shows the month's fixed bills instead.
+- **The landing page no longer downloads the app until the visitor interacts** (PageSpeed mobile
+  69 on 2 Oct 2026, with ~211 KB of unused JavaScript). `/` is complete pre-rendered HTML; the app
+  bundle now boots on the first scroll, tap, key or wheel, or right after load when a saved session
+  exists (so a signed-in visitor still sees "Go to Dashboard"). Until then the page's own boot
+  script records `landing_cta_click` (the four CTAs carry `data-cta`). Local Lighthouse mobile:
+  100 (was 67–82); the CI budget goes from 80 to 90.
 - Schema: migration `20261005120000_ai_feedback` (table + RLS + `admin_ai_feedback_summary()`)
   ships first, in its own PR.
 

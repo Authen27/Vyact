@@ -534,7 +534,7 @@ Palette/nav/typography detail: see CLAUDE-1.md § Design System.
   **If a gate starts reading a `.md` or `docs/` file, add it to both `paths`
   lists in `ci.yml`**, or an edit to that file alone will skip the gate.
   `lighthouse.yml` (v10.53.0) runs a landing-page performance budget (median
-  mobile ≥ 80, a regression guard; the landing scores 82 today) only on PRs that touch the landing page or its loading. Vercel
+  mobile ≥ 90; since v10.54.0 the app bundle boots on "/" only on interaction) only on PRs that touch the landing page or its loading. Vercel
   skips docs-only commits via `ignoreCommand` in both `vercel.json` files.
 - **Funnel events (v10.53.0).** `sign_up` and the first `household_created` fire
   together from `trackSignUpOnce` (account < 24 h old; once per device and per
