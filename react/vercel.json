@@ -43,6 +43,10 @@
       "destination": "/api/for?audience=:audience"
     },
     {
+      "source": "/about",
+      "destination": "/api/about"
+    },
+    {
       "source": "/private",
       "destination": "/api/for?audience=private"
     },

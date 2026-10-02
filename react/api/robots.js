@@ -30,7 +30,7 @@ export function robotsTxt() {
   // ONE group with every user-agent line (RFC 9309 §2.1): each named crawler gets exactly the
   // same rules as "*", with no copies to drift apart.
   return [
-    '# Vyact — the money app a household runs together. Public: /, /for/*, /learn/*, /llms.txt.',
+    '# Vyact — the family budget app a household runs together. Public: /, /about, /for/*, /private, /learn/*, /llms.txt.',
     '# AI assistants and search engines are welcome to read and cite the public pages.',
     '',
     'User-agent: *',

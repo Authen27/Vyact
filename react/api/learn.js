@@ -15,6 +15,7 @@ import {
 } from './_page.js';
 import { readContent } from './_supabase.js';
 import { seoFor } from './_seo.js';
+import { ORG_ID } from './_brand.js';
 
 // Kept as a named export: learnJsonLd.test.ts pins the script-breakout guard from here.
 export const safeJsonLd = jsonLd;
@@ -62,7 +63,8 @@ export function relatedLessons(card, all, max = 4) {
 
 const readTime = s => (s >= 60 ? `${Math.round(s / 60)} min` : `${s || 30} sec`);
 const topicUrl = cat => `${BASE}/learn/topic/${topicSlug(cat)}`;
-const orgRef = { '@type': 'Organization', name: 'Vyact', url: BASE, logo: { '@type': 'ImageObject', url: OG_IMAGE } };
+// v10.56.0 (B3) — the same Organization entity as every other page (api/_brand.js).
+const orgRef = { '@type': 'Organization', '@id': ORG_ID, name: 'Vyact', url: BASE, logo: { '@type': 'ImageObject', url: OG_IMAGE } };
 
 function topicPills(topics, current) {
   return `<div>${topics.map(t => t === current

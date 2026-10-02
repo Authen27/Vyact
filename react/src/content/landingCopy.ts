@@ -22,12 +22,15 @@ export const SITE_DESCRIPTION =
 
 /** The one standard description (llms.txt, JSON-LD, store listings, directories — #22). */
 export const STANDARD_DESCRIPTION =
-  'Vyact is the money app a household runs together. Everyone logs spending in seconds, shares budgets and bills, ' +
+  'Vyact is the family budget app a household runs together. Everyone logs spending in seconds, shares budgets and bills, ' +
   'splits costs and plans debt payoff, and sees the same cash flow and net worth. Pip, the built-in assistant, answers ' +
   'questions like “can we afford it?” from the household’s own numbers. Free to start, in your own currency, with a ' +
   'free library of plain-English money lessons.';
 
 export const HERO = {
+  // v10.56.0 (B3) — names the brand and its category above the brand line, for people, crawlers
+  // and AI tools reading the page top-down (the H1 stays the brand line, owner decision).
+  kicker: 'Vyact · the family budget app for couples and households',
   title: 'Your household deserves to understand its money.',
   lede:
     'Vyact brings your household’s spending, budgets, bills, debts and net worth into one shared picture — so everyone ' +

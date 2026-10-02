@@ -6,21 +6,24 @@
 // and the pre-rendered markup inside #root. Every anchor it edits must exist: a changed
 // index.html fails the build here instead of shipping a page without its SEO head.
 
-export const BASE = 'https://vyact.app';
+import { organization, orgRef, APP_ID, BASE } from '../api/_brand.js';
+
+export { BASE };
 
 const safeJsonLd = o => JSON.stringify(o).replace(/</g, '\\u003c');
 const attr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const text = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 export function landingJsonLd(copy) {
-  const org = { '@context': 'https://schema.org', '@type': 'Organization', name: 'Vyact', url: BASE, logo: `${BASE}/og-vyact.png`, description: copy.STANDARD_DESCRIPTION };
+  // v10.56.0 (B3) — one Organization entity (@id), shared with Learn and /about (api/_brand.js).
+  const org = organization(copy.STANDARD_DESCRIPTION);
   return [
     {
-      '@context': 'https://schema.org', '@type': 'SoftwareApplication',
-      name: 'Vyact', url: `${BASE}/`, image: `${BASE}/og-vyact.png`, description: copy.STANDARD_DESCRIPTION,
+      '@context': 'https://schema.org', '@type': 'SoftwareApplication', '@id': APP_ID,
+      name: 'Vyact', alternateName: 'Vyact app', url: `${BASE}/`, image: `${BASE}/og-vyact.png`, description: copy.STANDARD_DESCRIPTION,
       applicationCategory: 'FinanceApplication', operatingSystem: 'Web',   // v10.55.0 (#62): only what ships today; add Android when it does
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-      publisher: { '@type': 'Organization', name: 'Vyact', url: BASE },
+      publisher: orgRef,
     },
     {
       '@context': 'https://schema.org', '@type': 'FAQPage',

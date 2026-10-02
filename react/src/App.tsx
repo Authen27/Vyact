@@ -15,6 +15,7 @@ import InstallBanner from './components/layout/InstallBanner';
 import HistoryRestoration from './components/layout/HistoryRestoration';
 import { bindAppNavigate } from './lib/appNavigation';
 import { isFormRoute } from './lib/formRoutes';
+import { titleFor } from './lib/pageTitle';
 // v10.50.0 — EAGER: dist/landing.html carries this page pre-rendered, and a lazy import
 // would replace that markup with the loading fallback on first paint.
 import Landing from './pages/Landing';
@@ -106,6 +107,11 @@ function AppShell() {
   const profile = useStore(s => s.profile);
   const transactions = useStore(s => s.transactions);
   useTheme();
+
+  // v10.56.0 (B3) — each app route names itself; "/" keeps the landing page's own title.
+  useEffect(() => {
+    if (location.pathname !== '/') document.title = titleFor(location.pathname);
+  }, [location.pathname]);
 
   // Per-household onboarding trigger (spec §2). A household that already has data
   // or a recorded `onboardedAt` is an existing/returning one — migrate it to

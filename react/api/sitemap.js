@@ -17,6 +17,7 @@ export function sitemapXml(cards, today = new Date().toISOString().slice(0, 10))
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` + [
     url(`${BASE}/`, newest, '1.0', 'weekly'),
+    url(`${BASE}/about`, today, '0.8', 'monthly'),
     url(`${BASE}/for/couples`, today, '0.9', 'monthly'),
     url(`${BASE}/for/families`, today, '0.9', 'monthly'),
     url(`${BASE}/for/splitwise-users`, today, '0.8', 'monthly'),

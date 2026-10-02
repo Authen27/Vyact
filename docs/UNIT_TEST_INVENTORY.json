@@ -1811,6 +1811,18 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/pageTitle.test.ts",
+      "feature": "Page titles",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "pageTitle (per-route document titles)",
+      "count": 1,
+      "tests": [
+        "page titles CON-UNIT-TITLE-001 · routes, auth steps and nested form routes get their own title; unknown paths fall back to the brand"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/permissionsRole.test.ts",
       "feature": "Permissions and faults",
       "availability": "available",
@@ -1864,7 +1876,7 @@
       "availability": "available",
       "layer": "unit",
       "owner": "format / learnJsonLd",
-      "count": 19,
+      "count": 21,
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
@@ -1883,8 +1895,10 @@
         "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-007 · the sitemap lists home, the use-case pages, library, one hub per topic and every lesson",
         "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-008 · llms.txt: the one standard description and the live hubs",
         "the landing page (#9, #12, #19) CON-UNIT-PUB-011 · the restored landing: one H1, the SEO sections at the bottom, a FAQPage that matches the visible FAQ, and the landing head",
-        "the landing page (#9, #12, #19) CON-UNIT-PUB-012 · middleware serves \"/\" (only) from the pre-rendered landing, keeping the query",
-        "the landing page (#9, #12, #19) CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet"
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-012 · middleware serves \"/\" from the pre-rendered landing, keeping the query",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-020 · unknown paths are a noindex 404; every app route, public page and static file still gets through",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-021 · one brand entity: /about answers \"What is Vyact?\", says which Vyact this is, and every page points at the same Organization @id"
       ]
     },
     {
