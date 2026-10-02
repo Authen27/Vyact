@@ -13,6 +13,7 @@ import {
   sendAccountActionCode, verifyAccountActionCode,
 } from '../lib/auth';
 import WhatsAppLink from '../components/settings/WhatsAppLink';
+import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
 import PushNotifications from '../components/settings/PushNotifications';
 import { POLICY_VERSION } from './Privacy';
 import Chip from '../components/ui/Chip';
@@ -298,15 +299,8 @@ export default function Settings() {
   }
 
   function exportCSV() {
-    const rows = [
-      ['Date','Type','Description','Category','Amount','Currency','Note'],
-      ...transactions.map(t => [t.date, t.type, t.description, t.category, t.amount, t.currency, t.note || '']),
-    ];
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `vyact-transactions-${today()}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    // v10.55.0 (#69) — one builder with the Transactions page; adds who added it, accounts, mode.
+    downloadCsv(transactionsCsv(transactions, { members, accounts: useStore.getState().accounts }), `vyact-transactions-${today()}.csv`);
     toast('CSV exported', 'success');
   }
 

@@ -43,6 +43,10 @@
       "destination": "/api/for?audience=:audience"
     },
     {
+      "source": "/private",
+      "destination": "/api/for?audience=private"
+    },
+    {
       "source": "/((?!api/|assets/|\\.well-known/).*)",
       "destination": "/index.html"
     }

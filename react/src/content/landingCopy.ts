@@ -13,7 +13,8 @@
 
 // v10.51.0 — the title and description lead with the phrases people search for in every market
 // (keyword sheet, marketing #7): family budget app, budget app for couples, shared/household budget.
-export const SITE_TITLE = 'Vyact: Family Budget App for Couples & Households';
+// v10.55.0 (#59) — the keyword map gives "/" the family cluster; couples moved to /for/couples.
+export const SITE_TITLE = 'Vyact – Family Budget App & Shared Expense Tracker';
 
 export const SITE_DESCRIPTION =
   'A shared budget app for couples and families: one household budget, bills before they’re due, split costs, ' +

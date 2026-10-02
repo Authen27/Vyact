@@ -84,6 +84,8 @@ export default defineConfig({
         navigateFallbackDenylist: [
           /^\/api\//, /^\/auth\//, /version\.json$/,
           /^\/learn(\/|$)/, /^\/sitemap\.xml$/, /^\/robots\.txt$/, /^\/llms\.txt$/, /^\/\.well-known\//,
+          // v10.55.0 — public pages an installed app must not answer with its own shell.
+          /^\/for\//, /^\/private$/, /^\/llms-full\.txt$/,
         ],
         runtimeCaching: [
           {
