@@ -1876,7 +1876,7 @@
       "availability": "available",
       "layer": "unit",
       "owner": "format / learnJsonLd",
-      "count": 21,
+      "count": 22,
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
@@ -1898,7 +1898,8 @@
         "the landing page (#9, #12, #19) CON-UNIT-PUB-012 · middleware serves \"/\" from the pre-rendered landing, keeping the query",
         "the landing page (#9, #12, #19) CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet",
         "the landing page (#9, #12, #19) CON-UNIT-PUB-020 · unknown paths are a noindex 404; every app route, public page and static file still gets through",
-        "the landing page (#9, #12, #19) CON-UNIT-PUB-021 · one brand entity: /about answers \"What is Vyact?\", says which Vyact this is, and every page points at the same Organization @id"
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-021 · one brand entity: /about answers \"What is Vyact?\", says which Vyact this is, and every page points at the same Organization @id",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-022 · footer link rows wrap and the mobile sticky bar never covers the page end"
       ]
     },
     {

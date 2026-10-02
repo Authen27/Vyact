@@ -22,6 +22,7 @@ export const DISAMBIGUATION =
 /** Profiles that are verifiably ours. Add each new one here as it goes live (B5/B6). */
 export const SAME_AS = [
   'https://www.youtube.com/channel/UCMYdD2TEFJaCSJnsSBs8T7A',
+  'https://www.youtube.com/@askvyact',
 ];
 
 export const LOGO = `${BASE}/og-vyact.png`;

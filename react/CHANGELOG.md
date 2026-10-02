@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.56.0`** (consumer)
+> **Current production version: `v10.56.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,16 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.56.1 — Learn and the use-case pages fit the phone again *(2026-10-02)*
+
+- **Fix (owner report):** on phones, every Learn and `/for` page was laid out 561px wide and zoomed
+  out to fit, so the page and its sticky "Get started" bar looked broken. The footer's link row had
+  grown with each new page (About, From Splitwise, Money owed, Privacy by design) and could not
+  wrap. It wraps now, on these pages and the landing page; measured on an iPhone 13, the pages are 390px
+  wide in a 390px viewport. The mobile sticky bar no longer covers the end of the page.
+  PUB-022 guards it.
+- The brand's `sameAs` adds the new YouTube handle, `youtube.com/@askvyact`.
 
 ## v10.56.0 — One clear brand: "Vyact, the family budget app" *(2026-10-02)*
 

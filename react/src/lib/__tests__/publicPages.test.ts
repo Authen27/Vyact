@@ -256,6 +256,19 @@ describe('the landing page (#9, #12, #19)', () => {
     expect(sources).not.toMatch(/Family Finance OS/);
   });
 
+  it('CON-UNIT-PUB-022 · footer link rows wrap and the mobile sticky bar never covers the page end', async () => {
+    // v10.56.1 — the footer link row grew with each new page and, without flex-wrap, ran to 541px:
+    // phones laid every Learn and /for page out 561px wide and zoomed it out (owner report, 2 Oct 2026).
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const html = lessonPage(ALL[0], ALL);
+    const footerRow = /<footer[\s\S]*?<div class="([^"]*justify-end mt-3[^"]*)"/.exec(html)?.[1] ?? '';
+    expect(footerRow.split(' ')).toContain('flex-wrap');
+    expect(html).toMatch(/@media\(max-width:640px\)\{[^}]*\.sticky\{[\s\S]*?\.lx\{padding-bottom:88px\}\}/);
+    const landing = readFileSync(resolve(__dirname, '../../pages/LandingView.tsx'), 'utf8');
+    expect(landing).toMatch(/className="flex flex-wrap [^"]*justify-end mt-3/);
+  });
+
   it('CON-UNIT-PUB-020 · unknown paths are a noindex 404; every app route, public page and static file still gets through', async () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
