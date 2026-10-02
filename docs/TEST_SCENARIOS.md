@@ -25,14 +25,14 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1366 passing deterministic cases in 93 files. Zero failed, skipped or TODO cases at generation.**
+**1367 passing deterministic cases in 93 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 8 |
-| react | contract-unit | conditional | 112 |
+| react | contract-unit | conditional | 113 |
 | react | handler-integration | conditional | 58 |
 | react | sql-integration | conditional | 5 |
 | react | storage-integration | available | 28 |
@@ -132,7 +132,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 8 |
 | [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 5 |
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |
-| [react/src/lib/__tests__/whatsappDispatch.test.ts](../react/src/lib/__tests__/whatsappDispatch.test.ts) | WhatsApp dispatch | contract-unit | conditional | 15 |
+| [react/src/lib/__tests__/whatsappDispatch.test.ts](../react/src/lib/__tests__/whatsappDispatch.test.ts) | WhatsApp dispatch | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappFollowups.test.ts](../react/src/lib/__tests__/whatsappFollowups.test.ts) | WhatsApp dispatch | contract-unit | conditional | 8 |
 | [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 34 |
 | [react/src/lib/__tests__/whatsappTemplates.test.ts](../react/src/lib/__tests__/whatsappTemplates.test.ts) | WhatsApp templates | contract-unit | conditional | 16 |

@@ -9394,3 +9394,149 @@ create policy "signed-in reads published, admins all" on public.content_items
   using (status = 'published' or public.is_admin('content'));
 
 commit;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261005120000_ai_feedback.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- Pip answer feedback (owner request, 2 Oct 2026): a 👍 / 👎 under each Ask Vyact
+-- reply, counted for the admin console.
+--
+-- PRIVACY — same rule as ai_usage: NO message content. A row is the rating, the
+-- intent of the question it answered (classified on the client, as ai_usage does),
+-- the reply's length and the surface. Never the question or the answer, which can
+-- carry a household's figures.
+--
+-- One rating per answer per person: (user_id, turn_id) is unique, so changing your
+-- mind updates the row and taking the rating back deletes it.
+--
+-- SCHEMA FIRST: this ships, and its Deploy run goes green, before the app change
+-- that writes it (CLAUDE.md, "Schema ships before the app that needs it").
+-- MONEY MODEL: untouched. No money table, row or amount.
+-- ============================================================================
+
+BEGIN;
+
+create table if not exists public.ai_feedback (
+  id            uuid primary key default gen_random_uuid(),
+  household_id  uuid not null references public.households(id) on delete cascade,
+  user_id       uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  surface       text not null default 'app' check (surface in ('app', 'whatsapp')),
+  rating        smallint not null check (rating in (-1, 1)),
+  intent        text check (char_length(intent) <= 64),
+  response_len  integer check (response_len >= 0),
+  -- The client's per-answer id (ChatMessage.turnId). Not content.
+  turn_id       text not null check (char_length(turn_id) between 1 and 64),
+  constraint ai_feedback_one_per_answer unique (user_id, turn_id)
+);
+
+create index if not exists ai_feedback_created_at_idx on public.ai_feedback (created_at desc);
+
+alter table public.ai_feedback enable row level security;
+
+-- A member rates answers in their own household, as themselves; reads and changes
+-- only their own ratings. Admins read the aggregate through the definer function.
+drop policy if exists "ai_feedback_insert" on public.ai_feedback;
+create policy "ai_feedback_insert" on public.ai_feedback for insert to authenticated
+  with check (public.is_member(household_id) and user_id = (select auth.uid()));
+
+drop policy if exists "ai_feedback_update_own" on public.ai_feedback;
+create policy "ai_feedback_update_own" on public.ai_feedback for update to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()) and public.is_member(household_id));
+
+drop policy if exists "ai_feedback_delete_own" on public.ai_feedback;
+create policy "ai_feedback_delete_own" on public.ai_feedback for delete to authenticated
+  using (user_id = (select auth.uid()));
+
+drop policy if exists "ai_feedback_select_own" on public.ai_feedback;
+create policy "ai_feedback_select_own" on public.ai_feedback for select to authenticated
+  using (user_id = (select auth.uid()));
+
+-- Admin console: totals, the helpful rate, per-intent split and the latest ratings.
+-- Content-admin and up, like admin_ai_usage_summary.
+create or replace function public.admin_ai_feedback_summary()
+  returns jsonb language plpgsql security definer set search_path to 'public'
+as $$
+declare result jsonb;
+begin
+  if not public.is_admin('content') then
+    raise exception 'forbidden: admin role required';
+  end if;
+
+  select jsonb_build_object(
+    'total',  (select count(*) from ai_feedback),
+    'up',     (select count(*) from ai_feedback where rating = 1),
+    'down',   (select count(*) from ai_feedback where rating = -1),
+    'last30', (select count(*) from ai_feedback where created_at > now() - interval '30 days'),
+    'byIntent', (
+      select coalesce(jsonb_agg(jsonb_build_object('intent', intent, 'up', up, 'down', down) order by up + down desc), '[]'::jsonb)
+      from (
+        select coalesce(intent, 'other') as intent,
+               count(*) filter (where rating = 1)  as up,
+               count(*) filter (where rating = -1) as down
+        from ai_feedback group by 1
+      ) t
+    ),
+    'recent', (
+      select coalesce(jsonb_agg(r order by (r->>'at') desc), '[]'::jsonb)
+      from (
+        select jsonb_build_object('at', created_at, 'rating', rating, 'intent', intent,
+                                  'surface', surface, 'responseLen', response_len) as r
+        from ai_feedback order by created_at desc limit 50
+      ) t
+    )
+  ) into result;
+  return result;
+end $$;
+
+-- Not reachable without signing in (v10.22 rule: revoke the PUBLIC default anon inherits).
+revoke all on function public.admin_ai_feedback_summary() from public, anon;
+grant execute on function public.admin_ai_feedback_summary() to authenticated, service_role;
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261006120000_whatsapp_dispatch_secret.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- WhatsApp scheduler secret, generated in the database (2 Oct 2026).
+--
+-- The pg_cron jobs from 20260926120000 (alerts, weekly, bills, digest, monthly) post to
+-- `whatsapp-dispatch` with `x-dispatch-secret` read from Vault `whatsapp_dispatch_secret`.
+-- That secret was left for the owner to create by hand (plus the same value as the
+-- function's WHATSAPP_DISPATCH_SECRET) and never was, so every run selected zero rows
+-- and no scheduled WhatsApp message ever went out.
+--
+-- Same pattern as web push (20261003120000): the secret is generated here and never
+-- leaves the database and the function. The function checks a header against Vault
+-- through `whatsapp_dispatch_ok()` (service role only); WHATSAPP_DISPATCH_SECRET still
+-- works if it is ever set. No person handles the value.
+
+begin;
+
+do $$
+begin
+  if not exists (select 1 from vault.secrets where name = 'whatsapp_dispatch_secret') then
+    perform vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'whatsapp_dispatch_secret',
+                                'pg_cron -> whatsapp-dispatch');
+  end if;
+end;
+$$;
+
+create or replace function public.whatsapp_dispatch_ok(p text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select length(coalesce(p, '')) >= 32
+     and exists (select 1 from vault.decrypted_secrets s where s.name = 'whatsapp_dispatch_secret' and s.decrypted_secret = p);
+$$;
+
+revoke all on function public.whatsapp_dispatch_ok(text) from public, anon, authenticated;
+grant execute on function public.whatsapp_dispatch_ok(text) to service_role;
+
+commit;
