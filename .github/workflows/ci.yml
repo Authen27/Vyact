@@ -74,33 +74,40 @@ jobs:
         run: npm ci
       - name: Run automation gates + generate report
         run: node scripts/automation-run.mjs
+      # 2 Oct 2026 — the private repo's artifact storage quota filled up and failed passing
+      # runs at the upload step. Uploads are best-effort (continue-on-error), retention is
+      # shorter, and the two app builds (largest; Vercel builds its own) upload only on failure.
       - name: Upload generated test inventory
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: deterministic-test-inventory
           path: |
             docs/UNIT_TEST_INVENTORY.json
             docs/TEST_SCENARIOS.md
             test-results/
-          retention-days: 30
+          retention-days: 14
       - name: Upload automation run report (governance evidence)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: automation-run-report
           path: automation-runs/
-          retention-days: 90
+          retention-days: 30
       - name: Upload consumer build
-        if: ${{ !cancelled() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: consumer-dist
           path: react/dist
           retention-days: 7
       - name: Upload admin build
-        if: ${{ !cancelled() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: admin-dist
           path: admin/dist
@@ -129,6 +136,7 @@ jobs:
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: playwright-report
           path: react/playwright-report
@@ -188,6 +196,7 @@ jobs:
       - name: Upload Lane B report
         if: ${{ steps.cfg.outputs.configured == 'true' && !cancelled() }}
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: playwright-report-lane-b
           path: react/playwright-report

@@ -51,6 +51,12 @@ stance.
   - **Transactions › CSV** exports exactly what the list shows.
   - Both that export and Settings › Export CSV gain "Added by", "Account", "To account" and "Payment mode" columns. The first seven columns are unchanged.
 
+## v10.54.1 — The WhatsApp drawer's icon is no longer cropped on phones *(2026-10-02)*
+
+- The WhatsApp icon at the top of Pip's WhatsApp drawer lost its top 4px on phones (owner report;
+  desktop was fine). The header row had `-mt-1`, and on phones the sheet's scroll area has no top
+  padding (`sm:py-4` applies from 640px), so the scroll edge clipped it. The negative margin is gone.
+
 ## v10.54.0 — Pip: a quieter answer, a rating under each one, and WhatsApp one tap away *(2026-10-02)*
 
 Owner redesign of Pip (Ask Vyact), 2 Oct 2026.
