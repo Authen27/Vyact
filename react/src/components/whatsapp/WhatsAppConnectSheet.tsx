@@ -60,7 +60,9 @@ function ConnectBody({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="pb-2" data-testid="whatsapp-connect">
-      <div className="flex items-center gap-2.5 -mt-1 mb-5">
+      {/* No negative top margin: on phones the sheet's scroll area has no top padding
+          (sm:py-4 only), so -mt-1 cut 4px off the icon circle (owner, 2 Oct 2026). */}
+      <div className="flex items-center gap-2.5 mb-5">
         <span className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${WA_GREEN}22`, color: WA_GREEN }}>
           <WhatsAppIcon size={18} />
         </span>
