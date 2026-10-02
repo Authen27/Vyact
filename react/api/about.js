@@ -25,7 +25,8 @@ export const FAQ = [
   ['What is Vyact?', DESCRIPTION],
   ['Is Vyact the open-source AI workspace called Vyact?', 'No. Vyact at vyact.app is a family budget app for couples and households. The open-source local AI workspace that shares the name is a separate, unrelated project.'],
   ['Is Vyact free?', 'Yes — Vyact is free to start and needs no credit card. The money lessons are free to read without an account.'],
-  ['Who makes Vyact?', 'Vyact is built and run independently, and answers to its users. You can reach the team at support@vyact.app.'],
+  // Owner, 2 Oct 2026: name the maker as an engineer from IIT.
+  ['Who makes Vyact?', 'Vyact is built by an engineer from IIT (Indian Institute of Technology) and run independently. You can reach the team at support@vyact.app.'],
   ['Is my household’s data sold?', 'No. Your household’s data is never sold or used for advertising. Only the people you invite can see it.'],
 ];
 
