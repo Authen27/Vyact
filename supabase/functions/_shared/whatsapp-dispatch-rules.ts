@@ -300,8 +300,9 @@ export function nextDay(day: string): string {
 /**
  * v10.58.0 (owner, 3 Oct) — a bill that POSTS ITSELF (auto-confirm), due TOMORROW → every
  * linked member, the day before (bills job, 09:00 IST). Expenses only, EMIs included;
- * income, transfers and investments are not bills. Nothing to reply: Vyact logs it on
- * the day, and `recurring_auto_logged` says so then.
+ * income, transfers and investments are not bills. Owner (4 Oct): no second template, so it
+ * goes out as the approved `bill_due_reminder`, keyed `bill:<schedule>:<due day>` like the
+ * due-day reminder, so a "paid Rent" reply finds it (the webhook then says it posts itself).
  */
 export function billsTomorrow(input: { today: string; schedules: BillSchedule[]; members: Member[] }): PlannedSend[] {
   const tomorrow = nextDay(input.today);
@@ -314,9 +315,9 @@ export function billsTomorrow(input: { today: string; schedules: BillSchedule[];
     if (!name || !(amount > 0) || !t.currency) continue;
     for (const m of input.members.filter((a) => a.household_id === s.household_id)) {
       out.push({
-        template: 'bill_due_tomorrow', householdId: s.household_id, toProfileId: m.profile_id,
-        values: [name, moneyText(amount, String(t.currency).trim()), dueDayText(s.next_due_date)],
-        dedupeKey: `bill_tomorrow:${s.id}:${s.next_due_date}`,
+        template: 'bill_due_reminder', householdId: s.household_id, toProfileId: m.profile_id,
+        values: [name, moneyText(amount, String(t.currency).trim()), dueDayText(s.next_due_date), name],
+        dedupeKey: `bill:${s.id}:${s.next_due_date}`,
       });
     }
   }

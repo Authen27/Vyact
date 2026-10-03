@@ -105,7 +105,7 @@ describe('W6b senders', () => {
     expect(dailyDigest({ ...base, members: [{ profile_id: 'x', household_id: 'h' }], nothingTemplateLive: true })).toEqual([]);
   });
 
-  it('CON-UNIT-W6B-020 · a bill that posts itself is announced the day before, to every linked member; nothing else is', () => {
+  it('CON-UNIT-W6B-020 · a bill that posts itself is announced the day before (as the approved bill_due_reminder), to every linked member; nothing else is', () => {
     const sched = (id: string, p: Record<string, unknown>) => ({ id, household_id: 'h', next_due_date: '2026-10-02', auto_confirm: true, active: true,
       txn_template: { type: 'expense', amount: 25000, currency: 'INR', description: 'Rent', category: 'rent_mortgage' }, ...p });
     const schedules = [
@@ -118,10 +118,10 @@ describe('W6b senders', () => {
     ];
     const sends = billsTomorrow({ today: '2026-10-01', schedules: schedules as never, members: [ME, PRIYA] });
     expect(sends.map((x) => `${x.toProfileId}:${x.dedupeKey}`)).toEqual([
-      'me:bill_tomorrow:rent:2026-10-02', 'priya:bill_tomorrow:rent:2026-10-02',
-      'me:bill_tomorrow:emi:2026-10-02', 'priya:bill_tomorrow:emi:2026-10-02',
+      'me:bill:rent:2026-10-02', 'priya:bill:rent:2026-10-02',
+      'me:bill:emi:2026-10-02', 'priya:bill:emi:2026-10-02',
     ]);
-    expect(sends[0]).toEqual(expect.objectContaining({ template: 'bill_due_tomorrow', values: ['Rent', '₹25,000', '2 Oct'] }));
+    expect(sends[0]).toEqual(expect.objectContaining({ template: 'bill_due_reminder', values: ['Rent', '₹25,000', '2 Oct', 'Rent'] }));
     expect(nextDay('2026-12-31')).toBe('2027-01-01');
     expect(nextDay('2028-02-28')).toBe('2028-02-29');
   });

@@ -80,7 +80,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     // guidelines"); treated as marketing until that is resolved. Meta now files it
     // as Utility. 26 Sep: a sample was sent to the owner and delivered; then the
     // See details link was edited from the old vyact-twentyx site to /reports (in review).
-    name: 'weekly_summary', category: 'marketing', language: 'en_US', status: 'in_review',
+    name: 'weekly_summary', category: 'utility', language: 'en_US', status: 'active',
     headerImage: '09-weekly-summary.jpg',
     body: 'Your week on Vyact: {{1}} spent across {{2}} transactions. Top category: {{3}} this week.',
     params: [
@@ -91,7 +91,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     buttons: [{ type: 'url', text: 'See details', url: 'https://vyact.app/reports' }],
   }),
   reengagement_nudge: t({
-    name: 'reengagement_nudge', category: 'marketing', language: 'en_US', status: 'in_review',
+    name: 'reengagement_nudge', category: 'marketing', language: 'en_US', status: 'active',
     // v10.47.0 — edited in place 26 Sep (in review): the board's variant A, unnamed
     // spending. "Name them here" starts the naming conversation in the chat; the
     // Open Vyact link now points at vyact.app. Meta's button order: URL first.
@@ -167,7 +167,8 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     // 26 Sep: edit submitted adding header 17-recurring-logged.jpg (in review). Add
     // headerImage here only once Meta approves it: until then a send with an image
     // header would not match the live template.
-    name: 'recurring_auto_logged', category: 'utility', language: 'en_US', status: 'in_review',
+    name: 'recurring_auto_logged', category: 'utility', language: 'en_US', status: 'active',
+    headerImage: '17-recurring-logged.jpg',
     body: "Logged as scheduled: your {{1}} of ₹{{2}} on {{3}}.\n\nIf it didn't go out this time, tap Undo within 15 minutes.",
     params: [
       { name: 'schedule', sample: 'Netflix' },
@@ -368,7 +369,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
   runway_recovered_alert: t({
     // Pip should be able to give good news about the same metric, or the runway note
     // becomes a message people learn to dread. Keeps the assumption line.
-    name: 'runway_recovered_alert', category: 'marketing', language: 'en_US', status: 'in_review',
+    name: 'runway_recovered_alert', category: 'marketing', language: 'en_US', status: 'active',
     headerImage: '16-runway-recovered.jpg',
     body: 'Good news, {{1}}.\n\nYour savings would now cover about {{2}} months, up from {{3}}. {{4}} is what moved it.\n\nAssumes your recent spending continues.',
     params: [
@@ -389,6 +390,7 @@ export const TEMPLATES: Record<string, TemplateDef> = {
     // household. Until Meta approves it, the dispatcher sends the approved digest with a
     // "nothing logged yet" line instead (INR households only, its body says ₹).
     name: 'daily_nothing_logged', category: 'utility', language: 'en_US', status: 'in_review',
+    headerImage: '18-nothing-logged.jpg',
     body: 'Evening, {{1}}.\n\nNothing has been logged in Vyact today. If you spent anything, reply here with it, like "450 groceries", and I\'ll add it for you.\n\nOne message a day, never one per spend.',
     params: [{ name: 'firstName', sample: 'Rohan' }],
     footer: 'Reply STOP DIGEST to end these.',
@@ -396,19 +398,6 @@ export const TEMPLATES: Record<string, TemplateDef> = {
       { type: 'url', text: 'Open Vyact', url: 'https://vyact.app/transactions' },
       { type: 'quick_reply', text: 'Stop these' },
     ],
-  }),
-  bill_due_tomorrow: t({
-    // v10.58.0 (owner, 3 Oct) — the day before a bill that POSTS ITSELF (auto-confirm).
-    // It asks for nothing: Vyact logs it on the day. Bills cannot be muted, so no STOP
-    // footer. Approval bills keep bill_due_reminder on the due day ("paid Rent").
-    name: 'bill_due_tomorrow', category: 'utility', language: 'en_US', status: 'in_review',
-    body: 'Heads up: your {{1}} of {{2}} is due tomorrow, {{3}}. Vyact will log it for you automatically, so there\'s nothing to do unless the amount has changed.',
-    params: [
-      { name: 'biller', sample: 'Rent' },
-      { name: 'amount', sample: '₹25,000', note: 'formatted WITH the currency symbol' },
-      { name: 'dueDate', sample: '5 Oct' },
-    ],
-    buttons: [{ type: 'url', text: 'See scheduled bills', url: 'https://vyact.app/recurring' }],
   }),
 };
 

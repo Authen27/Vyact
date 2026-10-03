@@ -62,7 +62,9 @@ describe('the manifest follows Meta’s template rules', () => {
   });
 
   it('CON-UNIT-WA-T-006 · a template Meta flagged as marketing is treated as marketing', () => {
-    expect(TEMPLATES.weekly_summary.category).toBe('marketing');
+    // 4 Oct reconciliation: Meta now lists weekly_summary as Utility. Its topic (weekly) still
+    // needs marketing consent, so it reaches only people who opted in (WA-D tests consentOf).
+    expect(TEMPLATES.weekly_summary.category).toBe('utility');
     for (const n of ['runway_shift_alert', 'budget_setup_reminder', 'balance_stale_nudge', 'reengagement_nudge']) {
       expect(TEMPLATES[n].category, n).toBe('marketing');
     }

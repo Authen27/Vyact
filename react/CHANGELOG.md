@@ -42,11 +42,15 @@ Owner decisions (3 Oct), now the triggers:
   nothing logged gets the new `daily_nothing_logged` ("nothing logged today, reply with what you spent"). Until
   Meta approves it, the approved digest goes out saying "nothing logged yet" (INR households, its body says ₹). One
   message a day either way (same dedupe slot). A day with only private entries sends nothing.
-- **The day before a bill that posts itself (09:00 IST):** new `bill_due_tomorrow`, to every linked member. Expenses
-  and EMIs only, never income, transfers or investments. Approval bills keep the due-day reminder. It can't be sent
-  until Meta approves it; there's no fallback, because the old reminder asks for a "paid" reply.
-- Both templates are in the manifest and `docs/WHATSAPP_TEMPLATES.md` as *not submitted*. The owner submits them
-  (`templates-submit.mjs`), then adds them to `WHATSAPP_APPROVED_TEMPLATES`.
+- **The day before a bill that posts itself (09:00 IST):** the approved `bill_due_reminder`, to every linked member
+  (owner, 4 Oct: no second template). Expenses and EMIs only, never income, transfers or investments. Approval bills
+  keep the due-day reminder. A "paid Rent" reply the day before now says the bill posts itself, and one after it posted
+  says it was logged automatically.
+- **`daily_nothing_logged`** (with the 18-nothing-logged header image) was submitted to Meta on 4 Oct through
+  WhatsApp Manager. Once approved, add it to `WHATSAPP_APPROVED_TEMPLATES` and the dispatcher switches to it.
+- **Reconciled with WhatsApp Manager (4 Oct).** All 21 Vyact templates are Active, and bodies, footers and buttons
+  match. The manifest now records `weekly_summary` as Utility, `recurring_auto_logged`'s image header, and four
+  templates as active. The docs' bill_due_reminder buttons were wrong (it has none).
 - Tests: W6B-004 updated; W6B-019 (nothing-logged day), W6B-020 (day-before bills).
 
 ## v10.57.1 — The demo is never indexed, at any address *(2026-10-02)*
