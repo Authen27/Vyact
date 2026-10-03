@@ -46,6 +46,16 @@ export default defineConfig({
         });
       },
     },
+    {
+      // v10.57.1 — the guest demo is never indexed, whichever address serves it (demo.vyact.app also
+      // sends X-Robots-Tag; vyact-demo.vercel.app has only this). Production builds are untouched.
+      name: 'vyact-demo-noindex',
+      transformIndexHtml(html) {
+        return process.env.VITE_DEMO === '1'
+          ? html.replace('</head>', '  <meta name="robots" content="noindex, nofollow">\n  </head>')
+          : html;
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false, // we register manually via src/lib/pwa.ts to wire update + install UX
