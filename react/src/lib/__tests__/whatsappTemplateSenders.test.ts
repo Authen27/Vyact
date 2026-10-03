@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   splitSharedAlerts, recurringLoggedAlerts, paydayAlerts, dailyDigest, monthClose, budgetSetup, runwayAlerts, monthName,
+  billsTomorrow, nextDay, NOTHING_LOGGED_LINE,
   type TxnRow,
 } from '../../../../supabase/functions/_shared/whatsapp-dispatch-rules';
 import {
@@ -66,7 +67,7 @@ describe('W6b senders', () => {
     expect(paydayAlerts({ household: HH, today: '2026-09-27', salaries: [salary], earlier: [], bills, members: [ME] })).toEqual([]);
   });
 
-  it('CON-UNIT-W6B-004 · digest: households of two+, today only, private and transfers out, split at your share, "you" for the reader', () => {
+  it('CON-UNIT-W6B-004 · digest: households of one or more (v10.58.0), today only, private and transfers out, split at your share, "you" for the reader', () => {
     const txns = [
       row('a', { created_by: 'priya', amount: 3200 }),
       row('b', { created_by: 'me', amount: 2000 }),
@@ -79,7 +80,50 @@ describe('W6b senders', () => {
     expect(sends[0]).toEqual({ template: 'household_daily_digest', householdId: 'h', toProfileId: 'me',
       values: ['Rohan', '5,410', '3', 'Priya ₹3,200 · you ₹2,210'], dedupeKey: 'digest:2026-09-26' });
     expect(sends[1].values[3]).toBe('you ₹3,200 · Rohan ₹2,210');
-    expect(dailyDigest({ household: HH, today: '2026-09-26', txns, members: [ME], names: {}, memberCount: 1 })).toEqual([]);
+    // v10.58.0 — a household of one gets its digest too.
+    expect(dailyDigest({ household: HH, today: '2026-09-26', txns, members: [ME], names: {}, memberCount: 1 })[0].values)
+      .toEqual(['Rohan', '5,410', '3', 'someone ₹3,200 · you ₹2,210']);
+    expect(dailyDigest({ household: HH, today: '2026-09-26', txns, members: [ME], names: {}, memberCount: 0 })).toEqual([]);
+  });
+
+  it('CON-UNIT-W6B-019 · a day with nothing logged still gets the evening message: the new template once approved, the digest saying so until then', () => {
+    const yesterday = [row('a', { date: '2026-09-25', amount: 900 })];
+    const base = { household: HH, today: '2026-09-26', txns: yesterday, members: [ME, PRIYA], names: {}, memberCount: 2 };
+    expect(dailyDigest({ ...base, nothingTemplateLive: true })).toEqual([
+      { template: 'daily_nothing_logged', householdId: 'h', toProfileId: 'me', values: ['Rohan'], dedupeKey: 'digest:2026-09-26' },
+      { template: 'daily_nothing_logged', householdId: 'h', toProfileId: 'priya', values: ['Priya'], dedupeKey: 'digest:2026-09-26' },
+    ]);
+    expect(dailyDigest({ ...base, nothingTemplateLive: false })[0]).toEqual({ template: 'household_daily_digest', householdId: 'h',
+      toProfileId: 'me', values: ['Rohan', '0', '0', NOTHING_LOGGED_LINE], dedupeKey: 'digest:2026-09-26' });
+    // The fallback says ₹, so it is INR only; the new template has no currency and suits anyone.
+    const usd = { ...base, household: { id: 'h', base_currency: 'USD' } };
+    expect(dailyDigest({ ...usd, nothingTemplateLive: false })).toEqual([]);
+    expect(dailyDigest({ ...usd, nothingTemplateLive: true })).toHaveLength(2);
+    // Only private entries today is not "nothing logged": nothing is sent.
+    expect(dailyDigest({ ...base, txns: [row('p', { extras: { excluded: true } })], nothingTemplateLive: true })).toEqual([]);
+    // No first name, no greeting to send.
+    expect(dailyDigest({ ...base, members: [{ profile_id: 'x', household_id: 'h' }], nothingTemplateLive: true })).toEqual([]);
+  });
+
+  it('CON-UNIT-W6B-020 · a bill that posts itself is announced the day before, to every linked member; nothing else is', () => {
+    const sched = (id: string, p: Record<string, unknown>) => ({ id, household_id: 'h', next_due_date: '2026-10-02', auto_confirm: true, active: true,
+      txn_template: { type: 'expense', amount: 25000, currency: 'INR', description: 'Rent', category: 'rent_mortgage' }, ...p });
+    const schedules = [
+      sched('rent', {}),
+      sched('emi', { txn_template: { type: 'expense', amount: 18500, currency: 'INR', description: 'Home loan EMI', category: 'loan_emi', debtId: 'd' } }),
+      sched('approval', { auto_confirm: false }),
+      sched('salary', { txn_template: { type: 'income', amount: 92000, currency: 'INR', description: 'Salary' } }),
+      sched('later', { next_due_date: '2026-10-05' }),
+      sched('paused', { active: false }),
+    ];
+    const sends = billsTomorrow({ today: '2026-10-01', schedules: schedules as never, members: [ME, PRIYA] });
+    expect(sends.map((x) => `${x.toProfileId}:${x.dedupeKey}`)).toEqual([
+      'me:bill_tomorrow:rent:2026-10-02', 'priya:bill_tomorrow:rent:2026-10-02',
+      'me:bill_tomorrow:emi:2026-10-02', 'priya:bill_tomorrow:emi:2026-10-02',
+    ]);
+    expect(sends[0]).toEqual(expect.objectContaining({ template: 'bill_due_tomorrow', values: ['Rent', '₹25,000', '2 Oct'] }));
+    expect(nextDay('2026-12-31')).toBe('2027-01-01');
+    expect(nextDay('2028-02-28')).toBe('2028-02-29');
   });
 
   it('CON-UNIT-W6B-005 · month close: on the 1st, last month vs the one before, biggest slice, days with an entry', () => {
