@@ -292,6 +292,38 @@ export function billReminders(input: { today: string; schedules: BillSchedule[];
   return out;
 }
 
+/** The calendar day after `day` (YYYY-MM-DD). */
+export function nextDay(day: string): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * v10.58.0 (owner, 3 Oct) — a bill that POSTS ITSELF (auto-confirm), due TOMORROW → every
+ * linked member, the day before (bills job, 09:00 IST). Expenses only, EMIs included;
+ * income, transfers and investments are not bills. Owner (4 Oct): no second template, so it
+ * goes out as the approved `bill_due_reminder`, keyed `bill:<schedule>:<due day>` like the
+ * due-day reminder, so a "paid Rent" reply finds it (the webhook then says it posts itself).
+ */
+export function billsTomorrow(input: { today: string; schedules: BillSchedule[]; members: Member[] }): PlannedSend[] {
+  const tomorrow = nextDay(input.today);
+  const out: PlannedSend[] = [];
+  for (const s of input.schedules) {
+    const t = s.txn_template ?? {};
+    if (!s.active || !s.auto_confirm || s.next_due_date !== tomorrow || t.type !== 'expense') continue;
+    const name = String(t.description ?? '').trim();
+    const amount = Number(t.amount);
+    if (!name || !(amount > 0) || !t.currency) continue;
+    for (const m of input.members.filter((a) => a.household_id === s.household_id)) {
+      out.push({
+        template: 'bill_due_reminder', householdId: s.household_id, toProfileId: m.profile_id,
+        values: [name, moneyText(amount, String(t.currency).trim()), dueDayText(s.next_due_date), name],
+        dedupeKey: `bill:${s.id}:${s.next_due_date}`,
+      });
+    }
+  }
+  return out;
+}
+
 /** An approval bill still waiting this many days after its due date gets the overdue reminder, once. */
 export const OVERDUE_AFTER_DAYS = 3;
 
@@ -494,17 +526,27 @@ export function paydayAlerts(input: {
 
 // ── household_daily_digest: the evening digest (digest job, 20:30 IST) ────────────
 /**
- * One message a day per member, never one per spend, and only for a household of two
- * or more (a digest of your own spending is just your spending). The total and the
- * per-member line count what the app's totals count: no private entries, no
- * transfers, a split at your share. Nothing logged today → nothing sent (the quiet-day
- * variant was never approved).
+ * One message a day per member, never one per spend. The total and the per-member line
+ * count what the app's totals count: no private entries, no transfers, a split at your
+ * share.
+ * v10.58.0 (owner, 3 Oct) — every household of ONE or more gets it (it was two or more),
+ * and a day with nothing logged gets the "nothing logged" message, so the evening
+ * message comes every day: `daily_nothing_logged` once Meta approves it
+ * (`nothingTemplateLive`), until then the approved digest saying "nothing logged yet"
+ * (INR households, its body says ₹). A day with only private entries is not "nothing
+ * logged", so it sends nothing.
  */
+export const NOTHING_LOGGED_LINE = 'nothing logged yet. Reply here with what you spent, like 450 groceries';
+
 export function dailyDigest(input: {
   household: Household; today: string; txns: TxnRow[]; members: Member[]; names: Record<string, string>; memberCount: number;
+  nothingTemplateLive?: boolean;
 }): PlannedSend[] {
-  if (input.memberCount < 2 || !isInr(input.household.base_currency)) return [];
-  const rows = input.txns.filter((r) => r.date === input.today && r.type === 'expense' && counted(r));
+  if (input.memberCount < 1) return [];
+  const todays = input.txns.filter((r) => r.date === input.today && r.type === 'expense');
+  if (!todays.length) return nothingLogged(input);
+  if (!isInr(input.household.base_currency)) return [];
+  const rows = todays.filter(counted);
   if (!rows.length || rows.some((r) => !isInr(r.currency))) return [];
   const byPerson = new Map<string, number>();
   for (const r of rows) byPerson.set(r.created_by ?? '', (byPerson.get(r.created_by ?? '') ?? 0) + spendOf(r));
@@ -522,6 +564,17 @@ export function dailyDigest(input: {
     });
   }
   return out;
+}
+
+function nothingLogged(input: { household: Household; today: string; members: Member[]; nothingTemplateLive?: boolean }): PlannedSend[] {
+  const fallback = !input.nothingTemplateLive;
+  if (fallback && !isInr(input.household.base_currency)) return [];
+  return input.members.filter((m) => m.first_name).map((m) => ({
+    template: fallback ? 'household_daily_digest' : 'daily_nothing_logged',
+    householdId: input.household.id, toProfileId: m.profile_id,
+    values: fallback ? [m.first_name as string, '0', '0', NOTHING_LOGGED_LINE] : [m.first_name as string],
+    dedupeKey: `digest:${input.today}`,
+  }));
 }
 
 // ── month_close_summary: the month just closed (monthly job, on the 1st) ─────────

@@ -773,11 +773,16 @@ async function approveFromReply(
       if (r.next_due_date) body += ` The next one is due ${dueDayText(r.next_due_date)}.`;
       break;
     case 'already_done':
-      body = `${name} for ${on} was already approved in the app, so I've left it.`;
+      body = s.auto_confirm
+        ? `${name} for ${on} was already logged automatically, so I've left it.`
+        : `${name} for ${on} was already approved in the app, so I've left it.`;
       break;
     default: {
       const why: Record<string, string> = {
-        not_due_yet: `${name} isn't due until ${on}. You can approve it on the day.`,
+        // v10.58.0 — the day-before reminder for a bill that posts itself (owner, 4 Oct).
+        not_due_yet: s.auto_confirm
+          ? `${name} is due on ${on} and Vyact logs it automatically then, so there's nothing to do.`
+          : `${name} isn't due until ${on}. You can approve it on the day.`,
         approve_in_app: `${name} has to be approved in the app: ${APP_URL}/recurring`,
         read_only_member: 'You can view this household but not record in it.',
         not_a_member: "This number isn't a member of that household any more.",

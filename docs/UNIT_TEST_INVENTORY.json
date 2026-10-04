@@ -2329,7 +2329,7 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "consent / STOP / scheduler rules / follow-up conversations / whatsapp-dispatch handler (not a live cron run)",
-      "count": 14,
+      "count": 16,
       "tests": [
         "W6b replies CON-UNIT-W6B-008 · \"shared\" on a capture is recognised as a whole word and removed before parsing",
         "W6b replies CON-UNIT-W6B-009 · the 50/50 split is the app's split: only your half counts, the shares add to the total",
@@ -2338,10 +2338,12 @@
         "W6b senders CON-UNIT-W6B-001 · split_shared_with_you: each new INR share → the linked participant, owner named, amounts without ₹",
         "W6b senders CON-UNIT-W6B-002 · recurring_auto_logged: only a self-posting schedule, to its owner, keyed by the entry for Undo",
         "W6b senders CON-UNIT-W6B-003 · payday: steady pay → payday_headroom; 5%+ off the median → the variable one; no bills or no room → nothing",
-        "W6b senders CON-UNIT-W6B-004 · digest: households of two+, today only, private and transfers out, split at your share, \"you\" for the reader",
+        "W6b senders CON-UNIT-W6B-004 · digest: households of one or more (v10.58.0), today only, private and transfers out, split at your share, \"you\" for the reader",
         "W6b senders CON-UNIT-W6B-005 · month close: on the 1st, last month vs the one before, biggest slice, days with an entry",
         "W6b senders CON-UNIT-W6B-006 · budget set-up: exactly two days before a month with no budget, to owners/admins given",
         "W6b senders CON-UNIT-W6B-007 · runway: silent baseline, then only a 0.5-month change, at most once a month, the right variant",
+        "W6b senders CON-UNIT-W6B-019 · a day with nothing logged still gets the evening message: the new template once approved, the digest saying so until then",
+        "W6b senders CON-UNIT-W6B-020 · a bill that posts itself is announced the day before (as the approved bill_due_reminder), to every linked member; nothing else is",
         "a line that opens like a question is one (found on production 27 Sep) CON-UNIT-W6B-018 · \"Why can't I spend 5 rupees although…\" is a question, never a ₹5 entry; entries still log",
         "affordability asks in any wording (found on production 27 Sep) CON-UNIT-W6B-017 · every affordability wording is a question, never an entry; plain captures still log",
         "the question that was logged as a spend (found by the 26 Sep validation) CON-UNIT-W6B-015 · \"can I afford 40000 for a phone?\" is a question, never a ₹40,000 entry; a leading amount is still a log"
@@ -2360,7 +2362,7 @@
         "every template, on every layer CON-UNIT-WA-V-002 · every header image exists in react/public/whatsapp (served at vyact.app/whatsapp)",
         "every template, on every layer CON-UNIT-WA-V-003 · every template has a sender in the code — none is approved but never sent",
         "every template, on every layer CON-UNIT-WA-V-004 · every quick reply is answered: by the reply table, by Pip, or by a named webhook handler",
-        "every template, on every layer CON-UNIT-WA-V-005 · every marketing template tells the reader how to stop it (weekly_summary: after its link edit)"
+        "every template, on every layer CON-UNIT-WA-V-005 · every marketing template tells the reader how to stop it"
       ]
     },
     {

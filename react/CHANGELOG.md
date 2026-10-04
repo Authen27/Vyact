@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.57.1`** (consumer)
+> **Current production version: `v10.58.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,34 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.58.0 — WhatsApp: an evening message every day, and bills the day before *(2026-10-03)*
+
+Owner report: alerts weren't arriving daily. Found on production:
+
+- **Until 2 Oct the scheduler did no work.** pg_cron fired every job on time, but whatsapp-dispatch refused them
+  (the cron secret, fixed in #154). The first successful monthly run was 2 Oct, which is why the 1 Oct month close and
+  payday messages never came.
+- **Since then most days had nothing that qualified.** Most templates are event-driven (a large spend, a budget line
+  at 80%, a salary). The evening digest needed an expense logged that day and a household of two or more. Bill
+  reminders only covered bills that wait for approval, and all of the household's schedules post themselves.
+
+Owner decisions (3 Oct), now the triggers:
+
+- **Every evening (20:30 IST):** the digest goes to households of **one or more** (it was two or more). A day with
+  nothing logged gets the new `daily_nothing_logged` ("nothing logged today, reply with what you spent"). Until
+  Meta approves it, the approved digest goes out saying "nothing logged yet" (INR households, its body says ₹). One
+  message a day either way (same dedupe slot). A day with only private entries sends nothing.
+- **The day before a bill that posts itself (09:00 IST):** the approved `bill_due_reminder`, to every linked member
+  (owner, 4 Oct: no second template). Expenses and EMIs only, never income, transfers or investments. Approval bills
+  keep the due-day reminder. A "paid Rent" reply the day before now says the bill posts itself, and one after it posted
+  says it was logged automatically.
+- **`daily_nothing_logged`** (with the 18-nothing-logged header image) was submitted to Meta on 4 Oct through
+  WhatsApp Manager. Once approved, add it to `WHATSAPP_APPROVED_TEMPLATES` and the dispatcher switches to it.
+- **Reconciled with WhatsApp Manager (4 Oct).** All 21 Vyact templates are Active, and bodies, footers and buttons
+  match. The manifest now records `weekly_summary` as Utility, `recurring_auto_logged`'s image header, and four
+  templates as active. The docs' bill_due_reminder buttons were wrong (it has none).
+- Tests: W6B-004 updated; W6B-019 (nothing-logged day), W6B-020 (day-before bills).
 
 ## v10.57.1 — The demo is never indexed, at any address *(2026-10-02)*
 

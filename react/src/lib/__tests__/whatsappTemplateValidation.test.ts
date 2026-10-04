@@ -57,9 +57,9 @@ describe('every template, on every layer', () => {
     expect(unanswered).toEqual([]);
   });
 
-  it('CON-UNIT-WA-V-005 · every marketing template tells the reader how to stop it (weekly_summary: after its link edit)', () => {
+  it('CON-UNIT-WA-V-005 · every marketing template tells the reader how to stop it', () => {
     const noStop = all.filter((t) => t.category === 'marketing' && !/STOP /.test(t.footer ?? '')).map((t) => t.name);
-    // weekly_summary's footer can only change in Meta once its in-review link edit is decided.
-    expect(noStop).toEqual(['weekly_summary']);
+    // weekly_summary is Utility in Meta since the 4 Oct reconciliation (it still needs marketing consent).
+    expect(noStop).toEqual([]);
   });
 });

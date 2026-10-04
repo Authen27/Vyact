@@ -73,6 +73,7 @@ export const TEMPLATE_TOPIC: Record<string, TopicId> = {
   payday_headroom_variable: 'payday',
   reengagement_nudge_quiet: 'tips',
   runway_recovered_alert: 'runway',
+  daily_nothing_logged: 'digest',
 };
 
 /** The words after STOP / START that name a topic. Footers promise the first six. */

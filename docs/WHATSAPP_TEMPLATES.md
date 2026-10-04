@@ -20,6 +20,19 @@ header component before any template below is added to `WHATSAPP_APPROVED_TEMPLA
 fails. The 11 header images are in
 `WhatsApp & Ask Vyact Message Templates/Vyact/vyact-templates/media/` (1200×628 PNG).
 
+## Reconciled with WhatsApp Manager (4 Oct 2026)
+
+Every template in WhatsApp Manager was read on 4 Oct and compared field by field with the manifest (body, category,
+header image, footer, buttons). All 21 Vyact templates are **Active** in Meta, and every body, footer and button matches.
+The manifest was corrected where it lagged Meta:
+
+- `weekly_summary`: **Utility** in Meta (was recorded as Marketing), Active; the See details link edit is live.
+- `recurring_auto_logged`: Active, **with** the 17-recurring-logged image header (now in the manifest).
+- `reengagement_nudge` (W6 edit) and `runway_recovered_alert`: Active.
+- `bill_due_reminder`: image header, **no buttons** ("paid X" is typed). It also carries the day-before notice for
+  bills that post themselves (v10.58.0). The owner ruled out a separate template.
+- `hello_world`: Meta's sample, not used by Vyact.
+
 ## Status snapshot (25 Sep 2026)
 
 | Template | Category | Image | Change | Status |
@@ -42,6 +55,7 @@ fails. The 11 header images are in
 | `recurring_auto_logged` | Utility | 17-recurring-logged (pending) | Enriched 25 Sep. **26 Sep:** edit submitted adding the image header; the manifest gets `headerImage` after approval | Was active and verified 26 Sep; image edit in review |
 | `whatsapp_welcome` | Utility | 12-welcome | New; sent once after linking. Its buttons already work | Active, verified field by field on 26 Sep |
 | `bill_overdue_reminder` | Utility | 13-bill-overdue | Variant B of the bill reminder (W5). Sent once, 3 days past due | Active, verified field by field on 26 Sep |
+| `daily_nothing_logged` | Utility | 18-nothing-logged | **New 3 Oct (v10.58.0)**: the evening message on a day with nothing logged. Until approved, the dispatcher sends the approved digest with a "nothing logged yet" line (INR households) | Submitted 4 Oct via WhatsApp Manager (status: see reconciliation) |
 | `payday_headroom_variable` | Utility | 14-payday-variable | Variant B of payday (W5). Sends once payday is a date (#68) | Active, verified field by field on 26 Sep |
 | `reengagement_nudge_quiet` | **Marketing** | 15-reengage-quiet | Variant B of re-engagement (W5). "Reply LOG" works; the weekly job sends it after 7 quiet days (W6) | Active, verified field by field on 26 Sep |
 | `runway_recovered_alert` | **Marketing** | 16-runway-recovered | Variant B of the runway note (W5) | In review (submitted 25 Sep) |
@@ -64,8 +78,9 @@ Live samples went to the owner's number (+91 97405 56606) through `whatsapp-noti
 
 | Template | Meta | Sender in code | Buttons answered | Live sample |
 |---|---|---|---|---|
-| `bill_due_reminder` | Active | dispatch `bills` | Mark as paid, Remind me tomorrow | Delivered |
+| `bill_due_reminder` | Active | dispatch `bills`: approval bills on the due day; bills that post themselves, the day before (v10.58.0) | — (reply "paid X") | Delivered |
 | `bill_overdue_reminder` | Active | dispatch `bills` | Already paid | Delivered |
+| `daily_nothing_logged` | Submitted 4 Oct | dispatch `digest`, 20:30 IST, on a day with nothing logged (**new, v10.58.0**); fallback: `household_daily_digest` "nothing logged yet" | Stop these | Fallback delivers until approved |
 | `split_settled` | Active | dispatch `alerts` | — | Delivered |
 | `split_shared_with_you` | Active | dispatch `alerts` (**new, W6b**) | — | Delivered |
 | `large_transaction_alert` | Active | dispatch `alerts` | — | Delivered |
@@ -302,6 +317,21 @@ Assumes your recent spending continues.
 - Footer: `Only on a real change. Reply STOP RUNWAY to end these.`
 - Quick replies: `See the detail` (asked of Pip) · `Stop these`.
 - Samples: Rohan · 5.1 · 4.2 · A quieter month on dining.
+
+## New in v10.58.0 (3–4 Oct)
+
+**`daily_nothing_logged`** · Utility. Topic: digest (STOP DIGEST). Header image: 18-nothing-logged.
+```
+Evening, {{1}}.
+
+Nothing has been logged in Vyact today. If you spent anything, reply here with it, like "450 groceries", and I'll add it for you.
+
+One message a day, never one per spend.
+```
+- Footer: Reply STOP DIGEST to end these. Buttons: Open Vyact → https://vyact.app/transactions · Stop these.
+- Sample: Rohan.
+
+After Meta approves it: add its name to the `WHATSAPP_APPROVED_TEMPLATES` secret and set its `status` to `active` in the manifest.
 
 ## Not submitted yet
 
