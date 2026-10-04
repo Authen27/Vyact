@@ -16,6 +16,7 @@ import HalfSheet from '../components/ui/HalfSheet';
 import { Input, Select, Field, FieldRow } from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import { PROFILE_TYPES, CURRENCIES, deterministicColor } from '../constants';
+import { HOUSEHOLD_TYPE_ORDER, normalizeHouseholdType, typeFits, inviteBlockedReason, householdLimitMessage } from '../lib/householdTypes';
 import {
   createInviteLink, listInvitations, revokeInvitation, INVITE_LABEL_SENTINEL,
   changeMemberRole, removeMembership, leaveHousehold, listActivity,
@@ -168,12 +169,13 @@ export default function Households() {
               </div>
               <div>
                 <label htmlFor="households-type" className="mono-label mb-1.5 block">Household Type</label>
-                <Select id="households-type" value={active.type as ProfileTypeKey}
+                <Select id="households-type" value={normalizeHouseholdType(active.type)}
                   onChange={e => updateProfile({ household: e.target.value as ProfileTypeKey })}>
-                  {Object.entries(PROFILE_TYPES).map(([k, v]) => (
-                    <option key={k} value={k}>{v.icon} {v.label}</option>
+                  {HOUSEHOLD_TYPE_ORDER.map(k => (
+                    <option key={k} value={k}>{PROFILE_TYPES[k].icon} {PROFILE_TYPES[k].label} — {PROFILE_TYPES[k].desc}</option>
                   ))}
                 </Select>
+                <p className="text-[0.78rem] text-ink-mid mt-1.5">{PROFILE_TYPES[normalizeHouseholdType(active.type)].detail}</p>
               </div>
             </div>
           </Panel>
@@ -219,7 +221,7 @@ export default function Households() {
           their initials. */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         {households.map(h => {
-          const meta = PROFILE_TYPES[h.type as ProfileTypeKey] || PROFILE_TYPES.family;
+          const meta = PROFILE_TYPES[normalizeHouseholdType(h.type)];
           const isActive = h.id === currentHouseholdId;
           // `members` (below) is the cloud Membership[] rows for the active
           // household; the avatar stack wants the entity-level Member[] (has
@@ -279,7 +281,12 @@ export default function Households() {
             <Panel
               title={`Members (${members.length})`}
               action={can(myRole, 'invite_member')
-                ? <button onClick={() => setInviteOpen(true)} className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70 flex items-center gap-1">
+                ? <button onClick={() => {
+                      // v10.59.0 — Personal is private and Couple has room for one; say so up front.
+                      const blocked = inviteBlockedReason(active.type, members.length, invites.length);
+                      if (blocked) toast(blocked, 'info'); else setInviteOpen(true);
+                    }}
+                    className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70 flex items-center gap-1">
                     <Plus size={12} /> Invite
                   </button>
                 : null}
@@ -336,15 +343,26 @@ export default function Households() {
               the user's profile, so it's edited here rather than in Settings. */}
           <div className="mt-3.5">
             <Panel title="Household Settings">
-              <div className="p-4 max-w-xs">
+              <div className="p-4 max-w-md">
                 <label htmlFor="households-type" className="mono-label mb-1.5 block">Household Type</label>
-                <Select id="households-type" value={active.type as ProfileTypeKey}
+                <Select id="households-type" value={normalizeHouseholdType(active.type)}
                   disabled={!can(myRole, 'edit_household_settings')}
-                  onChange={e => updateProfile({ household: e.target.value as ProfileTypeKey })}>
-                  {Object.entries(PROFILE_TYPES).map(([k, v]) => (
-                    <option key={k} value={k}>{v.icon} {v.label}</option>
+                  onChange={async e => {
+                    const next = e.target.value as ProfileTypeKey;
+                    if (!typeFits(next, members.length)) {
+                      toast(`This household has ${members.length} members — more than a ${PROFILE_TYPES[next].label} household allows.`, 'error');
+                      return;
+                    }
+                    try { await updateProfile({ household: next }); }
+                    catch (err) { toast(householdLimitMessage(err) ?? (err as Error).message, 'error'); }
+                  }}>
+                  {HOUSEHOLD_TYPE_ORDER.map(k => (
+                    <option key={k} value={k} disabled={!typeFits(k, members.length)}>
+                      {PROFILE_TYPES[k].icon} {PROFILE_TYPES[k].label} — {PROFILE_TYPES[k].desc}
+                    </option>
                   ))}
                 </Select>
+                <p className="text-[0.78rem] text-ink-mid mt-1.5">{PROFILE_TYPES[normalizeHouseholdType(active.type)].detail}</p>
               </div>
             </Panel>
           </div>
@@ -582,8 +600,9 @@ function CreateHouseholdModal({ open, onClose, onCreated }: {
         <Field label="Name"><Input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Smith Family · Acme Consulting · …" required /></Field>
         <Field label="Type">
           <Select value={type} onChange={e => setType(e.target.value as ProfileTypeKey)}>
-            {Object.entries(PROFILE_TYPES).map(([k, m]) => <option key={k} value={k}>{m.icon} {m.label} — {m.desc}</option>)}
+            {HOUSEHOLD_TYPE_ORDER.map(k => <option key={k} value={k}>{PROFILE_TYPES[k].icon} {PROFILE_TYPES[k].label} — {PROFILE_TYPES[k].desc}</option>)}
           </Select>
+          <p className="text-[0.78rem] text-ink-mid mt-1.5">{PROFILE_TYPES[type].detail}</p>
         </Field>
         <Field label="Base currency">
           <Select value={currency} onChange={e => setCurrency(e.target.value)}>
@@ -693,7 +712,7 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
             void copyLink(url);
             onSent();
           } catch (err) {
-            toast((err as Error).message, 'error');
+            toast(householdLimitMessage(err) ?? (err as Error).message, 'error');
           } finally { setSubmitting(false); }
         }}>
           <p className="text-ink-mid text-[0.84rem] mb-4">

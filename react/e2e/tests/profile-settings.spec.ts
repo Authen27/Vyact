@@ -342,7 +342,8 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
     test('PROFILE-FC-005 · changing payoff strategy reorders the payoff priority', async ({ page }) => {
       await page.goto('/debts');
       await page.waitForURL('**/debts');
-      await expect(page.getByText('Avalanche strategy · highest APR first')).toBeVisible();
+      // v10.59.0 — the strategy caption under the title was removed (owner); the selected tab says it.
+      await expect(page.getByRole('tab', { name: 'avalanche', selected: true })).toBeVisible();
       await expect(debtCard(page, 'PROFILE-FC-005 High APR')).toContainText('Highest APR');
       await expect(debtCard(page, 'PROFILE-FC-005 Small Balance')).not.toContainText('Smallest balance');
 
@@ -353,7 +354,7 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
 
       await page.goto('/debts');
       await page.waitForURL('**/debts');
-      await expect(page.getByText('Snowball strategy · smallest balance first')).toBeVisible();
+      await expect(page.getByRole('tab', { name: 'snowball', selected: true })).toBeVisible();
       await expect(debtCard(page, 'PROFILE-FC-005 Small Balance')).toContainText('Smallest balance');
       await expect(debtCard(page, 'PROFILE-FC-005 High APR')).not.toContainText('Highest APR');
     });

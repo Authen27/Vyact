@@ -146,20 +146,27 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
 });
 
 test('HELP-FC-002 - search, task links and support fields work on desktop and mobile', async ({ page }, testInfo) => {
+  // v10.59.0 (owner) — Help & Guide uses the same type as Households, the default for every
+  // page: read the Households title and section heading once and hold Help to them.
+  const typeOf = (el: Element) => { const c = getComputedStyle(el); return [c.fontFamily, c.fontWeight, c.fontStyle, c.fontSize].join('|'); };
+  await page.goto('/households');
+  const householdsTitle = await page.getByRole('heading', { name: 'Households', exact: true }).evaluate(typeOf);
   for (const width of [390, 1440]) {
     for (const theme of ['warm', 'dark']) {
       await page.setViewportSize({ width, height: 1000 });
       await page.goto('/help');
       await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
       await expect(page.getByRole('heading', { name: 'Help & Guide', exact: true })).toBeVisible();
-      // v10.34.0 — the page h1 stays at the bold display weight, matching
-      // Settings/Households; only body copy and subheadings use the lighter
-      // reading-surface weight.
-      await expect(page.getByRole('heading', { name: 'Help & Guide', exact: true })).toHaveCSS('font-weight', '600');
-      await expect(page.getByRole('heading', { name: 'Your next step', exact: true })).toHaveCSS('font-weight', '400');
+      if (width === 1440) {
+        expect(await page.getByRole('heading', { name: 'Help & Guide', exact: true }).evaluate(typeOf)).toBe(householdsTitle);
+      }
+      // No caption and no "Contact support" link under the title (owner, 4 Oct).
+      await expect(page.getByText('Get your first entry right', { exact: false })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'Contact support' })).toHaveCount(0);
+      const titleFont = await page.getByRole('heading', { name: 'Help & Guide', exact: true }).evaluate(el => getComputedStyle(el).fontFamily);
+      await expect(page.getByRole('heading', { name: 'Your next step', exact: true })).toHaveCSS('font-family', titleFont);
       await expect(page.locator('summary')).toHaveCount(HELP_TOPICS.length);
       const first = page.locator('summary').first();
-      await expect(first.getByRole('heading')).toHaveCSS('font-weight', '400');
       await first.focus();
       await first.press('Enter');
       await expect(page.locator('details').first()).toHaveAttribute('open', '');
@@ -179,10 +186,11 @@ test('HELP-FC-002 - search, task links and support fields work on desktop and mo
       await subject.fill('Question about a split');
       await message.fill('I am trying to record my share.');
       await expect(message).toHaveAttribute('aria-describedby', /description/);
-      await expect(page.locator('label').filter({ hasText: /^Subject$/ })).toHaveCSS('font-weight', '400');
-      await expect(page.getByRole('button', { name: 'Open email draft', exact: true })).toHaveCSS('font-weight', '400');
-      for (const control of [search, subject, message]) {
-        expect(await control.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+      // Phones: 16px controls, so iOS does not zoom in on focus (the app-wide .input rule).
+      if (width === 390) {
+        for (const control of [search, subject, message]) {
+          expect(await control.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+        }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.evaluate(() => window.scrollTo(0, 0));

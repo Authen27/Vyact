@@ -6,6 +6,7 @@ import { fmt, convert, uid } from '../lib/format';
 import Money from '../components/ui/Money';
 import { splitsOutstanding, type SplitOutstanding } from '../lib/calculations';
 import type { Transaction, SplitParticipant, Debt } from '../types';
+import { splitCounts } from '../lib/splitParticipants';
 
 // v10.17 (items 7/8/9) — roll the outstanding split details up per person,
 // keyed by email (fallback: display name for local/no-email participants), so
@@ -73,6 +74,13 @@ export default function Splits() {
   })();
 
   const splitTxns = transactions.filter(tx => tx.split?.isSplit);
+  const counts = splitCounts(transactions);
+  // v10.59.0 (owner, item 6) — created vs open vs settled, a quiet line under the two sides.
+  const countsLine = counts.created > 0 && (
+    <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim mt-3" data-testid="split-counts">
+      {counts.created} split{counts.created === 1 ? '' : 's'} created · {counts.open} open · {counts.settled} settled
+    </div>
+  );
 
   async function deleteSplit(txnId: string) {
     if (!confirm('Delete this split completely? This removes the transaction and any shares sent to other households.')) return;
@@ -331,9 +339,6 @@ export default function Splits() {
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
         <div>
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('splits')}</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Group bills · outstanding IOUs · settlements
-          </p>
         </div>
         <button className="btn-primary text-sm py-2 px-4 flex-shrink-0" onClick={() => openAddSplit()}>
           + Add Split
@@ -369,6 +374,7 @@ export default function Splits() {
               <div className="mono-label mt-0.5">{youOweByPerson.length} {youOweByPerson.length === 1 ? 'person' : 'people'}</div>
             </button>
           </div>
+          {countsLine}
 
           {/* Per-person breakdown for the selected tile. */}
           {heroView && (
@@ -403,6 +409,8 @@ export default function Splits() {
           )}
         </div>
       )}
+
+      {!(owedToYou > 0 || youOwe > 0) && countsLine && <div className="mb-4 -mt-2">{countsLine}</div>}
 
       {/* v10.14 — splits OTHERS shared with you (settle your own share). These
           have no local transaction card, so they live here. v10.18.1 — the

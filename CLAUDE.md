@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.58.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.59.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -444,6 +444,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `VYACT_DEMO=1` (local-only, demo household, `IS_DEMO` banner). Its host is `noindex` and redirects
   public pages to vyact.app (`vercel.json` `has: host`). Never give that project Supabase env vars.
   `?next=` after auth is an in-app path only (`lib/postAuth.ts`).
+- **Household types (v10.59.0, owner 4 Oct 2026): Personal · Couple · Family · Business.**
+  - Member limits: Personal 1 (private, no invites), Couple 2, Family and Business unlimited.
+  - Enforced in the DB (migration 20261007120000), not only the UI. Invitation and membership inserts past the limit raise `HOUSEHOLD_FULL` (pending invitations count). A type change the members don't fit raises `HOUSEHOLD_TYPE_TOO_SMALL`.
+  - `lib/householdTypes.ts` mirrors `household_member_limit()`. Change both together; CON-UNIT-HHT-002 reads the migration.
+  - Read every stored type through `normalizeHouseholdType` (retired `shared` → family, `multi_biz` → business).
+- **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

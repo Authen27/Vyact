@@ -14,6 +14,7 @@ import {
 import { convert, fmt, getMonthKey, nowMonthKey } from './format';
 import { computeNetWorth, type NetWorthProjection } from './netWorth';
 import { getCat } from '../constants';
+import { normalizeHouseholdType } from './householdTypes';
 
 export type Domain = 'income' | 'expenses' | 'investments' | 'debt' | 'tax';
 export type Severity = 'info' | 'watch' | 'critical';
@@ -37,7 +38,7 @@ export interface PlannerContext {
 
 /** True for the business-flavoured household types. */
 function isBusiness(ctx: PlannerContext): boolean {
-  return ctx.householdType === 'business' || ctx.householdType === 'multi_biz';
+  return normalizeHouseholdType(ctx.householdType) === 'business';   // v10.59.0 — multi_biz retired
 }
 
 export interface Recommendation {

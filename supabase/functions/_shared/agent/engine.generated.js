@@ -27,6 +27,7 @@
 //   react/src/lib/askVyactResponses.ts
 //   react/src/lib/calculations.ts
 //   react/src/lib/format.ts
+//   react/src/lib/householdTypes.ts
 //   react/src/lib/money.ts
 //   react/src/lib/netWorth.ts
 //   react/src/lib/notificationRows.ts
@@ -1021,6 +1022,24 @@ function parseMoneyFromCloud(v) {
 	return Number.isFinite(n) ? n : 0;
 }
 //#endregion
+//#region react/src/lib/householdTypes.ts
+/**
+* A stored type, as one of today's four. 'shared' (retired) is family and 'multi_biz'
+* (app-only, never in the database) is business. These are the migration's own mappings
+* for a cache written before it. Anything unknown is family, the type that limits nothing.
+*/
+function normalizeHouseholdType(type) {
+	switch (type) {
+		case "personal":
+		case "couple":
+		case "family":
+		case "business": return type;
+		case "shared": return "family";
+		case "multi_biz": return "business";
+		default: return "family";
+	}
+}
+//#endregion
 //#region react/src/lib/supabaseAdapter.ts
 const rowToProv = (r) => ({
 	confidence: r.confidence || void 0,
@@ -1205,7 +1224,7 @@ function profileFromRows(prof, hh, email) {
 		email,
 		baseCurrency: hh.base_currency || prof.default_currency || "USD",
 		language: hh.language || prof.language || "en",
-		household: hh.type || "family",
+		household: normalizeHouseholdType(hh.type),
 		dateFormat: prof.date_format || "us",
 		payoffStrategy: hh.payoff_strategy || "avalanche",
 		extraPayment: Number(hh.extra_payment) || 0,

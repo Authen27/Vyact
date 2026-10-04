@@ -102,9 +102,6 @@ export default function Debts() {
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
         <div>
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('debts')}</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            {profile.payoffStrategy === 'avalanche' ? 'Avalanche strategy · highest APR first' : 'Snowball strategy · smallest balance first'}
-          </p>
         </div>
         <button className="btn-primary" onClick={openAdd}>+ Add Debt</button>
       </div>

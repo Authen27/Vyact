@@ -11,7 +11,7 @@ import HouseholdSheet from './HouseholdSheet';
 import { useStore } from '../../store';
 import { SECTIONS, sectionForPath } from './navModel';
 import { PROFILE_TYPES } from '../../constants';
-import type { ProfileTypeKey } from '../../types';
+import { normalizeHouseholdType } from '../../lib/householdTypes';
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 
@@ -65,7 +65,7 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
   const openAsk = useStore(s => s.openAsk);
   const activeHousehold = households.find(h => h.id === currentHouseholdId);
   const activeName = activeHousehold?.name || 'Household';
-  const typeLabel = PROFILE_TYPES[(activeHousehold?.type ?? 'family') as ProfileTypeKey]?.label ?? 'Family';
+  const typeLabel = PROFILE_TYPES[normalizeHouseholdType(activeHousehold?.type)].label;
 
   return (
     /* Board M1 — phones have no fixed top bar; MobileHeader (in Layout) owns

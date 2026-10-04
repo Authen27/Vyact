@@ -160,12 +160,16 @@ export const GOAL_COLORS: Record<GoalType, string> = { emergency:'#4A6FA5', savi
 export const ROLE_LABELS: Record<string, string>   = { primary:'Primary', partner:'Partner', child:'Child', elder:'Elder' };
 
 // ── PROFILE TYPES ──────────────────────────────────────────────
-export const PROFILE_TYPES: Record<ProfileTypeKey, { icon: string; label: string; desc: string }> = {
-  personal:  { icon: '👤', label: 'Personal',             desc: 'Just me' },
-  family:    { icon: '👨‍👩‍👧‍👦', label: 'Family',                desc: 'Household with members' },
-  business:  { icon: '🏢', label: 'Single Business',      desc: 'One company / venture' },
-  multi_biz: { icon: '🏛️', label: 'Multiple Businesses',  desc: 'Holding co · several entities' },
-  shared:    { icon: '🤝', label: 'Shared',               desc: 'Roommates · partner pool' },
+// v10.59.0 (owner, 4 Oct 2026) — four types. Member limits: lib/householdTypes.ts (and the DB).
+export const PROFILE_TYPES: Record<ProfileTypeKey, { icon: string; label: string; desc: string; detail: string }> = {
+  personal: { icon: '👤', label: 'Personal', desc: 'Just you, private',
+    detail: 'Private to you. No one else can be invited.' },
+  couple:   { icon: '💑', label: 'Couple',   desc: 'You and one other person',
+    detail: 'You and one other person share the household. Invite one partner.' },
+  family:   { icon: '👨‍👩‍👧‍👦', label: 'Family',   desc: 'Everyone at home',
+    detail: 'Invite as many people as you need, each with their own access.' },
+  business: { icon: '🏢', label: 'Business', desc: 'A business and its team',
+    detail: 'Invite your team. Insights also cover business terms such as cash runway and setting aside for tax.' },
 };
 
 // ── CURRENCIES & DEFAULT RATES ────────────────────────────────
