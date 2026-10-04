@@ -46,6 +46,18 @@ function parseFrom(raw: string): { email: string; name?: string } {
   return { email: raw.trim() };
 }
 
+// v10.60.0 — every email comes from vyact.app (docs/EMAIL_TEMPLATES.md §0); replies go to support.
+const DEFAULT_FROM = 'Vyact <hello@vyact.app>';
+const replyTo = () => env('EMAIL_REPLY_TO') || 'support@vyact.app';
+
+/** A provider refusal, logged by status only — never the address or the body. */
+async function refused(provider: string, res: Response): Promise<false> {
+  let code = '';
+  try { code = String(((await res.json()) as { name?: string; message?: string })?.name ?? ''); } catch { /* not json */ }
+  console.error(JSON.stringify({ fn: 'send-split-email', provider, status: res.status, code }));
+  return false;
+}
+
 async function sendViaMailerSend(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
   const res = await fetch('https://api.mailersend.com/v1/email', {
     method: 'POST',
@@ -54,18 +66,18 @@ async function sendViaMailerSend(from: string, to: string, subject: string, html
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
     },
-    body: JSON.stringify({ from: parseFrom(from), to: [{ email: to }], subject, html, text }),
+    body: JSON.stringify({ from: parseFrom(from), to: [{ email: to }], reply_to: { email: replyTo() }, subject, html, text }),
   });
-  return res.ok;
+  return res.ok || refused('mailersend', res);
 }
 
 async function sendViaResend(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, subject, html, text }),
+    body: JSON.stringify({ from, to, reply_to: replyTo(), subject, html, text }),
   });
-  return res.ok;
+  return res.ok || refused('resend', res);
 }
 
 async function sendViaSmtp(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
@@ -76,7 +88,8 @@ async function sendViaSmtp(from: string, to: string, subject: string, html: stri
   try {
     await client.send({ from, to, subject, content: text, html });
     return true;
-  } catch (_e) {
+  } catch (e) {
+    console.error(JSON.stringify({ fn: 'send-split-email', provider: 'smtp', error: String((e as Error)?.name ?? 'error') }));
     return false;
   } finally {
     try { await client.close(); } catch { /* ignore */ }
@@ -85,7 +98,7 @@ async function sendViaSmtp(from: string, to: string, subject: string, html: stri
 
 // Deliver a pre-rendered email via the first configured transport.
 async function deliver(to: string, subject: string, html: string, text: string): Promise<boolean> {
-  const from = env('SPLIT_EMAIL_FROM') || 'Vyact <onboarding@resend.dev>';
+  const from = env('SPLIT_EMAIL_FROM') || DEFAULT_FROM;
   if (env('MAILERSEND_API_KEY')) return sendViaMailerSend(from, to, subject, html, text);
   if (env('SMTP_HOST')) return sendViaSmtp(from, to, subject, html, text);
   if (env('RESEND_API_KEY')) return sendViaResend(from, to, subject, html, text);
@@ -130,7 +143,10 @@ Deno.serve(async (req: Request) => {
   const ownerName = (ownerRes?.data?.user?.user_metadata?.full_name as string | undefined)
     || (ownerRes?.data?.user?.email ?? 'Someone');
 
-  if (!emailConfigured()) return json({ ok: false, reason: 'email_not_configured' });
+  if (!emailConfigured()) {
+    console.warn(JSON.stringify({ fn: 'send-split-email', event, outcome: 'email_not_configured' }));
+    return json({ ok: false, reason: 'email_not_configured' });
+  }
 
   // Resolve which participant emails have Vyact accounts (+ display names).
   // Present in the map = has an active account.
@@ -145,10 +161,11 @@ Deno.serve(async (req: Request) => {
   const nameFor = (email: string) => nameMap[email.toLowerCase()] || email;
 
   let sent = 0;
+  let recipients = 0;
   if (event === 'shared' || event === 'closed') {
     if (!isOwner) return json({ error: 'forbidden' }, 403);
-    const recipients = allShares.filter(s => s.email.toLowerCase() !== callerEmail);
-    for (const r of recipients) {
+    const targets = allShares.filter(s => s.email.toLowerCase() !== callerEmail);
+    for (const r of targets) {
       let mail;
       if (event === 'closed') {
         mail = splitClosedEmail({ ownerName, description: desc, appUrl });
@@ -165,6 +182,7 @@ Deno.serve(async (req: Request) => {
         const hasAccount = Boolean(nameMap[r.email.toLowerCase()]);
         mail = hasAccount ? splitSharedEmail(data) : splitInviteEmail(data);
       }
+      recipients++;
       if (await deliver(r.email, mail.subject, mail.html, mail.text)) sent++;
     }
   } else if (event === 'settled') {
@@ -176,9 +194,11 @@ Deno.serve(async (req: Request) => {
         settledLabel: nameFor(share.email), amount: Number(share.share),
         currency: split.currency, description: desc, appUrl,
       });
+      recipients++;
       if (await deliver(ownerEmail, mail.subject, mail.html, mail.text)) sent++;
     }
   }
 
-  return json({ ok: true, sent });
+  console.log(JSON.stringify({ fn: 'send-split-email', event, recipients, sent }));
+  return json({ ok: true, sent, recipients });
 });

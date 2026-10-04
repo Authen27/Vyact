@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.59.0`** (consumer)
+> **Current production version: `v10.60.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,28 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.60.0 — Email from vyact.app, and no more silent failures *(2026-10-04)*
+
+Owner report: "email service doesn't seem to be working". Root cause (docs/EMAIL_TEMPLATES.md §0):
+
+- **No email provider was configured.** None of `RESEND_API_KEY`, `MAILERSEND_API_KEY` or `SMTP_HOST` is set, so
+  `send-split-email` answered `email_not_configured` on every call. The 4 Oct test split sent nothing.
+- **The failure was silent.** The function logged nothing and the app ignored its answer.
+- **Auth emails** (confirm, reset, sign-in link) go through Supabase's built-in sender: not vyact.app, rate-limited,
+  and delivered only to the project team. Custom SMTP is off.
+- **vyact.app DNS** authorises only GoDaddy mail (SPF `-all`, DMARC quarantine), with no DKIM for a sending provider.
+
+This release:
+
+- The function sends from `Vyact <hello@vyact.app>` by default, with replies to `support@vyact.app`. It logs every
+  outcome (event, recipient count, sent count, provider status) and never logs an address or body.
+- The app reads the outcome. When a split's email doesn't go out, it says so ("Split shared. They'll see it when they
+  open Vyact, but the email couldn't be sent.").
+- `docs/EMAIL_TEMPLATES.md`: every email Vyact sends or should send, by module (account, splits, households,
+  lifecycle, re-engagement, monthly summary), with full copy, triggers, consent, sequence logic and benchmarks.
+  It also has the owner's setup steps for sending from vyact.app (Resend: DNS records, secrets, Auth SMTP).
+- Tests: CON-UNIT-SPL-005, -006.
 
 ## v10.59.0 — Splits by email, four household types, quieter page headers *(2026-10-04)*
 
