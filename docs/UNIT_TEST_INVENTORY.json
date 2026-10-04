@@ -1065,6 +1065,22 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/householdTypes.test.ts",
+      "feature": "Household types",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "householdTypes (Personal · Couple · Family · Business member limits, mirrored by the DB triggers)",
+      "count": 5,
+      "tests": [
+        "household types CON-UNIT-HHT-001 · four types, in order, each with a label, a one-line description and what it allows",
+        "household types CON-UNIT-HHT-002 · member limits: Personal 1, Couple 2, Family and Business none; the database migration says the same",
+        "household types CON-UNIT-HHT-003 · retired types read as the migration maps them; anything unknown limits nothing",
+        "household types CON-UNIT-HHT-004 · invites: Personal never, Couple once (a pending invite holds the place), Family and Business always",
+        "household types CON-UNIT-HHT-005 · a type change must fit the members already there; the database refusal reads as words"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/learnJsonLd.test.ts",
       "feature": "Formatting and structured content",
       "availability": "available",
@@ -2065,6 +2081,21 @@
         "shared split cloud service contracts creates an authenticated transaction-backed split and normalizes participant email",
         "shared split cloud service contracts edits unpaid shares, settles through the participant RPC, closes and reloads on both sides",
         "shared split cloud service contracts resolves distinct normalized participant identities and omits unnamed users"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/splitParticipants.test.ts",
+      "feature": "Split sharing rules",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "splitParticipants (email only, never yourself, confirm before saving, created/open/settled) / split invitation email",
+      "count": 4,
+      "tests": [
+        "who a split is shared with CON-UNIT-SPL-001 · only a valid email, never your own, never twice",
+        "who a split is shared with CON-UNIT-SPL-002 · only people new to the split are confirmed; an account holder by name, anyone else as an invitation",
+        "who a split is shared with CON-UNIT-SPL-003 · created vs open vs settled: settled means everyone but you has paid",
+        "who a split is shared with CON-UNIT-SPL-004 · the invitation names the sender (name and email), says why, shows the split and links to sign up on Splits"
       ]
     },
     {

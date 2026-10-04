@@ -160,6 +160,7 @@ Deno.serve(async (req: Request) => {
             name: nameFor(s.email), share: Number(s.share), isRecipient: s.id === r.id,
           })),
           appUrl, recipientEmail: r.email,
+          ownerEmail: ownerRes?.data?.user?.email ?? undefined,
         };
         const hasAccount = Boolean(nameMap[r.email.toLowerCase()]);
         mail = hasAccount ? splitSharedEmail(data) : splitInviteEmail(data);

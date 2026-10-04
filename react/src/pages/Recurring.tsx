@@ -271,9 +271,6 @@ export default function Recurring() {
       <div className="flex justify-between items-start mb-5 gap-4">
         <div className="min-w-0">
           <h1 className="display-italic text-4xl text-ink mb-1.5">Recurring</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Auto-generated bills, subscriptions &amp; salary · {schedules.length} schedule{schedules.length === 1 ? '' : 's'}
-          </p>
         </div>
         <button className="btn-primary flex-shrink-0" onClick={() => { resetForm(); setEditing(null); setOpen(true); }}>+ Add Schedule</button>
       </div>

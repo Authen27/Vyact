@@ -26,6 +26,8 @@ export const groups = [
   group('Permissions and faults', 'available', 'unit', ['permissionsRole', 'faults'], 'permissions / faults'),
   group('Cloud adapter contracts', 'conditional', 'contract-unit', ['accountPatchSafety', 'supabaseAdapter', 'loanPayment', 'cloudTransport'], 'SupabaseAdapter / askVyactModelCall / whatsappLink'),
   group('Shared splits', 'conditional', 'contract-unit', ['sharedSplitsWorkflow'], 'sharedSplits'),
+  group('Split sharing rules', 'available', 'unit', ['splitParticipants'], 'splitParticipants (email only, never yourself, confirm before saving, created/open/settled) / split invitation email'),
+  group('Household types', 'available', 'unit', ['householdTypes'], 'householdTypes (Personal · Couple · Family · Business member limits, mirrored by the DB triggers)'),
   group('Authentication and invitations', 'conditional', 'contract-unit', ['authTransport'], 'auth'),
   group('Outbox algorithm', 'available', 'unit', ['outbox'], 'sync/outbox (MemoryDriver)'),
   group('Storage and synchronization', 'available', 'storage-integration', ['storage', 'sync', 'cacheInvalidation', 'cacheBoundary', 'outboxIndexedDb'], 'dataAdapter / kvStore / cacheInvalidation / HybridAdapter'),

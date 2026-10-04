@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.58.0`** (consumer)
+> **Current production version: `v10.59.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,44 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.59.0 — Splits by email, four household types, quieter page headers *(2026-10-04)*
+
+Owner review, 4 Oct.
+
+**Splits**
+- A split is shared **by email only**, never with your own email and never with the same person twice. The
+  email field explains what's wrong while you type (`lib/splitParticipants.ts`).
+- **Each new person is confirmed before the split is saved.** An account holder is asked about by name:
+  "Is the split shared with Priya Sharma (priya@…)? Yes | No". For anyone else: "… isn't on Vyact yet. Send
+  them an invite to join and settle this split?" A "No" takes that person out and returns you to the form
+  to fix the shares.
+- **The invitation email** names the sender (name and email), says why they were added (a bill to review
+  and settle), shows the split and their share, and has one button: "Join Vyact to review and settle". The
+  link pre-fills their email and lands on Splits. Shares are keyed by email, so the split is waiting when
+  they first sign in.
+- **"N splits created · X open · Y settled"** appears as a quiet line under Owed to you / You owe.
+
+**Household types: Personal · Couple · Family · Business** (migration 20261007120000, shipped first)
+- Personal is private, and no one can be invited. Couple: you and one other person. Family: invite as many
+  people as you need. Business: invite your team, and Insights add business terms (cash runway, setting
+  aside for tax).
+- The limits are enforced in the database, and the Households page says so before it refuses: the invite
+  button explains why, and a type the current members don't fit can't be picked.
+- Retired: Shared becomes Family, and Multiple Businesses becomes Business. A Personal household that
+  already had members became Couple, so nobody was removed.
+
+**Pages**
+- Removed the caption lines under the titles on Splits, Recurring, Debts, Accounts, Net Worth, Settings
+  and Help & Guide, and Help's "Contact support" link under its title.
+- Net Worth: "what you own" and "what you owe" sit beside Assets and Liabilities.
+- **Help & Guide now uses the Households style** (the app's default): the same title, display-italic
+  section headings, and content in Panels.
+- Phones: every form control is 16px, so iOS no longer zooms in when you tap a field (the shared Input
+  was 13.76px).
+
+Tests: CON-UNIT-HHT-001…005, CON-UNIT-SPL-001…004. HELP-FC-002 now compares Help's type with
+Households'. PROFILE-FC-005 reads the selected strategy tab.
 
 ## v10.58.0 — WhatsApp: an evening message every day, and bills the day before *(2026-10-03)*
 

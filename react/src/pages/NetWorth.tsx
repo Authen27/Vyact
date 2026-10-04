@@ -157,9 +157,6 @@ export default function NetWorth() {
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
         <div>
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('networth')}</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Balance sheet · assets vs liabilities
-          </p>
         </div>
         <button className="btn-primary" onClick={openAdd}>+ Add Asset</button>
       </div>
@@ -192,9 +189,9 @@ export default function NetWorth() {
               className={`num text-[30px] font-bold leading-tight ${nw >= 0 ? 'text-ink' : 'text-terra'}`} />
             <div className="flex flex-col gap-1.5 mt-3">
               {barRow('100%', { background: 'hsl(var(--sage))', boxShadow: 'var(--neu-sm)' }, false,
-                <>Assets <b className="num text-ink-mid">{fmt(gross, c)}</b></>)}
+                <>Assets <span className="text-ink-dim">(what you own)</span> <b className="num text-ink-mid">{fmt(gross, c)}</b></>)}
               {barRow(`${libPct}%`, { background: 'var(--sunken)', boxShadow: 'var(--neu-inset), inset 0 0 0 1px hsl(var(--line2))' }, true,
-                <>− Liabilities <b className="num text-ink-mid">{fmt(tl, c)}</b></>)}
+                <>− Liabilities <span className="text-ink-dim">(what you owe)</span> <b className="num text-ink-mid">{fmt(tl, c)}</b></>)}
               {barRow(`${nwPct}%`, { background: 'hsl(var(--denim))', boxShadow: 'var(--neu-sm)' }, false,
                 <>= Net worth <b className="num text-ink-mid">{fmt(nw, c)}</b></>)}
             </div>
@@ -286,7 +283,9 @@ export default function NetWorth() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         {/* Assets column */}
         <div>
-          <h2 className="display-italic text-2xl text-ink mb-3">Assets</h2>
+          <h2 className="display-italic text-2xl text-ink mb-0.5">Assets</h2>
+          {/* v10.59.0 (owner) — the plain-English meaning under each balance-sheet word. */}
+          <p className="text-[0.8rem] text-ink-dim mb-3">What you own: cash, savings, investments and property</p>
           {liveRows.length === 0 ? (
             <Panel>
               <div className="px-6 py-10 text-center">
@@ -374,7 +373,8 @@ export default function NetWorth() {
 
         {/* Liabilities column */}
         <div>
-          <h2 className="display-italic text-2xl text-ink mb-3">Liabilities</h2>
+          <h2 className="display-italic text-2xl text-ink mb-0.5">Liabilities</h2>
+          <p className="text-[0.8rem] text-ink-dim mb-3">What you owe: loans, card balances and money borrowed</p>
           {debts.length === 0 ? (
             <Panel>
               <div className="px-6 py-10 text-center">

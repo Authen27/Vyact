@@ -15,15 +15,16 @@ import { postAuthPath, rememberNext } from '../../lib/postAuth';
 const getPostAuthPath = (next: string | null): string => postAuthPath(next);
 
 export default function SignUp() {
+  const [params] = useSearchParams();
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  // v10.59.0 — a split invitation links here with ?email= (the address the split was shared with).
+  const [email, setEmail] = useState(() => (params.get('email') ?? '').trim().slice(0, 254));
   const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [verificationPending, setVerificationPending] = useState(false);
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   // v10.49.0 (#5) — where this sign-up came from (landing / Learn links carry ?ref=).
   useEffect(() => { rememberSignupRef(params.get('ref')); rememberNext(params.get('next')); }, [params]);
   // v10.49.0 (#20) — two steps: choose Google or email first; the email form only when asked for.

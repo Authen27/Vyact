@@ -46,6 +46,8 @@ export function renderEmail(o: {
 
 export interface SplitEmailData {
   ownerName: string;
+  /** v10.59.0 — shown in the invitation so the recipient knows exactly who sent it. */
+  ownerEmail?: string;
   description: string;      // human label, already defaulted if blank
   date: string;
   currency: string;
@@ -82,19 +84,26 @@ export function splitSharedEmail(d: SplitEmailData): EmailContent {
   return { subject: `${d.ownerName} shared a split with you`, html, text };
 }
 
-/** Member WITHOUT a Vyact account — same info, but a sign-up CTA. */
+/**
+ * Member WITHOUT a Vyact account — an invitation (v10.59.0, owner): who sent it (name and
+ * email), why (a bill to review and settle), the split itself, and one button to join.
+ * The link pre-fills their email and lands them on Splits, where the split is waiting
+ * (shares are keyed by email, so it appears as soon as they sign in with this address).
+ */
 export function splitInviteEmail(d: SplitEmailData): EmailContent {
-  const signUp = `${d.appUrl}/auth/sign-up?email=${encodeURIComponent(d.recipientEmail)}`;
+  const signUp = `${d.appUrl}/auth/sign-up?email=${encodeURIComponent(d.recipientEmail)}&method=email&next=%2Fsplits&ref=split_invite`;
+  const sender = d.ownerEmail ? `${esc(d.ownerName)} (${esc(d.ownerEmail)})` : esc(d.ownerName);
   const { html, text } = renderEmail({
-    heading: `${d.ownerName} shared "${d.description}" with you on Vyact`,
+    heading: `${d.ownerName} invited you to settle a shared bill`,
     lines: [
+      `${sender} added you to <strong>"${esc(d.description)}"</strong> on Vyact, the family budget app, so you can see your share and settle it.`,
       ...participantLines(d),
-      `You don't have a Vyact account yet. <strong>Sign up with this email</strong> to see the split and settle your share — it'll be waiting for you.`,
+      `Create your free Vyact account with <strong>${esc(d.recipientEmail)}</strong>. The split will be waiting in Splits when you sign in.`,
     ],
-    cta: { label: 'Sign up to view your split', url: signUp },
-    footer: 'Vyact is a free family-finance app. You were added to a bill split by the sender above.',
+    cta: { label: 'Join Vyact to review and settle', url: signUp },
+    footer: `You're receiving this because ${d.ownerName} shared a bill split with this email address on Vyact. If you don't know them, you can ignore this email.`,
   });
-  return { subject: `${d.ownerName} shared a split with you — sign up to view it`, html, text };
+  return { subject: `${d.ownerName} invited you to settle "${d.description}" on Vyact`, html, text };
 }
 
 /** Owner-facing — a participant settled their share. */

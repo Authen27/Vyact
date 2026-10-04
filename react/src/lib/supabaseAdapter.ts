@@ -12,6 +12,7 @@ import type {
 import type { DataAdapter, Entity } from './dataAdapter';
 import { parseMoneyFromCloud } from './money';
 import type { NetWorthSnapshot } from './netWorthSnapshots';
+import { normalizeHouseholdType } from './householdTypes';
 
 // v10.30.0 — net_worth_snapshots row → recorded snapshot. `month` is a date
 // column (first of the month); the app keys months as 'YYYY-MM'.
@@ -615,7 +616,7 @@ export function profileFromRows(prof: ProfileRowCols, hh: HouseholdRowCols, emai
     email,
     baseCurrency: hh.base_currency || prof.default_currency || 'USD',
     language: hh.language || prof.language || 'en',
-    household: (hh.type || 'family') as ProfileTypeKey,
+    household: normalizeHouseholdType(hh.type),
     dateFormat: (prof.date_format as Profile['dateFormat']) || 'us',
     payoffStrategy: (hh.payoff_strategy as Profile['payoffStrategy']) || 'avalanche',
     extraPayment: Number(hh.extra_payment) || 0,
@@ -705,7 +706,7 @@ export class SupabaseAdapter implements DataAdapter {
       rows = (withOnboarding.data || []) as Record<string, unknown>[];
     }
     return rows.map(r => ({
-      id: r.id as string, name: r.name as string, type: r.type as ProfileTypeKey,
+      id: r.id as string, name: r.name as string, type: normalizeHouseholdType(r.type),
       baseCurrency: r.base_currency as string, createdAt: r.created_at as string,
       // per-household onboarding state (jsonb). '{}' default / absent → undefined.
       onboarding: r.onboarding && Object.keys(r.onboarding as object).length
@@ -720,7 +721,7 @@ export class SupabaseAdapter implements DataAdapter {
       .insert({ name, type, base_currency: baseCurrency, created_by: user.id })
       .select('id,name,type,base_currency,created_at').single();
     if (error) throw error;
-    return { id: data.id, name: data.name, type: data.type as ProfileTypeKey,
+    return { id: data.id, name: data.name, type: normalizeHouseholdType(data.type),
              baseCurrency: data.base_currency, createdAt: data.created_at };
   }
 
@@ -733,7 +734,7 @@ export class SupabaseAdapter implements DataAdapter {
     const { data, error } = await this.sb.from('households').update(update).eq('id', id)
       .select('id,name,type,base_currency,created_at,onboarding').single();
     if (error) throw error;
-    return { id: data.id, name: data.name, type: data.type as ProfileTypeKey,
+    return { id: data.id, name: data.name, type: normalizeHouseholdType(data.type),
              baseCurrency: data.base_currency, createdAt: data.created_at,
              onboarding: data.onboarding && Object.keys(data.onboarding).length
                ? (data.onboarding as Record<string, unknown>) : undefined };

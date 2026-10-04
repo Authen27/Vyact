@@ -36,7 +36,8 @@ export type Liquidity = 'liquid' | 'short' | 'long';
 export type MemberRole = 'primary' | 'partner' | 'child' | 'elder';
 export type AppRole = 'owner' | 'admin' | 'member' | 'viewer' | 'child';
 export type GoalType = 'emergency' | 'savings' | 'debt' | 'investment' | 'purchase' | 'custom';
-export type ProfileTypeKey = 'personal' | 'family' | 'business' | 'multi_biz' | 'shared';
+// v10.59.0 — four types (owner, 4 Oct 2026); 'shared' and 'multi_biz' retired (lib/householdTypes.ts).
+export type ProfileTypeKey = 'personal' | 'couple' | 'family' | 'business';
 
 export interface SplitParticipant {
   name: string;        // 'me' for self, otherwise free text

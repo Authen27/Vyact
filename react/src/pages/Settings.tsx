@@ -345,9 +345,6 @@ export default function Settings() {
       <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
         <div>
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('settings')}</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Profile · Appearance · Currency · Sync
-          </p>
         </div>
       </div>
 

@@ -13,7 +13,7 @@ import NotificationCenter from './NotificationCenter';
 import HouseholdSheet from './HouseholdSheet';
 import { SECTIONS, ACCOUNT_ROUTES, STANDALONE_ROUTES, sectionForPath } from './navModel';
 import { PROFILE_TYPES } from '../../constants';
-import type { ProfileTypeKey } from '../../types';
+import { normalizeHouseholdType } from '../../lib/householdTypes';
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -27,7 +27,7 @@ export default function MobileHeader() {
   const households = useStore(s => s.households);
   const currentHouseholdId = useStore(s => s.currentHouseholdId);
   const active = households.find(h => h.id === currentHouseholdId);
-  const typeLabel = PROFILE_TYPES[(active?.type ?? 'family') as ProfileTypeKey]?.label ?? 'Family';
+  const typeLabel = PROFILE_TYPES[normalizeHouseholdType(active?.type)].label;
 
   const isHome = location.pathname === '/dashboard' || location.pathname === '/';
   const sectionId = sectionForPath(location.pathname);

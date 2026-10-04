@@ -26,6 +26,8 @@ import { CURRENCIES } from '../../constants';
 import { buildAccounts, buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { resolveParticipantNames } from '../../lib/sharedSplits';
+import { participantEmailProblem, needsConfirmation, confirmQuestion, type ConfirmItem } from '../../lib/splitParticipants';
+import Modal from '../ui/Modal';
 import type { Transaction } from '../../types';
 
 interface Props {
@@ -124,6 +126,10 @@ export default function SplitFormModal(props: Props) {
   const [saving, setSaving] = useState(false);
   // email → display-name resolution (cloud): string = has account, '' = no account, undefined = unresolved.
   const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
+  // v10.59.0 (owner) — the people to confirm before saving, and the answers given.
+  const [confirmItems, setConfirmItems] = useState<ConfirmItem[] | null>(null);
+  const [answers, setAnswers] = useState<Record<string, boolean>>({});
+  const ownEmail = session?.user?.email ?? null;
 
   const useFirstClass = getMoneyMapMode() !== 'off' && accountsState.length > 0;
   // v10.17 item 15 — a split is never paid from an investment account.
@@ -232,7 +238,7 @@ export default function SplitFormModal(props: Props) {
     setForm(f => ({ ...f, participants: f.participants.filter((_, j) => j !== i) }));
   }
 
-  async function save() {
+  async function save(confirmed = false) {
     const amount = parseFloat(form.amount);
     if (isNaN(amount) || amount <= 0) { toast('Enter a valid total greater than 0', 'error'); return; }
     if (accountRequired && !form.paymentMethod) {
@@ -250,6 +256,26 @@ export default function SplitFormModal(props: Props) {
     const sum = parts.reduce((s, p) => s + p.shareNum, 0);
     if (Math.abs(sum - amount) > 0.01) {
       toast(`Shares (${sum.toFixed(2)}) must add up to the total (${amount.toFixed(2)})`, 'error'); return;
+    }
+
+    // v10.59.0 (owner, items 1–3) — shared by email only, never with yourself, and each new
+    // person confirmed before anything is saved.
+    if (cloudActive) {
+      const others = parts.filter(p => !p.isYou).map(p => (p.email ?? '').trim().toLowerCase());
+      for (let i = 0; i < others.length; i++) {
+        const problem = participantEmailProblem(others[i], ownEmail, others.slice(0, i));
+        if (problem) { toast(`${others[i] || 'A participant'}: ${problem}`, 'error'); return; }
+      }
+      const before = (initial?.split?.participants ?? []).map(p => p.email ?? '').filter(Boolean);
+      const toConfirm = needsConfirmation(others, before);
+      if (toConfirm.length && !confirmed) {
+        let names: Record<string, string> = {};
+        try { names = await resolveParticipantNames(toConfirm); }
+        catch { names = Object.fromEntries(toConfirm.filter(e => resolvedNames[e]).map(e => [e, resolvedNames[e]])); }
+        setAnswers({});
+        setConfirmItems(toConfirm.map(email => ({ email, name: names[email] || null })));
+        return;
+      }
     }
 
     const split: Transaction['split'] = {
@@ -340,7 +366,7 @@ export default function SplitFormModal(props: Props) {
       ) : <span />}
       <div className="flex gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : editing ? 'Update' : 'Add split'}</Button>
+        <Button onClick={() => save()} disabled={saving}>{saving ? 'Saving…' : editing ? 'Update' : 'Add split'}</Button>
       </div>
     </div>
   );
@@ -465,7 +491,11 @@ export default function SplitFormModal(props: Props) {
                 {rowLocked && (
                   <div className="font-mono text-[0.6rem] tracking-wider text-sage pl-1">✓ settled — locked</div>
                 )}
-                {!p.isYou && !rowLocked && cloudActive && emailKey && (
+                {!p.isYou && !rowLocked && cloudActive && emailKey
+                  && participantEmailProblem(emailKey, ownEmail) && (
+                  <div className="font-mono text-[0.6rem] tracking-wider text-terra pl-1">{participantEmailProblem(emailKey, ownEmail)}</div>
+                )}
+                {!p.isYou && !rowLocked && cloudActive && emailKey && !participantEmailProblem(emailKey, ownEmail) && (
                   resolved
                     ? <div className="font-mono text-[0.6rem] tracking-wider text-sage pl-1">✓ {resolved}</div>
                     : resolved === ''
@@ -480,6 +510,53 @@ export default function SplitFormModal(props: Props) {
           Shares total {sharesSum.toFixed(2)} / total {bill.toFixed(2)} {sharesOk ? '✓' : '— must match'}
         </div>
       </div>
+
+      {/* v10.59.0 (owner, item 3) — confirm each new person before the split is saved. */}
+      <Modal open={!!confirmItems} onClose={() => setConfirmItems(null)} title="Confirm who this split is with">
+        <div className="space-y-3" data-testid="split-confirm">
+          {confirmItems?.map(item => (
+            <div key={item.email} className="rounded-md border border-line px-3 py-2.5" style={{ background: 'var(--sunken)' }}>
+              <p className="text-ink text-[0.88rem] leading-snug">{confirmQuestion(item)}</p>
+              {!item.name && (
+                <p className="text-[0.75rem] text-ink-dim mt-1">They&apos;ll get an email from Vyact with your name, the split and a link to join and settle it.</p>
+              )}
+              <div className="flex gap-2 mt-2">
+                <Button variant={answers[item.email] === true ? 'primary' : 'ghost'}
+                  aria-pressed={answers[item.email] === true}
+                  onClick={() => setAnswers(a => ({ ...a, [item.email]: true }))}>
+                  {item.name ? 'Yes' : 'Yes, invite'}
+                </Button>
+                <Button variant={answers[item.email] === false ? 'danger' : 'ghost'}
+                  aria-pressed={answers[item.email] === false}
+                  onClick={() => setAnswers(a => ({ ...a, [item.email]: false }))}>
+                  No
+                </Button>
+              </div>
+            </div>
+          ))}
+          {(() => {
+            const items = confirmItems ?? [];
+            const answered = items.length > 0 && items.every(i => answers[i.email] !== undefined);
+            const rejected = items.filter(i => answers[i.email] === false).map(i => i.email);
+            return (
+              <div className="flex justify-end gap-2 pt-2 border-t border-line">
+                <Button variant="ghost" onClick={() => setConfirmItems(null)}>Back</Button>
+                {rejected.length > 0 ? (
+                  <Button disabled={!answered} onClick={() => {
+                    setForm(f => ({ ...f, auto: false, participants: f.participants.filter(p => p.isYou || !rejected.includes((p.email ?? '').trim().toLowerCase())) }));
+                    setConfirmItems(null);
+                    toast(`Removed ${rejected.join(', ')}. Check the shares still add up to the total.`, 'info');
+                  }}>Remove and go back</Button>
+                ) : (
+                  <Button disabled={!answered || saving} onClick={() => { setConfirmItems(null); void save(true); }}>
+                    {editing ? 'Update split' : 'Save split'}
+                  </Button>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </Modal>
     </FormPage>
   );
 }

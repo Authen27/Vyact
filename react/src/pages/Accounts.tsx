@@ -129,9 +129,6 @@ export default function Accounts() {
     <div className="ui-pilot">
       <div className="flex justify-between items-end mb-section gap-4 flex-wrap">
         <div className="min-w-0">
-          <p className="ui-label mb-related">
-            Plan · {symbol} {baseCurrency} household
-          </p>
           <h1 className="display-italic text-4xl text-ink">Accounts</h1>
         </div>
         <Button onClick={openAddAccount} className="flex-shrink-0">
