@@ -1236,18 +1236,14 @@ export class SupabaseAdapter implements DataAdapter {
       }
       return out as T[];
     }
-    // TD-09: prefer atomic server-side replace RPC for performance and
-    // correctness. Each `replace_<entity>` RPC soft-deletes existing rows
-    // and inserts the provided set inside a single transaction.
-    const rpcName =
-      entity === 'members'    ? 'replace_memberships' :
-      entity === 'savedViews' ? 'replace_saved_views' :
-      `replace_${entity}`;
-    const payload = { h: householdId, rows: records } as Record<string, unknown>;
-    const { data, error } = await this.sb.rpc(rpcName, payload as Record<string, unknown>);
-    if (error) throw error;
-    const rows = (data || []) as unknown[];
-    return rows.map(r => this.mapRowBack(entity, r)) as T[];
+    // W1 (audit 2026-10-04, DB-SEC-01) — the `replace_<entity>` RPCs are gone. They were
+    // built (TD-09) for the vanilla shell's "restore a backup", which the React app never
+    // had; their only check was is_member(h), so any member — a viewer or child included —
+    // could delete every membership and insert themselves as owner, or wipe the ledger.
+    // Nothing in cloud mode calls a bulk replace (the first-run demo seed is local-only),
+    // so a request here can only be an old queued op: refuse it loudly, never silently.
+    void householdId;
+    throw new Error(`replaceAll(${entity}) is not available in cloud mode: the bulk replace RPCs were removed (W1).`);
   }
 
   // ── rates ──────────────────────────────────────────────────

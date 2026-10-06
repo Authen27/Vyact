@@ -467,7 +467,7 @@ function MembersList({
   currentUserId: string;
   onChanged: () => void; onLeave: () => void;
 }) {
-  const ROLE_OPTIONS: AppRole[] = ['admin','member','viewer','child'];
+  const ROLE_OPTIONS: AppRole[] = ['admin','member','viewer'];
   const toast = useStore(s => s.toast);
   return (
     <div className="divide-y divide-line">
@@ -625,7 +625,7 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
   onClose: () => void; onSent: () => void;
 }) {
   const [label, setLabel] = useState('');
-  const [role, setRole] = useState<'admin'|'member'|'viewer'|'child'>('member');
+  const [role, setRole] = useState<'admin'|'member'|'viewer'>('member');
   const [householdRole, setHouseholdRole] = useState('partner');
   const [submitting, setSubmitting] = useState(false);
   const [link, setLink] = useState<string | null>(null);
@@ -733,7 +733,6 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
                 <option value="admin">Admin</option>
                 <option value="member">Member</option>
                 <option value="viewer">Viewer (read-only)</option>
-                <option value="child">Child (own data only)</option>
               </Select>
             </Field>
             <Field label="Household role">

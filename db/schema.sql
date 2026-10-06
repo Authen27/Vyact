@@ -9754,3 +9754,304 @@ alter table public.content_items
   not valid;
 
 COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261009120000_w1a_drop_replace_rpcs.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- W1a (audit 2026-10-04, DB-SEC-01 / DB-INT-01 / DB-OPS-01 / INT-CON-02 / INT-CON-04) —
+-- drop the bulk replace RPCs.
+--
+-- Each replace_<entity>(h, rows) was SECURITY DEFINER and checked only is_member(h), then
+-- deleted every row of that entity in the household and inserted whatever the caller sent.
+-- RLS does not apply inside a definer function, so any member — a viewer or child included —
+-- could call replace_memberships to delete every membership (the real owner's too) and
+-- insert themselves as owner, or wipe the ledger, budgets, debts, assets and accounts.
+--
+-- They were built (TD-09, 29 May 2026) for the vanilla shell's "restore a backup", which was
+-- archived on 1 Jun; the React app never had a restore screen. The only remaining caller is
+-- the first-run demo seed, which runs only in local mode and never reaches the cloud. The
+-- app (SupabaseAdapter.replaceAll) now refuses a cloud bulk replace. A future "restore from
+-- backup" is in the backlog as a new owner-only command.
+
+BEGIN;
+
+drop function if exists public.replace_transactions(uuid, jsonb);
+drop function if exists public.replace_budgets(uuid, jsonb);
+drop function if exists public.replace_goals(uuid, jsonb);
+drop function if exists public.replace_debts(uuid, jsonb);
+drop function if exists public.replace_assets(uuid, jsonb);
+drop function if exists public.replace_memberships(uuid, jsonb);
+drop function if exists public.replace_accounts(uuid, jsonb);
+drop function if exists public.replace_saved_views(uuid, jsonb);
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261009120100_w1a_ownership_rules.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- W1a (audit 2026-10-04, DB-SEC-02 / INT-CON-01 / INT-HH-01 / DB-INT-02 / INT-CON-07 /
+-- INT-HH-06) — only the owner can transfer ownership, and a household with members always
+-- keeps an owner.
+--
+-- 1. transfer_ownership guarded itself with
+--      if (select role ... where user_id = auth.uid()) <> 'owner' then raise
+--    For a caller who is NOT a member the sub-select is NULL, `NULL <> 'owner'` is NULL, the
+--    IF does not fire, and the function promoted the target. A viewer could create a second
+--    account (not a member) and use it to promote their own membership to owner. It also
+--    never checked that the target is a member of the household.
+--
+-- 2. Nothing kept an owner in the household. RLS lets an owner delete their own membership
+--    or demote themselves directly (leave_household's last-owner check is bypassed that
+--    way), leaving members in a household nobody can manage. A DEFERRED constraint trigger
+--    now refuses any statement that leaves a household which still has members without an
+--    owner. It is checked at commit, so transfer_ownership (promote, then demote) and a whole
+--    household being deleted (every membership goes with it) are fine.
+
+BEGIN;
+
+create or replace function public.transfer_ownership(h_id uuid, to_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is null or public.role_in(h_id) is distinct from 'owner' then
+    raise exception 'only_owner_can_transfer' using errcode = '42501';
+  end if;
+  if to_user is null or to_user = auth.uid() then
+    raise exception 'invalid_transfer_target' using errcode = '22023';
+  end if;
+  perform 1 from memberships where household_id = h_id and user_id = to_user for update;
+  if not found then
+    raise exception 'not_a_member' using errcode = '22023';
+  end if;
+  update memberships set role = 'owner' where household_id = h_id and user_id = to_user;
+  update memberships set role = 'admin' where household_id = h_id and user_id = auth.uid();
+end;
+$$;
+
+revoke all on function public.transfer_ownership(uuid, uuid) from public;
+revoke all on function public.transfer_ownership(uuid, uuid) from anon;
+grant execute on function public.transfer_ownership(uuid, uuid) to authenticated;
+
+create or replace function public.enforce_household_keeps_owner()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if OLD.role = 'owner' and (TG_OP = 'DELETE' or NEW.role is distinct from 'owner') then
+    if exists (select 1 from memberships where household_id = OLD.household_id)
+       and not exists (select 1 from memberships where household_id = OLD.household_id and role = 'owner') then
+      raise exception 'household_needs_an_owner'
+        using errcode = '23514',
+              hint = 'Make another member the owner first (transfer ownership), then leave or change roles.';
+    end if;
+  end if;
+  return null;
+end;
+$$;
+
+revoke all on function public.enforce_household_keeps_owner() from public;
+revoke all on function public.enforce_household_keeps_owner() from anon;
+
+drop trigger if exists trg_household_keeps_owner on public.memberships;
+create constraint trigger trg_household_keeps_owner
+  after delete or update of role on public.memberships
+  deferrable initially deferred
+  for each row execute function public.enforce_household_keeps_owner();
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261009120200_w1a_retire_child_role.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- W1a (audit 2026-10-04, INT-HH-12; owner decision) — retire the 'child' app role.
+--
+-- The invite form offered "Child (own data only)", but a child could read every
+-- transaction, account, debt and asset exactly like a viewer; the only child-specific rule
+-- was that they could edit or delete only the transactions they created. The owner chose to
+-- stop offering the role and make existing children members. (Member is broader: a member
+-- can edit others' entries and manage goals, debts and assets.)
+--
+-- The household RELATIONSHIP label household_role = 'child' (Primary / Partner / Child /
+-- Elder) is a different column and is untouched.
+--
+-- Old app builds may still send role = 'child' for one release, so the CHECKs keep the value
+-- for now and a BEFORE trigger stores it as 'member'. A later migration can drop 'child' from
+-- both CHECKs once no client sends it.
+
+BEGIN;
+
+create or replace function public.map_retired_child_role()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if NEW.role = 'child' then
+    NEW.role := 'member';
+  end if;
+  return NEW;
+end;
+$$;
+
+revoke all on function public.map_retired_child_role() from public;
+revoke all on function public.map_retired_child_role() from anon;
+
+drop trigger if exists trg_memberships_retired_child_role on public.memberships;
+create trigger trg_memberships_retired_child_role
+  before insert or update of role on public.memberships
+  for each row execute function public.map_retired_child_role();
+
+drop trigger if exists trg_invitations_retired_child_role on public.invitations;
+create trigger trg_invitations_retired_child_role
+  before insert or update of role on public.invitations
+  for each row execute function public.map_retired_child_role();
+
+update public.memberships set role = 'member' where role = 'child';
+update public.invitations set role = 'member' where role = 'child';
+
+-- The transaction write policies' child branches are dead now; restate them without it.
+drop policy if exists "transactions_delete" on public.transactions;
+create policy "transactions_delete" on public.transactions for delete using (
+  role_in(household_id) in ('owner', 'admin', 'member'));
+
+drop policy if exists "transactions_insert" on public.transactions;
+create policy "transactions_insert" on public.transactions for insert with check (
+  role_in(household_id) in ('owner', 'admin', 'member'));
+
+drop policy if exists "transactions_update" on public.transactions;
+create policy "transactions_update" on public.transactions for update using (
+  role_in(household_id) in ('owner', 'admin', 'member'));
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261009120300_w1a_whatsapp_identity_follows_membership.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- W1a (audit 2026-10-04, BE-WA-01 / BE-PIP-01 / INT-HH-02) — a WhatsApp link ends when the
+-- membership ends.
+--
+-- whatsapp_identities (phone ↔ profile ↔ household) was deleted only by an explicit unlink.
+-- Leaving a household, or being removed from it, deleted the membership and nothing else, so
+-- a removed partner could keep asking Pip on WhatsApp for net worth, spend and account names,
+-- and kept receiving bill and spend alerts (the app's RLS cut them off; the WhatsApp path,
+-- which runs with the service role, did not re-check). Writes were always safe: every write
+-- RPC re-checks the membership.
+--
+-- Now the identity is deleted with the membership. The webhook and guardedSend also refuse a
+-- link whose person is no longer a member (second layer, in the Edge code).
+
+BEGIN;
+
+create or replace function public.unlink_whatsapp_on_membership_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  delete from public.whatsapp_identities
+   where profile_id = OLD.user_id and household_id = OLD.household_id;
+  return null;
+end;
+$$;
+
+revoke all on function public.unlink_whatsapp_on_membership_delete() from public;
+revoke all on function public.unlink_whatsapp_on_membership_delete() from anon;
+
+drop trigger if exists trg_membership_delete_unlinks_whatsapp on public.memberships;
+create trigger trg_membership_delete_unlinks_whatsapp
+  after delete on public.memberships
+  for each row execute function public.unlink_whatsapp_on_membership_delete();
+
+-- Links that already outlived their membership.
+delete from public.whatsapp_identities wi
+ where not exists (
+   select 1 from public.memberships m
+    where m.household_id = wi.household_id and m.user_id = wi.profile_id);
+
+COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261009120400_w1a_admin_roles_no_ledger_reads.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- W1a (audit 2026-10-04, ADM-03 / D24) — platform admins no longer read household ledgers
+-- row by row.
+--
+-- The domain-table SELECT policies were `is_member(household_id) or is_admin('roles')`, so a
+-- 'roles' (or 'super') admin could select every family's transactions, accounts, debts,
+-- assets, budgets, recurring bills and notifications. No admin page needs that: every admin
+-- screen reads households / memberships / activity_log directly or calls a SECURITY DEFINER
+-- RPC (admin_dashboard_kpis, admin_weekly_trend, admin_list_users, admin_ai_usage_summary,
+-- admin_ai_feedback_summary), which RLS does not affect. Admin access is password-only by the
+-- owner's decision (no 2FA), so the blast radius of one admin password matters.
+--
+-- Kept for now (admin pages read them): households, memberships, profiles, subscriptions,
+-- activity_log. activity_log stores row images and is the next thing to narrow (ADM-04).
+
+BEGIN;
+
+-- Sweep: drop EVERY select-only policy on these tables that mentions is_admin, not just the
+-- ones the migrations name. Production holds objects no migration creates (see
+-- docs/DEVELOPER_INPUTS.md Q1), so a name list could leave a prod-only admin read in place.
+-- Only SELECT policies are touched: a FOR ALL policy also carries members' writes.
+do $$
+declare p record;
+begin
+  for p in
+    select schemaname, tablename, policyname from pg_policies
+     where schemaname = 'public'
+       and tablename in ('transactions', 'budgets', 'goals', 'debts', 'assets', 'accounts',
+                         'recurring_schedules', 'budget_allocations', 'notifications', 'saved_views')
+       and cmd = 'SELECT'
+       and qual ilike '%is_admin%'
+  loop
+    execute format('drop policy %I on %I.%I', p.policyname, p.schemaname, p.tablename);
+  end loop;
+end $$;
+
+drop policy if exists "transactions_read" on public.transactions;
+create policy "transactions_read" on public.transactions for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists "budgets_read" on public.budgets;
+create policy "budgets_read" on public.budgets for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists "goals_read" on public.goals;
+create policy "goals_read" on public.goals for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists "debts_read" on public.debts;
+create policy "debts_read" on public.debts for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists "assets_read" on public.assets;
+create policy "assets_read" on public.assets for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists "accounts_read" on public.accounts;
+create policy "accounts_read" on public.accounts for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists "recurring_read" on public.recurring_schedules;
+create policy "recurring_read" on public.recurring_schedules for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists balloc_read on public.budget_allocations;
+create policy balloc_read on public.budget_allocations for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists "notif_read" on public.notifications;
+create policy "notif_read" on public.notifications for select to authenticated
+  using (is_member(household_id));
+
+drop policy if exists "saved_views_self" on public.saved_views;
+create policy "saved_views_self" on public.saved_views for select to authenticated
+  using (user_id = (select auth.uid()));
+
+COMMIT;

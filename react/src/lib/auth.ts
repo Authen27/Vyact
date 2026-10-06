@@ -92,7 +92,7 @@ export const INVITE_LABEL_SENTINEL = '(shareable link)';
 
 export async function createInviteLink(
   householdId: string,
-  role: 'admin' | 'member' | 'viewer' | 'child',
+  role: 'admin' | 'member' | 'viewer',
   householdRole?: string,
   label?: string,
 ) {

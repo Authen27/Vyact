@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resolveMyRole, can } from '../permissions';
+import { resolveMyRole, can, normalizeAppRole, highestRole, roleLabel } from '../permissions';
+import type { AppRole } from '../../types';
 
 // CON-UNIT-078..080 — Phase 0 of the defect-triage plan.
 //
@@ -53,5 +54,17 @@ describe('resolveMyRole — who am I in this household', () => {
     expect(resolveMyRole({ cloudEnabled: true, hasSession: true })).toBeUndefined();
     // A viewer is not silently upgraded by being signed in.
     expect(can(resolveMyRole({ cloudEnabled: true, hasSession: true, membershipRole: 'viewer' }), 'manage_budgets')).toBe(false);
+  });
+
+  it('CON-UNIT-W1-009 · W1 (INT-HH-12): a retired child role read from an old cache behaves exactly like member', () => {
+    const legacy = 'child' as unknown as AppRole;
+    expect(normalizeAppRole('child')).toBe('member');
+    expect(normalizeAppRole('nonsense')).toBeUndefined();
+    expect(can(legacy, 'manage_debts')).toBe(can('member', 'manage_debts'));
+    expect(can(legacy, 'edit_others_transaction')).toBe(true);
+    expect(can(legacy, 'manage_budgets')).toBe(false);
+    expect(roleLabel(legacy)).toBe('Member');
+    expect(highestRole([legacy, 'viewer'])).toBe('member');
+    expect(resolveMyRole({ cloudEnabled: true, hasSession: true, membershipRole: legacy })).toBe('member');
   });
 });
