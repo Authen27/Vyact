@@ -186,6 +186,50 @@ export async function nextWakeAt(ownerUid: string): Promise<number | null> {
   return due.length ? Math.min(...due) : null;
 }
 
+/** W3c — is another op for this ROW still queued? (The fold-back used to check the whole entity.) */
+export async function hasPendingRow(ownerUid: string, householdId: string, entity: string, id: string, exceptOpId: string): Promise<boolean> {
+  return (await getDriver().getAll()).some(row => row.ownerUid === ownerUid && row.householdId === householdId
+    && row.entity === entity && row.opId !== exceptOpId
+    && ((row.payload as { id?: string } | undefined)?.id ?? row.id) === id);
+}
+
+/**
+ * W3c — remove and return the ops queued AFTER `op` for the same row. When the database rejects a
+ * write for good, every later write to that row carries the same change and would fail the same way;
+ * they are dead-lettered together and the row is rolled back to before the first one.
+ */
+export async function takeLaterOpsForRow(op: StoredOp): Promise<StoredOp[]> {
+  const id = (op.payload as { id?: string } | undefined)?.id ?? op.id;
+  if (!id || !op.entity) return [];
+  const taken = await getDriver().transaction(rows => {
+    const later = [...rows.values()].filter(row => row.ownerUid === op.ownerUid && row.householdId === op.householdId
+      && row.entity === op.entity && row.seq > op.seq
+      && ((row.payload as { id?: string } | undefined)?.id ?? row.id) === id);
+    for (const row of later) rows.delete(row.opId);
+    return later;
+  });
+  await pendingCount();
+  return taken;
+}
+
+/**
+ * W3c (audit FE-SYN-03) — give ownerless ops (queued while the session could not be read, or migrated
+ * from the pre-outbox queue) to the user they belong to. Called ONLY where that user is known for
+ * certain: the same user returning (the cache owner is them), and sign-out / a switch of user (the
+ * outgoing owner) — never at flush time, which would let the NEXT user upload them.
+ */
+export async function adoptOwnerless(ownerUid: string): Promise<number> {
+  await migrateLegacyOnce();
+  const n = await getDriver().transaction(rows => {
+    let count = 0;
+    for (const [opId, row] of rows) {
+      if (row.ownerUid === null) { rows.set(opId, { ...row, ownerUid }); count++; }
+    }
+    return count;
+  });
+  return n;
+}
+
 export async function hasPendingEntity(ownerUid: string, householdId: string, entity: string, exceptOpId: string): Promise<boolean> {
   return (await getDriver().getAll()).some(row => row.ownerUid === ownerUid && row.householdId === householdId
     && row.entity === entity && row.opId !== exceptOpId);

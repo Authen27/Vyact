@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.66.0`** (consumer)
+> **Current production version: `v10.67.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,47 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.67.0 — W3c: edits stop getting lost *(2026-10-07)*
+
+Third W3 stage of the 2026-10-04 audit remediation: owner decision **D15, "fix both now"** (lost edits
+and ownerless writes). Audit IDs: FE-SYN-01, FE-SYN-03, INT-TXN-02, INT-TXN-08.
+
+- **The cache keeps the server's revisions** (FE-SYN-01, INT-TXN-02).
+  - Before, every cached write and every row arriving from the cloud was restamped with the device
+    clock. That stamp became the next edit's precondition, so the edit matched nothing on the server
+    and was filed as a conflict. Once a row had synced, every later edit to it was dead-lettered until
+    a manual full refresh.
+  - Now the cache stores server rows exactly as they arrive (`cache.put`), and a local edit keeps the
+    row's last server revision.
+  - The adapter remembers its own revision steps, so an edit made on top of this device's own write
+    is sent with the new revision. Another device's edit still changes the revision underneath and is
+    still a conflict.
+  - Fold-back after a write is per row. It used to be skipped whenever any write to that entity was
+    still queued.
+- **Writes made while the session couldn't be read are sent** (FE-SYN-03).
+  - When a token expired offline, writes were queued with no owner and never flushed. They now
+    belong to the device's signed-in owner.
+  - Older ownerless writes are adopted only where their owner is certain: the same user signing back
+    in, or the owner leaving (sign-out, or another user signing in). They are never adopted at flush
+    time, where the next user would upload them.
+- **A write the database refuses is rolled back at once, not retried** (INT-TXN-08).
+  - "Refused" means an integrity or data error (23xxx/22xxx), a permission error (42501), a trigger
+    rule (P0001), or a write that changed nothing.
+  - Before, such writes were retried five times, then dead-lettered, and the screen kept showing the
+    change forever.
+  - Now the write is dead-lettered on the first refusal, together with any later writes to the same
+    row, and the cache returns to its state before the write. The store re-reads the cache, so the
+    screen matches.
+  - A network failure, a JWT refresh, or a schema cache still catching up after a deploy is still
+    retried.
+  - Dead-letter records now say why: the error code and message, where they used to say
+    "[object Object]".
+- **"Dismiss" on a conflict discards the edit.** It re-reads the affected rows from the cloud, so the
+  screen shows the server's version; before, the unsaved edit stayed on screen. A conflict otherwise
+  keeps your edit visible until you choose Re-apply or Dismiss.
+
+No migration. Tests: syncRevisions.test.ts (8; fake IndexedDB, mocked cloud).
 
 ## v10.66.0 — W3b: one currency per household, nothing converted *(2026-10-06)*
 

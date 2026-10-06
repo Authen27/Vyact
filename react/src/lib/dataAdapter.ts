@@ -287,6 +287,23 @@ export class LocalStorageAdapter implements DataAdapter {
     await this.write(entity, householdId, list);
     return next;
   }
+  /**
+   * W3c (v10.67.0; audit FE-SYN-01) — cache-only: store a row EXACTLY as given. A server row keeps
+   * the server's updated_at; `upsert` stamps the device clock, which in cloud mode became the next
+   * edit's precondition and made it fail as a false conflict.
+   */
+  async put<T extends { id: string }>(entity: Entity, householdId: string, row: T): Promise<T> {
+    const list = await this.read<{ id: string }[]>(entity, householdId, []);
+    const idx = list.findIndex(r => r.id === row.id);
+    if (idx >= 0) list[idx] = row; else list.push(row);
+    await this.write(entity, householdId, list);
+    return row;
+  }
+  /** W3c — cache-only: the cached row with this id, or null. */
+  async getById<T extends { id: string }>(entity: Entity, householdId: string, id: string): Promise<T | null> {
+    const list = await this.read<T[]>(entity, householdId, []);
+    return list.find(r => r.id === id) ?? null;
+  }
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
     const list = await this.read<{ id: string }[]>(entity, householdId, []);
     await this.write(entity, householdId, list.filter(r => r.id !== id));

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.66.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.67.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -160,6 +160,11 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
 - **Sync is refresh-based** (visibility/focus/online + poll, not a live socket).
   Queue mechanics in `lib/sync/`; faults via `lib/faults.ts` — **never a silent
   write-loss `catch {}`** on a write/contract path.
+  **Since v10.67.0 (W3c, owner decision D15):**
+  - The cache holds SERVER revisions. Write server rows with `cache.put`; never restamp `updated_at` with the device clock in cloud mode, because it becomes the next edit's precondition and fails as a false conflict.
+  - A queued write belongs to the session user, or else the cache owner (`ownerForWrite`). Ownerless ops are adopted only at the session boundary (`adoptOwnerless` in `cacheInvalidation`), never at flush time.
+  - A write the database refuses (`isTerminalRejection`: 23xxx/22xxx/42501/P0001) is dead-lettered at once, with later ops for the same row, and the cache is rolled back from the op's `before` snapshot.
+  - Network, JWT and schema-lag errors stay transient.
 - **The local store is a CACHE, and the cloud is the truth (v10.20.7, corrected
   in v10.20.8).** `lib/cacheInvalidation.ts` drops it at the session boundary
   when it cannot be trusted — a different user, or an older `CACHE_EPOCH`.

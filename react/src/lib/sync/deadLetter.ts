@@ -26,9 +26,34 @@ export function recordFailed(op: QueueOp, error: unknown): void {
   unexpected(error, `sync.flushQueue:exhausted-retries:${op.op}:${op.entity ?? ''}`);
   try {
     const list = ls.readJson<Array<QueueOp & { error?: string }>>(FAILED_KEY) || [];
-    list.push({ ...op, error: error instanceof Error ? error.message : String(error) });
+    list.push({ ...op, error: describeError(error) });
     try { ls.setJson(FAILED_KEY, list); } catch (e) { expected(e, 'sync.recordFailed:persist'); }
   } catch (e) { expected(e, 'sync.recordFailed'); }
+}
+
+/** PostgREST errors are plain objects: "[object Object]" told nobody anything (W3c). */
+function describeError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const e = error as { code?: unknown; message?: unknown; details?: unknown };
+    const text = [e.code, e.message, e.details].filter(Boolean).map(String).join(' · ');
+    if (text) return text;
+  }
+  return String(error);
+}
+
+/** W3c — the households and entities the conflict bucket refers to (Dismiss re-reads them). */
+export function conflictTargets(): { householdId: string; entity: string }[] {
+  try {
+    const list = ls.readJson<QueueOp[]>(CONFLICTS_KEY) || [];
+    const seen = new Set<string>();
+    return list.filter(op => op.entity).filter(op => {
+      const key = `${op.householdId}:${op.entity}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).map(op => ({ householdId: op.householdId, entity: op.entity as string }));
+  } catch { return []; }
 }
 
 export function pendingConflictCount(): number {

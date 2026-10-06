@@ -46,6 +46,7 @@ export const groups = [
   group('Time zone (local today)', 'available', 'unit', ['timeZoneDay'], 'W3a: device-local today in the app, household-zone today in the engine, WhatsApp day and scheduler slots'),
   group('Household time zone SQL', 'conditional', 'sql-integration', ['householdTimezoneSql'], 'W3a migration: households.timezone default, signup zone, validation, owner stamp once (focused PGlite fixture)'),
   group('One currency SQL', 'conditional', 'sql-integration', ['oneCurrencySql'], 'W3b migration: new rows stamped with the household currency, loan payments checked against it (focused PGlite fixture)'),
+  group('Sync revisions and rollback', 'conditional', 'store-integration', ['syncRevisions'], 'W3c: cache keeps server revisions, ownerless writes adopted safely, refused writes rolled back, Dismiss re-reads (fake IndexedDB, mocked cloud)'),
   group('Ask Vyact on the server', 'conditional', 'unit', ['serverEngine', 'assistantCore'], 'serverEngine + its generated bundle (parity) / assistantCore model call (not a live provider)'),
   group('WhatsApp parser', 'conditional', 'unit', ['whatsappParser'], 'whatsapp-parser'),
   group('WhatsApp handlers', 'conditional', 'handler-integration', ['whatsappWorkflow'], 'whatsapp-webhook / whatsapp-verify-otp'),

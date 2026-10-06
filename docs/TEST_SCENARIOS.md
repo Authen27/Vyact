@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1446 passing deterministic cases in 108 files. Zero failed, skipped or TODO cases at generation.**
+**1454 passing deterministic cases in 109 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -37,7 +37,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | sql-integration | conditional | 33 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 49 |
-| react | store-integration | conditional | 2 |
+| react | store-integration | conditional | 10 |
 | react | unit | available | 337 |
 | react | unit | conditional | 173 |
 | react | unit | infrastructure | 603 |
@@ -141,6 +141,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/storage.test.ts](../react/src/lib/__tests__/storage.test.ts) | Storage and synchronization | storage-integration | available | 6 |
 | [react/src/lib/__tests__/supabaseAdapter.test.ts](../react/src/lib/__tests__/supabaseAdapter.test.ts) | Cloud adapter contracts | contract-unit | conditional | 14 |
 | [react/src/lib/__tests__/sync.test.ts](../react/src/lib/__tests__/sync.test.ts) | Storage and synchronization | storage-integration | available | 6 |
+| [react/src/lib/__tests__/syncRevisions.test.ts](../react/src/lib/__tests__/syncRevisions.test.ts) | Sync revisions and rollback | store-integration | conditional | 8 |
 | [react/src/lib/__tests__/timeZoneDay.test.ts](../react/src/lib/__tests__/timeZoneDay.test.ts) | Time zone (local today) | unit | available | 4 |
 | [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 2 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |

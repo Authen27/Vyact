@@ -26,6 +26,8 @@
 // opposite of the point. They flush against the cloud after the purge.
 import ls from './localStorageCompat';
 import { kvPurgeWhere } from './kvStore';
+import { adoptOwnerless } from './sync/outbox';
+import { expected } from './faults';
 
 /**
  * Bump to force a one-time purge on every device at next sign-in.
@@ -131,6 +133,22 @@ export type InvalidationOutcome =
  *
  * Pure decision + effect, no store access, so it is directly testable.
  */
+/** W3c — the user this device's cache belongs to (stamped at sign-in), or null. */
+export function cacheOwnerUid(): string | null {
+  try { return ls.readString(OWNER_KEY) || null; } catch { return null; }
+}
+
+/**
+ * W3c (audit FE-SYN-03) — writes queued while the session could not be read carry no owner and are
+ * never flushed. They are given to the user they belong to, at the only two points where that is
+ * certain: the cache owner signing back in, and the cache owner leaving (sign-out, or another user
+ * signing in on this device). Never at flush time — that would let the next user upload them.
+ */
+async function adoptFor(ownerUid: string | null): Promise<void> {
+  if (!ownerUid) return;
+  try { await adoptOwnerless(ownerUid); } catch (e) { expected(e, 'cache:adoptOwnerless'); }
+}
+
 export async function invalidateCacheForSession(userId: string): Promise<InvalidationOutcome> {
   let owner: string | null = null;
   let epoch: string | null = null;
@@ -148,10 +166,12 @@ export async function invalidateCacheForSession(userId: string): Promise<Invalid
   // device may hold anonymous local-only data, or a cache from before this stamp
   // existed — which is precisely the untrusted case.
   if (owner !== userId) {
+    await adoptFor(owner);   // the previous user's ownerless writes stay theirs
     const keysRemoved = await purgeCachedCloudData();
     stamp();
     return { action: 'purged', reason: 'different-user', keysRemoved };
   }
+  await adoptFor(userId);    // the same user is back: their ownerless writes can go out
   if (epoch !== CACHE_EPOCH) {
     const keysRemoved = await purgeCachedCloudData();
     stamp();
@@ -165,6 +185,7 @@ export async function invalidateCacheForSession(userId: string): Promise<Invalid
  * ledger is the same privacy problem as (1) above, just deferred.
  */
 export async function clearCacheOnSignOut(): Promise<number> {
+  await adoptFor(cacheOwnerUid());   // before the owner stamp goes: they stay the outgoing user's
   const removed = await purgeCachedCloudData();
   try { ls.removeBoth(OWNER_KEY); } catch { /* noop */ }
   return removed;

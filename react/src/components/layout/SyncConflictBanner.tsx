@@ -23,6 +23,8 @@ interface DeadLetterAdapter {
   pendingConflictCount?: () => number;
   pendingFailedCount?: () => number;
   clearConflicts?: () => void;
+  /** W3c — clear the conflicts AND re-read the rows they touched from the cloud. */
+  dismissConflicts?: () => Promise<void>;
   clearFailed?: () => void;
   retryDeadLettered?: (bucket: 'sync_conflicts' | 'sync_failed') => void;
 }
@@ -64,10 +66,18 @@ export default function SyncConflictBanner() {
     } finally { setBusy(false); }
   };
 
-  const dismiss = () => {
-    adapter.clearConflicts?.();
-    adapter.clearFailed?.();
-    setConflicts(0); setFailed(0);
+  // W3c (v10.67.0) — "dismiss to discard it" now does discard it: the rows the conflicting edits
+  // touched are read again from the cloud, so the screen shows the server's version instead of the
+  // edit that was not saved. (A refused write has already been rolled back by the sync layer.)
+  const dismiss = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (adapter.dismissConflicts) await adapter.dismissConflicts();
+      else adapter.clearConflicts?.();
+      adapter.clearFailed?.();
+      setConflicts(0); setFailed(0);
+    } finally { setBusy(false); }
   };
 
   const parts: string[] = [];

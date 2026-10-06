@@ -32,6 +32,7 @@ import * as syncQueue from './sync/syncQueue';
 import * as outbox from './sync/outbox';
 import * as deadLetter from './sync/deadLetter';
 import { classifyFlushError } from './sync/conflict';
+import { cacheOwnerUid } from './cacheInvalidation';
 
 export class HybridAdapter implements DataAdapter {
   cache: LocalStorageAdapter;
@@ -48,6 +49,41 @@ export class HybridAdapter implements DataAdapter {
   }
   /** Audit F6 — identifies this tab's flush worker in outbox claims. */
   private workerId = uid();
+
+  // ── W3c (v10.67.0; audit FE-SYN-01, INT-TXN-02) — server revisions, never the device clock ──
+  // The cache keeps the SERVER's updated_at. After one of THIS device's writes lands, the server
+  // gives the row a new revision; the app's own copy still holds the revision it edited from. That
+  // pair is remembered, so the next edit (made on top of our own write) is sent with the new
+  // revision instead of failing as a false conflict. A genuine edit from another device still
+  // changes the revision underneath and is still caught.
+  private ownRevisions = new Map<string, { from?: string; to: string }>();
+  private rowKey(entity: string, householdId: string, id: string): string { return `${householdId}:${entity}:${id}`; }
+  private preconditionFor(entity: Entity, householdId: string, id: string, expectedUpdatedAt?: string): string | undefined {
+    const own = this.ownRevisions.get(this.rowKey(entity, householdId, id));
+    return own && own.from === expectedUpdatedAt ? own.to : expectedUpdatedAt;
+  }
+
+  // W3c — the store re-reads the cache when a rejected write is rolled back (or a conflict is
+  // dismissed). Background syncs do NOT notify: the store's refresh would start another sync.
+  private cacheListeners = new Set<() => void>();
+  onCacheChanged(listener: () => void): () => void {
+    this.cacheListeners.add(listener);
+    return () => { this.cacheListeners.delete(listener); };
+  }
+  private emitCacheChanged(): void {
+    for (const listener of this.cacheListeners) {
+      try { listener(); } catch (e) { unexpected(e, 'sync:cacheListener'); }
+    }
+  }
+
+  /**
+   * W3c (audit FE-SYN-03) — who a queued write belongs to. The session can be unreadable (its token
+   * expired while offline) while the device's cache owner is still signed in; stamping null then
+   * meant the write was never flushed. Never null in cloud mode while the cache has an owner.
+   */
+  private async ownerForWrite(): Promise<string | null> {
+    return (await this.cloud.currentUserId()) ?? cacheOwnerUid();
+  }
 
   // v10.30.0 — cloud-freshness bookkeeping for the Net Worth snapshot writer.
   // `cloudAppliedAt`: when a cloud read for household:entity last landed in the
@@ -218,7 +254,7 @@ export class HybridAdapter implements DataAdapter {
       if (!isCacheGenerationCurrent(gen)) return;
       const r = row as { id?: string };
       if (!r.id) continue;
-      await this.cache.upsert(entity, householdId, r as { id: string });
+      await this.cache.put(entity, householdId, r as { id: string });   // W3c: the server's own updated_at
     }
     for (const id of delta.tombstones) {
       if (!isCacheGenerationCurrent(gen)) return;
@@ -245,21 +281,28 @@ export class HybridAdapter implements DataAdapter {
     // The cache write always succeeds — it's per-tab and not subject to
     // cross-user concurrency. The version precondition only applies to
     // the cloud leg, which is queued and flushed below.
-    const local = await this.cache.upsert(entity, householdId, record);
+    const id = record.id || uid();
+    const before = await this.cache.getById<{ id: string; updated_at?: string }>(entity, householdId, id);
+    // W3c: the cached row keeps the SERVER revision it had (none yet for a new row) — the device
+    // clock must never become the next edit's precondition.
+    const local = await this.cache.put(entity, householdId,
+      { ...record, id, updated_at: before?.updated_at ?? undefined } as T & { id: string });
     // Audit F6: the outbox insert is durable and can never erase another op.
     // Owner-stamped so another user's session on this device never flushes it.
     await outbox.enqueueOp(
-      { ts: Date.now(), op: 'upsert', entity, householdId, payload: local, expectedUpdatedAt },
-      await this.cloud.currentUserId(),
+      { ts: Date.now(), op: 'upsert', entity, householdId, payload: local,
+        expectedUpdatedAt: this.preconditionFor(entity, householdId, id, expectedUpdatedAt), before: before ?? null },
+      await this.ownerForWrite(),
     );
     void this.flushQueue();
     return local;
   }
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
+    const before = await this.cache.getById<{ id: string }>(entity, householdId, id);
     await this.cache.remove(entity, householdId, id);
     await outbox.enqueueOp(
-      { ts: Date.now(), op: 'remove', entity, householdId, id },
-      await this.cloud.currentUserId(),
+      { ts: Date.now(), op: 'remove', entity, householdId, id, before: before ?? null },
+      await this.ownerForWrite(),
     );
     void this.flushQueue();
   }
@@ -269,7 +312,7 @@ export class HybridAdapter implements DataAdapter {
     // another member's unsynced one) is rejected up front rather than silently
     // dead-lettered. The returned, DB-id'd row is then written to cache.
     const saved = await this.cloud.createBudgetChecked(householdId, budget);
-    try { await this.cache.upsert('budgets', householdId, saved); } catch { /* cache is best-effort */ }
+    try { await this.cache.put('budgets', householdId, saved); } catch { /* cache is best-effort */ }
     return saved;
   }
   async upsertBudgetWithAllocations(
@@ -284,7 +327,7 @@ export class HybridAdapter implements DataAdapter {
     const res = await this.cloud.upsertBudgetWithAllocations(householdId, budget, allocations, mode);
     // Seed cache with the authoritative rows (best-effort): the budget + a SCOPED
     // replace of just this budget's allocations (preserve other budgets' cached rows).
-    try { await this.cache.upsert('budgets', householdId, res.budget); } catch { /* best-effort */ }
+    try { await this.cache.put('budgets', householdId, res.budget); } catch { /* best-effort */ }
     try {
       const cached = await this.cache.list('budgetAllocations', householdId) as Array<{ budgetId?: string }>;
       const others = cached.filter(a => a.budgetId !== res.budget.id);
@@ -296,7 +339,7 @@ export class HybridAdapter implements DataAdapter {
     await this.cache.replaceAll(entity, householdId, records);
     await outbox.enqueueOp(
       { ts: Date.now(), op: 'replaceAll', entity, householdId, payload: records },
-      await this.cloud.currentUserId(),
+      await this.ownerForWrite(),
     );
     void this.flushQueue();
     return records;
@@ -307,7 +350,7 @@ export class HybridAdapter implements DataAdapter {
     await this.cache.updateProfile(householdId, patch);
     await outbox.enqueueOp(
       { ts: Date.now(), op: 'updateProfile', householdId, payload: patch },
-      await this.cloud.currentUserId(),
+      await this.ownerForWrite(),
     );
     void this.flushQueue();
     return (await this.getProfile(householdId))!;
@@ -422,16 +465,19 @@ export class HybridAdapter implements DataAdapter {
             const gen = cacheGeneration();
             const saved = await this.cloud.upsert(op.entity!, op.householdId, op.payload as { id?: string }, op.expectedUpdatedAt);
             serverRevision = (saved as { updated_at?: string }).updated_at;
+            // W3c: remember our own revision step, so an edit made on top of this write (from the
+            // app's copy, which still holds the old revision) is sent with the new one.
+            if (serverRevision) {
+              this.ownRevisions.set(this.rowKey(op.entity!, op.householdId, saved.id), { from: op.expectedUpdatedAt, to: serverRevision });
+            }
             // Audit F7 — fold the server-returned authoritative row (and its
             // fresh updated_at) back into the cache, so a second edit before
             // the next refresh carries a CURRENT concurrency precondition
-            // rather than a stale or missing one.
-            if (isCacheGenerationCurrent(gen) && !await outbox.hasPendingEntity(ownerUid, op.householdId, op.entity!, op.opId)) {
-              const cached = await this.cache.list<{ id: string }>(op.entity!, op.householdId);
-              if (isCacheGenerationCurrent(gen)) {
-                await this.cache.replaceAll(op.entity!, op.householdId,
-                  [...cached.filter(row => row.id !== saved.id), saved]);
-              }
+            // rather than a stale or missing one. W3c: per ROW (it was skipped whenever any
+            // other op for the whole entity was still queued).
+            if (isCacheGenerationCurrent(gen)
+                && !await outbox.hasPendingRow(ownerUid, op.householdId, op.entity!, saved.id, op.opId)) {
+              await this.cache.put(op.entity!, op.householdId, saved as { id: string });
             }
           }
           else if (op.op === 'remove')        await this.cloud.remove(op.entity!, op.householdId, op.id!);
@@ -455,6 +501,21 @@ export class HybridAdapter implements DataAdapter {
               console.warn('[Vyact sync] Concurrency conflict — op dead-lettered:', op.entity, cc.id, 'expected', cc.expectedUpdatedAt);
             }
             await outbox.ack(op.opId, this.workerId);
+            continue;
+          }
+          if (outcome.kind === 'rejected') {
+            // W3c (audit INT-TXN-08) — the database refused the write itself (a CHECK, a foreign
+            // key, a permission, a trigger rule). Retrying cannot help, so it is dead-lettered at
+            // once, together with every later write to the same row (they carry the same change),
+            // and the cache goes back to how it was before the first of them. The store re-reads
+            // it, so the screen stops showing a change the cloud will never hold.
+            deadLetter.recordFailed(op, e);
+            for (const later of await outbox.takeLaterOpsForRow(op)) {
+              deadLetter.recordFailed(later, new Error('Not sent: an earlier change to this item was refused'));
+            }
+            await this.rollback(op);
+            await outbox.ack(op.opId, this.workerId);
+            this.emitCacheChanged();
             continue;
           }
           if (outcome.kind === 'failed') {
@@ -497,6 +558,45 @@ export class HybridAdapter implements DataAdapter {
   /** Drop all dead-lettered conflict ops (SyncConflictBanner "Dismiss"). */
   clearConflicts(): void {
     deadLetter.clearConflicts();
+  }
+
+  /**
+   * W3c — "Dismiss": the conflicting edits are abandoned, so the rows they touched are read again
+   * from the cloud NOW and the cache holds the server's version (until this, the dismissed edit
+   * stayed on screen until a full resync happened to run).
+   */
+  async dismissConflicts(): Promise<void> {
+    const targets = deadLetter.conflictTargets();
+    deadLetter.clearConflicts();
+    const gen = cacheGeneration();
+    for (const { householdId, entity } of targets) {
+      try {
+        const cached = await this.cache.list(entity as Entity, householdId);
+        const fresh = await this.cloud.list(entity as Entity, householdId);
+        await this.applyCloudList(entity as Entity, householdId, cached as unknown[], fresh as unknown[], gen);
+      } catch (e) { expected(e, `sync:dismissConflicts:${entity}`); }
+    }
+    this.emitCacheChanged();
+  }
+
+  /** W3c — put the cache back to how it was before a rejected write. */
+  private async rollback(op: outbox.StoredOp): Promise<void> {
+    const id = op.op === 'upsert' ? (op.payload as { id?: string } | undefined)?.id : op.id;
+    if (!op.entity || !id || (op.op !== 'upsert' && op.op !== 'remove')) return;
+    if (op.before === undefined) {
+      // Queued by an app from before v10.67.0: no snapshot. The next read takes the server's rows.
+      this.forceFullResync(op.householdId);
+      return;
+    }
+    const gen = cacheGeneration();
+    try {
+      if (!isCacheGenerationCurrent(gen)) return;
+      if (op.before === null) {
+        if (op.op === 'upsert') await this.cache.remove(op.entity, op.householdId, id);   // the row never existed
+      } else {
+        await this.cache.put(op.entity, op.householdId, op.before as { id: string });
+      }
+    } catch (e) { unexpected(e, `sync:rollback:${op.entity}`); }
   }
 
   /**
