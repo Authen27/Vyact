@@ -61,6 +61,12 @@ Deno.serve(async (req: Request) => {
     if (otpError) return json({ error: 'unlink_failed' }, 500);
     const { error } = await admin.from('whatsapp_identities').delete().eq('profile_id', user.id);
     if (error) return json({ error: 'unlink_failed' }, 500);
+    // W1b (audit 2026-10-04, XC-PRV-07): unlinking also deletes what they said in the chat
+    // (message text and phone number), as the Privacy page promises. Pending questions go too.
+    const { error: msgError } = await admin.from('whatsapp_inbound_messages').delete().eq('profile_id', user.id);
+    if (msgError) return json({ error: 'unlink_failed' }, 500);
+    const { error: turnError } = await admin.from('whatsapp_pending_turns').delete().eq('profile_id', user.id);
+    if (turnError) return json({ error: 'unlink_failed' }, 500);
     return json({ status: 'unlinked' });
   }
   if (!code || !/^\d{4,8}$/.test(String(code))) return json({ error: 'invalid_code_format' }, 400);

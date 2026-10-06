@@ -194,12 +194,6 @@ export async function reactivateAccount() {
   if (error) throw error;
 }
 
-/** Schedules permanent deletion with a 30-day undo window; puts the account on hold immediately. */
-export async function requestAccountDeletion(): Promise<string> {
-  const { data, error } = await sb().rpc('request_account_deletion');
-  if (error) throw error;
-  return data as string;
-}
 
 /**
  * Checks whether the signed-in user has a deactivation or pending-deletion
@@ -217,15 +211,23 @@ export async function reactivateIfNeeded(): Promise<boolean> {
   return true;
 }
 
+/** Why the server refused a deletion: 'reauth_required', 'transfer_required', or another code. */
+export class AccountDeletionError extends Error {
+  constructor(public code: string, message: string) { super(message); this.name = 'AccountDeletionError'; }
+}
+
 /**
- * Executes the permanent delete via the service-role edge function. Only
- * succeeds once `requestAccountDeletion()` has run; pass `immediate: true`
- * to skip the 30-day undo window (explicit "delete right now" confirmation).
+ * W1b (v10.63.0) — deletes the account NOW, through the delete-account Edge Function, which
+ * runs one purge transaction on the server and then removes the login. There is no 30-day
+ * schedule any more (it was never executed). Call it right after `verifyAccountActionCode`:
+ * the server refuses a session that has not signed in within the last 10 minutes.
  */
-export async function executeAccountDeletion(immediate = false) {
-  const { data, error } = await sb().functions.invoke('delete-account', { body: { immediate } });
-  if (error) throw error;
-  return data as { deleted: boolean };
+export async function executeAccountDeletion(): Promise<void> {
+  const { error } = await sb().functions.invoke('delete-account', { body: {} });
+  if (!error) return;
+  let body: { error?: string; detail?: string } | undefined;
+  try { body = await (error as { context?: Response }).context?.json(); } catch { body = undefined; }
+  throw new AccountDeletionError(body?.error ?? 'delete_failed', body?.detail ?? error.message);
 }
 
 // ── Email-code re-authentication for irreversible account actions ──

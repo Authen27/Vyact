@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.62.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.63.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -456,6 +456,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - Role checks in SQL use `is distinct from` / `coalesce`, never `<>` on a value that is NULL for a non-member (`NULL <> 'owner'` let anyone through).
   - A WhatsApp link ends with the membership (trigger), and the webhook / `guardedSend` re-check membership (`isLiveMember`).
   - Platform admins read household ledgers only through SECURITY DEFINER aggregate RPCs, never row by row.
+- **Account lifecycle (v10.63.0, audit W1b; owner decisions).**
+  - Deleting an account is **immediate and one database transaction**: `purge_account(user)` (service role only), called by `delete-account`, which deletes the login last. No 30-day schedule — it was never executed and is gone.
+  - An owner whose household has other members and no other owner gets `transfer_required`; never delete a household out from under its members.
+  - Erase and delete need a sign-in within 10 minutes, checked on the SERVER (`recently_reauthenticated()` / the JWT `amr`), not only in the browser.
+  - FKs to users never block deletion: shared history stays and stops naming the person (`ON DELETE SET NULL`). Never add a NO ACTION FK to `auth.users`.
+  - WhatsApp messages are kept 90 days (`purge_old_whatsapp_messages`, pg_cron `whatsapp-retention`), and go with the person, the household, and an unlink.
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied

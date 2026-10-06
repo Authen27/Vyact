@@ -24,15 +24,19 @@ describe('actual WhatsApp Edge handlers', () => {
     const status = queryResult({ phone_number: '111', household_id: 'alice-house' });
     const otpDelete = queryResult(null);
     const identityDelete = queryResult(null);
-    api.from.mockReturnValueOnce(status).mockReturnValueOnce(otpDelete).mockReturnValueOnce(identityDelete).mockReturnValueOnce(queryResult(null));
+    const messagesDelete = queryResult(null);     // W1b (XC-PRV-07): unlink deletes what they said in the chat
+    const turnsDelete = queryResult(null);
+    api.from.mockReturnValueOnce(status).mockReturnValueOnce(otpDelete).mockReturnValueOnce(identityDelete)
+      .mockReturnValueOnce(messagesDelete).mockReturnValueOnce(turnsDelete).mockReturnValueOnce(queryResult(null));
     const request = (action: string) => new Request('https://edge.example.com/verify', { method: 'POST',
       headers: { Authorization: 'Bearer test-user' }, body: JSON.stringify({ action, profile_id: 'someone-else' }) });
     expect(await (await handler(request('status'))).json()).toEqual({ status: 'linked', phone: '111', householdId: 'alice-house' });
     expect(await (await handler(request('unlink'))).json()).toEqual({ status: 'unlinked' });
     expect(await (await handler(request('status'))).json()).toEqual({ status: 'unlinked' });
-    for (const query of [status, otpDelete, identityDelete]) expect(query.eq).toHaveBeenCalledWith('profile_id', 'alice');
-    expect(otpDelete.delete).toHaveBeenCalledOnce();
-    expect(identityDelete.delete).toHaveBeenCalledOnce();
+    for (const query of [status, otpDelete, identityDelete, messagesDelete, turnsDelete]) expect(query.eq).toHaveBeenCalledWith('profile_id', 'alice');
+    expect(api.from.mock.calls.slice(1, 5).map(([t]) => t))
+      .toEqual(['whatsapp_verification_otps', 'whatsapp_identities', 'whatsapp_inbound_messages', 'whatsapp_pending_turns']);
+    for (const query of [otpDelete, identityDelete, messagesDelete, turnsDelete]) expect(query.delete).toHaveBeenCalledOnce();
   });
 
   it('verifies a valid OTP, persists the server-owned identity, consumes the OTP and asks notify for the welcome', async () => {

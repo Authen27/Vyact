@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.62.0`** (consumer)
+> **Current production version: `v10.63.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,41 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.63.0 — W1b: deleting an account actually deletes it *(2026-10-06)*
+
+Third stage of the 2026-10-04 audit remediation (owner decisions D22, D25, D26).
+
+- **Deletion is immediate and one transaction** (INT-HH-03, BE-FN-01/02/03, DB-INT-06,
+  DB-OPS-05, FE-PLT-06). `delete-account` used to run a chain of separate deletes and then fail on
+  foreign keys for anyone who had ever written into a household they didn't own — data gone, login
+  kept — and the advertised 30-day schedule was never executed by anything. Now one SQL function,
+  `purge_account(user)` (service role only), erases the user's own households (where they are the
+  only member) with everything in them, their other memberships, WhatsApp link and messages, push
+  registrations, pending invitations to them and their profile; then the login is deleted. The
+  user-referencing FKs (`transactions.created_by`, `activity_log.actor_id`,
+  `households.created_by`, `shared_split_shares.settled_user_id`) are `ON DELETE SET NULL` — shared
+  history stays with the household and stops naming them; invitations they sent go with them
+  (migration `20261010120000`). The 30-day option, its banner and `request_account_deletion` are gone.
+- **An owner must hand over first** (BE-FN-04). Deleting an account no longer deletes co-members'
+  households: an owner whose household has other members and no other owner gets
+  `transfer_required`, and Settings explains how to transfer ownership.
+- **Re-authentication is enforced on the server** (XC-PRV-04, DB-SEC-08). Erase and delete used to
+  check the emailed code only in the browser. Both now require a sign-in within the last 10 minutes,
+  read from the JWT's `amr` claim (`recently_reauthenticated()` in SQL; `lastAuthenticatedAt` in
+  the Edge Function) — the code step's `verifyOtp` issues that fresh session; an idle or stolen one
+  does not pass.
+- **WhatsApp messages are kept 90 days** (XC-PRV-07, BE-WA-10). A daily pg_cron job
+  (`whatsapp-retention`) deletes older rows; messages now go with the person's profile and with the
+  household (FKs were SET NULL, which kept the text), "Erase all data" deletes the household's
+  messages, and unlinking WhatsApp deletes the person's messages and pending questions (migrations
+  `20261010120100`, `20261010120200`).
+- Privacy page (`POLICY_VERSION` 2026-10-07): deletion, reactivation and retention sections rewritten
+  to match.
+- Tests: PGlite `accountPurgeSql.test.ts` (6, incl. the auth delete that used to fail) and
+  `accountDeletionHandler.test.ts` (5); the unlink test now pins the message deletion.
 
 ---
 

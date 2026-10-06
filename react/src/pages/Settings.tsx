@@ -9,7 +9,7 @@ import { CURRENCIES, DEFAULT_RATES, LOCALES } from '../constants';
 import { sb } from '../lib/supabase';
 import {
   updatePassword,
-  eraseHouseholdData, deactivateAccount, requestAccountDeletion, executeAccountDeletion, signOut,
+  eraseHouseholdData, deactivateAccount, executeAccountDeletion, AccountDeletionError, signOut,
   sendAccountActionCode, verifyAccountActionCode,
 } from '../lib/auth';
 import WhatsAppLink from '../components/settings/WhatsAppLink';
@@ -120,7 +120,6 @@ export default function Settings() {
   // Danger Zone (v9.8.0) — erase / deactivate / delete
   const [erasing, setErasing] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
-  const [deletePending, setDeletePending] = useState<string | null>(null); // ISO date once requested
   const [deleting, setDeleting] = useState(false);
 
   // Sends a 6-digit code to the account's own email and blocks until the
@@ -178,36 +177,31 @@ export default function Settings() {
     } finally { setDeactivating(false); }
   }
 
-  async function onRequestDeletion() {
+  // W1b (v10.63.0, owner decision): deletion is immediate. One server transaction erases the
+  // account; the old 30-day schedule was never executed by anything. The server also checks
+  // that the emailed code was just confirmed (a recent sign-in), not only this page.
+  async function onDeleteAccount() {
     if (!cloudEnabled || !session) { toast('Account deletion requires cloud mode', 'error'); return; }
     if (!window.confirm(
-      'This schedules PERMANENT deletion of your account and every household you own, in 30 days. You will be signed out now; signing back in within 30 days cancels the deletion. After 30 days this cannot be undone.\n\nContinue?'
+      'This permanently deletes your account now: your login, your profile, and every household where you are the only member, with everything in it. In households you share, your entries stay with the household. This cannot be undone.\n\nContinue?'
     )) return;
     setDeleting(true);
     try {
-      if (!(await confirmWithEmailCode('schedule permanent account deletion'))) return;
-      const scheduledFor = await requestAccountDeletion();
-      setDeletePending(scheduledFor);
-      await signOut();
-      toast(`Deletion scheduled for ${new Date(scheduledFor).toLocaleDateString()} — sign back in any time before then to cancel`, 'info');
-      navigate('/auth/sign-in');
-    } catch (e) {
-      toast(`Could not schedule deletion: ${(e as Error).message}`, 'error');
-    } finally { setDeleting(false); }
-  }
-
-  async function onDeleteImmediately() {
-    if (!cloudEnabled || !session) return;
-    if (!window.confirm('This immediately and irreversibly deletes your account and all data you own, skipping the 30-day undo window.\n\nContinue?')) return;
-    setDeleting(true);
-    try {
-      if (!(await confirmWithEmailCode('delete your account immediately, skipping the undo window'))) return;
-      await requestAccountDeletion();
-      await executeAccountDeletion(true);
+      if (!(await confirmWithEmailCode('permanently delete your account'))) return;
+      await executeAccountDeletion();
+      // The login is gone; clear this device's copy of the ledger too.
+      await signOut().catch(() => undefined);
       toast('Account permanently deleted', 'info');
       navigate('/auth/sign-in');
     } catch (e) {
-      toast(`Could not delete account: ${(e as Error).message}`, 'error');
+      const code = e instanceof AccountDeletionError ? e.code : '';
+      if (code === 'transfer_required') {
+        toast('You own a household other people use. Make one of them the owner first (Households › Members), then delete your account.', 'error');
+      } else if (code === 'reauth_required') {
+        toast('Please confirm with a new emailed code and try again.', 'error');
+      } else {
+        toast(`Could not delete account: ${(e as Error).message}`, 'error');
+      }
     } finally { setDeleting(false); }
   }
 
@@ -747,13 +741,6 @@ export default function Settings() {
                     Every action below requires a verification code sent to your account email before it takes effect.
                   </p>
 
-                  {deletePending && (
-                    <div className="flex items-start gap-2.5 rounded-md border border-terra/40 bg-terra/10 px-4 py-3 text-[0.82rem] leading-relaxed text-ink">
-                      <XOctagon size={16} className="text-terra flex-shrink-0 mt-0.5" />
-                      <span>Account deletion is scheduled for {new Date(deletePending).toLocaleDateString()}. Sign back in before then to cancel.</span>
-                    </div>
-                  )}
-
                   <div className="border border-line rounded-md p-4">
                     <div className="flex items-start gap-3">
                       <Trash2 size={18} className="text-honey flex-shrink-0 mt-0.5" />
@@ -786,14 +773,11 @@ export default function Settings() {
                       <div className="flex-1">
                         <div className="text-sm font-semibold text-ink">Delete account (permanent)</div>
                         <div className="text-[0.82rem] text-ink-mid mt-0.5">
-                          Schedules permanent deletion of your account and every household you own, with a <strong>30-day undo window</strong> — sign back in any time before then to cancel automatically. After 30 days, your profile, owned households, and login are erased for good and cannot be recovered.
+                          Deletes your account <strong>now</strong>: your login, your profile, and every household where you are the only member, with everything in it. In households you share, your entries stay with the household. If you own a household other people use, make one of them the owner first. This cannot be undone — download a backup first if you want a copy.
                         </div>
                         <div className="flex flex-wrap items-center gap-3 mt-3">
-                          <button className="btn-secondary text-xs whitespace-nowrap" onClick={onRequestDeletion} disabled={deleting}>
-                            {deleting ? 'Working…' : 'Schedule deletion (30-day undo)'}
-                          </button>
-                          <button className="text-xs text-terra hover:underline whitespace-nowrap" onClick={onDeleteImmediately} disabled={deleting}>
-                            Delete immediately instead
+                          <button className="btn-secondary text-xs whitespace-nowrap" onClick={onDeleteAccount} disabled={deleting}>
+                            {deleting ? 'Deleting…' : 'Delete account'}
                           </button>
                         </div>
                       </div>
