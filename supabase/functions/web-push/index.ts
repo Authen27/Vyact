@@ -155,13 +155,29 @@ async function dispatch(admin: SupabaseClient, now: Date) {
     .in('household_id', households).is('pushed_at', null).gt('created_at', since).order('created_at');
   if (pErr) throw new Error(`pending: ${pErr.message}`);
   const keys = pending?.length ? await vapidKeys(admin) : null;
+  // W3a (audit INT-TZC-05, BE-FN-08) — a push held back for QUIET HOURS is not done: it stays
+  // pending (inside PUSH_WINDOW_MS) and goes out on the first run after quiet hours end. Before,
+  // every row considered was stamped pushed, so a bill due today, raised at local midnight, was
+  // never pushed at all. A device already reached for a row is not pushed again.
+  const pendingIds = ((pending ?? []) as NotificationRow[]).map((n) => n.id);
+  const reached = new Set<string>();
+  if (pendingIds.length) {
+    const { data: tried } = await admin.from('push_deliveries').select('notification_id, subscription_id')
+      .in('notification_id', pendingIds);
+    for (const t of (tried ?? []) as { notification_id: string; subscription_id: string }[]) {
+      reached.add(`${t.notification_id}:${t.subscription_id}`);
+    }
+  }
+  const waiting = new Set<string>();
   let pushed = 0;
   const skipped: Record<string, number> = {};
   for (const n of (pending ?? []) as NotificationRow[]) {
     for (const sub of subs) {
       if (sub.household_id !== n.household_id) continue;
       if (!isMember.has(`${sub.household_id}:${sub.user_id}`)) { skipped.not_a_member = (skipped.not_a_member ?? 0) + 1; continue; }
+      if (reached.has(`${n.id}:${sub.id}`)) { skipped.already_pushed = (skipped.already_pushed ?? 0) + 1; continue; }
       const why = skipReason(n, sub, now);
+      if (why === 'quiet_hours') waiting.add(n.id);
       if (why) { skipped[why] = (skipped[why] ?? 0) + 1; continue; }
       if (!isPushEndpoint(sub.endpoint)) { skipped.endpoint_not_allowed = (skipped.endpoint_not_allowed ?? 0) + 1; continue; }
       // W0 (BE-FN-07) — one device's failure never stops the others.
@@ -176,8 +192,8 @@ async function dispatch(admin: SupabaseClient, now: Date) {
       }
     }
   }
-  // 3. Every row considered is done, pushed or deliberately not.
-  const ids = ((pending ?? []) as NotificationRow[]).map((n) => n.id);
+  // 3. A row is done once no device is still waiting for its quiet hours to end.
+  const ids = pendingIds.filter((id) => !waiting.has(id));
   if (ids.length) await admin.from('notifications').update({ pushed_at: now.toISOString() }).in('id', ids);
-  return { households: households.length, raised, considered: ids.length, pushed, skipped, problems };
+  return { households: households.length, raised, considered: pendingIds.length, deferred: waiting.size, pushed, skipped, problems };
 }

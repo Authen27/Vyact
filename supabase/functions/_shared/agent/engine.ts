@@ -14,7 +14,7 @@ export interface HouseholdRows {
   memberCount: number;
   rates: { currency_code: string; rate_to_usd: number | string }[];
   profile: { display_name?: string | null; default_currency?: string | null; language?: string | null; date_format?: string | null; education_progress?: unknown };
-  household: { type?: string | null; base_currency?: string | null; language?: string | null; payoff_strategy?: string | null; extra_payment?: number | string | null };
+  household: { type?: string | null; base_currency?: string | null; language?: string | null; payoff_strategy?: string | null; extra_payment?: number | string | null; timezone?: string | null };
   email: string;
 }
 

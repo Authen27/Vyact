@@ -98,13 +98,13 @@ export function isInQuietHours(prefs: NotificationPrefs, now = new Date()): bool
 
 // ── helpers ──────────────────────────────────────────────────────────────
 const iso = () => new Date().toISOString();
-function daysUntil(dateStr: string): number {
+function daysUntil(dateStr: string, tz?: string | null): number {
   const d = new Date(dateStr + 'T00:00:00').getTime();
-  const now = new Date(today() + 'T00:00:00').getTime();
+  const now = new Date(today(tz) + 'T00:00:00').getTime();
   return Math.round((d - now) / 86400000);
 }
-function relDate(dateStr: string): string {
-  const n = daysUntil(dateStr);
+function relDate(dateStr: string, tz?: string | null): string {
+  const n = daysUntil(dateStr, tz);
   if (n === 0) return 'today';
   if (n === 1) return 'tomorrow';
   if (n === -1) return 'yesterday';
@@ -116,6 +116,8 @@ interface Ctx {
   householdId: string;
   baseCurrency: string;
   rates: ExchangeRates;
+  /** W3a — the household's zone on the server; absent in the app (the device's day). */
+  tz?: string | null;
 }
 function base(type: NotifType, dedupeKey: string, ctx: Ctx): Pick<Notification, 'id' | 'type' | 'priority' | 'status' | 'createdAt' | 'householdId' | 'dedupeKey'> {
   return { id: uid(), type, priority: NOTIF_META[type].priority, status: 'unread', createdAt: iso(), householdId: ctx.householdId, dedupeKey };
@@ -126,7 +128,7 @@ function base(type: NotifType, dedupeKey: string, ctx: Ctx): Pick<Notification, 
 /** 1 · recurring_due_confirm (P1) — due/overdue, active, auto-confirm OFF. */
 export function recurringDueNotifs(schedules: RecurringSchedule[], prefs: NotificationPrefs, existing: Notification[], ctx: Ctx): Notification[] {
   if (!typeEnabled(prefs, 'recurring_due_confirm')) return [];
-  const now = today();
+  const now = today(ctx.tz);
   const out: Notification[] = [];
   for (const s of schedules) {
     if (!s.active || s.autoConfirm || s.nextDueDate > now) continue;
@@ -135,7 +137,7 @@ export function recurringDueNotifs(schedules: RecurringSchedule[], prefs: Notifi
     const amt = s.transactionTemplate.amount ?? 0;
     out.push({
       ...base('recurring_due_confirm', key, ctx),
-      title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — due ${relDate(s.nextDueDate)}`,
+      title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
       body: 'Auto-approve is off for this schedule',
       dueAt: s.nextDueDate, amountRef: amt, scheduleId: s.id,
       deepLink: `/recurring?id=${s.id}`,
@@ -151,13 +153,13 @@ export function recurringReminderNotifs(schedules: RecurringSchedule[], prefs: N
   const out: Notification[] = [];
   for (const s of schedules) {
     const lead = s.reminderLeadDays ?? prefs.defaultLeadDays;
-    if (!upcomingSchedules([s], lead).length) continue;
+    if (!upcomingSchedules([s], lead, today(ctx.tz)).length) continue;
     const key = `recurring_reminder:${s.id}:${s.nextDueDate}`;
     if (existing.some(n => n.dedupeKey === key)) continue;
     const amt = s.transactionTemplate.amount ?? 0;
     out.push({
       ...base('recurring_reminder', key, ctx),
-      title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — ${relDate(s.nextDueDate)}`,
+      title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
       body: 'Upcoming recurring charge',
       dueAt: s.nextDueDate, amountRef: amt, scheduleId: s.id,
       deepLink: `/recurring?id=${s.id}`,
@@ -182,7 +184,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
  */
 export function budgetThresholdNotifs(
   budgets: Budget[], allocations: BudgetAllocation[], txns: Transaction[],
-  prefs: NotificationPrefs, existing: Notification[], ctx: Ctx, now: string = today(),
+  prefs: NotificationPrefs, existing: Notification[], ctx: Ctx, now: string = today(ctx.tz),
 ): Notification[] {
   if (!typeEnabled(prefs, 'budget_threshold')) return [];
   const out: Notification[] = [];
@@ -231,14 +233,14 @@ export function debtDueNotifs(debts: Debt[], prefs: NotificationPrefs, existing:
   const out: Notification[] = [];
   for (const d of debts) {
     if (d.direction === 'owed_to_me' || !d.dueDate || d.currentBalance <= 0) continue;
-    const n = daysUntil(d.dueDate);
+    const n = daysUntil(d.dueDate, ctx.tz);
     if (n < 0 || n > 3) continue;
     const key = `debt_payment_due:${d.id}:${d.dueDate}`;
     if (existing.some(x => x.dedupeKey === key)) continue;
     const amt = d.minimumPayment ?? 0;
     out.push({
       ...base('debt_payment_due', key, ctx),
-      title: `${d.name} payment · ${fmt(amt, d.currency)} — due ${relDate(d.dueDate)}`,
+      title: `${d.name} payment · ${fmt(amt, d.currency)} — due ${relDate(d.dueDate, ctx.tz)}`,
       body: 'Minimum payment coming up',
       dueAt: d.dueDate, amountRef: amt, debtId: d.id,
       deepLink: `/debts?debtId=${d.id}`,
@@ -251,7 +253,7 @@ export function debtDueNotifs(debts: Debt[], prefs: NotificationPrefs, existing:
 /** 5 · income_landed (P2) — income transaction posted today. */
 export function incomeLandedNotifs(txns: Transaction[], prefs: NotificationPrefs, existing: Notification[], ctx: Ctx): Notification[] {
   if (!typeEnabled(prefs, 'income_landed')) return [];
-  const now = today();
+  const now = today(ctx.tz);
   const out: Notification[] = [];
   for (const t of txns) {
     if (t.type !== 'income' || t.date !== now) continue;

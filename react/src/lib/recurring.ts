@@ -3,7 +3,7 @@
 // Computes next-due-date and generates pending transactions when due.
 
 import type { RecurringSchedule, RecurrenceFreq, Transaction } from '../types';
-import { today } from './format';
+import { today, addDaysISO } from './format';
 
 const DAY_MS = 86_400_000;
 
@@ -127,9 +127,7 @@ export function dueSchedules(schedules: RecurringSchedule[], now = today()): Rec
 
 // Returns schedules upcoming within `leadDays` — for upcoming-bill notifications
 export function upcomingSchedules(schedules: RecurringSchedule[], leadDays = 3, now = today()): RecurringSchedule[] {
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() + leadDays);
-  const cutoffISO = cutoff.toISOString().split('T')[0];
+  const cutoffISO = addDaysISO(now, leadDays);   // W3a: string arithmetic, not a UTC parse stepped locally
   return schedules.filter(s => s.active && s.nextDueDate <= cutoffISO && s.nextDueDate > now);
 }
 
@@ -233,11 +231,8 @@ const parseISO = (iso: string): Date => new Date(`${iso}T00:00:00.000Z`);
 const lastDayOfMonth = (y: number, m0: number): number =>
   new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
 
-export function addDaysISO(iso: string, days: number): string {
-  const d = parseISO(iso);
-  d.setUTCDate(d.getUTCDate() + days);
-  return isoOf(d);
-}
+// The one implementation lives in format.ts (W3a); re-exported for the existing importers.
+export { addDaysISO };
 
 /** The later of two ISO dates. */
 export const maxISO = (a: string, b: string): string => (a >= b ? a : b);

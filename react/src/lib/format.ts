@@ -3,7 +3,63 @@ import type { Transaction } from '../types';
 import { CURRENCIES, DEFAULT_RATES } from '../constants';
 import { toDinero, fromDinero, convertViaUsdRates } from './money';
 
-export const today = (): string => new Date().toISOString().split('T')[0];
+// ── "Today" is a LOCAL calendar day (W3a, v10.65.0; audit INT-TZC-03, INT-PAR-04; owner decision D12).
+// In the app it is the DEVICE's day; on the server the engine passes the HOUSEHOLD's zone (`tz`).
+// It used to be the UTC day, so between 00:00 and 05:30 in India an entry, a due bill and "this
+// month" all landed on yesterday. Date-only ARITHMETIC stays in UTC (`addDaysISO`): it works on the
+// string, so the device's zone and daylight saving never move it.
+
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+/** The calendar date (YYYY-MM-DD) of an instant in `tz`, or in the device's zone when `tz` is absent or unknown. */
+export function dateKeyIn(at: Date, tz?: string | null): string {
+  if (tz) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+        .formatToParts(at);
+      const part = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+      return `${part('year')}-${part('month')}-${part('day')}`;
+    } catch { /* an unknown zone name: use the device's day, as the app does */ }
+  }
+  return `${at.getFullYear()}-${pad2(at.getMonth() + 1)}-${pad2(at.getDate())}`;
+}
+
+/** Today's date (YYYY-MM-DD): the device's day, or the given zone's (the household's, on the server). */
+export const today = (tz?: string | null): string => dateKeyIn(new Date(), tz);
+
+/**
+ * "Now" for code that reads getDate()/getMonth()/setHours(): a Date whose LOCAL getters show the wall
+ * clock in `tz`. Without `tz` it is just `new Date()` (the device's clock). On the server, where the
+ * host runs in UTC, this is how the engine reads the household's day without any global state.
+ */
+export function wallClock(tz?: string | null, at: Date = new Date()): Date {
+  if (!tz) return new Date(at.getTime());
+  try {
+    const p: Record<string, string> = {};
+    for (const x of new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+    }).formatToParts(at)) p[x.type] = x.value;
+    return new Date(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second, at.getMilliseconds());
+  } catch {
+    return new Date(at.getTime());
+  }
+}
+
+/**
+ * The local calendar day of an instant (the device's, or `tz`'s) as a UTC-midnight Date, for date-only
+ * arithmetic that reads UTC getters. Reading getUTCDate() on the raw instant gives the UTC day instead.
+ */
+export function localDayUTC(at: Date = new Date(), tz?: string | null): Date {
+  const [y, m, d] = dateKeyIn(at, tz).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+/** Date-only arithmetic on a YYYY-MM-DD string, in UTC so no zone or DST change can move it. */
+export function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
 export const nowTime = (): string => {
   const current = new Date();
   return `${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`;
@@ -67,7 +123,8 @@ export const escHtml = (s: string): string =>
   String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 export const clamp = (v: number, min: number, max: number): number => Math.max(min, Math.min(max, v));
 export const getMonthKey = (d: string): string => d.slice(0, 7);
-export const nowMonthKey = (): string => today().slice(0, 7);
+/** This month (YYYY-MM): the device's, or the given zone's (W3a — it used to be the UTC month). */
+export const nowMonthKey = (tz?: string | null): string => today(tz).slice(0, 7);
 
 /**
  * When the MONEY MOVED: the transaction's own date, plus an explicit time if the
@@ -127,9 +184,11 @@ export function monthName(key: string): string {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString(undefined, { month: 'short', year: 'numeric' });
 }
 
-export function daysUntil(dateStr?: string): number | null {
+/** Whole days from today (local) to a YYYY-MM-DD date: 0 = today, 1 = tomorrow, −1 = yesterday. */
+export function daysUntil(dateStr?: string, tz?: string | null): number | null {
   if (!dateStr) return null;
-  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+  const at = (iso: string) => { const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  return Math.round((at(dateStr) - at(today(tz))) / 86400000);
 }
 
 /**

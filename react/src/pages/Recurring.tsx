@@ -11,7 +11,7 @@ import { Field, Select } from '../components/ui/Input';
 import { AmountField } from '../components/ui/NumericKeypad';
 import HalfSheet from '../components/ui/HalfSheet';
 import BillCalendar from '../components/recurring/BillCalendar';
-import { formatDate } from '../lib/format';
+import { formatDate, today } from '../lib/format';
 import { getCat, CURRENCIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import type { RecurringSeed } from '../lib/askVyactResponses';
@@ -140,7 +140,7 @@ export default function Recurring() {
     if (type === 'investment' && !toAccountId) {
       toast('Choose the investment to put this into', 'error'); return;
     }
-    const startDate = editing?.startDate || new Date().toISOString().split('T')[0];
+    const startDate = editing?.startDate || today();
     const rrule = buildRruleStr();
     const dom = (freq === 'monthly' || freq === 'custom_day') && monthlyMode === 'dom' ? dayOfMonth : undefined;
     // v10.20.6 — was `computeNextDueDate(freq, startDate, undefined, dom ?? 1)`,

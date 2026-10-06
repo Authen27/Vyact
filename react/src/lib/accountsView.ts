@@ -14,6 +14,7 @@
 import type {
   Account, AccountDependencies, PaymentMode, RecurringSchedule, Transaction,
 } from '../types';
+import { localDayUTC } from './format';
 
 /** A balance not checked against a statement for longer than this says so. */
 export const STALE_AFTER_DAYS = 30;
@@ -104,7 +105,8 @@ const isoDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
  * before the next one. A cycle day past the end of a short month clamps to that
  * month's last day, as issuers do.
  */
-export function statementWindow(cycleDay: number, now: Date): { start: string; end: string } {
+export function statementWindow(cycleDay: number, nowInstant: Date): { start: string; end: string } {
+  const now = localDayUTC(nowInstant);   // W3a: the local day, read with UTC getters
   const y = now.getUTCFullYear();
   const m = now.getUTCMonth();
   let sy = y;
@@ -121,7 +123,8 @@ export function statementWindow(cycleDay: number, now: Date): { start: string; e
 }
 
 /** The next payment due date on or after today, clamped to short months. */
-export function nextDueDate(dueDay: number, now: Date): string {
+export function nextDueDate(dueDay: number, nowInstant: Date): string {
+  const now = localDayUTC(nowInstant);   // W3a: the local day, read with UTC getters
   const y = now.getUTCFullYear();
   const m = now.getUTCMonth();
   const thisMonth = Math.min(dueDay, lastDayOf(y, m));

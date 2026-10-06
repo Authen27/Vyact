@@ -202,6 +202,25 @@ describe('webhook failure handling (W0)', () => {
     expect(api.rpc).toHaveBeenCalledWith('whatsapp_log_transaction', expect.objectContaining({ p_amount: 450, p_date: '2026-09-23' }));
     expect(sentTexts()[0]).toContain('on 2026-09-23');
   });
+  it('CON-UNIT-W3-D12-006 · an undated entry is dated the day it was sent, in the household’s zone', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', amount: 450, currency: 'INR', type: 'expense', category_id: 'food_dining', account_name: 'Bank' } });
+    // 02:00 UTC on 24 Sep: 07:30 on the 24th in India, 22:00 on the 23rd in New York.
+    const body = JSON.stringify({ entry: [{ changes: [{ value: {
+      messages: [{ id: 'm-1', from: '111', timestamp: String(Date.UTC(2026, 8, 24, 2, 0) / 1000), text: { body: '450 lunch' } }] } }] }] });
+    for (const [timezone, day] of [['America/New_York', '2026-09-23'], [null, '2026-09-24']] as const) {
+      api.rpc.mockClear();
+      webhookTables(0);
+      const routes = api.from.getMockImplementation()!;
+      api.from.mockImplementation((table: string) => (table === 'whatsapp_identities'
+        ? queryResult({ profile_id: 'alice', household_id: 'alice-house', households: timezone ? { timezone } : null })
+        : routes(table)));
+      await handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+      expect(api.rpc, String(timezone)).toHaveBeenCalledWith('whatsapp_log_transaction', expect.objectContaining({ p_amount: 450, p_date: day }));
+    }
+    // An undated entry's reply does not announce a date.
+    expect(sentTexts().at(-1)).not.toContain(' on 2026-');
+  });
 
   it('CON-UNIT-WA-W0-004 · a button reply is recorded as done without a reply', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));

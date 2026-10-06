@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.64.0`** (consumer)
+> **Current production version: `v10.65.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,41 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.65.0 — W3a: "today" is your day, not UTC's *(2026-10-06)*
+
+First stage of W3 in the 2026-10-04 audit remediation (owner decision D12: device local + household
+zone). Audit INT-TZC-03/04/05, INT-PAR-04, FE-PIP-10, FE-MNY-05, FE-UIC-03, BE-FN-08.
+
+- **The app's "today" and "this month" are the device's** (`lib/format.ts`). They were the UTC day,
+  so between 00:00 and 05:30 in India a new entry was dated yesterday, a bill due today was not yet
+  due, "this month" on the 1st was still last month, and the Today/Yesterday chips, the Dashboard,
+  Budgets, Reports, Insights and Pip disagreed with each other around midnight. The inline UTC
+  derivations (splits paid-on, recurring defaults, debt payments, reconcile date, onboarding's
+  first-pay date and join month, card statement windows, the reconcile log) now use the local day.
+  Date-only arithmetic stays on strings in UTC (`addDaysISO`), so no zone or DST change moves it.
+- **The server reads the HOUSEHOLD's day.** `households.timezone` (IANA; every existing household
+  starts on India time, which is what the server assumed) is set from the creator's device at
+  signup, or stamped once by the owner's device (`set_household_timezone`, owner only, never
+  overwriting a zone already set). The bundled engine takes it explicitly (`AssistantContext.tz`,
+  no global state): Pip on WhatsApp, the runway and the notifications raised for web push all use
+  the household's calendar. Migration 20261012120000.
+- **WhatsApp:** "today" and "yesterday" are the sender's household day (the fixed IST offset
+  `VYACT_TZ_OFFSET_MINUTES` is retired), and an undated entry is always sent with that date — the
+  database used to fill in its own UTC day.
+- **The scheduler runs on each household's clock.** The bills, digest, monthly and weekly jobs run
+  every 30 minutes and each household is handled by the run in its own local slot (09:00, 20:30,
+  09:00, Sunday 18:00); before, they ran once at a UTC time meant as India time — 23:30 the evening
+  before in New York. Timing for India is unchanged; the dedupe slots stop any double send.
+- **A push held back for quiet hours is no longer lost** (INT-TZC-05). It stays pending and goes out
+  after quiet hours end; before, it was marked pushed at once, so a bill due today, raised just after
+  midnight, never reached a lock screen. A device already reached is not pushed twice.
+
+Not in this release (planned for D13, the recurrence engine): `computeNextDueDate`'s local-time
+arithmetic (INT-PAR-02) and amortisation dates.
+
+Tests: timeZoneDay.test.ts (4), householdTimezoneSql.test.ts (2, PGlite), webPush.test.ts (+1),
+whatsappWorkflow.test.ts (+1).
 
 ## v10.64.0 — W1c: split email and Pip can't be used as a relay *(2026-10-06)*
 

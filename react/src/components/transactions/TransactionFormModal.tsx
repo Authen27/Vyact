@@ -6,7 +6,7 @@ import SegmentedControl from '../ui/SegmentedControl';
 import CategoryPicker from '../ui/CategoryPicker';
 import { AmountField } from '../ui/NumericKeypad';
 import { useStore } from '../../store';
-import { normalizeTimeInput, nowTime, uid, today } from '../../lib/format';
+import { normalizeTimeInput, nowTime, uid, today, addDaysISO } from '../../lib/format';
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
@@ -120,14 +120,10 @@ function deriveInitialTime(initial?: Transaction | null): string {
   return nowTime();
 }
 
-// Must share today()'s UTC basis (lib/format.ts) — mixing a local-time
-// yesterday with a UTC-based today collided into the same string west of
-// UTC in the early-morning local hours, making Today/Yesterday impossible
-// to tell apart or un-select.
+// Must share today()'s basis (lib/format.ts — the device's local day since W3a). It is string
+// arithmetic on today(), so Today and Yesterday can never collide into the same date.
 function yesterdayStr(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().split('T')[0];
+  return addDaysISO(today(), -1);
 }
 
 export default function TransactionFormModal(props: Props) {

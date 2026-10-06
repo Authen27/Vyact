@@ -12,6 +12,7 @@ import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { highestRole, resolveMyRole } from '../../lib/permissions';
 import { setLocalString } from '../localJson';
 import { invalidateCacheForSession, clearCacheOnSignOut } from '../../lib/cacheInvalidation';
+import { stampHouseholdTimezone } from '../../lib/householdTimezone';
 
 export interface CloudAuthSlice {
   cloudEnabled: boolean;
@@ -113,9 +114,12 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
         .eq('household_id', currentHouseholdId)
         .eq('user_id', get().session!.user.id)
         .maybeSingle();
-      set({ myRole: resolveMyRole({
+      const myRole = resolveMyRole({
         cloudEnabled, hasSession, membershipRole: data?.role as AppRole | null,
-      }) });
+      });
+      set({ myRole });
+      // W3a — the server reads "today" in the household's zone; the owner's device supplies it once.
+      if (myRole === 'owner') void stampHouseholdTimezone(currentHouseholdId);
     } catch { /* offline — keep last known */ }
     void highestRole; // suppress unused
   },

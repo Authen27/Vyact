@@ -1233,7 +1233,52 @@ function profileFromRows(prof, hh, email) {
 }
 //#endregion
 //#region react/src/lib/format.ts
-const today = () => (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+const pad2 = (n) => String(n).padStart(2, "0");
+/** The calendar date (YYYY-MM-DD) of an instant in `tz`, or in the device's zone when `tz` is absent or unknown. */
+function dateKeyIn(at, tz) {
+	if (tz) try {
+		const parts = new Intl.DateTimeFormat("en-CA", {
+			timeZone: tz,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit"
+		}).formatToParts(at);
+		const part = (type) => parts.find((p) => p.type === type)?.value ?? "";
+		return `${part("year")}-${part("month")}-${part("day")}`;
+	} catch {}
+	return `${at.getFullYear()}-${pad2(at.getMonth() + 1)}-${pad2(at.getDate())}`;
+}
+/** Today's date (YYYY-MM-DD): the device's day, or the given zone's (the household's, on the server). */
+const today = (tz) => dateKeyIn(/* @__PURE__ */ new Date(), tz);
+/**
+* "Now" for code that reads getDate()/getMonth()/setHours(): a Date whose LOCAL getters show the wall
+* clock in `tz`. Without `tz` it is just `new Date()` (the device's clock). On the server, where the
+* host runs in UTC, this is how the engine reads the household's day without any global state.
+*/
+function wallClock(tz, at = /* @__PURE__ */ new Date()) {
+	if (!tz) return new Date(at.getTime());
+	try {
+		const p = {};
+		for (const x of new Intl.DateTimeFormat("en-US", {
+			timeZone: tz,
+			hourCycle: "h23",
+			year: "numeric",
+			month: "numeric",
+			day: "numeric",
+			hour: "numeric",
+			minute: "numeric",
+			second: "numeric"
+		}).formatToParts(at)) p[x.type] = x.value;
+		return new Date(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second, at.getMilliseconds());
+	} catch {
+		return new Date(at.getTime());
+	}
+}
+/** Date-only arithmetic on a YYYY-MM-DD string, in UTC so no zone or DST change can move it. */
+function addDaysISO(iso, days) {
+	const [y, m, d] = iso.split("-").map(Number);
+	return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
 const uid = () => {
 	try {
 		if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -1245,7 +1290,8 @@ const uid = () => {
 };
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const getMonthKey = (d) => d.slice(0, 7);
-const nowMonthKey = () => today().slice(0, 7);
+/** This month (YYYY-MM): the device's, or the given zone's (W3a — it used to be the UTC month). */
+const nowMonthKey = (tz) => today(tz).slice(0, 7);
 /**
 * Multi-currency conversion using a USD-base rate table.
 *
@@ -1375,8 +1421,8 @@ function spendByCategoryInRange(transactions, start, end, baseCurrency, rates) {
 	return out;
 }
 const totalMonthlyDebtPayment = (debts, baseCurrency, rates) => fromDinero(sumDinero(debts.filter((d) => (d.direction || "owed_by_me") !== "owed_to_me"), (d) => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates), baseCurrency));
-function computePulseScore(transactions, budgets, _goals, debts, baseCurrency, rates, allocations = []) {
-	const mk = nowMonthKey();
+function computePulseScore(transactions, budgets, _goals, debts, baseCurrency, rates, allocations = [], tz) {
+	const mk = nowMonthKey(tz);
 	const { income, expense } = monthlyData(transactions, mk, baseCurrency, rates);
 	const lines = budgetLinesForMonth(budgets, allocations, mk);
 	const budgetApplicable = lines.length > 0;
@@ -1664,8 +1710,8 @@ function computeNetWorth(state, baseCurrency, rates) {
 * month understates every average. A household with no completed month at all
 * falls back to the current month with `partialMonthOnly: true`.
 */
-function spendBasis(txns, baseCurrency, rates, maxMonths = 6) {
-	const current = nowMonthKey();
+function spendBasis(txns, baseCurrency, rates, maxMonths = 6, tz) {
+	const current = nowMonthKey(tz);
 	const months = [...new Set(txns.map((t) => getMonthKey(t.date)))].filter((mk) => mk < current).sort().slice(-maxMonths);
 	const keys = months.length > 0 ? months : [current];
 	let total = 0, essential = 0, discretionary = 0;
@@ -1683,9 +1729,9 @@ function spendBasis(txns, baseCurrency, rates, maxMonths = 6) {
 		averageDiscretionary: round2(discretionary / n)
 	};
 }
-function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, accounts = [], allocations = []) {
+function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, accounts = [], allocations = [], tz) {
 	const cur = profile.baseCurrency;
-	const mk = nowMonthKey();
+	const mk = nowMonthKey(tz);
 	const month = monthlyData(txns, mk, cur, rates);
 	const nwProjection = computeNetWorth({
 		assets,
@@ -1696,9 +1742,9 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 	const ta = nwProjection.totalAssets;
 	const tl = nwProjection.totalLiabilities;
 	const liquid = nwProjection.liquidAssets;
-	const basis = spendBasis(txns, cur, rates);
+	const basis = spendBasis(txns, cur, rates, 6, tz);
 	const liquidityMonths = basis.averageMonthly > 0 ? liquid / basis.averageMonthly : 0;
-	const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations);
+	const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations, tz);
 	const spend = spendByCategory(txns, mk, cur, rates);
 	const topCategories = Object.entries(spend).sort(([, a], [, b]) => b - a).slice(0, 5).map(([category, amount]) => ({
 		category,
@@ -1738,7 +1784,7 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 		monthsRemaining: d.remainingMonths
 	}));
 	return {
-		asOf: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+		asOf: today(tz),
 		baseCurrency: cur,
 		household: {
 			type: profile.household,
@@ -2660,8 +2706,8 @@ const money = (n, ctx) => fmt(Math.round(n), cur(ctx));
 * was a module constant, fixed when the file loaded, so a tab left open over a month
 * end (or a long-lived server isolate) kept answering "this month" for the old month.
 */
-const currentPeriod = () => ({
-	monthKey: nowMonthKey(),
+const currentPeriod = (tz) => ({
+	monthKey: nowMonthKey(tz),
 	label: "this month",
 	isCurrent: true
 });
@@ -2685,7 +2731,7 @@ function samePointLastMonth(now = /* @__PURE__ */ new Date()) {
 }
 /** Rolling monthly average expense for a category over the last `n` months
 *  (excluding the current month). Pure composition of `spendByCategory`. */
-function categoryRollingAvg(ctx, category, n = 3, excludeMonth = nowMonthKey()) {
+function categoryRollingAvg(ctx, category, n = 3, excludeMonth = nowMonthKey(ctx.tz)) {
 	const months = [...new Set(ctx.transactions.map((t) => getMonthKey(t.date)))].sort().filter((m) => m !== excludeMonth).slice(-n);
 	if (!months.length) return 0;
 	return months.reduce((s, mk) => s + (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0), 0) / months.length;
@@ -2869,7 +2915,7 @@ function receptionist(salutation, ctx) {
 			}
 		]
 	};
-	const today = /* @__PURE__ */ new Date();
+	const today = wallClock(ctx.tz);
 	today.setHours(0, 0, 0, 0);
 	const weekOut = new Date(today);
 	weekOut.setDate(weekOut.getDate() + 7);
@@ -3020,7 +3066,7 @@ function debtFacts(ctx) {
 }
 /** Does this category lean on onboarding estimates? (provenance, spec §5). */
 function categoryUsesEstimate(ctx, category) {
-	if (categoryBudget(ctx, category, nowMonthKey())?.estimated) return true;
+	if (categoryBudget(ctx, category, nowMonthKey(ctx.tz))?.estimated) return true;
 	return ctx.transactions.some((t) => t.category === category && t.confidence && t.confidence !== "confirmed");
 }
 /**
@@ -3033,7 +3079,7 @@ function categoryUsesEstimate(ctx, category) {
 * assertNoInventedFigures. Category LABELS only — never descriptions or merchant
 * text, which SafeSummary deliberately excludes from egress.
 */
-function categoryBreakdown(ctx, monthKey = nowMonthKey()) {
+function categoryBreakdown(ctx, monthKey = nowMonthKey(ctx.tz)) {
 	const spend = spendByCategory(ctx.transactions, monthKey, cur(ctx), ctx.rates);
 	const total = Object.values(spend).reduce((a, b) => a + b, 0);
 	const entries = /* @__PURE__ */ new Map();
@@ -3058,7 +3104,7 @@ function categoryBreakdown(ctx, monthKey = nowMonthKey()) {
 * least one entry, ending today (or yesterday, when today has nothing yet — a
 * streak is not broken before the day is over), and days recorded this month.
 */
-function loggingFacts(ctx, now = /* @__PURE__ */ new Date()) {
+function loggingFacts(ctx, now = wallClock(ctx.tz)) {
 	const days = new Set(ctx.transactions.map((t) => t.date));
 	let cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 	if (!days.has(isoDay(cursor))) cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 1);
@@ -3080,7 +3126,7 @@ function loggingFacts(ctx, now = /* @__PURE__ */ new Date()) {
 * comparison to make, and it says so rather than reporting "₹X more than ₹0".
 */
 function samePointFacts(ctx, amountNow, category) {
-	const sp = samePointLastMonth();
+	const sp = samePointLastMonth(wallClock(ctx.tz));
 	const spend = spendByCategoryInRange(ctx.transactions, sp.start, sp.end, cur(ctx), ctx.rates);
 	const then = category ? spend[category] || 0 : Object.values(spend).reduce((a, b) => a + b, 0);
 	if (then <= 0) return { same_point_last_month: "nothing recorded at that point last month" };
@@ -3283,7 +3329,7 @@ function resolveCore(intent, ctx) {
 			const type = intent.id === "capture.income" ? "income" : intent.id === "capture.transfer" ? "transfer" : intent.id === "capture.investment" ? "investment" : "expense";
 			const transferClass = type === "transfer" || type === "investment";
 			const category = transferClass ? "" : e.category ?? (type === "expense" ? matchCategory(String(e.merchant ?? "").toLowerCase()) : void 0) ?? (type === "income" ? "salary" : "other_expense");
-			const statedDate = parseDateEntity(typeof e.date === "string" ? e.date : void 0);
+			const statedDate = parseDateEntity(typeof e.date === "string" ? e.date : void 0, wallClock(ctx.tz));
 			const accountId = matchAccountId(typeof e.account === "string" ? e.account : void 0, ctx.accounts ?? []);
 			const accountName = accountId ? (ctx.accounts ?? []).find((a) => a.id === accountId)?.name : void 0;
 			return {
@@ -3363,9 +3409,9 @@ function resolveCore(intent, ctx) {
 		}
 		case "interpret.lookup": {
 			const stated = typeof e.period === "string" ? e.period : void 0;
-			const span = resolveDayWindow(stated);
+			const span = resolveDayWindow(stated, wallClock(ctx.tz));
 			if (span) return lookupWindow(ctx, span, typeof e.category === "string" ? e.category : void 0);
-			const period = resolvePeriod(stated) ?? (stated ? null : currentPeriod());
+			const period = resolvePeriod(stated, wallClock(ctx.tz)) ?? (stated ? null : currentPeriod(ctx.tz));
 			if (!period) return {
 				kind: "interpret",
 				outcome: "needs_period",
@@ -3532,7 +3578,7 @@ function resolveCore(intent, ctx) {
 			};
 		}
 		case "interpret.diagnostic": {
-			const mk = nowMonthKey();
+			const mk = nowMonthKey(ctx.tz);
 			const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
 			let worst = null;
 			for (const [c, amt] of Object.entries(spend)) {
@@ -3599,7 +3645,7 @@ function resolveCore(intent, ctx) {
 			const detail = over.length ? `${over.length} over: ${over.map((b) => getCat(b.category).label).join(", ")}.` : near.length ? `${near.length} close to the limit: ${near.map((b) => getCat(b.category).label).join(", ")}.` : ctx.summary.budgets.length ? `all ${ctx.summary.budgets.length} budgets are on track.` : `you have no budgets yet.`;
 			const worstBudget = over[0] ?? near[0];
 			const count = ctx.summary.budgets.length;
-			const now = /* @__PURE__ */ new Date();
+			const now = wallClock(ctx.tz);
 			const monthGone = now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() * 100;
 			const onPace = ctx.summary.budgets.filter((b) => b.spentPct <= monthGone).length;
 			return {
@@ -3670,7 +3716,7 @@ function resolveCore(intent, ctx) {
 			};
 		}
 		case "interpret.bills": {
-			const now = /* @__PURE__ */ new Date();
+			const now = wallClock(ctx.tz);
 			const today = isoDay(now);
 			const weekEnd = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6));
 			const monthAgo = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 45));
@@ -3734,7 +3780,7 @@ function resolveCore(intent, ctx) {
 			const headroom = free - floor;
 			const category = purchaseCategory(e);
 			const label = category ? getCat(category).label : void 0;
-			const mk = nowMonthKey();
+			const mk = nowMonthKey(ctx.tz);
 			const line = category ? categoryBudget(ctx, category, mk) : void 0;
 			const lineLeft = category && line ? line.limit - (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0) : void 0;
 			const covered = e.amount <= free;
@@ -3875,7 +3921,7 @@ function resolveCore(intent, ctx) {
 		}
 		case "forecast.prescriptive": {
 			const target = e.amount;
-			const mk = nowMonthKey();
+			const mk = nowMonthKey(ctx.tz);
 			const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
 			let best = null;
 			let basis = "above_usual";
@@ -4135,9 +4181,7 @@ function unavailableTurn(reason) {
 //#endregion
 //#region react/src/lib/recurring.ts
 function upcomingSchedules(schedules, leadDays = 3, now = today()) {
-	const cutoff = new Date(now);
-	cutoff.setDate(cutoff.getDate() + leadDays);
-	const cutoffISO = cutoff.toISOString().split("T")[0];
+	const cutoffISO = addDaysISO(now, leadDays);
 	return schedules.filter((s) => s.active && s.nextDueDate <= cutoffISO && s.nextDueDate > now);
 }
 //#endregion
@@ -4239,13 +4283,13 @@ function typeEnabled(prefs, type) {
 	return prefs.perType[type] !== false;
 }
 const iso = () => (/* @__PURE__ */ new Date()).toISOString();
-function daysUntil(dateStr) {
+function daysUntil(dateStr, tz) {
 	const d = (/* @__PURE__ */ new Date(dateStr + "T00:00:00")).getTime();
-	const now = (/* @__PURE__ */ new Date(today() + "T00:00:00")).getTime();
+	const now = (/* @__PURE__ */ new Date(today(tz) + "T00:00:00")).getTime();
 	return Math.round((d - now) / 864e5);
 }
-function relDate(dateStr) {
-	const n = daysUntil(dateStr);
+function relDate(dateStr, tz) {
+	const n = daysUntil(dateStr, tz);
 	if (n === 0) return "today";
 	if (n === 1) return "tomorrow";
 	if (n === -1) return "yesterday";
@@ -4270,7 +4314,7 @@ function base(type, dedupeKey, ctx) {
 /** 1 · recurring_due_confirm (P1) — due/overdue, active, auto-confirm OFF. */
 function recurringDueNotifs(schedules, prefs, existing, ctx) {
 	if (!typeEnabled(prefs, "recurring_due_confirm")) return [];
-	const now = today();
+	const now = today(ctx.tz);
 	const out = [];
 	for (const s of schedules) {
 		if (!s.active || s.autoConfirm || s.nextDueDate > now) continue;
@@ -4279,7 +4323,7 @@ function recurringDueNotifs(schedules, prefs, existing, ctx) {
 		const amt = s.transactionTemplate.amount ?? 0;
 		out.push({
 			...base("recurring_due_confirm", key, ctx),
-			title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — due ${relDate(s.nextDueDate)}`,
+			title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
 			body: "Auto-approve is off for this schedule",
 			dueAt: s.nextDueDate,
 			amountRef: amt,
@@ -4300,13 +4344,13 @@ function recurringReminderNotifs(schedules, prefs, existing, ctx) {
 	const out = [];
 	for (const s of schedules) {
 		const lead = s.reminderLeadDays ?? prefs.defaultLeadDays;
-		if (!upcomingSchedules([s], lead).length) continue;
+		if (!upcomingSchedules([s], lead, today(ctx.tz)).length) continue;
 		const key = `recurring_reminder:${s.id}:${s.nextDueDate}`;
 		if (existing.some((n) => n.dedupeKey === key)) continue;
 		const amt = s.transactionTemplate.amount ?? 0;
 		out.push({
 			...base("recurring_reminder", key, ctx),
-			title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — ${relDate(s.nextDueDate)}`,
+			title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
 			body: "Upcoming recurring charge",
 			dueAt: s.nextDueDate,
 			amountRef: amt,
@@ -4342,7 +4386,7 @@ const MONTH_NAMES = [
 * (`spendByCategoryInRange` in base currency). A legacy single-category budget (no
 * allocations) is still checked as one line for the current month.
 */
-function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx, now = today()) {
+function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx, now = today(ctx.tz)) {
 	if (!typeEnabled(prefs, "budget_threshold")) return [];
 	const out = [];
 	const cur = ctx.baseCurrency;
@@ -4393,14 +4437,14 @@ function debtDueNotifs(debts, prefs, existing, ctx) {
 	const out = [];
 	for (const d of debts) {
 		if (d.direction === "owed_to_me" || !d.dueDate || d.currentBalance <= 0) continue;
-		const n = daysUntil(d.dueDate);
+		const n = daysUntil(d.dueDate, ctx.tz);
 		if (n < 0 || n > 3) continue;
 		const key = `debt_payment_due:${d.id}:${d.dueDate}`;
 		if (existing.some((x) => x.dedupeKey === key)) continue;
 		const amt = d.minimumPayment ?? 0;
 		out.push({
 			...base("debt_payment_due", key, ctx),
-			title: `${d.name} payment · ${fmt(amt, d.currency)} — due ${relDate(d.dueDate)}`,
+			title: `${d.name} payment · ${fmt(amt, d.currency)} — due ${relDate(d.dueDate, ctx.tz)}`,
 			body: "Minimum payment coming up",
 			dueAt: d.dueDate,
 			amountRef: amt,
@@ -4414,7 +4458,7 @@ function debtDueNotifs(debts, prefs, existing, ctx) {
 /** 5 · income_landed (P2) — income transaction posted today. */
 function incomeLandedNotifs(txns, prefs, existing, ctx) {
 	if (!typeEnabled(prefs, "income_landed")) return [];
-	const now = today();
+	const now = today(ctx.tz);
 	const out = [];
 	for (const t of txns) {
 		if (t.type !== "income" || t.date !== now) continue;
@@ -4495,6 +4539,12 @@ function toInsertRow(n) {
 }
 //#endregion
 //#region react/src/lib/serverEngine.ts
+/**
+* W3a (v10.65.0) — the household's zone. The server's clock is UTC, so every calendar "today" and
+* "this month" the engine computes for a household is read in this zone (the DB default is India's).
+*/
+const DEFAULT_HOUSEHOLD_TZ = "Asia/Kolkata";
+const householdTz = (rows) => rows.household?.timezone || "Asia/Kolkata";
 /** Rows → the app's own shapes, with the adapter's mappers and the store's rate rule. */
 function shapesFromRows(rows) {
 	const map = (entity, list) => list.map((r) => mapCloudRow(entity, r));
@@ -4517,7 +4567,8 @@ function shapesFromRows(rows) {
 /** The AssistantContext Chat.tsx would build for this household. */
 function contextFromRows(rows) {
 	const { transactions, budgets, budgetAllocations, goals, debts, assets, accounts, recurring, profile, rates } = shapesFromRows(rows);
-	const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations);
+	const tz = householdTz(rows);
+	const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, tz);
 	summary.household.members = rows.memberCount;
 	return {
 		summary,
@@ -4536,7 +4587,8 @@ function contextFromRows(rows) {
 			name: a.name,
 			kind: a.kind
 		})),
-		channel: "whatsapp"
+		channel: "whatsapp",
+		tz
 	};
 }
 /** The accounts "Reply UPDATE" walks through: the ones on the Accounts screen. */
@@ -4629,6 +4681,7 @@ function runwaySnapshot(rows, now) {
 	const basisMonths = ctx.summary.spendBasis?.monthsConsidered ?? 0;
 	const months = Number.isFinite(raw) && basisMonths > 0 ? Math.round(raw * 10) / 10 : null;
 	const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+	now = wallClock(ctx.tz, now);
 	const last = key(new Date(now.getFullYear(), now.getMonth() - 1, 1));
 	const before = key(new Date(now.getFullYear(), now.getMonth() - 2, 1));
 	const a = spendByCategory(ctx.transactions, before, ctx.baseCurrency, ctx.rates);
@@ -4665,7 +4718,8 @@ function notificationsOnServer(rows, existingKeys, householdId) {
 	const ctx = {
 		householdId,
 		baseCurrency: profile.baseCurrency,
-		rates
+		rates,
+		tz: householdTz(rows)
 	};
 	const prefs = DEFAULT_PREFS;
 	return [
@@ -4706,4 +4760,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, cleanOffending, contextFromRows, notificationsOnServer, reconcileOnServer, renderForWhatsApp, runwaySnapshot, systemPromptFor };
+export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, cleanOffending, contextFromRows, notificationsOnServer, reconcileOnServer, renderForWhatsApp, runwaySnapshot, systemPromptFor };

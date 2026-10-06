@@ -15,7 +15,7 @@ import { computeNetWorth, cardDues } from './netWorth';
 import { computeAccountBalance } from './accountBalance';
 import { NEEDS_WANTS_MAP } from '../constants';
 import { convert } from './format';
-import { nowMonthKey, getMonthKey } from './format';
+import { nowMonthKey, getMonthKey, today } from './format';
 // Type-only, and one-directional: askVyactResponses does not import this module,
 // so the transcript can carry chips without creating an import cycle.
 import type { AssistantChip } from './askVyactResponses';
@@ -53,9 +53,9 @@ export interface SpendBasis {
  * falls back to the current month with `partialMonthOnly: true`.
  */
 export function spendBasis(
-  txns: Transaction[], baseCurrency: string, rates: ExchangeRates, maxMonths = 6,
+  txns: Transaction[], baseCurrency: string, rates: ExchangeRates, maxMonths = 6, tz?: string | null,
 ): SpendBasis {
-  const current = nowMonthKey();
+  const current = nowMonthKey(tz);
   const months = [...new Set(txns.map(t => getMonthKey(t.date)))]
     .filter(mk => mk < current)
     .sort()
@@ -180,9 +180,11 @@ export function buildSafeSummary(
   txns: Transaction[], budgets: Budget[], goals: Goal[],
   debts: Debt[], assets: Asset[], profile: Profile, rates: ExchangeRates,
   accounts: Account[] = [], allocations: BudgetAllocation[] = [],
+  /** W3a — whose calendar month this is: the device's when absent, the household's on the server. */
+  tz?: string | null,
 ): SafeSummary {
   const cur = profile.baseCurrency;
-  const mk = nowMonthKey();
+  const mk = nowMonthKey(tz);
   const month = monthlyData(txns, mk, cur, rates);
   // Audit F3 — the assistant's net worth comes from the SAME canonical
   // projection the Dashboard and Net Worth pages render (live account balances
@@ -195,10 +197,10 @@ export function buildSafeSummary(
   // v10.38 — cover divides by the TYPICAL month (see SpendBasis), not by this
   // month's partial expense, which made cover look enormous early in a month and
   // disagreed with the floor every other seam used.
-  const basis = spendBasis(txns, cur, rates);
+  const basis = spendBasis(txns, cur, rates, 6, tz);
   const liquidityMonths = basis.averageMonthly > 0 ? liquid / basis.averageMonthly : 0;
   // Audit F5 — Pulse sees the allocation-derived budget lines.
-  const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations);
+  const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations, tz);
 
   // Top 5 expense categories this month — by category id only (no merchants)
   const spend = spendByCategory(txns, mk, cur, rates);
@@ -258,7 +260,7 @@ export function buildSafeSummary(
     }));
 
   return {
-    asOf: new Date().toISOString().split('T')[0],
+    asOf: today(tz),
     baseCurrency: cur,
     household: { type: profile.household, members: 0 /* caller sets */ },
     pulseScore: pulse,

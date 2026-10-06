@@ -26,7 +26,7 @@ import {
 } from './askVyactParser';
 import { getCat, NEEDS_WANTS_MAP, CURRENCIES, EXPENSE_CATEGORIES } from '../constants';
 import { fmt, convert } from './format';
-import { nowMonthKey, getMonthKey } from './format';
+import { nowMonthKey, getMonthKey, wallClock } from './format';
 import type { SafeSummary } from './aiSummary';
 import type { IntentResult, AssistantBucket } from './askVyactIntents';
 import { normaliseChips, type AssistantChip, type ResolveResult, type RecurringSeed } from './askVyactResponses';
@@ -68,6 +68,12 @@ export interface AssistantContext {
    * links and are English only; the app mirrors Hinglish. Defaults to the app.
    */
   channel?: 'app' | 'whatsapp';
+  /**
+   * W3a (v10.65.0) — whose calendar "today" and "this month" are. Absent in the app: the
+   * device's own day. On the server (WhatsApp) it is the household's zone, because the host
+   * clock there is UTC. Every clock read in this file goes through it.
+   */
+  tz?: string | null;
 }
 
 // ── The two-method seam (rules now, LLM later) ─────────────────────────────────
@@ -135,7 +141,7 @@ const money = (n: number, ctx: AssistantContext) => fmt(Math.round(n), cur(ctx))
  * was a module constant, fixed when the file loaded, so a tab left open over a month
  * end (or a long-lived server isolate) kept answering "this month" for the old month.
  */
-const currentPeriod = () => ({ monthKey: nowMonthKey(), label: 'this month', isCurrent: true } as const);
+const currentPeriod = (tz?: string | null) => ({ monthKey: nowMonthKey(tz), label: 'this month', isCurrent: true } as const);
 
 /** Local `YYYY-MM-DD`, as the ledger stores dates. */
 const isoDay = (d: Date) =>
@@ -156,7 +162,7 @@ function samePointLastMonth(now = new Date()): { start: string; end: string; lab
 
 /** Rolling monthly average expense for a category over the last `n` months
  *  (excluding the current month). Pure composition of `spendByCategory`. */
-function categoryRollingAvg(ctx: AssistantContext, category: string, n = 3, excludeMonth = nowMonthKey()): number {
+function categoryRollingAvg(ctx: AssistantContext, category: string, n = 3, excludeMonth = nowMonthKey(ctx.tz)): number {
   const months = [...new Set(ctx.transactions.map(t => getMonthKey(t.date)))]
     .sort().filter(m => m !== excludeMonth).slice(-n);
   if (!months.length) return 0;
@@ -372,7 +378,7 @@ export function receptionist(salutation: string, ctx?: AssistantContext): QuickR
       ],
     };
   }
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const today = wallClock(ctx.tz); today.setHours(0, 0, 0, 0);
   const weekOut = new Date(today); weekOut.setDate(weekOut.getDate() + 7);
   const bill = (ctx.recurring ?? [])
     .filter(r => r.active && r.transactionTemplate.type === 'expense')
@@ -532,7 +538,7 @@ function debtFacts(ctx: AssistantContext) {
 
 /** Does this category lean on onboarding estimates? (provenance, spec §5). */
 function categoryUsesEstimate(ctx: AssistantContext, category: string): boolean {
-  if (categoryBudget(ctx, category, nowMonthKey())?.estimated) return true;
+  if (categoryBudget(ctx, category, nowMonthKey(ctx.tz))?.estimated) return true;
   return ctx.transactions.some(t => t.category === category && t.confidence && t.confidence !== 'confirmed');
 }
 
@@ -546,7 +552,7 @@ function categoryUsesEstimate(ctx: AssistantContext, category: string): boolean 
  * assertNoInventedFigures. Category LABELS only — never descriptions or merchant
  * text, which SafeSummary deliberately excludes from egress.
  */
-function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey()) {
+function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey(ctx.tz)) {
   const spend = spendByCategory(ctx.transactions, monthKey, cur(ctx), ctx.rates);
   const total = Object.values(spend).reduce((a, b) => a + b, 0);
   // v10.46.0 — how many entries and what share of the period each category is, so
@@ -582,7 +588,7 @@ function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey()) {
  * least one entry, ending today (or yesterday, when today has nothing yet — a
  * streak is not broken before the day is over), and days recorded this month.
  */
-function loggingFacts(ctx: AssistantContext, now = new Date()) {
+function loggingFacts(ctx: AssistantContext, now = wallClock(ctx.tz)) {
   const days = new Set(ctx.transactions.map(t => t.date));
   let cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if (!days.has(isoDay(cursor))) cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 1);
@@ -605,7 +611,7 @@ function loggingFacts(ctx: AssistantContext, now = new Date()) {
  * comparison to make, and it says so rather than reporting "₹X more than ₹0".
  */
 function samePointFacts(ctx: AssistantContext, amountNow: number, category?: string) {
-  const sp = samePointLastMonth();
+  const sp = samePointLastMonth(wallClock(ctx.tz));
   const spend = spendByCategoryInRange(ctx.transactions, sp.start, sp.end, cur(ctx), ctx.rates);
   const then = category ? (spend[category] || 0) : Object.values(spend).reduce((a, b) => a + b, 0);
   if (then <= 0) return { same_point_last_month: 'nothing recorded at that point last month' };
@@ -787,7 +793,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
           ?? (type === 'income' ? 'salary' : 'other_expense'));
       // The date and the account the message stated. Both were extracted and then
       // dropped, so a bank paste still made the user retype the date and pick the card.
-      const statedDate = parseDateEntity(typeof e.date === 'string' ? e.date : undefined);
+      const statedDate = parseDateEntity(typeof e.date === 'string' ? e.date : undefined, wallClock(ctx.tz));
       const accountId = matchAccountId(typeof e.account === 'string' ? e.account : undefined, ctx.accounts ?? []);
       const accountName = accountId ? (ctx.accounts ?? []).find(a => a.id === accountId)?.name : undefined;
       const seed: Partial<Transaction> = {
@@ -867,9 +873,9 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       const stated = typeof e.period === 'string' ? e.period : undefined;
       // v10.46.0 — a window shorter than a month ("today", "this week"), answered over
       // its own dates. It used to fall to needs_period, or worse, to the month.
-      const span = resolveDayWindow(stated);
+      const span = resolveDayWindow(stated, wallClock(ctx.tz));
       if (span) return lookupWindow(ctx, span, typeof e.category === 'string' ? e.category : undefined);
-      const period = resolvePeriod(stated) ?? (stated ? null : currentPeriod());
+      const period = resolvePeriod(stated, wallClock(ctx.tz)) ?? (stated ? null : currentPeriod(ctx.tz));
       if (!period) {
         return {
           kind: 'interpret', outcome: 'needs_period',
@@ -1017,7 +1023,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       } };
     }
     case 'interpret.diagnostic': {
-      const mk = nowMonthKey();
+      const mk = nowMonthKey(ctx.tz);
       const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
       // Biggest category vs its rolling average — the deterministic "why".
       let worst: { cat: string; now: number; avg: number; delta: number } | null = null;
@@ -1077,7 +1083,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // v10.46.0 (#66) — pace: a budget used faster than the month has gone is
       // "ahead of pace" even while under its limit. 60% used with 40% of the month
       // gone is the early warning "close to limit" only gives at 80%.
-      const now = new Date();
+      const now = wallClock(ctx.tz);
       const monthGone = (now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) * 100;
       const onPace = ctx.summary.budgets.filter(b => b.spentPct <= monthGone).length;
       return { kind: 'interpret', outcome: 'ok',
@@ -1138,7 +1144,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // stores them. `new Date(nextDueDate)` is UTC midnight, which set against a
       // local midnight dropped or kept a bill due today depending on the time zone.
       // Bills are EXPENSE schedules: a salary is not a bill.
-      const now = new Date();
+      const now = wallClock(ctx.tz);
       const today = isoDay(now);
       const weekEnd = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 6));
       const monthAgo = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 45));
@@ -1213,7 +1219,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // the verdict (owner's rule, 27 Sep).
       const category = purchaseCategory(e);
       const label = category ? getCat(category).label : undefined;
-      const mk = nowMonthKey();
+      const mk = nowMonthKey(ctx.tz);
       const line = category ? categoryBudget(ctx, category, mk) : undefined;
       const lineLeft = category && line
         ? line.limit - (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0)
@@ -1322,7 +1328,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
     }
     case 'forecast.prescriptive': {
       const target = e.amount;
-      const mk = nowMonthKey();
+      const mk = nowMonthKey(ctx.tz);
       const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
       // Rank "want" categories by overage vs rolling average — least-painful trims.
       let best: { cat: string; over: number } | null = null;
@@ -1677,7 +1683,7 @@ export function proactiveInsight(ctx: AssistantContext): ProactiveInsight | null
     };
   }
   // 2) A category running hot vs its norm.
-  const mk = nowMonthKey();
+  const mk = nowMonthKey(ctx.tz);
   const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
   let hot: { cat: string; pct: number } | null = null;
   for (const [c, amt] of Object.entries(spend)) {

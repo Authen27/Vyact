@@ -371,4 +371,49 @@ describe('web-push function', () => {
     expect(calls.notifications[3].in).toHaveBeenCalledWith('id', ['n1', 'n2']);
     vi.useRealTimers();
   });
+
+  it('CON-UNIT-W3-D12-005 · a push held back for quiet hours stays pending, goes out when they end, and reaches each device once', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+    vi.stubGlobal('fetch', fetchMock);
+    loader.loadHouseholdRows.mockResolvedValue({ ...rows(), transactions: [], budgets: [], budgetAllocations: [], accounts: [], recurring: [] });
+    const secret = 'cron-secret-of-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+    api.rpc.mockImplementation(async (name: string, args: { p?: string }) => {
+      if (name === 'web_push_cron_ok') return { data: args.p === secret, error: null };
+      if (name === 'web_push_vapid') return { data: keys, error: null };
+      return { data: null, error: null };
+    });
+    const pending: NotificationRow[] = [{ ...NOTIF, id: 'n1', household_id: HID, created_at: '2026-09-27T16:00:00Z' }];
+    const handler = await load();
+    const run = async (at: string, delivered: { notification_id: string; subscription_id: string }[]) => {
+      vi.setSystemTime(new Date(at));
+      const calls = tableSequence({
+        push_subscriptions: [[[subRow('s1', dev1, { household_id: HID, user_id: 'u1' })]]],
+        memberships: [[[{ household_id: HID, user_id: 'u1' }]]],
+        notifications: [[[]], [pending], [null]],
+        push_deliveries: [[delivered], [null]],
+      });
+      const out = await (await post(handler, {}, { 'x-cron-secret': secret }, '?mode=dispatch')).json();
+      return { out, calls };
+    };
+
+    // 22:30 in India: inside the device's quiet hours. Nothing is sent, and the row is NOT stamped.
+    const night = await run('2026-09-27T17:00:00Z', []);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(night.out).toEqual(expect.objectContaining({ pushed: 0, deferred: 1, skipped: { quiet_hours: 1 } }));
+    expect(night.calls.notifications.some(q => q.update.mock.calls.length)).toBe(false);
+
+    // 07:30 in India: quiet hours are over — pushed, then stamped.
+    const morning = await run('2026-09-28T02:00:00Z', []);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(morning.out).toEqual(expect.objectContaining({ pushed: 1, deferred: 0 }));
+    expect(morning.calls.notifications[2].in).toHaveBeenCalledWith('id', ['n1']);
+
+    // A run that finds the device already reached does not push it again.
+    fetchMock.mockClear();
+    const again = await run('2026-09-28T02:15:00Z', [{ notification_id: 'n1', subscription_id: 's1' }]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(again.out.skipped).toEqual({ already_pushed: 1 });
+    vi.useRealTimers();
+  });
 });

@@ -418,8 +418,9 @@ export function computePulseScore(
   transactions: Transaction[], budgets: Budget[], _goals: Goal[], debts: Debt[],
   baseCurrency: string, rates: ExchangeRates,
   allocations: BudgetAllocation[] = [],
+  tz?: string | null,   // W3a: the household's month on the server, the device's in the app
 ): PulseScore {
-  const mk = nowMonthKey();
+  const mk = nowMonthKey(tz);
   const { income, expense } = monthlyData(transactions, mk, baseCurrency, rates);
 
   // 1. Budget compliance — applicable only if budgets exist.

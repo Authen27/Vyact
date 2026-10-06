@@ -10,6 +10,7 @@ import {
   computeAccountBalance, reconcileAccount as buildReconcileOffset,
   computeAssetValue, reconcileAssetValue,
 } from '../../lib/accountBalance';
+import { today } from '../../lib/format';
 
 export interface ReconcileSlice {
   /** Money-Model B1.3 — reconcile an account to a real balance by writing a dated
@@ -63,7 +64,7 @@ export const createReconcileSlice: StateCreator<Store, [], [], ReconcileSlice> =
     const confirmedAt = new Date().toISOString();
     await get().upsertAsset({
       ...asset, ...patch,
-      lastUpdated: confirmedAt.slice(0, 10),
+      lastUpdated: today(),   // W3a: the local day the value was confirmed, not the UTC day
       confidence: 'confirmed', source: 'user', confirmedAt,
     });
     return delta;
