@@ -142,7 +142,7 @@ export function isPushEndpoint(endpoint: string): boolean {
 
 export async function sendWebPush(
   target: PushTarget, payload: unknown, keys: VapidKeys,
-  opts: { ttlSeconds?: number; urgency?: 'very-low' | 'low' | 'normal' | 'high' } = {},
+  opts: { ttlSeconds?: number; urgency?: 'very-low' | 'low' | 'normal' | 'high'; timeoutMs?: number } = {},
   fetchImpl: typeof fetch = fetch,
 ): Promise<PushOutcome> {
   if (!isPushEndpoint(target.endpoint)) return { status: 0, ok: false, gone: true, error: 'endpoint_not_allowed' };
@@ -152,17 +152,27 @@ export async function sendWebPush(
   } catch (e) {
     return { status: 0, ok: false, gone: false, error: (e as Error).message };
   }
-  const res = await fetchImpl(target.endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Encoding': 'aes128gcm',
-      TTL: String(opts.ttlSeconds ?? 24 * 3600),
-      Urgency: opts.urgency ?? 'normal',
-      Authorization: await vapidAuthorization(target.endpoint, keys),
-    },
-    body,
-  });
+  // W0 (audit 2026-10-04, BE-FN-07) — a network failure or a push service that never
+  // answers is a failed delivery for THIS device, not an exception: one unreachable
+  // endpoint used to abort the whole dispatch, so nothing after it was sent and nothing
+  // was marked pushed (the next run re-sent everything and died at the same place).
+  let res: Response;
+  try {
+    res = await fetchImpl(target.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Encoding': 'aes128gcm',
+        TTL: String(opts.ttlSeconds ?? 24 * 3600),
+        Urgency: opts.urgency ?? 'normal',
+        Authorization: await vapidAuthorization(target.endpoint, keys),
+      },
+      body,
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
+    });
+  } catch (e) {
+    return { status: 0, ok: false, gone: false, error: `network: ${(e as Error)?.message ?? String(e)}`.slice(0, 300) };
+  }
   const ok = res.status >= 200 && res.status < 300;
   const gone = res.status === 404 || res.status === 410;
   let error: string | undefined;

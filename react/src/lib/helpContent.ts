@@ -183,8 +183,8 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     id: 'missing-entry', group: 'Everyday money',
     question: 'Why can I not find an entry or see it in totals?',
     answer: 'Check the selected household and date range first. In Transactions, clear filters and search for the description. Check whether a recurring entry is still awaiting confirmation.',
-    note: 'Private entries are excluded from totals and charts; this flag is not a substitute for household access permissions. Transfers and investments are excluded from ordinary income and spending. A missing entry is not always a failed save: check before adding it again.',
-    keywords: ['missing', 'filter', 'search', 'private', 'totals', 'pending', 'duplicate'],
+    note: 'Entries marked "Exclude from totals" are left out of totals and charts but stay visible to everyone in the household; it is not a privacy setting. Transfers and investments are excluded from ordinary income and spending. A missing entry is not always a failed save: check before adding it again.',
+    keywords: ['missing', 'filter', 'search', 'private', 'exclude', 'totals', 'pending', 'duplicate'],
     link: { to: '/transactions', label: 'Find a transaction' },
   },
   {

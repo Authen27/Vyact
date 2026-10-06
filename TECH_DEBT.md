@@ -78,7 +78,7 @@
 | TD-12 | ✅ Derived metrics recompute per render *(resolved · PR #13 batch; selectors retyped 2026-06-01)* | Performance | Medium | S–M |
 | TD-13 | ✅ Budget `period` is a per-device localStorage overlay *(resolved · PR #13 batch + PR #20 in prod; `budgetMeta.ts` removed 2026-06-01)* | Functional / Data integrity | Medium | S |
 | TD-14 | ✅ localStorage quota ceiling; failures swallowed *(resolved · 2026-06-01: kvStore IndexedDB substrate + storageEvents quota fan-out)* | Scalability | Medium | S–M |
-| TD-15 | ⚠ **REOPENED 2026-09-13** — MFA shipped, but leaked-password protection is DISABLED in production (advisor `auth_leaked_password_protection`) | Security | Medium | XS |
+| TD-15 | ⚠ MFA: **won't do** — owner decision 2026-10-06; the decorative 2FA UI was removed in v10.61.0. **Still open:** leaked-password protection is DISABLED in production (advisor `auth_leaked_password_protection`; a Supabase Auth dashboard toggle, owner action) | Security | Medium | XS |
 | TD-16 | Backups/exports unencrypted at rest | Security / Privacy | Medium | S |
 | TD-17 | ✅ No transaction list virtualization *(resolved · PR #3)* | Performance | Low | S |
 | TD-18 | ✅ Hand-run SQL file instead of a migrations tool *(resolved · PR #6)* | Technical / Process | Medium | S |

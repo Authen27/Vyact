@@ -4,8 +4,17 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.4.2`**
+> **Current production version: `v1.4.3`**
 > **Live URL:** https://admin.vyact.app
+
+---
+
+## v1.4.3 — Admin MFA row tells the truth *(2026-10-06)*
+
+- **Settings › Security › Admin MFA** said "Required for privileged access … tracked for v1.4.0".
+  Owner decision (audit 2026-10-04, D23, shipped with consumer v10.61.0): no two-factor
+  authentication for the consumer app or admin. The row now says "Not used" and that admin
+  sign-in is password-only. No behaviour change.
 
 ---
 

@@ -689,8 +689,13 @@ export default function TransactionFormModal(props: Props) {
         <label className="flex items-center gap-2 text-[0.84rem] text-ink-mid cursor-pointer select-none">
           <input type="checkbox" checked={form.excluded}
             onChange={e => setForm(f => ({ ...f, excluded: e.target.checked }))} />
-          <span>🔒 Private — exclude from totals, charts and Pulse Score</span>
+          <span>Exclude from totals, charts and Pulse Score</span>
         </label>
+        {/* W0 (FE-PUB-01) — this used to say "🔒 Private", but the entry stays visible to
+            every member; only the totals leave it out. Say exactly that. */}
+        <p className="mt-1 ml-6 text-[0.72rem] text-ink-dim leading-snug">
+          Everyone in the household can still see this entry.
+        </p>
       </div>
 
       </div>

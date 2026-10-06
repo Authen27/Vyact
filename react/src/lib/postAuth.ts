@@ -10,12 +10,27 @@
 
 const KEY = 'vy_post_auth_next';
 
+// W0 (audit 2026-10-04, FE-PLT-01) — hardened. "/\t/evil.com" passed the old regex, and
+// URL parsers strip tabs and newlines, which turns it into "//evil.com" (another host).
+// So: no control characters or backslashes anywhere, then resolve against a placeholder
+// origin and require the result to stay on it; the normalised path is what is returned
+// (so "/a/../auth/x" is seen as the auth loop it is).
+const PLACEHOLDER_ORIGIN = 'https://vyact.invalid';
+const unsafeChar = (s: string) => [...s].some(ch => {
+  const c = ch.charCodeAt(0);
+  return c < 0x20 || c === 0x7f || ch === '\\';
+});
+
 export function safeNext(value: string | null | undefined): string | null {
   if (!value) return null;
   const v = value.trim();
-  if (!/^\/(?![/\\])/.test(v)) return null;
-  if (/^\/auth\//.test(v)) return null;          // never loop back into auth
-  return v.slice(0, 200);
+  if (unsafeChar(v)) return null;
+  if (!/^\/(?!\/)/.test(v)) return null;
+  let url: URL;
+  try { url = new URL(v, PLACEHOLDER_ORIGIN); } catch { return null; }
+  if (url.origin !== PLACEHOLDER_ORIGIN) return null;
+  if (/^\/auth(\/|$)/.test(url.pathname)) return null;          // never loop back into auth
+  return `${url.pathname}${url.search}${url.hash}`.slice(0, 200);
 }
 
 export function rememberNext(value: string | null | undefined): void {

@@ -11,7 +11,7 @@
 // RLS lets anon see published rows only (migration 20261004120000).
 
 import {
-  BASE, OG_IMAGE, esc, safeJsonLd as jsonLd, page, topicSlug, featureFor, signUpUrl, demoUrl, youtubeId,
+  BASE, OG_IMAGE, esc, safeJsonLd as jsonLd, safeJs, httpUrl, page, topicSlug, featureFor, signUpUrl, demoUrl, youtubeId,
 } from './_page.js';
 import { readContent } from './_supabase.js';
 import { seoFor } from './_seo.js';
@@ -107,6 +107,7 @@ export function lessonPage(c, all = []) {
   const description = metaDesc(seo ? seo.answer : c.body_md);
   const feature = featureFor(c.category);
   const vid = youtubeId(c.video_url);
+  const sourceUrl = httpUrl(c.source_url);
   const related = relatedLessons(c, all);
   const tags = (c.tags || []).map(t => `<span class="tag">#${esc(t)}</span>`).join('');
   const article = {
@@ -117,7 +118,7 @@ export function lessonPage(c, all = []) {
     ...(c.published_at ? { datePublished: c.published_at } : {}), ...(c.updated_at ? { dateModified: c.updated_at } : {}),
     author: orgRef, publisher: orgRef, mainEntityOfPage: url, image: OG_IMAGE,
     about: { '@type': 'Thing', name: `${c.category} — personal finance` },
-    ...(c.source_url ? { citation: { '@type': 'CreativeWork', name: c.source_name || c.source_url, url: c.source_url } } : {}),
+    ...(sourceUrl ? { citation: { '@type': 'CreativeWork', name: c.source_name || sourceUrl, url: sourceUrl } } : {}),
   };
   const breadcrumb = {
     '@context': 'https://schema.org', '@type': 'BreadcrumbList',
@@ -156,7 +157,7 @@ ${seo ? `<section class="answer" aria-label="Quick answer"><div class="kicker">Q
 ${vid ? `<a class="video" href="https://www.youtube.com/shorts/${vid}" data-yt="${vid}" rel="noopener"><img src="https://i.ytimg.com/vi/${vid}/hqdefault.jpg" alt="" loading="lazy" width="480" height="360"><span>▶ Watch the 1-minute version</span></a>` : ''}
 <div>
 <article class="card">${renderBody(c.body_md)}${c.why_it_matters ? `<p><strong>Why it matters:</strong> ${esc(c.why_it_matters)}</p>` : ''}${tags ? `<div class="tags">${tags}</div>` : ''}
-${c.source_url ? `<p class="source">Source: <a href="${esc(c.source_url)}" rel="nofollow noopener">${esc(c.source_name || new URL(c.source_url).hostname)}</a></p>` : ''}</article>
+${sourceUrl ? `<p class="source">Source: <a href="${esc(sourceUrl)}" rel="nofollow noopener">${esc(c.source_name || new URL(sourceUrl).hostname)}</a></p>` : ''}</article>
 <div class="try"><p>Put this into practice with your own household’s numbers — free to start.</p><a class="cta" href="${esc(tryHref)}" data-cta="try">${esc(feature.label)} →</a><p class="demo">Or <a href="${esc(demoUrl(feature.next))}" data-cta="demo">look around a demo household first</a>, no sign-up.</p></div>
 </div>
 </div>
@@ -164,9 +165,9 @@ ${pathNote}
 ${related.length ? `<h2>Keep reading</h2>${listItems(related)}` : ''}
 <p><a href="${topicUrl(c.category)}">More on ${esc(c.category)}</a> · <a href="${BASE}/learn">All lessons</a> · <a href="${YOUTUBE_CHANNEL}" rel="noopener">1-minute lessons on YouTube</a></p>
 </main>`;
-  const script = `if(window.vyTrack)vyTrack('learn_card_view',{slug:${JSON.stringify(c.slug)},category:${JSON.stringify(c.category)}});
-try{var r=JSON.parse(localStorage.getItem('${READ_KEY}')||'[]');if(r.indexOf(${JSON.stringify(c.slug)})<0){r.push(${JSON.stringify(c.slug)});localStorage.setItem('${READ_KEY}',JSON.stringify(r.slice(-300)));}}catch(e){}
-var v=document.querySelector('a[data-yt]');if(v)v.addEventListener('click',function(e){e.preventDefault();var id=v.getAttribute('data-yt');v.innerHTML='<iframe src="https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1" title="Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';if(window.vyTrack)vyTrack('learn_video_play',{slug:${JSON.stringify(c.slug)}});});`;
+  const script = `if(window.vyTrack)vyTrack('learn_card_view',{slug:${safeJs(c.slug)},category:${safeJs(c.category)}});
+try{var r=JSON.parse(localStorage.getItem('${READ_KEY}')||'[]');if(r.indexOf(${safeJs(c.slug)})<0){r.push(${safeJs(c.slug)});localStorage.setItem('${READ_KEY}',JSON.stringify(r.slice(-300)));}}catch(e){}
+var v=document.querySelector('a[data-yt]');if(v)v.addEventListener('click',function(e){e.preventDefault();var id=v.getAttribute('data-yt');v.innerHTML='<iframe src="https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1" title="Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';if(window.vyTrack)vyTrack('learn_video_play',{slug:${safeJs(c.slug)}});});`;
   return page({
     title: `${headline} · Vyact Learn`, description, canonical: url, ogType: 'article',
     jsonld: [article, breadcrumb, video, faq], body, script,

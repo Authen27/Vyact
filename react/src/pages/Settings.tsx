@@ -8,7 +8,7 @@ import { fmt, today } from '../lib/format';
 import { CURRENCIES, DEFAULT_RATES, LOCALES } from '../constants';
 import { sb } from '../lib/supabase';
 import {
-  enrollMfaTotp, verifyMfaEnrolment, listMfaFactors, unenrollMfaFactor, updatePassword,
+  updatePassword,
   eraseHouseholdData, deactivateAccount, requestAccountDeletion, executeAccountDeletion, signOut,
   sendAccountActionCode, verifyAccountActionCode,
 } from '../lib/auth';
@@ -22,7 +22,6 @@ import {
   NOTIF_GROUPS, NOTIF_TYPE_LABEL, NOTIF_LOCKED, typeEnabled,
 } from '../lib/notifications';
 import type { Profile, Theme, NotifType } from '../types';
-import type { Factor } from '@supabase/supabase-js';
 
 const THEMES: { key: Theme; label: string; desc: string }[] = [
   { key: 'dark',   label: 'Nocturne',   desc: 'Aurora dark — default' },
@@ -226,13 +225,9 @@ export default function Settings() {
   );
   const toggleRow = (key: string) => setOpenRow(r => r === key ? null : key);
 
-  // MFA / Security state (TD-15)
-  const [mfaQr, setMfaQr] = useState('');
-  const [mfaFactorId, setMfaFactorId] = useState('');
-  const [mfaCode, setMfaCode] = useState('');
-  const [mfaEnrolling, setMfaEnrolling] = useState(false);
-  const [mfaFactors, setMfaFactors] = useState<Factor[]>([]);
-  const [loadingFactors, setLoadingFactors] = useState(false);
+  // W0 (owner decision, audit 2026-10-04): no two-factor authentication. The old Security
+  // row enrolled TOTP factors that sign-in never challenged (FE-UIS-02) and sent the secret
+  // to Google Charts to draw the QR (FE-PLT-02), so it promised protection it didn't give.
 
   // Password change state (v7.4.4)
   const [pwNew, setPwNew] = useState('');
@@ -323,22 +318,6 @@ export default function Settings() {
       toast(`Could not resend: ${(e as Error).message}`, 'error');
     }
   }
-
-  async function fetchMfaFactors() {
-    if (!cloudEnabled || !session) return setMfaFactors([]);
-    setLoadingFactors(true);
-    try {
-      const factors = await listMfaFactors();
-      setMfaFactors(factors?.all ?? []);
-    } catch (e) {
-      // ignore — best-effort UI
-      setMfaFactors([]);
-    } finally { setLoadingFactors(false); }
-  }
-
-  useEffect(() => {
-    if (cloudEnabled && session) fetchMfaFactors();
-  }, [cloudEnabled, session]);
 
   return (
     <div>
@@ -703,87 +682,6 @@ export default function Settings() {
                     >
                       {pwSaving ? 'Saving…' : 'Update password'}
                     </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </SettingRow>
-
-          <SettingRow icon="🛡️" label="Security" value={mfaFactors.length > 0 ? '2FA on' : undefined}
-            open={openRow === 'security'} onToggle={() => toggleRow('security')}>
-            <div className="px-3.5 pb-3 space-y-3">
-              {!cloudEnabled || !session ? (
-                <div className="bg-bg3 border border-line rounded-md p-4 text-sm text-ink-mid">
-                  Two-factor authentication requires cloud mode (Supabase). Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to enable.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="text-[0.9rem] text-ink-mid">Two-factor authentication (TOTP) adds an extra layer of account protection.</div>
-                  <div className="flex items-center gap-3">
-                    <button className="btn-primary" onClick={async () => {
-                      setMfaEnrolling(true);
-                      try {
-                        const enrolled = await enrollMfaTotp('Vyact TOTP');
-                        // Supabase TOTP enrol returns { id, type:'totp', totp:{ uri, qr_code, secret } }.
-                        const otpauth = enrolled?.type === 'totp' ? enrolled.totp.uri : null;
-                        if (otpauth) setMfaQr(`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(otpauth)}`);
-                        setMfaFactorId(enrolled?.id ?? '');
-                        await fetchMfaFactors();
-                      } catch (e) {
-                        toast(`MFA enrolment failed: ${(e as Error).message}`, 'error');
-                      } finally { setMfaEnrolling(false); }
-                    }} disabled={mfaEnrolling}>
-                      {mfaEnrolling ? 'Working…' : 'Enable two-factor auth'}
-                    </button>
-                    {mfaQr && (
-                      <div className="flex items-center gap-3">
-                        <img src={mfaQr} alt="TOTP QR" className="w-24 h-24 border rounded-md" />
-                        <div className="flex flex-col">
-                          <input className="input w-40 mb-2" placeholder="Enter 6-digit code" value={mfaCode} onChange={e => setMfaCode(e.target.value)} />
-                          <div className="flex gap-2">
-                            <button className="btn-primary" onClick={async () => {
-                              if (!mfaFactorId || !mfaCode) return toast('Enter code', 'error');
-                              setMfaEnrolling(true);
-                              try {
-                                await verifyMfaEnrolment(mfaFactorId, mfaCode);
-                                toast('Two-factor authentication enabled', 'success');
-                                setMfaQr(''); setMfaCode(''); setMfaFactorId('');
-                                await fetchMfaFactors();
-                              } catch (e) { toast(`Verification failed: ${(e as Error).message}`, 'error'); }
-                              finally { setMfaEnrolling(false); }
-                            }}>{mfaEnrolling ? 'Verifying…' : 'Verify'}</button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-
-                  <div>
-                    <div className="text-sm font-semibold mb-2">Enrolled factors</div>
-                    <div>
-                      {loadingFactors ? <div className="text-sm text-ink-mid">Loading…</div> : (
-                        mfaFactors.length === 0 ? <div className="text-sm text-ink-mid">No enrolled 2FA factors.</div> : (
-                          <ul className="space-y-2">
-                            {mfaFactors.map((f: any) => (
-                              <li key={f.id} className="flex items-center justify-between bg-bg3 border border-line rounded-md p-2">
-                                <div>
-                                  <div className="font-medium">{f.friendly_name || f.factor_type || 'Factor'}</div>
-                                  <div className="text-sm text-ink-mid">{f.status || 'unknown'}</div>
-                                </div>
-                                <div>
-                                  <button className="btn-ghost text-sm" onClick={async () => {
-                                    if (!confirm('Unenroll this factor?')) return;
-                                    try { await unenrollMfaFactor(f.id); toast('Factor removed', 'success'); await fetchMfaFactors(); }
-                                    catch (e) { toast(`Could not remove factor: ${(e as Error).message}`, 'error'); }
-                                  }}>Remove</button>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )
-                      )}
-                    </div>
                   </div>
                 </div>
               )}

@@ -6,8 +6,8 @@
 //
 //   node scripts/lighthouse-budget.mjs http://localhost:4180/ [min=90] [runs=3]
 //
-// Note: on localhost the analytics tags stay off (GA and Contentsquare run only on
-// vyact.app) and Userback waits for an interaction, so this measures the page itself.
+// Note: on localhost the analytics tag stays off (GA runs only on vyact.app; Contentsquare
+// was removed in W0) and Userback waits for an interaction, so this measures the page itself.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
