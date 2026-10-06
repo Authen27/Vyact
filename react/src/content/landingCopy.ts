@@ -125,7 +125,7 @@ export const FAQ: [string, string][] = [
     'Any household that shares money: couples, families, flatmates, or anyone managing money alone who wants the full picture. Everyone you invite works from the same budgets, bills and totals.'],
   ['Is Vyact free?', 'Yes — Vyact is free to start and needs no credit card. The money lessons are free to read without an account.'],
   ['Can my partner and family use it together?',
-    'Yes. Invite them to your household and choose who can edit and who can only view. Everyone sees the same budgets and totals, and a personal entry can be marked private to keep it out of the shared totals.'],
+    'Yes. Invite them to your household and choose who can edit and who can only view. Everyone sees the same entries, budgets and totals, and an entry marked “Exclude from totals” stays visible but is left out of the shared totals.'],
   ['Can I split a bill with someone outside my household?',
     'Yes. Share a bill by email with friends or flatmates. Once they join Vyact they see their share and can mark it settled, and your own totals only ever count your part.'],
   ['What can I ask Pip?',

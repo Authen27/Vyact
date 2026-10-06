@@ -130,6 +130,24 @@ describe('Web Push crypto (RFC 8291 / 8292)', () => {
       .toMatchObject({ ok: false, gone: true, error: 'endpoint_not_allowed' });
     expect(never).not.toHaveBeenCalled();
   });
+
+  it('CON-UNIT-WP-003b · W0 (BE-FN-07): a network error or a push service that never answers is a failed delivery, not a crash', async () => {
+    const keys = await generateVapidKeys('https://vyact.app');
+    const sub = await subscriber();
+    const target = { endpoint: 'https://fcm.googleapis.com/fcm/send/dev1', p256dh: sub.p256dh, auth: sub.authB64 };
+
+    const refused = vi.fn().mockRejectedValue(new TypeError('connection reset'));
+    expect(await sendWebPush(target, {}, keys, {}, refused))
+      .toEqual({ status: 0, ok: false, gone: false, error: 'network: connection reset' });
+
+    // A service that hangs is cut off by the timeout instead of holding the whole dispatch.
+    const hangs = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_res, rej) => {
+      init.signal!.addEventListener('abort', () => rej(init.signal!.reason));
+    }));
+    const out = await sendWebPush(target, {}, keys, { timeoutMs: 30 }, hangs as unknown as typeof fetch);
+    expect(out).toMatchObject({ status: 0, ok: false, gone: false });
+    expect(out.error).toMatch(/^network: /);
+  });
 });
 
 // ── Which notification reaches which device ───────────────────────────────────

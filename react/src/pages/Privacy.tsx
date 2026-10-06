@@ -6,7 +6,10 @@ import { Link } from 'react-router-dom';
 // 2026-09-07: v10.20 rewrote the Ask Vyact disclosure. The assistant became
 // model-backed and the previous text ("minimum context needed") was too vague
 // to describe a feature that now calls a provider on every question.
-export const POLICY_VERSION = '2026-09-07';
+// 2026-10-06: W0 (audit 2026-10-04) — removed the two-factor claim (no 2FA, owner
+// decision), disclosed the Userback feedback widget, and Contentsquare session replay
+// is gone from the app.
+export const POLICY_VERSION = '2026-10-06';
 
 function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
@@ -91,6 +94,7 @@ export default function Privacy() {
         <List items={[
           'Cloud database and authentication infrastructure (Supabase) — stores your account and household data, encrypted at rest and in transit.',
           'Hosting/CDN and application infrastructure (Vercel) — serves the application.',
+          'In-app feedback widget (Userback) — loads on app pages so you can send us feedback. When you send feedback it can include a screenshot of the screen you are on and basic browser details; a screenshot can show the figures on that screen.',
           'Messaging channel providers (e.g. WhatsApp Business Platform / Meta) — only if you explicitly link your account to that channel.',
           'AI-assistant infrastructure (large-language-model providers) — only when you ask Pip, Vyact\'s assistant, a question, and only your question plus the figures Vyact has already calculated for that one answer. Your transaction history is never sent. See "How Pip uses a language model" below.',
         ]} />
@@ -181,7 +185,7 @@ export default function Privacy() {
       </Section>
 
       <Section title="10. Security" id="security">
-        <p>We use industry-standard safeguards including encryption in transit (TLS) and at rest, row-level access controls scoped per household, least-privilege service credentials, and optional two-factor authentication (Settings → Security). No method of transmission or storage is 100% secure; we continuously work to protect your data but cannot guarantee absolute security.</p>
+        <p>We use industry-standard safeguards including encryption in transit (TLS) and at rest, row-level access controls scoped per household, and least-privilege service credentials. No method of transmission or storage is 100% secure; we continuously work to protect your data but cannot guarantee absolute security.</p>
       </Section>
 
       <Section title="11. International transfers" id="transfers">

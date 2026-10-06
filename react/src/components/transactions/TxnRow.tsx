@@ -1,4 +1,4 @@
-import { Lock, ArrowRightLeft, TrendingUp, Users, Pencil } from 'lucide-react';
+import { ArrowRightLeft, TrendingUp, Users, Pencil } from 'lucide-react';
 import type { Transaction } from '../../types';
 import { useStore } from '../../store';
 import { getCat } from '../../constants';
@@ -98,7 +98,9 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
       </div>
 
       <div className="hidden sm:flex flex-col gap-0.5 items-end flex-shrink-0">
-        {t.excluded && <Badge tone="neutral"><Lock size={10}/> Private</Badge>}
+        {/* W0 (FE-PUB-01) — "excluded" leaves totals; it never hides the row from the
+            household, so it must not wear a lock or say "Private". */}
+        {t.excluded && <Badge tone="neutral">Not in totals</Badge>}
         {isInv      && <Badge tone="warn"><TrendingUp size={10}/> Invest</Badge>}
         {isXfer     && <Badge tone="denim"><ArrowRightLeft size={10}/> Transfer</Badge>}
         {isSplit    && <Badge tone="plum"><Users size={10}/> Split {t.split!.participants.length}</Badge>}

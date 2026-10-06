@@ -22,6 +22,21 @@ export const esc = s => String(s == null ? '' : s)
 // JSON string would otherwise close the tag. `<` as < keeps JSON.parse identical.
 export const safeJsonLd = o => JSON.stringify(o).replace(/</g, '\\u003c');
 
+// W0 (audit 2026-10-04, ADM-01) — a CMS value placed INSIDE an inline <script> needs the
+// same guard: plain JSON.stringify left `</script>` intact, so a lesson slug or category
+// containing it ended the page script and ran whatever followed on vyact.app.
+export const safeJs = v => JSON.stringify(v).replace(/</g, '\\u003c').split(String.fromCharCode(0x2028)).join('\\u2028').split(String.fromCharCode(0x2029)).join('\\u2029');
+
+/** W0 (FE-PUB-02) — only an absolute http(s) URL is ever put in an href or a citation.
+ *  `esc()` made "javascript:…" HTML-safe but still clickable, and a malformed URL threw
+ *  inside `new URL(…).hostname` and failed the whole page. */
+export function httpUrl(u) {
+  try {
+    const url = new URL(String(u || ''));
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+  } catch { return null; }
+}
+
 /** "Net Worth" → "net-worth" (topic hub URLs). */
 export const topicSlug = cat => String(cat || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 

@@ -30,4 +30,15 @@ describe('post-auth landing', () => {
     store.pending_invite_token = 'tok 1';
     expect(postAuthPath('/budgets')).toBe('/invite/tok%201');
   });
+
+  it('CON-UNIT-PA-003 · W0: parser tricks that become another host are dropped (FE-PLT-01)', () => {
+    for (const bad of ['/\t/evil.com', '/\n/evil.com', '/\r//evil.com', '/\u0000/x', '/\\/evil.com', '/budgets\\..\\x',
+      '/a/../auth/sign-in', '/auth', ' //evil.com']) {
+      expect(safeNext(bad), JSON.stringify(bad)).toBeNull();
+    }
+    // Encoded slashes stay a harmless in-app path; normal paths are unchanged.
+    expect(safeNext('/%2F%2Fevil.com')).toBe('/%2F%2Fevil.com');
+    expect(safeNext('/splits?id=7#share')).toBe('/splits?id=7#share');
+    expect(safeNext('/a/../budgets')).toBe('/budgets');
+  });
 });

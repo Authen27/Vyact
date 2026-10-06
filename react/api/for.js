@@ -28,7 +28,7 @@ export const AUDIENCES = {
       ['How couples use Vyact', [
         '**One budget, two logins.** Invite your partner; you both log spending into the same household and see the same totals.',
         '**Bills before payday.** Rent, subscriptions and loan payments on one calendar, posted automatically or when you approve them.',
-        '**Keep some things personal.** Mark a purchase private and it stays out of the shared totals.',
+        '**Leave things out of the totals.** Mark a purchase “Exclude from totals” and it stays out of the shared totals and charts. You both still see the entry.',
         '**A monthly money date.** Fifteen minutes: what’s coming up, how last month went, one goal. Vyact has the numbers ready.',
         '**Ask before you spend.** Pip, the built-in assistant, answers “can we afford the weekend away?” from your own budget and balances.',
       ]],
@@ -152,7 +152,7 @@ export const AUDIENCES = {
       ['You stay in control', [
         '**You decide what’s recorded.** Every entry is one you or someone in your household added, in a few seconds from your phone.',
         '**You decide who’s in.** Invite your partner, family or flatmates, and choose who can edit and who can only view.',
-        '**Keep some things personal.** Mark a purchase private and it stays out of the shared totals.',
+        '**Leave things out of the totals.** Mark a purchase “Exclude from totals” and it stays out of the shared totals and charts. Everyone in the household still sees the entry.',
         '**Take it with you.** Download a full backup or a CSV of your transactions any time from Settings.',
       ]],
       ['Nothing to sell', [
@@ -162,7 +162,7 @@ export const AUDIENCES = {
     ],
     faq: [
       ['Who can see my household’s data?', 'Only the people you invite, with the access you give them.'],
-      ['Can I keep a purchase to myself?', 'Mark it private and it stays out of the shared totals.'],
+      ['Can I keep a purchase to myself?', 'Not inside a shared household: everyone in it sees every entry. Mark a purchase “Exclude from totals” to keep it out of the shared totals and charts, or keep personal money in a separate Personal household.'],
       ['Can I get my data out?', 'Yes — a full backup and a CSV export, from Settings.'],
       ['Is my data sold or used for ads?', 'No. Your household’s data is never sold or used for advertising.'],
     ],

@@ -96,6 +96,21 @@ describe('lesson pages (#11, #12, #20)', () => {
     expect(html).not.toContain('<b>t</b>');
     expect(firstSentence('Small daily amounts add up. More text here.')).toBe('Small daily amounts add up.');
   });
+
+  it('CON-UNIT-PUB-005b · W0 (ADM-01, FE-PUB-02): CMS slug/category cannot end the page script; only http(s) sources link', () => {
+    const hostile = 'x</script><script>stolen(localStorage)</script>';
+    const html = lessonPage(card({ slug: `budgets-${hostile}`, category: hostile }), []);
+    expect(html).not.toContain('<script>stolen(');
+    expect(html).toContain('\\u003c/script>');                 // encoded inside the page script
+
+    for (const source_url of ['javascript:alert(1)', 'data:text/html,<b>x</b>', 'not a url', 'ftp://example.com/x']) {
+      const page = lessonPage(card({ source_url, source_name: 'RBI' }), []);   // must not throw
+      expect(page, source_url).not.toContain('class="source"');
+      expect(page, source_url).not.toMatch(/"citation"/);
+    }
+    const ok = lessonPage(card({ source_url: 'https://rbi.org.in/x', source_name: 'RBI' }), []);
+    expect(ok).toContain('<a href="https://rbi.org.in/x" rel="nofollow noopener">RBI</a>');
+  });
 });
 
 describe('library, hubs, sitemap, llms.txt (#10, #25)', () => {
@@ -428,12 +443,20 @@ describe('first paint is not blocked by third parties', () => {
     expect(syncExternal).toEqual([]);
     expect(head.replace(/<noscript>[\s\S]*?<\/noscript>/g, '')).not.toMatch(/<link[^>]*rel="stylesheet"[^>]*fonts\.googleapis\.com/);
     expect(head).toMatch(/<link\s+rel="preload" as="style"[^>]*fonts\.googleapis\.com/);
-    expect(head).toContain("t.contentsquare.net/uxa/");      // still installed, just deferred
-    // v10.53.0 — Contentsquare: real site only; on "/" only after the first interaction.
-    expect(head).toMatch(/if \(csAdded \|\| !window\.__vyGaOn\) return;/);
-    expect(head).toMatch(/if \(!onLanding\) contentsquare\(\);/);
-    expect(head).toMatch(/if \(onLanding && window\.__vyGaOn\)/);
+    // W0 (audit 2026-10-04, XC-PRV-03) — Contentsquare session replay is removed everywhere.
+    expect(head).not.toMatch(/contentsquare\.net/i);
     expect(head).toMatch(/addEventListener\('load'/);
+    // W0 (XC-PRV-02) — GA's page_location is redacted: no invite token, no email/token/code.
+    expect(head).toMatch(/gtag\('config', 'G-E3XKWZP850', \{ page_location: cleanLocation\(\) \}\)/);
+    const cleanSrc = head.match(/function cleanLocation\(\) \{[\s\S]*?\n {8}\}/)?.[0];
+    expect(cleanSrc).toBeTruthy();
+    const clean = new Function('location', `${cleanSrc}; return cleanLocation();`) as
+      (loc: { origin: string; pathname: string; search: string }) => string;
+    expect(clean({ origin: 'https://vyact.app', pathname: '/invite/3f9a-secret', search: '?email=a%40b.com&utm_source=mail' }))
+      .toBe('https://vyact.app/invite/:token?utm_source=mail');
+    expect(clean({ origin: 'https://vyact.app', pathname: '/auth/sign-up', search: '?email=a%40b.com&token=x&code=y&next=%2Fsplits' }))
+      .toBe('https://vyact.app/auth/sign-up');
+    expect(clean({ origin: 'https://vyact.app', pathname: '/transactions', search: '' })).toBe('https://vyact.app/transactions');
 
     // v10.52.1 — on "/" the feedback widget waits for the first interaction.
     const mainTsx = readFileSync(resolve(__dirname, '../../main.tsx'), 'utf8');

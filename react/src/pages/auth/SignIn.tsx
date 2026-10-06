@@ -7,13 +7,12 @@ import { signIn, signInMagicLink } from '../../lib/auth';
 import GoogleButton from '../../components/auth/GoogleButton';
 import { useStore } from '../../store';
 import { Pip } from '../../components/layout/Brand';
+import { postAuthPath } from '../../lib/postAuth';
 
-function getPostAuthPath(next: string | null): string {
-  const pendingInvite = sessionStorage.getItem('pending_invite_token');
-  if (next) return next;
-  if (pendingInvite) return `/invite/${encodeURIComponent(pendingInvite)}`;
-  return '/dashboard';
-}
+// W0 (audit 2026-10-04, FE-PLT-01) — this page used its own helper that returned `next`
+// unchecked, so /auth/sign-in?next=https://lookalike landed a real sign-in on another site.
+// Same rule as sign-up and /auth/verified now: only in-app paths, a pending invite wins.
+const getPostAuthPath = (next: string | null): string => postAuthPath(next);
 
 export default function SignIn() {
   const [mode, setMode] = useState<'password' | 'magic'>('password');

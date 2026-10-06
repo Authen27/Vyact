@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test:ci": "node --test scripts/__tests__/test-inventory.test.mjs && node scripts/test-inventory.mjs",
+    "test:ci": "node --test scripts/__tests__/test-inventory.test.mjs scripts/__tests__/secret-scan.test.mjs && node scripts/secret-scan.mjs && node scripts/test-inventory.mjs",
     "test:inventory:update": "node scripts/test-inventory.mjs --update"
   },
   "dependencies": {

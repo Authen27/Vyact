@@ -919,6 +919,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/eraseHouseholdSql.test.ts",
+      "feature": "Household erase SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "erase_household_data migration (focused PGlite fixture)",
+      "count": 4,
+      "tests": [
+        "erase_household_data (W0 · DB-INT-05) CON-UNIT-W0-001 - the old audit action is exactly what the activity_log CHECK rejects",
+        "erase_household_data (W0 · DB-INT-05) CON-UNIT-W0-002 - an owner erase commits: every ledger table is emptied and one audit row remains",
+        "erase_household_data (W0 · DB-INT-05) CON-UNIT-W0-003 - another household is untouched",
+        "erase_household_data (W0 · DB-INT-05) CON-UNIT-W0-004 - a plain member is refused and nothing is erased"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/essentialRunway.test.ts",
       "feature": "Reports consultation",
       "availability": "available",
@@ -1879,10 +1894,11 @@
       "availability": "available",
       "layer": "unit",
       "owner": "analytics funnel events / post-auth next",
-      "count": 2,
+      "count": 3,
       "tests": [
         "post-auth landing CON-UNIT-PA-001 · only in-app paths: other origins, protocol-relative, javascript: and auth loops are dropped",
-        "post-auth landing CON-UNIT-PA-002 · a `next` remembered before the Google redirect is used once; an invite wins; else the dashboard"
+        "post-auth landing CON-UNIT-PA-002 · a `next` remembered before the Google redirect is used once; an invite wins; else the dashboard",
+        "post-auth landing CON-UNIT-PA-003 · W0: parser tricks that become another host are dropped (FE-PLT-01)"
       ]
     },
     {
@@ -1892,7 +1908,7 @@
       "availability": "available",
       "layer": "unit",
       "owner": "format / learnJsonLd",
-      "count": 26,
+      "count": 27,
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
@@ -1907,6 +1923,7 @@
         "lesson pages (#11, #12, #20) CON-UNIT-PUB-003 · Article + Breadcrumb through the topic hub; related lessons by shared tags and topic; try-it link to the feature with ref + next",
         "lesson pages (#11, #12, #20) CON-UNIT-PUB-004 · a YouTube Shorts card gets VideoObject (thumbnail, embed, upload date) and a click-to-play facade, not an iframe on load",
         "lesson pages (#11, #12, #20) CON-UNIT-PUB-005 · CMS text never becomes markup: body, title and tags are escaped; lists and bold render",
+        "lesson pages (#11, #12, #20) CON-UNIT-PUB-005b · W0 (ADM-01, FE-PUB-02): CMS slug/category cannot end the page script; only http(s) sources link",
         "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-006 · the library links every topic hub; a hub lists its lessons with CollectionPage + ItemList",
         "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-007 · the sitemap lists home, the use-case pages, library, one hub per topic and every lesson",
         "library, hubs, sitemap, llms.txt (#10, #25) CON-UNIT-PUB-008 · llms.txt: the one standard description and the live hubs",
@@ -2206,11 +2223,12 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "RFC 8291/8292 crypto / push rules / server-raised notifications / web-push handler (not a live push service)",
-      "count": 8,
+      "count": 9,
       "tests": [
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-001 · a message encrypted for a subscription is read back by an independent receiver; each send is freshly keyed",
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-002 · the VAPID token is ES256, verifies with the advertised public key, and names the push service origin",
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-003 · only real push services are contacted; 201 is accepted, 404/410 retire the device",
+        "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-003b · W0 (BE-FN-07): a network error or a push service that never answers is a failed delivery, not a crash",
         "notifications raised on the server CON-UNIT-WP-006 · the server raises exactly the app's notifications for the same rows (source and bundle), skipping what exists",
         "push rules CON-UNIT-WP-004 · P1 only, unread only, never a backlog, the device's switches, quiet hours in the device's own zone",
         "push rules CON-UNIT-WP-005 · the payload opens inside the app only; the test message states the device's local time",

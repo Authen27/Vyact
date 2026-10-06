@@ -54,7 +54,9 @@ export default function Settings() {
             enforcement. Until they are read from a live source, they are
             labelled as targets, not asserted as fact. */}
         <Section title="Security">
-          <Row label="Admin MFA" hint="Required for privileged access. Not yet enforced — tracked for v1.4.0."><Status state="pending" label="Planned" icon={<Shield size={12} />} /></Row>
+          {/* Owner decision (2026-10-06, audit D23): no two-factor authentication for the
+              consumer app or admin. Say so instead of promising it. */}
+          <Row label="Admin MFA" hint="Not used (owner decision, Oct 2026): admin sign-in is password-only. Keep admin passwords unique and long."><Status state="pending" label="Not used" icon={<Shield size={12} />} /></Row>
           <Row label="Session timeout" hint="Target auto sign-out after inactivity. Not yet enforced by the server.">
             <code className="font-mono text-[0.78rem] text-amber-600 bg-elev px-2 py-1 rounded">30 min (planned)</code>
           </Row>

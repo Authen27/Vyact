@@ -14,7 +14,7 @@ async function monthlyExpenses(page: Page): Promise<number> {
 }
 
 test.describe('§21 PRIV-FC · Excluded transaction behavior', () => {
-  test('PRIV-FC-001 · excluded transactions render with private badge and muted styling', async ({
+  test('PRIV-FC-001 · excluded transactions render with a "Not in totals" badge and muted styling', async ({
     page,
     transactions,
     txnModal,
@@ -36,7 +36,8 @@ test.describe('§21 PRIV-FC · Excluded transaction behavior', () => {
 
     const row = page.getByTestId('txn-row').filter({ hasText: 'PRIV-FC-001 Private expense' }).first();
 
-    await expect(row).toContainText('Private');
+    // W0 (FE-PUB-01): the badge no longer says "Private" — the entry stays visible to the whole household.
+    await expect(row).toContainText('Not in totals');
     await expect(row).toContainText('$42');
     await expect(row).toHaveClass(/opacity-65/);
   });
@@ -44,7 +45,7 @@ test.describe('§21 PRIV-FC · Excluded transaction behavior', () => {
   test.describe('aggregate exclusion', () => {
     test.use({ seed: defaultSeed });
 
-    test('PRIV-FC-002 · marking an expense private removes it from monthly spending', async ({
+    test('PRIV-FC-002 · excluding an expense from totals removes it from monthly spending', async ({
       page,
       dashboard,
       transactions,

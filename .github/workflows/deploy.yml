@@ -135,26 +135,39 @@ jobs:
           echo "SUPABASE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
       - name: Link project
         run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
-      - name: Deploy WhatsApp functions
+      # W0 (audit 2026-10-04, OPS-04) — deploy EVERY function directory. This list used to
+      # be hand-maintained and never included send-split-email or delete-account, so the
+      # v10.59/v10.60 fixes to those two never reached production. Same loop as
+      # deploy-test-functions.yml. Everything verifies a JWT except the four below:
+      #   whatsapp-webhook        Meta has no Supabase JWT; it checks Meta's signature.
+      #   whatsapp-dispatch       pg_cron, no user JWT; checks WHATSAPP_DISPATCH_SECRET or
+      #                           the service key in code (v10.42.0).
+      #   web-push                pg_cron, no user JWT; every mode checks its own auth
+      #                           (member JWT for key/test, Vault cron secret or service key).
+      #   ask-vyact-relay-status  TEST-ONLY relay watcher (TD-44); returns a count only.
+      # ask-vyact verifies a JWT and is inert until a super-admin enables an
+      # ai_model_configs row; delete-account and send-split-email act as the signed-in user.
+      - name: Deploy all Edge Functions
         run: |
-          supabase functions deploy whatsapp-webhook --no-verify-jwt
-          supabase functions deploy whatsapp-send-otp
-          supabase functions deploy whatsapp-verify-otp
-          supabase functions deploy whatsapp-notify
-          # v10.42.0 (W2) — called by pg_cron, which has no user JWT. It checks
-          # its own secret (WHATSAPP_DISPATCH_SECRET) or the service key in code,
-          # and is inert until that secret exists in both Vault and the function.
-          supabase functions deploy whatsapp-dispatch --no-verify-jwt
-      - name: Deploy web push
-        # v10.48.0 (TD-22) — pg_cron calls it with no user JWT; every mode checks its
-        # own auth (member JWT for key/test, the Vault cron secret or service key for dispatch).
-        run: supabase functions deploy web-push --no-verify-jwt
-      - name: Deploy agent gateway
-        # WITH JWT verification (default). Inert until a super-admin enables an
-        # ai_model_configs row.
-        run: |
-          supabase functions deploy ask-vyact
-          # v10.37 TEST-ONLY relay watcher endpoint (TD-44): returns a pending count
-          # only — no ids, no content — so it needs no JWT.
-          supabase functions deploy ask-vyact-relay-status --no-verify-jwt
+          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push ask-vyact-relay-status"
+          deployed=""
+          for dir in supabase/functions/*/; do
+            fn="$(basename "$dir")"
+            case "$fn" in _shared|_*) continue ;; esac
+            if [ ! -f "$dir/index.ts" ]; then
+              echo "::error title=Function without index.ts::$fn"; exit 1
+            fi
+            if echo " $NO_JWT " | grep -q " $fn "; then
+              supabase functions deploy "$fn" --no-verify-jwt
+            else
+              supabase functions deploy "$fn"
+            fi
+            deployed="$deployed $fn"
+            echo "::notice title=Deployed::$fn"
+          done
+          # Every NO_JWT name must still exist; a renamed function would otherwise
+          # silently start verifying JWTs and break its caller.
+          for fn in $NO_JWT; do
+            echo " $deployed " | grep -q " $fn " || { echo "::error title=NO_JWT entry has no function::$fn"; exit 1; }
+          done
 

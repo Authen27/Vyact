@@ -164,10 +164,16 @@ async function dispatch(admin: SupabaseClient, now: Date) {
       const why = skipReason(n, sub, now);
       if (why) { skipped[why] = (skipped[why] ?? 0) + 1; continue; }
       if (!isPushEndpoint(sub.endpoint)) { skipped.endpoint_not_allowed = (skipped.endpoint_not_allowed ?? 0) + 1; continue; }
-      const outcome = await sendWebPush(sub, payloadFor(n), keys!, { urgency: 'high' });
-      await record(admin, sub, n.id, 'notification', outcome);
-      if (outcome.ok) pushed++;
-      if (outcome.gone) sub.disabled_at = now.toISOString();
+      // W0 (BE-FN-07) — one device's failure never stops the others.
+      try {
+        const outcome = await sendWebPush(sub, payloadFor(n), keys!, { urgency: 'high' });
+        await record(admin, sub, n.id, 'notification', outcome);
+        if (outcome.ok) pushed++;
+        if (outcome.gone) sub.disabled_at = now.toISOString();
+      } catch (e) {
+        skipped.send_error = (skipped.send_error ?? 0) + 1;
+        problems.push(`push ${sub.id ?? '?'}: ${(e as Error)?.message ?? String(e)}`.slice(0, 300));
+      }
     }
   }
   // 3. Every row considered is done, pushed or deliberately not.

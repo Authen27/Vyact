@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.60.0`** (consumer)
+> **Current production version: `v10.61.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,50 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.61.0 — W0 containment from the 2026-10-04 audit *(2026-10-06)*
+
+First stage of the owner-approved remediation plan (`VYACT_ARCHITECTURE_AUDIT_2026-10-04.md`).
+Small fixes with no architectural dependency; every one is a promise the product made and
+did not keep, or a hole that needed no design decision.
+
+- **"Erase all data" works.** `erase_household_data` ended with an `activity_log` row whose
+  action (`'erase_household_data'`) the table's CHECK rejects, so every erase rolled back and
+  nothing was ever erased (DB-INT-05). It now logs `'deleted'` with
+  `changes.kind = 'erase_household_data'`. Migration `20261008120000`; PGlite test
+  `eraseHouseholdSql.test.ts`.
+- **"Private" says what it does.** The toggle only ever left an entry out of totals; every member
+  still saw it. It is now **"Exclude from totals"** with "Everyone in the household can still see
+  this entry", the row badge says "Not in totals", and the public pages (/for/couples, /private,
+  landing FAQ, help) stop promising a purchase can be kept to yourself (FE-PUB-01).
+- **No two-factor authentication (owner decision).** The Settings → Security row enrolled TOTP
+  factors that sign-in never asked for, and sent the secret to Google Charts to draw the QR
+  (FE-UIS-02, FE-PLT-02). Removed, with the Privacy page's "optional two-factor authentication"
+  claim. TD-15 closed as won't-do.
+- **Contentsquare removed.** Session replay ran on every finance screen with no masking and no
+  consent (XC-PRV-03). Userback stays on app pages and is now disclosed in the Privacy policy
+  (`POLICY_VERSION` 2026-10-06).
+- **Analytics no longer receive invite tokens or emails.** GA4's `page_location` is redacted:
+  `/invite/<token>` → `/invite/:token`; `email`, `token`, `code`, `next` and auth-token query keys
+  dropped (XC-PRV-02).
+- **Sign-in can't bounce you to another site.** Sign-in used its own helper that followed `?next=`
+  unchecked; it now uses `postAuthPath` like sign-up. `safeNext` also rejects control characters
+  and backslashes (`/\t/evil.com` became `//evil.com` after URL parsing) and resolves the path
+  against a placeholder origin (FE-PLT-01).
+- **/learn: CMS values can't run script.** A lesson slug or category is HTML-safe encoded inside the
+  page script (`safeJs`), and a source link must be http(s) (`httpUrl`; also a NOT VALID CHECK on
+  `content_items.source_url`, migration `20261008120100`) (ADM-01, FE-PUB-02).
+- **One bad push endpoint no longer stops all push.** A network error or a hung push service is now a
+  failed delivery for that device (10 s timeout), and the dispatch loop isolates each send
+  (BE-FN-07).
+- **Every Edge Function deploys.** `deploy.yml` deployed a hand-kept list that never included
+  `send-split-email` or `delete-account`, so their v10.59/v10.60 fixes never reached production. It
+  now deploys every function directory (the `deploy-test-functions.yml` loop) (OPS-04).
+- **Secret scan.** New `secret-scan.yml` workflow (no paths filter, so docs are scanned too) runs
+  `scripts/secret-scan.mjs` over every tracked file and reports file:line and kind, never the
+  value. The leaked `sb_secret_` key from May (XC-PRV-01) is confirmed revoked by the owner.
 
 ---
 
