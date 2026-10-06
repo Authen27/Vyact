@@ -29,9 +29,10 @@ describe('cloud command transports', () => {
     transport.invoke.mockResolvedValue({ data: { ok: true, enabled: true, text: 'Authoritative explanation' }, error: null });
     const call = resolveConfiguredModelCall();
     expect(call).not.toBeNull();
-    expect(await call!({ system: 'Use computed facts', user: 'Summarize', json: true, maxTokens: 100 })).toBe('Authoritative explanation');
+    expect(await call!({ op: 'classify', system: 'Use computed facts', user: 'Summarize', json: true, maxTokens: 100 })).toBe('Authoritative explanation');
+    // W1c: the op and the text only — the gateway composes the system prompt itself.
     expect(transport.invoke).toHaveBeenCalledExactlyOnceWith('ask-vyact', { body: { seam: 'assistant', surface: 'chat',
-      messages: [{ role: 'system', content: 'Use computed facts' }, { role: 'user', content: 'Summarize' }], responseFormat: 'json', maxOutputTokens: 100 } });
+      op: 'classify', input: 'Summarize', maxOutputTokens: 100 } });
   });
 
   it('a relay-queued call polls the gateway until the answer arrives (v10.37, test-only)', async () => {
@@ -41,7 +42,7 @@ describe('cloud command transports', () => {
         .mockResolvedValueOnce({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-1' }, error: null })
         .mockResolvedValueOnce({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-1' }, error: null })
         .mockResolvedValueOnce({ data: { ok: true, enabled: true, text: 'Relayed explanation' }, error: null });
-      const pending = resolveConfiguredModelCall()!({ system: 'Use computed facts', user: 'Summarize' });
+      const pending = resolveConfiguredModelCall()!({ op: 'phrase', system: 'Use computed facts', user: 'Summarize' });
       await vi.advanceTimersByTimeAsync(6_000);
       expect(await pending).toBe('Relayed explanation');
       expect(transport.invoke).toHaveBeenCalledTimes(3);
@@ -55,13 +56,24 @@ describe('cloud command transports', () => {
     vi.useFakeTimers();
     try {
       transport.invoke.mockResolvedValue({ data: { ok: false, enabled: true, error: 'relay_pending', relayId: 'relay-2' }, error: null });
-      const pending = resolveConfiguredModelCall()!({ system: 's', user: 'u' });
+      const pending = resolveConfiguredModelCall()!({ op: 'phrase', system: 's', user: 'u' });
       const outcome = expect(pending).rejects.toThrow('relay did not answer in time');
       await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 3_000);
       await outcome;
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('CON-UNIT-W1-032 · the browser never sends a system prompt; it names the household and the rejected figures', async () => {
+    transport.invoke.mockResolvedValue({ data: { ok: true, enabled: true, text: 'ok' }, error: null });
+    const household = '20000000-0000-4000-8000-000000000001';
+    await resolveConfiguredModelCall(household)!({ op: 'phrase', system: 'anything at all', user: '{"facts":{}}', offending: ['42000'] });
+    await resolveConfiguredModelCall('local')!({ op: 'classify', system: 'x', user: 'q' });
+    const [first, second] = transport.invoke.mock.calls.map(c => c[1].body);
+    expect(first).toEqual({ seam: 'assistant', surface: 'chat', op: 'phrase', input: '{"facts":{}}', offending: ['42000'], householdId: household });
+    expect(second).toEqual({ seam: 'assistant', surface: 'chat', op: 'classify', input: 'q' });
+    expect(JSON.stringify(transport.invoke.mock.calls)).not.toMatch(/anything at all|"system"|"messages"/);
   });
 
   it('reads link status and unlinks through the authenticated endpoint without profile writes', async () => {

@@ -28,6 +28,19 @@ export function readSplitEmailResult(data: unknown, error: unknown): SplitEmailR
   return { ok: true, sent: d.sent, recipients: d.recipients };
 }
 
+/**
+ * What to tell the person when a 'shared' email did not go out (null when it did). The split is
+ * saved either way. W1c (v10.64.0): each person is emailed once per split, and one person can
+ * cause at most a daily number of split emails (`daily_limit`).
+ */
+export function splitEmailNotice(r: SplitEmailResult): string | null {
+  if (r.ok) return null;
+  if (r.reason === 'daily_limit') {
+    return "Split shared. You've reached today's limit for split emails, so some people will only see it when they open Vyact.";
+  }
+  return "Split shared. They'll see it when they open Vyact, but the email couldn't be sent.";
+}
+
 export async function sendSplitEmail(
   args: { splitId?: string; shareId?: string; event: SplitEmailEvent },
 ): Promise<SplitEmailResult> {

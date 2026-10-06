@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.63.0`** (consumer)
+> **Current production version: `v10.64.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,48 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.64.0 — W1c: split email and Pip can't be used as a relay *(2026-10-06)*
+
+Fourth stage of the 2026-10-04 audit remediation (owner decision D28: "email + Pip only").
+
+- **Split email is escaped by construction** (BE-FN-06, INT-HH-11, XC-PRV-13). `money()` used to
+  write an unknown currency code raw into the HTML, so a split with currency
+  `<a href=…>Verify your bank</a>` put a live link into an email signed by vyact.app. Every line in
+  `_shared/emailTemplates.ts` is now plain text (escaped whole) or built with the `html` tag, which
+  escapes each value; a currency that is not three capital letters is dropped; a name or
+  description in a subject has no control characters and is length-capped.
+  `shared_splits.currency` gets the same `^[A-Z]{3}$` CHECK as net-worth snapshots.
+- **One email per person per split event, and a daily cap.** Every call to `send-split-email`
+  'shared' used to mail every participant again, with no record and no limit. Now each send is
+  claimed first (`claim_split_emails`, service role only): one email per share per event, ever, and
+  at most 50 per sender per 24 hours (`SPLIT_EMAIL_DAILY_CAP`; a malformed value keeps 50). A
+  failed delivery gives its claim back. Shares that existed before the release count as already
+  mailed. The function now authorises before doing any work: 'shared' needs an open split,
+  'closed' a closed one, 'settled' a paid share. Over the cap, the app says so. Migration
+  20261011120000.
+- **People added while editing a split get their invite** (BE-FN-09). The form promised it and
+  nothing sent it; with the per-share claim, re-sending 'shared' mails only the new people.
+- **Pip's prompts are the server's** (BE-PIP-02). The browser used to build the system prompt and
+  the gateway forwarded whatever it was sent, so any signed-in account could use Vyact's model key
+  as a general-purpose LLM. Now the app sends an op (`classify` | `phrase`), the text and, on a
+  phrase retry, the figures the guard rejected; `ask-vyact` composes the messages from the app's
+  own prompts (`systemPromptFor`, bundled from `askVyactLlm.ts`). Anything else is refused before
+  any spend. For one release, an older app's `messages` are accepted only when they are exactly one
+  of the server's prompts. The response no longer names the provider or model.
+- **The daily model-call cap reads fail-closed** (OPS-11, the parsing half; a global spend ceiling stays
+  in the backlog). `ASK_VYACT_DAILY_CALL_CAP` that did not parse —
+  or `0` — silently removed the only spend control. Now: unset → 200; digits → that many (`0` =
+  none); only `off` disables it (gateway and WhatsApp alike, `parseDailyCallCap`).
+- **The spend gate is metered by the server** (BE-PIP-03, DB-SEC-11, FE-PIP-09). Any member could insert an
+  `ai_usage` row with any cost, and the app's per-question analytics row used up a third of each
+  person's daily cap. `ai_usage.source` is now `gateway` or `client`; a client row's cost, tokens,
+  provider and model are cleared by a trigger and it can never be a reservation;
+  `reserve_ai_usage` counts only gateway rows. Web calls now carry the household id, so usage is
+  attributable. Migration 20261011120100.
+
+Tests: splitEmailGuardSql.test.ts (4, PGlite), splitEmailHandler.test.ts (5),
+aiUsageSourceSql.test.ts (2, PGlite), gatewayWorkflow.test.ts (+4), cloudTransport.test.ts (+1).
 
 ## v10.63.0 — W1b: deleting an account actually deletes it *(2026-10-06)*
 

@@ -2233,6 +2233,35 @@ const BUCKET_OF = {
 	interpret: "interpret",
 	forecast: "forecast"
 };
+/** The retry instruction after a reply used figures no tool produced. Text unchanged since v10.38. */
+function phraseRetryInstruction(offending) {
+	return `\n\nIMPORTANT: your previous attempt was rejected for using figures that are not in FACTS: ${offending.join(", ")}. Write the answer again without those numbers. Use only figures that appear in FACTS or DATA, copied exactly.`;
+}
+/** The system prompt for an op — the only prompts Pip's model is ever given. */
+function systemPromptFor(op, offending = []) {
+	if (op === "classify") return CLASSIFY_SYSTEM;
+	return offending.length ? PHRASE_SYSTEM + phraseRetryInstruction(offending) : PHRASE_SYSTEM;
+}
+/**
+* Rejected figures as the guard reports them (digits, optional decimals), at most 12. Anything
+* else is refused (null): this list is spliced into a system prompt, so it must stay numbers.
+*/
+function cleanOffending(input) {
+	if (input === void 0 || input === null) return [];
+	if (!Array.isArray(input) || input.length > MAX_RETRY_FIGURES) return null;
+	const out = [];
+	for (const f of input) {
+		if (typeof f !== "string" || !FIGURE_TOKEN.test(f)) return null;
+		out.push(f);
+	}
+	return out;
+}
+const FIGURE_TOKEN = /^\d{1,15}(\.\d{1,4})?$/;
+const MAX_RETRY_FIGURES = 12;
+/** The rejected figures a retry names: the ones the gateway will accept, at most 12. */
+function retryFigures(offending) {
+	return offending.filter((f) => FIGURE_TOKEN.test(f)).slice(0, MAX_RETRY_FIGURES);
+}
 var ModelUnavailableError = class extends Error {
 	constructor(cause) {
 		super(`Pip could not reach the model: ${cause}`);
@@ -2309,7 +2338,8 @@ async function classifyIntentViaModel(utterance, _ctx, call) {
 	let raw;
 	try {
 		raw = await call({
-			system: CLASSIFY_SYSTEM,
+			op: "classify",
+			system: systemPromptFor("classify"),
 			user: utterance,
 			json: true,
 			maxTokens: 256
@@ -2542,13 +2572,15 @@ async function phraseViaModel(intent, result, call, prevAllowed = [], channel = 
 		question: typeof intent.entities.text === "string" ? intent.entities.text : void 0,
 		alsoAllowed: prevAllowed
 	};
-	const ask = async (extraSystem = "") => {
+	const ask = async (offending = []) => {
 		let raw;
 		try {
 			raw = (await call({
-				system: PHRASE_SYSTEM + extraSystem,
+				op: "phrase",
+				system: systemPromptFor("phrase", offending),
 				user: payload,
-				maxTokens: 700
+				maxTokens: 700,
+				...offending.length ? { offending } : {}
 			})).trim();
 		} catch (err) {
 			throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
@@ -2563,7 +2595,7 @@ async function phraseViaModel(intent, result, call, prevAllowed = [], channel = 
 		return reply;
 	} catch (err) {
 		if (!(err instanceof InventedFigureError)) throw err;
-		const retry = await ask(`\n\nIMPORTANT: your previous attempt was rejected for using figures that are not in FACTS: ${err.offending.join(", ")}. Write the answer again without those numbers. Use only figures that appear in FACTS or DATA, copied exactly.`);
+		const retry = await ask(retryFigures(err.offending));
 		assertNoInventedFigures(retry, guardVars, guardOpts);
 		return retry;
 	}
@@ -2571,8 +2603,12 @@ async function phraseViaModel(intent, result, call, prevAllowed = [], channel = 
 /**
 * Build the transport, or null when the app has no cloud backend at all
 * (localStorage-only mode has no Edge Function to call).
+*
+* W1c (v10.64.0, audit BE-PIP-02/03): the request names the op and carries the text; the
+* gateway composes the system prompt itself, so `system` is never sent. `householdId` lets the
+* gateway attribute the call (before this every web row had household_id = null).
 */
-function resolveConfiguredModelCall() {
+function resolveConfiguredModelCall(householdId) {
 	return null;
 }
 //#endregion
@@ -3979,12 +4015,12 @@ var LlmBackend = class {
 * Returns null when no model is configured — the caller must treat that as
 * "unavailable", not as a reason to invent an answer.
 */
-function selectModelCall() {
-	return resolveConfiguredModelCall();
+function selectModelCall(householdId) {
+	return resolveConfiguredModelCall(householdId);
 }
-/** The active backend, or null when no model is reachable. */
-function selectAssistantBackend() {
-	const call = selectModelCall();
+/** The active backend, or null when no model is reachable. `householdId` attributes the calls. */
+function selectAssistantBackend(householdId) {
+	const call = selectModelCall(householdId);
 	return call ? new LlmBackend(call) : null;
 }
 /** Plain-English name for each intent, shown as the "Recognised: …" step. */
@@ -4670,4 +4706,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, contextFromRows, notificationsOnServer, reconcileOnServer, renderForWhatsApp, runwaySnapshot };
+export { STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, cleanOffending, contextFromRows, notificationsOnServer, reconcileOnServer, renderForWhatsApp, runwaySnapshot, systemPromptFor };

@@ -25,16 +25,16 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1419 passing deterministic cases in 102 files. Zero failed, skipped or TODO cases at generation.**
+**1435 passing deterministic cases in 105 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 8 |
-| react | contract-unit | conditional | 117 |
-| react | handler-integration | conditional | 64 |
-| react | sql-integration | conditional | 23 |
+| react | contract-unit | conditional | 118 |
+| react | handler-integration | conditional | 73 |
+| react | sql-integration | conditional | 29 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 49 |
 | react | store-integration | conditional | 2 |
@@ -67,6 +67,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/agentRouter.test.ts](../react/src/lib/__tests__/agentRouter.test.ts) | Ask Vyact | unit | conditional | 11 |
 | [react/src/lib/__tests__/agentValidator.test.ts](../react/src/lib/__tests__/agentValidator.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 22 |
 | [react/src/lib/__tests__/aiFeedback.test.ts](../react/src/lib/__tests__/aiFeedback.test.ts) | Pip answer feedback | unit | available | 3 |
+| [react/src/lib/__tests__/aiUsageSourceSql.test.ts](../react/src/lib/__tests__/aiUsageSourceSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/amortization.test.ts](../react/src/lib/__tests__/amortization.test.ts) | Money model | unit | available | 15 |
 | [react/src/lib/__tests__/askVyact.test.ts](../react/src/lib/__tests__/askVyact.test.ts) | Ask Vyact | unit | conditional | 30 |
 | [react/src/lib/__tests__/askVyactContract.test.ts](../react/src/lib/__tests__/askVyactContract.test.ts) | Ask Vyact | unit | conditional | 9 |
@@ -82,7 +83,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/calculations.test.ts](../react/src/lib/__tests__/calculations.test.ts) | Money model | unit | available | 16 |
 | [react/src/lib/__tests__/categoryModel.test.ts](../react/src/lib/__tests__/categoryModel.test.ts) | Categories and ordering | unit | available | 8 |
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
-| [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
+| [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 7 |
 | [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 3 |
 | [react/src/lib/__tests__/demoSeed.test.ts](../react/src/lib/__tests__/demoSeed.test.ts) | First-run demo household | unit | available | 2 |
 | [react/src/lib/__tests__/eraseHouseholdSql.test.ts](../react/src/lib/__tests__/eraseHouseholdSql.test.ts) | Household erase SQL | sql-integration | conditional | 4 |
@@ -93,7 +94,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/formRoutes.test.ts](../react/src/lib/__tests__/formRoutes.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/funnelAnalytics.test.ts](../react/src/lib/__tests__/funnelAnalytics.test.ts) | Marketing funnel and auth landing | unit | available | 4 |
 | [react/src/lib/__tests__/fxCentralization.test.ts](../react/src/lib/__tests__/fxCentralization.test.ts) | Money model | unit | available | 2 |
-| [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 9 |
+| [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 13 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
 | [react/src/lib/__tests__/householdAuthzSql.test.ts](../react/src/lib/__tests__/householdAuthzSql.test.ts) | Household authorization SQL | sql-integration | conditional | 8 |
 | [react/src/lib/__tests__/householdTypes.test.ts](../react/src/lib/__tests__/householdTypes.test.ts) | Household types | unit | available | 5 |
@@ -131,6 +132,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/serverEngine.test.ts](../react/src/lib/__tests__/serverEngine.test.ts) | Ask Vyact on the server | unit | conditional | 4 |
 | [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 2 |
 | [react/src/lib/__tests__/sharedSplitsWorkflow.test.ts](../react/src/lib/__tests__/sharedSplitsWorkflow.test.ts) | Shared splits | contract-unit | conditional | 3 |
+| [react/src/lib/__tests__/splitEmailGuardSql.test.ts](../react/src/lib/__tests__/splitEmailGuardSql.test.ts) | Split email guard SQL | sql-integration | conditional | 4 |
+| [react/src/lib/__tests__/splitEmailHandler.test.ts](../react/src/lib/__tests__/splitEmailHandler.test.ts) | Split email handler | handler-integration | conditional | 5 |
 | [react/src/lib/__tests__/splitEmailResult.test.ts](../react/src/lib/__tests__/splitEmailResult.test.ts) | Split sharing rules | unit | available | 2 |
 | [react/src/lib/__tests__/splitParticipants.test.ts](../react/src/lib/__tests__/splitParticipants.test.ts) | Split sharing rules | unit | available | 4 |
 | [react/src/lib/__tests__/storage.test.ts](../react/src/lib/__tests__/storage.test.ts) | Storage and synchronization | storage-integration | available | 6 |

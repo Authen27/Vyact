@@ -1486,13 +1486,13 @@ export class LlmBackend implements AssistantBackend {
  * Returns null when no model is configured — the caller must treat that as
  * "unavailable", not as a reason to invent an answer.
  */
-export function selectModelCall(): ModelCall | null {
-  return resolveConfiguredModelCall();
+export function selectModelCall(householdId?: string | null): ModelCall | null {
+  return resolveConfiguredModelCall(householdId);
 }
 
-/** The active backend, or null when no model is reachable. */
-export function selectAssistantBackend(): AssistantBackend | null {
-  const call = selectModelCall();
+/** The active backend, or null when no model is reachable. `householdId` attributes the calls. */
+export function selectAssistantBackend(householdId?: string | null): AssistantBackend | null {
+  const call = selectModelCall(householdId);
   return call ? new LlmBackend(call) : null;
 }
 

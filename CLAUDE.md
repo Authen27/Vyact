@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.63.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.64.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -462,6 +462,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - Erase and delete need a sign-in within 10 minutes, checked on the SERVER (`recently_reauthenticated()` / the JWT `amr`), not only in the browser.
   - FKs to users never block deletion: shared history stays and stops naming the person (`ON DELETE SET NULL`). Never add a NO ACTION FK to `auth.users`.
   - WhatsApp messages are kept 90 days (`purge_old_whatsapp_messages`, pg_cron `whatsapp-retention`), and go with the person, the household, and an unlink.
+- **Abuse limits (v10.64.0, audit W1c; owner decision D28).**
+  - Pip's prompts are the SERVER's. The app sends `op` (`classify` | `phrase`) + text (+ rejected figures on a phrase retry); `ask-vyact` builds the messages with `systemPromptFor` (`_shared/agent/prompts.ts`). Never let a client send a system prompt, and add a new op (not a free-text prompt) when a feature needs one. The legacy `messages` form is accepted for one release only when it is exactly a server prompt — remove `fromLegacyMessages` next release.
+  - `ai_usage` metering comes from the server only: a client row is `source='client'` with its cost/tokens/provider/model cleared by trigger, and `reserve_ai_usage` counts `source='gateway'` rows only. The daily cap is `parseDailyCallCap` (only `off` disables it).
+  - Every split email is claimed first (`claim_split_emails`): one per share per event, ever, and `SPLIT_EMAIL_DAILY_CAP` (50) per sender per day. Email templates escape by construction (`html` tag / plain-string lines); never interpolate a value into email HTML any other way.
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied

@@ -228,7 +228,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
       // Ask Vyact assistant (spec §3). When the flag is OFF this whole branch is
       // skipped and the launcher behaves exactly as it did in v7.4.5.
       if (isAskVyactEnabled()) {
-        const assistantBackend = selectAssistantBackend();
+        const assistantBackend = selectAssistantBackend(householdId);
         const ctx: AssistantContext = {
           summary, transactions: txns, budgets, budgetAllocations, goals, debts, assets, recurring,
           profile, rates, baseCurrency: profile.baseCurrency,

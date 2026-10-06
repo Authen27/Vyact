@@ -40,6 +40,11 @@ export const answerOnServer = generated.answerOnServer as (
 ) => Promise<EngineTurn>;
 export const renderForWhatsApp = generated.renderForWhatsApp as (turn: EngineTurn, appUrl: string) => WhatsAppAnswer;
 
+// ── Pip's prompts, a closed set (W1c, v10.64.0) ──────────────────────────────
+export type ModelOp = 'classify' | 'phrase';
+export const systemPromptFor = generated.systemPromptFor as (op: ModelOp, offending?: readonly string[]) => string;
+export const cleanOffending = generated.cleanOffending as (input: unknown) => string[] | null;
+
 // ── "Reply UPDATE" (W6, v10.47.0) ────────────────────────────────────────────
 export interface BalanceToCheck {
   id: string; name: string; kind: string; balance: number; owed?: number; lastChecked: string;

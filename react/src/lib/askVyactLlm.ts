@@ -44,15 +44,62 @@ const BUCKET_OF: Record<string, IntentResult['bucket']> = {
   capture: 'capture', interpret: 'interpret', forecast: 'forecast',
 };
 
+/**
+ * The two things Pip asks a model to do. W1c (v10.64.0, audit BE-PIP-02): this is the CLOSED set
+ * of prompts. The app's transport sends only `op`, the user text and (on a phrase retry) the
+ * rejected figures; the `ask-vyact` gateway rebuilds the system prompt with `systemPromptFor` —
+ * a browser can no longer send a system prompt of its own and use Vyact's model key for anything.
+ */
+export type ModelOp = 'classify' | 'phrase';
+
 /** One model round-trip. Injected, so tests and evals run offline. */
 export interface ModelCall {
   (req: {
+    op: ModelOp;
+    /** `systemPromptFor(op, offending)`. Server callers send it; the app's transport does not. */
     system: string;
     user: string;
+    /** Figures a previous phrase attempt was rejected for (the retry instruction names them). */
+    offending?: readonly string[];
     /** Ask for strict JSON. Providers that support it get response_format. */
     json?: boolean;
     maxTokens?: number;
   }): Promise<string>;
+}
+
+/** The retry instruction after a reply used figures no tool produced. Text unchanged since v10.38. */
+export function phraseRetryInstruction(offending: readonly string[]): string {
+  return `\n\nIMPORTANT: your previous attempt was rejected for using figures that are not in FACTS: ${offending.join(', ')}. `
+    + 'Write the answer again without those numbers. Use only figures that appear in FACTS or DATA, copied exactly.';
+}
+
+/** The system prompt for an op — the only prompts Pip's model is ever given. */
+export function systemPromptFor(op: ModelOp, offending: readonly string[] = []): string {
+  if (op === 'classify') return CLASSIFY_SYSTEM;
+  return offending.length ? PHRASE_SYSTEM + phraseRetryInstruction(offending) : PHRASE_SYSTEM;
+}
+
+/**
+ * Rejected figures as the guard reports them (digits, optional decimals), at most 12. Anything
+ * else is refused (null): this list is spliced into a system prompt, so it must stay numbers.
+ */
+export function cleanOffending(input: unknown): string[] | null {
+  if (input === undefined || input === null) return [];
+  if (!Array.isArray(input) || input.length > MAX_RETRY_FIGURES) return null;
+  const out: string[] = [];
+  for (const f of input) {
+    if (typeof f !== 'string' || !FIGURE_TOKEN.test(f)) return null;
+    out.push(f);
+  }
+  return out;
+}
+
+const FIGURE_TOKEN = /^\d{1,15}(\.\d{1,4})?$/;
+const MAX_RETRY_FIGURES = 12;
+
+/** The rejected figures a retry names: the ones the gateway will accept, at most 12. */
+export function retryFigures(offending: readonly string[]): string[] {
+  return offending.filter(f => FIGURE_TOKEN.test(f)).slice(0, MAX_RETRY_FIGURES);
 }
 
 export class ModelUnavailableError extends Error {
@@ -145,7 +192,7 @@ export async function classifyIntentViaModel(
 ): Promise<IntentResult> {
   let raw: string;
   try {
-    raw = await call({ system: CLASSIFY_SYSTEM, user: utterance, json: true, maxTokens: 256 });
+    raw = await call({ op: 'classify', system: systemPromptFor('classify'), user: utterance, json: true, maxTokens: 256 });
   } catch (err) {
     throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
   }
@@ -448,12 +495,15 @@ export async function phraseViaModel(
     alsoAllowed: prevAllowed,
   };
 
-  const ask = async (extraSystem = ''): Promise<string> => {
+  const ask = async (offending: readonly string[] = []): Promise<string> => {
     let raw: string;
     try {
       // 200 → 700: room for a real explanation. Reasoning tokens are metered
       // separately and are not bound by this visible-output cap.
-      raw = (await call({ system: PHRASE_SYSTEM + extraSystem, user: payload, maxTokens: 700 })).trim();
+      raw = (await call({
+        op: 'phrase', system: systemPromptFor('phrase', offending), user: payload, maxTokens: 700,
+        ...(offending.length ? { offending } : {}),
+      })).trim();
     } catch (err) {
       throw new ModelUnavailableError(err instanceof Error ? err.message : String(err));
     }
@@ -477,10 +527,9 @@ export async function phraseViaModel(
     return reply;
   } catch (err) {
     if (!(err instanceof InventedFigureError)) throw err;
-    const retry = await ask(
-      `\n\nIMPORTANT: your previous attempt was rejected for using figures that are not in FACTS: ${err.offending.join(', ')}. `
-      + 'Write the answer again without those numbers. Use only figures that appear in FACTS or DATA, copied exactly.',
-    );
+    // The gateway accepts at most 12 plain figures (cleanOffending); naming those is enough for
+    // the model to know what to drop, and the guard still checks the whole retry.
+    const retry = await ask(retryFigures(err.offending));
     assertNoInventedFigures(retry, guardVars, guardOpts);
     return retry;
   }

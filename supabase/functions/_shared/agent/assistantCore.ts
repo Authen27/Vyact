@@ -22,8 +22,8 @@ export interface ServerCaller {
   userId: string;
   householdId: string;
   surface: 'whatsapp';
-  /** Per-user daily call cap (ASK_VYACT_DAILY_CALL_CAP, default 200) — the gateway's. */
-  dailyCap: number;
+  /** Per-user daily call cap — the gateway's (`parseDailyCallCap`); null only for an explicit `off`. */
+  dailyCap: number | null;
   timeoutMs?: number;
   /** Where the metering promise goes (EdgeRuntime.waitUntil); awaited when absent. */
   waitUntil?: (p: Promise<unknown>) => void;
@@ -46,7 +46,7 @@ export function serverModelCall(admin: SupabaseClient, caller: ServerCaller): Se
     if (!config) throw new Error('no model is enabled for the assistant');
 
     let reservationId: string | null = null;
-    if (Number.isFinite(caller.dailyCap) && caller.dailyCap > 0) {
+    if (caller.dailyCap !== null) {
       const { data: resId, error: resErr } = await admin.rpc('reserve_ai_usage', {
         p_user_id: caller.userId, p_household_id: caller.householdId, p_surface: caller.surface, p_cap: caller.dailyCap,
       });
