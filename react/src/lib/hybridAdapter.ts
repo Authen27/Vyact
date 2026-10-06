@@ -14,7 +14,7 @@
 // delegates to those modules.
 
 import type {
-  Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey, Budget, BudgetAllocation,
+  Profile, HouseholdMeta, ProfileTypeKey, Budget, BudgetAllocation,
   Transaction, Debt, Account, RecordLoanPaymentCommand, RecordLoanPaymentResult,
   AccountDependencies, AccountMoveResult,
 } from '../types';
@@ -301,14 +301,6 @@ export class HybridAdapter implements DataAdapter {
     void this.flushQueue();
     return records;
   }
-  async upsertRate(householdId: string, code: string, rate: number): Promise<void> {
-    await this.cache.upsertRate(householdId, code, rate);
-    await outbox.enqueueOp(
-      { ts: Date.now(), op: 'upsertRate', householdId, code, rate },
-      await this.cloud.currentUserId(),
-    );
-    void this.flushQueue();
-  }
 
   // Profile is per-user in cloud; cache it locally per-household for parity.
   async updateProfile(householdId: string, patch: Partial<Profile>): Promise<Profile> {
@@ -330,18 +322,6 @@ export class HybridAdapter implements DataAdapter {
       }
     } catch { /* offline — use cache */ }
     return this.cache.getProfile(householdId);
-  }
-  async getRates(householdId: string): Promise<ExchangeRates> {
-    try {
-      const cloud = await this.cloud.getRates(householdId);
-      // Hydrate local cache
-      for (const [code, rate] of Object.entries(cloud)) {
-        await this.cache.upsertRate(householdId, code, rate);
-      }
-      return await this.cache.getRates(householdId);
-    } catch {
-      return this.cache.getRates(householdId);
-    }
   }
 
   // v7.3 — pre-aggregated breakouts. Forward to cloud only; the cache is
@@ -457,7 +437,9 @@ export class HybridAdapter implements DataAdapter {
           else if (op.op === 'remove')        await this.cloud.remove(op.entity!, op.householdId, op.id!);
           else if (op.op === 'replaceAll')    await this.cloud.replaceAll(op.entity!, op.householdId, op.payload as unknown[]);
           else if (op.op === 'updateProfile') await this.cloud.updateProfile(op.householdId, op.payload as Partial<Profile>);
-          else if (op.op === 'upsertRate')    await this.cloud.upsertRate(op.householdId, op.code!, op.rate!);
+          // W3b (D14): exchange rates are retired — a rate edit queued by an older app has nothing to
+          // write to and no figure reads it. It is acknowledged (and recorded), never dead-lettered.
+          else if (op.op === 'upsertRate')    expected(new Error('retired op: upsertRate'), 'sync:upsertRate retired');
           // v6.4: a successful write proves we have valid cloud connectivity
           // and RLS access to this (hid, entity); mark synced so subsequent
           // empty list responses are trusted, not treated as transient.

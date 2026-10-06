@@ -46,13 +46,14 @@ describe('Reports date range (v10.31.0)', () => {
     expect(effectiveGrouping({ from: '1990-01-01', to: NOW }, 'month').grouping).toBe('year');
   });
 
-  it('sums only reportable entries dated inside the range, through central FX', () => {
+  it('sums only reportable entries dated inside the range, at face value', () => {
+    // W3b (owner decision D14): one currency per household — an old label counts at face value.
     const rows = rangeBuckets([
       txn({}), txn({ type: 'income', category: 'salary', amount: 100 }), txn({ amount: 8, currency: 'EUR' }),
       txn({ excluded: true, amount: 999 }), txn({ type: 'transfer', category: '', amount: 999 }),
       txn({ date: '2026-06-30', amount: 999 }), txn({ date: '2026-09-12', amount: 999 }),
     ], { from: '2026-07-01', to: NOW }, 'month', 'USD', { USD: 1, EUR: 0.8 });
-    expect(rows.at(-1)).toMatchObject({ income: 100, expense: 20, net: 80 });
+    expect(rows.at(-1)).toMatchObject({ income: 100, expense: 18, net: 82 });
     expect(rows[0]).toMatchObject({ income: 0, expense: 0 });
     expect(firstReportableDate([txn({ date: '2025-01-02', type: 'transfer', category: '' }), txn({ date: '2025-03-04' })])).toBe('2025-03-04');
   });

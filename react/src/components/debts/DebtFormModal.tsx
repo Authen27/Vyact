@@ -13,7 +13,7 @@ import Button from '../ui/Button';
 import { Input, Select, Field, FieldRow } from '../ui/Input';
 import { useStore } from '../../store';
 import { uid } from '../../lib/format';
-import { DEBT_TYPES, CURRENCIES } from '../../constants';
+import { DEBT_TYPES } from '../../constants';
 import type { Debt } from '../../types';
 
 interface Props {
@@ -115,7 +115,7 @@ export default function DebtFormModal(props: Props) {
         minimumPayment: isNaN(minPay) ? 0 : minPay,
         tenureMonths: isNaN(tenure) ? undefined : tenure,
         dueDate: form.dueDate || undefined,
-        currency: form.currency,
+        currency: profile.baseCurrency,   // W3b: one currency per household
       };
       await upsertDebt(debt);
       toast(initial ? 'Debt updated' : 'Debt added', 'success');
@@ -205,13 +205,6 @@ export default function DebtFormModal(props: Props) {
             onChange={e => setForm(f => ({ ...f, currentBalance: e.target.value }))}
             placeholder="0.00"
           />
-        </Field>
-        <Field label="Currency">
-          <Select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}>
-            {Object.entries(CURRENCIES).map(([code, c]) => (
-              <option key={code} value={code}>{c.symbol} {code}</option>
-            ))}
-          </Select>
         </Field>
       </FieldRow>
 

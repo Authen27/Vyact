@@ -696,11 +696,11 @@
         "cross-seam agreement (F2, F10) CON-UNIT-FACT-035 · a receivable is never listed among the household's debts",
         "data quality (P3) CON-UNIT-FACT-033 · negative recorded cash surfaces as a warning in the facts",
         "data quality (P3) CON-UNIT-FACT-034 · a healthy household carries no warning",
-        "foreign amounts (P20) CON-UNIT-FACT-042 · \"$150 dinner\" is checked as ₹12,480, not ₹150",
-        "foreign amounts (P20) CON-UNIT-FACT-043 · a foreign capture seeds the converted amount and says so, with no phrase call",
-        "foreign amounts (P20) CON-UNIT-FACT-044 · with no rate for the currency, NO figure is produced",
-        "foreign amounts (P20) CON-UNIT-FACT-045 · statedCurrency reads entities, symbols and words, and $ against the base",
-        "foreign amounts (P20) CON-UNIT-FACT-046 · the base currency stated explicitly is not converted",
+        "foreign amounts (P20, D14: ask to restate) CON-UNIT-FACT-042 · \"$150 dinner\" in an INR household produces no figure and asks for it in INR",
+        "foreign amounts (P20, D14: ask to restate) CON-UNIT-FACT-043 · a foreign capture seeds nothing and asks again",
+        "foreign amounts (P20, D14: ask to restate) CON-UNIT-FACT-044 · rates make no difference: no conversion with or without them",
+        "foreign amounts (P20, D14: ask to restate) CON-UNIT-FACT-045 · statedCurrency reads entities, symbols and words, and $ against the base",
+        "foreign amounts (P20, D14: ask to restate) CON-UNIT-FACT-046 · the base currency stated explicitly is not converted",
         "identifier-shaped numbers (P8) CON-UNIT-FACT-047 · the client parser skips phone, card and reference numbers",
         "identifier-shaped numbers (P8) CON-UNIT-FACT-048 · a model-extracted phone number asks for the amount instead of seeding it",
         "instant replies (P17) CON-UNIT-FACT-053 · a greeting is answered with ZERO model calls, even with no model at all",
@@ -819,7 +819,7 @@
       "owner": "reportRange / budgetTrends / essentialRunway (range, scope-matched budgets, stated-baseline runway)",
       "count": 4,
       "tests": [
-        "Budget vs actual by matching scope (v10.31.0) compares a monthly budget over its own month, only in its allocated categories, through central FX",
+        "Budget vs actual by matching scope (v10.31.0) compares a monthly budget over its own month, only in its allocated categories, at face value",
         "Budget vs actual by matching scope (v10.31.0) includes only budgets overlapping the range, and skips budgets with no allocations",
         "Budget vs actual by matching scope (v10.31.0) keeps annual budgets in their own series over the full year",
         "Budget vs actual by matching scope (v10.31.0) marks over, and never calls the current period over or under"
@@ -874,7 +874,7 @@
         "computePulseScore CON-UNIT-024 · higher debt-to-income lowers the debt component",
         "effectiveAmount CON-UNIT-013 · uses the full amount for non-split txns",
         "effectiveAmount CON-UNIT-014 · uses only yourShare for a split txn",
-        "effectiveAmount CON-UNIT-015 · converts a foreign-currency amount into base",
+        "effectiveAmount CON-UNIT-015 · W3b: a row labelled with another currency counts at face value in the household's",
         "monthlyData CON-UNIT-016 · sums income/expense within the month and computes net",
         "monthlyData CON-UNIT-017 · ignores transactions outside the requested month",
         "reportableTxns CON-UNIT-012 · excludes private/excluded txns and isolates investment + transfer",
@@ -988,7 +988,7 @@
       "owner": "reportRange / budgetTrends / essentialRunway (range, scope-matched budgets, stated-baseline runway)",
       "count": 4,
       "tests": [
-        "Essential-spend runway (v10.31.0) counts only need-classified reportable spending, honours the live classification map, and converts currency",
+        "Essential-spend runway (v10.31.0) counts only need-classified reportable spending, honours the live classification map, at face value",
         "Essential-spend runway (v10.31.0) labels baselines within and across years",
         "Essential-spend runway (v10.31.0) reports zero months for a non-positive liquid position, and no runway without a baseline or essential spend",
         "Essential-spend runway (v10.31.0) uses the last three completed months with recorded spending, never the current month"
@@ -1022,7 +1022,7 @@
         "Reports, Planner, Insights and notification outputs Planner explains 85 percent consumption and groups the recommendation under expenses",
         "Reports, Planner, Insights and notification outputs budget notifications progress from 80 percent to 100 percent without repeating the earlier threshold",
         "Reports, Planner, Insights and notification outputs creates one actionable recurring notification per due occurrence and does not repeat it",
-        "Reports, Planner, Insights and notification outputs reports inclusive period boundaries, FX and exclusions without counting transfers as spend"
+        "Reports, Planner, Insights and notification outputs reports inclusive period boundaries, face value and exclusions without counting transfers as spend"
       ]
     },
     {
@@ -1037,8 +1037,8 @@
         "clamp CON-UNIT-009 · clamps below, within, and above the range",
         "convert CON-UNIT-001 · returns the same amount when from === to",
         "convert CON-UNIT-002 · returns 0 (falsy amount) unchanged",
-        "convert CON-UNIT-003 · converts USD → EUR using the rate table",
-        "convert CON-UNIT-004 · converts a non-USD pair via the USD base (INR → GBP)",
+        "convert CON-UNIT-003 · face value: USD → EUR returns the same amount (no rate is applied)",
+        "convert CON-UNIT-004 · face value: any pair returns the same amount, rounded to the target's minor unit",
         "convert CON-UNIT-005 · treats an unknown currency code as rate 1 (documented fallback)",
         "convert CON-UNIT-006 · [TD-01 fixed] round-trip USD→EUR→USD returns exactly the original",
         "daysUntil CON-UNIT-010 · returns null for no date",
@@ -1085,8 +1085,8 @@
       "owner": "calculations / money / netWorth / amortization",
       "count": 2,
       "tests": [
-        "one FX path (audit F4) CON-UNIT-123 · convert() is units-per-USD and is the convention every surface uses",
-        "one FX path (audit F4) CON-UNIT-124 · SafeSummary converts a foreign-currency debt CORRECTLY (not the inverted ratio)"
+        "one FX path (audit F4) CON-UNIT-123 · convert() applies no rate in either direction (face value)",
+        "one FX path (audit F4) CON-UNIT-124 · SafeSummary reads a debt labelled in another currency at face value"
       ]
     },
     {
@@ -1305,7 +1305,7 @@
         "CURRENCY_REGISTRY / currencyOf CON-UNIT-040 · registers all 12 supported currency codes",
         "CURRENCY_REGISTRY / currencyOf CON-UNIT-041 · unknown currency code falls back to USD (documented contract)",
         "convertViaUsdRates CON-UNIT-044 · no-ops when source and target currencies match",
-        "convertViaUsdRates CON-UNIT-045 · post-conversion result is quantised to the target currency's native exponent",
+        "convertViaUsdRates CON-UNIT-045 · W3b face value: the same amount, relabelled and quantised to the target's native exponent",
         "parseMoneyFromCloud CON-UNIT-049 · accepts string, number, null, undefined, and empty without throwing",
         "parseMoneyFromCloud CON-UNIT-050 · returns 0 for non-finite inputs (NaN, garbage strings)",
         "toDinero / fromDinero CON-UNIT-042 · scales a USD major-unit number to integer cents and back",
@@ -1791,7 +1791,7 @@
         "computeNetWorth — the one projection (audit F3) CON-UNIT-121 · a NEW account with no asset/debt row moves the projection (the audit's divergence case)",
         "computeNetWorth — the one projection (audit F3) CON-UNIT-122 · Ask Vyact's SafeSummary reads the SAME projection (no drift)",
         "computeNetWorth — the one projection (audit F3) CON-UNIT-908 - a positive card balance is owned credit, not debt",
-        "computeNetWorth — the one projection (audit F3) CON-UNIT-909 - archiving retains value and opening balances are valued in account currency"
+        "computeNetWorth — the one projection (audit F3) CON-UNIT-909 - archiving retains value; an old currency label counts at face value (W3b)"
       ]
     },
     {
@@ -1805,7 +1805,7 @@
       "tests": [
         "Recorded Net Worth snapshots (v10.30.0) cloud adapter: lists the household rows by month and surfaces a read error",
         "Recorded Net Worth snapshots (v10.30.0) cloud adapter: sends the two sides for the first of the month, never net worth, and maps the stored row",
-        "Recorded Net Worth snapshots (v10.30.0) draws history only from two or more recorded months in the household currency",
+        "Recorded Net Worth snapshots (v10.30.0) draws history from two or more recorded months; a month recorded under a previous currency is drawn as recorded (W3b)",
         "Recorded Net Worth snapshots (v10.30.0) keeps the first snapshot for a month and orders months ascending",
         "Recorded Net Worth snapshots (v10.30.0) local-only adapter: first write for a month wins and survives a later write",
         "Recorded Net Worth snapshots (v10.30.0) records only a loaded, non-empty position for a month not yet recorded",
@@ -1870,6 +1870,19 @@
         "onboarding financial setup completes an empty setup without inventing balances, schedules or a budget",
         "onboarding financial setup preserves an existing Cash balance while still setting up the supplied bills",
         "onboarding financial setup writes estimated Cash, future approval-gated paycheck and bills, and a merged join-month budget"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/oneCurrencySql.test.ts",
+      "feature": "One currency SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W3b migration: new rows stamped with the household currency, loan payments checked against it (focused PGlite fixture)",
+      "count": 2,
+      "tests": [
+        "one currency per household (W3b) CON-UNIT-W3-D14-003 · new and edited rows take the household’s currency; a stored old label is left alone",
+        "one currency per household (W3b) CON-UNIT-W3-D14-004 · a loan payment after a currency change works in the household’s currency, not the debt’s old label"
       ]
     },
     {
@@ -1960,7 +1973,7 @@
       "count": 10,
       "tests": [
         "Merged personal Insights caps next steps at three and keeps the remaining evidence in other sections without duplication",
-        "Merged personal Insights compares allocation-based budgets using central FX and each budget period",
+        "Merged personal Insights compares allocation-based budgets at face value and over each budget period",
         "Merged personal Insights deduplicates by category and period, not matching titles or unrelated entities",
         "Merged personal Insights does not claim a healthy household or offer financial recommendations without reportable activity",
         "Merged personal Insights excludes withdrawals and private investment rows from the contribution rate",
@@ -2100,7 +2113,7 @@
         "Reports date range (v10.31.0) coarsens a grouping that would draw more than 60 buckets, and says so",
         "Reports date range (v10.31.0) resolves every preset to inclusive calendar dates ending today",
         "Reports date range (v10.31.0) round-trips through the URL without colliding with from=savings",
-        "Reports date range (v10.31.0) sums only reportable entries dated inside the range, through central FX"
+        "Reports date range (v10.31.0) sums only reportable entries dated inside the range, at face value"
       ]
     },
     {
@@ -2117,7 +2130,7 @@
         "Reports periods and account attribution resolves legacy cash but never assigns an unlinked entry to the first account",
         "Reports periods and account attribution retains the intended rolling window lengths in each grouping",
         "Reports periods and account attribution uses real leap-day and quarter boundaries",
-        "Reports periods and account attribution uses reportable entries and central currency conversion in every chart bucket"
+        "Reports periods and account attribution uses reportable entries at face value in every chart bucket"
       ]
     },
     {
@@ -2420,7 +2433,7 @@
         "topics and consent CON-UNIT-WA-D-005 · every quick reply in the manifest is answered, or is a named W3 button",
         "what the scheduler sends CON-UNIT-WA-D-006 · a large spend goes to the OTHER members over their threshold; private, scheduled and small ones do not",
         "what the scheduler sends CON-UNIT-WA-D-007 · a budget line at 80–99% alerts once per period, with the Budgets screen’s own spend figure",
-        "what the scheduler sends CON-UNIT-WA-D-008 · a household with any foreign-currency spend gets no budget alert (no rates on the server)",
+        "what the scheduler sends CON-UNIT-WA-D-008 · W3b: a row still labelled in another currency counts at face value; it no longer silences the alert",
         "what the scheduler sends CON-UNIT-WA-D-009 · split settled, weekly summary and stale balances",
         "what the scheduler sends CON-UNIT-WA-D-010 · local day and ISO week"
       ]
@@ -2451,13 +2464,14 @@
       "availability": "conditional",
       "layer": "unit",
       "owner": "whatsapp-parser",
-      "count": 34,
+      "count": 35,
       "tests": [
         "category id sets stay valid matchCategory only yields ids in the valid sets",
         "command grammar → expense amount + category + account",
         "command grammar → expense filler words are ignored",
         "command grammar → expense unknown category → other_expense, unknown account → cash",
-        "currency detection ₹ / symbols override base",
+        "currency detection CON-UNIT-W3-D14-001 · an amount in another currency is asked for again, never logged (W3b)",
+        "currency detection CON-UNIT-W3-D14-002 · the WhatsApp parser and Pip read a stated currency from the same table",
         "hard-block queries empty / no-amount lines clarify",
         "hard-block queries flags read requests, not logging lines",
         "hard-block queries query line → not ok, reason query",

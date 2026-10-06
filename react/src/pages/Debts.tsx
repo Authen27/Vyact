@@ -80,8 +80,7 @@ export default function Debts() {
       type: 'expense',
       category: 'loan_emi',
       amount: d.minimumPayment,
-      currency: d.currency,
-      description: `${d.name} — EMI payment`,
+      description: `${d.name} — EMI payment`,   // W3b: in the household's currency, not the debt's old label
       date: today(),
       linkedDebtId: d.id,
     });

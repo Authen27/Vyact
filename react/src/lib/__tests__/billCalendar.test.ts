@@ -52,6 +52,7 @@ describe('Approval-aware bill calendar (v10.32.0)', () => {
   });
 
   it('totals what is not yet posted in household currency, by kind, and groups by day', () => {
+    // W3b (owner decision D14): one currency per household — an old label counts at face value.
     const rent = schedule({});
     const phone = schedule({ id: 'phone', nextDueDate: '2026-09-15', template: { description: 'Phone', amount: 40, currency: 'EUR' } });
     const salary = schedule({ id: 'salary', nextDueDate: '2026-09-25', rrule: 'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=25', template: { type: 'income', description: 'Salary', amount: 3000 } });
@@ -60,6 +61,6 @@ describe('Approval-aware bill calendar (v10.32.0)', () => {
     expect(result.days.map(day => [day.date, day.items.map(item => item.description)])).toEqual([
       ['2026-09-15', ['Phone', 'Rent']], ['2026-09-20', ['SIP']], ['2026-09-25', ['Salary']],
     ]);
-    expect(result).toMatchObject({ from: NOW, to: '2026-10-10', outgoing: 1250, incoming: 3000, investing: 500 });
+    expect(result).toMatchObject({ from: NOW, to: '2026-10-10', outgoing: 1240, incoming: 3000, investing: 500 });
   });
 });

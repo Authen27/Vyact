@@ -92,8 +92,6 @@ export interface DataSlice {
    *  persist via the adapter. Caller passes either or both timestamps via
    *  the patch shape `{ completed_at?, dismissed_at? }` (defaults to now). */
   markEducation: (topicId: string, patch?: { completed_at?: string; dismissed_at?: string }) => Promise<void>;
-  upsertRate: (code: string, rate: number) => Promise<void>;
-  resetRates: () => Promise<void>;
 
   // v7 — recurring
   // recurring actions live in RecurringSlice (store/slices/recurringSlice.ts, TD-25).
@@ -231,9 +229,6 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
         accounts: seed.accounts, budgetAllocations: seed.budgetAllocations, recurringSchedules: seed.recurring,
       });
       await adapter.updateProfile(active, seed.profile);
-      for (const [code, rate] of Object.entries(seed.exchangeRates)) {
-        await adapter.upsertRate(active, code, rate);
-      }
       // v10.30.0 — demo rows carry no marker, so remember that this household
       // began as the demo: its invented figures must never become recorded history.
       try { setLocalString(DEMO_SEEDED_KEY, active); } catch { /* noop */ }
@@ -311,7 +306,8 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       adapter.list<BudgetAllocation>('budgetAllocations', currentHouseholdId)
         .catch((e) => { unexpected(e, 'refresh:budgetAllocations'); return get().budgetAllocations; }),
       adapter.getProfile(currentHouseholdId),
-      adapter.getRates(currentHouseholdId),
+      // W3b (D14): one currency per household — exchange rates are no longer read.
+      Promise.resolve({} as ExchangeRates),
       // v10.30.0 — recorded Net Worth history. A failed read shows no history;
       // it is never data loss (the rows stay where they are).
       typeof adapter.listNetWorthSnapshots === 'function'
@@ -468,9 +464,6 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const { adapter } = get();
     const h = await adapter.createHousehold(name, type, baseCurrency);
     await adapter.updateProfile(h.id, { ...defaultProfile, baseCurrency, household: type });
-    for (const [code, rate] of Object.entries(DEFAULT_RATES)) {
-      await adapter.upsertRate(h.id, code, rate);
-    }
     const households = await adapter.listHouseholds();
     set({ households });
     track('household_created', { segment: households.length > 1 ? 'household' : 'individual' });
@@ -589,7 +582,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
         debtId: t.linkedDebtId,
         fundingAccountId: t.accountId ?? t.paymentMethod,
         amount: t.amount,
-        currency: t.currency,
+        currency: get().profile.baseCurrency,   // W3b: always the household's currency
         date: t.date,
         description: t.description,
         memberId: t.memberId,
@@ -712,18 +705,6 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       writeLocalEducationProgress(nextProgress);
     }
   },
-  upsertRate: async (code, rate) => {
-    const { adapter, currentHouseholdId, rates } = get();
-    await adapter.upsertRate(currentHouseholdId, code, rate);
-    set({ rates: { ...rates, [code]: rate } });
-  },
-  resetRates: async () => {
-    const { adapter, currentHouseholdId } = get();
-    for (const [code, rate] of Object.entries(DEFAULT_RATES)) {
-      await adapter.upsertRate(currentHouseholdId, code, rate);
-    }
-    set({ rates: { ...DEFAULT_RATES } });
-  },
 
   // ── v7: DEBT PAYMENT WITH RE-AMORTISATION ────────────────────
   // Audit F2: recordDebtPayment is now a thin alias over the ONE command.
@@ -760,7 +741,8 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       throw new Error('Payment must cover the interest and cannot exceed the outstanding balance plus interest');
     }
     const emiSplit = { interest, principal, debt_id: debt.id, partPaymentChoice: input.partPaymentChoice };
-    const currency = input.currency || debt.currency;
+    // W3b (D14): a payment is in the household's currency; the debt's own label may be older.
+    const currency = get().profile.baseCurrency;
     const description = input.description?.trim() || `${debt.name} EMI`;
 
     // Funding account: explicit id, encoded picker value, else the Cash default.
@@ -770,9 +752,6 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       : accounts.find(a => a.kind === 'cash' && !a.isArchived);
     if (!funding || funding.isArchived || !['cash', 'bank'].includes(funding.kind)) {
       throw new Error('Choose an active bank or cash funding account');
-    }
-    if (currency !== debt.currency || funding.currency !== debt.currency) {
-      throw new Error('Loan payments must use the loan and funding account currency');
     }
 
     // Build the legs locally; every field is known client-side, the RPC is the

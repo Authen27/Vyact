@@ -890,13 +890,13 @@ amount unchanged.
 
 # §23 · Multi-Currency & FX (FX-FC)
 
-### ✅ FX-FC-001 — Editing an exchange rate re-renders converted totals everywhere
+### ✅ FX-FC-001 — Rows labelled in another currency count at face value; there is no rates sheet (v10.66.0, D14)
 ### 🟡 FX-FC-002 — Rounding uses banker's rounding at the target's native exponent
 - **Property**: A 300-row schedule must end exactly on `0.00` outstanding —
   no per-step drift (`lib/amortization.ts` guarantee).
 ### 🟡 FX-FC-003 — Sums in dinero space match per-row currency-formatted values
 ### 🟡 FX-FC-004 — Cloud `numeric(15,2)` string serialisation parses via `parseMoneyFromCloud`
-### ✅ FX-FC-005 — Switching `baseCurrency` re-anchors every chart without precision loss
+### ✅ FX-FC-005 — Changing the household currency changes the symbol only, without precision loss (v10.66.0, D14)
 
 ---
 

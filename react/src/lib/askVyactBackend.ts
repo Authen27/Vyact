@@ -305,9 +305,7 @@ function figuresAllowedBy(result: ResolveResult): string[] {
 function captureAcknowledgement(result: ResolveResult): string {
   const v = result.vars ?? {};
   const bits: string[] = [];
-  if (v.amount) bits.push(v.converted_from
-    ? `${String(v.amount)} (${String(v.converted_from)} at the app's exchange rate)`
-    : String(v.amount));
+  if (v.amount) bits.push(String(v.amount));
   if (v.category) bits.push(`under ${String(v.category)}`);
   if (v.account) bits.push(`on ${String(v.account)}`);
   if (v.date) bits.push(`dated ${String(v.date)}`);
@@ -318,9 +316,7 @@ function captureAcknowledgement(result: ResolveResult): string {
 /** v10.39.1 (P21) — the recurring counterpart: what was understood, and what is left to do. */
 function recurringAcknowledgement(result: ResolveResult): string {
   const v = result.vars ?? {};
-  const amount = v.converted_from
-    ? `${String(v.amount)} (${String(v.converted_from)} at the app's exchange rate)`
-    : String(v.amount);
+  const amount = String(v.amount);
   const when = v.day ? ` on the ${String(v.day)}` : '';
   return `I've drafted a ${String(v.frequency)} schedule for ${amount} under ${String(v.category)}${when}. `
     + 'Choose the account it comes from and save it — nothing is set up until you do.';
@@ -702,10 +698,6 @@ const AMOUNT_INTENTS = new Set([
   'capture.split', 'capture.recurring', 'forecast.affordability', 'forecast.prescriptive',
 ]);
 
-/** A rate exists for this code. USD is the table's anchor, so it always does. */
-const hasRate = (rates: AssistantContext['rates'], code: string) =>
-  code === 'USD' || (typeof rates[code] === 'number' && rates[code] > 0);
-
 // ── Stage 4 — resolve (the ONLY place money is computed) ────────────────────────
 /**
  * v10.39.1 — two checks on the stated AMOUNT before any figure is computed.
@@ -713,12 +705,11 @@ const hasRate = (rates: AssistantContext['rates'], code: string) =>
  * P8: an amount that only ever appears in the text as a phone/account/reference
  * number is not an amount. Capture asks for one instead of pre-filling it.
  *
- * P20: an amount stated in another currency is converted to the base currency
- * FIRST, at the app's own rate — or, when the app holds no rate for it, not used at
- * all. "$150 dinner" was checked as ₹150 because the currency was read and dropped.
- * `convert()` quietly treats a missing rate as 1, which is how a wrong answer would
- * come back; so the rate's existence is checked here, explicitly, and a missing one
- * is said out loud with no figures.
+ * P20, revised in W3b (v10.66.0; owner decision D14): a household keeps ONE currency and
+ * nothing is converted. An amount stated in another currency ("$150 dinner" in an INR
+ * household) is not used at all — Pip asks for it again in the household's currency
+ * (`needs_restate`, no figures). Read as ₹150 it would be a wrong answer that passes every
+ * guard; converted, it would contradict the rule that amounts are never converted.
  */
 export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveResult {
   const e = intent.entities;
@@ -737,28 +728,14 @@ export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveRes
   const stated = statedCurrency(e.currency, e.text, base, CURRENCIES[base]?.symbol);
   if (!stated || stated === base) return resolveCore(intent, ctx);
 
-  if (!hasRate(ctx.rates, stated) || !hasRate(ctx.rates, base)) {
-    return {
-      kind, outcome: 'needs_rate', vars: {},
-      facts: {
-        amount_currency: stated,
-        household_currency: base,
-        note: `no exchange rate for ${stated} is set in the app, so this amount cannot be converted to ${base}; add the rate in Settings, or ask again in ${base}`,
-      },
-      analysis: [`No ${stated} → ${base} rate is set, so I can't convert this amount`],
-    };
-  }
-
-  const converted = Math.round(convert(e.amount, stated, base, ctx.rates) * 100) / 100;
-  const rate = convert(1, stated, base, ctx.rates);
-  const asStated = `${e.amount} ${stated}`;
-  const rateText = `1 ${stated} = ${rate.toFixed(rate >= 1 ? 2 : 4)} ${base}, the rate set in the app`;
-  const result = resolveCore({ ...intent, entities: { ...e, amount: converted } }, ctx);
   return {
-    ...result,
-    vars: { ...result.vars, converted_from: asStated },
-    facts: { ...(result.facts ?? {}), amount_as_stated: asStated, converted_at: rateText },
-    analysis: [`Converted ${asStated} to ${base} at ${rateText.split(',')[0]}`, ...(result.analysis ?? [])],
+    kind, outcome: 'needs_restate', vars: {},
+    facts: {
+      amount_currency: stated,
+      household_currency: base,
+      note: `this household keeps every amount in ${base} and never converts; ask for the amount again in ${base}`,
+    },
+    analysis: [`The amount was given in ${stated}; this household records in ${base}, so I asked for it in ${base}`],
   };
 }
 
@@ -1166,13 +1143,8 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       if (!upcoming.length && !awaiting.length) return { kind: 'interpret', outcome: 'ok',
         facts: { upcoming_soonest_first: [], due_this_week: [] }, analysis: ['Looked for upcoming bills — none tracked'],
         vars: { headline: 'No upcoming bills tracked.', detail: 'Add a recurring schedule to see what is due.' } };
-      // A total only when every bill in it is in (or convertible to) the household
-      // currency: `convert` treats a missing rate as 1, so a foreign bill with no
-      // rate would be added at face value.
-      const convertible = thisWeek.every(r => !r.transactionTemplate.currency || r.transactionTemplate.currency === cur(ctx)
-        || (hasRate(ctx.rates, r.transactionTemplate.currency) && hasRate(ctx.rates, cur(ctx))));
-      const weekTotal = thisWeek.reduce((s, r) =>
-        s + convert(r.transactionTemplate.amount, r.transactionTemplate.currency || cur(ctx), cur(ctx), ctx.rates), 0);
+      // W3b (D14): one currency per household — every bill counts at face value.
+      const weekTotal = thisWeek.reduce((s, r) => s + (r.transactionTemplate.amount || 0), 0);
       const soon = upcoming.slice(0, 3);
       const detail = soon.map(r => `${r.transactionTemplate.description || getCat(r.transactionTemplate.category).label} (${r.nextDueDate})`).join(', ');
       return { kind: 'interpret', outcome: 'ok',
@@ -1180,7 +1152,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
           due_this_week: thisWeek.map(billFact),
           due_this_week_count: String(thisWeek.length),
           total_due_this_week: !thisWeek.length ? 'nothing due this week'
-            : convertible ? money(weekTotal, ctx) : 'not totalled: a bill is in a currency with no exchange rate set',
+            : money(weekTotal, ctx),
           upcoming_soonest_first: soon.map(billFact),
           ...(awaiting.length ? { overdue_waiting_for_your_approval: awaiting.map(billFact) } : {}),
         },
@@ -1432,7 +1404,7 @@ export const CAPABILITIES = {
     // pay or change them.
     'listing upcoming bills you have set up as recurring schedules',
     'how much is free to spend once your credit card dues are paid',
-    'whether a purchase fits above your safety floor, in your currency or another',
+    'whether a purchase fits above your safety floor',
     'how long your savings would last without income',
     'where you could cut back',
     'recording an expense, income, transfer, investment or split (you confirm the form)',
@@ -1639,7 +1611,7 @@ export async function runAssistant(
     // channel gets the same list and no call site can opt out of the limit.
     chips: normaliseChips(result.chips),
     clarify: gated || result.kind === 'fallback' || result.outcome === 'missing_amount'
-      || result.outcome === 'needs_rate',
+      || result.outcome === 'needs_restate',
     allowedFigures: figuresAllowedBy(result),
     // v10.47.0 — what resolve() decided, for a channel that renders a fixed card.
     resolved: { outcome: result.outcome, ...(result.amounts ? { amounts: result.amounts } : {}) },

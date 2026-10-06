@@ -22,7 +22,7 @@ import { Input, Select, Field, FieldRow } from '../ui/Input';
 import { useStore } from '../../store';
 import { uid, today } from '../../lib/format';
 import { computeAssetValue } from '../../lib/accountBalance';
-import { ASSET_TYPES, CURRENCIES } from '../../constants';
+import { ASSET_TYPES } from '../../constants';
 import type { Asset } from '../../types';
 
 interface Props {
@@ -111,7 +111,7 @@ export default function AssetFormModal(props: Props) {
           ...initial,
           type: hasActivity ? initial.type : form.type,
           name: form.name.trim(),
-          currency: hasActivity ? initial.currency : form.currency,
+          currency: profile.baseCurrency,   // W3b: one currency per household
           liquidity: form.liquidity,
           note: form.note.trim() || undefined,
         };
@@ -128,7 +128,7 @@ export default function AssetFormModal(props: Props) {
           type: form.type,
           name: form.name.trim(),
           value,
-          currency: form.currency,
+          currency: profile.baseCurrency,
           liquidity: form.liquidity,
           note: form.note.trim() || undefined,
           lastUpdated: today(),
@@ -222,14 +222,6 @@ export default function AssetFormModal(props: Props) {
             placeholder="0.00"
           />
         </Field>
-        <Field label="Currency">
-          <Select value={form.currency} disabled={hasActivity}
-            onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}>
-            {Object.entries(CURRENCIES).map(([code, c]) => (
-              <option key={code} value={code}>{c.symbol} {code}</option>
-            ))}
-          </Select>
-        </Field>
       </FieldRow>
 
       {(form.type === 'investment' || folds) && (
@@ -237,7 +229,7 @@ export default function AssetFormModal(props: Props) {
           {initial && folds
             ? 'Buys and withdrawals move this value on their own. Changing it records a dated value update — it never becomes a transaction and never touches your spending.'
             : 'Record buys and withdrawals as Investment transactions — each one moves this value and the account it came from by the same amount.'}
-          {hasActivity && ' Currency and type are fixed once money has moved through it.'}
+          {hasActivity && ' Its type is fixed once money has moved through it.'}
         </p>
       )}
 

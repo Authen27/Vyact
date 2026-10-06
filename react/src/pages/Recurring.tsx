@@ -302,7 +302,7 @@ export default function Recurring() {
                     </div>
                   </div>
                   <div className={`text-[0.86rem] font-medium ${s.transactionTemplate.type === 'income' ? 'text-sage' : 'text-terra'}`}>
-                    <Money amount={s.transactionTemplate.amount} currency={s.transactionTemplate.currency} className="font-medium" signed={s.transactionTemplate.type === 'income'} />
+                    <Money amount={s.transactionTemplate.amount} currency={baseCur} className="font-medium" signed={s.transactionTemplate.type === 'income'} />
                   </div>
                   {/* The delete used to be `remove(s.id); toast('Schedule
                       deleted')` — fire-and-forget, with the success toast on the

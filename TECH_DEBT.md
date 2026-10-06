@@ -12,13 +12,13 @@
 
 ## Status at a glance (revalidated 2026-09-13 against production)
 
-**44 items total — 26 ✅ resolved · 3 ⚠ partial · 15 ⬜ open.**
+**45 items total — 26 ✅ resolved · 3 ⚠ partial · 16 ⬜ open.**
 
 | Bucket | IDs |
 |---|---|
 | ✅ **Resolved** (26) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, **TD-22**, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, TD-33, **TD-39** |
 | ⚠ **Partial** (3) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B green — 10 specs incl. RLS isolation; Lane A green since v10.49.1) · **TD-29** (Lane A 0 failures v10.49.1; required-check in branch protection is the owner's) |
-| ⬜ **Open** (15) | TD-15 ⚠**REOPENED**, TD-16, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44** |
+| ⬜ **Open** (16) | TD-15 ⚠**REOPENED**, TD-16, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44**, **TD-45** |
 
 > ### 🔻 Paydown is DEPRIORITIZED (2026-09-13)
 > The current priority is **completing Ask Vyact** — see
@@ -107,6 +107,7 @@
 | TD-42 | Production security advisors: 8 tables RLS-enabled with no policy, 38 SECURITY DEFINER functions callable by `authenticated` | Security | Medium | S–M |
 | TD-43 | No test exercises the deployed `ask-vyact` gateway against a real provider — a 2-day production outage went unnoticed | Technical / QA | High | S |
 | TD-44 | TEMPORARY Claude Code relay (v10.37.0) stores Ask Vyact message content for the owner's test account — remove after validation | Security / Privacy | Medium | S |
+| TD-45 | Inert exchange-rate plumbing after the single-currency change (v10.66.0): `rates` arguments, the `exchange_rates` table and its policies | Technical / Cleanup | Low | M |
 
 ---
 
@@ -1350,6 +1351,27 @@ logs it, so the outage is invisible in Supabase logs. Full analysis:
 
 **Effort.** S. **Acceptance.** A CI-gated end-to-end test hits the deployed gateway and asserts a
 successful `ai_usage` row; the `!result.ok` path emits a log line.
+
+---
+
+## TD-45 — Remove the inert exchange-rate plumbing (single-currency households)
+
+**Description.** v10.66.0 (W3b, owner decision D14) made every household single-currency with no
+conversion. The behaviour lives at the two choke points — `convert()` / `convertViaUsdRates()` and
+the transaction fold, which read amounts at face value — so the ~350 places that still pass a
+`rates` argument (calculations, selectors, pages, the server engine's `HouseholdRows.rates`) do
+nothing with it. The `rates` store field, `ExchangeRates` type, `DEFAULT_RATES`, the seed's
+`exchangeRates`, the retired `upsertRate` outbox op and the `exchange_rates` table (still readable,
+no longer read or written by the app) remain.
+
+**Why it is debt.** Dead parameters invite someone to "use the rates" again, and the table keeps a
+write policy nothing needs.
+
+**Close in two steps:** (1) once v10.66.0 is the oldest app in use, a migration drops the
+`exchange_rates` write policy, then the table; (2) remove the `rates` parameters, store field, type
+and constants in one refactor, verified against the money suites (the golden file must not move).
+
+**Effort.** M.
 
 ---
 

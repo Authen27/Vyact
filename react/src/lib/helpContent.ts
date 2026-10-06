@@ -222,9 +222,9 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   {
     id: 'currency', group: 'Access and support',
     question: 'How do I change currency or appearance?',
-    answer: 'Open Settings for appearance and language/currency preferences. Accounts use the household currency rather than an independently selected account currency.',
-    note: 'Changing a currency setting is not a real foreign-exchange transfer. Review currency and exchange-rate settings carefully before relying on converted totals.',
-    keywords: ['currency', 'exchange rate', 'theme', 'dark', 'warm', 'language', 'appearance'],
+    answer: 'Open Settings for appearance and language/currency preferences. A household has one currency: every account, budget and entry is in it.',
+    note: 'Changing the household currency changes the symbol only. Amounts are never converted, so change it only if it was set wrongly.',
+    keywords: ['currency', 'theme', 'dark', 'warm', 'language', 'appearance'],
     link: { to: '/settings', label: 'Open Settings' },
   },
   {

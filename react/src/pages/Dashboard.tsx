@@ -551,6 +551,7 @@ function MetricTile({ label, value, spine, to }: { label: string; value: ReactNo
 
 /** Board M1 recent row — tinted category tile · name + "category · when" · amount. */
 function RecentRow({ txn, onEdit }: { txn: Transaction; onEdit: (t: Transaction) => void }) {
+  const baseCur = useStore(s => s.profile.baseCurrency);   // W3b: one currency per household
   const cat = getCat(txn.category ?? '');
   const emoji = txn.type === 'transfer' ? '🔄' : txn.type === 'investment' ? '📈' : cat.icon;
   const catLabel = txn.type === 'transfer' ? 'Transfer' : txn.type === 'investment' ? 'Investment' : cat.label;
@@ -569,7 +570,7 @@ function RecentRow({ txn, onEdit }: { txn: Transaction; onEdit: (t: Transaction)
         <div className="text-[12px] text-ink-mid">{catLabel} · {when}</div>
       </div>
       <span className={`num font-semibold text-[13.5px] flex-shrink-0 ${isIncome ? 'text-sage' : 'text-ink'}`}>
-        {isExpense ? '−' : isIncome ? '+' : ''}<Money amount={txn.split?.isSplit ? txn.split.yourShare : txn.amount} currency={txn.currency} maxChars={9} />
+        {isExpense ? '−' : isIncome ? '+' : ''}<Money amount={txn.split?.isSplit ? txn.split.yourShare : txn.amount} currency={baseCur} maxChars={9} />
       </span>
     </button>
   );

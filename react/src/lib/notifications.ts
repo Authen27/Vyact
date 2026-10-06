@@ -137,7 +137,7 @@ export function recurringDueNotifs(schedules: RecurringSchedule[], prefs: Notifi
     const amt = s.transactionTemplate.amount ?? 0;
     out.push({
       ...base('recurring_due_confirm', key, ctx),
-      title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
+      title: `${s.transactionTemplate.description} · ${fmt(amt, ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
       body: 'Auto-approve is off for this schedule',
       dueAt: s.nextDueDate, amountRef: amt, scheduleId: s.id,
       deepLink: `/recurring?id=${s.id}`,
@@ -159,7 +159,7 @@ export function recurringReminderNotifs(schedules: RecurringSchedule[], prefs: N
     const amt = s.transactionTemplate.amount ?? 0;
     out.push({
       ...base('recurring_reminder', key, ctx),
-      title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
+      title: `${s.transactionTemplate.description} · ${fmt(amt, ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
       body: 'Upcoming recurring charge',
       dueAt: s.nextDueDate, amountRef: amt, scheduleId: s.id,
       deepLink: `/recurring?id=${s.id}`,
@@ -240,7 +240,7 @@ export function debtDueNotifs(debts: Debt[], prefs: NotificationPrefs, existing:
     const amt = d.minimumPayment ?? 0;
     out.push({
       ...base('debt_payment_due', key, ctx),
-      title: `${d.name} payment · ${fmt(amt, d.currency)} — due ${relDate(d.dueDate, ctx.tz)}`,
+      title: `${d.name} payment · ${fmt(amt, ctx.baseCurrency)} — due ${relDate(d.dueDate, ctx.tz)}`,
       body: 'Minimum payment coming up',
       dueAt: d.dueDate, amountRef: amt, debtId: d.id,
       deepLink: `/debts?debtId=${d.id}`,
@@ -261,7 +261,7 @@ export function incomeLandedNotifs(txns: Transaction[], prefs: NotificationPrefs
     if (existing.some(n => n.dedupeKey === key)) continue;
     out.push({
       ...base('income_landed', key, ctx),
-      title: `${t.description || 'Income'} landed — +${fmt(t.amount, t.currency || ctx.baseCurrency)}`,
+      title: `${t.description || 'Income'} landed — +${fmt(t.amount, ctx.baseCurrency)}`,
       body: 'Money in',
       amountRef: t.amount, txnId: t.id,
       deepLink: `/transactions?id=${t.id}`,

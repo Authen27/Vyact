@@ -23,7 +23,7 @@ const FACTS = [
   'For: couples, families, flatmates — any household that shares money — and individuals who want the full picture.',
   'Price: free to start; no credit card needed.',
   'Platforms: web at vyact.app; installable on Android and iPhone from the browser (opens like an app, with bill and budget alerts).',
-  'Currency: works in the household’s own currency; other currencies are converted at rates the household sets.',
+  'Currency: one currency per household, chosen at setup; every amount is recorded and shown in it.',
   'Shared by design: members invited to a household each have their own login and a role (edit or view-only); a personal entry can be kept out of the shared totals.',
   'Assistant: Pip answers questions about the household’s money (e.g. “can we afford a weekend away?”) from its own budgets and balances.',
   'Data: only people invited to a household can see its numbers; data is never sold or used for advertising (see /privacy).',

@@ -66,7 +66,7 @@ export const AUDIENCES = {
       ['What is the best budget app for families with multiple users?', 'Look for one where every family member can have their own login to the same household, with control over who can edit, one shared budget and a view of upcoming bills. Vyact is built around exactly that, and is free to start.'],
       ['How do I make a family budget?', 'List what’s already committed each month, give the remaining categories limits, set aside monthly for predictable big costs, and review it together once a month.'],
       ['Can children use the family budget app?', 'Yes — invite older children with view-only access so they can see how the household plans, without changing anything.'],
-      ['Does it work in my currency?', 'Yes. Your household works in its own currency, and other currencies are converted at the rates you set.'],
+      ['Does it work in my currency?', 'Yes. Your household works in its own currency, chosen when you set up, and every amount is recorded in it.'],
     ],
     lessons: [LESSON('ev-103-the-household-is-the-real-unit', 'The household is the real unit'), LESSON('ev-011-sinking-funds-for-big-bills', 'Sinking funds for big bills'), LESSON('ev-053-festival-and-wedding-seasons', 'Festival and wedding seasons'), LESSON('ev-047-allocate-then-watch', 'Allocate, then watch')],
     ref: 'for_families',

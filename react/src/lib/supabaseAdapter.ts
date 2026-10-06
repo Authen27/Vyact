@@ -5,7 +5,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
-  Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
+  Profile, HouseholdMeta, ProfileTypeKey,
   WithProvenance, Confidence, ProvenanceSource, RecurringSchedule,
   RecordLoanPaymentCommand, RecordLoanPaymentResult, AccountDependencies, AccountMoveResult,
 } from '../types';
@@ -1246,20 +1246,6 @@ export class SupabaseAdapter implements DataAdapter {
     // so a request here can only be an old queued op: refuse it loudly, never silently.
     void householdId;
     throw new Error(`replaceAll(${entity}) is not available in cloud mode: the bulk replace RPCs were removed (W1).`);
-  }
-
-  // ── rates ──────────────────────────────────────────────────
-  async getRates(householdId: string): Promise<ExchangeRates> {
-    const { data, error } = await this.sb.from('exchange_rates')
-      .select('currency_code,rate_to_usd').eq('household_id', householdId);
-    if (error) throw error;
-    return Object.fromEntries((data || []).map(r => [r.currency_code, Number(r.rate_to_usd)]));
-  }
-  async upsertRate(householdId: string, code: string, rate: number): Promise<void> {
-    const { error } = await this.sb.from('exchange_rates').upsert({
-      household_id: householdId, currency_code: code, rate_to_usd: rate,
-    });
-    if (error) throw error;
   }
 
   // ── v7.3 — Money Map Item #8 read-path optimisation ────────

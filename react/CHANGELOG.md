@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.65.0`** (consumer)
+> **Current production version: `v10.66.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,58 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.66.0 — W3b: one currency per household, nothing converted *(2026-10-06)*
+
+Second W3 stage of the 2026-10-04 audit remediation. Owner decision **D14**: one currency per household. The
+converter is removed, and a currency change changes the symbol only. Follow-up answers:
+- old labels are ignored, not rewritten;
+- Net Worth months recorded under a previous currency are shown as recorded;
+- the CSV export writes the household currency.
+
+Audit IDs: INT-TZC-02/07, INT-PAR-01/06, FE-MNY-09, DB-INT-12, FE-UIS-03 (currency part).
+
+- **Every figure reads amounts at face value in the household's currency.**
+  - `convert`, `convertViaUsdRates` and the transaction fold no longer apply a rate. This is the same in
+    the app, the server money port and the bundled engine.
+  - Before, a row labelled with another currency was revalued at an undated 2024 rate table. After a
+    currency change, accounts were read raw while transactions were converted, so balances mixed units.
+  - The money-model suites and the golden file did not move.
+- **The converter is gone.**
+  - Settings has no "Exchange rates" sheet. The app no longer reads or writes rates, and a backup no
+    longer carries them.
+  - The currency field shows the note "changing it changes the symbol only; amounts are not converted".
+  - A rate edit still queued from an older app is acknowledged, not dead-lettered.
+  - The `rates` arguments still threaded through the folds are now inert. Removing them is TD-45.
+- **New and edited rows are stamped with the household's currency.** This covers transactions,
+  budgets, goals, debts and assets, as accounts already were. No writer can mislabel a row: not the
+  app, not WhatsApp, not a recurring post. The debt and asset forms lose their currency field, and the
+  transaction and budget forms lose their "reports convert" note. Migration 20261013120000.
+- **Loan payments work after a currency change.** `record_loan_payment` (and the app's own check)
+  compared the payment with the debt's own label. A currency change relabels accounts but not debts,
+  so every EMI afterwards failed. They now check the household's currency.
+- **An amount in another currency is asked for again, never converted.**
+  - **Pip** returns `needs_restate` with no figures, where it used to convert at the app's rate.
+  - **WhatsApp** replies "your household records everything in X; send it again in X".
+  - The WhatsApp parser now uses the app's own symbol/word table, so "20 dollars", "15 quid" and
+    "300 yen" are caught (INT-PAR-06).
+- **Screens show the household's symbol on every row**, including transaction rows, the dashboard,
+  recurring, the bill calendar, notification titles and Net Worth. A row's old label would contradict
+  the totals it counts in.
+- **Net Worth history draws every recorded month as recorded.** A month recorded under a previous
+  currency is no longer hidden.
+- **The CSV export's Currency column is the household's.**
+- **WhatsApp alerts count face value.** A row still carrying an old label no longer silences a whole
+  household's budget, digest or large-spend alerts. The ₹-template gate for non-INR households stays.
+- **Onboarding re-runs keep the chosen currency** instead of guessing again from the browser
+  language (FE-UIS-03).
+- **Public copy** (landing FAQ, /for/families, llms.txt, help) no longer promises conversion.
+
+Tests:
+- `oneCurrencySql.test.ts` (2, PGlite).
+- `whatsappParser.test.ts` (+2): restate, and parity with Pip's table.
+- 20 conversion pins rewritten to face value, each deliberately.
+- e2e: FX-FC-001/005, NWH-FC-003, PROFILE-FC-002 and the backup specs updated.
 
 ## v10.65.0 — W3a: "today" is your day, not UTC's *(2026-10-06)*
 

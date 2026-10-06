@@ -177,7 +177,7 @@ export default function Splits() {
       currentBalance: part.share,
       interestRate: 0,
       minimumPayment: 0,
-      currency: txn.currency,
+      currency: profile.baseCurrency,   // W3b: one currency per household
       direction: 'owed_by_me',
     };
     const created = await upsertDebt(debt);

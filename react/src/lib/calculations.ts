@@ -23,12 +23,16 @@ export function txnAmountInBase(t: Transaction, baseCurrency: string, rates: Exc
   return convert(t.amount, t.currency || baseCurrency, baseCurrency, rates);
 }
 
-function effectiveDinero(t: Transaction, baseCurrency: string, rates: ExchangeRates): Dinero<number> {
-  const cur = t.currency || baseCurrency;
+// W3b (v10.66.0; owner decision D14) — ONE CURRENCY PER HOUSEHOLD, NO CONVERSION. Every amount is
+// read at face value in the household's currency: a row still labelled with another currency (an old
+// row, or one saved before the household's currency was changed) counts as the household's, and a
+// currency change only changes the symbol. The `rates` argument is accepted and ignored, so the many
+// callers that still pass it need no change; removing that plumbing is TECH_DEBT TD-45.
+function effectiveDinero(t: Transaction, baseCurrency: string, _rates?: ExchangeRates): Dinero<number> {
   const raw = t.split?.isSplit && typeof t.split.yourShare === 'number'
     ? t.split.yourShare
     : t.amount;
-  return convertViaUsdRates(toDinero(raw, cur), baseCurrency, rates);
+  return toDinero(raw, baseCurrency);   // face value: the row's own currency label is not read
 }
 
 export function effectiveAmount(t: Transaction, baseCurrency: string, rates: ExchangeRates): number {

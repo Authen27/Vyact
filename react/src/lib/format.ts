@@ -1,6 +1,6 @@
 // Currency formatting · date formatting · misc
 import type { Transaction } from '../types';
-import { CURRENCIES, DEFAULT_RATES } from '../constants';
+import { CURRENCIES } from '../constants';
 import { toDinero, fromDinero, convertViaUsdRates } from './money';
 
 // ── "Today" is a LOCAL calendar day (W3a, v10.65.0; audit INT-TZC-03, INT-PAR-04; owner decision D12).
@@ -203,9 +203,14 @@ export function daysUntil(dateStr?: string, tz?: string | null): number | null {
  * dinero plumbing and `CON-UNIT-006` for the regression test that pins
  * the fixed behaviour.
  */
-export function convert(amount: number, from: string, to: string, rates: Record<string, number> = DEFAULT_RATES): number {
+/**
+ * Face value (W3b, v10.66.0): one currency per household, never converted — the amount comes back
+ * unchanged, re-rounded to the target currency's minor unit. `rates` is ignored (TD-45).
+ * @deprecated There is nothing to convert; new code should use the amount as it is.
+ */
+export function convert(amount: number, from: string, to: string, _rates?: Record<string, number>): number {
   if (!amount || from === to) return amount;
-  return fromDinero(convertViaUsdRates(toDinero(amount, from), to, rates));
+  return fromDinero(convertViaUsdRates(toDinero(amount, from), to));
 }
 
 export function fmt(amount: number, currency = 'USD'): string {

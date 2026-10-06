@@ -6,10 +6,9 @@
 
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
-  Profile, ExchangeRates, HouseholdMeta, ProfileTypeKey,
+  Profile, HouseholdMeta, ProfileTypeKey,
   RecordLoanPaymentCommand, RecordLoanPaymentResult, AccountDependencies, AccountMoveResult,
 } from '../types';
-import { DEFAULT_RATES } from '../constants';
 import { uid } from './format';
 import ls from './localStorageCompat';
 // TD-14 — bulk entity state lives in IndexedDB (kvStore) to escape the
@@ -86,9 +85,8 @@ export interface DataAdapter {
     mode: 'create' | 'replace',
   ): Promise<{ budget: Budget; allocations: BudgetAllocation[] }>;
 
-  // exchange rates (per-household)
-  getRates(householdId: string): Promise<ExchangeRates>;
-  upsertRate(householdId: string, code: string, rate: number): Promise<void>;
+  // W3b (v10.66.0; owner decision D14): no exchange rates — one currency per household, never
+  // converted. The 'rates' key stays in the purge/erase lists so old local copies are cleared.
 
   /** v7.3 — Money Map Item #8 read-path optimisation. Optional. When
    *  the adapter exposes pre-aggregated `v_txn_by_member` /
@@ -340,16 +338,6 @@ export class LocalStorageAdapter implements DataAdapter {
   /** Cache-only: the hybrid adapter mirrors the cloud's rows here for offline reads. */
   async replaceNetWorthSnapshots(householdId: string, rows: NetWorthSnapshot[]): Promise<void> {
     await this.write('net_worth_snapshots', householdId, rows);
-  }
-
-  // ── rates ────────────────────────────────────────────────────
-  async getRates(householdId: string): Promise<ExchangeRates> {
-    return { ...DEFAULT_RATES, ...(await this.read<ExchangeRates>('rates', householdId, {})) };
-  }
-  async upsertRate(householdId: string, code: string, rate: number): Promise<void> {
-    const rates = await this.read<ExchangeRates>('rates', householdId, {});
-    rates[code] = rate;
-    await this.write('rates', householdId, rates);
   }
 }
 

@@ -322,7 +322,6 @@ const DEFAULT_RATES = {
 const INVALID_AMOUNT_MESSAGE = "Amount is invalid.";
 const INVALID_SCALE_MESSAGE = "Scale is invalid.";
 const UNEQUAL_CURRENCIES_MESSAGE = "Objects must have the same currency.";
-const MISMATCHED_BASES_MESSAGE = "Objects must have the same currency base.";
 /**
 * Assert a condition.
 *
@@ -412,19 +411,6 @@ function computeBase(calculator) {
 function greaterThan$1(calculator) {
 	return (subject, comparator) => {
 		return calculator.compare(subject, comparator) === DineroComparisonOperator.GT;
-	};
-}
-function isScaledAmount(amount) {
-	return amount?.hasOwnProperty("amount");
-}
-function getAmountAndScale(value, zero) {
-	if (isScaledAmount(value)) return {
-		amount: value.amount,
-		scale: value?.scale ?? zero
-	};
-	return {
-		amount: value,
-		scale: zero
 	};
 }
 /**
@@ -528,25 +514,6 @@ function safeAdd(calculator) {
 		return addFn(newAugend, newAddend);
 	};
 }
-function convert$1(calculator) {
-	const convertScaleFn = transformScale$1(calculator);
-	const maximumFn = maximum$1(calculator);
-	const computeBaseFn = computeBase(calculator);
-	const equalFn = equal$2(calculator);
-	const zero = calculator.zero();
-	return function convertFn(...[dineroObject, newCurrency, rates]) {
-		const rate = rates[newCurrency.code];
-		const { amount, currency, scale } = dineroObject.toJSON();
-		assert(equalFn(computeBaseFn(currency.base), computeBaseFn(newCurrency.base)), MISMATCHED_BASES_MESSAGE);
-		const { amount: rateAmount, scale: rateScale } = getAmountAndScale(rate, zero);
-		const newScale = calculator.add(scale, rateScale);
-		return convertScaleFn(dineroObject.create({
-			amount: calculator.multiply(amount, rateAmount),
-			currency: newCurrency,
-			scale: newScale
-		}), maximumFn([newScale, newCurrency.exponent]));
-	};
-}
 function toSnapshot$1(dineroObject) {
 	return dineroObject.toJSON();
 }
@@ -563,21 +530,6 @@ function toSnapshot$1(dineroObject) {
 function add(...[augend, addend]) {
 	const { calculator } = augend;
 	return safeAdd(calculator)(augend, addend);
-}
-/**
-* Convert a Dinero object to another currency.
-*
-* @param dineroObject - The Dinero object to format.
-* @param newCurrency - The currency to convert to.
-* @param rates - The rates to convert with.
-*
-* @returns A converted Dinero object.
-*
-* @public
-*/
-function convert$2(...[dineroObject, newCurrency, rates]) {
-	const { calculator } = dineroObject;
-	return convert$1(calculator)(dineroObject, newCurrency, rates);
 }
 /**
 * Get a snapshot of a Dinero object.
@@ -912,64 +864,13 @@ function fromDinero(d) {
 	return amount / Math.pow(10, scale);
 }
 /**
-* Express a JS-number rate (e.g. 0.92 from the rate table) as the
-* `{ amount, scale }` shape that dinero's `convert` expects. Higher
-* scale = more rate precision preserved across the conversion.
-*
-* Scale 10 gives ~10 decimal digits of rate precision — well below
-* Number.MAX_SAFE_INTEGER (≈ 9.0e15) for any realistic FX rate.
+* The same amount, labelled in the household's currency (face value). Re-quantised to that
+* currency's minor unit, so a 2-decimal amount read into a 0-decimal currency rounds like any
+* other amount in it. Kept under its old name for the existing callers.
 */
-function rateToScaled(rate, scale = 10) {
-	return {
-		amount: Math.round(rate * Math.pow(10, scale)),
-		scale
-	};
-}
-/**
-* Banker's rounding (round-half-to-even). dinero's `convert` returns a
-* Dinero whose scale equals (source scale + rate scale), so a USD→EUR
-* conversion at rate-scale 10 leaves a scale-12 Dinero — i.e. money with
-* sub-cent precision that's meaningless to humans and corrosive on
-* subsequent operations. We re-quantise to the target currency's native
-* exponent here, using banker's rounding so chained conversions are not
-* biased upward or downward.
-*/
-function bankersRound(n) {
-	const trunc = Math.trunc(n);
-	const frac = n - trunc;
-	if (frac === .5) return trunc % 2 === 0 ? trunc : trunc + 1;
-	if (frac === -.5) return trunc % 2 === 0 ? trunc : trunc - 1;
-	return Math.round(n);
-}
-function quantizeToCurrency(d) {
-	const snap = toSnapshot(d);
-	const native = snap.currency.exponent;
-	if (snap.scale <= native) return d;
-	const factor = Math.pow(10, snap.scale - native);
-	const requantized = bankersRound(snap.amount / factor);
-	return dinero({
-		amount: requantized,
-		currency: snap.currency
-	});
-}
-/**
-* Convert a Dinero amount across currencies using the FinFlow rate table
-* (rates expressed *per USD*, matching DEFAULT_RATES in constants.ts).
-*
-* Implementation: two-step through USD, exactly matching the legacy
-* `(amount / rFrom) * rTo` semantics. Each dinero conversion preserves
-* full precision internally; the final result is re-quantised to the
-* target currency's native exponent with banker's rounding so a JS-number
-* caller sees a value that round-trips cleanly through future operations.
-* No-ops if source and target are the same currency.
-*/
-function convertViaUsdRates(d, toCode, rates) {
-	const fromCode = toSnapshot(d).currency.code;
-	if (fromCode === toCode) return d;
-	const dUsd = fromCode === "USD" ? d : quantizeToCurrency(convert$2(d, USD, { USD: rateToScaled(1 / (rates[fromCode] ?? 1)) }));
-	if (toCode === "USD") return dUsd;
-	const target = currencyOf(toCode);
-	return quantizeToCurrency(convert$2(dUsd, target, { [target.code]: rateToScaled(rates[toCode] ?? 1) }));
+function convertViaUsdRates(d, toCode, _rates) {
+	if (toSnapshot(d).currency.code === toCode) return d;
+	return toDinero(fromDinero(d), toCode);
 }
 /**
 * A zero-valued Dinero in the given currency, suitable as a `reduce`
@@ -1304,9 +1205,14 @@ const nowMonthKey = (tz) => today(tz).slice(0, 7);
 * dinero plumbing and `CON-UNIT-006` for the regression test that pins
 * the fixed behaviour.
 */
-function convert(amount, from, to, rates = DEFAULT_RATES) {
+/**
+* Face value (W3b, v10.66.0): one currency per household, never converted — the amount comes back
+* unchanged, re-rounded to the target currency's minor unit. `rates` is ignored (TD-45).
+* @deprecated There is nothing to convert; new code should use the amount as it is.
+*/
+function convert(amount, from, to, _rates) {
 	if (!amount || from === to) return amount;
-	return fromDinero(convertViaUsdRates(toDinero(amount, from), to, rates));
+	return fromDinero(convertViaUsdRates(toDinero(amount, from), to));
 }
 function fmt(amount, currency = "USD") {
 	const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
@@ -1329,9 +1235,8 @@ function fmt(amount, currency = "USD") {
 }
 //#endregion
 //#region react/src/lib/calculations.ts
-function effectiveDinero(t, baseCurrency, rates) {
-	const cur = t.currency || baseCurrency;
-	return convertViaUsdRates(toDinero(t.split?.isSplit && typeof t.split.yourShare === "number" ? t.split.yourShare : t.amount, cur), baseCurrency, rates);
+function effectiveDinero(t, baseCurrency, _rates) {
+	return toDinero(t.split?.isSplit && typeof t.split.yourShare === "number" ? t.split.yourShare : t.amount, baseCurrency);
 }
 function effectiveAmount(t, baseCurrency, rates) {
 	return fromDinero(effectiveDinero(t, baseCurrency, rates));
@@ -2561,10 +2466,9 @@ HOW TO ANSWER
 - \`logging_streak\` and \`days_recorded_this_month\` describe how steadily they record;
   state them plainly, without praise.
 - \`entries\` and \`share_of_period\` give each category's count and share of the total.
-- \`amount_as_stated\` and \`converted_at\` mean the user's amount was in another
-  currency: give the converted figure and say it used the app's exchange rate.
-- \`outcome: "needs_rate"\` means the amount cannot be converted: say no rate for that
-  currency is set, and how to fix it. State no figures.
+- \`outcome: "needs_restate"\` means the amount was given in another currency. This
+  household keeps one currency and never converts: ask for the amount again in
+  \`household_currency\`. State no figures.
 - \`request\` with \`cannot_answer_yet\` means the user asked you to DO something you
   cannot (pay, send, contact). Say so plainly in the first sentence, then offer the
   closest thing from \`can_answer\`.
@@ -2850,7 +2754,7 @@ function figuresAllowedBy(result) {
 function captureAcknowledgement(result) {
 	const v = result.vars ?? {};
 	const bits = [];
-	if (v.amount) bits.push(v.converted_from ? `${String(v.amount)} (${String(v.converted_from)} at the app's exchange rate)` : String(v.amount));
+	if (v.amount) bits.push(String(v.amount));
 	if (v.category) bits.push(`under ${String(v.category)}`);
 	if (v.account) bits.push(`on ${String(v.account)}`);
 	if (v.date) bits.push(`dated ${String(v.date)}`);
@@ -2859,7 +2763,7 @@ function captureAcknowledgement(result) {
 /** v10.39.1 (P21) — the recurring counterpart: what was understood, and what is left to do. */
 function recurringAcknowledgement(result) {
 	const v = result.vars ?? {};
-	const amount = v.converted_from ? `${String(v.amount)} (${String(v.converted_from)} at the app's exchange rate)` : String(v.amount);
+	const amount = String(v.amount);
 	const when = v.day ? ` on the ${String(v.day)}` : "";
 	return `I've drafted a ${String(v.frequency)} schedule for ${amount} under ${String(v.category)}${when}. Choose the account it comes from and save it — nothing is set up until you do.`;
 }
@@ -3246,20 +3150,17 @@ const AMOUNT_INTENTS = /* @__PURE__ */ new Set([
 	"forecast.affordability",
 	"forecast.prescriptive"
 ]);
-/** A rate exists for this code. USD is the table's anchor, so it always does. */
-const hasRate = (rates, code) => code === "USD" || typeof rates[code] === "number" && rates[code] > 0;
 /**
 * v10.39.1 — two checks on the stated AMOUNT before any figure is computed.
 *
 * P8: an amount that only ever appears in the text as a phone/account/reference
 * number is not an amount. Capture asks for one instead of pre-filling it.
 *
-* P20: an amount stated in another currency is converted to the base currency
-* FIRST, at the app's own rate — or, when the app holds no rate for it, not used at
-* all. "$150 dinner" was checked as ₹150 because the currency was read and dropped.
-* `convert()` quietly treats a missing rate as 1, which is how a wrong answer would
-* come back; so the rate's existence is checked here, explicitly, and a missing one
-* is said out loud with no figures.
+* P20, revised in W3b (v10.66.0; owner decision D14): a household keeps ONE currency and
+* nothing is converted. An amount stated in another currency ("$150 dinner" in an INR
+* household) is not used at all — Pip asks for it again in the household's currency
+* (`needs_restate`, no figures). Read as ₹150 it would be a wrong answer that passes every
+* guard; converted, it would contradict the rule that amounts are never converted.
 */
 function resolve(intent, ctx) {
 	const e = intent.entities;
@@ -3278,40 +3179,16 @@ function resolve(intent, ctx) {
 	const base = cur(ctx);
 	const stated = statedCurrency(e.currency, e.text, base, CURRENCIES[base]?.symbol);
 	if (!stated || stated === base) return resolveCore(intent, ctx);
-	if (!hasRate(ctx.rates, stated) || !hasRate(ctx.rates, base)) return {
+	return {
 		kind,
-		outcome: "needs_rate",
+		outcome: "needs_restate",
 		vars: {},
 		facts: {
 			amount_currency: stated,
 			household_currency: base,
-			note: `no exchange rate for ${stated} is set in the app, so this amount cannot be converted to ${base}; add the rate in Settings, or ask again in ${base}`
+			note: `this household keeps every amount in ${base} and never converts; ask for the amount again in ${base}`
 		},
-		analysis: [`No ${stated} → ${base} rate is set, so I can't convert this amount`]
-	};
-	const converted = Math.round(convert(e.amount, stated, base, ctx.rates) * 100) / 100;
-	const rate = convert(1, stated, base, ctx.rates);
-	const asStated = `${e.amount} ${stated}`;
-	const rateText = `1 ${stated} = ${rate.toFixed(rate >= 1 ? 2 : 4)} ${base}, the rate set in the app`;
-	const result = resolveCore({
-		...intent,
-		entities: {
-			...e,
-			amount: converted
-		}
-	}, ctx);
-	return {
-		...result,
-		vars: {
-			...result.vars,
-			converted_from: asStated
-		},
-		facts: {
-			...result.facts ?? {},
-			amount_as_stated: asStated,
-			converted_at: rateText
-		},
-		analysis: [`Converted ${asStated} to ${base} at ${rateText.split(",")[0]}`, ...result.analysis ?? []]
+		analysis: [`The amount was given in ${stated}; this household records in ${base}, so I asked for it in ${base}`]
 	};
 }
 function resolveCore(intent, ctx) {
@@ -3743,8 +3620,7 @@ function resolveCore(intent, ctx) {
 					detail: "Add a recurring schedule to see what is due."
 				}
 			};
-			const convertible = thisWeek.every((r) => !r.transactionTemplate.currency || r.transactionTemplate.currency === cur(ctx) || hasRate(ctx.rates, r.transactionTemplate.currency) && hasRate(ctx.rates, cur(ctx)));
-			const weekTotal = thisWeek.reduce((s, r) => s + convert(r.transactionTemplate.amount, r.transactionTemplate.currency || cur(ctx), cur(ctx), ctx.rates), 0);
+			const weekTotal = thisWeek.reduce((s, r) => s + (r.transactionTemplate.amount || 0), 0);
 			const soon = upcoming.slice(0, 3);
 			const detail = soon.map((r) => `${r.transactionTemplate.description || getCat(r.transactionTemplate.category).label} (${r.nextDueDate})`).join(", ");
 			return {
@@ -3753,7 +3629,7 @@ function resolveCore(intent, ctx) {
 				facts: {
 					due_this_week: thisWeek.map(billFact),
 					due_this_week_count: String(thisWeek.length),
-					total_due_this_week: !thisWeek.length ? "nothing due this week" : convertible ? money(weekTotal, ctx) : "not totalled: a bill is in a currency with no exchange rate set",
+					total_due_this_week: !thisWeek.length ? "nothing due this week" : money(weekTotal, ctx),
 					upcoming_soonest_first: soon.map(billFact),
 					...awaiting.length ? { overdue_waiting_for_your_approval: awaiting.map(billFact) } : {}
 				},
@@ -4021,7 +3897,7 @@ const CAPABILITIES = {
 		"debts with balances and interest rates, and which to clear first",
 		"listing upcoming bills you have set up as recurring schedules",
 		"how much is free to spend once your credit card dues are paid",
-		"whether a purchase fits above your safety floor, in your currency or another",
+		"whether a purchase fits above your safety floor",
 		"how long your savings would last without income",
 		"where you could cut back",
 		"recording an expense, income, transfer, investment or split (you confirm the form)",
@@ -4157,7 +4033,7 @@ async function runAssistant(utterance, ctx, backend = selectAssistantBackend(), 
 		intentId: effective.id,
 		seed: result.seed,
 		chips: normaliseChips(result.chips),
-		clarify: gated || result.kind === "fallback" || result.outcome === "missing_amount" || result.outcome === "needs_rate",
+		clarify: gated || result.kind === "fallback" || result.outcome === "missing_amount" || result.outcome === "needs_restate",
 		allowedFigures: figuresAllowedBy(result),
 		resolved: {
 			outcome: result.outcome,
@@ -4323,7 +4199,7 @@ function recurringDueNotifs(schedules, prefs, existing, ctx) {
 		const amt = s.transactionTemplate.amount ?? 0;
 		out.push({
 			...base("recurring_due_confirm", key, ctx),
-			title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
+			title: `${s.transactionTemplate.description} · ${fmt(amt, ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
 			body: "Auto-approve is off for this schedule",
 			dueAt: s.nextDueDate,
 			amountRef: amt,
@@ -4350,7 +4226,7 @@ function recurringReminderNotifs(schedules, prefs, existing, ctx) {
 		const amt = s.transactionTemplate.amount ?? 0;
 		out.push({
 			...base("recurring_reminder", key, ctx),
-			title: `${s.transactionTemplate.description} · ${fmt(amt, s.transactionTemplate.currency || ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
+			title: `${s.transactionTemplate.description} · ${fmt(amt, ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
 			body: "Upcoming recurring charge",
 			dueAt: s.nextDueDate,
 			amountRef: amt,
@@ -4444,7 +4320,7 @@ function debtDueNotifs(debts, prefs, existing, ctx) {
 		const amt = d.minimumPayment ?? 0;
 		out.push({
 			...base("debt_payment_due", key, ctx),
-			title: `${d.name} payment · ${fmt(amt, d.currency)} — due ${relDate(d.dueDate, ctx.tz)}`,
+			title: `${d.name} payment · ${fmt(amt, ctx.baseCurrency)} — due ${relDate(d.dueDate, ctx.tz)}`,
 			body: "Minimum payment coming up",
 			dueAt: d.dueDate,
 			amountRef: amt,
@@ -4466,7 +4342,7 @@ function incomeLandedNotifs(txns, prefs, existing, ctx) {
 		if (existing.some((n) => n.dedupeKey === key)) continue;
 		out.push({
 			...base("income_landed", key, ctx),
-			title: `${t.description || "Income"} landed — +${fmt(t.amount, t.currency || ctx.baseCurrency)}`,
+			title: `${t.description || "Income"} landed — +${fmt(t.amount, ctx.baseCurrency)}`,
 			body: "Money in",
 			amountRef: t.amount,
 			txnId: t.id,

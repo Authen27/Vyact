@@ -27,7 +27,6 @@ test.describe('§18 BACKUP-FC · Backup and data portability', () => {
       members: unknown[];
       debts: unknown[];
       assets: unknown[];
-      exchangeRates: Record<string, number>;
     };
 
     expect(backup.version).toBe('6.4.9');
@@ -43,7 +42,8 @@ test.describe('§18 BACKUP-FC · Backup and data portability', () => {
     expect(backup.members).toHaveLength(0);
     expect(backup.debts).toHaveLength(0);
     expect(backup.assets).toHaveLength(1);
-    expect(backup.exchangeRates.USD).toBe(1);
+    // W3b (owner decision D14): one currency per household — a backup carries no exchange rates.
+    expect(backup).not.toHaveProperty('exchangeRates');
   });
 
   test('BACKUP-FC-002 · Download Backup uses the shipped Vyact filename pattern and success toast', async ({ page }) => {
@@ -87,12 +87,11 @@ test.describe('§18 BACKUP-FC · Backup and data portability', () => {
     const backup = JSON.parse(copied) as {
       profile: { name: string };
       transactions: unknown[];
-      exchangeRates: Record<string, number>;
     };
 
     expect(backup.profile.name).toBe('Test User');
     expect(backup.transactions).toHaveLength(3);
-    expect(backup.exchangeRates.USD).toBe(1);
+    expect(backup).not.toHaveProperty('exchangeRates');
   });
 
   test('BACKUP-FC-004 · CSV export contains the shipped transaction columns for the current dataset', async ({ page }, testInfo) => {

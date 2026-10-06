@@ -83,7 +83,7 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
         const d = debts.find(x => x.id === n.debtId);
         markRead(n.id);
         onClose();
-        openAddTxn(d ? { type: 'expense', amount: n.amountRef, currency: d.currency, description: `${d.name} payment`, linkedDebtId: d.id } : undefined);
+        openAddTxn(d ? { type: 'expense', amount: n.amountRef, description: `${d.name} payment`, linkedDebtId: d.id } : undefined);   // W3b: no currency seed — the household's
         return;
       }
       default: {          // view / review / edit / see_txns / update → navigate + leave

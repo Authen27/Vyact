@@ -37,9 +37,9 @@ export async function loadHouseholdRows(admin: SupabaseClient, profileId: string
     drain(admin, 'accounts', householdId),
     drain(admin, 'recurring_schedules', householdId),
   ]);
-  const [{ count: memberCount }, { data: rates }, { data: profile }, { data: household }] = await Promise.all([
+  // W3b (D14): exchange rates are no longer read — one currency per household, never converted.
+  const [{ count: memberCount }, { data: profile }, { data: household }] = await Promise.all([
     admin.from('memberships').select('id', { count: 'exact', head: true }).eq('household_id', householdId),
-    admin.from('exchange_rates').select('currency_code, rate_to_usd').eq('household_id', householdId),
     admin.from('profiles').select('display_name, default_currency, language, date_format, education_progress').eq('id', profileId).maybeSingle(),
     admin.from('households').select('type, base_currency, language, payoff_strategy, extra_payment, timezone').eq('id', householdId).maybeSingle(),
   ]);
@@ -47,7 +47,7 @@ export async function loadHouseholdRows(admin: SupabaseClient, profileId: string
   return {
     transactions, budgets, budgetAllocations, goals, debts, assets, accounts, recurring,
     memberCount: memberCount ?? 1,
-    rates: (rates ?? []) as HouseholdRows['rates'],
+    rates: [],
     profile: (profile ?? {}) as HouseholdRows['profile'],
     household: household as HouseholdRows['household'],
     email: '',
