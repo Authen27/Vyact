@@ -6,7 +6,7 @@
 // same turn for the same question — parity by construction, checked; (3) the
 // WhatsApp rendering.
 import { describe, expect, it } from 'vitest';
-import { contextFromRows, answerOnServer, renderForWhatsApp, WHATSAPP_MAX_CHARS, type HouseholdRows } from '../serverEngine';
+import { contextFromRows, answerOnServer, renderForWhatsApp, WHATSAPP_MAX_CHARS, DEFAULT_HOUSEHOLD_TZ, type HouseholdRows } from '../serverEngine';
 import { mapCloudRow, profileFromRows } from '../supabaseAdapter';
 import { buildSafeSummary } from '../aiSummary';
 import { DEFAULT_RATES } from '../../constants';
@@ -57,7 +57,9 @@ describe('Ask Vyact on the server (W4)', () => {
     const profile = profileFromRows(r.profile, r.household, '');
     const txns = r.transactions.map((x) => mapCloudRow('transactions', x) as Transaction);
     const accounts = r.accounts.map((x) => mapCloudRow('accounts', x) as Account);
-    const app = buildSafeSummary(txns, [], [], [], [], profile, { ...DEFAULT_RATES }, accounts, []);
+    // W3a — the server reads the HOUSEHOLD's calendar (India time when unset); the app is built on the same
+    // day so the comparison holds at any hour, including the hours when UTC and India are on different dates.
+    const app = buildSafeSummary(txns, [], [], [], [], profile, { ...DEFAULT_RATES }, accounts, [], DEFAULT_HOUSEHOLD_TZ);
     app.household.members = 2;
     expect(ctx.summary).toEqual(app);
     expect(ctx.baseCurrency).toBe('INR');
