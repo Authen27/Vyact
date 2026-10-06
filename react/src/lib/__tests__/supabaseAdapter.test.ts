@@ -101,34 +101,25 @@ describe('SupabaseAdapter.upsert · TD-03 optimistic concurrency', () => {
   });
 });
 
-describe('SupabaseAdapter.replaceAll · TD-09 RPC dispatch', () => {
-  // CON-UNIT-054 pins the RPC routing that backs replaceAll: each entity
-  // must call the matching `replace_<entity>` RPC (with the 'members' →
-  // 'replace_memberships' special case) and pass the household + rows
-  // payload unchanged. The RPC is the only mechanism that keeps a
-  // full-list replace transactional under RLS, so if the routing breaks
-  // partial writes can corrupt the household snapshot silently.
+describe('SupabaseAdapter.replaceAll · W1: no bulk replace in cloud mode', () => {
+  // CON-UNIT-054 (rewritten in W1, audit 2026-10-04 DB-SEC-01). It used to pin the routing
+  // to the `replace_<entity>` RPCs; those RPCs let any member — a viewer or child included —
+  // seize or wipe a household, and nothing in cloud mode needs them, so they were dropped.
+  // A cloud bulk replace must now refuse WITHOUT calling the server, for every entity.
   function mockSbRpc(): { sb: SupabaseClient; rpc: ReturnType<typeof vi.fn> } {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
     return { sb: { rpc } as unknown as SupabaseClient, rpc };
   }
 
-  it('CON-UNIT-054 · routes each entity to replace_<entity> and passes {h, rows}', async () => {
-    const cases: Array<[Parameters<SupabaseAdapter['replaceAll']>[0], string]> = [
-      ['transactions', 'replace_transactions'],
-      ['budgets',      'replace_budgets'],
-      ['goals',        'replace_goals'],
-      ['debts',        'replace_debts'],
-      ['assets',       'replace_assets'],
-      ['members',      'replace_memberships'], // special case
-    ];
-    for (const [entity, rpcName] of cases) {
+  it('CON-UNIT-054 · refuses every RPC-backed entity and never calls a replace_* RPC', async () => {
+    const entities: Array<Parameters<SupabaseAdapter['replaceAll']>[0]> =
+      ['transactions', 'budgets', 'goals', 'debts', 'assets', 'members', 'accounts', 'savedViews'];
+    for (const entity of entities) {
       const { sb, rpc } = mockSbRpc();
       const adapter = new SupabaseAdapter(sb);
-      const rows = [{ id: '11111111-1111-1111-1111-111111111111' }];
-      await adapter.replaceAll(entity, 'h1', rows);
-      expect(rpc).toHaveBeenCalledTimes(1);
-      expect(rpc).toHaveBeenCalledWith(rpcName, expect.objectContaining({ h: 'h1', rows: expect.any(Array) }));
+      await expect(adapter.replaceAll(entity, 'h1', [{ id: '11111111-1111-1111-1111-111111111111' }]))
+        .rejects.toThrow(/not available in cloud mode/);
+      expect(rpc).not.toHaveBeenCalled();
     }
   });
 });

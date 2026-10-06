@@ -35,6 +35,16 @@ export type SendResult =
   | { status: 'skipped'; reason: string; template: string }
   | { status: 'failed'; reason: 'meta_error' | 'audit_failed'; template: string };
 
+/**
+ * W1 (BE-WA-01) — is this profile still a member of this household? Fails closed: a query
+ * error or no row is "no". Shared by the webhook (answers) and `guardedSend` (alerts).
+ */
+export async function isLiveMember(admin: SupabaseClient, householdId: string, profileId: string): Promise<boolean> {
+  const { data, error } = await admin.from('memberships').select('id')
+    .eq('household_id', householdId).eq('user_id', profileId).limit(1).maybeSingle();
+  return !error && !!data;
+}
+
 /** A person's preferences, or the defaults when they have never changed one. */
 export async function loadPrefs(admin: SupabaseClient, profileId: string): Promise<WaPrefs> {
   const { data } = await admin.from('whatsapp_preferences')
@@ -83,6 +93,13 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
     .eq('profile_id', toProfileId).maybeSingle();
   if (!recipient?.phone_number || recipient.household_id !== householdId) {
     return { status: 'skipped', reason: 'recipient_not_linked', template };
+  }
+  // W1 (audit 2026-10-04, BE-WA-01) — a link only counts while its person is still a
+  // member of that household. A removed partner kept receiving bill and spend alerts
+  // because nothing re-checked membership (the DB now also deletes the identity when the
+  // membership goes; this is the second layer).
+  if (!await isLiveMember(admin, householdId, toProfileId)) {
+    return { status: 'skipped', reason: 'recipient_not_a_member', template };
   }
 
   const cleaned = req.values.map((v) => cleanParam(v));

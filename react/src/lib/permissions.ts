@@ -44,16 +44,23 @@ const PERMS: Record<AppRole, Set<Action>> = {
     'manage_goals','manage_debts','manage_assets',
   ]),
   viewer: new Set<Action>(['view','view_activity_log']),
-  child: new Set<Action>([
-    'view',
-    'add_transaction','edit_transaction','delete_transaction',
-    // Note: child can only edit/delete their own — enforced by RLS
-  ]),
 };
 
+/**
+ * W1 (owner decision): the 'child' app role is retired and the database now stores those
+ * members as 'member'. A role string read from an older cache may still say 'child'; it
+ * means 'member' everywhere, exactly as the migration and its insert trigger map it.
+ */
+export function normalizeAppRole(role: string | null | undefined): AppRole | undefined {
+  if (!role) return undefined;
+  if (role === 'child') return 'member';
+  return (['owner', 'admin', 'member', 'viewer'] as const).includes(role as AppRole) ? role as AppRole : undefined;
+}
+
 export function can(role: AppRole | undefined, action: Action): boolean {
-  if (!role) return action === 'view'; // anonymous = read-only
-  return PERMS[role]?.has(action) ?? false;
+  const r = normalizeAppRole(role);
+  if (!r) return action === 'view'; // anonymous = read-only
+  return PERMS[r]?.has(action) ?? false;
 }
 
 /**
@@ -87,27 +94,27 @@ export function resolveMyRole(opts: {
 }): AppRole | undefined {
   if (!opts.cloudEnabled) return 'owner';
   if (!opts.hasSession) return undefined;
-  return opts.membershipRole ?? undefined;
+  return normalizeAppRole(opts.membershipRole);
 }
 
 export function highestRole(roles: AppRole[]): AppRole | undefined {
-  const rank: AppRole[] = ['child','viewer','member','admin','owner'];
+  const rank: AppRole[] = ['viewer','member','admin','owner'];
   let best: AppRole | undefined;
   let bestRank = -1;
-  for (const r of roles) {
-    const i = rank.indexOf(r);
+  for (const raw of roles) {
+    const r = normalizeAppRole(raw);
+    const i = r ? rank.indexOf(r) : -1;
     if (i > bestRank) { bestRank = i; best = r; }
   }
   return best;
 }
 
 export function roleLabel(role: AppRole | undefined): string {
-  switch (role) {
+  switch (normalizeAppRole(role)) {
     case 'owner':  return 'Owner';
     case 'admin':  return 'Admin';
     case 'member': return 'Member';
     case 'viewer': return 'Viewer';
-    case 'child':  return 'Child';
     default:       return 'Guest';
   }
 }

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.61.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.62.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -449,6 +449,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - Enforced in the DB (migration 20261007120000), not only the UI. Invitation and membership inserts past the limit raise `HOUSEHOLD_FULL` (pending invitations count). A type change the members don't fit raises `HOUSEHOLD_TYPE_TOO_SMALL`.
   - `lib/householdTypes.ts` mirrors `household_member_limit()`. Change both together; CON-UNIT-HHT-002 reads the migration.
   - Read every stored type through `normalizeHouseholdType` (retired `shared` → family, `multi_biz` → business).
+- **Household authorization (v10.62.0, audit 2026-10-04 W1a).**
+  - App roles are Owner · Admin · Member · Viewer. **Child is retired** (owner decision): a trigger stores `child` as `member`; read any role through `normalizeAppRole`. The relationship label `household_role='child'` is unrelated and stays.
+  - **A household that has members always has an owner** — a deferred trigger raises `household_needs_an_owner`. Ownership moves only through `transfer_ownership` (owner only, to an existing member).
+  - **Never add a member-callable bulk replace/restore.** The `replace_*` RPCs let any member seize or wipe a household and were dropped; a future restore is an owner-only command.
+  - Role checks in SQL use `is distinct from` / `coalesce`, never `<>` on a value that is NULL for a non-member (`NULL <> 'owner'` let anyone through).
+  - A WhatsApp link ends with the membership (trigger), and the webhook / `guardedSend` re-check membership (`isLiveMember`).
+  - Platform admins read household ledgers only through SECURITY DEFINER aggregate RPCs, never row by row.
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied

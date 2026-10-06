@@ -85,6 +85,8 @@ describe('actual WhatsApp Edge handlers', () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
     const inboxQueries: ReturnType<typeof queryResult>[] = [];
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'USD' }]);
       // v10.26.0 (R4) — investment assets are offered to the parser as aliases.
       if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
@@ -139,6 +141,8 @@ function webhookTables(attempts = 0, linked = true, prefs: Record<string, unknow
   const inbox: ReturnType<typeof queryResult>[] = [];
   const prefWrites: Record<string, unknown>[] = [];
   api.from.mockImplementation((table: string) => {
+    // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+    if (table === 'memberships') return queryResult({ id: 'membership' });
     if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
     if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
     if (table === 'transactions') return queryResult([]);             // W3: no same-amount twin
@@ -209,6 +213,8 @@ describe('webhook failure handling (W0)', () => {
     const denied = await handler(new Request('https://edge.example.com/webhook?mode=sweep', { method: 'POST', headers: { Authorization: 'Bearer nope' } }));
     expect(denied.status).toBe(403);
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
       if (table === 'assets') return queryResult([]);
       if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
@@ -374,6 +380,20 @@ describe('WhatsApp receptionist', () => {
     expect(api.rpc).not.toHaveBeenCalled();
   });
 
+  it('CON-UNIT-W1-WA-001 · W1 (BE-WA-01): a link whose person left the household is treated as unlinked — no menu, no data, nothing logged', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0);                                        // the identity row still exists…
+    const base = api.from.getMockImplementation()!;
+    api.from.mockImplementation((table: string) => table === 'memberships' ? queryResult(null) : base(table));   // …but the membership is gone
+    await post(handler, inbound('hello'));
+    expect(sentTexts()[0]).toContain("isn't linked to an account yet");
+    vi.mocked(fetch).mockClear();
+    await post(handler, inbound('450 lunch'));
+    expect(sentTexts()[0]).toBe("I can't record that until this number is linked. Settings › WhatsApp in the app.");
+    expect(api.rpc).not.toHaveBeenCalled();
+    expect(engine.loadHouseholdRows).not.toHaveBeenCalled();
+  });
+
   it('CON-UNIT-WA-R-007 · the welcome template’s buttons open the menu or answer as its rows; other templates’ taps wait for W2', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
     const { patches } = webhookTables(0);
@@ -405,6 +425,8 @@ describe('WhatsApp "paid X" (W2b)', () => {
     txn_template: { type: 'expense', amount: 25000, currency: 'INR', description: 'Rent', category: 'rent_mortgage', accountId: '22222222-2222-4222-8222-222222222222' } };
   function tables(reminders: unknown[]) {
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
       if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
       if (table === 'transactions') return queryResult([]);             // W3: no same-amount twin
@@ -543,6 +565,8 @@ describe('WhatsApp preferences and taps (W2)', () => {
     const prefWrites: Record<string, unknown>[] = [];
     let current = 'delivered';
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
       if (table === 'whatsapp_preferences') {
         const q = queryResult(null);
@@ -584,6 +608,8 @@ describe('WhatsApp preferences and taps (W2)', () => {
     let prefs: Record<string, unknown> = { marketing_opt_in: false, insights_opt_in: false, muted_topics: ['budgets'], large_txn_threshold: 10000 };
     const updates: Record<string, unknown>[] = [];
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'whatsapp_identities') return queryResult({ phone_number: '222', household_id: 'h' });
       if (table === 'whatsapp_preferences') return queryResult(prefs);
       const q = queryResult(null, null, 0);
@@ -611,6 +637,8 @@ describe('WhatsApp capture conversation (W3)', () => {
   function convTables(opts: { twin?: boolean; lastType?: string } = {}) {
     let open: Record<string, unknown> | null = null;
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'accounts') return queryResult([{ name: 'HDFC', kind: 'bank', currency: 'INR' }]);
       if (table === 'assets') return queryResult([]);
       if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
@@ -705,6 +733,8 @@ describe('WhatsApp answers (W4)', () => {
   function answerTables(readsEnabled: boolean) {
     let open: Record<string, unknown> | null = null;
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'accounts') return queryResult([{ name: 'HDFC', kind: 'bank', currency: 'INR' }]);
       if (table === 'assets') return queryResult([]);
       if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
@@ -740,6 +770,8 @@ describe('WhatsApp answers (W4)', () => {
     const prefWrites: Record<string, unknown>[] = [];
     const base = api.from.getMockImplementation()!;
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       const q = base(table);
       if (table === 'whatsapp_preferences') q.upsert.mockImplementation((row: Record<string, unknown>) => { prefWrites.push(row); return q; });
       return q;

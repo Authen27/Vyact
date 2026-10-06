@@ -35,6 +35,7 @@ export const groups = [
   group('Session transitions', 'conditional', 'store-integration', ['sessionWorkflow'], 'cloudAuthSlice / cacheInvalidation / outbox'),
   group('Loan SQL command', 'conditional', 'sql-integration', ['loanPaymentSql'], 'record_loan_payment migrations (focused PGlite fixture)'),
   group('Household erase SQL', 'conditional', 'sql-integration', ['eraseHouseholdSql'], 'erase_household_data migration (focused PGlite fixture)'),
+  group('Household authorization SQL', 'conditional', 'sql-integration', ['householdAuthzSql'], 'W1a migrations: replace_* dropped, ownership rules, child role retired, WhatsApp unlink, admin ledger reads (focused PGlite fixture)'),
   group('Ask Vyact', 'conditional', 'unit', ['askVyact', 'askVyactFacts', 'affordabilityBudgetFirst', 'askVyactContract', 'agentRouter', 'agentRelay'], 'runAssistant / resolve facts / router / Claude Code relay (test-only)'),
   group('Ask gateway', 'conditional', 'handler-integration', ['gatewayWorkflow'], 'ask-vyact/index.ts'),
   group('Ask Vyact on the server', 'conditional', 'unit', ['serverEngine', 'assistantCore'], 'serverEngine + its generated bundle (parity) / assistantCore model call (not a live provider)'),

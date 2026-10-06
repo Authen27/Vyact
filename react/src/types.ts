@@ -34,7 +34,12 @@ export type Theme = 'warm' | 'dark' | 'system';
 export type PayoffStrategy = 'avalanche' | 'snowball';
 export type Liquidity = 'liquid' | 'short' | 'long';
 export type MemberRole = 'primary' | 'partner' | 'child' | 'elder';
-export type AppRole = 'owner' | 'admin' | 'member' | 'viewer' | 'child';
+// W1 (owner decision, audit 2026-10-04 INT-HH-12): the 'child' app role is retired — it
+// promised "own data only" but could read everything. Existing children became 'member'
+// (migration 20261009120200); a stale 'child' read from an old cache is normalised by
+// `normalizeAppRole` (lib/permissions.ts). The household RELATIONSHIP label 'child'
+// (MemberRole above) is a separate thing and stays.
+export type AppRole = 'owner' | 'admin' | 'member' | 'viewer';
 export type GoalType = 'emergency' | 'savings' | 'debt' | 'investment' | 'purchase' | 'custom';
 // v10.59.0 — four types (owner, 4 Oct 2026); 'shared' and 'multi_biz' retired (lib/householdTypes.ts).
 export type ProfileTypeKey = 'personal' | 'couple' | 'family' | 'business';

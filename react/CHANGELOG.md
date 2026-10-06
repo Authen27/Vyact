@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.61.0`** (consumer)
+> **Current production version: `v10.62.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,45 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.62.0 — W1a: who may do what to a household *(2026-10-06)*
+
+Second stage of the 2026-10-04 audit remediation. Every change here closes a way for someone
+to seize, wipe or keep reading a household they should not. Open developer decisions are in
+`docs/DEVELOPER_INPUTS.md` (the budget guard, D5, waits on Q1 there).
+
+- **The bulk replace RPCs are gone** (DB-SEC-01, critical). `replace_memberships` and its seven
+  siblings checked only that the caller was a member, then deleted every row and inserted
+  whatever was sent — so a viewer or child could make themselves owner, remove everyone else,
+  or wipe the ledger. They served the vanilla shell's restore (archived 1 Jun); nothing in cloud
+  mode calls them. Dropped (migration `20261009120000`); `SupabaseAdapter.replaceAll` refuses a
+  cloud bulk replace instead of calling the server. "Restore from backup" is backlogged as a new
+  owner-only command.
+- **Only the owner can transfer ownership, and a household always keeps one** (DB-SEC-02,
+  critical). `transfer_ownership`'s `(select role …) <> 'owner'` was NULL for a non-member, so a
+  viewer's throwaway second account could promote the viewer to owner. It now uses
+  `role_in() is distinct from 'owner'`, requires the target to be a member, and refuses
+  self-transfer. A deferred constraint trigger refuses any change that leaves a household that
+  still has members without an owner (direct deletes and self-demotion bypassed
+  `leave_household`) — `household_needs_an_owner` (migration `20261009120100`).
+- **The Child role is retired (owner decision)** (INT-HH-12). It promised "own data only" but could
+  read everything. Existing children are now members; an old client sending `child` is stored as
+  `member` by a trigger; the invite form no longer offers it; a stale `child` from a device cache
+  reads as Member (`normalizeAppRole`). The household relationship label "Child" stays
+  (migration `20261009120200`).
+- **Removed members lose WhatsApp access** (BE-WA-01, high). Leaving or being removed deleted the
+  membership but not the WhatsApp link, so an ex-partner could keep asking Pip for the
+  household's figures and keep receiving alerts. The link is now deleted with the membership
+  (trigger + one-time cleanup, migration `20261009120300`), and the webhook and `guardedSend`
+  refuse a link whose person is no longer a member.
+- **Platform admins no longer read household ledgers row by row** (ADM-03). The ledger tables'
+  SELECT policies dropped `or is_admin('roles')`; a sweep also removes any other select-only
+  policy on them that mentions `is_admin` (production-only objects included). Admin pages use
+  SECURITY DEFINER RPCs and are unaffected (migration `20261009120400`).
+- Tests: PGlite `householdAuthzSql.test.ts` (8, against the five migrations, including real RLS
+  for the admin reads), two WhatsApp handler tests, a legacy-role test; CON-UNIT-054 rewritten.
 
 ---
 

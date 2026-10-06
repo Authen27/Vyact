@@ -131,7 +131,7 @@ export interface EventParams {
   // Pip (v10.54.0) — never the question or the answer; only these labels.
   rating?: 'up' | 'down' | 'none';   // ask_feedback: the rating now on the answer
   intent?: string;                   // the classified intent of the question answered
-  invite_role?: 'admin' | 'member' | 'viewer' | 'child';
+  invite_role?: 'admin' | 'member' | 'viewer';
   platform?: 'android-app' | 'pwa' | 'web';
 }
 

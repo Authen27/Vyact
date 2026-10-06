@@ -237,6 +237,8 @@ describe('the dispatcher', () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-dispatch/index'), { WHATSAPP_DISPATCH_SECRET: 's3cret' });
     const audits: Record<string, unknown>[] = [];
     api.from.mockImplementation((table: string) => {
+      // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
+      if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'whatsapp_identities') {
         const q = queryResult([{ profile_id: 'alice', household_id: 'h' }, { profile_id: 'bob', household_id: 'h' }]);
         q.maybeSingle.mockReturnValue(queryResult({ phone_number: '222', household_id: 'h' }));
@@ -260,6 +262,37 @@ describe('the dispatcher', () => {
     const out = await res.json();
     expect(out).toEqual(expect.objectContaining({ status: 'ok', job: 'alerts', planned: 1, results: { 'skipped:outbound_disabled': 1 }, problems: [] }));
     expect(audits[0]).toEqual(expect.objectContaining({ profile_id: 'bob', status: 'skipped', direction: 'outbound' }));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('CON-UNIT-W1-WA-002 · W1 (BE-WA-01): an alert is never sent to someone no longer in the household, even if their link survived', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-dispatch/index'), { WHATSAPP_DISPATCH_SECRET: 's3cret' });
+    const audits: Record<string, unknown>[] = [];
+    api.from.mockImplementation((table: string) => {
+      if (table === 'memberships') return queryResult(null);          // removed from the household
+      if (table === 'whatsapp_identities') {
+        const q = queryResult([{ profile_id: 'alice', household_id: 'h' }, { profile_id: 'bob', household_id: 'h' }]);
+        q.maybeSingle.mockReturnValue(queryResult({ phone_number: '222', household_id: 'h' }));
+        return q;
+      }
+      if (table === 'households') return queryResult({ id: 'h', base_currency: 'INR' });
+      if (table === 'transactions') return queryResult([txn({ id: 'big', amount: 18000 })]);
+      if (table === 'accounts') return queryResult([{ id: 'acc-1', name: 'HDFC card' }]);
+      if (table === 'budgets') return queryResult([]);
+      if (table === 'whatsapp_preferences') return queryResult(null);
+      if (table === 'shared_split_shares') return queryResult([]);
+      if (table === 'whatsapp_inbound_messages') {
+        const q = queryResult(null);
+        q.insert.mockImplementation((row: Record<string, unknown>) => { audits.push(row); return q; });
+        return q;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+    api.rpc.mockResolvedValue({ data: [], error: null });
+    const res = await handler(new Request('https://edge.example.com/dispatch?job=alerts', { method: 'POST', headers: { 'x-dispatch-secret': 's3cret' } }));
+    const out = await res.json();
+    expect(out).toEqual(expect.objectContaining({ status: 'ok', job: 'alerts', results: { 'skipped:recipient_not_a_member': 1 }, problems: [] }));
+    expect(audits).toEqual([]);
     expect(fetch).not.toHaveBeenCalled();
   });
 });

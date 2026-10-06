@@ -31,7 +31,7 @@ import {
   parsePrefCommand, applyPrefCommand, prefsSummary, buttonReply, buttonQuestion, unsupportedButtonReply, READS_OFFER,
   LATE_TAP_DAYS, LATE_TAP_REPLY, type WaPrefs,
 } from '../_shared/whatsapp-prefs.ts';
-import { loadPrefs, advancesDelivery, guardedSend } from '../_shared/whatsapp-send.ts';
+import { loadPrefs, advancesDelivery, guardedSend, isLiveMember } from '../_shared/whatsapp-send.ts';
 import {
   sharedCapture, evenSplit, splitDoneReply, keptAsYoursReply, SPLIT_REFUSED, recurringUndoneReply, RECURRING_UNDO_MINUTES,
   RECURRING_TOO_LATE, pausedReply,
@@ -68,6 +68,12 @@ async function lookupIdentity(
     .eq('phone_number', fromPhone)
     .maybeSingle();
   if (!data) return null;
+  // W1 (audit 2026-10-04, BE-WA-01) — a link is valid only while its person is still a
+  // member of the household it points at. A removed partner could otherwise keep asking
+  // Pip for net worth, spend and account names over WhatsApp after the app had cut them
+  // off. The DB deletes the identity when the membership goes; this is the second layer,
+  // and it treats them exactly like an unlinked sender (no data, no writes).
+  if (!await isLiveMember(supabase, data.household_id, data.profile_id)) return null;
   return { id: data.profile_id, whatsapp_household_id: data.household_id };
 }
 
