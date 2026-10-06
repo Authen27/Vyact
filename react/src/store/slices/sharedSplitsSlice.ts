@@ -68,7 +68,10 @@ export const createSharedSplitsSlice: StateCreator<Store, [], [], SharedSplitsSl
     const created = await createSharedSplit({ ownerHouseholdId: currentHouseholdId, ...input });
     set({ sharedSplitsOwned: [created, ...get().sharedSplitsOwned] });
     // v10.15 — email each participant that a split was shared with them.
-    void sendSplitEmail({ splitId: created.id, event: 'shared' });
+    // v10.60.0 — say so when the email didn't go out; the split itself is saved either way.
+    void sendSplitEmail({ splitId: created.id, event: 'shared' }).then(r => {
+      if (!r.ok) get().toast("Split shared. They'll see it when they open Vyact, but the email couldn't be sent.", 'info');
+    });
     return created;
   },
 

@@ -2085,6 +2085,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/splitEmailResult.test.ts",
+      "feature": "Split sharing rules",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "splitParticipants (email only, never yourself, confirm before saving, created/open/settled) / split invitation email",
+      "count": 2,
+      "tests": [
+        "split email outcome CON-UNIT-SPL-005 · not configured, partial, error and unreachable are failures; a full send is success",
+        "split email outcome CON-UNIT-SPL-006 · the function sends from vyact.app with replies to support, and logs every outcome without addresses"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/splitParticipants.test.ts",
       "feature": "Split sharing rules",
       "availability": "available",
