@@ -550,21 +550,9 @@ export interface NotificationPrefs {
   defaultLeadDays: 1 | 3 | 7;
 }
 
-// v7 — Amortisation schedule entry
-export interface AmortizationEntry {
-  month: number;
-  date: string;
-  emi: number;
-  interest: number;
-  principal: number;
-  outstanding: number;
-}
-
+/** How a part-payment was applied. 'apply_advance' survives only on legacy payment-log entries (W4f retired it). */
 export type PartPaymentChoice = 'reduce_tenure' | 'reduce_emi' | 'apply_advance';
 
-/** Audit F2 — the atomic loan-payment command payload (client → RPC). The
- *  decomposition is computed by the parity-tested lib/amortization.ts port;
- *  the server validates shape and applies every write in one transaction. */
 // ── W4f (v10.75.0; owner decision D19) — paying a loan ─────────────────────────────
 // The SERVER computes the split (pay_loan); the app says what kind of payment it is and how much.
 

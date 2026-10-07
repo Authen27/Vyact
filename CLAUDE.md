@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.75.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.76.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -86,7 +86,14 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     read from the card accounts, never as debt items.
   - `loan_due` is what the Pay form shows; it and `pay_loan` read ONE `loan_instalment_state`, so the
     prefilled figure is always the accepted one.
-  - `record_loan_payment` is legacy: the app stopped calling it in v10.75.0; drop it in a later migration.
+  - `record_loan_payment` is DROPPED (v10.76.0), and with it the legacy `amortization.ts`.
+  - **Automation (v10.76.0, W4g):** a loan with `auto_record` has each EMI recorded ON ITS DATE (household
+    zone) from its `funding_account_id` by `auto_record_due_emis` (pg_cron, every 30 min; op id = loan +
+    instalment, so never twice). WhatsApp "paid car EMI 15000" pays the loan through `whatsapp_pay_loan`
+    (claimed first; more than due is refused, never logged as an expense) — the webhook reads EMI wording
+    itself because the parser's longest-keyword rule turns "paid … emi" into salary/other. The bill
+    calendar shows each loan's EMIs from `loanView` (Pay, never Approve), and the EMI-day reminder offers
+    only View when Vyact records it. EMI recurring schedules were moved onto their loans.
   - **The app (v10.75.0, W4f):** `payLoan` / `loanDue` / `reverseLoanPayment` / `markLoanPaidOff` /
     `deleteDebt` in the store call those functions (cloud, online only) or run the same rules locally
     (`lib/loanSchedule.ts`, parity-tested against Postgres in loanScheduleParity.test.ts — interest uses

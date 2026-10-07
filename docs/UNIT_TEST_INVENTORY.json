@@ -568,32 +568,6 @@
     },
     {
       "app": "react",
-      "file": "react/src/lib/__tests__/amortization.test.ts",
-      "feature": "Money model",
-      "availability": "available",
-      "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
-      "count": 15,
-      "tests": [
-        "applyPayment CON-UNIT-036 · a normal payment reduces balance by the principal portion and decrements months",
-        "applyPayment CON-UNIT-037 · reduce_tenure keeps EMI and shortens the loan on a part-payment",
-        "applyPayment CON-UNIT-038 · reduce_emi keeps tenure (minus one) and lowers the EMI",
-        "calculateAmortizationSchedule CON-UNIT-034 · amortises the balance down toward zero by the final entry",
-        "calculateAmortizationSchedule CON-UNIT-035 · interest portion decreases while principal portion increases over time",
-        "calculateAmortizationSchedule CON-UNIT-047 · [TD-01 phase C] 300-row schedule does not accumulate per-step drift",
-        "computeEmi CON-UNIT-027 · matches the documented £200k @ 5% / 25y example (~£1170/mo)",
-        "computeEmi CON-UNIT-028 · returns 0 with no principal or no tenure",
-        "computeEmi CON-UNIT-029 · falls back to straight-line when rate is 0",
-        "computeRemainingMonths CON-UNIT-032 · returns Infinity when EMI does not cover monthly interest",
-        "computeRemainingMonths CON-UNIT-033 · uses straight-line when rate is 0",
-        "interestSummary CON-UNIT-039 · aggregates lifetime interest, principal, and YTD from the payment log",
-        "splitPayment CON-UNIT-030 · interest = balance * monthly rate; principal = payment - interest (legacy float mode)",
-        "splitPayment CON-UNIT-031 · never returns negative principal when payment < interest",
-        "splitPayment CON-UNIT-048 · [TD-01 phase C] currency-quantised interest is the exact native-minor-unit value"
-      ]
-    },
-    {
-      "app": "react",
       "file": "react/src/lib/__tests__/askVyact.test.ts",
       "feature": "Ask Vyact",
       "availability": "conditional",
@@ -878,7 +852,7 @@
       "feature": "Money model",
       "availability": "available",
       "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
+      "owner": "calculations / money / netWorth",
       "count": 16,
       "tests": [
         "balance sheet helpers CON-UNIT-020 · totalAssets sums all asset values",
@@ -1096,7 +1070,7 @@
       "feature": "Money model",
       "availability": "available",
       "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
+      "owner": "calculations / money / netWorth",
       "count": 2,
       "tests": [
         "one FX path (audit F4) CON-UNIT-123 · convert() applies no rate in either direction (face value)",
@@ -1257,6 +1231,34 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/loanAutomationSql.test.ts",
+      "feature": "Loan automation SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W4g: whatsapp_pay_loan (server split, claimed once, refusals), auto_record_due_emis (on its date, catch-up, never twice), EMI schedules moved onto their loan, record_loan_payment dropped (focused PGlite fixture)",
+      "count": 3,
+      "tests": [
+        "loan automation (W4g) W4-D19-015 · \"paid car EMI\" on WhatsApp pays the loan’s instalment — the server’s split — once",
+        "loan automation (W4g) W4-D19-016 · moving EMI schedules onto their loan: the loan auto-records from the schedule’s account; the schedule closes",
+        "loan automation (W4g) W4-D19-017 · auto-record posts each due EMI on its date, catches up, never twice, and skips a loan it cannot pay from"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/loanCalendar.test.ts",
+      "feature": "Loan calendar and reminders",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "billCalendar loan EMIs from loanView (due / auto / part-paid / paid off) + debtDueNotifs (auto-record aware)",
+      "count": 3,
+      "tests": [
+        "loans on the bill calendar (W4g) W4-D19-020 · each EMI from the loan’s schedule: the due one is payable (or posts automatically), later ones wait",
+        "loans on the bill calendar (W4g) W4-D19-021 · a part-paid EMI shows what is left; paid-off loans and money owed to you are not on it",
+        "loans on the bill calendar (W4g) W4-D19-022 · the EMI-day reminder: \"Record payment\" when it is yours to pay, only \"View\" when Vyact records it"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/loanModelSql.test.ts",
       "feature": "Loan model SQL",
       "availability": "conditional",
@@ -1290,22 +1292,6 @@
         "SupabaseAdapter.payLoan (W4f) CON-UNIT-116 · a transport error propagates (the caller toasts the failure)",
         "SupabaseAdapter.updateProfile — a refused write must not report success (audit F7) CON-UNIT-117 · an unresolved PostgREST { error } now throws (it used to be ignored)",
         "SupabaseAdapter.updateProfile — a refused write must not report success (audit F7) CON-UNIT-117b · a zero-row UPDATE (RLS-refused) throws WriteNotAppliedError"
-      ]
-    },
-    {
-      "app": "react",
-      "file": "react/src/lib/__tests__/loanPaymentSql.test.ts",
-      "feature": "Loan SQL command",
-      "availability": "conditional",
-      "layer": "sql-integration",
-      "owner": "record_loan_payment migrations (focused PGlite fixture)",
-      "count": 5,
-      "tests": [
-        "loan command executed by Postgres CON-UNIT-902 - initializes the liability and persists balanced rows",
-        "loan command executed by Postgres CON-UNIT-903 - retries return the original transaction without reducing the debt twice",
-        "loan command executed by Postgres CON-UNIT-904 - rejects stale or invented balance reductions and rolls back",
-        "loan command executed by Postgres CON-UNIT-905 - duplicate operation lookup does not bypass authorization",
-        "loan command executed by Postgres CON-UNIT-918 - server payment arithmetic agrees with client calculations across strategies and currencies"
       ]
     },
     {
@@ -1349,7 +1335,7 @@
       "feature": "Money model",
       "availability": "available",
       "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
+      "owner": "calculations / money / netWorth",
       "count": 8,
       "tests": [
         "CURRENCY_REGISTRY / currencyOf CON-UNIT-040 · registers all 12 supported currency codes",
@@ -1368,7 +1354,7 @@
       "feature": "Money model",
       "availability": "available",
       "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
+      "owner": "calculations / money / netWorth",
       "count": 9,
       "tests": [
         "accountBalance — R-AGG-4 + D2 offset CON-UNIT-MM-100 · balance = opening + credits − debits + offset (all types)",
@@ -1388,7 +1374,7 @@
       "feature": "Money model",
       "availability": "available",
       "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
+      "owner": "calculations / money / netWorth",
       "count": 19,
       "tests": [
         "§7 INV-1 — transfers are spend/income neutral INV-1 · a transfer changes no spend or income total",
@@ -1418,7 +1404,7 @@
       "feature": "Money model",
       "availability": "available",
       "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
+      "owner": "calculations / money / netWorth",
       "count": 6,
       "tests": [
         "Money-Model B2.1 — deterministic category colour CON-UNIT-MM-020 · same category always maps to the same colour; known cats keep theirs",
@@ -1832,7 +1818,7 @@
       "feature": "Money model",
       "availability": "available",
       "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
+      "owner": "calculations / money / netWorth",
       "count": 6,
       "tests": [
         "computeNetWorth — the one projection (audit F3) CON-UNIT-119 · asset side retains archived accounts and unlinked legacy assets",
@@ -2091,7 +2077,7 @@
       "feature": "Money model",
       "availability": "available",
       "layer": "unit",
-      "owner": "calculations / money / netWorth / amortization",
+      "owner": "calculations / money / netWorth",
       "count": 3,
       "tests": [
         "computePulseScore — budget component (audit F5) CON-UNIT-125 · a container budget is compliance-checked via its ALLOCATIONS (overspend now registers)",
@@ -2721,7 +2707,7 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 52,
+      "count": 54,
       "tests": [
         "W6b template replies in the webhook CON-UNIT-W6B-012 · recurring Undo within 15 minutes removes that entry; Pause pauses its schedule; a late Undo is refused",
         "W6b template replies in the webhook CON-UNIT-W6B-013 · \"1200 dinner shared\" logs it, then prompts the logger; Split 50/50 writes the app's split for the usual partner",
@@ -2733,6 +2719,8 @@
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder \"paid X\" is an ordinary entry",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-005 · already approved in the app, or not approvable from chat, is said plainly",
         "WhatsApp \"paid X\" (W2b) W3-D13-011 · \"paid rent\" on the LAST occurrence (COUNT reached) closes the schedule and says so",
+        "WhatsApp EMI (W4g) W4-D19-018 · \"paid car EMI\" pays the named loan through whatsapp_pay_loan — never logged as one expense",
+        "WhatsApp EMI (W4g) W4-D19-019 · two loans and no name: asks which; more than due is refused with the amount due",
         "WhatsApp answers (W4) CON-UNIT-W4-007 · with answers OFF, a question is offered answers here (no link) and reads nothing",
         "WhatsApp answers (W4) CON-UNIT-W4-008 · with answers ON, Ask Vyact answers from this household; \"1\" asks the follow-up with the stated figures",
         "WhatsApp answers (W4) CON-UNIT-W4-009 · the menu’s Check rows ask Ask Vyact when answers are on; a failed read says so plainly",

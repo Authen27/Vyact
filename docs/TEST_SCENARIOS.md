@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1489 passing deterministic cases in 117 files. Zero failed, skipped or TODO cases at generation.**
+**1477 passing deterministic cases in 117 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -33,12 +33,12 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 8 |
 | react | contract-unit | conditional | 119 |
-| react | handler-integration | conditional | 77 |
-| react | sql-integration | conditional | 50 |
+| react | handler-integration | conditional | 79 |
+| react | sql-integration | conditional | 48 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 10 |
-| react | unit | available | 342 |
+| react | unit | available | 330 |
 | react | unit | conditional | 173 |
 | react | unit | infrastructure | 601 |
 
@@ -68,7 +68,6 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/agentValidator.test.ts](../react/src/lib/__tests__/agentValidator.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 22 |
 | [react/src/lib/__tests__/aiFeedback.test.ts](../react/src/lib/__tests__/aiFeedback.test.ts) | Pip answer feedback | unit | available | 3 |
 | [react/src/lib/__tests__/aiUsageSourceSql.test.ts](../react/src/lib/__tests__/aiUsageSourceSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 2 |
-| [react/src/lib/__tests__/amortization.test.ts](../react/src/lib/__tests__/amortization.test.ts) | Money model | unit | available | 15 |
 | [react/src/lib/__tests__/askVyact.test.ts](../react/src/lib/__tests__/askVyact.test.ts) | Ask Vyact | unit | conditional | 30 |
 | [react/src/lib/__tests__/askVyactContract.test.ts](../react/src/lib/__tests__/askVyactContract.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
@@ -102,9 +101,10 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/householdTypes.test.ts](../react/src/lib/__tests__/householdTypes.test.ts) | Household types | unit | available | 5 |
 | [react/src/lib/__tests__/learnJsonLd.test.ts](../react/src/lib/__tests__/learnJsonLd.test.ts) | Formatting and structured content | unit | available | 2 |
 | [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 40 |
+| [react/src/lib/__tests__/loanAutomationSql.test.ts](../react/src/lib/__tests__/loanAutomationSql.test.ts) | Loan automation SQL | sql-integration | conditional | 3 |
+| [react/src/lib/__tests__/loanCalendar.test.ts](../react/src/lib/__tests__/loanCalendar.test.ts) | Loan calendar and reminders | unit | available | 3 |
 | [react/src/lib/__tests__/loanModelSql.test.ts](../react/src/lib/__tests__/loanModelSql.test.ts) | Loan model SQL | sql-integration | conditional | 9 |
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
-| [react/src/lib/__tests__/loanPaymentSql.test.ts](../react/src/lib/__tests__/loanPaymentSql.test.ts) | Loan SQL command | sql-integration | conditional | 5 |
 | [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 11 |
 | [react/src/lib/__tests__/loanScheduleParity.test.ts](../react/src/lib/__tests__/loanScheduleParity.test.ts) | Loan arithmetic parity | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/money.test.ts](../react/src/lib/__tests__/money.test.ts) | Money model | unit | available | 8 |
@@ -162,7 +162,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/whatsappTemplates.test.ts](../react/src/lib/__tests__/whatsappTemplates.test.ts) | WhatsApp templates | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateSenders.test.ts](../react/src/lib/__tests__/whatsappTemplateSenders.test.ts) | WhatsApp dispatch | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateValidation.test.ts](../react/src/lib/__tests__/whatsappTemplateValidation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 5 |
-| [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 52 |
+| [react/src/lib/__tests__/whatsappWorkflow.test.ts](../react/src/lib/__tests__/whatsappWorkflow.test.ts) | WhatsApp handlers | handler-integration | conditional | 54 |
 
 ## 4. Roster
 
