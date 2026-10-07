@@ -28,7 +28,7 @@ import SegmentedControl from '../ui/SegmentedControl';
 import DeleteAccountSheet from './DeleteAccountSheet';
 import { useStore } from '../../store';
 import { formPath } from '../../lib/formRoutes';
-import { uid, fmt } from '../../lib/format';
+import { uid, fmt, fmtNet } from '../../lib/format';
 import { CURRENCIES } from '../../constants';
 import { computeAccountBalance } from '../../lib/accountBalance';
 import {
@@ -256,7 +256,7 @@ export default function AccountFormModal(props: Props) {
     <Labelled label="Balance">
       <div className="flex items-center gap-3 min-h-[54px] px-4 rounded-r2"
         style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-        <span className="num font-bold text-[20px] text-ink flex-1">{fmt(liveBalance, baseCurrency)}</span>
+        <span className="num font-bold text-[20px] text-ink flex-1">{fmtNet(liveBalance, baseCurrency)}</span>
         <Button variant="ghost" onClick={openReconcile}>Reconcile</Button>
       </div>
       <p className="text-[11.5px] text-ink-dim mt-2 leading-snug">Computed from the ledger. If it disagrees with your statement, reconcile it — it is never typed over.</p>

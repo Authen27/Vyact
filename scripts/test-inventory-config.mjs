@@ -26,6 +26,7 @@ export const groups = [
   group('Permissions and faults', 'available', 'unit', ['permissionsRole', 'faults'], 'permissions / faults'),
   group('Cloud adapter contracts', 'conditional', 'contract-unit', ['accountPatchSafety', 'supabaseAdapter', 'loanPayment', 'cloudTransport'], 'SupabaseAdapter / askVyactModelCall / whatsappLink'),
   group('Shared splits', 'conditional', 'contract-unit', ['sharedSplitsWorkflow'], 'sharedSplits'),
+  group('Bill cards and signed figures', 'available', 'store-integration', ['billCardsAndSigns'], 'approveRecurring / skipRecurring pointer guard / resolvedBillCards on refresh / notificationOccurrence / fmtNet + fmtShortNet'),
   group('Split editing', 'available', 'store-integration', ['splitEdit'], 'txnEdit.editPatch / modal routing (split rows + split seeds → Split form) / splitParticipants.paidOnFor / useStore edit through LocalStorageAdapter'),
   group('Split sharing rules', 'available', 'unit', ['splitParticipants', 'splitEmailResult'], 'splitParticipants (email only, never yourself, confirm before saving, created/open/settled) / split invitation email'),
   group('Household types', 'available', 'unit', ['householdTypes'], 'householdTypes (Personal · Couple · Family · Business member limits, mirrored by the DB triggers)'),

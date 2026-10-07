@@ -788,6 +788,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/billCardsAndSigns.test.ts",
+      "feature": "Bill cards and signed figures",
+      "availability": "available",
+      "layer": "store-integration",
+      "owner": "approveRecurring / skipRecurring pointer guard / resolvedBillCards on refresh / notificationOccurrence / fmtNet + fmtShortNet",
+      "count": 3,
+      "tests": [
+        "W4d · bill cards W4-BELL-001 · Approve and Skip act only on the card’s occurrence while it is the one due",
+        "W4d · bill cards W4-BELL-002 · a cloud card’s timestamp is read as its date, and cards handled elsewhere are cleared on refresh",
+        "W4d · signs W4-SIGN-001 · a figure that can cross zero keeps its minus; a positive one gets no plus"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/budgetOrdering.test.ts",
       "feature": "Recurring and budgets",
       "availability": "available",

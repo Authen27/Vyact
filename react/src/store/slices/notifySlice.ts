@@ -15,7 +15,7 @@ import {
   recurringDueNotifs, recurringReminderNotifs, budgetThresholdNotifs,
   debtDueNotifs, incomeLandedNotifs, staleBalanceNotifs,
   splitReceivedNotifs, splitSettledNotifs, splitClosedNotifs,
-  DEFAULT_PREFS, isInQuietHours, showWebPush,
+  DEFAULT_PREFS, isInQuietHours, showWebPush, resolvedBillCards,
 } from '../../lib/notifications';
 import {
   insertNotifications, fetchNotifications, updateNotificationStatus, purgeExpired,
@@ -80,18 +80,28 @@ export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set,
       ...splitClosedNotifs(sharedSplitsWithMe, notificationPrefs, existing, ctx),
     ];
 
+    // W4d (audit FE-UIS-04) — a bill card whose bill was handled elsewhere (approved, skipped, "paid X",
+    // paused) is marked read: acting on it would skip or "approve" the wrong occurrence.
+    const settle = (list: Notification[]): { list: Notification[]; resolved: string[] } => {
+      const resolved = resolvedBillCards(list, recurringSchedules);
+      if (!resolved.length) return { list, resolved };
+      const ids = new Set(resolved);
+      return { list: list.map(n => (ids.has(n.id) ? { ...n, status: 'read' as const } : n)), resolved };
+    };
+
     if (cloud) {
       try {
         if (fresh.length) await insertNotifications(fresh);
         void purgeExpired(hid);
-        const all = purge(await fetchNotifications(hid));
+        const { list: all, resolved } = settle(purge(await fetchNotifications(hid)));
         set({ notifications: all });
+        if (resolved.length) void updateNotificationStatus(resolved, 'read');
       } catch {
         // Offline / RLS hiccup — keep whatever we have; a later refresh retries.
         set({ notifications: purge(existing) });
       }
     } else {
-      const merged = purge(fresh.length ? [...existing, ...fresh] : existing);
+      const { list: merged } = settle(purge(fresh.length ? [...existing, ...fresh] : existing));
       setLocalJson(KEY(hid), merged);
       set({ notifications: merged });
     }

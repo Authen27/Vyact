@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { fmtShort, fmt } from '../../lib/format';
+import { fmtShort, fmt, fmtNet, fmtShortNet } from '../../lib/format';
 import { getCat } from '../../constants';
 
 const hsl = (name: string) => `hsl(var(--${name}))`;
@@ -122,7 +122,7 @@ export function NetBarChart({ data, currency }: ChartProps) {
             <YAxis
               stroke={hsl('ink-dim')}
               tick={{ fontSize: 10 }}
-              tickFormatter={(value: number) => fmtShort(value, currency)}
+              tickFormatter={(value: number) => fmtShortNet(value, currency)}
               width={50}
             />
             <ReferenceLine y={0} stroke={hsl('ink-dim')} strokeWidth={1} />
@@ -245,11 +245,11 @@ export function NetWorthHistoryChart({ data, currency }: { data: NetWorthPoint[]
           <YAxis
             stroke={hsl('ink-dim')}
             tick={{ fontSize: 10 }}
-            tickFormatter={(value: number) => fmtShort(value, currency)}
+            tickFormatter={(value: number) => fmtShortNet(value, currency)}
             width={56}
           />
           <ReferenceLine y={0} stroke={hsl('ink-dim')} strokeWidth={1} />
-          <Tooltip formatter={(value: number, name: string) => [fmt(value, currency), name]} />
+          <Tooltip formatter={(value: number, name: string) => [fmtNet(value, currency), name]} />
           <Legend iconType="circle" />
           <Area type="monotone" dataKey="netWorth" name="Net worth" stroke={hsl('denim')} strokeWidth={2.2} fill="url(#netWorthGrad)" dot isAnimationActive={false} />
           <Area type="monotone" dataKey="totalAssets" name="Assets" stroke={hsl('sage')} strokeWidth={1.4} fill="none" isAnimationActive={false} />

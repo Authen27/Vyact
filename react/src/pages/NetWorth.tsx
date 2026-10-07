@@ -3,7 +3,7 @@ import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, convert, nowMonthKey } from '../lib/format';
+import { fmt, fmtNet, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
 import { monthlyData } from '../lib/calculations';
 import { computeNetWorth, cardDues } from '../lib/netWorth';
@@ -193,7 +193,7 @@ export default function NetWorth() {
               {barRow(`${libPct}%`, { background: 'var(--sunken)', boxShadow: 'var(--neu-inset), inset 0 0 0 1px hsl(var(--line2))' }, true,
                 <>− Liabilities <span className="text-ink-dim">(what you owe)</span> <b className="num text-ink-mid">{fmt(tl, c)}</b></>)}
               {barRow(`${nwPct}%`, { background: 'hsl(var(--denim))', boxShadow: 'var(--neu-sm)' }, false,
-                <>= Net worth <b className="num text-ink-mid">{fmt(nw, c)}</b></>)}
+                <>= Net worth <b className="num text-ink-mid">{fmtNet(nw, c)}</b></>)}
             </div>
           </div>
         );
@@ -228,7 +228,7 @@ export default function NetWorth() {
           // should say what it means. Thresholds are unchanged.
           {
             label: 'Money you can reach',
-            value: fmt(Math.round(la), c),
+            value: fmtNet(Math.round(la), c),
             sub: dues <= 0 ? 'cash and savings you could use today'
               : la >= dues
                 ? `${fmt(Math.round(la - dues), c)} free after ${fmt(Math.round(dues), c)} card dues`
@@ -302,7 +302,7 @@ export default function NetWorth() {
                 return (
                   <div key={liq.key}>
                     <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase px-1 mb-1.5">
-                      {liq.label} · {fmt(groupTotal, c)}
+                      {liq.label} · {fmtNet(groupTotal, c)}
                     </div>
                     {group.map(row => {
                       // Board D3 — live account rows are display-only here (no
