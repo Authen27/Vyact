@@ -192,7 +192,9 @@ export function recurringForecastByCategory(
   for (const s of schedules) {
     const t = s.transactionTemplate;
     if (!t || t.type !== 'expense' || !t.amount || !t.category) continue;
+    // W3e: 'daily' is a real frequency now (W3d); it used to fall through to "monthly".
     const perPeriod =
+      s.frequency === 'daily'   ? t.amount * days :
       s.frequency === 'weekly'  ? t.amount * (days / 7) :
       s.frequency === 'yearly'  ? t.amount * (days / 365) :
       /* monthly / custom_day */  t.amount * (days / 30.4375);

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { LocalStorageAdapter } from '../dataAdapter';
 import { computeAccountBalance } from '../accountBalance';
+import type { RecurringSchedule } from '../../types';
 
 vi.mock('../supabase', () => ({ isCloudEnabled: () => false, supabase: null }));
 
@@ -32,4 +33,21 @@ it('keeps an approval-required bill due without posting or advancing it', async 
   expect(state.recurringSchedules[0].nextDueDate).toBe('2026-10-09');
   expect(await new LocalStorageAdapter().list('transactions', state.currentHouseholdId)).toEqual(state.transactions);
   expect(await new LocalStorageAdapter().list('recurring', state.currentHouseholdId)).toEqual(state.recurringSchedules);
+});
+it('W3-D13-012 · a schedule keeps its rule, owner and month-end rule, and closes after its last occurrence', async () => {
+  const schedule = await useStore.getState().upsertRecurring({ frequency: 'monthly', dayOfMonth: 9,
+    rrule: 'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=9;COUNT=2', shortMonthPolicy: 'next_month_first', ownerMemberId: 'm-1',
+    startDate: '2026-08-09', nextDueDate: '2026-09-09', autoConfirm: true,
+    transactionTemplate: { type: 'expense', amount: 100, currency: 'USD', category: 'utilities', accountId: 'bank', description: 'Bill' } });
+  // Before W3e the store dropped all three, so the form's rule never reached the database.
+  expect(schedule).toMatchObject({ rrule: 'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=9;COUNT=2', shortMonthPolicy: 'next_month_first', ownerMemberId: 'm-1' });
+
+  await useStore.getState().runRecurringEngine();      // 9 Sep is the second of two
+  await useStore.getState().runRecurringEngine();
+  const state = useStore.getState();
+  expect(state.transactions).toHaveLength(1);
+  expect(state.transactions[0]).toMatchObject({ date: '2026-09-09', memberId: 'm-1', recurringScheduleId: schedule.id });
+  expect(state.recurringSchedules[0]).toMatchObject({ active: false, nextDueDate: '2026-09-09', lastGenerated: '2026-09-09' });
+  const [stored] = await new LocalStorageAdapter().list<RecurringSchedule>('recurring', state.currentHouseholdId);
+  expect(stored).toMatchObject({ active: false, rrule: 'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=9;COUNT=2', shortMonthPolicy: 'next_month_first', ownerMemberId: 'm-1' });
 });

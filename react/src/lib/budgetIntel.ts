@@ -52,7 +52,8 @@ export function suggestBudget(input: {
   for (const r of recurring) {
     const t = r.transactionTemplate;
     if (!t || t.type !== 'expense') continue;
-    const monthly = r.frequency === 'weekly' ? t.amount * 52 / 12
+    const monthly = r.frequency === 'daily' ? t.amount * 365 / 12   // W3e: was counted as one a month
+      : r.frequency === 'weekly' ? t.amount * 52 / 12
       : r.frequency === 'yearly' ? t.amount / 12
       : t.amount; // monthly / custom_day ≈ monthly
     put(t.category, monthly, 'recurring');

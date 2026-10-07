@@ -61,6 +61,13 @@ export const reconcileOnServer = generated.reconcileOnServer as (
   rows: HouseholdRows, accountId: string, stated: number | 'same', at: string,
 ) => ReconcilePlan | null;
 
+// ── "paid X" (W3e, v10.69.0) — the app's Approve on the server ───────────────
+export interface ApprovalPlan { row: Record<string, unknown>; nextDue: string | null; exhausted: boolean }
+/** A `recurring_schedules` row → the occurrence row and the next due date, by the app's own engine. */
+export const approveOccurrenceOnServer = generated.approveOccurrenceOnServer as (
+  scheduleRow: unknown, householdId: string,
+) => ApprovalPlan;
+
 // ── Runway (W6b, v10.47.0) ───────────────────────────────────────────────────
 export interface RunwaySnapshot { months: number | null; quieterCategory: string | null }
 export const runwaySnapshot = generated.runwaySnapshot as (rows: HouseholdRows, now: Date) => RunwaySnapshot;

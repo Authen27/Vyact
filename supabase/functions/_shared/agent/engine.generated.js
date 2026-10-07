@@ -33,6 +33,7 @@
 //   react/src/lib/notificationRows.ts
 //   react/src/lib/notifications.ts
 //   react/src/lib/recurring.ts
+//   react/src/lib/rrule.ts
 //   react/src/lib/serverEngine.ts
 //   react/src/lib/supabaseAdapter.ts
 // @ts-nocheck
@@ -942,12 +943,54 @@ function normalizeHouseholdType(type) {
 }
 //#endregion
 //#region react/src/lib/supabaseAdapter.ts
+const provToRow = (p) => ({
+	confidence: p.confidence ?? void 0,
+	source: p.source ?? void 0,
+	estimated_at: p.estimatedAt ?? void 0,
+	confirmed_at: p.confirmedAt ?? void 0
+});
 const rowToProv = (r) => ({
 	confidence: r.confidence || void 0,
 	source: r.source || void 0,
 	estimatedAt: r.estimated_at || void 0,
 	confirmedAt: r.confirmed_at || void 0
 });
+const UUID_RE$1 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const fkOrNull = (v) => v && UUID_RE$1.test(v) ? v : null;
+const txnToRow = (t, householdId) => {
+	const type = t.type;
+	const transferClass = type === "transfer" || type === "investment";
+	return {
+		...provToRow(t),
+		id: t.id,
+		household_id: householdId,
+		member_id: t.memberId || null,
+		type,
+		amount: t.amount,
+		currency: t.currency || "USD",
+		date: t.date,
+		description: t.description,
+		category: transferClass ? null : t.category || null,
+		note: t.note || null,
+		recurring: t.recurring || null,
+		account_id: type === "income" ? null : fkOrNull(t.accountId),
+		to_account_id: type === "expense" ? null : fkOrNull(t.toAccountId) ?? (type === "income" ? fkOrNull(t.accountId) : null),
+		initiated_by: t.initiatedBy ?? t.memberId ?? null,
+		recurring_schedule_id: fkOrNull(t.recurringScheduleId),
+		debt_id: fkOrNull(t.debtId),
+		...t.paymentMode !== void 0 ? { payment_mode: type === "investment" ? null : t.paymentMode } : {},
+		...t.assetId !== void 0 ? { asset_id: type === "investment" ? fkOrNull(t.assetId) : null } : {},
+		extras: {
+			time: t.time,
+			paymentMethod: t.paymentMethod,
+			excluded: t.excluded,
+			linkedDebtId: t.linkedDebtId,
+			linkedTxnId: t.linkedTxnId,
+			split: t.split,
+			emi_split: t.emiSplit
+		}
+	};
+};
 const rowToTxn = (r) => ({
 	id: r.id,
 	type: r.type,
@@ -1097,6 +1140,7 @@ const rowToRecurring = (r) => ({
 	reminderLeadDays: r.reminder_lead_days ?? void 0,
 	rrule: r.rrule ?? void 0,
 	ownerMemberId: r.owner_member_id ?? void 0,
+	shortMonthPolicy: r.short_month_policy === "next_month_first" ? "next_month_first" : "last_day",
 	createdBy: r.created_by ?? void 0,
 	updated_at: r.updated_at
 });
@@ -1214,7 +1258,7 @@ function convert(amount, from, to, _rates) {
 	if (!amount || from === to) return amount;
 	return fromDinero(convertViaUsdRates(toDinero(amount, from), to));
 }
-function fmt(amount, currency = "USD") {
+function fmt$1(amount, currency = "USD") {
 	const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
 	const n = Math.abs(amount || 0);
 	const factor = 10 ** cur.decimals;
@@ -1232,6 +1276,307 @@ function fmt(amount, currency = "USD") {
 			maximumFractionDigits: digits
 		});
 	}
+}
+//#endregion
+//#region react/src/lib/rrule.ts
+/** The date a day-of-month lands on in a given month under a policy; null = skip (no policy). */
+function landDay(year, month0, dom, policy) {
+	if (monthHasDay(year, month0, dom)) return new Date(Date.UTC(year, month0, dom));
+	if (!policy) return null;
+	return policy === "last_day" ? new Date(Date.UTC(year, month0 + 1, 0)) : new Date(Date.UTC(year, month0 + 1, 1));
+}
+const WD = [
+	"SU",
+	"MO",
+	"TU",
+	"WE",
+	"TH",
+	"FR",
+	"SA"
+];
+/** Parse an RFC 5545 RRULE string. Tolerant of lower-case and missing INTERVAL. */
+function parseRRule(s) {
+	const map = {};
+	for (const kv of s.trim().toUpperCase().split(";")) {
+		const [k, v] = kv.split("=");
+		if (k && v) map[k] = v;
+	}
+	const r = {
+		freq: map.FREQ || "MONTHLY",
+		interval: Math.max(1, Number(map.INTERVAL) || 1)
+	};
+	if (map.BYDAY) r.byDay = map.BYDAY.split(",").map((d) => WD.indexOf(d)).filter((i) => i >= 0);
+	if (map.BYMONTHDAY) r.byMonthDay = map.BYMONTHDAY.split(",").map(Number).filter((n) => n >= 1 && n <= 31);
+	if (map.BYSETPOS) r.bySetPos = map.BYSETPOS.split(",").map(Number).filter((n) => n !== 0);
+	if (map.BYMONTH) r.byMonth = map.BYMONTH.split(",").map(Number).filter((n) => n >= 1 && n <= 12);
+	if (map.COUNT) r.count = Number(map.COUNT);
+	else if (map.UNTIL) {
+		const u = map.UNTIL.slice(0, 8);
+		r.until = `${u.slice(0, 4)}-${u.slice(4, 6)}-${u.slice(6, 8)}`;
+	}
+	return r;
+}
+function toUTC(d) {
+	const [y, m, day] = d.split("-").map(Number);
+	return new Date(Date.UTC(y, m - 1, day));
+}
+function fmt(dt) {
+	return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+function addDays(dt, n) {
+	const c = new Date(dt);
+	c.setUTCDate(c.getUTCDate() + n);
+	return c;
+}
+function addMonths(dt, n) {
+	const c = new Date(dt);
+	c.setUTCMonth(c.getUTCMonth() + n);
+	return c;
+}
+/** A "candidate" is generated, then validated against BY* rules; invalid ones
+*  (e.g. Feb 31) are SKIPPED, not clamped — matching RFC 5545. */
+function monthHasDay(year, month0, day) {
+	return new Date(Date.UTC(year, month0, day)).getUTCMonth() === month0;
+}
+/**
+* Expand occurrences of `rule` starting at `dtstart` (YYYY-MM-DD), returning
+* dates that fall within [from, to] inclusive. Honors COUNT/UNTIL globally (an
+* occurrence consumed before `from` still counts toward COUNT). Bounded by a hard
+* safety cap so a misconfigured open-ended rule can't loop forever.
+*/
+function expandRRule(rule, dtstart, from, to, opts = {}) {
+	const start = toUTC(dtstart);
+	const windowEnd = toUTC(to);
+	const windowStart = toUTC(from);
+	const untilDt = rule.until ? toUTC(rule.until) : null;
+	const hardEnd = untilDt && untilDt < windowEnd ? untilDt : windowEnd;
+	const interval = Math.max(1, rule.interval);
+	const out = [];
+	const policy = opts.shortMonthPolicy;
+	const seen = /* @__PURE__ */ new Set();
+	let produced = 0;
+	const CAP = 1e4;
+	let iters = 0;
+	const emit = (dt) => {
+		if (untilDt && dt > untilDt) return false;
+		if (rule.count != null && produced >= rule.count) return false;
+		if (seen.has(dt.getTime())) return true;
+		seen.add(dt.getTime());
+		produced++;
+		if (dt >= windowStart && dt <= hardEnd) out.push(fmt(dt));
+		return true;
+	};
+	if (rule.freq === "DAILY") {
+		let first = new Date(start);
+		if (rule.count == null && windowStart > start) first = addDays(start, Math.floor((windowStart.getTime() - start.getTime()) / (864e5 * interval)) * interval);
+		for (let dt = first; iters < CAP; dt = addDays(dt, interval), iters++) {
+			if (dt > hardEnd && !(rule.count != null)) break;
+			if (!emit(dt)) break;
+		}
+	} else if (rule.freq === "WEEKLY") {
+		const days = rule.byDay?.length ? [...rule.byDay].sort((a, b) => a - b) : [start.getUTCDay()];
+		for (let wk = new Date(start); iters < CAP; wk = addDays(wk, 7 * interval), iters++) {
+			let stop = false;
+			const week = days.map((d) => addDays(wk, (d - wk.getUTCDay() + 7) % 7)).sort((a, b) => a.getTime() - b.getTime());
+			for (const occ of week) {
+				if (occ < start) continue;
+				if (occ > hardEnd && rule.count == null) {
+					stop = true;
+					break;
+				}
+				if (!emit(occ)) {
+					stop = true;
+					break;
+				}
+			}
+			if (stop) break;
+		}
+	} else if (rule.freq === "MONTHLY") {
+		if (rule.bySetPos?.length && rule.byDay?.length) {
+			const wd = rule.byDay[0];
+			const pos = rule.bySetPos[0];
+			for (let m = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1)); iters < CAP; m = addMonths(m, interval), iters++) {
+				const year = m.getUTCFullYear();
+				const month0 = m.getUTCMonth();
+				const all = [];
+				for (let d = 1; d <= 31; d++) {
+					if (!monthHasDay(year, month0, d)) break;
+					const c = new Date(Date.UTC(year, month0, d));
+					if (c.getUTCDay() === wd) all.push(c);
+				}
+				const idx = pos < 0 ? all.length + pos : pos - 1;
+				if (idx < 0 || idx >= all.length) continue;
+				const occ = all[idx];
+				if (occ < start) continue;
+				if (occ > hardEnd && rule.count == null) break;
+				if (!emit(occ)) break;
+			}
+		} else {
+			const startDom = start.getUTCDate();
+			const doms = rule.byMonthDay?.length ? [...rule.byMonthDay].sort((a, b) => a - b) : [startDom];
+			const lead = policy === "next_month_first" ? interval : 0;
+			for (let m = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - lead, 1)); iters < CAP; m = addMonths(m, interval), iters++) {
+				let stop = false;
+				for (const dom of doms) {
+					const occ = landDay(m.getUTCFullYear(), m.getUTCMonth(), dom, policy);
+					if (!occ) continue;
+					if (occ < start) continue;
+					if (occ > hardEnd && rule.count == null) {
+						stop = true;
+						break;
+					}
+					if (!emit(occ)) {
+						stop = true;
+						break;
+					}
+				}
+				if (stop) break;
+			}
+		}
+	} else {
+		const mo = rule.byMonth?.length ? rule.byMonth[0] - 1 : start.getUTCMonth();
+		const dom = rule.byMonthDay?.length ? rule.byMonthDay[0] : start.getUTCDate();
+		for (let y = start.getUTCFullYear(); iters < CAP; y += interval, iters++) {
+			const occ = landDay(y, mo, dom, policy);
+			if (!occ) continue;
+			if (occ < start) continue;
+			if (occ > hardEnd && rule.count == null) break;
+			if (!emit(occ)) break;
+		}
+	}
+	return out;
+}
+const shiftDays = (iso, n) => fmt(addDays(toUTC(iso), n));
+/**
+* W3e — the first occurrence strictly AFTER `after` (YYYY-MM-DD), honouring COUNT and UNTIL counted
+* from `dtstart`; null when the rule has no further occurrence (it is finished). Looks ahead in
+* widening windows, so a daily rule costs a few days and an every-four-years rule still resolves.
+*/
+function nextOccurrenceAfter(rule, dtstart, after, opts = {}) {
+	return firstOccurrenceOnOrAfter(rule, dtstart, shiftDays(after, 1), opts);
+}
+/** W3e — the first occurrence on or after `from` (inclusive); null when the rule is finished. */
+function firstOccurrenceOnOrAfter(rule, dtstart, from, opts = {}) {
+	const floor = from < dtstart ? dtstart : from;
+	for (const span of [
+		62,
+		400,
+		1600,
+		4e3
+	]) {
+		if (rule.until && rule.until < floor) return null;
+		const dates = expandRRule(rule, dtstart, floor, shiftDays(floor, span * Math.max(1, rule.interval)), opts);
+		if (dates.length) return dates[0];
+	}
+	return null;
+}
+//#endregion
+//#region react/src/lib/recurring.ts
+/**
+* The schedule's rule: its RRULE, or one derived from its columns exactly as the database's
+* `recurrence_rrule_from_legacy` derives it (weekday 0 = Sunday).
+*/
+function ruleOf(s) {
+	if (s.rrule && s.rrule.trim()) return parseRRule(s.rrule);
+	const [y, m, d] = s.startDate.split("-").map(Number);
+	const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+	switch (s.frequency) {
+		case "daily": return {
+			freq: "DAILY",
+			interval: 1
+		};
+		case "weekly": return {
+			freq: "WEEKLY",
+			interval: 1,
+			byDay: [s.weekday ?? dow]
+		};
+		case "yearly": return {
+			freq: "YEARLY",
+			interval: 1,
+			byMonth: [m],
+			byMonthDay: [d]
+		};
+		default: return {
+			freq: "MONTHLY",
+			interval: 1,
+			byMonthDay: [s.dayOfMonth ?? d]
+		};
+	}
+}
+/** The schedule's month-end rule (W3e). */
+const policyOf = (s) => s.shortMonthPolicy ?? "last_day";
+/** The next occurrence strictly after `after`; null when the schedule's COUNT / UNTIL is used up. */
+function nextScheduleOccurrence(s, after) {
+	return nextOccurrenceAfter(ruleOf(s), s.startDate, after, { shortMonthPolicy: policyOf(s) });
+}
+function cyrb128(str) {
+	let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
+	for (let i = 0; i < str.length; i++) {
+		const k = str.charCodeAt(i);
+		h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+		h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+		h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+		h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+	}
+	h1 = Math.imul(h3 ^ h1 >>> 18, 597399067);
+	h2 = Math.imul(h4 ^ h2 >>> 22, 2869860233);
+	h3 = Math.imul(h1 ^ h3 >>> 17, 951274213);
+	h4 = Math.imul(h2 ^ h4 >>> 19, 2716044179);
+	return [
+		(h1 ^ h2 ^ h3 ^ h4) >>> 0,
+		h2 >>> 0,
+		h3 >>> 0,
+		h4 >>> 0
+	];
+}
+/** Stable UUIDv8 (RFC 9562) derived from a seed string. Same seed → same id. */
+function deterministicUuid(seed) {
+	const [a, b, c, d] = cyrb128(seed);
+	const h = (n) => (n >>> 0).toString(16).padStart(8, "0");
+	let hex = h(a) + h(b) + h(c) + h(d);
+	hex = hex.slice(0, 12) + "8" + hex.slice(13);
+	const variant = (parseInt(hex[16], 16) & 3 | 8).toString(16);
+	hex = hex.slice(0, 16) + variant + hex.slice(17);
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+/** The deterministic id a given schedule occurrence will always materialise as. */
+function recurringInstanceId(scheduleId, occurrenceDate) {
+	return deterministicUuid(`vyact:recur:${scheduleId}:${occurrenceDate}`);
+}
+function upcomingSchedules(schedules, leadDays = 3, now = today()) {
+	const cutoffISO = addDaysISO(now, leadDays);
+	return schedules.filter((s) => s.active && s.nextDueDate <= cutoffISO && s.nextDueDate > now);
+}
+function generateTransaction(schedule) {
+	return {
+		...schedule.transactionTemplate,
+		id: recurringInstanceId(schedule.id, schedule.nextDueDate),
+		date: schedule.nextDueDate,
+		recurring: schedule.frequency === "custom_day" ? "monthly" : schedule.frequency,
+		recurringScheduleId: schedule.id,
+		memberId: schedule.ownerMemberId ?? schedule.transactionTemplate.memberId,
+		initiatedBy: schedule.ownerMemberId ?? schedule.transactionTemplate.initiatedBy
+	};
+}
+/**
+* After an occurrence is generated (or approved, or skipped), move the schedule to its next one.
+* W3e: the next occurrence of its RULE strictly after the pointer, so a pointer that is not itself a
+* rule date still moves forward. When COUNT or UNTIL is used up the schedule is finished: it stays on
+* its last date and becomes inactive — it used to keep posting forever.
+*/
+function advanceSchedule(schedule) {
+	const lastGenerated = schedule.nextDueDate;
+	const next = nextScheduleOccurrence(schedule, lastGenerated);
+	if (!next) return {
+		...schedule,
+		lastGenerated,
+		active: false
+	};
+	return {
+		...schedule,
+		lastGenerated,
+		nextDueDate: next
+	};
 }
 //#endregion
 //#region react/src/lib/calculations.ts
@@ -2604,7 +2949,7 @@ function isAskVyactBucketEnabled(bucket) {
 //#endregion
 //#region react/src/lib/askVyactBackend.ts
 const cur = (ctx) => ctx.baseCurrency;
-const money = (n, ctx) => fmt(Math.round(n), cur(ctx));
+const money = (n, ctx) => fmt$1(Math.round(n), cur(ctx));
 /**
 * The default period when the user names none — computed per question. v10.46.0: it
 * was a module constant, fixed when the file loaded, so a tab left open over a month
@@ -4055,12 +4400,6 @@ function unavailableTurn(reason) {
 	};
 }
 //#endregion
-//#region react/src/lib/recurring.ts
-function upcomingSchedules(schedules, leadDays = 3, now = today()) {
-	const cutoffISO = addDaysISO(now, leadDays);
-	return schedules.filter((s) => s.active && s.nextDueDate <= cutoffISO && s.nextDueDate > now);
-}
-//#endregion
 //#region react/src/lib/notifications.ts
 const NOTIF_META = {
 	recurring_due_confirm: {
@@ -4199,7 +4538,7 @@ function recurringDueNotifs(schedules, prefs, existing, ctx) {
 		const amt = s.transactionTemplate.amount ?? 0;
 		out.push({
 			...base("recurring_due_confirm", key, ctx),
-			title: `${s.transactionTemplate.description} · ${fmt(amt, ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
+			title: `${s.transactionTemplate.description} · ${fmt$1(amt, ctx.baseCurrency)} — due ${relDate(s.nextDueDate, ctx.tz)}`,
 			body: "Auto-approve is off for this schedule",
 			dueAt: s.nextDueDate,
 			amountRef: amt,
@@ -4226,7 +4565,7 @@ function recurringReminderNotifs(schedules, prefs, existing, ctx) {
 		const amt = s.transactionTemplate.amount ?? 0;
 		out.push({
 			...base("recurring_reminder", key, ctx),
-			title: `${s.transactionTemplate.description} · ${fmt(amt, ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
+			title: `${s.transactionTemplate.description} · ${fmt$1(amt, ctx.baseCurrency)} — ${relDate(s.nextDueDate, ctx.tz)}`,
 			body: "Upcoming recurring charge",
 			dueAt: s.nextDueDate,
 			amountRef: amt,
@@ -4297,7 +4636,7 @@ function budgetThresholdNotifs(budgets, allocations, txns, prefs, existing, ctx,
 				...base("budget_threshold", key, ctx),
 				tint: threshold === 100 ? "var(--crit)" : "var(--warn)",
 				title: `${getCat(line.category).label} at ${Math.round(pct * 100)}% of the ${period} budget`,
-				body: spent > line.limit ? `${fmt(spent - line.limit, cur)} over` : `${fmt(remaining, cur)} left`,
+				body: spent > line.limit ? `${fmt$1(spent - line.limit, cur)} over` : `${fmt$1(remaining, cur)} left`,
 				budgetId: b.id,
 				amountRef: remaining,
 				deepLink: `/budgets?budgetId=${b.id}`,
@@ -4320,7 +4659,7 @@ function debtDueNotifs(debts, prefs, existing, ctx) {
 		const amt = d.minimumPayment ?? 0;
 		out.push({
 			...base("debt_payment_due", key, ctx),
-			title: `${d.name} payment · ${fmt(amt, ctx.baseCurrency)} — due ${relDate(d.dueDate, ctx.tz)}`,
+			title: `${d.name} payment · ${fmt$1(amt, ctx.baseCurrency)} — due ${relDate(d.dueDate, ctx.tz)}`,
 			body: "Minimum payment coming up",
 			dueAt: d.dueDate,
 			amountRef: amt,
@@ -4342,7 +4681,7 @@ function incomeLandedNotifs(txns, prefs, existing, ctx) {
 		if (existing.some((n) => n.dedupeKey === key)) continue;
 		out.push({
 			...base("income_landed", key, ctx),
-			title: `${t.description || "Income"} landed — +${fmt(t.amount, ctx.baseCurrency)}`,
+			title: `${t.description || "Income"} landed — +${fmt$1(t.amount, ctx.baseCurrency)}`,
 			body: "Money in",
 			amountRef: t.amount,
 			txnId: t.id,
@@ -4540,6 +4879,24 @@ function reconcileOnServer(rows, accountId, stated, at) {
 	};
 }
 /**
+* Exactly what approving the due occurrence does in the app (recurringSlice.approveRecurring):
+* the occurrence row under its deterministic id, and the schedule advanced by its RULE with its
+* month-end policy. This replaced the `_shared/recurring.ts` hand port, which stepped month-ends
+* differently from the app and knew nothing of weekdays, COUNT or UNTIL (audit XC-ARC-01, INT-PAR-02).
+* `whatsapp_approve_recurring` applies the plan in one transaction.
+*/
+function approveOccurrenceOnServer(scheduleRow, householdId) {
+	const schedule = mapCloudRow("recurring", scheduleRow);
+	const row = JSON.parse(JSON.stringify(txnToRow(generateTransaction(schedule), householdId)));
+	const advanced = advanceSchedule(schedule);
+	const exhausted = advanced.active === false;
+	return {
+		row,
+		nextDue: exhausted ? null : advanced.nextDueDate,
+		exhausted
+	};
+}
+/**
 * The runway exactly as Pip states it (`forecast.runway`: liquid savings over typical
 * monthly spending, both from the one SafeSummary projection), plus the category
 * whose spending fell most between the last two COMPLETED months, for "what moved it".
@@ -4636,4 +4993,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, balancesToCheck, cleanOffending, contextFromRows, notificationsOnServer, reconcileOnServer, renderForWhatsApp, runwaySnapshot, systemPromptFor };
+export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, cleanOffending, contextFromRows, notificationsOnServer, reconcileOnServer, renderForWhatsApp, runwaySnapshot, systemPromptFor };

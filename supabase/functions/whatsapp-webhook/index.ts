@@ -41,10 +41,9 @@ import { TEMPLATES } from '../_shared/whatsapp-templates.ts';
 import {
   parsePaidReply, reminderFromAudit, matchReminders, moneyText, dueDayText, amountText, type SentReminder,
 } from '../_shared/whatsapp-dispatch-rules.ts';
-import { occurrenceRow, advancedDueDate, type ScheduleRow } from '../_shared/recurring.ts';
 import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
 import {
-  contextFromRows, answerOnServer, renderForWhatsApp, balancesToCheck, reconcileOnServer, type BalanceToCheck,
+  contextFromRows, answerOnServer, renderForWhatsApp, balancesToCheck, reconcileOnServer, approveOccurrenceOnServer, type BalanceToCheck,
 } from '../_shared/agent/engine.ts';
 import {
   isNameTrigger, isUpdateTrigger, isStopWord, nameListReply, parseNamePicks, nameResultReply, statedAmount, isSame, isSkip,
@@ -754,13 +753,13 @@ async function approveFromReply(
   }
 
   const { data: schedule, error: sError } = await supabase.from('recurring_schedules')
-    .select('id, household_id, frequency, start_date, next_due_date, last_generated, day_of_month, weekday, auto_confirm, active, owner_member_id, txn_template')
+    .select('id, household_id, created_by, frequency, start_date, next_due_date, last_generated, day_of_month, weekday, auto_confirm, active, reminder_lead_days, rrule, short_month_policy, owner_member_id, txn_template, updated_at')
     .eq('id', matches[0].scheduleId).eq('household_id', householdId).is('deleted_at', null).maybeSingle();
   if (sError) return retryOrGiveUp(fromPhone, priorAttempts, `schedule: ${sError.message}`);
   if (!schedule) {
     return { status: 'done', note: await reply(fromPhone, `I can't find that bill any more. It may have been changed in the app: ${APP_URL}/recurring`) };
   }
-  const s = schedule as ScheduleRow;
+  const s = schedule as { id: string; auto_confirm: boolean; txn_template: Record<string, any> };
   const template = s.txn_template ?? {};
   const amountText = moneyText(Number(template.amount), String(template.currency ?? 'INR').trim());
   if (paid.amount !== undefined && Math.abs(paid.amount - Number(template.amount)) > 0.005) {
@@ -769,18 +768,21 @@ async function approveFromReply(
   }
 
   const today = localDay(message, profile.timezone).toISOString().slice(0, 10);
+  // W3e: the row and the next date come from the APP's engine (bundled), read from the schedule's rule.
+  const plan = approveOccurrenceOnServer(schedule, householdId);
   const { data, error } = await supabase.rpc('whatsapp_approve_recurring', {
     p_profile_id: profile.id,
     p_household_id: householdId,
     p_schedule_id: s.id,
     p_occurrence: matches[0].occurrence,
     p_today: today,
-    p_next_due: advancedDueDate(s),
-    p_row: occurrenceRow(s),
+    p_next_due: plan.nextDue,
+    p_row: plan.row,
     p_wa_message_id: message.id,
+    p_exhausted: plan.exhausted,
   });
   if (error) return retryOrGiveUp(fromPhone, priorAttempts, `approve: ${error.message}`);
-  const r = (data ?? {}) as { status?: string; reason?: string; already_posted?: boolean; next_due_date?: string };
+  const r = (data ?? {}) as { status?: string; reason?: string; already_posted?: boolean; next_due_date?: string; finished?: boolean };
   const name = String(template.description ?? matches[0].replyWord);
   const on = dueDayText(matches[0].occurrence);
   let body: string | undefined;
@@ -791,6 +793,7 @@ async function approveFromReply(
         ? `${name} for ${on} was already in Vyact, so nothing was added twice. The schedule has moved on.`
         : `Logged: ${name}, ${amountText}, for ${on}, as scheduled.`;
       if (r.next_due_date) body += ` The next one is due ${dueDayText(r.next_due_date)}.`;
+      else if (r.finished) body += ' That was the last one, so the schedule has ended.';
       break;
     case 'already_done':
       body = s.auto_confirm

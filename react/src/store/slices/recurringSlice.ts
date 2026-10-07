@@ -10,6 +10,7 @@ import {
   dueSchedules, generateTransaction, advanceSchedule, recurringInstanceId, isStaleOccurrence,
 } from '../../lib/recurring';
 import { uid, today } from '../../lib/format';
+import { unexpected } from '../../lib/faults';
 import { readLocalJson } from '../localJson';
 
 export interface RecurringSlice {
@@ -46,6 +47,14 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
       autoConfirm: s.autoConfirm ?? true,
       active: s.active ?? true,
       reminderLeadDays: s.reminderLeadDays,
+      // W3e (audit FE-MNY-01, INT-TXN-03): the rule, the owner, the month-end rule and the version
+      // used to be dropped here, so the form's RRULE never reached the database, the schedule's owner
+      // was lost on every edit, and the `updated_at` precondition below was never sent.
+      rrule: s.rrule,
+      shortMonthPolicy: s.shortMonthPolicy,
+      ownerMemberId: s.ownerMemberId,
+      createdBy: s.createdBy ?? (isNew ? undefined : list[existingIdx].createdBy),
+      updated_at: s.updated_at,
     };
 
     // 🔴 REMOVED IN v10.20.6 — creating a schedule no longer posts a transaction.
@@ -125,12 +134,13 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
         // refresh per missed month to recover. Bounded so a corrupt schedule
         // cannot spin: 480 monthly steps is 40 years.
         let ff = s;
-        for (let guard = 0; guard < 480 && isStaleOccurrence(ff.nextDueDate); guard++) {
+        // A rule that runs out (COUNT / UNTIL) closes the schedule and stops here.
+        for (let guard = 0; guard < 480 && ff.active && isStaleOccurrence(ff.nextDueDate); guard++) {
           ff = advanceSchedule(ff);
         }
         const i = updated.findIndex(x => x.id === s.id);
         updated[i] = ff;
-        try { await adapter.upsert('recurring', currentHouseholdId, ff); } catch { /* best-effort */ }
+        try { await adapter.upsert('recurring', currentHouseholdId, ff); } catch (err) { unexpected(err, 'recurring.engine.fastForward'); }
         continue;
       }
       // An approval-required schedule is LEFT DUE — the engine must not touch
@@ -158,8 +168,8 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
       const advanced = advanceSchedule(s);
       const idx = updated.findIndex(x => x.id === s.id);
       updated[idx] = advanced;
-      // Persist the advanced schedule (lastGenerated / nextDueDate moved on).
-      try { await adapter.upsert('recurring', currentHouseholdId, advanced); } catch { /* best-effort */ }
+      // Persist the advanced schedule (lastGenerated / nextDueDate moved on; closed when its rule ran out).
+      try { await adapter.upsert('recurring', currentHouseholdId, advanced); } catch (err) { unexpected(err, 'recurring.engine.advance'); }
     }
     set({
       recurringSchedules: updated,

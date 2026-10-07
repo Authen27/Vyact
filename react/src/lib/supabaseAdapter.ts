@@ -534,6 +534,7 @@ interface RecurringRow {
   reminder_lead_days: number | null;
   rrule?: string | null;              // v9.1 §5.2
   owner_member_id?: string | null;    // v9.1 §5.3
+  short_month_policy?: string | null; // W3e (v10.69.0) — NOT NULL, DB default 'last_day'
   created_at: string; updated_at: string; deleted_at: string | null;
 }
 const recurringToRow = (s: Partial<RecurringSchedule>, hid: string): Partial<RecurringRow> => ({
@@ -551,6 +552,8 @@ const recurringToRow = (s: Partial<RecurringSchedule>, hid: string): Partial<Rec
   reminder_lead_days: s.reminderLeadDays ?? null,
   rrule: s.rrule ?? null,
   owner_member_id: s.ownerMemberId ?? null,
+  // NOT NULL with a DB default: written as a value or omitted, never null.
+  short_month_policy: s.shortMonthPolicy ?? undefined,
 });
 const rowToRecurring = (r: RecurringRow): RecurringSchedule => ({
   id: r.id,
@@ -566,6 +569,7 @@ const rowToRecurring = (r: RecurringRow): RecurringSchedule => ({
   reminderLeadDays: r.reminder_lead_days ?? undefined,
   rrule: r.rrule ?? undefined,
   ownerMemberId: r.owner_member_id ?? undefined,
+  shortMonthPolicy: r.short_month_policy === 'next_month_first' ? 'next_month_first' : 'last_day',
   createdBy: r.created_by ?? undefined,
   updated_at: r.updated_at,
 });

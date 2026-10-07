@@ -3,9 +3,11 @@
 //
 // Contract: a read-only projection of what active recurring schedules will do
 // over the next N days, told in the recurring engine's own terms.
-//   • Occurrence dates come from the schedule's RRULE (`expandRRule`), so multiple
-//     weekdays, nth weekdays, month-end skips and "ends after N times" hold.
-//     Schedules without an RRULE fall back to `scheduleFiresOnDate`.
+//   • Occurrence dates come from the schedule's rule (`ruleOf` → `expandRRule`) with
+//     its month-end policy, so multiple weekdays, nth weekdays, a 31st in a short month
+//     and "ends after N times / on a date" hold. W3e: the same rule the engine advances
+//     by, so the calendar can never show a date the engine will not post (it used to
+//     skip short months while the engine overflowed them).
 //   • The engine's pointer is `nextDueDate`: anything before it has already been
 //     posted, approved or skipped, and is never shown as due again.
 //   • Status follows the approval setting:
@@ -21,8 +23,8 @@
 //     household currency, not a forecast of the account balance.
 import type { ExchangeRates, RecurringSchedule, Transaction } from '../types';
 import { convert, today } from './format';
-import { addDaysISO, isStaleOccurrence, recurringInstanceId, scheduleFiresOnDate } from './recurring';
-import { expandRRule, parseRRule } from './rrule';
+import { addDaysISO, isStaleOccurrence, recurringInstanceId, ruleOf, policyOf } from './recurring';
+import { expandRRule } from './rrule';
 
 export type BillStatus = 'posted' | 'awaiting-approval' | 'auto' | 'approval-when-due';
 
@@ -59,16 +61,7 @@ export interface BillCalendar {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function occurrenceDates(schedule: RecurringSchedule, from: string, to: string): string[] {
-  if (schedule.rrule) {
-    try {
-      return expandRRule(parseRRule(schedule.rrule), schedule.startDate, from, to);
-    } catch { /* malformed rule: fall back to the frequency fields below */ }
-  }
-  const dates: string[] = [];
-  for (let date = from; date <= to; date = addDaysISO(date, 1)) {
-    if (scheduleFiresOnDate(schedule, date)) dates.push(date);
-  }
-  return dates;
+  return expandRRule(ruleOf(schedule), schedule.startDate, from, to, { shortMonthPolicy: policyOf(schedule) });
 }
 
 export function billCalendar(input: {
