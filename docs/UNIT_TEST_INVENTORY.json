@@ -2317,6 +2317,25 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/syncRevisions.test.ts",
+      "feature": "Sync revisions and rollback",
+      "availability": "conditional",
+      "layer": "store-integration",
+      "owner": "W3c: cache keeps server revisions, ownerless writes adopted safely, refused writes rolled back, Dismiss re-reads (fake IndexedDB, mocked cloud)",
+      "count": 8,
+      "tests": [
+        "a write the database refuses is rolled back, not retried (INT-TXN-08) CON-UNIT-W3-D15-005 · refused insert, update and remove: dead-lettered at once and the cache put back",
+        "a write the database refuses is rolled back, not retried (INT-TXN-08) CON-UNIT-W3-D15-006 · later writes to a refused row go with it; a network failure is still retried",
+        "a write the database refuses is rolled back, not retried (INT-TXN-08) CON-UNIT-W3-D15-007 · what counts as refused: integrity, data, permission and trigger errors; not network, JWT or schema lag",
+        "dismissing a conflict discards the unsaved edit (W3c) CON-UNIT-W3-D15-008 · Dismiss re-reads the rows from the cloud, so the screen shows the server’s version",
+        "server revisions, never the device clock (FE-SYN-01, INT-TXN-02) CON-UNIT-W3-D15-001 · a row created here, then edited from the app’s own copy, is sent with the server’s revision — no false conflict",
+        "server revisions, never the device clock (FE-SYN-01, INT-TXN-02) CON-UNIT-W3-D15-002 · two edits in a row from the same stale copy both land; another device’s edit is still a conflict",
+        "writes made while the session could not be read (FE-SYN-03) CON-UNIT-W3-D15-003 · a write queued with an unreadable session belongs to the cache owner and is sent",
+        "writes made while the session could not be read (FE-SYN-03) CON-UNIT-W3-D15-004 · ownerless writes go to their own user — never to the next person who signs in"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/timeZoneDay.test.ts",
       "feature": "Time zone (local today)",
       "availability": "available",
