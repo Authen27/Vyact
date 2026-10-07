@@ -6,10 +6,15 @@
 // closed) even while they're away.
 //
 // Security: recipients are resolved SERVER-SIDE (service role) from the split id
-// — the caller NEVER passes an arbitrary address, so this can't be used to spam.
-// The caller's JWT is verified and authorised per event:
-//   • 'shared' / 'closed' → caller must be the split's owner (emails participants)
-//   • 'settled'           → caller must be the participant on `shareId` (emails owner)
+// — the caller NEVER passes an arbitrary address. The caller's JWT is verified and
+// authorised per event, BEFORE any other work:
+//   • 'shared'  → caller owns the split and it is still open (emails participants)
+//   • 'closed'  → caller owns the split and it is closed (emails participants)
+//   • 'settled' → caller is the participant on `shareId` and it is paid (emails owner)
+// W1c (v10.64.0, audit BE-FN-06): the split's owner still chooses the addresses, so every send
+// is CLAIMED first (`claim_split_emails`): one email per share per event, ever, and at most
+// SPLIT_EMAIL_DAILY_CAP emails per sender per 24 hours. A second 'shared' call mails only the
+// people added since; a failed delivery releases its claim so a retry can send it.
 //
 // Copy/layout live in ../_shared/emailTemplates.ts (reusable across the app).
 // The 'shared' event branches per recipient: members WITH a Vyact account get
@@ -36,6 +41,12 @@ const json = (body: unknown, status = 200): Response =>
 const env = (k: string) => Deno.env.get(k) ?? '';
 
 type Event = 'shared' | 'settled' | 'closed';
+
+/** Emails one person may cause in 24 hours. A malformed setting keeps the default, never "off". */
+export const DEFAULT_DAILY_CAP = 50;
+export function dailyCap(raw: string): number {
+  return /^\d{1,5}$/.test(raw.trim()) ? Number(raw.trim()) : DEFAULT_DAILY_CAP;
+}
 
 // Configured if ANY transport has its secrets set (MailerSend preferred).
 const emailConfigured = () => Boolean(env('MAILERSEND_API_KEY') || env('SMTP_HOST') || env('RESEND_API_KEY'));
@@ -128,32 +139,62 @@ Deno.serve(async (req: Request) => {
   }
   if (!sid) return json({ error: 'split_not_found' }, 404);
 
+
   const { data: split } = await admin.from('shared_splits')
-    .select('id, owner_user_id, description, currency, total_amount, date').eq('id', sid).maybeSingle();
+    .select('id, owner_user_id, description, currency, total_amount, date, closed_at').eq('id', sid).maybeSingle();
   if (!split) return json({ error: 'split_not_found' }, 404);
 
   const { data: shares } = await admin.from('shared_split_shares')
-    .select('id, email, share').eq('split_id', sid);
-  const allShares = shares ?? [];
+    .select('id, email, share, paid').eq('split_id', sid);
+  const allShares = (shares ?? []) as { id: string; email: string; share: number; paid?: boolean }[];
   const callerEmail = (user.email ?? '').toLowerCase();
   const isOwner = user.id === split.owner_user_id;
-  const desc = split.description || 'a shared split';
 
-  const ownerRes = await admin.auth.admin.getUserById(split.owner_user_id).catch(() => null);
-  const ownerName = (ownerRes?.data?.user?.user_metadata?.full_name as string | undefined)
-    || (ownerRes?.data?.user?.email ?? 'Someone');
+  // Authorise, and pick the shares this event is about, before anything is resolved or sent.
+  let targets: typeof allShares;
+  if (event === 'shared' || event === 'closed') {
+    if (!isOwner) return json({ error: 'forbidden' }, 403);
+    if (event === 'shared' && split.closed_at) return json({ error: 'split_closed' }, 409);
+    if (event === 'closed' && !split.closed_at) return json({ error: 'split_not_closed' }, 409);
+    targets = allShares.filter(s => s.email.toLowerCase() !== callerEmail);
+  } else {
+    const share = allShares.find(s => s.id === shareId);
+    if (!share || share.email.toLowerCase() !== callerEmail) return json({ error: 'forbidden' }, 403);
+    if (!share.paid) return json({ error: 'share_not_settled' }, 409);
+    targets = [share];
+  }
 
   if (!emailConfigured()) {
     console.warn(JSON.stringify({ fn: 'send-split-email', event, outcome: 'email_not_configured' }));
     return json({ ok: false, reason: 'email_not_configured' });
   }
 
+  // One email per share per event, and a daily cap per sender — claimed atomically.
+  const { data: claim, error: claimErr } = await admin.rpc('claim_split_emails', {
+    p_sender: user.id, p_split: sid, p_event: event,
+    p_share_ids: targets.map(t => t.id), p_daily_cap: dailyCap(env('SPLIT_EMAIL_DAILY_CAP')),
+  });
+  if (claimErr) {
+    console.error(JSON.stringify({ fn: 'send-split-email', event, outcome: 'claim_failed' }));
+    return json({ ok: false, reason: 'claim_failed' }, 500);
+  }
+  const claimedIds = new Set((claim as { claimed?: string[] } | null)?.claimed ?? []);
+  const limited = Number((claim as { limited?: number } | null)?.limited ?? 0);
+  const claimed = targets.filter(t => claimedIds.has(t.id));
+  // A delivery that failed gives its claim back, so the next call can try that person again.
+  const release = (id: string) =>
+    admin.from('split_email_log').delete().eq('share_id', id).eq('event', event);
+
+  const desc = split.description || 'a shared split';
+  const ownerRes = claimed.length ? await admin.auth.admin.getUserById(split.owner_user_id).catch(() => null) : null;
+  const ownerName = (ownerRes?.data?.user?.user_metadata?.full_name as string | undefined)
+    || (ownerRes?.data?.user?.email ?? 'Someone');
+
   // Resolve which participant emails have Vyact accounts (+ display names).
   // Present in the map = has an active account.
-  const emails = allShares.map(s => s.email);
   const nameMap: Record<string, string> = {};
-  if (emails.length) {
-    const { data: resolved } = await admin.rpc('resolve_participant_names', { p_emails: emails });
+  if (claimed.length && allShares.length) {
+    const { data: resolved } = await admin.rpc('resolve_participant_names', { p_emails: allShares.map(s => s.email) });
     for (const r of (resolved as { email: string; display_name: string | null }[] ?? [])) {
       if (r.display_name) nameMap[r.email.toLowerCase()] = r.display_name;
     }
@@ -162,43 +203,39 @@ Deno.serve(async (req: Request) => {
 
   let sent = 0;
   let recipients = 0;
-  if (event === 'shared' || event === 'closed') {
-    if (!isOwner) return json({ error: 'forbidden' }, 403);
-    const targets = allShares.filter(s => s.email.toLowerCase() !== callerEmail);
-    for (const r of targets) {
-      let mail;
-      if (event === 'closed') {
-        mail = splitClosedEmail({ ownerName, description: desc, appUrl });
-      } else {
-        const data: SplitEmailData = {
-          ownerName, description: desc, date: split.date, currency: split.currency,
-          total: Number(split.total_amount), recipientShare: Number(r.share),
-          participants: allShares.map(s => ({
-            name: nameFor(s.email), share: Number(s.share), isRecipient: s.id === r.id,
-          })),
-          appUrl, recipientEmail: r.email,
-          ownerEmail: ownerRes?.data?.user?.email ?? undefined,
-        };
-        const hasAccount = Boolean(nameMap[r.email.toLowerCase()]);
-        mail = hasAccount ? splitSharedEmail(data) : splitInviteEmail(data);
-      }
-      recipients++;
-      if (await deliver(r.email, mail.subject, mail.html, mail.text)) sent++;
-    }
-  } else if (event === 'settled') {
-    const share = allShares.find(s => s.id === shareId);
-    if (!share || share.email.toLowerCase() !== callerEmail) return json({ error: 'forbidden' }, 403);
-    const ownerEmail = ownerRes?.data?.user?.email;
-    if (ownerEmail) {
-      const mail = splitSettledEmail({
-        settledLabel: nameFor(share.email), amount: Number(share.share),
+  for (const r of claimed) {
+    let to: string | undefined;
+    let mail;
+    if (event === 'closed') {
+      to = r.email;
+      mail = splitClosedEmail({ ownerName, description: desc, appUrl });
+    } else if (event === 'shared') {
+      to = r.email;
+      const data: SplitEmailData = {
+        ownerName, description: desc, date: split.date, currency: split.currency,
+        total: Number(split.total_amount), recipientShare: Number(r.share),
+        participants: allShares.map(s => ({
+          name: nameFor(s.email), share: Number(s.share), isRecipient: s.id === r.id,
+        })),
+        appUrl, recipientEmail: r.email,
+        ownerEmail: ownerRes?.data?.user?.email ?? undefined,
+      };
+      const hasAccount = Boolean(nameMap[r.email.toLowerCase()]);
+      mail = hasAccount ? splitSharedEmail(data) : splitInviteEmail(data);
+    } else {
+      to = ownerRes?.data?.user?.email ?? undefined;
+      mail = splitSettledEmail({
+        settledLabel: nameFor(r.email), amount: Number(r.share),
         currency: split.currency, description: desc, appUrl,
       });
-      recipients++;
-      if (await deliver(ownerEmail, mail.subject, mail.html, mail.text)) sent++;
     }
+    if (!to) { await release(r.id); continue; }
+    recipients++;
+    if (await deliver(to, mail.subject, mail.html, mail.text)) sent++;
+    else await release(r.id);
   }
 
-  console.log(JSON.stringify({ fn: 'send-split-email', event, recipients, sent }));
+  console.log(JSON.stringify({ fn: 'send-split-email', event, recipients, sent, limited }));
+  if (limited > 0) return json({ ok: false, reason: 'daily_limit', sent, recipients, limited });
   return json({ ok: true, sent, recipients });
 });

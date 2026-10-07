@@ -50,6 +50,7 @@ import {
   balancePrompt, UPDATE_HOW, updateStartReply, reconcileLine, updateSummary, type UnnamedEntry, type NameOutcome, type NamePick,
 } from '../_shared/whatsapp-followups.ts';
 import { serverModelCall } from '../_shared/agent/assistantCore.ts';
+import { parseDailyCallCap } from '../_shared/agent/router.ts';
 import { isServiceCaller } from '../_shared/service-auth.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
@@ -1089,7 +1090,7 @@ async function answerQuestion(
     const rows = await loadHouseholdRows(supabase, profile.id, householdId);
     const call = serverModelCall(supabase, {
       userId: profile.id, householdId, surface: 'whatsapp',
-      dailyCap: Number.parseInt(env('ASK_VYACT_DAILY_CALL_CAP', '200'), 10),
+      dailyCap: parseDailyCallCap(env('ASK_VYACT_DAILY_CALL_CAP')),
       timeoutMs: Number.parseInt(env('ASK_VYACT_TIMEOUT_MS', '20000'), 10) || undefined,
       waitUntil: typeof EdgeRuntime !== 'undefined' ? (p) => EdgeRuntime!.waitUntil(p) : undefined,
     });

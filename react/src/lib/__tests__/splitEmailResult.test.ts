@@ -21,7 +21,7 @@ describe('split email outcome', () => {
     expect(fn).not.toContain('onboarding@resend.dev');
     expect(fn).toContain("|| 'support@vyact.app'");
     expect(fn).toMatch(/outcome: 'email_not_configured'/);
-    expect(fn).toMatch(/console\.log\(JSON\.stringify\(\{ fn: 'send-split-email', event, recipients, sent \}\)\)/);
+    expect(fn).toMatch(/console\.log\(JSON\.stringify\(\{ fn: 'send-split-email', event, recipients, sent, limited \}\)\)/);
     expect(fn).toMatch(/return res\.ok \|\| refused\('resend', res\)/);
   });
 });

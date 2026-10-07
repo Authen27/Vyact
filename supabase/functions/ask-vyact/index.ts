@@ -32,6 +32,10 @@
 //          relays tool SELECTIONS; it holds no write tool, no transaction path,
 //          and no arithmetic on any amount. The `ai_usage` cost figure is our
 //          provider bill, not a user's ledger.
+//   PROMPT The system prompt is the SERVER's (W1c, v10.64.0; audit BE-PIP-02). A
+//          request names an op from a closed set and sends the user text; the
+//          gateway builds the messages (_shared/agent/prompts.ts). It is not a
+//          general-purpose proxy for the provider key.
 //   TRUST  Everything from the client and everything from the model is DATA.
 //          No eval, no dynamic import, no string-built SQL. All DB access goes
 //          through parameterised PostgREST calls.
@@ -49,8 +53,9 @@
 //   Request:
 //     {
 //       "seam": "assistant" | "chat",        // default "assistant"
-//       "messages": [ { "role": "system"|"user"|"assistant"|"tool",
-//                       "content": "..." } ],
+//       "op": "classify" | "phrase",         // which of Pip's prompts (server-owned, W1c)
+//       "input": "...",                      // the question, or the phrase payload (facts)
+//       "offending": ["42000", ...],         // phrase retry only: figures the guard rejected
 //       "householdId": "<uuid>",             // optional; must be one the caller belongs to
 //       "surface": "chat" | "whatsapp" | …,  // telemetry label only
 //       "probe": true                        // optional: report readiness, call nothing
@@ -58,7 +63,7 @@
 //
 //   200 — model answered:
 //     { "ok": true, "enabled": true, "seam", "text", "toolCalls": [...],
-//       "provider", "model", "usage": { promptTokens, completionTokens, totalTokens },
+//       "usage": { promptTokens, completionTokens, totalTokens },
 //       "costUsd", "latencyMs", "finishReason", "truncatedInput", "requestId" }
 //
 //   200 — OFF (no enabled config). THE DEFAULT:
@@ -81,7 +86,8 @@
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  — injected by the platform
 //   ASK_VYACT_ALLOWED_ORIGINS  — comma-separated CORS allowlist (see DEFAULT_ORIGINS)
 //   ASK_VYACT_TIMEOUT_MS       — per-request provider budget (default 20000)
-//   ASK_VYACT_DAILY_CALL_CAP   — per-user model calls per 24h (default 200, 0 = off)
+//   ASK_VYACT_DAILY_CALL_CAP   — per-user model calls per 24h (default 200; 'off' disables;
+//                                anything unparseable keeps 200 — parseDailyCallCap)
 //   <whatever `ai_model_configs.key_env_var` names>  — the provider API key
 //
 // DEPLOY: WITH JWT verification (this function identifies the user).
@@ -100,6 +106,7 @@ import {
   chatCompletion,
   checkConfig,
   isSeam,
+  parseDailyCallCap,
   sanitiseMessages,
   selectModelConfig,
   type ModelConfigRow,
@@ -114,6 +121,7 @@ import {
   RELAY_PROVIDER,
   type RelayRowLike,
 } from '../_shared/agent/relay.ts';
+import { composeAssistantMessages } from '../_shared/agent/prompts.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
@@ -182,6 +190,11 @@ const STATUS_FOR: Record<string, number> = {
 
 interface RequestBody {
   seam?: unknown;
+  /** W1c: one of Pip's server-owned prompts, and the text it is applied to. */
+  op?: unknown;
+  input?: unknown;
+  offending?: unknown;
+  /** Pre-v10.64.0 clients only; accepted when it is exactly a server prompt (prompts.ts). */
   messages?: unknown;
   householdId?: unknown;
   surface?: unknown;
@@ -319,8 +332,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       // UNTRUSTED MODEL OUTPUT — same contract as a provider answer.
       text: poll.text,
       toolCalls: [],
-      provider: RELAY_PROVIDER,
-      model: RELAY_MODEL_LABEL,
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       costUsd: 0,
       latencyMs: poll.latencyMs,
@@ -383,8 +394,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, 200, origin);
   }
 
-  // ── 6. Validate the conversation. ─────────────────────────────────────────
-  const clean = sanitiseMessages(body.messages);
+  // ── 6. Compose the conversation from the server's own prompts (W1c). ───────
+  const composed = composeAssistantMessages(body);
+  if (!composed.ok) {
+    return respond({
+      ok: false, enabled: true, seam, error: 'invalid_request', message: composed.reason, requestId,
+    }, 400, origin);
+  }
+  const clean = sanitiseMessages(composed.messages);
   if (!clean.ok) {
     return respond({
       ok: false, enabled: true, seam, error: 'invalid_request',
@@ -416,9 +433,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // zero usage. reserve_ai_usage() row-locks the user, counts, and inserts a
   // 'reserved' row in one locked step — concurrent requests serialise, and a
   // count failure aborts here (fail-CLOSED; the provider is never called).
-  const dailyCap = Number.parseInt(env('ASK_VYACT_DAILY_CALL_CAP', '200'), 10);
+  // W1c: read fail-closed — only an explicit 'off' skips the reservation.
+  const dailyCap = parseDailyCallCap(env('ASK_VYACT_DAILY_CALL_CAP'));
   let reservationId: string | null = null;
-  if (Number.isFinite(dailyCap) && dailyCap > 0) {
+  if (dailyCap !== null) {
     const { data: resId, error: resErr } = await admin.rpc('reserve_ai_usage', {
       p_user_id: user.id,
       p_household_id: householdId,
@@ -532,8 +550,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // from resolve()/an RPC (binding rule §2.1), never from here.
     text: result.text,
     toolCalls: result.toolCalls,
-    provider: result.provider,
-    model: result.model,
+    // W1c: provider and model are not returned — which model backs Pip is not the caller's
+    // business (audit BE-PIP-02). They are still metered in ai_usage.
     usage: result.usage,
     costUsd: result.costUsd,
     latencyMs: result.latencyMs,

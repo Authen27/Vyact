@@ -10329,3 +10329,250 @@ select cron.unschedule(jobid) from cron.job where jobname = 'whatsapp-retention'
 select cron.schedule('whatsapp-retention', '40 2 * * *', $job$
   select public.purge_old_whatsapp_messages(90);
 $job$);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261011120000_w1c_split_email_guard.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- W1c (v10.64.0) — audit 2026-10-04 BE-FN-06 / INT-HH-11 / XC-PRV-13: split email can no longer
+-- be used as a relay.
+--
+-- Before this, any signed-in user could create a split with any currency text and any number of
+-- participant emails, then call send-split-email 'shared' as often as they liked: every call
+-- mailed every participant again, from hello@vyact.app, with no record and no cap.
+--
+--   1. shared_splits.currency is three capital letters (an ISO-4217 code), like every other
+--      currency in the app. NOT VALID: new and edited rows are checked; an odd legacy row does
+--      not abort the deploy (the email templates drop a malformed code anyway).
+--   2. split_email_log: one row per (share, event) ever sent. The unique key IS the dedupe —
+--      a second 'shared' call for the same split mails only participants added since.
+--      It holds ids and a time, never an address or a body.
+--   3. claim_split_emails(): the only way to send. Under a per-sender lock it counts the
+--      sender's emails in the last 24 hours, claims at most the remaining room among shares not
+--      yet mailed for that event, and returns the claimed share ids. The Edge Function mails
+--      exactly those and releases (deletes) a claim whose delivery failed, so it can be retried.
+--   4. Shares that existed before this migration are recorded as already mailed for the events
+--      they have been through, so the first edit after release does not re-mail old splits.
+--
+-- Service role only. Members never read or write the log.
+
+update public.shared_splits
+   set currency = upper(btrim(currency))
+ where currency is distinct from upper(btrim(currency));
+
+alter table public.shared_splits drop constraint if exists ck_shared_split_currency;
+alter table public.shared_splits
+  add constraint ck_shared_split_currency check (currency ~ '^[A-Z]{3}$') not valid;
+
+create table if not exists public.split_email_log (
+  id              bigint generated always as identity primary key,
+  sender_user_id  uuid references auth.users(id) on delete cascade,
+  split_id        uuid not null references public.shared_splits(id) on delete cascade,
+  share_id        uuid not null references public.shared_split_shares(id) on delete cascade,
+  event           text not null check (event in ('shared', 'settled', 'closed')),
+  created_at      timestamptz not null default now(),
+  constraint uq_split_email_once unique (share_id, event)
+);
+
+create index if not exists split_email_log_sender_idx on public.split_email_log (sender_user_id, created_at);
+create index if not exists split_email_log_split_idx on public.split_email_log (split_id);
+
+alter table public.split_email_log enable row level security;
+revoke all on table public.split_email_log from public, anon, authenticated;
+grant select, insert, delete on table public.split_email_log to service_role;
+
+-- 4. Existing shares: treat what already happened as already mailed (dated when it happened, so it
+--    does not count against anyone's cap today).
+insert into public.split_email_log (sender_user_id, split_id, share_id, event, created_at)
+select sp.owner_user_id, sp.id, sh.id, 'shared', sh.created_at
+  from public.shared_split_shares sh
+  join public.shared_splits sp on sp.id = sh.split_id
+on conflict (share_id, event) do nothing;
+
+insert into public.split_email_log (sender_user_id, split_id, share_id, event, created_at)
+select sh.settled_user_id, sh.split_id, sh.id, 'settled', coalesce(sh.paid_at, sh.created_at)
+  from public.shared_split_shares sh
+ where sh.paid
+on conflict (share_id, event) do nothing;
+
+insert into public.split_email_log (sender_user_id, split_id, share_id, event, created_at)
+select sp.owner_user_id, sp.id, sh.id, 'closed', sp.closed_at
+  from public.shared_split_shares sh
+  join public.shared_splits sp on sp.id = sh.split_id
+ where sp.closed_at is not null
+on conflict (share_id, event) do nothing;
+
+create or replace function public.claim_split_emails(
+  p_sender     uuid,
+  p_split      uuid,
+  p_event      text,
+  p_share_ids  uuid[],
+  p_daily_cap  int
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_used     int;
+  v_room     int;
+  v_wanted   int;
+  v_claimed  uuid[];
+begin
+  if p_sender is null or p_split is null then
+    raise exception 'invalid_claim' using errcode = '22023';
+  end if;
+  if p_event not in ('shared', 'settled', 'closed') then
+    raise exception 'bad_event' using errcode = '22023';
+  end if;
+  if p_daily_cap is null or p_daily_cap < 0 then
+    raise exception 'invalid_cap' using errcode = '22023';
+  end if;
+
+  -- One sender at a time: two parallel calls cannot both see the same room under the cap.
+  perform pg_advisory_xact_lock(hashtextextended('split_email:' || p_sender::text, 0));
+
+  select count(*) into v_used
+    from public.split_email_log
+   where sender_user_id = p_sender
+     and created_at > now() - interval '24 hours';
+  v_room := greatest(p_daily_cap - v_used, 0);
+
+  select count(*) into v_wanted
+    from public.shared_split_shares s
+   where s.split_id = p_split
+     and s.id = any(coalesce(p_share_ids, '{}'))
+     and not exists (select 1 from public.split_email_log l where l.share_id = s.id and l.event = p_event);
+
+  with pick as (
+    select s.id
+      from public.shared_split_shares s
+     where s.split_id = p_split
+       and s.id = any(coalesce(p_share_ids, '{}'))
+       and not exists (select 1 from public.split_email_log l where l.share_id = s.id and l.event = p_event)
+     order by s.created_at, s.id
+     limit v_room
+  ), ins as (
+    insert into public.split_email_log (sender_user_id, split_id, share_id, event)
+    select p_sender, p_split, pick.id, p_event from pick
+    on conflict (share_id, event) do nothing
+    returning share_id
+  )
+  select coalesce(array_agg(share_id), '{}') into v_claimed from ins;
+
+  return jsonb_build_object(
+    'claimed', to_jsonb(v_claimed),
+    'limited', greatest(v_wanted - coalesce(array_length(v_claimed, 1), 0), 0)
+  );
+end;
+$$;
+
+revoke all on function public.claim_split_emails(uuid, uuid, text, uuid[], int) from public, anon, authenticated;
+grant execute on function public.claim_split_emails(uuid, uuid, text, uuid[], int) to service_role;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/20261011120100_w1c_ai_usage_source.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- W1c (v10.64.0) — audit 2026-10-04 BE-PIP-03 / DB-SEC-11: the AI spend gate is the server's.
+--
+-- Before this, any member could insert an ai_usage row with any cost_usd, tokens, provider, model
+-- and outcome (the INSERT policy checks only household membership and user_id). The admin
+-- Intelligence page sums cost_usd over every row, so one devtools insert could put $99,999 on the
+-- §9 spend gate. And reserve_ai_usage() counted every backend='llm' row, so the app's own
+-- per-question analytics row used up a third of each person's daily model-call cap.
+--
+--   1. ai_usage.source: 'gateway' (written by the service role: the ask-vyact gateway, the
+--      WhatsApp assistant, reserve_ai_usage) or 'client' (the app's analytics row).
+--      Existing rows are labelled once: a reservation, a row with a provider, or a row without
+--      the client's intent/length fields is the gateway's.
+--   2. A BEFORE INSERT trigger: a row written by a signed-in client is always 'client', and its
+--      metering fields (provider, model, tokens, cost, tool calls) are cleared; it can never be
+--      'reserved'. The client keeps what it legitimately records: intent, sentiment, length,
+--      backend, tier, outcome, latency.
+--   3. reserve_ai_usage() counts only gateway rows, and marks its reservation as one.
+--
+-- admin_ai_usage_summary() is unchanged: cost and token sums now only ever see server values,
+-- because client rows carry none.
+
+alter table public.ai_usage add column if not exists source text;
+
+update public.ai_usage
+   set source = case
+     when outcome = 'reserved' or provider is not null or (intent is null and message_len is null) then 'gateway'
+     else 'client'
+   end
+ where source is null;
+
+alter table public.ai_usage drop constraint if exists ai_usage_source_chk;
+alter table public.ai_usage add constraint ai_usage_source_chk check (source in ('client', 'gateway'));
+
+create or replace function public.ai_usage_stamp_source()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    new.source            := 'client';
+    new.provider          := null;
+    new.model             := null;
+    new.prompt_tokens     := null;
+    new.completion_tokens := null;
+    new.cost_usd          := null;
+    new.tool_calls        := null;
+    if new.outcome = 'reserved' then new.outcome := null; end if;
+  else
+    new.source := coalesce(new.source, 'gateway');
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_ai_usage_stamp_source on public.ai_usage;
+create trigger trg_ai_usage_stamp_source
+  before insert on public.ai_usage
+  for each row execute function public.ai_usage_stamp_source();
+
+alter table public.ai_usage alter column source set not null;
+
+create index if not exists ai_usage_gateway_user_ts_idx
+  on public.ai_usage (user_id, ts) where source = 'gateway';
+
+create or replace function public.reserve_ai_usage(
+  p_user_id      uuid,
+  p_household_id uuid,
+  p_surface      text,
+  p_cap          int
+) returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_count int;
+  v_id    uuid;
+begin
+  -- Serialise this user's quota decisions on their profile row (audit A2).
+  perform 1 from public.profiles where id = p_user_id for update;
+
+  -- W1c: only the server's own rows count. The app's analytics row no longer uses up the cap.
+  select count(*) into v_count
+    from public.ai_usage
+   where user_id = p_user_id
+     and source = 'gateway'
+     and backend = 'llm'
+     and ts >= now() - interval '24 hours';
+
+  if v_count >= p_cap then
+    raise exception 'quota_exceeded' using errcode = '42901';
+  end if;
+
+  insert into public.ai_usage (user_id, household_id, surface, backend, outcome, ts, source)
+  values (p_user_id, p_household_id, p_surface, 'llm', 'reserved', now(), 'gateway')
+  returning id into v_id;
+  return v_id;
+end $$;
+
+revoke all on function public.reserve_ai_usage(uuid, uuid, text, int) from public, anon, authenticated;
+grant execute on function public.reserve_ai_usage(uuid, uuid, text, int) to service_role;
+
+comment on column public.ai_usage.source is
+  'W1c — gateway: written by the service role (metering is trustworthy); client: the app''s analytics row (metering fields always null).';

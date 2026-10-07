@@ -34,24 +34,31 @@ export const RELAY_POLL_BUDGET_MS = 5 * 60 * 1000;
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
+/** A real household to attribute the call to (the gateway checks membership), or nothing. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Build the transport, or null when the app has no cloud backend at all
  * (localStorage-only mode has no Edge Function to call).
+ *
+ * W1c (v10.64.0, audit BE-PIP-02/03): the request names the op and carries the text; the
+ * gateway composes the system prompt itself, so `system` is never sent. `householdId` lets the
+ * gateway attribute the call (before this every web row had household_id = null).
  */
-export function resolveConfiguredModelCall(): ModelCall | null {
+export function resolveConfiguredModelCall(householdId?: string | null): ModelCall | null {
   const client = supabase;
   if (!client) return null;
+  const hid = householdId && UUID_RE.test(householdId) ? householdId : undefined;
 
-  return async ({ system, user, json, maxTokens }) => {
+  return async ({ op, user, offending, maxTokens }) => {
     const { data, error } = await client.functions.invoke<GatewayResponse>('ask-vyact', {
       body: {
         seam: 'assistant',
         surface: 'chat',
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        ...(json ? { responseFormat: 'json' } : {}),
+        op,
+        input: user,
+        ...(offending?.length ? { offending } : {}),
+        ...(hid ? { householdId: hid } : {}),
         ...(maxTokens ? { maxOutputTokens: maxTokens } : {}),
       },
     });

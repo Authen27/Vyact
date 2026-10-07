@@ -39,6 +39,10 @@ import {
 import { toInsertRow, type NotifInsertRow } from './notificationRows';
 import type { Notification } from '../types';
 
+// W1c (v10.64.0, audit BE-PIP-02): the `ask-vyact` gateway composes Pip's prompts from this
+// closed set, so the browser sends an op and text, never a system prompt.
+export { systemPromptFor, cleanOffending } from './askVyactLlm';
+
 /** Everything the engine needs about one household, as rows straight from Postgres. */
 export interface HouseholdRows {
   transactions: unknown[];

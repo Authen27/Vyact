@@ -555,6 +555,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/aiUsageSourceSql.test.ts",
+      "feature": "AI usage metering SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture)",
+      "count": 2,
+      "tests": [
+        "ai_usage is metered by the server (W1c) CON-UNIT-W1-030 · a client row keeps its analytics but no cost, tokens, model or reservation",
+        "ai_usage is metered by the server (W1c) CON-UNIT-W1-031 · existing rows are labelled; the daily cap counts only the server's calls"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/amortization.test.ts",
       "feature": "Money model",
       "availability": "available",
@@ -913,8 +926,9 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "SupabaseAdapter / askVyactModelCall / whatsappLink",
-      "count": 6,
+      "count": 7,
       "tests": [
+        "cloud command transports CON-UNIT-W1-032 · the browser never sends a system prompt; it names the household and the rejected figures",
         "cloud command transports a relay call that is never answered becomes an error, not a silent empty answer",
         "cloud command transports a relay-queued call polls the gateway until the answer arrives (v10.37, test-only)",
         "cloud command transports atomic budget create forwards identity and returns authoritative allocations",
@@ -1082,7 +1096,7 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "ask-vyact/index.ts",
-      "count": 9,
+      "count": 13,
       "tests": [
         "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) a poll for a row the caller does not own is not found",
         "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) a poll returns the relay answer and finalises the reservation as ok",
@@ -1092,7 +1106,11 @@
         "actual Ask Vyact gateway handler authenticates, reserves quota, calls provider, finalizes metadata and returns the response",
         "actual Ask Vyact gateway handler blocks provider spend when reservation is refused",
         "actual Ask Vyact gateway handler probes enabled readiness without reserving quota or calling a provider",
-        "actual Ask Vyact gateway handler stays inert when no model is configured"
+        "actual Ask Vyact gateway handler stays inert when no model is configured",
+        "server-owned prompts (W1c) CON-UNIT-W1-033 · a client cannot send its own prompt: messages of its choosing are refused before any spend",
+        "server-owned prompts (W1c) CON-UNIT-W1-034 · classify and phrase run Pip's own prompts; a retry names only the rejected figures",
+        "server-owned prompts (W1c) CON-UNIT-W1-035 · an app from before this release still works, only with exactly the server's prompt; no model identity is returned",
+        "server-owned prompts (W1c) CON-UNIT-W1-036 · the daily call cap is read fail-closed: only an explicit \"off\" removes it"
       ]
     },
     {
@@ -2151,6 +2169,37 @@
         "shared split cloud service contracts creates an authenticated transaction-backed split and normalizes participant email",
         "shared split cloud service contracts edits unpaid shares, settles through the participant RPC, closes and reloads on both sides",
         "shared split cloud service contracts resolves distinct normalized participant identities and omits unnamed users"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/splitEmailGuardSql.test.ts",
+      "feature": "Split email guard SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W1c migration: one email per share per event, daily cap per sender, existing shares count as mailed (focused PGlite fixture)",
+      "count": 4,
+      "tests": [
+        "split email guard (W1c) CON-UNIT-W1-021 · existing shares count as already mailed; currency must be a 3-letter code",
+        "split email guard (W1c) CON-UNIT-W1-022 · each share is mailed once per event; a later call mails only people added since",
+        "split email guard (W1c) CON-UNIT-W1-023 · the daily cap holds across splits; a released claim can be sent again",
+        "split email guard (W1c) CON-UNIT-W1-024 · members can neither claim nor read the log"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/splitEmailHandler.test.ts",
+      "feature": "Split email handler",
+      "availability": "conditional",
+      "layer": "handler-integration",
+      "owner": "send-split-email/index.ts + emailTemplates.ts (escaping, authorise first, claimed shares only; mocked client and provider)",
+      "count": 5,
+      "tests": [
+        "send-split-email (W1c) CON-UNIT-W1-026 · authorised before any work: non-owner, closed split, unsettled share",
+        "send-split-email (W1c) CON-UNIT-W1-027 · mails exactly the claimed shares, never the owner; a repeat call mails nobody",
+        "send-split-email (W1c) CON-UNIT-W1-028 · over the daily cap says so; a failed delivery gives its claim back",
+        "send-split-email (W1c) CON-UNIT-W1-029 · a malformed cap setting keeps the default; it can never mean \"no cap\"",
+        "split email templates (W1c) CON-UNIT-W1-025 · every value is escaped, a malformed currency is dropped, a subject cannot fold"
       ]
     },
     {

@@ -190,6 +190,19 @@ export interface ChatCompletionOptions {
 
 // ── Limits (cost control lives here, not in the caller) ──────────────────────
 
+/**
+ * ASK_VYACT_DAILY_CALL_CAP, read fail-closed (W1c, v10.64.0; audit BE-PIP-02). Unset or empty →
+ * 200; digits → that many model calls per user per 24 h (0 = none); `off` → no cap, deliberately.
+ * Anything else ('unlimited', '200/day', a typo) keeps the default: before this, a value that
+ * did not parse — or 0 — silently removed the only spend control.
+ */
+export const DEFAULT_DAILY_CALL_CAP = 200;
+export function parseDailyCallCap(raw: string | undefined | null): number | null {
+  const v = (raw ?? '').trim().toLowerCase();
+  if (v === 'off') return null;
+  return /^\d{1,6}$/.test(v) ? Number(v) : DEFAULT_DAILY_CALL_CAP;
+}
+
 export const MAX_MESSAGES = 40;
 export const MAX_MESSAGE_CHARS = 8_000;
 export const MAX_TOTAL_INPUT_CHARS = 24_000;
