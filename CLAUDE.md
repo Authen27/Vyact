@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.73.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.74.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -66,6 +66,25 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   missing coverage. What IS missing is spec **INV-7 (atomicity)** — force-fail a
   leg of an EMI or transfer and the whole event must roll back. Nothing asserts
   that; it is the open "atomic reversal" blocker.
+- **The loan model (v10.74.0 schema, W4e; owner decisions D19, D17, D30).**
+  - A loan's OUTSTANDING is its loan account's ledger, only (`loan_outstanding` / `loan_ledger_balance`).
+    `debts.current_balance` is a cache the loan functions keep equal to it, for older apps. Never compute
+    or type an outstanding anywhere else.
+  - `pay_loan(kind = emi | prepayment | payoff | bank_override)` is the ONE way money pays a loan, and the
+    SERVER computes the split: instalment k's interest = outstanding × rate/12 (banker's, minor unit),
+    fixed at its first payment; due = min(EMI, outstanding + interest); interest first, then principal.
+    Short is accepted and the instalment stays open; more than due is refused (`more_than_due`, the extra
+    is a prepayment); a prepayment is all principal and refused while an instalment is part-paid; payoff
+    is exactly outstanding + the open instalment's unpaid interest (owner). One payment = an interest
+    expense (`loan_emi`) + a principal transfer into the loan account, one transaction, idempotent.
+  - `reverse_loan_payment` undoes the LATEST payment only (owner); it is the INV-7 atomicity test's
+    subject too. `mark_loan_paid_off` reconciles the loan account to zero (offset + dated log, kind
+    'loan'), never a transaction. A loan with money owed cannot be deleted (`delete_debt` and the
+    `debts_refuse_unpaid_delete` trigger, P0001 `debt_not_paid_off`).
+  - Credit cards are ACCOUNTS (D30): a credit-card debt moves into a card account
+    (`move_card_debt_to_account`, also run on insert). Card dues count toward debt in the Debts summary,
+    read from the card accounts, never as debt items.
+  - `record_loan_payment` is legacy (the app stops calling it in v10.75.0, then it is dropped).
 - **Categories are type-scoped, and the set exists in THREE places (v10.21).**
   `constants.ts` is the source, but `_shared/whatsapp-parser.ts` and
   `_shared/agent/types.ts` each hold their own allowlist because they are Deno

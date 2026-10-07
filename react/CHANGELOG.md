@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.73.0`** (consumer)
+> **Current production version: `v10.74.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,55 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.74.0 — W4e: the loan model, in the database *(2026-10-07)*
+
+Owner decisions **D19** (loans and EMIs), **D17** (deleting a debt) and **D30** (cards are accounts).
+Audit IDs: INT-TXN-07, FE-MNY-03/04, XC-ARC-02, BE-WA-08, and the live "Save failed –
+payment_out_of_range". This release is the DATABASE only. The app that uses it is v10.75.0; until
+then the current app keeps working through `record_loan_payment`.
+
+- **One outstanding.**
+  - A loan's outstanding is its loan account's ledger. Every live loan gets that account at the
+    outstanding it shows today, so net worth does not move.
+  - The typed `current_balance` is now a cache the loan functions keep equal to the ledger.
+- **Terms and instalments.** Debts gain:
+  - tenure, first EMI date, effective-dated rate history and instalments paid;
+  - auto-record with a funding account;
+  - paid-off date.
+
+  Existing loans get estimates (tenure from their records, instalments paid, first EMI date from the
+  next due date). They are marked unconfirmed until the owner confirms them.
+- **`pay_loan` — the server computes the split, per instalment, on a reducing balance:**
+  - **EMI:** interest first (outstanding × rate ÷ 12, rounded to the paisa), then principal.
+    - A short payment is accepted and the instalment stays open.
+    - More than due is refused with the amount due; the extra is a prepayment (owner).
+  - **Prepayment:** all principal. "Reduce tenure" keeps the EMI; "reduce EMI" recomputes it over the
+    instalments left. Refused while an instalment is part-paid.
+  - **Payoff:** exactly the outstanding plus the open instalment's unpaid interest (owner). Any other
+    figure is refused, and the error states the exact one.
+  - **Bank figures:** the bank's own interest and principal for the due instalment.
+
+  The old command charged a full month's interest on every payment. That made a prepayment pay
+  interest twice and refused the final EMI.
+- **Undo** (`reverse_loan_payment`): the latest payment only (owner), atomically, restoring:
+  - the outstanding;
+  - the EMI;
+  - the next due date;
+  - the paid-off state.
+- **Paid off and delete (D17):**
+  - `mark_loan_paid_off` reconciles the loan account to zero (offset and dated log, never a
+    transaction) and closes the loan.
+  - A loan with money still owed cannot be deleted, by `delete_debt` or by any other path.
+- **Cards are accounts (D30, owner):**
+  - Every credit-card debt moves into a credit-card account: it merges with the account already
+    linked to it, or a new one is opened at its outstanding. The debt row is archived.
+  - A card debt an older app still creates is moved the same way.
+- The payment log debts kept in their extras becomes payment events (history only).
+
+Migration 20261016120000. Tests: loanModelSql.test.ts (W4-D19-001..009, PGlite), including **INV-7**.
+A forced failure of the principal leg rolls back the whole payment. Before this, nothing asserted
+that.
 
 ## v10.73.0 — W4d: bill cards act on their own bill; negative figures keep their minus *(2026-10-07)*
 
