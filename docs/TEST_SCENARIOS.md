@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1469 passing deterministic cases in 113 files. Zero failed, skipped or TODO cases at generation.**
+**1473 passing deterministic cases in 114 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -36,7 +36,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | handler-integration | conditional | 77 |
 | react | sql-integration | conditional | 39 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 51 |
+| react | store-integration | available | 55 |
 | react | store-integration | conditional | 10 |
 | react | unit | available | 342 |
 | react | unit | conditional | 173 |
@@ -138,6 +138,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/serverEngine.test.ts](../react/src/lib/__tests__/serverEngine.test.ts) | Ask Vyact on the server | unit | conditional | 4 |
 | [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 2 |
 | [react/src/lib/__tests__/sharedSplitsWorkflow.test.ts](../react/src/lib/__tests__/sharedSplitsWorkflow.test.ts) | Shared splits | contract-unit | conditional | 3 |
+| [react/src/lib/__tests__/splitEdit.test.ts](../react/src/lib/__tests__/splitEdit.test.ts) | Split editing | store-integration | available | 4 |
 | [react/src/lib/__tests__/splitEmailGuardSql.test.ts](../react/src/lib/__tests__/splitEmailGuardSql.test.ts) | Split email guard SQL | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/splitEmailHandler.test.ts](../react/src/lib/__tests__/splitEmailHandler.test.ts) | Split email handler | handler-integration | conditional | 5 |
 | [react/src/lib/__tests__/splitEmailResult.test.ts](../react/src/lib/__tests__/splitEmailResult.test.ts) | Split sharing rules | unit | available | 2 |

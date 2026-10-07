@@ -2257,6 +2257,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/splitEdit.test.ts",
+      "feature": "Split editing",
+      "availability": "available",
+      "layer": "store-integration",
+      "owner": "txnEdit.editPatch / modal routing (split rows + split seeds → Split form) / splitParticipants.paidOnFor / useStore edit through LocalStorageAdapter",
+      "count": 4,
+      "tests": [
+        "W4c · editing keeps what the form does not show W4-D18-001 · an edit is a patch: the split, schedule link, note, provenance and version ride through; the picked account wins",
+        "W4c · editing keeps what the form does not show W4-D18-002 · a split row and a split capture open the Split form; anything else the plain one",
+        "W4c · editing keeps what the form does not show W4-D18-003 · someone who had paid keeps the day they paid; only a new payment is dated today",
+        "W4c · through the store W4-D18-004 · saving an edit keeps the split on the stored row and moves it to the newly picked account"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/splitEmailGuardSql.test.ts",
       "feature": "Split email guard SQL",
       "availability": "conditional",

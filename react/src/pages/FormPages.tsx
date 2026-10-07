@@ -9,6 +9,8 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 're
 import { useStore, type Store } from '../store';
 import { can } from '../lib/permissions';
 import type { Transaction } from '../types';
+import { formPath } from '../lib/formRoutes';
+import { isSplitRow } from '../lib/txnEdit';
 
 const TransactionFormModal = React.lazy(() => import('../components/transactions/TransactionFormModal'));
 const SplitFormModal       = React.lazy(() => import('../components/splits/SplitFormModal'));
@@ -58,12 +60,17 @@ function TransactionEdit() {
   const txn = useRouteEntity(s => s.transactions);
   const close = useFormClose('/transactions');
   if (!txn) return <Navigate to="/transactions" replace />;
+  // W4c (D18) — a split row is edited where its shares are (a direct link lands here too).
+  if (isSplitRow(txn)) return <Navigate to={formPath.splitEdit(txn.id)} replace />;
   return <TransactionFormModal initial={txn} onClose={close} />;
 }
 
 function SplitNew() {
+  const location = useLocation();
+  // W4c (D18) — Pip's split capture arrives as a seed (total, category, how many ways).
+  const [seed] = useState(() => (location.state as { seed?: Partial<Transaction> } | null)?.seed ?? null);
   const close = useFormClose('/splits');
-  return <SplitFormModal onClose={close} />;
+  return <SplitFormModal seed={seed} onClose={close} />;
 }
 
 function SplitEdit() {

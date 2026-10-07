@@ -27,6 +27,23 @@ export function needsConfirmation(emails: string[], alreadyInSplit: string[] = [
   return [...new Set(emails.map(e => e.trim().toLowerCase()).filter(e => e && !known.has(e)))];
 }
 
+/**
+ * W4c (D18) — the day a participant paid. Someone already marked paid before this edit keeps their
+ * day (matched by email, else by name); only a payment marked in this edit is dated today. Saving an
+ * edit used to restamp every earlier payment with today's date.
+ */
+export function paidOnFor(
+  before: { name: string; email?: string; paid?: boolean; paidOn?: string | null }[] | undefined,
+  who: { email?: string; name: string },
+  paid: boolean,
+  todayISO: string,
+): string | null {
+  if (!paid) return null;
+  const email = (who.email ?? '').trim().toLowerCase();
+  const prior = (before ?? []).find(p => (email ? (p.email ?? '').toLowerCase() === email : p.name === who.name));
+  return prior?.paid && prior.paidOn ? prior.paidOn : todayISO;
+}
+
 export interface ConfirmItem {
   email: string;
   /** Their Vyact display name; null when the email has no account (they get an invitation). */

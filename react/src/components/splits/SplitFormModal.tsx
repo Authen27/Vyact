@@ -26,13 +26,16 @@ import { CURRENCIES } from '../../constants';
 import { buildAccounts, buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { resolveParticipantNames } from '../../lib/sharedSplits';
-import { participantEmailProblem, needsConfirmation, confirmQuestion, type ConfirmItem } from '../../lib/splitParticipants';
+import { participantEmailProblem, needsConfirmation, confirmQuestion, paidOnFor, type ConfirmItem } from '../../lib/splitParticipants';
+import { editPatch } from '../../lib/txnEdit';
 import Modal from '../ui/Modal';
 import type { Transaction } from '../../types';
 
 interface Props {
   open?: boolean;
   initial?: Transaction | null;
+  /** W4c (D18) — a new split pre-filled from Pip's capture (total, category, how many ways). */
+  seed?: Partial<Transaction> | null;
   onClose: () => void;
 }
 
@@ -112,6 +115,7 @@ export default function SplitFormModal(props: Props) {
 
   const open         = props.open ?? true;
   const initial      = props.initial ?? null;
+  const seed         = props.seed ?? null;
   const onClose      = props.onClose;
 
   const defaultMemberId = useMemo(() => {
@@ -183,10 +187,29 @@ export default function SplitFormModal(props: Props) {
           };
         }),
       });
+    } else if (seed) {
+      // Pip knows the total and how many ways, not who: the other people are left to fill in, and
+      // the shares stay even until one is edited.
+      const type: SplitType = seed.type === 'income' ? 'income' : 'expense';
+      const ways = Math.max(2, seed.split?.participants?.length ?? 2);
+      const total = seed.split?.totalAmount ?? seed.amount;
+      setForm({
+        ...blank(profile.baseCurrency),
+        type,
+        amount: total != null ? String(total) : '',
+        date: seed.date ?? today(),
+        description: seed.description ?? '',
+        category: seed.category || defaultCat(type),
+        participants: [
+          { name: 'You', share: '', isYou: true, paid: true },
+          ...Array.from({ length: ways - 1 }, () => ({ name: '', share: '', isYou: false, paid: false })),
+        ],
+        auto: true,
+      });
     } else {
       setForm(blank(profile.baseCurrency));
     }
-  }, [open, initial, sharedSplitsOwned, profile.baseCurrency]);
+  }, [open, initial, seed, sharedSplitsOwned, profile.baseCurrency]);
 
   // Auto-balance while `auto` is on.
   useEffect(() => {
@@ -292,7 +315,8 @@ export default function SplitFormModal(props: Props) {
           isYou: p.isYou || undefined,
           share: p.shareNum,
           paid: Boolean(p.isYou || p.paid),
-          paidOn: p.isYou ? null : (p.paid ? today() : null),
+          // W4c (D18) — someone who had already paid keeps the day they paid; only a new payment is today.
+          paidOn: p.isYou ? null : paidOnFor(initial?.split?.participants, { email, name: displayName }, Boolean(p.paid), today()),
           email: (!p.isYou && email) ? email : undefined,
         };
       }),
@@ -300,7 +324,9 @@ export default function SplitFormModal(props: Props) {
 
     setSaving(true);
     try {
-      const txn: Transaction = {
+      // W4c (D18) — a patch over the opened row: its note, payment mode, schedule link and the
+      // version the store sends as the edit's precondition are kept.
+      const txn: Transaction = editPatch(initial, {
         id: initial?.id ?? uid(),
         type: form.type,
         amount,
@@ -312,7 +338,7 @@ export default function SplitFormModal(props: Props) {
         memberId: initial?.memberId ?? defaultMemberId,
         paymentMethod: form.paymentMethod || undefined,
         split,
-      };
+      });
       await upsertTransaction(txn);
 
       if (cloudActive) {

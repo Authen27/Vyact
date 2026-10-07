@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.71.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.72.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -513,6 +513,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - The zone comes from the creator's signup metadata or is stamped once by the owner's device (`set_household_timezone`).
   - Scheduled WhatsApp jobs run every 30 minutes and act in each household's local slot (`inJobSlot`).
   - A push skipped for quiet hours stays pending.
+- **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
+  - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
+    else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)
+    and clears the stored account ids so the account just picked wins. Never build an edited
+    transaction from the form's fields alone.
+  - A split row, and a seed carrying a split (Pip's split capture), open the Split form
+    (`openEditTxn` / `openAddTxn` route on `isSplitRow`; `/transactions/:id/edit` redirects). The
+    plain form has no shares; saving a split there erased it.
+  - A participant who had paid keeps the day they paid (`paidOnFor`).
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied

@@ -19,6 +19,7 @@ import { getMoneyMapMode } from '../../lib/featureFlags';
 import { FEATURES } from '../../config/features';
 import { accountValueOf } from '../../lib/accountBalance';
 import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
+import { editPatch } from '../../lib/txnEdit';
 import type { Transaction, TxnType, Recurrence, PartPaymentChoice, PaymentMode } from '../../types';
 
 interface Props {
@@ -381,7 +382,9 @@ export default function TransactionFormModal(props: Props) {
       const swap = isInvestment && form.direction === 'withdrew';
       const fromEncoded = swap ? form.paymentMethodTo : form.paymentMethod;
       const toEncoded   = swap ? form.paymentMethod   : form.paymentMethodTo;
-      const txn: Transaction = {
+      // W4c (D18) — an edit is a patch over the opened row: what this form does not show (the
+      // schedule or loan it came from, its provenance) is kept, never silently dropped.
+      const txn: Transaction = editPatch(initial, {
         id: initial?.id ?? uid(),
         type: form.type,
         amount,
@@ -421,7 +424,7 @@ export default function TransactionFormModal(props: Props) {
         // pass it as the optimistic-concurrency precondition. Without this the
         // edit fell back to last-write-wins.
         updated_at:    initial?.updated_at,
-      };
+      } as Transaction);
 
       // Audit F2 — a NEW loan EMI is an explicit financial command, not a
       // generic upsert. The store performs the system split (interest expense

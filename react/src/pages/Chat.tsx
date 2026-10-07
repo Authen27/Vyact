@@ -273,6 +273,7 @@ export default function Chat({ embedded = false }: { embedded?: boolean } = {}) 
         // the acknowledgement is on screen. Navigating first replaced the chat with
         // the form before the user could read what had been understood, so the
         // confirmation they expected first arrived last or not at all.
+        // W4c (D18): a split capture carries a split, and the store opens the Split form for it.
         if (turn.seed) openAddTxn(turn.seed);
         // v10.39.1 (P21) — a recurring draft opens the Recurring section's own sheet,
         // the only place a schedule is authored; the user picks the account and saves.
