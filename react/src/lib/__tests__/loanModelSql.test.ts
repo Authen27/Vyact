@@ -51,6 +51,8 @@ beforeAll(async () => {
     insert into auth.users values ('${OWNER}'), ('${VIEWER}');
     create table households (id uuid primary key, base_currency text not null default 'INR');
     create table memberships (id uuid primary key default gen_random_uuid(), household_id uuid, user_id uuid, role text);
+    create function is_member(hid uuid) returns boolean language sql as
+      $$ select exists(select 1 from memberships where household_id = hid and user_id = auth.uid()) $$;
     create table accounts (id uuid primary key default gen_random_uuid(), household_id uuid, kind text, name text, currency text,
       opening_balance numeric not null default 0, reconciliation_offset numeric, reconciliation_log jsonb, last_reconciled_at timestamptz,
       is_archived boolean not null default false, debt_id uuid, payment_modes text[] not null default '{}',
@@ -135,7 +137,13 @@ describe.sequential('the loan model (W4e)', () => {
 
   it('W4-D19-003 · a short EMI is accepted and the instalment stays open; more than due is refused with the amount due', async () => {
     expect(await fail(pay('emi', 9000))).toEqual({ message: 'more_than_due', detail: '8884.88' });
+    // What the Pay form is told is exactly what pay_loan accepts.
+    const due = async () => (await db.query<{ r: Record<string, unknown> }>(`select loan_due($1) as r`, [LOAN])).rows[0].r;
+    expect(await due()).toMatchObject({ instalment_no: 3, due_date: '2027-01-05', interest: 841.51, due: 8884.88, remaining: 8884.88,
+      started: false, payoff: 84151.39, outstanding: 84151.39 });
     const part = await pay('emi', 500);
+    expect(await due()).toMatchObject({ instalment_no: 3, interest: 841.51, paid: 500, remaining: 8384.88, started: true, payoff: 84492.90 });
+    expect((await due()).latest_payment).toMatchObject({ operation_id: part.operation_id, kind: 'emi', amount: 500 });
     // Interest first: 84,151.39 × 1% = 841.51 is still owed after 500.
     expect(part).toMatchObject({ interest: 500, principal: 0, closes_instalment: false, instalment_no: 3, next_due_date: '2027-01-05' });
     expect(await fail(pay('prepayment', 1000))).toEqual({ message: 'instalment_open', detail: '8384.88' });

@@ -68,6 +68,9 @@ then the current app keeps working through `record_loan_payment`.
   - Every credit-card debt moves into a credit-card account: it merges with the account already
     linked to it, or a new one is opened at its outstanding. The debt row is archived.
   - A card debt an older app still creates is moved the same way.
+- **`loan_due`** tells the app's Pay form exactly what `pay_loan` will accept: the EMI number, its date, its
+  interest, the amount still due, the payoff figure and the latest payment (for undo). Both use one
+  instalment-state function, so the two can never disagree.
 - The payment log debts kept in their extras becomes payment events (history only).
 
 Migration 20261016120000. Tests: loanModelSql.test.ts (W4-D19-001..009, PGlite), including **INV-7**.

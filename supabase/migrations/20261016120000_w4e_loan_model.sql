@@ -171,6 +171,27 @@ begin
 end;
 $$;
 
+-- The instalment due and what has been paid toward it. ONE definition, used by pay_loan (which acts on
+-- it) and loan_due (which tells the app what pay_loan will accept), so the two can never disagree.
+create or replace function public.loan_instalment_state(
+  p_debt public.debts, p_outstanding numeric, p_scale integer, p_on date,
+  out instalment_no integer, out started boolean, out paid numeric, out interest_paid numeric,
+  out interest numeric, out due numeric)
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  instalment_no := p_debt.instalments_paid + 1;
+  select coalesce(sum(e.amount), 0), coalesce(sum(e.interest), 0), min(e.instalment_interest), min(e.instalment_due), count(*) > 0
+    into paid, interest_paid, interest, due, started
+    from public.loan_payment_events e
+   where e.debt_id = p_debt.id and e.reversed_at is null and e.kind = 'emi' and e.instalment_no = loan_instalment_state.instalment_no;
+  if not started then
+    interest := public.loan_interest(p_outstanding,
+      public.loan_rate_on(p_debt.rate_history, p_debt.interest_rate, coalesce(p_debt.due_date, p_on)), p_scale);
+    due := least(p_debt.minimum_payment, p_outstanding + interest);
+  end if;
+end;
+$$;
+
 -- ── 4. Paying a loan ────────────────────────────────────────────────────────────────────────
 create or replace function public.loan_payment_result(p_status text, p_operation_id uuid)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
@@ -296,16 +317,9 @@ begin
   v_emi := d.minimum_payment;
 
   -- The instalment due, and what has been paid toward it so far.
-  v_k := d.instalments_paid + 1;
-  select coalesce(sum(amount), 0), coalesce(sum(interest), 0), min(instalment_interest), min(instalment_due), count(*) > 0
-    into v_paid, v_interest_paid, v_i_k, v_due_k, v_started
-    from public.loan_payment_events
-   where debt_id = d.id and reversed_at is null and kind = 'emi' and instalment_no = v_k;
-  if not v_started then
-    v_rate := public.loan_rate_on(d.rate_history, d.interest_rate, coalesce(d.due_date, p_date));
-    v_i_k := public.loan_interest(v_outstanding, v_rate, v_scale);
-    v_due_k := least(v_emi, v_outstanding + v_i_k);
-  end if;
+  select s.instalment_no, s.started, s.paid, s.interest_paid, s.interest, s.due
+    into v_k, v_started, v_paid, v_interest_paid, v_i_k, v_due_k
+    from public.loan_instalment_state(d, v_outstanding, v_scale, p_date) s;
 
   if p_kind = 'emi' then
     if v_emi is null or v_emi <= 0 then raise exception 'no_emi' using errcode = '22023'; end if;
@@ -360,7 +374,7 @@ begin
   -- The legs: interest is spending (Loan / EMI), principal moves money into the loan account.
   v_split := jsonb_build_object('interest', v_interest, 'principal', v_principal, 'debt_id', d.id,
     'kind', p_kind, 'instalment_no', case when p_kind = 'prepayment' then null else v_k end,
-    'partPaymentChoice', v_choice);
+    'operation_id', p_operation_id, 'partPaymentChoice', v_choice);
   if v_interest > 0 then
     insert into public.transactions (household_id, created_by, member_id, amount, currency, type, category,
       account_id, debt_id, date, description, extras)
@@ -423,6 +437,49 @@ begin
   if auth.uid() is null then raise exception 'not_authorized' using errcode = '42501'; end if;
   return public.loan_payment_core(auth.uid(), p_operation_id, p_debt_id, p_kind, p_amount, p_date,
     p_funding_account_id, p_member_id, p_description, p_prepayment_choice, p_bank_interest, p_bank_principal);
+end;
+$$;
+
+-- What pay_loan will accept today, for the app's Pay form: the instalment due (number, date, its
+-- interest, the amount still due), the exact payoff figure, and the latest payment (undo). Any member
+-- may read it; nothing is written (a loan without its account yet reads the debt's own figure).
+create or replace function public.loan_due(p_debt_id uuid, p_on date default null)
+returns jsonb
+language plpgsql stable security definer set search_path = public, pg_temp
+as $$
+declare
+  d public.debts%rowtype;
+  s record;
+  v_scale integer;
+  v_outstanding numeric;
+  v_acc uuid;
+  v_latest public.loan_payment_events%rowtype;
+begin
+  select * into d from public.debts where id = p_debt_id and deleted_at is null;
+  if not found or not public.is_member(d.household_id) then raise exception 'debt_unavailable' using errcode = '22023'; end if;
+  v_scale := public.loan_minor_scale((select base_currency from public.households where id = d.household_id));
+  select id into v_acc from public.accounts where debt_id = d.id and kind = 'loan' and deleted_at is null order by created_at limit 1;
+  v_outstanding := public.loan_outstanding(d);
+  select * into s from public.loan_instalment_state(d, v_outstanding, v_scale, coalesce(p_on, current_date));
+  select * into v_latest from public.loan_payment_events e
+   where e.debt_id = d.id and e.reversed_at is null and coalesce(e.kind, '') <> 'legacy'
+   order by e.created_at desc, e.operation_id desc limit 1;
+  return jsonb_build_object(
+    'outstanding', v_outstanding,
+    'emi', d.minimum_payment,
+    'paid_off', d.paid_off_at is not null or v_outstanding = 0,
+    'instalment_no', s.instalment_no,
+    'due_date', d.due_date,
+    'interest', s.interest,
+    'due', s.due,
+    'paid', s.paid,
+    'remaining', greatest(s.due - s.paid, 0),
+    'started', s.started,
+    'payoff', v_outstanding + case when s.started then greatest(s.interest - s.interest_paid, 0) else 0 end,
+    'loan_account_id', v_acc,
+    'latest_payment', case when v_latest.operation_id is null then null else jsonb_build_object(
+      'operation_id', v_latest.operation_id, 'kind', v_latest.kind, 'amount', v_latest.amount,
+      'date', v_latest.payment_date, 'created_at', v_latest.created_at) end);
 end;
 $$;
 
@@ -672,6 +729,9 @@ revoke all on function public.mark_loan_paid_off(uuid, text) from public, anon;
 grant execute on function public.mark_loan_paid_off(uuid, text) to authenticated;
 revoke all on function public.delete_debt(uuid) from public, anon;
 grant execute on function public.delete_debt(uuid) to authenticated;
+revoke all on function public.loan_due(uuid, date) from public, anon;
+grant execute on function public.loan_due(uuid, date) to authenticated;
+revoke all on function public.loan_instalment_state(public.debts, numeric, integer, date) from public, anon, authenticated;
 revoke all on function public.move_card_debt_to_account(uuid) from public, anon, authenticated;
 revoke all on function public.loan_account_for(public.debts) from public, anon, authenticated;
 revoke all on function public.loan_ledger_balance(uuid) from public, anon, authenticated;

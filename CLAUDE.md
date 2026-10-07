@@ -84,6 +84,8 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - Credit cards are ACCOUNTS (D30): a credit-card debt moves into a card account
     (`move_card_debt_to_account`, also run on insert). Card dues count toward debt in the Debts summary,
     read from the card accounts, never as debt items.
+  - `loan_due` is what the Pay form shows; it and `pay_loan` read ONE `loan_instalment_state`, so the
+    prefilled figure is always the accepted one.
   - `record_loan_payment` is legacy (the app stops calling it in v10.75.0, then it is dropped).
 - **Categories are type-scoped, and the set exists in THREE places (v10.21).**
   `constants.ts` is the source, but `_shared/whatsapp-parser.ts` and
