@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.64.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.65.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -466,6 +466,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - Pip's prompts are the SERVER's. The app sends `op` (`classify` | `phrase`) + text (+ rejected figures on a phrase retry); `ask-vyact` builds the messages with `systemPromptFor` (`_shared/agent/prompts.ts`). Never let a client send a system prompt, and add a new op (not a free-text prompt) when a feature needs one. The legacy `messages` form is accepted for one release only when it is exactly a server prompt — remove `fromLegacyMessages` next release.
   - `ai_usage` metering comes from the server only: a client row is `source='client'` with its cost/tokens/provider/model cleared by trigger, and `reserve_ai_usage` counts `source='gateway'` rows only. The daily cap is `parseDailyCallCap` (only `off` disables it).
   - Every split email is claimed first (`claim_split_emails`): one per share per event, ever, and `SPLIT_EMAIL_DAILY_CAP` (50) per sender per day. Email templates escape by construction (`html` tag / plain-string lines); never interpolate a value into email HTML any other way.
+- **"Today" is local (v10.65.0, audit W3a; owner decision D12).**
+  - In the app, "today" and "this month" are the DEVICE's (`today()` / `nowMonthKey()` in `lib/format.ts`). Never derive a calendar day from `toISOString()`; that is the UTC day, a day behind in India until 05:30.
+  - Date-only arithmetic works on the YYYY-MM-DD string in UTC (`addDaysISO`, `localDayUTC`), never local setters on a UTC-parsed date.
+  - On the server the day is the HOUSEHOLD's (`households.timezone`, IANA, default `Asia/Kolkata`). The engine takes it explicitly: `AssistantContext.tz`, `today(tz)`, `wallClock(tz)`. Never a module-global zone, because an isolate serves several households. Deno code uses `_shared/localTime.ts`.
+  - The zone comes from the creator's signup metadata or is stamped once by the owner's device (`set_household_timezone`).
+  - Scheduled WhatsApp jobs run every 30 minutes and act in each household's local slot (`inJobSlot`).
+  - A push skipped for quiet hours stays pending.
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied

@@ -37,6 +37,7 @@ import {
   incomeLandedNotifs, staleBalanceNotifs,
 } from './notifications';
 import { toInsertRow, type NotifInsertRow } from './notificationRows';
+import { wallClock } from './format';
 import type { Notification } from '../types';
 
 // W1c (v10.64.0, audit BE-PIP-02): the `ask-vyact` gateway composes Pip's prompts from this
@@ -59,6 +60,13 @@ export interface HouseholdRows {
   household: HouseholdRowCols;
   email: string;
 }
+
+/**
+ * W3a (v10.65.0) — the household's zone. The server's clock is UTC, so every calendar "today" and
+ * "this month" the engine computes for a household is read in this zone (the DB default is India's).
+ */
+export const DEFAULT_HOUSEHOLD_TZ = 'Asia/Kolkata';
+const householdTz = (rows: HouseholdRows): string => rows.household?.timezone || DEFAULT_HOUSEHOLD_TZ;
 
 /** Rows → the app's own shapes, with the adapter's mappers and the store's rate rule. */
 function shapesFromRows(rows: HouseholdRows) {
@@ -85,13 +93,15 @@ function shapesFromRows(rows: HouseholdRows) {
 export function contextFromRows(rows: HouseholdRows): AssistantContext {
   const { transactions, budgets, budgetAllocations, goals, debts, assets, accounts, recurring, profile, rates } = shapesFromRows(rows);
 
-  const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations);
+  const tz = householdTz(rows);
+  const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, tz);
   summary.household.members = rows.memberCount;
   return {
     summary, transactions, budgets, budgetAllocations, goals, debts, assets, recurring,
     profile, rates, baseCurrency: profile.baseCurrency,
     accounts: accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind })),
     channel: 'whatsapp',
+    tz,
   };
 }
 
@@ -208,6 +218,7 @@ export function runwaySnapshot(rows: HouseholdRows, now: Date): RunwaySnapshot {
   const basisMonths = ctx.summary.spendBasis?.monthsConsidered ?? 0;
   const months = Number.isFinite(raw) && basisMonths > 0 ? Math.round(raw * 10) / 10 : null;
   const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  now = wallClock(ctx.tz, now);   // W3a: last month is the HOUSEHOLD's last month, not the UTC host's
   const last = key(new Date(now.getFullYear(), now.getMonth() - 1, 1));
   const before = key(new Date(now.getFullYear(), now.getMonth() - 2, 1));
   const a = spendByCategory(ctx.transactions, before, ctx.baseCurrency, ctx.rates);
@@ -238,7 +249,7 @@ export function runwaySnapshot(rows: HouseholdRows, now: Date): RunwaySnapshot {
 export function notificationsOnServer(rows: HouseholdRows, existingKeys: readonly string[], householdId: string): NotifInsertRow[] {
   const { transactions, budgets, budgetAllocations, debts, accounts, recurring, profile, rates } = shapesFromRows(rows);
   const existing = existingKeys.map((dedupeKey) => ({ dedupeKey }) as Notification);
-  const ctx = { householdId, baseCurrency: profile.baseCurrency, rates };
+  const ctx = { householdId, baseCurrency: profile.baseCurrency, rates, tz: householdTz(rows) };
   const prefs = DEFAULT_PREFS;
   return [
     ...recurringDueNotifs(recurring, prefs, existing, ctx),

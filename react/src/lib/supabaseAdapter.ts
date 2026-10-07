@@ -607,6 +607,8 @@ export interface ProfileRowCols {
 export interface HouseholdRowCols {
   type?: string | null; base_currency?: string | null; language?: string | null;
   payoff_strategy?: string | null; extra_payment?: number | string | null;
+  /** W3a — the household's IANA zone (server-side "today"); the app itself uses the device's. */
+  timezone?: string | null;
 }
 
 /** The app's Profile from the user's profile row and the household row (getProfile's merge). */

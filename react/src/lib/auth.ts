@@ -4,6 +4,7 @@
 
 import { sb, APP_URL } from './supabase';
 import { disablePush } from './webPush';
+import { deviceTimeZone } from './householdTimezone';
 import type { Session, User } from '@supabase/supabase-js';
 
 export interface SignUpInput {
@@ -16,7 +17,8 @@ export async function signUp({ email, password, displayName }: SignUpInput) {
   const { data, error } = await sb().auth.signUp({
     email, password,
     options: {
-      data: { display_name: displayName },
+      // W3a — the household made for this account starts in this device's zone (households trigger).
+      data: { display_name: displayName, timezone: deviceTimeZone() ?? undefined },
       emailRedirectTo: `${APP_URL}/auth/verified`,
     },
   });

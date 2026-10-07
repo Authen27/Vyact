@@ -1150,6 +1150,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/householdTimezoneSql.test.ts",
+      "feature": "Household time zone SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W3a migration: households.timezone default, signup zone, validation, owner stamp once (focused PGlite fixture)",
+      "count": 2,
+      "tests": [
+        "household time zone (W3a) CON-UNIT-W3-D12-007 · existing households read India time; a new one takes its creator’s signup zone; only real zones are stored",
+        "household time zone (W3a) CON-UNIT-W3-D12-008 · the owner’s device stamps its zone once; a member cannot; a bad zone is refused"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/householdTypes.test.ts",
       "feature": "Household types",
       "availability": "available",
@@ -2291,6 +2304,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/timeZoneDay.test.ts",
+      "feature": "Time zone (local today)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "W3a: device-local today in the app, household-zone today in the engine, WhatsApp day and scheduler slots",
+      "count": 4,
+      "tests": [
+        "the app reads the device’s calendar day (W3a) CON-UNIT-W3-D12-001 · today and this month are the device’s day, just after and just before its midnight",
+        "the app reads the device’s calendar day (W3a) CON-UNIT-W3-D12-002 · a named zone is read in that zone whatever the host clock; unknown zones fall back; date maths is plain",
+        "the server reads the household's calendar day (W3a) CON-UNIT-W3-D12-003 · Pip's month and the due-bill alert follow the household's zone, not the UTC host",
+        "the server reads the household's calendar day (W3a) CON-UNIT-W3-D12-004 · WhatsApp and the scheduler: the household's day, and each job in its own local slot"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/transactionsCsv.test.ts",
       "feature": "Transactions CSV export",
       "availability": "available",
@@ -2325,7 +2353,7 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "RFC 8291/8292 crypto / push rules / server-raised notifications / web-push handler (not a live push service)",
-      "count": 9,
+      "count": 10,
       "tests": [
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-001 · a message encrypted for a subscription is read back by an independent receiver; each send is freshly keyed",
         "Web Push crypto (RFC 8291 / 8292) CON-UNIT-WP-002 · the VAPID token is ES256, verifies with the advertised public key, and names the push service origin",
@@ -2334,6 +2362,7 @@
         "notifications raised on the server CON-UNIT-WP-006 · the server raises exactly the app's notifications for the same rows (source and bundle), skipping what exists",
         "push rules CON-UNIT-WP-004 · P1 only, unread only, never a backlog, the device's switches, quiet hours in the device's own zone",
         "push rules CON-UNIT-WP-005 · the payload opens inside the app only; the test message states the device's local time",
+        "web-push function CON-UNIT-W3-D12-005 · a push held back for quiet hours stays pending, goes out when they end, and reaches each device once",
         "web-push function CON-UNIT-WP-007 · a test goes to the caller's own devices, readable by each, with the push service's answer; signed out → 401; rate-limited",
         "web-push function CON-UNIT-WP-008 · dispatch: raises the app's notifications, pushes new P1s to eligible devices, stamps them, retires a gone device"
       ]
@@ -2537,7 +2566,7 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 50,
+      "count": 51,
       "tests": [
         "W6b template replies in the webhook CON-UNIT-W6B-012 · recurring Undo within 15 minutes removes that entry; Pause pauses its schedule; a late Undo is refused",
         "W6b template replies in the webhook CON-UNIT-W6B-013 · \"1200 dinner shared\" logs it, then prompts the logger; Split 50/50 writes the app's split for the usual partner",
@@ -2577,6 +2606,7 @@
         "actual WhatsApp Edge handlers processes every signed batch message using its own sender and confirms authoritative results",
         "actual WhatsApp Edge handlers reads and unlinks only the authenticated identity, consuming pending relink codes",
         "actual WhatsApp Edge handlers verifies a valid OTP, persists the server-owned identity, consumes the OTP and asks notify for the welcome",
+        "webhook failure handling (W0) CON-UNIT-W3-D12-006 · an undated entry is dated the day it was sent, in the household’s zone",
         "webhook failure handling (W0) CON-UNIT-WA-W0-001 · a ledger error marks the row FAILED (not done), attempt 1, and says it is queued",
         "webhook failure handling (W0) CON-UNIT-WA-W0-002 · the attempt counter climbs from the row, and the last retry asks the user to resend",
         "webhook failure handling (W0) CON-UNIT-WA-W0-003 · a stated date reaches p_date and is never read as the amount",

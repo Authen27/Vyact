@@ -15,6 +15,7 @@
 //   • a private (excluded) transaction is never announced to anyone.
 
 import { spendByCategoryInRange, reportableTxns, effectiveAmount, type Transaction } from './money/calculations.ts';
+import { zoneParts } from './localTime.ts';
 
 /** MUST mirror react/src/constants.ts EXPENSE_CATEGORIES labels (parity test: WA-D-001). */
 export const EXPENSE_LABEL: Record<string, string> = {
@@ -67,16 +68,39 @@ export function moneyText(n: number, currency: string): string {
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 export function countWord(n: number): string { return WORDS[n] ?? String(n); }
 
-/** The calendar day in the household's zone (IST unless configured). */
-export function localDay(now: Date, offsetMinutes = 330): string {
-  return new Date(now.getTime() + offsetMinutes * 60_000).toISOString().slice(0, 10);
+/** The calendar day in the household's zone (W3a: its own IANA zone; India time when unset). */
+export function localDay(now: Date, tz?: string | null): string {
+  return zoneParts(now, tz).day;
+}
+
+/**
+ * The scheduled jobs and the LOCAL time each one is for (W3a). pg_cron runs them every 30 minutes;
+ * a household is processed by the one run that falls in its own [at, at + 30 min) slot — so the bill
+ * reminder reaches New York at 09:00 New York time, not at 23:30 the evening before. `alerts` runs
+ * for everyone on every run. Every send also has a dedupe slot, so a repeated run sends nothing twice.
+ */
+export const JOB_SLOTS: Record<string, { at: number; weekday?: number }> = {
+  bills: { at: 9 * 60 },
+  monthly: { at: 9 * 60 },
+  digest: { at: 20 * 60 + 30 },
+  weekly: { at: 18 * 60, weekday: 0 },
+};
+export const SLOT_MINUTES = 30;
+
+/** Is this household's local time inside the job's slot right now? */
+export function inJobSlot(job: string, now: Date, tz?: string | null): boolean {
+  const slot = JOB_SLOTS[job];
+  if (!slot) return true;
+  const local = zoneParts(now, tz);
+  if (slot.weekday !== undefined && local.weekday !== slot.weekday) return false;
+  return local.minutes >= slot.at && local.minutes < slot.at + SLOT_MINUTES;
 }
 
 function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
-export interface Household { id: string; base_currency: string }
+export interface Household { id: string; base_currency: string; timezone?: string | null }
 export interface Member { profile_id: string; household_id: string; first_name?: string | null }
 
 // ── Large spend ─────────────────────────────────────────────────────────────

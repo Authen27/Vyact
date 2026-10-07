@@ -25,7 +25,7 @@ import AnimatedMoney from '../components/ui/AnimatedMoney';
 import { formPath } from '../lib/formRoutes';
 import { computeAccountBalance, accountValueOf, debitAccountOf, creditAccountOf } from '../lib/accountBalance';
 import { effectiveAmount } from '../lib/calculations';
-import { fmt } from '../lib/format';
+import { fmt, dateKeyIn } from '../lib/format';
 import { getCat, CURRENCIES } from '../constants';
 import { spring } from '../lib/motion';
 import {
@@ -453,7 +453,7 @@ function AccountLedger({ account, txns, baseCur, rates }: {
       {/* Reconcile adjustments appear in account history ONLY — never in a spend total. */}
       {log.map((e, i) => (
         <div key={`log-${i}`} className="flex items-center gap-2 text-[0.74rem] text-ink-dim italic">
-          <span className="font-mono text-[0.62rem] w-[4.5rem] shrink-0">{e.at.slice(0, 10)}</span>
+          <span className="font-mono text-[0.62rem] w-[4.5rem] shrink-0">{e.at.length > 10 ? dateKeyIn(new Date(e.at)) : e.at}</span>
           <span className="flex-1 truncate">
             {e.kind === 'investment' ? 'Value updated' : e.kind === 'merge' ? (e.note ?? 'History moved in') : 'Reconcile adjustment'}
             {' '}({e.delta >= 0 ? '+' : ''}{Math.round(e.delta)})

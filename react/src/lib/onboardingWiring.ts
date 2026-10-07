@@ -24,6 +24,7 @@
 // approves — exactly as the model requires.
 
 import type { RecurringSchedule, BudgetAllocation, Account, Budget } from '../types';
+import { localDayUTC } from './format';
 
 /** Fixed-cost chip key → real expense category id (constants.ts EXPENSE_CATEGORIES). */
 const CHIP_CATEGORY: Record<string, string> = {
@@ -64,7 +65,10 @@ const iso = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pa
  * only its stated purpose. (The workaround existing at all was a good sign the
  * seeding was wrong; it took a user report to act on it.)
  */
-export function nextMonthlyDate(dayOfMonth: number, from: Date): string {
+export function nextMonthlyDate(dayOfMonth: number, fromInstant: Date): string {
+  // W3a: compare against the LOCAL day, not the UTC day of the instant (at 00:30 IST on 1 Nov the
+  // UTC day is still 31 Oct, so "strictly after today" picked today).
+  const from = localDayUTC(fromInstant);
   const y = from.getUTCFullYear();
   const m = from.getUTCMonth();
   const clampDay = (year: number, month: number) =>
@@ -189,8 +193,9 @@ export async function wireOnboardingToMoney(input: WireOnboardingInput): Promise
   // underway), one allocation per category from the bills.
   const allocs = mergeAllocationsByCategory(bills);
   if (allocs.length) {
-    const y = now.getUTCFullYear();
-    const mo = now.getUTCMonth() + 1;
+    const joinDay = localDayUTC(now);   // W3a: the join month is the LOCAL month
+    const y = joinDay.getUTCFullYear();
+    const mo = joinDay.getUTCMonth() + 1;
     const total = allocs.reduce((s, a) => s + a.amount, 0);
     const periodStart = `${y}-${pad(mo)}-01`;
     const periodEnd = iso(new Date(Date.UTC(y, mo, 0)));

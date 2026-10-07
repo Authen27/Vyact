@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, convert, uid } from '../lib/format';
+import { fmt, convert, uid, today } from '../lib/format';
 import Money from '../components/ui/Money';
 import { splitsOutstanding, type SplitOutstanding } from '../lib/calculations';
 import type { Transaction, SplitParticipant, Debt } from '../types';
@@ -114,7 +114,7 @@ export default function Splits() {
       split: {
         ...txn.split,
         participants: txn.split.participants.map((p: SplitParticipant) =>
-          p.name === participantName ? { ...p, paid: true, paidOn: new Date().toISOString().split('T')[0] } : p
+          p.name === participantName ? { ...p, paid: true, paidOn: today() } : p
         ),
       },
     };
@@ -130,7 +130,7 @@ export default function Splits() {
       ...txn,
       split: {
         ...txn.split,
-        participants: txn.split.participants.map((p: SplitParticipant) => ({ ...p, paid: true, paidOn: new Date().toISOString().split('T')[0] })),
+        participants: txn.split.participants.map((p: SplitParticipant) => ({ ...p, paid: true, paidOn: today() })),
       },
     };
     await upsertTransaction(updated);

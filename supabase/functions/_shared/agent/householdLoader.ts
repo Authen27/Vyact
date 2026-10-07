@@ -41,7 +41,7 @@ export async function loadHouseholdRows(admin: SupabaseClient, profileId: string
     admin.from('memberships').select('id', { count: 'exact', head: true }).eq('household_id', householdId),
     admin.from('exchange_rates').select('currency_code, rate_to_usd').eq('household_id', householdId),
     admin.from('profiles').select('display_name, default_currency, language, date_format, education_progress').eq('id', profileId).maybeSingle(),
-    admin.from('households').select('type, base_currency, language, payoff_strategy, extra_payment').eq('id', householdId).maybeSingle(),
+    admin.from('households').select('type, base_currency, language, payoff_strategy, extra_payment, timezone').eq('id', householdId).maybeSingle(),
   ]);
   if (!household) throw new Error('household not found');
   return {

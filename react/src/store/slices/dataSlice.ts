@@ -16,7 +16,7 @@ import { DEFAULT_RATES } from '../../constants';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { applyPayment } from '../../lib/amortization';
 import { autoMigrateAnonToHousehold } from '../../lib/migration';
-import { uid, setNumberSystem, nowMonthKey } from '../../lib/format';
+import { uid, setNumberSystem, nowMonthKey, today } from '../../lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from '../../lib/numberSystemPref';
 import {
   registerOnboardingSync, hydrateOnboardingFromCloud, shouldOnboard,
@@ -735,7 +735,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     if (!debt) return { message: 'Debt not found', debt: null };
     // The re-amortisation's own summary ("Loan now ends in N months…", "EMI reduced to…").
     // It used to be dropped here and '' returned, so callers could not say what changed.
-    const { message } = applyPayment(debt, amount, choice, new Date().toISOString().split('T')[0]);
+    const { message } = applyPayment(debt, amount, choice, today());
     await get().recordLoanPayment({ debtId, amount, partPaymentChoice: choice });
     return { message, debt: get().debts.find(d => d.id === debtId) ?? null };
   },
@@ -750,7 +750,7 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const debt = get().debts.find(d => d.id === input.debtId);
     if (!debt) throw new Error('Debt not found');
     if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Amount must be greater than 0');
-    const date = input.date || new Date().toISOString().split('T')[0];
+    const date = input.date || today();
 
     // Re-amortisation math — the parity-tested port. The server VALIDATES this
     // decomposition's shape; it never computes it.

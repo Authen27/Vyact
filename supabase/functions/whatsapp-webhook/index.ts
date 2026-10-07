@@ -32,6 +32,7 @@ import {
   LATE_TAP_DAYS, LATE_TAP_REPLY, type WaPrefs,
 } from '../_shared/whatsapp-prefs.ts';
 import { loadPrefs, advancesDelivery, guardedSend, isLiveMember } from '../_shared/whatsapp-send.ts';
+import { localDayIn } from '../_shared/localTime.ts';
 import {
   sharedCapture, evenSplit, splitDoneReply, keptAsYoursReply, SPLIT_REFUSED, recurringUndoneReply, RECURRING_UNDO_MINUTES,
   RECURRING_TOO_LATE, pausedReply,
@@ -55,7 +56,12 @@ import { isServiceCaller } from '../_shared/service-auth.ts';
 
 declare const EdgeRuntime: { waitUntil: (p: Promise<unknown>) => void } | undefined;
 
-interface Profile { id: string; whatsapp_household_id: string | null }
+interface Profile {
+  id: string;
+  whatsapp_household_id: string | null;
+  /** W3a — the household's zone: the sender's "today" and "yesterday" are read in it. */
+  timezone?: string | null;
+}
 
 // Audit S1: the verified phone ↔ profile ↔ household binding now lives in the
 // server-owned `whatsapp_identities` table (RLS deny-all; service role only).
@@ -65,7 +71,7 @@ async function lookupIdentity(
 ): Promise<Profile | null> {
   const { data } = await supabase
     .from('whatsapp_identities')
-    .select('profile_id, household_id')
+    .select('profile_id, household_id, households(timezone)')
     .eq('phone_number', fromPhone)
     .maybeSingle();
   if (!data) return null;
@@ -75,7 +81,8 @@ async function lookupIdentity(
   // off. The DB deletes the identity when the membership goes; this is the second layer,
   // and it treats them exactly like an unlinked sender (no data, no writes).
   if (!await isLiveMember(supabase, data.household_id, data.profile_id)) return null;
-  return { id: data.profile_id, whatsapp_household_id: data.household_id };
+  const tz = (data as { households?: { timezone?: string | null } | null }).households?.timezone ?? null;
+  return { id: data.profile_id, whatsapp_household_id: data.household_id, timezone: tz };
 }
 
 /** Meta's report on a message we sent: move the outbound row's status forward. */
@@ -324,13 +331,13 @@ async function sweepInbox(supabase: SupabaseClient, limit = 25): Promise<number>
  */
 type InboundOutcome = { status: 'done'; note?: string } | { status: 'retry'; error: string };
 
-/** The sender's local calendar day, for "yesterday". Meta stamps each message in
- *  unix seconds; the offset defaults to IST, the market the ₹ copy is written for. */
-function localDay(message: any): Date {
+/** The sender's local calendar day (as UTC midnight), for "today" and "yesterday". Meta stamps
+ *  each message in unix seconds. W3a (v10.65.0): the day is read in the HOUSEHOLD's zone; it used
+ *  to be a fixed IST offset for everyone (VYACT_TZ_OFFSET_MINUTES, retired). */
+function localDay(message: any, tz?: string | null): Date {
   const tsMs = Number(message?.timestamp) > 0 ? Number(message.timestamp) * 1000 : Date.now();
-  const offsetMin = Number(env('VYACT_TZ_OFFSET_MINUTES', '330')) || 0;
-  const local = new Date(tsMs + offsetMin * 60_000);
-  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
+  const [y, m, d] = localDayIn(new Date(tsMs), tz).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 const CAT_LABEL: Record<string, string> = {
@@ -548,7 +555,7 @@ async function processInbound(
     if (answer !== null && expired) return { status: 'done', note: await reply(fromPhone, EXPIRED) };
     if (answer !== null && pending.kind === 'missing_amount') {
       const again = parseWhatsAppMessage(`${answer} ${pending.payload.text}`, pending.payload.accounts ?? [],
-        pending.payload.baseCurrency ?? 'INR', localDay(message));
+        pending.payload.baseCurrency ?? 'INR', localDay(message, profile?.timezone));
       if (again.ok) return logParsed(supabase, message, fromPhone, profile, again.tx, priorAttempts, { skipDuplicateCheck: true });
     }
     if (answer === 'no') return { status: 'done', note: await reply(fromPhone, SKIPPED) };
@@ -608,7 +615,7 @@ async function processInbound(
 
   // v10.47.0 — "1200 dinner shared": log it, then ask how to split it.
   const shared = sharedCapture(text);
-  const parsed = parseWhatsAppMessage(shared.text, accountList, baseCurrency, localDay(message));
+  const parsed = parseWhatsAppMessage(shared.text, accountList, baseCurrency, localDay(message, profile?.timezone));
   if (!parsed.ok) {
     // v10.44.0 (W3) — "groceries hdfc" names what it was for: ask for the amount
     // and keep the rest, rather than asking for the whole line again.
@@ -670,7 +677,9 @@ async function logParsed(
     // v10.40.0 — a date the message stated ("yesterday", "15/09/2026"). The RPC
     // has accepted p_date since v10.20; the parser used to drop it, so every
     // WhatsApp entry was dated today.
-    ...(tx.date ? { p_date: tx.date } : {}),
+    // W3a (v10.65.0) — and an undated message is dated the day it was SENT, in the household's
+    // zone. Left to the database it took UTC's current_date: yesterday, before 05:30 in India.
+    p_date: tx.date ?? localDay(message, profile.timezone).toISOString().slice(0, 10),
   });
 
   if (error) return retryOrGiveUp(fromPhone, priorAttempts, `rpc: ${error.message}`);
@@ -755,7 +764,7 @@ async function approveFromReply(
       `${s.txn_template.description} is scheduled at ${amountText}, so I haven't logged ${paid.amount}. Reply "paid ${matches[0].replyWord}" to log ${amountText}, or change the amount in the app: ${APP_URL}/recurring`) };
   }
 
-  const today = localDay(message).toISOString().slice(0, 10);
+  const today = localDay(message, profile.timezone).toISOString().slice(0, 10);
   const { data, error } = await supabase.rpc('whatsapp_approve_recurring', {
     p_profile_id: profile.id,
     p_household_id: householdId,
@@ -895,7 +904,7 @@ async function writeBlocked(supabase: SupabaseClient, profile: Profile): Promise
 async function startNaming(supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile): Promise<InboundOutcome> {
   const blocked = await writeBlocked(supabase, profile);
   if (blocked) return { status: 'done', note: await reply(fromPhone, blocked) };
-  const monthStart = `${localDay(message).toISOString().slice(0, 7)}-01`;
+  const monthStart = `${localDay(message, profile.timezone).toISOString().slice(0, 7)}-01`;
   const { data, error } = await supabase.rpc('whatsapp_unnamed_expenses', {
     p_profile_id: profile.id, p_household_id: profile.whatsapp_household_id, p_from: monthStart, p_limit: 5,
   });

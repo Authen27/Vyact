@@ -43,6 +43,8 @@ export const groups = [
   group('Split email guard SQL', 'conditional', 'sql-integration', ['splitEmailGuardSql'], 'W1c migration: one email per share per event, daily cap per sender, existing shares count as mailed (focused PGlite fixture)'),
   group('Split email handler', 'conditional', 'handler-integration', ['splitEmailHandler'], 'send-split-email/index.ts + emailTemplates.ts (escaping, authorise first, claimed shares only; mocked client and provider)'),
   group('AI usage metering SQL', 'conditional', 'sql-integration', ['aiUsageSourceSql'], 'W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture)'),
+  group('Time zone (local today)', 'available', 'unit', ['timeZoneDay'], 'W3a: device-local today in the app, household-zone today in the engine, WhatsApp day and scheduler slots'),
+  group('Household time zone SQL', 'conditional', 'sql-integration', ['householdTimezoneSql'], 'W3a migration: households.timezone default, signup zone, validation, owner stamp once (focused PGlite fixture)'),
   group('Ask Vyact on the server', 'conditional', 'unit', ['serverEngine', 'assistantCore'], 'serverEngine + its generated bundle (parity) / assistantCore model call (not a live provider)'),
   group('WhatsApp parser', 'conditional', 'unit', ['whatsappParser'], 'whatsapp-parser'),
   group('WhatsApp handlers', 'conditional', 'handler-integration', ['whatsappWorkflow'], 'whatsapp-webhook / whatsapp-verify-otp'),

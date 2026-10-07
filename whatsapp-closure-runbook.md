@@ -93,7 +93,8 @@ the manifest in the same change as any send code that depends on it.
 **Required secrets** (no in-code fallbacks since v10.40.0 — a missing one fails the send loudly):
 `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (the live +91 number's ID on WABA
 `1887272231954080`), `WHATSAPP_WABA_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`. Optional:
-`WHATSAPP_DAILY_CAP`, `VYACT_TZ_OFFSET_MINUTES` (default 330, used to resolve "yesterday").
+`WHATSAPP_DAILY_CAP`. (`VYACT_TZ_OFFSET_MINUTES` is retired since v10.65.0: "today" and
+"yesterday" are read in the household's own zone, `households.timezone`.)
 
 **The scheduler (v10.42.0).** `pg_cron` calls `whatsapp-dispatch` every 15 minutes (`job=alerts`:
 large spends, budget lines at 80%, settled splits) and on Sundays at 18:00 IST (`job=weekly`: the
