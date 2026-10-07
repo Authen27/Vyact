@@ -265,6 +265,17 @@ export function fmtShort(amount: number, currency = 'USD', system?: NumberSystem
 export const fmtSigned = (n: number, currency = 'USD'): string =>
   (n >= 0 ? '+' : '−') + fmt(Math.abs(n), currency);
 
+/**
+ * W4d (audit FE-UIC-04, INT-TZC-06) — a figure that can cross zero: a balance, a net, net worth, a
+ * chart axis. `fmt` and `fmtShort` print the magnitude only (they take Math.abs), so an overdrawn
+ * bank read "₹5,000" beside a "−₹5,000" from <Money> on the same screen. These keep the minus and
+ * add nothing to a positive figure.
+ */
+export const fmtNet = (n: number, currency = 'USD'): string =>
+  ((n || 0) < 0 ? '−' : '') + fmt(n, currency);
+export const fmtShortNet = (n: number, currency = 'USD', system?: NumberSystem): string =>
+  ((n || 0) < 0 ? '−' : '') + fmtShort(n, currency, system);
+
 export function formatDate(dateStr: string, format: 'us' | 'eu' | 'iso' = 'us'): string {
   if (!dateStr) return '';
   if (format === 'iso') return dateStr;

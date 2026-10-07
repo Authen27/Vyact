@@ -17,7 +17,10 @@ export interface RecurringSlice {
   recurringSchedules: RecurringSchedule[];
   upsertRecurring: (s: Partial<RecurringSchedule>) => Promise<RecurringSchedule>;
   removeRecurring: (id: string) => Promise<void>;
-  approveRecurring: (id: string, occurrenceDate: string) => Promise<void>;
+  /** True when the occurrence was posted; false when it is no longer the one due (W4d: already handled). */
+  approveRecurring: (id: string, occurrenceDate: string) => Promise<boolean>;
+  /** Skip ONLY the occurrence named, and only while it is the one due (W4d); false when already handled. */
+  skipRecurring: (id: string, occurrenceDate: string) => Promise<boolean>;
   runRecurringEngine: () => Promise<void>;
 }
 
@@ -100,13 +103,25 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
 
   approveRecurring: async (id, occurrenceDate) => {
     const schedule = get().recurringSchedules.find(row => row.id === id);
-    if (!schedule?.active || schedule.nextDueDate !== occurrenceDate || occurrenceDate > today()) return;
+    if (!schedule?.active || schedule.nextDueDate !== occurrenceDate || occurrenceDate > today()) return false;
     const transaction = generateTransaction(schedule);
     if (!get().transactions.some(row => row.id === transaction.id)) {
       await get().upsertTransaction(transaction);
     }
     await get().upsertRecurring(advanceSchedule(schedule));
     await get().refreshNotifications();
+    return true;
+  },
+
+  // W4d (audit FE-UIS-04) — the bell's "Skip once" used to advance from wherever the pointer was NOW.
+  // A card left over from a bill approved elsewhere therefore skipped the NEXT month's bill, which was
+  // then never posted or asked for.
+  skipRecurring: async (id, occurrenceDate) => {
+    const schedule = get().recurringSchedules.find(row => row.id === id);
+    if (!schedule?.active || schedule.nextDueDate !== occurrenceDate) return false;
+    await get().upsertRecurring(advanceSchedule(schedule));
+    await get().refreshNotifications();
+    return true;
   },
 
   runRecurringEngine: async () => {

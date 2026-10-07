@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 import { Sparkles, X, ArrowRight } from 'lucide-react';
 import { useStore } from '../../store';
 import { getBaseline, clearBaseline, type OnboardingBaseline } from '../../lib/onboardingState';
-import { fmt } from '../../lib/format';
+import { fmt, fmtNet } from '../../lib/format';
 import EstimatedTag from '../ui/EstimatedTag';
 
 /** Real transactions logged before the reference auto-wipes for good. */
@@ -59,7 +59,7 @@ export default function StartingBaselineBand() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <Stat label="Net position" value={fmt(net, ccy)} accent={net >= 0 ? 'text-sage' : 'text-terra'} />
+        <Stat label="Net position" value={fmtNet(net, ccy)} accent={net >= 0 ? 'text-sage' : 'text-terra'} />
         <Stat label="Monthly income" value={fmt(baseline.monthlyIncome, ccy)} />
         <Stat label="Est. debt" value={fmt(baseline.debt, ccy)} accent={baseline.debt > 0 ? 'text-terra' : 'text-ink'} />
         <Stat label="Fixed costs" value={`${baseline.fixedCosts.length} to budget`} />

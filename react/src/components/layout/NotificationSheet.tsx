@@ -10,8 +10,7 @@ import { useStore } from '../../store';
 import PullDownSheet from '../ui/PullDownSheet';
 import PhonePushPrompt from './PhonePushPrompt';
 import { Pip } from './Brand';
-import { NOTIF_META } from '../../lib/notifications';
-import { advanceSchedule } from '../../lib/recurring';
+import { NOTIF_META, notificationOccurrence } from '../../lib/notifications';
 import type { Notification, NotifActionSpec } from '../../types';
 
 const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
@@ -35,7 +34,7 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
   const markAllRead = useStore(s => s.markAllNotificationsRead);
   const dismiss = useStore(s => s.dismissNotification);
   const approveRecurring = useStore(s => s.approveRecurring);
-  const upsertRecurring = useStore(s => s.upsertRecurring);
+  const skipRecurring = useStore(s => s.skipRecurring);
   const openAddTxn = useStore(s => s.openAddTxn);
   const debts = useStore(s => s.debts);
   const toast = useStore(s => s.toast);
@@ -59,21 +58,27 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
 
   function runAction(n: Notification, actionId: string) {
     switch (actionId) {
+      // W4d (audit FE-UIS-04) — both act on THE CARD'S occurrence only, and only while it is the one
+      // due. A card for a bill already handled elsewhere says so, instead of skipping next month's bill
+      // or claiming a post that never happened.
       case 'approve': {   // recurring_due_confirm — post the txn, advance, stay open
         const s = recurringSchedules.find(x => x.id === n.scheduleId);
-        if (s) {
-          void approveRecurring(s.id, n.dueAt ?? s.nextDueDate).then(() => {
-            markRead(n.id);
-            toast('Approved — transaction posted', 'success');
-          }).catch(() => toast('Could not approve this bill. Please retry.', 'error'));
-        }
+        const occurrence = notificationOccurrence(n) ?? s?.nextDueDate;
+        if (!s || !occurrence) { markRead(n.id); toast('Already handled', 'info'); return; }
+        void approveRecurring(s.id, occurrence).then(posted => {
+          markRead(n.id);
+          toast(posted ? 'Approved — transaction posted' : 'Already handled', posted ? 'success' : 'info');
+        }).catch(() => toast('Could not approve this bill. Please retry.', 'error'));
         return;
       }
       case 'skip': {      // skip this occurrence: advance without posting, stay open
         const s = recurringSchedules.find(x => x.id === n.scheduleId);
-        if (s) void upsertRecurring(advanceSchedule(s));
-        markRead(n.id);
-        toast('Skipped once', 'info');
+        const occurrence = notificationOccurrence(n) ?? s?.nextDueDate;
+        if (!s || !occurrence) { markRead(n.id); toast('Already handled', 'info'); return; }
+        void skipRecurring(s.id, occurrence).then(skipped => {
+          markRead(n.id);
+          toast(skipped ? 'Skipped once' : 'Already handled', 'info');
+        }).catch(() => toast('Could not skip this bill. Please retry.', 'error'));
         return;
       }
       case 'dismiss':

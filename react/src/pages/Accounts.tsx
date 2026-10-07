@@ -25,7 +25,7 @@ import AnimatedMoney from '../components/ui/AnimatedMoney';
 import { formPath } from '../lib/formRoutes';
 import { computeAccountBalance, accountValueOf, debitAccountOf, creditAccountOf } from '../lib/accountBalance';
 import { effectiveAmount } from '../lib/calculations';
-import { fmt, dateKeyIn } from '../lib/format';
+import { fmt, fmtNet, dateKeyIn } from '../lib/format';
 import { getCat, CURRENCIES } from '../constants';
 import { spring } from '../lib/motion';
 import {
@@ -52,9 +52,9 @@ const rowIn: Variants = {
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { ...spring, delay: Math.min(i, 8) * 0.05 } }),
 };
 const iconOf = (a: Account) => (a.kind === 'credit_card' ? '💳' : a.kind === 'cash' ? '💵' : '🏦');
-/** A card's balance shown as what it owes. */
-const signedMoney = (a: Account, balance: number, currency: string) =>
-  a.kind === 'credit_card' && balance < 0 ? `−${fmt(-balance, currency)}` : fmt(balance, currency);
+/** A balance with its sign: a card's is what it owes, and an overdrawn bank is negative too (W4d,
+ *  FE-UIC-04 — only cards used to keep the minus). */
+const signedMoney = (_a: Account, balance: number, currency: string) => fmtNet(balance, currency);
 
 export default function Accounts() {
   const accounts        = useStore(s => s.accounts);
@@ -146,7 +146,7 @@ export default function Accounts() {
               <AnimatedMoney amount={view.summary.spendableNow} currency={baseCurrency} className="num font-bold text-[27px] text-ink" />
             </div>
             <div className="text-right text-[12px] leading-[1.75] text-ink-dim">
-              <div>Cash <span className="num font-semibold" style={{ color: 'hsl(var(--sage))' }}>{fmt(view.summary.cashAvailable, baseCurrency)}</span></div>
+              <div>Cash <span className="num font-semibold" style={{ color: 'hsl(var(--sage))' }}>{fmtNet(view.summary.cashAvailable, baseCurrency)}</span></div>
               <div>On card <span className="num font-semibold" style={{ color: 'hsl(var(--honey))' }}>{fmt(view.summary.cardOutstanding, baseCurrency)}</span></div>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function Accounts() {
                   </div>
                 </div>
                 <span className="num text-[22px] text-ink break-all">
-                  {fmt(view.balances.get(account.id) ?? 0, baseCurrency)}
+                  {fmtNet(view.balances.get(account.id) ?? 0, baseCurrency)}
                 </span>
               </div>
               {staleDays(account, now) !== null && (
@@ -193,7 +193,7 @@ export default function Accounts() {
 
           <section aria-label="Bank">
             <GroupBar icon="🏦" name="Bank" count={view.banks.length} unit={['account', 'accounts']}
-              total={fmt(view.bankTotal, baseCurrency)} tone="sage" />
+              total={fmtNet(view.bankTotal, baseCurrency)} tone="sage" />
             <div className="flex flex-col gap-3">
               {view.banks.map(row)}
             </div>
@@ -348,7 +348,7 @@ function AccountRow({ acc, balance, currency, now, ledgerOpen, onOpen, onReconci
   if (isCard) {
     line = figures
       ? [
-          `${fmt(figures.available, currency)} free of ${fmt(figures.limit, currency)}`,
+          `${fmtNet(figures.available, currency)} free of ${fmt(figures.limit, currency)}`,
           acc.billingCycleDay ? `cycle ${ordinal(acc.billingCycleDay)}` : null,
           acc.paymentDueDay ? `due ${fmtDay(nextDueDate(acc.paymentDueDay, now))}` : null,
         ].filter(Boolean).join(' · ')

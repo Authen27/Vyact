@@ -15,7 +15,7 @@ import TxnRow from '../components/transactions/TxnRow';
 import TxnCalendar from '../components/transactions/TxnCalendar';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import { ALL_CATEGORIES, getCat } from '../constants';
-import { getMonthKey, monthName, formatDate, nowMonthKey, today, compareTxnRecency, fmt } from '../lib/format';
+import { getMonthKey, monthName, formatDate, nowMonthKey, today, compareTxnRecency, fmt, fmtSigned } from '../lib/format';
 import { monthlyData, effectiveAmount } from '../lib/calculations';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
 import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
@@ -505,7 +505,7 @@ export default function Transactions() {
               </span>
               {(type === 'all' || type === 'income' || type === 'expense') && (
                 <span className={filteredNet >= 0 ? 'text-sage' : 'text-terra'}>
-                  Net {filteredNet >= 0 ? '+' : ''}{fmt(filteredNet, profile.baseCurrency)}
+                  Net {fmtSigned(filteredNet, profile.baseCurrency)}
                 </span>
               )}
             </div>
@@ -544,7 +544,7 @@ export default function Transactions() {
                       {group.items.length} {group.items.length === 1 ? 'txn' : 'txns'}
                     </span>
                     <span className={`ml-auto font-mono text-[0.72rem] font-bold ${group.net >= 0 ? 'text-sage' : 'text-terra'}`}>
-                      {group.net >= 0 ? '+' : ''}{fmt(group.net, profile.baseCurrency)}
+                      {fmtSigned(group.net, profile.baseCurrency)}
                     </span>
                     <button
                       type="button"
@@ -612,7 +612,7 @@ export default function Transactions() {
           <div className="flex justify-between items-center py-1 text-[13px]">
             <span className="text-ink-dim">Net</span>
             <b className={`num ${railMonth.income - railMonth.expense >= 0 ? 'text-sage' : 'text-terra'}`}>
-              {railMonth.income - railMonth.expense >= 0 ? '+' : ''}{fmt(railMonth.income - railMonth.expense, profile.baseCurrency)}
+              {fmtSigned(railMonth.income - railMonth.expense, profile.baseCurrency)}
             </b>
           </div>
         </div>

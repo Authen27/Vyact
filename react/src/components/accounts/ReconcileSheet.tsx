@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import FormPage from '../ui/FormPage';
 import Button from '../ui/Button';
 import { useStore } from '../../store';
-import { fmt } from '../../lib/format';
+import { fmt, fmtNet } from '../../lib/format';
 import { computeAccountBalance } from '../../lib/accountBalance';
 import { lastReconciledAt, parseAmountInput, statementWindow } from '../../lib/accountsView';
 import { CURRENCIES } from '../../constants';
@@ -68,7 +68,9 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
   const sinceDays = since ? Math.floor((Date.now() - new Date(since).getTime()) / DAY_MS) : null;
   const symbol = CURRENCIES[baseCurrency]?.symbol ?? '';
   const statementNoun = isCard ? 'statement outstanding' : 'statement balance';
-  const signed = (n: number) => (isCard ? `−${fmt(n, baseCurrency)}` : fmt(n, baseCurrency));
+  // W4d (FE-UIC-04): a card is stated as what it owes (shown negative; a card in credit, positive);
+  // a bank keeps its own sign, so an overdraft reads as one.
+  const signed = (n: number) => fmtNet(isCard ? -n : n, baseCurrency);
 
   async function submit() {
     if (!account || statedValue === null) return;

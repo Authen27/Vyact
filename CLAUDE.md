@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.72.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.73.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -513,6 +513,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - The zone comes from the creator's signup metadata or is stamped once by the owner's device (`set_household_timezone`).
   - Scheduled WhatsApp jobs run every 30 minutes and act in each household's local slot (`inJobSlot`).
   - A push skipped for quiet hours stays pending.
+- **A bill card acts only on its own occurrence (v10.73.0, W4d; audit FE-UIS-04).** Approve and Skip
+  (bell and bill calendar) go through `approveRecurring` / `skipRecurring`, which refuse anything but the
+  due pointer and return whether they acted; the UI says "Already handled" otherwise, never a success
+  it did not have. A card's date is `notificationOccurrence(n)` (a cloud `due_at` is a timestamp), and
+  `refreshNotifications` marks read every unread bill card whose schedule has moved past it or is
+  paused (`resolvedBillCards`). Never advance a schedule from whatever its pointer is "now".
+- **A figure that can cross zero keeps its minus (v10.73.0, W4d; FE-UIC-04).** `fmt`/`fmtShort` print
+  the magnitude only. Balances, nets, net worth and chart axes that can go negative use `fmtNet` /
+  `fmtShortNet` (or `fmtSigned` where a "+" is wanted, or `<Money>`).
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)

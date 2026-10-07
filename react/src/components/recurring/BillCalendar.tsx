@@ -6,7 +6,6 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../../store';
 import { billCalendar, type BillOccurrence, type BillStatus } from '../../lib/billCalendar';
-import { advanceSchedule } from '../../lib/recurring';
 import { fmt, formatDate, today } from '../../lib/format';
 import { getCat } from '../../constants';
 
@@ -34,7 +33,7 @@ export default function BillCalendar() {
   const dateFormat = useStore(s => s.profile.dateFormat);
   const rates = useStore(s => s.rates);
   const approveRecurring = useStore(s => s.approveRecurring);
-  const upsertRecurring = useStore(s => s.upsertRecurring);
+  const skipRecurring = useStore(s => s.skipRecurring);
   const toast = useStore(s => s.toast);
   const [horizon, setHorizon] = useState<Horizon>(30);
   const [busy, setBusy] = useState<string | null>(null);
@@ -49,8 +48,8 @@ export default function BillCalendar() {
   async function approve(item: BillOccurrence) {
     setBusy(keyOf(item));
     try {
-      await approveRecurring(item.scheduleId, item.date);
-      toast('Approved — transaction posted', 'success');
+      const posted = await approveRecurring(item.scheduleId, item.date);
+      toast(posted ? 'Approved — transaction posted' : 'Already handled', posted ? 'success' : 'info');
     } catch {
       toast('Could not approve this bill. Please retry.', 'error');
     } finally {
@@ -64,8 +63,8 @@ export default function BillCalendar() {
     if (!confirm(`Skip ${item.description || 'this bill'} on ${formatDate(item.date, dateFormat)}? It will not be posted.`)) return;
     setBusy(keyOf(item));
     try {
-      await upsertRecurring(advanceSchedule(schedule));
-      toast('Skipped once', 'info');
+      const skipped = await skipRecurring(schedule.id, item.date);
+      toast(skipped ? 'Skipped once' : 'Already handled', 'info');
     } catch (error) {
       toast(`Could not skip: ${(error as Error).message}`, 'error');
     } finally {

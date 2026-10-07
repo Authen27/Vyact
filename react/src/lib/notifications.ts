@@ -147,6 +147,33 @@ export function recurringDueNotifs(schedules: RecurringSchedule[], prefs: Notifi
   return out;
 }
 
+/**
+ * W4d (audit FE-UIS-04, INT-TXN-13) — the occurrence a bill card is about, as YYYY-MM-DD. A card
+ * read back from the cloud carries `due_at` as a timestamp ("2026-10-21T00:00:00+00:00"), which never
+ * equalled the schedule's due date, so Approve quietly did nothing while saying it had posted.
+ */
+export function notificationOccurrence(n: Pick<Notification, 'dueAt'>): string | undefined {
+  return n.dueAt ? n.dueAt.slice(0, 10) : undefined;
+}
+
+/**
+ * W4d — unread "approve this bill" cards whose bill was already handled: approved or skipped in the
+ * app, "paid X" on WhatsApp, another member, or the schedule paused. Its schedule has moved past the
+ * card's occurrence. A card whose schedule this device does not hold is left alone (it may simply not
+ * have loaded yet).
+ */
+export function resolvedBillCards(notifications: Notification[], schedules: RecurringSchedule[]): string[] {
+  const byId = new Map(schedules.map(s => [s.id, s]));
+  return notifications
+    .filter(n => n.type === 'recurring_due_confirm' && n.status === 'unread' && n.scheduleId)
+    .filter(n => {
+      const s = byId.get(n.scheduleId!);
+      const occurrence = notificationOccurrence(n);
+      return !!s && (s.active === false || (!!occurrence && s.nextDueDate > occurrence));
+    })
+    .map(n => n.id);
+}
+
 /** 2 · recurring_reminder (P2) — lead-time reminder for upcoming schedules. */
 export function recurringReminderNotifs(schedules: RecurringSchedule[], prefs: NotificationPrefs, existing: Notification[], ctx: Ctx): Notification[] {
   if (!typeEnabled(prefs, 'recurring_reminder')) return [];

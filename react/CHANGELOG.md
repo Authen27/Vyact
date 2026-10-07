@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.72.0`** (consumer)
+> **Current production version: `v10.73.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,36 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.73.0 — W4d: bill cards act on their own bill; negative figures keep their minus *(2026-10-07)*
+
+The W4 fixes that needed no owner choice (audit FE-UIS-04, INT-TXN-13, FE-UIC-04, INT-TZC-06). App
+only; no schema change.
+
+- **"Skip once" no longer skips next month's bill.**
+  - A card left in the bell after the bill was approved elsewhere (the Recurring page, "paid X" on
+    WhatsApp, another member) skipped from wherever the schedule was now. Tapping it skipped the
+    NEXT occurrence, which was then never posted or asked for.
+  - Skip now goes through `skipRecurring`, which acts only on the card's own occurrence while it is
+    the one due.
+- **"Approve" no longer claims a post that did not happen.**
+  - On a stale card it quietly did nothing and still said "Approved — transaction posted".
+  - Cards read back from the cloud carry their due date as a timestamp, which never matched, so
+    Approve on any synced card did nothing.
+  - Both actions now say "Already handled" when there is nothing to do, in the bell and in the bill
+    calendar.
+- **Handled cards clear themselves.** On each refresh, an unread bill card whose schedule has moved
+  past it, or been paused, is marked read.
+- **Negative figures show their minus.** The formatter printed the size only, so a −₹5,000 figure
+  read "₹5,000". Now these keep the "−":
+  - an overdrawn bank row and the Bank total, and Cash in Hand;
+  - the account editor's balance and Reconcile's "Vyact says";
+  - net worth below zero, "money you can reach", and the liquidity groups;
+  - the month nets on Transactions;
+  - the net and net-worth chart axes and tooltips;
+  - the starting net position.
+
+Tests: billCardsAndSigns.test.ts (W4-BELL-001/002, W4-SIGN-001).
 
 ## v10.72.0 — W4c: editing a split keeps the split *(2026-10-07)*
 
