@@ -73,8 +73,9 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
     await page.goto('/settings');
     await page.waitForURL('**/settings');
     await openSettingsRow(page, 'Language & currency');
-    await page.getByLabel('Base Currency').selectOption('EUR');
+    await page.getByLabel('Household currency').selectOption('EUR');
     await expect.poll(() => storeState(page, 'profile.baseCurrency')).toBe('EUR');
+    await expect(page.getByText('Changing it changes the symbol only; amounts are not converted.')).toBeVisible();
 
     await openSettingsRow(page, 'Debt preferences');
     await expect(page.getByText('Monthly Extra Payment (EUR)')).toBeVisible();
@@ -222,7 +223,9 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
       },
     });
 
-    test('FX-FC-001 · editing an exchange rate re-renders converted totals everywhere', async ({ page }) => {
+    // W3b (v10.66.0; owner decision D14): one currency per household and no exchange rates. Rows
+    // still labelled EUR count at face value in the household's USD, and Settings has no rates sheet.
+    test('FX-FC-001 · rows labelled in another currency count at face value; there is no rates sheet', async ({ page }) => {
       await page.goto('/dashboard');
       await page.waitForURL('**/dashboard');
       await expect(metric(page, 'Monthly Income')).toContainText('$100');
@@ -237,22 +240,7 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
 
       await page.goto('/settings');
       await page.waitForURL('**/settings');
-      await openSettingsRow(page, 'Exchange rates');
-      const eurRate = page.getByLabel('EUR rate');
-      await eurRate.fill('2');
-      await eurRate.blur();
-      await expect(page.getByText('EUR rate updated')).toBeVisible();
-
-      await page.goto('/dashboard');
-      await page.waitForURL('**/dashboard');
-      await expect(metric(page, 'Monthly Income')).toContainText('$50');   // 100 EUR ÷ 2
-      await expect(metric(page, 'Monthly Expenses')).toContainText('$20');
-
-      await page.goto('/reports');
-      await page.waitForURL('**/reports');
-      await expect(summary).toContainText('$50');
-      await expect(summary).toContainText('$20');
-      await expect(summary).toContainText('+$30');
+      await expect(page.getByText('Exchange rates')).toHaveCount(0);
     });
   });
 
@@ -281,26 +269,26 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
       },
     });
 
-    test('FX-FC-005 · changing baseCurrency re-anchors every chart without precision loss', async ({ page }) => {
+    test('FX-FC-005 · changing the household currency changes the symbol only, without precision loss', async ({ page }) => {
       await page.goto('/reports');
       await page.waitForURL('**/reports');
       const summary = panel(page, 'Period Summary');
       const breakdown = panel(page, 'Category Breakdown');
 
-      // 10.25 EUR ÷ 2 = $5.125 → $5.12; 4.10 EUR ÷ 2 = $2.05; net $3.075 → +$3.07.
-      await expect(summary).toContainText('$5.12');
-      await expect(summary).toContainText('$2.05');
-      await expect(summary).toContainText('+$3.07');
+      // W3b (D14): face value — the EUR-labelled rows count as dollars, and the rates are ignored.
+      await expect(summary).toContainText('$10.25');
+      await expect(summary).toContainText('$4.10');
+      await expect(summary).toContainText('+$6.15');
       await expect(breakdown).toContainText('Needs');
-      await expect(breakdown).toContainText('$2.05');
+      await expect(breakdown).toContainText('$4.10');
 
       await page.goto('/settings');
       await page.waitForURL('**/settings');
       await openSettingsRow(page, 'Language & currency');
-      await page.getByLabel('Base Currency').selectOption('EUR');
+      await page.getByLabel('Household currency').selectOption('EUR');
       await expect.poll(() => storeState(page, 'profile.baseCurrency')).toBe('EUR');
 
-      // Re-anchored on EUR, the original amounts come back exactly.
+      // A currency change only changes the symbol: the same amounts, now in euros.
       await page.goto('/reports');
       await page.waitForURL('**/reports');
       await expect(summary).toContainText(/10,25\s*€/);

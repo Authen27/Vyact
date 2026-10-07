@@ -27,8 +27,9 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
   // not as a leading chip.
   const acct = t.paymentMethod ? resolveAccount(t.paymentMethod, assets, debts2) : null;
   const member = members.find(m => m.id === t.memberId);
-  const cur = t.currency || baseCurrency;
-  const showCur = cur !== baseCurrency;
+  // W3b (D14): every row counts at face value in the household's currency, so it is SHOWN in it
+  // too — an old row's own label would contradict the totals it is part of.
+  const cur = baseCurrency;
   const isInv   = t.type === 'investment';
   const isXfer  = t.type === 'transfer';
   const isSplit = t.split?.isSplit;
@@ -105,7 +106,6 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
         {isXfer     && <Badge tone="denim"><ArrowRightLeft size={10}/> Transfer</Badge>}
         {isSplit    && <Badge tone="plum"><Users size={10}/> Split {t.split!.participants.length}</Badge>}
         {member     && <Badge tone="denim">{member.name}</Badge>}
-        {showCur    && <Badge tone="plum">{cur}</Badge>}
       </div>
 
       {/* Edit affordance overlays the right edge on hover instead of reserving a

@@ -79,11 +79,14 @@ test.describe('a household with an earlier recorded month', () => {
 test.describe('a household that changed its currency', () => {
   seeded(household, { net_worth_snapshots: [snapshot('2026-03', 700, 'EUR')] as Snapshot[] });
 
-  test('NWH-FC-003 - months recorded in a previous currency are counted but never drawn', async ({ page }) => {
+  // W3b (owner decision D14): a currency change changes the symbol only, so a month recorded under
+  // the previous currency is drawn as it was recorded (it used to be hidden).
+  test('NWH-FC-003 - a month recorded under a previous currency is drawn as recorded', async ({ page }) => {
     await page.goto('/networth');
     const history = page.getByRole('region', { name: 'Net worth history', exact: true });
-    await expect(history.getByText('1 month recorded in a previous household currency is not shown.')).toBeVisible();
-    await expect(history.getByText('Recording started May 2026', { exact: false })).toBeVisible();
-    await expect(history.locator('.recharts-surface')).toHaveCount(0);
+    await expect(history.getByText(/previous household currency/)).toHaveCount(0);
+    await expect(history.locator('.recharts-wrapper')).toHaveCount(1);
+    await expect(history.getByText('Mar 2026')).toBeVisible();
+    await expect(history.getByText('May 2026')).toBeVisible();
   });
 });

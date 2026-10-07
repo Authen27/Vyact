@@ -61,6 +61,8 @@ interface Profile {
   whatsapp_household_id: string | null;
   /** W3a — the household's zone: the sender's "today" and "yesterday" are read in it. */
   timezone?: string | null;
+  /** W3b — the household's one currency: every entry is in it. */
+  baseCurrency?: string | null;
 }
 
 // Audit S1: the verified phone ↔ profile ↔ household binding now lives in the
@@ -71,7 +73,7 @@ async function lookupIdentity(
 ): Promise<Profile | null> {
   const { data } = await supabase
     .from('whatsapp_identities')
-    .select('profile_id, household_id, households(timezone)')
+    .select('profile_id, household_id, households(timezone, base_currency)')
     .eq('phone_number', fromPhone)
     .maybeSingle();
   if (!data) return null;
@@ -81,8 +83,8 @@ async function lookupIdentity(
   // off. The DB deletes the identity when the membership goes; this is the second layer,
   // and it treats them exactly like an unlinked sender (no data, no writes).
   if (!await isLiveMember(supabase, data.household_id, data.profile_id)) return null;
-  const tz = (data as { households?: { timezone?: string | null } | null }).households?.timezone ?? null;
-  return { id: data.profile_id, whatsapp_household_id: data.household_id, timezone: tz };
+  const hh = (data as { households?: { timezone?: string | null; base_currency?: string | null } | null }).households;
+  return { id: data.profile_id, whatsapp_household_id: data.household_id, timezone: hh?.timezone ?? null, baseCurrency: hh?.base_currency ?? null };
 }
 
 /** Meta's report on a message we sent: move the outbound row's status forward. */
@@ -555,7 +557,7 @@ async function processInbound(
     if (answer !== null && expired) return { status: 'done', note: await reply(fromPhone, EXPIRED) };
     if (answer !== null && pending.kind === 'missing_amount') {
       const again = parseWhatsAppMessage(`${answer} ${pending.payload.text}`, pending.payload.accounts ?? [],
-        pending.payload.baseCurrency ?? 'INR', localDay(message, profile?.timezone));
+        pending.payload.baseCurrency ?? profile?.baseCurrency ?? 'INR', localDay(message, profile?.timezone));
       if (again.ok) return logParsed(supabase, message, fromPhone, profile, again.tx, priorAttempts, { skipDuplicateCheck: true });
     }
     if (answer === 'no') return { status: 'done', note: await reply(fromPhone, SKIPPED) };
@@ -611,7 +613,8 @@ async function processInbound(
     ...(accounts ?? []).map((a: any) => ({ name: a.name, kind: a.kind })),
     ...(investmentAssets ?? []).map((a: any) => ({ name: a.name, kind: 'investment' })),
   ];
-  const baseCurrency: string = (accounts as any)?.[0]?.currency ?? 'USD';
+  // W3b — the HOUSEHOLD's currency (it used to be the first account's, else USD).
+  const baseCurrency: string = profile.baseCurrency ?? (accounts as any)?.[0]?.currency ?? 'INR';
 
   // v10.47.0 — "1200 dinner shared": log it, then ask how to split it.
   const shared = sharedCapture(text);
@@ -629,7 +632,8 @@ async function processInbound(
       await askPending(supabase, profile.id, householdId, 'missing_amount', { text, accounts: accountList, baseCurrency });
       return { status: 'done', note: await reply(fromPhone, ASK_AMOUNT) };
     }
-    return { status: 'done', note: await reply(fromPhone, clarifyReply(parsed.reason, `${APP_URL}/dashboard`)) };
+    const money = parsed.reason === 'foreign_currency' ? { stated: parsed.currency, base: baseCurrency } : undefined;
+    return { status: 'done', note: await reply(fromPhone, clarifyReply(parsed.reason, `${APP_URL}/dashboard`, money)) };
   }
   return logParsed(supabase, message, fromPhone, profile, parsed.tx, priorAttempts, { shared: shared.shared });
 }

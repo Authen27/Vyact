@@ -552,32 +552,35 @@ describe('meta.assistant (F9)', () => {
 });
 
 // ── v10.39.1 — P20 · a stated currency is converted before anything is computed ──
-describe('foreign amounts (P20)', () => {
+// W3b (v10.66.0; owner decision D14) — a household keeps ONE currency and nothing is converted.
+// An amount stated in another currency is asked for again ("needs_restate"), with no figures:
+// neither ₹150 (the old dropped-currency bug) nor ₹12,480 (a conversion the owner ruled out).
+describe('foreign amounts (P20, D14: ask to restate)', () => {
   const fx = { USD: 1, INR: 83.2 };
 
-  it('CON-UNIT-FACT-042 · "$150 dinner" is checked as ₹12,480, not ₹150', () => {
-    const ctx = makeCtx({ rates: fx });
-    const r = resolve(intent('forecast.affordability', { amount: 150, text: 'can i afford a $150 dinner' }), ctx);
-    const f = r.facts as Record<string, string>;
-    expect(f.purchase).toBe('₹12,480');
-    expect(f.amount_as_stated).toBe('150 USD');
-    expect(f.converted_at).toContain('1 USD = 83.20 INR');
+  it('CON-UNIT-FACT-042 · "$150 dinner" in an INR household produces no figure and asks for it in INR', () => {
+    const r = resolve(intent('forecast.affordability', { amount: 150, text: 'can i afford a $150 dinner' }), makeCtx({ rates: fx }));
+    expect(r.outcome).toBe('needs_restate');
+    expect(r.facts).toMatchObject({ amount_currency: 'USD', household_currency: 'INR' });
+    expect(JSON.stringify(r.facts)).not.toMatch(/₹|12,?480|\b150\b/);
   });
 
-  it('CON-UNIT-FACT-043 · a foreign capture seeds the converted amount and says so, with no phrase call', async () => {
-    const call = vi.fn<ModelCall>(async () =>
-      JSON.stringify({ id: 'capture.expense', entities: { amount: 150, currency: 'USD', category: 'food_dining' }, confidence: 0.9 }));
+  it('CON-UNIT-FACT-043 · a foreign capture seeds nothing and asks again', async () => {
+    const call = vi.fn<ModelCall>(async ({ op }) => (op === 'classify'
+      ? JSON.stringify({ id: 'capture.expense', entities: { amount: 150, currency: 'USD', category: 'food_dining' }, confidence: 0.9 })
+      : 'Your household records everything in INR. How much was it in rupees?'));
     const turn = await runAssistant('spent $150 on dinner', makeCtx({ rates: fx }), new LlmBackend(call), 0);
-    expect(call).toHaveBeenCalledTimes(1);
-    expect(turn.seed?.amount).toBe(12480);
-    expect(turn.reply).toContain("150 USD at the app's exchange rate");
+    expect(turn.seed).toBeUndefined();
+    expect(turn.clarify).toBe(true);
+    expect(turn.resolved?.outcome).toBe('needs_restate');
   });
 
-  it('CON-UNIT-FACT-044 · with no rate for the currency, NO figure is produced', () => {
-    const r = resolve(intent('forecast.affordability', { amount: 40, currency: 'EUR', text: 'can i afford €40' }),
-      makeCtx({ rates: fx }));
-    expect(r.outcome).toBe('needs_rate');
-    expect(JSON.stringify(r.facts)).not.toMatch(/₹/);
+  it('CON-UNIT-FACT-044 · rates make no difference: no conversion with or without them', () => {
+    for (const rates of [fx, {}]) {
+      const r = resolve(intent('forecast.affordability', { amount: 40, currency: 'EUR', text: 'can i afford €40' }), makeCtx({ rates }));
+      expect(r.outcome).toBe('needs_restate');
+      expect(JSON.stringify(r.facts)).not.toMatch(/₹/);
+    }
   });
 
   it('CON-UNIT-FACT-045 · statedCurrency reads entities, symbols and words, and $ against the base', () => {

@@ -37,7 +37,8 @@ describe('Merged personal Insights', () => {
     expect(result.some(item => item.issue === 'category:travel')).toBe(true);
   });
 
-  it('compares allocation-based budgets using central FX and each budget period', () => {
+  it('compares allocation-based budgets at face value and over each budget period', () => {
+    // W3b (owner decision D14): one currency per household — an old label counts at face value.
     const budgets = [
       { id: 'monthly', scope: 'month', periodYear: 2026, periodMonth: 9, limit: 200, currency: 'EUR' },
       { id: 'annual', scope: 'annual', periodYear: 2026, limit: 300, currency: 'USD' },
@@ -48,7 +49,7 @@ describe('Merged personal Insights', () => {
       { id: 'year-line', budgetId: 'annual', category: 'travel', amount: 300 },
       { id: 'old-line', budgetId: 'old', category: 'groceries', amount: 1 },
     ] as BudgetAllocation[];
-    const input = base({ budgets, budgetAllocations, transactions: [income, transaction({ amount: 90 }), transaction({ id: 'annual-spend', category: 'travel', amount: 350, date: '2026-02-01' })] });
+    const input = base({ budgets, budgetAllocations, transactions: [income, transaction({ amount: 75 }), transaction({ id: 'annual-spend', category: 'travel', amount: 350, date: '2026-02-01' })] });
     const warning = evaluateRecommendations(input, 50).find(rec => rec.id === 'expenses.budget_exceeded');
     expect(warning?.title).toBe('1 category limit exceeded');
     expect(warning?.body).toContain('Travel');

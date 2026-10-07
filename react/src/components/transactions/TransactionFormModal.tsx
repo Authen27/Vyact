@@ -248,7 +248,7 @@ export default function TransactionFormModal(props: Props) {
       setForm({
         type: initial.type,
         amount: String(initial.amount),
-        currency: initial.currency,
+        currency: profile.baseCurrency,   // W3b: an old row's label is not kept — one currency
         date: initial.date,
         time: initialTime,
         description: initial.description,
@@ -284,7 +284,7 @@ export default function TransactionFormModal(props: Props) {
       const blankForm: FormState = {
         ...base,
         amount: seed?.amount != null ? String(seed.amount) : base.amount,
-        currency: seed?.currency ?? base.currency,
+        currency: base.currency,           // W3b: a seed's currency never overrides the household's
         description: seed?.description ?? base.description,
         category: seed?.category ?? base.category,
         note: seed?.note ?? base.note,
@@ -670,18 +670,9 @@ export default function TransactionFormModal(props: Props) {
         </Select>
       </Field>
 
-      {/* Currency selection removed (v10.5.5) — every transaction uses the
-          household's base currency. Edits of a legacy foreign-currency row
-          keep its stored currency untouched (form.currency still carries it
-          through persist); there's just no control to change it. Only one
-          field lived behind "All details" (Private) — promoted to the main
-          sheet since a one-item disclosure was pure friction. */}
+      {/* W3b (v10.66.0; owner decision D14) — every transaction is in the household's currency; an
+          edited legacy row is saved in it too (it already counted at face value). Nothing converts. */}
       <div className="mt-4">
-        {form.currency !== profile.baseCurrency && (
-          <p className="mb-2 text-[0.72rem] text-ink-dim leading-snug">
-            Recorded in {form.currency}; reports convert to {profile.baseCurrency}.
-          </p>
-        )}
         <label className="flex items-center gap-2 text-[0.84rem] text-ink-mid cursor-pointer select-none">
           <input type="checkbox" checked={form.excluded}
             onChange={e => setForm(f => ({ ...f, excluded: e.target.checked }))} />

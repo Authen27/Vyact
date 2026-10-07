@@ -130,7 +130,7 @@ export const FAQ: [string, string][] = [
     'Yes. Share a bill by email with friends or flatmates. Once they join Vyact they see their share and can mark it settled, and your own totals only ever count your part.'],
   ['What can I ask Pip?',
     'Ask things like “can we afford a weekend away?”, “how much is left in the grocery budget?” or “what did we spend on travel last month?”. Pip answers from your household’s own figures, not guesses.'],
-  ['Which currency does Vyact use?', 'Your household’s own. Choose it when you set up, and Vyact converts other currencies at the rates you set.'],
+  ['Which currency does Vyact use?', 'Your household’s own. Choose it when you set up; every amount in the household is recorded and shown in that one currency.'],
   ['Does it work on my phone?', 'Yes. Vyact runs in any modern browser and can be added to your home screen on Android and iPhone, where it opens like an app and can send bill and budget alerts.'],
   ['Who can see my household’s data?', 'Only the people you invite to your household, with the access you give them. Your data is never sold or used for advertising, and the privacy policy explains exactly what is stored and why.'],
 ];

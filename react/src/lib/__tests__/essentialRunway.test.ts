@@ -19,13 +19,14 @@ describe('Essential-spend runway (v10.31.0)', () => {
     expect(baselineLabel(result.baselineMonths)).toBe('May–Aug 2026');
   });
 
-  it('counts only need-classified reportable spending, honours the live classification map, and converts currency', () => {
+  it('counts only need-classified reportable spending, honours the live classification map, at face value', () => {
+    // W3b (owner decision D14): one currency per household — an old label counts at face value.
     const transactions = [
       txn({ amount: 200 }), txn({ category: 'shopping', amount: 400 }), txn({ category: 'rent_mortgage', amount: 80, currency: 'EUR' }),
       txn({ excluded: true, amount: 999 }), txn({ type: 'transfer', category: '', amount: 999 }), txn({ type: 'income', category: 'salary', amount: 999 }),
     ];
-    expect(run(transactions).averageEssential).toBe(300);
-    expect(run(transactions, 3000, { ...needs, shopping: 'need' }).averageEssential).toBe(700);
+    expect(run(transactions).averageEssential).toBe(280);
+    expect(run(transactions, 3000, { ...needs, shopping: 'need' }).averageEssential).toBe(680);
   });
 
   it('reports zero months for a non-positive liquid position, and no runway without a baseline or essential spend', () => {

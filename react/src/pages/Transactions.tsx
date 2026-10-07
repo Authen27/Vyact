@@ -288,7 +288,7 @@ export default function Transactions() {
   function exportShown() {
     const shown = filtered.filter(i => !i.projected).map(i => i.txn);
     if (!shown.length) return;
-    downloadCsv(transactionsCsv(shown, { members, accounts: accountsList }), `vyact-transactions-${today()}.csv`);
+    downloadCsv(transactionsCsv(shown, { members, accounts: accountsList, baseCurrency: profile.baseCurrency }), `vyact-transactions-${today()}.csv`);
     toast(`${shown.length} transaction${shown.length === 1 ? '' : 's'} exported`, 'success');
   }
   function resetAllFilters() {

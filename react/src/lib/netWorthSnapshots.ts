@@ -78,16 +78,18 @@ export function monthLabel(month: string): string {
 
 export interface NetWorthHistory {
   points: (NetWorthSnapshot & { label: string })[];
-  /** True once there are enough comparable recorded months to draw a line. */
+  /** True once there are enough recorded months to draw a line. */
   ready: boolean;
-  /** Snapshots recorded in another currency (before a base-currency change): not comparable, not drawn. */
-  otherCurrency: number;
 }
 
-export function netWorthHistory(snapshots: readonly NetWorthSnapshot[], currency: string): NetWorthHistory {
-  const comparable = snapshots.filter(snapshot => snapshot.currency === currency);
-  const points = [...comparable]
+/**
+ * W3b (v10.66.0; owner decision D14): every recorded month is drawn as it was recorded, at face value
+ * in the household's currency — a currency change changes the symbol only, so a month recorded under
+ * the previous symbol is the same number. (It used to be hidden as "not comparable".)
+ */
+export function netWorthHistory(snapshots: readonly NetWorthSnapshot[], _currency?: string): NetWorthHistory {
+  const points = [...snapshots]
     .sort((left, right) => left.month.localeCompare(right.month))
     .map(snapshot => ({ ...snapshot, label: monthLabel(snapshot.month) }));
-  return { points, ready: points.length >= MIN_HISTORY_POINTS, otherCurrency: snapshots.length - comparable.length };
+  return { points, ready: points.length >= MIN_HISTORY_POINTS };
 }

@@ -10,13 +10,14 @@ const run = (budgets: Budget[], allocations: BudgetAllocation[], transactions: T
   budgetTrends({ budgets, allocations, transactions, baseCurrency: 'USD', rates: { USD: 1, EUR: 0.8 }, range, now: NOW });
 
 describe('Budget vs actual by matching scope (v10.31.0)', () => {
-  it('compares a monthly budget over its own month, only in its allocated categories, through central FX', () => {
+  it('compares a monthly budget over its own month, only in its allocated categories, at face value', () => {
+    // W3b (owner decision D14): one currency per household — an old label counts at face value.
     const trends = run([budget({ id: 'jul', currency: 'EUR' })], [line('jul', 'groceries', 80), line('jul', 'travel', 40)], [
       txn({ amount: 90 }), txn({ category: 'travel', amount: 30 }), txn({ category: 'shopping', amount: 500 }),
       txn({ date: '2026-08-01', amount: 500 }), txn({ excluded: true, amount: 500 }),
     ]);
     expect(trends.monthly).toEqual([expect.objectContaining({ label: 'Jul 2026', start: '2026-07-01', end: '2026-07-31',
-      budgeted: 150, actual: 120, difference: 30, status: 'under' })]);
+      budgeted: 120, actual: 120, difference: 0, status: 'on' })]);
   });
 
   it('marks over, and never calls the current period over or under', () => {

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.65.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.66.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -35,7 +35,7 @@ per-version history is archived in [`docs/HISTORY.md`](docs/HISTORY.md).
 
 ## Technical debt — one register, deprioritized
 
-[`TECH_DEBT.md`](TECH_DEBT.md) is the **single** debt register (44 items; never open a parallel
+[`TECH_DEBT.md`](TECH_DEBT.md) is the **single** debt register (45 items; never open a parallel
 `*_REMEDIATION.md` — they get folded in and deleted). **Paydown is deprioritized right now:** the
 current priority is completing Ask Vyact — see [`docs/ASK_VYACT_STATUS.md`](docs/ASK_VYACT_STATUS.md)
 for what is done vs pending there. Do not start TD work unless explicitly asked.
@@ -100,7 +100,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   loads. Cash can be renamed but never deleted or archived.
   **Account currency is the household's** — the form has no currency field; a
   trigger stamps `households.base_currency` on every account write and a base
-  currency change relabels every account. One default account per household
+  currency change relabels every account. **Since v10.66.0 (W3b, owner decision D14)
+  a household has ONE currency and NOTHING is converted**: transactions, budgets,
+  goals, debts and assets are stamped with it too (`stamp_household_currency`), every
+  fold reads amounts at face value (`convert` / `convertViaUsdRates` ignore rates), an
+  older label on a stored row is ignored (never rewritten), and a currency change only
+  changes the symbol. There are no exchange rates in the app; never reintroduce one. One default account per household
   (`uq_account_default_per_household`); marking a new default clears the old one
   in the same statement.
 - **The Accounts screen holds spendable accounts only (v10.24.0)** — Cash in Hand
@@ -244,10 +249,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   acknowledged deterministically, before the form opens. `meta.assistant` answers
   about the assistant and reads no household data; unmatched questions carry
   `CAPABILITIES` so a decline names what does work.
-  **A stated amount is checked before it is used (v10.39.1):** a foreign currency is
-  converted at the app's rate in the `resolve()` wrapper, and a MISSING rate returns
-  `needs_rate` with no figures — `convert()` silently treats a missing rate as 1, so
-  never call it on a user-stated code without checking the rate exists. An amount that
+  **A stated amount is checked before it is used (v10.39.1; v10.66.0):** an amount in
+  another currency is never converted — the `resolve()` wrapper returns `needs_restate`
+  with no figures and Pip asks for it in the household's currency (WhatsApp: the parser's
+  `foreign_currency`, same symbol/word table as `statedCurrency`). An amount that
   only appears in the text as a phone/account/reference number is not an amount
   (`isIdentifierRun`, identical in the WhatsApp parser). **Free to spend is liquid −
   `cardDues()`**, read from the projection's liability rows, and affordability headroom
@@ -361,8 +366,8 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   notify and the `whatsapp-dispatch` scheduler alike. Consent lives in `whatsapp_preferences`
   (marketing and insights OFF until given in the app; `START` in chat never grants it). Bills and
   large-spend alerts cannot be muted. Scheduler figures come from the money port only, and a rule
-  SKIPS a household it cannot state truly (foreign currency with no server rates, ₹ templates for
-  non-INR). **v10.43.0 (W2b): "paid X" approves a reminded bill ONLY through
+  SKIPS a household it cannot state truly (₹ templates for non-INR households; since v10.66.0
+  a row's own currency label no longer matters — face value). **v10.43.0 (W2b): "paid X" approves a reminded bill ONLY through
   `whatsapp_approve_recurring`**, which posts the app's own row (deterministic id; `_shared/recurring.ts`
   is parity-tested against `generateTransaction` + `txnToRow` + `advanceSchedule`) AND advances the
   schedule in one transaction. Never log a plain transaction for a bill: the schedule stays due and

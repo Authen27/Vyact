@@ -120,7 +120,7 @@ export default function BillCalendar() {
                         <div className={`text-xs ${status.tone === 'ink-dim' ? 'text-ink-dim' : ''}`} style={status.tone === 'ink-dim' ? undefined : { color: `hsl(var(--${status.tone}))` }}>{status.label}</div>
                       </div>
                       <span className={`num text-sm ${isIncome ? 'text-sage' : 'text-ink'}`}>
-                        {isIncome ? '+' : item.type === 'expense' ? '−' : ''}{fmt(item.amount, item.currency)}
+                        {isIncome ? '+' : item.type === 'expense' ? '−' : ''}{fmt(item.amount, baseCurrency)}
                       </span>
                       {item.actionable && (
                         <div className="flex gap-2 w-full sm:w-auto sm:ml-2">

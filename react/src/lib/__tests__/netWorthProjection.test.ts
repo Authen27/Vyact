@@ -76,11 +76,11 @@ describe('computeNetWorth — the one projection (audit F3)', () => {
       expect(projected.totalLiabilities).toBe(0);
       expect(projected.netWorth).toBe(150);
     });
-    it('CON-UNIT-909 - archiving retains value and opening balances are valued in account currency', () => {
+    it('CON-UNIT-909 - archiving retains value; an old currency label counts at face value (W3b)', () => {
       const state = { assets: [], debts: [], transactions: [], accounts: [
         { id: 'foreign', kind: 'bank' as const, name: 'Foreign', currency: 'GBP', openingBalance: 800, isArchived: true },
       ] };
-      expect(computeNetWorth(state, 'USD', R).netWorth).toBe(1000);
+      expect(computeNetWorth(state, 'USD', R).netWorth).toBe(800);
     });
 
   it('CON-UNIT-121 · a NEW account with no asset/debt row moves the projection (the audit\'s divergence case)', () => {

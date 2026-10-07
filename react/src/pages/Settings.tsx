@@ -5,7 +5,7 @@ import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, today } from '../lib/format';
-import { CURRENCIES, DEFAULT_RATES, LOCALES } from '../constants';
+import { CURRENCIES, LOCALES } from '../constants';
 import { sb } from '../lib/supabase';
 import {
   updatePassword,
@@ -98,7 +98,6 @@ export default function Settings() {
   const { t } = useTranslation();
   const navigate    = useNavigate();
   const profile     = useStore(s => s.profile);
-  const rates       = useStore(s => s.rates);
   const theme       = useStore(s => s.theme);
   const cloudEnabled = useStore(s => s.cloudEnabled);
   const session      = useStore(s => s.session);
@@ -110,8 +109,6 @@ export default function Settings() {
   const assets      = useStore(s => s.assets);
   const members     = useStore(s => s.members);
   const updateProfile = useStore(s => s.updateProfile);
-  const upsertRate  = useStore(s => s.upsertRate);
-  const resetRates  = useStore(s => s.resetRates);
   const setTheme    = useStore(s => s.setTheme);
   const toast       = useStore(s => s.toast);
   const notificationPrefs = useStore(s => s.notificationPrefs);
@@ -208,7 +205,6 @@ export default function Settings() {
   const [name, setName]       = useState(profile.name);
   const [email, setEmail]     = useState(profile.email);
   const [saving, setSaving]   = useState(false);
-  const [rateEdits, setRateEdits] = useState<Record<string, string>>({});
   const [extraPay, setExtraPay] = useState(String(profile.extraPayment || 0));
 
   // Board E · M1 — one row open at a time across the grouped settings list.
@@ -251,21 +247,13 @@ export default function Settings() {
     finally { setSaving(false); }
   }
 
-  async function applyRate(code: string) {
-    const val = parseFloat(rateEdits[code] ?? '');
-    if (isNaN(val) || val <= 0) return;
-    await upsertRate(code, val);
-    setRateEdits(r => { const n = {...r}; delete n[code]; return n; });
-    toast(`${code} rate updated`, 'success');
-  }
-
   // One snapshot for both 'Download Backup' and 'Copy to Clipboard' (the copy used to leave out
-  // members, rates and the version while its button said 'Full backup').
+  // members and the version while its button said 'Full backup'). W3b: no exchange rates — a
+  // household has one currency and nothing is converted.
   function backupSnapshot() {
     return {
       version: '6.4.9', exported: today(),
       profile, transactions, budgets, goals, members, debts, assets,
-      exchangeRates: rates,
     };
   }
 
@@ -289,7 +277,7 @@ export default function Settings() {
 
   function exportCSV() {
     // v10.55.0 (#69) — one builder with the Transactions page; adds who added it, accounts, mode.
-    downloadCsv(transactionsCsv(transactions, { members, accounts: useStore.getState().accounts }), `vyact-transactions-${today()}.csv`);
+    downloadCsv(transactionsCsv(transactions, { members, accounts: useStore.getState().accounts, baseCurrency: profile.baseCurrency }), `vyact-transactions-${today()}.csv`);
     toast('CSV exported', 'success');
   }
 
@@ -504,13 +492,17 @@ export default function Settings() {
                 </Select>
               </div>
               <div>
-                <label htmlFor="settings-currency" className="mono-label mb-1.5 block">Base Currency</label>
+                <label htmlFor="settings-currency" className="mono-label mb-1.5 block">Household currency</label>
                 <Select id="settings-currency" value={profile.baseCurrency}
                   onChange={e => updateProfile({ baseCurrency: e.target.value })}>
                   {Object.entries(CURRENCIES).map(([code, meta]) => (
                     <option key={code} value={code}>{meta.symbol} {code} — {meta.name}</option>
                   ))}
                 </Select>
+                {/* W3b (owner decision D14): one currency per household; changing it changes the symbol only. */}
+                <p className="text-[0.74rem] text-ink-dim mt-1.5">
+                  Every amount in this household is in this currency. Changing it changes the symbol only; amounts are not converted.
+                </p>
               </div>
               <div className="sm:col-span-2">
                 <label htmlFor="settings-number-system" className="mono-label mb-1.5 block">Number System</label>
@@ -522,41 +514,6 @@ export default function Settings() {
                 <p className="text-[0.74rem] text-ink-dim mt-1.5">
                   Used when large amounts are compacted (KPI tiles, summary rows, charts).
                 </p>
-              </div>
-            </div>
-          </SettingRow>
-
-          <SettingRow icon="⇄" label="Exchange rates" value={`${Object.keys(CURRENCIES).length - 1} currencies`}
-            open={openRow === 'rates'} onToggle={() => toggleRow('rates')}>
-            <div className="px-3.5 pb-3">
-              <p className="text-[0.84rem] text-ink-mid mb-3">
-                Rates relative to USD. All multi-currency amounts are converted through these.
-              </p>
-              <div className="grid sm:grid-cols-3 gap-2">
-                {Object.entries(CURRENCIES).filter(([c]) => c !== 'USD').map(([code]) => (
-                  <div key={code} className="flex items-center gap-2 bg-bg3 border border-line rounded-md px-3 py-2">
-                    <span className="font-mono text-[0.7rem] text-ink-dim w-8 flex-shrink-0" aria-hidden="true">{code}</span>
-                    <input
-                      // v10.22.3 — these inputs had NO accessible name. The
-                      // currency was only in an adjacent <span>, so a screen
-                      // reader announced twenty-odd identical "edit text" fields
-                      // with nothing to tell them apart. The span is decorative
-                      // now and the name lives on the control itself.
-                      aria-label={`${code} rate`}
-                      className="input flex-1 text-right text-sm py-1 px-2"
-                      value={rateEdits[code] ?? String(rates[code] ?? DEFAULT_RATES[code] ?? '')}
-                      onChange={e => setRateEdits(r => ({ ...r, [code]: e.target.value }))}
-                      onBlur={() => applyRate(code)}
-                      onKeyDown={e => e.key === 'Enter' && applyRate(code)}
-                      placeholder={String(DEFAULT_RATES[code] ?? '')}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 flex justify-end">
-                <button className="btn-ghost btn-sm" onClick={() => { resetRates(); toast('Rates reset to defaults', 'info'); }}>
-                  Reset to defaults
-                </button>
               </div>
             </div>
           </SettingRow>

@@ -88,7 +88,7 @@ export default function BudgetFormModal(props: Props) {
         periodYear: String(initial.periodYear ?? new Date().getFullYear()),
         periodMonth: String(initial.periodMonth ?? new Date().getMonth() + 1),
         limit: String(initial.limit ?? ''),
-        currency: initial.currency,
+        currency: profile.baseCurrency,   // W3b: one currency per household
         allocs: rows,
       });
     } else {
@@ -295,9 +295,6 @@ export default function BudgetFormModal(props: Props) {
           <AmountField value={form.limit} currencySymbol={currencySymbol}
             onChange={v => setForm(f => ({ ...f, limit: v }))} />
         </div>
-        {form.currency !== profile.baseCurrency && (
-          <p className="text-center text-[0.72rem] text-ink-dim">Recorded in {form.currency}.</p>
-        )}
       </div>
 
       {/* Board M2 — allocations as tappable neu rows (pip suggests via Suggest). */}

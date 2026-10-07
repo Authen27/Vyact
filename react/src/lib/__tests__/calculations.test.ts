@@ -58,10 +58,9 @@ describe('effectiveAmount', () => {
     });
     expect(effectiveAmount(t, USD, R)).toBe(40);
   });
-  it('CON-UNIT-015 · converts a foreign-currency amount into base', () => {
-    // 92 EUR @ rate 0.92 → USD = exactly 100 with dinero + banker's rounding.
-    // (Pre-TD-01 phase A this was `~100.00...` via floats — now strict.)
-    expect(effectiveAmount(txn({ amount: 92, currency: 'EUR' }), USD, R)).toBe(100);
+  it('CON-UNIT-015 · W3b: a row labelled with another currency counts at face value in the household\'s', () => {
+    // One currency per household (owner decision D14): the row's own label is not read.
+    expect(effectiveAmount(txn({ amount: 92, currency: 'EUR' }), USD, R)).toBe(92);
   });
 });
 

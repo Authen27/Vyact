@@ -241,7 +241,7 @@ async function billsFor(admin: SupabaseClient, household: Household, members: Me
     .eq('household_id', household.id).is('deleted_at', null).eq('active', true).eq('auto_confirm', true)
     .eq('next_due_date', nextDay(today));
   if (aErr) throw new Error(`auto schedules: ${aErr.message}`);
-  const tomorrow = billsTomorrow({ today, schedules: (autoBills ?? []) as never, members });
+  const tomorrow = billsTomorrow({ today, schedules: (autoBills ?? []) as never, members, baseCurrency: household.base_currency });
   const { data: schedules, error } = await admin.from('recurring_schedules')
     .select('id, household_id, next_due_date, auto_confirm, active, txn_template')
     .eq('household_id', household.id).is('deleted_at', null).eq('active', true).eq('auto_confirm', false)
@@ -256,8 +256,8 @@ async function billsFor(admin: SupabaseClient, household: Household, members: Me
   const approvers = members.filter((m) => writers.has(m.profile_id));
   return [
     ...tomorrow,
-    ...billReminders({ today, schedules: schedules as never, approvers }),
-    ...overdueBillReminders({ today, schedules: schedules as never, approvers }),
+    ...billReminders({ today, schedules: schedules as never, approvers, baseCurrency: household.base_currency }),
+    ...overdueBillReminders({ today, schedules: schedules as never, approvers, baseCurrency: household.base_currency }),
   ];
 }
 
@@ -311,7 +311,7 @@ async function paydayFor(admin: SupabaseClient, household: Household, members: M
     .eq('household_id', household.id).is('deleted_at', null).eq('type', 'income').eq('category', 'salary')
     .gte('date', from).lt('date', today);
   const earlier = ((earlierRows ?? []) as { amount: number | string; currency: string; extras: { excluded?: boolean } | null }[])
-    .filter((r) => String(r.currency).trim() === 'INR' && !r.extras?.excluded).map((r) => Number(r.amount));
+    .filter((r) => !r.extras?.excluded).map((r) => Number(r.amount));   // W3b: face value
   const { data: schedules } = await admin.from('recurring_schedules').select('frequency, rrule, txn_template')
     .eq('household_id', household.id).is('deleted_at', null).eq('active', true);
   const monthly = ((schedules ?? []) as { frequency: string | null; rrule: string | null; txn_template: { type?: string; amount?: number | string; currency?: string } }[])

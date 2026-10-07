@@ -263,66 +263,24 @@ export function sumDinero<T>(items: readonly T[], getDinero: (t: T) => Money, ba
   return acc;
 }
 
-/** Express a JS-number FX rate as dinero's `{ amount, scale }` shape.
- *  Scale 10 ≈ 10 digits of rate precision, well inside Number.MAX_SAFE_INTEGER
- *  for any realistic rate. */
-function rateToScaled(rate: number, scale = 10): { amount: number; scale: number } {
-  return { amount: Math.round(rate * Math.pow(10, scale)), scale };
-}
 
-/** dinero v2 `convert` for a single scaled rate: multiply the integer amount by
- *  the scaled rate and carry the summed scale. */
-function dineroConvert(d: Money, newCurrency: MoneyCurrency, rate: { amount: number; scale: number }): Money {
-  const newScale = d.scale + rate.scale;
-  const raw: Money = { amount: d.amount * rate.amount, scale: newScale, currency: newCurrency };
-  return transformScale(raw, Math.max(newScale, newCurrency.exponent));
-}
-
-/** Banker's rounding (half-to-even) — used only at the FX re-quantisation edge
- *  so chained conversions are not biased up or down. */
-function bankersRound(n: number): number {
-  const trunc = Math.trunc(n);
-  const frac = n - trunc;
-  if (frac === 0.5) return trunc % 2 === 0 ? trunc : trunc + 1;
-  if (frac === -0.5) return trunc % 2 === 0 ? trunc : trunc - 1;
-  return Math.round(n);
-}
-
-/** A dinero conversion leaves scale = source scale + rate scale (i.e. sub-cent
- *  precision). Re-quantise to the currency's native exponent with banker's
- *  rounding so the value round-trips cleanly through later operations. */
-function quantizeToCurrency(d: Money): Money {
-  const native = d.currency.exponent;
-  if (d.scale <= native) return d;
-  const factor = Math.pow(10, d.scale - native);
-  return { amount: bankersRound(d.amount / factor), scale: native, currency: d.currency };
-}
-
-/** Convert across currencies using the per-USD rate table (DEFAULT_RATES
- *  semantics). Two-step through USD, exactly matching the legacy
- *  `(amount / rFrom) * rTo`, quantised at each hop. No-op on same currency. */
-export function convertViaUsdRates(d: Money, toCode: string, rates: Record<string, number>): Money {
+// W3b (v10.66.0; owner decision D14) — ONE CURRENCY PER HOUSEHOLD, NO CONVERSION. Every amount is
+// read at face value in the household's currency: a row still labelled with another currency (an old
+// row, or one saved before the household's currency was changed) counts as the household's, and a
+// currency change only changes the symbol. The `rates` argument is accepted and ignored, so the many
+// callers that still pass it need no change; removing that plumbing is TECH_DEBT TD-45.
+/** Port of the app's convertViaUsdRates: the same amount in the household's currency. */
+export function convertViaUsdRates(d: Money, toCode: string, _rates?: Record<string, number>): Money {
   const fromCode = d.currency.code;
   if (fromCode === toCode) return d;
-
-  const dUsd = fromCode === 'USD'
-    ? d
-    : quantizeToCurrency(
-        dineroConvert(d, CURRENCY_REGISTRY.USD, rateToScaled(1 / (rates[fromCode] ?? 1))),
-      );
-
-  if (toCode === 'USD') return dUsd;
-  const target = currencyOf(toCode);
-  // Rates are keyed by the RESOLVED code (target.code); these differ only when
-  // `toCode` is unknown and falls back to USD, in which case the lookup must
-  // also use 'USD'. Mirrors the client comment verbatim.
-  return quantizeToCurrency(dineroConvert(dUsd, target, rateToScaled(rates[toCode] ?? 1)));
+  return toDinero(fromDinero(d), toCode);
 }
 
-/** Port of `react/src/lib/format.ts` → `convert()`. */
-export function convert(amount: number, from: string, to: string, rates: ExchangeRates): number {
+
+/** Port of `react/src/lib/format.ts` → `convert()`: face value (W3b). */
+export function convert(amount: number, from: string, to: string, _rates?: ExchangeRates): number {
   if (!amount || from === to) return amount;
-  return fromDinero(convertViaUsdRates(toDinero(amount, from), to, rates));
+  return fromDinero(convertViaUsdRates(toDinero(amount, from), to));
 }
 
 /** Port of `react/src/lib/format.ts` → `getMonthKey()`. */
@@ -338,12 +296,11 @@ export function txnAmountInBase(t: Transaction, baseCurrency: string, rates: Exc
 
 /** The amount that actually belongs to this household: a split row contributes
  *  only `yourShare`. FX is applied per-row before any fold. */
-function effectiveDinero(t: Transaction, baseCurrency: string, rates: ExchangeRates): Money {
-  const cur = t.currency || baseCurrency;
+function effectiveDinero(t: Transaction, baseCurrency: string, _rates?: ExchangeRates): Money {
   const raw = t.split?.isSplit && typeof t.split.yourShare === 'number'
     ? t.split.yourShare
     : t.amount;
-  return convertViaUsdRates(toDinero(raw, cur), baseCurrency, rates);
+  return toDinero(raw, baseCurrency);   // face value (W3b), as the app
 }
 
 export function effectiveAmount(t: Transaction, baseCurrency: string, rates: ExchangeRates): number {

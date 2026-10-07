@@ -74,6 +74,10 @@ export default function Onboarding() {
   const refresh = useStore(s => s.refresh);
   const toast = useStore(s => s.toast);
   const profileName = useStore(s => s.profile.name);
+  // W3b (audit FE-UIS-03): a household that has been through onboarding already has a currency the
+  // owner chose; a re-run starts from it instead of guessing again from the browser language, which
+  // relabelled every amount for anyone whose browser locale differed from their money.
+  const onboardedCurrency = useStore(s => (s.profile.onboardedAt ? s.profile.baseCurrency : null));
 
   const [startedAt] = useState(() => Date.now());
   const [step, setStep] = useState<Step>(0);
@@ -83,9 +87,8 @@ export default function Onboarding() {
   const [income, setIncome] = useState<string>('');
   const [incomeSteady, setIncomeSteady] = useState<boolean>(true);
   const [billAmounts, setBillAmounts] = useState<Record<string, string>>({});
-  const [currency, setCurrency] = useState<string>(() =>
-    navigator.language?.includes('IN') ? 'INR' : navigator.language?.includes('GB') ? 'GBP' : 'USD',
-  );
+  const [currency, setCurrency] = useState<string>(() => onboardedCurrency
+    ?? (navigator.language?.includes('IN') ? 'INR' : navigator.language?.includes('GB') ? 'GBP' : 'USD'));
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {

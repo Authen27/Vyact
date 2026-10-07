@@ -12,7 +12,7 @@ import { computeNetWorth, cardDues } from '../lib/netWorth';
 import { spendBasis } from '../lib/aiSummary';
 import { netWorthHistory, monthLabel, type NetWorthSnapshot } from '../lib/netWorthSnapshots';
 import { NetWorthHistoryChart } from '../components/charts/ReportCharts';
-import { computeAssetValue, type LiveAssetRow } from '../lib/accountBalance';
+import type { LiveAssetRow } from '../lib/accountBalance';
 import { ASSET_TYPES, DEBT_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
 
@@ -344,9 +344,6 @@ export default function NetWorth() {
                             )}
                             <div className="text-right min-w-0">
                               <Money amount={row.value} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem]" />
-                              {/* v10.26.0 (R4) — the live value in the asset's own currency;
-                                  for an investment `value` is only its opening value. */}
-                              {a.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(computeAssetValue(a, transactions, rates), a.currency)}</div>}
                             </div>
                             <div className="flex gap-1">
                               <button className="row-action" aria-label={`Edit ${a.name}`} title="Edit" onClick={() => openEdit(a)}>
@@ -397,7 +394,6 @@ export default function NetWorth() {
                     </div>
                     <div className="text-right min-w-0">
                       <Money amount={balBase} currency={c} maxChars={11} className="font-semibold text-terra text-[0.9rem]" />
-                      {d.currency !== c && <div className="font-mono text-[0.58rem] text-ink-dim">{fmt(d.currentBalance, d.currency)}</div>}
                     </div>
                   </div>
                 );
@@ -434,11 +430,6 @@ function NetWorthHistory({ snapshots, currency }: { snapshots: NetWorthSnapshot[
                 : 'Your Net Worth is recorded the first time the household opens Vyact each month. The chart appears once two months are recorded.'}
             </p>
           )}
-        {history.otherCurrency > 0 && (
-          <p className="px-4 pb-2 text-xs text-ink-dim">
-            {history.otherCurrency} month{history.otherCurrency === 1 ? '' : 's'} recorded in a previous household currency {history.otherCurrency === 1 ? 'is' : 'are'} not shown.
-          </p>
-        )}
         <p className="px-4 pb-4 text-xs text-ink-dim">
           Each point is the Net Worth shown when the month was first recorded, in {currency}. Earlier months are never filled in.
         </p>

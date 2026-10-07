@@ -14,15 +14,16 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-09T12:
 afterEach(() => vi.useRealTimers());
 
 describe('Reports, Planner, Insights and notification outputs', () => {
-  it('reports inclusive period boundaries, FX and exclusions without counting transfers as spend', () => {
+  it('reports inclusive period boundaries, face value and exclusions without counting transfers as spend', () => {
+    // W3b (owner decision D14): one currency per household — an old label counts at face value.
     const transactions = [expense({ date: '2026-09-01', amount: 10 }), expense({ date: '2026-09-30', amount: 8, currency: 'GBP' }),
       expense({ date: '2026-08-31' }), expense({ date: '2026-10-01' }), expense({ excluded: true }),
       expense({ type: 'transfer', toAccountId: 'savings', category: '', amount: 500 })];
-    expect(spendByCategoryInRange(transactions, '2026-09-01', '2026-09-30', 'USD', { USD: 1, GBP: 0.8 })).toEqual({ groceries: 20 });
+    expect(spendByCategoryInRange(transactions, '2026-09-01', '2026-09-30', 'USD', { USD: 1, GBP: 0.8 })).toEqual({ groceries: 18 });
     const series = cumulativeSpendSeries(transactions, new Set(['groceries']), '2026-09-01', '2026-09-30', 'USD', { USD: 1, GBP: 0.8 });
     expect(series).toHaveLength(30);
     expect(series[0]).toEqual({ date: '2026-09-01', cumulative: 10 });
-    expect(series[29]).toEqual({ date: '2026-09-30', cumulative: 20 });
+    expect(series[29]).toEqual({ date: '2026-09-30', cumulative: 18 });
   });
 
   it('Planner explains 85 percent consumption and groups the recommendation under expenses', () => {

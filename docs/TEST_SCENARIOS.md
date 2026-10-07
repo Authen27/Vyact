@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1443 passing deterministic cases in 107 files. Zero failed, skipped or TODO cases at generation.**
+**1446 passing deterministic cases in 108 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -34,12 +34,12 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 8 |
 | react | contract-unit | conditional | 119 |
 | react | handler-integration | conditional | 74 |
-| react | sql-integration | conditional | 31 |
+| react | sql-integration | conditional | 33 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 49 |
 | react | store-integration | conditional | 2 |
 | react | unit | available | 337 |
-| react | unit | conditional | 172 |
+| react | unit | conditional | 173 |
 | react | unit | infrastructure | 603 |
 
 ### Executed Files
@@ -115,6 +115,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/onboarding.test.ts](../react/src/lib/__tests__/onboarding.test.ts) | Onboarding | unit | available | 16 |
 | [react/src/lib/__tests__/onboardingWiring.test.ts](../react/src/lib/__tests__/onboardingWiring.test.ts) | Onboarding | unit | available | 8 |
 | [react/src/lib/__tests__/onboardingWorkflow.test.ts](../react/src/lib/__tests__/onboardingWorkflow.test.ts) | Onboarding | unit | available | 3 |
+| [react/src/lib/__tests__/oneCurrencySql.test.ts](../react/src/lib/__tests__/oneCurrencySql.test.ts) | One currency SQL | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/ordering.test.ts](../react/src/lib/__tests__/ordering.test.ts) | Categories and ordering | unit | available | 5 |
 | [react/src/lib/__tests__/outbox.test.ts](../react/src/lib/__tests__/outbox.test.ts) | Outbox algorithm | unit | available | 8 |
 | [react/src/lib/__tests__/outboxIndexedDb.test.ts](../react/src/lib/__tests__/outboxIndexedDb.test.ts) | Storage and synchronization | storage-integration | available | 5 |
@@ -148,7 +149,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/whatsappDispatch.test.ts](../react/src/lib/__tests__/whatsappDispatch.test.ts) | WhatsApp dispatch | contract-unit | conditional | 17 |
 | [react/src/lib/__tests__/whatsappFollowups.test.ts](../react/src/lib/__tests__/whatsappFollowups.test.ts) | WhatsApp dispatch | contract-unit | conditional | 8 |
-| [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 34 |
+| [react/src/lib/__tests__/whatsappParser.test.ts](../react/src/lib/__tests__/whatsappParser.test.ts) | WhatsApp parser | unit | conditional | 35 |
 | [react/src/lib/__tests__/whatsappTemplates.test.ts](../react/src/lib/__tests__/whatsappTemplates.test.ts) | WhatsApp templates | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateSenders.test.ts](../react/src/lib/__tests__/whatsappTemplateSenders.test.ts) | WhatsApp dispatch | contract-unit | conditional | 16 |
 | [react/src/lib/__tests__/whatsappTemplateValidation.test.ts](../react/src/lib/__tests__/whatsappTemplateValidation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 5 |

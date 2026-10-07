@@ -42,12 +42,12 @@ describe('Recorded Net Worth snapshots (v10.30.0)', () => {
     expect(mergeSnapshot([snap('2026-09')], snap('2026-08')).map(row => row.month)).toEqual(['2026-08', '2026-09']);
   });
 
-  it('draws history only from two or more recorded months in the household currency', () => {
-    expect(netWorthHistory([snap('2026-09')], 'INR')).toMatchObject({ ready: false, otherCurrency: 0 });
+  it('draws history from two or more recorded months; a month recorded under a previous currency is drawn as recorded (W3b)', () => {
+    // Owner decision D14: a currency change changes the symbol only, so every recorded month is drawn.
+    expect(netWorthHistory([snap('2026-09')], 'INR')).toMatchObject({ ready: false });
     const history = netWorthHistory([snap('2026-09'), snap('2026-07', { currency: 'USD' }), snap('2026-08')], 'INR');
     expect(history.ready).toBe(true);
-    expect(history.otherCurrency).toBe(1);
-    expect(history.points.map(point => point.label)).toEqual(['Aug 2026', 'Sep 2026']);
+    expect(history.points.map(point => point.label)).toEqual(['Jul 2026', 'Aug 2026', 'Sep 2026']);
   });
 
   it('local-only adapter: first write for a month wins and survives a later write', async () => {

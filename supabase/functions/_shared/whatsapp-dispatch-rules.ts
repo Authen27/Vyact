@@ -8,9 +8,9 @@
 // (`_shared/money/calculations.ts`, parity-tested against the client), or is a
 // plain sum/count of rows the port calls reportable. And a rule SKIPS rather than
 // guesses:
-//   • a household with any spend or limit outside its base currency is skipped —
-//     `convert()` treats a missing rate as 1, so a mixed-currency figure could be
-//     silently wrong, and there are no rates on the server;
+//   • W3b (v10.66.0; owner decision D14): a household has ONE currency and nothing is
+//     converted — a row still labelled with an older currency counts at face value, so it
+//     no longer silences a rule (it used to skip the whole household);
 //   • templates with "₹" in the approved text go only to INR households;
 //   • a private (excluded) transaction is never announced to anyone.
 
@@ -118,7 +118,6 @@ export function largeSpendAlerts(input: {
   const out: PlannedSend[] = [];
   for (const r of input.txns) {
     if (r.type !== 'expense' || r.recurring_schedule_id || r.extras?.excluded) continue;
-    if (String(r.currency).trim() !== household.base_currency.trim()) continue;
     const account = r.account_id ? input.accountNames[r.account_id] : undefined;
     if (!account) continue;
     const amount = Number(r.amount);
@@ -153,12 +152,10 @@ export function budgetAlerts(input: {
 }): PlannedSend[] {
   const base = input.household.base_currency.trim();
   if (base !== 'INR') return [];
-  if (input.txns.some((r) => String(r.currency).trim() !== base)) return [];
   const txns = input.txns.map(rowToTxn);
   const out: PlannedSend[] = [];
   for (const b of input.budgets) {
     if (!b.period_start || !b.period_end || b.period_start > input.today || b.period_end < input.today) continue;
-    if (String(b.currency).trim() !== base) continue;
     const daysLeft = daysBetween(input.today, b.period_end);
     if (daysLeft < 1) continue;
     const spend = spendByCategoryInRange(txns, b.period_start, b.period_end, base, {});
@@ -209,7 +206,6 @@ export function weeklySummary(input: {
   household: Household; today: string; txns: TxnRow[]; member: Member; weekKey: string;
 }): PlannedSend | null {
   const base = input.household.base_currency.trim();
-  if (input.txns.some((r) => String(r.currency).trim() !== base)) return null;
   const start = new Date(Date.parse(`${input.today}T00:00:00Z`) - 6 * 86_400_000).toISOString().slice(0, 10);
   const txns = input.txns.map(rowToTxn);
   const spend = spendByCategoryInRange(txns, start, input.today, base, {});
@@ -269,8 +265,7 @@ export function reengagementNudge(input: {
     if (quiet >= QUIET_AFTER_DAYS) return { ...base, template: 'reengagement_nudge_quiet', values: [first, String(quiet)] };
   }
   if (input.household.base_currency.trim() !== 'INR') return null;   // the body says ₹
-  const mine = input.unnamed.filter((r) => String(r.currency).trim() === 'INR'
-    && (!r.extras?.excluded || r.created_by === input.member.profile_id));
+  const mine = input.unnamed.filter((r) => !r.extras?.excluded || r.created_by === input.member.profile_id);
   const total = Math.round(mine.reduce((s, r) => s + Number(r.amount), 0) * 100) / 100;
   if (mine.length < UNNAMED_MIN_COUNT || total < UNNAMED_MIN_TOTAL) return null;
   return { ...base, template: 'reengagement_nudge', values: [first, amountText(total), countWord(mine.length)] };
@@ -296,7 +291,7 @@ export function dueDayText(day: string): string {
  * A schedule that posts itself needs no reply, so it gets no reminder; an EMI,
  * transfer or investment cannot be approved from chat, so it gets none either.
  */
-export function billReminders(input: { today: string; schedules: BillSchedule[]; approvers: Member[] }): PlannedSend[] {
+export function billReminders(input: { today: string; schedules: BillSchedule[]; approvers: Member[]; baseCurrency?: string }): PlannedSend[] {
   const out: PlannedSend[] = [];
   for (const s of input.schedules) {
     const t = s.txn_template ?? {};
@@ -304,11 +299,12 @@ export function billReminders(input: { today: string; schedules: BillSchedule[];
     if (t.type !== 'expense' || t.category === 'loan_emi' || t.debtId) continue;
     const name = String(t.description ?? '').trim();
     const amount = Number(t.amount);
-    if (!name || !(amount > 0) || !t.currency) continue;
+    const cur = input.baseCurrency ?? String(t.currency ?? '').trim();   // W3b: the household's currency
+    if (!name || !(amount > 0) || !cur) continue;
     for (const m of input.approvers.filter((a) => a.household_id === s.household_id)) {
       out.push({
         template: 'bill_due_reminder', householdId: s.household_id, toProfileId: m.profile_id,
-        values: [name, moneyText(amount, String(t.currency).trim()), dueDayText(s.next_due_date), name],
+        values: [name, moneyText(amount, cur), dueDayText(s.next_due_date), name],
         dedupeKey: `bill:${s.id}:${s.next_due_date}`,
       });
     }
@@ -328,7 +324,7 @@ export function nextDay(day: string): string {
  * goes out as the approved `bill_due_reminder`, keyed `bill:<schedule>:<due day>` like the
  * due-day reminder, so a "paid Rent" reply finds it (the webhook then says it posts itself).
  */
-export function billsTomorrow(input: { today: string; schedules: BillSchedule[]; members: Member[] }): PlannedSend[] {
+export function billsTomorrow(input: { today: string; schedules: BillSchedule[]; members: Member[]; baseCurrency?: string }): PlannedSend[] {
   const tomorrow = nextDay(input.today);
   const out: PlannedSend[] = [];
   for (const s of input.schedules) {
@@ -336,11 +332,12 @@ export function billsTomorrow(input: { today: string; schedules: BillSchedule[];
     if (!s.active || !s.auto_confirm || s.next_due_date !== tomorrow || t.type !== 'expense') continue;
     const name = String(t.description ?? '').trim();
     const amount = Number(t.amount);
-    if (!name || !(amount > 0) || !t.currency) continue;
+    const cur = input.baseCurrency ?? String(t.currency ?? '').trim();   // W3b: the household's currency
+    if (!name || !(amount > 0) || !cur) continue;
     for (const m of input.members.filter((a) => a.household_id === s.household_id)) {
       out.push({
         template: 'bill_due_reminder', householdId: s.household_id, toProfileId: m.profile_id,
-        values: [name, moneyText(amount, String(t.currency).trim()), dueDayText(s.next_due_date), name],
+        values: [name, moneyText(amount, cur), dueDayText(s.next_due_date), name],
         dedupeKey: `bill:${s.id}:${s.next_due_date}`,
       });
     }
@@ -357,7 +354,7 @@ export const OVERDUE_AFTER_DAYS = 3;
  * schedule's pointer not having moved is what "still waiting" means: approving it
  * anywhere — app or chat — moves the pointer, and the rule stops matching.
  */
-export function overdueBillReminders(input: { today: string; schedules: BillSchedule[]; approvers: Member[] }): PlannedSend[] {
+export function overdueBillReminders(input: { today: string; schedules: BillSchedule[]; approvers: Member[]; baseCurrency?: string }): PlannedSend[] {
   const due = new Date(Date.parse(`${input.today}T00:00:00Z`) - OVERDUE_AFTER_DAYS * 86_400_000).toISOString().slice(0, 10);
   const out: PlannedSend[] = [];
   for (const s of input.schedules) {
@@ -366,11 +363,12 @@ export function overdueBillReminders(input: { today: string; schedules: BillSche
     if (t.type !== 'expense' || t.category === 'loan_emi' || t.debtId) continue;
     const name = String(t.description ?? '').trim();
     const amount = Number(t.amount);
-    if (!name || !(amount > 0) || !t.currency) continue;
+    const cur = input.baseCurrency ?? String(t.currency ?? '').trim();   // W3b: the household's currency
+    if (!name || !(amount > 0) || !cur) continue;
     for (const m of input.approvers.filter((a) => a.household_id === s.household_id)) {
       out.push({
         template: 'bill_overdue_reminder', householdId: s.household_id, toProfileId: m.profile_id,
-        values: [name, `${countWord(OVERDUE_AFTER_DAYS)} days ago`, moneyText(amount, String(t.currency).trim()), name],
+        values: [name, `${countWord(OVERDUE_AFTER_DAYS)} days ago`, moneyText(amount, cur), name],
         dedupeKey: `bill:${s.id}:${s.next_due_date}`,
       });
     }
@@ -491,7 +489,7 @@ export function recurringLoggedAlerts(input: {
   const out: PlannedSend[] = [];
   for (const r of input.posted) {
     const s = r.recurring_schedule_id ? byId.get(r.recurring_schedule_id) : undefined;
-    if (!s || !s.auto_confirm || r.type !== 'expense' || !isInr(r.currency) || r.extras?.excluded) continue;
+    if (!s || !s.auto_confirm || r.type !== 'expense' || r.extras?.excluded) continue;
     const to = [s.created_by, r.created_by].find((p): p is string => !!p && linked.has(p));
     if (!to) continue;
     const name = String(s.txn_template?.description || r.description || EXPENSE_LABEL[r.category ?? ''] || 'scheduled payment').trim();
@@ -525,7 +523,7 @@ export function paydayAlerts(input: {
   if (!isInr(input.household.base_currency) || input.bills.count < 1) return [];
   const out: PlannedSend[] = [];
   for (const r of input.salaries) {
-    if (r.type !== 'income' || r.category !== 'salary' || r.date !== input.today || !isInr(r.currency) || r.extras?.excluded) continue;
+    if (r.type !== 'income' || r.category !== 'salary' || r.date !== input.today || r.extras?.excluded) continue;
     const member = input.members.find((m) => m.profile_id === r.created_by);
     if (!member?.first_name) continue;
     const income = Number(r.amount);
@@ -571,7 +569,7 @@ export function dailyDigest(input: {
   if (!todays.length) return nothingLogged(input);
   if (!isInr(input.household.base_currency)) return [];
   const rows = todays.filter(counted);
-  if (!rows.length || rows.some((r) => !isInr(r.currency))) return [];
+  if (!rows.length) return [];
   const byPerson = new Map<string, number>();
   for (const r of rows) byPerson.set(r.created_by ?? '', (byPerson.get(r.created_by ?? '') ?? 0) + spendOf(r));
   const total = Math.round([...byPerson.values()].reduce((a, b) => a + b, 0) * 100) / 100;

@@ -33,7 +33,8 @@ describe('Reports periods and account attribution', () => {
     }
   });
 
-  it('uses reportable entries and central currency conversion in every chart bucket', () => {
+  it('uses reportable entries at face value in every chart bucket', () => {
+    // W3b (owner decision D14): one currency per household — an old label counts at face value.
     const rows = buildPeriodData('month', [
       transaction({}),
       transaction({ type: 'income', amount: 500, currency: 'USD', category: 'salary' }),
@@ -43,7 +44,7 @@ describe('Reports periods and account attribution', () => {
       transaction({ type: 'transfer', category: '', amount: 900 }),
       transaction({ type: 'investment', category: '', amount: 900 }),
     ], 'USD', { USD: 1, EUR: 0.8 }, new Date(2026, 2, 31));
-    expect(rows.at(-1)).toMatchObject({ income: 500, expense: 100, net: 400 });
+    expect(rows.at(-1)).toMatchObject({ income: 500, expense: 80, net: 420 });
   });
 
   it('attributes income to the destination and expenses to the paying account', () => {

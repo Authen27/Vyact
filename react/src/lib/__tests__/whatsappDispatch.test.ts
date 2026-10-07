@@ -94,11 +94,13 @@ describe('what the scheduler sends', () => {
         txn({ id: 'private', amount: 50000, extras: { excluded: true } }),
         txn({ id: 'rent', amount: 25000, recurring_schedule_id: 's-1' }),
         txn({ id: 'small', amount: 12000 }),
-        txn({ id: 'usd', amount: 20000, currency: 'USD' }),
+        txn({ id: 'usd', amount: 20000, currency: 'USD' }),   // W3b: an old label counts at face value
       ],
     });
-    expect(sends).toEqual([{ template: 'large_transaction_alert', householdId: 'h', toProfileId: 'bob',
-      values: ['18,000', 'HDFC card'], dedupeKey: 'txn:big' }]);
+    expect(sends).toEqual([
+      { template: 'large_transaction_alert', householdId: 'h', toProfileId: 'bob', values: ['18,000', 'HDFC card'], dedupeKey: 'txn:big' },
+      { template: 'large_transaction_alert', householdId: 'h', toProfileId: 'bob', values: ['20,000', 'HDFC card'], dedupeKey: 'txn:usd' },
+    ]);
     expect(largeSpendAlerts({ household: { id: 'h', base_currency: 'USD' }, members: MEMBERS, thresholds: {},
       accountNames: { 'acc-1': 'x' }, txns: [txn({ amount: 99999, created_by: 'zed' })] })).toEqual([]);   // ₹ in the text
   });
@@ -123,13 +125,17 @@ describe('what the scheduler sends', () => {
       values: ['Food & Dining', '80', '9', '1,000'], dedupeKey: 'budget:b-9:food_dining:80' }]);   // groceries is at 100%: no "still in the pot"
   });
 
-  it('CON-UNIT-WA-D-008 · a household with any foreign-currency spend gets no budget alert (no rates on the server)', () => {
-    expect(budgetAlerts({
-      household: HH, today: '2026-09-21', members: MEMBERS,
+  it('CON-UNIT-WA-D-008 · W3b: a row still labelled in another currency counts at face value; it no longer silences the alert', () => {
+    // Owner decision D14 — one currency per household, nothing converted. It used to skip the household.
+    const sends = budgetAlerts({
+      household: HH, today: '2026-09-21', members: [MEMBERS[0]],
       txns: [txn({ amount: 4500 }), txn({ amount: 10, currency: 'USD' })],
-      budgets: [{ id: 'b', currency: 'INR', period_start: '2026-09-01', period_end: '2026-09-30' }],
+      budgets: [{ id: 'b', currency: 'USD', period_start: '2026-09-01', period_end: '2026-09-30' }],
       allocations: [{ budget_id: 'b', category: 'food_dining', amount: 5000 }],
-    })).toEqual([]);
+    });
+    expect(sends).toHaveLength(1);
+    expect(sends[0].dedupeKey).toBe('budget:b:food_dining:80');
+    expect(sends[0].values.at(-1)).toBe('490');   // 5,000 − (4,500 + 10)
   });
 
   it('CON-UNIT-WA-D-009 · split settled, weekly summary and stale balances', () => {

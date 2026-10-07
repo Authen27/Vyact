@@ -164,7 +164,7 @@ export default function SplitFormModal(props: Props) {
       setForm({
         type: initial.type === 'income' ? 'income' : 'expense',
         amount: String(sp.totalAmount),
-        currency: initial.currency,
+        currency: profile.baseCurrency,   // W3b: one currency per household
         date: initial.date,
         description: initial.description,
         category: initial.category || defaultCat(initial.type === 'income' ? 'income' : 'expense'),

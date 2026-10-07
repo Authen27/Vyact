@@ -10,12 +10,16 @@ const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
 export function transactionsCsv(
   transactions: Transaction[],
-  ctx: { members: Pick<Member, 'id' | 'name'>[]; accounts: Pick<Account, 'id' | 'name'>[] },
+  ctx: {
+    members: Pick<Member, 'id' | 'name'>[]; accounts: Pick<Account, 'id' | 'name'>[];
+    /** W3b (D14): the household's one currency — every row is in it, whatever its old label. */
+    baseCurrency: string;
+  },
 ): string {
   const memberName = (id?: string) => (id && ctx.members.find(m => m.id === id)?.name) || '';
   const accountName = (id?: string) => (id && ctx.accounts.find(a => a.id === id)?.name) || '';
   const rows = transactions.map(t => [
-    t.date, t.type, t.description, t.category, t.amount, t.currency, t.note || '',
+    t.date, t.type, t.description, t.category, t.amount, ctx.baseCurrency, t.note || '',
     memberName(t.memberId), accountName(t.accountId), accountName(t.toAccountId),
     t.paymentMode ? PAYMENT_MODE_LABEL[t.paymentMode] : '',
   ]);

@@ -10,9 +10,12 @@ import {
   matchCategory,
   EXPENSE_IDS,
   INCOME_IDS,
+  clarifyReply,
+  normalise,
+  statedCurrency as waStatedCurrency,
   type AccountLite,
 } from '../../../../supabase/functions/_shared/whatsapp-parser';
-import { parseAmount as clientParseAmount } from '../askVyactParser';
+import { parseAmount as clientParseAmount, statedCurrency as appStatedCurrency } from '../askVyactParser';
 
 const ACCOUNTS: AccountLite[] = [
   { name: 'HDFC', kind: 'bank' },
@@ -148,10 +151,26 @@ describe('investment detection', () => {
 });
 
 describe('currency detection', () => {
-  it('₹ / symbols override base', () => {
-    expect((parseWhatsAppMessage('₹850 lunch', ACCOUNTS, 'USD') as any).tx.currency).toBe('INR');
-    expect((parseWhatsAppMessage('$20 coffee', ACCOUNTS, 'INR') as any).tx.currency).toBe('USD');
+  it('CON-UNIT-W3-D14-001 · an amount in another currency is asked for again, never logged (W3b)', () => {
+    // Owner decision D14: one currency per household, nothing converted.
+    expect(parseWhatsAppMessage('₹850 lunch', ACCOUNTS, 'USD')).toEqual({ ok: false, reason: 'foreign_currency', currency: 'INR' });
+    expect(parseWhatsAppMessage('$20 coffee', ACCOUNTS, 'INR')).toEqual({ ok: false, reason: 'foreign_currency', currency: 'USD' });
+    for (const text of ['20 dollars netflix', '15 quid lunch', '40 euros taxi', '300 yen snack']) {
+      expect(parseWhatsAppMessage(text, ACCOUNTS, 'INR'), text).toMatchObject({ ok: false, reason: 'foreign_currency' });
+    }
     expect((parseWhatsAppMessage('20 coffee', ACCOUNTS, 'INR') as any).tx.currency).toBe('INR');
+    expect((parseWhatsAppMessage('₹850 lunch', ACCOUNTS, 'INR') as any).tx.currency).toBe('INR');
+    expect((parseWhatsAppMessage('$20 coffee', ACCOUNTS, 'AUD') as any).tx.currency).toBe('AUD');   // $ is the household's dollar
+    expect(clarifyReply('foreign_currency', 'https://vyact.app', { stated: 'USD', base: 'INR' })).toMatch(/records everything in INR/);
+  });
+
+  it('CON-UNIT-W3-D14-002 · the WhatsApp parser and Pip read a stated currency from the same table', () => {
+    const phrases = ['$150 dinner', '₹500 lunch', '40 euros', '15 quid', '20 bucks', '30 dirhams', '300 yen', 'spent 150 on dinner', 'rs 200 tea', '25 GBP book'];
+    for (const base of ['INR', 'USD', 'AUD']) {
+      for (const p of phrases) {
+        expect(waStatedCurrency(normalise(p), base), `${p} / ${base}`).toBe(appStatedCurrency(undefined, normalise(p), base, base === 'INR' ? '₹' : base === 'AUD' ? 'A$' : '$'));
+      }
+    }
   });
 });
 

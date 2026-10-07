@@ -55,7 +55,9 @@ export interface AccountLite { name: string; kind: string }
 
 export type ParseResult =
   | { ok: true; tx: ParsedTx }
-  | { ok: false; reason: 'empty' | 'query' | 'no_amount' };
+  | { ok: false; reason: 'empty' | 'query' | 'no_amount' }
+  /** W3b (D14) — an amount in another currency: asked again in the household's, never converted. */
+  | { ok: false; reason: 'foreign_currency'; currency: string };
 
 // ── [1] normalise (ported) ──────────────────────────────────────────────────
 export function normalise(raw: string): string {
@@ -239,14 +241,30 @@ export function extractStatedDate(text: string, today: Date): { date: string | n
   return { date: null, rest: text };
 }
 
-function detectCurrency(text: string, base: string): string {
-  if (/₹|\b(inr|rs|rupees?)\b/i.test(text)) return 'INR';
-  if (/€|\beur\b/i.test(text)) return 'EUR';
-  if (/£|\bgbp\b/i.test(text)) return 'GBP';
-  if (/\$|\busd\b/i.test(text)) return 'USD';
-  const code = text.match(/\b([a-z]{3})\b/i)?.[1]?.toUpperCase();
-  if (code && ['INR', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'AED', 'JPY'].includes(code)) return code;
-  return base || 'USD';
+// W3b (v10.66.0; audit INT-PAR-06) — the SAME symbol and word table as the app's statedCurrency
+// (react/src/lib/askVyactParser.ts), parity-tested. It used to know fewer words, so "20 dollars
+// netflix" was logged as 20 in the household's currency.
+const SYMBOL_CURRENCY: Record<string, string> = { '£': 'GBP', '€': 'EUR', '¥': 'JPY', '₹': 'INR' };
+const WORD_CURRENCY: [RegExp, string][] = [
+  [/\b(usd|us\s?dollars?|dollars?|bucks?)\b/i, 'USD'],
+  [/\b(inr|rs\.?|rupees?)(?=\s|\d|$)/i, 'INR'],
+  [/\b(eur|euros?)\b/i, 'EUR'],
+  [/\b(gbp|pounds?|quid)\b/i, 'GBP'],
+  [/\b(aed|dirhams?)\b/i, 'AED'],
+  [/\b(sgd)\b/i, 'SGD'],
+  [/\b(aud)\b/i, 'AUD'],
+  [/\b(cad)\b/i, 'CAD'],
+  [/\b(jpy|yen)\b/i, 'JPY'],
+];
+const DOLLAR_CURRENCIES = new Set(['USD', 'AUD', 'CAD', 'SGD']);
+
+/** The currency the message states, or undefined when it states none. `$` is the base when the base is a dollar. */
+export function statedCurrency(text: string, base: string): string | undefined {
+  const sym = Object.keys(SYMBOL_CURRENCY).find(s => text.includes(s));
+  if (sym) return SYMBOL_CURRENCY[sym];
+  if (text.includes('$')) return DOLLAR_CURRENCIES.has(base) ? base : 'USD';
+  for (const [re, code] of WORD_CURRENCY) if (re.test(text)) return code;
+  return undefined;
 }
 
 /** Ordered account-token matches (by first position in the text). Matches an
@@ -324,8 +342,13 @@ export function parseWhatsAppMessage(
   const amount = parseAmount(norm);
   if (amount == null) return { ok: false, reason: 'no_amount' };
 
+  // W3b (D14): one currency per household. An amount in another one is asked for again —
+  // logged as it stood, "20 dollars" would have become 20 in rupees.
+  const stated = statedCurrency(norm, baseCurrency);
+  if (stated && stated !== baseCurrency) return { ok: false, reason: 'foreign_currency', currency: stated };
+  const currency = baseCurrency;
+
   const type = detectType(norm, accounts);
-  const currency = detectCurrency(norm, baseCurrency);
 
   // category — only for expense/income, clamped to the valid id set for that type.
   let category_id: string | null = null;
@@ -368,7 +391,13 @@ export function parseWhatsAppMessage(
 }
 
 /** The deterministic clarify reply for a given parse failure. */
-export function clarifyReply(reason: 'empty' | 'query' | 'no_amount', appUrl: string): string {
+export function clarifyReply(
+  reason: 'empty' | 'query' | 'no_amount' | 'foreign_currency', appUrl: string,
+  money?: { stated: string; base: string },
+): string {
+  if (reason === 'foreign_currency' && money) {
+    return `Your household records everything in ${money.base}, and amounts are never converted. Send it again in ${money.base} — e.g. \`450 lunch\`.`;
+  }
   if (reason === 'query') {
     return `For your security, balances and reports live in the app 🔒 Open Vyact: ${appUrl}`;
   }

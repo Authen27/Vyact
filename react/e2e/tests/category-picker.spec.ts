@@ -130,7 +130,7 @@ test('CAT-FC-005 - Settings dropdowns are labelled fixed-choice selects', async 
     return [element.tagName, style.borderRadius, style.fontSize, style.fontWeight];
   });
   await page.getByRole('button', { name: /Language & currency/ }).click();
-  for (const name of ['Language', 'Base Currency', 'Number System']) {
+  for (const name of ['Language', 'Household currency', 'Number System']) {
     const dropdown = page.getByRole('combobox', { name, exact: true });
     await expect(dropdown).toBeVisible();
     expect(await dropdown.evaluate(element => {
