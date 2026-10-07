@@ -160,7 +160,13 @@ export interface Transaction extends WithProvenance {
    *  Read-only to the user; only the interest portion counts as spend.
    *  v9.4.2 — partPaymentChoice threads the user's re-amortisation strategy
    *  from the form into the store's loan_emi save path. */
-  emiSplit?: { interest: number; principal: number; debt_id: string; partPaymentChoice?: PartPaymentChoice };
+  /** A loan payment's leg: the split the server computed (W4f: with the payment's kind, the instalment
+   *  it paid and its operation id; a local-only payment also keeps what it changed, for undo). */
+  emiSplit?: {
+    interest: number; principal: number; debt_id: string; partPaymentChoice?: PartPaymentChoice;
+    kind?: 'emi' | 'prepayment' | 'payoff' | 'bank_override'; instalment_no?: number | null; operation_id?: string;
+    before?: { emi: number; due: string | null; closes: boolean; paidOff: boolean; balance: number };
+  };
   /** v9.1 §5 — set on transactions MATERIALISED from a recurring schedule;
    *  links the instance back to its template (drives the §8 'from recurring' drill). */
   recurringScheduleId?: string;
@@ -262,6 +268,21 @@ export interface Debt extends WithProvenance {
    *  separately on Net Worth. Defaults to `'owed_by_me'` for legacy rows. */
   direction?: 'owed_by_me' | 'owed_to_me';
   counterpartyName?: string;
+  // ── W4e/W4f (v10.74.0/v10.75.0; owner decision D19) — the loan's terms. The OUTSTANDING is never
+  // here: it is the loan account's ledger (lib/loanSchedule.ts loanOutstanding); currentBalance is a
+  // cache the server keeps equal to it. minimumPayment is the EMI; dueDate is the NEXT instalment's date.
+  /** The first EMI's date; with termsConfirmed false it is an estimate (existing loans). */
+  firstEmiDate?: string;
+  termsConfirmed?: boolean;
+  /** Effective-dated rate changes ({from, rate}); empty = interestRate throughout. */
+  rateHistory?: { from: string; rate: number }[];
+  /** Instalments fully paid (the due one is the next). */
+  instalmentsPaid?: number;
+  /** The server records the EMI on its date from this account (a later release). */
+  autoRecord?: boolean;
+  fundingAccountId?: string;
+  /** Set when nothing is owed any more (paid, or marked paid off). */
+  paidOffAt?: string;
   /** v6.4.19 — TD-03 optimistic-concurrency precondition. See Budget.updated_at. */
   updated_at?: string;
 }
@@ -347,7 +368,7 @@ export interface ReconciliationEntry {
   delta: number;
   /** 'merge' (v10.24.0) records a balance folded in when another account's
    *  history was moved here before that account was deleted. */
-  kind: 'bank' | 'investment' | 'credit_card' | 'merge';
+  kind: 'bank' | 'investment' | 'credit_card' | 'merge' | 'loan';
   stated_value: number | null;
   note?: string;
 }
@@ -544,47 +565,66 @@ export type PartPaymentChoice = 'reduce_tenure' | 'reduce_emi' | 'apply_advance'
 /** Audit F2 — the atomic loan-payment command payload (client → RPC). The
  *  decomposition is computed by the parity-tested lib/amortization.ts port;
  *  the server validates shape and applies every write in one transaction. */
-export interface RecordLoanPaymentCommand {
-  operationId: string;
+// ── W4f (v10.75.0; owner decision D19) — paying a loan ─────────────────────────────
+// The SERVER computes the split (pay_loan); the app says what kind of payment it is and how much.
+
+/** One loan payment, as `pay_loan` takes it. */
+export interface PayLoanInput {
+  /** Idempotency key: a retry with the same id returns the first result. */
+  operationId?: string;
   debtId: string;
-  fundingAccountId: string;
+  kind: 'emi' | 'prepayment' | 'payoff' | 'bank_override';
   amount: number;
-  currency: string;
-  date: string;
-  interest: number;
-  principal: number;
+  date?: string;
+  /** A real account id or an encoded picker value; defaults to Cash in Hand. */
+  fundingAccountId?: string;
   memberId?: string;
   description?: string;
-  newBalance?: number | null;
-  newRemainingMonths?: number | null;
-  newMinimumPayment?: number;
-  paymentLogEntry?: PaymentLogEntry;
+  /** Prepayment only: keep the EMI and finish sooner, or keep the end date and pay less. */
+  choice?: 'reduce_tenure' | 'reduce_emi';
+  /** bank_override only: the bank's own split. */
+  bankInterest?: number;
+  bankPrincipal?: number;
 }
 
-export interface RecordLoanPaymentResult {
+export interface PayLoanResult {
   status: 'success' | 'duplicate';
-  expenseTxnId?: string | null;
-  transferTxnId?: string | null;
-  loanAccountId?: string | null;
+  operationId: string;
+  interest: number;
+  principal: number;
+  instalmentNo: number | null;
+  closesInstalment: boolean;
+  paidOff: boolean;
+  outstandingAfter: number;
+  nextDueDate: string | null;
+  emiAfter: number;
   debt: Debt;
-  loanAccount: Account;
+  loanAccount: Account | null;
   transactions: Transaction[];
 }
 
-/** Store-facing input for the loan-payment command (what the FORM knows; the
- *  store computes the decomposition and fills in the command payload). */
-export interface RecordLoanPaymentInput {
-  operationId?: string;
-  debtId: string;
-  /** Real account uuid or an encoded picker value ('cash' / account id);
-   *  defaults to the household's Cash account. */
-  fundingAccountId?: string;
-  amount: number;
-  currency?: string;
-  date?: string;
-  description?: string;
-  memberId?: string;
-  partPaymentChoice?: PartPaymentChoice;
+/** What `pay_loan` will accept today (`loan_due`): the Pay form prefills from this. */
+export interface LoanDue {
+  outstanding: number;
+  emi: number;
+  paidOff: boolean;
+  instalmentNo: number;
+  dueDate: string | null;
+  interest: number;
+  due: number;
+  paid: number;
+  remaining: number;
+  started: boolean;
+  payoff: number;
+  loanAccountId: string | null;
+  latestPayment: { operationId: string; kind: string | null; amount: number; date: string | null } | null;
+}
+
+/** The command a cloud adapter sends (the store resolved the funding account and the id). */
+export interface PayLoanCommand extends PayLoanInput {
+  operationId: string;
+  date: string;
+  fundingAccountId: string;
 }
 
 export interface PaymentLogEntry {

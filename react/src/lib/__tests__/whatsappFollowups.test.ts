@@ -141,7 +141,8 @@ describe('"Reply UPDATE" — the app\'s reconcile on the server (W6)', () => {
     const plan = reconcileOnServer(rows(), CARD, 12450, '2026-09-26T06:00:00.000Z')!;
     expect(plan).toEqual(expect.objectContaining({ before: -12900, after: -12450, delta: 450, offset: 450 }));
     expect(plan.log[0]).toEqual(expect.objectContaining({ kind: 'credit_card', stated_value: 12450 }));
-    expect(plan.bridge).toEqual({ debt_id: DEBT, current_balance: 12450 });
+    // W4f (D30): a card is an account — there is no debt row to bridge to any more.
+    expect(plan.bridge).toBeNull();
     expect(reconcileLine(plan, 'INR')).toBe('Axis card now shows ₹12,450 owed.');
   });
 

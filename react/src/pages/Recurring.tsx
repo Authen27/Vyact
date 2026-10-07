@@ -15,7 +15,7 @@ import { formatDate, today, addDaysISO } from '../lib/format';
 import { getCat, CURRENCIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import type { RecurringSeed } from '../lib/askVyactResponses';
-import { scheduleDatesAfterSave, ruleOf } from '../lib/recurring';
+import { scheduleDatesAfterSave, ruleOf, isLoanEmiSchedule } from '../lib/recurring';
 import { formatRRule, describeRRule, type RRule, type ShortMonthPolicy } from '../lib/rrule';
 
 type SchedType = 'expense' | 'income' | 'investment';
@@ -323,6 +323,9 @@ export default function Recurring() {
                         catch { return s.frequency; }
                       })()} · next {formatDate(s.nextDueDate, dateFormat)} · {s.autoConfirm ? 'auto' : 'pending confirm'}
                     </div>
+                    {isLoanEmiSchedule(s) && (
+                      <div className="text-[0.66rem] text-honey mt-0.5">EMIs are paid from the loan now — this schedule no longer posts. Pay it on Debts.</div>
+                    )}
                   </div>
                   <div className={`text-[0.86rem] font-medium ${s.transactionTemplate.type === 'income' ? 'text-sage' : 'text-terra'}`}>
                     <Money amount={s.transactionTemplate.amount} currency={baseCur} className="font-medium" signed={s.transactionTemplate.type === 'income'} />
@@ -394,7 +397,7 @@ export default function Recurring() {
 
         {type !== 'investment' && (
           <div className="mt-4">
-            <CategoryPicker type={type} value={category} onChange={setCategory} />
+            <CategoryPicker type={type} value={category} onChange={setCategory} exclude={['loan_emi']} />
           </div>
         )}
 

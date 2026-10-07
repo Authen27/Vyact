@@ -36,8 +36,8 @@ test('CAT-FC-002 - category dropdown matches Debt Type without allowing text ent
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/debts');
       await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
-      await page.getByRole('button', { name: '+ Add Debt', exact: true }).click();
-      const debt = page.getByRole('main', { name: 'Add Debt', exact: true });
+      await page.getByRole('button', { name: '+ Add Loan', exact: true }).click();
+      const debt = page.getByRole('main', { name: 'Add Loan', exact: true });
       const reference = await debt.getByRole('combobox', { name: 'Type', exact: true }).evaluate(element => {
         const style = getComputedStyle(element);
         return [element.tagName, style.fontSize, style.fontWeight, style.borderRadius, style.backgroundColor, style.paddingRight];

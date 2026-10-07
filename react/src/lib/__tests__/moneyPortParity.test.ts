@@ -192,7 +192,7 @@ const PORTED = [
   'spendByCategory', 'spendByCategoryInRange', 'cumulativeSpendSeries',
   'budgetLines', 'resolveBudgetPeriod', 'budgetWindow', 'periodMonths', 'recurringForecastByCategory',
   'totalAssets', 'totalLiabilities', 'totalReceivables', 'liquidAssets', 'totalMonthlyDebtPayment',
-  'computeEmi', 'splitEmiPortions', 'splitsOutstanding',
+  'splitsOutstanding',
   'accountValueOf', 'debitAccountOf', 'creditAccountOf', 'computeAccountBalance',
   'liveAssetRows', 'liveTotalAssets',
   // v10.26.0 (R4) — investment assets fold like accounts.
@@ -637,19 +637,12 @@ describe('parity — EMI (loan_emi SYSTEM_SPLIT boundary)', () => {
     [250000, 8.5, 5000], [8000, 7, 300], [1500.25, 18, 50], [100, 12, 0],
   ];
 
-  it('splitEmiPortions agrees, and interest + principal === payment', () => {
-    for (const [bal, rate, pay] of CASES) {
-      const expected = clientCalc.splitEmiPortions(bal, rate, pay);
-      const actual = port.splitEmiPortions(bal, rate, pay);
-      expect(actual, `${bal}/${rate}/${pay}`).toStrictEqual(expected);
-      expect(actual.principal).toBeGreaterThanOrEqual(0);
-    }
-  });
-
-  it('computeEmi agrees', () => {
-    for (const [p, r, n] of [[20000, 7, 60], [20000, 0, 60], [0, 7, 60], [20000, 7, 0], [1_000_000, 8.5, 240]] as const) {
-      expect(port.computeEmi(p, r, n), `${p}/${r}/${n}`).toBe(clientCalc.computeEmi(p, r, n));
-    }
+  // W4f (D19): computeEmi / splitEmiPortions are retired on both sides. The EMI split is the database's
+  // (pay_loan) and lib/loanSchedule.ts is held to it figure for figure in loanScheduleParity.test.ts.
+  it('the EMI split is no longer ported: neither side exports the retired float helpers', () => {
+    expect('splitEmiPortions' in clientCalc || 'computeEmi' in clientCalc).toBe(false);
+    expect('splitEmiPortions' in port || 'computeEmi' in port).toBe(false);
+    expect(CASES.length).toBeGreaterThan(0);
   });
 });
 

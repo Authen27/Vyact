@@ -119,14 +119,14 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
   await asset.getByRole('button', { name: 'Close', exact: true }).click();
 
   await page.goto('/debts');
-  await page.getByRole('button', { name: '+ Add Debt', exact: true }).click();
-  const debt = page.getByRole('main', { name: 'Add Debt', exact: true });
+  await page.getByRole('button', { name: '+ Add Loan', exact: true }).click();
+  const debt = page.getByRole('main', { name: 'Add Loan', exact: true });
   await expect(debt.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused();
   await debt.getByRole('combobox', { name: 'Type', exact: true }).selectOption('auto_loan');
   await debt.getByRole('textbox', { name: 'Name', exact: true }).fill('Car loan');
-  await debt.getByRole('spinbutton', { name: 'Current balance', exact: true }).fill('6000');
+  await debt.getByRole('spinbutton', { name: 'Still owed', exact: true }).fill('6000');
   await debt.getByRole('spinbutton', { name: 'Interest rate', exact: true }).fill('6');
-  await debt.getByRole('spinbutton', { name: 'Min. monthly payment', exact: true }).fill('250');
+  await debt.getByRole('spinbutton', { name: 'EMI', exact: true }).fill('250');
   await capture('debt', debt);
   await debt.getByRole('button', { name: 'Close', exact: true }).click();
 

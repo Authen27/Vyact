@@ -1,9 +1,8 @@
 import type { Page, Locator } from '@playwright/test';
 
 /**
- * Page Object for `/debts`. Add/Edit open DebtFormModal at App root.
- * Recording payments opens the in-page "Record Payment" modal — see
- * the §7 DEBT-FC golden test for the interaction pattern.
+ * Page Object for `/debts`. Add/Edit open the loan form (DebtFormModal) at App root.
+ * Paying opens the loan's Pay sheet (W4f) — see the §7 DEBT-FC golden test.
  */
 export class DebtsPage {
   readonly page: Page;
@@ -11,7 +10,7 @@ export class DebtsPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.addButton = page.getByRole('button', { name: /add debt/i });
+    this.addButton = page.getByRole('button', { name: /add (a )?loan/i });
   }
 
   async goto() {
@@ -32,16 +31,8 @@ export class DebtsPage {
     await this.card(name).click();
   }
 
-  /**
-   * Click the "Record Payment" trigger inside the debt card. NOTE: selector
-   * needs verification after junior runs locally — the trigger is currently
-   * a button inline with the debt summary; if it moves to a row menu we
-   * switch to getByRole('menuitem', {name: /record payment/i}).
-   * TODO(junior): confirm exact accessible name and tighten this locator.
-   */
-  recordPaymentButton(debtName: string): Locator {
-    return this.card(debtName)
-      .locator('..')
-      .getByRole('button', { name: /record payment/i });
+  /** The loan's Pay button (opens its Pay sheet). */
+  payButton(): Locator {
+    return this.page.getByRole('button', { name: 'Pay', exact: true }).filter({ visible: true }).first();
   }
 }

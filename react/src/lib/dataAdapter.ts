@@ -7,7 +7,7 @@
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, HouseholdMeta, ProfileTypeKey,
-  RecordLoanPaymentCommand, RecordLoanPaymentResult, AccountDependencies, AccountMoveResult,
+  PayLoanCommand, PayLoanResult, LoanDue, AccountDependencies, AccountMoveResult,
 } from '../types';
 import { uid } from './format';
 import ls from './localStorageCompat';
@@ -98,16 +98,20 @@ export interface DataAdapter {
   queryTxnByAccount?(householdId: string): Promise<Array<{ account_id: string | null; type: string; currency: string; total: number; n: number }> | undefined>;
 
   /**
-   * Audit F2 — atomic loan-payment command. Present on the cloud adapters
-   *  (SupabaseAdapter performs the RPC; HybridAdapter adds cache seeding).
-   *  When absent (local-only) or offline, the store falls back to the
-   *  sequential client decomposition — documented non-atomic offline.
+   * W4f (D19) — the loan commands, decided by the database. Present on the cloud adapters only
+   *  (SupabaseAdapter calls the RPC; HybridAdapter adopts the rows into its cache). A local-only
+   *  household runs the same rules in the store (lib/loanSchedule.ts).
+   *  - payLoan: pay_loan — the server computes the split, atomically, idempotent on operationId.
+   *  - loanDue: loan_due — what pay_loan accepts today.
+   *  - reverseLoanPayment: undo the LATEST payment (owner); returns the legs it removed.
+   *  - markLoanPaidOff: reconcile the loan account to zero and close the loan.
+   *  - deleteDebt: refused while money is owed (D17).
    */
-  recordLoanPayment?(
-    householdId: string,
-    cmd: RecordLoanPaymentCommand,
-    rows: { expense?: Transaction; transfer?: Transaction; debt: Debt },
-  ): Promise<RecordLoanPaymentResult>;
+  payLoan?(householdId: string, cmd: PayLoanCommand): Promise<PayLoanResult>;
+  loanDue?(householdId: string, debtId: string): Promise<LoanDue>;
+  reverseLoanPayment?(householdId: string, operationId: string): Promise<{ debt: Debt | null; removedTransactionIds: string[] }>;
+  markLoanPaidOff?(householdId: string, debtId: string, note?: string): Promise<{ debt: Debt; loanAccount: Account | null }>;
+  deleteDebt?(householdId: string, debtId: string): Promise<void>;
 
   /**
    * v10.23.0 (R1) — return the household's ONE Cash in Hand, creating it

@@ -142,7 +142,18 @@ export function serverPostsSchedule(s: Pick<RecurringSchedule, 'autoConfirm' | '
   const t = s.transactionTemplate ?? ({} as RecurringSchedule['transactionTemplate']);
   return !!s.autoConfirm
     && (t.type === 'expense' || t.type === 'income' || t.type === 'transfer' || t.type === 'investment')
-    && t.category !== 'loan_emi' && !t.debtId && !t.linkedDebtId;
+    && !isLoanEmiSchedule(s);
+}
+
+/**
+ * W4f (v10.75.0; owner decision D19) — a schedule that pays a loan. An EMI is paid by `pay_loan` (an
+ * interest expense + a principal transfer, split by the server), never posted as one expense, so the
+ * engine leaves these alone; the Recurring form no longer offers Loan / EMI; the loan's own EMI date
+ * reminds you (and a later release records it automatically, by the loan).
+ */
+export function isLoanEmiSchedule(s: Pick<RecurringSchedule, 'transactionTemplate'>): boolean {
+  const t = s.transactionTemplate ?? ({} as RecurringSchedule['transactionTemplate']);
+  return t.category === 'loan_emi' || !!t.debtId || !!t.linkedDebtId;
 }
 
 // Returns schedules that are due now or in the past — they need transactions generated

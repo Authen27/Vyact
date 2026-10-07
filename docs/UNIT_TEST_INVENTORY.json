@@ -1284,10 +1284,10 @@
       "owner": "SupabaseAdapter / askVyactModelCall / whatsappLink",
       "count": 6,
       "tests": [
-        "SupabaseAdapter.recordLoanPayment (audit F2) CON-UNIT-113 · maps the command to the RPC contract exactly",
-        "SupabaseAdapter.recordLoanPayment (audit F2) CON-UNIT-114 · a server-side rejection (bad split, tenancy, role) THROWS — never a silent success",
-        "SupabaseAdapter.recordLoanPayment (audit F2) CON-UNIT-115 · an idempotent retry returns duplicate with the ORIGINAL ids",
-        "SupabaseAdapter.recordLoanPayment (audit F2) CON-UNIT-116 · a transport error propagates (the caller toasts the failure)",
+        "SupabaseAdapter.payLoan (W4f) CON-UNIT-113 · maps the command to pay_loan exactly, and reads its result",
+        "SupabaseAdapter.payLoan (W4f) CON-UNIT-114 · a refusal THROWS with pay_loan’s code and the figure it names — never a silent success",
+        "SupabaseAdapter.payLoan (W4f) CON-UNIT-115 · an idempotent retry returns the original payment",
+        "SupabaseAdapter.payLoan (W4f) CON-UNIT-116 · a transport error propagates (the caller toasts the failure)",
         "SupabaseAdapter.updateProfile — a refused write must not report success (audit F7) CON-UNIT-117 · an unresolved PostgREST { error } now throws (it used to be ignored)",
         "SupabaseAdapter.updateProfile — a refused write must not report success (audit F7) CON-UNIT-117b · a zero-row UPDATE (RLS-refused) throws WriteNotAppliedError"
       ]
@@ -1315,16 +1315,32 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 8,
+      "count": 11,
       "tests": [
         "loan payment workflow CON-UNIT-900 - first principal payment preserves net worth and leaves the real outstanding balance",
         "loan payment workflow CON-UNIT-901 - a second payment and metadata edit retain the opening liability",
         "loan payment workflow CON-UNIT-906 - cloud mode never falls back to sequential local loan writes",
         "loan payment workflow CON-UNIT-907 - a retry adopts server rows once and preserves the server account balance",
         "loan payment workflow CON-UNIT-910 - generic CRUD cannot partially undo a system-split payment",
+        "loan payment workflow W4-D19-012 · locally, the same rules: more than due is refused, short keeps the instalment open, a prepayment waits for it",
+        "loan payment workflow W4-D19-013 · locally: only the latest payment is undone; a loan with money owed is not deleted; paid off reconciles, never posts",
+        "loan payment workflow W4-D19-014 · a new Loan / EMI entry from any other path is paid through the loan, never stored as one expense",
         "loan payment workflow a fresh cloud success adopts authoritative interest and principal rows",
         "loan payment workflow an interest-bearing local payment spends only interest and preserves the principal transfer",
-        "loan payment workflow final principal payoff leaves zero liability and survives an adapter reload"
+        "loan payment workflow final payoff leaves zero liability and survives an adapter reload"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/loanScheduleParity.test.ts",
+      "feature": "Loan arithmetic parity",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "lib/loanSchedule.ts = the W4e SQL functions (interest, EMI, instalments left, instalment dates, rate on a date) across a grid, in Postgres (focused PGlite fixture)",
+      "count": 2,
+      "tests": [
+        "loan arithmetic: app = database (W4f) W4-D19-010 · interest, EMI and instalments left agree across balances, rates, tenures and currencies",
+        "loan arithmetic: app = database (W4f) W4-D19-011 · instalment dates keep the loan’s day (a 31st → the month’s last day), and rate changes apply from their date"
       ]
     },
     {
@@ -1420,12 +1436,11 @@
       "availability": "infrastructure",
       "layer": "unit",
       "owner": "_shared/agent/tools / client money engines",
-      "count": 373,
+      "count": 372,
       "tests": [
         "parity roster — no client aggregate escapes classification every client export is either ported or explicitly excluded",
         "parity roster — no client aggregate escapes classification every function claimed as ported actually exists on both sides",
-        "parity — EMI (loan_emi SYSTEM_SPLIT boundary) computeEmi agrees",
-        "parity — EMI (loan_emi SYSTEM_SPLIT boundary) splitEmiPortions agrees, and interest + principal === payment",
+        "parity — EMI (loan_emi SYSTEM_SPLIT boundary) the EMI split is no longer ported: neither side exports the retired float helpers",
         "parity — account resolution + balances a transfer moves both legs identically and changes no spend/income",
         "parity — account resolution + balances accountValueOf / debitAccountOf / creditAccountOf agree",
         "parity — account resolution + balances empty · flat · EUR: computeAccountBalance for every account",
@@ -2160,7 +2175,7 @@
       "count": 3,
       "tests": [
         "W3-D13-012 · a schedule keeps its rule, owner and month-end rule, and closes after its last occurrence",
-        "W4-D16-006 · in cloud mode the app leaves auto-approved bills to the server and still posts what the server does not",
+        "W4-D16-006 · in cloud mode the app leaves auto-approved bills to the server; an EMI schedule is paid from its loan, not posted",
         "keeps an approval-required bill due without posting or advancing it"
       ]
     },

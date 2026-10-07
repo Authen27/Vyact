@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1485 passing deterministic cases in 116 files. Zero failed, skipped or TODO cases at generation.**
+**1489 passing deterministic cases in 117 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -34,13 +34,13 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 8 |
 | react | contract-unit | conditional | 119 |
 | react | handler-integration | conditional | 77 |
-| react | sql-integration | conditional | 48 |
+| react | sql-integration | conditional | 50 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 58 |
+| react | store-integration | available | 61 |
 | react | store-integration | conditional | 10 |
 | react | unit | available | 342 |
 | react | unit | conditional | 173 |
-| react | unit | infrastructure | 602 |
+| react | unit | infrastructure | 601 |
 
 ### Executed Files
 
@@ -105,12 +105,13 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/loanModelSql.test.ts](../react/src/lib/__tests__/loanModelSql.test.ts) | Loan model SQL | sql-integration | conditional | 9 |
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/loanPaymentSql.test.ts](../react/src/lib/__tests__/loanPaymentSql.test.ts) | Loan SQL command | sql-integration | conditional | 5 |
-| [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 8 |
+| [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 11 |
+| [react/src/lib/__tests__/loanScheduleParity.test.ts](../react/src/lib/__tests__/loanScheduleParity.test.ts) | Loan arithmetic parity | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/money.test.ts](../react/src/lib/__tests__/money.test.ts) | Money model | unit | available | 8 |
 | [react/src/lib/__tests__/moneyModel.engines.test.ts](../react/src/lib/__tests__/moneyModel.engines.test.ts) | Money model | unit | available | 9 |
 | [react/src/lib/__tests__/moneyModel.invariants.test.ts](../react/src/lib/__tests__/moneyModel.invariants.test.ts) | Money model | unit | available | 19 |
 | [react/src/lib/__tests__/moneyModel.regression.test.ts](../react/src/lib/__tests__/moneyModel.regression.test.ts) | Money model | unit | available | 6 |
-| [react/src/lib/__tests__/moneyPortParity.test.ts](../react/src/lib/__tests__/moneyPortParity.test.ts) | Server money port parity | unit | infrastructure | 373 |
+| [react/src/lib/__tests__/moneyPortParity.test.ts](../react/src/lib/__tests__/moneyPortParity.test.ts) | Server money port parity | unit | infrastructure | 372 |
 | [react/src/lib/__tests__/navigationVisibility.test.ts](../react/src/lib/__tests__/navigationVisibility.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/netWorthProjection.test.ts](../react/src/lib/__tests__/netWorthProjection.test.ts) | Money model | unit | available | 6 |
 | [react/src/lib/__tests__/netWorthSnapshots.test.ts](../react/src/lib/__tests__/netWorthSnapshots.test.ts) | Net worth history | unit | available | 7 |

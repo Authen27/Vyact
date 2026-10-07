@@ -15,6 +15,7 @@
 
 import type { Asset, Debt, Account } from '../types';
 import { PAYMENT_METHODS } from '../constants';
+import { accountValueOf } from './accountBalance';
 
 // v10.17 — `investment` is distinguished so callers can wall investment
 // accounts out of non-investment pickers (expense/income/transfer/split/debt).
@@ -163,10 +164,9 @@ export function buildAccountsFromStore(
       hasCash = true;
       value = 'cash';
     } else if (acc.kind === 'credit_card') {
-      // The Phase 1 backfill links credit-card accounts to debts via
-      // assetId === debt.id (one-to-one). When `assetId` is null (a user-
-      // created card with no debt yet) fall back to the account id itself.
-      value = `debt:${acc.assetId || acc.id}`;
+      // W4f (D30) — a card is an account; its picker value is exactly the ledger's own encoding
+      // (accountValueOf), never an `assetId = debt.id` bridge, so the two can never disagree.
+      value = accountValueOf(acc);
     } else {
       value = `asset:${acc.assetId || acc.id}`;
     }

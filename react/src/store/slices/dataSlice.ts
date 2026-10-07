@@ -7,14 +7,16 @@ import type { Store } from '../../store';
 import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, ExchangeRates, HouseholdMeta,
-  RecurringSchedule, PartPaymentChoice, RecordLoanPaymentInput,
+  RecurringSchedule, PayLoanInput, PayLoanResult, LoanDue, ReconciliationEntry,
 } from '../../types';
 import { LocalStorageAdapter, type DataAdapter } from '../../lib/dataAdapter';
 import { HybridAdapter } from '../../lib/hybridAdapter';
 import { buildSeed } from '../../lib/seed';
 import { DEFAULT_RATES } from '../../constants';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
-import { applyPayment } from '../../lib/amortization';
+import {
+  loanView, loanAccountOf, loanOutstanding, planLoanPayment, latestLoanPayment, loanDueFromView, LoanPaymentRefused,
+} from '../../lib/loanSchedule';
 import { autoMigrateAnonToHousehold } from '../../lib/migration';
 import { uid, setNumberSystem, nowMonthKey, today } from '../../lib/format';
 import { readNumberSystemPref, writeNumberSystemPref } from '../../lib/numberSystemPref';
@@ -99,17 +101,22 @@ export interface DataSlice {
   // v7 — notifications
   // notification actions live in NotifySlice (store/slices/notifySlice.ts, TD-25).
 
-  // v7 — debt payment with re-amortisation
-  recordDebtPayment: (debtId: string, amount: number, choice?: PartPaymentChoice) => Promise<{ message: string; debt: Debt | null }>;
-
+  // ── W4f (v10.75.0; owner decision D19) — loans ────────────────────────────────
   /**
-   * Audit F2 — ONE explicit command for recording a loan payment (EMI).
-   * Books the interest leg as the visible expense, the principal leg as a
-   * system transfer into the debt-linked loan account, and the re-amortised
-   * debt — atomically via the record_loan_payment RPC when cloud+online;
-   * sequentially (queued) when offline/local-only.
+   * The ONE way money pays a loan. Cloud: `pay_loan` — the server computes the split (interest
+   * first, then principal, per instalment) and writes the interest expense + principal transfer
+   * atomically; online only. Local-only: the same rules (lib/loanSchedule.ts), written in sequence.
+   * A refusal is a LoanPaymentRefused with pay_loan's code (loanErrorMessage words it).
    */
-  recordLoanPayment: (input: RecordLoanPaymentInput) => Promise<{ message: string; expense: Transaction | null }>;
+  payLoan: (input: PayLoanInput) => Promise<PayLoanResult>;
+  /** What pay_loan accepts today for this loan: the Pay form prefills from it. */
+  loanDue: (debtId: string) => Promise<LoanDue>;
+  /** Undo the LATEST payment on a loan (owner: the latest only), atomically in the cloud. */
+  reverseLoanPayment: (debtId: string, operationId: string) => Promise<void>;
+  /** Close a loan: its account reconciled to zero (offset + dated log, never a transaction). */
+  markLoanPaidOff: (debtId: string, note?: string) => Promise<void>;
+  /** D17 — refused while money is owed on the loan; a receivable deletes freely. */
+  deleteDebt: (debtId: string) => Promise<void>;
 
   // auth lifecycle (CloudAuthSlice) + sync surface / theme / toast (SyncSlice)
   // are folded in via `extends` (TD-25).
@@ -578,18 +585,14 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     // pre-assigned an id.
     const isNewTxn = !t.id || !transactions.some(x => x.id === t.id);
     if (isNewTxn && t.type === 'expense' && t.category === 'loan_emi' && t.linkedDebtId && t.amount) {
-      const res = await get().recordLoanPayment({
-        debtId: t.linkedDebtId,
-        fundingAccountId: t.accountId ?? t.paymentMethod,
-        amount: t.amount,
-        currency: get().profile.baseCurrency,   // W3b: always the household's currency
-        date: t.date,
-        description: t.description,
-        memberId: t.memberId,
-        partPaymentChoice: (t as { _partPaymentChoice?: PartPaymentChoice })._partPaymentChoice,
+      // W4f (D19): an EMI is pay_loan's — the server splits it; this row's id is the operation id.
+      const res = await get().payLoan({
+        operationId: t.id, debtId: t.linkedDebtId, kind: 'emi', amount: t.amount, date: t.date,
+        fundingAccountId: t.accountId ?? t.paymentMethod, memberId: t.memberId, description: t.description,
       });
-      if (!res.expense) throw new Error('Loan payment produced no spend leg');
-      return res.expense;
+      const leg = res.transactions.find(row => row.type === 'expense') ?? res.transactions[0];
+      if (!leg) throw new Error('Loan payment produced no entry');
+      return leg;
     }
 
     // TD-03 phase A (PR #11): when this is an EDIT of an existing txn
@@ -706,120 +709,195 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     }
   },
 
-  // ── v7: DEBT PAYMENT WITH RE-AMORTISATION ────────────────────
-  // Audit F2: recordDebtPayment is now a thin alias over the ONE command.
-  // The old body wrote a principal transfer with NO destination account —
-  // ck_txn_accounts_by_type rejects that row in cloud (23514), so it lived
-  // only on the device that made it.
-  recordDebtPayment: async (debtId, amount, choice) => {
-    const debt = get().debts.find(d => d.id === debtId);
-    if (!debt) return { message: 'Debt not found', debt: null };
-    // The re-amortisation's own summary ("Loan now ends in N months…", "EMI reduced to…").
-    // It used to be dropped here and '' returned, so callers could not say what changed.
-    const { message } = applyPayment(debt, amount, choice, today());
-    await get().recordLoanPayment({ debtId, amount, partPaymentChoice: choice });
-    return { message, debt: get().debts.find(d => d.id === debtId) ?? null };
-  },
-
-  recordLoanPayment: async (input) => {
+  // ── W4f (v10.75.0; owner decision D19) — loans ────────────────────────────────
+  payLoan: async (input) => {
     const { adapter, currentHouseholdId, cloudEnabled } = get();
     const actorId = get().session?.user.id;
-    const rpc = typeof adapter.recordLoanPayment === 'function'
-      ? adapter.recordLoanPayment.bind(adapter) : null;
-    const online = typeof navigator === 'undefined' || navigator.onLine;
-    if (cloudEnabled && (!rpc || !online)) throw new Error('Loan payments require an online connection');
     const debt = get().debts.find(d => d.id === input.debtId);
     if (!debt) throw new Error('Debt not found');
-    if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Amount must be greater than 0');
-    const date = input.date || today();
-
-    // Re-amortisation math — the parity-tested port. The server VALIDATES this
-    // decomposition's shape; it never computes it.
-    const result = applyPayment(debt, input.amount, input.partPaymentChoice, date);
-    const { interest, principal } = result.log;
-    if (!cloudEnabled && (interest > input.amount || principal > debt.currentBalance)) {
-      throw new Error('Payment must cover the interest and cannot exceed the outstanding balance plus interest');
-    }
-    const emiSplit = { interest, principal, debt_id: debt.id, partPaymentChoice: input.partPaymentChoice };
-    // W3b (D14): a payment is in the household's currency; the debt's own label may be older.
-    const currency = get().profile.baseCurrency;
-    const description = input.description?.trim() || `${debt.name} EMI`;
-
-    // Funding account: explicit id, encoded picker value, else the Cash default.
     const accounts = get().accounts;
     const funding = input.fundingAccountId
       ? accounts.find(a => a.id === input.fundingAccountId || accountValueOf(a) === input.fundingAccountId)
       : accounts.find(a => a.kind === 'cash' && !a.isArchived);
     if (!funding || funding.isArchived || !['cash', 'bank'].includes(funding.kind)) {
-      throw new Error('Choose an active bank or cash funding account');
+      throw new LoanPaymentRefused('funding_account_invalid');
     }
+    const date = input.date || today();
+    const operationId = input.operationId ?? uid();
+    const currency = get().profile.baseCurrency;   // W3b: one currency per household
 
-    // Build the legs locally; every field is known client-side, the RPC is the
-    // persistence boundary (it assigns no numbers of its own).
-    const expense: Transaction | null = interest > 0 ? {
-      id: uid(), type: 'expense', amount: interest, currency, date,
-      description, category: 'loan_emi', memberId: input.memberId,
-      accountId: funding.id, debtId: debt.id, linkedDebtId: debt.id, emiSplit,
-    } : null;
-    const transferLeg: Transaction | null = principal > 0 ? {
-      id: uid(), type: 'transfer', amount: principal, currency, date,
-      description: `${description} — principal`, category: '', memberId: input.memberId,
-      accountId: funding.id, debtId: debt.id, linkedDebtId: debt.id,
-      emiSplit, linkedTxnId: expense?.id,
-    } : null;
-
-    if (cloudEnabled && rpc && online) {
-      // Cloud + online: the atomic RPC is the durability boundary (like
-      // upsertBudgetWithAllocations) — nothing here goes through the queue.
-      const res = await rpc(currentHouseholdId, {
-        operationId: input.operationId ?? uid(),
-        debtId: debt.id,
-        fundingAccountId: funding.id,
-        amount: input.amount,
-        currency, date, interest, principal,
-        memberId: input.memberId,
-        description,
-        newBalance: result.debt.currentBalance,
-        newRemainingMonths: result.debt.remainingMonths ?? null,
-        newMinimumPayment: result.debt.minimumPayment,
-        paymentLogEntry: result.log,
-      }, { expense: expense ?? undefined, transfer: transferLeg ?? undefined, debt: result.debt });
+    if (cloudEnabled) {
+      // The database is the durability boundary; nothing here goes through the queue.
+      const online = typeof navigator === 'undefined' || navigator.onLine;
+      if (!adapter.payLoan || !online) throw new Error('Loan payments require an online connection');
+      const res = await adapter.payLoan(currentHouseholdId, { ...input, operationId, date, fundingAccountId: funding.id });
       if (get().currentHouseholdId === currentHouseholdId && get().session?.user.id === actorId) {
         set(state => ({
           transactions: [...state.transactions.filter(row => !res.transactions.some(saved => saved.id === row.id)), ...res.transactions],
-          debts: state.debts.map(row => row.id === res.debt.id ? res.debt : row),
-          accounts: [...state.accounts.filter(row => row.id !== res.loanAccount.id), res.loanAccount],
+          debts: state.debts.map(row => (row.id === res.debt.id ? res.debt : row)),
+          accounts: res.loanAccount
+            ? [...state.accounts.filter(row => row.id !== res.loanAccount!.id), res.loanAccount]
+            : state.accounts,
         }));
-        get().toast('Payment recorded', 'success');
       }
-      return { message: 'Payment recorded', expense: res.transactions.find(row => row.type === 'expense') ?? res.transactions[0] ?? null };
+      void get().refreshNotifications();
+      return res;
     }
 
-    // Offline / local-only fallback — sequential optimistic writes, each leg a
-    // queued op. Documented non-atomic (audit F2): the atomic boundary requires
-    // the server. Legs write through the adapter DIRECTLY (not
-    // upsertTransaction) so the loan_emi safety net doesn't re-enter this
-    // command.
-    const written: Transaction[] = [];
-    if (expense) written.push(await adapter.upsert('transactions', currentHouseholdId, expense) as Transaction);
-    if (transferLeg) {
-      let loanAcc = accounts.find(a => a.kind === 'loan' && a.debtId === debt.id);
-      if (!loanAcc) {
-        // debtId — NOT assetId: the asset_id FK points at assets and rejected
-        // debt ids with 23503 (the old branch could never have synced).
-        loanAcc = await get().upsertAccount({
-          id: uid(), kind: 'loan', name: debt.name, currency: debt.currency,
-          openingBalance: -debt.currentBalance,
-          debtId: debt.id, isDefault: false, isArchived: false,
-        });
-      }
-      written.push(await adapter.upsert('transactions', currentHouseholdId,
-        { ...transferLeg, toAccountId: loanAcc.id }) as Transaction);
+    // Local-only household: pay_loan's own rules, applied here. The legs are written in sequence (there
+    // is no server to make them one transaction); each keeps what it changed, so it can be undone.
+    const view = loanView(debt, accounts, get().transactions, currency, date);
+    const plan = planLoanPayment(view, {
+      kind: input.kind, amount: input.amount, date, choice: input.choice,
+      bankInterest: input.bankInterest, bankPrincipal: input.bankPrincipal,
+    }, currency);
+    let loanAccount = loanAccountOf(debt, accounts);
+    if (!loanAccount && plan.principal > 0) {
+      loanAccount = await get().upsertAccount({
+        id: uid(), kind: 'loan', name: debt.name, currency, openingBalance: -debt.currentBalance,
+        debtId: debt.id, isDefault: false, isArchived: false,
+      });
     }
-    await get().upsertDebt(result.debt);
+    const description = input.description?.trim()
+      || `${debt.name}${input.kind === 'prepayment' ? ' prepayment' : input.kind === 'payoff' ? ' payoff' : ' EMI'}`;
+    const emiSplit: NonNullable<Transaction['emiSplit']> = {
+      interest: plan.interest, principal: plan.principal, debt_id: debt.id, kind: input.kind,
+      instalment_no: plan.instalmentNo, operation_id: operationId,
+      partPaymentChoice: input.kind === 'prepayment' ? (input.choice ?? 'reduce_tenure') : undefined,
+      before: { emi: debt.minimumPayment, due: debt.dueDate ?? null, closes: plan.closes, paidOff: !!debt.paidOffAt, balance: debt.currentBalance },
+    };
+    const written: Transaction[] = [];
+    let expenseId: string | undefined;
+    if (plan.interest > 0) {
+      const expense = {
+        id: uid(), type: 'expense', amount: plan.interest, currency, date, description, category: 'loan_emi',
+        memberId: input.memberId, accountId: funding.id, debtId: debt.id, linkedDebtId: debt.id, emiSplit,
+      } as Transaction;
+      written.push(await adapter.upsert('transactions', currentHouseholdId, expense) as Transaction);
+      expenseId = expense.id;
+    }
+    if (plan.principal > 0 && loanAccount) {
+      const transfer = {
+        id: uid(), type: 'transfer', amount: plan.principal, currency, date, description: `${description} - principal`,
+        category: '', memberId: input.memberId, accountId: funding.id, toAccountId: loanAccount.id,
+        debtId: debt.id, linkedDebtId: debt.id, linkedTxnId: expenseId, emiSplit,
+      } as Transaction;
+      written.push(await adapter.upsert('transactions', currentHouseholdId, transfer) as Transaction);
+    }
     set({ transactions: [...get().transactions, ...written] });
-    if (result.message) get().toast(result.message, 'success');
-    return { message: result.message, expense: expense ?? transferLeg };
+    const saved = await get().upsertDebt({
+      ...debt, currentBalance: plan.outstandingAfter, minimumPayment: plan.emiAfter,
+      instalmentsPaid: (debt.instalmentsPaid ?? 0) + (plan.closes ? 1 : 0), dueDate: plan.dueAfter ?? undefined,
+      paidOffAt: plan.paidOff ? new Date().toISOString() : debt.paidOffAt,
+    });
+    void get().refreshNotifications();
+    return {
+      status: 'success', operationId, interest: plan.interest, principal: plan.principal, instalmentNo: plan.instalmentNo,
+      closesInstalment: plan.closes, paidOff: plan.paidOff, outstandingAfter: plan.outstandingAfter,
+      nextDueDate: plan.dueAfter, emiAfter: plan.emiAfter, debt: saved, loanAccount: loanAccount ?? null, transactions: written,
+    };
+  },
+
+  loanDue: async (debtId) => {
+    const { adapter, currentHouseholdId, cloudEnabled, debts, accounts, transactions, profile } = get();
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    if (cloudEnabled && adapter.loanDue && online) return adapter.loanDue(currentHouseholdId, debtId);
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) throw new Error('Debt not found');
+    return loanDueFromView(loanView(debt, accounts, transactions, profile.baseCurrency, today()), transactions);
+  },
+
+  reverseLoanPayment: async (debtId, operationId) => {
+    const { adapter, currentHouseholdId, cloudEnabled } = get();
+    if (cloudEnabled) {
+      const online = typeof navigator === 'undefined' || navigator.onLine;
+      if (!adapter.reverseLoanPayment || !online) throw new Error('Undoing a loan payment requires an online connection');
+      const res = await adapter.reverseLoanPayment(currentHouseholdId, operationId);
+      set(state => ({
+        transactions: state.transactions.filter(row => !res.removedTransactionIds.includes(row.id)),
+        debts: res.debt ? state.debts.map(row => (row.id === res.debt!.id ? res.debt! : row)) : state.debts,
+      }));
+      void get().refreshNotifications();
+      return;
+    }
+    const { transactions, debts } = get();
+    const legs = transactions.filter(row => row.emiSplit?.operation_id === operationId);
+    if (!legs.length) throw new LoanPaymentRefused('payment_unavailable');
+    if (latestLoanPayment(debtId, transactions)?.operationId !== operationId) throw new LoanPaymentRefused('not_latest_payment');
+    for (const leg of legs) await adapter.remove('transactions', currentHouseholdId, leg.id);
+    set({ transactions: get().transactions.filter(row => row.emiSplit?.operation_id !== operationId) });
+    const debt = debts.find(d => d.id === debtId);
+    const before = legs[0].emiSplit?.before;
+    if (debt && before) {
+      await get().upsertDebt({
+        ...debt, minimumPayment: before.emi, dueDate: before.due ?? undefined, currentBalance: before.balance,
+        instalmentsPaid: Math.max(0, (debt.instalmentsPaid ?? 0) - (before.closes ? 1 : 0)),
+        paidOffAt: before.paidOff ? debt.paidOffAt : undefined,
+      });
+    }
+    void get().refreshNotifications();
+  },
+
+  markLoanPaidOff: async (debtId, note) => {
+    const { adapter, currentHouseholdId, cloudEnabled } = get();
+    if (cloudEnabled) {
+      const online = typeof navigator === 'undefined' || navigator.onLine;
+      if (!adapter.markLoanPaidOff || !online) throw new Error('Closing a loan requires an online connection');
+      const res = await adapter.markLoanPaidOff(currentHouseholdId, debtId, note);
+      set(state => ({
+        debts: state.debts.map(row => (row.id === res.debt.id ? res.debt : row)),
+        accounts: res.loanAccount ? state.accounts.map(row => (row.id === res.loanAccount!.id ? res.loanAccount! : row)) : state.accounts,
+      }));
+      void get().refreshNotifications();
+      return;
+    }
+    const { debts, accounts, transactions, profile } = get();
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) throw new Error('Debt not found');
+    let account = loanAccountOf(debt, accounts);
+    if (!account) {
+      account = await get().upsertAccount({
+        id: uid(), kind: 'loan', name: debt.name, currency: profile.baseCurrency, openingBalance: -debt.currentBalance,
+        debtId: debt.id, isDefault: false, isArchived: false,
+      });
+    }
+    // Reconcile, never post: the outstanding goes to zero through the account's offset, with a dated log.
+    const owed = loanOutstanding(debt, get().accounts, transactions);
+    const at = new Date().toISOString();
+    const entry: ReconciliationEntry = { at, delta: owed, kind: 'loan', stated_value: 0, note: note?.trim() || 'Marked paid off' };
+    await get().upsertAccount({
+      ...account, isArchived: true, lastReconciledAt: at,
+      ...(owed !== 0 ? {
+        reconciliationOffset: Math.round(((account.reconciliationOffset ?? 0) + owed) * 100) / 100,
+        reconciliationLog: [...(account.reconciliationLog ?? []), entry],
+      } : {}),
+    });
+    await get().upsertDebt({ ...debt, currentBalance: 0, dueDate: undefined, autoRecord: false, paidOffAt: debt.paidOffAt ?? at });
+    void get().refreshNotifications();
+  },
+
+  deleteDebt: async (debtId) => {
+    const { adapter, currentHouseholdId, cloudEnabled, debts, accounts, transactions } = get();
+    const debt = debts.find(d => d.id === debtId);
+    if (!debt) return;
+    const isLoan = (debt.direction ?? 'owed_by_me') === 'owed_by_me';
+    if (isLoan) {
+      const owed = loanOutstanding(debt, accounts, transactions);
+      if (owed > 0) throw new LoanPaymentRefused('debt_not_paid_off', owed);
+    }
+    if (cloudEnabled) {
+      const online = typeof navigator === 'undefined' || navigator.onLine;
+      if (!adapter.deleteDebt || !online) throw new Error('Deleting a debt requires an online connection');
+      await adapter.deleteDebt(currentHouseholdId, debtId);
+    } else {
+      await adapter.remove('debts', currentHouseholdId, debtId);
+      const account = loanAccountOf(debt, accounts);
+      if (account && !account.isArchived) await get().upsertAccount({ ...account, isArchived: true });
+    }
+    set(state => ({
+      debts: state.debts.filter(row => row.id !== debtId),
+      accounts: state.accounts.map(row => (row.kind === 'loan' && row.debtId === debtId ? { ...row, isArchived: true } : row)),
+    }));
   },
 
 });

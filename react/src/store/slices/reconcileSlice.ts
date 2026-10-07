@@ -45,15 +45,14 @@ export const createReconcileSlice: StateCreator<Store, [], [], ReconcileSlice> =
     // accounts were synthesised from, so the stated value MUST flow through to
     // the linked entity (else the offset would never reach net worth). The
     // stated balance is the new truth; provenance becomes confirmed/user.
-    if (delta !== 0 && account.assetId) {
-      if (account.kind === 'credit_card' || account.kind === 'loan') {
-        const debt = debts.find(x => x.id === account.assetId);
-        // a liability's stated value is its outstanding balance (non-negative).
-        if (debt) await get().upsertDebt({ ...debt, currentBalance: Math.max(0, Math.abs(realBalance)), ...confirmedProv });
-      } else {
-        const asset = assets.find(x => x.id === account.assetId);
-        if (asset) await get().upsertAsset({ ...asset, value: realBalance, lastUpdated: confirmedProv.confirmedAt, ...confirmedProv });
-      }
+    // W4f (D30) — a card is an account and has no debt row to bridge to. A loan account keeps its debt's
+    // cached outstanding equal to the ledger (linked by debtId; the outstanding itself is the ledger).
+    if (delta !== 0 && account.kind === 'loan') {
+      const debt = debts.find(x => x.id === (account.debtId ?? account.assetId));
+      if (debt) await get().upsertDebt({ ...debt, currentBalance: Math.max(0, Math.abs(realBalance)), ...confirmedProv });
+    } else if (delta !== 0 && account.assetId && account.kind !== 'credit_card') {
+      const asset = assets.find(x => x.id === account.assetId);
+      if (asset) await get().upsertAsset({ ...asset, value: realBalance, lastUpdated: confirmedProv.confirmedAt, ...confirmedProv });
     }
     return delta;
   },

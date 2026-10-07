@@ -143,6 +143,8 @@ export interface Debt {
   minimumPayment: number;
   currency: string;
   direction?: 'owed_by_me' | 'owed_to_me';
+  /** W4f — set once nothing is owed (the loan's EMI no longer counts). */
+  paidOffAt?: string;
 }
 
 export interface Budget {
@@ -557,7 +559,8 @@ export const liquidAssets = (assets: Asset[], baseCurrency: string, rates: Excha
  *  contribute to the household's monthly outflow. */
 export const totalMonthlyDebtPayment = (debts: Debt[], baseCurrency: string, rates: ExchangeRates): number =>
   fromDinero(sumDinero(
-    debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me'),
+    // W4f (D19): a paid-off loan has no EMI to pay any more, whatever its last EMI was.
+    debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me' && !d.paidOffAt),
     d => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates),
     baseCurrency,
   ));
@@ -695,27 +698,10 @@ export function liveTotalAssets(rows: LiveAssetRow[]): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LOAN / EMI — `loan_emi` is a SYSTEM_SPLIT: the interest portion is visible
-// spend, the principal portion is a system transfer into the loan account.
-// Only `splitEmiPortions` decides that boundary, so it is ported verbatim.
+// LOAN / EMI — W4f (D19): the split is decided by the DATABASE (pay_loan); the app's
+// lib/loanSchedule.ts is its parity-tested twin. The float computeEmi / splitEmiPortions
+// that were ported here had no caller and disagreed with the server by the paisa: gone.
 // ─────────────────────────────────────────────────────────────────────────────
-
-export function computeEmi(principal: number, annualRate: number, tenureMonths: number): number {
-  if (!principal || !tenureMonths) return 0;
-  if (!annualRate) return principal / tenureMonths;
-  const r = annualRate / 100 / 12;
-  const x = Math.pow(1 + r, tenureMonths);
-  return (principal * r * x) / (x - 1);
-}
-
-export function splitEmiPortions(
-  currentBalance: number, annualRate: number, payment: number,
-): { interest: number; principal: number } {
-  const r = annualRate / 100 / 12;
-  const interest = currentBalance * r;
-  const principal = Math.max(0, payment - interest);
-  return { interest, principal };
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SPLITS — outstanding balances owed to / by the household

@@ -35,7 +35,6 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
   const dismiss = useStore(s => s.dismissNotification);
   const approveRecurring = useStore(s => s.approveRecurring);
   const skipRecurring = useStore(s => s.skipRecurring);
-  const openAddTxn = useStore(s => s.openAddTxn);
   const debts = useStore(s => s.debts);
   const toast = useStore(s => s.toast);
 
@@ -84,11 +83,12 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
       case 'dismiss':
         dismiss(n.id);
         return;
-      case 'record': {    // debt_payment_due — seed the Add-Transaction sheet
+      case 'record': {    // debt_payment_due — W4f (D19): the loan's own Pay sheet, prefilled with the EMI due
+        // (it used to seed a plain expense with no category, which landed in Food & Dining).
         const d = debts.find(x => x.id === n.debtId);
         markRead(n.id);
         onClose();
-        openAddTxn(d ? { type: 'expense', amount: n.amountRef, description: `${d.name} payment`, linkedDebtId: d.id } : undefined);   // W3b: no currency seed — the household's
+        navigate(d ? `/debts?pay=${d.id}` : '/debts');
         return;
       }
       default: {          // view / review / edit / see_txns / update → navigate + leave
