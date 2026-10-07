@@ -72,6 +72,22 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/accountDeletionHandler.test.ts",
+      "feature": "Account deletion handler",
+      "availability": "conditional",
+      "layer": "handler-integration",
+      "owner": "delete-account/index.ts (re-auth, purge_account, auth delete last; mocked client)",
+      "count": 5,
+      "tests": [
+        "delete-account (W1b) CON-UNIT-W1-016 · refuses without a sign-in in the last 10 minutes, and touches nothing",
+        "delete-account (W1b) CON-UNIT-W1-017 · an owner whose household others use is told to transfer; the login stays",
+        "delete-account (W1b) CON-UNIT-W1-018 · one purge call, then the auth user — in that order",
+        "delete-account (W1b) CON-UNIT-W1-019 · a failed auth delete is reported as retryable (the purge already happened)",
+        "delete-account (W1b) CON-UNIT-W1-020 · an invalid session is unauthorized before anything else"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/accountPatchSafety.test.ts",
       "feature": "Cloud adapter contracts",
       "availability": "conditional",
@@ -85,6 +101,23 @@
         "account patches must not erase financial state (audit F1) CON-UNIT-083b · debtId is written when supplied and omitted from metadata patches (audit F2 link)",
         "account patches must not erase financial state (audit F1) CON-UNIT-083c · a row re-saved with a spread never names an R2 column the database did not return",
         "account patches must not erase financial state (audit F1) CON-UNIT-083d · on a migrated schema the same re-save keeps every R2 value, nulls included"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/accountPurgeSql.test.ts",
+      "feature": "Account purge and retention SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W1b migrations: one-transaction account purge, server re-auth for erase, 90-day WhatsApp retention (focused PGlite fixture)",
+      "count": 6,
+      "tests": [
+        "W1b · WhatsApp retention (migration 20261010120100) CON-UNIT-W1-014 - messages older than 90 days are deleted; newer ones stay",
+        "W1b · WhatsApp retention (migration 20261010120100) CON-UNIT-W1-015 - a household being deleted takes its WhatsApp messages with it",
+        "W1b · account purge (migration 20261010120000) CON-UNIT-W1-010 - an owner whose household has other members must transfer first; nothing changes",
+        "W1b · account purge (migration 20261010120000) CON-UNIT-W1-011 - after a transfer the purge runs in one step and the login can then be deleted",
+        "W1b · account purge (migration 20261010120000) CON-UNIT-W1-012 - only the service role can purge; the 30-day schedule is gone",
+        "W1b · account purge (migration 20261010120000) CON-UNIT-W1-013 - erase needs a sign-in within 10 minutes, checked on the server (XC-PRV-04)"
       ]
     },
     {

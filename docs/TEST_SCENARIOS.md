@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1408 passing deterministic cases in 100 files. Zero failed, skipped or TODO cases at generation.**
+**1419 passing deterministic cases in 102 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -33,8 +33,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 8 |
 | react | contract-unit | conditional | 117 |
-| react | handler-integration | conditional | 59 |
-| react | sql-integration | conditional | 17 |
+| react | handler-integration | conditional | 64 |
+| react | sql-integration | conditional | 23 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 49 |
 | react | store-integration | conditional | 2 |
@@ -50,7 +50,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [admin/src/lib/__tests__/contentWorkflow.test.ts](../admin/src/lib/__tests__/contentWorkflow.test.ts) | Admin publication | contract-unit | conditional | 5 |
 | [admin/src/lib/__tests__/roleGating.test.ts](../admin/src/lib/__tests__/roleGating.test.ts) | Admin content and permissions | unit | conditional | 4 |
 | [react/src/components/ui/__tests__/estimatedTag.test.ts](../react/src/components/ui/__tests__/estimatedTag.test.ts) | Estimate provenance | unit | available | 5 |
+| [react/src/lib/__tests__/accountDeletionHandler.test.ts](../react/src/lib/__tests__/accountDeletionHandler.test.ts) | Account deletion handler | handler-integration | conditional | 5 |
 | [react/src/lib/__tests__/accountPatchSafety.test.ts](../react/src/lib/__tests__/accountPatchSafety.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
+| [react/src/lib/__tests__/accountPurgeSql.test.ts](../react/src/lib/__tests__/accountPurgeSql.test.ts) | Account purge and retention SQL | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/accountsView.test.ts](../react/src/lib/__tests__/accountsView.test.ts) | Accounts | unit | available | 21 |
 | [react/src/lib/__tests__/affordabilityBudgetFirst.test.ts](../react/src/lib/__tests__/affordabilityBudgetFirst.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/agentAmbiguity.test.ts](../react/src/lib/__tests__/agentAmbiguity.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 31 |

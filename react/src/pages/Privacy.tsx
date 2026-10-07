@@ -9,7 +9,9 @@ import { Link } from 'react-router-dom';
 // 2026-10-06: W0 (audit 2026-10-04) — removed the two-factor claim (no 2FA, owner
 // decision), disclosed the Userback feedback widget, and Contentsquare session replay
 // is gone from the app.
-export const POLICY_VERSION = '2026-10-06';
+// 2026-10-07: W1b — account deletion is immediate (the 30-day schedule was never executed),
+// an owner must hand over a shared household first, and WhatsApp messages are kept 90 days.
+export const POLICY_VERSION = '2026-10-07';
 
 function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
@@ -156,20 +158,18 @@ export default function Privacy() {
         <p>These controls are available directly in <strong className="text-ink">Settings → Danger Zone</strong>. Every action below requires entering a one-time verification code we send to your account email before it takes effect — proof the request really is coming from you, not just a signed-in browser.</p>
         <p><strong className="text-ink">Erase all household data (data wiped, account kept):</strong> permanently and irreversibly deletes every transaction, budget, debt, asset, account, goal, recurring schedule, saved view, and the onboarding reference for the selected household. Your login, profile, and household membership are kept so you can start fresh. This action cannot be undone — there is no backup retained by Vyact once you confirm it (we recommend exporting a backup first).</p>
         <p><strong className="text-ink">Deactivate account (temporary):</strong> immediately signs you out and places a hold on your account. Your data is <em>not deleted</em> — it is kept exactly as it was, inaccessible to anyone (including you) until you reactivate. See Section 8 for reactivation.</p>
-        <p><strong className="text-ink">Delete account (permanent):</strong> schedules full account and data deletion. Your account is put on hold immediately (same as deactivation) and a 30-day undo window begins. If you take no action, at the end of the 30 days we permanently erase: your profile, every household you solely own and all of its financial data, your membership in any shared households, and your login credentials from our authentication provider. This is irreversible once the window closes — there is no way for us to recover it afterward, by design.</p>
+        <p><strong className="text-ink">Delete account (permanent, immediate):</strong> deletes your account as soon as you confirm, in one step on our servers. We erase your profile, every household where you are the only member and all of its financial data, your membership in any shared households, your WhatsApp link and messages, your push-notification registrations, pending invitations addressed to you, and your login. In a household you share, the entries you added stay with that household (they are the household's records) and no longer name you. If you own a household other people use, you must first make one of them the owner — the household is never deleted out from under them. Deletion cannot be undone.</p>
       </Section>
 
       <Section title="8. Reactivation procedure" id="reactivation">
         <p>
-          If you deactivated your account, or requested permanent deletion and are still inside the
-          30-day undo window, simply sign back in with your existing credentials. Vyact detects the
-          hold automatically on sign-in and clears it in the same step — you'll see a confirmation
-          ("Welcome back — your account has been reactivated") and land back on your dashboard with
-          all data intact, exactly as you left it. No support request is required.
+          If you deactivated your account, simply sign back in with your existing credentials. Vyact
+          detects the hold automatically on sign-in and clears it in the same step — you'll see a
+          confirmation ("Welcome back — your account has been reactivated") and land back on your
+          dashboard with all data intact, exactly as you left it. No support request is required.
         </p>
         <p>
-          Once a permanent-deletion request has actually completed (past the 30-day window and
-          purged), reactivation is not possible — you would need to create a new account, and no
+          A deleted account cannot be reactivated — you would need to create a new account, and no
           prior data can be restored into it.
         </p>
       </Section>
@@ -179,7 +179,8 @@ export default function Privacy() {
         <List items={[
           'Active account data: retained until you erase it, deactivate, or delete your account.',
           'Deactivated accounts: retained indefinitely on hold, restorable at any time by signing in.',
-          'Deletion requests: retained for the 30-day undo window, then permanently purged.',
+          'Deleted accounts: purged immediately when you confirm (see Section 7).',
+          'WhatsApp messages (the text you send and receive, with your phone number): kept for 90 days for support and to retry anything that failed, then deleted automatically; deleted at once if you unlink WhatsApp or delete your account.',
           'Security and billing logs: retained up to 12 months for fraud/abuse prevention and legal compliance, then deleted or anonymized.',
         ]} />
       </Section>

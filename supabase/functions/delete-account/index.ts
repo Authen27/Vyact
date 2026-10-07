@@ -1,21 +1,23 @@
-// Vyact v9.8.0 — permanent account deletion (service role; deploy WITH JWT).
+// Vyact — permanent account deletion (service role; deploy WITH JWT).
 //
-// Called by the Settings "Delete account permanently" flow once a user's
-// 30-day undo window (profiles.deletion_scheduled_for) has passed, or
-// immediately if the caller passes { immediate: true } (used for the
-// "delete right now, skip the grace period" confirmation path).
+// W1b (v10.63.0, audit 2026-10-04; owner decisions D22 + D25): deletion is IMMEDIATE and the
+// data side happens in ONE database transaction. The old version ran a chain of separate
+// deletes from here, then failed on foreign keys for anyone who had ever written into a
+// household they did not own — their data was gone but their login stayed — and it deleted
+// co-members' households outright when an owner left. The 30-day schedule it served was never
+// executed by anything.
 //
-// A client-side (anon-key) connection cannot drop rows from auth.users —
-// that requires the service role, which only this function holds. Sequence:
-//   1. Verify the caller's JWT identifies a real user.
-//   2. Refuse unless a deletion has been requested (deletion_requested_at set)
-//      AND (immediate=true OR deletion_scheduled_for has passed).
-//   3. For every household the user OWNS: erase all financial rows, then
-//      delete the household + its memberships/invitations outright.
-//   4. For households the user only belongs to (not owner): remove their
-//      membership row only — other members' data is untouched.
-//   5. Delete the profiles row.
-//   6. Delete the auth.users row via the Admin API — irreversible.
+//   1. The JWT identifies a real user.
+//   2. Recent sign-in, enforced HERE (it used to be checked only in the browser): the token's
+//      `amr` must record an authentication within the last 10 minutes. Settings asks for the
+//      emailed code first, and verifyOtp issues a fresh session; an idle or stolen session is
+//      refused with `reauth_required`.
+//   3. purge_account(user) — one transaction: refuses `transfer_required` when they own a
+//      household other people use; deletes households where they are the only member (and
+//      everything in them); removes their other memberships; deletes their WhatsApp, push,
+//      pending-invitation and profile rows. Shared history stays and stops naming them.
+//   4. The auth user is deleted last. If that step fails the purge has already happened and a
+//      retry is safe (purge_account is idempotent).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -30,10 +32,21 @@ const json = (body: unknown, status = 200): Response =>
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 
-const HOUSEHOLD_SCOPED_TABLES = [
-  'transactions', 'budgets', 'budget_allocations', 'goals', 'debts', 'assets',
-  'accounts', 'recurring_schedules', 'saved_views', 'activity_log', 'invitations',
-];
+export const REAUTH_MAX_AGE_SECONDS = 600;
+
+/** The most recent authentication time (unix seconds) recorded in a JWT's `amr` claim. */
+export function lastAuthenticatedAt(jwt: string): number | null {
+  const part = jwt.split('.')[1];
+  if (!part) return null;
+  try {
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '=');
+    const claims = JSON.parse(atob(b64)) as { amr?: Array<{ timestamp?: unknown }> };
+    const times = (claims.amr ?? []).map((a) => a?.timestamp).filter((t): t is number => typeof t === 'number');
+    return times.length ? Math.max(...times) : null;
+  } catch {
+    return null;
+  }
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -45,56 +58,23 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: authErr } = await admin.auth.getUser(jwt);
   if (authErr || !user) return json({ error: 'unauthorized' }, 401);
 
-  const { immediate } = await req.json().catch(() => ({ immediate: false }));
-
-  const { data: profile, error: profileErr } = await admin
-    .from('profiles')
-    .select('id, deletion_requested_at, deletion_scheduled_for')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (profileErr || !profile) return json({ error: 'profile_not_found' }, 404);
-
-  if (!profile.deletion_requested_at) {
-    return json({ error: 'no_deletion_requested', detail: 'Call request_account_deletion() first.' }, 400);
-  }
-  const scheduledFor = profile.deletion_scheduled_for ? new Date(profile.deletion_scheduled_for) : null;
-  const windowPassed = scheduledFor ? scheduledFor.getTime() <= Date.now() : true;
-  if (!immediate && !windowPassed) {
-    return json({ error: 'undo_window_open', scheduled_for: profile.deletion_scheduled_for }, 400);
+  const authedAt = lastAuthenticatedAt(jwt);
+  if (authedAt === null || Date.now() / 1000 - authedAt > REAUTH_MAX_AGE_SECONDS) {
+    return json({ error: 'reauth_required', detail: 'Confirm with the code we email you, then delete within 10 minutes.' }, 401);
   }
 
-  const { data: memberships } = await admin
-    .from('memberships')
-    .select('id, household_id, role')
-    .eq('user_id', user.id);
-
-  const ownedHouseholdIds = (memberships ?? []).filter(m => m.role === 'owner').map(m => m.household_id);
-  const otherMembershipIds = (memberships ?? []).filter(m => m.role !== 'owner').map(m => m.id);
-
-  for (const householdId of ownedHouseholdIds) {
-    for (const table of HOUSEHOLD_SCOPED_TABLES) {
-      // Audit S6: EVERY delete result is checked. A failure aborts BEFORE the
-      // auth user is dropped, so the account can retry rather than leaving a
-      // half-erased household with no login.
-      const { error } = await admin.from(table).delete().eq('household_id', householdId);
-      if (error) return json({ error: 'erase_failed', table, detail: error.message }, 500);
+  const { error: purgeErr } = await admin.rpc('purge_account', { p_user_id: user.id });
+  if (purgeErr) {
+    if (/transfer_required/.test(purgeErr.message ?? '')) {
+      const households = String((purgeErr as { details?: string }).details ?? '').split(',').filter(Boolean);
+      return json({ error: 'transfer_required', households,
+        detail: 'You own a household other people use. Make one of them the owner first (Households › Members).' }, 409);
     }
-    const { error: mErr } = await admin.from('memberships').delete().eq('household_id', householdId);
-    if (mErr) return json({ error: 'erase_failed', table: 'memberships', detail: mErr.message }, 500);
-    const { error: hErr } = await admin.from('households').delete().eq('id', householdId);
-    if (hErr) return json({ error: 'household_delete_failed', detail: hErr.message }, 500);
+    return json({ error: 'purge_failed', detail: purgeErr.message }, 500);
   }
-
-  if (otherMembershipIds.length) {
-    const { error: omErr } = await admin.from('memberships').delete().in('id', otherMembershipIds);
-    if (omErr) return json({ error: 'erase_failed', table: 'memberships(self)', detail: omErr.message }, 500);
-  }
-
-  const { error: pErr } = await admin.from('profiles').delete().eq('id', user.id);
-  if (pErr) return json({ error: 'profile_delete_failed', detail: pErr.message }, 500);
 
   const { error: authDeleteErr } = await admin.auth.admin.deleteUser(user.id);
-  if (authDeleteErr) return json({ error: 'auth_delete_failed', detail: authDeleteErr.message }, 500);
+  if (authDeleteErr) return json({ error: 'auth_delete_failed', detail: authDeleteErr.message, retry: true }, 500);
 
   return json({ deleted: true });
 });
