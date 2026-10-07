@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1468 passing deterministic cases in 113 files. Zero failed, skipped or TODO cases at generation.**
+**1469 passing deterministic cases in 113 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -36,7 +36,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | handler-integration | conditional | 77 |
 | react | sql-integration | conditional | 39 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 50 |
+| react | store-integration | available | 51 |
 | react | store-integration | conditional | 10 |
 | react | unit | available | 342 |
 | react | unit | conditional | 173 |
@@ -129,7 +129,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/recurrenceServerParity.test.ts](../react/src/lib/__tests__/recurrenceServerParity.test.ts) | Server recurring approval parity | unit | infrastructure | 2 |
 | [react/src/lib/__tests__/recurring.test.ts](../react/src/lib/__tests__/recurring.test.ts) | Recurring and budgets | unit | available | 12 |
-| [react/src/lib/__tests__/recurringApproval.test.ts](../react/src/lib/__tests__/recurringApproval.test.ts) | Ledger and recurring workflows | store-integration | available | 2 |
+| [react/src/lib/__tests__/recurringApproval.test.ts](../react/src/lib/__tests__/recurringApproval.test.ts) | Ledger and recurring workflows | store-integration | available | 3 |
 | [react/src/lib/__tests__/recurringPostHandler.test.ts](../react/src/lib/__tests__/recurringPostHandler.test.ts) | Server posting job | handler-integration | conditional | 2 |
 | [react/src/lib/__tests__/recurringPostSql.test.ts](../react/src/lib/__tests__/recurringPostSql.test.ts) | Server posting SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/reportRange.test.ts](../react/src/lib/__tests__/reportRange.test.ts) | Reports consultation | unit | available | 6 |
