@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.67.0`** (consumer)
+> **Current production version: `v10.68.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.68.0 — W3d: the recurrence schema, ahead of the app *(2026-10-07)*
+
+First half of owner decision **D13**: every option on the schedule form works, and the month-end
+rule is chosen per schedule. This release is the DATABASE only. It ships before the app that uses it
+(v10.69.0), as CLAUDE.md requires. Audit IDs: INT-TXN-05, DB-INT-07/08, INT-CON-03, FE-MNY-01.
+
+- **"Daily" is allowed** on `recurring_schedules.frequency` and `transactions.recurring`. The form
+  offered Daily, but both CHECKs refused it, so a daily schedule never reached the cloud and posted
+  money on one device only.
+- **`short_month_policy`**: what a schedule on the 29th–31st does in a shorter month. `last_day`
+  (the default) uses the last day of that month; `next_month_first` moves to the 1st of the next.
+- **Every schedule carries a real RRULE.** The v9.1 backfill wrote `FREQ=MONTHLY;INTERVAL=1` with no
+  day. Read by the rule alone, a bill on the 20th would have moved to its creation day.
+  - Those rows, and rows with no rule, get one derived from their own day, weekday and start-date
+    columns (`recurrence_rrule_from_legacy`).
+  - A trigger fills a rule whenever an older app saves a schedule without one.
+- **Approving the last occurrence over WhatsApp closes the schedule.** `whatsapp_approve_recurring`
+  takes `p_exhausted` (COUNT/UNTIL reached). The deployed 8-argument call still works.
+
+Migration 20261014120000. Tests: recurrenceSchemaSql.test.ts (3, PGlite).
 
 ## v10.67.0 — W3c: edits stop getting lost *(2026-10-07)*
 

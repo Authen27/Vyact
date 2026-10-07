@@ -2052,6 +2052,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/recurrenceSchemaSql.test.ts",
+      "feature": "Recurrence schema SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W3d migration: daily allowed, short_month_policy, RRULE backfill + fill trigger, approving the last occurrence closes the schedule (focused PGlite fixture)",
+      "count": 3,
+      "tests": [
+        "recurrence schema (W3d) CON-UNIT-W3-D13-001 · daily is allowed on schedules and entries; the month-end rule defaults to last_day and is checked",
+        "recurrence schema (W3d) CON-UNIT-W3-D13-002 · every schedule gets an RRULE from its own columns; a real rule is kept; older apps saving none get one",
+        "recurrence schema (W3d) CON-UNIT-W3-D13-003 · approving over WhatsApp still advances; approving the LAST occurrence closes the schedule"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/recurring.test.ts",
       "feature": "Recurring and budgets",
       "availability": "available",
