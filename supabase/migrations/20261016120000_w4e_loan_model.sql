@@ -612,8 +612,11 @@ $$;
 create or replace function public.debts_refuse_unpaid_delete()
 returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
 begin
+  -- A debt deleted ON ITS OWN is guarded. A household being deleted (the account purge, W1b) takes its
+  -- debts with it by cascade: by then the household row is already gone, and that must not be blocked.
   if (tg_op = 'DELETE' or (new.deleted_at is not null and old.deleted_at is null))
      and coalesce(old.direction, 'owed_by_me') = 'owed_by_me' and old.type <> 'credit_card'
+     and exists (select 1 from public.households h where h.id = old.household_id)
      and public.loan_outstanding(old) > 0 then
     raise exception 'debt_not_paid_off' using errcode = 'P0001';
   end if;
