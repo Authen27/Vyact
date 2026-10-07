@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1477 passing deterministic cases in 117 files. Zero failed, skipped or TODO cases at generation.**
+**1481 passing deterministic cases in 118 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 10 |
-| react | unit | available | 330 |
+| react | unit | available | 334 |
 | react | unit | conditional | 173 |
 | react | unit | infrastructure | 601 |
 
@@ -77,6 +77,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/billCardsAndSigns.test.ts](../react/src/lib/__tests__/billCardsAndSigns.test.ts) | Bill cards and signed figures | store-integration | available | 3 |
 | [react/src/lib/__tests__/budgetOrdering.test.ts](../react/src/lib/__tests__/budgetOrdering.test.ts) | Recurring and budgets | unit | available | 13 |
+| [react/src/lib/__tests__/budgetSuggest.test.ts](../react/src/lib/__tests__/budgetSuggest.test.ts) | Budget suggestion | unit | available | 4 |
 | [react/src/lib/__tests__/budgetTrends.test.ts](../react/src/lib/__tests__/budgetTrends.test.ts) | Reports consultation | unit | available | 4 |
 | [react/src/lib/__tests__/cacheBoundary.test.ts](../react/src/lib/__tests__/cacheBoundary.test.ts) | Storage and synchronization | storage-integration | available | 2 |
 | [react/src/lib/__tests__/cacheInvalidation.test.ts](../react/src/lib/__tests__/cacheInvalidation.test.ts) | Storage and synchronization | storage-integration | available | 9 |

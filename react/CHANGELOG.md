@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.76.0`** (consumer)
+> **Current production version: `v10.77.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,34 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.77.0 — W4h: a suggested budget adds up *(2026-10-07)*
+
+Owner decision **D27** ("Suggest" gave a huge total and a tiny split). App only, no schema change.
+
+- **Why the total was huge.** The suggestion counted lines the budget form never shows:
+  - a "savings" line from the retired Goals;
+  - old category ids (such as `rent` or `transport`), which have no row of their own on the form;
+  - receivables' minimum payments, and paid-off loans' EMIs;
+  - an EMI counted twice, once from the loan and again from its schedule;
+  - a daily bill counted once a month.
+
+  It also kept a total you had typed earlier instead of the one it proposed.
+- **What Suggest proposes now:** only categories the form shows (an old id is proposed as its current
+  one).
+  - Bills in the same category add up, each counted from its own rule: daily × 365 / 12, quarterly ÷ 3,
+    weekly × the days it falls on.
+  - Each live loan's EMI counts once.
+  - The last three completed months' spending is used where it's higher than the bills.
+- **The total is the sum.** Applying a suggestion (or the recurring forecast) sets the total to what it
+  allocates. The total stays editable, and what's left shows as an **Unallocated** line (or "Over the
+  total by").
+- **No hidden rows.** Opening a budget shows old ids under their current category. Rows the form can't
+  show are no longer saved again.
+
+Tests:
+- budgetSuggest.test.ts (W4-D27-001..004)
+- CON-UNIT-MM-111 updated deliberately (no goal line; a legacy id proposed as its current one)
 
 ## v10.76.0 — W4g: loans run themselves *(2026-10-07)*
 

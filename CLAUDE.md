@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.76.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.77.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -549,6 +549,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - The zone comes from the creator's signup metadata or is stamped once by the owner's device (`set_household_timezone`).
   - Scheduled WhatsApp jobs run every 30 minutes and act in each household's local slot (`inJobSlot`).
   - A push skipped for quiet hours stays pending.
+- **A budget holds only lines its form shows (v10.77.0, W4h, owner decision D27).** Every allocation is a
+  category from `EXPENSE_CATEGORIES`, read through `budgetCategoryOf` (a legacy id → its current one;
+  goals' `savings`, income and unknown ids → none). `suggestBudget` proposes only those: active bills
+  summed per category from each one's own rule, each live loan's EMI once (no receivables, no paid-off
+  loans, not again for an EMI schedule), and the last three completed months where higher. Applying a
+  proposal sets the total to its sum; the total stays editable and the remainder is the "Unallocated" line.
+  The form never saves a row it does not show.
 - **A bill card acts only on its own occurrence (v10.73.0, W4d; audit FE-UIS-04).** Approve and Skip
   (bell and bill calendar) go through `approveRecurring` / `skipRecurring`, which refuse anything but the
   due pointer and return whether they acted; the UI says "Already handled" otherwise, never a success
