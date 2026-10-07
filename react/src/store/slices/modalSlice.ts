@@ -16,6 +16,7 @@ import type { Transaction, Goal, Budget, Debt, Asset, Account } from '../../type
 import type { Store } from '../../store';
 import { appNavigate } from '../../lib/appNavigation';
 import { formPath } from '../../lib/formRoutes';
+import { isSplitRow } from '../../lib/txnEdit';
 
 export interface ModalSlice {
   /** v7.4.5 — a seed pre-fills the Add Transaction page (Ask Vyact, notifications). */
@@ -61,8 +62,10 @@ export interface ModalSlice {
 }
 
 export const createModalSlice: StateCreator<Store, [], [], ModalSlice> = (set) => ({
-  openAddTxn:  (seed) => appNavigate(formPath.transactionNew(), seed ? { state: { seed } } : undefined),
-  openEditTxn: (t) => appNavigate(formPath.transactionEdit(t.id)),
+  // W4c (D18) — a split row, and a seed that carries a split (Pip's "split 1200 with Ravi"), open the
+  // Split form. The plain form has no shares, so saving there erased the split.
+  openAddTxn:  (seed) => appNavigate(isSplitRow(seed) ? formPath.splitNew() : formPath.transactionNew(), seed ? { state: { seed } } : undefined),
+  openEditTxn: (t) => appNavigate(isSplitRow(t) ? formPath.splitEdit(t.id) : formPath.transactionEdit(t.id)),
 
   // v6.4 — goal modals
   goalModalOpen: false,

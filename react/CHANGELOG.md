@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.71.0`** (consumer)
+> **Current production version: `v10.72.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,31 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.72.0 — W4c: editing a split keeps the split *(2026-10-07)*
+
+Owner decision **D18** (audit INT-TXN-01, FE-UIC-01, FE-PIP-03). App only; no schema change.
+
+- **Split rows open the Split form.**
+  - Tapping a split in Transactions or on the Dashboard opened the plain transaction form, which
+    has no shares. Saving there wrote the row without its split: the people, the shares and who had
+    paid were gone, and the full bill counted as yours.
+  - Now the store routes a split row to the Split form, and a direct `/transactions/:id/edit` link
+    to a split redirects there too.
+- **Pip's split capture opens the Split form.** Before, "split 1200 dinner 3 ways" opened the plain
+  form, which ignored the split, so saving it logged the whole 1,200 as your expense.
+  - Now the Split form opens with the total, the category and three people.
+  - The other two names are left for you to fill in, and the shares stay even until you change one.
+- **An edit is a patch over the row it opened** (`editPatch`). Both forms used to rebuild the
+  transaction from their own fields, so every edit also dropped:
+  - the link to the recurring schedule or loan;
+  - whether the row was estimated or confirmed;
+  - in the Split form, the note, the payment mode and the version the store sends to catch a
+    conflicting edit.
+- **Paid dates are kept.** Saving a split edit used to restamp every earlier payment with today's
+  date. Someone who had already paid now keeps their day.
+
+Tests: splitEdit.test.ts (W4-D18-001..004).
 
 ## v10.71.0 — W4b: the app stops posting bills in cloud mode *(2026-10-07)*
 
