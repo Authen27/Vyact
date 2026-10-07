@@ -1,9 +1,46 @@
 // Vyact v7 — Recurring schedule engine
-// Handles weekly / monthly / yearly / custom-day-of-month schedules.
-// Computes next-due-date and generates pending transactions when due.
+// Every date comes from the schedule's RRULE (W3e): daily, weekly by weekday, monthly by day or nth
+// weekday, yearly, intervals, COUNT and UNTIL. Generates pending transactions when due.
 
 import type { RecurringSchedule, RecurrenceFreq, Transaction } from '../types';
 import { today, addDaysISO } from './format';
+import { parseRRule, expandRRule, nextOccurrenceAfter, firstOccurrenceOnOrAfter, type RRule, type ShortMonthPolicy } from './rrule';
+
+// ── ONE rule per schedule (W3e, v10.69.0; owner decision D13; audit FE-MNY-01, XC-ARC-01) ──────────
+// Seven calculators used to disagree about a schedule's dates: the form's RRULE (never saved), the
+// save-time clamp, the advance that overflowed month-ends (31 Jan → 3 Mar), the server's hand port,
+// the projections, the bill calendar and the forecasts. Now every one of them reads the schedule's
+// RRULE through `ruleOf`, with the schedule's own month-end rule, in UTC date-only maths.
+
+type RuleSource = Pick<RecurringSchedule, 'frequency' | 'startDate'>
+  & Partial<Pick<RecurringSchedule, 'rrule' | 'dayOfMonth' | 'weekday'>>;
+
+/**
+ * The schedule's rule: its RRULE, or one derived from its columns exactly as the database's
+ * `recurrence_rrule_from_legacy` derives it (weekday 0 = Sunday).
+ */
+export function ruleOf(s: RuleSource): RRule {
+  if (s.rrule && s.rrule.trim()) return parseRRule(s.rrule);
+  const [y, m, d] = s.startDate.split('-').map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  switch (s.frequency) {
+    case 'daily':  return { freq: 'DAILY', interval: 1 };
+    case 'weekly': return { freq: 'WEEKLY', interval: 1, byDay: [s.weekday ?? dow] };
+    case 'yearly': return { freq: 'YEARLY', interval: 1, byMonth: [m], byMonthDay: [d] };
+    default:       return { freq: 'MONTHLY', interval: 1, byMonthDay: [s.dayOfMonth ?? d] };
+  }
+}
+
+/** The schedule's month-end rule (W3e). */
+export const policyOf = (s: Partial<Pick<RecurringSchedule, 'shortMonthPolicy'>>): ShortMonthPolicy =>
+  s.shortMonthPolicy ?? 'last_day';
+
+/** The next occurrence strictly after `after`; null when the schedule's COUNT / UNTIL is used up. */
+export function nextScheduleOccurrence(
+  s: RuleSource & Partial<Pick<RecurringSchedule, 'shortMonthPolicy'>>, after: string,
+): string | null {
+  return nextOccurrenceAfter(ruleOf(s), s.startDate, after, { shortMonthPolicy: policyOf(s) });
+}
 
 const DAY_MS = 86_400_000;
 
@@ -44,31 +81,12 @@ export function recurringInstanceId(scheduleId: string, occurrenceDate: string):
   return deterministicUuid(`vyact:recur:${scheduleId}:${occurrenceDate}`);
 }
 
+/** Does this schedule fall due on `date`? Read from its rule (W3e) — weekdays, nth weekdays,
+ *  intervals, COUNT and UNTIL included; it used to know only the simple frequencies. */
 export function scheduleFiresOnDate(schedule: RecurringSchedule, date: string): boolean {
   if (schedule.active === false) return false;
   if (schedule.startDate && date < schedule.startDate) return false;
-
-  const [, startMonth, startDay] = (schedule.startDate || date).split('-').map(Number);
-  const [, viewMonth] = date.split('-').map(Number);
-  const dayOfMonth = Number(date.slice(-2));
-
-  switch (schedule.frequency) {
-    case 'daily': {
-      const diff = Math.round((Date.parse(date) - Date.parse(schedule.startDate)) / DAY_MS);
-      return diff >= 0;
-    }
-    case 'weekly': {
-      const diff = Math.round((Date.parse(date) - Date.parse(schedule.startDate)) / DAY_MS);
-      return diff >= 0 && diff % 7 === 0;
-    }
-    case 'monthly':
-    case 'custom_day':
-      return dayOfMonth === (schedule.dayOfMonth || startDay);
-    case 'yearly':
-      return viewMonth === startMonth && dayOfMonth === startDay;
-    default:
-      return false;
-  }
+  return expandRRule(ruleOf(schedule), schedule.startDate, date, date, { shortMonthPolicy: policyOf(schedule) }).length > 0;
 }
 
 export function projectRecurringTransactionsForDate(
@@ -91,6 +109,12 @@ export function projectRecurringTransactionsForDate(
     });
 }
 
+/**
+ * The occurrence after `lastGenerated` (or the start) for a schedule described by its columns.
+ * W3e: read from the derived rule, with the default month-end rule — it used to step with local-time
+ * setters on a UTC-parsed date, so a 31st overflowed into the next month and skipped one (INT-TXN-04,
+ * INT-PAR-02). Kept for callers that only hold the columns.
+ */
 export function computeNextDueDate(
   freq: RecurrenceFreq,
   startDate: string,
@@ -98,26 +122,8 @@ export function computeNextDueDate(
   dayOfMonth?: number,
   weekday?: number,
 ): string {
-  const base = new Date(lastGenerated || startDate);
-  const next = new Date(base);
-  if (freq === 'daily') {
-    next.setDate(next.getDate() + 1);
-  } else if (freq === 'weekly') {
-    next.setDate(next.getDate() + 7);
-    if (weekday !== undefined) {
-      const diff = (weekday - next.getDay() + 7) % 7;
-      next.setDate(next.getDate() + diff);
-    }
-  } else if (freq === 'monthly') {
-    next.setMonth(next.getMonth() + 1);
-    if (dayOfMonth) next.setDate(dayOfMonth);
-  } else if (freq === 'yearly') {
-    next.setFullYear(next.getFullYear() + 1);
-  } else if (freq === 'custom_day') {
-    next.setMonth(next.getMonth() + 1);
-    if (dayOfMonth) next.setDate(dayOfMonth);
-  }
-  return next.toISOString().split('T')[0];
+  const base = lastGenerated || startDate;
+  return nextScheduleOccurrence({ frequency: freq, startDate, dayOfMonth, weekday }, base) ?? base;
 }
 
 // Returns schedules that are due now or in the past — they need transactions generated
@@ -166,20 +172,17 @@ export function buildRRule(
   return base;
 }
 
-// After generating, advance the schedule
+/**
+ * After an occurrence is generated (or approved, or skipped), move the schedule to its next one.
+ * W3e: the next occurrence of its RULE strictly after the pointer, so a pointer that is not itself a
+ * rule date still moves forward. When COUNT or UNTIL is used up the schedule is finished: it stays on
+ * its last date and becomes inactive — it used to keep posting forever.
+ */
 export function advanceSchedule(schedule: RecurringSchedule): RecurringSchedule {
   const lastGenerated = schedule.nextDueDate;
-  return {
-    ...schedule,
-    lastGenerated,
-    nextDueDate: computeNextDueDate(
-      schedule.frequency,
-      schedule.startDate,
-      lastGenerated,
-      schedule.dayOfMonth,
-      schedule.weekday,
-    ),
-  };
+  const next = nextScheduleOccurrence(schedule, lastGenerated);
+  if (!next) return { ...schedule, lastGenerated, active: false };
+  return { ...schedule, lastGenerated, nextDueDate: next };
 }
 
 // ── Retired writers (v10.22.2) ──────────────────────────────────────────────
@@ -223,13 +226,9 @@ export function advanceSchedule(schedule: RecurringSchedule): RecurringSchedule 
 // The question both paths actually ask is "when does this NEXT fall due, on or
 // after some anchor date?" — which is what this function answers. All maths is
 // in UTC: the app stores plain YYYY-MM-DD, and local-time `setDate`/`setMonth`
-// on a UTC-parsed date drifts a day either side of the date line.
-
-const isoOf = (d: Date): string => d.toISOString().split('T')[0];
-const parseISO = (iso: string): Date => new Date(`${iso}T00:00:00.000Z`);
-/** Last day of the given (year, zero-based month) — 31 → 28/29/30 as needed. */
-const lastDayOfMonth = (y: number, m0: number): number =>
-  new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+// on a UTC-parsed date drifts a day either side of the date line. Since W3e both
+// read the schedule's rule (`ruleOf`), so a weekday, nth-weekday, COUNT or UNTIL
+// rule saves exactly the date the engine will post.
 
 // The one implementation lives in format.ts (W3a); re-exported for the existing importers.
 export { addDaysISO };
@@ -246,53 +245,13 @@ export const maxISO = (a: string, b: string): string => (a >= b ? a : b);
 export function firstDueOnOrAfter(
   from: string,
   freq: RecurrenceFreq,
-  opts: { startDate?: string; dayOfMonth?: number; weekday?: number } = {},
+  opts: { startDate?: string; dayOfMonth?: number; weekday?: number; rrule?: string; shortMonthPolicy?: ShortMonthPolicy } = {},
 ): string {
-  // A schedule cannot fire before it starts.
-  const anchor = opts.startDate ? maxISO(from, opts.startDate) : from;
-  const d = parseISO(anchor);
-
-  switch (freq) {
-    case 'daily':
-      return anchor;
-
-    case 'weekly': {
-      if (opts.weekday === undefined) return anchor;
-      const diff = (opts.weekday - d.getUTCDay() + 7) % 7;   // 0 => today counts
-      return addDaysISO(anchor, diff);
-    }
-
-    case 'yearly': {
-      // Same month/day as the start date, this year or next.
-      const start = parseISO(opts.startDate ?? anchor);
-      const candidate = isoOf(new Date(Date.UTC(
-        d.getUTCFullYear(),
-        start.getUTCMonth(),
-        Math.min(start.getUTCDate(), lastDayOfMonth(d.getUTCFullYear(), start.getUTCMonth())),
-      )));
-      if (candidate >= anchor) return candidate;
-      const y = d.getUTCFullYear() + 1;
-      return isoOf(new Date(Date.UTC(
-        y, start.getUTCMonth(),
-        Math.min(start.getUTCDate(), lastDayOfMonth(y, start.getUTCMonth())),
-      )));
-    }
-
-    case 'monthly':
-    case 'custom_day':
-    default: {
-      const dom = opts.dayOfMonth ?? parseISO(opts.startDate ?? anchor).getUTCDate();
-      const y = d.getUTCFullYear();
-      const m = d.getUTCMonth();
-      // This month first — the case the old code could not express. A 31st in a
-      // 30-day month clamps to the last day rather than rolling into the next.
-      const thisMonth = isoOf(new Date(Date.UTC(y, m, Math.min(dom, lastDayOfMonth(y, m)))));
-      if (thisMonth >= anchor) return thisMonth;
-      const ny = m === 11 ? y + 1 : y;
-      const nm = (m + 1) % 12;
-      return isoOf(new Date(Date.UTC(ny, nm, Math.min(dom, lastDayOfMonth(ny, nm)))));
-    }
-  }
+  // A schedule cannot fire before it starts. W3e: read from the rule, with its month-end policy.
+  const startDate = opts.startDate ?? from;
+  const anchor = maxISO(from, startDate);
+  const rule = ruleOf({ frequency: freq, startDate, dayOfMonth: opts.dayOfMonth, weekday: opts.weekday, rrule: opts.rrule });
+  return firstOccurrenceOnOrAfter(rule, startDate, anchor, { shortMonthPolicy: opts.shortMonthPolicy ?? 'last_day' }) ?? anchor;
 }
 
 /**
@@ -303,13 +262,35 @@ export function firstDueOnOrAfter(
  */
 export function nextDueAfterSave(
   freq: RecurrenceFreq,
-  opts: { startDate: string; dayOfMonth?: number; weekday?: number; lastGenerated?: string },
+  opts: { startDate: string; dayOfMonth?: number; weekday?: number; lastGenerated?: string; rrule?: string; shortMonthPolicy?: ShortMonthPolicy },
   now: string = today(),
 ): string {
   const floor = opts.lastGenerated
     ? maxISO(now, addDaysISO(opts.lastGenerated, 1))
     : now;
   return firstDueOnOrAfter(maxISO(floor, opts.startDate), freq, opts);
+}
+
+/**
+ * W3e (owner decision D13) — the dates a schedule carries after the form is saved.
+ *
+ * The next due date is the rule's first occurrence on or after the floor (today, and never on or
+ * before an occurrence already generated), with the rule's month-end policy; an edit keeps the old
+ * start as the phase, so "every 3 months" stays on its months. The schedule is then RE-ANCHORED
+ * there: `startDate` becomes that next due date, so "Ends after N times" means N more from the
+ * next one (owner: "N restarts at the edit"). COUNT is therefore left out of the search — it is
+ * counted from the new start. Null when UNTIL leaves no date at all.
+ */
+export function scheduleDatesAfterSave(
+  rule: RRule,
+  shortMonthPolicy: ShortMonthPolicy,
+  editing: Pick<RecurringSchedule, 'startDate' | 'lastGenerated'> | null,
+  now: string = today(),
+): { startDate: string; nextDueDate: string } | null {
+  const floor = editing?.lastGenerated ? maxISO(now, addDaysISO(editing.lastGenerated, 1)) : now;
+  const phase = editing?.startDate ?? floor;
+  const next = firstOccurrenceOnOrAfter({ ...rule, count: undefined }, phase, floor, { shortMonthPolicy });
+  return next ? { startDate: next, nextDueDate: next } : null;
 }
 
 /**

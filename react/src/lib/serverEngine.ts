@@ -23,7 +23,8 @@ import type {
   Transaction, Budget, BudgetAllocation, Goal, Debt, Asset, Account, RecurringSchedule, ExchangeRates,
 } from '../types';
 import { DEFAULT_RATES } from '../constants';
-import { mapCloudRow, profileFromRows, type ProfileRowCols, type HouseholdRowCols } from './supabaseAdapter';
+import { mapCloudRow, profileFromRows, txnToRow, type ProfileRowCols, type HouseholdRowCols } from './supabaseAdapter';
+import { generateTransaction, advanceSchedule } from './recurring';
 import { buildSafeSummary } from './aiSummary';
 import { runAssistant, LlmBackend, type AssistantContext, type AssistantTurn } from './askVyactBackend';
 import type { ModelCall } from './askVyactLlm';
@@ -194,6 +195,32 @@ export function reconcileOnServer(rows: HouseholdRows, accountId: string, stated
     log: (patch.reconciliationLog ?? []) as unknown[],
     at, bridge,
   };
+}
+
+// ── "paid X" (W3e, v10.69.0) — the app's Approve, run on the server ─────────────────
+
+export interface ApprovalPlan {
+  /** The transaction row the app's Approve writes (generateTransaction → txnToRow), JSON-clean. */
+  row: Record<string, unknown>;
+  /** The schedule's next due date after this occurrence; null when it was the last one. */
+  nextDue: string | null;
+  /** COUNT / UNTIL is used up: the schedule closes instead of moving on. */
+  exhausted: boolean;
+}
+
+/**
+ * Exactly what approving the due occurrence does in the app (recurringSlice.approveRecurring):
+ * the occurrence row under its deterministic id, and the schedule advanced by its RULE with its
+ * month-end policy. This replaced the `_shared/recurring.ts` hand port, which stepped month-ends
+ * differently from the app and knew nothing of weekdays, COUNT or UNTIL (audit XC-ARC-01, INT-PAR-02).
+ * `whatsapp_approve_recurring` applies the plan in one transaction.
+ */
+export function approveOccurrenceOnServer(scheduleRow: unknown, householdId: string): ApprovalPlan {
+  const schedule = mapCloudRow('recurring', scheduleRow) as RecurringSchedule;
+  const row = JSON.parse(JSON.stringify(txnToRow(generateTransaction(schedule), householdId))) as Record<string, unknown>;
+  const advanced = advanceSchedule(schedule);
+  const exhausted = advanced.active === false;
+  return { row, nextDue: exhausted ? null : advanced.nextDueDate, exhausted };
 }
 
 // ── Runway (W6, v10.47.0) — the runway alerts read the app's own forecast ─────────

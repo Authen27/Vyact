@@ -776,7 +776,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar (W3e: one rule per schedule)",
       "count": 5,
       "tests": [
         "Approval-aware bill calendar (v10.32.0) falls back to the frequency fields for a schedule without an RRULE",
@@ -792,7 +792,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar (W3e: one rule per schedule)",
       "count": 13,
       "tests": [
         "budgets on the Budgets page · current month on top, oldest at the bottom a full mixed history ends with the oldest period at the bottom",
@@ -2052,6 +2052,22 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/recurrenceEngine.test.ts",
+      "feature": "Recurring and budgets",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar (W3e: one rule per schedule)",
+      "count": 5,
+      "tests": [
+        "W3e · one recurrence engine W3-D13-004 · a 31st in a shorter month follows the schedule’s month-end rule, in every calculator",
+        "W3e · one recurrence engine W3-D13-005 · weekdays, nth weekday, intervals, daily and legacy weekly schedules advance by their rule",
+        "W3e · one recurrence engine W3-D13-006 · when COUNT or UNTIL runs out the schedule closes on its last date — it never posts again",
+        "W3e · one recurrence engine W3-D13-007 · saving picks the rule’s next date on or after today, and an edit restarts \"N times\" there",
+        "W3e · one recurrence engine W3-D13-008 · the engine, the bill calendar and the day projection agree on every date"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/recurrenceSchemaSql.test.ts",
       "feature": "Recurrence schema SQL",
       "availability": "conditional",
@@ -2066,11 +2082,24 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/recurrenceServerParity.test.ts",
+      "feature": "Server recurring approval parity",
+      "availability": "infrastructure",
+      "layer": "unit",
+      "owner": "serverEngine.approveOccurrenceOnServer (source + bundle) / client generateTransaction + txnToRow + advanceSchedule",
+      "count": 2,
+      "tests": [
+        "\"paid X\" runs the app’s Approve (W3e) W3-D13-009 · the next date matches advanceSchedule — month ends, weekdays, nth weekday, daily, annual — and the last one closes",
+        "\"paid X\" runs the app’s Approve (W3e) W3-D13-010 · the row is what the app’s generateTransaction → txnToRow writes, under the app’s id"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/recurring.test.ts",
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar (W3e: one rule per schedule)",
       "count": 12,
       "tests": [
         "computeNextDueDate advances monthly schedules from the last generated date",
@@ -2094,23 +2123,10 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 1,
+      "count": 2,
       "tests": [
+        "W3-D13-012 · a schedule keeps its rule, owner and month-end rule, and closes after its last occurrence",
         "keeps an approval-required bill due without posting or advancing it"
-      ]
-    },
-    {
-      "app": "react",
-      "file": "react/src/lib/__tests__/recurringPort.test.ts",
-      "feature": "Server recurring port parity",
-      "availability": "infrastructure",
-      "layer": "unit",
-      "owner": "_shared/recurring / client generateTransaction + txnToRow + advanceSchedule",
-      "count": 3,
-      "tests": [
-        "recurring posting parity CON-UNIT-REC-P-001 · the occurrence id is the app’s deterministic id",
-        "recurring posting parity CON-UNIT-REC-P-002 · the next due date matches advanceSchedule across frequencies and month ends",
-        "recurring posting parity CON-UNIT-REC-P-003 · the row is what the app’s generateTransaction → txnToRow writes"
       ]
     },
     {
@@ -2153,7 +2169,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar (W3e: one rule per schedule)",
       "count": 11,
       "tests": [
         "rrule — describe CON-UNIT-RR-020 · human labels",
@@ -2382,7 +2398,7 @@
       "feature": "Recurring and budgets",
       "availability": "available",
       "layer": "unit",
-      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar",
+      "owner": "recurring / rrule / calculations / budgetOrdering / billCalendar (W3e: one rule per schedule)",
       "count": 5,
       "tests": [
         "v9.1 §4 — budget identity budgetForecast sums recurring EXPENSE schedules by category; excludes income",
@@ -2613,7 +2629,7 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 51,
+      "count": 52,
       "tests": [
         "W6b template replies in the webhook CON-UNIT-W6B-012 · recurring Undo within 15 minutes removes that entry; Pause pauses its schedule; a late Undo is refused",
         "W6b template replies in the webhook CON-UNIT-W6B-013 · \"1200 dinner shared\" logs it, then prompts the logger; Split 50/50 writes the app's split for the usual partner",
@@ -2624,6 +2640,7 @@
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-003 · \"paid rent\" after a reminder approves THAT occurrence with the app’s row and next date",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder \"paid X\" is an ordinary entry",
         "WhatsApp \"paid X\" (W2b) CON-UNIT-WA-B-005 · already approved in the app, or not approvable from chat, is said plainly",
+        "WhatsApp \"paid X\" (W2b) W3-D13-011 · \"paid rent\" on the LAST occurrence (COUNT reached) closes the schedule and says so",
         "WhatsApp answers (W4) CON-UNIT-W4-007 · with answers OFF, a question is offered answers here (no link) and reads nothing",
         "WhatsApp answers (W4) CON-UNIT-W4-008 · with answers ON, Ask Vyact answers from this household; \"1\" asks the follow-up with the stated figures",
         "WhatsApp answers (W4) CON-UNIT-W4-009 · the menu’s Check rows ask Ask Vyact when answers are on; a failed read says so plainly",

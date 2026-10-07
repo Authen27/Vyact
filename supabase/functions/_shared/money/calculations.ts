@@ -513,6 +513,7 @@ export function recurringForecastByCategory(
     const t = s.transactionTemplate;
     if (!t || t.type !== 'expense' || !t.amount || !t.category) continue;
     const perPeriod =
+      s.frequency === 'daily' ? t.amount * days :
       s.frequency === 'weekly' ? t.amount * (days / 7) :
       s.frequency === 'yearly' ? t.amount * (days / 365) :
       /* monthly / custom_day */ t.amount * (days / 30.4375);

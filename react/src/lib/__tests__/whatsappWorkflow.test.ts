@@ -10,9 +10,10 @@ const engine = vi.hoisted(() => ({ loadHouseholdRows: vi.fn(), answerOnServer: v
 vi.mock('../../../../supabase/functions/_shared/agent/householdLoader.ts', () => ({ loadHouseholdRows: engine.loadHouseholdRows }));
 vi.mock('../../../../supabase/functions/_shared/agent/assistantCore.ts', () => ({ serverModelCall: engine.serverModelCall }));
 vi.mock('../../../../supabase/functions/_shared/agent/engine.ts', async () => {
-  // W6 — the UPDATE list and the reconcile plan are the real engine functions.
-  const { renderForWhatsApp, balancesToCheck, reconcileOnServer } = await import('../serverEngine');
-  return { contextFromRows: () => ({}), answerOnServer: engine.answerOnServer, renderForWhatsApp, balancesToCheck, reconcileOnServer };
+  // W6 — the UPDATE list and the reconcile plan are the real engine functions; W3e — so is the
+  // "paid X" approval plan (the app's generateTransaction → txnToRow + advanceSchedule).
+  const { renderForWhatsApp, balancesToCheck, reconcileOnServer, approveOccurrenceOnServer } = await import('../serverEngine');
+  return { contextFromRows: () => ({}), answerOnServer: engine.answerOnServer, renderForWhatsApp, balancesToCheck, reconcileOnServer, approveOccurrenceOnServer };
 });
 beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}'))); });
 afterEach(() => vi.unstubAllGlobals());
@@ -446,14 +447,14 @@ describe('WhatsApp "paid X" (W2b)', () => {
   const schedule = { id: SID, household_id: 'alice-house', frequency: 'monthly', start_date: '2026-01-25', next_due_date: '2026-09-24',
     last_generated: null, day_of_month: 24, weekday: null, auto_confirm: false, active: true, owner_member_id: null,
     txn_template: { type: 'expense', amount: 25000, currency: 'INR', description: 'Rent', category: 'rent_mortgage', accountId: '22222222-2222-4222-8222-222222222222' } };
-  function tables(reminders: unknown[]) {
+  function tables(reminders: unknown[], row: unknown = schedule) {
     api.from.mockImplementation((table: string) => {
       // W1 (BE-WA-01): the sender / recipient is still a member of the linked household.
       if (table === 'memberships') return queryResult({ id: 'membership' });
       if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
       if (table === 'whatsapp_pending_turns') return queryResult(null);   // W3: no open question
       if (table === 'transactions') return queryResult([]);             // W3: no same-amount twin
-      if (table === 'recurring_schedules') return queryResult(schedule);
+      if (table === 'recurring_schedules') return queryResult(row);
       if (table === 'accounts') return queryResult([{ name: 'Bank', kind: 'bank', currency: 'INR' }]);
       if (table === 'assets') return queryResult([]);
       if (table === 'whatsapp_inbound_messages') {
@@ -473,14 +474,26 @@ describe('WhatsApp "paid X" (W2b)', () => {
     tables([reminder]);
     api.rpc.mockResolvedValue({ error: null, data: { status: 'success', already_posted: false, next_due_date: '2026-10-24' } });
     await post(handler, inbound('paid rent'));
-    const { recurringInstanceId } = await import('../../../../supabase/functions/_shared/recurring');
+    const { recurringInstanceId } = await import('../recurring');
     expect(api.rpc).toHaveBeenCalledTimes(1);
     expect(api.rpc).toHaveBeenCalledWith('whatsapp_approve_recurring', expect.objectContaining({
       p_profile_id: 'alice', p_household_id: 'alice-house', p_schedule_id: SID, p_occurrence: '2026-09-24',
-      p_today: '2026-09-24', p_next_due: '2026-10-24', p_wa_message_id: 'm-1',
+      p_today: '2026-09-24', p_next_due: '2026-10-24', p_wa_message_id: 'm-1', p_exhausted: false,
       p_row: expect.objectContaining({ id: recurringInstanceId(SID, '2026-09-24'), amount: 25000, date: '2026-09-24', recurring_schedule_id: SID }),
     }));
     expect(sentTexts()[0]).toBe('Logged: Rent, ₹25,000, for 24 Sep, as scheduled. The next one is due 24 Oct.');
+  });
+
+  it('W3-D13-011 · "paid rent" on the LAST occurrence (COUNT reached) closes the schedule and says so', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    // Feb 24 … Sep 24 is eight: the 24 Sep reminder is for the last one.
+    tables([reminder], { ...schedule, rrule: 'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=24;COUNT=8', short_month_policy: 'last_day' });
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', already_posted: false, next_due_date: null, finished: true } });
+    await post(handler, inbound('paid rent'));
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_approve_recurring', expect.objectContaining({
+      p_schedule_id: SID, p_occurrence: '2026-09-24', p_next_due: null, p_exhausted: true,
+    }));
+    expect(sentTexts()[0]).toBe('Logged: Rent, ₹25,000, for 24 Sep, as scheduled. That was the last one, so the schedule has ended.');
   });
 
   it('CON-UNIT-WA-B-004 · a different amount is not logged; with no reminder "paid X" is an ordinary entry', async () => {

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.68.0`** (consumer)
+> **Current production version: `v10.69.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,51 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.69.0 — W3e: one recurrence engine *(2026-10-07)*
+
+Second half of owner decision **D13**: every option on the schedule form works, and the month-end
+rule is chosen per schedule. Needs v10.68.0's schema (deploy it first). Audit IDs: FE-MNY-01,
+FE-UIC-02, INT-TXN-03/04, XC-ARC-01, INT-PAR-02/03, FE-MNY-02, BE-WA-02, INT-TZC-01, GATE-01.
+
+- **One rule per schedule.**
+  - Before, seven calculators worked out a schedule's dates and disagreed with each other.
+  - Now the engine, the form's save, the bill calendar, the day projections and the server all read
+    the schedule's RRULE through `ruleOf`, in UTC date-only maths.
+  - A schedule saved without a rule gets one derived from its columns, exactly as the database does.
+- **The rule is saved.** `upsertRecurring` used to drop the form's RRULE, the owner and the
+  `updated_at` precondition. Weekdays, "2nd Tuesday", annual dates and "ends after N times" were
+  shown on the form and then ignored.
+- **Month ends** (owner: chosen per schedule).
+  - A 31st used to step from 31 Jan to "31 Feb" = 3 Mar, then to 31 Mar, so February was never
+    billed. The bill calendar skipped those months too.
+  - Now a 29th–31st (or 29 Feb) lands on the month's last day, or on the 1st of the next month if
+    the schedule chose that.
+  - The form asks only when the chosen day needs it, and warns that the 1st-of-next-month choice can
+    put two in one month.
+- **Schedules end.** When COUNT or UNTIL runs out, the schedule closes on its last date
+  (`active = false`). Before, it kept posting forever. The form gains **Ends: On a date**.
+- **Editing restarts "N times"** (owner: "N restarts at the edit"). An edit moves the start to the
+  next due date, so "Ends after 3 times" means three more.
+- **The form.**
+  - Adds a **Weekdays** shortcut (Mon–Fri).
+  - The annual day is limited to the chosen month (no 31 April).
+  - A quarterly schedule stays quarterly when edited.
+  - Saving shows an error instead of failing silently.
+- **"paid X" on WhatsApp runs the app's Approve.**
+  - The `_shared/recurring.ts` hand port is deleted. The webhook takes the row and the next date
+    from the bundled engine (`approveOccurrenceOnServer`).
+  - Approving the last occurrence closes the schedule (`p_exhausted`) and says so in the reply.
+- **Daily schedules count right in forecasts.** The category forecast and the budget suggestion used
+  to count a daily schedule once a month.
+- The engine's schedule writes record a fault instead of an empty `catch {}`.
+
+Tests:
+- recurrenceEngine.test.ts (W3-D13-004..008)
+- recurrenceServerParity.test.ts (W3-D13-009/010; replaces recurringPort.test.ts, which pinned the
+  month skip)
+- WhatsApp W3-D13-011
+- store W3-D13-012
 
 ## v10.68.0 — W3d: the recurrence schema, ahead of the app *(2026-10-07)*
 

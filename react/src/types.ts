@@ -444,10 +444,13 @@ export interface RecurringSchedule {
    *  is COUNT/UNTIL exhaustion or deletion. Kept (defaults true) for back-compat. */
   active: boolean;
   reminderLeadDays?: number; // 0-7 — fires upcoming-bill notif this many days before
-  /** v9.1 §5.2 — RFC 5545 RRULE string (the source of truth for recurrence).
-   *  When present, the generator expands this; frequency/dayOfMonth/weekday are
-   *  derived display hints. */
+  /** v9.1 §5.2 — RFC 5545 RRULE string, the source of truth for every date (W3e: the engine,
+   *  the server, the bill calendar and the projections all read it through `ruleOf`; without one
+   *  a rule is derived from frequency/dayOfMonth/weekday/startDate, as the database does). */
   rrule?: string;
+  /** W3e (owner decision D13) — a 29th–31st (or Feb 29) in a shorter month: its last day (default)
+   *  or the 1st of the next month. */
+  shortMonthPolicy?: 'last_day' | 'next_month_first';
   /** v9.1 §5.3 — the household member the generated transactions are attributed
    *  to (flows to Transaction.memberId/initiatedBy). */
   ownerMemberId?: string;

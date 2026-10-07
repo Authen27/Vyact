@@ -11,16 +11,16 @@ import { Field, Select } from '../components/ui/Input';
 import { AmountField } from '../components/ui/NumericKeypad';
 import HalfSheet from '../components/ui/HalfSheet';
 import BillCalendar from '../components/recurring/BillCalendar';
-import { formatDate, today } from '../lib/format';
+import { formatDate, today, addDaysISO } from '../lib/format';
 import { getCat, CURRENCIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import type { RecurringSeed } from '../lib/askVyactResponses';
-import { nextDueAfterSave } from '../lib/recurring';
-import { formatRRule, parseRRule, describeRRule } from '../lib/rrule';
+import { scheduleDatesAfterSave, ruleOf } from '../lib/recurring';
+import { formatRRule, describeRRule, type RRule, type ShortMonthPolicy } from '../lib/rrule';
 
 type SchedType = 'expense' | 'income' | 'investment';
 type MonthlyMode = 'dom' | 'nth';
-type EndsKind = 'never' | 'count';
+type EndsKind = 'never' | 'count' | 'until';
 
 const TYPE_META: Record<SchedType, { label: string; emoji: string }> = {
   expense:    { label: 'Expense',    emoji: '💸' },
@@ -32,6 +32,9 @@ const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const NTH_LABELS = ['1st', '2nd', '3rd', '4th', 'Last'];
 const NTH_VALUES = [1, 2, 3, 4, -1];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** The most days a month can have (Feb 29 in a leap year) — the annual day is clamped to it. */
+const MONTH_MAX_DAY = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const WORK_WEEK = [1, 2, 3, 4, 5];
 
 function todayWeekday(): number { return new Date().getDay(); }
 function todayDom(): number { return new Date().getDate(); }
@@ -72,6 +75,11 @@ export default function Recurring() {
   const [toAccountId, setToAccountId] = useState<string>('');
   const [endsKind, setEndsKind] = useState<EndsKind>('never');
   const [endsCount, setEndsCount] = useState('12');
+  const [endsUntil, setEndsUntil] = useState(() => addDaysISO(today(), 365));
+  // W3e — an edited rule keeps its interval (a quarterly schedule stays quarterly), and the schedule
+  // chooses what its 29th–31st does in a shorter month (owner decision D13).
+  const [ruleInterval, setRuleInterval] = useState(1);
+  const [shortMonthPolicy, setShortMonthPolicy] = useState<ShortMonthPolicy>('last_day');
   // Weekly
   const [weekDays, setWeekDays] = useState<number[]>([todayWeekday()]);
   // Monthly
@@ -101,6 +109,7 @@ export default function Recurring() {
     setType('expense'); setFreq('monthly'); setName(''); setAmount('');
     setCategory('rent_mortgage'); setAutoConfirm(true); setReminderLead(3);
     setOwnerMemberId(''); setEndsKind('never'); setEndsCount('12');
+    setEndsUntil(addDaysISO(today(), 365)); setRuleInterval(1); setShortMonthPolicy('last_day');
     setAccountId(''); setToAccountId('');
     setWeekDays([todayWeekday()]); setMonthlyMode('dom');
     setDayOfMonth(todayDom()); setNthWeek(1); setNthWeekday(1);
@@ -111,24 +120,31 @@ export default function Recurring() {
     setWeekDays(ws => ws.includes(d) ? (ws.length > 1 ? ws.filter(x => x !== d) : ws) : [...ws, d].sort());
   }
 
-  function buildRruleStr(): string {
-    const ends = endsKind === 'count' ? { count: Math.max(1, parseInt(endsCount, 10) || 1) } : {};
-    if (freq === 'daily') {
-      return formatRRule({ freq: 'DAILY', interval: 1, ...ends });
-    }
-    if (freq === 'weekly') {
-      return formatRRule({ freq: 'WEEKLY', interval: 1, byDay: [...weekDays].sort(), ...ends });
-    }
-    if (freq === 'monthly' || freq === 'custom_day') {
-      if (monthlyMode === 'nth') {
-        return formatRRule({ freq: 'MONTHLY', interval: 1, bySetPos: [nthWeek], byDay: [nthWeekday], ...ends });
-      }
-      return formatRRule({ freq: 'MONTHLY', interval: 1, byMonthDay: [dayOfMonth], ...ends });
-    }
+  /** The annual day, clamped to the chosen month (31 Apr is 30 Apr; Feb allows the 29th). */
+  const annualDayFor = (month: number, day: number) => Math.max(1, Math.min(MONTH_MAX_DAY[month - 1], day));
+
+  // A day some months do not have: the schedule chooses where it goes in those months.
+  const needsMonthEndRule =
+    ((freq === 'monthly' || freq === 'custom_day') && monthlyMode === 'dom' && dayOfMonth >= 29)
+    || (freq === 'yearly' && annualMonth === 2 && annualDay === 29);
+
+  /**
+   * W3e — the rule the form describes. It is SAVED (the store used to drop it) and it is the one
+   * every date is read from: the engine, the server, the bill calendar and the projections.
+   */
+  function buildRule(): RRule {
+    const ends = endsKind === 'count' ? { count: Math.max(1, parseInt(endsCount, 10) || 1) }
+      : endsKind === 'until' ? { until: endsUntil } : {};
+    const keep = (f: RRule['freq']) => (editing && ruleOf(editing).freq === f ? ruleInterval : 1);
+    if (freq === 'daily') return { freq: 'DAILY', interval: keep('DAILY'), ...ends };
+    if (freq === 'weekly') return { freq: 'WEEKLY', interval: keep('WEEKLY'), byDay: [...weekDays].sort(), ...ends };
     if (freq === 'yearly') {
-      return formatRRule({ freq: 'YEARLY', interval: 1, byMonth: [annualMonth], byMonthDay: [annualDay], ...ends });
+      return { freq: 'YEARLY', interval: keep('YEARLY'), byMonth: [annualMonth], byMonthDay: [annualDayFor(annualMonth, annualDay)], ...ends };
     }
-    return formatRRule({ freq: 'MONTHLY', interval: 1, ...ends });
+    if (monthlyMode === 'nth') {
+      return { freq: 'MONTHLY', interval: keep('MONTHLY'), bySetPos: [nthWeek], byDay: [nthWeekday], ...ends };
+    }
+    return { freq: 'MONTHLY', interval: keep('MONTHLY'), byMonthDay: [dayOfMonth], ...ends };
   }
 
   async function save() {
@@ -140,8 +156,11 @@ export default function Recurring() {
     if (type === 'investment' && !toAccountId) {
       toast('Choose the investment to put this into', 'error'); return;
     }
-    const startDate = editing?.startDate || today();
-    const rrule = buildRruleStr();
+    if (endsKind === 'until' && (!endsUntil || endsUntil < today())) {
+      toast('Choose an end date from today on', 'error'); return;
+    }
+    const rule = buildRule();
+    const policy: ShortMonthPolicy = needsMonthEndRule ? shortMonthPolicy : 'last_day';
     const dom = (freq === 'monthly' || freq === 'custom_day') && monthlyMode === 'dom' ? dayOfMonth : undefined;
     // v10.20.6 — was `computeNextDueDate(freq, startDate, undefined, dom ?? 1)`,
     // which always steps ONE period on from its base. Two bugs came out of that:
@@ -156,14 +175,12 @@ export default function Recurring() {
     //   transaction on every refresh. That is the "recurring schedule shows up
     //   as a transaction for today" report.
     //
-    // nextDueAfterSave answers the question actually being asked: the next
-    // occurrence on or after today that has not already been generated.
-    const next = nextDueAfterSave(freq, {
-      startDate,
-      dayOfMonth: dom,
-      weekday: editing?.weekday,
-      lastGenerated: editing?.lastGenerated,
-    });
+    // The question actually being asked: the next occurrence on or after today that has not
+    // already been generated. W3e: asked of the RULE the form describes (weekdays, nth weekday,
+    // annual date, the month-end choice), and the schedule restarts there, so "Ends after N times"
+    // counts N from the next one (owner decision).
+    const dates = scheduleDatesAfterSave(rule, policy, editing);
+    if (!dates) { toast('This schedule has no dates left. Check when it ends.', 'error'); return; }
     const schedule = {
       ...(editing || {}),
       transactionTemplate: {
@@ -184,15 +201,23 @@ export default function Recurring() {
       },
       frequency: freq,
       dayOfMonth: dom,
-      startDate,
-      nextDueDate: next,
+      // The columns stay readable hints; the rule is the source of the dates.
+      weekday: freq === 'weekly' ? [...weekDays].sort()[0] : undefined,
+      startDate: dates.startDate,
+      nextDueDate: dates.nextDueDate,
       autoConfirm,
       active: editing?.active ?? true,
       reminderLeadDays: reminderLead,
-      rrule,
+      rrule: formatRRule(rule),
+      shortMonthPolicy: policy,
       ownerMemberId: ownerMemberId || undefined,
     };
-    await upsert(schedule);
+    try {
+      await upsert(schedule);
+    } catch (e) {
+      toast(`Could not save: ${(e as Error).message}`, 'error');
+      return;
+    }
     setOpen(false); setEditing(null); resetForm();
     toast(editing ? 'Recurring schedule updated' : 'Recurring schedule created', 'success');
   }
@@ -209,30 +234,28 @@ export default function Recurring() {
     setOwnerMemberId(s.ownerMemberId ?? s.transactionTemplate.memberId ?? '');
     setAccountId(s.transactionTemplate.accountId ?? '');
     setToAccountId(s.transactionTemplate.assetId ?? s.transactionTemplate.toAccountId ?? '');
-    // Parse RRULE to restore sub-fields
-    if (s.rrule) {
-      const r = parseRRule(s.rrule);
-      setEndsKind(r.count != null ? 'count' : 'never');
-      setEndsCount(r.count != null ? String(r.count) : '12');
-      if (r.freq === 'WEEKLY' && r.byDay?.length) setWeekDays([...r.byDay]);
-      if (r.freq === 'MONTHLY') {
-        if (r.bySetPos?.length && r.byDay?.length) {
-          setMonthlyMode('nth');
-          setNthWeek(r.bySetPos[0]);
-          setNthWeekday(r.byDay[0]);
-        } else {
-          setMonthlyMode('dom');
-          setDayOfMonth(r.byMonthDay?.[0] ?? s.dayOfMonth ?? todayDom());
-        }
+    // Restore the sub-fields from the schedule's rule — its RRULE, or the one its columns describe
+    // (W3e: a legacy weekly schedule used to reopen on today's weekday, not its own).
+    const r = ruleOf(s);
+    setRuleInterval(r.interval);
+    setShortMonthPolicy(s.shortMonthPolicy ?? 'last_day');
+    setEndsKind(r.count != null ? 'count' : r.until ? 'until' : 'never');
+    setEndsCount(r.count != null ? String(r.count) : '12');
+    setEndsUntil(r.until ?? addDaysISO(today(), 365));
+    if (r.freq === 'WEEKLY') setWeekDays(r.byDay?.length ? [...r.byDay] : [todayWeekday()]);
+    if (r.freq === 'MONTHLY') {
+      if (r.bySetPos?.length && r.byDay?.length) {
+        setMonthlyMode('nth');
+        setNthWeek(r.bySetPos[0]);
+        setNthWeekday(r.byDay[0]);
+      } else {
+        setMonthlyMode('dom');
+        setDayOfMonth(r.byMonthDay?.[0] ?? s.dayOfMonth ?? todayDom());
       }
-      if (r.freq === 'YEARLY') {
-        setAnnualMonth(r.byMonth?.[0] ?? todayMonth());
-        setAnnualDay(r.byMonthDay?.[0] ?? todayDom());
-      }
-    } else {
-      setEndsKind('never'); setEndsCount('12');
-      setDayOfMonth(s.dayOfMonth ?? todayDom());
-      setMonthlyMode('dom');
+    }
+    if (r.freq === 'YEARLY') {
+      setAnnualMonth(r.byMonth?.[0] ?? todayMonth());
+      setAnnualDay(r.byMonthDay?.[0] ?? todayDom());
     }
   }
 
@@ -296,7 +319,7 @@ export default function Recurring() {
                         an rrule fall back to the frequency word. */}
                     <div className="font-mono text-[0.62rem] text-ink-dim mt-px truncate">
                       {(() => {
-                        try { return s.rrule ? describeRRule(parseRRule(s.rrule)) : s.frequency; }
+                        try { return describeRRule(ruleOf(s)); }
                         catch { return s.frequency; }
                       })()} · next {formatDate(s.nextDueDate, dateFormat)} · {s.autoConfirm ? 'auto' : 'pending confirm'}
                     </div>
@@ -440,6 +463,8 @@ export default function Recurring() {
           <div className="mt-4">
             <div className="mono-label mb-1.5">Repeat on</div>
             <div className="flex gap-1.5 flex-wrap">
+              <Chip on={weekDays.length === WORK_WEEK.length && WORK_WEEK.every(d => weekDays.includes(d))}
+                onClick={() => setWeekDays([...WORK_WEEK])}>Weekdays</Chip>
               {WEEKDAYS.map((d, i) => (
                 <Chip key={i} on={weekDays.includes(i)} onClick={() => toggleWeekday(i)}>{d}</Chip>
               ))}
@@ -487,15 +512,34 @@ export default function Recurring() {
             <div className="mono-label mb-1.5">Repeat on</div>
             <div className="flex gap-1.5 flex-wrap mb-2">
               {MONTH_NAMES.map((m, i) => (
-                <Chip key={i} on={annualMonth === i + 1} onClick={() => setAnnualMonth(i + 1)}>{m}</Chip>
+                <Chip key={i} on={annualMonth === i + 1}
+                  onClick={() => { setAnnualMonth(i + 1); setAnnualDay(d => annualDayFor(i + 1, d)); }}>{m}</Chip>
               ))}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[0.84rem] text-ink-mid">Day</span>
-              <input type="number" min={1} max={31} value={annualDay}
-                onChange={e => setAnnualDay(Math.max(1, Math.min(31, parseInt(e.target.value) || 1)))}
+              <input type="number" min={1} max={MONTH_MAX_DAY[annualMonth - 1]} value={annualDay}
+                onChange={e => setAnnualDay(annualDayFor(annualMonth, parseInt(e.target.value) || 1))}
                 className="input h-[34px] py-0 px-2.5 text-[12.5px] w-20" aria-label="Day of month" />
             </div>
+          </div>
+        )}
+
+        {/* W3e (owner decision D13) — a day some months do not have: the schedule says where it goes. */}
+        {needsMonthEndRule && (
+          <div className="mt-4">
+            <Field label={freq === 'yearly' ? 'In years without 29 Feb' : 'In months without that day'}>
+              <Select value={shortMonthPolicy} aria-label="Month-end rule"
+                onChange={event => setShortMonthPolicy(event.target.value as ShortMonthPolicy)}>
+                <option value="last_day">{freq === 'yearly' ? 'Use 28 Feb' : 'Use the last day of the month'}</option>
+                <option value="next_month_first">{freq === 'yearly' ? 'Use 1 Mar' : 'Use the 1st of the next month'}</option>
+              </Select>
+            </Field>
+            {freq !== 'yearly' && shortMonthPolicy === 'next_month_first' && (
+              <div className="mt-1.5 text-[0.7rem] text-terra">
+                Some months will have two: the {dayOfMonth}th of a shorter month moves to the 1st of the next, which still has its own {dayOfMonth}th.
+              </div>
+            )}
           </div>
         )}
 
@@ -505,12 +549,20 @@ export default function Recurring() {
           <div className="flex gap-1.5 flex-wrap items-center">
             <Chip on={endsKind === 'never'} onClick={() => setEndsKind('never')}>Never</Chip>
             <Chip on={endsKind === 'count'} onClick={() => setEndsKind('count')}>After N times</Chip>
+            <Chip on={endsKind === 'until'} onClick={() => setEndsKind('until')}>On a date</Chip>
             {endsKind === 'count' && (
               <input type="number" min={1} value={endsCount} onChange={e => setEndsCount(e.target.value)}
                 placeholder="12" aria-label="Number of occurrences"
                 className="input h-[34px] py-0 px-2.5 text-[12.5px] w-20" />
             )}
+            {endsKind === 'until' && (
+              <input type="date" min={today()} value={endsUntil} onChange={e => setEndsUntil(e.target.value)}
+                aria-label="Last date" className="input h-[34px] py-0 px-2.5 text-[12.5px]" />
+            )}
           </div>
+          {endsKind === 'count' && editing && (
+            <div className="mt-1.5 text-[0.7rem] text-ink-dim">Counted from the next one.</div>
+          )}
         </div>
 
         {/* Reminder lead time */}

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.68.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.69.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -343,6 +343,22 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   any other date. Never offer "approve early", never post from the calendar's own
   math, and hide pointers the engine will fast-forward past (`isStaleOccurrence`).
   Totals are a commitment preview, not a balance forecast.
+- **One recurrence rule per schedule (v10.69.0, W3e, owner decision D13).**
+  - The schedule's RRULE is the single source of its dates. Every calculator reads it through
+    `ruleOf(schedule)` + `policyOf(schedule)` (`lib/recurring.ts`): the engine's `advanceSchedule`,
+    the form's `scheduleDatesAfterSave`, `billCalendar`, `scheduleFiresOnDate` and the server.
+    A row without an RRULE derives one from its columns exactly as SQL `recurrence_rrule_from_legacy`
+    does. Never add a calculator that steps dates from `frequency` on its own.
+  - The month-end rule is the schedule's (`short_month_policy`): `last_day` (default) or
+    `next_month_first`. Never skip a short month (the RFC default) for a schedule.
+  - When COUNT or UNTIL runs out, the schedule closes (`active = false`) on its last date; it is
+    never moved to a date that does not come. An edit re-anchors `startDate` at the next due date,
+    so "Ends after N times" counts N from there (owner: "N restarts at the edit").
+  - The server approves with the bundled engine (`serverEngine.approveOccurrenceOnServer`, passing
+    `p_exhausted`); the `_shared/recurring.ts` hand port is deleted. Never re-port recurrence maths
+    into `_shared/`.
+  - `upsertRecurring` persists `rrule`, `shortMonthPolicy`, `ownerMemberId` and the `updated_at`
+    precondition; it dropped all four until v10.69.0.
 - **WhatsApp integration — write-only logging (v10.18)** — inbound text → the
   deterministic parser (`supabase/functions/_shared/whatsapp-parser.ts`, ported
   from `askVyactParser`, NO AI / NO egress) → `whatsapp_log_transaction` RPC
@@ -373,8 +389,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   large-spend alerts cannot be muted. Scheduler figures come from the money port only, and a rule
   SKIPS a household it cannot state truly (₹ templates for non-INR households; since v10.66.0
   a row's own currency label no longer matters — face value). **v10.43.0 (W2b): "paid X" approves a reminded bill ONLY through
-  `whatsapp_approve_recurring`**, which posts the app's own row (deterministic id; `_shared/recurring.ts`
-  is parity-tested against `generateTransaction` + `txnToRow` + `advanceSchedule`) AND advances the
+  `whatsapp_approve_recurring`**, which posts the app's own row (deterministic id; since v10.69.0 the
+  row and the next date come from the bundled engine's `approveOccurrenceOnServer`, parity-tested
+  against `generateTransaction` + `txnToRow` + `advanceSchedule`) AND advances the
   schedule in one transaction. Never log a plain transaction for a bill: the schedule stays due and
   the app asks for it again. Reminders go on the due day only; EMIs, transfers and investments are
   approved in the app.
