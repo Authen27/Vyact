@@ -2131,6 +2131,33 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/recurringPostHandler.test.ts",
+      "feature": "Server posting job",
+      "availability": "conditional",
+      "layer": "handler-integration",
+      "owner": "recurring-post/index.ts + serverEngine.recurringPostPlan (cron secret, household zone, catch-up, EMIs left to the app; mocked client)",
+      "count": 2,
+      "tests": [
+        "recurring-post job (W4a) W4-D16-004 · posts what is due in each household’s zone, catches up a missed run, leaves EMIs to the app",
+        "recurring-post job (W4a) W4-D16-005 · the plan is the app engine’s: the same row and next date, null where the app would do nothing, fast-forward past the horizon"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/recurringPostSql.test.ts",
+      "feature": "Server posting SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W4a post_recurring_occurrence: posts the due occurrence once, re-checks its own copy in the household zone, closes / fast-forwards / refuses safely (focused PGlite fixture)",
+      "count": 3,
+      "tests": [
+        "post_recurring_occurrence (W4a) W4-D16-001 · posts the due occurrence as the app’s row and moves the schedule on, once",
+        "post_recurring_occurrence (W4a) W4-D16-002 · re-checks its own copy: paused, approval-gated, deleted, loan EMI, not yet due in the household’s zone, wrong row",
+        "post_recurring_occurrence (W4a) W4-D16-003 · the last occurrence closes the schedule; a stale pointer moves on without posting; a refused row leaves it due"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/reportRange.test.ts",
       "feature": "Reports consultation",
       "availability": "available",

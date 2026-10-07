@@ -144,12 +144,14 @@ jobs:
       #                           the service key in code (v10.42.0).
       #   web-push                pg_cron, no user JWT; every mode checks its own auth
       #                           (member JWT for key/test, Vault cron secret or service key).
+      #   recurring-post          pg_cron, no user JWT; checks the Vault cron secret or the
+      #                           service key (v10.70.0, posts due bills).
       #   ask-vyact-relay-status  TEST-ONLY relay watcher (TD-44); returns a count only.
       # ask-vyact verifies a JWT and is inert until a super-admin enables an
       # ai_model_configs row; delete-account and send-split-email act as the signed-in user.
       - name: Deploy all Edge Functions
         run: |
-          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push ask-vyact-relay-status"
+          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push recurring-post ask-vyact-relay-status"
           deployed=""
           for dir in supabase/functions/*/; do
             fn="$(basename "$dir")"

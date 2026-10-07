@@ -1509,6 +1509,7 @@ const policyOf = (s) => s.shortMonthPolicy ?? "last_day";
 function nextScheduleOccurrence(s, after) {
 	return nextOccurrenceAfter(ruleOf(s), s.startDate, after, { shortMonthPolicy: policyOf(s) });
 }
+const DAY_MS = 864e5;
 function cyrb128(str) {
 	let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
 	for (let i = 0; i < str.length; i++) {
@@ -1542,6 +1543,22 @@ function deterministicUuid(seed) {
 /** The deterministic id a given schedule occurrence will always materialise as. */
 function recurringInstanceId(scheduleId, occurrenceDate) {
 	return deterministicUuid(`vyact:recur:${scheduleId}:${occurrenceDate}`);
+}
+/**
+* W4a (v10.70.0; owner decision D16) — does the SERVER post this schedule's occurrences?
+*
+* In cloud mode an auto-approved bill is posted by the `recurring-post` job, from the database's
+* own copy of the schedule, so a device with a stale cache can no longer post a bill that was
+* paused, edited or deleted elsewhere (audit INT-TXN-06, FE-SYN-02). It posts exactly the row the
+* app's engine would (`generateTransaction` → `txnToRow`, deterministic id).
+*
+* A loan EMI is not posted by the server: an EMI is an interest expense plus a principal transfer,
+* not one row, and the loan model that will post it (D19) is not built yet. Those schedules keep
+* the app's existing behaviour until then.
+*/
+function serverPostsSchedule(s) {
+	const t = s.transactionTemplate ?? {};
+	return !!s.autoConfirm && (t.type === "expense" || t.type === "income" || t.type === "transfer" || t.type === "investment") && t.category !== "loan_emi" && !t.debtId && !t.linkedDebtId;
 }
 function upcomingSchedules(schedules, leadDays = 3, now = today()) {
 	const cutoffISO = addDaysISO(now, leadDays);
@@ -1577,6 +1594,10 @@ function advanceSchedule(schedule) {
 		lastGenerated,
 		nextDueDate: next
 	};
+}
+/** True when this occurrence is too old to materialise honestly. */
+function isStaleOccurrence(occurrence, now = today(), maxDays = 45) {
+	return (Date.parse(now) - Date.parse(occurrence)) / DAY_MS > maxDays;
 }
 //#endregion
 //#region react/src/lib/calculations.ts
@@ -4897,6 +4918,35 @@ function approveOccurrenceOnServer(scheduleRow, householdId) {
 	};
 }
 /**
+* What the app's engine (recurringSlice.runRecurringEngine) would do with this schedule today, for
+* the server job that now does it in cloud mode. Null when there is nothing to do: not active, not
+* one the server posts (`serverPostsSchedule`), or not due yet in the household's zone (`today`).
+* A pointer past the catch-up horizon is fast-forwarded without posting, as the app does.
+*/
+function recurringPostPlan(scheduleRow, householdId, today) {
+	const schedule = mapCloudRow("recurring", scheduleRow);
+	if (!schedule.active || !serverPostsSchedule(schedule) || schedule.nextDueDate > today) return null;
+	if (isStaleOccurrence(schedule.nextDueDate, today)) {
+		let ff = schedule;
+		for (let guard = 0; guard < 480 && ff.active && isStaleOccurrence(ff.nextDueDate, today); guard++) ff = advanceSchedule(ff);
+		return {
+			occurrence: schedule.nextDueDate,
+			post: false,
+			row: null,
+			nextDue: ff.active ? ff.nextDueDate : null,
+			lastGenerated: ff.lastGenerated ?? schedule.nextDueDate,
+			exhausted: !ff.active
+		};
+	}
+	const plan = approveOccurrenceOnServer(scheduleRow, householdId);
+	return {
+		occurrence: schedule.nextDueDate,
+		post: true,
+		lastGenerated: schedule.nextDueDate,
+		...plan
+	};
+}
+/**
 * The runway exactly as Pip states it (`forecast.runway`: liquid savings over typical
 * monthly spending, both from the one SafeSummary projection), plus the category
 * whose spending fell most between the last two COMPLETED months, for "what moved it".
@@ -4993,4 +5043,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, cleanOffending, contextFromRows, notificationsOnServer, reconcileOnServer, renderForWhatsApp, runwaySnapshot, systemPromptFor };
+export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, cleanOffending, contextFromRows, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, systemPromptFor };

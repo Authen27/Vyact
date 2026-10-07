@@ -24,7 +24,7 @@ import type {
 } from '../types';
 import { DEFAULT_RATES } from '../constants';
 import { mapCloudRow, profileFromRows, txnToRow, type ProfileRowCols, type HouseholdRowCols } from './supabaseAdapter';
-import { generateTransaction, advanceSchedule } from './recurring';
+import { generateTransaction, advanceSchedule, isStaleOccurrence, serverPostsSchedule } from './recurring';
 import { buildSafeSummary } from './aiSummary';
 import { runAssistant, LlmBackend, type AssistantContext, type AssistantTurn } from './askVyactBackend';
 import type { ModelCall } from './askVyactLlm';
@@ -221,6 +221,42 @@ export function approveOccurrenceOnServer(scheduleRow: unknown, householdId: str
   const advanced = advanceSchedule(schedule);
   const exhausted = advanced.active === false;
   return { row, nextDue: exhausted ? null : advanced.nextDueDate, exhausted };
+}
+
+// ── Posting due bills (W4a, v10.70.0; owner decision D16) ──────────────────────────
+
+export interface PostingPlan {
+  /** The pointer this plan acts on; `post_recurring_occurrence` refuses it if it has moved. */
+  occurrence: string;
+  /** False: the pointer is older than the catch-up horizon and is moved on WITHOUT posting. */
+  post: boolean;
+  /** The occurrence row (when posting), exactly as the app's engine writes it. */
+  row: Record<string, unknown> | null;
+  nextDue: string | null;
+  lastGenerated: string;
+  /** COUNT / UNTIL used up: the schedule closes. */
+  exhausted: boolean;
+}
+
+/**
+ * What the app's engine (recurringSlice.runRecurringEngine) would do with this schedule today, for
+ * the server job that now does it in cloud mode. Null when there is nothing to do: not active, not
+ * one the server posts (`serverPostsSchedule`), or not due yet in the household's zone (`today`).
+ * A pointer past the catch-up horizon is fast-forwarded without posting, as the app does.
+ */
+export function recurringPostPlan(scheduleRow: unknown, householdId: string, today: string): PostingPlan | null {
+  const schedule = mapCloudRow('recurring', scheduleRow) as RecurringSchedule;
+  if (!schedule.active || !serverPostsSchedule(schedule) || schedule.nextDueDate > today) return null;
+  if (isStaleOccurrence(schedule.nextDueDate, today)) {
+    let ff = schedule;
+    for (let guard = 0; guard < 480 && ff.active && isStaleOccurrence(ff.nextDueDate, today); guard++) ff = advanceSchedule(ff);
+    return {
+      occurrence: schedule.nextDueDate, post: false, row: null,
+      nextDue: ff.active ? ff.nextDueDate : null, lastGenerated: ff.lastGenerated ?? schedule.nextDueDate, exhausted: !ff.active,
+    };
+  }
+  const plan = approveOccurrenceOnServer(scheduleRow, householdId);
+  return { occurrence: schedule.nextDueDate, post: true, lastGenerated: schedule.nextDueDate, ...plan };
 }
 
 // ── Runway (W6, v10.47.0) — the runway alerts read the app's own forecast ─────────

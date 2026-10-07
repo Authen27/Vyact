@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1463 passing deterministic cases in 111 files. Zero failed, skipped or TODO cases at generation.**
+**1468 passing deterministic cases in 113 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -33,8 +33,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 8 |
 | react | contract-unit | conditional | 119 |
-| react | handler-integration | conditional | 75 |
-| react | sql-integration | conditional | 36 |
+| react | handler-integration | conditional | 77 |
+| react | sql-integration | conditional | 39 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 50 |
 | react | store-integration | conditional | 10 |
@@ -130,6 +130,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/recurrenceServerParity.test.ts](../react/src/lib/__tests__/recurrenceServerParity.test.ts) | Server recurring approval parity | unit | infrastructure | 2 |
 | [react/src/lib/__tests__/recurring.test.ts](../react/src/lib/__tests__/recurring.test.ts) | Recurring and budgets | unit | available | 12 |
 | [react/src/lib/__tests__/recurringApproval.test.ts](../react/src/lib/__tests__/recurringApproval.test.ts) | Ledger and recurring workflows | store-integration | available | 2 |
+| [react/src/lib/__tests__/recurringPostHandler.test.ts](../react/src/lib/__tests__/recurringPostHandler.test.ts) | Server posting job | handler-integration | conditional | 2 |
+| [react/src/lib/__tests__/recurringPostSql.test.ts](../react/src/lib/__tests__/recurringPostSql.test.ts) | Server posting SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/reportRange.test.ts](../react/src/lib/__tests__/reportRange.test.ts) | Reports consultation | unit | available | 6 |
 | [react/src/lib/__tests__/reportsModel.test.ts](../react/src/lib/__tests__/reportsModel.test.ts) | Reports and Ask guidance | unit | available | 6 |
 | [react/src/lib/__tests__/rrule.test.ts](../react/src/lib/__tests__/rrule.test.ts) | Recurring and budgets | unit | available | 11 |
