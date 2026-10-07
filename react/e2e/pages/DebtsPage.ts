@@ -10,7 +10,7 @@ export class DebtsPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.addButton = page.getByRole('button', { name: /add (a )?loan/i });
+    this.addButton = page.getByRole('button', { name: /add (a )?loan/i }).first();   // the header button; an empty page also offers one in its empty state
   }
 
   async goto() {
