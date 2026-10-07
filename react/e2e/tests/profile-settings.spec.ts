@@ -347,10 +347,12 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
       await expect(debtCard(page, 'PROFILE-FC-005 High APR')).not.toContainText('Highest APR');
     });
 
-    test('PROFILE-FC-006 · saving extra payment updates visible payoff projections', async ({ page }) => {
+    // W4f: a loan's months are the bank's own schedule (its EMI on a reducing balance), so the Settings
+    // extra payment no longer shortens the card; it only feeds the avalanche/snowball comparison.
+    test('PROFILE-FC-006 · saving extra payment leaves a loan on its own EMI schedule', async ({ page }) => {
       await page.goto('/debts');
       await page.waitForURL('**/debts');
-      await expect(debtCard(page, 'PROFILE-FC-006 Projection Debt')).toContainText('24mo');
+      await expect(debtCard(page, 'PROFILE-FC-006 Projection Debt')).toContainText(/24\s*mo/);
 
       await page.goto('/settings');
       await page.waitForURL('**/settings');
@@ -361,7 +363,7 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
 
       await page.goto('/debts');
       await page.waitForURL('**/debts');
-      await expect(debtCard(page, 'PROFILE-FC-006 Projection Debt')).toContainText('16mo');
+      await expect(debtCard(page, 'PROFILE-FC-006 Projection Debt')).toContainText(/24\s*mo/);
     });
   });
 });

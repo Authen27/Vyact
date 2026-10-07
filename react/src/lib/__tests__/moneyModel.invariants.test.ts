@@ -36,7 +36,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeAccountBalance, reconcileAccount, liveAssetRows, liveTotalAssets, computeAssetValue, reconcileAssetValue } from '../accountBalance';
-import { monthlyData, reportableTxns, spendByCategory, splitEmiPortions, totalAssets, totalLiabilities } from '../calculations';
+import { monthlyData, reportableTxns, spendByCategory, totalAssets, totalLiabilities } from '../calculations';
+import { loanView, planLoanPayment } from '../loanSchedule';
 import { computeNetWorth } from '../netWorth';
 import { CATEGORIES_BY_TYPE } from '../../constants';
 import type { Transaction, Account, Asset, Debt, ExchangeRates } from '../../types';
@@ -151,12 +152,17 @@ describe('§7 INV-3 — value updates are an offset, never a transaction', () =>
 
 describe('§7 INV-5 — EMI split is exact (interest visible, principal a transfer)', () => {
   it('INV-5 · interest + principal == payment, principal never negative', () => {
-    const { interest, principal } = splitEmiPortions(10000, 12, 500);
-    expect(interest).toBeCloseTo(100, 6);            // 10000 × 0.01
-    expect(principal).toBeCloseTo(400, 6);
+    // W4f (D19): the split is pay_loan's — the server's — and lib/loanSchedule is its parity-tested twin
+    // (loanScheduleParity.test.ts). The float splitEmiPortions this pinned is retired.
+    const debt = { id: 'L', type: 'personal_loan', name: 'Loan', currency: 'USD', principal: 10000, currentBalance: 10000,
+      interestRate: 12, minimumPayment: 500, instalmentsPaid: 0, dueDate: '2026-01-05' } as Debt;
+    const view = loanView(debt, [], [], 'USD', '2026-01-05');
+    const { interest, principal } = planLoanPayment(view, { kind: 'emi', amount: 500, date: '2026-01-05' }, 'USD');
+    expect(interest).toBe(100);                      // 10000 × 0.01
+    expect(principal).toBe(400);
     expect(Math.round((interest + principal) * 100) / 100).toBe(500);
-    // a payment smaller than the interest accrual never produces negative principal.
-    expect(splitEmiPortions(10000, 12, 50).principal).toBe(0);
+    // a payment smaller than the interest due pays interest only — principal is never negative.
+    expect(planLoanPayment(view, { kind: 'emi', amount: 50, date: '2026-01-05' }, 'USD')).toMatchObject({ interest: 50, principal: 0 });
   });
 });
 

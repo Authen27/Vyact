@@ -4,8 +4,21 @@ import { useStore } from '../../store';
 import { LocalStorageAdapter } from '../dataAdapter';
 import { computeNetWorth } from '../netWorth';
 import { computeAccountBalance } from '../accountBalance';
+import { LoanPaymentRefused, loanOutstanding } from '../loanSchedule';
+import type { Debt } from '../../types';
+
+// The loan-payment workflow through the store (W4f, v10.75.0; owner decision D19). Cloud: pay_loan
+// decides and the store adopts what it wrote. Local-only: the same rules run in the store. The intent
+// of the audit-F2 tests (CON-UNIT-900..910) is kept: no partial undo, no offline fallback in the cloud,
+// a retry adopted once, net worth preserved by a principal payment.
 
 vi.mock('../supabase', () => ({ isCloudEnabled: () => false, supabase: null }));
+
+const loan = (p: Partial<Debt> = {}): Debt => ({
+  id: crypto.randomUUID(), type: 'personal_loan', name: 'Loan', currency: 'USD', principal: 8000, currentBalance: 8000,
+  interestRate: 0, minimumPayment: 500, instalmentsPaid: 0, dueDate: '2026-09-09', firstEmiDate: '2026-09-09',
+  termsConfirmed: true, direction: 'owed_by_me', ...p,
+});
 
 beforeEach(() => {
   vi.stubGlobal('navigator', { onLine: true });
@@ -15,38 +28,46 @@ beforeEach(() => {
     adapter: new LocalStorageAdapter(),
     cloudEnabled: false,
     toast: vi.fn(),
+    refreshNotifications: vi.fn().mockResolvedValue(undefined),
     accounts: [{ id: crypto.randomUUID(), kind: 'bank', name: 'Funding', currency: 'USD', openingBalance: 10000 }],
-    debts: [{ id: crypto.randomUUID(), type: 'loan', name: 'Loan', currency: 'USD', principal: 8000,
-      currentBalance: 8000, interestRate: 0, minimumPayment: 500, remainingMonths: 16 }],
+    debts: [loan()],
     transactions: [], assets: [],
   });
 });
+afterEach(() => vi.unstubAllGlobals());
+
+const pay = (kind: 'emi' | 'prepayment' | 'payoff', amount: number, extra: Record<string, unknown> = {}) => {
+  const s = useStore.getState();
+  return s.payLoan({ debtId: s.debts[0].id, fundingAccountId: s.accounts[0].id, kind, amount, date: '2026-09-09', ...extra });
+};
 
 describe('loan payment workflow', () => {
   it('a fresh cloud success adopts authoritative interest and principal rows', async () => {
     const state = useStore.getState();
-    const loan = { id: 'cloud-loan', kind: 'loan' as const, name: 'Loan', currency: 'USD', debtId: state.debts[0].id, openingBalance: -8000 };
+    const account = { id: 'cloud-loan', kind: 'loan' as const, name: 'Loan', currency: 'USD', debtId: state.debts[0].id, openingBalance: -8000 };
     const transactions = [
       { id: 'interest', type: 'expense' as const, amount: 80, category: 'loan_emi', currency: 'USD', date: '2026-09-09', description: 'Interest', accountId: state.accounts[0].id },
-      { id: 'principal', type: 'transfer' as const, amount: 420, category: '', currency: 'USD', date: '2026-09-09', description: 'Principal', accountId: state.accounts[0].id, toAccountId: loan.id },
+      { id: 'principal', type: 'transfer' as const, amount: 420, category: '', currency: 'USD', date: '2026-09-09', description: 'Principal', accountId: state.accounts[0].id, toAccountId: account.id },
     ];
-    const command = vi.fn().mockResolvedValue({ status: 'success', loanAccount: loan,
-      debt: { ...state.debts[0], currentBalance: 7580 }, transactions });
-    state.adapter.recordLoanPayment = command;
+    const command = vi.fn().mockResolvedValue({ status: 'success', operationId: 'operation', interest: 80, principal: 420,
+      instalmentNo: 1, closesInstalment: true, paidOff: false, outstandingAfter: 7580, nextDueDate: '2026-10-09', emiAfter: 500,
+      loanAccount: account, debt: { ...state.debts[0], currentBalance: 7580 }, transactions });
+    state.adapter.payLoan = command;
     useStore.setState({ cloudEnabled: true });
-    await state.recordLoanPayment({ operationId: 'operation', debtId: state.debts[0].id, fundingAccountId: state.accounts[0].id, amount: 500 });
+    await pay('emi', 500, { operationId: 'operation' });
     const after = useStore.getState();
     expect(command).toHaveBeenCalledOnce();
+    expect(command.mock.calls[0][1]).toMatchObject({ operationId: 'operation', kind: 'emi', amount: 500, fundingAccountId: state.accounts[0].id });
     expect(after.transactions).toEqual(transactions);
-    expect(computeAccountBalance(loan, after.transactions, 'USD', { USD: 1 })).toBe(-7580);
+    expect(computeAccountBalance(account, after.transactions, 'USD', { USD: 1 })).toBe(-7580);
     expect(computeAccountBalance(after.accounts[0], after.transactions, 'USD', { USD: 1 })).toBe(9500);
   });
 
-  it('final principal payoff leaves zero liability and survives an adapter reload', async () => {
-    const state = useStore.getState();
-    await state.recordLoanPayment({ debtId: state.debts[0].id, fundingAccountId: state.accounts[0].id, amount: 8000 });
+  it('final payoff leaves zero liability and survives an adapter reload', async () => {
+    await pay('payoff', 8000);
     const after = useStore.getState();
-    expect(after.debts[0].currentBalance).toBe(0);
+    expect(after.debts[0]).toMatchObject({ currentBalance: 0, dueDate: undefined });
+    expect(after.debts[0].paidOffAt).toBeTruthy();
     expect(computeNetWorth(after, 'USD', { USD: 1 }).totalLiabilities).toBe(0);
     expect(computeNetWorth(after, 'USD', { USD: 1 }).netWorth).toBe(2000);
     expect(await new LocalStorageAdapter().list('debts', after.currentHouseholdId)).toEqual(after.debts);
@@ -54,29 +75,28 @@ describe('loan payment workflow', () => {
 
   it('an interest-bearing local payment spends only interest and preserves the principal transfer', async () => {
     useStore.setState({ debts: [{ ...useStore.getState().debts[0], interestRate: 12 }] });
-    const state = useStore.getState();
-    await state.recordLoanPayment({ debtId: state.debts[0].id, fundingAccountId: state.accounts[0].id, amount: 500 });
+    await pay('emi', 500);
     const after = useStore.getState();
     expect(after.debts[0].currentBalance).toBe(7580);
     expect(after.transactions).toEqual(expect.arrayContaining([
-      expect.objectContaining({ type: 'expense', amount: 80 }), expect.objectContaining({ type: 'transfer', amount: 420 }),
+      expect.objectContaining({ type: 'expense', amount: 80, category: 'loan_emi' }), expect.objectContaining({ type: 'transfer', amount: 420 }),
     ]));
     expect(computeNetWorth(after, 'USD', { USD: 1 }).netWorth).toBe(1920);
+    expect(after.debts[0]).toMatchObject({ instalmentsPaid: 1, dueDate: '2026-10-09' });
   });
 
   it('CON-UNIT-910 - generic CRUD cannot partially undo a system-split payment', async () => {
-    const before = useStore.getState();
-    await before.recordLoanPayment({ debtId: before.debts[0].id, fundingAccountId: before.accounts[0].id, amount: 500 });
+    await pay('emi', 500);
     const leg = useStore.getState().transactions[0];
     await expect(useStore.getState().removeTransaction(leg.id)).rejects.toThrow('atomic reversal');
     await expect(useStore.getState().upsertTransaction({ ...leg, amount: 600 })).rejects.toThrow('atomic reversal');
     expect(useStore.getState().debts[0].currentBalance).toBe(7500);
     expect(useStore.getState().transactions[0].amount).toBe(500);
   });
+
   it('CON-UNIT-906 - cloud mode never falls back to sequential local loan writes', async () => {
     useStore.setState({ cloudEnabled: true });
-    const state = useStore.getState();
-    await expect(state.recordLoanPayment({ debtId: state.debts[0].id, amount: 500 })).rejects.toThrow('online');
+    await expect(pay('emi', 500)).rejects.toThrow('online');
     expect(useStore.getState().transactions).toHaveLength(0);
     expect(useStore.getState().debts[0].currentBalance).toBe(8000);
   });
@@ -87,42 +107,88 @@ describe('loan payment workflow', () => {
       debtId: state.debts[0].id, openingBalance: -8000, reconciliationOffset: 25, updated_at: 'server-revision' };
     const transaction = { id: 'server-txn', type: 'transfer' as const, amount: 500, currency: 'USD',
       date: '2026-09-09', category: '', description: 'Principal', accountId: state.accounts[0].id, toAccountId: account.id };
-    const recordLoanPayment = vi.fn().mockResolvedValue({ status: 'duplicate', loanAccount: account,
-      debt: { ...state.debts[0], currentBalance: 7500 }, transactions: [transaction] });
-    state.adapter.recordLoanPayment = recordLoanPayment;
+    const payLoan = vi.fn().mockResolvedValue({ status: 'duplicate', operationId: 'op', interest: 0, principal: 500, instalmentNo: 1,
+      closesInstalment: true, paidOff: false, outstandingAfter: 7475, nextDueDate: '2026-10-09', emiAfter: 500,
+      loanAccount: account, debt: { ...state.debts[0], currentBalance: 7500 }, transactions: [transaction] });
+    state.adapter.payLoan = payLoan;
     useStore.setState({ cloudEnabled: true });
-    const input = { operationId: crypto.randomUUID(), debtId: state.debts[0].id, amount: 500,
-      fundingAccountId: state.accounts[0].id };
-    await state.recordLoanPayment(input);
-    await useStore.getState().recordLoanPayment(input);
+    const operationId = crypto.randomUUID();
+    await pay('emi', 500, { operationId });
+    await pay('emi', 500, { operationId });
     expect(useStore.getState().transactions).toEqual([transaction]);
     expect(useStore.getState().accounts).toContainEqual(account);
-    expect(recordLoanPayment.mock.calls.map(call => call[1].operationId)).toEqual([input.operationId, input.operationId]);
+    expect(payLoan.mock.calls.map(call => call[1].operationId)).toEqual([operationId, operationId]);
   });
+
   it('CON-UNIT-900 - first principal payment preserves net worth and leaves the real outstanding balance', async () => {
     const before = useStore.getState();
     const initialWorth = computeNetWorth(before, 'USD', { USD: 1 }).netWorth;
-    await before.recordLoanPayment({ debtId: before.debts[0].id, fundingAccountId: before.accounts[0].id, amount: 500 });
+    await pay('emi', 500);
     const after = useStore.getState();
-    const loan = after.accounts.find(account => account.debtId === before.debts[0].id)!;
-    expect(loan.openingBalance).toBe(-8000);
-    expect(computeAccountBalance(loan, after.transactions, 'USD', { USD: 1 })).toBe(-7500);
+    const account = after.accounts.find(a => a.debtId === before.debts[0].id)!;
+    expect(account.openingBalance).toBe(-8000);
+    expect(computeAccountBalance(account, after.transactions, 'USD', { USD: 1 })).toBe(-7500);
     expect(after.debts[0].currentBalance).toBe(7500);
     expect(computeNetWorth(after, 'USD', { USD: 1 }).netWorth).toBe(initialWorth);
     const persisted = await after.adapter.list('accounts', after.currentHouseholdId);
-    expect(persisted).toContainEqual(expect.objectContaining({ id: loan.id, openingBalance: -8000 }));
+    expect(persisted).toContainEqual(expect.objectContaining({ id: account.id, openingBalance: -8000 }));
   });
 
   it('CON-UNIT-901 - a second payment and metadata edit retain the opening liability', async () => {
-    const before = useStore.getState();
-    const input = { debtId: before.debts[0].id, fundingAccountId: before.accounts[0].id, amount: 500 };
-    await before.recordLoanPayment(input);
-    await useStore.getState().recordLoanPayment(input);
-    const loan = useStore.getState().accounts.find(account => account.debtId === input.debtId)!;
-    await useStore.getState().upsertAccount({ id: loan.id, name: 'Renamed loan' });
+    await pay('emi', 500);
+    await useStore.getState().payLoan({ debtId: useStore.getState().debts[0].id, fundingAccountId: useStore.getState().accounts[0].id,
+      kind: 'emi', amount: 500, date: '2026-10-09' });
+    const account = useStore.getState().accounts.find(a => a.kind === 'loan')!;
+    await useStore.getState().upsertAccount({ id: account.id, name: 'Renamed loan' });
     const after = useStore.getState();
-    expect(after.accounts.find(account => account.id === loan.id)?.openingBalance).toBe(-8000);
+    expect(after.accounts.find(a => a.id === account.id)?.openingBalance).toBe(-8000);
     expect(computeNetWorth(after, 'USD', { USD: 1 }).totalLiabilities).toBe(7000);
   });
+
+  it('W4-D19-012 · locally, the same rules: more than due is refused, short keeps the instalment open, a prepayment waits for it', async () => {
+    useStore.setState({ debts: [loan({ interestRate: 12 })] });
+    const refused = await pay('emi', 501).catch(e => e);
+    expect(refused).toBeInstanceOf(LoanPaymentRefused);
+    expect(refused).toMatchObject({ code: 'more_than_due', figure: 500 });
+    const part = await pay('emi', 200);
+    expect(part).toMatchObject({ interest: 80, principal: 120, closesInstalment: false, instalmentNo: 1 });
+    expect(await pay('prepayment', 100).catch(e => e)).toMatchObject({ code: 'instalment_open', figure: 300 });
+    const due = await useStore.getState().loanDue(useStore.getState().debts[0].id);
+    expect(due).toMatchObject({ instalmentNo: 1, interest: 80, paid: 200, remaining: 300, started: true });
+    const rest = await pay('emi', 300);
+    expect(rest).toMatchObject({ interest: 0, principal: 300, closesInstalment: true, nextDueDate: '2026-10-09' });
+    expect(useStore.getState().debts[0]).toMatchObject({ currentBalance: 7580, instalmentsPaid: 1 });
+  });
+
+  it('W4-D19-013 · locally: only the latest payment is undone; a loan with money owed is not deleted; paid off reconciles, never posts', async () => {
+    const first = await pay('emi', 500);
+    const second = await pay('emi', 500, { date: '2026-10-09' });
+    const debtId = useStore.getState().debts[0].id;
+    expect(await useStore.getState().reverseLoanPayment(debtId, first.operationId).catch(e => e)).toMatchObject({ code: 'not_latest_payment' });
+    await useStore.getState().reverseLoanPayment(debtId, second.operationId);
+    expect(useStore.getState().debts[0]).toMatchObject({ currentBalance: 7500, instalmentsPaid: 1, dueDate: '2026-10-09' });
+    expect(useStore.getState().transactions).toHaveLength(1);
+
+    expect(await useStore.getState().deleteDebt(debtId).catch(e => e)).toMatchObject({ code: 'debt_not_paid_off', figure: 7500 });
+    const entries = useStore.getState().transactions.length;
+    await useStore.getState().markLoanPaidOff(debtId, 'Closed at the bank');
+    const after = useStore.getState();
+    expect(after.transactions).toHaveLength(entries);
+    const account = after.accounts.find(a => a.kind === 'loan')!;
+    expect(account).toMatchObject({ isArchived: true, reconciliationOffset: 7500 });
+    expect(account.reconciliationLog?.at(-1)).toMatchObject({ kind: 'loan', delta: 7500, stated_value: 0 });
+    expect(loanOutstanding(after.debts[0], after.accounts, after.transactions)).toBe(0);
+    expect(computeNetWorth(after, 'USD', { USD: 1 }).totalLiabilities).toBe(0);
+    await useStore.getState().deleteDebt(debtId);
+    expect(useStore.getState().debts).toHaveLength(0);
+  });
+
+  it('W4-D19-014 · a new Loan / EMI entry from any other path is paid through the loan, never stored as one expense', async () => {
+    const s = useStore.getState();
+    useStore.setState({ debts: [loan({ id: s.debts[0].id, interestRate: 12 })] });
+    const leg = await useStore.getState().upsertTransaction({ id: crypto.randomUUID(), type: 'expense', amount: 500, currency: 'USD',
+      date: '2026-09-09', description: 'EMI', category: 'loan_emi', linkedDebtId: s.debts[0].id, accountId: s.accounts[0].id });
+    expect(leg).toMatchObject({ type: 'expense', amount: 80, category: 'loan_emi' });
+    expect(useStore.getState().transactions.map(t => [t.type, t.amount])).toEqual([['expense', 80], ['transfer', 420]]);
+  });
 });
-afterEach(() => vi.unstubAllGlobals());

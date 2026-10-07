@@ -25,7 +25,7 @@ import type {
 } from '../types';
 import { DEFAULT_RATES } from '../constants';
 import { uid } from './format';
-import { applyPayment } from './amortization';
+import { loanView, planLoanPayment } from './loanSchedule';
 
 export interface SeedBundle {
   members: Member[];
@@ -116,31 +116,39 @@ export function buildSeed(now: Date = new Date()): SeedBundle {
 
   const transactions: Transaction[] = rows.filter((t): t is Transaction => t !== null);
 
-  // ── Car loan paid by EMI (same legs the app writes: interest + principal) ──
+  // ── Car loan paid by EMI (W4f: the loan model's own legs — interest + principal, per instalment) ──
+  const firstPayment = demoDate(now, 2, 15);
+  const [fy, fm] = firstPayment.split('-').map(Number);
   let carLoan: Debt = {
     id: uid(), type: 'auto_loan', name: 'Car loan', lender: 'City Credit Union', principal: 24000, currentBalance: 12400,
-    interestRate: 4.9, minimumPayment: 485, tenureMonths: 60, remainingMonths: 27, dueDate: nextOnDay(now, 15),
+    interestRate: 4.9, minimumPayment: 485, tenureMonths: 60, instalmentsPaid: 31,
+    firstEmiDate: ymd(new Date(fy, fm - 1 - 31, 15)), dueDate: firstPayment, termsConfirmed: true,
     currency: 'USD', direction: 'owed_by_me',
   };
   const loanAccountId = uid();
+  const loanAccount: Account = { id: loanAccountId, kind: 'loan', name: carLoan.name, currency: 'USD', openingBalance: -12400, debtId: carLoan.id, isDefault: false, isArchived: false };
   for (const back of [2, 1]) {
     const date = demoDate(now, back, 15);
-    const { debt, log } = applyPayment(carLoan, 485, undefined, date);
-    const emiSplit = { interest: log.interest, principal: log.principal, debt_id: carLoan.id };
+    const view = loanView({ ...carLoan, dueDate: date }, [loanAccount], transactions, 'USD', date);
+    const plan = planLoanPayment(view, { kind: 'emi', amount: view.state.remaining, date }, 'USD');
+    const emiSplit = { interest: plan.interest, principal: plan.principal, debt_id: carLoan.id, kind: 'emi' as const,
+      instalment_no: plan.instalmentNo, operation_id: uid() };
     const expenseId = uid();
     transactions.push(
-      { id: expenseId, type: 'expense', amount: log.interest, currency: 'USD', date, description: 'Car loan EMI', category: 'loan_emi',
+      { id: expenseId, type: 'expense', amount: plan.interest, currency: 'USD', date, description: 'Car loan EMI', category: 'loan_emi',
         memberId: alexId, accountId: checkingId, debtId: carLoan.id, linkedDebtId: carLoan.id, emiSplit, paymentMode: 'auto_debit' },
-      { id: uid(), type: 'transfer', amount: log.principal, currency: 'USD', date, description: 'Car loan EMI — principal', category: '',
+      { id: uid(), type: 'transfer', amount: plan.principal, currency: 'USD', date, description: 'Car loan EMI — principal', category: '',
         memberId: alexId, accountId: checkingId, toAccountId: loanAccountId, debtId: carLoan.id, linkedDebtId: carLoan.id, emiSplit, linkedTxnId: expenseId },
     );
-    carLoan = debt;
+    carLoan = { ...carLoan, currentBalance: plan.outstandingAfter, instalmentsPaid: (carLoan.instalmentsPaid ?? 0) + 1 };
   }
-  accounts.push({ id: loanAccountId, kind: 'loan', name: carLoan.name, currency: 'USD', openingBalance: -12400, debtId: carLoan.id, isDefault: false, isArchived: false });
+  carLoan = { ...carLoan, dueDate: nextOnDay(now, 15) };
+  accounts.push(loanAccount);
   const debts: Debt[] = [
     carLoan,
     { id: uid(), type: 'student_loan', name: 'Student loan', lender: 'Federal loan servicer', principal: 32000, currentBalance: 14800,
-      interestRate: 5.05, minimumPayment: 260, tenureMonths: 120, dueDate: nextOnDay(now, 8), currency: 'USD', direction: 'owed_by_me' },
+      interestRate: 5.05, minimumPayment: 260, tenureMonths: 120, instalmentsPaid: 60, termsConfirmed: true,
+      dueDate: nextOnDay(now, 8), currency: 'USD', direction: 'owed_by_me' },
   ];
 
   // ── Assets (net worth) ───────────────────────────────────────────────────

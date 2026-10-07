@@ -1,4 +1,8 @@
 // Vyact v7 — Amortisation engine
+//
+// ⚠ LEGACY since W4f (v10.75.0; owner decision D19). The app no longer uses this module: a loan payment
+// is split by the database (pay_loan) and lib/loanSchedule.ts is its parity-tested twin. It stays only
+// for record_loan_payment's own parity test (loanPaymentSql.test.ts) until that RPC is dropped.
 // Properly computes interest/principal split per payment from the
 // outstanding balance — matches Bank of England standard PMT.
 //

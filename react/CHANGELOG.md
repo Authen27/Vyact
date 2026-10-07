@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.74.0`** (consumer)
+> **Current production version: `v10.75.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,64 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.75.0 — W4f: loans, paid the way banks count them *(2026-10-07)*
+
+The app half of owner decisions **D19**, **D17** and **D30**. Needs v10.74.0's database first. Audit
+IDs: INT-TXN-07, FE-MNY-03/04, XC-ARC-02, the notification seed that booked an EMI as Food & Dining,
+and the live "payment_out_of_range".
+
+- **Pay sheet.** Each loan has a Pay sheet, prefilled with exactly what the server will accept
+  (`loan_due`):
+  - **EMI #k:** the amount due, split into interest and principal. A short payment is fine and keeps
+    the instalment open.
+  - **Prepay:** "finish sooner" keeps the EMI; "lower the EMI" keeps the end date.
+  - **Pay off:** the exact closing figure.
+  - **Bank figures:** the bank's own split.
+
+  The server computes every split; a refusal is explained in plain words, with the figure to use.
+- **Debts page.**
+  - Each loan shows its outstanding from the ledger (the same figure as Net Worth and Pip).
+  - It also shows the EMI due (number, date, amount), when it clears ("Clears Mar 2029"), the months
+    and interest left, and an expandable schedule.
+  - **Undo** removes the latest payment as a whole.
+  - **Mark paid off** closes a loan by reconcile, never by a payment. A loan is deleted only once
+    nothing is owed.
+  - Paid-off loans and money owed to you get their own simple lists.
+  - The summary is loans plus credit-card dues, per your decision: cards are accounts and are not
+    listed here.
+- **Loan form.** It holds the terms:
+  - sanctioned amount, still owed (read-only once payments exist), rate, tenure, first and next EMI
+    dates;
+  - the EMI, with the standard figure one tap away and editable to the bank's letter;
+  - a rate change that applies from a chosen date.
+
+  Credit Card is no longer a debt type. Existing loans arrive with estimated terms, and saving the
+  form confirms them.
+- **One way to pay a loan.**
+  - The transaction form's Loan / EMI shows the EMI due and pays through the loan. Paying extra is a
+    prepayment.
+  - Any other new Loan / EMI entry is paid the same way.
+  - The bell's "Record payment" opens the loan's Pay sheet. Before, it booked a plain expense under
+    Food & Dining.
+  - Pip's EMI capture preselects the loan it names.
+- **Recurring.**
+  - Recurring no longer offers Loan / EMI.
+  - An existing EMI schedule no longer posts the whole EMI as one expense; it is flagged instead, and
+    the EMI is paid from the loan.
+- **Cards are accounts (D30).** The last `assetId = debt.id` bridges are gone: a card's picker value
+  is the ledger's own, and reconciling a card no longer writes to a debt row.
+- **Retired:** the float `computeEmi` and `splitEmiPortions`, in the app and in the server port. A
+  paid-off loan's EMI no longer counts in debt-to-income.
+
+Tests:
+- loanScheduleParity.test.ts (W4-D19-010/011: the app's arithmetic equals Postgres across 560
+  combinations)
+- loanPaymentWorkflow.test.ts (rewritten for `payLoan`, plus W4-D19-012..014)
+- loanPayment.test.ts (`pay_loan` mapping)
+- INV-5 on the new split
+- e2e: debts-payment.spec.ts rewritten (Pay sheet; DEBT-FC-009 "apply advance" retired), plus the
+  Add Loan form
 
 ## v10.74.0 — W4e: the loan model, in the database *(2026-10-07)*
 

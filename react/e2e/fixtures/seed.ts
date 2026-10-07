@@ -116,17 +116,23 @@ export const defaultSeed: SeedData = {
  * Numbers are chosen so interest/principal splits are non-trivial to compute
  * by hand — forces tests to use dinero-precise expectations, not eyeballed ones.
  */
-export const sampleCreditCardDebt = {
+/** W4f (D19/D30) — a loan with its terms. Cards are accounts now, so the sample debt is a loan. */
+export const sampleLoanDebt = {
   id: '00000000-0000-4000-8000-0000000000e1',
-  type: 'credit_card',
-  name: 'E2E Credit Card',
+  type: 'personal_loan',
+  name: 'E2E Personal Loan',
   lender: 'TestBank',
   principal: 5000,
   currentBalance: 5000,
   interestRate: 18.5,           // APR (%, annual)
-  minimumPayment: 150,
+  minimumPayment: 150,          // the EMI
+  tenureMonths: 48,
+  instalmentsPaid: 0,
+  firstEmiDate: '2026-06-15',
+  dueDate: '2026-06-15',
+  termsConfirmed: true,
+  direction: 'owed_by_me',
   currency: 'USD',
-  paymentLog: [],
 };
 
 /**

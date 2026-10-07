@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.74.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.75.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -86,7 +86,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     read from the card accounts, never as debt items.
   - `loan_due` is what the Pay form shows; it and `pay_loan` read ONE `loan_instalment_state`, so the
     prefilled figure is always the accepted one.
-  - `record_loan_payment` is legacy (the app stops calling it in v10.75.0, then it is dropped).
+  - `record_loan_payment` is legacy: the app stopped calling it in v10.75.0; drop it in a later migration.
+  - **The app (v10.75.0, W4f):** `payLoan` / `loanDue` / `reverseLoanPayment` / `markLoanPaidOff` /
+    `deleteDebt` in the store call those functions (cloud, online only) or run the same rules locally
+    (`lib/loanSchedule.ts`, parity-tested against Postgres in loanScheduleParity.test.ts — interest uses
+    exact integer maths, the EMI exact rationals). Every screen reads a loan through `loanView`
+    (outstanding = ledger, the due instalment, the schedule, "Clears <Mon YYYY>"); never re-derive an
+    outstanding or an EMI split elsewhere (`computeEmi`/`splitEmiPortions` are retired; `amortization.ts`
+    is legacy). A new `loan_emi` row from any path is paid through `payLoan`; an EMI schedule never posts
+    (`isLoanEmiSchedule`); Recurring never offers Loan / EMI. The Debts summary is loans + card dues.
 - **Categories are type-scoped, and the set exists in THREE places (v10.21).**
   `constants.ts` is the source, but `_shared/whatsapp-parser.ts` and
   `_shared/agent/types.ts` each hold their own allowlist because they are Deno

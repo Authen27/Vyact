@@ -15,7 +15,7 @@
 
 import type {
   Profile, HouseholdMeta, ProfileTypeKey, Budget, BudgetAllocation,
-  Transaction, Debt, Account, RecordLoanPaymentCommand, RecordLoanPaymentResult,
+  Transaction, Debt, Account, PayLoanCommand, PayLoanResult, LoanDue,
   AccountDependencies, AccountMoveResult,
 } from '../types';
 import {
@@ -627,29 +627,49 @@ export class HybridAdapter implements DataAdapter {
   }
 
   /**
-   * Audit F2 — atomic loan payment. The cloud RPC is the durability boundary;
-   * the cache is then seeded with the constructed rows (adopting the
-   * server-assigned ids) WITHOUT enqueueing — the write already landed.
+   * W4f (D19) — the loan commands. The cloud RPC is the durability boundary (one database
+   * transaction each); its rows are then adopted into the cache as the SERVER's rows (cache.put, W3c)
+   * WITHOUT enqueueing — the write already landed. Legs an undo removed leave the cache too.
    */
-  async recordLoanPayment(
-    householdId: string,
-    cmd: RecordLoanPaymentCommand,
-    _rows: { expense?: Transaction; transfer?: Transaction; debt: Debt },
-  ): Promise<RecordLoanPaymentResult> {
+  private async adoptLoanRows(householdId: string, rows: {
+    transactions?: Transaction[]; debts?: Debt[]; accounts?: (Account | null)[]; removedTransactionIds?: string[];
+  }): Promise<void> {
     const gen = cacheGeneration();
-    const res = await this.cloud.recordLoanPayment(householdId, cmd);
     try {
-      for (const [entity, rows] of [
-        ['transactions', res.transactions], ['debts', [res.debt]], ['accounts', [res.loanAccount]],
-      ] as const) {
-        if (!isCacheGenerationCurrent(gen)) return res;
-        const cached = await this.cache.list<{ id: string }>(entity, householdId);
-        if (!isCacheGenerationCurrent(gen)) return res;
-        await this.cache.replaceAll(entity, householdId,
-          [...cached.filter(row => !rows.some(saved => saved.id === row.id)), ...rows]);
-      }
-    } catch { /* cache is best-effort; the cloud write is authoritative */ }
+      for (const t of rows.transactions ?? []) { if (!isCacheGenerationCurrent(gen)) return; await this.cache.put('transactions', householdId, t); }
+      for (const d of rows.debts ?? []) { if (!isCacheGenerationCurrent(gen)) return; await this.cache.put('debts', householdId, d); }
+      for (const a of rows.accounts ?? []) { if (!a || !isCacheGenerationCurrent(gen)) continue; await this.cache.put('accounts', householdId, a); }
+      for (const id of rows.removedTransactionIds ?? []) { if (!isCacheGenerationCurrent(gen)) return; await this.cache.remove('transactions', householdId, id); }
+    } catch { /* cache is best-effort; the cloud write is authoritative and the next refresh re-reads it */ }
+    this.emitCacheChanged();
+  }
+
+  async payLoan(householdId: string, cmd: PayLoanCommand): Promise<PayLoanResult> {
+    const res = await this.cloud.payLoan(householdId, cmd);
+    await this.adoptLoanRows(householdId, { transactions: res.transactions, debts: [res.debt], accounts: [res.loanAccount] });
     return res;
+  }
+
+  loanDue(householdId: string, debtId: string): Promise<LoanDue> {
+    return this.cloud.loanDue(householdId, debtId);
+  }
+
+  async reverseLoanPayment(householdId: string, operationId: string): Promise<{ debt: Debt | null; removedTransactionIds: string[] }> {
+    const res = await this.cloud.reverseLoanPayment(householdId, operationId);
+    await this.adoptLoanRows(householdId, { debts: res.debt ? [res.debt] : [], removedTransactionIds: res.removedTransactionIds });
+    return res;
+  }
+
+  async markLoanPaidOff(householdId: string, debtId: string, note?: string): Promise<{ debt: Debt; loanAccount: Account | null }> {
+    const res = await this.cloud.markLoanPaidOff(householdId, debtId, note);
+    await this.adoptLoanRows(householdId, { debts: [res.debt], accounts: [res.loanAccount] });
+    return res;
+  }
+
+  async deleteDebt(householdId: string, debtId: string): Promise<void> {
+    await this.cloud.deleteDebt(householdId, debtId);
+    try { await this.cache.remove('debts', householdId, debtId); } catch { /* the next refresh drops it */ }
+    this.emitCacheChanged();
   }
 
   /**

@@ -14,13 +14,15 @@ interface Props {
   error?: string;
   hint?: string;
   testId?: string;
+  /** Category ids this form does not offer (the current value is always kept visible). */
+  exclude?: readonly string[];
 }
 
 export default function CategoryPicker({ value, onChange, type, label = 'Category', id, disabled = false,
-  includeAll = false, error, hint, testId }: Props) {
+  includeAll = false, error, hint, testId, exclude }: Props) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
-  const categories = categoryOptions(type, value, includeAll);
+  const categories = categoryOptions(type, value, includeAll, exclude);
   if (type === 'transfer' || type === 'investment') return null;
 
   return (

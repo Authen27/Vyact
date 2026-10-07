@@ -6,7 +6,7 @@ import SegmentedControl from '../ui/SegmentedControl';
 import CategoryPicker from '../ui/CategoryPicker';
 import { AmountField } from '../ui/NumericKeypad';
 import { useStore } from '../../store';
-import { normalizeTimeInput, nowTime, uid, today, addDaysISO } from '../../lib/format';
+import { normalizeTimeInput, nowTime, uid, today, addDaysISO, fmt } from '../../lib/format';
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
@@ -20,7 +20,8 @@ import { FEATURES } from '../../config/features';
 import { accountValueOf } from '../../lib/accountBalance';
 import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
 import { editPatch } from '../../lib/txnEdit';
-import type { Transaction, TxnType, Recurrence, PartPaymentChoice, PaymentMode } from '../../types';
+import { LoanPaymentRefused, loanErrorMessage } from '../../lib/loanSchedule';
+import type { Transaction, TxnType, Recurrence, PaymentMode, LoanDue } from '../../types';
 
 interface Props {
   /** v10.28.0 — rendered as the /transactions/new and /transactions/:id/edit
@@ -52,7 +53,6 @@ interface FormState {
   // v9 §4.1 — the loan an EMI pays (required when category = loan_emi).
   linkedDebtId: string;
   // v9.4.2 — part-payment strategy when EMI amount exceeds the minimum payment.
-  partPaymentChoice: PartPaymentChoice;
   /** v7.3 — Money Map Item #5. When `splitAcrossAccounts` is true the
    *  primary `paymentMethod` is treated as informational only; the actual
    *  source-of-funds is the multi-account `accountSplitRows` array. */
@@ -95,7 +95,6 @@ const blank = (currency: string, memberId = '', type: TxnType = 'expense'): Form
   paymentMode: '',
   direction: 'added',
   linkedDebtId: '',
-  partPaymentChoice: 'reduce_tenure',
   splitAcrossAccounts: false,
   accountSplitRows: [],
   recurring: '',
@@ -135,7 +134,8 @@ export default function TransactionFormModal(props: Props) {
   const debts             = useStore(s => s.debts);
   const accountsState     = useStore(s => s.accounts);
   const upsertTransaction = useStore(s => s.upsertTransaction);
-  const recordLoanPayment = useStore(s => s.recordLoanPayment);
+  const payLoan           = useStore(s => s.payLoan);
+  const loanDue           = useStore(s => s.loanDue);
   const removeTransaction = useStore(s => s.removeTransaction);
   const toast             = useStore(s => s.toast);
   // v10.26.0 (R4) — investments live in Net Worth; the empty state adds one there.
@@ -162,6 +162,16 @@ export default function TransactionFormModal(props: Props) {
   const [saving, setSaving] = useState(false);
   const loanOperation = useRef<string | null>(null);
   const [showTimeDial, setShowTimeDial] = useState(false); // v10.17 — circular 24h picker panel
+  // W4f (D19) — the loans an EMI can pay (not receivables, not closed), and what the chosen one has due.
+  const payableLoans = useMemo(() => debts.filter(d => (d.direction ?? 'owed_by_me') === 'owed_by_me' && !d.paidOffAt), [debts]);
+  const [emiDue, setEmiDue] = useState<LoanDue | null>(null);
+  useEffect(() => {
+    setEmiDue(null);
+    if (!open || form.category !== 'loan_emi' || !form.linkedDebtId) return;
+    let live = true;
+    loanDue(form.linkedDebtId).then(due => { if (live) setEmiDue(due); }).catch(() => { /* the form still saves; the server decides */ });
+    return () => { live = false; };
+  }, [open, form.category, form.linkedDebtId, loanDue]);
 
   // Linked spending accounts. With `money_map` flag on (or in shadow) and
   // a populated `accounts` store, source options from the canonical table;
@@ -270,7 +280,6 @@ export default function TransactionFormModal(props: Props) {
         paymentMode: initial.paymentMode ?? '',
         direction: initial.assetId && initial.toAccountId && !initial.accountId ? 'withdrew' : 'added',
         linkedDebtId: initial.emiSplit?.debt_id ?? initial.linkedDebtId ?? '',
-        partPaymentChoice: initial.emiSplit?.partPaymentChoice ?? 'reduce_tenure',
         splitAcrossAccounts: Boolean(initial.accountSplits && initial.accountSplits.length),
         accountSplitRows: initial.accountSplits ? initial.accountSplits.map(s => ({ accountId: s.accountId, amount: s.amount })) : [],
         recurring: initial.recurring ?? '',
@@ -414,11 +423,6 @@ export default function TransactionFormModal(props: Props) {
         excluded: form.excluded || undefined,
         linkedToAssetId: isInvestment ? undefined : needsToAccount ? toEncoded || undefined : initial?.linkedToAssetId,
         linkedDebtId: (form.category === 'loan_emi' ? form.linkedDebtId : undefined) ?? initial?.linkedDebtId,
-        // v9.4.2 — thread part-payment choice so the loan_emi path can re-amortise.
-        // Stored transiently on the emiSplit object; the store reads it on create.
-        ...(form.category === 'loan_emi' && form.linkedDebtId ? {
-          _partPaymentChoice: form.partPaymentChoice,
-        } : {}),
         linkedTxnId:   initial?.linkedTxnId,
         // Audit F7 — carry the read version through the edit so the store can
         // pass it as the optimistic-concurrency precondition. Without this the
@@ -427,25 +431,33 @@ export default function TransactionFormModal(props: Props) {
       } as Transaction);
 
       // Audit F2 — a NEW loan EMI is an explicit financial command, not a
-      // generic upsert. The store performs the system split (interest expense
-      // + principal transfer) via the atomic record_loan_payment RPC when
-      // online. Edits of an existing EMI leg stay on the plain path — the
-      // store recognises the known id and skips re-decomposition.
+      // generic upsert. W4f (D19): the SERVER computes the split (pay_loan: interest first, then
+      // principal, for the instalment due). An amount above what is due is refused — the extra is a
+      // prepayment, recorded from the loan (owner). Edits of an existing EMI leg are refused by the
+      // store: a payment is undone from the loan, as a whole.
       if (!initial && form.category === 'loan_emi' && form.linkedDebtId) {
         loanOperation.current ??= uid();
-        await recordLoanPayment({
-          operationId: loanOperation.current,
-          debtId: form.linkedDebtId,
-          fundingAccountId: fromEncoded || undefined,
-          amount,
-          currency: form.currency,
-          date: form.date,
-          description: form.description.trim() || undefined,
-          memberId: form.memberId,
-          partPaymentChoice: form.partPaymentChoice,
-        });
-        // The store surfaces the re-amortisation message itself; no undo —
-        // system-split rows create linked legs and never one-tap-undo.
+        try {
+          const res = await payLoan({
+            operationId: loanOperation.current,
+            debtId: form.linkedDebtId,
+            kind: 'emi',
+            fundingAccountId: fromEncoded || undefined,
+            amount,
+            date: form.date,
+            description: form.description.trim() || undefined,
+            memberId: form.memberId,
+          });
+          toast(res.closesInstalment
+            ? `EMI #${res.instalmentNo} recorded — ${fmt(res.interest, form.currency)} interest, ${fmt(res.principal, form.currency)} off the loan`
+            : `Part of EMI #${res.instalmentNo} recorded. The rest is still due.`, 'success');
+        } catch (e) {
+          if (e instanceof LoanPaymentRefused) {
+            toast(loanErrorMessage(e.code, e.figure, n => fmt(n, form.currency)), 'error');
+            return;
+          }
+          throw e;
+        }
         loanOperation.current = null;
         if (addAnother) resetForNext(); else onClose();
         return;
@@ -500,10 +512,6 @@ export default function TransactionFormModal(props: Props) {
   const todayStr = today();
   const yStr = yesterdayStr();
 
-  const linkedDebt = debts.find(d => d.id === form.linkedDebtId);
-  const enteredAmt = parseFloat(form.amount) || 0;
-  const showPartPayment = form.type === 'expense' && form.category === 'loan_emi'
-    && !!linkedDebt && enteredAmt > linkedDebt.minimumPayment;
 
   /* Board M4 footer — one full-width primary "Save {type}", with
      "Save & add another" (create) or Delete (edit) as a quiet cap link below. */
@@ -554,25 +562,27 @@ export default function TransactionFormModal(props: Props) {
       {/* v9 §4.1 — loan_emi loan picker (required) */}
       {form.type === 'expense' && form.category === 'loan_emi' && (
         <div className="mt-4">
-          {debts.length ? (
+          {payableLoans.length ? (
             <Field label="Loan">
               <Select value={form.linkedDebtId} required onChange={e => setForm(f => ({ ...f, linkedDebtId: e.target.value }))}>
                 <option value="">Choose loan</option>
-                {debts.map(debt => <option key={debt.id} value={debt.id}>{debt.name}</option>)}
+                {payableLoans.map(debt => <option key={debt.id} value={debt.id}>{debt.name}</option>)}
               </Select>
             </Field>
           ) : (
             <p className="text-[0.72rem] text-ink-dim">No loans yet — add one on the Debts page first.</p>
           )}
-        </div>
-      )}
-
-      {/* v9.4.2 — part-payment strategy (excess over the minimum EMI) */}
-      {showPartPayment && (
-        <div className="mt-3">
-          <SegmentedControl label="Apply excess to" value={form.partPaymentChoice}
-            onChange={partPaymentChoice => setForm(f => ({ ...f, partPaymentChoice }))}
-            options={[{ value: 'reduce_tenure', label: 'Reduce tenure' }, { value: 'reduce_emi', label: 'Reduce EMI' }, { value: 'apply_advance', label: 'Apply advance' }]} />
+          {/* W4f (D19) — what is due, exactly as the server will accept it. */}
+          {!initial && emiDue && !emiDue.paidOff && (
+            <div className="mt-2 text-[0.72rem] text-ink-mid flex items-center gap-2 flex-wrap">
+              <span>EMI #{emiDue.instalmentNo}{emiDue.dueDate ? ` due ${emiDue.dueDate}` : ''}: {fmt(emiDue.remaining, form.currency)}{emiDue.started ? ' left' : ''}</span>
+              {Number(form.amount) !== emiDue.remaining && (
+                <button type="button" className="underline text-accent"
+                  onClick={() => setForm(f => ({ ...f, amount: String(emiDue.remaining) }))}>Use {fmt(emiDue.remaining, form.currency)}</button>
+              )}
+              <span className="text-ink-dim">Paying extra? Use Prepay on the loan.</span>
+            </div>
+          )}
         </div>
       )}
 

@@ -198,10 +198,9 @@ export const createCrudSlice: StateCreator<Store, [], [], CrudSlice> = (set, get
     set({ debts: idx >= 0 ? debts.map(x => x.id === saved.id ? saved as Debt : x) : [...debts, saved as Debt] });
     return saved as Debt;
   },
+  // W4f (D17) — a loan with money owed cannot be deleted; the rule lives in deleteDebt (and the database).
   removeDebt: async (id) => {
-    const { adapter, currentHouseholdId, debts } = get();
-    await adapter.remove('debts', currentHouseholdId, id);
-    set({ debts: debts.filter(x => x.id !== id) });
+    await get().deleteDebt(id);
   },
   upsertAsset: async (a) => {
     const { adapter, currentHouseholdId, assets } = get();

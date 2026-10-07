@@ -7,12 +7,13 @@ import type {
   Transaction, Budget, BudgetAllocation, Goal, Member, Debt, Asset, Account, SavedView,
   Profile, HouseholdMeta, ProfileTypeKey,
   WithProvenance, Confidence, ProvenanceSource, RecurringSchedule,
-  RecordLoanPaymentCommand, RecordLoanPaymentResult, AccountDependencies, AccountMoveResult,
+  PayLoanCommand, PayLoanResult, LoanDue, AccountDependencies, AccountMoveResult,
 } from '../types';
 import type { DataAdapter, Entity } from './dataAdapter';
 import { parseMoneyFromCloud } from './money';
 import type { NetWorthSnapshot } from './netWorthSnapshots';
 import { normalizeHouseholdType } from './householdTypes';
+import { LoanPaymentRefused } from './loanSchedule';
 
 // v10.30.0 — net_worth_snapshots row → recorded snapshot. `month` is a date
 // column (first of the month); the app keys months as 'YYYY-MM'.
@@ -126,6 +127,15 @@ interface DebtRow extends ProvenanceRowCols {
   direction?: string | null;
   counterparty_name?: string | null;
   extras?: { tenureMonths?: number; remainingMonths?: number; paymentLog?: unknown } | null;
+  // W4e (v10.74.0) — the loan's terms.
+  tenure_months?: number | null;
+  first_emi_date?: string | null;
+  terms_confirmed?: boolean | null;
+  rate_history?: { from: string; rate: number }[] | null;
+  instalments_paid?: number | null;
+  auto_record?: boolean | null;
+  funding_account_id?: string | null;
+  paid_off_at?: string | null;
 }
 
 interface AssetRow extends ProvenanceRowCols {
@@ -328,11 +338,16 @@ const debtToRow = (d: Partial<Debt>, hid: string): Partial<DebtRow> => ({
   // v7.1 Money Map — lending. Default keeps legacy semantics.
   direction: d.direction || 'owed_by_me',
   counterparty_name: d.counterpartyName || null,
-  extras: {
-    tenureMonths: d.tenureMonths,
-    remainingMonths: d.remainingMonths,
-    paymentLog: d.paymentLog,
-  },
+  // W4f (D19) — the terms are columns now. `extras` (the old tenure / remaining months / payment log)
+  // is no longer written: an edit from a stale copy used to overwrite the payment history the server
+  // had just appended. NOT-NULL columns with defaults are written as values or omitted, never null.
+  tenure_months: d.tenureMonths ?? null,
+  first_emi_date: d.firstEmiDate || null,
+  terms_confirmed: d.termsConfirmed ?? undefined,
+  rate_history: d.rateHistory ?? undefined,
+  instalments_paid: d.instalmentsPaid ?? undefined,
+  auto_record: d.autoRecord ?? undefined,
+  funding_account_id: d.fundingAccountId || null,
 });
 const rowToDebt = (r: DebtRow): Debt => ({
   id: r.id, type: r.type, name: r.name,
@@ -346,9 +361,16 @@ const rowToDebt = (r: DebtRow): Debt => ({
   currency: r.currency,
   direction: (r.direction as Debt['direction']) || 'owed_by_me',
   counterpartyName: r.counterparty_name || undefined,
-  tenureMonths: r.extras?.tenureMonths,
+  tenureMonths: r.tenure_months ?? r.extras?.tenureMonths,
   remainingMonths: r.extras?.remainingMonths,
   paymentLog: r.extras?.paymentLog as Debt['paymentLog'],
+  firstEmiDate: r.first_emi_date ?? undefined,
+  termsConfirmed: r.terms_confirmed ?? undefined,
+  rateHistory: Array.isArray(r.rate_history) ? r.rate_history.map(c => ({ from: c.from, rate: Number(c.rate) })) : undefined,
+  instalmentsPaid: r.instalments_paid ?? undefined,
+  autoRecord: r.auto_record ?? undefined,
+  fundingAccountId: r.funding_account_id ?? undefined,
+  paidOffAt: r.paid_off_at ?? undefined,
   updated_at: r.updated_at,   // TD-03 phase B — concurrency precondition
   ...rowToProv(r),
 });
@@ -827,51 +849,104 @@ export class SupabaseAdapter implements DataAdapter {
   }
 
   /**
-   * Audit F2 — the atomic loan-payment command. The server validates caller
-   * role, debt/account tenancy and split reconciliation, then writes the
-   * interest expense + principal transfer + re-amortised debt + payment log
-   * in ONE transaction, idempotent on cmd.operationId.
+   * W4f (D19) — the loan commands. The database decides every figure (pay_loan computes the split,
+   * loan_due says what it accepts); a refusal comes back as LoanPaymentRefused with pay_loan's own code
+   * and, when it names one, the figure (the amount due, the exact payoff), so the form can say it.
    */
-  async recordLoanPayment(
-    householdId: string,
-    cmd: RecordLoanPaymentCommand,
-  ): Promise<RecordLoanPaymentResult> {
+  private loanCall<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+    return Promise.resolve(this.sb.rpc(fn, args)).then(({ data, error }) => {
+      if (error) {
+        const e = error as { message?: string; details?: string | null; code?: string };
+        const code = (e.message ?? '').trim();
+        if (/^[a-z_]+$/.test(code)) {
+          const figure = e.details != null && e.details !== '' && !Number.isNaN(Number(e.details)) ? Number(e.details) : undefined;
+          throw new LoanPaymentRefused(code, figure);
+        }
+        throw error;
+      }
+      if (data == null) throw new Error(`${fn} returned no result`);
+      return data as T;
+    });
+  }
+
+  async payLoan(householdId: string, cmd: PayLoanCommand): Promise<PayLoanResult> {
     void householdId; // tenancy is derived from the debt server-side
-    const { data, error } = await this.sb.rpc('record_loan_payment', {
+    const r = await this.loanCall<Record<string, unknown>>('pay_loan', {
       p_operation_id: cmd.operationId,
       p_debt_id: cmd.debtId,
-      p_funding_account_id: cmd.fundingAccountId,
+      p_kind: cmd.kind,
       p_amount: cmd.amount,
-      p_currency: cmd.currency,
       p_date: cmd.date,
-      p_interest: cmd.interest,
-      p_principal: cmd.principal,
+      p_funding_account_id: cmd.fundingAccountId,
       p_member_id: cmd.memberId ?? null,
       p_description: cmd.description ?? null,
-      p_new_balance: cmd.newBalance ?? null,
-      p_new_remaining_months: cmd.newRemainingMonths ?? null,
-      p_new_minimum_payment: cmd.newMinimumPayment ?? null,
-      p_payment_log_entry: cmd.paymentLogEntry ?? null,
+      p_prepayment_choice: cmd.kind === 'prepayment' ? (cmd.choice ?? 'reduce_tenure') : null,
+      p_bank_interest: cmd.kind === 'bank_override' ? cmd.bankInterest ?? null : null,
+      p_bank_principal: cmd.kind === 'bank_override' ? cmd.bankPrincipal ?? null : null,
     });
-    if (error) throw error;
-    const r = data as Record<string, unknown> | null;
-    if (!r) throw new Error('record_loan_payment returned no result');
-    if (r.status === 'error') {
-      throw new Error(`record_loan_payment rejected: ${String(r.reason ?? 'unknown')}`);
-    }
-    if ((r.status !== 'success' && r.status !== 'duplicate') || !r.debt || !r.loan_account
-        || !Array.isArray(r.transactions)) {
+    if ((r.status !== 'success' && r.status !== 'duplicate') || !r.debt || !Array.isArray(r.transactions)) {
       throw new Error('Loan payment returned an unsupported response; update the server before retrying');
     }
     return {
-      status: r.status as RecordLoanPaymentResult['status'],
-      expenseTxnId: (r.expense_txn_id as string | null) ?? null,
-      transferTxnId: (r.transfer_txn_id as string | null) ?? null,
-      loanAccountId: (r.loan_account_id as string | null) ?? null,
+      status: r.status,
+      operationId: String(r.operation_id),
+      interest: Number(r.interest ?? 0),
+      principal: Number(r.principal ?? 0),
+      instalmentNo: r.instalment_no == null ? null : Number(r.instalment_no),
+      closesInstalment: !!r.closes_instalment,
+      paidOff: !!r.paid_off,
+      outstandingAfter: Number(r.outstanding_after ?? 0),
+      nextDueDate: (r.next_due_date as string | null) ?? null,
+      emiAfter: Number(r.emi_after ?? 0),
       debt: rowToDebt(r.debt as DebtRow),
-      loanAccount: rowToAccount(r.loan_account as AccountRow),
-      transactions: r.transactions.map(row => rowToTxn(row as TransactionRow)),
+      loanAccount: r.loan_account ? rowToAccount(r.loan_account as AccountRow) : null,
+      transactions: (r.transactions as unknown[]).map(row => rowToTxn(row as TransactionRow)),
     };
+  }
+
+  async loanDue(householdId: string, debtId: string): Promise<LoanDue> {
+    void householdId;
+    const r = await this.loanCall<Record<string, unknown>>('loan_due', { p_debt_id: debtId });
+    const latest = r.latest_payment as Record<string, unknown> | null;
+    return {
+      outstanding: Number(r.outstanding ?? 0),
+      emi: Number(r.emi ?? 0),
+      paidOff: !!r.paid_off,
+      instalmentNo: Number(r.instalment_no ?? 1),
+      dueDate: (r.due_date as string | null) ?? null,
+      interest: Number(r.interest ?? 0),
+      due: Number(r.due ?? 0),
+      paid: Number(r.paid ?? 0),
+      remaining: Number(r.remaining ?? 0),
+      started: !!r.started,
+      payoff: Number(r.payoff ?? 0),
+      loanAccountId: (r.loan_account_id as string | null) ?? null,
+      latestPayment: latest ? {
+        operationId: String(latest.operation_id), kind: (latest.kind as string | null) ?? null,
+        amount: Number(latest.amount ?? 0), date: (latest.date as string | null) ?? null,
+      } : null,
+    };
+  }
+
+  async reverseLoanPayment(householdId: string, operationId: string): Promise<{ debt: Debt | null; removedTransactionIds: string[] }> {
+    void householdId;
+    const r = await this.loanCall<Record<string, unknown>>('reverse_loan_payment', { p_operation_id: operationId });
+    return {
+      debt: r.debt ? rowToDebt(r.debt as DebtRow) : null,
+      removedTransactionIds: Array.isArray(r.removed_transaction_ids) ? (r.removed_transaction_ids as string[]) : [],
+    };
+  }
+
+  async markLoanPaidOff(householdId: string, debtId: string, note?: string): Promise<{ debt: Debt; loanAccount: Account | null }> {
+    const r = await this.loanCall<Record<string, unknown>>('mark_loan_paid_off', { p_debt_id: debtId, p_note: note ?? null });
+    const { data: acc } = await this.sb.from('accounts').select('*')
+      .eq('household_id', householdId).eq('debt_id', debtId).eq('kind', 'loan').is('deleted_at', null).maybeSingle();
+    return { debt: rowToDebt(r.debt as DebtRow), loanAccount: acc ? rowToAccount(acc as AccountRow) : null };
+  }
+
+  async deleteDebt(householdId: string, debtId: string): Promise<void> {
+    void householdId;
+    await this.loanCall<Record<string, unknown>>('delete_debt', { p_debt_id: debtId });
   }
 
   /**

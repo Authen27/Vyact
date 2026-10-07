@@ -344,7 +344,8 @@ export const liquidAssets = (assets: Asset[], baseCurrency: string, rates: Excha
 // contribute to the household's monthly outflow.
 export const totalMonthlyDebtPayment = (debts: Debt[], baseCurrency: string, rates: ExchangeRates): number =>
   fromDinero(sumDinero(
-    debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me'),
+    // W4f (D19): a paid-off loan has no EMI to pay any more, whatever its last EMI was.
+    debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me' && !d.paidOffAt),
     d => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates),
     baseCurrency,
   ));
@@ -580,20 +581,8 @@ export function getInsights(
 }
 
 // ── LOAN / EMI ─────────────────────────────────────────────────
-export function computeEmi(principal: number, annualRate: number, tenureMonths: number): number {
-  if (!principal || !tenureMonths) return 0;
-  if (!annualRate) return principal / tenureMonths;
-  const r = annualRate / 100 / 12;
-  const x = Math.pow(1 + r, tenureMonths);
-  return (principal * r * x) / (x - 1);
-}
-
-export function splitEmiPortions(currentBalance: number, annualRate: number, payment: number): { interest: number; principal: number } {
-  const r = annualRate / 100 / 12;
-  const interest = currentBalance * r;
-  const principal = Math.max(0, payment - interest);
-  return { interest, principal };
-}
+// W4f (D19): the EMI and its split live in lib/loanSchedule.ts (the database's twin, parity-tested);
+// the float copies that were here disagreed with the server by the paisa and are gone.
 
 // ── SPLITS ─────────────────────────────────────────────────────
 // v10.17 — `email` is surfaced so the Splits page can aggregate the outstanding

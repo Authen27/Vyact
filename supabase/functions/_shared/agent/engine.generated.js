@@ -28,6 +28,7 @@
 //   react/src/lib/calculations.ts
 //   react/src/lib/format.ts
 //   react/src/lib/householdTypes.ts
+//   react/src/lib/loanSchedule.ts
 //   react/src/lib/money.ts
 //   react/src/lib/netWorth.ts
 //   react/src/lib/notificationRows.ts
@@ -942,6 +943,399 @@ function normalizeHouseholdType(type) {
 	}
 }
 //#endregion
+//#region react/src/lib/format.ts
+const pad2 = (n) => String(n).padStart(2, "0");
+/** The calendar date (YYYY-MM-DD) of an instant in `tz`, or in the device's zone when `tz` is absent or unknown. */
+function dateKeyIn(at, tz) {
+	if (tz) try {
+		const parts = new Intl.DateTimeFormat("en-CA", {
+			timeZone: tz,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit"
+		}).formatToParts(at);
+		const part = (type) => parts.find((p) => p.type === type)?.value ?? "";
+		return `${part("year")}-${part("month")}-${part("day")}`;
+	} catch {}
+	return `${at.getFullYear()}-${pad2(at.getMonth() + 1)}-${pad2(at.getDate())}`;
+}
+/** Today's date (YYYY-MM-DD): the device's day, or the given zone's (the household's, on the server). */
+const today = (tz) => dateKeyIn(/* @__PURE__ */ new Date(), tz);
+/**
+* "Now" for code that reads getDate()/getMonth()/setHours(): a Date whose LOCAL getters show the wall
+* clock in `tz`. Without `tz` it is just `new Date()` (the device's clock). On the server, where the
+* host runs in UTC, this is how the engine reads the household's day without any global state.
+*/
+function wallClock(tz, at = /* @__PURE__ */ new Date()) {
+	if (!tz) return new Date(at.getTime());
+	try {
+		const p = {};
+		for (const x of new Intl.DateTimeFormat("en-US", {
+			timeZone: tz,
+			hourCycle: "h23",
+			year: "numeric",
+			month: "numeric",
+			day: "numeric",
+			hour: "numeric",
+			minute: "numeric",
+			second: "numeric"
+		}).formatToParts(at)) p[x.type] = x.value;
+		return new Date(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second, at.getMilliseconds());
+	} catch {
+		return new Date(at.getTime());
+	}
+}
+/** Date-only arithmetic on a YYYY-MM-DD string, in UTC so no zone or DST change can move it. */
+function addDaysISO(iso, days) {
+	const [y, m, d] = iso.split("-").map(Number);
+	return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+const uid = () => {
+	try {
+		if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+	} catch {}
+	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+		const r = Math.random() * 16 | 0;
+		return (c === "x" ? r : r & 3 | 8).toString(16);
+	});
+};
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const getMonthKey = (d) => d.slice(0, 7);
+/** This month (YYYY-MM): the device's, or the given zone's (W3a — it used to be the UTC month). */
+const nowMonthKey = (tz) => today(tz).slice(0, 7);
+/**
+* Multi-currency conversion using a USD-base rate table.
+*
+* TD-01 phase A: this function previously did `(amount / rFrom) * rTo` on
+* raw JS floats, which drifted across round-trips and across aggregations.
+* It now routes the math through dinero.js — the input/output signature is
+* unchanged (number → number, major units) so no caller needs to change,
+* but the conversion itself is exact integer arithmetic with banker's
+* rounding at the FX boundary. See `react/src/lib/money.ts` for the
+* dinero plumbing and `CON-UNIT-006` for the regression test that pins
+* the fixed behaviour.
+*/
+/**
+* Face value (W3b, v10.66.0): one currency per household, never converted — the amount comes back
+* unchanged, re-rounded to the target currency's minor unit. `rates` is ignored (TD-45).
+* @deprecated There is nothing to convert; new code should use the amount as it is.
+*/
+function convert(amount, from, to, _rates) {
+	if (!amount || from === to) return amount;
+	return fromDinero(convertViaUsdRates(toDinero(amount, from), to));
+}
+function fmt$1(amount, currency = "USD") {
+	const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
+	const n = Math.abs(amount || 0);
+	const factor = 10 ** cur.decimals;
+	const digits = Math.round(n * factor) % factor !== 0 ? cur.decimals : 0;
+	try {
+		return new Intl.NumberFormat(cur.locale, {
+			style: "currency",
+			currency,
+			minimumFractionDigits: digits,
+			maximumFractionDigits: digits
+		}).format(n);
+	} catch {
+		return cur.symbol + n.toLocaleString("en-US", {
+			minimumFractionDigits: digits,
+			maximumFractionDigits: digits
+		});
+	}
+}
+//#endregion
+//#region react/src/lib/calculations.ts
+function effectiveDinero(t, baseCurrency, _rates) {
+	return toDinero(t.split?.isSplit && typeof t.split.yourShare === "number" ? t.split.yourShare : t.amount, baseCurrency);
+}
+function effectiveAmount(t, baseCurrency, rates) {
+	return fromDinero(effectiveDinero(t, baseCurrency, rates));
+}
+function reportableTxns(transactions) {
+	return transactions.filter((t) => !t.excluded && (t.type === "income" || t.type === "expense") && t.category !== "transfer" && t.category !== "balance_adjustment");
+}
+function monthlyData(transactions, monthKey, baseCurrency, rates) {
+	const txns = reportableTxns(transactions).filter((t) => getMonthKey(t.date) === monthKey);
+	const incomeD = sumDinero(txns.filter((t) => t.type === "income"), (t) => effectiveDinero(t, baseCurrency, rates), baseCurrency);
+	const expenseD = sumDinero(txns.filter((t) => t.type === "expense"), (t) => effectiveDinero(t, baseCurrency, rates), baseCurrency);
+	const income = fromDinero(incomeD);
+	const expense = fromDinero(expenseD);
+	return {
+		income,
+		expense,
+		net: income - expense
+	};
+}
+function spendByCategory(transactions, monthKey, baseCurrency, rates) {
+	const buckets = {};
+	for (const t of reportableTxns(transactions)) {
+		if (t.type !== "expense" || getMonthKey(t.date) !== monthKey) continue;
+		const inBase = effectiveDinero(t, baseCurrency, rates);
+		buckets[t.category] = buckets[t.category] ? add(buckets[t.category], inBase) : inBase;
+	}
+	const out = {};
+	for (const [k, d] of Object.entries(buckets)) out[k] = fromDinero(d);
+	return out;
+}
+function budgetLines(budgets, allocations) {
+	const lines = [];
+	for (const b of budgets) {
+		const allocs = allocations.filter((a) => a.budgetId === b.id);
+		if (allocs.length) for (const a of allocs) lines.push({
+			id: a.id,
+			category: a.category,
+			limit: a.amount,
+			currency: b.currency,
+			period: b.period,
+			periodStart: b.periodStart,
+			periodEnd: b.periodEnd,
+			scope: b.scope,
+			periodYear: b.periodYear,
+			periodMonth: b.periodMonth
+		});
+		else if (b.category) lines.push(b);
+	}
+	return lines;
+}
+/**
+* The budget lines that apply to ONE month — a monthly budget for exactly that
+* month, or an annual budget covering the year.
+*
+* 🔴 `budgetLines` above flattens EVERY budget the household has ever had, in
+* whatever order the adapter returned them. The dashboard called it directly and
+* then took `.slice(0, 5)`, so which month you were looking at was decided by
+* array position. In September it showed August's budget, because August's lines
+* happened to come first. Nothing in the UI said which month it was.
+*
+* The bug was masked for as long as the array order happened to be favourable;
+* clearing the local cache in v10.20.7 changed the order and exposed it. Order
+* is not a contract — this filters on the budget's declared identity instead.
+*
+* Kept separate from `budgetLines` on purpose: that function is pinned by a
+* parity test against the Deno `_shared` port, and changing its shape would
+* break the port without cause.
+*/
+function budgetLinesForMonth(budgets, allocations, monthKey) {
+	const [y, m] = monthKey.split("-").map(Number);
+	return budgetLines(budgets, allocations).filter((b) => {
+		if (b.scope === "annual") return b.periodYear === y;
+		if (b.periodYear != null && b.periodMonth != null) return b.periodYear === y && b.periodMonth === m;
+		if (b.periodStart && b.periodEnd) return b.periodStart <= `${monthKey}-31` && b.periodEnd >= `${monthKey}-01`;
+		return !!b.category;
+	});
+}
+function spendByCategoryInRange(transactions, start, end, baseCurrency, rates) {
+	const buckets = {};
+	for (const t of reportableTxns(transactions)) {
+		if (t.type !== "expense" || t.date < start || t.date > end) continue;
+		const inBase = effectiveDinero(t, baseCurrency, rates);
+		buckets[t.category] = buckets[t.category] ? add(buckets[t.category], inBase) : inBase;
+	}
+	const out = {};
+	for (const [k, d] of Object.entries(buckets)) out[k] = fromDinero(d);
+	return out;
+}
+const totalMonthlyDebtPayment = (debts, baseCurrency, rates) => fromDinero(sumDinero(debts.filter((d) => (d.direction || "owed_by_me") !== "owed_to_me" && !d.paidOffAt), (d) => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates), baseCurrency));
+function computePulseScore(transactions, budgets, _goals, debts, baseCurrency, rates, allocations = [], tz) {
+	const mk = nowMonthKey(tz);
+	const { income, expense } = monthlyData(transactions, mk, baseCurrency, rates);
+	const lines = budgetLinesForMonth(budgets, allocations, mk);
+	const budgetApplicable = lines.length > 0;
+	let budgetScore = 0;
+	if (budgetApplicable) {
+		const spend = spendByCategory(transactions, mk, baseCurrency, rates);
+		const compliance = lines.map((b) => {
+			const limitBase = convert(b.limit, b.currency, baseCurrency, rates);
+			const pct = limitBase > 0 ? (spend[b.category ?? ""] || 0) / limitBase * 100 : 0;
+			if (pct <= 100) return 100;
+			return clamp(200 - pct, 0, 100);
+		});
+		budgetScore = compliance.reduce((s, v) => s + v, 0) / compliance.length;
+	}
+	const savingsApplicable = income > 0;
+	const rate = savingsApplicable ? (income - expense) / income * 100 : 0;
+	const savingsScore = clamp(rate * 5, 0, 100);
+	const [y, m] = mk.split("-").map(Number);
+	const prevExp = monthlyData(transactions, m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`, baseCurrency, rates).expense;
+	const trendApplicable = prevExp > 0;
+	let trendScore = 0;
+	if (trendApplicable) {
+		const change = (expense - prevExp) / prevExp * 100;
+		if (change <= 0) trendScore = 100;
+		else if (change <= 10) trendScore = 80;
+		else if (change <= 20) trendScore = 60;
+		else if (change <= 40) trendScore = 40;
+		else trendScore = 20;
+	}
+	const debtApplicable = debts.length > 0;
+	let debtScore = 0;
+	if (debtApplicable) {
+		if (income === 0) debtScore = 40;
+		else {
+			const dti = totalMonthlyDebtPayment(debts, baseCurrency, rates) / income * 100;
+			if (dti <= 15) debtScore = 100;
+			else if (dti <= 25) debtScore = 85;
+			else if (dti <= 36) debtScore = 65;
+			else if (dti <= 50) debtScore = 35;
+			else debtScore = 10;
+		}
+	}
+	const parts = [
+		{
+			score: budgetScore,
+			weight: .25,
+			ok: budgetApplicable
+		},
+		{
+			score: savingsScore,
+			weight: .25,
+			ok: savingsApplicable
+		},
+		{
+			score: trendScore,
+			weight: .15,
+			ok: trendApplicable
+		},
+		{
+			score: debtScore,
+			weight: .2,
+			ok: debtApplicable
+		}
+	];
+	const totalWeight = parts.reduce((s, p) => s + (p.ok ? p.weight : 0), 0);
+	return {
+		total: totalWeight === 0 ? null : clamp(Math.round(parts.reduce((s, p) => s + (p.ok ? p.score * p.weight : 0), 0) / totalWeight), 0, 100),
+		components: {
+			budget: Math.round(budgetScore),
+			savings: Math.round(savingsScore),
+			trend: Math.round(trendScore),
+			debt: Math.round(debtScore)
+		},
+		applicable: {
+			budget: budgetApplicable,
+			savings: savingsApplicable,
+			trend: trendApplicable,
+			debt: debtApplicable
+		}
+	};
+}
+//#endregion
+//#region react/src/lib/accountBalance.ts
+/** The encoded legacy account key for an Account (paymentMethod scheme).
+*  Audit F2: liability accounts prefer the explicit debtId link (the old
+*  assetId: debt.id overload violated the FK). */
+function accountValueOf(account) {
+	if (account.kind === "cash") return "cash";
+	if (account.kind === "credit_card") return `debt:${account.debtId ?? account.assetId ?? account.id}`;
+	if (account.kind === "loan") return `debt:${account.debtId ?? account.assetId ?? account.id}`;
+	return `asset:${account.assetId || account.id}`;
+}
+function matches(account, value) {
+	if (!value) return false;
+	return value === account.id || value === accountValueOf(account);
+}
+/** The account a transaction's money LEFT (expense / transfer-out / investment-out). */
+function debitAccountOf(t) {
+	return t.accountId ?? t.paymentMethod ?? void 0;
+}
+/** The account a transaction's money ARRIVED in (income / transfer-in / investment-in).
+*  Income falls back to the legacy single-field encoding for pre-v9 local rows. */
+function creditAccountOf(t) {
+	if (t.type === "income") return t.toAccountId ?? t.accountId ?? t.paymentMethod ?? void 0;
+	return t.toAccountId ?? t.linkedToAssetId ?? void 0;
+}
+/** R-AGG-4 — an account's current balance. Pure fold over real transactions plus
+*  the D2 reconciliation offset. Excluded-from-reports txns still count (money moved). */
+function computeAccountBalance(account, txns, baseCurrency, rates) {
+	let bal = (account.openingBalance ?? 0) + (account.reconciliationOffset ?? 0);
+	for (const t of txns) {
+		const amt = effectiveAmount(t, baseCurrency, rates);
+		if (t.type === "income") {
+			if (matches(account, creditAccountOf(t))) bal += amt;
+		} else if (t.type === "expense") {
+			if (matches(account, debitAccountOf(t))) bal -= amt;
+		} else if (t.type === "transfer" || t.type === "investment") {
+			if (matches(account, debitAccountOf(t))) bal -= amt;
+			if (matches(account, creditAccountOf(t))) bal += amt;
+		}
+	}
+	return Math.round(bal * 100) / 100;
+}
+/** v10.26.0 (R4) — an investment ASSET's live value, folded exactly like an
+*  account: opening `value` + every buy into it − every withdrawal out of it +
+*  the valuation offset. A buy carries `accountId` (the money left that account)
+*  and `assetId`; a withdrawal carries `toAccountId` and `assetId`. Returned in
+*  the asset's own currency. An asset nothing moves into and with no offset is
+*  exactly its stated value, so every other asset type is unchanged. */
+function computeAssetValue(asset, txns, rates) {
+	let v = asset.value + (asset.valuationOffset ?? 0);
+	for (const t of txns) {
+		if (t.type !== "investment" || t.assetId !== asset.id) continue;
+		const amt = effectiveAmount(t, asset.currency, rates);
+		if (t.toAccountId && !t.accountId) v -= amt;
+		else v += amt;
+	}
+	return Math.round(v * 100) / 100;
+}
+const ACCOUNT_LIQUIDITY = {
+	cash: "liquid",
+	bank: "liquid",
+	investment: "short"
+};
+/** The de-duped asset-side rows Net Worth renders/sums: live balances for
+*  every spendable account (cash/bank/investment; credit_card/loan are
+*  liabilities and excluded), plus any legacy asset NOT already represented
+*  by one of those accounts. */
+function liveAssetRows(assets, accounts, txns, baseCurrency, rates) {
+	const linkedAssetIds = new Set(accounts.map((a) => a.assetId).filter((id) => !!id));
+	const accountRows = accounts.filter((a) => !a.isArchived && (a.kind === "cash" || a.kind === "bank" || a.kind === "investment")).map((a) => ({
+		id: a.id,
+		name: a.name,
+		value: computeAccountBalance(a, txns, baseCurrency, rates),
+		currency: baseCurrency,
+		liquidity: ACCOUNT_LIQUIDITY[a.kind] ?? "liquid",
+		source: "account",
+		account: a
+	}));
+	const assetRows = assets.filter((a) => !linkedAssetIds.has(a.id)).map((a) => ({
+		id: a.id,
+		name: a.name,
+		value: convert(computeAssetValue(a, txns, rates), a.currency, baseCurrency, rates),
+		currency: a.currency,
+		liquidity: a.liquidity,
+		source: "asset",
+		asset: a
+	}));
+	return [...accountRows, ...assetRows];
+}
+function liveTotalAssets(rows) {
+	return Math.round(rows.reduce((s, r) => s + r.value, 0) * 100) / 100;
+}
+/**
+* §2.6 — reconcile an account (kind 'bank') or update an investment's value
+* (kind 'investment') to a user-stated value. Computes
+* delta = stated − computed and absorbs it into the reconciliation offset with
+* a dated quiet-log entry. WRITES NO TRANSACTION — the drift is forgiven, not
+* fabricated into an event. Returns a null-delta no-op when already reconciled.
+*/
+function reconcileAccount(account, computedBalance, statedValue, kind) {
+	const target = account.kind === "credit_card" ? -Math.abs(statedValue) : statedValue;
+	const delta = Math.round((target - computedBalance) * 100) / 100;
+	const entry = {
+		at: (/* @__PURE__ */ new Date()).toISOString(),
+		delta,
+		kind,
+		stated_value: statedValue
+	};
+	return {
+		delta,
+		patch: {
+			reconciliationOffset: Math.round(((account.reconciliationOffset ?? 0) + delta) * 100) / 100,
+			reconciliationLog: [...account.reconciliationLog ?? [], ...delta !== 0 ? [entry] : []]
+		}
+	};
+}
+//#endregion
 //#region react/src/lib/supabaseAdapter.ts
 const provToRow = (p) => ({
 	confidence: p.confidence ?? void 0,
@@ -1069,9 +1463,19 @@ const rowToDebt = (r) => ({
 	currency: r.currency,
 	direction: r.direction || "owed_by_me",
 	counterpartyName: r.counterparty_name || void 0,
-	tenureMonths: r.extras?.tenureMonths,
+	tenureMonths: r.tenure_months ?? r.extras?.tenureMonths,
 	remainingMonths: r.extras?.remainingMonths,
 	paymentLog: r.extras?.paymentLog,
+	firstEmiDate: r.first_emi_date ?? void 0,
+	termsConfirmed: r.terms_confirmed ?? void 0,
+	rateHistory: Array.isArray(r.rate_history) ? r.rate_history.map((c) => ({
+		from: c.from,
+		rate: Number(c.rate)
+	})) : void 0,
+	instalmentsPaid: r.instalments_paid ?? void 0,
+	autoRecord: r.auto_record ?? void 0,
+	fundingAccountId: r.funding_account_id ?? void 0,
+	paidOffAt: r.paid_off_at ?? void 0,
 	updated_at: r.updated_at,
 	...rowToProv(r)
 });
@@ -1175,107 +1579,6 @@ function profileFromRows(prof, hh, email) {
 		extraPayment: Number(hh.extra_payment) || 0,
 		educationProgress: prof.education_progress || {}
 	};
-}
-//#endregion
-//#region react/src/lib/format.ts
-const pad2 = (n) => String(n).padStart(2, "0");
-/** The calendar date (YYYY-MM-DD) of an instant in `tz`, or in the device's zone when `tz` is absent or unknown. */
-function dateKeyIn(at, tz) {
-	if (tz) try {
-		const parts = new Intl.DateTimeFormat("en-CA", {
-			timeZone: tz,
-			year: "numeric",
-			month: "2-digit",
-			day: "2-digit"
-		}).formatToParts(at);
-		const part = (type) => parts.find((p) => p.type === type)?.value ?? "";
-		return `${part("year")}-${part("month")}-${part("day")}`;
-	} catch {}
-	return `${at.getFullYear()}-${pad2(at.getMonth() + 1)}-${pad2(at.getDate())}`;
-}
-/** Today's date (YYYY-MM-DD): the device's day, or the given zone's (the household's, on the server). */
-const today = (tz) => dateKeyIn(/* @__PURE__ */ new Date(), tz);
-/**
-* "Now" for code that reads getDate()/getMonth()/setHours(): a Date whose LOCAL getters show the wall
-* clock in `tz`. Without `tz` it is just `new Date()` (the device's clock). On the server, where the
-* host runs in UTC, this is how the engine reads the household's day without any global state.
-*/
-function wallClock(tz, at = /* @__PURE__ */ new Date()) {
-	if (!tz) return new Date(at.getTime());
-	try {
-		const p = {};
-		for (const x of new Intl.DateTimeFormat("en-US", {
-			timeZone: tz,
-			hourCycle: "h23",
-			year: "numeric",
-			month: "numeric",
-			day: "numeric",
-			hour: "numeric",
-			minute: "numeric",
-			second: "numeric"
-		}).formatToParts(at)) p[x.type] = x.value;
-		return new Date(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second, at.getMilliseconds());
-	} catch {
-		return new Date(at.getTime());
-	}
-}
-/** Date-only arithmetic on a YYYY-MM-DD string, in UTC so no zone or DST change can move it. */
-function addDaysISO(iso, days) {
-	const [y, m, d] = iso.split("-").map(Number);
-	return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
-}
-const uid = () => {
-	try {
-		if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
-	} catch {}
-	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-		const r = Math.random() * 16 | 0;
-		return (c === "x" ? r : r & 3 | 8).toString(16);
-	});
-};
-const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-const getMonthKey = (d) => d.slice(0, 7);
-/** This month (YYYY-MM): the device's, or the given zone's (W3a — it used to be the UTC month). */
-const nowMonthKey = (tz) => today(tz).slice(0, 7);
-/**
-* Multi-currency conversion using a USD-base rate table.
-*
-* TD-01 phase A: this function previously did `(amount / rFrom) * rTo` on
-* raw JS floats, which drifted across round-trips and across aggregations.
-* It now routes the math through dinero.js — the input/output signature is
-* unchanged (number → number, major units) so no caller needs to change,
-* but the conversion itself is exact integer arithmetic with banker's
-* rounding at the FX boundary. See `react/src/lib/money.ts` for the
-* dinero plumbing and `CON-UNIT-006` for the regression test that pins
-* the fixed behaviour.
-*/
-/**
-* Face value (W3b, v10.66.0): one currency per household, never converted — the amount comes back
-* unchanged, re-rounded to the target currency's minor unit. `rates` is ignored (TD-45).
-* @deprecated There is nothing to convert; new code should use the amount as it is.
-*/
-function convert(amount, from, to, _rates) {
-	if (!amount || from === to) return amount;
-	return fromDinero(convertViaUsdRates(toDinero(amount, from), to));
-}
-function fmt$1(amount, currency = "USD") {
-	const cur = CURRENCIES[currency] ?? CURRENCIES.USD;
-	const n = Math.abs(amount || 0);
-	const factor = 10 ** cur.decimals;
-	const digits = Math.round(n * factor) % factor !== 0 ? cur.decimals : 0;
-	try {
-		return new Intl.NumberFormat(cur.locale, {
-			style: "currency",
-			currency,
-			minimumFractionDigits: digits,
-			maximumFractionDigits: digits
-		}).format(n);
-	} catch {
-		return cur.symbol + n.toLocaleString("en-US", {
-			minimumFractionDigits: digits,
-			maximumFractionDigits: digits
-		});
-	}
 }
 //#endregion
 //#region react/src/lib/rrule.ts
@@ -1558,7 +1861,17 @@ function recurringInstanceId(scheduleId, occurrenceDate) {
 */
 function serverPostsSchedule(s) {
 	const t = s.transactionTemplate ?? {};
-	return !!s.autoConfirm && (t.type === "expense" || t.type === "income" || t.type === "transfer" || t.type === "investment") && t.category !== "loan_emi" && !t.debtId && !t.linkedDebtId;
+	return !!s.autoConfirm && (t.type === "expense" || t.type === "income" || t.type === "transfer" || t.type === "investment") && !isLoanEmiSchedule(s);
+}
+/**
+* W4f (v10.75.0; owner decision D19) — a schedule that pays a loan. An EMI is paid by `pay_loan` (an
+* interest expense + a principal transfer, split by the server), never posted as one expense, so the
+* engine leaves these alone; the Recurring form no longer offers Loan / EMI; the loan's own EMI date
+* reminds you (and a later release records it automatically, by the loan).
+*/
+function isLoanEmiSchedule(s) {
+	const t = s.transactionTemplate ?? {};
+	return t.category === "loan_emi" || !!t.debtId || !!t.linkedDebtId;
 }
 function upcomingSchedules(schedules, leadDays = 3, now = today()) {
 	const cutoffISO = addDaysISO(now, leadDays);
@@ -1598,298 +1911,6 @@ function advanceSchedule(schedule) {
 /** True when this occurrence is too old to materialise honestly. */
 function isStaleOccurrence(occurrence, now = today(), maxDays = 45) {
 	return (Date.parse(now) - Date.parse(occurrence)) / DAY_MS > maxDays;
-}
-//#endregion
-//#region react/src/lib/calculations.ts
-function effectiveDinero(t, baseCurrency, _rates) {
-	return toDinero(t.split?.isSplit && typeof t.split.yourShare === "number" ? t.split.yourShare : t.amount, baseCurrency);
-}
-function effectiveAmount(t, baseCurrency, rates) {
-	return fromDinero(effectiveDinero(t, baseCurrency, rates));
-}
-function reportableTxns(transactions) {
-	return transactions.filter((t) => !t.excluded && (t.type === "income" || t.type === "expense") && t.category !== "transfer" && t.category !== "balance_adjustment");
-}
-function monthlyData(transactions, monthKey, baseCurrency, rates) {
-	const txns = reportableTxns(transactions).filter((t) => getMonthKey(t.date) === monthKey);
-	const incomeD = sumDinero(txns.filter((t) => t.type === "income"), (t) => effectiveDinero(t, baseCurrency, rates), baseCurrency);
-	const expenseD = sumDinero(txns.filter((t) => t.type === "expense"), (t) => effectiveDinero(t, baseCurrency, rates), baseCurrency);
-	const income = fromDinero(incomeD);
-	const expense = fromDinero(expenseD);
-	return {
-		income,
-		expense,
-		net: income - expense
-	};
-}
-function spendByCategory(transactions, monthKey, baseCurrency, rates) {
-	const buckets = {};
-	for (const t of reportableTxns(transactions)) {
-		if (t.type !== "expense" || getMonthKey(t.date) !== monthKey) continue;
-		const inBase = effectiveDinero(t, baseCurrency, rates);
-		buckets[t.category] = buckets[t.category] ? add(buckets[t.category], inBase) : inBase;
-	}
-	const out = {};
-	for (const [k, d] of Object.entries(buckets)) out[k] = fromDinero(d);
-	return out;
-}
-function budgetLines(budgets, allocations) {
-	const lines = [];
-	for (const b of budgets) {
-		const allocs = allocations.filter((a) => a.budgetId === b.id);
-		if (allocs.length) for (const a of allocs) lines.push({
-			id: a.id,
-			category: a.category,
-			limit: a.amount,
-			currency: b.currency,
-			period: b.period,
-			periodStart: b.periodStart,
-			periodEnd: b.periodEnd,
-			scope: b.scope,
-			periodYear: b.periodYear,
-			periodMonth: b.periodMonth
-		});
-		else if (b.category) lines.push(b);
-	}
-	return lines;
-}
-/**
-* The budget lines that apply to ONE month — a monthly budget for exactly that
-* month, or an annual budget covering the year.
-*
-* 🔴 `budgetLines` above flattens EVERY budget the household has ever had, in
-* whatever order the adapter returned them. The dashboard called it directly and
-* then took `.slice(0, 5)`, so which month you were looking at was decided by
-* array position. In September it showed August's budget, because August's lines
-* happened to come first. Nothing in the UI said which month it was.
-*
-* The bug was masked for as long as the array order happened to be favourable;
-* clearing the local cache in v10.20.7 changed the order and exposed it. Order
-* is not a contract — this filters on the budget's declared identity instead.
-*
-* Kept separate from `budgetLines` on purpose: that function is pinned by a
-* parity test against the Deno `_shared` port, and changing its shape would
-* break the port without cause.
-*/
-function budgetLinesForMonth(budgets, allocations, monthKey) {
-	const [y, m] = monthKey.split("-").map(Number);
-	return budgetLines(budgets, allocations).filter((b) => {
-		if (b.scope === "annual") return b.periodYear === y;
-		if (b.periodYear != null && b.periodMonth != null) return b.periodYear === y && b.periodMonth === m;
-		if (b.periodStart && b.periodEnd) return b.periodStart <= `${monthKey}-31` && b.periodEnd >= `${monthKey}-01`;
-		return !!b.category;
-	});
-}
-function spendByCategoryInRange(transactions, start, end, baseCurrency, rates) {
-	const buckets = {};
-	for (const t of reportableTxns(transactions)) {
-		if (t.type !== "expense" || t.date < start || t.date > end) continue;
-		const inBase = effectiveDinero(t, baseCurrency, rates);
-		buckets[t.category] = buckets[t.category] ? add(buckets[t.category], inBase) : inBase;
-	}
-	const out = {};
-	for (const [k, d] of Object.entries(buckets)) out[k] = fromDinero(d);
-	return out;
-}
-const totalMonthlyDebtPayment = (debts, baseCurrency, rates) => fromDinero(sumDinero(debts.filter((d) => (d.direction || "owed_by_me") !== "owed_to_me"), (d) => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates), baseCurrency));
-function computePulseScore(transactions, budgets, _goals, debts, baseCurrency, rates, allocations = [], tz) {
-	const mk = nowMonthKey(tz);
-	const { income, expense } = monthlyData(transactions, mk, baseCurrency, rates);
-	const lines = budgetLinesForMonth(budgets, allocations, mk);
-	const budgetApplicable = lines.length > 0;
-	let budgetScore = 0;
-	if (budgetApplicable) {
-		const spend = spendByCategory(transactions, mk, baseCurrency, rates);
-		const compliance = lines.map((b) => {
-			const limitBase = convert(b.limit, b.currency, baseCurrency, rates);
-			const pct = limitBase > 0 ? (spend[b.category ?? ""] || 0) / limitBase * 100 : 0;
-			if (pct <= 100) return 100;
-			return clamp(200 - pct, 0, 100);
-		});
-		budgetScore = compliance.reduce((s, v) => s + v, 0) / compliance.length;
-	}
-	const savingsApplicable = income > 0;
-	const rate = savingsApplicable ? (income - expense) / income * 100 : 0;
-	const savingsScore = clamp(rate * 5, 0, 100);
-	const [y, m] = mk.split("-").map(Number);
-	const prevExp = monthlyData(transactions, m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`, baseCurrency, rates).expense;
-	const trendApplicable = prevExp > 0;
-	let trendScore = 0;
-	if (trendApplicable) {
-		const change = (expense - prevExp) / prevExp * 100;
-		if (change <= 0) trendScore = 100;
-		else if (change <= 10) trendScore = 80;
-		else if (change <= 20) trendScore = 60;
-		else if (change <= 40) trendScore = 40;
-		else trendScore = 20;
-	}
-	const debtApplicable = debts.length > 0;
-	let debtScore = 0;
-	if (debtApplicable) {
-		if (income === 0) debtScore = 40;
-		else {
-			const dti = totalMonthlyDebtPayment(debts, baseCurrency, rates) / income * 100;
-			if (dti <= 15) debtScore = 100;
-			else if (dti <= 25) debtScore = 85;
-			else if (dti <= 36) debtScore = 65;
-			else if (dti <= 50) debtScore = 35;
-			else debtScore = 10;
-		}
-	}
-	const parts = [
-		{
-			score: budgetScore,
-			weight: .25,
-			ok: budgetApplicable
-		},
-		{
-			score: savingsScore,
-			weight: .25,
-			ok: savingsApplicable
-		},
-		{
-			score: trendScore,
-			weight: .15,
-			ok: trendApplicable
-		},
-		{
-			score: debtScore,
-			weight: .2,
-			ok: debtApplicable
-		}
-	];
-	const totalWeight = parts.reduce((s, p) => s + (p.ok ? p.weight : 0), 0);
-	return {
-		total: totalWeight === 0 ? null : clamp(Math.round(parts.reduce((s, p) => s + (p.ok ? p.score * p.weight : 0), 0) / totalWeight), 0, 100),
-		components: {
-			budget: Math.round(budgetScore),
-			savings: Math.round(savingsScore),
-			trend: Math.round(trendScore),
-			debt: Math.round(debtScore)
-		},
-		applicable: {
-			budget: budgetApplicable,
-			savings: savingsApplicable,
-			trend: trendApplicable,
-			debt: debtApplicable
-		}
-	};
-}
-//#endregion
-//#region react/src/lib/accountBalance.ts
-/** The encoded legacy account key for an Account (paymentMethod scheme).
-*  Audit F2: liability accounts prefer the explicit debtId link (the old
-*  assetId: debt.id overload violated the FK). */
-function accountValueOf(account) {
-	if (account.kind === "cash") return "cash";
-	if (account.kind === "credit_card") return `debt:${account.debtId ?? account.assetId ?? account.id}`;
-	if (account.kind === "loan") return `debt:${account.debtId ?? account.assetId ?? account.id}`;
-	return `asset:${account.assetId || account.id}`;
-}
-function matches(account, value) {
-	if (!value) return false;
-	return value === account.id || value === accountValueOf(account);
-}
-/** The account a transaction's money LEFT (expense / transfer-out / investment-out). */
-function debitAccountOf(t) {
-	return t.accountId ?? t.paymentMethod ?? void 0;
-}
-/** The account a transaction's money ARRIVED in (income / transfer-in / investment-in).
-*  Income falls back to the legacy single-field encoding for pre-v9 local rows. */
-function creditAccountOf(t) {
-	if (t.type === "income") return t.toAccountId ?? t.accountId ?? t.paymentMethod ?? void 0;
-	return t.toAccountId ?? t.linkedToAssetId ?? void 0;
-}
-/** R-AGG-4 — an account's current balance. Pure fold over real transactions plus
-*  the D2 reconciliation offset. Excluded-from-reports txns still count (money moved). */
-function computeAccountBalance(account, txns, baseCurrency, rates) {
-	let bal = (account.openingBalance ?? 0) + (account.reconciliationOffset ?? 0);
-	for (const t of txns) {
-		const amt = effectiveAmount(t, baseCurrency, rates);
-		if (t.type === "income") {
-			if (matches(account, creditAccountOf(t))) bal += amt;
-		} else if (t.type === "expense") {
-			if (matches(account, debitAccountOf(t))) bal -= amt;
-		} else if (t.type === "transfer" || t.type === "investment") {
-			if (matches(account, debitAccountOf(t))) bal -= amt;
-			if (matches(account, creditAccountOf(t))) bal += amt;
-		}
-	}
-	return Math.round(bal * 100) / 100;
-}
-/** v10.26.0 (R4) — an investment ASSET's live value, folded exactly like an
-*  account: opening `value` + every buy into it − every withdrawal out of it +
-*  the valuation offset. A buy carries `accountId` (the money left that account)
-*  and `assetId`; a withdrawal carries `toAccountId` and `assetId`. Returned in
-*  the asset's own currency. An asset nothing moves into and with no offset is
-*  exactly its stated value, so every other asset type is unchanged. */
-function computeAssetValue(asset, txns, rates) {
-	let v = asset.value + (asset.valuationOffset ?? 0);
-	for (const t of txns) {
-		if (t.type !== "investment" || t.assetId !== asset.id) continue;
-		const amt = effectiveAmount(t, asset.currency, rates);
-		if (t.toAccountId && !t.accountId) v -= amt;
-		else v += amt;
-	}
-	return Math.round(v * 100) / 100;
-}
-const ACCOUNT_LIQUIDITY = {
-	cash: "liquid",
-	bank: "liquid",
-	investment: "short"
-};
-/** The de-duped asset-side rows Net Worth renders/sums: live balances for
-*  every spendable account (cash/bank/investment; credit_card/loan are
-*  liabilities and excluded), plus any legacy asset NOT already represented
-*  by one of those accounts. */
-function liveAssetRows(assets, accounts, txns, baseCurrency, rates) {
-	const linkedAssetIds = new Set(accounts.map((a) => a.assetId).filter((id) => !!id));
-	const accountRows = accounts.filter((a) => !a.isArchived && (a.kind === "cash" || a.kind === "bank" || a.kind === "investment")).map((a) => ({
-		id: a.id,
-		name: a.name,
-		value: computeAccountBalance(a, txns, baseCurrency, rates),
-		currency: baseCurrency,
-		liquidity: ACCOUNT_LIQUIDITY[a.kind] ?? "liquid",
-		source: "account",
-		account: a
-	}));
-	const assetRows = assets.filter((a) => !linkedAssetIds.has(a.id)).map((a) => ({
-		id: a.id,
-		name: a.name,
-		value: convert(computeAssetValue(a, txns, rates), a.currency, baseCurrency, rates),
-		currency: a.currency,
-		liquidity: a.liquidity,
-		source: "asset",
-		asset: a
-	}));
-	return [...accountRows, ...assetRows];
-}
-function liveTotalAssets(rows) {
-	return Math.round(rows.reduce((s, r) => s + r.value, 0) * 100) / 100;
-}
-/**
-* §2.6 — reconcile an account (kind 'bank') or update an investment's value
-* (kind 'investment') to a user-stated value. Computes
-* delta = stated − computed and absorbs it into the reconciliation offset with
-* a dated quiet-log entry. WRITES NO TRANSACTION — the drift is forgiven, not
-* fabricated into an event. Returns a null-delta no-op when already reconciled.
-*/
-function reconcileAccount(account, computedBalance, statedValue, kind) {
-	const target = account.kind === "credit_card" ? -Math.abs(statedValue) : statedValue;
-	const delta = Math.round((target - computedBalance) * 100) / 100;
-	const entry = {
-		at: (/* @__PURE__ */ new Date()).toISOString(),
-		delta,
-		kind,
-		stated_value: statedValue
-	};
-	return {
-		delta,
-		patch: {
-			reconciliationOffset: Math.round(((account.reconciliationOffset ?? 0) + delta) * 100) / 100,
-			reconciliationLog: [...account.reconciliationLog ?? [], ...delta !== 0 ? [entry] : []]
-		}
-	};
 }
 //#endregion
 //#region react/src/lib/netWorth.ts
@@ -3575,6 +3596,9 @@ function resolveCore(intent, ctx) {
 			const statedDate = parseDateEntity(typeof e.date === "string" ? e.date : void 0, wallClock(ctx.tz));
 			const accountId = matchAccountId(typeof e.account === "string" ? e.account : void 0, ctx.accounts ?? []);
 			const accountName = accountId ? (ctx.accounts ?? []).find((a) => a.id === accountId)?.name : void 0;
+			const loans = (ctx.debts ?? []).filter((d) => (d.direction ?? "owed_by_me") === "owed_by_me" && !d.paidOffAt);
+			const said = normalise(String(e.merchant ?? e.text ?? ""));
+			const loan = category === "loan_emi" ? loans.find((d) => said && normalise(d.name).split(" ").some((w) => w.length > 2 && said.includes(w))) ?? (loans.length === 1 ? loans[0] : void 0) : void 0;
 			return {
 				kind: "capture",
 				outcome: "seeded",
@@ -3584,7 +3608,8 @@ function resolveCore(intent, ctx) {
 					category,
 					description: e.merchant ? e.merchant.charAt(0).toUpperCase() + e.merchant.slice(1) : "",
 					...statedDate ? { date: statedDate } : {},
-					...accountId ? { accountId } : {}
+					...accountId ? { accountId } : {},
+					...loan ? { linkedDebtId: loan.id } : {}
 				},
 				vars: {
 					amount: money(e.amount, ctx),
@@ -4863,27 +4888,19 @@ function balancesToCheck(rows, nowMs) {
 * nothing but still stamps the check.
 */
 function reconcileOnServer(rows, accountId, stated, at) {
-	const { accounts, transactions, debts, assets, profile, rates } = shapesFromRows(rows);
+	const { accounts, transactions, assets, profile, rates } = shapesFromRows(rows);
 	const account = accounts.find((a) => a.id === accountId);
 	if (!account || account.isArchived || !UPDATABLE_KINDS.includes(account.kind)) return null;
 	const computed = computeAccountBalance(account, transactions, profile.baseCurrency, rates);
 	const realBalance = stated === "same" ? computed : stated;
 	const { patch, delta } = reconcileAccount(account, computed, realBalance, account.kind === "credit_card" ? "credit_card" : "bank");
 	let bridge = null;
-	if (delta !== 0 && account.assetId) {
-		if (account.kind === "credit_card") {
-			const debt = debts.find((x) => x.id === account.assetId);
-			if (debt) bridge = {
-				debt_id: debt.id,
-				current_balance: Math.max(0, Math.abs(realBalance))
-			};
-		} else {
-			const asset = assets.find((x) => x.id === account.assetId);
-			if (asset) bridge = {
-				asset_id: asset.id,
-				value: realBalance
-			};
-		}
+	if (delta !== 0 && account.assetId && account.kind !== "credit_card") {
+		const asset = assets.find((x) => x.id === account.assetId);
+		if (asset) bridge = {
+			asset_id: asset.id,
+			value: realBalance
+		};
 	}
 	return {
 		accountId,

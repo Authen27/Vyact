@@ -993,7 +993,7 @@ rather than a Clarification 🟠. Only #4 remains an open product question.
   `page.clock.setFixedTime`.
 - ✅ `seedWith({ debts?, goals?, recurring?, splits?, members?, assets?, profile? })`
   factory that deep-merges into `defaultSeed`.
-- ✅ `sampleCreditCardDebt` reference seed for §7 DEBT-FC.
+- ✅ `sampleLoanDebt` reference seed for §7 DEBT-FC (W4f: a loan with terms; cards are accounts).
 - 🟡 `mockExchangeRates(rates)` to pin FX for FX-FC suite.
 - 🟡 `withCloud()` wrapper running against an ephemeral Supabase branch
   via the Supabase MCP (`create_branch` / `delete_branch`). Mock path

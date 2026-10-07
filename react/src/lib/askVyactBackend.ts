@@ -773,11 +773,19 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       const statedDate = parseDateEntity(typeof e.date === 'string' ? e.date : undefined, wallClock(ctx.tz));
       const accountId = matchAccountId(typeof e.account === 'string' ? e.account : undefined, ctx.accounts ?? []);
       const accountName = accountId ? (ctx.accounts ?? []).find(a => a.id === accountId)?.name : undefined;
+      // W4f (D19) — an EMI pays a loan: the form shows that loan's instalment due and the server splits
+      // it. The loan the words name, else the only one there is; otherwise the user picks it.
+      const loans = (ctx.debts ?? []).filter(d => (d.direction ?? 'owed_by_me') === 'owed_by_me' && !d.paidOffAt);
+      const said = normalise(String(e.merchant ?? e.text ?? ''));
+      const loan = category === 'loan_emi'
+        ? (loans.find(d => said && normalise(d.name).split(' ').some(w => w.length > 2 && said.includes(w))) ?? (loans.length === 1 ? loans[0] : undefined))
+        : undefined;
       const seed: Partial<Transaction> = {
         type, amount: e.amount, category,
         description: e.merchant ? e.merchant.charAt(0).toUpperCase() + e.merchant.slice(1) : '',
         ...(statedDate ? { date: statedDate } : {}),
         ...(accountId ? { accountId } : {}),
+        ...(loan ? { linkedDebtId: loan.id } : {}),
       };
       return {
         kind: 'capture', outcome: 'seeded', seed,

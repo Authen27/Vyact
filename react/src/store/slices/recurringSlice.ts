@@ -7,7 +7,7 @@ import type { StateCreator } from 'zustand';
 import type { RecurringSchedule, Transaction } from '../../types';
 import type { Store } from '../../store';
 import {
-  dueSchedules, generateTransaction, advanceSchedule, recurringInstanceId, isStaleOccurrence, serverPostsSchedule,
+  dueSchedules, generateTransaction, advanceSchedule, recurringInstanceId, isStaleOccurrence, serverPostsSchedule, isLoanEmiSchedule,
 } from '../../lib/recurring';
 import { uid, today } from '../../lib/format';
 import { unexpected } from '../../lib/faults';
@@ -131,7 +131,8 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
     // not have heard of a pause, edit or delete made elsewhere (INT-TXN-06). It sees the posted row on
     // its next refresh. What the server does not post (loan EMIs, until D19) is still posted here, and
     // a local-only household posts everything here, as before.
-    const due = dueSchedules(recurringSchedules).filter(s => !(cloudEnabled && serverPostsSchedule(s)));
+    // W4f (D19): an EMI schedule never posts one full expense — the loan's own payment does it right.
+    const due = dueSchedules(recurringSchedules).filter(s => !(cloudEnabled && serverPostsSchedule(s)) && !isLoanEmiSchedule(s));
     if (!due.length) { void get().refreshNotifications(); return; }
     const newTxns: Transaction[] = [];
     const updated = [...recurringSchedules];

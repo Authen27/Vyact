@@ -21,22 +21,20 @@ async function fillAssetModal(page: import('@playwright/test').Page, input: {
   return dialog;
 }
 
-async function fillDebtModal(page: import('@playwright/test').Page, input: {
-  type?: string;
-  name?: string;
-  currentBalance?: number;
-  currency?: string;
-  interestRate?: number;
-  minimumPayment?: number;
+// W4f — a debt is a loan with its terms (sanctioned, still owed, APR, tenure, EMI and its dates).
+async function fillLoanForm(page: import('@playwright/test').Page, input: {
+  name: string; sanctioned: number; owed: number; apr: number; tenure: number; emi: number; firstEmi: string; nextEmi: string;
 }) {
-  const dialog = page.getByRole('main', { name: /add debt|edit debt/i });
+  const dialog = page.getByRole('main', { name: /add loan/i });
   await expect(dialog).toBeVisible();
-  if (input.type !== undefined) await dialog.getByLabel('Type').selectOption(input.type);
-  if (input.name !== undefined) await dialog.getByLabel('Name').fill(input.name);
-  if (input.currentBalance !== undefined) await dialog.getByLabel('Current balance').fill(String(input.currentBalance));
-  if (input.currency !== undefined) await dialog.getByLabel('Currency').selectOption(input.currency);
-  if (input.interestRate !== undefined) await dialog.getByLabel('Interest rate').fill(String(input.interestRate));
-  if (input.minimumPayment !== undefined) await dialog.getByLabel('Min. monthly payment').fill(String(input.minimumPayment));
+  await dialog.getByLabel('Name').fill(input.name);
+  await dialog.getByLabel('Sanctioned amount').fill(String(input.sanctioned));
+  await dialog.getByLabel('Still owed').fill(String(input.owed));
+  await dialog.getByLabel('Interest rate').fill(String(input.apr));
+  await dialog.getByLabel('Tenure').fill(String(input.tenure));
+  await dialog.getByLabel('EMI', { exact: true }).fill(String(input.emi));
+  await dialog.getByLabel('First EMI date').fill(input.firstEmi);
+  await dialog.getByLabel('Next EMI date').fill(input.nextEmi);
   return dialog;
 }
 
@@ -167,12 +165,15 @@ test.describe('§4/§8 NWRT-FC and ASSET-FC', () => {
 
     await debts.goto();
     await debts.openAdd();
-    const dialog = await fillDebtModal(page, {
-      type: 'mortgage',
+    const dialog = await fillLoanForm(page, {
       name: 'NWRT-FC-004 Mortgage',
-      currentBalance: 300000,
-      interestRate: 6.5,
-      minimumPayment: 1800,
+      sanctioned: 300000,
+      owed: 300000,
+      apr: 6.5,
+      tenure: 240,
+      emi: 1800,
+      firstEmi: '2026-06-15',
+      nextEmi: '2026-06-15',
     });
     await dialog.getByRole('button', { name: /^Add$/ }).click();
     await expect(dialog).toBeHidden();

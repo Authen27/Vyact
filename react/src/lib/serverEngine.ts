@@ -169,7 +169,7 @@ export interface ReconcilePlan {
  * nothing but still stamps the check.
  */
 export function reconcileOnServer(rows: HouseholdRows, accountId: string, stated: number | 'same', at: string): ReconcilePlan | null {
-  const { accounts, transactions, debts, assets, profile, rates } = shapesFromRows(rows);
+  const { accounts, transactions, assets, profile, rates } = shapesFromRows(rows);
   const account = accounts.find((a) => a.id === accountId);
   if (!account || account.isArchived || !UPDATABLE_KINDS.includes(account.kind)) return null;
   const computed = computeAccountBalance(account, transactions, profile.baseCurrency, rates);
@@ -177,15 +177,12 @@ export function reconcileOnServer(rows: HouseholdRows, accountId: string, stated
   const kind = account.kind === 'credit_card' ? 'credit_card' as const : 'bank' as const;
   const { patch, delta } = buildReconcileOffset(account, computed, realBalance, kind);
 
+  // W4f (D30) — a card is an account: it has no debt row to bridge to (the old `assetId = debt.id`
+  // bridge is gone). A bank account that stands for an asset still carries the stated value to it.
   let bridge: ReconcilePlan['bridge'] = null;
-  if (delta !== 0 && account.assetId) {
-    if (account.kind === 'credit_card') {
-      const debt = debts.find((x) => x.id === account.assetId);
-      if (debt) bridge = { debt_id: debt.id, current_balance: Math.max(0, Math.abs(realBalance)) };
-    } else {
-      const asset = assets.find((x) => x.id === account.assetId);
-      if (asset) bridge = { asset_id: asset.id, value: realBalance };
-    }
+  if (delta !== 0 && account.assetId && account.kind !== 'credit_card') {
+    const asset = assets.find((x) => x.id === account.assetId);
+    if (asset) bridge = { asset_id: asset.id, value: realBalance };
   }
   return {
     accountId, name: account.name, kind: account.kind,
