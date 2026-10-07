@@ -126,6 +126,25 @@ export function computeNextDueDate(
   return nextScheduleOccurrence({ frequency: freq, startDate, dayOfMonth, weekday }, base) ?? base;
 }
 
+/**
+ * W4a (v10.70.0; owner decision D16) — does the SERVER post this schedule's occurrences?
+ *
+ * In cloud mode an auto-approved bill is posted by the `recurring-post` job, from the database's
+ * own copy of the schedule, so a device with a stale cache can no longer post a bill that was
+ * paused, edited or deleted elsewhere (audit INT-TXN-06, FE-SYN-02). It posts exactly the row the
+ * app's engine would (`generateTransaction` → `txnToRow`, deterministic id).
+ *
+ * A loan EMI is not posted by the server: an EMI is an interest expense plus a principal transfer,
+ * not one row, and the loan model that will post it (D19) is not built yet. Those schedules keep
+ * the app's existing behaviour until then.
+ */
+export function serverPostsSchedule(s: Pick<RecurringSchedule, 'autoConfirm' | 'transactionTemplate'>): boolean {
+  const t = s.transactionTemplate ?? ({} as RecurringSchedule['transactionTemplate']);
+  return !!s.autoConfirm
+    && (t.type === 'expense' || t.type === 'income' || t.type === 'transfer' || t.type === 'investment')
+    && t.category !== 'loan_emi' && !t.debtId && !t.linkedDebtId;
+}
+
 // Returns schedules that are due now or in the past — they need transactions generated
 export function dueSchedules(schedules: RecurringSchedule[], now = today()): RecurringSchedule[] {
   return schedules.filter(s => s.active && s.nextDueDate <= now);

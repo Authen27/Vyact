@@ -68,6 +68,16 @@ export const approveOccurrenceOnServer = generated.approveOccurrenceOnServer as 
   scheduleRow: unknown, householdId: string,
 ) => ApprovalPlan;
 
+// ── Posting due bills (W4a, v10.70.0) ───────────────────────────────────────────
+export interface PostingPlan {
+  occurrence: string; post: boolean; row: Record<string, unknown> | null;
+  nextDue: string | null; lastGenerated: string; exhausted: boolean;
+}
+/** What the app's engine would do with this schedule on the household's `today`; null = nothing. */
+export const recurringPostPlan = generated.recurringPostPlan as (
+  scheduleRow: unknown, householdId: string, today: string,
+) => PostingPlan | null;
+
 // ── Runway (W6b, v10.47.0) ───────────────────────────────────────────────────
 export interface RunwaySnapshot { months: number | null; quieterCategory: string | null }
 export const runwaySnapshot = generated.runwaySnapshot as (rows: HouseholdRows, now: Date) => RunwaySnapshot;

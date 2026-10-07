@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.69.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.70.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -359,6 +359,17 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     into `_shared/`.
   - `upsertRecurring` persists `rrule`, `shortMonthPolicy`, `ownerMemberId` and the `updated_at`
     precondition; it dropped all four until v10.69.0.
+- **The server posts due bills (v10.70.0, W4a, owner decision D16).**
+  - In cloud mode an auto-approved bill is posted by the `recurring-post` job (pg_cron every 30 min,
+    Vault cron secret) from the DATABASE's copy of the schedule, never from a device cache. A device
+    that had not pulled a pause, edit or delete used to post the bill anyway (INT-TXN-06).
+  - The job asks the bundled engine (`serverEngine.recurringPostPlan`) and applies the plan with
+    `post_recurring_occurrence`, which locks the schedule, re-checks it (live, active, auto, the due
+    pointer, due in the HOUSEHOLD's zone, the row is that occurrence) and posts + advances in one
+    transaction under the app's deterministic id. Never post a bill from `_shared/` maths.
+  - Which side posts is ONE predicate, `serverPostsSchedule` (`lib/recurring.ts`). Loan EMIs are not
+    the server's until the loan model (D19) posts them; approval-gated bills still wait for Approve or
+    "paid X".
 - **WhatsApp integration — write-only logging (v10.18)** — inbound text → the
   deterministic parser (`supabase/functions/_shared/whatsapp-parser.ts`, ported
   from `askVyactParser`, NO AI / NO egress) → `whatsapp_log_transaction` RPC

@@ -44,7 +44,7 @@ jobs:
         run: |
           set -e
           # Same JWT settings as production: cron/webhook callers carry no user JWT.
-          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push ask-vyact-relay-status"
+          NO_JWT="whatsapp-webhook whatsapp-dispatch web-push recurring-post ask-vyact-relay-status"
           for dir in supabase/functions/*/; do
             fn="$(basename "$dir")"
             case "$fn" in _shared|_*) continue ;; esac

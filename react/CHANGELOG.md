@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.69.0`** (consumer)
+> **Current production version: `v10.70.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,39 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.70.0 — W4a: the server posts due bills *(2026-10-07)*
+
+First half of owner decision **D16** (audit INT-TXN-06, FE-SYN-02). This release is the database and
+the server job only. The app keeps posting until v10.71.0 turns that off in cloud mode. Both sides
+write the same row under the same id, so running both meanwhile cannot double a bill.
+
+- **Why:** every device posted bills from its own cached copy of the schedules. A device that had
+  not yet pulled a pause, an edit or a delete made elsewhere posted the bill anyway.
+- **`recurring-post`** (a new Edge Function, run by pg_cron every 30 minutes):
+  - It finds the auto-approved bills that are due in each household's own time zone.
+  - It asks the app's engine, bundled into the function (`serverEngine.recurringPostPlan`), for the
+    row and the next date.
+  - It then posts them through `post_recurring_occurrence`.
+  - A run that missed several occurrences catches up. A pointer more than 45 days old moves on
+    without posting, as the app does.
+- **`post_recurring_occurrence`** posts one occurrence and moves the schedule on, in one transaction,
+  with the schedule locked. Before posting it re-checks the database's own copy:
+  - the schedule is live, active and auto-approved;
+  - the occurrence is the one due;
+  - it is due in the household's zone;
+  - the row is that occurrence of that template.
+
+  A row the ledger refuses leaves the bill due, never half-applied. The last occurrence closes the
+  schedule.
+- **Not posted by the server:** loan EMIs (an EMI is interest plus a principal transfer, and the
+  loan model in D19 will post them), and bills that need approval.
+- The cron secret is generated into Vault by the migration; nobody handles it. `recurring-post` is
+  deployed without JWT verification and checks the secret or the service key itself.
+
+Migration 20261015120000. Tests:
+- recurringPostSql.test.ts (W4-D16-001..003, PGlite)
+- recurringPostHandler.test.ts (W4-D16-004/005: job and plan parity, source and bundle)
 
 ## v10.69.0 — W3e: one recurrence engine *(2026-10-07)*
 
