@@ -51,3 +51,18 @@ it('W3-D13-012 · a schedule keeps its rule, owner and month-end rule, and close
   const [stored] = await new LocalStorageAdapter().list<RecurringSchedule>('recurring', state.currentHouseholdId);
   expect(stored).toMatchObject({ active: false, rrule: 'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=9;COUNT=2', shortMonthPolicy: 'next_month_first', ownerMemberId: 'm-1' });
 });
+
+it('W4-D16-006 · in cloud mode the app leaves auto-approved bills to the server and still posts what the server does not', async () => {
+  useStore.setState({ cloudEnabled: true });
+  const bill = { frequency: 'monthly' as const, dayOfMonth: 9, startDate: '2026-08-09', nextDueDate: '2026-09-09', autoConfirm: true };
+  const rent = await useStore.getState().upsertRecurring({ ...bill,
+    transactionTemplate: { type: 'expense', amount: 100, currency: 'USD', category: 'utilities', accountId: 'bank', description: 'Bill' } });
+  const emi = await useStore.getState().upsertRecurring({ ...bill,
+    transactionTemplate: { type: 'expense', amount: 300, currency: 'USD', category: 'loan_emi', accountId: 'bank', description: 'EMI' } });
+  await useStore.getState().runRecurringEngine();
+  const state = useStore.getState();
+  // The server's job posts the bill from the database's copy; this device does not touch it.
+  expect(state.transactions.map(t => t.recurringScheduleId)).toEqual([emi.id]);
+  expect(state.recurringSchedules.find(s => s.id === rent.id)).toMatchObject({ nextDueDate: '2026-09-09', lastGenerated: undefined });
+  expect(state.recurringSchedules.find(s => s.id === emi.id)?.nextDueDate).toBe('2026-10-09');
+});

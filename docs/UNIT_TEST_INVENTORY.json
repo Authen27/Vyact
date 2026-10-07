@@ -2123,9 +2123,10 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 2,
+      "count": 3,
       "tests": [
         "W3-D13-012 · a schedule keeps its rule, owner and month-end rule, and closes after its last occurrence",
+        "W4-D16-006 · in cloud mode the app leaves auto-approved bills to the server and still posts what the server does not",
         "keeps an approval-required bill due without posting or advancing it"
       ]
     },

@@ -7,7 +7,7 @@ import type { StateCreator } from 'zustand';
 import type { RecurringSchedule, Transaction } from '../../types';
 import type { Store } from '../../store';
 import {
-  dueSchedules, generateTransaction, advanceSchedule, recurringInstanceId, isStaleOccurrence,
+  dueSchedules, generateTransaction, advanceSchedule, recurringInstanceId, isStaleOccurrence, serverPostsSchedule,
 } from '../../lib/recurring';
 import { uid, today } from '../../lib/format';
 import { unexpected } from '../../lib/faults';
@@ -110,8 +110,13 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
   },
 
   runRecurringEngine: async () => {
-    const { recurringSchedules, transactions, adapter, currentHouseholdId } = get();
-    const due = dueSchedules(recurringSchedules);
+    const { recurringSchedules, transactions, adapter, currentHouseholdId, cloudEnabled } = get();
+    // W4b (v10.71.0; owner decision D16): in cloud mode the SERVER posts auto-approved bills from the
+    // database's own copy (the recurring-post job), so this device never posts from a cache that may
+    // not have heard of a pause, edit or delete made elsewhere (INT-TXN-06). It sees the posted row on
+    // its next refresh. What the server does not post (loan EMIs, until D19) is still posted here, and
+    // a local-only household posts everything here, as before.
+    const due = dueSchedules(recurringSchedules).filter(s => !(cloudEnabled && serverPostsSchedule(s)));
     if (!due.length) { void get().refreshNotifications(); return; }
     const newTxns: Transaction[] = [];
     const updated = [...recurringSchedules];
