@@ -240,10 +240,27 @@ const FORBIDDEN_KEY_ENV = [
   /(^|_)(DB|DATABASE)_/i,
   /JWT/i,
   /^VYACT_/i,
+  /^MAILERSEND_/i,   // W8b (BE-PIP-05): defence in depth behind the allowlist
+  /^VAPID_/i,
 ];
 
 /** A plausible env-var name. Rejects paths, spaces and lower-case typos. */
 const KEY_ENV_NAME = /^[A-Z][A-Z0-9_]{2,63}$/;
+
+/**
+ * W8b (audit BE-PIP-05) — the key names a config row MAY name: model-provider keys, by an explicit list,
+ * or a dedicated `LLM_<NAME>_KEY`. The denylist above could not keep up (MAILERSEND_API_KEY and the
+ * VAPID keys were readable); an allowlist denies every other secret by default. Production uses
+ * OPENROUTER_API_KEY only (checked 2026-10-08).
+ */
+const ALLOWED_KEY_ENV = new Set([
+  'OPENROUTER_API_KEY', 'VLLM_API_KEY', 'GROQ_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY',
+  'GEMINI_API_KEY', 'TOGETHER_API_KEY', 'MISTRAL_API_KEY', 'DEEPSEEK_API_KEY', 'FIREWORKS_API_KEY',
+]);
+const LLM_KEY_ENV = /^LLM_[A-Z0-9_]+_KEY$/;
+export function isAllowedKeyEnv(name: string): boolean {
+  return (ALLOWED_KEY_ENV.has(name) || LLM_KEY_ENV.test(name)) && !FORBIDDEN_KEY_ENV.some(rx => rx.test(name));
+}
 
 // ── Config selection ─────────────────────────────────────────────────────────
 
@@ -349,11 +366,11 @@ export function checkConfig(config: ModelConfigRow | null | undefined): ConfigCh
     if (!KEY_ENV_NAME.test(keyName)) {
       return { ok: false, code: 'invalid_config', message: 'key_env_var is not a valid env var name.' };
     }
-    if (FORBIDDEN_KEY_ENV.some(rx => rx.test(keyName))) {
+    if (!isAllowedKeyEnv(keyName)) {
       return {
         ok: false, code: 'forbidden_key',
-        message: 'key_env_var names a reserved platform secret and will not be read.',
-        hint: 'Use a dedicated secret name such as VLLM_API_KEY or OPENROUTER_API_KEY.',
+        message: 'key_env_var is not a model-provider key and will not be read.',
+        hint: 'Use a provider key name such as OPENROUTER_API_KEY or VLLM_API_KEY, or a dedicated LLM_<NAME>_KEY.',
       };
     }
   }
