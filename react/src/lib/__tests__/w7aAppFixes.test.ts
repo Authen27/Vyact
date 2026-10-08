@@ -9,6 +9,7 @@ import { buildBackup, BACKUP_FORMAT_VERSION } from '../backup';
 import { txnAccountLabel } from '../accounts';
 import { listNet, dayTotalsForMonth } from '../txnListTotals';
 import { inviteAcceptMessage } from '../householdTypes';
+import { htmlLangFor } from '../htmlLang';
 import type { Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
@@ -91,6 +92,14 @@ describe('W7a · small app fixes', () => {
     expect(src('pages/auth/AcceptInvite.tsx')).toMatch(/setError\(inviteAcceptMessage\(e\)\)/);
     expect(existsSync(resolve(__dirname, '../../components/education/WhyChip.tsx'))).toBe(false);
     expect(existsSync(resolve(__dirname, '../insightsApi.ts'))).toBe(false);
+  });
+  it('W7a-UIS15-001 · <html lang> follows the Language setting (FE-UIS-15)', () => {
+    expect(htmlLangFor('hi')).toBe('hi');
+    expect(htmlLangFor('ja')).toBe('ja');
+    expect(htmlLangFor(undefined)).toBe('en');
+    expect(htmlLangFor('xx')).toBe('en');
+    expect(htmlLangFor('toString')).toBe('en');
+    expect(src('hooks.ts')).toMatch(/document\.documentElement\.lang = htmlLangFor\(language\)/);
   });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');
