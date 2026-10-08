@@ -234,6 +234,7 @@ export default function ResetPassword() {
           <Field label="New password" hint="min 8 chars">
             <div className="relative">
               <Input
+                aria-label="New password"
                 type={showPw ? 'text' : 'password'}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}

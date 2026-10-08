@@ -82,7 +82,7 @@ export default function NudgeBanner() {
   }
 
   return (
-    <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:w-[22rem] z-[120]">
+    <div className="fixed bottom-above-tabbar inset-x-4 sm:inset-x-auto sm:right-4 sm:w-[22rem] z-[120]">
       <div className="bg-bg2 border border-coral/30 rounded-lg shadow-lg p-4">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 h-7 w-7 rounded-full bg-coral-tint text-coral flex items-center justify-center shrink-0">

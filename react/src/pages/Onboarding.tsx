@@ -250,17 +250,17 @@ export default function Onboarding() {
         {/* ── Step 1 — Who + name ──────────────────────────────────────── */}
         {step === 1 && (
           <div>
-            <label className="mono-label mb-1.5 block">Your first name</label>
-            <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Rohan"
+            <label htmlFor="ob-name" className="mono-label mb-1.5 block">Your first name</label>
+            <input id="ob-name" autoComplete="given-name" autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Rohan"
               className="w-full rounded-r2 px-4 min-h-[52px] text-ink text-[1.05rem] mb-6 border-none"
               style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} />
-            <label className="mono-label mb-2 block">Who's this picture for?</label>
-            <div className="flex flex-col gap-3 mb-7">
+            <div id="ob-segment" className="mono-label mb-2 block">Who's this picture for?</div>
+            <div role="group" aria-labelledby="ob-segment" className="flex flex-col gap-3 mb-7">
               {SEGMENT_ORDER.map(key => {
                 const s = SEGMENTS[key];
                 const on = segment === key;
                 return (
-                  <button key={key} onClick={() => setSegment(key)}
+                  <button key={key} type="button" aria-pressed={on} onClick={() => setSegment(key)}
                     className="flex items-center gap-3.5 p-4 rounded-r3 text-left transition-shadow relative"
                     style={{ background: 'var(--canvas)', boxShadow: on ? 'var(--neu-sm), 0 0 0 2px var(--accent)' : 'var(--neu-sm)' }}>
                     <span className="text-2xl">{s.icon}</span>
@@ -280,12 +280,12 @@ export default function Onboarding() {
         {/* ── Step 2 — What matters (multi-select) ─────────────────────── */}
         {step === 2 && (
           <div>
-            <label className="mono-label mb-2 block">Pick what matters most · you can pick a few</label>
-            <div className="flex flex-col gap-3 mb-7">
+            <div id="ob-concerns" className="mono-label mb-2 block">Pick what matters most · you can pick a few</div>
+            <div role="group" aria-labelledby="ob-concerns" className="flex flex-col gap-3 mb-7">
               {CONCERNS.map(c => {
                 const on = concerns.includes(c.key);
                 return (
-                  <button key={c.key}
+                  <button key={c.key} type="button" aria-pressed={on}
                     onClick={() => setConcerns(cs => on ? cs.filter(k => k !== c.key) : [...cs, c.key])}
                     className="flex items-center gap-3 p-3.5 rounded-r3 text-left transition-shadow"
                     style={{ background: 'var(--canvas)', boxShadow: on ? 'var(--neu-sm), 0 0 0 2px var(--accent)' : 'var(--neu-sm)' }}>
@@ -303,16 +303,16 @@ export default function Onboarding() {
         {/* ── Step 3 — Money in (take-home) ────────────────────────────── */}
         {step === 3 && (
           <div>
-            <label className="mono-label mb-1.5 block">Monthly take-home pay</label>
+            <label htmlFor="ob-income" className="mono-label mb-1.5 block">Monthly take-home pay</label>
             <div className="flex items-baseline gap-2 rounded-r2 px-4 min-h-[64px] mb-2" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
               <span className="num text-ink-dim text-[1.1rem]">{curSym}</span>
-              <input autoFocus inputMode="decimal" type="number" min="0" value={income}
+              <input id="ob-income" autoFocus inputMode="decimal" type="number" min="0" value={income}
                 onChange={e => setIncome(e.target.value)} placeholder="0"
                 className="flex-1 bg-transparent border-none num font-bold text-[1.7rem] text-ink outline-none min-w-0" />
             </div>
             <div className="text-[0.78rem] text-ink-dim mb-6">What actually lands in your account after tax. This becomes your starting cash and your monthly paycheck.</div>
-            <label className="mono-label mb-2 block">Does it arrive on a schedule?</label>
-            <div className="flex gap-2 mb-4">
+            <div id="ob-schedule" className="mono-label mb-2 block">Does it arrive on a schedule?</div>
+            <div role="group" aria-labelledby="ob-schedule" className="flex gap-2 mb-4">
               <Chip on={incomeSteady} onClick={() => setIncomeSteady(true)}>Same day each month</Chip>
               <Chip on={!incomeSteady} onClick={() => setIncomeSteady(false)}>It varies</Chip>
             </div>
@@ -329,8 +329,8 @@ export default function Onboarding() {
         {/* ── Step 4 — Money out (fixed bills, amounts inline) ─────────── */}
         {step === 4 && tpl && (
           <div>
-            <label className="mono-label mb-2 block">Which fixed bills do you have? Tap to add an amount.</label>
-            <div className="flex flex-col gap-2.5 mb-4">
+            <div id="ob-bills" className="mono-label mb-2 block">Which fixed bills do you have? Tap to add an amount.</div>
+            <div role="group" aria-labelledby="ob-bills" className="flex flex-col gap-2.5 mb-4">
               {tpl.fixedCostChips.map(chip => {
                 const on = chip.key in billAmounts;
                 return (
@@ -344,7 +344,7 @@ export default function Onboarding() {
                     {on ? (
                       <div className="flex items-baseline gap-1 rounded-lg px-2.5 py-1.5" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
                         <span className="num text-[0.72rem] text-ink-dim">{curSym}</span>
-                        <input autoFocus inputMode="decimal" type="number" min="0" value={billAmounts[chip.key]}
+                        <input aria-label={`${chip.label} amount per month`} autoFocus inputMode="decimal" type="number" min="0" value={billAmounts[chip.key]}
                           onChange={e => setBillAmounts(m => ({ ...m, [chip.key]: e.target.value }))}
                           placeholder="0"
                           className="w-[76px] bg-transparent border-none num font-semibold text-[0.9rem] text-ink outline-none text-right" />

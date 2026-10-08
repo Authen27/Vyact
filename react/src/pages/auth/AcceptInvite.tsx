@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import { acceptInvitation, getSession } from '../../lib/auth';
 import { AuthShell } from './SignIn';
 import { useStore } from '../../store';
+import { inviteAcceptMessage } from '../../lib/householdTypes';
 
 export default function AcceptInvite() {
   const params = useParams<{ token?: string; '*': string }>();
@@ -40,7 +41,7 @@ export default function AcceptInvite() {
           navigate('/dashboard');
         }, 1800);
       } catch (e) {
-        setError((e as Error).message);
+        setError(inviteAcceptMessage(e));   // W7a (FE-UIS-16): no raw HOUSEHOLD_FULL code
         setStatus('error');
       }
     })();

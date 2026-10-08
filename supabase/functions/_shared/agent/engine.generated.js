@@ -3036,8 +3036,7 @@ const FEATURES = {
 		capture: true,
 		interpret: true,
 		forecast: true,
-		proactiveInsight: true,
-		backend: "rules"
+		proactiveInsight: true
 	},
 	txnRedesign: { enabled: true },
 	savedViews: { show: false }

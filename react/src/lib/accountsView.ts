@@ -264,3 +264,17 @@ export function parseAmountInput(raw: string): number | null {
   const n = Number(trimmed);
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
 }
+
+/**
+ * W7a (audit FE-UIC-14) — the figure the Reconcile sheet compares, in the statement's own terms. A card
+ * is stated as what it owes, so "-23,990" means 23,990 owed (the reconcile engine already reads it as
+ * |stated|; the sheet showed a drift of twice that and posted a different one). Cash on hand cannot be
+ * negative, so a negative count is not a figure (null — nothing to confirm). A bank keeps its sign: an
+ * overdraft is a real negative balance.
+ */
+export function statedForReconcile(value: number | null, kind: Account['kind'] | undefined): number | null {
+  if (value === null) return null;
+  if (kind === 'credit_card') return Math.abs(value);
+  if (kind === 'cash' && value < 0) return null;
+  return value;
+}

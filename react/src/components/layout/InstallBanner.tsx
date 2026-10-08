@@ -73,7 +73,7 @@ export default function InstallBanner() {
     <div
       role="dialog"
       aria-label="Install Vyact"
-      className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-[60] bg-bg2 border border-line rounded-xl shadow-2 p-3.5 flex items-start gap-3 animate-[modalIn_180ms_ease-out]"
+      className="fixed bottom-above-tabbar left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-[60] bg-bg2 border border-line rounded-xl shadow-2 p-3.5 flex items-start gap-3 animate-[modalIn_180ms_ease-out]"
     >
       <div className="flex-shrink-0 w-9 h-9 rounded-md bg-coral/15 text-coral flex items-center justify-center">
         <Download size={18} strokeWidth={1.8} />

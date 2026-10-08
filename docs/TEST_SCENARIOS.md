@@ -25,20 +25,20 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1513 passing deterministic cases in 127 files. Zero failed, skipped or TODO cases at generation.**
+**1530 passing deterministic cases in 128 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 8 |
-| react | contract-unit | conditional | 119 |
+| react | contract-unit | conditional | 121 |
 | react | handler-integration | conditional | 79 |
 | react | sql-integration | conditional | 48 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 10 |
-| react | unit | available | 355 |
+| react | unit | available | 370 |
 | react | unit | conditional | 184 |
 | react | unit | infrastructure | 601 |
 
@@ -82,7 +82,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/cacheBoundary.test.ts](../react/src/lib/__tests__/cacheBoundary.test.ts) | Storage and synchronization | storage-integration | available | 2 |
 | [react/src/lib/__tests__/cacheInvalidation.test.ts](../react/src/lib/__tests__/cacheInvalidation.test.ts) | Storage and synchronization | storage-integration | available | 9 |
 | [react/src/lib/__tests__/calculations.test.ts](../react/src/lib/__tests__/calculations.test.ts) | Money model | unit | available | 16 |
-| [react/src/lib/__tests__/categoryModel.test.ts](../react/src/lib/__tests__/categoryModel.test.ts) | Categories and ordering | unit | available | 8 |
+| [react/src/lib/__tests__/categoryModel.test.ts](../react/src/lib/__tests__/categoryModel.test.ts) | Categories and ordering | unit | available | 10 |
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
 | [react/src/lib/__tests__/chunkRecovery.test.ts](../react/src/lib/__tests__/chunkRecovery.test.ts) | Frontend guards (W6) | unit | available | 3 |
 | [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 7 |
@@ -163,8 +163,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/toastPolicy.test.ts](../react/src/lib/__tests__/toastPolicy.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 3 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
+| [react/src/lib/__tests__/w7aAppFixes.test.ts](../react/src/lib/__tests__/w7aAppFixes.test.ts) | Small app fixes (W7a) | unit | available | 13 |
 | [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 10 |
-| [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 5 |
+| [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 7 |
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/whatsappDispatch.test.ts](../react/src/lib/__tests__/whatsappDispatch.test.ts) | WhatsApp dispatch | contract-unit | conditional | 17 |
 | [react/src/lib/__tests__/whatsappFollowups.test.ts](../react/src/lib/__tests__/whatsappFollowups.test.ts) | WhatsApp dispatch | contract-unit | conditional | 8 |

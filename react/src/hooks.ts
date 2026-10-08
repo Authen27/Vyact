@@ -4,6 +4,7 @@ import type React from 'react';
 import { useStore } from './store';
 import { LOCALES } from './constants';
 import { shortcutAllowed, OPEN_DIALOG_SELECTOR } from './lib/shortcuts';
+import { htmlLangFor } from './lib/htmlLang';
 
 // useTranslation — returns t() bound to current language
 export function useTranslation() {
@@ -168,4 +169,7 @@ export function useTheme() {
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, [theme, setTheme]);
+  // W7a (FE-UIS-15): <html lang> follows the Language setting.
+  const language = useStore(s => s.profile.language);
+  useEffect(() => { document.documentElement.lang = htmlLangFor(language); }, [language]);
 }

@@ -27,9 +27,17 @@ test.describe('§18 BACKUP-FC · Backup and data portability', () => {
       members: unknown[];
       debts: unknown[];
       assets: unknown[];
+      accounts: unknown[];
+      budgetAllocations: unknown[];
+      recurringSchedules: unknown[];
+      netWorthSnapshots: unknown[];
     };
 
     expect(backup.version).toBe('6.4.9');
+    // W7a (audit FE-MNY-15): the rest of the household's data travels too.
+    for (const key of ['accounts', 'budgetAllocations', 'recurringSchedules', 'netWorthSnapshots'] as const) {
+      expect(Array.isArray(backup[key])).toBe(true);
+    }
     expect(backup.exported).toBe('2026-05-22');
     expect(backup.profile).toMatchObject({
       name: 'Test User',

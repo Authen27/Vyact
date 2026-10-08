@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.79.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.80.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -585,6 +585,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - `/__e2e_error` is routed only outside production builds; Lane A builds in `test` mode.
   - A save button that creates a row runs through `runExclusive` (a React `saving` flag alone does not
     stop a same-tick double tap). Toast timing and roles come from `lib/toastPolicy.ts`.
+- **More frontend guards (v10.80.0, W7a).**
+  - `Button` defaults to `type="button"`; a form's submit button says `type="submit"`.
+  - Totals on the Transactions page (filtered net, month nets, calendar days) go through
+    `lib/txnListTotals.ts` (reportable rows, effective amount), never a raw `amount` sum.
+  - A transaction's account label is `txnAccountLabel` (the `accounts` FK first, the legacy
+    `paymentMethod` resolver last). A new store collection joins the backup in `lib/backup.ts`.
+  - Bottom-fixed surfaces use `.bottom-above-tabbar`, not `bottom-4`.
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)

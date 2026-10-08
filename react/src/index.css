@@ -274,6 +274,12 @@ body::before {
 
 /* Component layer */
 @layer components {
+  /* W7a (audit FE-UIS-08) — bottom surfaces (toasts, nudge, install and update banners) sit above
+     the phone tab bar and its raised "+" (≈76px) plus the home-indicator safe area, instead of
+     covering them. From sm up there is no tab bar, so they return to the corner. */
+  .bottom-above-tabbar { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }
+  @media (min-width: 640px) { .bottom-above-tabbar { bottom: 1rem; } }
+
   /* Display headings — Aurora: Outfit 600, tight tracking, upright.
      Class name kept for call-site stability (was Newsreader serif). */
   .display-italic {

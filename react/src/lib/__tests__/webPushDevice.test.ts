@@ -128,3 +128,22 @@ describe('turning push on for this device', () => {
     expect(await m.devicePushStatus()).toEqual({ registered: false });
   });
 });
+
+describe('passive sign-out (W7a, audit FE-PLT-08)', () => {
+  it('W7a-PLT08-001 · an expired session drops the device subscription without a server call', async () => {
+    const b = browser({ permission: 'granted' });
+    b.pushManager.getSubscription.mockResolvedValue(b.sub);
+    store['vyact_push_endpoint'] = b.sub.endpoint;
+    const { forgetPushOnDevice } = await import('../webPush');
+    await forgetPushOnDevice();
+    expect(b.sub.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(store['vyact_push_endpoint']).toBeUndefined();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it('W7a-PLT08-002 · the store runs it on the signed-in → signed-out transition', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const slice = readFileSync(resolve(__dirname, '../../store/slices/cloudAuthSlice.ts'), 'utf8');
+    expect(slice).toMatch(/wasSignedIn && !isSignedIn[\s\S]*?void forgetPushOnDevice\(\);[\s\S]*?set\(\{\s*households: \[\]/);
+  });
+});

@@ -28,6 +28,7 @@ import { accountValueOf } from '../../lib/accountBalance';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from '../../lib/educationProgress';
 import { expected, unexpected } from '../../lib/faults';
 import { computeNetWorth } from '../../lib/netWorth';
+import { nextHouseholdAfterExit } from '../../lib/householdTypes';
 import {
   hasPositionData, mergeSnapshot, shouldRecordSnapshot, snapshotFromProjection, type NetWorthSnapshot,
 } from '../../lib/netWorthSnapshots';
@@ -491,8 +492,10 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     // exactly where they were.
     await adapter.deleteHousehold(id);
 
-    if (id === currentHouseholdId) await get().switchHousehold('local');
-    set({ households: await get().adapter.listHouseholds() });
+    // W7a (INT-HH-13): land on a household the person is still in, not the local placeholder.
+    const households = await get().adapter.listHouseholds();
+    set({ households });
+    if (id === currentHouseholdId) await get().switchHousehold(nextHouseholdAfterExit(households, id) ?? 'local');
     get().toast('Profile deleted', 'warning');
   },
 

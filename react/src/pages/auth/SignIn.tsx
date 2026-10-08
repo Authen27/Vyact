@@ -76,11 +76,11 @@ export default function SignIn() {
       {/* Secondary — email / password */}
       <form onSubmit={onSubmit}>
         <Field label="Email">
-          <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus placeholder="you@example.com" />
+          <Input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus placeholder="you@example.com" />
         </Field>
         {mode === 'password' && (
           <Field label="Password">
-            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
+            <Input type="password" autoComplete={mode === 'password' ? 'current-password' : undefined} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
           </Field>
         )}
         {error && <div role="alert" className="text-terra text-[0.84rem] mb-3">{error}</div>}
