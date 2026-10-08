@@ -19,8 +19,10 @@
 export const APP_SEGMENTS = new Set([
   'dashboard', 'transactions', 'budgets', 'recurring', 'debts', 'accounts', 'networth', 'reports',
   'insights', 'splits', 'households', 'settings', 'help', 'chat', 'planner', 'onboarding',
-  'auth', 'invite', 'privacy', 'terms', 'cookies', '__e2e_error',
+  'auth', 'invite', 'privacy', 'terms', 'cookies',
 ]);
+// W6 (audit FE-UIS-12): `/__e2e_error` (a page that always throws, for Lane A's 'test'-mode build)
+// is not routed in production, so it is a real 404 here.
 
 /** Public pages served by vercel.json rewrites (api/*) — let them through. */
 export const PUBLIC_PATHS = new Set(['/about', '/private', '/sitemap.xml', '/robots.txt', '/llms.txt', '/llms-full.txt']);

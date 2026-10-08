@@ -14,11 +14,12 @@ import { Pencil, Trash2, ChevronDown, ChevronUp, CreditCard, Undo2, CheckCircle2
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, convert, today } from '../lib/format';
+import { fmt, today, nowMonthKey } from '../lib/format';
+import { debtToIncomePct, pctLabel } from '../lib/ratios';
 import Money from '../components/ui/Money';
 import EstimatedTag from '../components/ui/EstimatedTag';
 import LoanPaymentSheet from '../components/debts/LoanPaymentSheet';
-import { simulatePayoffInterest } from '../lib/calculations';
+import { simulatePayoffInterest, monthlyData, totalMonthlyDebtPayment } from '../lib/calculations';
 import { computeNetWorth, cardDues } from '../lib/netWorth';
 import { loanView, clearsLabel, latestLoanPayment, loanErrorMessage, LoanPaymentRefused, type LoanView } from '../lib/loanSchedule';
 import { DEBT_TYPES } from '../constants';
@@ -66,9 +67,9 @@ export default function Debts() {
   const loansOwe = active.reduce((s, d) => s + (views.get(d.id)?.outstanding ?? 0), 0);
   const totalDebt = Math.round((loansOwe + cardsOwe) * 100) / 100;
   const totalEmi = active.reduce((s, d) => s + d.minimumPayment, 0);
-  const income = transactions.filter(tx => tx.type === 'income')
-    .reduce((s, tx) => s + convert(tx.amount, tx.currency, c, rates), 0) || 1;
-  const dti = (totalEmi / (income / 12)) * 100;
+  // W6 (audit FE-UIC-07): the Dashboard's definition — this month's minimum payments over this month's
+  // income — not all-time income ÷ 12 with a fake 1 when there was none.
+  const dti = debtToIncomePct(totalMonthlyDebtPayment(debts, c, rates), monthlyData(transactions, nowMonthKey(), c, rates).income);
 
   // The payoff order, on what is really owed.
   const planning = useMemo(() => active.map(d => ({ ...d, currentBalance: views.get(d.id)?.outstanding ?? d.currentBalance })),
@@ -136,7 +137,8 @@ export default function Debts() {
             {[
               { label: 'Total Debt',     node: <Money amount={totalDebt} currency={c} maxChars={11} className="text-ink" />, cls: 'text-ink' },
               { label: 'EMIs a month',   node: <Money amount={totalEmi} currency={c} maxChars={11} className="text-honey" />, cls: 'text-honey' },
-              { label: 'Debt-to-Income', node: <span>{`${dti.toFixed(1)}%`}</span>, cls: dti > 36 ? 'text-terra' : dti > 25 ? 'text-honey' : 'text-sage' },
+              { label: 'Debt-to-Income', node: <span title={dti == null ? 'No income recorded this month' : undefined}>{pctLabel(dti, 1)}</span>,
+                cls: dti == null ? 'text-ink-dim' : dti > 36 ? 'text-terra' : dti > 25 ? 'text-honey' : 'text-sage' },
             ].map(s => (
               <div key={s.label} className="rounded-r3 p-4 text-center min-w-0" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
                 <div className={`num text-xl font-semibold ${s.cls}`}>{s.node}</div>

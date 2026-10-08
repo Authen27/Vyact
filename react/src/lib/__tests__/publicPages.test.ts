@@ -292,6 +292,11 @@ describe('the landing page (#9, #12, #19)', () => {
     const app = readFileSync(resolve(__dirname, '../../App.tsx'), 'utf8');
     const forms = readFileSync(resolve(__dirname, '../formRoutes.ts'), 'utf8');
     const declared = new Set([...app.matchAll(/path="\/([^"/*]+)/g), ...forms.matchAll(/'\/([a-z_-]+)\//g)].map(m => m[1]));
+    // W6 (FE-UIS-12): the always-throwing Lane A page is routed only outside production builds.
+    expect(app).toMatch(/import\.meta\.env\.MODE !== 'production' && E2EErrorTest && <Route path="\/__e2e_error"/);
+    expect(app).toMatch(/const E2EErrorTest = import\.meta\.env\.MODE !== 'production'\s*\n\s*\? React\.lazy/);
+    declared.delete('__e2e_error');
+    expect(mw.routeFor('/__e2e_error')).toBe('not-found');
     expect(declared.size).toBeGreaterThan(15);
     for (const seg of declared) expect(mw.routeFor(`/${seg}`), seg).toBe('next');
     for (const p of ['/onboarding', '/auth/sign-up', '/invite/abc', '/transactions/new', '/about', '/private']) expect(mw.routeFor(p), p).toBe('next');
@@ -307,6 +312,38 @@ describe('the landing page (#9, #12, #19)', () => {
       expect(re.test(p), p).toBe(false);
     }
     for (const p of ['/', '/about', '/dashboard', '/nope']) expect(re.test(p), p).toBe(true);
+  });
+
+  it('CON-UNIT-PUB-028 · public pages never write an HSL-triplet token raw (the Aurora rule; the browser drops it silently)', async () => {
+    // W6 (audit FE-PUB-11): the current Learn topic pill had border-color:var(--coral).
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const apiDir = resolve(__dirname, '../../../api');
+    const raw = /(?<!hsl\()var\(--(coral|sage|honey|denim|plum|terra|olive|line2?|bg\d?|ink(?:-mid|-dim)?)\)/;
+    for (const f of readdirSync(apiDir).filter(x => x.endsWith('.js'))) {
+      expect(readFileSync(resolve(apiDir, f), 'utf8'), f).not.toMatch(raw);
+    }
+    expect(topicPage('Saving', ALL.filter(c => c.category === 'Saving'), ['Debt', 'Net Worth', 'Saving']))
+      .toContain('aria-current="page" style="border-color:hsl(var(--coral))"');
+  });
+
+  it('CON-UNIT-PUB-027 · every public rewrite is on the service worker denylist, so an installed app never answers it with the app shell', async () => {
+    // W6 (audit FE-PUB-04): /v/<n> was rewritten to api/v but missing here, so a returning
+    // visitor's worker served index.html and the short link landed on /dashboard.
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const root = resolve(__dirname, '../../..');
+    const vite = readFileSync(resolve(root, 'vite.config.ts'), 'utf8');
+    const block = vite.match(/navigateFallbackDenylist: \[([\s\S]*?)\n\s*\],/)?.[1] ?? '';
+    const deny = [...block.matchAll(/\/\^((?:\\\/|[^/\n])+)\//g)].map(m => new RegExp(`^${m[1]}`));
+    expect(deny.length).toBeGreaterThan(8);
+    const vercel = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'));
+    const sources = (vercel.rewrites as { source: string }[]).map(r => r.source).filter(s => !s.includes('(('));
+    expect(sources).toContain('/v/:n');
+    for (const source of sources) {
+      const sample = source.replace(/:[a-z]+\*?/g, '3');
+      expect(deny.some(re => re.test(sample)), `${source} (${sample})`).toBe(true);
+    }
   });
 
   it('CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet', async () => {

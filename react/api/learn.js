@@ -91,7 +91,7 @@ const orgRef = { '@type': 'Organization', '@id': ORG_ID, name: 'Vyact', url: BAS
 
 function topicPills(topics, current) {
   return `<div>${topics.map(t => t === current
-    ? `<span class="pill" aria-current="page" style="border-color:var(--coral)">${esc(t)}</span>`
+    ? `<span class="pill" aria-current="page" style="border-color:hsl(var(--coral))">${esc(t)}</span>`
     : `<a class="pill" href="${topicUrl(t)}">${esc(t)}</a>`).join('')}</div>`;
 }
 

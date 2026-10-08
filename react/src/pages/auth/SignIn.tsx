@@ -83,7 +83,7 @@ export default function SignIn() {
             <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
           </Field>
         )}
-        {error && <div className="text-terra text-[0.84rem] mb-3">{error}</div>}
+        {error && <div role="alert" className="text-terra text-[0.84rem] mb-3">{error}</div>}
         <Button full type="submit" disabled={submitting}>
           {submitting ? 'Signing in…' : mode === 'password' ? <><LogIn size={14} /> Sign in</> : <><Mail size={14} /> Send magic link</>}
         </Button>

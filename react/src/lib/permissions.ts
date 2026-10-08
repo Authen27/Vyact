@@ -64,6 +64,18 @@ export function can(role: AppRole | undefined, action: Action): boolean {
 }
 
 /**
+ * W6 (audit FE-UIS-06) — may this person change the fields stored on the HOUSEHOLD row (currency,
+ * language, payoff strategy, extra payment)? The database lets only the owner update a household
+ * (RLS "owners update household"), so for anyone else the write queued, dead-lettered and the value
+ * quietly reverted after a "saved" toast. Local-only mode has a single user and no roles.
+ * (`edit_household_settings` above also grants admins; reconciling that with RLS is INT-HH-08.)
+ */
+export function canEditHouseholdRow(role: AppRole | undefined, cloudEnabled: boolean): boolean {
+  if (!cloudEnabled) return true;
+  return normalizeAppRole(role) === 'owner';
+}
+
+/**
  * The OTHER half of the permission policy: which role the current user holds.
  *
  * `can()` decides what a role may do; this decides what role you have. It is

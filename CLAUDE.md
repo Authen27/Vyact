@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.78.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.79.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -576,6 +576,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
 - **A figure that can cross zero keeps its minus (v10.73.0, W4d; FE-UIC-04).** `fmt`/`fmtShort` print
   the magnitude only. Balances, nets, net worth and chart axes that can go negative use `fmtNet` /
   `fmtShortNet` (or `fmtSigned` where a "+" is wanted, or `<Money>`).
+- **Frontend guards (v10.79.0, W6).**
+  - Fields on the HOUSEHOLD row (currency, language, payoff strategy, extra payment) are editable only
+    where the database allows it: `canEditHouseholdRow` (owner in cloud mode). Never toast "saved" for a
+    write RLS will refuse.
+  - Every public `vercel.json` rewrite must be on the Workbox `navigateFallbackDenylist` (PUB-027), or an
+    installed app answers it with the app shell.
+  - `/__e2e_error` is routed only outside production builds; Lane A builds in `test` mode.
+  - A save button that creates a row runs through `runExclusive` (a React `saving` flag alone does not
+    stop a same-tick double tap). Toast timing and roles come from `lib/toastPolicy.ts`.
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)

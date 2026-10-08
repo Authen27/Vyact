@@ -28,4 +28,18 @@ describe('transactions CSV', () => {
     const csv = transactionsCsv([txn({ description: 'Pizza, "large"', memberId: 'gone', accountId: 'gone' })], { members: [], accounts: [], baseCurrency: 'USD' });
     expect(csv.split('\n')[1]).toBe('"2026-10-02","expense","Pizza, ""large""","food","12.5","USD","","","","",""');
   });
+
+  it('W6-MNY11-001 · text that a spreadsheet would run as a formula is neutralised; numbers are not (audit FE-MNY-11)', () => {
+    const csv = transactionsCsv([
+      txn({ description: '=HYPERLINK("https://evil.example","Refund")', note: '+1 555', amount: -40 }),
+      txn({ id: 't2', description: '@SUM(A1:A9)', note: '-2+3' }),
+      txn({ id: 't3', description: '\tTabbed', note: 'Lunch - office' }),
+    ], { members: [{ id: 'm1', name: '=cmd' }], accounts: [], baseCurrency: 'USD' });
+    const [, a, b, c] = csv.split('\n');
+    expect(a).toBe('"2026-10-02","expense","\'=HYPERLINK(""https://evil.example"",""Refund"")","food","-40","USD","\'+1 555","","","",""');
+    expect(b.split(',').slice(2, 3)).toEqual(['"\'@SUM(A1:A9)"']);
+    expect(b).toContain('"\'-2+3"');
+    expect(c).toContain('"\'\tTabbed"');
+    expect(c).toContain('"Lunch - office"');            // a dash inside text is fine
+  });
 });

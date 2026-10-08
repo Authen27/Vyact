@@ -6,7 +6,16 @@ import { PAYMENT_MODE_LABEL } from './accountsView';
 
 export const CSV_HEADER = ['Date', 'Type', 'Description', 'Category', 'Amount', 'Currency', 'Note', 'Added by', 'Account', 'To account', 'Payment mode'];
 
-const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+// W6 (audit FE-MNY-11) — CSV formula injection. Descriptions, notes and names can come from a
+// WhatsApp message or another member; a text cell starting with = + - @ (or tab / CR) is run as a
+// formula by Excel, Sheets and Numbers. Such text gets a leading apostrophe, which the spreadsheet
+// shows as plain text. Numbers are never touched, so a negative amount stays a number.
+const FORMULA_START = /^[=+\-@\t\r]/;
+const cell = (v: unknown) => {
+  const s = String(v ?? '');
+  const safe = typeof v === 'string' && FORMULA_START.test(s) ? `'${s}` : s;
+  return `"${safe.replace(/"/g, '""')}"`;
+};
 
 export function transactionsCsv(
   transactions: Transaction[],

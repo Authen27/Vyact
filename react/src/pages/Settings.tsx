@@ -22,6 +22,7 @@ import {
   NOTIF_GROUPS, NOTIF_TYPE_LABEL, NOTIF_LOCKED, typeEnabled,
 } from '../lib/notifications';
 import type { Profile, Theme, NotifType } from '../types';
+import { canEditHouseholdRow } from '../lib/permissions';
 
 const THEMES: { key: Theme; label: string; desc: string }[] = [
   { key: 'dark',   label: 'Nocturne',   desc: 'Aurora dark — default' },
@@ -203,9 +204,13 @@ export default function Settings() {
   }
 
   const [name, setName]       = useState(profile.name);
-  const [email, setEmail]     = useState(profile.email);
   const [saving, setSaving]   = useState(false);
   const [extraPay, setExtraPay] = useState(String(profile.extraPayment || 0));
+  // W6 (audit FE-UIS-06): only the owner can change what lives on the household row. Everyone else
+  // sees the values, read-only, instead of a "saved" toast for a write the database refuses.
+  const myRole = useStore(s => s.myRole);
+  const canEditHousehold = canEditHouseholdRow(myRole, cloudEnabled);
+  const ownerOnlyNote = 'Only the household owner can change this.';
 
   // Board E · M1 — one row open at a time across the grouped settings list.
   // A direct #notifications deep-link (Help/legal footers already link there)
@@ -241,7 +246,9 @@ export default function Settings() {
   async function saveProfile() {
     setSaving(true);
     try {
-      await updateProfile({ name, email });
+      // W6 (audit FE-UIS-06): the name only. The email field saved nowhere (no profile column, not the
+      // sign-in address) while saying "Profile saved"; the account email is shown, not edited, here.
+      await updateProfile({ name });
       toast('Profile saved', 'success');
     } catch { toast('Save failed', 'error'); }
     finally { setSaving(false); }
@@ -319,8 +326,8 @@ export default function Settings() {
               <input id="settings-display-name" className="input w-full" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
             </div>
             <div>
-              <label htmlFor="settings-email" className="mono-label mb-1.5 block">Email</label>
-              <input id="settings-email" className="input w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+              <span className="mono-label mb-1.5 block">Email</span>
+              <p id="settings-email" className="text-[0.9rem] text-ink break-all py-2">{userEmail || '—'}</p>
             </div>
             <div>
               <label htmlFor="settings-date-format" className="mono-label mb-1.5 block">Date Format</label>
@@ -484,7 +491,7 @@ export default function Settings() {
             <div className="px-3.5 pb-3 grid sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="settings-language" className="mono-label mb-1.5 block">Language</label>
-                <Select id="settings-language" value={profile.language}
+                <Select id="settings-language" value={profile.language} disabled={!canEditHousehold}
                   onChange={e => updateProfile({ language: e.target.value })}>
                   {Object.entries(LOCALES).map(([k, v]) => (
                     <option key={k} value={k}>{v.name}</option>
@@ -493,7 +500,7 @@ export default function Settings() {
               </div>
               <div>
                 <label htmlFor="settings-currency" className="mono-label mb-1.5 block">Household currency</label>
-                <Select id="settings-currency" value={profile.baseCurrency}
+                <Select id="settings-currency" value={profile.baseCurrency} disabled={!canEditHousehold}
                   onChange={e => updateProfile({ baseCurrency: e.target.value })}>
                   {Object.entries(CURRENCIES).map(([code, meta]) => (
                     <option key={code} value={code}>{meta.symbol} {code} — {meta.name}</option>
@@ -503,6 +510,7 @@ export default function Settings() {
                 <p className="text-[0.74rem] text-ink-dim mt-1.5">
                   Every amount in this household is in this currency. Changing it changes the symbol only; amounts are not converted.
                 </p>
+                {!canEditHousehold && <p className="text-[0.74rem] text-ink-dim mt-1">{ownerOnlyNote}</p>}
               </div>
               <div className="sm:col-span-2">
                 <label htmlFor="settings-number-system" className="mono-label mb-1.5 block">Number System</label>
@@ -523,7 +531,7 @@ export default function Settings() {
             <div className="px-3.5 pb-3 grid sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="settings-payoff" className="mono-label mb-1.5 block">Payoff Strategy</label>
-                <Select id="settings-payoff" value={profile.payoffStrategy}
+                <Select id="settings-payoff" value={profile.payoffStrategy} disabled={!canEditHousehold}
                   onChange={e => updateProfile({ payoffStrategy: e.target.value as Profile['payoffStrategy'] })}>
                   <option value="avalanche">Avalanche — highest APR first (saves money)</option>
                   <option value="snowball">Snowball — smallest balance first (motivation)</option>
@@ -532,10 +540,12 @@ export default function Settings() {
               <div>
                 <label htmlFor="settings-extra-payment" className="mono-label mb-1.5 block">Monthly Extra Payment ({profile.baseCurrency})</label>
                 <input id="settings-extra-payment" className="input w-full" type="number" min="0" value={extraPay}
-                  onChange={e => setExtraPay(e.target.value)} placeholder="0" />
+                  disabled={!canEditHousehold} onChange={e => setExtraPay(e.target.value)} placeholder="0" />
               </div>
               <div className="sm:col-span-2 flex justify-end">
-                <button className="btn-primary" onClick={saveDebtPrefs}>Save Preferences</button>
+                {canEditHousehold
+                  ? <button className="btn-primary" onClick={saveDebtPrefs}>Save Preferences</button>
+                  : <p className="text-[0.74rem] text-ink-dim">{ownerOnlyNote}</p>}
               </div>
             </div>
           </SettingRow>

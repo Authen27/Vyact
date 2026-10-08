@@ -3,17 +3,19 @@ import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, fmtNet, convert, nowMonthKey } from '../lib/format';
+import { fmt, fmtNet, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
 import { monthlyData } from '../lib/calculations';
+import { keptThisMonthPct, pctLabel } from '../lib/ratios';
 import { computeNetWorth, cardDues } from '../lib/netWorth';
+import { liabilityList as liabilityRowsOwed, liabilityRowLabel } from '../lib/liabilityList';
 // v10.38.1 — the one spend baseline, shared with Ask Vyact so the two screens
 // cannot quote different months of cover for the same household.
 import { spendBasis } from '../lib/aiSummary';
 import { netWorthHistory, monthLabel, type NetWorthSnapshot } from '../lib/netWorthSnapshots';
 import { NetWorthHistoryChart } from '../components/charts/ReportCharts';
 import type { LiveAssetRow } from '../lib/accountBalance';
-import { ASSET_TYPES, DEBT_TYPES } from '../constants';
+import { ASSET_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
 
 const KIND_ICON: Record<AccountKind, string> = {
@@ -77,6 +79,7 @@ export default function NetWorth() {
 
   const ta  = projection.totalAssets;
   const tl  = projection.totalLiabilities;
+  const liabilityList = liabilityRowsOwed(projection);
   // v10.17 — "Owed to me" (receivables) is deprecated from the UI. The rows
   // remain in the data model (reversible) but no longer count toward the
   // displayed Net Worth — the projection excludes them, so no addend here.
@@ -86,7 +89,6 @@ export default function NetWorth() {
   // Same helper as the assistant's facts: one figure, whichever screen asks.
   const dues = cardDues(projection);
   const { income, expense } = monthlyData(transactions, nowMonthKey(), c, rates);
-  const monthlyIncome = income || 1;
 
   // v10.38.1 — ONE cover figure, on the SAME baseline as everywhere else.
   //
@@ -107,7 +109,8 @@ export default function NetWorth() {
   const typicalMonthly   = basis.averageMonthly;
   const monthsOfCover    = typicalMonthly > 0 ? la / typicalMonthly : 0;
   const debtToAsset      = ta > 0 ? tl / ta * 100 : 0;
-  const savingsRatio     = monthlyIncome > 0 ? ((monthlyIncome - expense) / monthlyIncome) * 100 : 0;
+  // W6 (audit FE-UIC-07): with no income yet this month it said "−499,900%"; now it says "—".
+  const savingsRatio     = keptThisMonthPct(income, expense);
   const coverBasisLabel  = basis.partialMonthOnly
     ? 'based on this month so far'
     : `based on your usual ${fmt(Math.round(typicalMonthly), c)} a month`;
@@ -252,14 +255,15 @@ export default function NetWorth() {
           },
           {
             label: 'Kept this month',
-            value: `${savingsRatio.toFixed(1)}%`,
-            sub: 'of what came in this month',
-            good: savingsRatio >= 20,
-            warn: savingsRatio >= 10,
+            value: pctLabel(savingsRatio, 1),
+            sub: savingsRatio == null ? 'no income recorded this month' : 'of what came in this month',
+            good: savingsRatio != null && savingsRatio >= 20,
+            warn: savingsRatio != null && savingsRatio >= 10,
+            muted: savingsRatio == null,
           },
-        ].map(r => (
+        ].map((r: { label: string; value: string; sub: string; good: boolean; warn: boolean; muted?: boolean }) => (
           <div key={r.label} className="rounded-r3 p-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
-            <div className={`num text-xl font-semibold mb-0.5 ${r.good ? 'text-sage' : r.warn ? 'text-honey' : 'text-terra'}`}>
+            <div className={`num text-xl font-semibold mb-0.5 ${r.muted ? 'text-ink-dim' : r.good ? 'text-sage' : r.warn ? 'text-honey' : 'text-terra'}`}>
               {r.value}
             </div>
             <div className="text-[0.78rem] font-semibold text-ink mb-0.5">{r.label}</div>
@@ -372,28 +376,30 @@ export default function NetWorth() {
         <div>
           <h2 className="display-italic text-2xl text-ink mb-0.5">Liabilities</h2>
           <p className="text-[0.8rem] text-ink-dim mb-3">What you owe: loans, card balances and money borrowed</p>
-          {debts.length === 0 ? (
+          {/* W6 (audit FE-UIC-06): the list is the projection's own liability rows (cards, loans,
+              any other debt), so it adds up to the total below. It used to list `debts` only, said
+              there were no debts while a card owed money, and never added up to Total Liabilities. */}
+          {liabilityList.length === 0 ? (
             <Panel>
               <div className="px-6 py-10 text-center">
-                <p className="text-ink-mid text-sm">No debts tracked. Go to Debts to add.</p>
+                <p className="text-ink-mid text-sm">Nothing owed. Loans are added in Debts; cards live in Accounts.</p>
               </div>
             </Panel>
           ) : (
             <div className="space-y-2">
-              {debts.filter(d => (d.direction || 'owed_by_me') !== 'owed_to_me').map(d => {
-                const { icon, label } = DEBT_TYPES[d.type] || DEBT_TYPES.other;
-                const balBase = convert(d.currentBalance, d.currency, c, rates);
+              {liabilityList.map(r => {
+                const { icon, sub } = liabilityRowLabel(r, debts);
                 return (
-                  <div key={d.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+                  <div key={r.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span>{icon}</span>
                       <div className="min-w-0">
-                        <div className="text-[0.84rem] font-semibold text-ink truncate">{d.name}</div>
-                        <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{label} · {d.interestRate}% APR</div>
+                        <div className="text-[0.84rem] font-semibold text-ink truncate">{r.name}</div>
+                        <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{sub}</div>
                       </div>
                     </div>
                     <div className="text-right min-w-0">
-                      <Money amount={balBase} currency={c} maxChars={11} className="font-semibold text-terra text-[0.9rem]" />
+                      <Money amount={r.value} currency={c} maxChars={11} className="font-semibold text-terra text-[0.9rem]" />
                     </div>
                   </div>
                 );

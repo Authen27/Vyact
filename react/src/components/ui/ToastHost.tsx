@@ -1,14 +1,23 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { useStore } from '../../store';
 import { toast as toastVariant } from '../../lib/motion';
+import { toastRole } from '../../lib/toastPolicy';
 
 export default function ToastHost() {
   const toasts = useStore(s => s.toasts);
   const dismissToast = useStore(s => s.dismissToast);
   // Container stays mounted (even empty) so AnimatePresence can play the EXIT of
   // the last toast. `layout` lets the remaining toasts slide up to fill the gap.
+  // W6 (audit FE-UIS-08): it is also a live region that exists before any toast arrives, so screen
+  // readers announce each one; a failure is role="alert" (assertive), the rest role="status".
   return (
-    <div className="fixed bottom-5 right-5 z-[999] flex flex-col gap-2 max-w-xs pointer-events-none">
+    <div
+      aria-live="polite"
+      aria-relevant="additions"
+      aria-label="Notifications"
+      className="fixed bottom-5 right-5 z-[999] flex flex-col gap-2 max-w-xs pointer-events-none"
+    >
       <AnimatePresence initial={false}>
         {toasts.map(t => {
           const accent = t.type === 'success' ? 'border-l-sage'
@@ -19,6 +28,7 @@ export default function ToastHost() {
             <motion.div
               key={t.id}
               layout
+              role={toastRole(t.type)}
               variants={toastVariant}
               initial="hidden"
               animate="visible"
@@ -35,6 +45,14 @@ export default function ToastHost() {
                   {t.action.label}
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => dismissToast(t.id)}
+                aria-label="Dismiss notification"
+                className="flex-shrink-0 -mr-1 p-1 rounded text-ink-dim hover:text-ink"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
             </motion.div>
           );
         })}
