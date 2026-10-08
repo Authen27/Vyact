@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.80.0`** (consumer)
+> **Current production version: `v10.81.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.81.0 — W7b: public site and build config (batch C) *(2026-10-08)*
+
+Five public-site and build fixes from the 2026-10-04 audit. No app behaviour change, no schema change.
+
+- **Deploys after a docs commit (FE-PUB-07, OPS-13).** Vercel's skip check compared only the last commit
+  (`HEAD^..HEAD`), so a push ending in a docs-only commit skipped the code commits before it. It now
+  compares with the last deployed commit (`$VERCEL_GIT_PREVIOUS_SHA`) and builds whenever that is unknown
+  (react/ and admin/).
+- **No source maps in production (GATE-03).** Every deploy published maps of the private source (87 files,
+  8.3 MB). Production builds emit none, and a postbuild gate (`scripts/assert-no-sourcemaps.mjs`) fails
+  the build if a map or a `sourceMappingURL` reaches `dist/`.
+- **Config hygiene (FE-PLT-11, rest).** Deleted: the root `vercel.json` (all three Vercel projects build
+  from react/ or admin/, so none read it), the `vyact-react` self-dependency, `@supabase/ssr`, and the
+  unused Next.js quickstart files that were its only users (`react/page.tsx`, `react/utils/supabase/`).
+- **Learn pages (FE-PUB-03).** Database reads time out after 4 s (a slow read used to hang the function
+  until Vercel's limit), and an empty library answers the uncached "try again" 503 instead of a "no
+  lessons" page the CDN kept for a day. (Unsafe `source_url` values were already handled.)
+- **Landing pre-render (FE-PUB-10).** It decides cloud mode with the runtime's rule (`scripts/cloudMode.mjs`),
+  so Vercel previews and demo.vyact.app no longer pre-render cloud sign-up buttons on a local-only app.
+  Its HTML insertions are `$`-safe. Lane A passes its build mode to the pre-render.
 
 ## v10.80.0 — W7a: small app fixes from the audit (batch A) *(2026-10-08)*
 

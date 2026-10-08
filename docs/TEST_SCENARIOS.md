@@ -25,13 +25,13 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1530 passing deterministic cases in 128 files. Zero failed, skipped or TODO cases at generation.**
+**1536 passing deterministic cases in 129 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 8 |
+| react | contract-unit | available | 14 |
 | react | contract-unit | conditional | 121 |
 | react | handler-integration | conditional | 79 |
 | react | sql-integration | conditional | 48 |
@@ -164,6 +164,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 3 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/w7aAppFixes.test.ts](../react/src/lib/__tests__/w7aAppFixes.test.ts) | Small app fixes (W7a) | unit | available | 13 |
+| [react/src/lib/__tests__/w7bPublicBuild.test.ts](../react/src/lib/__tests__/w7bPublicBuild.test.ts) | Public site and build config (W7b) | contract-unit | available | 6 |
 | [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 10 |
 | [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 7 |
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |
