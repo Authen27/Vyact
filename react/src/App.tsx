@@ -44,7 +44,10 @@ const Insights     = React.lazy(() => import('./pages/Insights'));
 const Privacy      = React.lazy(() => import('./pages/Privacy'));
 const Terms        = React.lazy(() => import('./pages/Terms'));
 const Cookies      = React.lazy(() => import('./pages/Cookies'));
-const E2EErrorTest = React.lazy(() => import('./pages/__e2e__ErrorTest'));
+// W6 (audit FE-UIS-12): not even the chunk ships in a production build (the import is dead code there).
+const E2EErrorTest = import.meta.env.MODE !== 'production'
+  ? React.lazy(() => import('./pages/__e2e__ErrorTest'))
+  : null;
 
 const SignIn        = React.lazy(() => import('./pages/auth/SignIn'));
 const SignUp        = React.lazy(() => import('./pages/auth/SignUp'));
@@ -296,7 +299,7 @@ function AppShell() {
           <Route path="/cookies"      element={<Cookies />} />
           {/* W6 (audit FE-UIS-12): the page that always throws exists for Lane A (built in
               'test' mode) only, never on vyact.app. */}
-          {import.meta.env.MODE !== 'production' && <Route path="/__e2e_error" element={<E2EErrorTest />} />}
+          {import.meta.env.MODE !== 'production' && E2EErrorTest && <Route path="/__e2e_error" element={<E2EErrorTest />} />}
           <Route path="*"             element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>
