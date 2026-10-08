@@ -148,6 +148,18 @@ describe('W8a · app fixes', () => {
     expect(adapter).toMatch(/const v = await kvGetStrict<T>\(key\);/);
   });
 
+  it('W8a-PLT07-001 · a signed-in visit to an invite link asks before joining (FE-PLT-07)', () => {
+    const page = src('pages/auth/AcceptInvite.tsx');
+    // The load effect only decides between sign-in and the confirm step; it never accepts.
+    const effect = page.slice(page.indexOf('useEffect(() => {'), page.indexOf('async function join()'));
+    expect(effect).not.toMatch(/acceptInvitation\(/);
+    expect(effect).toMatch(/setStatus\('confirm'\)/);
+    // Only the Join button runs the accept.
+    expect(page).toMatch(/async function join\(\) \{\s*setStatus\('joining'\);\s*try \{\s*const result = await acceptInvitation\(token\);/);
+    expect(page).toMatch(/<Button full onClick=\{join\}>Join household<\/Button>/);
+    expect(page).toMatch(/title="Join this household\?"/);
+  });
+
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {
     expect(languageOptionLabel('en')).toBe('English');
     for (const code of Object.keys(LOCALES).filter(c => c !== 'en')) {
