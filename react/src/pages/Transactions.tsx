@@ -16,7 +16,8 @@ import TxnCalendar from '../components/transactions/TxnCalendar';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import { ALL_CATEGORIES, getCat } from '../constants';
 import { getMonthKey, monthName, formatDate, nowMonthKey, today, compareTxnRecency, fmt, fmtSigned } from '../lib/format';
-import { monthlyData, effectiveAmount } from '../lib/calculations';
+import { monthlyData } from '../lib/calculations';
+import { listNet } from '../lib/txnListTotals';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
 import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
 import type { Transaction, TxnType } from '../types';
@@ -222,22 +223,14 @@ export default function Transactions() {
     }
     const groups: MonthGroup[] = [];
     for (const [key, items] of map) {
-      let net = 0;
-      for (const it of items) {
-        if (it.projected) continue;
-        // Audit F4 — convert EACH row into the household base currency via the
-        // one central path (effectiveAmount → dinero). The old code summed raw
-        // `txn.amount` across currencies (USD 100 + INR 100 = 200 "base").
-        const amt = effectiveAmount(it.txn, profile.baseCurrency, rates);
-        if (it.txn.type === 'income') net += amt;
-        else if (it.txn.type === 'expense') net -= amt;
-      }
+      // W7a (FE-UIC-17): real rows only, counted like the dashboard (reportable, your share).
+      const net = listNet(items.filter(it => !it.projected).map(it => it.txn), profile.baseCurrency);
       groups.push({ key, label: monthName(key), items, net });
     }
     // Guard against Map insertion order surprises — pin to descending month key.
     groups.sort((a, b) => b.key.localeCompare(a.key));
     return groups;
-  }, [filtered, profile.baseCurrency, rates]);
+  }, [filtered, profile.baseCurrency]);
 
   // Pagination — reveal MONTHS_PER_PAGE months, "Load previous" adds another page.
   const [visibleMonths, setVisibleMonths] = useState(MONTHS_PER_PAGE);
@@ -299,17 +292,10 @@ export default function Transactions() {
   // Net of the *visible* (non-projected) rows so users see the impact of
   // their filter on real data. Income & investment-sell add; expense &
   // investment-buy & transfers do not contribute to net spend.
-  const filteredNet = useMemo(() => {
-    let net = 0;
-    for (const item of filtered) {
-      if (item.projected) continue;
-      // Audit F4 — per-row FX conversion (see month groups above).
-      const amt = effectiveAmount(item.txn, profile.baseCurrency, rates);
-      if (item.txn.type === 'income') net += amt;
-      else if (item.txn.type === 'expense') net -= amt;
-    }
-    return net;
-  }, [filtered, profile.baseCurrency, rates]);
+  const filteredNet = useMemo(
+    () => listNet(filtered.filter(i => !i.projected).map(i => i.txn), profile.baseCurrency),
+    [filtered, profile.baseCurrency],
+  );
 
   return (
     <div className="ui-pilot">

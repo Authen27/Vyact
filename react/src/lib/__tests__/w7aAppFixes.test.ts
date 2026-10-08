@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { evaluateRecommendations } from '../plannerRules';
 import { buildBackup, BACKUP_FORMAT_VERSION } from '../backup';
 import { txnAccountLabel } from '../accounts';
+import { listNet, dayTotalsForMonth } from '../txnListTotals';
 import type { Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
@@ -49,6 +50,23 @@ describe('W7a · small app fixes', () => {
     expect(lbl({ paymentMethod: 'cash' })).toBe('Cash');                                  // legacy path kept
     expect(lbl({})).toBeNull();
     expect(src('components/transactions/TxnRow.tsx')).toMatch(/txnAccountLabel\(t, accounts, assets, debts2\)/);
+  });
+  it('W7a-UIC17-001 · list and calendar totals count reportable rows at your share (FE-UIC-17)', () => {
+    const t = (o: Partial<Transaction>) => ({ id: Math.random().toString(), currency: 'INR', description: '', date: '2026-10-03', ...o } as Transaction);
+    const rows = [
+      t({ type: 'income', amount: 1000, category: 'salary' }),
+      t({ type: 'expense', amount: 600, category: 'food_dining', split: { isSplit: true, yourShare: 200, participants: [] } as never }),
+      t({ type: 'expense', amount: 300, category: 'transfer' }),             // paired transfer leg
+      t({ type: 'expense', amount: 50, category: 'balance_adjustment' }),    // reconciliation correction
+      t({ type: 'expense', amount: 80, category: 'shopping', excluded: true }),
+      t({ type: 'transfer', amount: 999, category: 'transfer' }),
+    ];
+    expect(listNet(rows, 'INR')).toBe(800);                                    // 1000 − 200 (was 1000 − 600 − 300 − 50)
+    const days = dayTotalsForMonth(rows, '2026-10', 'INR');
+    expect(days.get('2026-10-03')).toEqual({ income: 1000, expense: 200 });
+    expect(dayTotalsForMonth(rows, '2026-09', 'INR').size).toBe(0);
+    expect(src('pages/Transactions.tsx')).not.toMatch(/effectiveAmount\(/);
+    expect(src('components/transactions/TxnCalendar.tsx')).toMatch(/dayTotalsForMonth\(transactions, viewMonth, currency\)/);
   });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');
