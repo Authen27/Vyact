@@ -73,6 +73,9 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: '',
       VITE_SUPABASE_ANON_KEY: '',
+      // W7b (FE-PUB-10): `--mode test` reaches only `vite build`; the landing pre-render (postbuild)
+      // learns the mode here, so it applies the runtime's test-mode rule (no production fallback).
+      VITE_BUILD_MODE: 'test',
     },
   },
 });

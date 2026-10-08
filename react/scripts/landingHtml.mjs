@@ -60,7 +60,9 @@ function must(html, re, what) {
 
 export function landingHtml(indexHtml, markup, copy) {
   let h = indexHtml;
-  const sub = (re, what, to) => { must(h, re, what); h = h.replace(re, to); };
+  // W7b (audit FE-PUB-10): a function replacement, so "$&", "$1" or "$'" in copy or markup (a price, a
+  // "$" in a lesson title) is inserted as written, not expanded as a replacement pattern.
+  const sub = (re, what, to) => { must(h, re, what); h = h.replace(re, () => to); };
   sub(/<title>[\s\S]*?<\/title>/, '<title>', `<title>${text(copy.SITE_TITLE)}</title>`);
   sub(/<meta name="description" content="[^"]*" \/>/, 'meta description', `<meta name="description" content="${attr(copy.SITE_DESCRIPTION)}" />`);
   sub(/<meta property="og:title" content="[^"]*" \/>/, 'og:title', `<meta property="og:title" content="${attr(copy.SITE_TITLE)}" />\n    <meta property="og:url" content="${BASE}/" />\n    <meta property="og:type" content="website" />`);
@@ -76,7 +78,7 @@ export function landingHtml(indexHtml, markup, copy) {
   // its modulepreloads, and boot it on interaction instead.
   const entry = /<script type="module"[^>]*\ssrc="(\/assets\/[^"]+\.js)"[^>]*><\/script>/.exec(h);
   if (!entry) throw new Error('landing.html: index.html is missing the app entry script');
-  h = h.replace(entry[0], appBoot(entry[1])).replace(/\s*<link rel="modulepreload"[^>]*>/g, '');
+  h = h.replace(entry[0], () => appBoot(entry[1])).replace(/\s*<link rel="modulepreload"[^>]*>/g, '');
   return h;
 }
 
