@@ -270,6 +270,9 @@ export default async function handler(req, res) {
     const slug = String(q.slug || '').trim();
     const topic = String(q.topic || '').trim().toLowerCase();
     const all = await readContent(`select=${LIST_COLS}&${PUBLISHED}&order=category.asc,title.asc&limit=1000`);
+    // W7b (audit FE-PUB-03): an empty library is a failed read (the lessons exist), not a page — do not let
+    // the CDN keep "no lessons" for a day; answer 503, uncached, as the sitemap and llms.txt already do.
+    if (!all.length) return unavailable(res);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     if (topic) {
       const cards = all.filter(c => topicSlug(c.category) === topic);

@@ -1,11 +1,13 @@
 // W7b (v10.81.0) — public site and build config from the 2026-10-04 audit (batch C). Each case is named
 // after its finding. Config is pinned by reading the files the platform reads.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 // @ts-expect-error — plain .mjs build script, no types
 import { findSourceMapLeaks } from '../../../scripts/assert-no-sourcemaps.mjs';
+import { readContent, READ_TIMEOUT_MS } from '../../../api/_supabase.js';
+import learnHandler from '../../../api/learn.js';
 
 const repo = resolve(__dirname, '../../../..');
 const read = (p: string) => readFileSync(resolve(repo, p), 'utf8');
@@ -36,6 +38,27 @@ describe('W7b · public site and build config', () => {
       join('assets', 'app-b2.js') + ' (sourceMappingURL)',
       join('assets', 'app-b2.js.map') + ' (map file)',
     ].sort());
+  });
+
+  it('W7b-PUB03-001 · the Learn read times out, and an empty library is a 503 that is not cached (FE-PUB-03)', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('[]', { status: 200 }));
+    await readContent('select=slug', fetchImpl);
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(READ_TIMEOUT_MS).toBe(4000);
+    // A read cut off by the timeout rejects (TimeoutError), and the handler answers its 503 page.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new DOMException('The operation was aborted due to timeout', 'TimeoutError')));
+    const slow = { status: vi.fn().mockReturnThis(), send: vi.fn(), setHeader: vi.fn() };
+    await learnHandler({ query: {} }, slow);
+    expect(slow.status).toHaveBeenCalledWith(503);
+    // Empty library: 503 + no-store, never the day-long cache.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[]', { status: 200 })));
+    const res = { status: vi.fn().mockReturnThis(), send: vi.fn(), setHeader: vi.fn() };
+    await learnHandler({ query: {} }, res);
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+    expect(res.setHeader).not.toHaveBeenCalledWith('Cache-Control', expect.stringContaining('s-maxage'));
+    vi.unstubAllGlobals();
   });
 
   it('W7b-PLT11-001 · no stale root vercel.json, self-dependency, @supabase/ssr or Next.js scaffold (FE-PLT-11)', () => {
