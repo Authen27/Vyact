@@ -267,7 +267,10 @@ export async function runIngestion(
   // validator degrade always forces confirmation, however confident the
   // extractor was. Only a deterministic, clean extraction writes directly —
   // which is exactly the behaviour already proven in production today.
-  const deterministic = DETERMINISTIC_EXTRACTORS.has(extraction.extractor);
+  // W8b (audit BE-PIP-04): a learned recipe is deterministic only when it is TRUSTED — one user's new
+  // recipe used to write straight to the ledger, the low confidence notwithstanding.
+  const deterministic = DETERMINISTIC_EXTRACTORS.has(extraction.extractor)
+    && (extraction.extractor !== 'recipe' || extraction.trusted === true);
   if (!deterministic || validation.mustConfirm) {
     const confidence = Math.max(0, extraction.confidence - validation.confidencePenalty);
     return { action: { kind: 'draft', candidate, confidence }, trace };

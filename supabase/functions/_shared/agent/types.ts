@@ -89,6 +89,9 @@ export interface ExtractionResult {
   confidence: number;
   /** Set when a learned recipe produced this (§3.2). */
   recipeSignature?: string;
+  /** W8b (audit BE-PIP-04) — for a recipe result: whether that recipe is trusted. Only a trusted
+   *  recipe's output may be written without a human; an untrusted one is drafted. */
+  trusted?: boolean;
   reason?: 'no_amount' | 'no_direction' | 'not_parseable' | 'query';
 }
 
