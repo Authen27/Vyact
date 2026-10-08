@@ -127,6 +127,11 @@ describe('W7a · small app fixes', () => {
     expect(sheet).toMatch(/statedValue = statedForReconcile\(parseAmountInput\(stated\), account\.kind\)/);
     expect(sheet).toMatch(/const posted = await reconcileAccount[\s\S]*?fmt\(Math\.abs\(posted\)/);
   });
+  it('W7a-UIS13-001 · changing the password in Settings needs the emailed code first (FE-UIS-13)', () => {
+    const s = src('pages/Settings.tsx');
+    const body = s.slice(s.indexOf('async function savePassword'), s.indexOf('async function saveProfile'));
+    expect(body).toMatch(/if \(!\(await confirmWithEmailCode\('change your password'\)\)\) return;\s*await updatePassword\(pwNew\)/);
+  });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');
     expect(chat).toMatch(/export default function Chat\(props[^)]*\) \{\s*const householdId = useStore\(s => s\.currentHouseholdId\);\s*return <ChatForHousehold key=\{householdId\} \{\.\.\.props\} \/>;/);

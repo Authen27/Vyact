@@ -236,6 +236,9 @@ export default function Settings() {
     if (pwNew !== pwConfirm) { toast('Passwords do not match', 'error'); return; }
     setPwSaving(true);
     try {
+      // W7a (audit FE-UIS-13): the same emailed-code gate as the Danger Zone — an unlocked, signed-in
+      // device alone must not be able to change the password and lock the owner out.
+      if (!(await confirmWithEmailCode('change your password'))) return;
       await updatePassword(pwNew);
       setPwNew(''); setPwConfirm(''); setPwShow(false);
       toast('Password updated', 'success');
