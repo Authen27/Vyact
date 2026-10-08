@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Repeat, Trash2, Pencil } from 'lucide-react';
 import { useStore } from '../store';
@@ -17,6 +17,7 @@ import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import type { RecurringSeed } from '../lib/askVyactResponses';
 import { scheduleDatesAfterSave, ruleOf, isLoanEmiSchedule } from '../lib/recurring';
 import { formatRRule, describeRRule, type RRule, type ShortMonthPolicy } from '../lib/rrule';
+import { runExclusive } from '../lib/exclusive';
 
 type SchedType = 'expense' | 'income' | 'investment';
 type MonthlyMode = 'dom' | 'nth';
@@ -61,6 +62,9 @@ export default function Recurring() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<RecurringSchedule | null>(null);
+  // W6 (audit FE-UIC-13) — one save at a time: a double tap used to create two schedules.
+  const savingSlot = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [type, setType] = useState<SchedType>('expense');
   const [freq, setFreq] = useState<RecurrenceFreq>('monthly');
   const [name, setName] = useState('');
@@ -212,12 +216,19 @@ export default function Recurring() {
       shortMonthPolicy: policy,
       ownerMemberId: ownerMemberId || undefined,
     };
-    try {
-      await upsert(schedule);
-    } catch (e) {
-      toast(`Could not save: ${(e as Error).message}`, 'error');
-      return;
-    }
+    let saved = false;
+    await runExclusive(savingSlot, async () => {
+      setSaving(true);
+      try {
+        await upsert(schedule);
+        saved = true;
+      } catch (e) {
+        toast(`Could not save: ${(e as Error).message}`, 'error');
+      } finally {
+        setSaving(false);
+      }
+    });
+    if (!saved) return;
     setOpen(false); setEditing(null); resetForm();
     toast(editing ? 'Recurring schedule updated' : 'Recurring schedule created', 'success');
   }
@@ -362,9 +373,9 @@ export default function Recurring() {
       <HalfSheet open={open} onClose={() => { setOpen(false); setEditing(null); }} title={editing ? 'Edit Recurring Schedule' : 'Add Recurring Schedule'}
         footer={
           <div>
-            <button type="button" onClick={save}
-              className="btn-primary w-full h-[50px] text-[15.5px] rounded-[15px]">
-              {editing ? 'Update schedule' : 'Save schedule'}
+            <button type="button" onClick={save} disabled={saving} aria-busy={saving}
+              className="btn-primary w-full h-[50px] text-[15.5px] rounded-[15px] disabled:opacity-60">
+              {saving ? 'Saving…' : editing ? 'Update schedule' : 'Save schedule'}
             </button>
             <div className="text-center mt-2">
               <button type="button" onClick={() => { setOpen(false); setEditing(null); }}
