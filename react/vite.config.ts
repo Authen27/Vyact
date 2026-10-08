@@ -175,5 +175,8 @@ export default defineConfig({
   // `localhost` resolves regardless of which stack the browser picks.
   // `host: true` would bind IPv4-only and leave ::1 unreachable on Windows.
   server: { port: 5173, host: '::', open: true },
-  build: { outDir: 'dist', sourcemap: true, target: 'esnext' },
+  // W7b (audit GATE-03): no source maps. With `true` every deploy published the private source (87 maps,
+  // 8.3 MB); 'hidden' would only drop the reference while still uploading guessable `<chunk>.js.map`
+  // files. scripts/assert-no-sourcemaps.mjs (postbuild) fails the build if one comes back.
+  build: { outDir: 'dist', sourcemap: false, target: 'esnext' },
 });

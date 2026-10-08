@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node check-env.js && tsc -b && vite build",
-    "postbuild": "node scripts/prerender-landing.mjs",
+    "postbuild": "node scripts/prerender-landing.mjs && node scripts/assert-no-sourcemaps.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
