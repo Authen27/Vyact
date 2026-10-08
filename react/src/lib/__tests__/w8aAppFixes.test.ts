@@ -118,6 +118,13 @@ describe('W8a · app fixes', () => {
     expect(src('pages/Accounts.tsx')).toMatch(/accountLedgerRows\(account, txns, baseCur, rates\)/);
   });
 
+  it('W8a-PIP16-003 · the chat gives each turn an abort signal; Stop, New chat and unmount abort it (FE-PIP-16)', () => {
+    const chat = src('pages/Chat.tsx');
+    expect(chat).toMatch(/useEffect\(\(\) => \(\) => \{ turnAbort\.current\?\.abort\(\); \}, \[\]\);/);
+    expect(chat).toMatch(/cancel: \(\) => \{ cancelledTurns\.current\.add\(turnId\); abort\.abort\(\); \}/);
+    expect(chat).toMatch(/selectAssistantBackend\(householdId, abort\.signal\)/);
+  });
+
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {
     expect(languageOptionLabel('en')).toBe('English');
     for (const code of Object.keys(LOCALES).filter(c => c !== 'en')) {

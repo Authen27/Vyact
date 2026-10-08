@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseAdapter } from '../supabaseAdapter';
-import { resolveConfiguredModelCall } from '../askVyactModelCall';
+import { resolveConfiguredModelCall, CLIENT_DEADLINE_MS } from '../askVyactModelCall';
 import { readWhatsAppLink } from '../whatsappLink';
 
 const transport = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -32,7 +32,7 @@ describe('cloud command transports', () => {
     expect(await call!({ op: 'classify', system: 'Use computed facts', user: 'Summarize', json: true, maxTokens: 100 })).toBe('Authoritative explanation');
     // W1c: the op and the text only — the gateway composes the system prompt itself.
     expect(transport.invoke).toHaveBeenCalledExactlyOnceWith('ask-vyact', { body: { seam: 'assistant', surface: 'chat',
-      op: 'classify', input: 'Summarize', maxOutputTokens: 100 } });
+      op: 'classify', input: 'Summarize', maxOutputTokens: 100 }, signal: expect.any(AbortSignal) });
   });
 
   it('a relay-queued call polls the gateway until the answer arrives (v10.37, test-only)', async () => {
@@ -46,7 +46,7 @@ describe('cloud command transports', () => {
       await vi.advanceTimersByTimeAsync(6_000);
       expect(await pending).toBe('Relayed explanation');
       expect(transport.invoke).toHaveBeenCalledTimes(3);
-      expect(transport.invoke).toHaveBeenLastCalledWith('ask-vyact', { body: { seam: 'assistant', relayPoll: 'relay-1' } });
+      expect(transport.invoke).toHaveBeenLastCalledWith('ask-vyact', { body: { seam: 'assistant', relayPoll: 'relay-1' }, signal: expect.any(AbortSignal) });
     } finally {
       vi.useRealTimers();
     }
@@ -59,6 +59,37 @@ describe('cloud command transports', () => {
       const pending = resolveConfiguredModelCall()!({ op: 'phrase', system: 's', user: 'u' });
       const outcome = expect(pending).rejects.toThrow('relay did not answer in time');
       await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 3_000);
+      await outcome;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('W8a-PIP16-001 · Stop aborts the in-flight gateway call; a stopped turn makes no further calls (FE-PIP-16)', async () => {
+    let seen: AbortSignal | undefined;
+    transport.invoke.mockImplementation((_n: string, opts: { signal?: AbortSignal }) => new Promise((_res, rej) => {
+      seen = opts.signal;
+      opts.signal?.addEventListener('abort', () => rej(opts.signal!.reason));
+    }));
+    const turn = new AbortController();
+    const pending = resolveConfiguredModelCall(undefined, turn.signal)!({ op: 'phrase', system: 's', user: 'u' });
+    turn.abort();
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(seen?.aborted).toBe(true);
+    transport.invoke.mockClear();
+    await expect(resolveConfiguredModelCall(undefined, turn.signal)!({ op: 'phrase', system: 's', user: 'u' })).rejects.toMatchObject({ name: 'AbortError' });
+    expect(transport.invoke).not.toHaveBeenCalled();
+  });
+
+  it('W8a-PIP16-002 · a gateway that never answers is given up on at the client deadline (FE-PIP-16)', async () => {
+    vi.useFakeTimers();
+    try {
+      transport.invoke.mockImplementation((_n: string, opts: { signal?: AbortSignal }) => new Promise((_res, rej) => {
+        opts.signal?.addEventListener('abort', () => rej(opts.signal!.reason));
+      }));
+      const pending = resolveConfiguredModelCall()!({ op: 'phrase', system: 's', user: 'u' });
+      const outcome = expect(pending).rejects.toMatchObject({ name: 'TimeoutError' });
+      await vi.advanceTimersByTimeAsync(CLIENT_DEADLINE_MS + 10);
       await outcome;
     } finally {
       vi.useRealTimers();
