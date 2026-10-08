@@ -16,13 +16,13 @@ import type {
 } from '../types';
 import {
   spendByCategory, spendByCategoryInRange, reportableTxns, effectiveAmount, monthlyData, totalMonthlyDebtPayment,
-  budgetLinesForMonth,
+  budgetLinesForMonth, coversMoreThanAMonth,
 } from './calculations';
 // v10.38 — period/date/account resolution lives in the parser, next to the entity
 // shape it reads, and is unit-tested there.
 import {
   resolvePeriod, resolveDayWindow, parseDateEntity, matchAccountId, matchCategory, resolveCategoryId,
-  statedCurrency, amountLooksLikeIdentifier, normalise,
+  statedCurrency, amountLooksLikeIdentifier, amountIsStated, normalise, type ResolvedPeriod,
 } from './askVyactParser';
 import { getCat, NEEDS_WANTS_MAP, CURRENCIES, EXPENSE_CATEGORIES } from '../constants';
 import { fmt, convert } from './format';
@@ -31,7 +31,7 @@ import type { SafeSummary } from './aiSummary';
 import type { IntentResult, AssistantBucket } from './askVyactIntents';
 import { normaliseChips, type AssistantChip, type ResolveResult, type RecurringSeed } from './askVyactResponses';
 import {
-  classifyIntentViaModel, phraseViaModel,
+  classifyIntentViaModel, phraseViaModel, phraseData,
   InventedFigureError, ModelUnavailableError, type ModelCall,
 } from './askVyactLlm';
 import { resolveConfiguredModelCall } from './askVyactModelCall';
@@ -135,13 +135,55 @@ export interface AssistantTurn {
 // ── helpers ─────────────────────────────────────────────────────────────────
 const cur = (ctx: AssistantContext) => ctx.baseCurrency;
 const money = (n: number, ctx: AssistantContext) => fmt(Math.round(n), cur(ctx));
+/**
+ * W5 (P2, audit FE-PIP-04) — an AMOUNT that can be below zero (net worth, liquid savings, a
+ * holding): the minus kept, and said in words, because `money()` prints the magnitude only.
+ * A net worth of −₹7,45,000 reached the model as "₹7,45,000" and was said back that way.
+ */
+const netMoney = (n: number, ctx: AssistantContext, below = 'below zero'): string =>
+  Math.round(n) < 0 ? `−${money(n, ctx)} (${below})` : money(n, ctx);
 
 /**
  * The default period when the user names none — computed per question. v10.46.0: it
  * was a module constant, fixed when the file loaded, so a tab left open over a month
  * end (or a long-lived server isolate) kept answering "this month" for the old month.
  */
-const currentPeriod = (tz?: string | null) => ({ monthKey: nowMonthKey(tz), label: 'this month', isCurrent: true } as const);
+const currentPeriod = (tz?: string | null): ResolvedPeriod => ({ monthKey: nowMonthKey(tz), label: 'this month', isCurrent: true });
+
+/** The period the question named, verbatim, or undefined when it named none. */
+const statedPeriod = (e: IntentResult['entities']): string | undefined =>
+  typeof e.period === 'string' && e.period.trim() ? e.period.trim() : undefined;
+
+/**
+ * W5 (P3, audit FE-PIP-05) — the MONTH a question is about: the one it named, this month when it
+ * named none, and null when it named one that cannot be placed. Every intent that reads a month
+ * goes through here; a hard-coded "this month" answered "where did my money go last month?" with
+ * this month's categories, a true figure under the wrong month that passes every guard.
+ */
+function monthAsked(e: IntentResult['entities'], ctx: AssistantContext): ResolvedPeriod | null {
+  const stated = statedPeriod(e);
+  return stated ? resolvePeriod(stated, wallClock(ctx.tz)) : currentPeriod(ctx.tz);
+}
+
+/** W5 (P3) — about NOW: no period named, this month, or a window ending today ("today", "this week"). */
+function asksAboutNow(e: IntentResult['entities'], ctx: AssistantContext): boolean {
+  const stated = statedPeriod(e);
+  if (!stated) return true;
+  const now = wallClock(ctx.tz);
+  const span = resolveDayWindow(stated, now);
+  if (span) return span.end === isoDay(now);
+  return resolvePeriod(stated, now)?.isCurrent === true;
+}
+
+/** W5 (P3) — the period cannot be answered: no figures at all, and what does work. */
+function needsPeriod(kind: ResolveResult['kind'], stated: string, canAnswerFor: string): ResolveResult {
+  return {
+    kind, outcome: 'needs_period',
+    facts: { requested_period: stated, can_answer_for: canAnswerFor },
+    analysis: [`Could not answer for "${stated}"`],
+    vars: { period: stated },
+  };
+}
 
 /** Local `YYYY-MM-DD`, as the ledger stores dates. */
 const isoDay = (d: Date) =>
@@ -160,11 +202,13 @@ function samePointLastMonth(now = new Date()): { start: string; end: string; lab
   return { start: isoDay(first), end: isoDay(end), label: `the same point in ${monthName}` };
 }
 
-/** Rolling monthly average expense for a category over the last `n` months
- *  (excluding the current month). Pure composition of `spendByCategory`. */
-function categoryRollingAvg(ctx: AssistantContext, category: string, n = 3, excludeMonth = nowMonthKey(ctx.tz)): number {
+/** Rolling monthly average expense for a category over the `n` months BEFORE `beforeMonth`
+ *  (this month by default). Pure composition of `spendByCategory`.
+ *  W5 (P3): a past month is compared with the months before it. "Every other month" let the
+ *  current, part-finished month into August's usual. */
+function categoryRollingAvg(ctx: AssistantContext, category: string, n = 3, beforeMonth = nowMonthKey(ctx.tz)): number {
   const months = [...new Set(ctx.transactions.map(t => getMonthKey(t.date)))]
-    .sort().filter(m => m !== excludeMonth).slice(-n);
+    .sort().filter(m => m < beforeMonth).slice(-n);
   if (!months.length) return 0;
   const sum = months.reduce((s, mk) => s + (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0), 0);
   return sum / months.length;
@@ -185,17 +229,23 @@ function categoryRollingAvg(ctx: AssistantContext, category: string, n = 3, excl
  * `budgets.find(b => b.category === …)` found nothing for every v9.1 budget (TD-39's
  * class), so Pip said "no budget set" for a category that had one.
  */
-function categoryBudget(ctx: AssistantContext, category: string, monthKey: string): { limit: number; estimated: boolean } | undefined {
+function categoryBudget(ctx: AssistantContext, category: string, monthKey: string): { limit: number; estimated: boolean; annual: boolean } | undefined {
   const lines = budgetLinesForMonth(ctx.budgets, ctx.budgetAllocations ?? [], monthKey).filter(b => b.category === category);
   if (!lines.length) return undefined;
   // A month's own line wins over an annual one covering the same category.
-  const monthly = lines.filter(b => b.scope !== 'annual');
+  // W5 (P1; owner decision): with ANNUAL lines only, `annual` is set and no caller measures one
+  // month's spending against the year's limit. They say it is annual and point to Budgets.
+  const monthly = lines.filter(b => !coversMoreThanAMonth(b));
   const use = monthly.length ? monthly : lines;
   return {
     limit: use.reduce((sum, b) => sum + convert(b.limit, b.currency, cur(ctx), ctx.rates), 0),
     estimated: use.some(b => !!b.confidence && b.confidence !== 'confirmed'),
+    annual: !monthly.length,
   };
 }
+
+/** W5 (P1) — what Pip says about a category whose budget is annual: no verdict, see Budgets. */
+const annualBudgetNote = (label: string) => `annual ${label} budget — see Budgets for what is left this year`;
 
 const EXPENSE_IDS = new Set<string>(EXPENSE_CATEGORIES.map(c => c.id));
 
@@ -246,10 +296,11 @@ function emergencyFloor(ctx: AssistantContext): number {
 function positionFacts(ctx: AssistantContext) {
   const s = ctx.summary;
   return {
-    net_worth: money(s.netWorth.netWorth, ctx),
+    // W5 (P2): both can be below zero, and `money()` would print a deficit as a surplus.
+    net_worth: netMoney(s.netWorth.netWorth, ctx, 'you owe more than you own'),
     total_assets: money(s.netWorth.totalAssets, ctx),
     total_debt: money(s.netWorth.totalLiabilities, ctx),
-    liquid_savings: money(s.netWorth.liquidAssets, ctx),
+    liquid_savings: netMoney(s.netWorth.liquidAssets, ctx),
     // v10.39 (P4) — the same figure, decomposed. A total nobody can trace is a
     // figure the customer has to take on trust, and this one was wrong for months.
     liquid_by_source: liquidBySource(ctx),
@@ -270,7 +321,8 @@ function positionFacts(ctx: AssistantContext) {
     spending_this_month: money(s.thisMonth.expense, ctx),
     savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
     pulse_score: s.pulseScore.total == null ? 'not enough data yet' : `${s.pulseScore.total}/100`,
-    budgets_over_limit: s.budgets.filter(b => b.spentPct > 100).map(b => getCat(b.category).label),
+    // W5 (P1): an annual line is not judged on one month.
+    budgets_over_limit: s.budgets.filter(b => !b.annual && b.spentPct > 100).map(b => getCat(b.category).label),
     // v10.38.1 (P3) — raised, never silently corrected. Cash cannot be negative in
     // reality, so this means spending was recorded against cash that was never
     // recorded as received; the answer should say so rather than quietly absorbing it.
@@ -298,7 +350,7 @@ function positionFacts(ctx: AssistantContext) {
  * two cannot disagree.
  */
 function figuresAllowedBy(result: ResolveResult): string[] {
-  const source = JSON.stringify({ ...(result.vars ?? {}), facts: result.facts ?? {} });
+  const source = JSON.stringify({ ...phraseData(result), facts: result.facts ?? {} });
   return [...new Set(source.match(/\d[\d,]*(?:\.\d+)?/g) ?? [])];
 }
 
@@ -381,7 +433,7 @@ export function receptionist(salutation: string, ctx?: AssistantContext): QuickR
     .map(r => ({ r, due: new Date(`${r.nextDueDate}T00:00:00`) }))
     .filter(x => x.due >= today && x.due <= weekOut)
     .sort((a, b) => a.due.getTime() - b.due.getTime())[0];
-  const hot = [...ctx.summary.budgets].filter(b => b.spentPct > 80).sort((a, b) => b.spentPct - a.spentPct)[0];
+  const hot = [...ctx.summary.budgets].filter(b => !b.annual && b.spentPct > 80).sort((a, b) => b.spentPct - a.spentPct)[0];
   const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   const daysLeft = Math.max(0, Math.round((monthEnd.getTime() - today.getTime()) / 86_400_000));
   const weekday = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long' });
@@ -471,7 +523,7 @@ function liquidBySource(ctx: AssistantContext) {
   return ctx.summary.holdings
     .filter(h => h.liquidity === 'liquid')
     .sort((a, b) => b.value - a.value)
-    .map(h => ({ held_in: h.name, amount: money(h.value, ctx), kind: h.source }));
+    .map(h => ({ held_in: h.name, amount: netMoney(h.value, ctx), kind: h.source }));
 }
 
 /** Everything owned, grouped by how quickly it could be reached (v10.39, P4). */
@@ -480,7 +532,7 @@ function assetsByLiquidity(ctx: AssistantContext) {
   return ctx.summary.holdings
     .slice()
     .sort((a, b) => b.value - a.value)
-    .map(h => ({ holding: h.name, value: money(h.value, ctx), how_soon: LABEL[h.liquidity] }));
+    .map(h => ({ holding: h.name, value: netMoney(h.value, ctx), how_soon: LABEL[h.liquidity] }));
 }
 
 /**
@@ -710,18 +762,29 @@ const AMOUNT_INTENTS = new Set([
  * household) is not used at all — Pip asks for it again in the household's currency
  * (`needs_restate`, no figures). Read as ₹150 it would be a wrong answer that passes every
  * guard; converted, it would contradict the rule that amounts are never converted.
+ *
+ * W5 (P4, audit FE-PIP-02): the amount must be one the USER stated. "Can I afford a new
+ * iPhone?" came back from the classifier with a price the model knew; every figure computed
+ * from it then sat in the facts and passed the guard. An amount the words do not state (or that
+ * is not a positive number at all) is dropped: capture and affordability ask "how much?", and
+ * advice goes on without a savings target.
  */
 export function resolve(intent: IntentResult, ctx: AssistantContext): ResolveResult {
   const e = intent.entities;
   if (!AMOUNT_INTENTS.has(intent.id) || e.amount == null) return resolveCore(intent, ctx);
   const kind: ResolveResult['kind'] = intent.id.startsWith('capture') ? 'capture' : 'forecast';
+  const text = normalise(String(e.text ?? ''));
 
-  if (kind === 'capture' && amountLooksLikeIdentifier(normalise(e.text), e.amount)) {
+  if (typeof e.amount === 'number' && amountLooksLikeIdentifier(text, e.amount)) {
     return {
       kind, outcome: 'missing_amount', vars: {},
-      facts: { needs: 'the amount', note: 'the only number given looks like a phone, account or reference number, not an amount' },
+      facts: { needs: kind === 'capture' ? 'the amount' : 'the purchase amount',
+        note: 'the only number given looks like a phone, account or reference number, not an amount' },
       analysis: ['The number given looks like a phone or account number, not an amount'],
     };
+  }
+  if (!amountIsStated(text, e.amount)) {
+    return resolveCore({ ...intent, entities: { ...e, amount: undefined } }, ctx);
   }
 
   const base = cur(ctx);
@@ -807,7 +870,10 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         // it could only ever have been a dead end had it reached a screen.
         return { kind: 'capture', outcome: 'missing_amount', vars: {} };
       }
-      const ways = e.participantCount ?? 2;
+      // W5 (P4): the model's count is checked — 0 made the share Infinity, and a huge one built
+      // a participants array that could hang the tab or the WhatsApp isolate.
+      const n = Number(e.participantCount);
+      const ways = Number.isFinite(n) ? Math.min(20, Math.max(2, Math.trunc(n))) : 2;
       const share = Math.round((e.amount / ways) * 100) / 100;
       const split: SplitInfo = {
         isSplit: true, totalAmount: e.amount, yourShare: share, paidBy: 'me',
@@ -910,7 +976,10 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         };
       }
       const amount = spend[category] || 0;
-      const budget = categoryBudget(ctx, category, mk);
+      // W5 (P1): only a MONTH's budget is compared with a month's spending; an annual one is named
+      // as annual, with no share and no verdict (owner: point to Budgets).
+      const line = categoryBudget(ctx, category, mk);
+      const budget = line && !line.annual && line.limit > 0 ? line : undefined;
       const usesEstimate = categoryUsesEstimate(ctx, category);
       // The deck's canonical example of the rule: after a figure, the next
       // question is "why", never "open reports".
@@ -923,8 +992,8 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         period: period.label,
         asked_about: label,
         spent: money(amount, ctx),
-        budget: budget && budget.limit > 0 ? money(budget.limit, ctx) : 'no budget set',
-        share_of_budget: budget && budget.limit > 0 ? `${Math.round((amount / budget.limit) * 100)}%` : 'no budget set',
+        budget: budget ? money(budget.limit, ctx) : line?.annual ? annualBudgetNote(label) : 'no budget set',
+        share_of_budget: budget ? `${Math.round((amount / budget.limit) * 100)}%` : line?.annual ? 'not measured against an annual budget' : 'no budget set',
         usual_month: breakdown.find(r => r.category === label)?.usual_month ?? 'no history yet',
         total_spent_in_period: money(total, ctx),
         every_category_in_period: breakdown,
@@ -971,6 +1040,8 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         vars: {},
       };
     case 'interpret.status': {
+      // W5 (P3): the position is as of today. "My net worth in August" is not answered with today's.
+      if (!asksAboutNow(e, ctx)) return needsPeriod('interpret', statedPeriod(e)!, 'now: your position as of today, and this month so far');
       const s = ctx.summary;
       // One overview serves all three branches: net worth, balances and "how am I
       // doing" are the same question at different zoom levels, and each used to
@@ -983,7 +1054,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       ];
       if (/net ?worth|wealth/.test(e.text)) {
         return { kind: 'interpret', outcome: 'ok', facts, analysis, vars: {
-          headline: `Your net worth is ${money(s.netWorth.netWorth, ctx)}.`,
+          headline: `Your net worth is ${netMoney(s.netWorth.netWorth, ctx, 'you owe more than you own')}.`,
           detail: `That's ${money(s.netWorth.totalAssets, ctx)} in assets minus ${money(s.netWorth.totalLiabilities, ctx)} of debt, with about ${s.netWorth.liquidityMonths.toFixed(1)} months of liquid cover.`,
         } };
       }
@@ -1008,16 +1079,24 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       } };
     }
     case 'interpret.diagnostic': {
-      const mk = nowMonthKey(ctx.tz);
+      // W5 (P3): the period the question named. A window shorter than a month ("this week") is
+      // answered over its own dates; a month is compared with the months before it; a period
+      // that cannot be placed is asked about, with no figures.
+      const span = resolveDayWindow(statedPeriod(e), wallClock(ctx.tz));
+      if (span) return lookupWindow(ctx, span);
+      const period = monthAsked(e, ctx);
+      if (!period) return needsPeriod('interpret', statedPeriod(e)!, 'this month, a named past month, or a window such as this week');
+      const mk = period.monthKey;
+      const when = period.isCurrent ? 'this month' : period.label;
       const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
       // Biggest category vs its rolling average — the deterministic "why".
       let worst: { cat: string; now: number; avg: number; delta: number } | null = null;
       for (const [c, amt] of Object.entries(spend)) {
-        const avg = categoryRollingAvg(ctx, c);
+        const avg = categoryRollingAvg(ctx, c, 3, mk);
         const delta = amt - avg;
         if (avg > 0 && delta > 0 && (!worst || delta > worst.delta)) worst = { cat: c, now: amt, avg, delta };
       }
-      const breakdown = categoryBreakdown(ctx);
+      const breakdown = categoryBreakdown(ctx, mk);
       const compared = `Compared each of ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'} with its usual month`;
       if (worst && worst.delta / Math.max(worst.avg, 1) >= 0.2) {
         const pct = Math.round((worst.delta / worst.avg) * 100);
@@ -1025,7 +1104,8 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         // said why, and the deck bans a chip that repeats the answer.
         return { kind: 'interpret', outcome: 'found', usesEstimate: categoryUsesEstimate(ctx, worst.cat),
           facts: {
-            every_category_this_month: breakdown,
+            period: period.label,
+            every_category_in_period: breakdown,
             spend_by_account: spendByAccount(ctx, mk),
             biggest_rise: {
               category: getCat(worst.cat).label,
@@ -1037,43 +1117,52 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
           analysis: [compared, `${getCat(worst.cat).label} is furthest above its usual`],
           vars: {
             headline: `${getCat(worst.cat).label} is ${pct}% above your usual.`,
-            detail: `It's at ${money(worst.now, ctx)} this month vs about ${money(worst.avg, ctx)} normally — that's the main pull on your cash.`,
+            detail: `It's at ${money(worst.now, ctx)} ${when} vs about ${money(worst.avg, ctx)} normally — that's the main pull on your cash.`,
           }, chips: [
-            { label: `See ${getCat(worst.cat).label}`, prompt: `how much on ${worst.cat} this month` },
+            { label: `See ${getCat(worst.cat).label}`, prompt: `how much on ${worst.cat} ${when}` },
             { label: 'Where can I cut back?', prompt: 'where can I cut back' },
           ] };
       }
       return { kind: 'interpret', outcome: 'clear',
-        facts: { every_category_this_month: breakdown, spend_by_account: spendByAccount(ctx, mk),
+        facts: { period: period.label, every_category_in_period: breakdown, spend_by_account: spendByAccount(ctx, mk),
           biggest_rise: 'nothing is well above its usual' },
         analysis: [compared, 'Nothing is running well above its usual'],
         vars: {
-          detail: `your spending is tracking close to your normal pattern this month.`,
+          detail: `your spending is tracking close to your normal pattern ${when}.`,
         }, chips: [
-          { label: 'What did I spend most on?', prompt: 'what did I spend the most on this month' },
+          { label: 'What did I spend most on?', prompt: `what did I spend the most on ${when}` },
         ] };
     }
     case 'interpret.budgets': {
-      const over = ctx.summary.budgets.filter(b => b.spentPct > 100);
-      const near = ctx.summary.budgets.filter(b => b.spentPct > 80 && b.spentPct <= 100);
+      // W5 (P3): budgets are read for THIS month; "was I over budget in August?" is not answered
+      // with October's lines.
+      if (!asksAboutNow(e, ctx)) return needsPeriod('interpret', statedPeriod(e)!, "this month: your budgets as they stand now");
+      // W5 (P1; owner decision): a month's verdict (over, close, pace) is for MONTH lines only. An
+      // annual line is named, with no verdict, and points to Budgets.
+      const monthLines = ctx.summary.budgets.filter(b => !b.annual);
+      const annualLines = ctx.summary.budgets.filter(b => b.annual);
+      const over = monthLines.filter(b => b.spentPct > 100);
+      const near = monthLines.filter(b => b.spentPct > 80 && b.spentPct <= 100);
       const detail = over.length
         ? `${over.length} over: ${over.map(b => getCat(b.category).label).join(', ')}.`
         : near.length
           ? `${near.length} close to the limit: ${near.map(b => getCat(b.category).label).join(', ')}.`
-          : ctx.summary.budgets.length ? `all ${ctx.summary.budgets.length} budgets are on track.` : `you have no budgets yet.`;
+          : monthLines.length ? `all ${monthLines.length} budgets are on track.`
+          : annualLines.length ? 'your budgets are annual — see Budgets for what is left this year.' : `you have no budgets yet.`;
       // Chips only when there is something to chase — "Budgets look healthy"
       // needs no follow-up, and an offer of one implies a problem there isn't.
       const worstBudget = over[0] ?? near[0];
-      const count = ctx.summary.budgets.length;
+      const count = monthLines.length;
       // v10.46.0 (#66) — pace: a budget used faster than the month has gone is
       // "ahead of pace" even while under its limit. 60% used with 40% of the month
       // gone is the early warning "close to limit" only gives at 80%.
       const now = wallClock(ctx.tz);
       const monthGone = (now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) * 100;
-      const onPace = ctx.summary.budgets.filter(b => b.spentPct <= monthGone).length;
+      const onPace = monthLines.filter(b => b.spentPct <= monthGone).length;
       return { kind: 'interpret', outcome: 'ok',
         facts: {
-          budgets_most_used_first: [...ctx.summary.budgets].sort((a, b) => b.spentPct - a.spentPct).map(b => ({
+          ...(annualLines.length ? { annual_budgets: annualLines.map(b => annualBudgetNote(getCat(b.category).label)) } : {}),
+          budgets_most_used_first: [...monthLines].sort((a, b) => b.spentPct - a.spentPct).map(b => ({
             category: getCat(b.category).label,
             limit: money(b.limit, ctx),
             used: `${Math.round(b.spentPct)}%`,
@@ -1177,6 +1266,11 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // answer is exactly what the deck's rule forbids.
       if (e.amount == null) return { kind: 'forecast', outcome: 'missing_amount', vars: {},
         facts: { needs: 'the purchase amount' }, analysis: ['Need the purchase amount to check affordability'] };
+      // W5 (P3): affordability is checked against THIS month's budget and the money free today.
+      // A purchase in another month ("in December") is not answered with this month's figures.
+      if (!asksAboutNow(e, ctx)) {
+        return needsPeriod('forecast', statedPeriod(e)!, "this month: a purchase is checked against this month's budget and the money free today");
+      }
       // v10.38 — ONE liquidity source (the canonical net-worth projection, which
       // includes live account balances) and ONE spend baseline. The old
       // `liquidAssets(ctx.assets)` read the assets array only, so this seam and
@@ -1200,7 +1294,12 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       const category = purchaseCategory(e);
       const label = category ? getCat(category).label : undefined;
       const mk = nowMonthKey(ctx.tz);
-      const line = category ? categoryBudget(ctx, category, mk) : undefined;
+      // W5 (P1; owner decision): an ANNUAL budget gives no verdict here. Its limit is for the year,
+      // and "₹60,000 left" said of a Travel budget 97% spent was the bug. The verdict then rests on
+      // the money free after card dues, and the facts point to Budgets.
+      const anyLine = category ? categoryBudget(ctx, category, mk) : undefined;
+      const annualOnly = anyLine?.annual === true;
+      const line = anyLine && !annualOnly ? anyLine : undefined;
       const lineLeft = category && line
         ? line.limit - (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0)
         : undefined;
@@ -1220,8 +1319,9 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
           budget_this_month: money(line.limit, ctx),
           budget_left_this_month: signedMoney(lineLeft, ctx, 'left', 'over'),
           budget_left_after_purchase: signedMoney(lineLeft - e.amount, ctx, 'left', 'over'),
-        } : label ? { budget_this_month: `no ${label} budget this month` } : {}),
-        liquid_savings: money(liquid, ctx),
+        } : label && annualOnly ? { budget_this_month: annualBudgetNote(label) }
+          : label ? { budget_this_month: `no ${label} budget this month` } : {}),
+        liquid_savings: netMoney(liquid, ctx),
         card_dues_to_pay: money(dues, ctx),
         free_to_spend_after_card_dues: signedMoney(free, ctx, 'free', 'short'),
         free_after_purchase: signedMoney(free - e.amount, ctx, 'free', 'short'),
@@ -1257,7 +1357,8 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
             free_to_spend: Math.round(free),
           } } : {}),
           analysis: affordAnalysis,
-          vars: { amount: money(e.amount, ctx), headroom: money(headroom, ctx), cushion: money(aboveFloorAfter, ctx) },
+          // W5 (P2): both cross zero ('fits' does not need to be above the floor).
+          vars: { amount: money(e.amount, ctx), headroom: signedMoney(headroom, ctx), cushion: signedMoney(aboveFloorAfter, ctx) },
           chips: [{ label: 'How long would my savings last?', prompt: 'how long would my savings last' }] };
       }
       if (outcome === 'over_budget') {
@@ -1289,7 +1390,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       return { kind: 'forecast', outcome: 'ok',
         facts: {
           months_money_would_last: months.toFixed(1),
-          liquid_savings: money(liquid, ctx),
+          liquid_savings: netMoney(liquid, ctx),
           typical_monthly_spending: money(burn, ctx),
           typical_essential_monthly: money(basis.averageEssential, ctx),
           typical_discretionary_monthly: money(basis.averageDiscretionary, ctx),
@@ -1308,7 +1409,11 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
     }
     case 'forecast.prescriptive': {
       const target = e.amount;
-      const mk = nowMonthKey(ctx.tz);
+      // W5 (P3): the month the question named ("where could I have cut back in August?"); one
+      // that cannot be placed is asked about, with no figures.
+      const period = monthAsked(e, ctx);
+      if (!period) return needsPeriod('forecast', statedPeriod(e)!, 'this month or a named past month');
+      const mk = period.monthKey;
       const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
       // Rank "want" categories by overage vs rolling average — least-painful trims.
       let best: { cat: string; over: number } | null = null;
@@ -1318,7 +1423,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       let basis: 'above_usual' | 'total_spent' = 'above_usual';
       for (const [c, amt] of Object.entries(spend)) {
         if (NEEDS_WANTS_MAP[c] !== 'want') continue;
-        const over = amt - categoryRollingAvg(ctx, c);
+        const over = amt - categoryRollingAvg(ctx, c, 3, mk);
         if (over > 0 && (!best || over > best.over)) best = { cat: c, over };
       }
       if (!best) {
@@ -1327,13 +1432,16 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
           .sort(([, a], [, b]) => b - a)[0];
         if (top) { best = { cat: top[0], over: top[1] }; basis = 'total_spent'; }
       }
-      const breakdown = categoryBreakdown(ctx);
+      const breakdown = categoryBreakdown(ctx, mk);
+      const when = period.isCurrent ? 'this month' : period.label;
       // v10.38 (F4) — advice sees the POSITION, not just this month's categories.
       // Without it, "what should I do?" could only suggest trimming the largest
       // discretionary line — ₹54 for a household with a 95% savings rate and a
       // mortgage at 8.75%. The biggest lever is rarely a category.
       const prescriptiveFacts = {
         savings_goal: target ? money(target, ctx) : 'not specified',
+        // The month the categories below are from; the position is as of today.
+        categories_period: period.label,
         ...positionFacts(ctx),
         debts_highest_rate_first: debtFacts(ctx),
         // v10.39 (P4) — "what should I sell?" needs to see WHAT is owned, and how
@@ -1347,7 +1455,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       const compared = `Compared ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'} with your usual month`;
       const positionRead = 'Read your income, savings rate, cushion and debts';
       if (!best) return { kind: 'forecast', outcome: 'ok', vars: { months: '0' },
-        facts: { ...prescriptiveFacts, note: 'no discretionary spending recorded this month' },
+        facts: { ...prescriptiveFacts, note: `no discretionary spending recorded ${when}` },
         analysis: [positionRead, compared, 'No discretionary spending found to trim'] };
       return { kind: 'forecast', outcome: 'suggest',
         facts: {
@@ -1356,7 +1464,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
           easiest_trim_figure: money(best.over, ctx),
           easiest_trim_figure_means: basis === 'above_usual'
             ? 'how much this category is above its usual month'
-            : 'total spent in this category this month (no history yet to compare)',
+            : `total spent in this category ${when} (no history yet to compare)`,
         },
         analysis: [
           positionRead,
@@ -1655,7 +1763,7 @@ export function proactiveInsight(ctx: AssistantContext): ProactiveInsight | null
   const s = ctx.summary;
 
   // 1) A budget meaningfully over — highest materiality.
-  const over = s.budgets.filter(b => b.spentPct > 100).sort((a, b) => b.spentPct - a.spentPct)[0];
+  const over = s.budgets.filter(b => !b.annual && b.spentPct > 100).sort((a, b) => b.spentPct - a.spentPct)[0];
   if (over) {
     return {
       text: `Your ${getCat(over.category).label.toLowerCase()} is ${Math.round(over.spentPct)}% of budget — want to see why?`,

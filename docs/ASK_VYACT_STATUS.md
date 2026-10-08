@@ -30,6 +30,18 @@ ceiling, and at Sonnet rates that cap permits roughly $0.40/user/day.
 
 ---
 
+## ✅ v10.78.0 — W5: figures belong to the question asked (2026-10-08)
+
+Owner decision D29, from the 2026-10-04 audit. Each fix is in `askVyactBackend.ts` (stage 4) and is
+covered by `pipCorrectness.test.ts`.
+
+| # | Was | Now |
+|---|---|---|
+| P1 (FE-PIP-01) | An annual budget measured against one month ("₹60,000 left" of a Travel budget 97% spent) | No monthly verdict on an annual line; Pip names it and points to Budgets. `SafeSummary.budgets[].annual` |
+| P2 (FE-PIP-04) | Negative net worth and a below-floor "cushion" sent without their minus | `netMoney()` for amounts that can be negative; legacy `vars` sent only when there are no facts (`phraseData`) |
+| P3 (FE-PIP-05) | Diagnostic, advice, budgets and status answered "this month" whatever was asked | `monthAsked` / `asksAboutNow`; `needs_period` with `can_answer_for` and no figures |
+| P4 (FE-PIP-02) | A price the model knew used as the purchase amount | `amountIsStated`: an amount counts only when the user's words state it |
+
 ## ✅ v10.39.0 / v10.39.1 — where the money sits, and what is really free (2026-09-23/24)
 
 **v10.39.0** closed P4: account and asset names (names and amounts only) now reach the facts as

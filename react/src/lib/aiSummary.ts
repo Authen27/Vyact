@@ -9,7 +9,7 @@ import type {
 } from '../types';
 import {
   monthlyData, computePulseScore,
-  spendByCategory, reportableTxns, budgetLinesForMonth,
+  spendByCategory, reportableTxns, budgetLinesForMonth, coversMoreThanAMonth, spendByCategoryInRange,
 } from './calculations';
 import { computeNetWorth, cardDues } from './netWorth';
 import { computeAccountBalance } from './accountBalance';
@@ -165,7 +165,12 @@ export interface SafeSummary {
   dataQuality: {
     cashBalanceNegative: boolean;
   };
-  budgets: { category: string; limit: number; spentPct: number }[];
+  /**
+   * W5 (P1) — `annual` marks a line whose limit covers more than one month. Its `spentPct` is
+   * over its OWN period (as the Budgets screen and the threshold alert read it), and Pip gives
+   * no monthly verdict on it: it points to Budgets (owner decision).
+   */
+  budgets: { category: string; limit: number; spentPct: number; annual?: true }[];
   goals:   { type: string; targetPct: number; daysToDeadline: number | null }[];
   debts:   { type: string; balance: number; aprPct: number; monthsRemaining?: number }[];
 }
@@ -220,13 +225,20 @@ export function buildSafeSummary(
   // container budget is not a category line). Audit F4: convert() — the ONE
   // FX path (USD-based rate table, dinero-exact); the old `rates[c]/rates[cur]`
   // was the INVERSE ratio and skipped unknown rates silently.
+  // W5 (P1; audit FE-PIP-01): an annual line was divided by THIS month's spend, so a Travel
+  // budget 97% used by September read as 0% in October. It is measured over its own period.
   const safeBudgets = budgetLinesForMonth(budgets, allocations, mk).map(b => {
     const limitBase = convert(b.limit, b.currency, cur, rates);
-    const spent = spend[b.category ?? ''] || 0;
+    const annual = coversMoreThanAMonth(b);
+    const year = b.periodYear ?? Number(mk.slice(0, 4));
+    const spent = annual
+      ? spendByCategoryInRange(txns, b.periodStart ?? `${year}-01-01`, b.periodEnd ?? `${year}-12-31`, cur, rates)[b.category ?? ''] || 0
+      : spend[b.category ?? ''] || 0;
     return {
       category: b.category ?? '',
       limit: round2(limitBase),
       spentPct: limitBase > 0 ? round2(spent / limitBase * 100) : 0,
+      ...(annual ? { annual: true as const } : {}),
     };
   });
 

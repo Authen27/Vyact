@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.77.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.78.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -298,6 +298,17 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   (`isIdentifierRun`, identical in the WhatsApp parser). **Free to spend is liquid −
   `cardDues()`**, read from the projection's liability rows, and affordability headroom
   subtracts it; greetings and `meta.assistant` need no phrase call.
+  **Pip's figures belong to the question (v10.78.0, W5, owner decision D29):**
+  - An amount counts only when the user's words state it (`amountIsStated`, k/lakh/cr scaling). One the
+    model supplied (a price it knew) is dropped: capture and affordability ask how much, advice has no target.
+  - Every intent that reads a month resolves the stated period (`monthAsked`); one that cannot be placed is
+    `needs_period` with `can_answer_for` and no figures. Affordability, budgets and the position answer for
+    NOW only (`asksAboutNow`). A "usual month" is the months BEFORE the one asked about.
+  - An annual budget line (`coversMoreThanAMonth`) is never measured against one month: Pip names it as
+    annual and points to Budgets (`SafeSummary.budgets[].annual`, its `spentPct` over its own period).
+  - An amount that can be below zero (net worth, liquid savings, a holding) goes through `netMoney()`.
+    The legacy `vars` reach the model only for an outcome with no facts (`phraseData`), and the guard
+    admits exactly what was sent.
   **`params.max_tokens` in `ai_model_configs` IS the cap for
   every call (corrected v10.37)** — the client sends `maxOutputTokens` (256
   classify / 700 phrase) but `ask-vyact/index.ts` never forwards it to

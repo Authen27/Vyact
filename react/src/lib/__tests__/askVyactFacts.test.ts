@@ -81,7 +81,7 @@ describe('cross-seam agreement (F2, F10)', () => {
   it('CON-UNIT-FACT-001 · every seam reports the SAME liquid savings and months of cover', () => {
     const ctx = makeCtx();
     const status = resolve(intent('interpret.status'), ctx).facts as Record<string, string>;
-    const afford = resolve(intent('forecast.affordability', { amount: 1_200 }), ctx).facts as Record<string, string>;
+    const afford = resolve(intent('forecast.affordability', { amount: 1_200, text: 'can i afford 1200' }), ctx).facts as Record<string, string>;
     const runway = resolve(intent('forecast.runway'), ctx).facts as Record<string, string>;
 
     expect(afford.liquid_savings).toBe(status.liquid_savings);
@@ -221,13 +221,13 @@ describe('signed figures (F3)', () => {
         { id: 'acc-bank', name: 'ICICI Bank', kind: 'bank', currency: 'INR', openingBalance: 60_000 },
       ] as unknown as Account[],
     });
-    const facts = resolve(intent('forecast.affordability', { amount: 1_200 }), ctx).facts as Record<string, string>;
+    const facts = resolve(intent('forecast.affordability', { amount: 1_200, text: 'can i afford 1200' }), ctx).facts as Record<string, string>;
     expect(facts.headroom_against_floor).toMatch(/below$/);
     expect(facts).not.toHaveProperty('available_above_floor');
   });
 
   it('CON-UNIT-FACT-004 · headroom above the floor says "above"', () => {
-    const facts = resolve(intent('forecast.affordability', { amount: 1_200 }), makeCtx()).facts as Record<string, string>;
+    const facts = resolve(intent('forecast.affordability', { amount: 1_200, text: 'can i afford 1200' }), makeCtx()).facts as Record<string, string>;
     expect(facts.headroom_against_floor).toMatch(/above$/);
     expect(facts.verdict).toBe('fits');
   });
@@ -254,7 +254,7 @@ describe('spendBasis — the one denominator', () => {
   });
 
   it('CON-UNIT-FACT-007 · the affordability answer states the history it rests on', () => {
-    const facts = resolve(intent('forecast.affordability', { amount: 1_200 }), makeCtx()).facts as Record<string, string>;
+    const facts = resolve(intent('forecast.affordability', { amount: 1_200, text: 'can i afford 1200' }), makeCtx()).facts as Record<string, string>;
     expect(facts.months_considered).toContain('completed months');
     expect(facts.typical_essential_monthly).toBeTruthy();
     expect(facts.typical_discretionary_monthly).toBeTruthy();
@@ -376,7 +376,7 @@ describe('advice facts (F4)', () => {
 // ── F6 / F7 — capture ────────────────────────────────────────────────────────
 describe('capture seeding (F6, F7)', () => {
   it('CON-UNIT-FACT-013 · a merchant implies a category when the user named none', () => {
-    const result = resolve(intent('capture.expense', { amount: 653, merchant: 'SWIGGY PVT LTD' }), makeCtx());
+    const result = resolve(intent('capture.expense', { amount: 653, merchant: 'SWIGGY PVT LTD', text: 'swiggy pvt ltd 653' }), makeCtx());
     expect(result.seed?.category).toBe('food_dining');   // not other_expense
   });
 
@@ -385,7 +385,7 @@ describe('capture seeding (F6, F7)', () => {
     // current month, which is a future date on the 1st–9th, and resolve() rightly
     // refuses future dates, so this failed for nine days every month (first seen 1 Oct 2026).
     const result = resolve(intent('capture.expense', {
-      amount: 653, merchant: 'SWIGGY PVT LTD', date: dayIn(1, 10), account: 'ICICI Card 3003',
+      amount: 653, merchant: 'SWIGGY PVT LTD', date: dayIn(1, 10), account: 'ICICI Card 3003', text: 'swiggy pvt ltd 653',
     }), makeCtx());
     expect(result.seed?.date).toBe(dayIn(1, 10));
     expect(result.seed?.accountId).toBe('acc-card');
@@ -633,7 +633,7 @@ describe('card dues (P19)', () => {
     const status = resolve(intent('interpret.status'), ctx).facts as Record<string, string>;
     expect(status.card_dues_to_pay).toBe('₹6,000');
     expect(status.free_to_spend_after_card_dues).toBe(`₹${Math.round(liquid - 6000).toLocaleString('en-IN')} free`);
-    const afford = resolve(intent('forecast.affordability', { amount: 1000 }), ctx).facts as Record<string, string>;
+    const afford = resolve(intent('forecast.affordability', { amount: 1000, text: 'can i afford 1000' }), ctx).facts as Record<string, string>;
     const floor = ctx.summary.spendBasis.averageEssential * 3;
     const headroom = Math.round(liquid - 6000 - floor);
     expect(afford.headroom_against_floor).toBe(`₹${Math.abs(headroom).toLocaleString('en-IN')} ${headroom < 0 ? 'below' : 'above'}`);

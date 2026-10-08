@@ -161,6 +161,18 @@ export function budgetLinesForMonth(
   });
 }
 
+/**
+ * W5 (P1, owner decision; audit FE-PIP-01) — a budget line whose limit covers MORE than one
+ * month: an annual budget, or a legacy row whose window or period is longer than a month.
+ * `budgetLinesForMonth` returns it for every month of its year, so one month's spending must
+ * never be measured against it ("₹60,000 left" of a Travel budget already 97% spent).
+ */
+export function coversMoreThanAMonth(b: Budget): boolean {
+  if (b.scope) return b.scope === 'annual';
+  if (b.periodStart && b.periodEnd) return b.periodStart.slice(0, 7) !== b.periodEnd.slice(0, 7);
+  return !!b.period && b.period !== 'monthly';
+}
+
 // v9.1 §4 — resolve a budget's scope+identity into a concrete [start, end] range.
 //   month  → first..last day of (year, month)
 //   annual → Jan 1 .. Dec 31 of year

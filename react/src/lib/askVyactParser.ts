@@ -312,11 +312,21 @@ export function isIdentifierRun(run: string, before: string): boolean {
 }
 
 export function parseAmount(text: string): number | undefined {
+  // The FIRST number that is not an identifier wins — it used to be the first number, full stop.
+  return statedAmounts(text)[0];
+}
+
+/**
+ * W5 (P4, audit FE-PIP-02) — every amount the text states, in order, with its scale applied
+ * ("2.5k" → 2500, "1.2 lakh" → 120000, "1 cr" → 10000000). Identifier runs (phone, account,
+ * reference numbers) are not amounts and are left out.
+ */
+export function statedAmounts(text: string): number[] {
   // Strip currency symbols/words so the numeric matcher is clean.
   const t = text.replace(/[$£€₹]/g, ' ').replace(/\b(rs|inr|usd|gbp|eur|bucks?|rupees?|dollars?|quid)\b/gi, ' ');
-  // number + optional scale suffix (k, lakh/lac/l, cr/crore, m). The FIRST number
-  // that is not an identifier wins — it used to be the first number, full stop.
+  // number + optional scale suffix (k, lakh/lac/l, cr/crore, m).
   const re = /(\d[\d,]*\.?\d*)\s*(k|lakhs?|lacs?|l|cr|crores?|m|mn)?\b/gi;
+  const out: number[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(t)) !== null) {
     if (isIdentifierRun(m[1], t.slice(0, m.index))) continue;
@@ -329,9 +339,20 @@ export function parseAmount(text: string): number | undefined {
     else if (scale === 'l' || scale.startsWith('lakh') || scale.startsWith('lac')) mult = 100_000;
     else if (scale === 'cr' || scale.startsWith('crore')) mult = 10_000_000;
     const value = base * mult;
-    if (value > 0) return Math.round(value * 100) / 100;
+    if (value > 0) out.push(Math.round(value * 100) / 100);
   }
-  return undefined;
+  return out;
+}
+
+/**
+ * W5 (P4) — is this model-extracted amount one the user actually wrote? The classifier is told
+ * never to invent an entity, but "can I afford a new iPhone?" came back with a price the model
+ * knew, and every figure computed from it then passed the guard because it was in the facts.
+ * An amount counts only when the user's own words state it (scale words included).
+ */
+export function amountIsStated(text: string, amount: unknown): amount is number {
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return false;
+  return statedAmounts(text).some(v => Math.abs(v - amount) < 0.005);
 }
 
 /**
