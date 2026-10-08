@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.79.0`** (consumer)
+> **Current production version: `v10.80.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.80.0 — W7a: small app fixes from the audit (batch A) *(2026-10-08)*
+
+Fourteen small app fixes from the 2026-10-04 audit (owner: batches A, C, D; this is A). App only; no
+schema change. The engine bundle changes by one line (the dead flag below).
+
+- **Pip per household (FE-PIP-17).** The chat is keyed on the open household, so switching household
+  starts a fresh conversation instead of writing the old transcript into the new one.
+- **"Income varies" (FE-MNY-14).** The planner rule reads completed months only: early in a month the
+  not-yet-paid salary no longer counted as a near-zero month and flagged a steady income as unstable.
+- **Full backup (FE-MNY-15, FE-UIS-06 rest).** The JSON backup now carries accounts, budget allocations,
+  recurring bills and net-worth history, plus the app version that wrote it (`version` stays the format
+  marker).
+- **Account names (FE-UIC-16).** Transaction rows name the account from its `accounts` link (transfers
+  read "From → To", a split payment names each account) instead of "Linked account" or nothing.
+- **List and calendar totals (FE-UIC-17).** The filtered net, month nets and heat-calendar days count like
+  every other total: your share of a split, no transfer legs, no balance adjustments.
+- **Labels and buttons (FE-UIS-14, FE-UIS-16).** The member-role select, activity filter, onboarding
+  fields and bill amounts have accessible names; sign-in/up fields carry autocomplete hints. `Button`
+  defaults to `type="button"` (a Cancel inside a form no longer submits it). Accepting an invite to a
+  full household explains who can make room, not `HOUSEHOLD_FULL`. Two dead modules are deleted.
+- **Page language (FE-UIS-15, part).** `<html lang>` follows the Language setting.
+- **Push after an expired session (FE-PLT-08).** A passive sign-out drops the device's push subscription,
+  so the next person on the device stops getting the previous user's notifications.
+- **Leaving a household (INT-HH-13).** Leaving or deleting the open household switches to one you are
+  still in (delete used to land on the local placeholder; leave stayed on the old household).
+- **Reconcile (FE-UIC-14).** A card typed as "-23,990" reads as 23,990 owed (the sheet showed a drift the
+  engine then posted differently); negative cash is refused; the toast reports the delta actually posted.
+- **Password change (FE-UIS-13, rest).** Changing the password in Settings asks for the emailed code, like
+  the Danger Zone.
+- **Bottom banners (FE-UIS-08, rest).** Toasts and the nudge, install and update banners sit above the phone
+  tab bar and the safe area instead of covering the "+".
+- **Pip config (FE-PIP-18, part).** The dead `askVyact.backend: 'rules'` flag (nothing read it) is deleted.
+- **Category parity (INT-CON-05).** The parity test now also pins the WhatsApp and agent income sets to the
+  app's.
+
+Left for an owner call: labelling the partly translated languages "Preview" (FE-UIS-15).
 
 ## v10.79.0 — W6: frontend quick fixes from the audit *(2026-10-08)*
 
