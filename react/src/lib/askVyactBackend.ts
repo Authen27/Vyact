@@ -15,7 +15,7 @@ import type {
   BudgetAllocation,
 } from '../types';
 import {
-  spendByCategory, spendByCategoryInRange, reportableTxns, effectiveAmount, monthlyData, totalMonthlyDebtPayment,
+  spendByCategory, spendByCategoryInRange, reportableTxns, effectiveAmount, monthlyData,
   budgetLinesForMonth, coversMoreThanAMonth,
 } from './calculations';
 // v10.38 — period/date/account resolution lives in the parser, next to the entity
@@ -308,12 +308,14 @@ function positionFacts(ctx: AssistantContext) {
     // above. Signed, because dues can exceed the cash that will pay them.
     card_dues_to_pay: money(s.netWorth.cardDues, ctx),
     free_to_spend_after_card_dues: signedMoney(s.netWorth.liquidAssets - s.netWorth.cardDues, ctx, 'free', 'short'),
-    months_of_liquid_cover: s.netWorth.liquidityMonths.toFixed(1),
+    // W8a (audit FE-PIP-13): with no spending history there is no "typical month" to divide by — say so
+    // rather than "0.0 months, a thin cushion".
+    months_of_liquid_cover: basisOf(ctx).averageMonthly > 0 ? s.netWorth.liquidityMonths.toFixed(1) : 'not enough spending history yet',
     // v10.39.1 (P7) — Pulse scores this month's habits (budgets, savings RATE, trend,
     // debt). It says nothing about how long savings would last, so a 100/100 beside a
     // thin cushion is not a contradiction — but an answer must not read it as one.
     pulse_measures: "budgets, this month's savings rate, spending trend and debt — not how long your savings would last",
-    ...(s.netWorth.liquidityMonths < 3
+    ...(basisOf(ctx).averageMonthly > 0 && s.netWorth.liquidityMonths < 3
       ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months of typical spending, under the usual three-month cushion, whatever the Pulse score says` }
       : {}),
     cover_basis: `typical monthly spending of ${money(basisOf(ctx).averageMonthly, ctx)}, averaged over ${basisLabel(ctx)}`,
@@ -1385,8 +1387,23 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // Same single source as affordability and status (v10.38).
       const liquid = ctx.summary.netWorth.liquidAssets;
       const basis = basisOf(ctx);
-      const burn = basis.averageMonthly || (totalMonthlyDebtPayment(ctx.debts, cur(ctx), ctx.rates) + 1);
-      const months = burn > 0 ? liquid / burn : 0;
+      // W8a (audit FE-PIP-13): no spending history → no runway figure. The old fallback divided by
+      // "EMI + 1" (a sentinel, not a spend) and stated the result as a fact.
+      if (!(basis.averageMonthly > 0)) {
+        return { kind: 'forecast', outcome: 'no_history',
+          facts: {
+            liquid_savings: netMoney(liquid, ctx),
+            months_money_would_last: 'not enough spending history yet to estimate',
+            what_is_needed: 'a month or two of recorded spending, so a typical month can be measured',
+          },
+          analysis: ['Totalled your liquid savings', 'Looked for a typical month of spending — none recorded yet'],
+          vars: {}, chips: [
+          { label: 'Add an expense', prompt: 'log an expense' },
+          { label: 'What is my net worth?', prompt: 'what is my net worth' },
+        ] };
+      }
+      const burn = basis.averageMonthly;
+      const months = liquid / burn;
       return { kind: 'forecast', outcome: 'ok',
         facts: {
           months_money_would_last: months.toFixed(1),
