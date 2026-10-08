@@ -3,7 +3,7 @@ import type { Transaction } from '../../types';
 import { useStore } from '../../store';
 import { getCat } from '../../constants';
 import { formatDate, formatTime } from '../../lib/format';
-import { resolveAccount } from '../../lib/accounts';
+import { txnAccountLabel } from '../../lib/accounts';
 import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
 import Badge from '../ui/Badge';
 import Money from '../ui/Money';
@@ -21,11 +21,13 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
   const baseCurrency = useStore(s => s.profile.baseCurrency);
   const assets = useStore(s => s.assets);
   const debts2 = useStore(s => s.debts);
+  const accounts = useStore(s => s.accounts);
 
   const cat = getCat(t.category);
   // Board B — the account rides in the SUB-LINE ("Groceries · Today · Visa"),
   // not as a leading chip.
-  const acct = t.paymentMethod ? resolveAccount(t.paymentMethod, assets, debts2) : null;
+  // W7a (FE-UIC-16): the accounts FK names the account (it used to read "Linked account").
+  const acctLabel = txnAccountLabel(t, accounts, assets, debts2);
   const member = members.find(m => m.id === t.memberId);
   // W3b (D14): every row counts at face value in the household's currency, so it is SHOWN in it
   // too — an old row's own label would contradict the totals it is part of.
@@ -85,7 +87,7 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
           {t.recurring && <span aria-label={`Recurring ${t.recurring}`} title={`Recurring · ${t.recurring}`} className="ml-1.5 text-ink-dim text-[0.72rem]">↻</span>}
         </div>
         <div className="font-mono text-[0.59rem] text-ink-dim mt-px truncate">
-          {(isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{acct ? ` · ${acct.label}` : ''}{t.paymentMode ? ` · ${PAYMENT_MODE_LABEL[t.paymentMode]}` : ''}{t.note ? ' · ' + t.note : ''}
+          {(isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{acctLabel ? ` · ${acctLabel}` : ''}{t.paymentMode ? ` · ${PAYMENT_MODE_LABEL[t.paymentMode]}` : ''}{t.note ? ' · ' + t.note : ''}
           {/* v10.55.0 (#69) — who added it, on phones too (the badge column is sm+ only). */}
           {member && members.length > 1 && <span className="sm:hidden" data-testid="txn-added-by"> · {member.name}</span>}
         </div>

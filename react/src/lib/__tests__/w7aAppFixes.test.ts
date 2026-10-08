@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { evaluateRecommendations } from '../plannerRules';
 import { buildBackup, BACKUP_FORMAT_VERSION } from '../backup';
+import { txnAccountLabel } from '../accounts';
 import type { Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
@@ -36,6 +37,18 @@ describe('W7a · small app fixes', () => {
     expect([b.accounts, b.budgetAllocations, b.recurringSchedules, b.netWorthSnapshots].map(a => a.length)).toEqual([1, 1, 1, 1]);
     expect(b).not.toHaveProperty('exchangeRates');
     expect(src('pages/Settings.tsx')).toMatch(/buildBackup\(\{[\s\S]*?accounts: s\.accounts, budgetAllocations: s\.budgetAllocations,[\s\S]*?recurringSchedules: s\.recurringSchedules, netWorthSnapshots: s\.netWorthSnapshots/);
+  });
+  it('W7a-UIC16-001 · a transaction row names its account from the accounts FK (FE-UIC-16)', () => {
+    const accounts = [{ id: 'a1', name: 'HDFC Salary' }, { id: 'a2', name: 'ICICI Card' }];
+    const lbl = (t: Partial<Transaction>) => txnAccountLabel({ type: 'expense', ...t } as Transaction, accounts, [], []);
+    expect(lbl({ accountId: 'a1', paymentMethod: 'asset:gone' })).toBe('HDFC Salary');   // was "Linked account"
+    expect(lbl({ paymentMethod: 'a2' })).toBe('ICICI Card');                              // account id stored as method
+    expect(lbl({ type: 'transfer', accountId: 'a1', toAccountId: 'a2' })).toBe('HDFC Salary → ICICI Card');
+    expect(lbl({ accountSplits: [{ accountId: 'a1', amount: 1 }, { accountId: 'a2', amount: 2 }] })).toBe('HDFC Salary + ICICI Card');
+    expect(lbl({ type: 'investment', toAccountId: 'a1' })).toBe('HDFC Salary');
+    expect(lbl({ paymentMethod: 'cash' })).toBe('Cash');                                  // legacy path kept
+    expect(lbl({})).toBeNull();
+    expect(src('components/transactions/TxnRow.tsx')).toMatch(/txnAccountLabel\(t, accounts, assets, debts2\)/);
   });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');

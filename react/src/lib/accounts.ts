@@ -13,7 +13,7 @@
 // Legacy values (the old PAYMENT_METHODS keys like 'visa') still resolve through
 // the PAYMENT_METHODS table for display, so historical data is never lost.
 
-import type { Asset, Debt, Account } from '../types';
+import type { Asset, Debt, Account, Transaction } from '../types';
 import { PAYMENT_METHODS } from '../constants';
 import { accountValueOf } from './accountBalance';
 
@@ -118,6 +118,28 @@ export function resolveAccount(
     };
   }
   return null;
+}
+
+/** W7a (audit FE-UIC-16) — the account a transaction row names. The `accounts` FK wins: rows saved
+ *  since Money Map carry `accountId` / `toAccountId` (or an account id in `paymentMethod`), which the
+ *  legacy `asset:`/`debt:` resolver labelled "Linked account" or dropped. Transfers read "From → To";
+ *  a multi-account payment names each account. Falls back to the legacy resolver for old rows. */
+export function txnAccountLabel(
+  t: Pick<Transaction, 'type' | 'paymentMethod' | 'accountId' | 'toAccountId' | 'accountSplits'>,
+  accounts: Pick<Account, 'id' | 'name'>[],
+  assets: Asset[],
+  debts: Debt[],
+): string | null {
+  const name = (id?: string) => (id ? accounts.find(a => a.id === id)?.name : undefined);
+  const splits = (t.accountSplits ?? []).map(s => name(s.accountId)).filter((n): n is string => !!n);
+  if (splits.length > 1) return splits.join(' + ');
+  if (t.type === 'transfer') {
+    const from = name(t.accountId), to = name(t.toAccountId);
+    if (from && to) return `${from} → ${to}`;
+  }
+  const fk = name(t.accountId) ?? name(t.toAccountId) ?? name(t.paymentMethod);
+  if (fk) return fk;
+  return t.paymentMethod ? resolveAccount(t.paymentMethod, assets, debts)?.label ?? null : null;
 }
 
 /** Transaction types that must be tied to a real account (cash or linked). */
