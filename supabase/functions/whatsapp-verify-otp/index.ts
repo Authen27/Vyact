@@ -85,10 +85,17 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'too_many_attempts' }, 429);
   }
 
+  // W8b (audit BE-WA-06): CLAIM the attempt before comparing — a compare-and-set on the count we read. A
+  // read-then-increment let parallel guesses all see the same count and all be compared, so the limit
+  // was not a limit. A request that loses the race compares nothing.
+  const { data: claimed, error: claimErr } = await admin.from('whatsapp_verification_otps')
+    .update({ attempts: otp.attempts + 1 }).eq('id', otp.id).eq('attempts', otp.attempts).select('id');
+  if (claimErr) return json({ error: 'verify_failed' }, 500);
+  if (!claimed || (claimed as unknown[]).length === 0) return json({ error: 'try_again' }, 409);
+
   const pepper = env('WHATSAPP_OTP_PEPPER');
   const candidate = await sha256Hex(`${String(code)}:${otp.phone_number}:${pepper}`);
   if (!constantTimeEqual(candidate, otp.otp_hash)) {
-    await admin.from('whatsapp_verification_otps').update({ attempts: otp.attempts + 1 }).eq('id', otp.id);
     return json({ error: 'incorrect_code', attemptsLeft: MAX_ATTEMPTS - otp.attempts - 1 }, 400);
   }
 
