@@ -70,6 +70,12 @@ describe('W8a · app fixes', () => {
     expect(src('components/transactions/TransactionFormModal.tsx')).toMatch(/: editSeedAccount\(initial, accountsState\)/);
   });
 
+  it('W8a-UIC09-001 · editing a non-folding asset patches the row it opened (FE-UIC-09)', () => {
+    const s = src('components/assets/AssetFormModal.tsx');
+    const elseBranch = s.slice(s.indexOf('} else {', s.indexOf('if (initial && folds)')));
+    expect(elseBranch).toMatch(/const asset: Partial<Asset> = \{\s*\.\.\.\(initial \?\? \{\}\),\s*id: initial\?\.id \?\? uid\(\),/);
+  });
+
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {
     expect(languageOptionLabel('en')).toBe('English');
     for (const code of Object.keys(LOCALES).filter(c => c !== 'en')) {
