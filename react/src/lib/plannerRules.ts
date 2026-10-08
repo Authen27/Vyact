@@ -78,6 +78,14 @@ function monthlyIncomes(ctx: PlannerContext, months: number): number[] {
   return recentMonths(ctx.transactions, months).map(mk => monthlyData(ctx.transactions, mk, ctx.baseCurrency, ctx.rates).income);
 }
 
+/** W7a (audit FE-MNY-14) — completed months only. The month in progress has not been paid yet,
+ *  so counting it made a steady salary look like it "varies" on every day before payday. */
+function completedMonthlyIncomes(ctx: PlannerContext, months: number): number[] {
+  const current = nowMonthKey();
+  const done = [...new Set(ctx.transactions.map(t => getMonthKey(t.date)))].filter(mk => mk < current).sort().slice(-months);
+  return done.map(mk => monthlyData(ctx.transactions, mk, ctx.baseCurrency, ctx.rates).income);
+}
+
 function variance(arr: number[]): number {
   if (arr.length < 2) return 0;
   const mean = arr.reduce((s, n) => s + n, 0) / arr.length;
@@ -110,7 +118,7 @@ const incomeRules: Rule[] = [
     domain: 'income',
     priority: 3,
     evaluate(ctx) {
-      const incomes = monthlyIncomes(ctx, 6);
+      const incomes = completedMonthlyIncomes(ctx, 6);
       if (incomes.length < 3) return { match: false };
       const mean = incomes.reduce((s, n) => s + n, 0) / incomes.length;
       const stdDev = Math.sqrt(variance(incomes));
