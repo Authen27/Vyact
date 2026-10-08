@@ -109,6 +109,9 @@ export default defineConfig({
           /^\/learn(\/|$)/, /^\/sitemap\.xml$/, /^\/robots\.txt$/, /^\/llms\.txt$/, /^\/\.well-known\//,
           // v10.55.0 — public pages an installed app must not answer with its own shell.
           /^\/for\//, /^\/private$/, /^\/about$/, /^\/llms-full\.txt$/,
+          // W6 (audit FE-PUB-04) — the YouTube short links (/v/<n> → api/v). Without this an
+          // installed worker answered them with the app shell, which then went to /dashboard.
+          /^\/v\//,
         ],
         runtimeCaching: [
           {

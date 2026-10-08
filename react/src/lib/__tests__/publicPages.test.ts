@@ -309,6 +309,25 @@ describe('the landing page (#9, #12, #19)', () => {
     for (const p of ['/', '/about', '/dashboard', '/nope']) expect(re.test(p), p).toBe(true);
   });
 
+  it('CON-UNIT-PUB-027 · every public rewrite is on the service worker denylist, so an installed app never answers it with the app shell', async () => {
+    // W6 (audit FE-PUB-04): /v/<n> was rewritten to api/v but missing here, so a returning
+    // visitor's worker served index.html and the short link landed on /dashboard.
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const root = resolve(__dirname, '../../..');
+    const vite = readFileSync(resolve(root, 'vite.config.ts'), 'utf8');
+    const block = vite.match(/navigateFallbackDenylist: \[([\s\S]*?)\n\s*\],/)?.[1] ?? '';
+    const deny = [...block.matchAll(/\/\^((?:\\\/|[^/\n])+)\//g)].map(m => new RegExp(`^${m[1]}`));
+    expect(deny.length).toBeGreaterThan(8);
+    const vercel = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'));
+    const sources = (vercel.rewrites as { source: string }[]).map(r => r.source).filter(s => !s.includes('(('));
+    expect(sources).toContain('/v/:n');
+    for (const source of sources) {
+      const sample = source.replace(/:[a-z]+\*?/g, '3');
+      expect(deny.some(re => re.test(sample)), `${source} (${sample})`).toBe(true);
+    }
+  });
+
   it('CON-UNIT-PUB-013 · one standard description everywhere; the build fails loudly on a changed index.html; Learn wears the app stylesheet', async () => {
     const copy = await import('../../content/landingCopy');
     const { landingHtml, builtCssHref } = await import('../../../scripts/landingHtml.mjs');
