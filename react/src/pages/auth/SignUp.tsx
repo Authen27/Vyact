@@ -119,13 +119,13 @@ export default function SignUp() {
       ) : (
       <form onSubmit={onSubmit}>
         <Field label="Full name">
-          <Input type="text" value={name} onChange={e => setName(e.target.value)} required autoFocus placeholder="Alex Morgan" />
+          <Input type="text" autoComplete="name" value={name} onChange={e => setName(e.target.value)} required autoFocus placeholder="Alex Morgan" />
         </Field>
         <Field label="Email">
-          <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com" />
+          <Input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com" />
         </Field>
         <Field label="Password" hint="min 8 chars">
-          <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={8} />
+          <Input type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={8} />
         </Field>
         {error && <div role="alert" className="text-terra text-[0.84rem] mb-3">{error}</div>}
         <Button full type="submit" disabled={submitting || !agreed}>

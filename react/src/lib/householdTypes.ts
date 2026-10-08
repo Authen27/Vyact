@@ -64,3 +64,13 @@ export function householdLimitMessage(err: unknown): string | null {
   if (msg.includes('HOUSEHOLD_TYPE_TOO_SMALL')) return 'This household has more members than that type allows.';
   return null;
 }
+
+/** W7a (audit FE-UIS-16) — the same refusal, worded for the person ACCEPTING an invite: they cannot
+ *  change the household's type, so they are told who can. Other errors pass through unchanged. */
+export function inviteAcceptMessage(err: unknown): string {
+  const msg = String((err as { message?: string })?.message ?? err ?? '');
+  if (msg.includes('HOUSEHOLD_FULL')) {
+    return 'This household is already full. Ask the person who invited you to change its type to Family, then send you a new invite.';
+  }
+  return msg || 'Could not accept the invitation.';
+}

@@ -2,12 +2,13 @@
 // finding. Vitest runs in node here (no DOM), so screen behaviour is pinned through the pure helpers
 // it uses and, where a page must use them, through its source.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { evaluateRecommendations } from '../plannerRules';
 import { buildBackup, BACKUP_FORMAT_VERSION } from '../backup';
 import { txnAccountLabel } from '../accounts';
 import { listNet, dayTotalsForMonth } from '../txnListTotals';
+import { inviteAcceptMessage } from '../householdTypes';
 import type { Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
@@ -67,6 +68,29 @@ describe('W7a · small app fixes', () => {
     expect(dayTotalsForMonth(rows, '2026-09', 'INR').size).toBe(0);
     expect(src('pages/Transactions.tsx')).not.toMatch(/effectiveAmount\(/);
     expect(src('components/transactions/TxnCalendar.tsx')).toMatch(/dayTotalsForMonth\(transactions, viewMonth, currency\)/);
+  });
+  it('W7a-UIS14-001 · controls carry labels and autocomplete hints (FE-UIS-14)', () => {
+    const hh = src('pages/Households.tsx');
+    expect(hh).toMatch(/aria-label=\{`Role for \$\{m\.display_name\}`\}/);
+    expect(hh).toMatch(/htmlFor="activity-actor"[\s\S]{0,200}id="activity-actor"/);
+    const ob = src('pages/Onboarding.tsx');
+    expect(ob).toMatch(/htmlFor="ob-name"[\s\S]{0,120}id="ob-name" autoComplete="given-name"/);
+    expect(ob).toMatch(/htmlFor="ob-income"/);
+    expect(ob).toMatch(/id="ob-income"/);
+    for (const g of ['ob-segment', 'ob-concerns', 'ob-schedule', 'ob-bills']) expect(ob).toContain(`aria-labelledby="${g}"`);
+    expect(ob).toMatch(/aria-label=\{`\$\{chip\.label\} amount per month`\}/);
+    expect(src('pages/auth/SignIn.tsx')).toMatch(/type="email" autoComplete="email"/);
+    expect(src('pages/auth/SignUp.tsx')).toMatch(/autoComplete="new-password"/);
+    expect(src('pages/auth/ResetPassword.tsx')).toMatch(/aria-label="New password"/);
+  });
+  it('W7a-UIS16-001 · Button is type="button" by default; invite refusals are words; dead modules gone (FE-UIS-16)', () => {
+    expect(src('components/ui/Button.tsx')).toMatch(/type = 'button'[\s\S]*<button type=\{type\}/);
+    expect(inviteAcceptMessage(new Error('HOUSEHOLD_FULL: a couple household has room for 2 members'))).toMatch(/already full/);
+    expect(inviteAcceptMessage(new Error('HOUSEHOLD_FULL: x'))).not.toMatch(/HOUSEHOLD_FULL/);
+    expect(inviteAcceptMessage(new Error('Invitation expired'))).toBe('Invitation expired');
+    expect(src('pages/auth/AcceptInvite.tsx')).toMatch(/setError\(inviteAcceptMessage\(e\)\)/);
+    expect(existsSync(resolve(__dirname, '../../components/education/WhyChip.tsx'))).toBe(false);
+    expect(existsSync(resolve(__dirname, '../insightsApi.ts'))).toBe(false);
   });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');

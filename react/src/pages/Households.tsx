@@ -491,7 +491,7 @@ function MembersList({
             </div>
             <div className="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto sm:flex-shrink-0">
               {canEditRole ? (
-                <Select value={m.role} className="w-full min-w-0 sm:w-[120px]"
+                <Select value={m.role} className="w-full min-w-0 sm:w-[120px]" aria-label={`Role for ${m.display_name}`}
                   onChange={async e => {
                     try { await changeMemberRole(m.id, e.target.value); onChanged(); toast('Role updated', 'success'); }
                     catch (err) { toast((err as Error).message, 'error'); }
@@ -836,10 +836,11 @@ function ActivityPanel({
         </div>
         {memberships.length > 1 && (
           <div className="ml-auto flex items-center gap-2">
-            <label className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
+            <label htmlFor="activity-actor" className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
               Member
             </label>
             <Select
+              id="activity-actor"
               value={activityActor}
               className="w-auto min-w-[140px]"
               onChange={e => setActivityActor(e.target.value)}
