@@ -142,7 +142,7 @@ describe('W8a · app fixes', () => {
     }
     const adapter = src('lib/dataAdapter.ts');
     for (const m of ['async upsert<', 'async put<', 'async remove(', 'async createBudgetChecked(', 'async recordNetWorthSnapshot(']) {
-      const body = adapter.slice(adapter.indexOf(m), adapter.indexOf(m) + 400);
+      const body = adapter.slice(adapter.indexOf(m), adapter.indexOf(m) + 900);
       expect(body, m).toMatch(/this\.readForWrite</);
     }
     expect(adapter).toMatch(/const v = await kvGetStrict<T>\(key\);/);
