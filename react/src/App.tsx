@@ -294,7 +294,9 @@ function AppShell() {
           <Route path="/privacy"      element={<Privacy />} />
           <Route path="/terms"        element={<Terms />} />
           <Route path="/cookies"      element={<Cookies />} />
-          <Route path="/__e2e_error"  element={<E2EErrorTest />} />
+          {/* W6 (audit FE-UIS-12): the page that always throws exists for Lane A (built in
+              'test' mode) only, never on vyact.app. */}
+          {import.meta.env.MODE !== 'production' && <Route path="/__e2e_error" element={<E2EErrorTest />} />}
           <Route path="*"             element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>

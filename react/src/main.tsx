@@ -5,8 +5,17 @@ import Userback from '@userback/widget';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import App from './App';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
-import { registerPwa } from './lib/pwa';
+import { registerPwa, forceReloadForUpdate } from './lib/pwa';
+import { shouldReloadForChunk, sessionStore } from './lib/chunkRecovery';
 import './index.css';
+
+// W6 (audit FE-UIS-12) — a tab on an older build that cannot load a chunk reloads ONCE to get the
+// new one (Vite fires this before the import rejects). A second failure within a minute is shown.
+window.addEventListener('vite:preloadError', (event) => {
+  if (!shouldReloadForChunk(sessionStore(), Date.now())) return;
+  event.preventDefault();
+  void forceReloadForUpdate();
+});
 
 // Feedback widget is best-effort and must NEVER block the app: a top-level
 // await here meant any Userback failure (adblocker, corporate proxy,

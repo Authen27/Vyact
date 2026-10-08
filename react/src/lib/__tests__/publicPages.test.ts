@@ -292,6 +292,10 @@ describe('the landing page (#9, #12, #19)', () => {
     const app = readFileSync(resolve(__dirname, '../../App.tsx'), 'utf8');
     const forms = readFileSync(resolve(__dirname, '../formRoutes.ts'), 'utf8');
     const declared = new Set([...app.matchAll(/path="\/([^"/*]+)/g), ...forms.matchAll(/'\/([a-z_-]+)\//g)].map(m => m[1]));
+    // W6 (FE-UIS-12): the always-throwing Lane A page is routed only outside production builds.
+    expect(app).toMatch(/import\.meta\.env\.MODE !== 'production' && <Route path="\/__e2e_error"/);
+    declared.delete('__e2e_error');
+    expect(mw.routeFor('/__e2e_error')).toBe('not-found');
     expect(declared.size).toBeGreaterThan(15);
     for (const seg of declared) expect(mw.routeFor(`/${seg}`), seg).toBe('next');
     for (const p of ['/onboarding', '/auth/sign-up', '/invite/abc', '/transactions/new', '/about', '/private']) expect(mw.routeFor(p), p).toBe('next');
