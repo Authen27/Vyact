@@ -2660,6 +2660,23 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/w7bPublicBuild.test.ts",
+      "feature": "Public site and build config (W7b)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "audit W7b: Vercel skip vs last deployed commit, no source maps + postbuild gate, dead config/deps removed, Learn read timeout + uncached empty library, pre-render cloud rule + $-safe insertions",
+      "count": 6,
+      "tests": [
+        "W7b · public site and build config W7b-GATE03-001 · production builds publish no source maps, and the build gate catches one (GATE-03)",
+        "W7b · public site and build config W7b-PLT11-001 · no stale root vercel.json, self-dependency, @supabase/ssr or Next.js scaffold (FE-PLT-11)",
+        "W7b · public site and build config W7b-PUB03-001 · the Learn read times out, and an empty library is a 503 that is not cached (FE-PUB-03)",
+        "W7b · public site and build config W7b-PUB07-001 · the deploy skip compares with the last deployed commit, and builds when unsure (FE-PUB-07, OPS-13)",
+        "W7b · public site and build config W7b-PUB10-001 · the landing pre-render decides cloud mode with the runtime rule (FE-PUB-10)",
+        "W7b · public site and build config W7b-PUB10-002 · landing copy and markup with \"$\" patterns are inserted as written (FE-PUB-10)"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/webPush.test.ts",
       "feature": "Web Push",
       "availability": "conditional",

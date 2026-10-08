@@ -14,6 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { landingHtml, builtCssHref } from './landingHtml.mjs';
+import { isCloudBuild } from './cloudMode.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
@@ -36,7 +37,8 @@ await build({
 
 const { renderLanding, copy } = await import(pathToFileURL(path.join(out, 'landing.mjs')).href);
 const env = loadEnv(mode, root, 'VITE_');
-const cloudMode = Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY);
+// W7b (FE-PUB-10): the runtime's own rule, not "the env file has a URL" (previews and the demo are local-only).
+const cloudMode = isCloudBuild({ mode, env, processEnv: process.env });
 
 const indexHtml = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
 fs.writeFileSync(path.join(dist, 'landing.html'), landingHtml(indexHtml, renderLanding(cloudMode), copy));

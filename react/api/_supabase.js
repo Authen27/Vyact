@@ -39,11 +39,17 @@ export function publicConfig() {
   return cached;
 }
 
+/** W7b (audit FE-PUB-03): how long a page waits for the database before answering "try again". A slow
+ *  upstream used to hold the function until Vercel's own limit, then fail without the 503 page. */
+export const READ_TIMEOUT_MS = 4000;
+
 /** Read published content with the public key (RLS: anon sees published rows only). */
 export async function readContent(query, fetchImpl = fetch) {
   const { url, key } = publicConfig();
   if (!key) throw new Error('no_public_key');
-  const r = await fetchImpl(`${url}/rest/v1/content_items?${query}`, { headers: { apikey: key } });
+  const r = await fetchImpl(`${url}/rest/v1/content_items?${query}`, {
+    headers: { apikey: key }, signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+  });
   if (!r.ok) throw new Error(`supabase ${r.status}`);
   return r.json();
 }
