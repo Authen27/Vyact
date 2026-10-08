@@ -19,6 +19,7 @@ import {
 } from '../lib/selectors';
 import { fmtShort, monthName, nowMonthKey, convert, today, formatDate } from '../lib/format';
 import { budgetLinesForMonth, monthlyData } from '../lib/calculations';
+import { debtToIncomePct, pctLabel } from '../lib/ratios';
 import { sortByUtilisation } from '../lib/budgetOrdering';
 import Money from '../components/ui/Money';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
@@ -82,7 +83,8 @@ export default function Dashboard() {
   const ta = netWorth.totalAssets;
   const tl = netWorth.totalLiabilities;
   const monthlyDebtPmt = useStore(selectMonthlyDebtPayment);
-  const dti = month.income > 0 ? (monthlyDebtPmt / month.income) * 100 : 0;
+  // W6 (audit FE-UIC-07): one definition with Debts; no income this month reads "—", not a green 0%.
+  const dti = debtToIncomePct(monthlyDebtPmt, month.income);
   // v9.1 §4 — flatten container budgets + allocations into per-category lines.
   // Scoped to the CURRENT month. This used to call budgetLines() across every
   // budget the household has ever had and then slice(0, 5), so the month you saw
@@ -331,8 +333,8 @@ export default function Dashboard() {
               <Row label="Monthly minimum" value={<Money amount={monthlyDebtPmt} currency={baseCur} maxChars={11} />} valueClass="text-honey" />
               <Row
                 label="Debt-to-income"
-                value={`${dti.toFixed(0)}%`}
-                valueClass={dti <= 25 ? 'text-sage' : dti <= 36 ? 'text-honey' : 'text-terra'}
+                value={pctLabel(dti, 0)}
+                valueClass={dti == null ? 'text-ink-dim' : dti <= 25 ? 'text-sage' : dti <= 36 ? 'text-honey' : 'text-terra'}
               />
             </div>
           )}

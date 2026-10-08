@@ -6,6 +6,7 @@ import { Panel } from '../components/ui/Card';
 import { fmt, fmtNet, convert, nowMonthKey } from '../lib/format';
 import Money from '../components/ui/Money';
 import { monthlyData } from '../lib/calculations';
+import { keptThisMonthPct, pctLabel } from '../lib/ratios';
 import { computeNetWorth, cardDues } from '../lib/netWorth';
 // v10.38.1 — the one spend baseline, shared with Ask Vyact so the two screens
 // cannot quote different months of cover for the same household.
@@ -86,7 +87,6 @@ export default function NetWorth() {
   // Same helper as the assistant's facts: one figure, whichever screen asks.
   const dues = cardDues(projection);
   const { income, expense } = monthlyData(transactions, nowMonthKey(), c, rates);
-  const monthlyIncome = income || 1;
 
   // v10.38.1 — ONE cover figure, on the SAME baseline as everywhere else.
   //
@@ -107,7 +107,8 @@ export default function NetWorth() {
   const typicalMonthly   = basis.averageMonthly;
   const monthsOfCover    = typicalMonthly > 0 ? la / typicalMonthly : 0;
   const debtToAsset      = ta > 0 ? tl / ta * 100 : 0;
-  const savingsRatio     = monthlyIncome > 0 ? ((monthlyIncome - expense) / monthlyIncome) * 100 : 0;
+  // W6 (audit FE-UIC-07): with no income yet this month it said "−499,900%"; now it says "—".
+  const savingsRatio     = keptThisMonthPct(income, expense);
   const coverBasisLabel  = basis.partialMonthOnly
     ? 'based on this month so far'
     : `based on your usual ${fmt(Math.round(typicalMonthly), c)} a month`;
@@ -252,14 +253,15 @@ export default function NetWorth() {
           },
           {
             label: 'Kept this month',
-            value: `${savingsRatio.toFixed(1)}%`,
-            sub: 'of what came in this month',
-            good: savingsRatio >= 20,
-            warn: savingsRatio >= 10,
+            value: pctLabel(savingsRatio, 1),
+            sub: savingsRatio == null ? 'no income recorded this month' : 'of what came in this month',
+            good: savingsRatio != null && savingsRatio >= 20,
+            warn: savingsRatio != null && savingsRatio >= 10,
+            muted: savingsRatio == null,
           },
-        ].map(r => (
+        ].map((r: { label: string; value: string; sub: string; good: boolean; warn: boolean; muted?: boolean }) => (
           <div key={r.label} className="rounded-r3 p-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
-            <div className={`num text-xl font-semibold mb-0.5 ${r.good ? 'text-sage' : r.warn ? 'text-honey' : 'text-terra'}`}>
+            <div className={`num text-xl font-semibold mb-0.5 ${r.muted ? 'text-ink-dim' : r.good ? 'text-sage' : r.warn ? 'text-honey' : 'text-terra'}`}>
               {r.value}
             </div>
             <div className="text-[0.78rem] font-semibold text-ink mb-0.5">{r.label}</div>
