@@ -160,6 +160,25 @@ describe('W8a · app fixes', () => {
     expect(page).toMatch(/title="Join this household\?"/);
   });
 
+  it('W8a-PRV09-001 · consent records the version the pages show, failures are reported, Google on sign-in records it (XC-PRV-09)', async () => {
+    const { POLICY_ACCEPTANCE_VERSION } = await import('../auth');
+    const { POLICY_VERSION } = await import('../policyVersion');
+    expect(POLICY_ACCEPTANCE_VERSION).toBe(POLICY_VERSION);          // was '2026-07-01' vs '2026-10-07'
+    expect(src('pages/Privacy.tsx')).toMatch(/import \{ POLICY_VERSION \} from '\.\.\/lib\/policyVersion';\s*export \{ POLICY_VERSION \};/);
+    // An existing acceptance of this version is not re-stamped.
+    expect(src('lib/auth.ts')).toMatch(/\.or\(`privacy_version\.is\.null,privacy_version\.neq\.\$\{POLICY_ACCEPTANCE_VERSION\}`\)/);
+    for (const f of ['pages/auth/SignUp.tsx', 'components/auth/AuthGate.tsx']) {
+      expect(src(f), f).not.toMatch(/acceptPolicies\([^)]*\)\.catch\(\(\) => \{\}\)/);
+      expect(src(f), f).toMatch(/unexpected\(e, 'consent:record'\)/);
+    }
+    // The pending flag is cleared only after the write succeeds.
+    expect(src('components/auth/AuthGate.tsx')).toMatch(/await acceptPolicies\(session\.user\.id\);\s*sessionStorage\.removeItem\('pending_policy_accept'\);/);
+    expect(src('pages/auth/SignIn.tsx')).toMatch(/<GoogleButton consentByContinuing \/>/);
+    const g = src('components/auth/GoogleButton.tsx');
+    expect(g).toMatch(/if \(requireAgreement \|\| consentByContinuing\) sessionStorage\.setItem\('pending_policy_accept', '1'\);/);
+    expect(g).toMatch(/By continuing with Google you agree to the/);
+  });
+
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {
     expect(languageOptionLabel('en')).toBe('English');
     for (const code of Object.keys(LOCALES).filter(c => c !== 'en')) {

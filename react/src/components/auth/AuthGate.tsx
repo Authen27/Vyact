@@ -6,6 +6,7 @@
 //   3. Cloud enabled, user NOT authed — render auth screen, redirect attempts back to original URL.
 
 import { type ReactNode, useEffect } from 'react';
+import { unexpected } from '../../lib/faults';
 import { useLocation, Navigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { isCloudEnabled, supabase } from '../../lib/supabase';
@@ -68,8 +69,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     }
     (async () => {
       if (sessionStorage.getItem('pending_policy_accept')) {
-        await acceptPolicies(session.user.id).catch(() => {});
-        sessionStorage.removeItem('pending_policy_accept');
+        // W8a (XC-PRV-09): a failed write is reported, and the flag stays so the next load retries it.
+        try {
+          await acceptPolicies(session.user.id);
+          sessionStorage.removeItem('pending_policy_accept');
+        } catch (e) { unexpected(e, 'consent:record'); }
       }
       const reactivated = await reactivateIfNeeded().catch(() => false);
       if (reactivated) toast('Welcome back — your account has been reactivated.', 'success');

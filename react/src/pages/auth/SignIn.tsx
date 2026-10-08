@@ -65,7 +65,7 @@ export default function SignIn() {
     <AuthShell title="Welcome back">
 
       {/* Primary CTA — Google SSO */}
-      <GoogleButton />
+      <GoogleButton consentByContinuing />
 
       <div className="my-4 flex items-center gap-3">
         <div className="flex-1 h-px bg-line" />
