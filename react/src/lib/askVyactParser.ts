@@ -228,14 +228,32 @@ export function matchAccountId(
     const digits = tail[1];
     const byTail = accounts.find(a => a.name.replace(/\D/g, '').endsWith(digits));
     if (byTail) return byTail.id;
+    // W8a (audit FE-PIP-15): a stated card/account number that matches nothing is not "any card".
+    return null;
   }
   const KIND_WORDS: Record<string, string> = {
     'credit card': 'credit_card', card: 'credit_card', bank: 'bank', cash: 'cash',
   };
+  // W8a (audit FE-PIP-15): the kind word alone ("my card") picks the account only when it is the
+  // household's ONLY account of that kind, and only when nothing else was named — "HDFC card" with an
+  // ICICI card on file used to book to the ICICI card.
+  const statedKind = Object.entries(KIND_WORDS).find(([w]) => raw.includes(w))?.[1];
+  const words = new Set(raw.split(/[^a-z0-9]+/).filter(Boolean));
+  // The bank named first in an account's name ("HDFC Card 1111" → hdfc), narrowed by the stated kind.
+  const byBank = accounts.filter(a => {
+    const first = a.name.toLowerCase().split(/[^a-z0-9]+/).find(Boolean) ?? '';
+    return first.length >= 3 && !(first in KIND_WORDS) && words.has(first) && (!statedKind || a.kind === statedKind);
+  });
+  if (byBank.length === 1) return byBank[0].id;
+  if (byBank.length > 1) return null;
+  const leftover = Object.keys(KIND_WORDS).reduce((s, w) => s.split(w).join(' '), raw)
+    .replace(/\b(my|the|a|an|our|account|acct|ac|a\/c|xx+)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+  if (leftover) return null;
   for (const [word, kind] of Object.entries(KIND_WORDS)) {
     if (raw.includes(word)) {
-      const byKind = accounts.find(a => a.kind === kind);
-      if (byKind) return byKind.id;
+      const ofKind = accounts.filter(a => a.kind === kind);
+      if (ofKind.length === 1) return ofKind[0].id;
+      if (ofKind.length > 1) return null;
     }
   }
   return null;

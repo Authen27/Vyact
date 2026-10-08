@@ -795,3 +795,20 @@ describe('no spending history (W8a, FE-PIP-13)', () => {
     expect(resolve(intent('forecast.runway'), withHistory).outcome).toBe('ok');
   });
 });
+
+describe('account matching (W8a, FE-PIP-15)', () => {
+  const accounts = [
+    { id: 'acc-icici-card', name: 'ICICI Card 3003', kind: 'credit_card' },
+    { id: 'acc-bank', name: 'ICICI Bank', kind: 'bank' },
+    { id: 'acc-cash', name: 'Cash in hand', kind: 'cash' },
+  ];
+  it('W8a-PIP15-001 · an unmatched bank or card number is no match; the kind word picks only a lone account', () => {
+    expect(matchAccountId('HDFC card', accounts)).toBeNull();          // was the ICICI card
+    expect(matchAccountId('card xx9999', accounts)).toBeNull();        // a tail that matches nothing
+    expect(matchAccountId('my card', accounts)).toBe('acc-icici-card'); // the only card
+    expect(matchAccountId('card xx3003', accounts)).toBe('acc-icici-card');
+    const twoCards = [...accounts, { id: 'acc-hdfc-card', name: 'HDFC Card 1111', kind: 'credit_card' }];
+    expect(matchAccountId('my card', twoCards)).toBeNull();            // ambiguous: ask, don't guess
+    expect(matchAccountId('HDFC card', twoCards)).toBe('acc-hdfc-card');
+  });
+});
