@@ -57,7 +57,7 @@ beforeAll(async () => {
       opening_balance numeric not null default 0, reconciliation_offset numeric, reconciliation_log jsonb, last_reconciled_at timestamptz,
       is_archived boolean not null default false, debt_id uuid, payment_modes text[] not null default '{}',
       created_at timestamptz not null default now(), updated_at timestamptz default now(), deleted_at timestamptz);
-    create table debts (id uuid primary key default gen_random_uuid(), household_id uuid, type text not null, name text not null,
+    create table debts (id uuid primary key default gen_random_uuid(), household_id uuid references households(id) on delete cascade, type text not null, name text not null,
       principal numeric, current_balance numeric not null check (current_balance >= 0), interest_rate numeric not null,
       minimum_payment numeric not null check (minimum_payment >= 0), due_date date, currency text not null default 'INR',
       direction text default 'owed_by_me', extras jsonb, created_at timestamptz not null default now(),
@@ -233,6 +233,13 @@ describe.sequential('the loan model (W4e)', () => {
     await db.exec(`insert into debts (id, household_id, type, name, current_balance, interest_rate, minimum_payment, direction)
       values ('30000000-0000-4000-8000-0000000000fa', '${HH}', 'family', 'Lent', 500, 0, 0, 'owed_to_me')`);
     expect((await db.query<{ r: { status: string } }>(`select delete_debt('30000000-0000-4000-8000-0000000000fa') as r`)).rows[0].r.status).toBe('deleted');
+    // The account purge deletes the household and its debts go with it by cascade: a loan still owed
+    // must not block that (the guard is for a debt deleted on its own).
+    await db.exec(`insert into households values ('20000000-0000-4000-8000-0000000000f9', 'INR');
+      insert into debts (id, household_id, type, name, current_balance, interest_rate, minimum_payment)
+      values ('30000000-0000-4000-8000-0000000000fb', '20000000-0000-4000-8000-0000000000f9', 'personal_loan', 'Owed', 9000, 10, 500)`);
+    await db.exec(`delete from households where id = '20000000-0000-4000-8000-0000000000f9'`);
+    expect((await db.query<{ n: number }>(`select count(*)::int as n from debts where id = '30000000-0000-4000-8000-0000000000fb'`)).rows[0].n).toBe(0);
   });
 
   it('W4-D19-009 · only a writing member may pay; a retry is a duplicate; a reused id with a different request is refused', async () => {

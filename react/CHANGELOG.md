@@ -187,6 +187,9 @@ then the current app keeps working through `record_loan_payment`.
   - `mark_loan_paid_off` reconciles the loan account to zero (offset and dated log, never a
     transaction) and closes the loan.
   - A loan with money still owed cannot be deleted, by `delete_debt` or by any other path.
+    Deleting the whole account is not blocked: when a household is purged (W1b) its debts go with
+    it by cascade, and the guard only covers a debt deleted on its own. (Found in the rolled-back
+    production test: without this, "Delete my account" failed for anyone with a loan still owed.)
 - **Cards are accounts (D30, owner):**
   - Every credit-card debt moves into a credit-card account: it merges with the account already
     linked to it, or a new one is opened at its outstanding. The debt row is archived.
