@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { Session } from '@supabase/supabase-js';
 import { useStore } from '../../store';
 import { kvGet, kvSet } from '../kvStore';
-import { claimDue, enqueueOp, IdbDriver, pendingCount, setDriverForTests } from '../sync/outbox';
+import { claimDue, enqueueOp, IdbDriver, nextWakeAt, pendingCount, setDriverForTests } from '../sync/outbox';
 import { purgeCachedCloudData } from '../cacheInvalidation';
 
 vi.mock('../supabase', () => ({ isCloudEnabled: () => false, supabase: null }));
@@ -77,4 +77,16 @@ it('W8a-SYN10-001 · Alice → Bob with no sign-out in between: Alice is cleared
   useStore.getState().setSession({ ...session('bob'), access_token: 'refreshed' });
   expect(init).toHaveBeenCalledOnce();
   expect(useStore.getState().transactions).toEqual([{ id: 'bob-txn' }]);
+});
+
+it('W8a-SYN11-001 · the outbox wakes when the HEAD op is due, not for a follower blocked behind it (FE-SYN-11)', async () => {
+  const now = Date.now();
+  // Head of transactions waits out an 8 s backoff; a follower for the same entity has no backoff.
+  await enqueueOp({ ts: 1, op: 'upsert', householdId: 'h', entity: 'transactions', payload: { id: 'a' }, nextRetryAt: now + 8000 } as never, 'alice');
+  await enqueueOp({ ts: 2, op: 'upsert', householdId: 'h', entity: 'transactions', payload: { id: 'b' } }, 'alice');
+  expect(await nextWakeAt('alice')).toBe(now + 8000);      // was 0 → a 100 ms poll for 8 s
+  // A different entity's due op still wakes at once.
+  await enqueueOp({ ts: 3, op: 'upsert', householdId: 'h', entity: 'budgets', payload: { id: 'c' } }, 'alice');
+  expect(await nextWakeAt('alice')).toBe(0);
+  expect(await nextWakeAt('bob')).toBeNull();
 });

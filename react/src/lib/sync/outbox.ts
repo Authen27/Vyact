@@ -181,7 +181,16 @@ export function pendingCountSync(): number {
 
 export async function nextWakeAt(ownerUid: string): Promise<number | null> {
   const rows = await getDriver().getAll();
-  const due = rows.filter(row => row.ownerUid === ownerUid).map(row => row.status === 'claimed'
+  // W8a (audit FE-SYN-11): only each resource's HEAD op can be claimed (claimDue blocks the rest behind
+  // it), so only heads decide the wake time. A follower with no backoff used to read as "due now" while
+  // its head waited out a backoff, and the flush loop polled every 100 ms for the whole wait.
+  const heads = new Map<string, StoredOp>();
+  for (const row of [...rows].sort((left, right) => left.seq - right.seq)) {
+    if (row.ownerUid !== ownerUid) continue;
+    const resource = `${row.householdId}:${row.entity ?? row.op}`;
+    if (!heads.has(resource)) heads.set(resource, row);
+  }
+  const due = [...heads.values()].map(row => row.status === 'claimed'
     ? (row.claimedAt ?? 0) + CLAIM_STALE_MS + 1 : row.nextRetryAt ?? 0);
   return due.length ? Math.min(...due) : null;
 }
