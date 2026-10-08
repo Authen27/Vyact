@@ -10,6 +10,7 @@ import { getInsights, recurringForecastByCategory } from '../calculations';
 import { recurringForecastByCategory as portForecast } from '../../../../supabase/functions/_shared/money/calculations';
 import { editSeedAccount } from '../accounts';
 import { parseAmount } from '../amountInput';
+import { accountLedgerRows } from '../accountLedger';
 import { parseAmountInput } from '../accountsView';
 import { sanitizeAmount } from '../../components/ui/NumericKeypad';
 import type { Account, Budget, BudgetAllocation, Transaction } from '../../types';
@@ -97,6 +98,24 @@ describe('W8a · app fixes', () => {
       expect(src(f), f).not.toMatch(/parseFloat\((form\.amount|form\.limit|amount|r\.amount)\)/);
     }
     expect(src('components/debts/LoanPaymentSheet.tsx')).toMatch(/: parseAmount\(amount\)/);
+  });
+
+  it('W8a-UIC15-001 · the ledger running balance undoes a reconcile adjustment when walking back past it (FE-UIC-15)', () => {
+    // Opening 1,000; spend 100 on the 2nd; reconcile +50 on the 5th; spend 200 on the 8th.
+    const account = {
+      id: 'acc', kind: 'bank', name: 'HDFC', currency: 'INR', openingBalance: 1000, reconciliationOffset: 50,
+      reconciliationLog: [{ at: '2026-10-05T10:00:00.000Z', delta: 50, kind: 'bank', stated_value: 950 }],
+    } as Account;
+    const txns = [
+      { id: 'a', type: 'expense', amount: 100, currency: 'INR', date: '2026-10-02', category: 'food_dining', description: 'A', accountId: 'acc' },
+      { id: 'b', type: 'expense', amount: 200, currency: 'INR', date: '2026-10-08', category: 'shopping', description: 'B', accountId: 'acc' },
+    ] as Transaction[];
+    const rows = accountLedgerRows(account, txns, 'INR', {});
+    expect(rows.map(r => [r.t.id, r.impact, r.runningAfter])).toEqual([
+      ['b', -200, 750],    // today's balance: 1000 − 100 + 50 − 200
+      ['a', -100, 900],    // was 950: the +50 reconcile on the 5th came after this row
+    ]);
+    expect(src('pages/Accounts.tsx')).toMatch(/accountLedgerRows\(account, txns, baseCur, rates\)/);
   });
 
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {
