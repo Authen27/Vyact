@@ -11,7 +11,7 @@ import { recurringForecastByCategory as portForecast } from '../../../../supabas
 import { editSeedAccount } from '../accounts';
 import { parseAmount } from '../amountInput';
 import { accountLedgerRows } from '../accountLedger';
-import { parseAmountInput } from '../accountsView';
+import { parseAmountInput, staleAccounts } from '../accountsView';
 import { sanitizeAmount } from '../../components/ui/NumericKeypad';
 import type { Account, Budget, BudgetAllocation, Transaction } from '../../types';
 
@@ -177,6 +177,23 @@ describe('W8a · app fixes', () => {
     const g = src('components/auth/GoogleButton.tsx');
     expect(g).toMatch(/if \(requireAgreement \|\| consentByContinuing\) sessionStorage\.setItem\('pending_policy_accept', '1'\);/);
     expect(g).toMatch(/By continuing with Google you agree to the/);
+  });
+
+  it('W8a-PAR05-001 · one stale-balance rule: a new account is fresh; push and Reply UPDATE agree (INT-PAR-05)', () => {
+    const now = new Date('2026-10-08T12:00:00Z');
+    const old = '2026-08-01T00:00:00Z';
+    const accounts = [
+      { id: 'cash-new', kind: 'cash', name: 'Cash', currency: 'INR', createdAt: '2026-10-08T09:00:00Z' },      // added today
+      { id: 'bank-old', kind: 'bank', name: 'HDFC', currency: 'INR', createdAt: old },                          // never checked, 68 days
+      { id: 'card-old', kind: 'credit_card', name: 'Card', currency: 'INR', createdAt: old },                   // cards count
+      { id: 'bank-rec', kind: 'bank', name: 'SBI', currency: 'INR', createdAt: old, lastReconciledAt: '2026-10-01T00:00:00Z' },
+      { id: 'inv-old', kind: 'investment', name: 'MF', currency: 'INR', createdAt: old },                        // not checked against a statement
+      { id: 'bank-arch', kind: 'bank', name: 'Old', currency: 'INR', createdAt: old, isArchived: true },
+    ] as Account[];
+    expect(staleAccounts(accounts, now).map(a => a.id)).toEqual(['bank-old', 'card-old']);
+    // The bell/push rule counts the same two (it used to say every never-stamped account, incl. today's cash).
+    expect(src('lib/notifications.ts')).toMatch(/const stale = staleAccounts\(accounts, new Date\(\)\);/);
+    expect(src('lib/serverEngine.ts')).toMatch(/return staleAccounts\(accounts, new Date\(nowMs\)\)/);
   });
 
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {

@@ -162,6 +162,23 @@ export function staleDays(
   return days > STALE_AFTER_DAYS ? days : null;
 }
 
+/** The account kinds whose balance a person checks against a statement (the Accounts screen's list). */
+export const STALE_CHECK_KINDS: readonly Account['kind'][] = ['bank', 'credit_card', 'cash'];
+
+/**
+ * W8a (audit INT-PAR-05) — THE stale-balance rule, for every surface: the bell / push notification,
+ * WhatsApp "Reply UPDATE" and the Accounts screen. Bank, card and cash accounts, not archived, whose
+ * last check (last reconcile, else the last log entry, else creation) is older than STALE_AFTER_DAYS.
+ * The push rule used to count investment accounts, skip cards, ignore `lastReconciledAt` and treat a
+ * never-stamped account as checked in 1970 — so a household was told "2 balances may be out of date"
+ * on the day it added them.
+ */
+export function staleAccounts<A extends Pick<Account, 'kind' | 'isArchived' | 'lastReconciledAt' | 'reconciliationLog' | 'createdAt'>>(
+  accounts: readonly A[], now: Date,
+): A[] {
+  return accounts.filter(a => !a.isArchived && STALE_CHECK_KINDS.includes(a.kind) && staleDays(a, now) !== null);
+}
+
 // ── summary ──────────────────────────────────────────────────────────────────
 
 export interface AccountsSummary {
