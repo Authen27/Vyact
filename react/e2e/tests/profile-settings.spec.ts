@@ -44,24 +44,22 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
     await page.setViewportSize({ width: 1280, height: 900 });   // dashboard metric tiles are desktop-only
   });
 
-  test('PROFILE-FC-001 · edit name and email persists after save and reload', async ({ page }) => {
+  // W6 (audit FE-UIS-06): the Email input is gone — in cloud mode it saved nowhere while saying
+  // "Profile saved". The account email is shown, not edited, on this screen.
+  test('PROFILE-FC-001 · edit name persists after save and reload; email is not an editable field', async ({ page }) => {
     await page.goto('/settings');
     await page.waitForURL('**/settings');
 
+    await expect(page.getByRole('textbox', { name: 'Email' })).toHaveCount(0);
     await page.getByLabel('Display Name').fill('PROFILE-FC-001 User');
-    await page.getByLabel('Email').fill('profile-fc-001@example.com');
     await page.getByRole('button', { name: 'Save Profile' }).click();
 
     await expect(page.getByText('Profile saved')).toBeVisible();
-    await expect.poll(() => storeState(page, 'profile')).toMatchObject({
-      name: 'PROFILE-FC-001 User',
-      email: 'profile-fc-001@example.com',
-    });
+    await expect.poll(() => storeState(page, 'profile')).toMatchObject({ name: 'PROFILE-FC-001 User' });
 
     await page.reload();
     await page.waitForURL('**/settings');
     await expect(page.getByLabel('Display Name')).toHaveValue('PROFILE-FC-001 User');
-    await expect(page.getByLabel('Email')).toHaveValue('profile-fc-001@example.com');
   });
 
   test('PROFILE-FC-002 · changing base currency reformats computed money displays', async ({ page }) => {
