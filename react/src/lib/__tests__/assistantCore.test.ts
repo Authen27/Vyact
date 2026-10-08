@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryResult } from './helpers/edgeHarness';
 
 const MODEL = { id: 'm-1', seam: 'assistant', provider: 'openai', model: 'gpt-x', base_url: 'https://api.example.com',
-  key_env_var: 'TEST_MODEL_KEY', params: {}, enabled: true, priority: 10 };
+  key_env_var: 'LLM_TEST_KEY', params: {}, enabled: true, priority: 10 };
 const RELAY = { id: 'r-1', seam: 'assistant', provider: 'claude-code-relay', model: 'relay', base_url: null,
   key_env_var: null, params: { allowed_user_ids: ['alice'] }, enabled: true, priority: 1 };
 
@@ -24,7 +24,7 @@ function admin(opts: { rows?: unknown[]; reserveError?: { code?: string; message
 
 beforeEach(() => {
   vi.resetModules();
-  vi.stubGlobal('Deno', { env: { get: (k: string) => (k === 'TEST_MODEL_KEY' ? 'sk-test' : undefined) } });
+  vi.stubGlobal('Deno', { env: { get: (k: string) => (k === 'LLM_TEST_KEY' ? 'sk-test' : undefined) } });
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
     choices: [{ message: { content: 'Here you go.' }, finish_reason: 'stop' }],
     usage: { prompt_tokens: 12, completion_tokens: 4, total_tokens: 16 },
