@@ -86,8 +86,8 @@ describe('category model · transport merged into travel', () => {
 // if — and the failure mode is quiet: a category the app offers is rejected by
 // the WhatsApp parser as unknown, so a logged expense silently lands in
 // "other" or asks for clarification the user cannot resolve.
-import { EXPENSE_IDS as WA_EXPENSE_IDS } from '../../../../supabase/functions/_shared/whatsapp-parser';
-import { EXPENSE_IDS as AGENT_EXPENSE_IDS } from '../../../../supabase/functions/_shared/agent/types';
+import { EXPENSE_IDS as WA_EXPENSE_IDS, INCOME_IDS as WA_INCOME_IDS } from '../../../../supabase/functions/_shared/whatsapp-parser';
+import { EXPENSE_IDS as AGENT_EXPENSE_IDS, INCOME_IDS as AGENT_INCOME_IDS } from '../../../../supabase/functions/_shared/agent/types';
 
 describe('category model · the client, WhatsApp and agent sets must not drift', () => {
   const client = new Set(EXPENSE_CATEGORIES.map(c => c.id) as string[]);
@@ -98,5 +98,16 @@ describe('category model · the client, WhatsApp and agent sets must not drift',
 
   it('CON-UNIT-162 · the agent accepts exactly what the app offers', () => {
     expect([...AGENT_EXPENSE_IDS].sort()).toEqual([...client].sort());
+  });
+
+  // W7a (audit INT-CON-05) — the income sets are copied the same way and drifted unchecked.
+  const clientIncome = INCOME_CATEGORIES.map(c => c.id as string).sort();
+
+  it('W7a-CON05-001 · the WhatsApp parser accepts exactly the income categories the app offers', () => {
+    expect([...WA_INCOME_IDS].sort()).toEqual(clientIncome);
+  });
+
+  it('W7a-CON05-002 · the agent accepts exactly the income categories the app offers', () => {
+    expect([...AGENT_INCOME_IDS].sort()).toEqual(clientIncome);
   });
 });
