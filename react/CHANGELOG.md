@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.81.0`** (consumer)
+> **Current production version: `v10.82.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,38 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.82.0 — W8a: app fixes from the audit's open items *(2026-10-08)*
+
+Sixteen app fixes from the 2026-10-04 audit's remaining low and medium items (owner plan W8, batch a).
+No schema change. The server engine bundle is rebuilt: Pip, the stale-balance rule and the budget
+forecast live in it.
+
+- **Language (FE-UIS-15).** The five partly translated languages are labelled "Preview: navigation only",
+  and Settings says so when one is chosen (owner decision: keep them, labelled).
+- **Dashboard chips (FE-MNY-06).** "Budgets exceeded" reads this month's budget lines (allocations, not a
+  container's missing category; annual lines never against one month), and "Net worth" reads the same
+  projection as the Net Worth page.
+- **Budget forecast (FE-MNY-16).** Paused schedules and loan EMIs are no longer forecast as category spend
+  (app and the server's copy).
+- **Editing (FE-UIC-05, FE-UIC-09).** A transaction edit opens on the account the ledger uses (the account
+  link), not a stale payment method; an asset edit keeps the row's links and its precondition.
+- **Decimal comma (FE-UIC-10).** "12,50" is 12.5 (it was saved as 1250); "1,50,000" is still grouping. One
+  parser, `lib/amountInput.ts`, for every amount field.
+- **Account ledger (FE-UIC-15).** The running balance undoes a reconcile adjustment as it walks back past
+  it; amounts are signed and formatted.
+- **Pip (FE-PIP-13, FE-PIP-15, FE-PIP-16).** With no spending history Pip says so instead of a sentinel
+  runway or "0.0 months"; a stated bank or card number that matches nothing books to no account (it fell
+  back to the first card); Stop, New chat and leaving the chat abort the model call, with a 30 s deadline.
+- **Sync (FE-SYN-10, FE-SYN-11, FE-SYN-12).** A different user signing in without a sign-out clears and
+  purges the previous user's data first; the outbox wakes when the head op is due (no 100 ms polling);
+  a failed device-storage read is never written back as an empty list.
+- **Invites (FE-PLT-07).** A signed-in visit to an invite link asks "Join this household?" first.
+- **Consent (XC-PRV-09).** The version recorded is the one the policy pages show (it was 2026-07-01); a
+  failed write is reported and retried; "Continue with Google" on the sign-in page states and records the
+  agreement.
+- **Stale balances (INT-PAR-05).** One rule (`staleAccounts`: bank, card and cash, by the last check, else
+  creation) for the bell, push and WhatsApp "Reply UPDATE". A just-added account is no longer "out of date".
 
 ## v10.81.0 — W7b: public site and build config (batch C) *(2026-10-08)*
 

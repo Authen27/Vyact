@@ -25,21 +25,21 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1536 passing deterministic cases in 129 files. Zero failed, skipped or TODO cases at generation.**
+**1554 passing deterministic cases in 130 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 14 |
-| react | contract-unit | conditional | 121 |
+| react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 79 |
 | react | sql-integration | conditional | 48 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
-| react | store-integration | conditional | 10 |
-| react | unit | available | 370 |
-| react | unit | conditional | 184 |
+| react | store-integration | conditional | 12 |
+| react | unit | available | 382 |
+| react | unit | conditional | 186 |
 | react | unit | infrastructure | 601 |
 
 ### Executed Files
@@ -71,7 +71,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/askVyact.test.ts](../react/src/lib/__tests__/askVyact.test.ts) | Ask Vyact | unit | conditional | 30 |
 | [react/src/lib/__tests__/askVyactContract.test.ts](../react/src/lib/__tests__/askVyactContract.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
-| [react/src/lib/__tests__/askVyactFacts.test.ts](../react/src/lib/__tests__/askVyactFacts.test.ts) | Ask Vyact | unit | conditional | 65 |
+| [react/src/lib/__tests__/askVyactFacts.test.ts](../react/src/lib/__tests__/askVyactFacts.test.ts) | Ask Vyact | unit | conditional | 67 |
 | [react/src/lib/__tests__/assistantCore.test.ts](../react/src/lib/__tests__/assistantCore.test.ts) | Ask Vyact on the server | unit | conditional | 2 |
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |
@@ -85,7 +85,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/categoryModel.test.ts](../react/src/lib/__tests__/categoryModel.test.ts) | Categories and ordering | unit | available | 10 |
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
 | [react/src/lib/__tests__/chunkRecovery.test.ts](../react/src/lib/__tests__/chunkRecovery.test.ts) | Frontend guards (W6) | unit | available | 3 |
-| [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 7 |
+| [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 9 |
 | [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 3 |
 | [react/src/lib/__tests__/demoSeed.test.ts](../react/src/lib/__tests__/demoSeed.test.ts) | First-run demo household | unit | available | 2 |
 | [react/src/lib/__tests__/eraseHouseholdSql.test.ts](../react/src/lib/__tests__/eraseHouseholdSql.test.ts) | Household erase SQL | sql-integration | conditional | 4 |
@@ -146,7 +146,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/reportsModel.test.ts](../react/src/lib/__tests__/reportsModel.test.ts) | Reports and Ask guidance | unit | available | 6 |
 | [react/src/lib/__tests__/rrule.test.ts](../react/src/lib/__tests__/rrule.test.ts) | Recurring and budgets | unit | available | 11 |
 | [react/src/lib/__tests__/serverEngine.test.ts](../react/src/lib/__tests__/serverEngine.test.ts) | Ask Vyact on the server | unit | conditional | 4 |
-| [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 2 |
+| [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 4 |
 | [react/src/lib/__tests__/settingsHouseholdRow.test.ts](../react/src/lib/__tests__/settingsHouseholdRow.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/sharedSplitsWorkflow.test.ts](../react/src/lib/__tests__/sharedSplitsWorkflow.test.ts) | Shared splits | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/shortcuts.test.ts](../react/src/lib/__tests__/shortcuts.test.ts) | Frontend guards (W6) | unit | available | 3 |
@@ -165,6 +165,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/w7aAppFixes.test.ts](../react/src/lib/__tests__/w7aAppFixes.test.ts) | Small app fixes (W7a) | unit | available | 13 |
 | [react/src/lib/__tests__/w7bPublicBuild.test.ts](../react/src/lib/__tests__/w7bPublicBuild.test.ts) | Public site and build config (W7b) | contract-unit | available | 6 |
+| [react/src/lib/__tests__/w8aAppFixes.test.ts](../react/src/lib/__tests__/w8aAppFixes.test.ts) | App fixes (W8a) | unit | available | 12 |
 | [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 10 |
 | [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 7 |
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |

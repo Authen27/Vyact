@@ -144,6 +144,8 @@ describe('passive sign-out (W7a, audit FE-PLT-08)', () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
     const slice = readFileSync(resolve(__dirname, '../../store/slices/cloudAuthSlice.ts'), 'utf8');
-    expect(slice).toMatch(/wasSignedIn && !isSignedIn[\s\S]*?void forgetPushOnDevice\(\);[\s\S]*?set\(\{\s*households: \[\]/);
+    // W8a (FE-SYN-10): the cleared state is the shared SIGNED_OUT_STATE (also used on a switch of user).
+    expect(slice).toMatch(/wasSignedIn && !isSignedIn[\s\S]*?void forgetPushOnDevice\(\);[\s\S]*?set\(\{ \.\.\.SIGNED_OUT_STATE \}\)/);
+    expect(slice).toMatch(/export const SIGNED_OUT_STATE = \{\s*households: \[\]/);
   });
 });
