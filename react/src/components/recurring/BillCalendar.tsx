@@ -4,6 +4,7 @@
 // occurrence awaiting approval can be approved or skipped here, through the same
 // store actions the notification uses. Nothing is posted by viewing it.
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { billCalendar, type BillOccurrence, type BillStatus } from '../../lib/billCalendar';
 import { fmt, formatDate, today } from '../../lib/format';
@@ -29,6 +30,9 @@ function dayHeading(date: string, dateFormat: Parameters<typeof formatDate>[1]):
 export default function BillCalendar() {
   const schedules = useStore(s => s.recurringSchedules);
   const transactions = useStore(s => s.transactions);
+  const debts = useStore(s => s.debts);
+  const accounts = useStore(s => s.accounts);
+  const navigate = useNavigate();
   const baseCurrency = useStore(s => s.profile.baseCurrency);
   const dateFormat = useStore(s => s.profile.dateFormat);
   const rates = useStore(s => s.rates);
@@ -39,8 +43,8 @@ export default function BillCalendar() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const calendar = useMemo(
-    () => billCalendar({ schedules, transactions, baseCurrency, rates, horizonDays: horizon }),
-    [schedules, transactions, baseCurrency, rates, horizon],
+    () => billCalendar({ schedules, transactions, baseCurrency, rates, horizonDays: horizon, debts, accounts }),
+    [schedules, transactions, baseCurrency, rates, horizon, debts, accounts],
   );
 
   const keyOf = (item: BillOccurrence) => `${item.scheduleId}|${item.date}`;
@@ -121,7 +125,13 @@ export default function BillCalendar() {
                       <span className={`num text-sm ${isIncome ? 'text-sage' : 'text-ink'}`}>
                         {isIncome ? '+' : item.type === 'expense' ? '−' : ''}{fmt(item.amount, baseCurrency)}
                       </span>
-                      {item.actionable && (
+                      {item.actionable && item.debtId && (
+                        // W4g (D19): a loan's EMI is paid from the loan (its Pay sheet), never approved here.
+                        <div className="flex gap-2 w-full sm:w-auto sm:ml-2">
+                          <button type="button" className="btn-primary min-h-[44px] px-4" onClick={() => navigate(`/debts?pay=${item.debtId}`)}>Pay</button>
+                        </div>
+                      )}
+                      {item.actionable && !item.debtId && (
                         <div className="flex gap-2 w-full sm:w-auto sm:ml-2">
                           <button type="button" className="btn-primary min-h-[44px] px-4" disabled={busy === keyOf(item)} onClick={() => approve(item)}>Approve</button>
                           <button type="button" className="btn-ghost min-h-[44px] px-3" disabled={busy === keyOf(item)} onClick={() => skip(item)}>Skip once</button>

@@ -4697,7 +4697,7 @@ function debtDueNotifs(debts, prefs, existing, ctx) {
 	if (!typeEnabled(prefs, "debt_payment_due")) return [];
 	const out = [];
 	for (const d of debts) {
-		if (d.direction === "owed_to_me" || !d.dueDate || d.currentBalance <= 0) continue;
+		if (d.direction === "owed_to_me" || !d.dueDate || d.currentBalance <= 0 || d.paidOffAt) continue;
 		const n = daysUntil(d.dueDate, ctx.tz);
 		if (n < 0 || n > 3) continue;
 		const key = `debt_payment_due:${d.id}:${d.dueDate}`;
@@ -4706,12 +4706,12 @@ function debtDueNotifs(debts, prefs, existing, ctx) {
 		out.push({
 			...base("debt_payment_due", key, ctx),
 			title: `${d.name} payment · ${fmt$1(amt, ctx.baseCurrency)} — due ${relDate(d.dueDate, ctx.tz)}`,
-			body: "Minimum payment coming up",
+			body: d.autoRecord ? "Vyact records this EMI on the day" : "EMI coming up",
 			dueAt: d.dueDate,
 			amountRef: amt,
 			debtId: d.id,
 			deepLink: `/debts?debtId=${d.id}`,
-			actions: [A("record", "Record payment", "primary"), A("view", "View debt", "ghost")]
+			actions: d.autoRecord ? [A("view", "View loan", "ghost")] : [A("record", "Record payment", "primary"), A("view", "View loan", "ghost")]
 		});
 	}
 	return out;

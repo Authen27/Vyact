@@ -648,6 +648,12 @@ async function logParsed(
   priorAttempts: number, opts: { skipDuplicateCheck?: boolean; shared?: boolean } = {},
 ): Promise<InboundOutcome> {
   const householdId = profile.whatsapp_household_id!;
+  // W4g (D19; audit BE-WA-08): an EMI pays a LOAN. Logged as a Loan / EMI expense it was booked whole
+  // as spending and the loan never moved; now the loan's own instalment is paid, split by the server.
+  // The parser's longest-keyword rule reads "paid … emi" as salary/other, so the EMI wording is read here too.
+  if (tx.transaction_type === 'expense' && (tx.category_id === 'loan_emi' || EMI_WORDS.test(tx.description ?? ''))) {
+    return payLoanFromChat(supabase, message, fromPhone, profile, tx, priorAttempts);
+  }
   if (!opts.skipDuplicateCheck && (tx.transaction_type === 'expense' || tx.transaction_type === 'income')) {
     const since = new Date(Date.now() - DUPLICATE_WINDOW_MINUTES * 60_000).toISOString();
     const { data: twins, error: twinError } = await supabase.from('transactions').select('created_at')
@@ -812,6 +818,72 @@ async function approveFromReply(
       };
       body = why[r.reason ?? ''] ?? `I couldn't approve ${name} from here. You can do it in the app: ${APP_URL}/recurring`;
     }
+  }
+  return { status: 'done', note: await reply(fromPhone, body) };
+}
+
+/**
+ * W4g (v10.76.0) — "paid car EMI 15000": the loan the words name (or the only loan there is) is paid
+ * through `whatsapp_pay_loan` → loan_payment_core: interest first, then principal, for the instalment
+ * due. More than the instalment is not logged — the extra is a prepayment, recorded in the app (owner).
+ */
+const EMI_WORDS = /\b(emi|loan\s+payment|loan\s+instal+ment)\b/i;
+
+async function payLoanFromChat(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, tx: ParsedTx, priorAttempts: number,
+): Promise<InboundOutcome> {
+  const householdId = profile.whatsapp_household_id!;
+  const { data: rows, error: loanError } = await supabase.from('debts').select('id, name, direction')
+    .eq('household_id', householdId).is('deleted_at', null).is('paid_off_at', null);
+  if (loanError) return retryOrGiveUp(fromPhone, priorAttempts, `loans: ${loanError.message}`);
+  const loans = ((rows ?? []) as { id: string; name: string; direction: string | null }[])
+    .filter(l => (l.direction ?? 'owed_by_me') === 'owed_by_me');
+  const said = ` ${String(tx.description ?? '').toLowerCase()} `;
+  const named = loans.filter(l => l.name.toLowerCase().split(/\s+/).some(w => w.length > 2 && w !== 'loan' && w !== 'emi' && said.includes(w)));
+  const loan = named.length === 1 ? named[0] : loans.length === 1 ? loans[0] : undefined;
+  const amountText = moneyText(tx.amount, tx.currency);
+  if (!loan) {
+    const body = loans.length
+      ? `Which loan is this EMI for? Reply with its name, e.g. "paid ${loans[0].name} EMI ${tx.amount}".`
+      : `You have no loans in Vyact yet. Add one in the app first: ${APP_URL}/debts`;
+    return { status: 'done', note: await reply(fromPhone, body) };
+  }
+  const { data, error } = await supabase.rpc('whatsapp_pay_loan', {
+    p_profile_id: profile.id,
+    p_household_id: householdId,
+    p_debt_id: loan.id,
+    p_amount: tx.amount,
+    p_date: tx.date ?? localDay(message, profile.timezone).toISOString().slice(0, 10),
+    p_wa_message_id: message.id,
+    p_account_alias: tx.account_alias || null,
+  });
+  if (error) return retryOrGiveUp(fromPhone, priorAttempts, `pay loan: ${error.message}`);
+  const r = (data ?? {}) as {
+    status?: string; reason?: string; figure?: string | null; interest?: number; principal?: number; instalment_no?: number;
+    closes_instalment?: boolean; paid_off?: boolean; outstanding_after?: number; next_due_date?: string | null;
+  };
+  const cur = tx.currency;
+  let body: string | undefined;
+  if (r.status === 'duplicate') return { status: 'done' };
+  if (r.status === 'success') {
+    body = r.paid_off
+      ? `Logged: ${loan.name} is paid off. 🎉`
+      : r.closes_instalment
+        ? `Logged EMI #${r.instalment_no} for ${loan.name}: ${moneyText(Number(r.interest), cur)} interest, ${moneyText(Number(r.principal), cur)} off the loan. ${moneyText(Number(r.outstanding_after), cur)} left${r.next_due_date ? `; next EMI due ${dueDayText(r.next_due_date)}` : ''}.`
+        : `Logged ${amountText} toward EMI #${r.instalment_no} for ${loan.name}. The rest of this EMI is still due.`;
+  } else if (r.status === 'refused') {
+    const figure = r.figure != null && r.figure !== '' ? moneyText(Number(r.figure), cur) : '';
+    const why: Record<string, string> = {
+      more_than_due: `This EMI for ${loan.name} is ${figure}, so I haven't logged ${amountText}. Reply "paid ${loan.name} EMI ${r.figure}", and record anything extra as a prepayment in the app: ${APP_URL}/debts`,
+      loan_paid_off: `${loan.name} is already paid off.`,
+      funding_account_invalid: `Which account was it paid from? e.g. "paid ${loan.name} EMI ${tx.amount} hdfc".`,
+      no_emi: `${loan.name} has no EMI set. Add it in the app: ${APP_URL}/debts`,
+    };
+    body = why[r.reason ?? ''] ?? `I couldn't record that EMI. You can pay it in the app: ${APP_URL}/debts?pay=${loan.id}`;
+  } else if (r.reason === 'not_a_member' || r.reason === 'read_only_member') {
+    body = 'This number is no longer able to log to that household. Relink it in Settings → WhatsApp, or ask the household owner about your access.';
+  } else {
+    body = `I couldn't record that EMI. You can pay it in the app: ${APP_URL}/debts?pay=${loan.id}`;
   }
   return { status: 'done', note: await reply(fromPhone, body) };
 }

@@ -43,6 +43,9 @@ interface FormState {
   tenureMonths: string;
   firstEmiDate: string;
   nextEmiDate: string;
+  /** W4g — the server records each EMI on its date, from this account. */
+  autoRecord: boolean;
+  fundingAccountId: string;
 }
 
 /** Loan types: everything but cards, which are accounts now (D30). */
@@ -51,6 +54,7 @@ const LOAN_TYPES = Object.entries(DEBT_TYPES).filter(([k]) => k !== 'credit_card
 const blank = (): FormState => ({
   direction: 'owed_by_me', counterpartyName: '', type: 'personal_loan', name: '', lender: '', account: '',
   principal: '', outstanding: '', interestRate: '', rateFrom: '', emi: '', tenureMonths: '', firstEmiDate: '', nextEmiDate: '',
+  autoRecord: false, fundingAccountId: '',
 });
 
 /** Instalments between the first EMI and the next one (the next is unpaid). */
@@ -102,6 +106,8 @@ export default function DebtFormModal(props: Props) {
         tenureMonths: initial.tenureMonths != null ? String(initial.tenureMonths) : '',
         firstEmiDate: initial.firstEmiDate ?? '',
         nextEmiDate: initial.dueDate ?? '',
+        autoRecord: !!initial.autoRecord,
+        fundingAccountId: initial.fundingAccountId ?? '',
       });
     } else {
       setForm(blank());
@@ -109,6 +115,7 @@ export default function DebtFormModal(props: Props) {
   }, [open, initial]);
 
   const isLoan = form.direction === 'owed_by_me';
+  const payFrom = useMemo(() => accounts.filter(a => (a.kind === 'bank' || a.kind === 'cash') && !a.isArchived), [accounts]);
   const rateChanged = !!initial && isLoan && Number(form.interestRate) !== initial.interestRate && form.interestRate !== '';
   const suggested = useMemo(() => {
     const p = Number(form.principal), r = Number(form.interestRate), n = parseInt(form.tenureMonths, 10);
@@ -139,6 +146,8 @@ export default function DebtFormModal(props: Props) {
       if (!(outstanding >= 0)) { toast('Enter what is still owed', 'error'); return; }
       if (!(rate >= 0 && rate < 100)) { toast('Enter the interest rate (% a year)', 'error'); return; }
       if (!(emi > 0)) { toast('Enter the EMI (use the suggested one, or your bank letter)', 'error'); return; }
+      if (form.autoRecord && !form.fundingAccountId) { toast('Choose the account the EMI is paid from', 'error'); return; }
+      if (form.autoRecord && !(form.nextEmiDate || form.firstEmiDate)) { toast('Add the next EMI date so Vyact knows when to record it', 'error'); return; }
       const next = form.nextEmiDate || form.firstEmiDate || undefined;
       const first = form.firstEmiDate || next;
 
@@ -171,6 +180,8 @@ export default function DebtFormModal(props: Props) {
         dueDate: next,
         instalmentsPaid: initial ? initial.instalmentsPaid : instalmentsBetween(first ?? '', next ?? ''),
         termsConfirmed: true,
+        autoRecord: form.autoRecord,
+        fundingAccountId: form.fundingAccountId || undefined,
         currency,   // W3b: one currency per household
       });
       toast(initial ? 'Loan updated' : 'Loan added', 'success');
@@ -288,6 +299,27 @@ export default function DebtFormModal(props: Props) {
                 onChange={e => setForm(f => ({ ...f, nextEmiDate: e.target.value }))} />
             </Field>
           </FieldRow>
+
+          {/* W4g (D19) — the server records the EMI on its date (interest + principal, split by it). */}
+          <div className="flex items-center gap-2.5 py-2.5">
+            <span className="font-display font-semibold text-[13px] text-ink">Record each EMI automatically</span>
+            <span className="text-[10.5px] text-ink-dim">{form.autoRecord ? 'on its date' : 'you pay it here'}</span>
+            <button type="button" role="switch" aria-checked={form.autoRecord} aria-label="Record each EMI automatically"
+              onClick={() => setForm(f => ({ ...f, autoRecord: !f.autoRecord }))}
+              className="ml-auto relative w-[44px] h-[26px] rounded-pill border-none cursor-pointer flex-shrink-0"
+              style={{ background: form.autoRecord ? 'color-mix(in srgb, hsl(var(--sage)) 40%, var(--sunken))' : 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+              <i aria-hidden className="absolute top-[3px] w-5 h-5 rounded-full transition-[left] duration-150"
+                style={{ left: form.autoRecord ? 21 : 3, background: form.autoRecord ? 'hsl(var(--sage))' : 'var(--ff-ink-3)', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }} />
+            </button>
+          </div>
+          {form.autoRecord && (
+            <Field label="Paid from">
+              <Select value={form.fundingAccountId} onChange={e => setForm(f => ({ ...f, fundingAccountId: e.target.value }))} required>
+                <option value="">Choose account</option>
+                {payFrom.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </Select>
+            </Field>
+          )}
         </>
       )}
     </FormPage>

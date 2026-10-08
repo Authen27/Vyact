@@ -21,7 +21,8 @@
 //     fast-forwards it without posting, so it will never become a transaction.
 //   • Nothing here posts, approves or skips. Totals are a commitment preview in the
 //     household currency, not a forecast of the account balance.
-import type { ExchangeRates, RecurringSchedule, Transaction } from '../types';
+import type { Account, Debt, ExchangeRates, RecurringSchedule, Transaction } from '../types';
+import { loanView } from './loanSchedule';
 import { convert, today } from './format';
 import { addDaysISO, isStaleOccurrence, recurringInstanceId, ruleOf, policyOf } from './recurring';
 import { expandRRule } from './rrule';
@@ -29,7 +30,10 @@ import { expandRRule } from './rrule';
 export type BillStatus = 'posted' | 'awaiting-approval' | 'auto' | 'approval-when-due';
 
 export interface BillOccurrence {
+  /** The schedule's id; for a loan EMI, `loan:<debt id>` (see `debtId`). */
   scheduleId: string;
+  /** W4g — set when this is a loan's EMI: it is paid from the loan, never approved as a schedule. */
+  debtId?: string;
   date: string;
   description: string;
   type: 'expense' | 'income' | 'investment' | 'transfer';
@@ -71,6 +75,9 @@ export function billCalendar(input: {
   rates: ExchangeRates;
   horizonDays: number;
   now?: string;
+  /** W4g (D19) — the loans whose EMIs belong on the calendar, read from each loan's own schedule. */
+  debts?: Debt[];
+  accounts?: Account[];
 }): BillCalendar {
   const now = input.now ?? today();
   const to = addDaysISO(now, Math.max(0, input.horizonDays - 1));
@@ -102,6 +109,27 @@ export function billCalendar(input: {
         scheduleId: schedule.id, date, description: template.description ?? '', type, category: template.category ?? '',
         amount, currency, baseAmount: round2(convert(amount, currency, input.baseCurrency, input.rates)),
         status, actionable: status === 'awaiting-approval', overdue: date < now,
+      });
+    }
+  }
+
+  // W4g (D19) — each loan's EMIs from its own schedule (loanView): the due one (what is left of it, when
+  // part-paid; overdue if its date has passed) and the next ones in the window. An auto-recorded loan's
+  // EMI "posts automatically" (the server records it on the day); any other is paid from the loan.
+  for (const debt of input.debts ?? []) {
+    if ((debt.direction ?? 'owed_by_me') === 'owed_to_me' || debt.paidOffAt || !debt.dueDate) continue;
+    const view = loanView(debt, input.accounts ?? [], input.transactions, input.baseCurrency, now);
+    if (view.paidOff || isStaleOccurrence(debt.dueDate, now)) continue;
+    for (const row of view.schedule) {
+      if (!row.date || row.date > to) break;
+      const due = row.no === view.state.no;
+      if (!due && row.date < now) continue;
+      const status: BillStatus = debt.autoRecord ? 'auto' : due && row.date <= now ? 'awaiting-approval' : 'approval-when-due';
+      items.push({
+        scheduleId: `loan:${debt.id}`, debtId: debt.id, date: row.date,
+        description: `${debt.name} EMI #${row.no}`, type: 'expense', category: 'loan_emi',
+        amount: row.payment, currency: input.baseCurrency, baseAmount: round2(row.payment),
+        status, actionable: due && !debt.autoRecord && row.date <= now, overdue: row.date < now,
       });
     }
   }

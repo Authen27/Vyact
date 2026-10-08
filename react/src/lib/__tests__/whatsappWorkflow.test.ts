@@ -84,7 +84,9 @@ describe('actual WhatsApp Edge handlers', () => {
     expect(await result.text()).toBe('challenge');
     expect(api.from).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
-  });
+    // The first test in this file pays the COLD import of the webhook and the bundled engine (~190 KB):
+    // on a loaded CI runner that alone can pass vitest's 5 s default, which failed this test at random.
+  }, 30_000);
 
   it('processes every signed batch message using its own sender and confirms authoritative results', async () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
@@ -1068,5 +1070,53 @@ describe('W6b template replies in the webhook', () => {
     expect(api.rpc.mock.calls.map(c => c[0])).not.toContain('whatsapp_log_transaction');
     expect(templateSends()).toEqual([]);
     expect(sentTexts().filter(Boolean).join(' ')).toContain('fits your Food & Dining budget');
+  });
+});
+
+// ── v10.76.0 (W4g) — "paid car EMI" pays the LOAN (audit BE-WA-08) ─────────────────────────────
+describe('WhatsApp EMI (W4g)', () => {
+  const post = async (handler: (r: Request) => Promise<Response>, text: string) => {
+    const body = inbound(text);
+    return handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+  };
+  function loanTables(loans: { id: string; name: string; direction?: string }[]) {
+    api.from.mockImplementation((table: string) => {
+      if (table === 'memberships') return queryResult({ id: 'membership' });
+      if (table === 'accounts') return queryResult([{ name: 'HDFC', kind: 'bank', currency: 'INR' }]);
+      if (table === 'assets') return queryResult([]);
+      if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+      if (table === 'whatsapp_pending_turns') return queryResult(null);
+      if (table === 'transactions') return queryResult([]);
+      if (table === 'debts') return queryResult(loans.map(l => ({ direction: 'owed_by_me', ...l })));
+      if (table === 'whatsapp_inbound_messages') return queryResult([{ wa_message_id: 'm-1', attempts: 0 }]);
+      throw new Error(`Unexpected table ${table}`);
+    });
+  }
+
+  it('W4-D19-018 · "paid car EMI" pays the named loan through whatsapp_pay_loan — never logged as one expense', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    loanTables([{ id: 'car', name: 'Car loan' }, { id: 'home', name: 'Home loan' }]);
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', interest: 1000, principal: 7884.88, instalment_no: 1,
+      closes_instalment: true, paid_off: false, outstanding_after: 92115.12, next_due_date: '2026-10-24' } });
+    await post(handler, 'paid car emi 8884.88 hdfc');
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_pay_loan', expect.objectContaining({
+      p_profile_id: 'alice', p_household_id: 'alice-house', p_debt_id: 'car', p_amount: 8884.88, p_wa_message_id: 'm-1', p_date: '2026-09-24',
+    }));
+    expect(api.rpc).not.toHaveBeenCalledWith('whatsapp_log_transaction', expect.anything());
+    expect(sentTexts()[0]).toBe('Logged EMI #1 for Car loan: ₹1,000 interest, ₹7,884.88 off the loan. ₹92,115.12 left; next EMI due 24 Oct.');
+  });
+
+  it('W4-D19-019 · two loans and no name: asks which; more than due is refused with the amount due', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    loanTables([{ id: 'car', name: 'Car loan' }, { id: 'home', name: 'Home loan' }]);
+    await post(handler, 'paid emi 5000');
+    expect(api.rpc).not.toHaveBeenCalled();
+    expect(sentTexts()[0]).toBe('Which loan is this EMI for? Reply with its name, e.g. "paid Car loan EMI 5000".');
+    vi.mocked(fetch).mockClear();
+    loanTables([{ id: 'car', name: 'Car loan' }]);
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'refused', reason: 'more_than_due', figure: '8884.88' } });
+    await post(handler, 'paid emi 9000');
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_pay_loan', expect.objectContaining({ p_debt_id: 'car', p_amount: 9000 }));
+    expect(sentTexts()[0]).toMatch(/^This EMI for Car loan is ₹8,884\.88, so I haven't logged ₹9,000\./);
   });
 });

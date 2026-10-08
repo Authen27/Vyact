@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.75.0`** (consumer)
+> **Current production version: `v10.76.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.76.0 — W4g: loans run themselves *(2026-10-07)*
+
+The rest of owner decision **D19** (audit BE-WA-08, INT-TXN-07). The database, the server and the app
+ship together; this needs v10.75.0's app live first, because it drops the command older apps called.
+
+- **Auto-record.** Turn on "Record each EMI automatically" on a loan and choose the account it is paid
+  from.
+  - Each EMI is then recorded on its date, in the household's time zone, by a server job that runs
+    every 30 minutes (`auto_record_due_emis`). A loan a few EMIs behind catches up.
+  - Each instalment is recorded once: the operation id is the loan plus the instalment number.
+  - A loan whose account is gone is skipped, never half-recorded.
+- **WhatsApp "paid car EMI 15000" pays the loan** (`whatsapp_pay_loan`).
+  - Before, it was booked as a full expense and the loan never moved.
+  - Now it pays the loan the words name (or the only loan) and replies with the split: "Logged EMI #1
+    for Car loan: ₹1,000 interest, ₹7,884.88 off the loan. ₹92,115.12 left; next EMI due 24 Oct."
+  - More than the EMI due is not logged: the reply gives the amount due, and the extra goes in the app
+    as a prepayment.
+  - If the message could be either of two loans, Pip asks which.
+- **The bill calendar shows loan EMIs**, from each loan's own schedule.
+  - The due one can be paid from the calendar (Pay opens the loan's sheet), and a part-paid one shows
+    what is left.
+  - An auto-recorded loan's EMI "posts automatically".
+- **The EMI-day reminder** says "Vyact records this EMI on the day" for an auto-recorded loan and offers
+  only View. Paid-off loans are not reminded.
+- **EMI recurring schedules were moved onto their loans.**
+  - The loan takes the schedule's auto-approve setting and paying account, and the schedule is closed.
+  - A schedule naming no loan stays flagged in Recurring.
+- **Retired:** `record_loan_payment` is dropped, along with the legacy `amortization.ts` and their
+  tests.
+- A test that pays the cold import of the WhatsApp webhook and the bundled engine now has 30 s instead
+  of 5 s. It had been failing at random on a loaded runner.
+
+Migration 20261017120000. Tests:
+- loanAutomationSql.test.ts (W4-D19-015..017, PGlite)
+- loanCalendar.test.ts (W4-D19-020..022)
+- WhatsApp W4-D19-018/019
 
 ## v10.75.0 — W4f: loans, paid the way banks count them *(2026-10-07)*
 
