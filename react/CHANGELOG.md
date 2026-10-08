@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.77.0`** (consumer)
+> **Current production version: `v10.78.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,33 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.78.0 — W5: Pip answers the question that was asked *(2026-10-08)*
+
+Owner decision **D29** (P1–P4). App and bundled engine only, no schema change. Audit IDs: FE-PIP-01,
+FE-PIP-04, FE-PIP-05, FE-PIP-02 (with INT-TZC-06). In every case the figure was real and passed the
+invented-figure guard; it answered a different question.
+
+- **P1 · Annual budgets.** An annual line was measured against ONE month's spending, so a Travel budget
+  97% used by September read as "₹60,000 left" and "on track" in October. Pip now gives no monthly verdict
+  on an annual budget: it says the budget is annual and points to Budgets, and "can I afford" rests on the
+  money free after card dues. A month's own budget still decides when there is one. Pip's budget summary
+  marks annual lines and measures them over their own year.
+- **P2 · Signs.** A negative net worth reached the model as a positive figure, and a "cushion" below the
+  safety floor was sent unsigned. Net worth, liquid savings and holdings keep their minus, said in words;
+  the old pre-written `vars` are no longer sent beside the facts.
+- **P3 · Periods.** "Where did my money go last month?" was answered with this month. Diagnostic and advice
+  read the month asked about ("this week" is answered over its dates); affordability, budgets and the
+  overall position answer for now and ask when another month is named. A "usual month" is now the months
+  before the one asked about.
+- **P4 · Amounts.** "Can I afford a new iPhone?" could come back with a price the model knew. An amount now
+  counts only when your words state it (2.5k, 1.2 lakh and 1 cr included); otherwise Pip asks how much. A
+  split's number of people is kept between 2 and 20.
+
+Tests:
+- pipCorrectness.test.ts (W5-D29-001..011)
+- Updated deliberately: seven askVyactFacts cases now state their amount in the question (P4); the
+  annual case in ledgerWorkflow expects `annual: true` (P1); the askVyact fake model echoes facts.
 
 ## v10.77.0 — W4h: a suggested budget adds up *(2026-10-07)*
 

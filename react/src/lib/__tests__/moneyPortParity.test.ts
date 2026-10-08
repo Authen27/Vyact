@@ -208,6 +208,9 @@ const NOT_PORTED = [
   // IS ported and parity-tested). The server never renders a dashboard month;
   // if Ask Vyact ever needs it, port it and move it to PORTED.
   'budgetLinesForMonth',
+  // W5 (v10.78.0) — a predicate over one budget line, read by Pip's stage 4. The server runs Pip
+  // from the BUNDLED app engine (engine.generated.js), so it needs no hand port.
+  'coversMoreThanAMonth',
   // WRITE path: mints a timestamp and returns a patch to persist. Server writes
   // go through the RPC — duplicating the reconciliation write rule here is
   // exactly how the money model would drift.

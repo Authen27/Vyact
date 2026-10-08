@@ -2036,6 +2036,28 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/pipCorrectness.test.ts",
+      "feature": "Pip correctness",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "resolve: annual budgets point to Budgets, signed facts and no legacy vars beside facts, stated periods, stated amounts (W5, D29)",
+      "count": 11,
+      "tests": [
+        "P1 — annual budgets point to Budgets (FE-PIP-01) W5-D29-001 · annual Travel 60,000 with 58,000 spent: no monthly verdict, the money free decides, Budgets is named",
+        "P1 — annual budgets point to Budgets (FE-PIP-01) W5-D29-002 · a month line still decides when there is one (the 27 Sep rule is unchanged)",
+        "P2 — signs (FE-PIP-04) W5-D29-003 · a negative net worth reaches the model with its minus, and the legacy vars are not sent",
+        "P2 — signs (FE-PIP-04) W5-D29-004 · below the floor, a \"cushion\" the facts never gave is refused (it only lived in the unsigned vars)",
+        "P3 — stated periods (FE-PIP-05) W5-D29-005 · \"where did my money go last month\" answers for September, against the months BEFORE it",
+        "P3 — stated periods (FE-PIP-05) W5-D29-006 · a window shorter than a month is answered over its dates; one that cannot be placed asks, with no figures",
+        "P3 — stated periods (FE-PIP-05) W5-D29-007 · advice for a named past month reads that month",
+        "P3 — stated periods (FE-PIP-05) W5-D29-008 · affordability, budgets and the position are about NOW: another month asks; today and this month answer",
+        "P4 — stated amounts (FE-PIP-02) W5-D29-009 · statedAmounts reads every amount with its scale, and skips identifiers",
+        "P4 — stated amounts (FE-PIP-02) W5-D29-010 · a price the model knew is not used: affordability and capture ask how much; advice drops the target",
+        "P4 — stated amounts (FE-PIP-02) W5-D29-011 · a split’s number of people is checked: 2 to 20"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/postAuth.test.ts",
       "feature": "Marketing funnel and auth landing",
       "availability": "available",

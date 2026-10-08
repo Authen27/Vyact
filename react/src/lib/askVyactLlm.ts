@@ -403,6 +403,11 @@ HOW TO ANSWER
   each is worth, and leave the choice to the customer.
 - \`free_to_spend_after_card_dues\` is what is genuinely spare once the card bill is
   paid. When asked what they can spend, lead with it, not with \`liquid_savings\`.
+- A figure written with a minus sign ("−₹7,45,000 (you owe more than you own)") is below
+  zero: keep the minus and say what it means. Never state it as a positive amount.
+- A budget described as "annual … — see Budgets" covers the whole year: give no monthly
+  verdict against it (not "within budget", not a share of it). Say it is annual and that
+  Budgets shows what is left.
 - "Can I afford …": the answer is \`verdict\`, and it rests on \`verdict_rests_on\` — the
   category's budget this month (\`budget_left_this_month\`) and the money free after card
   dues. The SAFETY FLOOR IS NOT THE VERDICT: it is a risk to know about. When
@@ -442,8 +447,9 @@ WHEN THE FACTS DO NOT COVER THE QUESTION
   user asked about, say which window you are reporting before giving any figure.
 - \`months_considered\` says how much history an average rests on. When an answer
   leans on a typical-month figure, say what it is based on.
-- FACTS with \`outcome: "needs_period"\` means the month could not be identified: ask
-  which month they mean, and state that a named month or "last month" works.
+- \`outcome: "needs_period"\` means Vyact cannot answer for the period they named
+  (\`requested_period\`): say so, ask again, and say what does work (\`can_answer_for\`).
+  State no figures.
 
 ABSOLUTE RULES ABOUT NUMBERS
 - Use ONLY figures that appear in FACTS or DATA, copied exactly as written: same
@@ -454,6 +460,16 @@ ABSOLUTE RULES ABOUT NUMBERS
 - You are explaining the user's own data, not giving regulated investment, tax or
   legal advice. Do not recommend specific financial products.
 - If FACTS show something is missing, say plainly what you need from the user.`;
+
+/**
+ * W5 (P2, audit FE-PIP-04) — what goes to the model as DATA: the legacy one-line `vars`, only for
+ * an outcome that has no FACTS. Beside facts they were a second, unsigned copy of the same answer
+ * ("Your net worth is ₹7,45,000." for −₹7,45,000; a "cushion" that was really a shortfall) that
+ * the guard accepted because the digits matched. The guard admits exactly what was sent.
+ */
+export function phraseData(result: ResolveResult): Record<string, string | number> {
+  return result.facts && Object.keys(result.facts).length ? {} : (result.vars ?? {});
+}
 
 /**
  * Turn a computed `ResolveResult` into prose.
@@ -473,20 +489,20 @@ export async function phraseViaModel(
 ): Promise<string> {
   // v10.36 — `question` and `facts` are new. The model previously never saw the
   // question it was answering (only `question_type`), so it answered the intent
-  // CATEGORY rather than what was asked. `data` is kept, and kept under that key,
-  // deliberately: it is the legacy one-line summary, and the offline test fakes
-  // read `JSON.parse(user).data`.
+  // CATEGORY rather than what was asked. `data` is the legacy one-line summary, sent only when
+  // there are no facts (W5, `phraseData`).
+  const data = phraseData(result);
   const payload = JSON.stringify({
     question: intent.entities.text,
     question_type: intent.id,
     channel,
     outcome: result.outcome,
     facts: result.facts ?? {},
-    data: result.vars ?? {},
+    data,
   });
 
   const guardVars = {
-    ...(result.vars ?? {}),
+    ...data,
     __facts: JSON.stringify(result.facts ?? {}),
   };
   const guardOpts = {

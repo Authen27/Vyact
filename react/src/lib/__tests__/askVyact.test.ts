@@ -33,9 +33,12 @@ function fakeModel(
     if (system.includes('classify')) {
       return JSON.stringify({ id: intentId, entities, confidence: 0.9 });
     }
-    // Phrase step: echo the computed values, so the guard sees only real figures.
-    const parsed = JSON.parse(user) as { data: Record<string, unknown> };
-    return reply ?? `Here you go: ${Object.values(parsed.data).join(' · ')}`.trim();
+    // Phrase step: echo the computed values, so the guard sees only real figures. Since W5
+    // `data` (the legacy vars) is sent only when there are no facts, so echo the facts' strings.
+    const parsed = JSON.parse(user) as { data: Record<string, unknown>; facts: Record<string, unknown> };
+    const values = Object.keys(parsed.data).length ? Object.values(parsed.data)
+      : Object.values(parsed.facts).filter(v => typeof v === 'string');
+    return reply ?? `Here you go: ${values.join(' · ')}`.trim();
   };
 }
 const llm = (id: string, entities?: Record<string, unknown>, reply?: string) =>

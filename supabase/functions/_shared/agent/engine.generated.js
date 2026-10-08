@@ -1124,6 +1124,17 @@ function budgetLinesForMonth(budgets, allocations, monthKey) {
 		return !!b.category;
 	});
 }
+/**
+* W5 (P1, owner decision; audit FE-PIP-01) — a budget line whose limit covers MORE than one
+* month: an annual budget, or a legacy row whose window or period is longer than a month.
+* `budgetLinesForMonth` returns it for every month of its year, so one month's spending must
+* never be measured against it ("₹60,000 left" of a Travel budget already 97% spent).
+*/
+function coversMoreThanAMonth(b) {
+	if (b.scope) return b.scope === "annual";
+	if (b.periodStart && b.periodEnd) return b.periodStart.slice(0, 7) !== b.periodEnd.slice(0, 7);
+	return !!b.period && b.period !== "monthly";
+}
 function spendByCategoryInRange(transactions, start, end, baseCurrency, rates) {
 	const buckets = {};
 	for (const t of reportableTxns(transactions)) {
@@ -2052,11 +2063,14 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 	});
 	const safeBudgets = budgetLinesForMonth(budgets, allocations, mk).map((b) => {
 		const limitBase = convert(b.limit, b.currency, cur, rates);
-		const spent = spend[b.category ?? ""] || 0;
+		const annual = coversMoreThanAMonth(b);
+		const year = b.periodYear ?? Number(mk.slice(0, 4));
+		const spent = annual ? spendByCategoryInRange(txns, b.periodStart ?? `${year}-01-01`, b.periodEnd ?? `${year}-12-31`, cur, rates)[b.category ?? ""] || 0 : spend[b.category ?? ""] || 0;
 		return {
 			category: b.category ?? "",
 			limit: round2(limitBase),
-			spentPct: limitBase > 0 ? round2(spent / limitBase * 100) : 0
+			spentPct: limitBase > 0 ? round2(spent / limitBase * 100) : 0,
+			...annual ? { annual: true } : {}
 		};
 	});
 	const safeGoals = goals.map((g) => {
@@ -2415,6 +2429,41 @@ const IDENTIFIER_CUE = /(?:^|[^a-z])(?:phone|mobile|mob|number|no\.?|num|a\/c|ac
 function isIdentifierRun(run, before) {
 	if (/^\d+$/.test(run) && run.length >= 10) return true;
 	return IDENTIFIER_CUE.test(before.slice(-32));
+}
+/**
+* W5 (P4, audit FE-PIP-02) — every amount the text states, in order, with its scale applied
+* ("2.5k" → 2500, "1.2 lakh" → 120000, "1 cr" → 10000000). Identifier runs (phone, account,
+* reference numbers) are not amounts and are left out.
+*/
+function statedAmounts(text) {
+	const t = text.replace(/[$£€₹]/g, " ").replace(/\b(rs|inr|usd|gbp|eur|bucks?|rupees?|dollars?|quid)\b/gi, " ");
+	const re = /(\d[\d,]*\.?\d*)\s*(k|lakhs?|lacs?|l|cr|crores?|m|mn)?\b/gi;
+	const out = [];
+	let m;
+	while ((m = re.exec(t)) !== null) {
+		if (isIdentifierRun(m[1], t.slice(0, m.index))) continue;
+		const base = Number(m[1].replace(/,/g, ""));
+		if (!isFinite(base)) continue;
+		const scale = (m[2] || "").toLowerCase();
+		let mult = 1;
+		if (scale === "k") mult = 1e3;
+		else if (scale === "m" || scale === "mn") mult = 1e6;
+		else if (scale === "l" || scale.startsWith("lakh") || scale.startsWith("lac")) mult = 1e5;
+		else if (scale === "cr" || scale.startsWith("crore")) mult = 1e7;
+		const value = base * mult;
+		if (value > 0) out.push(Math.round(value * 100) / 100);
+	}
+	return out;
+}
+/**
+* W5 (P4) — is this model-extracted amount one the user actually wrote? The classifier is told
+* never to invent an entity, but "can I afford a new iPhone?" came back with a price the model
+* knew, and every figure computed from it then passed the guard because it was in the facts.
+* An amount counts only when the user's own words state it (scale words included).
+*/
+function amountIsStated(text, amount) {
+	if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) return false;
+	return statedAmounts(text).some((v) => Math.abs(v - amount) < .005);
 }
 /**
 * v10.39.1 (P8) — the model-extracted amount, checked against the user's own words.
@@ -2834,6 +2883,11 @@ HOW TO ANSWER
   each is worth, and leave the choice to the customer.
 - \`free_to_spend_after_card_dues\` is what is genuinely spare once the card bill is
   paid. When asked what they can spend, lead with it, not with \`liquid_savings\`.
+- A figure written with a minus sign ("−₹7,45,000 (you owe more than you own)") is below
+  zero: keep the minus and say what it means. Never state it as a positive amount.
+- A budget described as "annual … — see Budgets" covers the whole year: give no monthly
+  verdict against it (not "within budget", not a share of it). Say it is annual and that
+  Budgets shows what is left.
 - "Can I afford …": the answer is \`verdict\`, and it rests on \`verdict_rests_on\` — the
   category's budget this month (\`budget_left_this_month\`) and the money free after card
   dues. The SAFETY FLOOR IS NOT THE VERDICT: it is a risk to know about. When
@@ -2873,8 +2927,9 @@ WHEN THE FACTS DO NOT COVER THE QUESTION
   user asked about, say which window you are reporting before giving any figure.
 - \`months_considered\` says how much history an average rests on. When an answer
   leans on a typical-month figure, say what it is based on.
-- FACTS with \`outcome: "needs_period"\` means the month could not be identified: ask
-  which month they mean, and state that a named month or "last month" works.
+- \`outcome: "needs_period"\` means Vyact cannot answer for the period they named
+  (\`requested_period\`): say so, ask again, and say what does work (\`can_answer_for\`).
+  State no figures.
 
 ABSOLUTE RULES ABOUT NUMBERS
 - Use ONLY figures that appear in FACTS or DATA, copied exactly as written: same
@@ -2886,6 +2941,15 @@ ABSOLUTE RULES ABOUT NUMBERS
   legal advice. Do not recommend specific financial products.
 - If FACTS show something is missing, say plainly what you need from the user.`;
 /**
+* W5 (P2, audit FE-PIP-04) — what goes to the model as DATA: the legacy one-line `vars`, only for
+* an outcome that has no FACTS. Beside facts they were a second, unsigned copy of the same answer
+* ("Your net worth is ₹7,45,000." for −₹7,45,000; a "cushion" that was really a shortfall) that
+* the guard accepted because the digits matched. The guard admits exactly what was sent.
+*/
+function phraseData(result) {
+	return result.facts && Object.keys(result.facts).length ? {} : result.vars ?? {};
+}
+/**
 * Turn a computed `ResolveResult` into prose.
 *
 * The model sees the user's own question plus COMPUTED aggregates — never the raw
@@ -2893,16 +2957,17 @@ ABSOLUTE RULES ABOUT NUMBERS
 * and cannot base a figure on anything but a computed one.
 */
 async function phraseViaModel(intent, result, call, prevAllowed = [], channel = "app") {
+	const data = phraseData(result);
 	const payload = JSON.stringify({
 		question: intent.entities.text,
 		question_type: intent.id,
 		channel,
 		outcome: result.outcome,
 		facts: result.facts ?? {},
-		data: result.vars ?? {}
+		data
 	});
 	const guardVars = {
-		...result.vars ?? {},
+		...data,
 		__facts: JSON.stringify(result.facts ?? {})
 	};
 	const guardOpts = {
@@ -2993,6 +3058,12 @@ function isAskVyactBucketEnabled(bucket) {
 const cur = (ctx) => ctx.baseCurrency;
 const money = (n, ctx) => fmt$1(Math.round(n), cur(ctx));
 /**
+* W5 (P2, audit FE-PIP-04) — an AMOUNT that can be below zero (net worth, liquid savings, a
+* holding): the minus kept, and said in words, because `money()` prints the magnitude only.
+* A net worth of −₹7,45,000 reached the model as "₹7,45,000" and was said back that way.
+*/
+const netMoney = (n, ctx, below = "below zero") => Math.round(n) < 0 ? `−${money(n, ctx)} (${below})` : money(n, ctx);
+/**
 * The default period when the user names none — computed per question. v10.46.0: it
 * was a module constant, fixed when the file loaded, so a tab left open over a month
 * end (or a long-lived server isolate) kept answering "this month" for the old month.
@@ -3002,6 +3073,40 @@ const currentPeriod = (tz) => ({
 	label: "this month",
 	isCurrent: true
 });
+/** The period the question named, verbatim, or undefined when it named none. */
+const statedPeriod = (e) => typeof e.period === "string" && e.period.trim() ? e.period.trim() : void 0;
+/**
+* W5 (P3, audit FE-PIP-05) — the MONTH a question is about: the one it named, this month when it
+* named none, and null when it named one that cannot be placed. Every intent that reads a month
+* goes through here; a hard-coded "this month" answered "where did my money go last month?" with
+* this month's categories, a true figure under the wrong month that passes every guard.
+*/
+function monthAsked(e, ctx) {
+	const stated = statedPeriod(e);
+	return stated ? resolvePeriod(stated, wallClock(ctx.tz)) : currentPeriod(ctx.tz);
+}
+/** W5 (P3) — about NOW: no period named, this month, or a window ending today ("today", "this week"). */
+function asksAboutNow(e, ctx) {
+	const stated = statedPeriod(e);
+	if (!stated) return true;
+	const now = wallClock(ctx.tz);
+	const span = resolveDayWindow(stated, now);
+	if (span) return span.end === isoDay(now);
+	return resolvePeriod(stated, now)?.isCurrent === true;
+}
+/** W5 (P3) — the period cannot be answered: no figures at all, and what does work. */
+function needsPeriod(kind, stated, canAnswerFor) {
+	return {
+		kind,
+		outcome: "needs_period",
+		facts: {
+			requested_period: stated,
+			can_answer_for: canAnswerFor
+		},
+		analysis: [`Could not answer for "${stated}"`],
+		vars: { period: stated }
+	};
+}
 /** Local `YYYY-MM-DD`, as the ledger stores dates. */
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 /**
@@ -3020,10 +3125,12 @@ function samePointLastMonth(now = /* @__PURE__ */ new Date()) {
 		label: `the same point in ${monthName}`
 	};
 }
-/** Rolling monthly average expense for a category over the last `n` months
-*  (excluding the current month). Pure composition of `spendByCategory`. */
-function categoryRollingAvg(ctx, category, n = 3, excludeMonth = nowMonthKey(ctx.tz)) {
-	const months = [...new Set(ctx.transactions.map((t) => getMonthKey(t.date)))].sort().filter((m) => m !== excludeMonth).slice(-n);
+/** Rolling monthly average expense for a category over the `n` months BEFORE `beforeMonth`
+*  (this month by default). Pure composition of `spendByCategory`.
+*  W5 (P3): a past month is compared with the months before it. "Every other month" let the
+*  current, part-finished month into August's usual. */
+function categoryRollingAvg(ctx, category, n = 3, beforeMonth = nowMonthKey(ctx.tz)) {
+	const months = [...new Set(ctx.transactions.map((t) => getMonthKey(t.date)))].sort().filter((m) => m < beforeMonth).slice(-n);
 	if (!months.length) return 0;
 	return months.reduce((s, mk) => s + (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0), 0) / months.length;
 }
@@ -3045,13 +3152,16 @@ function categoryRollingAvg(ctx, category, n = 3, excludeMonth = nowMonthKey(ctx
 function categoryBudget(ctx, category, monthKey) {
 	const lines = budgetLinesForMonth(ctx.budgets, ctx.budgetAllocations ?? [], monthKey).filter((b) => b.category === category);
 	if (!lines.length) return void 0;
-	const monthly = lines.filter((b) => b.scope !== "annual");
+	const monthly = lines.filter((b) => !coversMoreThanAMonth(b));
 	const use = monthly.length ? monthly : lines;
 	return {
 		limit: use.reduce((sum, b) => sum + convert(b.limit, b.currency, cur(ctx), ctx.rates), 0),
-		estimated: use.some((b) => !!b.confidence && b.confidence !== "confirmed")
+		estimated: use.some((b) => !!b.confidence && b.confidence !== "confirmed"),
+		annual: !monthly.length
 	};
 }
+/** W5 (P1) — what Pip says about a category whose budget is annual: no verdict, see Budgets. */
+const annualBudgetNote = (label) => `annual ${label} budget — see Budgets for what is left this year`;
 const EXPENSE_IDS = new Set(EXPENSE_CATEGORIES.map((c) => c.id));
 /** What a purchase is for: the category the model named, else one read from the words ("tea" → Food & Dining). */
 function purchaseCategory(e) {
@@ -3093,10 +3203,10 @@ function emergencyFloor(ctx) {
 function positionFacts(ctx) {
 	const s = ctx.summary;
 	return {
-		net_worth: money(s.netWorth.netWorth, ctx),
+		net_worth: netMoney(s.netWorth.netWorth, ctx, "you owe more than you own"),
 		total_assets: money(s.netWorth.totalAssets, ctx),
 		total_debt: money(s.netWorth.totalLiabilities, ctx),
-		liquid_savings: money(s.netWorth.liquidAssets, ctx),
+		liquid_savings: netMoney(s.netWorth.liquidAssets, ctx),
 		liquid_by_source: liquidBySource(ctx),
 		card_dues_to_pay: money(s.netWorth.cardDues, ctx),
 		free_to_spend_after_card_dues: signedMoney(s.netWorth.liquidAssets - s.netWorth.cardDues, ctx, "free", "short"),
@@ -3108,7 +3218,7 @@ function positionFacts(ctx) {
 		spending_this_month: money(s.thisMonth.expense, ctx),
 		savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
 		pulse_score: s.pulseScore.total == null ? "not enough data yet" : `${s.pulseScore.total}/100`,
-		budgets_over_limit: s.budgets.filter((b) => b.spentPct > 100).map((b) => getCat(b.category).label),
+		budgets_over_limit: s.budgets.filter((b) => !b.annual && b.spentPct > 100).map((b) => getCat(b.category).label),
 		...s.dataQuality?.cashBalanceNegative ? { data_warning: "recorded cash is below zero — some cash received has not been entered" } : {},
 		largest_categories_this_month: s.thisMonth.topCategories.slice(0, 5).map((t) => ({
 			category: getCat(t.category).label,
@@ -3133,7 +3243,7 @@ function positionFacts(ctx) {
 */
 function figuresAllowedBy(result) {
 	const source = JSON.stringify({
-		...result.vars ?? {},
+		...phraseData(result),
 		facts: result.facts ?? {}
 	});
 	return [...new Set(source.match(/\d[\d,]*(?:\.\d+)?/g) ?? [])];
@@ -3214,7 +3324,7 @@ function receptionist(salutation, ctx) {
 		r,
 		due: /* @__PURE__ */ new Date(`${r.nextDueDate}T00:00:00`)
 	})).filter((x) => x.due >= today && x.due <= weekOut).sort((a, b) => a.due.getTime() - b.due.getTime())[0];
-	const hot = [...ctx.summary.budgets].filter((b) => b.spentPct > 80).sort((a, b) => b.spentPct - a.spentPct)[0];
+	const hot = [...ctx.summary.budgets].filter((b) => !b.annual && b.spentPct > 80).sort((a, b) => b.spentPct - a.spentPct)[0];
 	const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 	const daysLeft = Math.max(0, Math.round((monthEnd.getTime() - today.getTime()) / 864e5));
 	const weekday = (d) => d.toLocaleDateString("en-GB", { weekday: "long" });
@@ -3293,7 +3403,7 @@ function aboutMeReply(text) {
 function liquidBySource(ctx) {
 	return ctx.summary.holdings.filter((h) => h.liquidity === "liquid").sort((a, b) => b.value - a.value).map((h) => ({
 		held_in: h.name,
-		amount: money(h.value, ctx),
+		amount: netMoney(h.value, ctx),
 		kind: h.source
 	}));
 }
@@ -3306,7 +3416,7 @@ function assetsByLiquidity(ctx) {
 	};
 	return ctx.summary.holdings.slice().sort((a, b) => b.value - a.value).map((h) => ({
 		holding: h.name,
-		value: money(h.value, ctx),
+		value: netMoney(h.value, ctx),
 		how_soon: LABEL[h.liquidity]
 	}));
 }
@@ -3548,21 +3658,35 @@ const AMOUNT_INTENTS = /* @__PURE__ */ new Set([
 * household) is not used at all — Pip asks for it again in the household's currency
 * (`needs_restate`, no figures). Read as ₹150 it would be a wrong answer that passes every
 * guard; converted, it would contradict the rule that amounts are never converted.
+*
+* W5 (P4, audit FE-PIP-02): the amount must be one the USER stated. "Can I afford a new
+* iPhone?" came back from the classifier with a price the model knew; every figure computed
+* from it then sat in the facts and passed the guard. An amount the words do not state (or that
+* is not a positive number at all) is dropped: capture and affordability ask "how much?", and
+* advice goes on without a savings target.
 */
 function resolve(intent, ctx) {
 	const e = intent.entities;
 	if (!AMOUNT_INTENTS.has(intent.id) || e.amount == null) return resolveCore(intent, ctx);
 	const kind = intent.id.startsWith("capture") ? "capture" : "forecast";
-	if (kind === "capture" && amountLooksLikeIdentifier(normalise(e.text), e.amount)) return {
+	const text = normalise(String(e.text ?? ""));
+	if (typeof e.amount === "number" && amountLooksLikeIdentifier(text, e.amount)) return {
 		kind,
 		outcome: "missing_amount",
 		vars: {},
 		facts: {
-			needs: "the amount",
+			needs: kind === "capture" ? "the amount" : "the purchase amount",
 			note: "the only number given looks like a phone, account or reference number, not an amount"
 		},
 		analysis: ["The number given looks like a phone or account number, not an amount"]
 	};
+	if (!amountIsStated(text, e.amount)) return resolveCore({
+		...intent,
+		entities: {
+			...e,
+			amount: void 0
+		}
+	}, ctx);
 	const base = cur(ctx);
 	const stated = statedCurrency(e.currency, e.text, base, CURRENCIES[base]?.symbol);
 	if (!stated || stated === base) return resolveCore(intent, ctx);
@@ -3625,7 +3749,8 @@ function resolveCore(intent, ctx) {
 				outcome: "missing_amount",
 				vars: {}
 			};
-			const ways = e.participantCount ?? 2;
+			const n = Number(e.participantCount);
+			const ways = Number.isFinite(n) ? Math.min(20, Math.max(2, Math.trunc(n))) : 2;
 			const share = Math.round(e.amount / ways * 100) / 100;
 			const split = {
 				isSplit: true,
@@ -3731,7 +3856,8 @@ function resolveCore(intent, ctx) {
 				vars: { category: String(e.category) }
 			};
 			const amount = spend[category] || 0;
-			const budget = categoryBudget(ctx, category, mk);
+			const line = categoryBudget(ctx, category, mk);
+			const budget = line && !line.annual && line.limit > 0 ? line : void 0;
 			const usesEstimate = categoryUsesEstimate(ctx, category);
 			const lookupChips = [{
 				label: "Why is it up?",
@@ -3745,8 +3871,8 @@ function resolveCore(intent, ctx) {
 				period: period.label,
 				asked_about: label,
 				spent: money(amount, ctx),
-				budget: budget && budget.limit > 0 ? money(budget.limit, ctx) : "no budget set",
-				share_of_budget: budget && budget.limit > 0 ? `${Math.round(amount / budget.limit * 100)}%` : "no budget set",
+				budget: budget ? money(budget.limit, ctx) : line?.annual ? annualBudgetNote(label) : "no budget set",
+				share_of_budget: budget ? `${Math.round(amount / budget.limit * 100)}%` : line?.annual ? "not measured against an annual budget" : "no budget set",
 				usual_month: breakdown.find((r) => r.category === label)?.usual_month ?? "no history yet",
 				total_spent_in_period: money(total, ctx),
 				every_category_in_period: breakdown,
@@ -3802,6 +3928,7 @@ function resolveCore(intent, ctx) {
 			vars: {}
 		};
 		case "interpret.status": {
+			if (!asksAboutNow(e, ctx)) return needsPeriod("interpret", statedPeriod(e), "now: your position as of today, and this month so far");
 			const s = ctx.summary;
 			const facts = {
 				...positionFacts(ctx),
@@ -3818,7 +3945,7 @@ function resolveCore(intent, ctx) {
 				facts,
 				analysis,
 				vars: {
-					headline: `Your net worth is ${money(s.netWorth.netWorth, ctx)}.`,
+					headline: `Your net worth is ${netMoney(s.netWorth.netWorth, ctx, "you owe more than you own")}.`,
 					detail: `That's ${money(s.netWorth.totalAssets, ctx)} in assets minus ${money(s.netWorth.totalLiabilities, ctx)} of debt, with about ${s.netWorth.liquidityMonths.toFixed(1)} months of liquid cover.`
 				}
 			};
@@ -3846,11 +3973,16 @@ function resolveCore(intent, ctx) {
 			};
 		}
 		case "interpret.diagnostic": {
-			const mk = nowMonthKey(ctx.tz);
+			const span = resolveDayWindow(statedPeriod(e), wallClock(ctx.tz));
+			if (span) return lookupWindow(ctx, span);
+			const period = monthAsked(e, ctx);
+			if (!period) return needsPeriod("interpret", statedPeriod(e), "this month, a named past month, or a window such as this week");
+			const mk = period.monthKey;
+			const when = period.isCurrent ? "this month" : period.label;
 			const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
 			let worst = null;
 			for (const [c, amt] of Object.entries(spend)) {
-				const avg = categoryRollingAvg(ctx, c);
+				const avg = categoryRollingAvg(ctx, c, 3, mk);
 				const delta = amt - avg;
 				if (avg > 0 && delta > 0 && (!worst || delta > worst.delta)) worst = {
 					cat: c,
@@ -3859,7 +3991,7 @@ function resolveCore(intent, ctx) {
 					delta
 				};
 			}
-			const breakdown = categoryBreakdown(ctx);
+			const breakdown = categoryBreakdown(ctx, mk);
 			const compared = `Compared each of ${breakdown.length} ${breakdown.length === 1 ? "category" : "categories"} with its usual month`;
 			if (worst && worst.delta / Math.max(worst.avg, 1) >= .2) {
 				const pct = Math.round(worst.delta / worst.avg * 100);
@@ -3868,7 +4000,8 @@ function resolveCore(intent, ctx) {
 					outcome: "found",
 					usesEstimate: categoryUsesEstimate(ctx, worst.cat),
 					facts: {
-						every_category_this_month: breakdown,
+						period: period.label,
+						every_category_in_period: breakdown,
 						spend_by_account: spendByAccount(ctx, mk),
 						biggest_rise: {
 							category: getCat(worst.cat).label,
@@ -3880,11 +4013,11 @@ function resolveCore(intent, ctx) {
 					analysis: [compared, `${getCat(worst.cat).label} is furthest above its usual`],
 					vars: {
 						headline: `${getCat(worst.cat).label} is ${pct}% above your usual.`,
-						detail: `It's at ${money(worst.now, ctx)} this month vs about ${money(worst.avg, ctx)} normally — that's the main pull on your cash.`
+						detail: `It's at ${money(worst.now, ctx)} ${when} vs about ${money(worst.avg, ctx)} normally — that's the main pull on your cash.`
 					},
 					chips: [{
 						label: `See ${getCat(worst.cat).label}`,
-						prompt: `how much on ${worst.cat} this month`
+						prompt: `how much on ${worst.cat} ${when}`
 					}, {
 						label: "Where can I cut back?",
 						prompt: "where can I cut back"
@@ -3895,32 +4028,37 @@ function resolveCore(intent, ctx) {
 				kind: "interpret",
 				outcome: "clear",
 				facts: {
-					every_category_this_month: breakdown,
+					period: period.label,
+					every_category_in_period: breakdown,
 					spend_by_account: spendByAccount(ctx, mk),
 					biggest_rise: "nothing is well above its usual"
 				},
 				analysis: [compared, "Nothing is running well above its usual"],
-				vars: { detail: `your spending is tracking close to your normal pattern this month.` },
+				vars: { detail: `your spending is tracking close to your normal pattern ${when}.` },
 				chips: [{
 					label: "What did I spend most on?",
-					prompt: "what did I spend the most on this month"
+					prompt: `what did I spend the most on ${when}`
 				}]
 			};
 		}
 		case "interpret.budgets": {
-			const over = ctx.summary.budgets.filter((b) => b.spentPct > 100);
-			const near = ctx.summary.budgets.filter((b) => b.spentPct > 80 && b.spentPct <= 100);
-			const detail = over.length ? `${over.length} over: ${over.map((b) => getCat(b.category).label).join(", ")}.` : near.length ? `${near.length} close to the limit: ${near.map((b) => getCat(b.category).label).join(", ")}.` : ctx.summary.budgets.length ? `all ${ctx.summary.budgets.length} budgets are on track.` : `you have no budgets yet.`;
+			if (!asksAboutNow(e, ctx)) return needsPeriod("interpret", statedPeriod(e), "this month: your budgets as they stand now");
+			const monthLines = ctx.summary.budgets.filter((b) => !b.annual);
+			const annualLines = ctx.summary.budgets.filter((b) => b.annual);
+			const over = monthLines.filter((b) => b.spentPct > 100);
+			const near = monthLines.filter((b) => b.spentPct > 80 && b.spentPct <= 100);
+			const detail = over.length ? `${over.length} over: ${over.map((b) => getCat(b.category).label).join(", ")}.` : near.length ? `${near.length} close to the limit: ${near.map((b) => getCat(b.category).label).join(", ")}.` : monthLines.length ? `all ${monthLines.length} budgets are on track.` : annualLines.length ? "your budgets are annual — see Budgets for what is left this year." : `you have no budgets yet.`;
 			const worstBudget = over[0] ?? near[0];
-			const count = ctx.summary.budgets.length;
+			const count = monthLines.length;
 			const now = wallClock(ctx.tz);
 			const monthGone = now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() * 100;
-			const onPace = ctx.summary.budgets.filter((b) => b.spentPct <= monthGone).length;
+			const onPace = monthLines.filter((b) => b.spentPct <= monthGone).length;
 			return {
 				kind: "interpret",
 				outcome: "ok",
 				facts: {
-					budgets_most_used_first: [...ctx.summary.budgets].sort((a, b) => b.spentPct - a.spentPct).map((b) => ({
+					...annualLines.length ? { annual_budgets: annualLines.map((b) => annualBudgetNote(getCat(b.category).label)) } : {},
+					budgets_most_used_first: [...monthLines].sort((a, b) => b.spentPct - a.spentPct).map((b) => ({
 						category: getCat(b.category).label,
 						limit: money(b.limit, ctx),
 						used: `${Math.round(b.spentPct)}%`,
@@ -4039,6 +4177,7 @@ function resolveCore(intent, ctx) {
 				facts: { needs: "the purchase amount" },
 				analysis: ["Need the purchase amount to check affordability"]
 			};
+			if (!asksAboutNow(e, ctx)) return needsPeriod("forecast", statedPeriod(e), "this month: a purchase is checked against this month's budget and the money free today");
 			const liquid = ctx.summary.netWorth.liquidAssets;
 			const basis = basisOf(ctx);
 			const floor = emergencyFloor(ctx);
@@ -4048,7 +4187,9 @@ function resolveCore(intent, ctx) {
 			const category = purchaseCategory(e);
 			const label = category ? getCat(category).label : void 0;
 			const mk = nowMonthKey(ctx.tz);
-			const line = category ? categoryBudget(ctx, category, mk) : void 0;
+			const anyLine = category ? categoryBudget(ctx, category, mk) : void 0;
+			const annualOnly = anyLine?.annual === true;
+			const line = anyLine && !annualOnly ? anyLine : void 0;
 			const lineLeft = category && line ? line.limit - (spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates)[category] || 0) : void 0;
 			const covered = e.amount <= free;
 			const inBudget = lineLeft == null || e.amount <= lineLeft;
@@ -4062,8 +4203,8 @@ function resolveCore(intent, ctx) {
 					budget_this_month: money(line.limit, ctx),
 					budget_left_this_month: signedMoney(lineLeft, ctx, "left", "over"),
 					budget_left_after_purchase: signedMoney(lineLeft - e.amount, ctx, "left", "over")
-				} : label ? { budget_this_month: `no ${label} budget this month` } : {},
-				liquid_savings: money(liquid, ctx),
+				} : label && annualOnly ? { budget_this_month: annualBudgetNote(label) } : label ? { budget_this_month: `no ${label} budget this month` } : {},
+				liquid_savings: netMoney(liquid, ctx),
 				card_dues_to_pay: money(dues, ctx),
 				free_to_spend_after_card_dues: signedMoney(free, ctx, "free", "short"),
 				free_after_purchase: signedMoney(free - e.amount, ctx, "free", "short"),
@@ -4104,8 +4245,8 @@ function resolveCore(intent, ctx) {
 					analysis: affordAnalysis,
 					vars: {
 						amount: money(e.amount, ctx),
-						headroom: money(headroom, ctx),
-						cushion: money(aboveFloorAfter, ctx)
+						headroom: signedMoney(headroom, ctx),
+						cushion: signedMoney(aboveFloorAfter, ctx)
 					},
 					chips: [{
 						label: "How long would my savings last?",
@@ -4164,7 +4305,7 @@ function resolveCore(intent, ctx) {
 				outcome: "ok",
 				facts: {
 					months_money_would_last: months.toFixed(1),
-					liquid_savings: money(liquid, ctx),
+					liquid_savings: netMoney(liquid, ctx),
 					typical_monthly_spending: money(burn, ctx),
 					typical_essential_monthly: money(basis.averageEssential, ctx),
 					typical_discretionary_monthly: money(basis.averageDiscretionary, ctx),
@@ -4188,13 +4329,15 @@ function resolveCore(intent, ctx) {
 		}
 		case "forecast.prescriptive": {
 			const target = e.amount;
-			const mk = nowMonthKey(ctx.tz);
+			const period = monthAsked(e, ctx);
+			if (!period) return needsPeriod("forecast", statedPeriod(e), "this month or a named past month");
+			const mk = period.monthKey;
 			const spend = spendByCategory(ctx.transactions, mk, cur(ctx), ctx.rates);
 			let best = null;
 			let basis = "above_usual";
 			for (const [c, amt] of Object.entries(spend)) {
 				if (NEEDS_WANTS_MAP[c] !== "want") continue;
-				const over = amt - categoryRollingAvg(ctx, c);
+				const over = amt - categoryRollingAvg(ctx, c, 3, mk);
 				if (over > 0 && (!best || over > best.over)) best = {
 					cat: c,
 					over
@@ -4210,9 +4353,11 @@ function resolveCore(intent, ctx) {
 					basis = "total_spent";
 				}
 			}
-			const breakdown = categoryBreakdown(ctx);
+			const breakdown = categoryBreakdown(ctx, mk);
+			const when = period.isCurrent ? "this month" : period.label;
 			const prescriptiveFacts = {
 				savings_goal: target ? money(target, ctx) : "not specified",
+				categories_period: period.label,
 				...positionFacts(ctx),
 				debts_highest_rate_first: debtFacts(ctx),
 				what_you_own: assetsByLiquidity(ctx),
@@ -4227,7 +4372,7 @@ function resolveCore(intent, ctx) {
 				vars: { months: "0" },
 				facts: {
 					...prescriptiveFacts,
-					note: "no discretionary spending recorded this month"
+					note: `no discretionary spending recorded ${when}`
 				},
 				analysis: [
 					positionRead,
@@ -4242,7 +4387,7 @@ function resolveCore(intent, ctx) {
 					...prescriptiveFacts,
 					easiest_trim: getCat(best.cat).label,
 					easiest_trim_figure: money(best.over, ctx),
-					easiest_trim_figure_means: basis === "above_usual" ? "how much this category is above its usual month" : "total spent in this category this month (no history yet to compare)"
+					easiest_trim_figure_means: basis === "above_usual" ? "how much this category is above its usual month" : `total spent in this category ${when} (no history yet to compare)`
 				},
 				analysis: [
 					positionRead,

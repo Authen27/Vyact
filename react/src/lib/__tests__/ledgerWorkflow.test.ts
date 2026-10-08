@@ -114,7 +114,8 @@ describe('ledger persisted happy paths', () => {
       .toEqual([expect.objectContaining({ category: 'groceries', limit: 600 })]);
     expect(computePulseScore([], [edited.budget], [], [], 'USD', { USD: 1 }, edited.allocations).components.budget).toBe(100);
     expect(buildSafeSummary([], [edited.budget], [], [], [], { ...state.profile, baseCurrency: 'USD' }, { USD: 1 }, state.accounts, edited.allocations).budgets)
-      .toEqual([{ category: 'groceries', limit: 600, spentPct: 0 }]);
+      // W5 (P1): an annual line is marked, and measured over its own period.
+      .toEqual([{ category: 'groceries', limit: 600, spentPct: 0, ...(scope === 'annual' ? { annual: true } : {}) }]);
   });
 
   it.each(['expense', 'income', 'investment'] as const)('due %s schedule posts once, advances and survives reload', async type => {
