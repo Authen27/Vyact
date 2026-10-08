@@ -72,12 +72,31 @@ function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => I
   }));
 }
 
+/** W8a (audit FE-SYN-12) — a stored value could not be READ (as opposed to: nothing is stored). */
+export class KvReadError extends Error {
+  constructor(key: string, readonly cause: unknown) { super(`could not read ${key} from device storage`); this.name = 'KvReadError'; }
+}
+
 export async function kvGet<T = unknown>(key: string): Promise<T | null> {
+  return kvGetImpl<T>(key, false);
+}
+
+/**
+ * W8a (audit FE-SYN-12) — like kvGet, but a failed IndexedDB read with no other copy THROWS instead of
+ * answering "absent". For read-modify-write callers: treating a failed read as [] and saving the result
+ * back truncated the whole cached list to the one row being written.
+ */
+export async function kvGetStrict<T = unknown>(key: string): Promise<T | null> {
+  return kvGetImpl<T>(key, true);
+}
+
+async function kvGetImpl<T>(key: string, strict: boolean): Promise<T | null> {
+  let readFailed: unknown = null;
   if (hasIDB()) {
     try {
       const v = await withStore<unknown>('readonly', s => s.get(key));
       if (v !== undefined && v !== null) return v as T;
-    } catch { /* fall through to localStorage / memory */ }
+    } catch (e) { readFailed = e ?? new Error('read failed'); /* fall through to localStorage / memory */ }
   }
   // One-time migration read-through: pull from localStorage and seed IDB.
   const legacy = ls.readString(key);
@@ -91,6 +110,7 @@ export async function kvGet<T = unknown>(key: string): Promise<T | null> {
   if (memoryFallback.has(key)) {
     try { return JSON.parse(memoryFallback.get(key)!) as T; } catch (e) { expected(e, `kvStore.kvGet:memory:${key}`); return null; }
   }
+  if (strict && readFailed) throw new KvReadError(key, readFailed);
   return null;
 }
 

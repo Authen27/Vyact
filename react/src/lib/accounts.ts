@@ -120,6 +120,20 @@ export function resolveAccount(
   return null;
 }
 
+/** W8a (audit FE-UIC-05) — the account an edit form opens on, in the picker's encoding. The ledger reads
+ *  the FK first (`debitAccountOf` / `creditAccountOf`), so the form must too: a row whose account was
+ *  changed elsewhere (a WhatsApp correction, a reconcile) keeps a stale `paymentMethod`, and the form used
+ *  to open on — and save back — that old account. */
+export function editSeedAccount(
+  t: Pick<Transaction, 'type' | 'accountId' | 'toAccountId' | 'paymentMethod'>,
+  accounts: Account[],
+): string {
+  const fk = t.type === 'income' ? (t.toAccountId ?? t.accountId) : t.accountId;
+  const acc = fk ? accounts.find(a => a.id === fk) : undefined;
+  if (acc) return accountValueOf(acc);
+  return t.paymentMethod ?? fk ?? '';
+}
+
 /** W7a (audit FE-UIC-16) — the account a transaction row names. The `accounts` FK wins: rows saved
  *  since Money Map carry `accountId` / `toAccountId` (or an account id in `paymentMethod`), which the
  *  legacy `asset:`/`debt:` resolver labelled "Linked account" or dropped. Transfers read "From → To";

@@ -19,6 +19,7 @@ import Chip from '../ui/Chip';
 import CategoryPicker from '../ui/CategoryPicker';
 import { Field, Select } from '../ui/Input';
 import { AmountField } from '../ui/NumericKeypad';
+import { parseAmount } from '../../lib/amountInput';
 import Button from '../ui/Button';
 import { useStore } from '../../store';
 import { uid, today, nowTime } from '../../lib/format';
@@ -214,7 +215,7 @@ export default function SplitFormModal(props: Props) {
   // Auto-balance while `auto` is on.
   useEffect(() => {
     if (!form.auto) return;
-    const bill = parseFloat(form.amount) || 0;
+    const bill = parseAmount(form.amount) || 0;
     const shares = evenShares(bill, form.participants.length);
     setForm(f => {
       if (!f.auto) return f;
@@ -262,7 +263,7 @@ export default function SplitFormModal(props: Props) {
   }
 
   async function save(confirmed = false) {
-    const amount = parseFloat(form.amount);
+    const amount = parseAmount(form.amount);
     if (isNaN(amount) || amount <= 0) { toast('Enter a valid total greater than 0', 'error'); return; }
     if (accountRequired && !form.paymentMethod) {
       toast(`Choose an account this was ${isIncome ? 'paid into' : 'paid with'}`, 'error'); return;
@@ -398,7 +399,7 @@ export default function SplitFormModal(props: Props) {
   );
 
   const sharesSum = form.participants.reduce((s, p) => s + (parseFloat(p.share) || 0), 0);
-  const bill = parseFloat(form.amount) || 0;
+  const bill = parseAmount(form.amount) || 0;
   const sharesOk = Math.abs(sharesSum - bill) < 0.01 && bill > 0;
 
   return (

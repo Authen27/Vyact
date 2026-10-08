@@ -53,10 +53,18 @@ const memoPulse = memoizeOne((transactions: Transaction[], budgets: Budget[], go
 );
 export const selectPulse = (s: StoreSlice) => memoPulse(s.transactions, s.budgets, s.goals, s.debts, s.profile.baseCurrency, s.rates, s.budgetAllocations);
 
-const memoInsights = memoizeOne((transactions: Transaction[], budgets: Budget[], goals: Goal[], debts: Debt[], assets: Asset[], base: string, rates: ExchangeRates) =>
-  getInsights(transactions, budgets, goals, debts, assets, base, rates),
+// W8a (audit FE-MNY-06): the chips read the same projection and budget lines as the screens.
+const memoInsights = memoizeOne((
+  transactions: Transaction[], budgets: Budget[], goals: Goal[], debts: Debt[], assets: Asset[],
+  accounts: Account[], allocations: BudgetAllocation[], base: string, rates: ExchangeRates,
+) => {
+  const anyPosition = assets.length > 0 || debts.length > 0 || accounts.some(a => !a.isArchived);
+  const netWorth = anyPosition ? computeNetWorth({ assets, accounts, debts, transactions }, base, rates).netWorth : null;
+  return getInsights(transactions, budgets, goals, debts, assets, base, rates, { allocations, netWorth });
+});
+export const selectInsights = (s: StoreSlice) => memoInsights(
+  s.transactions, s.budgets, s.goals, s.debts, s.assets, s.accounts, s.budgetAllocations, s.profile.baseCurrency, s.rates,
 );
-export const selectInsights = (s: StoreSlice) => memoInsights(s.transactions, s.budgets, s.goals, s.debts, s.assets, s.profile.baseCurrency, s.rates);
 
 const memoSpend = memoizeOne((transactions: Transaction[], mk: string, base: string, rates: ExchangeRates) =>
   spendByCategory(transactions, mk, base, rates),

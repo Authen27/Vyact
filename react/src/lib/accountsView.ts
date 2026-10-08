@@ -15,6 +15,7 @@ import type {
   Account, AccountDependencies, PaymentMode, RecurringSchedule, Transaction,
 } from '../types';
 import { localDayUTC } from './format';
+import { parseAmount } from './amountInput';
 
 /** A balance not checked against a statement for longer than this says so. */
 export const STALE_AFTER_DAYS = 30;
@@ -161,6 +162,23 @@ export function staleDays(
   return days > STALE_AFTER_DAYS ? days : null;
 }
 
+/** The account kinds whose balance a person checks against a statement (the Accounts screen's list). */
+export const STALE_CHECK_KINDS: readonly Account['kind'][] = ['bank', 'credit_card', 'cash'];
+
+/**
+ * W8a (audit INT-PAR-05) — THE stale-balance rule, for every surface: the bell / push notification,
+ * WhatsApp "Reply UPDATE" and the Accounts screen. Bank, card and cash accounts, not archived, whose
+ * last check (last reconcile, else the last log entry, else creation) is older than STALE_AFTER_DAYS.
+ * The push rule used to count investment accounts, skip cards, ignore `lastReconciledAt` and treat a
+ * never-stamped account as checked in 1970 — so a household was told "2 balances may be out of date"
+ * on the day it added them.
+ */
+export function staleAccounts<A extends Pick<Account, 'kind' | 'isArchived' | 'lastReconciledAt' | 'reconciliationLog' | 'createdAt'>>(
+  accounts: readonly A[], now: Date,
+): A[] {
+  return accounts.filter(a => !a.isArchived && STALE_CHECK_KINDS.includes(a.kind) && staleDays(a, now) !== null);
+}
+
 // ── summary ──────────────────────────────────────────────────────────────────
 
 export interface AccountsSummary {
@@ -256,13 +274,12 @@ export function moveDestinations(source: Account, accounts: Account[]): Account[
 
 /**
  * A money amount typed into a form, or null when the field is empty or not a
- * number. Grouping commas are allowed (Indian "1,50,000" as well as "150,000").
+ * number. Grouping commas are allowed (Indian "1,50,000" as well as "150,000");
+ * W8a (FE-UIC-10): a decimal comma ("12,50") is read as one — see lib/amountInput.ts.
  */
 export function parseAmountInput(raw: string): number | null {
-  const trimmed = raw.replace(/,/g, '').trim();
-  if (trimmed === '') return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+  const n = parseAmount(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**

@@ -30,6 +30,7 @@ import { runAssistant, LlmBackend, type AssistantContext, type AssistantTurn } f
 import type { ModelCall } from './askVyactLlm';
 import { normaliseChips, renderChipsAsNumberedList } from './askVyactResponses';
 import { computeAccountBalance, reconcileAccount as buildReconcileOffset } from './accountBalance';
+import { lastReconciledAt, staleAccounts, STALE_AFTER_DAYS as STALE_DAYS } from './accountsView';
 import { resolve } from './askVyactBackend';
 import { spendByCategory } from './calculations';
 import { getCat } from '../constants';
@@ -111,7 +112,7 @@ export function contextFromRows(rows: HouseholdRows): AssistantContext {
 /** The accounts "Reply UPDATE" walks through: the ones on the Accounts screen. */
 const UPDATABLE_KINDS: readonly Account['kind'][] = ['bank', 'credit_card', 'cash'];
 /** Not reconciled in this many days = stale (the nudge and the list agree). */
-export const STALE_AFTER_DAYS = 30;
+export const STALE_AFTER_DAYS = STALE_DAYS;   // W8a (INT-PAR-05): one constant, lib/accountsView.ts
 
 export interface BalanceToCheck {
   id: string;
@@ -128,11 +129,9 @@ export interface BalanceToCheck {
 /** Stale bank, card and cash accounts, oldest check first. */
 export function balancesToCheck(rows: HouseholdRows, nowMs: number): BalanceToCheck[] {
   const { accounts, transactions, profile, rates } = shapesFromRows(rows);
-  const cutoff = nowMs - STALE_AFTER_DAYS * 86_400_000;
-  return accounts
-    .filter((a) => !a.isArchived && UPDATABLE_KINDS.includes(a.kind))
-    .map((a) => ({ a, lastChecked: a.lastReconciledAt ?? a.createdAt ?? '' }))
-    .filter(({ lastChecked }) => !lastChecked || Date.parse(lastChecked) < cutoff)
+  // W8a (audit INT-PAR-05): the one stale rule the bell, push and Accounts screen use.
+  return staleAccounts(accounts, new Date(nowMs))
+    .map((a) => ({ a, lastChecked: lastReconciledAt(a) ?? a.createdAt ?? '' }))
     .sort((x, y) => (Date.parse(x.lastChecked) || 0) - (Date.parse(y.lastChecked) || 0))
     .map(({ a, lastChecked }) => {
       const balance = computeAccountBalance(a, transactions, profile.baseCurrency, rates);

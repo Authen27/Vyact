@@ -123,7 +123,10 @@ export default function AssetFormModal(props: Props) {
         }
         toast(changed ? 'Value updated' : 'Asset updated', 'success');
       } else {
+        // W8a (audit FE-UIC-09): an edit is a patch over the row it opened (W4c, D18) — keep its links,
+        // provenance and `updated_at` precondition; only the form's own fields change.
         const asset: Partial<Asset> = {
+          ...(initial ?? {}),
           id: initial?.id ?? uid(),
           type: form.type,
           name: form.name.trim(),

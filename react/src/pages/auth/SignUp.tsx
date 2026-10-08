@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { unexpected } from '../../lib/faults';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Mail } from 'lucide-react';
 import Button from '../../components/ui/Button';
@@ -45,7 +46,7 @@ export default function SignUp() {
 
       // Path A — auto-confirm enabled (preferred): session is returned, log straight in.
       if (result.session && result.user) {
-        await acceptPolicies(result.user.id).catch(() => {});
+        await acceptPolicies(result.user.id).catch(e => unexpected(e, 'consent:record'));   // W8a (XC-PRV-09): never silent
         toast(`Welcome, ${name}!`, 'success');
         navigate(getPostAuthPath(next));
         return;
@@ -56,7 +57,7 @@ export default function SignUp() {
       // doesn't have to wait for a verification email that may never arrive.
       try {
         await signIn(email, password);
-        if (result.user) await acceptPolicies(result.user.id).catch(() => {});
+        if (result.user) await acceptPolicies(result.user.id).catch(e => unexpected(e, 'consent:record'));   // W8a (XC-PRV-09): never silent
         toast(`Welcome, ${name}! Your email is pending verification — check Settings to resend.`, 'success');
         navigate(getPostAuthPath(next));
         return;

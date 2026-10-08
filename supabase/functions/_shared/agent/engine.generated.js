@@ -19,6 +19,7 @@
 //   react/src/config/features.ts
 //   react/src/constants.ts
 //   react/src/lib/accountBalance.ts
+//   react/src/lib/accountsView.ts
 //   react/src/lib/aiSummary.ts
 //   react/src/lib/askVyactBackend.ts
 //   react/src/lib/askVyactLlm.ts
@@ -1823,7 +1824,7 @@ const policyOf = (s) => s.shortMonthPolicy ?? "last_day";
 function nextScheduleOccurrence(s, after) {
 	return nextOccurrenceAfter(ruleOf(s), s.startDate, after, { shortMonthPolicy: policyOf(s) });
 }
-const DAY_MS = 864e5;
+const DAY_MS$1 = 864e5;
 function cyrb128(str) {
 	let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
 	for (let i = 0; i < str.length; i++) {
@@ -1921,7 +1922,7 @@ function advanceSchedule(schedule) {
 }
 /** True when this occurrence is too old to materialise honestly. */
 function isStaleOccurrence(occurrence, now = today(), maxDays = 45) {
-	return (Date.parse(now) - Date.parse(occurrence)) / DAY_MS > maxDays;
+	return (Date.parse(now) - Date.parse(occurrence)) / DAY_MS$1 > maxDays;
 }
 //#endregion
 //#region react/src/lib/netWorth.ts
@@ -2308,15 +2309,27 @@ function matchAccountId(stated, accounts) {
 		const digits = tail[1];
 		const byTail = accounts.find((a) => a.name.replace(/\D/g, "").endsWith(digits));
 		if (byTail) return byTail.id;
+		return null;
 	}
-	for (const [word, kind] of Object.entries({
+	const KIND_WORDS = {
 		"credit card": "credit_card",
 		card: "credit_card",
 		bank: "bank",
 		cash: "cash"
-	})) if (raw.includes(word)) {
-		const byKind = accounts.find((a) => a.kind === kind);
-		if (byKind) return byKind.id;
+	};
+	const statedKind = Object.entries(KIND_WORDS).find(([w]) => raw.includes(w))?.[1];
+	const words = new Set(raw.split(/[^a-z0-9]+/).filter(Boolean));
+	const byBank = accounts.filter((a) => {
+		const first = a.name.toLowerCase().split(/[^a-z0-9]+/).find(Boolean) ?? "";
+		return first.length >= 3 && !(first in KIND_WORDS) && words.has(first) && (!statedKind || a.kind === statedKind);
+	});
+	if (byBank.length === 1) return byBank[0].id;
+	if (byBank.length > 1) return null;
+	if (Object.keys(KIND_WORDS).reduce((s, w) => s.split(w).join(" "), raw).replace(/\b(my|the|a|an|our|account|acct|ac|a\/c|xx+)\b/g, " ").replace(/[^a-z0-9]+/g, " ").trim()) return null;
+	for (const [word, kind] of Object.entries(KIND_WORDS)) if (raw.includes(word)) {
+		const ofKind = accounts.filter((a) => a.kind === kind);
+		if (ofKind.length === 1) return ofKind[0].id;
+		if (ofKind.length > 1) return null;
 	}
 	return null;
 }
@@ -3010,7 +3023,7 @@ async function phraseViaModel(intent, result, call, prevAllowed = [], channel = 
 * gateway composes the system prompt itself, so `system` is never sent. `householdId` lets the
 * gateway attribute the call (before this every web row had household_id = null).
 */
-function resolveConfiguredModelCall(householdId) {
+function resolveConfiguredModelCall(householdId, turnSignal) {
 	return null;
 }
 //#endregion
@@ -3209,9 +3222,9 @@ function positionFacts(ctx) {
 		liquid_by_source: liquidBySource(ctx),
 		card_dues_to_pay: money(s.netWorth.cardDues, ctx),
 		free_to_spend_after_card_dues: signedMoney(s.netWorth.liquidAssets - s.netWorth.cardDues, ctx, "free", "short"),
-		months_of_liquid_cover: s.netWorth.liquidityMonths.toFixed(1),
+		months_of_liquid_cover: basisOf(ctx).averageMonthly > 0 ? s.netWorth.liquidityMonths.toFixed(1) : "not enough spending history yet",
 		pulse_measures: "budgets, this month's savings rate, spending trend and debt — not how long your savings would last",
-		...s.netWorth.liquidityMonths < 3 ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months of typical spending, under the usual three-month cushion, whatever the Pulse score says` } : {},
+		...basisOf(ctx).averageMonthly > 0 && s.netWorth.liquidityMonths < 3 ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months of typical spending, under the usual three-month cushion, whatever the Pulse score says` } : {},
 		cover_basis: `typical monthly spending of ${money(basisOf(ctx).averageMonthly, ctx)}, averaged over ${basisLabel(ctx)}`,
 		income_this_month: money(s.thisMonth.income, ctx),
 		spending_this_month: money(s.thisMonth.expense, ctx),
@@ -4297,8 +4310,26 @@ function resolveCore(intent, ctx) {
 		case "forecast.runway": {
 			const liquid = ctx.summary.netWorth.liquidAssets;
 			const basis = basisOf(ctx);
-			const burn = basis.averageMonthly || totalMonthlyDebtPayment(ctx.debts, cur(ctx), ctx.rates) + 1;
-			const months = burn > 0 ? liquid / burn : 0;
+			if (!(basis.averageMonthly > 0)) return {
+				kind: "forecast",
+				outcome: "no_history",
+				facts: {
+					liquid_savings: netMoney(liquid, ctx),
+					months_money_would_last: "not enough spending history yet to estimate",
+					what_is_needed: "a month or two of recorded spending, so a typical month can be measured"
+				},
+				analysis: ["Totalled your liquid savings", "Looked for a typical month of spending — none recorded yet"],
+				vars: {},
+				chips: [{
+					label: "Add an expense",
+					prompt: "log an expense"
+				}, {
+					label: "What is my net worth?",
+					prompt: "what is my net worth"
+				}]
+			};
+			const burn = basis.averageMonthly;
+			const months = liquid / burn;
 			return {
 				kind: "forecast",
 				outcome: "ok",
@@ -4472,12 +4503,13 @@ var LlmBackend = class {
 * Returns null when no model is configured — the caller must treat that as
 * "unavailable", not as a reason to invent an answer.
 */
-function selectModelCall(householdId) {
-	return resolveConfiguredModelCall(householdId);
+function selectModelCall(householdId, signal) {
+	return resolveConfiguredModelCall(householdId, signal);
 }
-/** The active backend, or null when no model is reachable. `householdId` attributes the calls. */
-function selectAssistantBackend(householdId) {
-	const call = selectModelCall(householdId);
+/** The active backend, or null when no model is reachable. `householdId` attributes the calls;
+*  W8a (FE-PIP-16): `signal` is the turn's — aborting it cancels that turn's model calls. */
+function selectAssistantBackend(householdId, signal) {
+	const call = selectModelCall(householdId, signal);
 	return call ? new LlmBackend(call) : null;
 }
 /** Plain-English name for each intent, shown as the "Recognised: …" step. */
@@ -4588,6 +4620,42 @@ function unavailableTurn(reason) {
 		intentId: "unavailable",
 		clarify: true
 	};
+}
+const DAY_MS = 864e5;
+/** When the account was last checked against a statement, or null if never. */
+function lastReconciledAt(a) {
+	if (a.lastReconciledAt) return a.lastReconciledAt;
+	const log = a.reconciliationLog ?? [];
+	if (!log.length) return null;
+	return log.reduce((latest, e) => e.at > latest ? e.at : latest, log[0].at);
+}
+/**
+* Days since the balance was checked, when that is longer than
+* STALE_AFTER_DAYS; null when it is fresh. A never-reconciled account counts
+* from its creation, so a card added yesterday is not called stale.
+*/
+function staleDays(a, now) {
+	const since = lastReconciledAt(a) ?? a.createdAt ?? null;
+	if (!since) return null;
+	const days = Math.floor((now.getTime() - new Date(since).getTime()) / DAY_MS);
+	return days > 30 ? days : null;
+}
+/** The account kinds whose balance a person checks against a statement (the Accounts screen's list). */
+const STALE_CHECK_KINDS = [
+	"bank",
+	"credit_card",
+	"cash"
+];
+/**
+* W8a (audit INT-PAR-05) — THE stale-balance rule, for every surface: the bell / push notification,
+* WhatsApp "Reply UPDATE" and the Accounts screen. Bank, card and cash accounts, not archived, whose
+* last check (last reconcile, else the last log entry, else creation) is older than STALE_AFTER_DAYS.
+* The push rule used to count investment accounts, skip cards, ignore `lastReconciledAt` and treat a
+* never-stamped account as checked in 1970 — so a household was told "2 balances may be out of date"
+* on the day it added them.
+*/
+function staleAccounts(accounts, now) {
+	return accounts.filter((a) => !a.isArchived && STALE_CHECK_KINDS.includes(a.kind) && staleDays(a, now) !== null);
 }
 //#endregion
 //#region react/src/lib/notifications.ts
@@ -4881,21 +4949,10 @@ function incomeLandedNotifs(txns, prefs, existing, ctx) {
 	}
 	return out;
 }
-/** 9 · stale_balance (P1) — liquid account balances >30 d old (aggregated, ≤1/wk). */
+/** 9 · stale_balance (P1) — bank, card and cash balances not checked in 30 days (aggregated, ≤1/wk). */
 function staleBalanceNotifs(accounts, prefs, existing, ctx) {
 	if (!typeEnabled(prefs, "stale_balance")) return [];
-	const LIQUID = [
-		"bank",
-		"cash",
-		"investment"
-	];
-	const cutoff = Date.now() - 2592e6;
-	const lastTouched = (a) => {
-		const rec = a.reconciliationLog?.length ? a.reconciliationLog[a.reconciliationLog.length - 1].at : void 0;
-		const stamp = a.confirmedAt || rec || a.estimatedAt;
-		return stamp ? new Date(stamp).getTime() : 0;
-	};
-	const stale = accounts.filter((a) => !a.isArchived && LIQUID.includes(a.kind) && lastTouched(a) < cutoff);
+	const stale = staleAccounts(accounts, /* @__PURE__ */ new Date());
 	if (!stale.length) return [];
 	const key = `stale_balance:${Math.floor(Date.now() / 6048e5)}`;
 	if (existing.some((n) => n.dedupeKey === key)) return [];
@@ -5007,11 +5064,10 @@ const STALE_AFTER_DAYS = 30;
 /** Stale bank, card and cash accounts, oldest check first. */
 function balancesToCheck(rows, nowMs) {
 	const { accounts, transactions, profile, rates } = shapesFromRows(rows);
-	const cutoff = nowMs - 2592e6;
-	return accounts.filter((a) => !a.isArchived && UPDATABLE_KINDS.includes(a.kind)).map((a) => ({
+	return staleAccounts(accounts, new Date(nowMs)).map((a) => ({
 		a,
-		lastChecked: a.lastReconciledAt ?? a.createdAt ?? ""
-	})).filter(({ lastChecked }) => !lastChecked || Date.parse(lastChecked) < cutoff).sort((x, y) => (Date.parse(x.lastChecked) || 0) - (Date.parse(y.lastChecked) || 0)).map(({ a, lastChecked }) => {
+		lastChecked: lastReconciledAt(a) ?? a.createdAt ?? ""
+	})).sort((x, y) => (Date.parse(x.lastChecked) || 0) - (Date.parse(y.lastChecked) || 0)).map(({ a, lastChecked }) => {
 		const balance = computeAccountBalance(a, transactions, profile.baseCurrency, rates);
 		return {
 			id: a.id,

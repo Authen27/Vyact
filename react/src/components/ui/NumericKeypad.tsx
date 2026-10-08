@@ -5,9 +5,11 @@
 // the parent parses to a number on save.
 
 /** Strip a free-typed/pasted string down to a valid decimal: digits, at most
- *  one dot, max 2 decimal places. */
+ *  one dot, max 2 decimal places. W8a (audit FE-UIC-10): commas are kept as typed — a decimal
+ *  comma ("12,50") or grouping ("1,50,000") — and read by lib/amountInput.ts `parseAmount` on save;
+ *  stripping them here turned "12,50" into 1250. */
 export function sanitizeAmount(raw: string): string {
-  let out = raw.replace(/[^0-9.]/g, '');
+  let out = raw.replace(/[^0-9.,]/g, '');
   const firstDot = out.indexOf('.');
   if (firstDot !== -1) {
     out = out.slice(0, firstDot + 1) + out.slice(firstDot + 1).replace(/\./g, '');

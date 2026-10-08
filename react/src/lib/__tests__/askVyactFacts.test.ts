@@ -777,3 +777,38 @@ describe('receptionist (greeting entry point)', () => {
     expect(quickReply('hi', makeCtx({ recurring: [far] }))!.reply).toContain("Nothing's due this week");
   });
 });
+
+// ── W8a (audit FE-PIP-13) — no spending history is said, not invented ─────────
+describe('no spending history (W8a, FE-PIP-13)', () => {
+  it('W8a-PIP13-001 · runway and cover say "not enough history" instead of dividing by an EMI + 1 sentinel', () => {
+    const ctx = makeCtx({ transactions: [] });
+    const runway = resolve(intent('forecast.runway'), ctx);
+    expect(runway.outcome).toBe('no_history');
+    const facts = runway.facts as Record<string, string>;
+    expect(facts.months_money_would_last).toMatch(/not enough spending history/);
+    expect(Object.values(facts).join(' ')).not.toMatch(/\d+\.\d months/);
+    const status = resolve(intent('interpret.status'), ctx).facts as Record<string, string>;
+    expect(status.months_of_liquid_cover).toMatch(/not enough spending history/);
+    expect(status).not.toHaveProperty('cushion_note');
+    // With history the figure is still stated, and both seams still agree.
+    const withHistory = makeCtx();
+    expect(resolve(intent('forecast.runway'), withHistory).outcome).toBe('ok');
+  });
+});
+
+describe('account matching (W8a, FE-PIP-15)', () => {
+  const accounts = [
+    { id: 'acc-icici-card', name: 'ICICI Card 3003', kind: 'credit_card' },
+    { id: 'acc-bank', name: 'ICICI Bank', kind: 'bank' },
+    { id: 'acc-cash', name: 'Cash in hand', kind: 'cash' },
+  ];
+  it('W8a-PIP15-001 · an unmatched bank or card number is no match; the kind word picks only a lone account', () => {
+    expect(matchAccountId('HDFC card', accounts)).toBeNull();          // was the ICICI card
+    expect(matchAccountId('card xx9999', accounts)).toBeNull();        // a tail that matches nothing
+    expect(matchAccountId('my card', accounts)).toBe('acc-icici-card'); // the only card
+    expect(matchAccountId('card xx3003', accounts)).toBe('acc-icici-card');
+    const twoCards = [...accounts, { id: 'acc-hdfc-card', name: 'HDFC Card 1111', kind: 'credit_card' }];
+    expect(matchAccountId('my card', twoCards)).toBeNull();            // ambiguous: ask, don't guess
+    expect(matchAccountId('HDFC card', twoCards)).toBe('acc-hdfc-card');
+  });
+});

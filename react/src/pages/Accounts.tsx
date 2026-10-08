@@ -25,9 +25,9 @@ import EstimatedTag from '../components/ui/EstimatedTag';
 import { isEstimate } from '../lib/onboardingState';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
 import { formPath } from '../lib/formRoutes';
-import { computeAccountBalance, accountValueOf, debitAccountOf, creditAccountOf } from '../lib/accountBalance';
-import { effectiveAmount } from '../lib/calculations';
-import { fmt, fmtNet, dateKeyIn } from '../lib/format';
+import { computeAccountBalance } from '../lib/accountBalance';
+import { accountLedgerRows } from '../lib/accountLedger';
+import { fmt, fmtNet, fmtSigned, dateKeyIn } from '../lib/format';
 import { getCat, CURRENCIES } from '../constants';
 import { spring } from '../lib/motion';
 import {
@@ -432,27 +432,8 @@ function AccountRow({ acc, balance, currency, now, ledgerOpen, onOpen, onReconci
 function AccountLedger({ account, txns, baseCur, rates }: {
   account: Account; txns: Transaction[]; baseCur: string; rates: Record<string, number>;
 }) {
-  const rows = useMemo(() => {
-    const accountValue = accountValueOf(account);
-    // Match by account uuid OR the legacy encoded value; income credits the
-    // destination; transfer/investment touch both legs (R-AGG-4).
-    const hits = (v: string | undefined) => v === account.id || v === accountValue;
-    const mine = txns
-      .map(t => {
-        const amt = effectiveAmount(t, baseCur, rates);
-        let impact = 0;
-        if (t.type === 'income' && hits(creditAccountOf(t))) impact = amt;
-        else if (t.type === 'expense' && hits(debitAccountOf(t))) impact = -amt;
-        else if (t.type === 'transfer' || t.type === 'investment') {
-          impact = (hits(creditAccountOf(t)) ? amt : 0) - (hits(debitAccountOf(t)) ? amt : 0);
-        }
-        return { t, impact };
-      })
-      .filter(r => r.impact !== 0)
-      .sort((a, b) => (a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0));
-    let running = computeAccountBalance(account, txns, baseCur, rates);
-    return mine.map(r => { const at = running; running -= r.impact; return { ...r, runningAfter: at }; });
-  }, [account, txns, baseCur, rates]);
+  // W8a (FE-UIC-15): the walk undoes each reconcile adjustment as it passes the day it was applied.
+  const rows = useMemo(() => accountLedgerRows(account, txns, baseCur, rates), [account, txns, baseCur, rates]);
 
   const log = (account.reconciliationLog ?? []).slice(-5).reverse();
   if (!rows.length && !log.length) return <div className="mt-3 pl-1 text-[0.72rem] text-ink-dim">No entries yet.</div>;
@@ -473,9 +454,9 @@ function AccountLedger({ account, txns, baseCur, rates }: {
           <span className="text-ink-dim font-mono text-[0.62rem] w-[4.5rem] shrink-0">{t.date}</span>
           <span className="flex-1 truncate text-ink-mid">{t.description || getCat(t.category).label}</span>
           <span className="num" style={{ color: impact < 0 ? 'hsl(var(--terra))' : 'hsl(var(--sage))' }}>
-            {impact >= 0 ? '+' : ''}{Math.round(impact)}
+            {fmtSigned(impact, baseCur)}
           </span>
-          <span className="num text-ink-dim w-20 text-right">{Math.round(runningAfter)}</span>
+          <span className="num text-ink-dim w-20 text-right">{fmtNet(runningAfter, baseCur)}</span>
         </div>
       ))}
     </div>

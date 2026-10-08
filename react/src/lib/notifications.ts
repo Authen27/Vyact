@@ -20,6 +20,7 @@ import { uid, today, getMonthKey, fmt, convert } from './format';
 import { upcomingSchedules } from './recurring';
 import { spendByCategoryInRange } from './calculations';
 import { getCat } from '../constants';
+import { staleAccounts } from './accountsView';
 
 // ── Per-type render metadata (icon glyph + default tint + priority) ──────────
 export interface NotifMeta { icon: string; tint: string; priority: NotifPriority }
@@ -301,17 +302,12 @@ export function incomeLandedNotifs(txns: Transaction[], prefs: NotificationPrefs
   return out;
 }
 
-/** 9 · stale_balance (P1) — liquid account balances >30 d old (aggregated, ≤1/wk). */
+/** 9 · stale_balance (P1) — bank, card and cash balances not checked in 30 days (aggregated, ≤1/wk). */
 export function staleBalanceNotifs(accounts: Account[], prefs: NotificationPrefs, existing: Notification[], ctx: Ctx): Notification[] {
   if (!typeEnabled(prefs, 'stale_balance')) return [];
-  const LIQUID: Account['kind'][] = ['bank', 'cash', 'investment'];
-  const cutoff = Date.now() - 30 * 86400000;
-  const lastTouched = (a: Account): number => {
-    const rec = a.reconciliationLog?.length ? a.reconciliationLog[a.reconciliationLog.length - 1].at : undefined;
-    const stamp = a.confirmedAt || rec || a.estimatedAt;
-    return stamp ? new Date(stamp).getTime() : 0;
-  };
-  const stale = accounts.filter(a => !a.isArchived && LIQUID.includes(a.kind) && lastTouched(a) < cutoff);
+  // W8a (audit INT-PAR-05): the one stale rule (lib/accountsView.ts) — bank, card and cash, by the last
+  // check, else creation. A just-added account is not "out of date".
+  const stale = staleAccounts(accounts, new Date());
   if (!stale.length) return [];
   // Aggregate; re-notify at most weekly.
   const weekKey = Math.floor(Date.now() / (7 * 86400000));

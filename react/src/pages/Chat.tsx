@@ -132,6 +132,9 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
   const lastAllowedRef = useRef<string[]>([]);
   /** v10.54.0 — turns the person stopped (Stop, or New chat). A stopped turn writes nothing more. */
   const cancelledTurns = useRef(new Set<string>());
+  /** W8a (audit FE-PIP-16) — the in-flight turn's model calls; Stop, New chat and leaving the chat abort them. */
+  const turnAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => { turnAbort.current?.abort(); }, []);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   // Proactive "what to know" card (spec §5) — at most one per session, dismissible,
@@ -222,7 +225,10 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
     // marker carries this turn's id so a stopped turn's late `finally` can never
     // clear the marker of a newer turn.
     const pendingId = `pending:${turnId}`;
-    setActiveTurn({ id: pendingId, cancel: () => { cancelledTurns.current.add(turnId); } });
+    turnAbort.current?.abort();
+    const abort = new AbortController();
+    turnAbort.current = abort;
+    setActiveTurn({ id: pendingId, cancel: () => { cancelledTurns.current.add(turnId); abort.abort(); } });
 
     // AI-P0 — telemetry is logged AFTER the turn so it can carry which engine
     // answered and the outcome. Still privacy-safe: intent + sentiment + length
@@ -237,7 +243,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
       // Ask Vyact assistant (spec §3). When the flag is OFF this whole branch is
       // skipped and the launcher behaves exactly as it did in v7.4.5.
       if (isAskVyactEnabled()) {
-        const assistantBackend = selectAssistantBackend(householdId);
+        const assistantBackend = selectAssistantBackend(householdId, abort.signal);
         const ctx: AssistantContext = {
           summary, transactions: txns, budgets, budgetAllocations, goals, debts, assets, recurring,
           profile, rates, baseCurrency: profile.baseCurrency,

@@ -16,7 +16,7 @@ import ls from './localStorageCompat';
 // migration sentinels) still go through `ls` directly: tiny payloads,
 // no quota risk, and they need synchronous access from constructor /
 // startup paths.
-import { kvGet, kvSet, kvRemove } from './kvStore';
+import { kvGet, kvGetStrict, kvSet, kvRemove } from './kvStore';
 import { mergeSnapshot, type NetWorthSnapshot } from './netWorthSnapshots';
 import { BudgetExistsError } from './supabaseAdapter';
 import { expected } from './faults';
@@ -173,6 +173,16 @@ export class LocalStorageAdapter implements DataAdapter {
       return v !== null && v !== undefined ? v : fallback;
     } catch (e) { expected(e, `localAdapter.read:${suffix}`); return fallback; }
   }
+  /**
+   * W8a (audit FE-SYN-12) — the read half of a read-modify-write. A failed read THROWS (KvReadError):
+   * the write is refused and the caller's outbox keeps the op, instead of the fallback [] being saved
+   * back over the real list. Plain reads (`read`) still answer the fallback.
+   */
+  private async readForWrite<T>(suffix: string, householdId: string, fallback: T): Promise<T> {
+    const key = householdId === ANON ? suffix : `${householdId}_${suffix}`;
+    const v = await kvGetStrict<T>(key);
+    return v !== null && v !== undefined ? v : fallback;
+  }
   private async write<T>(suffix: string, householdId: string, value: T): Promise<void> {
     try {
       const key = householdId === ANON ? suffix : `${householdId}_${suffix}`;
@@ -226,6 +236,7 @@ export class LocalStorageAdapter implements DataAdapter {
     return list;
   }
   async createHousehold(name: string, type: ProfileTypeKey = 'personal', baseCurrency = 'USD'): Promise<HouseholdMeta> {
+    await this.readForWrite('profiles_list', ANON, null);   // W8a (FE-SYN-12): refuse if the list can't be read
     const list = await this.listHouseholds();
     const meta: HouseholdMeta = {
       id: 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -236,6 +247,7 @@ export class LocalStorageAdapter implements DataAdapter {
     return meta;
   }
   async updateHousehold(id: string, patch: Partial<HouseholdMeta>): Promise<HouseholdMeta> {
+    await this.readForWrite('profiles_list', ANON, null);   // W8a (FE-SYN-12)
     const list = await this.listHouseholds();
     const idx = list.findIndex(h => h.id === id);
     if (idx < 0) throw new Error('Household not found');
@@ -266,7 +278,8 @@ export class LocalStorageAdapter implements DataAdapter {
     return this.read<Profile | null>('profile', householdId, null);
   }
   async updateProfile(householdId: string, patch: Partial<Profile>): Promise<Profile> {
-    const cur = (await this.getProfile(householdId)) ?? {
+    // W8a (FE-SYN-12): a profile that can't be READ must not be replaced by defaults + this patch.
+    const cur = (await this.readForWrite<Profile | null>('profile', householdId, null)) ?? {
       name: '', email: '', baseCurrency: 'USD', language: 'en',
       household: 'family', dateFormat: 'us', payoffStrategy: 'avalanche', extraPayment: 0,
     };
@@ -283,7 +296,7 @@ export class LocalStorageAdapter implements DataAdapter {
     // LocalStorageAdapter is single-user / single-tab; concurrency conflicts
     // can't occur here, so `_expectedUpdatedAt` is accepted for interface
     // parity with SupabaseAdapter and intentionally ignored.
-    const list = await this.read<(T & { id: string })[]>(entity, householdId, []);
+    const list = await this.readForWrite<(T & { id: string })[]>(entity, householdId, []);
     const id = record.id || uid();
     const next = { ...record, id, updated_at: new Date().toISOString() } as T & { id: string };
     const idx = list.findIndex(r => r.id === id);
@@ -297,7 +310,7 @@ export class LocalStorageAdapter implements DataAdapter {
    * edit's precondition and made it fail as a false conflict.
    */
   async put<T extends { id: string }>(entity: Entity, householdId: string, row: T): Promise<T> {
-    const list = await this.read<{ id: string }[]>(entity, householdId, []);
+    const list = await this.readForWrite<{ id: string }[]>(entity, householdId, []);
     const idx = list.findIndex(r => r.id === row.id);
     if (idx >= 0) list[idx] = row; else list.push(row);
     await this.write(entity, householdId, list);
@@ -309,12 +322,12 @@ export class LocalStorageAdapter implements DataAdapter {
     return list.find(r => r.id === id) ?? null;
   }
   async remove(entity: Entity, householdId: string, id: string): Promise<void> {
-    const list = await this.read<{ id: string }[]>(entity, householdId, []);
+    const list = await this.readForWrite<{ id: string }[]>(entity, householdId, []);
     await this.write(entity, householdId, list.filter(r => r.id !== id));
   }
   async createBudgetChecked(householdId: string, budget: Partial<Budget>): Promise<Budget> {
     // Local mirror of the DB authority: reject a second budget for the same slot.
-    const list = await this.read<Budget[]>('budgets', householdId, []);
+    const list = await this.readForWrite<Budget[]>('budgets', householdId, []);
     const clash = list.some(b => b.scope === budget.scope && b.periodYear === budget.periodYear
       && (budget.scope === 'month' ? b.periodMonth === budget.periodMonth : true));
     if (clash) throw new BudgetExistsError(`scope=${budget.scope} year=${budget.periodYear}${budget.scope === 'month' ? ` month=${budget.periodMonth}` : ''}`);
@@ -331,7 +344,7 @@ export class LocalStorageAdapter implements DataAdapter {
     const saved = (mode === 'create' && !budget.id)
       ? await this.createBudgetChecked(householdId, budget)
       : await this.upsert('budgets', householdId, budget) as Budget;
-    const all = await this.read<BudgetAllocation[]>('budgetAllocations', householdId, []);
+    const all = await this.readForWrite<BudgetAllocation[]>('budgetAllocations', householdId, []);
     const others = all.filter(a => a.budgetId !== saved.id);
     const fresh: BudgetAllocation[] = allocations
       .filter(a => (a.category ?? '') !== '')
@@ -350,7 +363,7 @@ export class LocalStorageAdapter implements DataAdapter {
     return [...rows].sort((left, right) => left.month.localeCompare(right.month));
   }
   async recordNetWorthSnapshot(householdId: string, snapshot: NetWorthSnapshot): Promise<NetWorthSnapshot> {
-    const rows = await this.read<NetWorthSnapshot[]>('net_worth_snapshots', householdId, []);
+    const rows = await this.readForWrite<NetWorthSnapshot[]>('net_worth_snapshots', householdId, []);
     const existing = rows.find(row => row.month === snapshot.month);
     if (existing) return existing;   // first write for a month wins
     await this.write('net_worth_snapshots', householdId, mergeSnapshot(rows, snapshot));

@@ -3,6 +3,7 @@
 // signUp, etc. without knowing about Supabase internals.
 
 import { sb, APP_URL } from './supabase';
+import { POLICY_VERSION } from './policyVersion';
 import { disablePush } from './webPush';
 import { deviceTimeZone } from './householdTimezone';
 import type { Session, User } from '@supabase/supabase-js';
@@ -166,15 +167,18 @@ export async function listActivity(householdId: string, limit = 100) {
 // Backs Settings → Danger Zone and the sign-up consent checkbox. See
 // supabase/migrations/20260701120000_v98_privacy_deletion_controls.sql
 // and supabase/functions/delete-account for the server-side half.
-export const POLICY_ACCEPTANCE_VERSION = '2026-07-01';
+// W8a (audit XC-PRV-09): the version the pages show, not a stale copy ('2026-07-01').
+export const POLICY_ACCEPTANCE_VERSION = POLICY_VERSION;
 
-/** Record ToS + Privacy acceptance against the caller's profile at sign-up. */
+/** Record ToS + Privacy acceptance against the caller's profile. An acceptance of THIS version already
+ *  on record is left as it is (a Google sign-in on the sign-in page records it too, every time). */
 export async function acceptPolicies(userId: string) {
   const now = new Date().toISOString();
   const { error } = await sb().from('profiles').update({
     tos_accepted_at: now, tos_version: POLICY_ACCEPTANCE_VERSION,
     privacy_accepted_at: now, privacy_version: POLICY_ACCEPTANCE_VERSION,
-  }).eq('id', userId);
+  }).eq('id', userId)
+    .or(`privacy_version.is.null,privacy_version.neq.${POLICY_ACCEPTANCE_VERSION}`);
   if (error) throw error;
 }
 

@@ -24,6 +24,15 @@ export interface CloudAuthSlice {
   refreshHouseholds: () => Promise<void>;
 }
 
+/** The in-memory cloud state cleared on sign-out (and, W8a FE-SYN-10, on a switch of user). */
+export const SIGNED_OUT_STATE = {
+  households: [], currentHouseholdId: 'local',
+  transactions: [], budgets: [], goals: [], members: [],
+  debts: [], assets: [], accounts: [], savedViews: [], myRole: undefined,
+  budgetAllocations: [], recurringSchedules: [], notifications: [],
+  sharedSplitsOwned: [], sharedSplitsWithMe: [],
+} satisfies Partial<Store>;
+
 export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> = (set, get) => ({
   cloudEnabled: isCloudEnabled(),
   session: null,
@@ -32,10 +41,19 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
 
   // ── v4.1: AUTH + REALTIME ───────────────────────────────────
   setSession: (session, loaded = true) => {
+    const prevUid = get().session?.user?.id;
     const wasSignedIn = Boolean(get().session);
     const isSignedIn = Boolean(session);
     set({ session, sessionLoaded: loaded });
-    if (!wasSignedIn && isSignedIn) {
+    // W8a (audit FE-SYN-10): a DIFFERENT user signed in without a sign-out in between (another tab,
+    // or a magic link opened while signed in). The previous user's ledger was left loaded and their
+    // cache never purged. Treat it as sign-out + sign-in: clear memory now, purge, then hydrate.
+    const switchedUser = wasSignedIn && isSignedIn && !!prevUid && prevUid !== session?.user?.id;
+    if (switchedUser) {
+      void forgetPushOnDevice();
+      set({ ...SIGNED_OUT_STATE });
+    }
+    if ((!wasSignedIn && isSignedIn) || switchedUser) {
       // 🔴 INVALIDATE THE LOCAL CACHE BEFORE LOADING ANYTHING (v10.20.7).
       //
       // The local store is a CACHE of cloud state and nothing ever invalidated
@@ -84,13 +102,7 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
       // device's subscription locally (a no-op after an explicit sign-out, which already did).
       void forgetPushOnDevice();
       // Just signed out — clear in-memory cloud state
-      set({
-        households: [], currentHouseholdId: 'local',
-        transactions: [], budgets: [], goals: [], members: [],
-        debts: [], assets: [], accounts: [], savedViews: [], myRole: undefined,
-        budgetAllocations: [], recurringSchedules: [], notifications: [],
-        sharedSplitsOwned: [], sharedSplitsWithMe: [],
-      });
+      set({ ...SIGNED_OUT_STATE });
     }
   },
 

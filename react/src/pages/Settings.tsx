@@ -6,6 +6,7 @@ import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
 import { fmt, today } from '../lib/format';
 import { CURRENCIES, LOCALES } from '../constants';
+import { FULLY_TRANSLATED, languageOptionLabel } from '../lib/i18n';
 import { sb } from '../lib/supabase';
 import {
   updatePassword,
@@ -499,10 +500,14 @@ export default function Settings() {
                 <label htmlFor="settings-language" className="mono-label mb-1.5 block">Language</label>
                 <Select id="settings-language" value={profile.language} disabled={!canEditHousehold}
                   onChange={e => updateProfile({ language: e.target.value })}>
-                  {Object.entries(LOCALES).map(([k, v]) => (
-                    <option key={k} value={k}>{v.name}</option>
+                  {Object.keys(LOCALES).map(k => (
+                    <option key={k} value={k}>{languageOptionLabel(k)}</option>
                   ))}
                 </Select>
+                {/* W8a (FE-UIS-15): only English is complete; the rest translate the navigation. */}
+                {!FULLY_TRANSLATED.has(profile.language) && (
+                  <p className="text-[0.75rem] text-ink-dim mt-1.5">Preview: only the navigation is translated so far; the rest of the app stays in English.</p>
+                )}
               </div>
               <div>
                 <label htmlFor="settings-currency" className="mono-label mb-1.5 block">Household currency</label>

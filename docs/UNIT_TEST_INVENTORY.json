@@ -648,10 +648,11 @@
       "availability": "conditional",
       "layer": "unit",
       "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
-      "count": 65,
+      "count": 67,
       "tests": [
         "Pulse beside a thin cushion (P7) CON-UNIT-FACT-051 · a strong score with under three months of cover does not say \"Strong\"",
         "Pulse beside a thin cushion (P7) CON-UNIT-FACT-052 · a healthy cushion carries no cushion note",
+        "account matching (W8a, FE-PIP-15) W8a-PIP15-001 · an unmatched bank or card number is no match; the kind word picks only a lone account",
         "advice facts (F4) CON-UNIT-FACT-012 · prescriptive carries income, savings rate, cover and debts",
         "capture seeding (F6, F7) CON-UNIT-FACT-013 · a merchant implies a category when the user named none",
         "capture seeding (F6, F7) CON-UNIT-FACT-014 · a stated date and account reach the form seed",
@@ -688,6 +689,7 @@
         "invented-figure guard (F8) CON-UNIT-FACT-023 · a second invented reply is still discarded",
         "meta.assistant (F9) CON-UNIT-FACT-024 · answers about the assistant with NO financial facts",
         "meta.assistant (F9) CON-UNIT-FACT-025 · an unplaceable question offers what CAN be answered",
+        "no spending history (W8a, FE-PIP-13) W8a-PIP13-001 · runway and cover say \"not enough history\" instead of dividing by an EMI + 1 sentinel",
         "one household, one cover figure (P1, P1b) CON-UNIT-FACT-026 · Net Worth's months-of-cover equals the assistant's, on the same baseline",
         "one household, one cover figure (P1, P1b) CON-UNIT-FACT-027 · a card that owes money never inflates the assistant's liquidity",
         "periods (F1, F5) CON-UNIT-FACT-008 · resolvePeriod places named months, relative months and ISO — and refuses the rest",
@@ -945,9 +947,11 @@
       "availability": "conditional",
       "layer": "contract-unit",
       "owner": "SupabaseAdapter / askVyactModelCall / whatsappLink",
-      "count": 7,
+      "count": 9,
       "tests": [
         "cloud command transports CON-UNIT-W1-032 · the browser never sends a system prompt; it names the household and the rejected figures",
+        "cloud command transports W8a-PIP16-001 · Stop aborts the in-flight gateway call; a stopped turn makes no further calls (FE-PIP-16)",
+        "cloud command transports W8a-PIP16-002 · a gateway that never answers is given up on at the client deadline (FE-PIP-16)",
         "cloud command transports a relay call that is never answered becomes an error, not a silent empty answer",
         "cloud command transports a relay-queued call polls the gateway until the answer arrives (v10.37, test-only)",
         "cloud command transports atomic budget create forwards identity and returns authoritative allocations",
@@ -2377,8 +2381,10 @@
       "availability": "conditional",
       "layer": "store-integration",
       "owner": "cloudAuthSlice / cacheInvalidation / outbox",
-      "count": 2,
+      "count": 4,
       "tests": [
+        "W8a-SYN10-001 · Alice → Bob with no sign-out in between: Alice is cleared and purged before Bob hydrates (FE-SYN-10)",
+        "W8a-SYN11-001 · the outbox wakes when the HEAD op is due, not for a follower blocked behind it (FE-SYN-11)",
         "hydrates a successful fresh session once without reinitializing on token refresh",
         "signs out Alice then hydrates Bob only after Alice cache is cleared, preserving Alice outbox"
       ]
@@ -2673,6 +2679,29 @@
         "W7b · public site and build config W7b-PUB07-001 · the deploy skip compares with the last deployed commit, and builds when unsure (FE-PUB-07, OPS-13)",
         "W7b · public site and build config W7b-PUB10-001 · the landing pre-render decides cloud mode with the runtime rule (FE-PUB-10)",
         "W7b · public site and build config W7b-PUB10-002 · landing copy and markup with \"$\" patterns are inserted as written (FE-PUB-10)"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/w8aAppFixes.test.ts",
+      "feature": "App fixes (W8a)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit W8a: Preview language labels, insight chips on budget lines + projection, forecast skips paused/EMI, edit seeds the account FK, asset edit patch, decimal comma, ledger undoes reconciles, Pip no-history/account match/abort, user switch purge, outbox wake, strict cache reads, invite confirm, consent version, one stale rule",
+      "count": 12,
+      "tests": [
+        "W8a · app fixes W8a-MNY06-001 · Dashboard chips read this month's budget lines and the net-worth projection (FE-MNY-06)",
+        "W8a · app fixes W8a-MNY16-001 · the budget forecast skips paused schedules and loan EMIs, client and server alike (FE-MNY-16)",
+        "W8a · app fixes W8a-PAR05-001 · one stale-balance rule: a new account is fresh; push and Reply UPDATE agree (INT-PAR-05)",
+        "W8a · app fixes W8a-PIP16-003 · the chat gives each turn an abort signal; Stop, New chat and unmount abort it (FE-PIP-16)",
+        "W8a · app fixes W8a-PLT07-001 · a signed-in visit to an invite link asks before joining (FE-PLT-07)",
+        "W8a · app fixes W8a-PRV09-001 · consent records the version the pages show, failures are reported, Google on sign-in records it (XC-PRV-09)",
+        "W8a · app fixes W8a-SYN12-001 · a failed device-storage read is not \"empty\": strict reads throw, writes are refused (FE-SYN-12)",
+        "W8a · app fixes W8a-UIC05-001 · an edit opens on the account the ledger uses (the FK), not a stale paymentMethod (FE-UIC-05)",
+        "W8a · app fixes W8a-UIC09-001 · editing a non-folding asset patches the row it opened (FE-UIC-09)",
+        "W8a · app fixes W8a-UIC10-001 · a decimal comma is read as one; grouping commas still work (FE-UIC-10)",
+        "W8a · app fixes W8a-UIC15-001 · the ledger running balance undoes a reconcile adjustment when walking back past it (FE-UIC-15)",
+        "W8a · app fixes W8a-UIS15-001 · the Language select labels the partly translated languages \"Preview\" (FE-UIS-15)"
       ]
     },
     {

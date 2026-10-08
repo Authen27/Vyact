@@ -193,7 +193,7 @@ export function resolveBudgetPeriod(
 // Approximate (period-length × per-period rate); informs the budget, writes nothing
 // (money-model A8). Transfers/investments/income are excluded from spend forecast.
 export function recurringForecastByCategory(
-  schedules: { transactionTemplate: { type?: string; amount?: number; currency?: string; category?: string }; frequency: string }[],
+  schedules: { transactionTemplate: { type?: string; amount?: number; currency?: string; category?: string; debtId?: string; linkedDebtId?: string }; frequency: string; active?: boolean }[],
   periodStart: string, periodEnd: string,
   baseCurrency: string, rates: ExchangeRates,
 ): Record<string, number> {
@@ -204,6 +204,9 @@ export function recurringForecastByCategory(
   for (const s of schedules) {
     const t = s.transactionTemplate;
     if (!t || t.type !== 'expense' || !t.amount || !t.category) continue;
+    // W8a (audit FE-MNY-16): a paused schedule posts nothing, and a loan EMI is the loan's payment, not
+    // category spend (the same rule as lib/recurring.ts isLoanEmiSchedule) — neither belongs in the forecast.
+    if (s.active === false || t.category === 'loan_emi' || t.debtId || t.linkedDebtId) continue;
     // W3e: 'daily' is a real frequency now (W3d); it used to fall through to "monthly".
     const perPeriod =
       s.frequency === 'daily'   ? t.amount * days :
@@ -549,9 +552,15 @@ export interface Insight {
   to?: string;
 }
 
+/** W8a (audit FE-MNY-06) — what the chips need beyond the raw arrays, so they say what the screens say:
+ *  the canonical net-worth projection (live account balances, receivables excluded) and this month's
+ *  budget lines (allocations, scope and period). Without it the chips read the static asset/debt
+ *  arrays and every budget row's own `category` (a container budget has none). */
+export interface InsightContext { allocations: BudgetAllocation[]; netWorth: number | null }
+
 export function getInsights(
   transactions: Transaction[], budgets: Budget[], goals: Goal[], debts: Debt[], assets: Asset[],
-  baseCurrency: string, rates: ExchangeRates,
+  baseCurrency: string, rates: ExchangeRates, ctx?: InsightContext,
 ): Insight[] {
   const chips: Insight[] = [];
   const mk = nowMonthKey();
@@ -569,7 +578,9 @@ export function getInsights(
       detail:`Little income is left after spending this month. Review your biggest expenses to free up cash.`, to:'/transactions?type=expense' });
   }
 
-  const over = budgets.filter(b => (spend[b.category ?? ''] || 0) > convert(b.limit, b.currency, baseCurrency, rates));
+  // This month's monthly lines only: an annual line's limit is not one month's (W5, FE-PIP-01).
+  const lines = ctx ? budgetLinesForMonth(budgets, ctx.allocations, mk).filter(b => !coversMoreThanAMonth(b)) : budgets;
+  const over = lines.filter(b => b.category && (spend[b.category] || 0) > convert(b.limit, b.currency, baseCurrency, rates));
   if (over.length) chips.push({ icon:'🚨', text:`${over.length} budget${over.length>1?'s':''} exceeded`, cls:'chip-alert',
     detail:`You've spent past the limit in ${over.length} categor${over.length>1?'ies':'y'} this month. Review and adjust.`, to:'/budgets' });
 
@@ -582,8 +593,8 @@ export function getInsights(
       detail:`Debt-to-income = monthly debt payments ÷ income. Under 36% is healthy; extra payments finish debt sooner.`, to:'/debts' });
   }
 
-  if (assets.length || debts.length) {
-    const nw = totalAssets(assets, baseCurrency, rates) - totalLiabilities(debts, baseCurrency, rates);
+  if (ctx ? ctx.netWorth !== null : (assets.length || debts.length)) {
+    const nw = ctx ? ctx.netWorth! : totalAssets(assets, baseCurrency, rates) - totalLiabilities(debts, baseCurrency, rates);
     if (nw > 0) chips.push({ icon:'🏆', text:`Net worth building`, cls:'chip-good',
       detail:`Net worth = assets − debts, and yours is positive. Keep growing assets or cutting debt to widen the gap.`, to:'/networth' });
     else chips.push({ icon:'⬇️', text:`Net worth — focus on payoff`, cls:'chip-warn',
