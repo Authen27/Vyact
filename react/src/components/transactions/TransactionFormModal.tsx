@@ -5,6 +5,7 @@ import { Field, Select } from '../ui/Input';
 import SegmentedControl from '../ui/SegmentedControl';
 import CategoryPicker from '../ui/CategoryPicker';
 import { AmountField } from '../ui/NumericKeypad';
+import { parseAmount } from '../../lib/amountInput';
 import { useStore } from '../../store';
 import { normalizeTimeInput, nowTime, uid, today, addDaysISO, fmt } from '../../lib/format';
 import {
@@ -340,7 +341,7 @@ export default function TransactionFormModal(props: Props) {
   // builds — including the transfer/investment swap matrix and split model —
   // is identical and unchanged from the pre-Aurora form.
   async function persist(addAnother: boolean) {
-    const amount = parseFloat(form.amount);
+    const amount = parseAmount(form.amount);
     if (isNaN(amount) || amount <= 0) {
       toast('Enter a valid amount greater than 0', 'error');
       return;
@@ -576,7 +577,7 @@ export default function TransactionFormModal(props: Props) {
           {!initial && emiDue && !emiDue.paidOff && (
             <div className="mt-2 text-[0.72rem] text-ink-mid flex items-center gap-2 flex-wrap">
               <span>EMI #{emiDue.instalmentNo}{emiDue.dueDate ? ` due ${emiDue.dueDate}` : ''}: {fmt(emiDue.remaining, form.currency)}{emiDue.started ? ' left' : ''}</span>
-              {Number(form.amount) !== emiDue.remaining && (
+              {parseAmount(form.amount) !== emiDue.remaining && (
                 <button type="button" className="underline text-accent"
                   onClick={() => setForm(f => ({ ...f, amount: String(emiDue.remaining) }))}>Use {fmt(emiDue.remaining, form.currency)}</button>
               )}

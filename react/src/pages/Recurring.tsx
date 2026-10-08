@@ -9,6 +9,7 @@ import Chip from '../components/ui/Chip';
 import CategoryPicker from '../components/ui/CategoryPicker';
 import { Field, Select } from '../components/ui/Input';
 import { AmountField } from '../components/ui/NumericKeypad';
+import { parseAmount } from '../lib/amountInput';
 import HalfSheet from '../components/ui/HalfSheet';
 import BillCalendar from '../components/recurring/BillCalendar';
 import { formatDate, today, addDaysISO } from '../lib/format';
@@ -189,7 +190,7 @@ export default function Recurring() {
       ...(editing || {}),
       transactionTemplate: {
         ...(editing?.transactionTemplate || {}),
-        type, amount: parseFloat(amount), description: name,
+        type, amount: parseAmount(amount), description: name,
         category: type === 'investment' ? '' : category,
         currency: baseCur, recurring: freq === 'custom_day' ? 'monthly' : freq,
         memberId: ownerMemberId || undefined,

@@ -12,6 +12,7 @@ import HalfSheet from '../ui/HalfSheet';
 import SegmentedControl from '../ui/SegmentedControl';
 import { Field, Select, Input } from '../ui/Input';
 import { AmountField } from '../ui/NumericKeypad';
+import { parseAmount } from '../../lib/amountInput';
 import { useStore } from '../../store';
 import { fmt, today, uid } from '../../lib/format';
 import { CURRENCIES } from '../../constants';
@@ -68,7 +69,7 @@ export default function LoanPaymentSheet({ debt, open, onClose }: Props) {
   }
 
   const bankTotal = Math.round(((Number(bankInterest) || 0) + (Number(bankPrincipal) || 0)) * 100) / 100;
-  const value = kind === 'bank_override' ? bankTotal : Number(amount);
+  const value = kind === 'bank_override' ? bankTotal : parseAmount(amount);
 
   async function save() {
     if (!debt) return;

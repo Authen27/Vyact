@@ -12,6 +12,7 @@ import FormPage from '../ui/FormPage';
 import { Input } from '../ui/Input';
 import Chip from '../ui/Chip';
 import { AmountField } from '../ui/NumericKeypad';
+import { parseAmount } from '../../lib/amountInput';
 import { useStore } from '../../store';
 import { fmt } from '../../lib/format';
 import { resolveBudgetPeriod, recurringForecastByCategory } from '../../lib/calculations';
@@ -111,8 +112,8 @@ export default function BudgetFormModal(props: Props) {
     [form.scope, form.periodYear, form.periodMonth],
   );
 
-  const allocSum = form.allocs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-  const total = parseFloat(form.limit) || 0;
+  const allocSum = form.allocs.reduce((s, r) => s + (parseAmount(r.amount) || 0), 0);
+  const total = parseAmount(form.limit) || 0;
   const remaining = total - allocSum;
 
   // §4.2 — read-only recurring forecast: committed-by-recurring per category.
@@ -194,8 +195,8 @@ export default function BudgetFormModal(props: Props) {
       // taken slot with BUDGET_EXISTS); allocation ids are minted server-side.
       // W4h (D27): never a row the form does not show.
       const rows: Partial<BudgetAllocation>[] = form.allocs
-        .filter(r => parseFloat(r.amount) > 0 && budgetCategoryOf(r.category) === r.category)
-        .map(r => ({ category: r.category, amount: parseFloat(r.amount) }));
+        .filter(r => parseAmount(r.amount) > 0 && budgetCategoryOf(r.category) === r.category)
+        .map(r => ({ category: r.category, amount: parseAmount(r.amount) }));
       await saveBudgetWithAllocations({
         id: initial?.id,
         scope: form.scope,

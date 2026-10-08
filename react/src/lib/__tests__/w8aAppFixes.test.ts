@@ -9,6 +9,9 @@ import { LOCALES } from '../../constants';
 import { getInsights, recurringForecastByCategory } from '../calculations';
 import { recurringForecastByCategory as portForecast } from '../../../../supabase/functions/_shared/money/calculations';
 import { editSeedAccount } from '../accounts';
+import { parseAmount } from '../amountInput';
+import { parseAmountInput } from '../accountsView';
+import { sanitizeAmount } from '../../components/ui/NumericKeypad';
 import type { Account, Budget, BudgetAllocation, Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
@@ -74,6 +77,26 @@ describe('W8a · app fixes', () => {
     const s = src('components/assets/AssetFormModal.tsx');
     const elseBranch = s.slice(s.indexOf('} else {', s.indexOf('if (initial && folds)')));
     expect(elseBranch).toMatch(/const asset: Partial<Asset> = \{\s*\.\.\.\(initial \?\? \{\}\),\s*id: initial\?\.id \?\? uid\(\),/);
+  });
+
+  it('W8a-UIC10-001 · a decimal comma is read as one; grouping commas still work (FE-UIC-10)', () => {
+    expect(parseAmount('12,50')).toBe(12.5);
+    expect(parseAmount('12,5')).toBe(12.5);
+    expect(parseAmount('1,50,000')).toBe(150000);
+    expect(parseAmount('150,000')).toBe(150000);
+    expect(parseAmount('1,234.56')).toBe(1234.56);
+    expect(parseAmount('46.')).toBe(46);
+    expect(parseAmount('-1200')).toBe(-1200);           // a reconcile overdraft keeps its sign
+    expect(parseAmount('')).toBeNaN();
+    expect(parseAmount('abc')).toBeNaN();
+    expect(parseAmountInput('12,50')).toBe(12.5);
+    expect(parseAmountInput('')).toBeNull();
+    expect(sanitizeAmount('12,50')).toBe('12,50');       // kept as typed (used to become "1250")
+    expect(sanitizeAmount('₹ 1,50,000')).toBe('1,50,000');
+    for (const f of ['components/transactions/TransactionFormModal.tsx', 'components/splits/SplitFormModal.tsx', 'pages/Recurring.tsx', 'components/budgets/BudgetFormModal.tsx']) {
+      expect(src(f), f).not.toMatch(/parseFloat\((form\.amount|form\.limit|amount|r\.amount)\)/);
+    }
+    expect(src('components/debts/LoanPaymentSheet.tsx')).toMatch(/: parseAmount\(amount\)/);
   });
 
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {

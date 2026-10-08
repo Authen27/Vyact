@@ -15,6 +15,7 @@ import type {
   Account, AccountDependencies, PaymentMode, RecurringSchedule, Transaction,
 } from '../types';
 import { localDayUTC } from './format';
+import { parseAmount } from './amountInput';
 
 /** A balance not checked against a statement for longer than this says so. */
 export const STALE_AFTER_DAYS = 30;
@@ -256,13 +257,12 @@ export function moveDestinations(source: Account, accounts: Account[]): Account[
 
 /**
  * A money amount typed into a form, or null when the field is empty or not a
- * number. Grouping commas are allowed (Indian "1,50,000" as well as "150,000").
+ * number. Grouping commas are allowed (Indian "1,50,000" as well as "150,000");
+ * W8a (FE-UIC-10): a decimal comma ("12,50") is read as one — see lib/amountInput.ts.
  */
 export function parseAmountInput(raw: string): number | null {
-  const trimmed = raw.replace(/,/g, '').trim();
-  if (trimmed === '') return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+  const n = parseAmount(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
