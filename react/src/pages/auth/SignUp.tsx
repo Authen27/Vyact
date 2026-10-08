@@ -127,7 +127,7 @@ export default function SignUp() {
         <Field label="Password" hint="min 8 chars">
           <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={8} />
         </Field>
-        {error && <div className="text-terra text-[0.84rem] mb-3">{error}</div>}
+        {error && <div role="alert" className="text-terra text-[0.84rem] mb-3">{error}</div>}
         <Button full type="submit" disabled={submitting || !agreed}>
           {submitting ? 'Creating account…' : <><UserPlus size={14} /> Sign up</>}
         </Button>
