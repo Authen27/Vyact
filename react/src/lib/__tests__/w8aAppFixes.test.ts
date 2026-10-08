@@ -125,6 +125,29 @@ describe('W8a · app fixes', () => {
     expect(chat).toMatch(/selectAssistantBackend\(householdId, abort\.signal\)/);
   });
 
+  it('W8a-SYN12-001 · a failed device-storage read is not "empty": strict reads throw, writes are refused (FE-SYN-12)', async () => {
+    vi.resetModules();
+    vi.stubGlobal('indexedDB', { open() {
+      const req: { error?: Error; onerror?: () => void } = {};
+      queueMicrotask(() => { req.error = new Error('disk unavailable'); req.onerror?.(); });
+      return req;
+    } });
+    try {
+      const kv = await import('../kvStore');
+      expect(await kv.kvGet('h_transactions')).toBeNull();                       // plain read: tolerant
+      await expect(kv.kvGetStrict('h_transactions')).rejects.toBeInstanceOf(kv.KvReadError);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+    const adapter = src('lib/dataAdapter.ts');
+    for (const m of ['async upsert<', 'async put<', 'async remove(', 'async createBudgetChecked(', 'async recordNetWorthSnapshot(']) {
+      const body = adapter.slice(adapter.indexOf(m), adapter.indexOf(m) + 400);
+      expect(body, m).toMatch(/this\.readForWrite</);
+    }
+    expect(adapter).toMatch(/const v = await kvGetStrict<T>\(key\);/);
+  });
+
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {
     expect(languageOptionLabel('en')).toBe('English');
     for (const code of Object.keys(LOCALES).filter(c => c !== 'en')) {
