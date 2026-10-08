@@ -181,7 +181,8 @@ export default function Onboarding() {
       });
       await refresh();
 
-      track('onboarding_completed', { segment, total_ms: Date.now() - startedAt, confirmed_pct: 35 });
+      // W6 (audit FE-UIS-11): no "percent confirmed" property — it was a hard-coded number, not a measurement.
+      track('onboarding_completed', { segment, total_ms: Date.now() - startedAt });
       toast(`You're all set${name.trim() ? `, ${name.trim()}` : ''} — welcome to Vyact`, 'success');
       navigate('/dashboard');
     } finally {
@@ -383,15 +384,11 @@ export default function Onboarding() {
                 </div>
               </div>
             )}
+            {/* W6 (audit FE-UIS-11): this showed a fixed "picture confirmed" percentage that measured
+                nothing. What is true: these are estimates until real money confirms them. */}
             <div className="rounded-r3 p-4 mb-7" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[0.8rem] text-ink-mid">Picture confirmed</span>
-                <span className="num font-bold text-ink">35%</span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-                <div className="h-full rounded-full" style={{ width: '35%', background: 'hsl(var(--sage))' }} />
-              </div>
-              <div className="text-[0.72rem] text-ink-dim mt-2">Log a week of real spending and this climbs toward 80% — that's when the forecast gets sharp. Your paycheck and bills are waiting in <strong>Recurring</strong> for you to review.</div>
+              <div className="text-[0.8rem] text-ink-mid mb-1">These figures are estimates for now</div>
+              <div className="text-[0.72rem] text-ink-dim">Log a week of real spending and reconcile your cash, and they become real numbers — that's when the forecast gets sharp. Your paycheck and bills are waiting in <strong>Recurring</strong> for you to review.</div>
             </div>
             <Button onClick={complete} disabled={submitting} full>
               {submitting ? 'Setting up…' : 'Go to my dashboard'} <ArrowRight size={15} />

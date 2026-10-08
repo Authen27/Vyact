@@ -21,6 +21,8 @@ import { motion, type Variants } from 'framer-motion';
 import { Banknote, ClipboardCheck, List, Pencil, Plus } from 'lucide-react';
 import { useStore } from '../store';
 import Button from '../components/ui/Button';
+import EstimatedTag from '../components/ui/EstimatedTag';
+import { isEstimate } from '../lib/onboardingState';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
 import { formPath } from '../lib/formRoutes';
 import { computeAccountBalance, accountValueOf, debitAccountOf, creditAccountOf } from '../lib/accountBalance';
@@ -162,7 +164,12 @@ export default function Accounts() {
                 <div className="flex items-center gap-3 min-w-0">
                   <Banknote size={22} className="text-ink-dim shrink-0" aria-hidden />
                   <div className="min-w-0">
-                    <h2 className="text-base font-medium text-ink">Cash in Hand</h2>
+                    <h2 className="text-base font-medium text-ink flex items-center gap-2 flex-wrap">
+                      Cash in Hand
+                      {/* W6 (audit FE-UIS-11): an onboarding estimate (take-home pay as opening cash) is
+                          not a counted balance until it is reconciled, which confirms it. */}
+                      {isEstimate(account) && <EstimatedTag confidence={account.confidence!} source={account.source} />}
+                    </h2>
                     {account.name !== 'Cash in Hand' && <p className="text-sm text-ink-dim break-words">{account.name}</p>}
                     {account.isDefault && <p className="text-xs text-ink-dim">Default account</p>}
                   </div>
@@ -376,6 +383,7 @@ function AccountRow({ acc, balance, currency, now, ledgerOpen, onOpen, onReconci
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
               <span className="font-bold text-[15px] text-ink truncate">{acc.name}</span>
+              {isEstimate(acc) && <EstimatedTag confidence={acc.confidence!} source={acc.source} className="flex-shrink-0" />}
               {acc.isDefault && (
                 <>
                   <span className="text-[12px]" style={{ color: 'hsl(var(--honey))' }} aria-hidden>★</span>
