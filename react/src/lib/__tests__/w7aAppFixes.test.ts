@@ -132,6 +132,14 @@ describe('W7a · small app fixes', () => {
     const body = s.slice(s.indexOf('async function savePassword'), s.indexOf('async function saveProfile'));
     expect(body).toMatch(/if \(!\(await confirmWithEmailCode\('change your password'\)\)\) return;\s*await updatePassword\(pwNew\)/);
   });
+  it('W7a-UIS08-001 · toasts and bottom banners sit above the phone tab bar and safe area (FE-UIS-08)', () => {
+    const css = src('index.css');
+    expect(css).toMatch(/\.bottom-above-tabbar \{ bottom: calc\(env\(safe-area-inset-bottom, 0px\) \+ 84px\); \}/);
+    expect(css).toMatch(/@media \(min-width: 640px\) \{ \.bottom-above-tabbar \{ bottom: 1rem; \} \}/);
+    for (const f of ['components/onboarding/NudgeBanner.tsx', 'components/layout/InstallBanner.tsx', 'components/layout/UpdateBanner.tsx', 'components/ui/ToastHost.tsx']) {
+      expect(src(f), f).toMatch(/className="fixed bottom-above-tabbar /);
+    }
+  });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');
     expect(chat).toMatch(/export default function Chat\(props[^)]*\) \{\s*const householdId = useStore\(s => s\.currentHouseholdId\);\s*return <ChatForHousehold key=\{householdId\} \{\.\.\.props\} \/>;/);

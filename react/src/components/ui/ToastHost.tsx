@@ -16,7 +16,7 @@ export default function ToastHost() {
       aria-live="polite"
       aria-relevant="additions"
       aria-label="Notifications"
-      className="fixed bottom-5 right-5 z-[999] flex flex-col gap-2 max-w-xs pointer-events-none"
+      className="fixed bottom-above-tabbar right-5 z-[999] flex flex-col gap-2 max-w-xs pointer-events-none"
     >
       <AnimatePresence initial={false}>
         {toasts.map(t => {
