@@ -8,7 +8,8 @@ import { FULLY_TRANSLATED, languageOptionLabel } from '../i18n';
 import { LOCALES } from '../../constants';
 import { getInsights, recurringForecastByCategory } from '../calculations';
 import { recurringForecastByCategory as portForecast } from '../../../../supabase/functions/_shared/money/calculations';
-import type { Budget, BudgetAllocation, Transaction } from '../../types';
+import { editSeedAccount } from '../accounts';
+import type { Account, Budget, BudgetAllocation, Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
 
@@ -50,6 +51,23 @@ describe('W8a · app fixes', () => {
     const f = recurringForecastByCategory(sched, '2026-10-01', '2026-10-31', 'INR', {});
     expect(Object.keys(f)).toEqual(['utilities']);
     expect(portForecast(sched, '2026-10-01', '2026-10-31', 'INR', {})).toStrictEqual(f);
+  });
+
+  it('W8a-UIC05-001 · an edit opens on the account the ledger uses (the FK), not a stale paymentMethod (FE-UIC-05)', () => {
+    const accounts = [
+      { id: 'acc-hdfc', kind: 'bank', name: 'HDFC', currency: 'INR' },
+      { id: 'acc-card', kind: 'credit_card', name: 'Card', currency: 'INR' },
+      { id: 'acc-cash', kind: 'cash', name: 'Cash', currency: 'INR' },
+    ] as Account[];
+    // Moved to the card elsewhere; paymentMethod still names the bank.
+    expect(editSeedAccount({ type: 'expense', accountId: 'acc-card', paymentMethod: 'asset:acc-hdfc' }, accounts)).toBe('debt:acc-card');
+    expect(editSeedAccount({ type: 'income', toAccountId: 'acc-hdfc', paymentMethod: 'cash' }, accounts)).toBe('asset:acc-hdfc');
+    expect(editSeedAccount({ type: 'expense', accountId: 'acc-cash' }, accounts)).toBe('cash');
+    // Legacy rows with no FK keep their stored method.
+    expect(editSeedAccount({ type: 'expense', paymentMethod: 'visa' }, accounts)).toBe('visa');
+    expect(editSeedAccount({ type: 'expense', accountId: 'gone' }, accounts)).toBe('gone');
+    expect(editSeedAccount({ type: 'expense' }, accounts)).toBe('');
+    expect(src('components/transactions/TransactionFormModal.tsx')).toMatch(/: editSeedAccount\(initial, accountsState\)/);
   });
 
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {

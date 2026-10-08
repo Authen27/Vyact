@@ -13,7 +13,7 @@ import {
   CATEGORIES_BY_TYPE,
   CURRENCIES,
 } from '../../constants';
-import { buildAccounts, buildAccountsFromStore, resolveAccount, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
+import { buildAccounts, buildAccountsFromStore, resolveAccount, editSeedAccount, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
 import TimeDial from '../ui/TimeDial';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { FEATURES } from '../../config/features';
@@ -275,7 +275,7 @@ export default function TransactionFormModal(props: Props) {
               const acc = accountsState.find(a => a.id === id);
               return acc ? accountValueOf(acc) : (id ?? '');
             })())
-          : (initial.paymentMethod ?? initial.accountId ?? ''),
+          : editSeedAccount(initial, accountsState),   // W8a (FE-UIC-05): the FK first, like the ledger
         paymentMethodTo: initial.assetId ?? initial.toAccountId ?? initial.linkedToAssetId ?? '',
         paymentMode: initial.paymentMode ?? '',
         direction: initial.assetId && initial.toAccountId && !initial.accountId ? 'withdrew' : 'added',
