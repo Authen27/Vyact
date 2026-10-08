@@ -12,6 +12,7 @@ import { isCloudEnabled, supabase } from '../../lib/supabase';
 import { highestRole, resolveMyRole } from '../../lib/permissions';
 import { setLocalString } from '../localJson';
 import { invalidateCacheForSession, clearCacheOnSignOut } from '../../lib/cacheInvalidation';
+import { forgetPushOnDevice } from '../../lib/webPush';
 import { stampHouseholdTimezone } from '../../lib/householdTimezone';
 
 export interface CloudAuthSlice {
@@ -79,6 +80,9 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
       // cleared synchronously below, and the next sign-in awaits its own purge
       // before hydrating — so a slow disk cannot leave stale rows visible.
       void clearCacheOnSignOut().catch(() => { /* storage disabled */ });
+      // W7a (FE-PLT-08): an expired/revoked session never ran signOut()'s push unregister — drop the
+      // device's subscription locally (a no-op after an explicit sign-out, which already did).
+      void forgetPushOnDevice();
       // Just signed out — clear in-memory cloud state
       set({
         households: [], currentHouseholdId: 'local',

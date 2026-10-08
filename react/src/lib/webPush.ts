@@ -179,6 +179,19 @@ export async function disablePush(): Promise<void> {
   } catch { /* best effort: a dead endpoint is retired by the server on its first 410 */ }
 }
 
+/** W7a (audit FE-PLT-08) — a PASSIVE sign-out (expired or revoked session) can no longer authorise the
+ *  server call, so the device drops its own subscription: the push service then answers 410 and the
+ *  server retires the endpoint on its next send. Without this the next person on the device kept
+ *  receiving the previous user's notifications. */
+export async function forgetPushOnDevice(): Promise<void> {
+  try { localStorage.removeItem(ENDPOINT_KEY); } catch { /* ignore */ }
+  try {
+    const reg = await registration();
+    const sub = await reg?.pushManager.getSubscription();
+    await sub?.unsubscribe();
+  } catch { /* best effort */ }
+}
+
 export interface TestResult { device: string; status: number; accepted: boolean; gone: boolean }
 
 /** Ask the server to push a test to this device; returns what the push service answered. */
