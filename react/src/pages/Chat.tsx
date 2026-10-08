@@ -50,8 +50,17 @@ const BUCKETS: Bucket[] = ['capture', 'inquire', 'plan'];
 
 /** `embedded` — rendered inside the Ask Vyact drawer, which supplies its own
  *  board-spec header, so the page title block is suppressed to avoid showing
- *  two headings. The /chat route renders it standalone (embedded=false). */
-export default function Chat({ embedded = false }: { embedded?: boolean } = {}) {
+ *  two headings. The /chat route renders it standalone (embedded=false).
+ *
+ *  W7a (audit FE-PIP-17): one conversation per household. Switching household while the chat was
+ *  open kept the old transcript in state and saved it under the NEW household's key; keying the
+ *  component on the household gives each household a fresh mount that loads its own history. */
+export default function Chat(props: { embedded?: boolean } = {}) {
+  const householdId = useStore(s => s.currentHouseholdId);
+  return <ChatForHousehold key={householdId} {...props} />;
+}
+
+function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
   const txns    = useStore(s => s.transactions);
   const budgets = useStore(s => s.budgets);
   const goals   = useStore(s => s.goals);
