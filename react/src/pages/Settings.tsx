@@ -14,6 +14,7 @@ import {
 } from '../lib/auth';
 import WhatsAppLink from '../components/settings/WhatsAppLink';
 import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
+import { buildBackup } from '../lib/backup';
 import PushNotifications from '../components/settings/PushNotifications';
 import { POLICY_VERSION } from './Privacy';
 import Chip from '../components/ui/Chip';
@@ -256,12 +257,14 @@ export default function Settings() {
 
   // One snapshot for both 'Download Backup' and 'Copy to Clipboard' (the copy used to leave out
   // members and the version while its button said 'Full backup'). W3b: no exchange rates — a
-  // household has one currency and nothing is converted.
+  // household has one currency and nothing is converted. W7a: built by lib/backup (all the data).
   function backupSnapshot() {
-    return {
-      version: '6.4.9', exported: today(),
+    const s = useStore.getState();
+    return buildBackup({
       profile, transactions, budgets, goals, members, debts, assets,
-    };
+      accounts: s.accounts, budgetAllocations: s.budgetAllocations,
+      recurringSchedules: s.recurringSchedules, netWorthSnapshots: s.netWorthSnapshots,
+    }, today(), __APP_VERSION__);
   }
 
   async function copyBackup() {
