@@ -531,14 +531,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── 11. Answer. ───────────────────────────────────────────────────────────
   if (!result.ok) {
+    // W8b (audit BE-PIP-07): every provider failure is logged — they were silent — and the configuration
+    // hint (base_url, key names, provider advice) goes only to an admin. End users get the code and a
+    // request id to quote.
+    const status = STATUS_FOR[result.code] ?? 502;
+    console.error('[ask-vyact] provider failure', { requestId, code: result.code, status, provider: config.provider, model: config.model });
+    let showHint = false;
+    if (result.hint) {
+      const { data: role } = await admin.from('admin_roles').select('user_id').eq('user_id', user.id).maybeSingle();
+      showHint = Boolean(role);
+    }
     return respond({
       ok: false, enabled: true, seam,
       error: result.code,
       message: result.message,
-      hint: result.hint,
+      ...(showHint ? { hint: result.hint } : {}),
       latencyMs: result.latencyMs,
       requestId,
-    }, STATUS_FOR[result.code] ?? 502, origin);
+    }, status, origin);
   }
 
   return respond({

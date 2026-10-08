@@ -102,6 +102,13 @@ async function recordDeliveryStatus(supabase: SupabaseClient, status: any): Prom
   }).eq('wa_message_id', (row as { wa_message_id: string }).wa_message_id);
 }
 
+/** W8b (audit BE-WA-09): a consent or state write whose error was ignored let the chat say "Done" for a
+ *  change that never happened. Every such write goes through this, and a failure throws (→ retry). */
+function must<T extends { error: { message?: string } | null }>(result: T, what: string): T {
+  if (result.error) throw new Error(`${what}: ${result.error.message ?? 'write failed'}`);
+  return result;
+}
+
 /**
  * Meta's own "stop promotions" (the user_preferences webhook): marketing consent is
  * withdrawn and the source recorded. A "resume" is NOT taken as consent — turning
@@ -111,15 +118,15 @@ async function recordMetaOptOut(supabase: SupabaseClient, pref: any): Promise<vo
   if (pref?.category !== 'marketing_messages' || pref?.value !== 'stop') return;
   const profile = await lookupIdentity(supabase, String(pref?.wa_id ?? '').replace(/[^\d]/g, ''));
   if (!profile) return;
-  await supabase.from('whatsapp_preferences').upsert({
+  must(await supabase.from('whatsapp_preferences').upsert({
     profile_id: profile.id, marketing_opt_in: false, marketing_opt_in_at: null,
     marketing_source: 'meta_opt_out', updated_at: new Date().toISOString(),
-  }, { onConflict: 'profile_id' });
+  }, { onConflict: 'profile_id' }), 'meta opt-out');
 }
 
 /** Store preferences changed from chat (STOP / START / a Stop button). */
 async function savePrefs(supabase: SupabaseClient, profileId: string, before: WaPrefs, after: WaPrefs): Promise<void> {
-  await supabase.from('whatsapp_preferences').upsert({
+  must(await supabase.from('whatsapp_preferences').upsert({
     profile_id: profileId,
     marketing_opt_in: after.marketing_opt_in,
     insights_opt_in: after.insights_opt_in,
@@ -132,7 +139,7 @@ async function savePrefs(supabase: SupabaseClient, profileId: string, before: Wa
     ...(before.marketing_opt_in && !after.marketing_opt_in ? { marketing_opt_in_at: null, marketing_source: null } : {}),
     ...(before.insights_opt_in && !after.insights_opt_in ? { insights_opt_in_at: null } : {}),
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'profile_id' });
+  }, { onConflict: 'profile_id' }), 'save prefs');
 }
 
 Deno.serve(async (req: Request) => {
@@ -201,16 +208,23 @@ Deno.serve(async (req: Request) => {
         try { await recordDeliveryStatus(supabase, status); } catch (_e) { /* recorded next status */ }
       }
       for (const pref of value?.user_preferences ?? []) {
-        try { await recordMetaOptOut(supabase, pref); } catch (_e) { /* Meta also enforces it */ }
+        try { await recordMetaOptOut(supabase, pref); }
+        catch (e) { console.error('[whatsapp-webhook] meta opt-out not recorded', (e as Error)?.message); /* Meta also enforces it */ }
       }
     }
   }
 
+  // W8b (audit BE-WA-04): only messages that are actually STORED are acknowledged. The insert's error
+  // used to be ignored and the handler always answered 200, so a database blip lost the message for
+  // good (Meta does not resend after a 200). Any row that could not be stored → 503, and Meta redelivers
+  // the batch; the ones already stored dedupe on wa_message_id.
+  const recorded: Array<{ message: any; phone: string }> = [];
+  let notStored = 0;
   if (incoming.length) {
     // Record each as pending (PK on wa_message_id dedups a Meta redelivery).
     for (const { message, phone } of incoming) {
       const profile = await lookupIdentity(supabase, phone);
-      await supabase.from('whatsapp_inbound_messages').upsert({
+      const { error } = await supabase.from('whatsapp_inbound_messages').upsert({
         wa_message_id: message.id,
         profile_id: profile?.id ?? null,
         household_id: profile?.whatsapp_household_id ?? null,
@@ -219,16 +233,25 @@ Deno.serve(async (req: Request) => {
         status: 'pending',
         processed_at: null,
       }, { onConflict: 'wa_message_id', ignoreDuplicates: true });
+      if (error) { notStored++; console.error('[whatsapp-webhook] inbound not stored', { id: message.id, code: error.code }); }
+      else recorded.push({ message, phone });
     }
 
     // Opportunistic replay: every real delivery also retries a few failed rows, so a
     // transient outage heals on the next message even before a scheduler is wired.
-    const work = drainInbox(supabase, incoming).then(() => sweepInbox(supabase, 5)).then(() => undefined);
-    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
-    else await work;   // local/dev fallback
+    if (recorded.length) {
+      const work = drainInbox(supabase, recorded).then(() => sweepInbox(supabase, 5)).then(() => undefined);
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
+      else await work;   // local/dev fallback
+    }
   }
 
-  return new Response(JSON.stringify({ status: 'ok', recorded: incoming.length }), {
+  if (notStored) {
+    return new Response(JSON.stringify({ status: 'retry', recorded: recorded.length, notStored }), {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '30' },
+    });
+  }
+  return new Response(JSON.stringify({ status: 'ok', recorded: recorded.length }), {
     status: 200, headers: { 'Content-Type': 'application/json' },
   });
 });
@@ -299,26 +322,34 @@ async function sweepInbox(supabase: SupabaseClient, limit = 25): Promise<number>
     .limit(limit);
   const { data: stale } = await supabase
     .from('whatsapp_inbound_messages')
-    .select('wa_message_id, payload')
+    .select('wa_message_id, payload, attempts')
     .eq('direction', 'inbound')
     .eq('status', 'claimed')
     .lt('claimed_at', staleBefore)
     .limit(limit);
-  const rows = [...((failed as any[]) ?? []), ...((stale as any[]) ?? [])];
   const requeued: Array<{ message: any; phone: string }> = [];
-  for (const row of rows) {
+  const requeue = async (row: any, fromStatus: 'failed' | 'claimed', patch: Record<string, unknown>) => {
     const message = row.payload;
-    if (!message?.id) continue;
+    if (!message?.id) return;
     // Re-queue only if it is still in the state we read (another sweep may have won).
     const { data: flipped } = await supabase
       .from('whatsapp_inbound_messages')
-      .update({ status: 'pending' })
+      .update(patch)
       .eq('wa_message_id', row.wa_message_id)
-      .in('status', ['failed', 'claimed'])
+      .eq('status', fromStatus)
       .select('wa_message_id');
-    if (flipped && (flipped as any[]).length) {
+    if (flipped && (flipped as any[]).length && patch.status === 'pending') {
       requeued.push({ message, phone: String(message.from ?? '').replace(/[^\d]/g, '') });
     }
+  };
+  for (const row of (failed as any[]) ?? []) await requeue(row, 'failed', { status: 'pending' });
+  // W8b (audit BE-WA-12): a stale claim (its worker died mid-message) is an attempt too. It used to be
+  // re-queued with its count unchanged, so a message that crashes the worker replayed without limit.
+  for (const row of (stale as any[]) ?? []) {
+    const attempts = Number(row.attempts ?? 0) + 1;
+    await requeue(row, 'claimed', attempts >= MAX_ATTEMPTS
+      ? { status: 'failed', attempts, last_error: 'stale claim: the worker stopped before finishing' }
+      : { status: 'pending', attempts });
   }
   if (requeued.length) await drainInbox(supabase, requeued);
   return requeued.length;
@@ -456,6 +487,21 @@ async function processInbound(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile | null,
   priorAttempts = 0,
 ): Promise<InboundOutcome> {
+  const turn: { pendingId?: string } = {};
+  const outcome = await processInboundTurn(supabase, message, fromPhone, profile, priorAttempts, turn);
+  // W8b (audit BE-WA-03): the message this question was waiting for failed and will be replayed — reopen
+  // the question, so the replay is read as the answer it was. Not when a newer question is already open.
+  if (turn.pendingId && outcome.status === 'retry' && profile && !(await openPending(supabase, profile.id))) {
+    try { await reopenPending(supabase, turn.pendingId); }
+    catch (e) { console.error('[whatsapp-webhook] pending not reopened', (e as Error)?.message); }
+  }
+  return outcome;
+}
+
+async function processInboundTurn(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile | null,
+  priorAttempts: number, turn: { pendingId?: string },
+): Promise<InboundOutcome> {
   const text: string | undefined = message?.text?.body;
 
   // Unregistered / unlinked sender: a greeting gets who we are and how to link;
@@ -499,6 +545,12 @@ async function processInbound(
     const { prefs: after, reply: body } = applyPrefCommand(before, command);
     try { await savePrefs(supabase, profile.id, before, after); }
     catch (e) { return { status: 'retry', error: `prefs: ${(e as Error)?.message ?? String(e)}` }; }
+    // W8b (audit BE-WA-13): ANSWERS OFF / STOP close an open follow-up list or answers offer, so a later
+    // "1" is not answered after answers were turned off.
+    if (command.kind === 'answers_off' || command.kind === 'stop_all') {
+      const open = await openPending(supabase, profile.id);
+      if (open && (open.kind === 'chips' || open.kind === 'reads_offer')) await resolvePending(supabase, open.id);
+    }
     const said = await reply(fromPhone, body);
     // v10.46.0 — ANSWERS ON after an offer answers the question that prompted it.
     if (command.kind === 'answers_on') {
@@ -531,13 +583,20 @@ async function processInbound(
   const pending = await openPending(supabase, profile.id);
   if (pending) {
     await resolvePending(supabase, pending.id);
+    // W8b (audit BE-WA-03): remembered so a RETRY reopens it. Closed here first and never reopened, a reply
+    // whose action then failed was replayed without its question and read as a brand-new entry.
+    turn.pendingId = pending.id;
     const expired = Date.parse(pending.expires_at) < Date.now();
     // v10.45.0 (W4) — "1", "2" or "3" after an answer asks that follow-up.
     if (pending.kind === 'chips') {
       const pick = /^\s*([1-3])\s*[.)]?\s*$/.exec(text)?.[1];
       const prompt = pick ? (pending.payload?.prompts ?? [])[Number(pick) - 1] : undefined;
       if (pick && expired) return { status: 'done', note: await reply(fromPhone, 'That list has expired. Ask again, or send MENU.') };
-      if (prompt) return answerQuestion(supabase, fromPhone, profile, prompt, pending.payload?.allowedFigures ?? []);
+      if (prompt) {
+        // W8b (audit BE-WA-13): answers turned off since the list was sent → offer them, don't answer.
+        if (!(await readsEnabled(supabase, profile.id))) return offerAnswers(supabase, fromPhone, profile, prompt);
+        return answerQuestion(supabase, fromPhone, profile, prompt, pending.payload?.allowedFigures ?? []);
+      }
     }
     // v10.47.0 (W6) — the two follow-up conversations. Each returns null when the
     // message is not an answer to it, and the message is then read as a new one.
@@ -1210,19 +1269,24 @@ async function openPending(supabase: SupabaseClient, profileId: string): Promise
 }
 
 async function resolvePending(supabase: SupabaseClient, id: string): Promise<void> {
-  await supabase.from('whatsapp_pending_turns').update({ resolved_at: new Date().toISOString() }).eq('id', id);
+  must(await supabase.from('whatsapp_pending_turns').update({ resolved_at: new Date().toISOString() }).eq('id', id), 'resolve pending');
+}
+
+/** W8b (BE-WA-03) — reopen a question whose answer failed to process. */
+async function reopenPending(supabase: SupabaseClient, id: string): Promise<void> {
+  must(await supabase.from('whatsapp_pending_turns').update({ resolved_at: null }).eq('id', id), 'reopen pending');
 }
 
 /** Ask a question: it replaces any open one, and waits PENDING_MINUTES for its answer. */
 async function askPending(
   supabase: SupabaseClient, profileId: string, householdId: string, kind: PendingKind, payload: Record<string, unknown>,
 ): Promise<void> {
-  await supabase.from('whatsapp_pending_turns').update({ resolved_at: new Date().toISOString() })
-    .eq('profile_id', profileId).is('resolved_at', null);
-  await supabase.from('whatsapp_pending_turns').insert({
+  must(await supabase.from('whatsapp_pending_turns').update({ resolved_at: new Date().toISOString() })
+    .eq('profile_id', profileId).is('resolved_at', null), 'replace pending');
+  must(await supabase.from('whatsapp_pending_turns').insert({
     profile_id: profileId, household_id: householdId, kind, payload,
     expires_at: new Date(Date.now() + PENDING_MINUTES * 60_000).toISOString(),
-  });
+  }), 'ask pending');
 }
 
 // ── v10.47.0 (W6b) — replies for the templates that got senders ─────────────────

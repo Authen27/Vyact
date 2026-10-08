@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.82.0`** (consumer)
+> **Current production version: `v10.83.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,33 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.83.0 — W8b: WhatsApp and Pip server robustness *(2026-10-08)*
+
+Eleven Edge Function fixes from the 2026-10-04 audit (owner plan W8, batch b). No migration and no app change;
+the Deploy workflow ships them with the functions.
+
+- **No lost messages (BE-WA-04).** A WhatsApp message the webhook could not store is answered 503, so Meta
+  delivers it again. It used to answer 200 regardless, and the message was gone.
+- **Stuck messages stop (BE-WA-12, Edge part).** A message whose worker died mid-way counts an attempt when
+  it is re-queued and stops at the limit; it used to replay without limit. (The scheduled sweep that needs a
+  migration is not in this release.)
+- **"Done" means done (BE-WA-09).** STOP and other preference or open-question writes are checked; a failed
+  write is retried instead of answered "Done".
+- **Answers survive a hiccup (BE-WA-03).** When the reply to a question (an amount, a yes) fails to process,
+  the question is reopened, so the retry still reads it as the answer, not as a new entry.
+- **ANSWERS OFF holds (BE-WA-13).** A "1" on an old follow-up list is not answered after answers are turned
+  off (the answers offer is sent instead), and ANSWERS OFF or STOP closes an open list.
+- **Verification codes (BE-WA-06).** Each guess claims its attempt before the code is compared, so parallel
+  guesses can't exceed the limit; sending a new code keeps the count.
+- **Sends (BE-WA-11).** A send Meta refused frees its slot so the next run can send it; the daily cap counts
+  sends in flight.
+- **Same figures as the app (INT-PAR-10).** Large-spend alerts use the household's share of a split bill; the
+  budget percentage uses the app's threshold and rounding.
+- **Pip gateway (BE-PIP-05, BE-PIP-07).** A model configuration may read only model-provider keys (an
+  allowlist; production uses OPENROUTER_API_KEY). Provider failures are logged, and configuration hints go
+  to admins only.
+- **Learned recipes (BE-PIP-04).** Only a trusted recipe may write without a human (the pipeline is not live).
 
 ## v10.82.0 — W8a: app fixes from the audit's open items *(2026-10-08)*
 

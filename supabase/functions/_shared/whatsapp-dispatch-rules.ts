@@ -120,7 +120,9 @@ export function largeSpendAlerts(input: {
     if (r.type !== 'expense' || r.recurring_schedule_id || r.extras?.excluded) continue;
     const account = r.account_id ? input.accountNames[r.account_id] : undefined;
     if (!account) continue;
-    const amount = Number(r.amount);
+    // W8b (audit INT-PAR-10): the household's share, as every app total reads it — a split bill is
+    // announced (and compared with the threshold) at the share this household paid, not the whole bill.
+    const amount = effectiveAmount(rowToTxn(r), household.base_currency.trim(), {});
     for (const m of input.members) {
       if (m.profile_id === r.created_by) continue;
       if (amount < (input.thresholds[m.profile_id] ?? 10000)) continue;
@@ -163,8 +165,11 @@ export function budgetAlerts(input: {
       const limit = Number(a.amount);
       const spent = spend[a.category] ?? 0;
       if (!(limit > 0)) continue;
-      const pct = Math.floor((spent / limit) * 100);
-      if (pct < BUDGET_ALERT_AT || spent >= limit) continue;
+      // W8b (audit INT-PAR-10): the app's rule — the threshold on the raw share, the figure rounded — so
+      // the bell and WhatsApp state the same percentage (this floored while the app rounded).
+      const share = spent / limit;
+      if (share < BUDGET_ALERT_AT / 100 || spent >= limit) continue;
+      const pct = Math.round(share * 100);
       const label = EXPENSE_LABEL[a.category];
       if (!label) continue;
       for (const m of input.members) {

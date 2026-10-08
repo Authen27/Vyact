@@ -110,8 +110,8 @@ export async function prepareRecipe(store: RecipeStore, text: string): Promise<P
       // An untrusted recipe still extracts, but at reduced confidence so the
       // pipeline's confirm gate drafts it for a human rather than writing it.
       return trusted
-        ? result
-        : { ...result, confidence: Math.min(result.confidence, RECIPE_CONFIDENCE.untrusted) };
+        ? { ...result, trusted: true }
+        : { ...result, trusted: false, confidence: Math.min(result.confidence, RECIPE_CONFIDENCE.untrusted) };
     },
   };
 }

@@ -42,7 +42,7 @@ Deno.serve(async (req: Request) => {
 
   // Rate-limit resends.
   const { data: recent } = await admin
-    .from('whatsapp_verification_otps').select('created_at')
+    .from('whatsapp_verification_otps').select('created_at, attempts')
     .eq('profile_id', user.id).eq('phone_number', e164)
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (recent && Date.now() - new Date(recent.created_at).getTime() < RESEND_COOLDOWN_MS) {
@@ -55,9 +55,12 @@ Deno.serve(async (req: Request) => {
   const otpHash = await sha256Hex(`${otp}:${e164}:${pepper}`);
   await admin.from('whatsapp_verification_otps')
     .delete().eq('profile_id', user.id).eq('phone_number', e164);
+  // W8b (audit BE-WA-06): a resend keeps the wrong guesses already made — it used to reset them, so
+  // "resend, guess five, resend" never ran out.
   const { error: insErr } = await admin.from('whatsapp_verification_otps').insert({
     profile_id: user.id, household_id: householdId, phone_number: e164,
     otp_hash: otpHash, expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),
+    attempts: Number((recent as { attempts?: number } | null)?.attempts ?? 0),
   });
   if (insErr) return json({ error: 'store_failed', detail: insErr.message }, 500);
 

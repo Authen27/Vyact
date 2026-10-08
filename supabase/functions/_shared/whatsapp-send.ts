@@ -142,7 +142,9 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
     .select('wa_message_id', { count: 'exact', head: true })
     .eq('profile_id', toProfileId)
     .eq('direction', 'outbound')
-    .eq('status', 'sent')
+    // W8b (audit BE-WA-11): sends still in flight count too — two dispatchers racing used to both
+    // read "under the cap" and both send.
+    .in('status', ['sent', 'sending'])
     .gt('created_at', since);
   if ((count ?? 0) >= cap) return skip('daily_cap');
 
@@ -159,8 +161,11 @@ export async function guardedSend(admin: SupabaseClient, req: SendRequest): Prom
   try {
     wamid = await sendTemplateMessage(recipient.phone_number, def, cleaned, { appUrl: APP_URL, context: key });
   } catch (e) {
+    // W8b (audit BE-WA-11): a send Meta refused frees its dedupe slot — the audit row moves to a unique
+    // id — so the next run can send it. It used to keep the slot, and that message was never sent.
     await admin.from('whatsapp_inbound_messages')
-      .update({ status: 'failed', last_error: (e as Error)?.message ?? String(e), payload: payloadWith({ sent: false, reason: 'meta_error' }) })
+      .update({ wa_message_id: `${slot}:failed:${crypto.randomUUID()}`, status: 'failed',
+        last_error: (e as Error)?.message ?? String(e), payload: payloadWith({ sent: false, reason: 'meta_error' }) })
       .eq('wa_message_id', slot);
     return { status: 'failed', reason: 'meta_error', template };
   }
