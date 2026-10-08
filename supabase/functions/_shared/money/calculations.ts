@@ -503,7 +503,7 @@ export function periodMonths(period: BudgetPeriod | undefined): number {
  *  rate); informs a budget, writes nothing. Transfers/investments/income are
  *  excluded from spend forecast by construction. */
 export function recurringForecastByCategory(
-  schedules: { transactionTemplate: { type?: string; amount?: number; currency?: string; category?: string }; frequency: string }[],
+  schedules: { transactionTemplate: { type?: string; amount?: number; currency?: string; category?: string; debtId?: string; linkedDebtId?: string }; frequency: string; active?: boolean }[],
   periodStart: string, periodEnd: string,
   baseCurrency: string, rates: ExchangeRates,
 ): Record<string, number> {
@@ -514,6 +514,9 @@ export function recurringForecastByCategory(
   for (const s of schedules) {
     const t = s.transactionTemplate;
     if (!t || t.type !== 'expense' || !t.amount || !t.category) continue;
+    // W8a (audit FE-MNY-16): a paused schedule posts nothing, and a loan EMI is the loan's payment, not
+    // category spend (the same rule as lib/recurring.ts isLoanEmiSchedule) — neither belongs in the forecast.
+    if (s.active === false || t.category === 'loan_emi' || t.debtId || t.linkedDebtId) continue;
     const perPeriod =
       s.frequency === 'daily' ? t.amount * days :
       s.frequency === 'weekly' ? t.amount * (days / 7) :

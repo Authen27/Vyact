@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { FULLY_TRANSLATED, languageOptionLabel } from '../i18n';
 import { LOCALES } from '../../constants';
-import { getInsights } from '../calculations';
+import { getInsights, recurringForecastByCategory } from '../calculations';
+import { recurringForecastByCategory as portForecast } from '../../../../supabase/functions/_shared/money/calculations';
 import type { Budget, BudgetAllocation, Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
@@ -37,6 +38,18 @@ describe('W8a · app fixes', () => {
     const annualAlloc = [{ id: 'ya', budgetId: 'y', category: 'food_dining', amount: 120 }] as BudgetAllocation[];
     expect(getInsights(txns, annual, [], [], [], 'INR', {}, { allocations: annualAlloc, netWorth: null }).some(c => /exceeded/.test(c.text))).toBe(false);
     expect(src('lib/selectors.ts')).toMatch(/getInsights\(transactions, budgets, goals, debts, assets, base, rates, \{ allocations, netWorth \}\)/);
+  });
+
+  it('W8a-MNY16-001 · the budget forecast skips paused schedules and loan EMIs, client and server alike (FE-MNY-16)', () => {
+    const sched = [
+      { transactionTemplate: { type: 'expense', amount: 300, currency: 'INR', category: 'utilities' }, frequency: 'monthly' },
+      { transactionTemplate: { type: 'expense', amount: 999, currency: 'INR', category: 'subscriptions' }, frequency: 'monthly', active: false },
+      { transactionTemplate: { type: 'expense', amount: 16000, currency: 'INR', category: 'loan_emi' }, frequency: 'monthly' },
+      { transactionTemplate: { type: 'expense', amount: 5000, currency: 'INR', category: 'other_expense', linkedDebtId: 'd' }, frequency: 'monthly' },
+    ];
+    const f = recurringForecastByCategory(sched, '2026-10-01', '2026-10-31', 'INR', {});
+    expect(Object.keys(f)).toEqual(['utilities']);
+    expect(portForecast(sched, '2026-10-01', '2026-10-31', 'INR', {})).toStrictEqual(f);
   });
 
   it('W8a-UIS15-001 · the Language select labels the partly translated languages "Preview" (FE-UIS-15)', () => {

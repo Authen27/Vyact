@@ -176,6 +176,10 @@ const SCHEDULES = [
   { transactionTemplate: { type: 'income', amount: 5000, currency: 'USD', category: 'salary' }, frequency: 'monthly' },   // skipped
   { transactionTemplate: { type: 'expense', amount: 0, currency: 'USD', category: 'other_expense' }, frequency: 'monthly' }, // skipped (falsy amount)
   { transactionTemplate: { type: 'transfer', amount: 100, currency: 'USD' }, frequency: 'monthly' },                       // skipped
+  // W8a (FE-MNY-16): paused, and loan EMIs (by category or by debt link), are skipped on both sides.
+  { transactionTemplate: { type: 'expense', amount: 400, currency: 'USD', category: 'subscriptions' }, frequency: 'monthly', active: false },
+  { transactionTemplate: { type: 'expense', amount: 700, currency: 'USD', category: 'loan_emi' }, frequency: 'monthly' },
+  { transactionTemplate: { type: 'expense', amount: 650, currency: 'USD', category: 'other_expense', debtId: 'd1' }, frequency: 'monthly' },
 ];
 
 const MONTH_KEYS = ['2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-11'];
