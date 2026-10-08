@@ -10,6 +10,7 @@ import { txnAccountLabel } from '../accounts';
 import { listNet, dayTotalsForMonth } from '../txnListTotals';
 import { inviteAcceptMessage, nextHouseholdAfterExit } from '../householdTypes';
 import { htmlLangFor } from '../htmlLang';
+import { statedForReconcile } from '../accountsView';
 import type { Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
@@ -111,6 +112,20 @@ describe('W7a · small app fixes', () => {
     const hh = src('pages/Households.tsx');
     expect(hh.match(/leaveActive\(active\)/g)?.length).toBe(2);
     expect(hh).toMatch(/if \(h\.id === currentHouseholdId && next\) await switchHousehold\(next\)/);
+  });
+  it('W7a-UIC14-001 · the Reconcile sheet reads a card\'s "-23,990" as owed and refuses negative cash (FE-UIC-14)', () => {
+    expect(statedForReconcile(-23990, 'credit_card')).toBe(23990);
+    expect(statedForReconcile(23990, 'credit_card')).toBe(23990);
+    expect(statedForReconcile(-50, 'cash')).toBeNull();
+    expect(statedForReconcile(50, 'cash')).toBe(50);
+    expect(statedForReconcile(-1200, 'bank')).toBe(-1200);                // an overdraft keeps its sign
+    expect(statedForReconcile(null, 'credit_card')).toBeNull();
+    // Card owes 23,990 in Vyact; typing it negative is no drift (was a 47,980 "gap").
+    const vyactSays = 23990;
+    expect((statedForReconcile(-23990, 'credit_card') ?? 0) - vyactSays).toBe(0);
+    const sheet = src('components/accounts/ReconcileSheet.tsx');
+    expect(sheet).toMatch(/statedValue = statedForReconcile\(parseAmountInput\(stated\), account\.kind\)/);
+    expect(sheet).toMatch(/const posted = await reconcileAccount[\s\S]*?fmt\(Math\.abs\(posted\)/);
   });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');

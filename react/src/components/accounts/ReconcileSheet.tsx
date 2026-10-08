@@ -18,7 +18,7 @@ import Button from '../ui/Button';
 import { useStore } from '../../store';
 import { fmt, fmtNet } from '../../lib/format';
 import { computeAccountBalance } from '../../lib/accountBalance';
-import { lastReconciledAt, parseAmountInput, statementWindow } from '../../lib/accountsView';
+import { lastReconciledAt, parseAmountInput, statedForReconcile, statementWindow } from '../../lib/accountsView';
 import { CURRENCIES } from '../../constants';
 import type { Account } from '../../types';
 
@@ -61,7 +61,8 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
 
   if (!account) return null;
 
-  const statedValue = parseAmountInput(stated);
+  // W7a (FE-UIC-14): normalised before the drift is computed, so the sheet shows what the engine posts.
+  const statedValue = statedForReconcile(parseAmountInput(stated), account.kind);
   const drift = statedValue === null ? 0 : round2(statedValue - vyactSays);
   const hasDrift = statedValue !== null && drift !== 0;
   const since = lastReconciledAt(account);
@@ -90,9 +91,10 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
     try {
       // A card's balance is what it owes, negated.
       const statedBalance = isCard ? -statedValue : statedValue;
-      await reconcileAccount(account, hasDrift ? statedBalance : balance);
-      toast(hasDrift
-        ? `Reconcile adjustment of ${fmt(Math.abs(drift), baseCurrency)} posted — spend totals unchanged`
+      const posted = await reconcileAccount(account, hasDrift ? statedBalance : balance);
+      // The toast reports the delta the engine actually wrote (W7a, FE-UIC-14), not the sheet's estimate.
+      toast(posted !== 0
+        ? `Reconcile adjustment of ${fmt(Math.abs(posted), baseCurrency)} posted — spend totals unchanged`
         : isCash ? 'Cash balance confirmed' : 'Balance confirmed against your statement', 'success');
       onClose();
     } catch (e) {
