@@ -56,3 +56,25 @@ it('hydrates a successful fresh session once without reinitializing on token ref
   expect(init).toHaveBeenCalledOnce();
   expect(useStore.getState().sessionLoaded).toBe(true);
 });
+it('W8a-SYN10-001 · Alice → Bob with no sign-out in between: Alice is cleared and purged before Bob hydrates (FE-SYN-10)', async () => {
+  await kvSet('alice-house_transactions', [{ id: 'alice-txn' }]);
+  useStore.setState({ session: session('alice'), currentHouseholdId: 'alice-house',
+    transactions: [{ id: 'alice-txn' }] as never, budgetAllocations: [{ id: 'alice-allocation' }] as never });
+  let cacheAtHydration: unknown = 'not-hydrated';
+  const init = vi.fn(async () => {
+    cacheAtHydration = await kvGet('alice-house_transactions');
+    useStore.setState({ currentHouseholdId: 'bob-house', transactions: [{ id: 'bob-txn' }] as never });
+  });
+  useStore.setState({ init });
+  useStore.getState().setSession(session('bob'));
+  // Alice's ledger leaves memory at once, before anything for Bob is loaded.
+  expect(useStore.getState().transactions).toEqual([]);
+  expect(useStore.getState().budgetAllocations).toEqual([]);
+  await vi.waitFor(() => expect(useStore.getState().currentHouseholdId).toBe('bob-house'));
+  expect(cacheAtHydration).toBeNull();
+  expect(init).toHaveBeenCalledOnce();
+  // The same user refreshing a token is not a switch.
+  useStore.getState().setSession({ ...session('bob'), access_token: 'refreshed' });
+  expect(init).toHaveBeenCalledOnce();
+  expect(useStore.getState().transactions).toEqual([{ id: 'bob-txn' }]);
+});
