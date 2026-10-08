@@ -313,6 +313,19 @@ describe('the landing page (#9, #12, #19)', () => {
     for (const p of ['/', '/about', '/dashboard', '/nope']) expect(re.test(p), p).toBe(true);
   });
 
+  it('CON-UNIT-PUB-028 · public pages never write an HSL-triplet token raw (the Aurora rule; the browser drops it silently)', async () => {
+    // W6 (audit FE-PUB-11): the current Learn topic pill had border-color:var(--coral).
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const apiDir = resolve(__dirname, '../../../api');
+    const raw = /(?<!hsl\()var\(--(coral|sage|honey|denim|plum|terra|olive|line2?|bg\d?|ink(?:-mid|-dim)?)\)/;
+    for (const f of readdirSync(apiDir).filter(x => x.endsWith('.js'))) {
+      expect(readFileSync(resolve(apiDir, f), 'utf8'), f).not.toMatch(raw);
+    }
+    expect(topicPage('Saving', ALL.filter(c => c.category === 'Saving'), ['Debt', 'Net Worth', 'Saving']))
+      .toContain('aria-current="page" style="border-color:hsl(var(--coral))"');
+  });
+
   it('CON-UNIT-PUB-027 · every public rewrite is on the service worker denylist, so an installed app never answers it with the app shell', async () => {
     // W6 (audit FE-PUB-04): /v/<n> was rewritten to api/v but missing here, so a returning
     // visitor's worker served index.html and the short link landed on /dashboard.
