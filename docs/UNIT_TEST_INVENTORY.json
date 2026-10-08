@@ -800,6 +800,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/budgetSuggest.test.ts",
+      "feature": "Budget suggestion",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "budgetIntel.suggestBudget + budgetCategoryOf (visible categories only, each EMI once, bills summed by their rule, history top-up)",
+      "count": 4,
+      "tests": [
+        "budget suggestion (W4h, D27) W4-D27-001 · only categories the form shows: legacy ids as their current one; goals, income and unknown ids never",
+        "budget suggestion (W4h, D27) W4-D27-002 · each live loan’s EMI once: not receivables, not paid-off loans, not again for its EMI schedule",
+        "budget suggestion (W4h, D27) W4-D27-003 · bills in one category add up, each by its own rule; paused ones do not count",
+        "budget suggestion (W4h, D27) W4-D27-004 · history tops up where spending runs higher than the bills, and fills categories with none"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/budgetTrends.test.ts",
       "feature": "Reports consultation",
       "availability": "available",
@@ -1362,7 +1377,7 @@
         "accountBalance — R-AGG-4 + D2 offset CON-UNIT-MM-102 · INV-3b: reconcile = offset + quiet log, NO transaction",
         "accountBalance — R-AGG-4 + D2 offset CON-UNIT-MM-103 · INV-3: value update moves balance, never spend/income",
         "budgetIntel — read-only inference (A8) CON-UNIT-MM-110 · copyBudgets clones category + limit without ids",
-        "budgetIntel — read-only inference (A8) CON-UNIT-MM-111 · suggestBudget proposes from recurring + debts + goals, traceably",
+        "budgetIntel — read-only inference (A8) CON-UNIT-MM-111 · suggestBudget proposes from recurring + loans, traceably, in categories the form shows",
         "budgetIntel — read-only inference (A8) CON-UNIT-MM-112 · budgetRollup nests category budgets under monthly/annual totals",
         "budgetIntel — read-only inference (A8) CON-UNIT-MM-113 · budgetHistory reports budget vs actual per month",
         "provenance lifecycle (R7/C4.4) CON-UNIT-MM-130 · an estimate is flagged until confirmed; reconcile confirms it"

@@ -15,7 +15,7 @@ import { AmountField } from '../ui/NumericKeypad';
 import { useStore } from '../../store';
 import { fmt } from '../../lib/format';
 import { resolveBudgetPeriod, recurringForecastByCategory } from '../../lib/calculations';
-import { suggestBudget } from '../../lib/budgetIntel';
+import { suggestBudget, budgetCategoryOf } from '../../lib/budgetIntel';
 import { EXPENSE_CATEGORIES, getCat, deterministicColor, CURRENCIES as CURRENCY_MAP } from '../../constants';
 import type { Budget, BudgetScope, BudgetAllocation } from '../../types';
 
@@ -53,7 +53,6 @@ export default function BudgetFormModal(props: Props) {
   const budgets      = useStore(s => s.budgets);
   const transactions = useStore(s => s.transactions);
   const debts        = useStore(s => s.debts);
-  const goals        = useStore(s => s.goals);
   const saveBudgetWithAllocations = useStore(s => s.saveBudgetWithAllocations);
   const removeBudget = useStore(s => s.removeBudget);
   const manualRefresh = useStore(s => s.manualRefresh);
@@ -80,8 +79,15 @@ export default function BudgetFormModal(props: Props) {
     if (!open) return;
     const currentAllocations = useStore.getState().budgetAllocations;
     if (initial) {
-      const rows = currentAllocations.filter(a => a.budgetId === initial.id)
-        .map(a => ({ id: a.id, category: a.category, amount: String(a.amount) }));
+      // W4h (D27): only categories the form shows. A legacy id is read as its current one (summed into
+      // it); a line the form cannot show (`savings` from the retired Goals, an income id) is not
+      // carried — it was counted in "Allocated" and saved again without ever being visible.
+      const byCategory = new Map<string, number>();
+      for (const a of currentAllocations.filter(x => x.budgetId === initial.id)) {
+        const category = budgetCategoryOf(a.category);
+        if (category) byCategory.set(category, (byCategory.get(category) ?? 0) + a.amount);
+      }
+      const rows = [...byCategory].map(([category, amount]) => ({ category, amount: String(Math.round(amount * 100) / 100) }));
       setForm({
         // Coerce any legacy 'custom' row to 'month' (custom budgets removed).
         scope: initial.scope === 'annual' ? 'annual' : 'month',
@@ -134,18 +140,26 @@ export default function BudgetFormModal(props: Props) {
   }
   const amountFor = (category: string) =>
     form.allocs.find(r => r.category === category)?.amount ?? '';
+  // W4h (owner decision D27) — applying a proposal sets the TOTAL to what it allocates. Keeping a total
+  // typed earlier (`f.limit || …`) is how a large total met a small split; it stays editable afterwards,
+  // and whatever is not allocated shows as Unallocated.
   function prefillFromForecast() {
-    const rows: AllocRow[] = Object.entries(forecast).map(([category, amount]) => ({ category, amount: String(Math.round(amount)) }));
-    if (rows.length) setForm(f => ({ ...f, allocs: rows, limit: f.limit || String(Math.round(forecastTotal)) }));
+    const byCategory = new Map<string, number>();
+    for (const [raw, amount] of Object.entries(forecast)) {
+      const category = budgetCategoryOf(raw);
+      if (category) byCategory.set(category, (byCategory.get(category) ?? 0) + Math.round(amount));
+    }
+    const rows: AllocRow[] = [...byCategory].map(([category, amount]) => ({ category, amount: String(amount) }));
+    if (rows.length) setForm(f => ({ ...f, allocs: rows, limit: String([...byCategory.values()].reduce((s, n) => s + n, 0)) }));
   }
 
   function applySuggestions() {
-    const suggestions = suggestBudget({ transactions, debts, goals, recurring, baseCurrency: form.currency, rates });
+    const suggestions = suggestBudget({ transactions, debts, recurring, baseCurrency: form.currency, rates });
     if (!suggestions.length) { toast('Not enough spending history to suggest yet', 'info'); return; }
     const rows: AllocRow[] = suggestions.map(s => ({ category: s.category, amount: String(s.limit) }));
     const suggestedTotal = suggestions.reduce((sum, s) => sum + s.limit, 0);
-    setForm(f => ({ ...f, allocs: rows, limit: f.limit || String(Math.round(suggestedTotal)) }));
-    toast('Allocations suggested from your spending history', 'info');
+    setForm(f => ({ ...f, allocs: rows, limit: String(suggestedTotal) }));
+    toast('Allocations suggested from your bills, loans and spending. The total is their sum — change it if you like.', 'info');
   }
 
   async function save() {
@@ -178,8 +192,9 @@ export default function BudgetFormModal(props: Props) {
       // but silently dead-letter the children, so allocations never reached the
       // cloud / other devices. The DB still owns identity/dedup (create rejects a
       // taken slot with BUDGET_EXISTS); allocation ids are minted server-side.
+      // W4h (D27): never a row the form does not show.
       const rows: Partial<BudgetAllocation>[] = form.allocs
-        .filter(r => parseFloat(r.amount) > 0)
+        .filter(r => parseFloat(r.amount) > 0 && budgetCategoryOf(r.category) === r.category)
         .map(r => ({ category: r.category, amount: parseFloat(r.amount) }));
       await saveBudgetWithAllocations({
         id: initial?.id,
@@ -332,11 +347,17 @@ export default function BudgetFormModal(props: Props) {
             );
           })}
         </div>
-        <div className={`text-[0.72rem] mt-2 ${remaining < -0.001 ? 'text-terra' : 'text-ink-dim'}`}>
+        {/* W4h (owner decision D27) — what the total leaves unallocated, as a line of its own. */}
+        <div className="flex items-center gap-2.5 px-3 py-2 mt-1.5 rounded-r2" data-testid="budget-unallocated"
+          style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+          <span className="text-base leading-none flex-shrink-0" aria-hidden>{remaining < -0.001 ? '⚠️' : '◌'}</span>
+          <span className={`flex-1 text-[14px] ${remaining < -0.001 ? 'text-terra font-medium' : 'text-ink-mid'}`}>
+            {remaining < -0.001 ? 'Over the total by' : 'Unallocated'}
+          </span>
+          <span className={`num text-[13px] ${remaining < -0.001 ? 'text-terra' : 'text-ink'}`}>{fmt(Math.abs(remaining), form.currency)}</span>
+        </div>
+        <div className="text-[0.72rem] mt-1.5 text-ink-dim">
           Allocated {fmt(allocSum, form.currency)} of {fmt(total, form.currency)}
-          {remaining >= 0
-            ? ` · ${fmt(remaining, form.currency)} unallocated`
-            : ` · over by ${fmt(-remaining, form.currency)}`}
         </div>
       </div>
 
