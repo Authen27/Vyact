@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1492 passing deterministic cases in 119 files. Zero failed, skipped or TODO cases at generation.**
+**1513 passing deterministic cases in 127 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 10 |
-| react | unit | available | 334 |
+| react | unit | available | 355 |
 | react | unit | conditional | 184 |
 | react | unit | infrastructure | 601 |
 
@@ -84,11 +84,13 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/calculations.test.ts](../react/src/lib/__tests__/calculations.test.ts) | Money model | unit | available | 16 |
 | [react/src/lib/__tests__/categoryModel.test.ts](../react/src/lib/__tests__/categoryModel.test.ts) | Categories and ordering | unit | available | 8 |
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
+| [react/src/lib/__tests__/chunkRecovery.test.ts](../react/src/lib/__tests__/chunkRecovery.test.ts) | Frontend guards (W6) | unit | available | 3 |
 | [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 7 |
 | [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 3 |
 | [react/src/lib/__tests__/demoSeed.test.ts](../react/src/lib/__tests__/demoSeed.test.ts) | First-run demo household | unit | available | 2 |
 | [react/src/lib/__tests__/eraseHouseholdSql.test.ts](../react/src/lib/__tests__/eraseHouseholdSql.test.ts) | Household erase SQL | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/essentialRunway.test.ts](../react/src/lib/__tests__/essentialRunway.test.ts) | Reports consultation | unit | available | 4 |
+| [react/src/lib/__tests__/exclusive.test.ts](../react/src/lib/__tests__/exclusive.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/faults.test.ts](../react/src/lib/__tests__/faults.test.ts) | Permissions and faults | unit | available | 3 |
 | [react/src/lib/__tests__/featureOutputs.test.ts](../react/src/lib/__tests__/featureOutputs.test.ts) | Reports, Planner, Insights, notifications | unit | available | 6 |
 | [react/src/lib/__tests__/format.test.ts](../react/src/lib/__tests__/format.test.ts) | Formatting and structured content | unit | available | 11 |
@@ -102,6 +104,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/householdTypes.test.ts](../react/src/lib/__tests__/householdTypes.test.ts) | Household types | unit | available | 5 |
 | [react/src/lib/__tests__/learnJsonLd.test.ts](../react/src/lib/__tests__/learnJsonLd.test.ts) | Formatting and structured content | unit | available | 2 |
 | [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 40 |
+| [react/src/lib/__tests__/liabilityList.test.ts](../react/src/lib/__tests__/liabilityList.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/loanAutomationSql.test.ts](../react/src/lib/__tests__/loanAutomationSql.test.ts) | Loan automation SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/loanCalendar.test.ts](../react/src/lib/__tests__/loanCalendar.test.ts) | Loan calendar and reminders | unit | available | 3 |
 | [react/src/lib/__tests__/loanModelSql.test.ts](../react/src/lib/__tests__/loanModelSql.test.ts) | Loan model SQL | sql-integration | conditional | 9 |
@@ -124,12 +127,14 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/outbox.test.ts](../react/src/lib/__tests__/outbox.test.ts) | Outbox algorithm | unit | available | 8 |
 | [react/src/lib/__tests__/outboxIndexedDb.test.ts](../react/src/lib/__tests__/outboxIndexedDb.test.ts) | Storage and synchronization | storage-integration | available | 5 |
 | [react/src/lib/__tests__/pageTitle.test.ts](../react/src/lib/__tests__/pageTitle.test.ts) | Page titles | unit | available | 1 |
+| [react/src/lib/__tests__/passwordRecovery.test.ts](../react/src/lib/__tests__/passwordRecovery.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/permissionsRole.test.ts](../react/src/lib/__tests__/permissionsRole.test.ts) | Permissions and faults | unit | available | 4 |
 | [react/src/lib/__tests__/personalInsights.test.ts](../react/src/lib/__tests__/personalInsights.test.ts) | Merged personal Insights | unit | available | 10 |
 | [react/src/lib/__tests__/pipCorrectness.test.ts](../react/src/lib/__tests__/pipCorrectness.test.ts) | Pip correctness | unit | conditional | 11 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 3 |
-| [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 27 |
+| [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 29 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
+| [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/recurrenceEngine.test.ts](../react/src/lib/__tests__/recurrenceEngine.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/recurrenceServerParity.test.ts](../react/src/lib/__tests__/recurrenceServerParity.test.ts) | Server recurring approval parity | unit | infrastructure | 2 |
@@ -142,7 +147,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/rrule.test.ts](../react/src/lib/__tests__/rrule.test.ts) | Recurring and budgets | unit | available | 11 |
 | [react/src/lib/__tests__/serverEngine.test.ts](../react/src/lib/__tests__/serverEngine.test.ts) | Ask Vyact on the server | unit | conditional | 4 |
 | [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 2 |
+| [react/src/lib/__tests__/settingsHouseholdRow.test.ts](../react/src/lib/__tests__/settingsHouseholdRow.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/sharedSplitsWorkflow.test.ts](../react/src/lib/__tests__/sharedSplitsWorkflow.test.ts) | Shared splits | contract-unit | conditional | 3 |
+| [react/src/lib/__tests__/shortcuts.test.ts](../react/src/lib/__tests__/shortcuts.test.ts) | Frontend guards (W6) | unit | available | 3 |
 | [react/src/lib/__tests__/splitEdit.test.ts](../react/src/lib/__tests__/splitEdit.test.ts) | Split editing | store-integration | available | 4 |
 | [react/src/lib/__tests__/splitEmailGuardSql.test.ts](../react/src/lib/__tests__/splitEmailGuardSql.test.ts) | Split email guard SQL | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/splitEmailHandler.test.ts](../react/src/lib/__tests__/splitEmailHandler.test.ts) | Split email handler | handler-integration | conditional | 5 |
@@ -153,7 +160,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/sync.test.ts](../react/src/lib/__tests__/sync.test.ts) | Storage and synchronization | storage-integration | available | 6 |
 | [react/src/lib/__tests__/syncRevisions.test.ts](../react/src/lib/__tests__/syncRevisions.test.ts) | Sync revisions and rollback | store-integration | conditional | 8 |
 | [react/src/lib/__tests__/timeZoneDay.test.ts](../react/src/lib/__tests__/timeZoneDay.test.ts) | Time zone (local today) | unit | available | 4 |
-| [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 2 |
+| [react/src/lib/__tests__/toastPolicy.test.ts](../react/src/lib/__tests__/toastPolicy.test.ts) | Frontend guards (W6) | unit | available | 2 |
+| [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 3 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 10 |
 | [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 5 |

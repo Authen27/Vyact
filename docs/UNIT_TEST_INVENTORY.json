@@ -924,6 +924,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/chunkRecovery.test.ts",
+      "feature": "Frontend guards (W6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit 2026-10-04 W6: one Recurring save at a time, shortcut rule, stale-chunk reload once, toast timing and roles, reset-link-only password step, owner-only household fields",
+      "count": 3,
+      "tests": [
+        "error screen and stale chunks (W6, audit FE-UIS-12) W6-UIS12-001 · recognises a failed chunk in each browser's wording, and nothing else",
+        "error screen and stale chunks (W6, audit FE-UIS-12) W6-UIS12-002 · reloads once per minute at most, and never when it cannot remember",
+        "error screen and stale chunks (W6, audit FE-UIS-12) W6-UIS12-003 · the boundary records the crash, its fallback uses real classes, a second Try Again reloads; main listens for vite:preloadError"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/cloudTransport.test.ts",
       "feature": "Cloud adapter contracts",
       "availability": "conditional",
@@ -995,6 +1009,19 @@
         "Essential-spend runway (v10.31.0) labels baselines within and across years",
         "Essential-spend runway (v10.31.0) reports zero months for a non-positive liquid position, and no runway without a baseline or essential spend",
         "Essential-spend runway (v10.31.0) uses the last three completed months with recorded spending, never the current month"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/exclusive.test.ts",
+      "feature": "Frontend guards (W6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit 2026-10-04 W6: one Recurring save at a time, shortcut rule, stale-chunk reload once, toast timing and roles, reset-link-only password step, owner-only household fields",
+      "count": 2,
+      "tests": [
+        "runExclusive (W6, audit FE-UIC-13) W6-UIC13-001 · a second call while the first is in flight is dropped; the slot frees afterwards, even on error",
+        "runExclusive (W6, audit FE-UIC-13) W6-UIC13-002 · the Recurring sheet saves through the guard and disables its button while saving"
       ]
     },
     {
@@ -1242,6 +1269,19 @@
         "ledger persisted happy paths paused schedule posts nothing and resumes on its due date",
         "ledger persisted happy paths profile and household currency/type changes persist and reload together",
         "ledger persisted happy paths reconciliation persists the stated balance and linked asset without inventing a transaction"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/liabilityList.test.ts",
+      "feature": "Money screen ratios and liabilities (W6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit W6: debt-to-income and kept-this-month on this month's income (no divide-by-1), Net Worth liabilities list = the projection's rows",
+      "count": 2,
+      "tests": [
+        "Net Worth liabilities list (W6, audit FE-UIC-06) W6-UIC06-001 · the list is the projection's rows: card and loan accounts and unlinked debts, summing to Total Liabilities",
+        "Net Worth liabilities list (W6, audit FE-UIC-06) W6-UIC06-002 · a card says it is managed in Accounts; a loan account shows its debt's terms; a card-only household is not \"no debts\""
       ]
     },
     {
@@ -1875,7 +1915,7 @@
         "onboardingNudges — progressive capture (spec §6) CON-UNIT-ONB-012 · day-7 check-in fires when <80% confirmed",
         "onboardingNudges — progressive capture (spec §6) CON-UNIT-ONB-013 · rate-limited to one nudge per session",
         "onboardingNudges — progressive capture (spec §6) CON-UNIT-ONB-014 · a dismissed nudge does not return; the next candidate falls through",
-        "onboardingNudges — progressive capture (spec §6) CON-UNIT-ONB-015 · bank-connect offer requires ≥5 real logs and never repeats",
+        "onboardingNudges — progressive capture (spec §6) CON-UNIT-ONB-015 · no bank-connect offer: Vyact has no bank connection (W6, audit FE-UIS-11)",
         "onboardingNudges — progressive capture (spec §6) CON-UNIT-ONB-016 · active nudging tapers after the 21-day window",
         "onboardingState — entity provenance + % confirmed (spec §3.2/§5.4) CON-UNIT-ONB-007 · onboardingProvenance / isEstimate classify rows",
         "onboardingState — entity provenance + % confirmed (spec §3.2/§5.4) CON-UNIT-ONB-008 · unconfirmedEstimateCount counts only outstanding onboarding estimates",
@@ -2000,6 +2040,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/passwordRecovery.test.ts",
+      "feature": "Frontend guards (W6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit 2026-10-04 W6: one Recurring save at a time, shortcut rule, stale-chunk reload once, toast timing and roles, reset-link-only password step, owner-only household fields",
+      "count": 2,
+      "tests": [
+        "set a new password only after a reset link (W6, audit FE-UIS-13) W6-UIS13-001 · a recovery lasts 15 minutes in this tab and ends when the password is set; no recovery, no step",
+        "set a new password only after a reset link (W6, audit FE-UIS-13) W6-UIS13-002 · ResetPassword opens \"set\" from a code exchange or PASSWORD_RECOVERY, never from any session; delete-immediately signs out"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/permissionsRole.test.ts",
       "feature": "Permissions and faults",
       "availability": "available",
@@ -2077,7 +2130,7 @@
       "availability": "available",
       "layer": "unit",
       "owner": "format / learnJsonLd",
-      "count": 27,
+      "count": 29,
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
@@ -2102,6 +2155,8 @@
         "the landing page (#9, #12, #19) CON-UNIT-PUB-020 · unknown paths are a noindex 404; every app route, public page and static file still gets through",
         "the landing page (#9, #12, #19) CON-UNIT-PUB-021 · one brand entity: /about answers \"What is Vyact?\", says which Vyact this is, and every page points at the same Organization @id",
         "the landing page (#9, #12, #19) CON-UNIT-PUB-022 · footer link rows wrap and the mobile sticky bar never covers the page end",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-027 · every public rewrite is on the service worker denylist, so an installed app never answers it with the app shell",
+        "the landing page (#9, #12, #19) CON-UNIT-PUB-028 · public pages never write an HSL-triplet token raw (the Aurora rule; the browser drops it silently)",
         "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-023 · /v/<n> redirects to lesson ev-<n> with YouTube utm tags, and to the library when the number is unknown",
         "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-024 · Start here: three 5-lesson paths of real lessons; a path lesson names its place and links the next; the index lists the paths with progress",
         "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-025 · the landing \"Learn money in 60 seconds\" strip: three Shorts, lazy thumbnails, each with its lesson",
@@ -2120,6 +2175,19 @@
         "computePulseScore — budget component (audit F5) CON-UNIT-125 · a container budget is compliance-checked via its ALLOCATIONS (overspend now registers)",
         "computePulseScore — budget component (audit F5) CON-UNIT-126 · on/under budget scores FULL; exactly-100% is not zero",
         "computePulseScore — budget component (audit F5) CON-UNIT-127 · a legacy category budget (no scope) still applies every month"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/ratios.test.ts",
+      "feature": "Money screen ratios and liabilities (W6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit W6: debt-to-income and kept-this-month on this month's income (no divide-by-1), Net Worth liabilities list = the projection's rows",
+      "count": 2,
+      "tests": [
+        "debt-to-income and \"kept this month\" (W6, audit FE-UIC-07) W6-UIC07-001 · this month's income is the base; no income means no figure, never a divide-by-1",
+        "debt-to-income and \"kept this month\" (W6, audit FE-UIC-07) W6-UIC07-002 · Debts, Dashboard and Net Worth read the one definition"
       ]
     },
     {
@@ -2315,6 +2383,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/settingsHouseholdRow.test.ts",
+      "feature": "Frontend guards (W6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit 2026-10-04 W6: one Recurring save at a time, shortcut rule, stale-chunk reload once, toast timing and roles, reset-link-only password step, owner-only household fields",
+      "count": 2,
+      "tests": [
+        "Settings: household fields and the profile email (W6, audit FE-UIS-06) W6-UIS06-001 · only the owner edits the household row in cloud mode (RLS \"owners update household\"); local-only has one user",
+        "Settings: household fields and the profile email (W6, audit FE-UIS-06) W6-UIS06-002 · currency, language, payoff strategy and extra payment are read-only for others; the email is shown, never saved"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/sharedSplitsWorkflow.test.ts",
       "feature": "Shared splits",
       "availability": "conditional",
@@ -2325,6 +2406,20 @@
         "shared split cloud service contracts creates an authenticated transaction-backed split and normalizes participant email",
         "shared split cloud service contracts edits unpaid shares, settles through the participant RPC, closes and reloads on both sides",
         "shared split cloud service contracts resolves distinct normalized participant identities and omits unnamed users"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/shortcuts.test.ts",
+      "feature": "Frontend guards (W6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit 2026-10-04 W6: one Recurring save at a time, shortcut rule, stale-chunk reload once, toast timing and roles, reset-link-only password step, owner-only household fields",
+      "count": 3,
+      "tests": [
+        "single-key shortcuts (W6, audit FE-UIS-10) W6-UIS10-001 · a bare key (or Shift) acts; Ctrl, Cmd, Alt and IME composition never do",
+        "single-key shortcuts (W6, audit FE-UIS-10) W6-UIS10-002 · never in a form field, an editable element, or while a dialog is open",
+        "single-key shortcuts (W6, audit FE-UIS-10) W6-UIS10-003 · useShortcuts consults the rule and adds its listener once"
       ]
     },
     {
@@ -2496,15 +2591,29 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/toastPolicy.test.ts",
+      "feature": "Frontend guards (W6)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit 2026-10-04 W6: one Recurring save at a time, shortcut rule, stale-chunk reload once, toast timing and roles, reset-link-only password step, owner-only household fields",
+      "count": 2,
+      "tests": [
+        "toasts a screen reader hears (W6, audit FE-UIS-08) W6-UIS08-001 · errors and warnings stay 10 s and interrupt; confirmations stay as before and wait their turn",
+        "toasts a screen reader hears (W6, audit FE-UIS-08) W6-UIS08-002 · the host is a live region with a role per toast and a close button; the store uses the policy; auth errors are alerts"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/transactionsCsv.test.ts",
       "feature": "Transactions CSV export",
       "availability": "available",
       "layer": "unit",
       "owner": "transactionsCsv (columns, escaping; Settings + Transactions page)",
-      "count": 2,
+      "count": 3,
       "tests": [
         "transactions CSV CON-UNIT-CSV-001 · the first seven columns are unchanged; added-by, accounts and mode follow",
-        "transactions CSV CON-UNIT-CSV-002 · quotes and commas in text are escaped; unknown member or account is blank"
+        "transactions CSV CON-UNIT-CSV-002 · quotes and commas in text are escaped; unknown member or account is blank",
+        "transactions CSV W6-MNY11-001 · text that a spreadsheet would run as a formula is neutralised; numbers are not (audit FE-MNY-11)"
       ]
     },
     {

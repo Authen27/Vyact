@@ -209,7 +209,6 @@ export default function Settings() {
   // W6 (audit FE-UIS-06): only the owner can change what lives on the household row. Everyone else
   // sees the values, read-only, instead of a "saved" toast for a write the database refuses.
   const myRole = useStore(s => s.myRole);
-  const cloudEnabled = useStore(s => s.cloudEnabled);
   const canEditHousehold = canEditHouseholdRow(myRole, cloudEnabled);
   const ownerOnlyNote = 'Only the household owner can change this.';
 

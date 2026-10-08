@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.78.0`** (consumer)
+> **Current production version: `v10.79.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.79.0 — W6: frontend quick fixes from the audit *(2026-10-08)*
+
+Twelve small, frontend-only fixes from the 2026-10-04 audit (owner: "only the 12 points"). App only;
+no schema change, no Pip or engine change.
+
+- **Short links (FE-PUB-04).** `/v/<n>` YouTube short links are on the service worker's denylist, so a
+  returning visitor's installed app no longer answers them with the app shell (they landed on
+  /dashboard). PUB-027 checks every `vercel.json` rewrite against the denylist.
+- **Recurring save (FE-UIC-13).** One save at a time: a double tap on "Save schedule" created two
+  schedules and posted the bill twice. The button disables and reads "Saving…".
+- **Keyboard shortcuts (FE-UIS-10).** n/b/d/a never fire with Ctrl, Cmd or Alt (Cmd+A opened Add Asset,
+  Ctrl+D Add Debt), in an editable element, or while a dialog is open.
+- **Error screen (FE-UIS-12, part).** The always-throwing test page `/__e2e_error` is not routed on
+  vyact.app (a real 404 at the edge). A crash is recorded on the fault channel; the fallback uses real
+  theme classes; a second "Try Again" reloads. A chunk from an older build reloads once, never in a loop.
+- **Toasts (FE-UIS-08).** Toasts are a live region: failures are announced as alerts, the rest as status.
+  Errors and warnings stay 10 s and every toast has a close button. Inline sign-in/sign-up errors are alerts.
+- **Onboarding honesty (FE-UIS-11).** The fixed "Picture confirmed" percentage is gone (it measured
+  nothing), and so is the "Connect your bank" nudge (there is no bank connection). An estimated account,
+  such as the take-home pay onboarding sets as opening cash, shows the Estimated tag in Accounts until a
+  reconcile confirms it.
+- **Ratios (FE-UIC-07).** Debt-to-income on Debts and the Dashboard, and "Kept this month" on Net Worth,
+  use this month's income and show "—" without any; Debts divided all-time income by 12, with a fake 1.
+- **CSV export (FE-MNY-11).** Text that a spreadsheet would run as a formula (= + - @, tab) is neutralised.
+- **Learn (FE-PUB-11).** The current topic pill uses `hsl(var(--coral))`; PUB-028 bans raw triplet tokens
+  in public pages.
+- **Settings (FE-UIS-06, part).** Currency, language, payoff strategy and extra payment live on the
+  household row, which only the owner may update: for anyone else they are read-only (they used to
+  "save" and silently revert). The Profile email field, which saved nowhere, is shown instead of edited.
+- **Password reset (FE-UIS-13, part).** "Set a new password" opens only after a reset link (code exchange
+  or PASSWORD_RECOVERY, kept 15 minutes for a refresh), not for any signed-in session.
+- **Net Worth liabilities (FE-UIC-06, rest).** The list is the projection's own liability rows (cards,
+  loans, other debts), so it adds up to Total Liabilities; a card-only household is no longer told it
+  has no debts.
 
 ---
 
