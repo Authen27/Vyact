@@ -1591,8 +1591,7 @@ export function selectAssistantBackend(householdId?: string | null): AssistantBa
 }
 
 // ── The orchestrator — runs all five stages ─────────────────────────────────────
-// The `backend` default is evaluated PER CALL (not captured at module load), so a
-// runtime change to `FEATURES.askVyact.backend` takes effect on the next turn.
+// The `backend` default is evaluated PER CALL (not captured at module load).
 /** Plain-English name for each intent, shown as the "Recognised: …" step. */
 const INTENT_LABEL: Record<string, string> = {
   'capture.expense': 'recording an expense',

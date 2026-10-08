@@ -11,6 +11,7 @@ import { listNet, dayTotalsForMonth } from '../txnListTotals';
 import { inviteAcceptMessage, nextHouseholdAfterExit } from '../householdTypes';
 import { htmlLangFor } from '../htmlLang';
 import { statedForReconcile } from '../accountsView';
+import { FEATURES } from '../../config/features';
 import type { Transaction } from '../../types';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
@@ -139,6 +140,11 @@ describe('W7a · small app fixes', () => {
     for (const f of ['components/onboarding/NudgeBanner.tsx', 'components/layout/InstallBanner.tsx', 'components/layout/UpdateBanner.tsx', 'components/ui/ToastHost.tsx']) {
       expect(src(f), f).toMatch(/className="fixed bottom-above-tabbar /);
     }
+  });
+  it('W7a-PIP18-001 · the dead askVyact `backend` flag is gone from the app and the engine bundle (FE-PIP-18)', () => {
+    expect(FEATURES.askVyact).not.toHaveProperty('backend');
+    expect(src('config/features.ts')).not.toMatch(/backend: 'rules'/);
+    expect(readFileSync(resolve(__dirname, '../../../../supabase/functions/_shared/agent/engine.generated.js'), 'utf8')).not.toMatch(/backend: "rules"/);
   });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');
