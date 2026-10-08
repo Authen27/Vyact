@@ -8,7 +8,7 @@ import { evaluateRecommendations } from '../plannerRules';
 import { buildBackup, BACKUP_FORMAT_VERSION } from '../backup';
 import { txnAccountLabel } from '../accounts';
 import { listNet, dayTotalsForMonth } from '../txnListTotals';
-import { inviteAcceptMessage } from '../householdTypes';
+import { inviteAcceptMessage, nextHouseholdAfterExit } from '../householdTypes';
 import { htmlLangFor } from '../htmlLang';
 import type { Transaction } from '../../types';
 
@@ -100,6 +100,17 @@ describe('W7a · small app fixes', () => {
     expect(htmlLangFor('xx')).toBe('en');
     expect(htmlLangFor('toString')).toBe('en');
     expect(src('hooks.ts')).toMatch(/document\.documentElement\.lang = htmlLangFor\(language\)/);
+  });
+  it('W7a-HH13-001 · leaving or deleting the open household lands on one the person is still in (INT-HH-13)', () => {
+    expect(nextHouseholdAfterExit([{ id: 'h1' }, { id: 'h2' }], 'h1')).toBe('h2');
+    expect(nextHouseholdAfterExit([{ id: 'h2' }], 'h1')).toBe('h2');
+    expect(nextHouseholdAfterExit([{ id: 'h1' }], 'h1')).toBeNull();
+    expect(nextHouseholdAfterExit([{ id: 'local' }], 'h1')).toBeNull();
+    const ds = src('store/slices/dataSlice.ts');
+    expect(ds).toMatch(/switchHousehold\(nextHouseholdAfterExit\(households, id\) \?\? 'local'\)/);
+    const hh = src('pages/Households.tsx');
+    expect(hh.match(/leaveActive\(active\)/g)?.length).toBe(2);
+    expect(hh).toMatch(/if \(h\.id === currentHouseholdId && next\) await switchHousehold\(next\)/);
   });
   it('W7a-PIP17-001 · the chat is keyed on the household, so a switch starts a fresh conversation (FE-PIP-17)', () => {
     const chat = src('pages/Chat.tsx');

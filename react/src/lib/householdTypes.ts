@@ -65,6 +65,13 @@ export function householdLimitMessage(err: unknown): string | null {
   return null;
 }
 
+/** W7a (audit INT-HH-13) — after leaving or deleting a household, the household to open next: the first
+ *  one the person is still in (the list is already refreshed, so the exited one is normally gone; it
+ *  is skipped regardless). null when none remain. */
+export function nextHouseholdAfterExit(households: { id: string }[], exitedId: string): string | null {
+  return households.find(h => h.id !== exitedId && h.id !== 'local')?.id ?? null;
+}
+
 /** W7a (audit FE-UIS-16) — the same refusal, worded for the person ACCEPTING an invite: they cannot
  *  change the household's type, so they are told who can. Other errors pass through unchanged. */
 export function inviteAcceptMessage(err: unknown): string {

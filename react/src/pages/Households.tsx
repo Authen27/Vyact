@@ -16,7 +16,7 @@ import HalfSheet from '../components/ui/HalfSheet';
 import { Input, Select, Field, FieldRow } from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import { PROFILE_TYPES, CURRENCIES, deterministicColor } from '../constants';
-import { HOUSEHOLD_TYPE_ORDER, normalizeHouseholdType, typeFits, inviteBlockedReason, householdLimitMessage } from '../lib/householdTypes';
+import { HOUSEHOLD_TYPE_ORDER, normalizeHouseholdType, typeFits, inviteBlockedReason, householdLimitMessage, nextHouseholdAfterExit } from '../lib/householdTypes';
 import {
   createInviteLink, listInvitations, revokeInvitation, INVITE_LABEL_SENTINEL,
   changeMemberRole, removeMembership, leaveHousehold, listActivity,
@@ -90,6 +90,19 @@ export default function Households() {
   const updateProfile = useStore(s => s.updateProfile);
   const myRole = useStore(s => s.myRole);
   const toast = useStore(s => s.toast);
+
+  // W7a (audit INT-HH-13): leaving the household that is open moves the app to one the person is
+  // still in (it used to stay on the old one, whose reads now fail). Both Leave buttons use this.
+  async function leaveActive(h: { id: string; name: string }) {
+    if (!confirm(`Leave ${h.name}?`)) return;
+    try {
+      await leaveHousehold(h.id);
+      await refreshHouseholds();
+      const next = nextHouseholdAfterExit(useStore.getState().households, h.id);
+      if (h.id === currentHouseholdId && next) await switchHousehold(next);
+      toast(`Left ${h.name}`, 'info');
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
 
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -299,14 +312,7 @@ export default function Households() {
                       members={members} myRole={myRole}
                       currentUserId={session!.user.id}
                       onChanged={() => active && loadHouseholdDetails(active.id)}
-                      onLeave={async () => {
-                        if (!confirm(`Leave ${active.name}?`)) return;
-                        try {
-                          await leaveHousehold(active.id);
-                          await refreshHouseholds();
-                          toast(`Left ${active.name}`, 'info');
-                        } catch (e) { toast((e as Error).message, 'error'); }
-                      }}
+                      onLeave={() => leaveActive(active)}
                     />
               }
             </Panel>
@@ -392,14 +398,7 @@ export default function Households() {
                     <div className="text-[0.78rem] text-ink-mid">Sole owner must transfer first.</div>
                   </div>
                   <Button variant="ghost" disabled={households.length <= 1}
-                    onClick={async () => {
-                      if (!confirm(`Leave ${active.name}?`)) return;
-                      try {
-                        await leaveHousehold(active.id);
-                        await refreshHouseholds();
-                        toast(`Left ${active.name}`, 'info');
-                      } catch (e) { toast((e as Error).message, 'error'); }
-                    }}>
+                    onClick={() => leaveActive(active)}>
                     <LogOut size={14} /> Leave
                   </Button>
                 </div>
