@@ -45,9 +45,10 @@ describe('actual WhatsApp Edge handlers', () => {
     api.auth.getUser.mockResolvedValue({ data: { user: { id: 'alice' } }, error: null });
     const otp = queryResult({ id: 'otp', household_id: 'alice-house', phone_number: '111', attempts: 0,
       otp_hash: createHash('sha256').update('123456:111:test-pepper').digest('hex') });
+    const claim = queryResult([{ id: 'otp' }]);   // W8b (BE-WA-06): the attempt is claimed before comparing
     const identity = queryResult(null);
     const cleanup = queryResult(null);
-    api.from.mockReturnValueOnce(otp).mockReturnValueOnce(identity).mockReturnValueOnce(cleanup)
+    api.from.mockReturnValueOnce(otp).mockReturnValueOnce(claim).mockReturnValueOnce(identity).mockReturnValueOnce(cleanup)
       .mockReturnValueOnce(queryResult({ display_name: 'Alice Rao' })).mockReturnValueOnce(queryResult({ name: 'Rao Household' }));
     const result = await handler(new Request('https://edge.example.com/verify', { method: 'POST',
       headers: { Authorization: 'Bearer test-user' }, body: JSON.stringify({ code: '123456' }) }));
@@ -69,7 +70,8 @@ describe('actual WhatsApp Edge handlers', () => {
     const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-verify-otp/index'));
     api.auth.getUser.mockResolvedValue({ data: { user: { id: 'alice' } }, error: null });
     api.from.mockReturnValueOnce(queryResult({ id: 'otp', household_id: 'alice-house', phone_number: '111', attempts: 0,
-      otp_hash: createHash('sha256').update('123456:111:test-pepper').digest('hex') })).mockReturnValue(queryResult(null));
+      otp_hash: createHash('sha256').update('123456:111:test-pepper').digest('hex') }))
+      .mockReturnValueOnce(queryResult([{ id: 'otp' }])).mockReturnValue(queryResult(null));
     vi.mocked(fetch).mockRejectedValue(new Error('network down'));
     const result = await handler(new Request('https://edge.example.com/verify', { method: 'POST',
       headers: { Authorization: 'Bearer test-user' }, body: JSON.stringify({ code: '123456' }) }));
@@ -1118,5 +1120,159 @@ describe('WhatsApp EMI (W4g)', () => {
     await post(handler, 'paid emi 9000');
     expect(api.rpc).toHaveBeenCalledWith('whatsapp_pay_loan', expect.objectContaining({ p_debt_id: 'car', p_amount: 9000 }));
     expect(sentTexts()[0]).toMatch(/^This EMI for Car loan is ₹8,884\.88, so I haven't logged ₹9,000\./);
+  });
+});
+
+// ── W8b (v10.83.0) — the webhook and OTP robustness fixes ────────────────────────
+describe('W8b · webhook and OTP robustness', () => {
+  const postBody = (handler: (r: Request) => Promise<Response>, body: string) =>
+    handler(new Request('https://edge.example.com/webhook', { method: 'POST', headers: { 'x-hub-signature-256': sign(body) }, body }));
+
+  it('W8b-WA04-001 · a message that cannot be stored is a 503 (Meta redelivers), never a silent 200 (BE-WA-04)', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0);
+    const routed = api.from.getMockImplementation()!;
+    api.from.mockImplementation((table: string) => table === 'whatsapp_inbound_messages'
+      ? queryResult(null, { code: '08006', message: 'connection lost' }) : routed(table));
+    const res = await postBody(handler, inbound('450 lunch'));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ status: 'retry', recorded: 0, notStored: 1 });
+    expect(api.rpc).not.toHaveBeenCalled();
+  });
+
+  /** The inbox, with a stale claim (worker died) and no failed rows waiting. */
+  function staleInbox(attempts: number) {
+    const { patches } = webhookTables(0);
+    const routed = api.from.getMockImplementation()!;
+    const inbox: ReturnType<typeof queryResult>[] = [];
+    api.from.mockImplementation((table: string) => {
+      if (table !== 'whatsapp_inbound_messages') return routed(table);
+      const q = queryResult([{ wa_message_id: 'm-1', attempts: 0 }]);
+      const base = q.then;
+      q.then = ((resolve: (r: { data: unknown; error: unknown; count: number | null }) => unknown) => {
+        const status = q.eq.mock.calls.find(([c]) => c === 'status')?.[1];
+        const reading = q.update.mock.calls.length === 0 && q.upsert.mock.calls.length === 0;
+        if (reading && status === 'claimed' && q.lt.mock.calls.some(([c]) => c === 'claimed_at')) {
+          return Promise.resolve({ data: [{ wa_message_id: 's-1', payload: { id: 's-1', from: '111', text: { body: 'hello' } }, attempts }], error: null, count: null }).then(resolve);
+        }
+        if (reading && status === 'failed') return Promise.resolve({ data: [], error: null, count: null }).then(resolve);
+        return base(resolve);
+      }) as typeof q.then;
+      inbox.push(q);
+      return q;
+    });
+    return { patches: () => [...patches(), ...inbox.flatMap(q => q.update.mock.calls.map(([p]) => p as Record<string, unknown>))] };
+  }
+
+  it('W8b-WA12-001 · a stale claim counts as an attempt and stops at the limit (BE-WA-12)', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', amount: 450, currency: 'INR', type: 'expense', category_id: 'food_dining', account_name: 'Bank' } });
+    const { patches } = staleInbox(2);
+    await postBody(handler, inbound('450 lunch'));
+    expect(patches()).toContainEqual(expect.objectContaining({ status: 'failed', attempts: 3, last_error: expect.stringMatching(/stale claim/) }));
+    expect(patches()).not.toContainEqual(expect.objectContaining({ status: 'pending', attempts: 3 }));
+  });
+
+  it('W8b-WA12-002 · a stale claim under the limit is re-queued WITH its attempt counted (BE-WA-12)', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    api.rpc.mockResolvedValue({ error: null, data: { status: 'success', amount: 450, currency: 'INR', type: 'expense', category_id: 'food_dining', account_name: 'Bank' } });
+    const { patches } = staleInbox(0);
+    await postBody(handler, inbound('450 lunch'));
+    expect(patches()).toContainEqual({ status: 'pending', attempts: 1 });
+  });
+
+  it('W8b-WA09-001 · STOP whose preference write fails is retried, never answered "Done" (BE-WA-09)', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const { patches } = webhookTables(0, true, { marketing_opt_in: true, insights_opt_in: true, reads_enabled: true, muted_topics: [] });
+    const routed = api.from.getMockImplementation()!;
+    api.from.mockImplementation((table: string) => {
+      if (table !== 'whatsapp_preferences') return routed(table);
+      const q = queryResult({ marketing_opt_in: true, insights_opt_in: true, reads_enabled: true, muted_topics: [] });
+      q.upsert.mockImplementation(() => queryResult(null, { message: 'permission denied' }));
+      return q;
+    });
+    await postBody(handler, inbound('STOP'));
+    expect(sentTexts()).toEqual([]);
+    expect(patches()).toContainEqual(expect.objectContaining({ status: 'failed', last_error: expect.stringMatching(/save prefs: permission denied/) }));
+  });
+
+  /** A stateful pending-turns table: one open question, closed by resolve, reopened by `resolved_at: null`. */
+  function pendingTable(row: Record<string, unknown>) {
+    let open: Record<string, unknown> | null = row;
+    const writes: Record<string, unknown>[] = [];
+    const make = () => {
+      const q = queryResult(null);
+      q.then = ((resolve: (r: { data: unknown; error: unknown; count: number | null }) => unknown) =>
+        Promise.resolve({ data: open, error: null, count: null }).then(resolve)) as typeof q.then;
+      q.update.mockImplementation((patch: Record<string, unknown>) => {
+        writes.push(patch);
+        open = patch.resolved_at === null ? row : null;
+        return queryResult(null);
+      });
+      q.insert.mockImplementation((r: Record<string, unknown>) => { open = { id: 'p-new', ...r }; return queryResult(null); });
+      return q;
+    };
+    return { make, writes, open: () => open };
+  }
+
+  it('W8b-WA03-001 · an answer whose action fails reopens its question, so the replay is still read as the answer (BE-WA-03)', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0);
+    const pending = pendingTable({ id: 'p-1', kind: 'missing_amount', payload: { text: 'lunch', accounts: [], baseCurrency: 'INR' },
+      expires_at: new Date(Date.now() + 60_000).toISOString() });
+    const routed = api.from.getMockImplementation()!;
+    api.from.mockImplementation((table: string) => table === 'whatsapp_pending_turns' ? pending.make() : routed(table));
+    api.rpc.mockResolvedValue({ data: null, error: { message: 'connection reset' } });
+    await postBody(handler, inbound('450'));
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_log_transaction', expect.objectContaining({ p_amount: 450 }));
+    expect(pending.writes.at(-1)).toEqual({ resolved_at: null });     // reopened after the failure
+    expect(pending.open()).toEqual(expect.objectContaining({ id: 'p-1', kind: 'missing_amount' }));
+  });
+
+  it('W8b-WA13-001 · after ANSWERS OFF, "1" on an old follow-up list is not answered (BE-WA-13)', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0, true, { marketing_opt_in: false, insights_opt_in: false, reads_enabled: false, muted_topics: [] });
+    const pending = pendingTable({ id: 'p-1', kind: 'chips', payload: { prompts: ['How much did I spend on food?'] },
+      expires_at: new Date(Date.now() + 60_000).toISOString() });
+    const routed = api.from.getMockImplementation()!;
+    api.from.mockImplementation((table: string) => table === 'whatsapp_pending_turns' ? pending.make() : routed(table));
+    await postBody(handler, inbound('1'));
+    expect(engine.answerOnServer).not.toHaveBeenCalled();
+    expect(pending.open()).toEqual(expect.objectContaining({ kind: 'reads_offer' }));   // offered answers instead
+  });
+
+  it('W8b-WA13-002 · ANSWERS OFF closes an open follow-up list (BE-WA-13)', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    webhookTables(0, true, { marketing_opt_in: false, insights_opt_in: false, reads_enabled: true, muted_topics: [] });
+    const pending = pendingTable({ id: 'p-1', kind: 'chips', payload: { prompts: ['x'] }, expires_at: new Date(Date.now() + 60_000).toISOString() });
+    const routed = api.from.getMockImplementation()!;
+    api.from.mockImplementation((table: string) => table === 'whatsapp_pending_turns' ? pending.make() : routed(table));
+    await postBody(handler, inbound('ANSWERS OFF'));
+    expect(pending.open()).toBeNull();
+  });
+
+  it('W8b-WA06-001 · OTP attempts are claimed before comparing; a lost race compares nothing (BE-WA-06)', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-verify-otp/index'));
+    api.auth.getUser.mockResolvedValue({ data: { user: { id: 'alice' } }, error: null });
+    const row = { id: 'otp', household_id: 'alice-house', phone_number: '111', attempts: 2,
+      otp_hash: createHash('sha256').update('123456:111:test-pepper').digest('hex') };
+    const request = (code: string) => new Request('https://edge.example.com/verify', { method: 'POST',
+      headers: { Authorization: 'Bearer test-user' }, body: JSON.stringify({ code }) });
+    // Lost the race: another guess already took attempt 3.
+    const lost = queryResult([]);
+    api.from.mockReturnValueOnce(queryResult(row)).mockReturnValueOnce(lost);
+    const r1 = await handler(request('123456'));
+    expect(r1.status).toBe(409);
+    expect(await r1.json()).toEqual({ error: 'try_again' });
+    expect(lost.update).toHaveBeenCalledWith({ attempts: 3 });
+    expect(lost.eq).toHaveBeenCalledWith('attempts', 2);
+    expect(api.from).toHaveBeenCalledTimes(2);                       // no identity write
+    // Won the claim, wrong code: one attempt counted, no second increment.
+    api.from.mockReset();
+    const won = queryResult([{ id: 'otp' }]);
+    api.from.mockReturnValueOnce(queryResult(row)).mockReturnValueOnce(won);
+    const r2 = await handler(request('000000'));
+    expect(await r2.json()).toEqual({ error: 'incorrect_code', attemptsLeft: 2 });
+    expect(won.update).toHaveBeenCalledOnce();
   });
 });
