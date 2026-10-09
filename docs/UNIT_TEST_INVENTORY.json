@@ -55,6 +55,23 @@
       ]
     },
     {
+      "app": "admin",
+      "file": "admin/src/lib/__tests__/w8cAdminFixes.test.ts",
+      "feature": "Admin fixes (W8c)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "audit W8c: household types = consumer, publish date kept + byline, infographic after save, live DB status + build version, MRR per currency, admin CSP + no source maps",
+      "count": 6,
+      "tests": [
+        "W8c · admin fixes W8c-ADM10-001 · the old infographic is removed only after the save succeeds, and with its item (ADM-10)",
+        "W8c · admin fixes W8c-ADM11-001 · an edit keeps the publish date; the byline is \"Vyact\", never an email (ADM-11)",
+        "W8c · admin fixes W8c-ADM12-001 · Settings claims only what it checked: a live DB round-trip, the real project, the real version (ADM-12)",
+        "W8c · admin fixes W8c-ADM13-001 · the admin host sends a strict CSP and publishes no source maps (ADM-13)",
+        "W8c · admin fixes W8c-ADM14-001 · MRR is counted per currency over active + trialing, never one sum labelled USD (ADM-14)",
+        "W8c · admin fixes W8c-CON06-001 · the admin household types are today's four, normalised like the consumer app (INT-CON-06, INT-HH-14)"
+      ]
+    },
+    {
       "app": "react",
       "file": "react/src/components/ui/__tests__/estimatedTag.test.ts",
       "feature": "Estimate provenance",

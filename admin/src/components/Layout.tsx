@@ -87,7 +87,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <div className="text-lg leading-none" style={{ fontFamily: 'var(--ff-serif, Georgia)', fontWeight: 500, letterSpacing: '-0.015em' }}>
                 Vy<span style={{ fontStyle: 'italic', color: '#E26D5C' }}>act</span>
               </div>
-                <div className="font-mono text-[0.55rem] tracking-[0.18em] uppercase text-ink-dim mt-0.5">Admin · v1.0.5</div>
+                <div className="font-mono text-[0.55rem] tracking-[0.18em] uppercase text-ink-dim mt-0.5">Admin · v{__APP_VERSION__}</div>
             </div>
           </Link>
         </div>

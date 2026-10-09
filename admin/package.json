@@ -1,13 +1,13 @@
 {
   "name": "vyact-admin",
   "private": true,
-  "version": "1.4.3",
+  "version": "1.4.4",
   "type": "module",
   "engines": { "node": "22.x" },
   "description": "Vyact Admin Backend — Claude native theme · Super/Roles/Content + NorthStar Analytics",
   "scripts": {
     "dev": "vite --port 5174",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/assert-no-sourcemaps.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

@@ -75,6 +75,7 @@ export const groups = [
   { feature: 'Estimate provenance', availability: 'available', layer: 'unit', owner: 'estimatedTagCopy', files: ['react/src/components/ui/__tests__/estimatedTag.test.ts'] },
   { feature: 'Admin content and permissions', availability: 'conditional', layer: 'unit', owner: 'rowToArticle / slugify / canAccessPage', files: ['contentApi', 'roleGating'].map(file => `${admin}${file}.test.ts`) },
   { feature: 'Admin publication', availability: 'conditional', layer: 'contract-unit', owner: 'contentApi', files: [`${admin}contentWorkflow.test.ts`] },
+  { feature: 'Admin fixes (W8c)', availability: 'available', layer: 'unit', owner: 'audit W8c: household types = consumer, publish date kept + byline, infographic after save, live DB status + build version, MRR per currency, admin CSP + no source maps', files: [`${admin}w8cAdminFixes.test.ts`] },
 ];
 
 export const optionalFiles = [`${consumer}askVyactLive.test.ts`];

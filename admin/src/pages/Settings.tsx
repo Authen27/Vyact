@@ -1,9 +1,16 @@
+import { useEffect, useState } from 'react';
 import { Sun, Moon, Database, Mail, Webhook, Shield, KeyRound } from 'lucide-react';
 import { useAdminStore } from '../store';
+import { supabase, SUPABASE_URL } from '../lib/supabase';
+import { pingDatabase, projectRefOf, type DbStatus } from '../lib/dbStatus';
 
 export default function Settings() {
   const dark = useAdminStore(s => s.darkMode);
   const toggleDark = useAdminStore(s => s.toggleDark);
+  // W8c (audit ADM-12): the database status is a live round-trip, not a hard-coded "connected".
+  const [db, setDb] = useState<DbStatus>('checking');
+  useEffect(() => { let live = true; void pingDatabase(supabase).then(r => { if (live) setDb(r); }); return () => { live = false; }; }, []);
+  const projectRef = projectRefOf(SUPABASE_URL);
 
   return (
     <div>
@@ -24,24 +31,23 @@ export default function Settings() {
 
         {/* Database */}
         <Section title="Database">
-          <Row label="Backend" hint="Supabase. Connection is read live at page load; the status below reflects the current session, not a hardcoded claim.">
-            <Status state="connected" label="Supabase · live session" icon={<Database size={12} />} />
+          <Row label="Backend" hint="Supabase. Checked with a live read when this page opens.">
+            <Status state={db === 'connected' ? 'connected' : db === 'checking' ? 'pending' : 'error'}
+              label={db === 'connected' ? 'Supabase · reachable' : db === 'checking' ? 'Checking…' : db === 'not_configured' ? 'Not configured' : 'Unreachable'}
+              icon={<Database size={12} />} />
           </Row>
-          <Row label="Project" hint="Supabase project ref.">
-            <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">dmxqkvploojokffuhxnz</code>
-          </Row>
-          <Row label="Region" hint="Production region for primary database.">
-            <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">eu-west-2</code>
+          <Row label="Project" hint="The Supabase project this build talks to.">
+            <code className="font-mono text-[0.78rem] text-ink-mid bg-elev px-2 py-1 rounded">{projectRef ?? 'not set'}</code>
           </Row>
         </Section>
 
         {/* Integrations */}
         <Section title="Integrations">
-          <Row label="Stripe" hint="Subscription, refunds, dunning. Wires in v1.1.0."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
-          <Row label="PostHog" hint="Product analytics, cohort retention. Wires in v1.1.0."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
-          <Row label="Intercom" hint="Customer support inbox + NPS. Wires in v1.2.0."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
-          <Row label="Sentry" hint="Error monitoring. Wires in v1.2.0."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
-          <Row label="GA4" hint="Pageviews via gtag.js."><Status state="connected" label="G-E3XKWZP850" icon={<KeyRound size={12} />} /></Row>
+          {/* W8c (ADM-12): nothing here is checked, so nothing claims "connected" (GA4's row did). */}
+          <Row label="Stripe" hint="Subscription, refunds, dunning."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
+          <Row label="PostHog" hint="Product analytics, cohort retention."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
+          <Row label="Intercom" hint="Customer support inbox + NPS."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
+          <Row label="Sentry" hint="Error monitoring."><Status state="pending" label="Not connected" icon={<KeyRound size={12} />} /></Row>
         </Section>
 
         {/* Email */}
@@ -67,7 +73,7 @@ export default function Settings() {
       </div>
 
       <div className="mt-6 text-center font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-        Admin v1.0.0 · Stripe + cohort events arrive in v1.1.0
+        Admin v{__APP_VERSION__}
       </div>
     </div>
   );
@@ -98,8 +104,9 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   );
 }
 
-function Status({ state, label, icon }: { state: 'connected' | 'pending'; label: string; icon: React.ReactNode }) {
-  const cls = state === 'connected' ? 'bg-positive/15 text-positive border-positive/30' : 'bg-warn/10 text-warn border-warn/30';
+function Status({ state, label, icon }: { state: 'connected' | 'pending' | 'error'; label: string; icon: React.ReactNode }) {
+  const cls = state === 'connected' ? 'bg-positive/15 text-positive border-positive/30'
+    : state === 'error' ? 'bg-danger/10 text-danger border-danger/30' : 'bg-warn/10 text-warn border-warn/30';
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill font-mono text-[0.62rem] tracking-wider border ${cls}`}>
       {icon} {label}

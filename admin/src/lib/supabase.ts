@@ -15,6 +15,10 @@ const URL = (import.meta.env.VITE_SUPABASE_URL  as string | undefined) || (impor
 const KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || (import.meta.env.PROD ? FALLBACK_KEY : undefined);
 
 export const isCloudEnabled = (): boolean => Boolean(URL && KEY);
+/** W8c (ADM-12): the project the client actually talks to (Settings shows its ref). */
+export const SUPABASE_URL: string | null = URL ?? null;
+/** W8c: the build's own version (it read v1.1.0 for four releases); 'dev' under vitest. */
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 
 export const supabase: SupabaseClient | null = isCloudEnabled()
   ? createClient(URL!, KEY!, {
@@ -24,7 +28,7 @@ export const supabase: SupabaseClient | null = isCloudEnabled()
         detectSessionInUrl: true,
         flowType: 'pkce',
       },
-      global: { headers: { 'X-Client-Info': 'vyact-admin/v1.1.0' } },
+      global: { headers: { 'X-Client-Info': `vyact-admin/v${APP_VERSION}` } },
     })
   : null;
 

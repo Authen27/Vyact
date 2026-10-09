@@ -4,8 +4,33 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.4.3`**
+> **Current production version: `v1.4.4`**
 > **Live URL:** https://admin.vyact.app
+
+---
+
+## v1.4.4 — W8c: admin fixes from the audit *(2026-10-09)*
+
+Admin fixes from the 2026-10-04 audit (owner plan W8, batch c, including the earlier W7c items). No
+schema change.
+
+- **Household types (INT-CON-06, INT-HH-14).** The Households page shows today's four types (Personal,
+  Couple, Family, Business) with a Couple count; retired `shared` / `multi_biz` rows read as Family /
+  Business, the same rule as the consumer app (a parity test pins it).
+- **Publishing (ADM-11).** Editing a published item keeps its original publish date (it used to re-date it
+  to now), and the public byline is "Vyact" (owner decision) — an editor's email address was published
+  as the author.
+- **Infographics (ADM-10).** A replaced infographic is deleted only after the save succeeds (a failed
+  save left the item pointing at a deleted image), and deleting an item removes its image too.
+- **Settings (ADM-12).** The database status is a live check (Checking / Connected / Unreachable), the
+  project ref comes from the build's own configuration, and the hard-coded GA4 "connected", the
+  unverified region and the stale "wires in v1.1.0" promises are gone. The version in the sidebar,
+  the Settings footer and the client header comes from the build (they read v1.0.5, v1.0.0, v1.1.0).
+- **Revenue (ADM-14).** MRR and ARR are shown per currency over active and trialing subscriptions; they
+  were one sum across currencies labelled USD.
+- **Hardening (ADM-13).** admin.vyact.app sends a strict Content-Security-Policy (only itself, its
+  Supabase project and Google Fonts; no inline scripts), and production builds publish no source maps
+  (a build step fails if one appears).
 
 ---
 
