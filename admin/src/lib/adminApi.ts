@@ -2,6 +2,7 @@
 // Every page reads from this module. Mock data is gone.
 
 import { sb } from './supabase';
+import { normalizeHouseholdType, type HouseholdType } from './householdTypes';
 import type { AdminRole } from '../types';
 
 // ── Dashboard KPIs ──────────────────────────────────────────────────
@@ -127,7 +128,7 @@ export async function fetchAllUsers(): Promise<AdminUserRow[]> {
 export interface AdminHouseholdRow {
   id: string;
   name: string;
-  type: 'personal' | 'family' | 'business' | 'multi_biz' | 'shared';
+  type: HouseholdType;   // W8c (INT-CON-06): today's four, normalised
   base_currency: string;
   created_by: string;
   created_at: string;
@@ -154,6 +155,7 @@ export async function fetchAllHouseholds(): Promise<AdminHouseholdRow[]> {
 
   return (hh || []).map(h => ({
     ...(h as Omit<AdminHouseholdRow, 'member_count'>),
+    type: normalizeHouseholdType((h as { type?: unknown }).type),
     member_count: counts.get(h.id) || 0,
   }));
 }

@@ -5,12 +5,12 @@ import { Home, RefreshCw } from 'lucide-react';
 import { useAdminStore } from '../store';
 import { fetchAllHouseholds, type AdminHouseholdRow } from '../lib/adminApi';
 
+// W8c (audit INT-CON-06): today's four types (couple added; retired multi_biz/shared are normalised).
 const TYPE_COLOR: Record<AdminHouseholdRow['type'], string> = {
   personal:  'bg-claude/10 text-claude',
+  couple:    'bg-info/15 text-info',
   family:    'bg-positive/15 text-positive',
   business:  'bg-warn/15 text-warn',
-  multi_biz: 'bg-info/15 text-info',
-  shared:    'bg-tan/30 text-ink',
 };
 
 export default function Households() {
@@ -45,8 +45,9 @@ export default function Households() {
   const counts = useMemo(() => ({
     total:      rows.length,
     multi:      rows.filter(h => h.member_count >= 2).length,
+    couple:     rows.filter(h => h.type === 'couple').length,
     family:     rows.filter(h => h.type === 'family').length,
-    business:   rows.filter(h => h.type === 'business' || h.type === 'multi_biz').length,
+    business:   rows.filter(h => h.type === 'business').length,
   }), [rows]);
 
   return (
@@ -66,9 +67,10 @@ export default function Households() {
 
       {error && <div className="panel p-4 mb-4 border-danger/30 text-danger text-sm">{error}</div>}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         <Metric label="Total"        value={counts.total} />
         <Metric label="Multi-member" value={counts.multi}    tone="positive" />
+        <Metric label="Couple"       value={counts.couple} />
         <Metric label="Family"       value={counts.family} />
         <Metric label="Business"     value={counts.business} />
       </div>

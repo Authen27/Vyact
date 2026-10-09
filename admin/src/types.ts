@@ -23,7 +23,7 @@ export interface User {
 export interface Household {
   id: string;
   name: string;
-  type: 'personal' | 'family' | 'business' | 'multi_biz' | 'shared';
+  type: 'personal' | 'couple' | 'family' | 'business';   // W8c (INT-CON-06)
   memberCount: number;
   activeMemberCount: number;
   ownerId: string;
