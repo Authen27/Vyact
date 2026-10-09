@@ -100,16 +100,27 @@ plan. Reversible by appending another migration, never by editing history.
 
 ## 4. Applying migrations
 
+Rewritten 9 Oct 2026 (W8d, audit DB-OPS-14). This section used to describe a manual
+`apply_migration` path. **Production migrations are applied by CI, from the merge.**
+
 | Environment | How | When |
 |---|---|---|
-| **Staging Supabase project** | `apply_migration` MCP tool, supplying the migration filename + body | Whenever a migration PR is opened, before requesting review |
-| **Production Supabase project** | Same `apply_migration` tool, by the release owner | After the PR merges to `main` and the Deploy workflow has shipped the app code that depends on the schema |
-| **Local dev (cloud-mode)** | Same tool, against your local/personal Supabase project | When you first pull a PR that changes the schema |
+| **Production** | GitHub Actions **Deploy** → `db-migrations`: `supabase db push --include-all` (fails loudly) | Automatically, on the push to `main` that merges the migration PR |
+| **vyact-test** (Lane B) | Not migrated automatically. Its schema lags production, so mappers must omit columns it doesn't return | By hand, when a test needs the new schema |
+| **Local dev (cloud-mode)** | `supabase db push` against your own project | When you pull a PR that changes the schema |
 
-The previous "open the SQL editor and paste `db/schema.sql`" path is
-deprecated for new operators and only safe for fresh, never-applied
-environments. Once any migration has been applied, only `apply_migration`
-should be used.
+**Order of a schema change:**
+1. Open the migration as its **own PR** and test it against production with a rolled-back `DO` block (see OPERATIONS.md).
+2. Merge it. Deploy applies it.
+3. Merge the app PR that uses it. Vercel ships the app in parallel with Deploy, so an app merged in the same push can reach users before the schema does.
+
+A migration file must never say "not auto-applied" or "do not apply": every file in
+`supabase/migrations/` is applied by `db push`. `scripts/db-migrations-check.mjs` (a CI gate) rejects
+that wording in any migration after the historical v91 twin (`20260612120000` / `20260612120100`).
+Both twins are applied in production and stay as they are; deleting an applied migration breaks the
+tracker.
+
+Pasting `db/schema.sql` into the SQL editor is only for a fresh, empty project.
 
 ---
 
