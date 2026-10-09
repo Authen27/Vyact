@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CreditCard, RefreshCw, Info } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { fetchAllSubscriptions, type AdminSubscriptionRow } from '../lib/adminApi';
+import { revenueByCurrency, revenueLabel } from '../lib/revenue';
 
 const TIER_COLOR = {
   free:       '#9CA3AF',
@@ -45,14 +46,14 @@ export default function Subscriptions() {
 
   const stats = useMemo(() => {
     const active = rows.filter(r => r.status === 'active');
-    const mrr    = active.reduce((s, r) => s + Number(r.monthly_amount), 0);
-    const arr    = mrr * 12;
+    // W8c (audit ADM-14): per currency, active + trialing — never one sum labelled USD.
+    const revenue = revenueByCurrency(rows);
     const tierMix = (['free','family','premium','enterprise'] as const).map(tier => ({
       tier,
       count: rows.filter(r => r.tier === tier).length,
     }));
     const failures = rows.reduce((s, r) => s + r.failure_count, 0);
-    return { active: active.length, mrr, arr, tierMix, failures };
+    return { active: active.length, revenue, tierMix, failures };
   }, [rows]);
 
   return (
@@ -93,8 +94,8 @@ export default function Subscriptions() {
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <Metric label="MRR (USD)"       value={`$${stats.mrr.toLocaleString()}`} />
-        <Metric label="ARR (USD)"       value={`$${stats.arr.toLocaleString()}`} />
+        <Metric label="MRR (by currency)" value={revenueLabel(stats.revenue, 'mrr')} />
+        <Metric label="ARR (by currency)" value={revenueLabel(stats.revenue, 'arr')} />
         <Metric label="Active subs"     value={String(stats.active)} tone="positive" />
         <Metric label="Failed payments" value={String(stats.failures)} tone={stats.failures ? 'warn' : undefined} />
       </div>

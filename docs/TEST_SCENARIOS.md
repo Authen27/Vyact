@@ -25,11 +25,12 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1568 passing deterministic cases in 131 files. Zero failed, skipped or TODO cases at generation.**
+**1574 passing deterministic cases in 132 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
+| admin | unit | available | 6 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 20 |
 | react | contract-unit | conditional | 123 |
@@ -49,6 +50,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [admin/src/lib/__tests__/contentApi.test.ts](../admin/src/lib/__tests__/contentApi.test.ts) | Admin content and permissions | unit | conditional | 11 |
 | [admin/src/lib/__tests__/contentWorkflow.test.ts](../admin/src/lib/__tests__/contentWorkflow.test.ts) | Admin publication | contract-unit | conditional | 5 |
 | [admin/src/lib/__tests__/roleGating.test.ts](../admin/src/lib/__tests__/roleGating.test.ts) | Admin content and permissions | unit | conditional | 4 |
+| [admin/src/lib/__tests__/w8cAdminFixes.test.ts](../admin/src/lib/__tests__/w8cAdminFixes.test.ts) | Admin fixes (W8c) | unit | available | 6 |
 | [react/src/components/ui/__tests__/estimatedTag.test.ts](../react/src/components/ui/__tests__/estimatedTag.test.ts) | Estimate provenance | unit | available | 5 |
 | [react/src/lib/__tests__/accountDeletionHandler.test.ts](../react/src/lib/__tests__/accountDeletionHandler.test.ts) | Account deletion handler | handler-integration | conditional | 5 |
 | [react/src/lib/__tests__/accountPatchSafety.test.ts](../react/src/lib/__tests__/accountPatchSafety.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |

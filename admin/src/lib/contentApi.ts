@@ -146,6 +146,23 @@ export interface ContentInput {
   infographic_url?: string | null;
   /** Previous value, so upsertContent only bumps infographic_updated_at when the URL actually changes. */
   prev_infographic_url?: string | null;
+  /** W8c (ADM-11): the item's existing publish date, kept on edit. */
+  prev_published_at?: string | null;
+}
+
+/** W8c (audit ADM-11, owner decision) — the public byline on every item. An editor's email address used to be
+ *  published as the author. */
+export const CONTENT_BYLINE = 'Vyact';
+
+/**
+ * W8c (audit ADM-11) — when an item counts as published. An explicit date wins (external items); otherwise
+ * a published item keeps the date it was first published, and only a draft going live gets today. Every
+ * edit used to reset it to now, re-dating old lessons as new.
+ */
+export function resolvePublishedAt(input: Pick<ContentInput, 'published_at' | 'status' | 'prev_published_at'>, now = new Date()): string | null {
+  if (input.published_at !== undefined) return input.published_at;
+  if (input.status !== 'published') return null;
+  return input.prev_published_at ?? now.toISOString();
 }
 
 export async function upsertContent(input: ContentInput) {
@@ -154,9 +171,7 @@ export async function upsertContent(input: ContentInput) {
   // `body` is NOT NULL on the table; for cards the prose lives in body_md, so we
   // mirror it into body to satisfy the column (and keep any legacy reader working).
   const body = input.body ?? input.body_md ?? '';
-  const publishedAt = input.published_at !== undefined
-    ? input.published_at
-    : (input.status === 'published' ? new Date().toISOString() : null);
+  const publishedAt = resolvePublishedAt(input);
 
   const videoUrl = input.video_url?.trim() || null;
   const videoChanged = videoUrl !== (input.prev_video_url ?? null);
@@ -172,7 +187,7 @@ export async function upsertContent(input: ContentInput) {
     status: input.status,
     read_minutes: input.read_minutes ?? Math.max(1, Math.round((input.reading_seconds ?? 180) / 60)),
     cover_emoji: input.cover_emoji ?? defaultEmoji,
-    author_name: input.author_name,
+    author_name: CONTENT_BYLINE,   // W8c (ADM-11): never an editor's email
     published_at: publishedAt,
     format,
     category: input.category ?? null,

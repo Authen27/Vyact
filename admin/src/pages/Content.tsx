@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Eye, FileText, Trash2, GraduationCap, Link2, SquarePlay, Image as ImageIcon, X } from 'lucide-react';
 import { useAdminStore } from '../store';
 import {
-  listAllContent, upsertContent, deleteContent, slugify, uploadInfographic, deleteInfographic,
+  listAllContent, upsertContent, deleteContent, slugify, uploadInfographic, deleteInfographic, CONTENT_BYLINE,
   type ContentInput, type EnrichedContent, type ContentFormat, type VisualKind, type CardTone, type SourceName,
 } from '../lib/contentApi';
 import {
@@ -87,7 +87,11 @@ export default function Content() {
   function closeForm() { setFormKind(null); setEditing(null); }
   async function handleDelete(a: EnrichedArticle) {
     if (!confirm(`Delete "${a.title}"? This cannot be undone.`)) return;
-    try { await deleteContent(a.id); await reload(); }
+    try {
+      await deleteContent(a.id);
+      if (a.infographicUrl) await deleteInfographic(a.infographicUrl);   // W8c (ADM-10): no orphaned image
+      await reload();
+    }
     catch (e) { alert(`Delete failed: ${(e as Error).message}`); }
   }
 
@@ -234,8 +238,9 @@ export default function Content() {
   );
 }
 
-function authorName(session: { user?: { user_metadata?: { display_name?: string }; email?: string } } | null): string {
-  return session?.user?.user_metadata?.display_name || session?.user?.email || 'Editorial';
+// W8c (audit ADM-11, owner decision): one public byline; an editor's email is never published.
+function authorName(_session: unknown): string {
+  return CONTENT_BYLINE;
 }
 
 function Metric({ label, value, tone }: { label: string; value: number; tone?: 'positive' | 'warn' }) {
@@ -273,7 +278,6 @@ function ArticleFormModal({ initial, authorName, onClose, onSaved }: FormProps) 
     setError(''); setSaving(true);
     try {
       const prevInfographic = initial?.infographicUrl ?? null;
-      if (prevInfographic && prevInfographic !== infographicUrl) await deleteInfographic(prevInfographic).catch(() => {});
       const input: ContentInput = {
         id: initial?.id,
         slug: slug || slugify(title),
@@ -289,9 +293,13 @@ function ArticleFormModal({ initial, authorName, onClose, onSaved }: FormProps) 
         prev_video_url: initial?.videoUrl ?? null,
         infographic_url: infographicUrl,
         prev_infographic_url: prevInfographic,
+        prev_published_at: initial?.publishedAt ?? null,
       };
       if (!input.title || !input.body) throw new Error('Title and body are required');
       await upsertContent(input);
+      // W8c (audit ADM-10): the replaced infographic is removed only AFTER the save succeeded — it was
+      // deleted first, so a failed save left the item pointing at a missing image.
+      if (prevInfographic && prevInfographic !== (infographicUrl || null)) await deleteInfographic(prevInfographic);
       onSaved();
     } catch (e) { setError((e as Error).message); }
     finally { setSaving(false); }
@@ -396,7 +404,6 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
     setError(''); setSaving(true);
     try {
       const prevInfographic = initial?.infographicUrl ?? null;
-      if (prevInfographic && prevInfographic !== infographicUrl) await deleteInfographic(prevInfographic).catch(() => {});
       const input: ContentInput = {
         id: initial?.id, format: 'card',
         slug: slug || slugify(title), title: title.trim(),
@@ -411,9 +418,13 @@ function CardFormModal({ initial, authorName, onClose, onSaved }: FormProps) {
         prev_video_url: initial?.videoUrl ?? null,
         infographic_url: infographicUrl,
         prev_infographic_url: prevInfographic,
+        prev_published_at: initial?.publishedAt ?? null,
       };
       if (!input.title || !input.body_md) throw new Error('Title and body are required');
       await upsertContent(input);
+      // W8c (audit ADM-10): the replaced infographic is removed only AFTER the save succeeded — it was
+      // deleted first, so a failed save left the item pointing at a missing image.
+      if (prevInfographic && prevInfographic !== (infographicUrl || null)) await deleteInfographic(prevInfographic);
       onSaved();
     } catch (e) { setError((e as Error).message); }
     finally { setSaving(false); }
@@ -561,7 +572,6 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
     try {
       if (!title.trim() || !sourceUrl.trim()) throw new Error('Title and source URL are required');
       const prevInfographic = initial?.infographicUrl ?? null;
-      if (prevInfographic && prevInfographic !== infographicUrl) await deleteInfographic(prevInfographic).catch(() => {});
       const input: ContentInput = {
         id: initial?.id, format: 'external',
         slug: initial?.slug || slugify(title), title: title.trim(), topic, status,
@@ -574,8 +584,12 @@ function ExternalFormModal({ initial, authorName, onClose, onSaved }: FormProps)
         prev_video_url: initial?.videoUrl ?? null,
         infographic_url: infographicUrl,
         prev_infographic_url: prevInfographic,
+        prev_published_at: initial?.publishedAt ?? null,
       };
       await upsertContent(input);
+      // W8c (audit ADM-10): the replaced infographic is removed only AFTER the save succeeded — it was
+      // deleted first, so a failed save left the item pointing at a missing image.
+      if (prevInfographic && prevInfographic !== (infographicUrl || null)) await deleteInfographic(prevInfographic);
       onSaved();
     } catch (e) { setError((e as Error).message); }
     finally { setSaving(false); }

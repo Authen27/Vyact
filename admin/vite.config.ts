@@ -7,6 +7,8 @@ import pkg from './package.json';
 export default defineConfig({
   plugins: [react()],
   server: { port: 5174, host: true, open: true },
-  build: { outDir: 'dist', sourcemap: true, target: 'esnext' },
+  // W8c (audit ADM-13): no source maps of the privileged console in production;
+  // scripts/assert-no-sourcemaps.mjs fails the build if one comes back.
+  build: { outDir: 'dist', sourcemap: false, target: 'esnext' },
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
 });

@@ -15,7 +15,7 @@ Three independently-versioned deliverables:
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.3**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.4**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
