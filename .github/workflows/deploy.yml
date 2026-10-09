@@ -23,6 +23,10 @@ on:
     branches: [main]
   workflow_dispatch:        # manual trigger from GitHub UI
 
+# W8d (audit OPS-07): read-only token. No job writes to the repository, issues or PRs.
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false

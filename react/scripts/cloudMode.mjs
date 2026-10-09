@@ -12,7 +12,9 @@
  *   `env` is Vite's loadEnv result (files + shell VITE_* vars), `processEnv` the build's process.env.
  */
 export function isCloudBuild({ mode, env, processEnv }) {
-  if (processEnv.VERCEL_ENV === 'preview' && !processEnv.VITE_SUPABASE_URL) return false;
+  // W8d (OPS-05): a preview given production's URL is local-only too (vite.config.ts fails closed).
+  if (processEnv.VERCEL_ENV === 'preview'
+      && (!processEnv.VITE_SUPABASE_URL || processEnv.VITE_SUPABASE_URL.includes('dmxqkvploojokffuhxnz'))) return false;
   if (processEnv.VYACT_DEMO === '1') return false;
   if (env.VITE_LOCAL_ONLY === '1' || processEnv.VITE_LOCAL_ONLY === '1') return false;
   if (env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY) return true;

@@ -3,11 +3,12 @@
   "private": true,
   "version": "10.83.0",
   "type": "module",
+  "engines": { "node": "22.x" },
   "description": "Vyact — Family Finance OS · React + TypeScript + Recharts",
   "scripts": {
     "dev": "vite",
     "build": "node check-env.js && tsc -b && vite build",
-    "postbuild": "node scripts/prerender-landing.mjs && node scripts/assert-no-sourcemaps.mjs",
+    "postbuild": "node scripts/prerender-landing.mjs && node scripts/assert-no-sourcemaps.mjs && node scripts/assert-preview-isolated.mjs && node scripts/assert-bundle-budget.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
