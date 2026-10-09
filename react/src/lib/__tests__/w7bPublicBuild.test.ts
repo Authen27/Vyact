@@ -22,14 +22,16 @@ describe('W7b · public site and build config', () => {
       const cmd = JSON.parse(read(f)).ignoreCommand as string;
       // A push ending in a docs-only commit used to skip the code commits before it (HEAD^..HEAD only).
       expect(cmd, f).not.toMatch(/HEAD\^/);
-      // Empty variable (first deploy, redeploy) → `[ -n ]` fails → non-zero → Vercel builds.
-      expect(cmd, f).toMatch(/^\[ -n "\$VERCEL_GIT_PREVIOUS_SHA" \] && git diff --quiet "\$VERCEL_GIT_PREVIOUS_SHA" HEAD -- \. /);
+      // W8d: exit 0 (skip) or exit 1 (build) ONLY — any other code is a Vercel deployment Error. The W7b form
+      // returned git's 128 when the last deployed commit was outside the shallow clone (W8d-PUB07-002).
+      expect(cmd, f).toMatch(/^if \[ -n "\$VERCEL_GIT_PREVIOUS_SHA" \] && git cat-file -e "\$VERCEL_GIT_PREVIOUS_SHA\^\{commit\}" 2>\/dev\/null && git diff --quiet "\$VERCEL_GIT_PREVIOUS_SHA" HEAD -- \. /);
+      expect(cmd, f).toMatch(/; then exit 0; else exit 1; fi$/);
       expect(cmd, f).toContain(`':!*.md' ':!**/*.md' ':!docs'`);
     }
   });
 
   it('W7b-GATE03-001 · production builds publish no source maps, and the build gate catches one (GATE-03)', () => {
-    expect(read('react/vite.config.ts')).toMatch(/build: \{ outDir: 'dist', sourcemap: false,/);
+    expect(read('react/vite.config.ts')).toMatch(/outDir: 'dist', sourcemap: false,/);
     expect(JSON.parse(read('react/package.json')).scripts.postbuild).toMatch(/node scripts\/assert-no-sourcemaps\.mjs/);
     const dist = mkdtempSync(join(tmpdir(), 'w7b-dist-'));
     mkdirSync(join(dist, 'assets'));
@@ -82,7 +84,8 @@ describe('W7b · public site and build config', () => {
     // The rule's inputs are the ones the runtime and vite.config.ts actually use.
     expect(read('react/src/lib/supabase.ts')).toMatch(/USE_FALLBACK = import\.meta\.env\.PROD && import\.meta\.env\.MODE !== 'test' && import\.meta\.env\.VITE_LOCAL_ONLY !== '1'/);
     const vc = read('react/vite.config.ts');
-    expect(vc).toMatch(/if \(process\.env\.VERCEL_ENV === 'preview' && !process\.env\.VITE_SUPABASE_URL\)/);
+    // W8d (OPS-05): the guard now also fails closed on production's URL.
+    expect(vc).toMatch(/process\.env\.VERCEL_ENV === 'preview'\s*&& \(!process\.env\.VITE_SUPABASE_URL \|\|/);
     expect(vc).toMatch(/if \(process\.env\.VYACT_DEMO === '1'\)/);
     expect(read('react/scripts/prerender-landing.mjs')).toMatch(/const cloudMode = isCloudBuild\(\{ mode, env, processEnv: process\.env \}\);/);
     expect(read('react/playwright.config.ts')).toMatch(/VITE_BUILD_MODE: 'test'/);

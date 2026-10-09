@@ -40,71 +40,54 @@ an incomplete release, not a done one.
 
 ## ✅ Current production deployment (authoritative)
 
-**The trigger is simple and singular: _every push to `main` deploys._**
-`git push origin main` → GitHub Actions runs [`.github/workflows/deploy.yml`].
-(You can also trigger it manually: GitHub → Actions → **Deploy** → **Run
-workflow**.) There is no separate "promote" step and no other path — push to
-`main` IS the deployment. Branch pushes and PRs do **not** deploy.
+Rewritten 9 Oct 2026 (W8d, audit OPS-09) from `.github/workflows/deploy.yml` and the live Vercel
+projects. The earlier text here described an Actions `vercel deploy --prod` pipeline and URLs on another
+Vercel account. Neither has been used since PR #140.
 
-**Pipeline (three jobs in `deploy.yml`):**
+**Two systems deploy, both on a push to `main`:**
 
-1. **`db-migrations`** — `supabase db push` applies any pending migrations to
-   the production project. It is **best-effort** (`continue-on-error: true`): a
-   Supabase-auth/CLI hiccup logs a failure but **never blocks the app deploys**.
-   (Idempotent: it only applies migrations the remote tracker doesn't have.)
-2. **`consumer`** and **`admin`** — build each app with the Vercel CLI and
-   `vercel deploy --prod`. Both declare `needs: db-migrations` **with
-   `if: always()`**, so they deploy whether or not the migration job succeeded.
-   `vercel --prod` automatically updates each project's own production domain.
+1. **Vercel (git-connected)** builds and publishes the apps. Each project builds from its own folder:
 
-**Live production URLs** (Vercel team `bhushandandolus-projects`):
+   | Project | Root directory | Live |
+   |---|---|---|
+   | `vyact` | `react/` | **https://vyact.app** |
+   | `vyact-demo` | `react/` with `VYACT_DEMO=1` | https://demo.vyact.app |
+   | `vyact-admin` | `admin/` | **https://admin.vyact.app** |
 
-| App | Live URL | Vercel project |
-|---|---|---|
-| Consumer | **https://vyact-twentyx.vercel.app** | `react` |
-| Admin | **https://vyact-admin.vercel.app** | `admin` |
+   - **`ignoreCommand` (W7b, fixed in W8d).** It skips a build only when the last deployed commit (`$VERCEL_GIT_PREVIOUS_SHA`) is in the checkout and nothing outside docs changed since. When it can't tell, it builds.
+     - The W7b version failed with exit 128 whenever that commit was beyond Vercel's shallow clone, and Vercel treats any code other than 0/1 as a deployment **Error**.
+     - That stopped every admin production deploy from 8 to 9 Oct.
+   - **Installs:** `npm ci`. Node is pinned by `engines` (22.x).
+   - **Pull requests** get a Preview deployment, which never uses the production database:
+     - `vite.config.ts` makes a preview local-only unless it has a non-production Supabase URL;
+     - `scripts/assert-preview-isolated.mjs` fails a preview build that names the production project.
 
-> ⚠️ The historical `react-taupe-xi.vercel.app` / `finflow-admin.vercel.app`
-> URLs are **orphaned on a different Vercel account**, are not updated by CI,
-> and serve stale builds. Do not use or document them as live.
+2. **GitHub Actions `Deploy`** (`deploy.yml`) ships the database and the server:
+   - **`db-migrations`:** `supabase db push --include-all` against production, in the `production-database` environment. It **fails loudly** (since v10.20.5): a failed migration is a red run, not a warning.
+   - **`deploy-edge-functions`** (`needs: db-migrations`): every function in `supabase/functions`.
 
-**Supabase client config is COMMITTED, not injected from secrets.**
-`react/.env.production` and `admin/.env.production` hold the **public** project
-URL + **publishable** key (`sb_publishable_…`). This is deliberate: it makes
-every CI build connect to the real database deterministically, removing the
-hidden per-project Vercel env var whose absence previously shipped a
-**local-only "dummy data"** build. Vite gives shell env vars higher precedence
-than `.env` files, so the build steps **must not** re-inject `VITE_SUPABASE_*`
-(an empty secret would silently override the committed values). Never put the
-`service_role`/secret key in these files.
+   Vercel and Actions run in parallel, so **a schema change ships in its own PR, merged before the app that
+   needs it** (db/MIGRATIONS.md §4).
 
-**GitHub Actions secrets still required** (Settings → Secrets and variables → Actions):
-
-| Secret | Used by | Notes |
-|---|---|---|
-| `VERCEL_TOKEN` | consumer + admin | account token with access to the `bhushandandolus-projects` team |
-| `VERCEL_ORG_ID` | consumer + admin | the team id |
-| `VERCEL_CONSUMER_PROJECT_ID` | consumer | `react` project id |
-| `VERCEL_ADMIN_PROJECT_ID` | admin | `admin` project id |
-| `SUPABASE_ACCESS_TOKEN` / `SUPABASE_PROJECT_REF` / `SUPABASE_DB_PASSWORD` | db-migrations (best-effort) | refresh the access token if `supabase link` starts failing |
-
-> `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` / `VITE_APP_URL` secrets are
-> **no longer used** — config now comes from the committed `.env.production`
-> files. Any leftover secrets are inert.
-
-**Verify a deploy actually reached production** (a green Actions run is *not*
-sufficient — confirm the public URL serves the new bundle AND is DB-connected):
+**Verify a deploy reached production.** A green run is not enough:
 
 ```bash
-# 1) which JS chunk is live?
-JS=$(curl -s https://vyact-twentyx.vercel.app/ | grep -oE '/assets/index-[^" ]+\.js' | head -1)
-# 2) is it connected to the real DB? (>0 means the Supabase project ref is baked in)
-curl -s "https://vyact-twentyx.vercel.app$JS" | grep -c dmxqkvploojokffuhxnz
+curl -s https://vyact.app/version.json
 ```
 
-If that count is `0`, the build shipped in local-only mode (dummy data) — check
-that `react/.env.production` exists and the build step does **not** override
-`VITE_SUPABASE_*`.
+That should print the new version. Also check:
+- the **Deploy** run on `main` is green, with both jobs;
+- for a migration, the tracker or dashboard lists it as applied;
+- for admin, the version on the sign-in screen and in the sidebar matches `admin/package.json`;
+- `npx vercel ls vyact-admin --prod` shows the deployment as **Ready**, not Error or Canceled.
+
+**Supabase client config is committed, not injected.** `react/.env.production` and `admin/.env.production`
+hold the **public** project URL and **publishable** key. Never put the `service_role` or secret key there.
+
+**GitHub Actions secrets in use:** `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF` and
+`SUPABASE_DB_PASSWORD`, for the `production-database` environment and the vyact-test function deploys.
+Paste the token without a trailing newline (the workflow normalises it). The old `VERCEL_*` and
+`VITE_SUPABASE_*` secrets are unused.
 
 ---
 
@@ -126,8 +109,8 @@ that `react/.env.production` exists and the build step does **not** override
                                                                   │
                                                                   ▼
                                                        ┌──────────────────────────┐
-                                                       │ vyact-twentyx.vercel.app │ (consumer)
-                                                       │ vyact-admin.vercel.app   │ (admin)
+                                                       │ vyact.app                │ (consumer)
+                                                       │ admin.vyact.app          │ (admin)
                                                        └──────────────────────────┘
                                                                   │
                                                                   ▼
@@ -199,7 +182,7 @@ For the **consumer app**:
    an empty value would override the committed file at build time.
 5. Click **Deploy**
 
-After ~90 seconds you'll get a URL like `https://vyact-twentyx.vercel.app`.
+After ~90 seconds you'll get a URL like `https://vyact.app`.
 
 For the **admin app** — repeat with:
 - **New project** → same `vyact` repo
@@ -208,7 +191,7 @@ For the **admin app** — repeat with:
 - No env vars needed — `admin/.env.production` is committed
 - Deploy
 
-You'll get `https://vyact-admin.vercel.app`.
+You'll get `https://admin.vyact.app`.
 
 ### Through the Vercel CLI (alternative)
 
@@ -268,10 +251,10 @@ there is no `VITE_APP_URL` to set per environment. The Supabase **Site URL**
 In your Supabase dashboard at https://supabase.com/dashboard/project/dmxqkvploojokffuhxnz:
 
 1. **Authentication → URL Configuration**
-2. **Site URL**: `https://vyact-twentyx.vercel.app`
+2. **Site URL**: `https://vyact.app`
 3. **Redirect URLs** (allow list): add all of
-   - `https://vyact-twentyx.vercel.app/**`
-   - `https://vyact-admin.vercel.app/**`
+   - `https://vyact.app/**`
+   - `https://admin.vyact.app/**`
    - `http://localhost:5173/**` (for local consumer dev)
    - `http://localhost:5174/**` (for local admin dev)
 
@@ -304,11 +287,11 @@ trademark / domain gate):
 
 After the first deploy:
 
-1. Open `https://vyact-twentyx.vercel.app` → you should see the auth screen (because the committed `VITE_SUPABASE_URL` is baked into the bundle)
+1. Open `https://vyact.app` → you should see the auth screen (because the committed `VITE_SUPABASE_URL` is baked into the bundle)
 2. Sign up with a real email → check inbox for verification → click → you're in
 3. Create a household → switch to it → add a transaction
 4. Open the same URL on a different device, sign in → confirm same household + transaction is there ✓
-5. Open `https://vyact-admin.vercel.app` → you should see the NorthStar dashboard with live KPIs
+5. Open `https://admin.vyact.app` → you should see the NorthStar dashboard with live KPIs
 
 If something doesn't work, check:
 - Vercel build logs for the failing deploy

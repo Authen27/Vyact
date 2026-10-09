@@ -9,6 +9,7 @@
 // (src/content/landingCopy.ts) — keep it that way.
 
 import { BASE, esc, page, signUpUrl } from './_page.js';
+import { demoRedirect } from './_demo.js';
 import { seoFor } from './_seo.js';
 
 const LESSON = (slug, fallback) => ({ slug, title: (seoFor(slug) || {}).title || fallback });
@@ -220,6 +221,7 @@ ${a.faq.map(([q, ans]) => `<details class="item" style="margin-bottom:10px"><sum
 
 export default function handler(req, res) {
   const key = String((req.query || {}).audience || '').toLowerCase();
+  if (demoRedirect(res, key === 'private' ? '/private' : `/for/${encodeURIComponent(key)}`)) return;   // W8d (FE-PUB-05)
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   if (!AUDIENCES[key]) {
     res.status(404).send(page({

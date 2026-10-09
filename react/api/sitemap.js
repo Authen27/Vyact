@@ -3,6 +3,7 @@
 // use-case pages (v10.51.0), the Learn library, one hub per topic, and every published lesson.
 import { BASE, topicSlug } from './_page.js';
 import { readContent } from './_supabase.js';
+import { demoRedirect } from './_demo.js';
 
 export function sitemapXml(cards, today = new Date().toISOString().slice(0, 10)) {
   const url = (loc, lastmod, priority, changefreq = 'monthly') =>
@@ -30,6 +31,7 @@ export function sitemapXml(cards, today = new Date().toISOString().slice(0, 10))
 }
 
 export default async function handler(req, res) {
+  if (demoRedirect(res, '/sitemap.xml')) return;   // W8d (FE-PUB-05)
   let cards = [];
   try {
     cards = await readContent('select=slug,category,updated_at&format=eq.card&status=eq.published&order=updated_at.desc&limit=2000');

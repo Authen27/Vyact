@@ -157,9 +157,9 @@ did I spend today?" after midnight IST to confirm the runtime honours it.
 
 ## 3b. ✅ VALIDATED 2026-08-15 — MVP inbound logging works end-to-end
 
-**Status:** **DONE / live on the real business number +918897882803** (WABA `1887272231954080`).
+**Status:** **DONE / live on the real business number +91 XXXXX XXXXX** (WABA `1887272231954080`).
 Proven: `Groceries hdfc 56` → a real ₹56 Groceries·HDFC transaction; session-text confirmation
-delivered; a budget query correctly hard-blocked. Recipient **919740556606** (the number that texts
+delivered; a budget query correctly hard-blocked. Recipient **91XXXXXXXXXX** (the number that texts
 the business) is seeded-linked to Mallela Household. Closure agent DISABLED; temp `whatsapp-test-send`
 fn retired (inert stub).
 

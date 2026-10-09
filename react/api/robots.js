@@ -8,6 +8,8 @@
 // the "*" group, so the named crawlers share ONE group with "*" (several User-agent lines, one set
 // of rules) rather than getting groups of their own.
 
+import { isDemoBuild } from './_demo.js';
+
 const BASE = 'https://vyact.app';
 
 /** App-only paths: SPA shells with nothing public to index. */
@@ -45,6 +47,12 @@ export function robotsTxt() {
 
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  // W8d (audit FE-PUB-05): the guest demo is not a site to crawl — every path is disallowed there.
+  if (isDemoBuild()) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).send('User-agent: *\nDisallow: /\n');
+    return;
+  }
   res.setHeader('Cache-Control', 'public, max-age=86400');
   res.status(200).send(robotsTxt());
 }

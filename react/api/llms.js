@@ -8,6 +8,7 @@
 // Generated from the live library, so it never lists a page that does not exist.
 import { BASE, topicSlug } from './_page.js';
 import { readContent } from './_supabase.js';
+import { demoRedirect } from './_demo.js';
 import { seoFor } from './_seo.js';
 import { firstSentence } from './learn.js';
 
@@ -110,6 +111,7 @@ export function llmsFullTxt(cards) {
 
 export default async function handler(req, res) {
   const full = String((req.query || {}).full || '') === '1';
+  if (demoRedirect(res, full ? '/llms-full.txt' : '/llms.txt')) return;   // W8d (FE-PUB-05)
   let cards = [];
   try {
     cards = await readContent(`select=slug,title,category${full ? ',body_md' : ''}&format=eq.card&status=eq.published&limit=2000`);

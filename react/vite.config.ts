@@ -14,7 +14,13 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 // Shell env outranks .env files in Vite, so an empty value here disables cloud mode.
 // v10.57.0 — and VITE_LOCAL_ONLY=1, or lib/supabase.ts's production fallback refilled the empty
 // values and every preview ran against production (verified with a local VERCEL_ENV=preview build).
-if (process.env.VERCEL_ENV === 'preview' && !process.env.VITE_SUPABASE_URL) {
+// W8d (audit OPS-05): FAIL CLOSED — a preview also goes local-only when the URL it was given IS
+// production's (a VITE_SUPABASE_URL scoped to "All Environments" in Vercel skipped this guard). Only a
+// non-production project (vyact-test) may back a preview; scripts/assert-preview-isolated.mjs fails a
+// preview build whose bundle still names the production project.
+const PROD_SUPABASE_REF = 'dmxqkvploojokffuhxnz';
+if (process.env.VERCEL_ENV === 'preview'
+    && (!process.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL.includes(PROD_SUPABASE_REF))) {
   process.env.VITE_SUPABASE_URL = '';
   process.env.VITE_SUPABASE_ANON_KEY = '';
   process.env.VITE_LOCAL_ONLY = '1';
@@ -178,5 +184,22 @@ export default defineConfig({
   // W7b (audit GATE-03): no source maps. With `true` every deploy published the private source (87 maps,
   // 8.3 MB); 'hidden' would only drop the reference while still uploading guessable `<chunk>.js.map`
   // files. scripts/assert-no-sourcemaps.mjs (postbuild) fails the build if one comes back.
-  build: { outDir: 'dist', sourcemap: false, target: 'esnext' },
+  build: {
+    outDir: 'dist', sourcemap: false, target: 'esnext',
+    // W8d (audit GATE-06): the eager vendor libraries get chunks of their own, so the app entry is smaller
+    // and a release that changes only app code leaves them cached. Named groups only: a catch-all
+    // node_modules group would pull lazily loaded libraries (recharts, the chat) into an eager chunk.
+    // scripts/assert-bundle-budget.mjs (postbuild) holds the entry chunk under its budget.
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/ },
+            { name: 'motion', test: /node_modules[\\/](framer-motion|motion-dom|motion-utils)[\\/]/ },
+            { name: 'vendor-core', test: /node_modules[\\/](react-router|react-router-dom|@remix-run|zustand|dinero\.js|@dinero\.js)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
 });

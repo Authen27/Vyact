@@ -27,9 +27,12 @@ export const APP_SEGMENTS = new Set([
 /** Public pages served by vercel.json rewrites (api/*) — let them through. */
 export const PUBLIC_PATHS = new Set(['/about', '/private', '/sitemap.xml', '/robots.txt', '/llms.txt', '/llms-full.txt']);
 
-// Skip static files (anything with an extension), api, assets, icons, Learn, /for/* and .well-known.
+// Skip api, assets, icons, .well-known, the REAL Learn and /for routes (one segment each, as vercel.json
+// rewrites them) and real static files. W8d (audit FE-PUB-06): it used to skip every learn/ and for/ path
+// and anything with a dot, so "/learn/a/b", "/for/x/y" or "/wp-login.php" fell through to the app shell
+// and answered 200 — a soft 404 a crawler could index. Those now reach routeFor and get the 404 page.
 export const config = {
-  matcher: ['/((?!api/|assets/|icons/|learn(?:/|$)|for/|\\.well-known/|.*\\.[A-Za-z0-9]+$).*)'],
+  matcher: ['/((?!api/|assets/|icons/|\\.well-known/|learn/?$|learn/topic/[^/]+$|learn/[^/]+$|for/[^/]+$|.*\\.(?:js|mjs|css|html|png|jpe?g|webp|gif|svg|ico|txt|xml|json|webmanifest|woff2?|ttf|map|pdf|mp4|webm)$).*)'],
 };
 
 /** What the middleware decides for a path: 'landing' | 'next' | 'not-found'. */

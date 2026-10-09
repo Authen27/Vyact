@@ -36,6 +36,8 @@ const snapshotPath = path.join(repoRoot, 'db', 'schema.sql');
 const fixMode = process.argv.includes('--fix');
 
 const NAME_RE = /^(\d{14,})_([a-z0-9][a-z0-9_]*)\.sql$/;
+/** The last migration allowed to carry "not auto-applied" wording (the applied v91 twin). */
+const GRANDFATHERED_THROUGH = '20260612120100';
 
 // ── 1. Discover and validate migration filenames ─────────────────
 if (!fs.existsSync(migDir)) {
@@ -69,6 +71,13 @@ for (const file of all) {
   const body = fs.readFileSync(full, 'utf8');
   if (body.trim().length === 0) {
     problems.push(`empty migration: ${file}`);
+    continue;
+  }
+  // W8d (audit DB-OPS-14): every file here IS applied by `supabase db push` (CI). A migration that says
+  // it is "not auto-applied" / "do not apply" describes a process that does not exist and invites a
+  // manual double-apply. The historical v91 twin (applied in production) is grandfathered.
+  if (ts > GRANDFATHERED_THROUGH && /not auto-applied|do not apply/i.test(body)) {
+    problems.push(`${file} says it is not applied, but every migration is applied by db push (db/MIGRATIONS.md §4)`);
     continue;
   }
   migrations.push({ file, ts, body });

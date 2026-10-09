@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.83.0`** (consumer)
+> **Current production version: `v10.84.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,40 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.84.0 — W8d: public site, platform and docs *(2026-10-09)*
+
+The last batch of the W8 plan, from the 2026-10-04 audit. No app behaviour change and no schema change.
+
+- **Admin deploys restored (W7b regression).** W7b's deploy-skip command could exit 128 when the last
+  deployed commit was outside Vercel's shallow clone, and Vercel treats that as a deployment **Error**. Every
+  admin production build from 8 to 9 Oct failed this way, so admin.vyact.app stayed on v1.4.3 and W8c
+  (v1.4.4) never went out. The command now exits only 0 (skip) or 1 (build), building whenever it can't
+  tell. This release redeploys admin.
+- **Real 404s (FE-PUB-06).** Made-up deep paths (`/learn/a/b`, `/for/x/y`, `/wp-login.php`) get the 404
+  page instead of a 200 app shell.
+- **Demo host (FE-PUB-05).** The guest demo's other addresses send public pages (Learn, /for, /about, the
+  sitemap, llms.txt, /v links) to vyact.app, and its robots.txt disallows everything.
+- **Security headers (FE-PLT-04).** vyact.app sends a Content-Security-Policy in **Report-Only** mode, a
+  first step before enforcing it.
+- **Previews never touch production (OPS-05).** A preview given production's database URL now runs
+  local-only. A build step fails any preview whose bundle still names the production project.
+- **CI hygiene (OPS-07, OPS-13).**
+  - Every workflow runs with a read-only token.
+  - Vercel installs use `npm ci`, and Node is pinned to 22.
+  - Runs on `main` are never cancelled by a newer push; only pull-request runs are.
+- **Dependencies (GATE-05).**
+  - CI fails on a runtime advisory of high or above.
+  - React Router is bumped to 6.30.6.
+  - Its remaining moderate advisory is mitigated, as recorded in `docs/SECURITY_AUDIT_TRIAGE.md`.
+- **Smaller app download (GATE-06).** Supabase, motion and the router/state libraries load as their own
+  cached chunks. The app's entry chunk drops from 621 KB to 278 KB, with a 350 KB budget enforced at build.
+- **Runbooks (OPS-09, DB-OPS-14, DB-OPS-12).** DEPLOY.md, OPERATIONS.md and db/MIGRATIONS.md describe
+  the live pipeline. The migrations gate rejects "not applied" wording. Backups no longer use
+  `--no-privileges`, which strips the REVOKEs the security model depends on.
+- **Personal data (XC-PRV-14).** Personal email addresses and phone numbers in tracked docs are replaced
+  by placeholders, the feedback screenshots are no longer tracked, and `.gitignore` covers working files.
+  Git history still holds the old values; rewriting history is an owner decision.
 
 ## v10.83.0 — W8b: WhatsApp and Pip server robustness *(2026-10-08)*
 
@@ -3926,7 +3960,7 @@ Round of fixes on v10.14.0's split sharing, from live testing:
   previously they'd only find it by opening the Splits page.
 - **Verification of feedback 3 (did it reach the other accounts?):** the shared
   rows were created correctly. `u.reddy@vidaxl.com` (an existing account) **does**
-  see the split via RLS on their Splits page once signed in; `uday.iitkgp@gmail.com`
+  see the split via RLS on their Splits page once signed in; `owner@example.com`
   has no account yet, so it's pending their signup (by design). **No emails were
   sent because the app has no email-sending capability at all** — all split
   notifications are in-app. Real email/push delivery is a separate,
@@ -5290,7 +5324,7 @@ Three follow-up fixes on top of v9.8.1:
   Contact", but Help had no such section; there was no way to actually reach support from a legal
   page. Added a real "Contact support" panel to `Help.tsx` (anchor `#contact`) with a subject/
   message form that opens a pre-filled `mailto:` to a temporary support inbox
-  (`uday.kr27@gmail.com` — flagged as temporary, to be replaced by proper ticketing as volume
+  (`owner@example.com` — flagged as temporary, to be replaced by proper ticketing as volume
   grows), and updated the Privacy/Terms/Cookies Contact sections to link directly to a working
   `mailto:` (so it works even for signed-out visitors reading the docs from an external link) in
   addition to the in-app form for signed-in users.
@@ -8445,8 +8479,8 @@ GRANT EXECUTE ON FUNCTION public.role_in(uuid)  TO authenticated;
 
 | User | Result post-fix |
 |---|---|
-| `uday.kr27@gmail.com`     | Returns `My Household · personal · USD · owner` |
-| `bhushandandolu8@gmail.com` | Returns `My Household · personal · USD · owner` |
+| `owner@example.com`     | Returns `My Household · personal · USD · owner` |
+| `developer@example.com` | Returns `My Household · personal · USD · owner` |
 
 ---
 

@@ -46,9 +46,13 @@ on:
       - 'docs/WHATSAPP_TEMPLATES.md'
 
 # Cancel duplicate runs for the same PR/branch
+# W8d (audit OPS-07): read-only token. No job writes to the repository, issues or PRs.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # W8d (OPS-13): never cancel a main run
 
 jobs:
   # Single source of truth for the static + unit + build gates. Runs the
@@ -72,6 +76,13 @@ jobs:
       - name: Install admin deps
         working-directory: admin
         run: npm ci
+      # W8d (audit GATE-05): a RUNTIME dependency with a high or critical advisory fails CI. Moderate is
+      # triaged in docs/SECURITY_AUDIT_TRIAGE.md (React Router 6's open-redirect advisory is mitigated by
+      # lib/postAuth.ts safeNext; the fix is the v7 major), so the gate starts at high.
+      - name: Runtime dependency audit (high and above)
+        run: |
+          (cd react && npm audit --omit=dev --audit-level=high)
+          (cd admin && npm audit --omit=dev --audit-level=high)
       - name: Run automation gates + generate report
         run: node scripts/automation-run.mjs
       # 2 Oct 2026 — the private repo's artifact storage quota filled up and failed passing
@@ -125,7 +136,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22.20.0'   # W8d (OPS-13): the same Node as every other job
           cache: 'npm'
           cache-dependency-path: react/package-lock.json
       - run: npm ci

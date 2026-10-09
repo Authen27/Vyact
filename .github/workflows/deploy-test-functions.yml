@@ -18,6 +18,10 @@ on:
     branches: [develop, staging]
     paths: ['supabase/functions/**']
 
+# W8d (audit OPS-07): read-only token. No job writes to the repository, issues or PRs.
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-test-functions
   cancel-in-progress: false
