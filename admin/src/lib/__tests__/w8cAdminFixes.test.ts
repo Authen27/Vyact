@@ -13,6 +13,23 @@ import { revenueByCurrency, revenueLabel } from '../revenue';
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
 
 describe('W8c · admin fixes', () => {
+  it('W8c-ADM13-001 · the admin host sends a strict CSP and publishes no source maps (ADM-13)', () => {
+    const vercel = JSON.parse(readFileSync(resolve(__dirname, '../../../vercel.json'), 'utf8'));
+    const csp = vercel.headers[0].headers.find((h: { key: string }) => h.key === 'Content-Security-Policy')?.value as string;
+    expect(csp).toBeTruthy();
+    for (const d of ["default-src 'self'", "script-src 'self'", "frame-ancestors 'none'", "object-src 'none'",
+      'connect-src \'self\' https://dmxqkvploojokffuhxnz.supabase.co wss://dmxqkvploojokffuhxnz.supabase.co',
+      'style-src \'self\' https://fonts.googleapis.com', 'font-src \'self\' https://fonts.gstatic.com']) {
+      expect(csp, d).toContain(d);
+    }
+    expect(csp).not.toMatch(/unsafe-inline|unsafe-eval/);
+    for (const f of ['vite.config.ts', 'vite.config.js']) {
+      expect(readFileSync(resolve(__dirname, '../../..', f), 'utf8'), f).toMatch(/sourcemap: false/);
+    }
+    const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../../package.json'), 'utf8'));
+    expect(pkg.scripts.build).toMatch(/vite build && node scripts\/assert-no-sourcemaps\.mjs$/);
+  });
+
   it('W8c-ADM14-001 · MRR is counted per currency over active + trialing, never one sum labelled USD (ADM-14)', () => {
     const rows = [
       { status: 'active', monthly_amount: 999, currency: 'INR' },
