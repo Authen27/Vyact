@@ -7,10 +7,27 @@ import { resolve } from 'node:path';
 import { HOUSEHOLD_TYPES, normalizeHouseholdType } from '../householdTypes';
 import * as consumer from '../../../../react/src/lib/householdTypes';
 import { CONTENT_BYLINE, resolvePublishedAt } from '../contentApi';
+import { pingDatabase, projectRefOf } from '../dbStatus';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
 
 describe('W8c · admin fixes', () => {
+  it('W8c-ADM12-001 · Settings claims only what it checked: a live DB round-trip, the real project, the real version (ADM-12)', async () => {
+    const client = (error: unknown) => ({ from: () => ({ select: async () => ({ error }) }) }) as never;
+    expect(await pingDatabase(client(null))).toBe('connected');
+    expect(await pingDatabase(client({ message: 'JWT expired' }))).toBe('unreachable');
+    expect(await pingDatabase({ from: () => { throw new Error('offline'); } } as never)).toBe('unreachable');
+    expect(await pingDatabase(null)).toBe('not_configured');
+    expect(projectRefOf('https://dmxqkvploojokffuhxnz.supabase.co')).toBe('dmxqkvploojokffuhxnz');
+    expect(projectRefOf(null)).toBeNull();
+    const settings = src('pages/Settings.tsx');
+    expect(settings).not.toMatch(/state="connected"/);           // nothing hard-coded as connected
+    expect(settings).not.toMatch(/G-E3XKWZP850|eu-west-2|dmxqkvploojokffuhxnz|Wires in v1|Admin v1\.0\.0/);
+    expect(settings).toMatch(/pingDatabase\(supabase\)/);
+    expect(src('components/Layout.tsx')).toMatch(/Admin · v\{__APP_VERSION__\}/);
+    expect(src('lib/supabase.ts')).toMatch(/'X-Client-Info': `vyact-admin\/v\$\{APP_VERSION\}`/);
+  });
+
   it('W8c-ADM11-001 · an edit keeps the publish date; the byline is "Vyact", never an email (ADM-11)', () => {
     const now = new Date('2026-10-09T10:00:00Z');
     const first = '2026-07-01T10:00:00.000Z';
