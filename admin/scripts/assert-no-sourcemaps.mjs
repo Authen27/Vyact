@@ -1,5 +1,6 @@
 // W8c (audit ADM-13) — admin build gate (a copy of react/scripts/assert-no-sourcemaps.mjs, W7b GATE-03): the admin
 // console must not publish source maps. Fails (exit 1) when dist/ holds any *.map file or a JS/CSS file points at one.
+/* global process, console, URL */   // a Node build script; the admin ESLint config targets the browser
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
