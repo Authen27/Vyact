@@ -4,7 +4,7 @@
 > Every body, variable order, button and category below is exactly what was submitted, so a send must
 > match it field for field or Meta rejects the message.
 >
-> WABA **Vyact App `1887272231954080`** (+91 88978 82803). All templates are language **English (US)**
+> WABA **Vyact App `1887272231954080`** (+91 XXXXX XXXXX). All templates are language **English (US)**
 > (`en_US`). Submitted through WhatsApp Manager on 24–25 Sep 2026.
 
 ## Sending image templates (resolved in v10.41.0)
@@ -74,7 +74,7 @@ The runbook's 15 Aug "In review" for the original nine was stale: on 24 Sep all 
 
 ## Validation (26 Sep 2026, v10.47.0)
 
-Live samples went to the owner's number (+91 97405 56606) through `whatsapp-notify` with the service key; delivery is from Meta's status callbacks (`delivery_status`).
+Live samples went to the owner's number (+91 XXXXX XXXXX) through `whatsapp-notify` with the service key; delivery is from Meta's status callbacks (`delivery_status`).
 
 | Template | Meta | Sender in code | Buttons answered | Live sample |
 |---|---|---|---|---|

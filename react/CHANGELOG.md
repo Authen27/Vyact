@@ -3926,7 +3926,7 @@ Round of fixes on v10.14.0's split sharing, from live testing:
   previously they'd only find it by opening the Splits page.
 - **Verification of feedback 3 (did it reach the other accounts?):** the shared
   rows were created correctly. `u.reddy@vidaxl.com` (an existing account) **does**
-  see the split via RLS on their Splits page once signed in; `uday.iitkgp@gmail.com`
+  see the split via RLS on their Splits page once signed in; `owner@example.com`
   has no account yet, so it's pending their signup (by design). **No emails were
   sent because the app has no email-sending capability at all** — all split
   notifications are in-app. Real email/push delivery is a separate,
@@ -5290,7 +5290,7 @@ Three follow-up fixes on top of v9.8.1:
   Contact", but Help had no such section; there was no way to actually reach support from a legal
   page. Added a real "Contact support" panel to `Help.tsx` (anchor `#contact`) with a subject/
   message form that opens a pre-filled `mailto:` to a temporary support inbox
-  (`uday.kr27@gmail.com` — flagged as temporary, to be replaced by proper ticketing as volume
+  (`owner@example.com` — flagged as temporary, to be replaced by proper ticketing as volume
   grows), and updated the Privacy/Terms/Cookies Contact sections to link directly to a working
   `mailto:` (so it works even for signed-out visitors reading the docs from an external link) in
   addition to the in-app form for signed-in users.
@@ -8445,8 +8445,8 @@ GRANT EXECUTE ON FUNCTION public.role_in(uuid)  TO authenticated;
 
 | User | Result post-fix |
 |---|---|
-| `uday.kr27@gmail.com`     | Returns `My Household · personal · USD · owner` |
-| `bhushandandolu8@gmail.com` | Returns `My Household · personal · USD · owner` |
+| `owner@example.com`     | Returns `My Household · personal · USD · owner` |
+| `developer@example.com` | Returns `My Household · personal · USD · owner` |
 
 ---
 

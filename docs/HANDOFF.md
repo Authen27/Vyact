@@ -15,7 +15,7 @@
 ## 0. ⛔ ACTIVE / STALLED WORK — WhatsApp integration (resume here first)
 
 > **Updated 2026-09-24 (v10.40.0).** Inbound WhatsApp logging is **live** on the business number
-> +918897882803 (WABA `1887272231954080`) and was validated end to end on 2026-08-15. The phone
+> +91 XXXXX XXXXX (WABA `1887272231954080`) and was validated end to end on 2026-08-15. The phone
 > linked then was seeded by hand. **Self-serve linking is still blocked:** the `phone_verification_otp`
 > template needs Meta Business Verification.
 >
@@ -64,7 +64,7 @@
 - **Consumer is DB-connected** (verified: the live JS bundle contains the
   Supabase project ref). Real auth + real data; no more local-only dummy data.
 - **Admin is healthy** — renders the NorthStar dashboard on real prod data.
-  Admin user: `uday.kr27@gmail.com` has the `super` role.
+  Admin user: `owner@example.com` has the `super` role.
 - Prod DB has **18 migrations** in the tracker, matching `supabase/migrations/`
   1:1. TD-08/09/13 objects are live (audit triggers, `replace_*` RPCs, budget
   period columns).

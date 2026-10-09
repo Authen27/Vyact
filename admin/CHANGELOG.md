@@ -266,7 +266,7 @@ Earlier `content_items_and_user_favorites` migration (originally consumer v6.3) 
 
 ### Validated
 
-Smoke-tested the three new RPCs as `authenticated` user `uday.kr27@gmail.com` (super admin):
+Smoke-tested the three new RPCs as `authenticated` user `owner@example.com` (super admin):
 
 - `admin_dashboard_kpis()` → returns `{totalUsers:2, totalHouseholds:2, signups7d:1, publishedArticles:5, contentFavorites:1, ...}` (real numbers from production).
 - `admin_list_users()` → returns 2 rows with the seeded users + their admin tiers.
