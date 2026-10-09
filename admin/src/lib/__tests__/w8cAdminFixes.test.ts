@@ -8,10 +8,28 @@ import { HOUSEHOLD_TYPES, normalizeHouseholdType } from '../householdTypes';
 import * as consumer from '../../../../react/src/lib/householdTypes';
 import { CONTENT_BYLINE, resolvePublishedAt } from '../contentApi';
 import { pingDatabase, projectRefOf } from '../dbStatus';
+import { revenueByCurrency, revenueLabel } from '../revenue';
 
 const src = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
 
 describe('W8c · admin fixes', () => {
+  it('W8c-ADM14-001 · MRR is counted per currency over active + trialing, never one sum labelled USD (ADM-14)', () => {
+    const rows = [
+      { status: 'active', monthly_amount: 999, currency: 'INR' },
+      { status: 'trialing', monthly_amount: 499, currency: 'inr' },
+      { status: 'active', monthly_amount: 12, currency: 'USD' },
+      { status: 'canceled', monthly_amount: 50, currency: 'USD' },
+      { status: 'past_due', monthly_amount: 7, currency: 'USD' },
+    ] as const;
+    const rev = revenueByCurrency(rows as never);
+    expect(rev).toEqual([{ currency: 'INR', mrr: 1498, arr: 17976 }, { currency: 'USD', mrr: 12, arr: 144 }]);
+    expect(revenueLabel(rev, 'mrr')).toBe('INR 1,498 · USD 12');
+    expect(revenueLabel([], 'mrr')).toBe('—');
+    const page = src('pages/Subscriptions.tsx');
+    expect(page).not.toMatch(/MRR \(USD\)|ARR \(USD\)/);
+    expect(page).toMatch(/revenueLabel\(stats\.revenue, 'mrr'\)/);
+  });
+
   it('W8c-ADM12-001 · Settings claims only what it checked: a live DB round-trip, the real project, the real version (ADM-12)', async () => {
     const client = (error: unknown) => ({ from: () => ({ select: async () => ({ error }) }) }) as never;
     expect(await pingDatabase(client(null))).toBe('connected');
