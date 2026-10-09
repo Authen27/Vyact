@@ -6,6 +6,7 @@
 // An unknown or unpublished number goes to the library rather than a dead end.
 
 import { readContent } from './_supabase.js';
+import { demoRedirect } from './_demo.js';
 
 export function lessonId(n) {
   return /^\d{1,3}$/.test(String(n || '')) ? `ev-${String(n).padStart(3, '0')}` : null;
@@ -18,6 +19,7 @@ export function target(id, slug) {
 }
 
 export default async function handler(req, res, read = readContent) {
+  if (demoRedirect(res, `/v/${encodeURIComponent(String((req.query || {}).n || ''))}`)) return;   // W8d (FE-PUB-05)
   const id = lessonId((req.query || {}).n);
   let slug = null;
   if (id) {

@@ -14,6 +14,7 @@ import {
   BASE, OG_IMAGE, esc, safeJsonLd as jsonLd, safeJs, httpUrl, page, topicSlug, featureFor, signUpUrl, demoUrl, youtubeId,
 } from './_page.js';
 import { readContent } from './_supabase.js';
+import { demoRedirect } from './_demo.js';
 import { seoFor } from './_seo.js';
 import { ORG_ID } from './_brand.js';
 
@@ -265,6 +266,12 @@ function notFound(res) {
 const CACHE = 'public, max-age=600, s-maxage=86400, stale-while-revalidate=604800';
 
 export default async function handler(req, res) {
+  {
+    // W8d (audit FE-PUB-05): the demo sends Learn visitors to vyact.app.
+    const q = req.query || {};
+    const s = String(q.slug || '').trim(), t = String(q.topic || '').trim().toLowerCase();
+    if (demoRedirect(res, s ? `/learn/${encodeURIComponent(s)}` : t ? `/learn/topic/${encodeURIComponent(t)}` : '/learn')) return;
+  }
   try {
     const q = req.query || {};
     const slug = String(q.slug || '').trim();

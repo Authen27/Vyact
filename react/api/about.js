@@ -7,6 +7,7 @@
 // of the live product; the only alias is "Vyact app" (owner rule).
 
 import { BASE, esc, page, signUpUrl } from './_page.js';
+import { demoRedirect } from './_demo.js';
 import { organization, ORG_ID, APP_ID, DISAMBIGUATION } from './_brand.js';
 import { DESCRIPTION } from './llms.js';
 
@@ -65,6 +66,7 @@ ${FAQ.map(([q, a]) => `<details class="item" style="margin-bottom:10px"><summary
 }
 
 export default function handler(req, res) {
+  if (demoRedirect(res, '/about')) return;   // W8d (FE-PUB-05)
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=86400, stale-while-revalidate=604800');
   res.status(200).send(aboutPage());
