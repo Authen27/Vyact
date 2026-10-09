@@ -2740,6 +2740,28 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/w8dSiteFixes.test.ts",
+      "feature": "Site, platform and docs (W8d)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "audit W8d: real 404s for deep paths, demo redirects + robots, CSP report-only, deploy-skip exits 0/1, npm ci + Node 22 + PR-only cancel, read-only workflow tokens, preview fails closed + gate, audit gate + triage, vendor split + entry budget, runbooks, no personal data",
+      "count": 11,
+      "tests": [
+        "W8d · site, platform and docs W8d-GATE05-001 · runtime advisories of high and above fail CI; moderate ones are triaged (GATE-05)",
+        "W8d · site, platform and docs W8d-GATE06-001 · eager vendors are split from the entry, which stays under its budget (GATE-06)",
+        "W8d · site, platform and docs W8d-OPS05-001 · a preview never uses production; the build gate proves it (OPS-05)",
+        "W8d · site, platform and docs W8d-OPS07-001 · every workflow runs with a read-only token (OPS-07)",
+        "W8d · site, platform and docs W8d-OPS09-001 · the runbooks describe the live pipeline (OPS-09, DB-OPS-14, DB-OPS-12)",
+        "W8d · site, platform and docs W8d-OPS13-001 · npm ci, Node 22 everywhere, main runs never cancelled (OPS-13)",
+        "W8d · site, platform and docs W8d-PLT04-001 · vyact.app sends a Content-Security-Policy in Report-Only mode (FE-PLT-04)",
+        "W8d · site, platform and docs W8d-PRV14-001 · no personal emails or phone numbers in tracked docs; screenshots are not tracked (XC-PRV-14)",
+        "W8d · site, platform and docs W8d-PUB05-001 · the demo build sends public pages to vyact.app and is not crawlable (FE-PUB-05)",
+        "W8d · site, platform and docs W8d-PUB06-001 · made-up deep paths reach the middleware and get a real 404 (FE-PUB-06)",
+        "W8d · site, platform and docs W8d-PUB07-002 · the deploy skip exits only 0 or 1, so an unknown last-deployed commit builds (FE-PUB-07 fix)"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/webPush.test.ts",
       "feature": "Web Push",
       "availability": "conditional",

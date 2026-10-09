@@ -25,14 +25,14 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1574 passing deterministic cases in 132 files. Zero failed, skipped or TODO cases at generation.**
+**1585 passing deterministic cases in 133 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 6 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 20 |
+| react | contract-unit | available | 31 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 87 |
 | react | sql-integration | conditional | 48 |
@@ -169,6 +169,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/w7bPublicBuild.test.ts](../react/src/lib/__tests__/w7bPublicBuild.test.ts) | Public site and build config (W7b) | contract-unit | available | 6 |
 | [react/src/lib/__tests__/w8aAppFixes.test.ts](../react/src/lib/__tests__/w8aAppFixes.test.ts) | App fixes (W8a) | unit | available | 12 |
 | [react/src/lib/__tests__/w8bEdgeFixes.test.ts](../react/src/lib/__tests__/w8bEdgeFixes.test.ts) | Edge robustness (W8b) | contract-unit | available | 6 |
+| [react/src/lib/__tests__/w8dSiteFixes.test.ts](../react/src/lib/__tests__/w8dSiteFixes.test.ts) | Site, platform and docs (W8d) | contract-unit | available | 11 |
 | [react/src/lib/__tests__/webPush.test.ts](../react/src/lib/__tests__/webPush.test.ts) | Web Push | contract-unit | conditional | 10 |
 | [react/src/lib/__tests__/webPushDevice.test.ts](../react/src/lib/__tests__/webPushDevice.test.ts) | Web Push | contract-unit | conditional | 7 |
 | [react/src/lib/__tests__/whatsappConversation.test.ts](../react/src/lib/__tests__/whatsappConversation.test.ts) | WhatsApp dispatch | contract-unit | conditional | 3 |
