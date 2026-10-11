@@ -346,7 +346,7 @@ export default function Settings() {
               </Select>
             </div>
             {cloudEnabled && session && (
-              <div className="sm:col-span-2 flex items-center justify-between gap-3 bg-bg3 border border-line rounded-md px-4 py-3">
+              <div className="sm:col-span-2 flex items-center justify-between gap-3 well px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <span className={`font-mono text-[0.6rem] tracking-widest uppercase px-2 py-0.5 rounded-full ${
                     emailVerified
@@ -405,7 +405,7 @@ export default function Settings() {
                     </div>
                     <div className="text-[0.86rem] font-display font-semibold text-ink mb-0.5">{th.label}</div>
                     <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{th.desc}</div>
-                    {on && <div className="mt-2 text-[0.65rem] font-mono uppercase tracking-widest" style={{ color: 'var(--accent)' }}>Active</div>}
+                    {on && <div className="mt-2 text-[0.65rem] font-mono uppercase tracking-widest" style={{ color: 'var(--accent-text)' }}>Active</div>}
                   </button>
                 );
               })}
@@ -431,7 +431,7 @@ export default function Settings() {
               {NOTIF_GROUPS.map(g => (
                 <div key={g.label}>
                   <div className="mono-label mb-1.5">{g.label}</div>
-                  <div className="rounded-r3 overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+                  <div className="rounded-r3 overflow-hidden" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
                     {g.types.map((ty: NotifType, i) => {
                       const locked = NOTIF_LOCKED.includes(ty);
                       const enabled = typeEnabled(notificationPrefs, ty);
@@ -607,7 +607,7 @@ export default function Settings() {
             open={openRow === 'password'} onToggle={() => toggleRow('password')}>
             <div className="px-3.5 pb-3">
               {!cloudEnabled || !session ? (
-                <div className="bg-bg3 border border-line rounded-md p-4 text-sm text-ink-mid">
+                <div className="well p-4 text-sm text-ink-mid">
                   Password management requires cloud mode. Sign in with a cloud account to change your password.
                 </div>
               ) : (
@@ -666,14 +666,13 @@ export default function Settings() {
               {[
                 { label: 'Transactions', value: transactions.length },
                 { label: 'Budgets',      value: budgets.length },
-                { label: 'Goals',        value: goals.length },
                 { label: 'Debts',        value: debts.length },
                 { label: 'Assets',       value: assets.length },
                 { label: 'Members',      value: members.length },
                 { label: 'Income txns',  value: transactions.filter(t => t.type === 'income').length },
                 { label: 'Expense txns', value: transactions.filter(t => t.type === 'expense').length },
               ].map(s => (
-                <div key={s.label} className="bg-bg3 border border-line rounded-md p-3 text-center">
+                <div key={s.label} className="well p-3 text-center">
                   <div className="text-2xl font-semibold text-coral">{s.value}</div>
                   <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim uppercase mt-0.5">{s.label}</div>
                 </div>
@@ -687,15 +686,15 @@ export default function Settings() {
           <SettingRow icon="📄" label="Legal & policies"
             open={openRow === 'legal'} onToggle={() => toggleRow('legal')}>
             <div className="px-3.5 pb-3 grid sm:grid-cols-3 gap-3">
-              <Link to="/privacy" className="bg-bg3 border border-line rounded-md px-4 py-4 hover:border-coral/40 transition-colors">
+              <Link to="/privacy" className="tile px-4 py-4 hover:shadow-neu-hover transition-shadow">
                 <div className="text-sm font-semibold text-ink mb-1">Privacy Policy</div>
                 <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
               </Link>
-              <Link to="/terms" className="bg-bg3 border border-line rounded-md px-4 py-4 hover:border-coral/40 transition-colors">
+              <Link to="/terms" className="tile px-4 py-4 hover:shadow-neu-hover transition-shadow">
                 <div className="text-sm font-semibold text-ink mb-1">Terms of Service</div>
                 <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
               </Link>
-              <Link to="/cookies" className="bg-bg3 border border-line rounded-md px-4 py-4 hover:border-coral/40 transition-colors">
+              <Link to="/cookies" className="tile px-4 py-4 hover:shadow-neu-hover transition-shadow">
                 <div className="text-sm font-semibold text-ink mb-1">Cookie Policy</div>
                 <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
               </Link>
@@ -706,11 +705,11 @@ export default function Settings() {
         {/* ── Danger zone — quarantined (board E: sunken/inset, never merged
             into the regular groups so it can't be mistaken for a normal row) ── */}
         <SettingsGroup caption="Danger zone" danger>
-          <SettingRow icon={<span style={{ color: 'hsl(var(--terra))' }}>⚠</span>} label="Delete · reset"
+          <SettingRow icon={<span style={{ color: 'var(--crit-text)' }}>⚠</span>} label="Delete · reset"
             open={openRow === 'danger'} onToggle={() => toggleRow('danger')}>
             <div className="px-3.5 pb-3 space-y-4">
               {!cloudEnabled || !session ? (
-                <div className="bg-bg3 border border-line rounded-md p-4 text-sm text-ink-mid">
+                <div className="well p-4 text-sm text-ink-mid">
                   Data erasure and account controls require cloud mode. Sign in with a cloud account to manage them here.
                 </div>
               ) : (

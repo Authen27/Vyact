@@ -84,7 +84,7 @@ function Drawer({ title, onClose, children }: DrawerProps) {
         <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-line">
           <span
             className="w-[34px] h-[34px] rounded-r2 flex items-center justify-center text-[17px] flex-shrink-0"
-            style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 16%, transparent)', color: 'hsl(var(--denim))' }}
+            style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 16%, transparent)', color: 'var(--info-text)' }}
             aria-hidden
           >✦</span>
           {/* v10.54.0 (owner) — the "Vyact does the maths, not guesswork" subtitle is

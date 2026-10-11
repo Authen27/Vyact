@@ -23,6 +23,7 @@ import EvergreenLearn from '../components/insights/EvergreenLearn';
 import ForYouReel from '../components/insights/ForYouReel';
 import { buildPersonalInsights, type PersonalInsight } from '../lib/personalInsights';
 import { allEvergreenCards, evergreenByTag } from '../lib/evergreen';
+import SegRail from '../components/ui/SegRail';
 
 type Tab = 'for-you' | 'learn';
 
@@ -96,29 +97,20 @@ export default function Insights() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          <div role="tablist" aria-label="Insights views" className="flex flex-1 sm:flex-none gap-1 p-1 rounded-pill" style={{ background: 'var(--sunken)' }}>
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button" role="tab" id={`insights-tab-${id}`} aria-controls={`insights-panel-${id}`}
-                onClick={() => setTab(id)}
-                aria-selected={tab === id} tabIndex={tab === id ? 0 : -1}
-                onKeyDown={event => {
-                  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-                  event.preventDefault();
-                  const next = event.key === 'Home' ? 'for-you' : event.key === 'End' ? 'learn' : tab === 'learn' ? 'for-you' : 'learn';
-                  setTab(next);
-                  document.getElementById(`insights-tab-${next}`)?.focus();
-                }}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 min-h-[40px] sm:min-h-[32px] px-3.5 rounded-pill text-[0.8rem] font-medium"
-                style={tab === id
-                  ? { background: 'var(--canvas)', color: 'hsl(var(--ink))' }
-                  : { background: 'transparent', color: 'var(--ff-ink-3)' }}
-              >
-                <Icon size={14} aria-hidden /> {label}
-              </button>
-            ))}
-          </div>
+          {/* Aurora 4.0 X5 — the shared SegRail (it had no inset and no accent of its own). */}
+          <SegRail<Tab>
+            label="Insights views"
+            value={tab}
+            onChange={setTab}
+            fill
+            className="sm:w-auto"
+            options={TABS.map(({ id, label, icon: Icon }) => ({
+              value: id,
+              id: `insights-tab-${id}`,
+              controls: `insights-panel-${id}`,
+              label: <><Icon size={14} aria-hidden /> {label}</>,
+            }))}
+          />
         </div>
       </div>
 

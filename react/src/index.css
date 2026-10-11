@@ -52,6 +52,15 @@
   --accent:      #EC8474;
   --accent-ink:  #2A1712;
   --good: #4FD9AE; --warn: #F2C978; --info: #63D6EA; --fore: #C4A6FF; --crit: #F58A8C;
+  /* Aurora 4.0 MIST1 — text-only status colours. Nocturne reads its fills fine as text; Mist
+     overrides these with darker shades (>= 5:1 on white). Bars, rings and fills keep --good etc. */
+  --accent-text: #EC8474; --good-text: #4FD9AE; --warn-text: #F2C978; --info-text: #63D6EA; --crit-text: #F58A8C;
+  /* Aurora 4.0 X2 — the inset well tier (inputs and stats inside a card). MIST2 flattens it in Mist. */
+  --well-bg: var(--sunken); --well-shadow: var(--neu-inset); --well-border: transparent;
+  /* Aurora 4.0 TS1 — the toast is an inverted bar: light ink-coloured in Nocturne, so its marks
+     and action use the darker (Mist-text) shades to keep contrast. */
+  --toast-bg: #E6EFEC; --toast-ink: #0F181B; --toast-shadow: 0 10px 30px rgba(0,0,0,.45);
+  --toast-action: #B5483A; --toast-good: #1E7D5E; --toast-crit: #B83E3E; --toast-warn: #8A6418; --toast-info: #1E6F80;
   --rail: linear-gradient(120deg, #38C89B 0%, #6D7CF0 52%, #B08CF5 100%);
   /* Brand coral gradient — identity avatars (household/account) share this one
      gradient so the same entity reads as the same color everywhere it shows up. */
@@ -127,6 +136,14 @@
   --accent:      #E26D5C;
   --accent-ink:  #2A1712;
   --good: #2E9E78; --warn: #B98A38; --info: #2C93A8; --fore: #7C55C4; --crit: #D25656;
+  /* MIST1 — darker text-only shades: mint, amber, coral, teal, red (all >= 5:1 on white). */
+  --accent-text: #B5483A; --good-text: #1E7D5E; --warn-text: #8A6418; --info-text: #1E6F80; --crit-text: #B83E3E;
+  /* MIST2 — small wells are a flat fill with a hairline border; a double inner shadow on a
+     light canvas reads as a grey dent. */
+  --well-bg: #EFF4F3; --well-shadow: none; --well-border: rgba(20,33,31,.08);
+  /* TS1 — in Mist the toast is a dark ink bar, so it takes Nocturne's bright marks. */
+  --toast-bg: #16211F; --toast-ink: #E7EDEC; --toast-shadow: 0 10px 30px rgba(40,60,70,.28);
+  --toast-action: #F2A193; --toast-good: #4FD9AE; --toast-crit: #F58A8C; --toast-warn: #F2C978; --toast-info: #63D6EA;
 
   --neu-dark: #C6D2CF;
   --neu-lite: #FFFFFF;
@@ -162,7 +179,7 @@
   --ff-serif: 'Outfit','Inter Tight',-apple-system,system-ui,sans-serif; /* display slot — Aurora headings (name kept for call sites) */
   --ff-sans:  'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
   --ff-mono:  'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-  --ff-r-1: 6px; --ff-r-2: 8px; --ff-r-3: 12px; --ff-r-4: 18px; --ff-r-5: 26px; --ff-r-pill: 9999px;
+  --ff-r-1: 6px; --ff-r-2: 12px; /* Aurora 4.0 X12: 12 / 18 / 26 only */ --ff-r-3: 12px; --ff-r-4: 18px; --ff-r-5: 26px; --ff-r-pill: 9999px;
   --ff-shadow-1: var(--neu-sm);
   --ff-shadow-2: var(--neu);
   --ff-shadow-3: var(--neu-lg);
@@ -356,7 +373,7 @@ body::before {
   .btn-secondary:hover:not(:disabled), .btn-subtle:hover:not(:disabled) { box-shadow: var(--neu-hover); transform: translateY(-1px); }
   .btn-secondary:active:not(:disabled), .btn-subtle:active:not(:disabled) { box-shadow: var(--neu-inset); transform: translateY(1px); }
   /* danger — critical intent */
-  .btn-danger { background: transparent; color: var(--crit); border-color: var(--ff-line-2); }
+  .btn-danger { background: transparent; color: var(--crit-text); border-color: var(--ff-line-2); }
   .btn-danger:hover:not(:disabled) { background: var(--ff-coral-deep-tint); border-color: var(--crit); }
   /* size modifiers */
   .btn-sm { height: 32px; padding: 0 13px; font-size: 12px; gap: 6px; }
@@ -506,9 +523,66 @@ body::before {
   .neu-pill:hover { box-shadow: var(--neu-hover); color: var(--ff-ink); }
   .neu-pill[aria-current="true"], .neu-pill.active {
     box-shadow: var(--neu-inset);
-    color: var(--accent);
+    color: var(--accent-text);
     font-weight: 600;
   }
+
+  /* ── Aurora 4.0 X2 / X12 — three surface tiers, three radii ──────────────────
+     raised card (heroes, KPIs): 18px, --neu  → .card-raised
+     panel (lists): the existing .panel
+     inset well (inputs and stats inside a card): 12px → .well (flat in Mist, MIST2)
+     Rows and tiles inside a card are 12px (.tile, a raised small card with no border).
+     The retired fourth tile (bg3 fill + 1px border + 8px radius) must not come back. */
+  .card-raised { position: relative; background: var(--canvas); box-shadow: var(--neu); border-radius: 18px; }
+  .tile { background: var(--canvas); box-shadow: var(--neu-sm); border-radius: 12px; }
+  .well {
+    background: var(--well-bg);
+    box-shadow: var(--well-shadow);
+    border: 1px solid var(--well-border);
+    border-radius: 12px;
+  }
+  /* A progress trough (bars): always the inset trough, in both themes (BG1). */
+  .trough { border-radius: 9999px; overflow: hidden; background: var(--sunken); box-shadow: var(--neu-inset); }
+
+  /* ── Aurora 4.0 X5 — SegRail (components/ui/SegRail.tsx) ── */
+  .seg-rail {
+    display: inline-flex;
+    max-width: 100%;
+    gap: .25rem;
+    padding: .25rem;
+    border-radius: 9999px;
+    background: var(--sunken);
+    box-shadow: var(--neu-inset);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .seg-rail::-webkit-scrollbar { display: none; }
+  .seg-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .375rem;
+    min-height: 40px;
+    padding: 0 .875rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: hsl(var(--ink-mid));
+    font: 500 .8125rem/1.2 var(--ff-sans);
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: color var(--ff-dur-2) var(--ff-ease-out), box-shadow var(--ff-dur-2) var(--ff-ease-out);
+  }
+  @media (min-width: 640px) { .seg-option { min-height: 34px; } }
+  .seg-option:hover { color: hsl(var(--ink)); }
+  .seg-option[aria-selected="true"] {
+    color: var(--accent-text);
+    font-weight: 600;
+    box-shadow: var(--neu-inset);
+    background: color-mix(in srgb, var(--accent) 10%, var(--canvas));
+  }
+  .seg-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 
 /* Graph/chart entrance animations (board vy-grow/vy-ringfill) — bars and rings
@@ -599,7 +673,15 @@ body::before {
 .dashboard-stack { display: flex; flex-direction: column; gap: var(--space-section); }
 .dashboard-stack > * { margin-block: 0; }
 .ui-action { font-family: var(--ff-sans); font-size: .8125rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
-.ui-segments { display: flex; gap: .25rem; padding: .25rem; border-radius: var(--control-radius); background: var(--sunken); }
+.ui-segments { display: flex; gap: .25rem; padding: .25rem; border-radius: var(--control-radius); background: var(--sunken); box-shadow: var(--neu-inset); }
+/* Aurora 4.0 X5 — form segments share the SegRail look: the checked option gets the accent tint and inset. */
+.ui-segments input:checked + .ui-segment {
+  color: var(--accent-text);
+  font-weight: 600;
+  box-shadow: var(--neu-inset);
+  background: color-mix(in srgb, var(--accent) 10%, var(--canvas));
+}
+.ui-segments input:disabled + .ui-segment { opacity: .4; cursor: not-allowed; }
 .ui-segments input[type="radio"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
 .ui-segments input[type="radio"]:disabled { cursor: not-allowed; }
 .ui-segment { display: flex; justify-content: center; align-items: center; min-height: var(--control-height); padding: .5rem; border-radius: .5rem; font: 500 .8125rem/1.25 var(--ff-sans); text-align: center; overflow-wrap: anywhere; color: hsl(var(--ink-mid)); cursor: pointer; }
@@ -666,3 +748,20 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .ask-typing span { animation: none; opacity: .6; }
 }
+
+/* Aurora 4.0 TS1 — on a full-screen form page (no tab bar; Save sits in the bottom footer) the toast shows
+   just under the form header, at every width, instead of covering Save or Add. */
+.toast-on-form { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 68px); }
+
+/* ── Aurora 4.0 MIST1 — status colours as TEXT in Mist ──────────────────────────
+   Mist's fills (mint #2E9E78, amber #B98A38, coral #E26D5C, teal #2C93A8, red #D25656) come out
+   around 3–3.4:1 as 11–13px text on white, under the 4.5:1 small text needs. Text utilities take
+   the darker text-only shades; bg-/border-/fill uses keep the brighter colours. Inline text
+   colours use the --*-text tokens directly. Nocturne is unchanged. Placed after the utilities
+   so it wins at equal specificity. */
+[data-theme="warm"] .text-sage  { color: var(--good-text); }
+[data-theme="warm"] .text-olive { color: #1E6B50; }
+[data-theme="warm"] .text-honey { color: var(--warn-text); }
+[data-theme="warm"] .text-coral { color: var(--accent-text); }
+[data-theme="warm"] .text-denim { color: var(--info-text); }
+[data-theme="warm"] .text-terra { color: var(--crit-text); }

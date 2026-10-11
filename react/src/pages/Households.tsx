@@ -65,7 +65,7 @@ function RoleChip({ role }: { role: AppRole }) {
   const style = role === 'owner'
     ? { background: 'var(--accent)', color: 'var(--accent-ink)' }
     : role === 'admin'
-    ? { background: 'color-mix(in srgb, hsl(var(--denim)) 16%, transparent)', color: 'hsl(var(--denim))' }
+    ? { background: 'color-mix(in srgb, hsl(var(--denim)) 16%, transparent)', color: 'var(--info-text)' }
     : { background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' };
   return (
     <span
@@ -269,7 +269,7 @@ export default function Households() {
                   <span className="text-2xl" aria-hidden>{meta.icon}</span>
                 )}
                 {isActive
-                  ? <span className="mono-label px-2 py-0.5 rounded-pill flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)' }}>✓ current</span>
+                  ? <span className="mono-label px-2 py-0.5 rounded-pill flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent-text)' }}>✓ current</span>
                   : null}
               </div>
               <div className="font-semibold text-ink mb-0.5">{h.name}</div>
@@ -675,7 +675,7 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
             </p>
           </div>
 
-          <div className="bg-bg3 border border-line rounded-md p-3 font-mono text-[0.74rem] text-coral break-all mb-3 select-all">
+          <div className="well p-3 font-mono text-[0.74rem] text-coral break-all mb-3 select-all">
             {link}
           </div>
 
@@ -825,7 +825,7 @@ function ActivityPanel({
               onClick={() => setActivityType(f.value)}
               className={`font-mono text-[0.62rem] tracking-wider uppercase px-2.5 py-1 rounded ${
                 activityType === f.value
-                  ? 'bg-coral text-white'
+                  ? 'bg-coral text-[color:var(--accent-ink)]'
                   : 'bg-bg3 text-ink-mid hover:text-ink'
               }`}
             >

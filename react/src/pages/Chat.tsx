@@ -721,7 +721,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                 <button
                   type="button" onClick={() => send(input)} disabled={!input.trim()}
                   aria-label="Send" title="Send"
-                  className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-coral text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-35 disabled:pointer-events-none">
+                  className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-coral text-[color:var(--accent-ink)] transition-all hover:scale-105 active:scale-95 disabled:opacity-35 disabled:pointer-events-none">
                   <ArrowUp size={18} aria-hidden />
                 </button>
               )}

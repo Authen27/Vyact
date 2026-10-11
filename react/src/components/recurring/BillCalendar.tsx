@@ -9,6 +9,8 @@ import { useStore } from '../../store';
 import { billCalendar, type BillOccurrence, type BillStatus } from '../../lib/billCalendar';
 import { fmt, formatDate, today } from '../../lib/format';
 import { getCat } from '../../constants';
+import InfoNote from '../ui/InfoNote';
+import SegRail from '../ui/SegRail';
 
 const HORIZONS = [7, 30, 60] as const;
 type Horizon = typeof HORIZONS[number];
@@ -81,26 +83,23 @@ export default function BillCalendar() {
       <div className="flex items-end justify-between gap-3 flex-wrap mb-2">
         <div className="min-w-0">
           <h2 className="font-display text-xl font-medium text-ink">Bill calendar</h2>
-          <p className="text-xs text-ink-dim mt-1">What active schedules will do. Nothing posts until it is due and approved, or auto-approved. Not a balance forecast.</p>
+          <InfoNote className="mt-1" line="What active schedules will do." label="About the bill calendar">
+            <p>Nothing posts until it is due and approved, or auto-approved. Not a balance forecast.</p>
+          </InfoNote>
         </div>
-        <div role="tablist" aria-label="Calendar horizon" className="inline-flex gap-1 p-1 rounded-pill" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
-          {HORIZONS.map(days => (
-            <button key={days} type="button" role="tab" aria-selected={horizon === days} onClick={() => setHorizon(days)}
-              className="min-h-[36px] px-3 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] whitespace-nowrap"
-              style={horizon === days
-                ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
-                : { color: 'var(--ff-ink-3)', background: 'transparent' }}>
-              Next {days} days
-            </button>
-          ))}
-        </div>
+        <SegRail
+          label="Calendar horizon"
+          value={String(horizon)}
+          onChange={v => setHorizon(Number(v) as Horizon)}
+          options={HORIZONS.map(days => ({ value: String(days), label: `Next ${days} days` }))}
+        />
       </div>
 
       <dl className="flex flex-wrap gap-x-5 gap-y-1 text-sm mb-3">
         <div className="flex gap-1.5"><dt className="text-ink-dim">Going out</dt><dd className="num text-ink">{fmt(calendar.outgoing, baseCurrency)}</dd></div>
         <div className="flex gap-1.5"><dt className="text-ink-dim">Coming in</dt><dd className="num text-sage">{fmt(calendar.incoming, baseCurrency)}</dd></div>
         {calendar.investing > 0 && <div className="flex gap-1.5"><dt className="text-ink-dim">To investments</dt><dd className="num text-ink">{fmt(calendar.investing, baseCurrency)}</dd></div>}
-        {calendar.awaitingApproval > 0 && <div className="flex gap-1.5"><dt className="text-ink-dim">Awaiting approval</dt><dd className="num" style={{ color: 'hsl(var(--honey))' }}>{calendar.awaitingApproval}</dd></div>}
+        {calendar.awaitingApproval > 0 && <div className="flex gap-1.5"><dt className="text-ink-dim">Awaiting approval</dt><dd className="num" style={{ color: 'var(--warn-text)' }}>{calendar.awaitingApproval}</dd></div>}
       </dl>
 
       {calendar.days.length === 0 ? (

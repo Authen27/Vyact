@@ -78,7 +78,7 @@ export default function CommandPalette({ open, onClose }: Props) {
     >
       <div
         onMouseDown={e => e.stopPropagation()}
-        className="glass-panel w-full max-w-[600px] rounded-r4 overflow-hidden"
+        className="glass-panel w-full max-w-[600px] rounded-r3 overflow-hidden"
       >
         <div className="flex items-center gap-3 px-4 py-4 border-b border-line">
           <Search size={17} className="text-ink-dim flex-shrink-0" />

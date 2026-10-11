@@ -21,6 +21,7 @@ import { listNet } from '../lib/txnListTotals';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
 import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
 import type { Transaction, TxnType } from '../types';
+import SegRail from '../components/ui/SegRail';
 
 type TransactionListItem = {
   txn: Transaction;
@@ -344,7 +345,7 @@ export default function Transactions() {
           onClick={() => setShowCalendar(v => !v)}
           aria-pressed={showCalendar}
           title="Toggle expense calendar"
-          className={`lg:hidden flex-shrink-0 h-[38px] w-[38px] rounded-[9px] border flex items-center justify-center transition-colors ${
+          className={`lg:hidden flex-shrink-0 h-[38px] w-[38px] rounded-r2 border flex items-center justify-center transition-colors ${
             showCalendar
               ? 'bg-coral-tint border-coral/40 text-coral'
               : 'bg-bg border-line text-ink-mid hover:bg-bg3 hover:text-ink'
@@ -354,42 +355,28 @@ export default function Transactions() {
         </button>
       </div>
 
-      {/* Board B M1 §.srail — the type filter is an inset SEGMENTED rail (one
-          sunken pill containing the segments; active = raised accent-tinted
-          chip), with Filters + ★ Views chips on the same row per the board. */}
+      {/* Aurora 4.0 X5 — the type filter is the shared SegRail, with Filters + ★ Views chips
+          on the same row. */}
       <div className="mb-3 flex items-center gap-2 flex-wrap">
-        <div
-          className="inline-flex max-w-full gap-1 p-1 rounded-pill overflow-x-auto [&::-webkit-scrollbar]:hidden"
-          style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)', scrollbarWidth: 'none' }}
-          role="tablist" aria-label="Transaction type"
-        >
-          {([
-            { v: 'all', label: 'All' },
-            { v: 'expense', label: 'Expense' },
-            { v: 'income', label: 'Income' },
-            { v: 'transfer', label: 'Transfer' },
-            { v: 'investment', label: 'Invest' },
-          ] as { v: TxnFilter; label: string }[]).map(o => (
-            <button
-              key={o.v}
-              role="tab" aria-selected={type === o.v}
-              onClick={() => setType(o.v)}
-              className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] whitespace-nowrap flex-shrink-0"
-              style={type === o.v
-                ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
-                : { color: 'var(--ff-ink-3)', background: 'transparent' }}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+        <SegRail<TxnFilter>
+          label="Transaction type"
+          value={type}
+          onChange={setType}
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'expense', label: 'Expense' },
+            { value: 'income', label: 'Income' },
+            { value: 'transfer', label: 'Transfer' },
+            { value: 'investment', label: 'Invest' },
+          ]}
+        />
         <button
           type="button"
           onClick={() => setShowFilters(true)}
           aria-haspopup="dialog"
           className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] flex items-center gap-1.5 flex-shrink-0"
           style={activeFilters.length > 0
-            ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
+            ? { color: 'var(--accent-text)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
             : { color: 'var(--ff-ink-3)', background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
         >
           <SlidersHorizontal size={13} /> Filters{activeFilters.length > 0 ? ` · ${activeFilters.length}` : ''}

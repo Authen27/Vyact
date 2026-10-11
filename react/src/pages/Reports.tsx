@@ -25,6 +25,8 @@ import { budgetTrends, type BudgetTrendRow } from '../lib/budgetTrends';
 import { baselineLabel, essentialRunway, RUNWAY_BASELINE_MONTHS } from '../lib/essentialRunway';
 import Money from '../components/ui/Money';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
+import InfoNote from '../components/ui/InfoNote';
+import SegRail from '../components/ui/SegRail';
 
 type Period = ReportPeriod;
 const PERIOD_LABELS: Record<Period, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
@@ -195,27 +197,13 @@ export default function Reports() {
               </>
             )}
           </div>
-          {/* Board D M1 §.srail — the grouping selector is an inset SEGMENTED rail
-              (one sunken pill; the active segment is a raised accent-tinted chip). */}
-          <div
-            className="inline-flex max-w-full gap-1 p-1 rounded-pill overflow-x-auto [&::-webkit-scrollbar]:hidden"
-            style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)', scrollbarWidth: 'none' }}
-            role="tablist" aria-label="Report period"
-          >
-            {GROUPINGS.map(p => (
-              <button
-                key={p}
-                role="tab" aria-selected={period === p}
-                onClick={() => applyRange(range.preset, range.from, range.to, p)}
-                className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] whitespace-nowrap flex-shrink-0"
-                style={period === p
-                  ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
-                  : { color: 'var(--ff-ink-3)', background: 'transparent' }}
-              >
-                {PERIOD_LABELS[p]}
-              </button>
-            ))}
-          </div>
+          {/* Aurora 4.0 X5 — the grouping selector is the shared SegRail. */}
+          <SegRail<Period>
+            label="Report period"
+            value={period}
+            onChange={p => applyRange(range.preset, range.from, range.to, p)}
+            options={GROUPINGS.map(p => ({ value: p, label: PERIOD_LABELS[p] }))}
+          />
         </div>
       </div>
 
@@ -229,7 +217,9 @@ export default function Reports() {
             { label: 'Liquid assets', value: position.liquidAssets },
           ].map(item => <div key={item.label} className="min-w-0"><dt className="text-sm text-ink-dim">{item.label}</dt><dd className="num text-lg text-ink mt-1 [overflow-wrap:anywhere]">{item.value < 0 ? fmtSigned(item.value, baseCur) : fmt(item.value, baseCur)}</dd></div>)}
         </dl>
-        <p className="text-xs text-ink-dim mt-3">Current ledger position, not a historical valuation chart. Liquid assets are not automatically spare cash.</p>
+        <InfoNote className="mt-3" line="Current ledger position, not a historical valuation." label="About the household position">
+          <p>Liquid assets are not automatically spare cash.</p>
+        </InfoNote>
         <h3 className="text-base font-medium text-ink mt-5 mb-3">This month · {currentMk}</h3>
         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           <div className="min-w-0"><dt className="text-sm text-ink-dim">Income</dt><dd className="num [overflow-wrap:anywhere]">{fmt(month.income, baseCur)}</dd></div>
@@ -237,7 +227,9 @@ export default function Reports() {
           <div className="min-w-0"><dt className="text-sm text-ink-dim">Income retained</dt><dd className="num">{month.income > 0 ? `${savingsRate}%` : 'Not available'}</dd></div>
           <div className="min-w-0"><dt className="text-sm text-ink-dim">Tracked minimum debt payments / month</dt><dd className="num [overflow-wrap:anywhere]">{fmt(minimumPayments, baseCur)}</dd></div>
         </dl>
-        <p className="text-xs text-ink-dim mt-3">Month still in progress. Payment commitments use recorded debt terms; untracked bills and card payments are not included.</p>
+        <InfoNote className="mt-3" line="Month still in progress." label="About this month">
+          <p>Payment commitments use recorded debt terms; untracked bills and card payments are not included.</p>
+        </InfoNote>
 
         {/* v10.31.0 — essential-spend runway with a STATED completed-month baseline (lib/essentialRunway.ts). */}
         <section aria-label="Essential-spend runway" className="mt-5 min-w-0">
@@ -383,7 +375,7 @@ export default function Reports() {
                 </div>
                 <div className="flex h-8 rounded-full overflow-hidden" style={{ boxShadow: 'var(--neu-inset)' }} aria-hidden>
                   {needsWants.needs > 0 && (
-                    <div className={`flex items-center justify-center text-white font-display font-bold text-[11px] whitespace-nowrap overflow-hidden ${bothVisible ? 'rounded-l-full' : 'rounded-full'}`}
+                    <div className={`flex items-center justify-center text-[color:var(--accent-ink)] font-display font-bold text-[11px] whitespace-nowrap overflow-hidden ${bothVisible ? 'rounded-l-full' : 'rounded-full'}`}
                       style={{ width: needsWants.wants > 0 ? `${nPct}%` : '100%', background: 'hsl(var(--sage))' }}>{nPct >= 16 ? `Needs ${Math.round(nPct)}%` : ''}</div>
                   )}
                   {needsWants.wants > 0 && (

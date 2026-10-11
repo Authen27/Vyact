@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.84.0`** (consumer)
+> **Current production version: `v10.85.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,46 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.85.0 — Aurora 4.0 A1: design foundations *(2026-10-11)*
+
+The first of eight PRs implementing the approved Aurora 4.0 redesign (`Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).
+These are the shared styles and components every later page builds on. No figure, calculation or
+schema changes.
+
+- **Surfaces and corners (X2, X12).** Three surface tiers:
+  - a raised card (`.card-raised`, 18px) for heroes and KPIs;
+  - the panel, for lists;
+  - an inset well (`.well`, 12px) for stats and inputs inside a card.
+
+  The old fourth tile (grey fill, 1px border, 8px corners) is gone from the app. Corners are 12, 18 or 26px
+  only: the 8px token and the stray 9–20px values now land on the scale.
+- **Light theme (MIST1, MIST2).** In Mist, status colours used as text take darker shades (mint, amber,
+  coral, teal, red, all at least 5:1 on white). Bars, rings and fills keep the brighter colours. Small wells
+  in Mist are flat with a hairline border instead of a double inner shadow. Nocturne is unchanged.
+- **One tab switch (X5).** Transactions, Reports, Debts, the bill calendar and Insights share one
+  `SegRail`: a sunken track where the active option gets the accent tint and inset. Form segments
+  look the same.
+- **Sub-navigation (NAV1, NAV2).** A plain underline tab row, 13.5px on phones and 14px on desktop, replaces
+  the 10.5px pill rail. The "PLAN ▸" cap is gone.
+- **Dark text on coral (X8, CON2).** The floating +, Pip's send button, the activity filters, the Learn
+  chips, the demo banner, the bell badge and the "Needs" segment use dark ink on coral, not white.
+- **Toast (TS1).** A 14px sentence-case bar with high contrast. It names the item, and Undo is a 44px target.
+  It spans the full width above the tab bar on phones and sits bottom-right at 380px on desktop.
+- **Crash screen (ER1).** Pip, "This page didn't load", a line saying nothing was lost, Try again,
+  Go to Dashboard, and Copy error details for support.
+- **Offline (OF1).** A strip at the top of every page while offline says how many changes are saved on the
+  device. It clears itself once they have synced.
+- **Notifications (NT1, NT2).** A "Needs you" group with a count sits above Today and Earlier, and keeps
+  bills to approve until they are handled. Actions are 40px buttons, and labels are sentence case.
+- **Copy (X10, X11).**
+  - "Exclude from household totals and charts" replaces the Pulse Score wording.
+  - Settings stats no longer count Goals.
+  - Budgets says "Month and annual plans".
+  - Method notes on Reports, Net Worth history and the bill calendar keep one line, with the rest
+    behind an (i) toggle.
 
 ---
 

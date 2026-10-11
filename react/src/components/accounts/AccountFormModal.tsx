@@ -207,7 +207,7 @@ export default function AccountFormModal(props: Props) {
             className="ui-action text-ink-mid hover:text-ink">Archive</button>
           <button type="button" onClick={() => setDeleting(true)}
             className="ui-action hover:underline"
-            style={{ color: 'hsl(var(--terra))' }}>Delete permanently</button>
+            style={{ color: 'var(--crit-text)' }}>Delete permanently</button>
         </div>
       )}
       <div className="flex gap-2 sm:ml-auto">
@@ -237,7 +237,7 @@ export default function AccountFormModal(props: Props) {
             <button key={mode} type="button" aria-pressed={on} onClick={() => toggleMode(mode)}
               className="min-h-[44px] px-3 rounded-md text-[14px] border border-line cursor-pointer transition-colors"
               style={on
-                ? { color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))', fontWeight: 500 }
+                ? { color: 'var(--accent-text)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))', fontWeight: 500 }
                 : { color: 'var(--ff-ink-2, inherit)', background: 'var(--canvas)' }}>
               {PAYMENT_MODE_LABEL[mode]}
             </button>
@@ -246,7 +246,7 @@ export default function AccountFormModal(props: Props) {
       </div>
       <p className="text-[11.5px] text-ink-dim mt-2 leading-snug">
         {form.modes.length === 0
-          ? <span style={{ color: 'hsl(var(--honey))' }}>Choose at least one.</span>
+          ? <span style={{ color: 'var(--warn-text)' }}>Choose at least one.</span>
           : 'These become the mode options when you log a spend against this account.'}
       </p>
     </Labelled>
@@ -264,7 +264,7 @@ export default function AccountFormModal(props: Props) {
   ) : (
     <Labelled label="Current balance" htmlFor="acct-balance">
       <div className="flex items-center gap-2 min-h-[54px] px-4 rounded-r2"
-        style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+        style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
         <span className="font-mono text-[16px] text-ink-dim" aria-hidden>{symbol}</span>
         <input id="acct-balance" inputMode="decimal" value={form.balance}
           onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} placeholder="0"
@@ -429,7 +429,7 @@ function Calc({ label, value, valueColor, aside }: { label: string; value: strin
 
 function Advice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-[13px] px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
+    <p className="rounded-r2 px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
       style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 14%, transparent)' }}>
       {children}
     </p>

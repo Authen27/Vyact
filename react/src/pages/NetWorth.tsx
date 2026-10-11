@@ -17,6 +17,7 @@ import { NetWorthHistoryChart } from '../components/charts/ReportCharts';
 import type { LiveAssetRow } from '../lib/accountBalance';
 import { ASSET_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
+import InfoNote from '../components/ui/InfoNote';
 
 const KIND_ICON: Record<AccountKind, string> = {
   bank: '🏦', cash: '💵', credit_card: '💳', investment: '📈', loan: '🏛️',
@@ -342,7 +343,7 @@ export default function NetWorth() {
                             {isStale(row) && (
                               <button type="button" onClick={() => openEdit(a)} title="This balance is over 30 days old — update it"
                                 className="font-mono text-[8.5px] tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-md flex-shrink-0"
-                                style={{ border: '1px dashed color-mix(in srgb, hsl(var(--honey)) 55%, transparent)', color: 'hsl(var(--honey))' }}>
+                                style={{ border: '1px dashed color-mix(in srgb, hsl(var(--honey)) 55%, transparent)', color: 'var(--warn-text)' }}>
                                 update?
                               </button>
                             )}
@@ -436,9 +437,9 @@ function NetWorthHistory({ snapshots, currency }: { snapshots: NetWorthSnapshot[
                 : 'Your Net Worth is recorded the first time the household opens Vyact each month. The chart appears once two months are recorded.'}
             </p>
           )}
-        <p className="px-4 pb-4 text-xs text-ink-dim">
-          Each point is the Net Worth shown when the month was first recorded, in {currency}. Earlier months are never filled in.
-        </p>
+        <InfoNote className="px-4 pb-2" line="One point per month." label="About net worth history">
+          <p>Each point is the Net Worth shown when the month was first recorded, in {currency}. Earlier months are never filled in.</p>
+        </InfoNote>
       </Panel>
     </section>
   );

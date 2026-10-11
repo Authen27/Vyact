@@ -77,7 +77,7 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
             role="radio" aria-checked={on}
             className="flex-1 h-8 rounded-pill border-none flex items-center justify-center gap-1.5 font-display text-[11px] font-semibold cursor-pointer"
             style={on
-              ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent)' }
+              ? { background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent-text)' }
               : { background: 'transparent', color: 'var(--ff-ink-3)' }}
           >
             <m.icon size={12} /> {m.label}
@@ -107,8 +107,8 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
           className="flex items-center gap-3 px-3.5 py-3 rounded-r2 border-none cursor-pointer text-left"
           style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
         >
-          <span className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center flex-shrink-0"
-            style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+          <span className="w-[34px] h-[34px] rounded-r2 flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
             <r.icon size={16} className="text-ink-mid" />
           </span>
           <span className="flex-1 font-semibold text-[14px] text-ink">{r.label}</span>
@@ -122,8 +122,8 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
       <div className="flex flex-col gap-2.5 px-3.5 py-2.5 rounded-r2"
         style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
         <div className="flex items-center gap-3">
-          <span className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center flex-shrink-0"
-            style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+          <span className="w-[34px] h-[34px] rounded-r2 flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
             <Moon size={16} className="text-ink-mid" />
           </span>
           <span className="flex-1 font-semibold text-[14px] text-ink">Theme</span>
@@ -147,7 +147,7 @@ export default function AccountMenu({ trigger = 'pill' }: { trigger?: 'pill' | '
           }}
           title={session.user?.email || ''}
           className="w-full flex items-center justify-center gap-1.5 mt-0.5 py-2.5 font-mono text-[9px] tracking-[0.15em] uppercase cursor-pointer border-none bg-transparent"
-          style={{ color: 'hsl(var(--terra))' }}
+          style={{ color: 'var(--crit-text)' }}
         >
           <LogOut size={12} /> Sign out
         </button>

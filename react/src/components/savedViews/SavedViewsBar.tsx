@@ -99,7 +99,7 @@ function SavedViewsBarInner({ page, filters, onApply }: SavedViewsBarProps) {
           type="button"
           className="h-[30px] px-3.5 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] flex items-center gap-1.5 flex-shrink-0"
           style={picker || views.length
-            ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
+            ? { color: 'var(--accent-text)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
             : { color: 'var(--ff-ink-3)', background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
           onClick={() => setPicker(p => !p)}
           aria-haspopup="listbox"

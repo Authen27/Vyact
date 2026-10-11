@@ -126,7 +126,7 @@ export default function AddFab() {
         onMouseDown={startLongPress}
         onMouseUp={cancelLongPress}
         onMouseLeave={cancelLongPress}
-        className={`w-14 h-14 rounded-full bg-coral text-white shadow-2 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 ${hidden ? 'translate-y-[120%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}
+        className={`w-14 h-14 rounded-full bg-coral text-[color:var(--accent-ink)] shadow-2 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-coral focus-visible:ring-offset-2 ${hidden ? 'translate-y-[120%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}
       >
         {dialOpen ? <X size={22} /> : <Plus size={22} strokeWidth={2.4} />}
       </button>

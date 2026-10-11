@@ -128,7 +128,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   return (
     <button onClick={onClick}
       className={`flex items-center gap-1 font-mono text-[0.6rem] tracking-[0.12em] uppercase px-2.5 py-1.5 rounded-md border transition ${
-        active ? 'bg-coral text-white border-coral' : 'bg-bg border-line text-ink-mid hover:border-line2 hover:text-ink'}`}>
+        active ? 'bg-coral text-[color:var(--accent-ink)] border-coral' : 'bg-bg border-line text-ink-mid hover:border-line2 hover:text-ink'}`}>
       {children}
     </button>
   );

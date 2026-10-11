@@ -148,8 +148,8 @@ export default function Accounts() {
               <AnimatedMoney amount={view.summary.spendableNow} currency={baseCurrency} className="num font-bold text-[27px] text-ink" />
             </div>
             <div className="text-right text-[12px] leading-[1.75] text-ink-dim">
-              <div>Cash <span className="num font-semibold" style={{ color: 'hsl(var(--sage))' }}>{fmtNet(view.summary.cashAvailable, baseCurrency)}</span></div>
-              <div>On card <span className="num font-semibold" style={{ color: 'hsl(var(--honey))' }}>{fmt(view.summary.cardOutstanding, baseCurrency)}</span></div>
+              <div>Cash <span className="num font-semibold" style={{ color: 'var(--good-text)' }}>{fmtNet(view.summary.cashAvailable, baseCurrency)}</span></div>
+              <div>On card <span className="num font-semibold" style={{ color: 'var(--warn-text)' }}>{fmt(view.summary.cardOutstanding, baseCurrency)}</span></div>
             </div>
           </div>
           <div className="hidden lg:grid grid-cols-3 gap-3">
@@ -252,8 +252,8 @@ export default function Accounts() {
 
         {/* Desktop rail. */}
         <aside className="hidden lg:flex flex-col gap-3.5">
-          <div className="rounded-[20px] px-[22px] py-5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
-            <div className="font-mono text-[9px] tracking-[0.14em] uppercase mb-3" style={{ color: 'hsl(var(--honey))' }}>
+          <div className="rounded-r3 px-[22px] py-5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+            <div className="font-mono text-[9px] tracking-[0.14em] uppercase mb-3" style={{ color: 'var(--warn-text)' }}>
               Needs your attention
             </div>
             {view.stale.length === 0 ? (
@@ -267,7 +267,7 @@ export default function Accounts() {
                     className="w-full flex items-center gap-2.5 py-2 text-left text-[12.5px] text-ink-mid hover:text-ink">
                     <span aria-hidden>{iconOf(a)}</span>
                     <span className="flex-1 min-w-0 truncate">{a.name} · {days} days stale</span>
-                    <span className="font-mono text-[9px] tracking-wider uppercase" style={{ color: 'hsl(var(--honey))' }}>reconcile</span>
+                    <span className="font-mono text-[9px] tracking-wider uppercase" style={{ color: 'var(--warn-text)' }}>reconcile</span>
                   </button>
                 ))}
                 <Button full className="mt-3" onClick={() => reconcile(view.stale[0].a.id)}>
@@ -277,7 +277,7 @@ export default function Accounts() {
             )}
           </div>
 
-          <div className="rounded-[20px] px-[22px] py-5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+          <div className="rounded-r3 px-[22px] py-5" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
             <div className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim mb-2">Household currency</div>
             <div className="flex items-baseline gap-2.5 mb-2">
               <span className="num font-bold text-[19px] text-ink">{symbol} {baseCurrency}</span>
@@ -291,7 +291,7 @@ export default function Accounts() {
             </p>
           </div>
 
-          <p className="rounded-[13px] px-[13px] py-[11px] text-[0.76rem] leading-relaxed text-ink-mid"
+          <p className="rounded-r2 px-[13px] py-[11px] text-[0.76rem] leading-relaxed text-ink-mid"
             style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 14%, transparent)' }}>
             Balances stay computed from the ledger. When one hasn&apos;t been checked against a statement in a while,
             the row says so in words — reconciling clears it.
@@ -318,8 +318,8 @@ function GroupBar({ icon, name, count, unit, total, tone }: {
 }) {
   return (
     <div className="flex items-center gap-3 px-1 pt-4 pb-3">
-      <span className="w-[26px] h-[26px] rounded-[8px] flex items-center justify-center text-[13px] flex-shrink-0"
-        style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} aria-hidden>{icon}</span>
+      <span className="w-[26px] h-[26px] rounded-r2 flex items-center justify-center text-[13px] flex-shrink-0"
+        style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }} aria-hidden>{icon}</span>
       <h2 className="font-bold text-[14px] text-ink">{name}</h2>
       <span className="font-mono text-[9px] tracking-wider uppercase text-ink-dim">{count} {count === 1 ? unit[0] : unit[1]}</span>
       <span className="ml-auto num font-bold text-[15px]" style={{ color: `hsl(var(--${tone}))` }}>{total}</span>
@@ -337,7 +337,7 @@ function CrossLink({ icon, title, description, onClick }: { icon: string; title:
         <span className="text-ink-dim"> — </span>
         <span className="text-ink-dim text-[12px]">{description.replace(/^[^—]*— /, '')}</span>
       </span>
-      <span className="ml-auto text-[15px]" style={{ color: 'var(--accent)' }} aria-hidden>→</span>
+      <span className="ml-auto text-[15px]" style={{ color: 'var(--accent-text)' }} aria-hidden>→</span>
     </button>
   );
 }
@@ -360,9 +360,9 @@ function AccountRow({ acc, balance, currency, now, ledgerOpen, onOpen, onReconci
           acc.paymentDueDay ? `due ${fmtDay(nextDueDate(acc.paymentDueDay, now))}` : null,
         ].filter(Boolean).join(' · ')
       : 'Add the credit limit to see what’s free';
-    if (days !== null) line = <><span style={{ color: 'hsl(var(--honey))' }}>not reconciled in {days} days</span> · {line}</>;
+    if (days !== null) line = <><span style={{ color: 'var(--warn-text)' }}>not reconciled in {days} days</span> · {line}</>;
   } else if (days !== null) {
-    line = <span style={{ color: 'hsl(var(--honey))' }}>not reconciled in {days} days</span>;
+    line = <span style={{ color: 'var(--warn-text)' }}>not reconciled in {days} days</span>;
   } else if (acc.kind === 'cash') {
     line = 'Cash in Hand';
   } else {
@@ -379,14 +379,14 @@ function AccountRow({ acc, balance, currency, now, ledgerOpen, onOpen, onReconci
         <button type="button" onClick={onOpen} aria-label={`Edit ${acc.name}`}
           className="flex items-center gap-3 flex-1 min-w-0 text-left bg-transparent border-none cursor-pointer">
           <span className="w-10 h-10 rounded-r2 flex items-center justify-center text-[18px] flex-shrink-0"
-            style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} aria-hidden>{iconOf(acc)}</span>
+            style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }} aria-hidden>{iconOf(acc)}</span>
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
               <span className="font-bold text-[15px] text-ink truncate">{acc.name}</span>
               {isEstimate(acc) && <EstimatedTag confidence={acc.confidence!} source={acc.source} className="flex-shrink-0" />}
               {acc.isDefault && (
                 <>
-                  <span className="text-[12px]" style={{ color: 'hsl(var(--honey))' }} aria-hidden>★</span>
+                  <span className="text-[12px]" style={{ color: 'var(--warn-text)' }} aria-hidden>★</span>
                   <span className="hidden lg:inline font-mono text-[8px] tracking-[0.14em] uppercase text-ink-dim">default account</span>
                 </>
               )}

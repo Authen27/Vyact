@@ -138,7 +138,8 @@ describe('W7a · small app fixes', () => {
     expect(css).toMatch(/\.bottom-above-tabbar \{ bottom: calc\(env\(safe-area-inset-bottom, 0px\) \+ 84px\); \}/);
     expect(css).toMatch(/@media \(min-width: 640px\) \{ \.bottom-above-tabbar \{ bottom: 1rem; \} \}/);
     for (const f of ['components/onboarding/NudgeBanner.tsx', 'components/layout/InstallBanner.tsx', 'components/layout/UpdateBanner.tsx', 'components/ui/ToastHost.tsx']) {
-      expect(src(f), f).toMatch(/className="fixed bottom-above-tabbar /);
+      // The toast host builds its class with a template (Aurora 4.0 TS1 adds .toast-on-form on form pages).
+      expect(src(f), f).toMatch(/className=(?:"|{`)fixed bottom-above-tabbar /);
     }
   });
   it('W7a-PIP18-001 · the dead askVyact `backend` flag is gone from the app and the engine bundle (FE-PIP-18)', () => {
