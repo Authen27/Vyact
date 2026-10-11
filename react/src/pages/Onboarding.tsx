@@ -242,7 +242,7 @@ export default function Onboarding() {
             </div>
             <Button onClick={() => advance(1)} full>Let's go <ArrowRight size={15} /></Button>
             <Link to="/auth/sign-in" className="mono-label mt-4 hover:text-ink">
-              Already have an account? <span style={{ color: 'var(--accent)' }}>Sign in</span>
+              Already have an account? <span style={{ color: 'var(--accent-text)' }}>Sign in</span>
             </Link>
           </div>
         )}
@@ -253,7 +253,7 @@ export default function Onboarding() {
             <label htmlFor="ob-name" className="mono-label mb-1.5 block">Your first name</label>
             <input id="ob-name" autoComplete="given-name" autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Rohan"
               className="w-full rounded-r2 px-4 min-h-[52px] text-ink text-[1.05rem] mb-6 border-none"
-              style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} />
+              style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }} />
             <div id="ob-segment" className="mono-label mb-2 block">Who's this picture for?</div>
             <div role="group" aria-labelledby="ob-segment" className="flex flex-col gap-3 mb-7">
               {SEGMENT_ORDER.map(key => {
@@ -304,7 +304,7 @@ export default function Onboarding() {
         {step === 3 && (
           <div>
             <label htmlFor="ob-income" className="mono-label mb-1.5 block">Monthly take-home pay</label>
-            <div className="flex items-baseline gap-2 rounded-r2 px-4 min-h-[64px] mb-2" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+            <div className="flex items-baseline gap-2 rounded-r2 px-4 min-h-[64px] mb-2" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
               <span className="num text-ink-dim text-[1.1rem]">{curSym}</span>
               <input id="ob-income" autoFocus inputMode="decimal" type="number" min="0" value={income}
                 onChange={e => setIncome(e.target.value)} placeholder="0"
@@ -338,11 +338,11 @@ export default function Onboarding() {
                     className="flex items-center gap-3 px-3.5 py-2.5 rounded-r2 transition-shadow"
                     style={{ background: 'var(--canvas)', boxShadow: on ? 'var(--neu-sm), 0 0 0 2px var(--accent)' : 'var(--neu-sm)' }}>
                     <button onClick={() => toggleBill(chip.key)} className="flex items-center gap-3 flex-1 min-w-0 text-left border-none bg-transparent cursor-pointer">
-                      <span className="w-9 h-9 rounded-[10px] flex items-center justify-center text-[15px] shrink-0" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>{CHIP_EMOJI[chip.key] ?? '💸'}</span>
+                      <span className="w-9 h-9 rounded-r2 flex items-center justify-center text-[15px] shrink-0" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>{CHIP_EMOJI[chip.key] ?? '💸'}</span>
                       <span className="font-semibold text-[0.86rem] text-ink truncate">{chip.label}</span>
                     </button>
                     {on ? (
-                      <div className="flex items-baseline gap-1 rounded-lg px-2.5 py-1.5" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+                      <div className="flex items-baseline gap-1 rounded-lg px-2.5 py-1.5" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
                         <span className="num text-[0.72rem] text-ink-dim">{curSym}</span>
                         <input aria-label={`${chip.label} amount per month`} autoFocus inputMode="decimal" type="number" min="0" value={billAmounts[chip.key]}
                           onChange={e => setBillAmounts(m => ({ ...m, [chip.key]: e.target.value }))}
@@ -350,13 +350,13 @@ export default function Onboarding() {
                           className="w-[76px] bg-transparent border-none num font-semibold text-[0.9rem] text-ink outline-none text-right" />
                       </div>
                     ) : (
-                      <button onClick={() => toggleBill(chip.key)} className="mono-label border-none bg-transparent cursor-pointer" style={{ color: 'var(--accent)' }}>＋ add</button>
+                      <button onClick={() => toggleBill(chip.key)} className="mono-label border-none bg-transparent cursor-pointer" style={{ color: 'var(--accent-text)' }}>＋ add</button>
                     )}
                   </div>
                 );
               })}
             </div>
-            <div className="flex items-center justify-between px-4 py-3 rounded-r2 mb-6" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+            <div className="flex items-center justify-between px-4 py-3 rounded-r2 mb-6" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
               <span className="text-[0.82rem] text-ink-mid">Fixed costs so far</span>
               <span className="num font-bold text-[1rem] text-ink">{fmt(fixedTotal, currency)}<span className="text-ink-dim font-medium text-[0.72rem]"> /mo</span></span>
             </div>
@@ -377,7 +377,7 @@ export default function Onboarding() {
             </div>
             {biggestBill && (
               <div className="flex items-center gap-3 rounded-r3 p-4 mb-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-                <span className="w-10 h-10 rounded-[11px] flex items-center justify-center text-[17px] shrink-0" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>{CHIP_EMOJI[biggestBill.key] ?? '💸'}</span>
+                <span className="w-10 h-10 rounded-r2 flex items-center justify-center text-[17px] shrink-0" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>{CHIP_EMOJI[biggestBill.key] ?? '💸'}</span>
                 <div className="flex-1 min-w-0">
                   <div className="text-[0.86rem] font-semibold text-ink">{biggestBill.label} is your biggest fixed cost</div>
                   <div className="text-[0.76rem] text-ink-mid">{fmt(biggestBill.amount, currency)}{incomeAmt > 0 ? ` — about ${Math.round((biggestBill.amount / incomeAmt) * 100)}% of take-home pay` : ''}</div>

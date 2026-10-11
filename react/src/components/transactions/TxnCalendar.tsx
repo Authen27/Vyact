@@ -155,7 +155,7 @@ export default function TxnCalendar({
                 boxShadow: isSelected ? `var(--neu-inset), 0 0 0 1.5px var(--accent)` : 'none',
               }}
             >
-              <span style={isSelected ? { color: 'var(--accent)' } : undefined}>{d}</span>
+              <span style={isSelected ? { color: 'var(--accent-text)' } : undefined}>{d}</span>
               {hasRecurring && (
                 <span aria-hidden className="absolute top-[3px] right-[5px] text-[8px] text-ink-dim leading-none">↻</span>
               )}

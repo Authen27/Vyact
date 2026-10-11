@@ -151,9 +151,9 @@ export default function Dashboard() {
       return {
         good,
         text: good ? (
-          <>You've kept <b style={{ color: 'hsl(var(--sage))' }}>{fmtShort(saved, baseCur)}</b> this month — {rate}% of income.</>
+          <>You've kept <b style={{ color: 'var(--good-text)' }}>{fmtShort(saved, baseCur)}</b> this month — {rate}% of income.</>
         ) : (
-          <>You've overspent <b style={{ color: 'hsl(var(--honey))' }}>{fmtShort(-saved, baseCur)}</b> this month.</>
+          <>You've overspent <b style={{ color: 'var(--warn-text)' }}>{fmtShort(-saved, baseCur)}</b> this month.</>
         ),
       };
     }
@@ -183,7 +183,7 @@ export default function Dashboard() {
           this-month savings status. */}
       {banner && (
         <div
-          className="sm:hidden flex items-center gap-2.5 rounded-[13px] px-3.5 py-2.5 mb-3.5"
+          className="sm:hidden flex items-center gap-2.5 rounded-r2 px-3.5 py-2.5 mb-3.5"
           style={{
             background: `color-mix(in srgb, hsl(var(${banner.good ? '--sage' : '--honey'})) 12%, transparent)`,
             boxShadow: `inset 0 0 0 1px color-mix(in srgb, hsl(var(${banner.good ? '--sage' : '--honey'})) 24%, transparent)`,
@@ -411,7 +411,7 @@ function CashFlowHero({ series, month, rate, baseCur, mk }: {
         role="img" aria-label={`Six-month net cash-flow trend, ${monLabel(selPt.mk)} selected`}
       >
         <div
-          className="glass-panel absolute top-0 z-[2] px-2.5 py-1.5 rounded-[10px] text-center whitespace-nowrap pointer-events-none"
+          className="glass-panel absolute top-0 z-[2] px-2.5 py-1.5 rounded-r2 text-center whitespace-nowrap pointer-events-none"
           style={{ left: `${(X(sel) / 320) * 100}%`, transform: `translateX(${sel === 0 ? '-8%' : sel === series.length - 1 ? '-92%' : '-50%'})` }}
         >
           <div className="num text-[12px] font-bold leading-tight" style={{ color: selPt.net >= 0 ? 'hsl(var(--sage))' : 'hsl(var(--terra))' }}>
@@ -529,7 +529,7 @@ function PulseBlock({ pulse }: { pulse: PulseScore }) {
       </div>
       {/* D1 — titled pulse card. */}
       <div className="hidden sm:block rounded-r3 p-4 text-center h-full" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
-        <div className="font-mono text-[8.5px] tracking-[0.15em] uppercase mb-3" style={{ color: 'var(--accent)' }}>Family Pulse Score™</div>
+        <div className="font-mono text-[8.5px] tracking-[0.15em] uppercase mb-3" style={{ color: 'var(--accent-text)' }}>Family Pulse Score™</div>
         <Link to="/reports" aria-label={`Family Pulse ${score ?? '—'} of 100 — open reports`} className="inline-block rounded-full mb-3">
           {ring(118, 32)}
         </Link>
@@ -563,7 +563,7 @@ function RecentRow({ txn, onEdit }: { txn: Transaction; onEdit: (t: Transaction)
   return (
     <button type="button" onClick={() => onEdit(txn)}
       className="w-full flex items-center gap-[11px] px-4 py-[11px] border-b border-line last:border-b-0 text-left hover:bg-bg3 transition-colors cursor-pointer">
-      <div className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-[16px] flex-shrink-0"
+      <div className="w-[34px] h-[34px] rounded-r2 flex items-center justify-center text-[16px] flex-shrink-0"
         style={{ background: `color-mix(in srgb, ${cat.color || 'hsl(var(--denim))'} 15%, transparent)`, boxShadow: 'var(--neu-sm)' }} aria-hidden>
         {emoji}
       </div>

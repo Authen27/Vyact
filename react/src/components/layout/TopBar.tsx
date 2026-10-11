@@ -105,7 +105,7 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
             onClick={openAsk}
             aria-label="Ask Pip"
             className="hidden sm:flex items-center gap-1.5 h-10 px-3.5 rounded-pill border-none cursor-pointer"
-            style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent)' }}
+            style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)', color: 'var(--accent-text)' }}
           >
             <Sparkles size={15} />
             <span className="font-display font-semibold text-[13px]">Ask</span>

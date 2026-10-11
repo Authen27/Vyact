@@ -29,7 +29,7 @@ export default function Chip({ on, onClick, children, className = '', ariaLabel,
       data-testid={testId}
       className={`${base} ${className}`}
       style={on
-        ? { boxShadow: 'var(--neu-inset)', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
+        ? { boxShadow: 'var(--neu-inset)', color: 'var(--accent-text)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
         : { boxShadow: 'var(--neu-sm)', color: 'var(--ff-ink-3)', background: 'var(--canvas)' }}
     >
       {children}

@@ -99,7 +99,7 @@ export default function LoanPaymentSheet({ debt, open, onClose }: Props) {
   const symbol = CURRENCIES[currency]?.symbol ?? '';
   const footer = (
     <button type="button" onClick={save} disabled={saving || !due || due.paidOff}
-      className="btn-primary w-full h-[50px] text-[15.5px] rounded-[15px] disabled:opacity-60">
+      className="btn-primary w-full h-[50px] text-[15.5px] rounded-r3 disabled:opacity-60">
       {saving ? 'Saving…' : kind === 'payoff' ? 'Pay off the loan' : kind === 'prepayment' ? 'Record prepayment' : 'Record payment'}
     </button>
   );

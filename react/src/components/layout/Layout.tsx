@@ -9,6 +9,7 @@ import MobileTabBar from './MobileTabBar';
 import FloatingTools from './FloatingTools';
 import AddFab from './AddFab';
 import SyncConflictBanner from './SyncConflictBanner';
+import OfflineStrip from './OfflineStrip';
 import { useShortcuts } from '../../hooks';
 import { useStore } from '../../store';
 
@@ -51,6 +52,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="max-w-[1320px] mx-auto px-4 lg:px-7 py-5 lg:py-7 pb-28 sm:pb-16">
           {/* TD-03 phase B — surfaces optimistic-concurrency conflicts. */}
           <SyncConflictBanner />
+          {/* Aurora 4.0 OF1 — offline, and how many changes wait on this device. */}
+          <OfflineStrip />
           {children}
         </div>
       </main>

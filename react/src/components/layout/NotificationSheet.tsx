@@ -10,17 +10,18 @@ import { useStore } from '../../store';
 import PullDownSheet from '../ui/PullDownSheet';
 import PhonePushPrompt from './PhonePushPrompt';
 import { Pip } from './Brand';
-import { NOTIF_META, notificationOccurrence } from '../../lib/notifications';
+import { NOTIF_META, needsYou, notificationOccurrence } from '../../lib/notifications';
 import type { Notification, NotifActionSpec } from '../../types';
 
 const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
 
+// Aurora 4.0 NT2 — phone-sized actions: 40px buttons in sans, not 32px display-font chips.
 function ActionButton({ spec, onClick }: { spec: NotifActionSpec; onClick: () => void }) {
-  const cls = spec.kind === 'primary' ? 'btn-primary btn-sm'
-    : spec.kind === 'neu' ? 'btn-secondary btn-sm'
-    : 'btn-ghost btn-sm';
+  const cls = spec.kind === 'primary' ? 'btn-primary'
+    : spec.kind === 'neu' ? 'btn-secondary'
+    : 'btn-ghost';
   return (
-    <button className={cls} onClick={e => { e.stopPropagation(); onClick(); }}>{spec.label}</button>
+    <button type="button" className={`${cls} !h-10 !px-4 !font-ui !font-medium !text-[13.5px]`} onClick={e => { e.stopPropagation(); onClick(); }}>{spec.label}</button>
   );
 }
 
@@ -40,7 +41,9 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
 
   const householdName = households.find(h => h.id === currentHouseholdId)?.name || 'This household';
 
-  const { today, earlier, unread } = useMemo(() => {
+  // NT1 — "Needs you" sits above Today and Earlier and keeps each card until it is handled; a bill to
+  // approve no longer looks like any other update, or drops into "Earlier" once a day passes.
+  const { pending, today, earlier, unread } = useMemo(() => {
     const active = notifications
       .filter(n => n.status !== 'dismissed' && (!n.householdId || n.householdId === currentHouseholdId))
       // P1 (action-required) pinned first, then newest first.
@@ -48,9 +51,11 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
         if (a.priority !== b.priority) return a.priority === 'P1' ? -1 : 1;
         return b.createdAt.localeCompare(a.createdAt);
       });
+    const rest = active.filter(n => !needsYou(n));
     return {
-      today: active.filter(n => isToday(n.createdAt)),
-      earlier: active.filter(n => !isToday(n.createdAt)),
+      pending: active.filter(needsYou),
+      today: rest.filter(n => isToday(n.createdAt)),
+      earlier: rest.filter(n => !isToday(n.createdAt)),
       unread: active.filter(n => n.status === 'unread').length,
     };
   }, [notifications, currentHouseholdId]);
@@ -107,13 +112,15 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
     if (n.deepLink) navigate(n.deepLink);
   }
 
-  const empty = today.length === 0 && earlier.length === 0;
+  const empty = pending.length === 0 && today.length === 0 && earlier.length === 0;
 
-  const Group = ({ label, rows }: { label: string; rows: Notification[] }) => rows.length ? (
+  const Group = ({ label, rows, count }: { label: string; rows: Notification[]; count?: boolean }) => rows.length ? (
     /* Board M2 — the list is inset so unread dots sit in a gutter left of the
        icon tiles, exactly at the sheet's content edge. */
     <div className="pl-3">
-      <div className="mono-label pt-2.5 pb-1">{label}</div>
+      <h3 className="font-ui text-[13px] font-semibold text-ink pt-2.5 pb-1">
+        {label}{count && <span className="font-normal text-ink-dim"> · {rows.length}</span>}
+      </h3>
       {rows.map(n => {
         const meta = NOTIF_META[n.type];
         return (
@@ -134,7 +141,7 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
             </span>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-[14px] text-ink leading-snug">{n.title}</div>
-              {n.body && <div className="text-[12px] text-ink-dim mt-0.5">{n.body}</div>}
+              {n.body && <div className="text-[13px] text-ink-mid mt-0.5">{n.body}</div>}
               {n.status === 'unread' && n.actions?.length ? (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {n.actions.map(a => <ActionButton key={a.id} spec={a} onClick={() => runAction(n, a.id)} />)}
@@ -155,18 +162,18 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
       header={
         <div className="flex items-center justify-between pt-6 pb-1">
           <div>
-            <h2 className="font-display text-2xl font-bold text-ink leading-none tracking-tight">Notifications</h2>
-            <div className="mono-label mt-1.5">{unread} unread · {householdName}</div>
+            <h2 className="font-display text-2xl font-medium text-ink leading-none">Notifications</h2>
+            <div className="ui-label mt-1.5">{unread} unread · {householdName}</div>
           </div>
           {unread > 0 && (
-            <button className="btn-ghost btn-sm" style={{ color: 'var(--accent)' }} onClick={markAllRead}>Mark all read</button>
+            <button className="btn-ghost btn-sm" style={{ color: 'var(--accent-text)' }} onClick={markAllRead}>Mark all read</button>
           )}
         </div>
       }
       footer={
         <button
-          className="w-full text-center mono-label py-1.5"
-          style={{ color: 'var(--accent)' }}
+          className="w-full text-center font-ui text-[13.5px] font-medium min-h-[44px] py-1.5"
+          style={{ color: 'var(--accent-text)' }}
           onClick={() => { onClose(); navigate('/settings#notifications'); }}
         >
           Notification settings →
@@ -182,6 +189,7 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
         </div>
       ) : (
         <>
+          <Group label="Needs you" rows={pending} count />
           <Group label="Today" rows={today} />
           <Group label="Earlier" rows={earlier} />
         </>

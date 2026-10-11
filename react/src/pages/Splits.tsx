@@ -194,7 +194,7 @@ export default function Splits() {
     const showName = p.name && p.name.toLowerCase() !== (p.email ?? '').toLowerCase() && p.name !== 'You';
     const prefix = signed ? (amount >= 0 ? '＋' : '−') : '';
     return (
-      <div className="flex items-center justify-between gap-3 rounded-md px-3 py-2 bg-bg3 border border-line">
+      <div className="flex items-center justify-between gap-3 well px-3 py-2">
         <div className="min-w-0">
           {showName && <div className="text-[0.82rem] font-semibold text-ink truncate">{p.name}</div>}
           <div className={`font-mono text-[0.62rem] tracking-wider truncate ${showName ? 'text-ink-dim' : 'text-ink font-semibold'}`}>
@@ -282,7 +282,7 @@ export default function Splits() {
             {split.participants.map((p: SplitParticipant) => {
               const shareBase = convert(p.share, txn.currency, c, rates);
               return (
-                <div key={p.name} className={`flex items-center justify-between gap-3 rounded-md px-3 py-2.5 border ${p.paid ? 'bg-sage/5 border-sage/20' : 'bg-bg3 border-line'}`}>
+                <div key={p.name} className={`flex items-center justify-between gap-3 px-3 py-2.5 ${p.paid ? 'rounded-r2 border bg-sage/5 border-sage/20' : 'well'}`}>
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-base flex-shrink-0">{p.isYou ? '👤' : '👥'}</span>
                     <div className="min-w-0">
@@ -349,7 +349,7 @@ export default function Splits() {
           v10.17 (items 7/8/9) — every tile is a toggle that expands a per-person
           (email-keyed) breakdown. The breakdown sums reconcile with the tile. */}
       {(owedToYou > 0 || youOwe > 0) && (
-        <div className="rounded-r4 p-5 mb-5" style={{ background: 'var(--elevated)', boxShadow: 'var(--neu)' }}>
+        <div className="rounded-r3 p-5 mb-5" style={{ background: 'var(--elevated)', boxShadow: 'var(--neu)' }}>
           <button type="button" onClick={() => setHeroView(v => v === 'net' ? null : 'net')}
             className="w-full text-left" aria-expanded={heroView === 'net'}>
             <div className="mono-label mb-1.5 flex items-center gap-1.5">

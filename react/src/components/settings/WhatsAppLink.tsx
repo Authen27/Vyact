@@ -78,7 +78,7 @@ function WhatsAppMessages() {
   return (
     <div>
       <div className="mono-label mb-1.5">Messages I send you</div>
-      <div className="rounded-r3 overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+      <div className="rounded-r3 overflow-hidden" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
         <div className={`${row} opacity-60`}>
           <span className="text-[0.84rem] text-ink">Bill reminders and large-spend alerts
             <span className="mono-label ml-2 text-ink-dim">always on</span></span>
@@ -187,7 +187,7 @@ export default function WhatsAppLink() {
         )}
 
         {phase === 'linked' && (
-          <div className="rounded-md border border-line bg-bg3 px-3 py-2.5 text-[0.78rem] text-ink-mid leading-relaxed">
+          <div className="well px-3 py-2.5 text-[0.78rem] text-ink-mid leading-relaxed">
             <div className="font-mono text-[0.58rem] tracking-widest uppercase text-ink-dim mb-1.5">Text Vyact to log</div>
             <div className="space-y-0.5 font-mono text-[0.72rem]">
               <div><span className="text-ink">850 groceries hdfc</span> — an expense</div>

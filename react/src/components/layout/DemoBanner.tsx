@@ -18,7 +18,7 @@ export default function DemoBanner() {
     <div
       role="note"
       data-testid="demo-banner"
-      className="w-full bg-coral text-white text-sm px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center"
+      className="w-full bg-coral text-[color:var(--accent-ink)] text-sm px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center"
     >
       <span className="inline-flex items-center gap-1.5">
         <Sparkles size={14} aria-hidden="true" />

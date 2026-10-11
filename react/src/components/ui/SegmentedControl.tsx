@@ -18,7 +18,8 @@ export default function SegmentedControl<Value extends string>({ label, value, o
             <input type="radio" name={name} value={option.value} checked={value === option.value}
               disabled={option.disabled} onChange={() => onChange(option.value)}
               data-testid={option.testId} className="peer" />
-            <span className="ui-segment peer-checked:bg-bg2 peer-checked:text-coral peer-checked:shadow-sm peer-disabled:opacity-40 peer-disabled:cursor-not-allowed">
+            {/* Checked and disabled looks come from `.ui-segments` (index.css): the SegRail treatment (X5). */}
+            <span className="ui-segment">
               {option.label}
             </span>
           </label>

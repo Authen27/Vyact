@@ -87,7 +87,7 @@ export default function SyncConflictBanner() {
   return (
     <div
       role="alert"
-      className="mb-4 rounded border border-terra/40 bg-terra/10 px-4 py-3 text-sm text-ink"
+      className="mb-4 rounded-r2 border border-terra/40 bg-terra/10 px-4 py-3 text-sm text-ink"
       data-testid="sync-conflict-banner"
     >
       <div className="flex items-start gap-3">
@@ -106,7 +106,7 @@ export default function SyncConflictBanner() {
             type="button"
             onClick={reapply}
             disabled={busy}
-            className="rounded border border-coral/40 bg-coral/10 px-2 py-1 text-xs font-medium text-coral hover:bg-coral/20 disabled:opacity-60"
+            className="rounded-r2 min-h-[36px] border border-coral/40 bg-coral/10 px-2 py-1 text-xs font-medium text-coral hover:bg-coral/20 disabled:opacity-60"
           >
             {busy ? 'Re-applying…' : 'Refresh & re-apply'}
           </button>
@@ -114,7 +114,7 @@ export default function SyncConflictBanner() {
             type="button"
             onClick={dismiss}
             disabled={busy}
-            className="rounded border border-ink/20 px-2 py-1 text-xs font-medium hover:bg-ink/5 disabled:opacity-60"
+            className="rounded-r2 min-h-[36px] border border-ink/20 px-2 py-1 text-xs font-medium hover:bg-ink/5 disabled:opacity-60"
           >
             Dismiss
           </button>

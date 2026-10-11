@@ -23,7 +23,8 @@ import { simulatePayoffInterest, monthlyData, totalMonthlyDebtPayment } from '..
 import { computeNetWorth, cardDues } from '../lib/netWorth';
 import { loanView, clearsLabel, latestLoanPayment, loanErrorMessage, LoanPaymentRefused, type LoanView } from '../lib/loanSchedule';
 import { DEBT_TYPES } from '../constants';
-import type { Debt } from '../types';
+import type { Debt, PayoffStrategy } from '../types';
+import SegRail from '../components/ui/SegRail';
 
 export default function Debts() {
   const { t } = useTranslation();
@@ -155,19 +156,12 @@ export default function Debts() {
 
       {active.length > 1 && (
         <div className="flex items-center gap-2.5 mb-4 flex-wrap">
-          <div className="inline-flex gap-1 p-1 rounded-pill" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}
-            role="tablist" aria-label="Payoff strategy">
-            {(['avalanche', 'snowball'] as const).map(st => (
-              <button key={st} role="tab" aria-selected={profile.payoffStrategy === st}
-                onClick={() => updateProfile({ payoffStrategy: st })}
-                className="h-[28px] px-4 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px] capitalize"
-                style={profile.payoffStrategy === st
-                  ? { color: 'var(--accent)', boxShadow: 'var(--neu-inset)', background: 'color-mix(in srgb, var(--accent) 10%, var(--canvas))' }
-                  : { color: 'var(--ff-ink-3)', background: 'transparent' }}>
-                {st}
-              </button>
-            ))}
-          </div>
+          <SegRail<PayoffStrategy>
+            label="Payoff strategy"
+            value={profile.payoffStrategy}
+            onChange={st => updateProfile({ payoffStrategy: st })}
+            options={[{ value: 'avalanche', label: 'Avalanche' }, { value: 'snowball', label: 'Snowball' }]}
+          />
           {strategyTradeoff && (
             <span className="text-[10.5px]">
               {strategyTradeoff.delta > 1
@@ -339,7 +333,7 @@ function LoanCard({ view: v, priority, strategy, money, currency, expanded, show
             ['Interest left', money(v.interestLeft), 'text-honey'],
             [v.clears ? `Clears · ${v.monthsLeft} mo` : 'Never clears', v.clears ? (clears ?? `${v.monthsLeft} mo`) : 'raise the EMI', v.clears ? 'text-sage' : 'text-terra'],
           ] as [string, string, string][]).map(([label, value, cls]) => (
-            <div key={label} className="bg-bg3 border border-line rounded-md p-2 text-center">
+            <div key={label} className="well p-2 text-center">
               <div className={`num text-sm font-semibold ${cls}`}>{value}</div>
               <div className="font-mono text-[0.58rem] tracking-wider text-ink-dim uppercase">{label}</div>
             </div>
@@ -347,7 +341,7 @@ function LoanCard({ view: v, priority, strategy, money, currency, expanded, show
         </div>
 
         {expanded && (
-          <div className="bg-bg3 border border-line rounded-md p-3 mb-3 text-[0.78rem] overflow-x-auto" data-testid="loan-schedule">
+          <div className="well p-3 mb-3 text-[0.78rem] overflow-x-auto" data-testid="loan-schedule">
             <table className="w-full num">
               <thead>
                 <tr className="text-ink-dim text-left">

@@ -89,6 +89,30 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/a1AuroraFoundations.test.ts",
+      "feature": "Aurora 4.0 foundations (A1)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Aurora 4.0 A1: three surface tiers + 12/18/26 radii, Mist text shades + flat wells, one SegRail, underline sub-nav, dark ink on coral, readable toast, calm crash screen, offline strip, Needs you group, copy without Pulse/Goals/custom plans, one-line method notes",
+      "count": 13,
+      "tests": [
+        "A1 · Aurora 4.0 foundations A1-ER1-001 · the crash screen is calm: what happened, nothing lost, two ways out, copy details",
+        "A1 · Aurora 4.0 foundations A1-MIST1-001 · Mist has darker text-only status shades; Nocturne text equals its fills",
+        "A1 · Aurora 4.0 foundations A1-MIST2-001 · Mist wells are a flat fill with a hairline; Nocturne keeps the inset",
+        "A1 · Aurora 4.0 foundations A1-NAV-001 · sub-nav is an underline tab row: 13.5px phones, 14px desktop, no mono cap",
+        "A1 · Aurora 4.0 foundations A1-NT1-001 · \"Needs you\" holds unread action cards until handled, above Today and Earlier",
+        "A1 · Aurora 4.0 foundations A1-OF1-001 · the offline strip names the waiting changes and clears once synced",
+        "A1 · Aurora 4.0 foundations A1-TS1-001 · the toast is a readable 14px bar with a 44px action, full width on phones, 380px on desktop",
+        "A1 · Aurora 4.0 foundations A1-X10-001 · no Pulse Score, Goals stat or custom plans in the copy",
+        "A1 · Aurora 4.0 foundations A1-X11-001 · method notes keep one line with details behind (i)",
+        "A1 · Aurora 4.0 foundations A1-X12-001 · radii are 12 / 18 / 26: md and r1 are 12px, no arbitrary card radii remain",
+        "A1 · Aurora 4.0 foundations A1-X2-001 · three surface tiers; the bg3 + border + 8px tile is retired from the app",
+        "A1 · Aurora 4.0 foundations A1-X5-001 · one SegRail: the view switches are the shared component, active = accent tint + inset",
+        "A1 · Aurora 4.0 foundations A1-X8-001 · text on coral is the dark accent ink, never white"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/accountDeletionHandler.test.ts",
       "feature": "Account deletion handler",
       "availability": "conditional",

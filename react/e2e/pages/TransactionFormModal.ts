@@ -76,7 +76,7 @@ export class TransactionFormModal {
     this.descriptionInput = this.dialog.getByLabel('Description');
     this.dateInput = this.dialog.getByLabel('Pick a date');
     this.noteInput = this.dialog.getByLabel('Note');
-    this.excludedCheckbox = this.dialog.getByLabel(/Exclude from totals/)   // W0 (FE-PUB-01): was "🔒 Private — exclude from totals";
+    this.excludedCheckbox = this.dialog.getByLabel(/Exclude from (household )?totals/)   // W0 (FE-PUB-01): was "🔒 Private — exclude from totals";
     this.splitToggle = this.dialog.getByLabel(/Split this bill with others|Share this income with others/);
     this.allDetailsToggle = this.dialog.getByTestId('txn-all-details');
     // The primary button is `Save ${form.type}` / `Update ${form.type}` — e.g.

@@ -264,7 +264,7 @@ export default function BudgetFormModal(props: Props) {
   const footer = (
     <div>
       <button type="button" onClick={save} disabled={saving}
-        className="btn-primary w-full h-[50px] text-[15.5px] rounded-[15px] disabled:opacity-60">
+        className="btn-primary w-full h-[50px] text-[15.5px] rounded-r3 disabled:opacity-60">
         {saving ? 'Saving…' : initial ? 'Update budget' : `Create budget · ${fmt(allocSum, form.currency)} allocated`}
       </button>
       <div className="text-center mt-2">
@@ -350,7 +350,7 @@ export default function BudgetFormModal(props: Props) {
         </div>
         {/* W4h (owner decision D27) — what the total leaves unallocated, as a line of its own. */}
         <div className="flex items-center gap-2.5 px-3 py-2 mt-1.5 rounded-r2" data-testid="budget-unallocated"
-          style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+          style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
           <span className="text-base leading-none flex-shrink-0" aria-hidden>{remaining < -0.001 ? '⚠️' : '◌'}</span>
           <span className={`flex-1 text-[14px] ${remaining < -0.001 ? 'text-terra font-medium' : 'text-ink-mid'}`}>
             {remaining < -0.001 ? 'Over the total by' : 'Unallocated'}

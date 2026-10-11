@@ -125,7 +125,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
         {isCash ? 'Cash counted' : `${statementNoun} says`}
       </label>
       <div className="flex items-center gap-2 min-h-[54px] px-4 rounded-r2 mb-4"
-        style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+        style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
         <span className="font-mono text-[16px] text-ink-dim" aria-hidden>{symbol}</span>
         <input id="recon-stated" autoFocus inputMode="decimal" value={stated}
           onChange={e => setStated(e.target.value)}
@@ -133,7 +133,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
       </div>
 
       {/* The drift block: both figures side by side, and the gap in words. */}
-      <div className="rounded-[16px] px-[17px] py-4 mb-4" style={{
+      <div className="rounded-r3 px-[17px] py-4 mb-4" style={{
         background: 'var(--canvas)',
         boxShadow: `var(--neu), 0 0 0 1.5px color-mix(in srgb, hsl(var(${hasDrift ? '--honey' : '--sage'})) ${hasDrift ? 45 : 40}%, transparent)`,
       }}>
@@ -151,9 +151,9 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
             <div className="font-mono text-[8px] tracking-[0.13em] uppercase text-ink-dim mb-1">Vyact says</div>
             <div className="num font-semibold text-[15px] text-ink">{signed(vyactSays)}</div>
           </div>
-          <div className="rounded-r2 p-3" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+          <div className="rounded-r2 p-3" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
             <div className="font-mono text-[8px] tracking-[0.13em] uppercase text-ink-dim mb-1">{isCash ? 'Cash counted' : 'Statement says'}</div>
-            <div className="num font-semibold text-[15px]" style={{ color: 'var(--accent)' }}>
+            <div className="num font-semibold text-[15px]" style={{ color: 'var(--accent-text)' }}>
               {statedValue === null ? '—' : signed(statedValue)}
             </div>
           </div>
@@ -181,7 +181,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
         </>
       )}
 
-      <p className="rounded-[13px] px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
+      <p className="rounded-r2 px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
         style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 14%, transparent)' }}>
         {isCash
           ? 'Confirm the cash you counted. Any adjustment is recorded in the cash ledger, not as spending or income.'
@@ -197,13 +197,13 @@ export function Pick({ on, onSelect, title, badge, disabled, children }: {
 }) {
   return (
     <button type="button" role="radio" aria-checked={on} disabled={disabled} onClick={onSelect}
-      className="flex items-start gap-2.5 text-left rounded-[13px] px-4 py-3.5 border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-55 transition-[box-shadow]"
+      className="flex items-start gap-2.5 text-left rounded-r2 px-4 py-3.5 border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-55 transition-[box-shadow]"
       style={{
         background: 'var(--canvas)',
         boxShadow: on ? 'var(--neu), 0 0 0 1.5px var(--accent)' : 'var(--neu-sm)',
       }}>
       <span className="w-[17px] h-[17px] rounded-full flex-shrink-0 mt-px flex items-center justify-center"
-        style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} aria-hidden>
+        style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }} aria-hidden>
         {on && <span className="w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }} />}
       </span>
       <span className="min-w-0">
@@ -211,7 +211,7 @@ export function Pick({ on, onSelect, title, badge, disabled, children }: {
           <span className="font-semibold text-[0.88rem] text-ink">{title}</span>
           {badge && (
             <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded-md"
-              style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 18%, transparent)', color: 'hsl(var(--sage))' }}>{badge}</span>
+              style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 18%, transparent)', color: 'var(--good-text)' }}>{badge}</span>
           )}
         </span>
         <span className="block text-[0.78rem] text-ink-dim leading-snug mt-0.5">{children}</span>

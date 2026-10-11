@@ -158,6 +158,15 @@ export function notificationOccurrence(n: Pick<Notification, 'dueAt'>): string |
 }
 
 /**
+ * Aurora 4.0 NT1 — a card waiting on the person: unread, action-required (P1) and carrying buttons.
+ * The bell lists these as "Needs you" above Today and Earlier and keeps each one there until it is
+ * handled, instead of letting a bill to approve fall into "Earlier" once a day passes.
+ */
+export function needsYou(n: Pick<Notification, 'status' | 'priority' | 'actions'>): boolean {
+  return n.status === 'unread' && n.priority === 'P1' && (n.actions?.length ?? 0) > 0;
+}
+
+/**
  * W4d — unread "approve this bill" cards whose bill was already handled: approved or skipped in the
  * app, "paid X" on WhatsApp, another member, or the schedule paused. Its schedule has moved past the
  * card's occurrence. A card whose schedule this device does not hold is left alone (it may simply not

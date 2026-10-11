@@ -375,7 +375,7 @@ export default function Recurring() {
         footer={
           <div>
             <button type="button" onClick={save} disabled={saving} aria-busy={saving}
-              className="btn-primary w-full h-[50px] text-[15.5px] rounded-[15px] disabled:opacity-60">
+              className="btn-primary w-full h-[50px] text-[15.5px] rounded-r3 disabled:opacity-60">
               {saving ? 'Saving…' : editing ? 'Update schedule' : 'Save schedule'}
             </button>
             <div className="text-center mt-2">

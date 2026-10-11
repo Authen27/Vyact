@@ -142,19 +142,19 @@ export default function DeleteAccountSheet({ account, open, onClose, onDone }: P
         <p className="text-[0.84rem] text-ink-dim py-6 text-center" role="status">Checking what refers to this account…</p>
       )}
       {loadError && (
-        <p className="text-[0.84rem] py-4" role="alert" style={{ color: 'hsl(var(--terra))' }}>
+        <p className="text-[0.84rem] py-4" role="alert" style={{ color: 'var(--crit-text)' }}>
           Couldn&apos;t check this account&apos;s history: {loadError}. Nothing was deleted.
         </p>
       )}
 
       {deps && !attached && (
         <>
-          <div className="rounded-[16px] px-[17px] py-4 mb-4" style={{
+          <div className="rounded-r3 px-[17px] py-4 mb-4" style={{
             background: 'var(--canvas)',
             boxShadow: 'var(--neu), 0 0 0 1.5px color-mix(in srgb, hsl(var(--sage)) 40%, transparent)',
           }}>
             <span className="inline-block font-mono text-[8.5px] tracking-[0.11em] uppercase px-2 py-[3px] rounded-md mb-2.5" style={{
-              background: 'color-mix(in srgb, hsl(var(--sage)) 18%, transparent)', color: 'hsl(var(--sage))',
+              background: 'color-mix(in srgb, hsl(var(--sage)) 18%, transparent)', color: 'var(--good-text)',
             }}>Nothing attached</span>
             <p className="text-[0.84rem] text-ink-mid leading-snug">
               No transactions, no recurring rules, no open splits. Nothing else in Vyact refers to this
@@ -167,7 +167,7 @@ export default function DeleteAccountSheet({ account, open, onClose, onDone }: P
 
       {deps && attached && tx && (
         <div className="grid gap-5 sm:grid-cols-2 sm:gap-[26px]">
-          <div className="sm:col-span-2 rounded-[16px] px-[17px] py-4" style={{
+          <div className="sm:col-span-2 rounded-r3 px-[17px] py-4" style={{
             background: 'color-mix(in srgb, hsl(var(--terra)) 9%, var(--canvas))',
             boxShadow: 'inset 0 0 0 1.5px color-mix(in srgb, hsl(var(--terra)) 40%, transparent)',
           }}>
@@ -186,14 +186,14 @@ export default function DeleteAccountSheet({ account, open, onClose, onDone }: P
               )}
               {deps.recurring.length > 0 && <>{plural(deps.recurring.length, 'recurring rule')} {deps.recurring.length === 1 ? 'points' : 'point'} at it. </>}
               {deps.openSplits.length > 0 && (
-                <span style={{ color: 'hsl(var(--honey))' }}>{plural(deps.openSplits.length, 'split')} on it {deps.openSplits.length === 1 ? 'is' : 'are'} not settled.</span>
+                <span style={{ color: 'var(--warn-text)' }}>{plural(deps.openSplits.length, 'split')} on it {deps.openSplits.length === 1 ? 'is' : 'are'} not settled.</span>
               )}
             </p>
           </div>
 
           <div>
             <div className="font-mono text-[8.5px] tracking-[0.14em] uppercase text-ink-dim mb-2">What&apos;s attached</div>
-            <div className="rounded-[13px] px-4 py-2" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+            <div className="rounded-r2 px-4 py-2" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
               {named.map(g => (
                 <Row key={g.label} label={`${g.label} · ${plural(g.count, 'entry', 'entries')}`} value={fmt(g.total, baseCurrency)} />
               ))}
@@ -242,7 +242,7 @@ export default function DeleteAccountSheet({ account, open, onClose, onDone }: P
 function Row({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
     <div className="flex items-center gap-2.5 py-2 text-[0.8rem] border-b border-line last:border-b-0"
-      style={warn ? { color: 'hsl(var(--honey))' } : undefined}>
+      style={warn ? { color: 'var(--warn-text)' } : undefined}>
       <span className="flex-1 min-w-0 truncate text-ink-mid" style={warn ? { color: 'inherit' } : undefined}>{label}</span>
       <span className="num font-semibold text-ink flex-shrink-0" style={warn ? { color: 'inherit' } : undefined}>{value}</span>
     </div>
@@ -251,7 +251,7 @@ function Row({ label, value, warn }: { label: string; value: string; warn?: bool
 
 function Advice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-[13px] px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
+    <p className="rounded-r2 px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
       style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 14%, transparent)' }}>
       {children}
     </p>

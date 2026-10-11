@@ -27,7 +27,7 @@ export default function NotificationCenter() {
         <Bell size={16} />
         {unread > 0 && (
           <span
-            className="absolute top-1.5 right-1.5 bg-coral text-white text-[0.55rem] font-mono font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center"
+            className="absolute top-1.5 right-1.5 bg-coral text-[color:var(--accent-ink)] text-[11px] leading-none font-ui font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center"
             style={{ boxShadow: '0 0 0 2px var(--canvas)' }}
           >
             {unread > 9 ? '9+' : unread}

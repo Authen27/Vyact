@@ -69,7 +69,7 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
           account remains visible in the edit sheet and via filters. Transfer/
           investment rows get their type glyph on a denim tint. */}
       <div
-        className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center text-base flex-shrink-0"
+        className="w-[34px] h-[34px] rounded-r2 flex items-center justify-center text-base flex-shrink-0"
         style={{
           background: (isXfer || isInv)
             ? 'color-mix(in srgb, hsl(var(--denim)) 15%, transparent)'

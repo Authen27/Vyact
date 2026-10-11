@@ -101,7 +101,7 @@ export default function Budgets() {
         <div className="min-w-0">
           <h1 className="display-italic text-4xl text-ink mb-1.5">{t('budgets')}</h1>
           <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Month, annual &amp; custom plans · per-category allocations
+            Month and annual plans · per-category allocations
           </p>
         </div>
         {canManage
