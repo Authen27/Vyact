@@ -749,18 +749,16 @@ body::before {
   .ask-typing span { animation: none; opacity: .6; }
 }
 
+/* Aurora 4.0 TS1 — on a full-screen form page (no tab bar; Save sits in the bottom footer) the toast shows
+   just under the form header, at every width, instead of covering Save or Add. */
+.toast-on-form { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 68px); }
+
 /* ── Aurora 4.0 MIST1 — status colours as TEXT in Mist ──────────────────────────
    Mist's fills (mint #2E9E78, amber #B98A38, coral #E26D5C, teal #2C93A8, red #D25656) come out
    around 3–3.4:1 as 11–13px text on white, under the 4.5:1 small text needs. Text utilities take
    the darker text-only shades; bg-/border-/fill uses keep the brighter colours. Inline text
    colours use the --*-text tokens directly. Nocturne is unchanged. Placed after the utilities
    so it wins at equal specificity. */
-/* Aurora 4.0 TS1 — on a full-screen form (no tab bar; Save sits at the bottom) a phone toast shows at
-   the top instead of covering Save. */
-@media (max-width: 639px) {
-  .toast-on-form { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 12px); }
-}
-
 [data-theme="warm"] .text-sage  { color: var(--good-text); }
 [data-theme="warm"] .text-olive { color: #1E6B50; }
 [data-theme="warm"] .text-honey { color: var(--warn-text); }

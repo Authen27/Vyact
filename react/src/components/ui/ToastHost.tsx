@@ -18,8 +18,8 @@ const MARK_COLOUR = {
 export default function ToastHost() {
   const toasts = useStore(s => s.toasts);
   const dismissToast = useStore(s => s.dismissToast);
-  // A full-screen form has no tab bar and its Save button sits where the toast would; on phones the
-  // toast moves to the top there (.toast-on-form) instead of covering Save for up to 10 s.
+  // A full-screen form has no tab bar and its Save/Add button sits in the bottom footer, where the
+  // toast would cover it for up to 10 s; there the toast shows under the form header (.toast-on-form).
   const onForm = isFormRoute(useLocation().pathname);
   // Container stays mounted (even empty) so AnimatePresence can play the EXIT of
   // the last toast. `layout` lets the remaining toasts slide up to fill the gap.

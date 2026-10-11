@@ -95,9 +95,9 @@ describe('A1 · Aurora 4.0 foundations', () => {
   it('A1-TS1-001 · the toast is a readable 14px bar with a 44px action, full width on phones, 380px on desktop', () => {
     const s = read('components/ui/ToastHost.tsx');
     expect(s).toMatch(/className=\{`fixed bottom-above-tabbar left-4 right-4 sm:left-auto sm:right-6 sm:w-\[380px\]/);
-    // On a phone form page (no tab bar, Save at the bottom) the toast moves to the top.
+    // On a form page (no tab bar, Save/Add in the bottom footer) the toast moves under the header.
     expect(s).toMatch(/\$\{onForm \? ' toast-on-form' : ''\}/);
-    expect(read('index.css')).toMatch(/\.toast-on-form \{ bottom: auto; top: calc\(env\(safe-area-inset-top, 0px\) \+ 12px\); \}/);
+    expect(read('index.css')).toMatch(/\.toast-on-form \{ bottom: auto; top: calc\(env\(safe-area-inset-top, 0px\) \+ 68px\); \}/);
     expect(s).toMatch(/text-\[14px\]/);
     expect(s).toMatch(/min-h-\[44px\] px-2\.5 font-bold/);
     expect(s).not.toMatch(/font-mono|uppercase|border-l-\[3px\]/);
