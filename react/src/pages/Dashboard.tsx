@@ -28,10 +28,11 @@ import { Pip } from '../components/layout/Brand';
 import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem } from '../lib/motion';
 import { getCat } from '../constants';
-import { ArrowRight, Plus } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { FEATURES } from '../config/features';
 import type { PulseScore } from '../lib/calculations';
 import type { Transaction } from '../types';
+import PageHead from '../components/ui/PageHead';
 
 /** #7 — one actionable line under the Pulse: point at the weakest applicable
  *  component so the user always knows what to do next. */
@@ -162,18 +163,14 @@ export default function Dashboard() {
 
   return (
     <div className="ui-pilot dashboard-stack" data-testid="dashboard-pilot">
-      {/* Desktop page header (board D1) — mobile identity lives in MobileHeader. */}
-      <div className="hidden sm:flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">
-            {(() => { const who = (profile.name || '').trim().split(/\s+/)[0]; return who ? `${greet()}, ${who}` : greet(); })()}
-          </h1>
-          <p className="ui-label">
-            Family finance overview · {monthName(mk)}
-          </p>
-        </div>
-        <button className="btn-primary flex-shrink-0" onClick={() => openAddTxn()}><Plus size={16} aria-hidden />Add transaction</button>
-      </div>
+      {/* Page header (Aurora 4.0 PageHead) — on phones the identity lives in MobileHeader, and the
+          tab bar's + adds a transaction, so there is no header + here. */}
+      <PageHead
+        flush
+        title={(() => { const who = (profile.name || '').trim().split(/\s+/)[0]; return who ? `${greet()}, ${who}` : greet(); })()}
+        subtitle={<>Family finance overview · {monthName(mk)}</>}
+        action={{ label: 'Add transaction', icon: true, entity: 'transaction', headerPlus: false, onClick: () => openAddTxn() }}
+      />
 
       {/* v9.7 — estimated starting picture from onboarding; clears as real data lands. */}
       <StartingBaselineBand />

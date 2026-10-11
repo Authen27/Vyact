@@ -24,6 +24,7 @@ import ForYouReel from '../components/insights/ForYouReel';
 import { buildPersonalInsights, type PersonalInsight } from '../lib/personalInsights';
 import { allEvergreenCards, evergreenByTag } from '../lib/evergreen';
 import SegRail from '../components/ui/SegRail';
+import PageHead from '../components/ui/PageHead';
 
 type Tab = 'for-you' | 'learn';
 
@@ -87,17 +88,13 @@ export default function Insights() {
   const hasReview = !loading && review.hasActivity;
   return (
     <div className="ui-pilot min-w-0" data-testid="insights-review">
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div className="min-w-0">
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('insights') || 'Insights'}</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            {/* Same text on both tabs, so the header keeps one height and the toolbar
-                slot below it never moves between tabs. */}
-            Your review · money lessons
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          {/* Aurora 4.0 X5 — the shared SegRail (it had no inset and no accent of its own). */}
+      {/* Same subtitle on both tabs, so the header keeps one height and the toolbar slot below
+          it never moves between tabs. The tabs stay on phones (aside). */}
+      <PageHead
+        title={t('insights') || 'Insights'}
+        subtitle="Your review · money lessons"
+        aside={(
+          // Aurora 4.0 X5 — the shared SegRail (it had no inset and no accent of its own).
           <SegRail<Tab>
             label="Insights views"
             value={tab}
@@ -111,8 +108,8 @@ export default function Insights() {
               label: <><Icon size={14} aria-hidden /> {label}</>,
             }))}
           />
-        </div>
-      </div>
+        )}
+      />
 
       {tab === 'for-you' && (
         <div role="tabpanel" id="insights-panel-for-you" aria-labelledby="insights-tab-for-you" className="space-y-3.5 min-w-0">

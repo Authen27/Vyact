@@ -18,7 +18,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, type Variants } from 'framer-motion';
-import { Banknote, ClipboardCheck, List, Pencil, Plus } from 'lucide-react';
+import { Banknote, ClipboardCheck, List, Pencil } from 'lucide-react';
 import { useStore } from '../store';
 import Button from '../components/ui/Button';
 import EstimatedTag from '../components/ui/EstimatedTag';
@@ -34,6 +34,7 @@ import {
   PAYMENT_MODE_LABEL, STALE_AFTER_DAYS, accountGroup, accountsSummary, cardFigures, nextDueDate, staleDays,
 } from '../lib/accountsView';
 import type { Account, Transaction } from '../types';
+import PageHead from '../components/ui/PageHead';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const ordinal = (n: number) => {
@@ -129,14 +130,7 @@ export default function Accounts() {
 
   return (
     <div className="ui-pilot">
-      <div className="flex justify-between items-end mb-section gap-4 flex-wrap">
-        <div className="min-w-0">
-          <h1 className="display-italic text-4xl text-ink">Accounts</h1>
-        </div>
-        <Button onClick={openAddAccount} className="flex-shrink-0">
-          <Plus size={14} /> Add account
-        </Button>
-      </div>
+      <PageHead title="Accounts" action={{ label: 'Add account', icon: true, entity: 'account', onClick: openAddAccount }} />
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-7 lg:items-start">
         <div className="min-w-0">

@@ -19,6 +19,7 @@ import type { RecurringSeed } from '../lib/askVyactResponses';
 import { scheduleDatesAfterSave, ruleOf, isLoanEmiSchedule } from '../lib/recurring';
 import { formatRRule, describeRRule, type RRule, type ShortMonthPolicy } from '../lib/rrule';
 import { runExclusive } from '../lib/exclusive';
+import PageHead from '../components/ui/PageHead';
 
 type SchedType = 'expense' | 'income' | 'investment';
 type MonthlyMode = 'dom' | 'nth';
@@ -303,12 +304,10 @@ export default function Recurring() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4">
-        <div className="min-w-0">
-          <h1 className="display-italic text-4xl text-ink mb-1.5">Recurring</h1>
-        </div>
-        <button className="btn-primary flex-shrink-0" onClick={() => { resetForm(); setEditing(null); setOpen(true); }}>+ Add Schedule</button>
-      </div>
+      <PageHead
+        title="Recurring"
+        action={{ label: '+ Add Schedule', entity: 'schedule', onClick: () => { resetForm(); setEditing(null); setOpen(true); } }}
+      />
 
       {/* v10.32.0 — the approval-aware bill calendar replaces the 7-day strip. */}
       <BillCalendar />

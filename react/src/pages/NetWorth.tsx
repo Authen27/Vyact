@@ -18,6 +18,7 @@ import type { LiveAssetRow } from '../lib/accountBalance';
 import { ASSET_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
 import InfoNote from '../components/ui/InfoNote';
+import PageHead from '../components/ui/PageHead';
 
 const KIND_ICON: Record<AccountKind, string> = {
   bank: '🏦', cash: '💵', credit_card: '💳', investment: '📈', loan: '🏛️',
@@ -158,12 +159,7 @@ export default function NetWorth() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('networth')}</h1>
-        </div>
-        <button className="btn-primary" onClick={openAdd}>+ Add Asset</button>
-      </div>
+      <PageHead title={t('networth')} action={{ label: '+ Add Asset', entity: 'asset', onClick: openAdd }} />
 
       {/* Board D3 desktop — the waterfall hero and the four ratios sit side by
           side (1fr · 340px); the balance sheet follows below. Mobile stacks. */}

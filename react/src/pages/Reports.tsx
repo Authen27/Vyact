@@ -27,6 +27,7 @@ import Money from '../components/ui/Money';
 import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import InfoNote from '../components/ui/InfoNote';
 import SegRail from '../components/ui/SegRail';
+import PageHead from '../components/ui/PageHead';
 
 type Period = ReportPeriod;
 const PERIOD_LABELS: Record<Period, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
@@ -166,13 +167,11 @@ export default function Reports() {
 
   return (
     <div className="ui-pilot min-w-0" data-testid="reports-page">
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('reports')}</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Financial performance over time
-          </p>
-        </div>
+      {/* The date range and grouping stay on phones (aside); the title moves to the mobile header. */}
+      <PageHead
+        title={t('reports')}
+        subtitle="Financial performance over time"
+        aside={(
         <div className="flex flex-col gap-2 w-full sm:w-auto sm:items-end min-w-0">
           <div className="flex flex-wrap items-end gap-2 min-w-0">
             <label className="min-w-[10rem] text-xs text-ink-dim">
@@ -205,7 +204,8 @@ export default function Reports() {
             options={GROUPINGS.map(p => ({ value: p, label: PERIOD_LABELS[p] }))}
           />
         </div>
-      </div>
+        )}
+      />
 
       <section aria-label="Household position" className="mb-section border-y border-line py-5">
         <h2 className="text-xl font-display font-medium text-ink mb-4">Household position</h2>

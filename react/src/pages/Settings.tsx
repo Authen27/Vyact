@@ -25,6 +25,7 @@ import {
 } from '../lib/notifications';
 import type { Profile, Theme, NotifType } from '../types';
 import { canEditHouseholdRow } from '../lib/permissions';
+import PageHead from '../components/ui/PageHead';
 
 const THEMES: { key: Theme; label: string; desc: string }[] = [
   { key: 'dark',   label: 'Nocturne',   desc: 'Aurora dark — default' },
@@ -317,11 +318,7 @@ export default function Settings() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('settings')}</h1>
-        </div>
-      </div>
+      <PageHead title={t('settings')} />
 
       <div className="space-y-4">
 

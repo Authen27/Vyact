@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.85.0`** (consumer)
+> **Current production version: `v10.86.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,27 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.86.0 — Aurora 4.0 A2: app shell *(2026-10-12)*
+
+PR A2 of the Aurora 4.0 redesign: the page header, the add action and household switching. No figure,
+calculation or schema changes.
+
+- **One page header (PH1).** All 14 app pages use `components/ui/PageHead`. On desktop the page's own add
+  button sits centred on the title, not at its top edge, and subtitles are sentence case.
+- **No second title on phones (X3).** The mobile header already names the page, so the page title is
+  visually hidden below 640px. It stays the page's h1 for screen readers. Controls a page needs on phones
+  stay: Insights' tabs, the Reports date range, and Pip's WhatsApp and New chat (FIT3).
+- **The page's own + in the phone header (PH1 B′, HH4).** A small outlined + next to the bell adds the
+  page's own item: a loan on Debts, a budget on Budgets, a household on Households, and so on.
+  Transactions and the Dashboard leave it to the tab bar's +.
+- **The desktop + is a menu (X4, IN1).** The floating + no longer duplicates "+ Add Transaction". It opens a
+  menu of the other things you can add (transaction, split, budget, loan, asset) without this page's own,
+  and it now shows on Insights too.
+- **Household switch in the avatar (HDR1, HDR2).** The household-type chip is gone from both headers.
+  The avatar wears the household's badge, and the account menu's first row switches household.
 
 ---
 
