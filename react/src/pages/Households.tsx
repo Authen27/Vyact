@@ -29,6 +29,7 @@ import ActivityRow from '../components/households/ActivityRow';
 import {
   formatActivity, ACTIVITY_TYPE_FILTERS, type ActivityRow as ActivityRowData,
 } from '../lib/activityFormat';
+import PageHead from '../components/ui/PageHead';
 
 interface Membership {
   id: string;
@@ -159,10 +160,7 @@ export default function Households() {
   if (!cloudEnabled) {
     return (
       <div>
-        <h1 className="display-italic text-4xl text-ink mb-1.5">Households</h1>
-        <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim mb-6">
-          Local-only mode — set Supabase env vars to enable cloud
-        </p>
+        <PageHead title="Households" subtitle="Local-only mode — set Supabase env vars to enable cloud" />
 
         {/* Basic household identity (name/type) still lives on this device even
             without cloud — it just isn't shared with other members/devices. */}
@@ -216,17 +214,12 @@ export default function Households() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">Households</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            {households.length} household{households.length === 1 ? '' : 's'} · signed in as {session?.user?.email}
-          </p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus size={14} /> Create Household
-        </Button>
-      </div>
+      {/* HH4 — on phones the header + creates a household (the page button is desktop-only). */}
+      <PageHead
+        title="Households"
+        subtitle={<>{households.length} household{households.length === 1 ? '' : 's'} · signed in as {session?.user?.email}</>}
+        action={{ label: 'Create Household', icon: true, entity: 'household', onClick: () => setCreateOpen(true) }}
+      />
 
       {/* Household cards — board E · .hh-card: same neu treatment + member
           avatar stack as the household-switch pull-down (HouseholdSheet.tsx);

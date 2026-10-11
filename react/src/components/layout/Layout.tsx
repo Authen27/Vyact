@@ -1,6 +1,6 @@
 // Aurora shell (v10) — top app bar + contextual subnav + ⌘K palette on
 // desktop/tablet; bottom tab bar below sm. Replaces the v6–v9 left sidebar.
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import TopBar from './TopBar';
 import MobileHeader from './MobileHeader';
 import SubNav from './SubNav';
@@ -10,11 +10,16 @@ import FloatingTools from './FloatingTools';
 import AddFab from './AddFab';
 import SyncConflictBanner from './SyncConflictBanner';
 import OfflineStrip from './OfflineStrip';
+import { PageActionContext, type PageAction } from './pageAction';
 import { useShortcuts } from '../../hooks';
 import { useStore } from '../../store';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [palette, setPalette] = useState(false);
+  // Aurora 4.0 PH1 — the current page's own add action (set by <PageHead>), read by the header +
+  // on phones and by the floating + on desktop.
+  const [pageAction, setPageAction] = useState<PageAction | null>(null);
+  const pageActionCtx = useMemo(() => ({ action: pageAction, setAction: setPageAction }), [pageAction]);
 
   // Add-entity shortcuts stay app-wide (v7.4.4). `useShortcuts` already
   // ignores keystrokes while typing in form fields.
@@ -42,6 +47,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
+    <PageActionContext.Provider value={pageActionCtx}>
     <div className="relative min-h-screen" style={{ background: 'var(--canvas)' }}>
       <TopBar onOpenPalette={() => setPalette(true)} />
       {/* Board M1 — mobile chrome scrolls with the page (no fixed bar). */}
@@ -63,5 +69,6 @@ export default function Layout({ children }: { children: ReactNode }) {
       <AddFab />
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
     </div>
+    </PageActionContext.Provider>
   );
 }

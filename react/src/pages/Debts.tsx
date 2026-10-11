@@ -25,6 +25,7 @@ import { loanView, clearsLabel, latestLoanPayment, loanErrorMessage, LoanPayment
 import { DEBT_TYPES } from '../constants';
 import type { Debt, PayoffStrategy } from '../types';
 import SegRail from '../components/ui/SegRail';
+import PageHead from '../components/ui/PageHead';
 
 export default function Debts() {
   const { t } = useTranslation();
@@ -125,12 +126,7 @@ export default function Debts() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('debts')}</h1>
-        </div>
-        <button className="btn-primary" onClick={openAddDebt}>+ Add Loan</button>
-      </div>
+      <PageHead title={t('debts')} action={{ label: '+ Add Loan', entity: 'debt', onClick: openAddDebt }} />
 
       {(active.length > 0 || cardsOwe > 0) && (
         <>

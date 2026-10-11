@@ -7,6 +7,7 @@ import Money from '../components/ui/Money';
 import { splitsOutstanding, type SplitOutstanding } from '../lib/calculations';
 import type { Transaction, SplitParticipant, Debt } from '../types';
 import { splitCounts } from '../lib/splitParticipants';
+import PageHead from '../components/ui/PageHead';
 
 // v10.17 (items 7/8/9) — roll the outstanding split details up per person,
 // keyed by email (fallback: display name for local/no-email participants), so
@@ -336,14 +337,7 @@ export default function Splits() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('splits')}</h1>
-        </div>
-        <button className="btn-primary text-sm py-2 px-4 flex-shrink-0" onClick={() => openAddSplit()}>
-          + Add Split
-        </button>
-      </div>
+      <PageHead title={t('splits')} action={{ label: '+ Add Split', entity: 'split', onClick: () => openAddSplit() }} />
 
       {/* Board M4 — who-owes-who hero: your net position + the two sides.
           v10.17 (items 7/8/9) — every tile is a toggle that expands a per-person

@@ -18,6 +18,7 @@ import Money from '../components/ui/Money';
 import BudgetPaceChart from '../components/budgets/BudgetPaceChart';
 import { sortBudgetsForDisplay, sortByUtilisation } from '../lib/budgetOrdering';
 import type { Budget } from '../types';
+import PageHead from '../components/ui/PageHead';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -97,17 +98,14 @@ export default function Budgets() {
 
   return (
     <div>
-      <div className="flex justify-between items-start mb-5 gap-4">
-        <div className="min-w-0">
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('budgets')}</h1>
-          <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-            Month and annual plans · per-category allocations
-          </p>
-        </div>
-        {canManage
-          ? <button className="btn-primary flex-shrink-0" onClick={openAddBudget}>+ Add Budget</button>
-          : <span className="flex-shrink-0 font-mono text-[0.6rem] tracking-[0.12em] uppercase text-ink-dim border border-line rounded-md px-2.5 py-1.5 self-center" title="Budgets are managed by the household owner or admin">View only</span>}
-      </div>
+      <PageHead
+        title={t('budgets')}
+        subtitle="Month and annual plans · per-category allocations"
+        action={canManage ? { label: '+ Add Budget', entity: 'budget', onClick: openAddBudget } : undefined}
+        aside={!canManage && (
+          <span className="ui-label well px-2.5 py-1.5" title="Budgets are managed by the household owner or admin">View only</span>
+        )}
+      />
 
       {/* §4.2 — create nudge for the current month (owner/admin only) */}
       {!hasCurrentMonth && canManage && (

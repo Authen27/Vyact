@@ -6,6 +6,7 @@ import { Panel } from '../components/ui/Card';
 import { Field, Input, Textarea } from '../components/ui/Input';
 import { HELP_TOPICS, searchHelpTopics, type HelpTopic } from '../lib/helpContent';
 import HelpTopicBody from '../components/help/HelpTopicBody';
+import PageHead from '../components/ui/PageHead';
 
 const SUPPORT_EMAIL = 'support@vyact.app';
 const GROUPS: HelpTopic['group'][] = ['Start here', 'Everyday money', 'Planning', 'Access and support'];
@@ -30,7 +31,7 @@ export default function Help() {
   // display-italic title with no caption, display-italic section headings, content in Panels.
   return (
     <div>
-      <h1 className="display-italic text-4xl text-ink mb-6">Help &amp; Guide</h1>
+      <PageHead title="Help & Guide" />
 
       <h2 id="help-start" className="display-italic text-2xl text-ink mb-3">Your next step</h2>
       <Panel className="mb-6">

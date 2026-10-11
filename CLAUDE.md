@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.85.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.86.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -592,6 +592,21 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - A transaction's account label is `txnAccountLabel` (the `accounts` FK first, the legacy
     `paymentMethod` resolver last). A new store collection joins the backup in `lib/backup.ts`.
   - Bottom-fixed surfaces use `.bottom-above-tabbar`, not `bottom-4`.
+- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
+  - Surfaces are three tiers only: `.card-raised` (heroes, KPIs, 18px), the panel (lists), and `.well`
+    (stats and inputs inside a card, 12px). Never bring back the bg3 + 1px border + 8px tile. Corners
+    are 12 / 18 / 26px (26 only for the auth card).
+  - Status colour as TEXT uses the `--*-text` tokens (`--good-text`, `--warn-text`, `--accent-text`,
+    `--info-text`, `--crit-text`). Mist remaps them to darker shades; fills, bars and rings keep the
+    bright ones. Text on coral is `--accent-ink`, never white.
+  - A view or filter switch is `components/ui/SegRail` (role tablist). Forms keep `SegmentedControl`.
+  - Every app page's header is `components/ui/PageHead`. Its `action` is the page's own add: a
+    desktop button, and on phones the outlined + in the mobile header (the title is visually hidden
+    there but stays the h1). The desktop floating + is a menu of the OTHER entities. Pages without
+    an add (Reports, Settings, Help) pass none; Transactions and the Dashboard set
+    `headerPlus: false` because the tab bar's + already adds a transaction.
+  - Household switching lives in the avatar menu (the avatar wears the household badge), not a
+    header chip.
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)

@@ -22,6 +22,7 @@ import { projectRecurringTransactionsForDate } from '../lib/recurring';
 import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
 import type { Transaction, TxnType } from '../types';
 import SegRail from '../components/ui/SegRail';
+import PageHead from '../components/ui/PageHead';
 
 type TransactionListItem = {
   txn: Transaction;
@@ -300,17 +301,12 @@ export default function Transactions() {
 
   return (
     <div className="ui-pilot">
-      <div className="flex justify-between items-start mb-section gap-4 flex-wrap">
-        <div className="min-w-0">
-          <h1 className="display-italic text-4xl text-ink mb-1.5">{t('transactions')}</h1>
-          <p className="ui-label">
-            All household income, expenses, investments &amp; transfers
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button className="btn-primary" onClick={() => openAddTxn()}>+ {t('add-transaction')}</button>
-        </div>
-      </div>
+      {/* The tab bar's + adds a transaction on phones, so this page has no header + (PH1 B′). */}
+      <PageHead
+        title={t('transactions')}
+        subtitle="All household income, expenses, investments & transfers"
+        action={{ label: `+ ${t('add-transaction')}`, entity: 'transaction', headerPlus: false, onClick: () => openAddTxn() }}
+      />
 
       {/* Board B M1 — search + calendar-toggle live on one row, above the
           type rail (the board's first toolbar row). On lg+ the calendar

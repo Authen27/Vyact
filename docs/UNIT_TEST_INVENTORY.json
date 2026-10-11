@@ -113,6 +113,25 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/a2AuroraShell.test.tsx",
+      "feature": "Aurora 4.0 app shell (A2)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Aurora 4.0 A2: one PageHead on every app page, title hidden on phones but kept as h1, page action as the phone header + (not on Transactions/Dashboard), desktop floating + as a menu of the other entities, shown on Insights, household switch in the avatar menu with a badge",
+      "count": 8,
+      "tests": [
+        "A2 · Aurora 4.0 shell A2-CTX-001 · the page action is registered for the shell and cleared when the page unmounts",
+        "A2 · Aurora 4.0 shell A2-FIT3-001 · Pip: the heading hides on phones and the toolbar stays in one row",
+        "A2 · Aurora 4.0 shell A2-HDR-001 · no household chip in either header; the avatar carries a badge and its menu the switcher",
+        "A2 · Aurora 4.0 shell A2-HH4-001 · Households: the header + creates a household on phones",
+        "A2 · Aurora 4.0 shell A2-PH1-001 · every app page uses the one PageHead; no hand-rolled h1 blocks remain",
+        "A2 · Aurora 4.0 shell A2-PH1-002 · the phone header shows the page action as a small outlined +; Transactions and Dashboard leave it to the tab bar",
+        "A2 · Aurora 4.0 shell A2-X3-001 · phones: the title is visually hidden but stays the page h1; without controls the header takes no space",
+        "A2 · Aurora 4.0 shell A2-X4-001 · desktop floating + opens a menu of the other entities, never this page's own; IN1: shown on Insights"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/accountDeletionHandler.test.ts",
       "feature": "Account deletion handler",
       "availability": "conditional",

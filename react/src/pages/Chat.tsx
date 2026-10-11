@@ -25,6 +25,7 @@ import { isAskVyactEnabled, FEATURES } from '../config/features';
 import {
   runAssistant, proactiveInsight, selectAssistantBackend, type AssistantContext,
 } from '../lib/askVyactBackend';
+import PageHead from '../components/ui/PageHead';
 
 // Minimal Web Speech API shapes (lib.dom doesn't ship these in all TS configs).
 interface SpeechRecognitionEventLike {
@@ -516,21 +517,14 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
 
   return (
     <div className={`ui-pilot reading-surface ${embedded ? 'flex flex-col flex-1 min-h-0' : ''}`}>
+      {/* FIT3 — on phones the heading is hidden (the mobile header says "Pip") and WhatsApp and
+          New chat sit right-aligned in one row. */}
       {!embedded && (
-        <div className="flex justify-between items-start mb-5 gap-4 flex-wrap">
-          <div>
-            <h1 className="display-italic text-4xl text-ink mb-1.5 flex items-center gap-2.5">
-              <MessageCircle className="text-coral" /> Pip
-            </h1>
-            {/* v10.20 — "On-device" was retired with RulesBackend; see the
-                privacy block below. Ask Vyact still captures, inquires and
-                plans in two taps, which is what this line is actually for. */}
-            <p className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-ink-dim">
-              Record money · understand your household · explore a decision
-            </p>
-          </div>
-          {toolbar}
-        </div>
+        <PageHead
+          title={<span className="flex items-center gap-2.5"><MessageCircle className="text-coral" /> Pip</span>}
+          subtitle="Record money · understand your household · explore a decision"
+          aside={toolbar}
+        />
       )}
       {embedded && <div className="flex justify-end mb-2.5">{toolbar}</div>}
       <WhatsAppConnectSheet open={waOpen} onClose={() => setWaOpen(false)} />
