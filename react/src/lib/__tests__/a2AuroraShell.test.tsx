@@ -71,7 +71,7 @@ describe('A2 · Aurora 4.0 shell', () => {
     expect(fab).toMatch(/const menu = items\.filter\(item => item\.entity !== pageEntity\);/);
     expect(fab).toMatch(/role="menu"/);
     expect(fab).toMatch(/onClick=\{\(\) => setOpen\(o => !o\)\}/);
-    expect(fab).not.toMatch(/openAddTxn\(\);\n  \}/);              // a click no longer adds a transaction
+    expect(fab).not.toMatch(/openAddTxn\(\);\n {2}\}/);            // a click no longer adds a transaction
     expect(fab).not.toMatch(/startsWith\('\/insights'\)/);
     expect(fab).not.toMatch(/longPress/i);
   });
@@ -84,7 +84,7 @@ describe('A2 · Aurora 4.0 shell', () => {
 
   it('A2-CTX-001 · the page action is registered for the shell and cleared when the page unmounts', () => {
     const ctx = read('components/layout/pageAction.ts');
-    expect(ctx).toMatch(/setAction\(\{ label, entity, headerPlus, onClick: \(\) => run\.current\?\.\(\) \}\);\n    return \(\) => setAction\(null\);/);
+    expect(ctx).toMatch(/setAction\(\{ label, entity, headerPlus, onClick: \(\) => run\.current\?\.\(\) \}\);\n {4}return \(\) => setAction\(null\);/);
     expect(read('components/layout/Layout.tsx')).toMatch(/<PageActionContext\.Provider value=\{pageActionCtx\}>/);
   });
 });
