@@ -8,7 +8,8 @@ export type ToastKind = 'success' | 'error' | 'info' | 'warning';
 
 export function toastLifetimeMs(type: ToastKind, hasAction: boolean): number {
   if (type === 'error' || type === 'warning') return 10_000;
-  return hasAction ? 6_000 : 3_200;
+  // Aurora 4.0 CF1 — an Undo stays 8 s (lib/undoable.ts UNDO_MS: a held action commits then).
+  return hasAction ? 8_000 : 3_200;
 }
 
 /** `alert` interrupts (failures); `status` waits its turn (confirmations, info). */

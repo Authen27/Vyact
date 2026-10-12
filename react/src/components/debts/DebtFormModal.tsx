@@ -21,6 +21,8 @@ import { uid, fmt, today } from '../../lib/format';
 import { DEBT_TYPES } from '../../constants';
 import { loanEmi, loanOutstanding, loanAccountOf, nextInstalmentDate, LoanPaymentRefused, loanErrorMessage } from '../../lib/loanSchedule';
 import type { Debt } from '../../types';
+import { askSheet } from '../../lib/confirmSheet';
+import { deleteLoanRequest } from '../../lib/confirmCopy';
 
 interface Props {
   open?: boolean;
@@ -195,7 +197,16 @@ export default function DebtFormModal(props: Props) {
 
   async function del() {
     if (!initial) return;
-    if (!confirm(`Delete ${initial.name}? Its payments stay in your history.`)) return;
+    // Aurora 4.0 CF11 — a cleared loan is pointed to Mark paid off, which keeps it in Net Worth history.
+    const payments = new Set(transactions.filter(t => t.debtId === initial.id && t.emiSplit?.operation_id).map(t => t.emiSplit!.operation_id)).size;
+    const paidUp = initial.direction !== 'owed_to_me' && !initial.paidOffAt && loanOutstanding(initial, accounts, transactions) <= 0;
+    const answer = await askSheet(deleteLoanRequest({ name: initial.name, payments, paidUp }));
+    if (!answer.ok) return;
+    if (answer.choice === 'paidoff') {
+      try { await useStore.getState().markLoanPaidOff(initial.id, undefined); toast(`${initial.name} marked paid off`, 'success'); onClose(); }
+      catch (e) { toast(e instanceof LoanPaymentRefused ? loanErrorMessage(e.code, e.figure, money) : `Could not mark paid off: ${(e as Error).message}`, 'error'); }
+      return;
+    }
     try {
       await deleteDebt(initial.id);
       toast('Deleted', 'info');

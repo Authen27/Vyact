@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.86.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.87.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -592,7 +592,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - A transaction's account label is `txnAccountLabel` (the `accounts` FK first, the legacy
     `paymentMethod` resolver last). A new store collection joins the backup in `lib/backup.ts`.
   - Bottom-fixed surfaces use `.bottom-above-tabbar`, not `bottom-4`.
-- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
+- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
   - Surfaces are three tiers only: `.card-raised` (heroes, KPIs, 18px), the panel (lists), and `.well`
     (stats and inputs inside a card, 12px). Never bring back the bg3 + 1px border + 8px tile. Corners
     are 12 / 18 / 26px (26 only for the auth card).
@@ -607,6 +607,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     `headerPlus: false` because the tab bar's + already adds a transaction.
   - Household switching lives in the avatar menu (the avatar wears the household badge), not a
     header chip.
+  - **Never call `window.confirm` / `window.prompt`** (a test fails on it). An action that loses data or
+    affects other people asks through `confirmSheet` / `askSheet` (`lib/confirmSheet.ts`, rendered by
+    `ConfirmHost`), with its words built in `lib/confirmCopy.ts`: a title naming the item, 1–3 lines on
+    what happens and what stays, one action named after the verb. A reversible action does not ask:
+    it acts and offers Undo for 8 s (`lib/undoable.ts`: `offerUndo` when it has an exact reversal,
+    `deferCommit` when it does not — held, then written after 8 s or on navigation, never on Undo).
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)

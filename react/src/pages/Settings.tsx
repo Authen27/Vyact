@@ -26,6 +26,8 @@ import {
 import type { Profile, Theme, NotifType } from '../types';
 import { canEditHouseholdRow } from '../lib/permissions';
 import PageHead from '../components/ui/PageHead';
+import { askSheet, confirmSheet } from '../lib/confirmSheet';
+import { deactivateRequest, deleteAccountRequest, eraseDataRequest, verificationCodeRequest } from '../lib/confirmCopy';
 
 const THEMES: { key: Theme; label: string; desc: string }[] = [
   { key: 'dark',   label: 'Nocturne',   desc: 'Aurora dark — default' },
@@ -135,11 +137,17 @@ export default function Settings() {
       toast(`Could not send verification code: ${(e as Error).message}`, 'error');
       return false;
     }
-    toast(`Verification code sent to ${email}`, 'info');
-    const code = window.prompt(`Enter the 6-digit code sent to ${email} to confirm: ${actionLabel}`);
-    if (!code) return false;
+    // Aurora 4.0 CF17 — a proper 6-digit field with Resend, not a browser prompt.
+    const { ok, value: code } = await askSheet(verificationCodeRequest({
+      email, action: actionLabel,
+      resend: async () => {
+        try { await sendAccountActionCode(); toast(`New code sent to ${email}`, 'info'); }
+        catch (e) { toast(`Could not resend the code: ${(e as Error).message}`, 'error'); }
+      },
+    }));
+    if (!ok || !code) return false;
     try {
-      await verifyAccountActionCode(email, code.trim());
+      await verifyAccountActionCode(email, code);
       return true;
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -149,9 +157,7 @@ export default function Settings() {
 
   async function onEraseHouseholdData() {
     if (!cloudEnabled || !session) { toast('Erase requires cloud mode', 'error'); return; }
-    if (!window.confirm(
-      'This permanently deletes every transaction, budget, debt, asset, account, goal, and recurring schedule in this household. Your login and household stay intact. This cannot be undone.\n\nContinue?'
-    )) return;
+    if (!(await confirmSheet(eraseDataRequest()))) return;
     setErasing(true);
     try {
       if (!(await confirmWithEmailCode('erase all household data'))) return;
@@ -165,7 +171,7 @@ export default function Settings() {
 
   async function onDeactivate() {
     if (!cloudEnabled || !session) { toast('Deactivation requires cloud mode', 'error'); return; }
-    if (!window.confirm('Deactivate your account? You will be signed out immediately. Your data is kept exactly as-is and restored the moment you sign back in.')) return;
+    if (!(await confirmSheet(deactivateRequest()))) return;   // Aurora 4.0 CF18
     setDeactivating(true);
     try {
       if (!(await confirmWithEmailCode('deactivate your account'))) return;
@@ -183,9 +189,7 @@ export default function Settings() {
   // that the emailed code was just confirmed (a recent sign-in), not only this page.
   async function onDeleteAccount() {
     if (!cloudEnabled || !session) { toast('Account deletion requires cloud mode', 'error'); return; }
-    if (!window.confirm(
-      'This permanently deletes your account now: your login, your profile, and every household where you are the only member, with everything in it. In households you share, your entries stay with the household. This cannot be undone.\n\nContinue?'
-    )) return;
+    if (!(await confirmSheet(deleteAccountRequest()))) return;
     setDeleting(true);
     try {
       if (!(await confirmWithEmailCode('permanently delete your account'))) return;

@@ -228,13 +228,14 @@ export class TransactionFormModal {
   }
 
   /**
-   * Edit-mode only: clicks the Delete link, accepts the confirm() dialog,
-   * and waits for the sheet to dismiss. Pass `accept=false` to test the
-   * cancel path on the confirm.
+   * Edit-mode only: clicks the Delete link, answers the confirmation sheet
+   * (Aurora 4.0 CF3 — "Delete entry", or Cancel with `accept=false`), and waits
+   * for the form to close.
    */
   async delete({ accept = true }: { accept?: boolean } = {}) {
-    this.page.once('dialog', d => (accept ? d.accept() : d.dismiss()));
     await this.deleteLink.click();
+    const sheet = this.page.getByRole('dialog', { name: /^Delete .*?$/ });
+    await sheet.getByRole('button', { name: accept ? 'Delete entry' : 'Cancel', exact: true }).click();
     if (accept) await this.waitClosed();
   }
 }

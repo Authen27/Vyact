@@ -11,6 +11,8 @@ import { useStore } from '../../store';
 import { track } from '../../lib/analytics';
 import { supabase } from '../../lib/supabase';
 import { readWhatsAppLink } from '../../lib/whatsappLink';
+import { confirmSheet } from '../../lib/confirmSheet';
+import { unlinkWhatsAppRequest } from '../../lib/confirmCopy';
 
 export type WhatsAppLinkPhase = 'loading' | 'unlinked' | 'code-sent' | 'linked';
 
@@ -95,7 +97,9 @@ export function useWhatsAppLink() {
 
   async function unlink() {
     if (!supabase || !userId) return;
-    if (!confirm('Unlink your WhatsApp number?')) return;
+    // Aurora 4.0 CF20 — say what stops working.
+    const masked = linkedPhone ? `•••• ${linkedPhone.replace(/\D/g, '').slice(-4)}` : undefined;
+    if (!(await confirmSheet(unlinkWhatsAppRequest({ phone: masked })))) return;
     setBusy(true);
     try {
       await readWhatsAppLink('unlink');

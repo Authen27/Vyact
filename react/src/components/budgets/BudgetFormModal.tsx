@@ -19,6 +19,9 @@ import { resolveBudgetPeriod, recurringForecastByCategory } from '../../lib/calc
 import { suggestBudget, budgetCategoryOf } from '../../lib/budgetIntel';
 import { EXPENSE_CATEGORIES, getCat, deterministicColor, CURRENCIES as CURRENCY_MAP } from '../../constants';
 import type { Budget, BudgetScope, BudgetAllocation } from '../../types';
+import { confirmSheet } from '../../lib/confirmSheet';
+import { deleteBudgetRequest } from '../../lib/confirmCopy';
+import { budgetTitle, trimAllocations } from '../../lib/budgetForm';
 
 /** v10.28.0 — rendered as the /budgets/new and /budgets/:id/edit pages. */
 interface Props { open?: boolean; initial?: Budget | null; onClose: () => void; }
@@ -139,6 +142,12 @@ export default function BudgetFormModal(props: Props) {
       return { ...f, allocs: f.allocs.map((r, idx) => idx === i ? { ...r, amount } : r) };
     });
   }
+  // FB1 — the two fixes the over-total note offers.
+  const raiseTotal = () => setForm(f => ({ ...f, limit: String(Math.round(allocSum * 100) / 100) }));
+  const trimToTotal = () => setForm(f => {
+    const trimmed = trimAllocations(f.allocs.map(r => parseAmount(r.amount) || 0), total);
+    return { ...f, allocs: f.allocs.map((r, i) => ({ ...r, amount: trimmed[i] > 0 ? String(trimmed[i]) : r.amount && parseAmount(r.amount) > 0 ? '0' : r.amount })) };
+  });
   const amountFor = (category: string) =>
     form.allocs.find(r => r.category === category)?.amount ?? '';
   // W4h (owner decision D27) — applying a proposal sets the TOTAL to what it allocates. Keeping a total
@@ -181,10 +190,8 @@ export default function BudgetFormModal(props: Props) {
         }
       }
     }
-    // sum-check: warn (do not block) on over-allocation.
-    if (allocSum > total + 0.001) {
-      if (!confirm(`Allocations (${fmt(allocSum, form.currency)}) exceed the total (${fmt(total, form.currency)}). Save anyway?`)) return;
-    }
+    // Aurora 4.0 FB1 — going over the total is shown while editing (the amber note with Raise total /
+    // Trim allocations), so Save no longer stops to ask "Save anyway?". It still saves as typed.
     setSaving(true);
     try {
       // Budget-sync fix — write the budget AND its allocations in ONE atomic,
@@ -229,7 +236,9 @@ export default function BudgetFormModal(props: Props) {
 
   async function del() {
     if (!initial) return;
-    if (!confirm('Delete this budget?')) return;
+    // Aurora 4.0 CF6.
+    const allocations = useStore.getState().budgetAllocations.filter(a => a.budgetId === initial.id && a.amount > 0).length;
+    if (!(await confirmSheet(deleteBudgetRequest({ label: budgetTitle(initial), allocations })))) return;
     try { await removeBudget(initial.id); toast('Budget deleted', 'info'); onClose(); }
     catch (e) { toast(`Delete failed: ${(e as Error).message}`, 'error'); }
   }
@@ -360,6 +369,20 @@ export default function BudgetFormModal(props: Props) {
         <div className="text-[0.72rem] mt-1.5 text-ink-dim">
           Allocated {fmt(allocSum, form.currency)} of {fmt(total, form.currency)}
         </div>
+        {remaining < -0.001 && total > 0 && (
+          <div role="status" data-testid="budget-over-total" className="mt-2 rounded-r2 px-3 py-2.5 text-[13px]"
+            style={{ background: 'color-mix(in srgb, hsl(var(--honey)) 12%, transparent)', boxShadow: 'inset 0 0 0 1px color-mix(in srgb, hsl(var(--honey)) 28%, transparent)' }}>
+            <p className="text-ink">Allocations are {fmt(-remaining, form.currency)} over the total.</p>
+            <div className="flex flex-wrap gap-x-4 mt-1">
+              <button type="button" onClick={raiseTotal} className="min-h-[44px] font-medium" style={{ color: 'var(--warn-text)' }}>
+                Raise total to {fmt(allocSum, form.currency)}
+              </button>
+              <button type="button" onClick={trimToTotal} className="min-h-[44px] font-medium" style={{ color: 'var(--warn-text)' }}>
+                Trim allocations
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* §4.2 — recurring forecast (read-only, A8) */}

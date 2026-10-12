@@ -17,17 +17,13 @@ import { getCat } from '../constants';
 import Money from '../components/ui/Money';
 import BudgetPaceChart from '../components/budgets/BudgetPaceChart';
 import { sortBudgetsForDisplay, sortByUtilisation } from '../lib/budgetOrdering';
-import type { Budget } from '../types';
 import PageHead from '../components/ui/PageHead';
+import { confirmSheet } from '../lib/confirmSheet';
+import { deleteBudgetRequest } from '../lib/confirmCopy';
+import { budgetTitle } from '../lib/budgetForm';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function budgetTitle(b: Budget): string {
-  if (b.scope === 'annual') return `${b.periodYear}`;
-  if (b.scope === 'month' && b.periodMonth) return `${MONTHS[b.periodMonth - 1]} ${b.periodYear}`;
-  // legacy fallback
-  return b.periodStart ? `${b.periodStart} → ${b.periodEnd}` : 'Budget';
-}
 // v10.22.1 — the displayed percentage and the bar width are NOT the same number.
 //
 // `pct` used to clamp at 100 and feed both, so ₹350 spent against a ₹300 budget
@@ -90,8 +86,17 @@ export default function Budgets() {
   const currentMonthRow = rows.find(r => r.b.scope === 'month'
     && r.b.periodYear === now.getFullYear() && r.b.periodMonth === now.getMonth() + 1);
 
+  // Aurora 4.0 CF6 — names the budget, its allocations, and that the spending stays.
   async function del(id: string) {
-    if (!confirm('Delete this budget?')) return;
+    const row = rows.find(r => r.b.id === id);
+    if (!row) return;
+    const ok = await confirmSheet(deleteBudgetRequest({
+      label: budgetTitle(row.b),
+      allocations: row.allocs.length,
+      spent: row.spent > 0 ? fmt(row.spent, cur) : undefined,
+      period: row.b.scope === 'annual' ? `${row.b.periodYear} spending` : `${budgetTitle(row.b)} spending`,
+    }));
+    if (!ok) return;
     await removeBudget(id);
     toast('Budget removed', 'info');
   }

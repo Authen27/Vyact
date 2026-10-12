@@ -8,6 +8,8 @@ import { splitsOutstanding, type SplitOutstanding } from '../lib/calculations';
 import type { Transaction, SplitParticipant, Debt } from '../types';
 import { splitCounts } from '../lib/splitParticipants';
 import PageHead from '../components/ui/PageHead';
+import { askSheet, confirmSheet } from '../lib/confirmSheet';
+import { closeSplitRequest, deleteSplitRequest } from '../lib/confirmCopy';
 
 // v10.17 (items 7/8/9) — roll the outstanding split details up per person,
 // keyed by email (fallback: display name for local/no-email participants), so
@@ -83,8 +85,24 @@ export default function Splits() {
     </div>
   );
 
+  // The other people on a split, by name (for the sheets).
+  const othersOn = (txn: Transaction) => (txn.split?.participants ?? [])
+    .filter((p: SplitParticipant) => !p.isYou).map((p: SplitParticipant) => p.name || p.email || '').filter(Boolean);
+
+  // Aurora 4.0 CF4 — says who is affected; a shared split offers Close as the softer option.
   async function deleteSplit(txnId: string) {
-    if (!confirm('Delete this split completely? This removes the transaction and any shares sent to other households.')) return;
+    const txn = transactions.find(t => t.id === txnId);
+    const shared = sharedSplitsOwned.find(sp => sp.txnId === txnId && !sp.closedAt);
+    const answer = await askSheet(deleteSplitRequest({
+      name: txn?.description ?? '', amount: txn ? fmt(txn.amount, txn.currency) : 'whole',
+      others: txn ? othersOn(txn) : [], canClose: !!shared,
+    }));
+    if (!answer.ok) return;
+    if (answer.choice === 'close' && shared) {
+      try { await closeMySplit(shared.id); toast('Split closed', 'info'); }
+      catch (e) { toast(`Close failed: ${(e as Error).message}`, 'error'); }
+      return;
+    }
     try {
       await removeTransaction(txnId);
       if (cloudActive) await deleteSharedSplitForTxn(txnId);
@@ -145,8 +163,11 @@ export default function Splits() {
     toast('All participants settled', 'success');
   }
 
+  // Aurora 4.0 CF5 — closing is permanent and notifies people, so it keeps a confirmation.
   async function closeSplit(splitId: string) {
-    if (!confirm('Close this split? Members are notified and it can no longer be edited.')) return;
+    const shared = sharedSplitsOwned.find(sp => sp.id === splitId);
+    const txn = shared ? transactions.find(t => t.id === shared.txnId) : undefined;
+    if (!(await confirmSheet(closeSplitRequest({ name: txn?.description ?? '', others: txn ? othersOn(txn) : [] })))) return;
     try { await closeMySplit(splitId); toast('Split closed', 'info'); }
     catch (e) { toast(`Close failed: ${(e as Error).message}`, 'error'); }
   }

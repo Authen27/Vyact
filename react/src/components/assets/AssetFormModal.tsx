@@ -24,6 +24,9 @@ import { uid, today } from '../../lib/format';
 import { computeAssetValue } from '../../lib/accountBalance';
 import { ASSET_TYPES } from '../../constants';
 import type { Asset } from '../../types';
+import { fmt } from '../../lib/format';
+import { confirmSheet } from '../../lib/confirmSheet';
+import { deleteAssetRequest } from '../../lib/confirmCopy';
 
 interface Props {
   open?: boolean;
@@ -149,7 +152,9 @@ export default function AssetFormModal(props: Props) {
 
   async function del() {
     if (!initial) return;
-    if (!confirm('Delete this asset?')) return;
+    // Aurora 4.0 CF12.
+    const value = initial.currency ? fmt(liveValue, initial.currency) : undefined;
+    if (!(await confirmSheet(deleteAssetRequest({ name: initial.name, value: liveValue > 0 ? value : undefined })))) return;
     try {
       await removeAsset(initial.id);
       toast('Asset deleted', 'info');

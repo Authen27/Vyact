@@ -83,9 +83,11 @@ export class BudgetFormModal {
     await this.waitClosed();
   }
 
+  /** Aurora 4.0 CF6 — Delete opens the app's confirmation sheet (no browser confirm). */
   async delete({ accept = true }: { accept?: boolean } = {}) {
-    this.page.once('dialog', d => (accept ? d.accept() : d.dismiss()));
     await this.deleteLink.click();
+    const sheet = this.page.getByRole('dialog', { name: /^Delete .* budget?$/ });
+    await sheet.getByRole('button', { name: accept ? 'Delete budget' : 'Cancel', exact: true }).click();
     if (accept) await this.waitClosed();
   }
 }

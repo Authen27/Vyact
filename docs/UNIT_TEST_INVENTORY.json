@@ -132,6 +132,26 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/a3AuroraConfirmations.test.ts",
+      "feature": "Aurora 4.0 confirmations and undo (A3)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Aurora 4.0 A3: no window.confirm/prompt; one confirmation sheet (460px desktop dialog) with per-item copy for CF3-CF20; skip a bill with Undo (unskip), revoke held 8 s then written or on navigation, sign out at once; 8 s Undo toast; budget over-total note with Raise total / Trim allocations",
+      "count": 9,
+      "tests": [
+        "A3 · confirmations and undo A3-CF-COPY · every sheet names its item and says what happens and what stays (board copy)",
+        "A3 · confirmations and undo A3-CF-SITES · each page asks through the sheet with its own copy",
+        "A3 · confirmations and undo A3-CF1-001 · reversible actions do not ask: skip a bill (Undo restores it), revoke an invite (held 8 s), sign out",
+        "A3 · confirmations and undo A3-CF1-002 · an Undo toast stays 8 s; a held action commits after 8 s, on navigation, never on Undo",
+        "A3 · confirmations and undo A3-CF2-001 · the sheet resolves with the answer; a second request cancels the first",
+        "A3 · confirmations and undo A3-CF2-002 · inputs gate the action: a 6-digit code, the typed household name, an optional note",
+        "A3 · confirmations and undo A3-FB1-001 · over the total shows while editing, with Raise total and Trim; Save no longer asks",
+        "A3 · confirmations and undo A3-MD1-001 · one host renders it: a 460px dialog on desktop, buttons right-aligned, Cancel first",
+        "A3 · confirmations and undo A3-X6-001 · no window.confirm() or window.prompt() is left anywhere in the app"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/accountDeletionHandler.test.ts",
       "feature": "Account deletion handler",
       "availability": "conditional",
