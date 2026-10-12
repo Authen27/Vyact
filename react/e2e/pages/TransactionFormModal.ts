@@ -234,7 +234,7 @@ export class TransactionFormModal {
    */
   async delete({ accept = true }: { accept?: boolean } = {}) {
     await this.deleteLink.click();
-    const sheet = this.page.getByRole('dialog', { name: /^Delete .*?$/ });
+    const sheet = this.page.getByRole('dialog', { name: /^Delete .*\?$/ });
     await sheet.getByRole('button', { name: accept ? 'Delete entry' : 'Cancel', exact: true }).click();
     if (accept) await this.waitClosed();
   }

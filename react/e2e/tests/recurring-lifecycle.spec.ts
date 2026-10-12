@@ -94,7 +94,7 @@ test.describe('§ Recurring · create · delete · regression', () => {
 
     // Aurora 4.0 CF7 — the row's Delete opens a sheet (past entries stay; future ones stop).
     await page.getByRole('button', { name: 'Delete schedule' }).first().click();
-    await page.getByRole('dialog', { name: /^Delete .* schedule?$/ }).getByRole('button', { name: 'Delete schedule', exact: true }).click();
+    await page.getByRole('dialog', { name: /^Delete .* schedule\?$/ }).getByRole('button', { name: 'Delete schedule', exact: true }).click();
     await expect(page.getByText('E2E Doomed')).toHaveCount(0);
 
     // THE ACTUAL COMPLAINT — "toast says deleted, refresh brings it back". The
