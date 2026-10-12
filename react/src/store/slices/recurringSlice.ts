@@ -21,6 +21,8 @@ export interface RecurringSlice {
   approveRecurring: (id: string, occurrenceDate: string) => Promise<boolean>;
   /** Skip ONLY the occurrence named, and only while it is the one due (W4d); false when already handled. */
   skipRecurring: (id: string, occurrenceDate: string) => Promise<boolean>;
+  /** Aurora 4.0 CF8 — Undo a skip: put the schedule back as it was before `skipRecurring`. */
+  unskipRecurring: (before: RecurringSchedule) => Promise<boolean>;
   runRecurringEngine: () => Promise<void>;
 }
 
@@ -120,6 +122,18 @@ export const createRecurringSlice: StateCreator<Store, [], [], RecurringSlice> =
     const schedule = get().recurringSchedules.find(row => row.id === id);
     if (!schedule?.active || schedule.nextDueDate !== occurrenceDate) return false;
     await get().upsertRecurring(advanceSchedule(schedule));
+    await get().refreshNotifications();
+    return true;
+  },
+
+  // Aurora 4.0 CF8 — skipping no longer asks first; its toast offers Undo for 8 seconds. Undo writes
+  // back the schedule as it was before the skip (its pointer, dates and active flag), carrying the
+  // CURRENT row's `updated_at` as the precondition so it is a normal edit, not a stale overwrite. It
+  // refuses when the schedule is gone or has moved on again (approved or posted since).
+  unskipRecurring: async (before) => {
+    const current = get().recurringSchedules.find(row => row.id === before.id);
+    if (!current || current.nextDueDate !== advanceSchedule(before).nextDueDate) return false;
+    await get().upsertRecurring({ ...before, updated_at: current.updated_at });
     await get().refreshNotifications();
     return true;
   },

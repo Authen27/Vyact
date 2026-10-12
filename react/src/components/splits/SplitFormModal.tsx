@@ -22,7 +22,9 @@ import { AmountField } from '../ui/NumericKeypad';
 import { parseAmount } from '../../lib/amountInput';
 import Button from '../ui/Button';
 import { useStore } from '../../store';
-import { uid, today, nowTime } from '../../lib/format';
+import { uid, today, nowTime, fmt } from '../../lib/format';
+import { confirmSheet } from '../../lib/confirmSheet';
+import { deleteSplitRequest } from '../../lib/confirmCopy';
 import { CURRENCIES } from '../../constants';
 import { buildAccounts, buildAccountsFromStore, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
 import { getMoneyMapMode } from '../../lib/featureFlags';
@@ -372,7 +374,9 @@ export default function SplitFormModal(props: Props) {
 
   async function del() {
     if (!initial) return;
-    if (!confirm('Delete this split?')) return;
+    // Aurora 4.0 CF4 — says who is affected (closing a shared split is offered on the Splits page).
+    const others = (initial.split?.participants ?? []).filter(p => !p.isYou).map(p => p.name || p.email || '').filter(Boolean);
+    if (!(await confirmSheet(deleteSplitRequest({ name: initial.description ?? '', amount: fmt(initial.amount, initial.currency), others, canClose: false })))) return;
     try {
       await removeTransaction(initial.id);
       if (cloudActive) await deleteSharedSplitForTxn(initial.id);

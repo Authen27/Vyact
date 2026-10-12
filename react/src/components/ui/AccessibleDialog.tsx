@@ -31,7 +31,7 @@ interface Props {
   /** Desktop width. 'md' (default) is the compact form sheet; 'lg' and 'xl'
    *  fit two-column dialogs (v10.24.0 Accounts edit / delete guard). Mobile is
    *  always full width. */
-  size?: 'md' | 'lg' | 'xl';
+  size?: 'md' | 'lg' | 'xl' | 'confirm';
 }
 
 // Whole class strings (not interpolated fragments) so Tailwind's scanner sees them.
@@ -39,11 +39,14 @@ const SHEET_WIDTH: Record<NonNullable<Props['size']>, string> = {
   md: 'sm:max-w-md',
   lg: 'sm:max-w-[840px]',
   xl: 'sm:max-w-[900px]',
+  // Aurora 4.0 MD1 — the confirmation dialog is 460px on desktop.
+  confirm: 'sm:max-w-[460px]',
 };
 const MODAL_WIDTH: Record<NonNullable<Props['size']>, string> = {
   md: 'max-w-md',
   lg: 'max-w-[840px]',
   xl: 'max-w-[900px]',
+  confirm: 'max-w-[460px]',
 };
 
 export default function AccessibleDialog({

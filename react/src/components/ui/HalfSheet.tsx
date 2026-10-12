@@ -23,7 +23,7 @@ interface Props {
   /** Optional sticky footer (primary action row) that never scrolls away. */
   footer?: ReactNode;
   /** Desktop width — see AccessibleDialog. */
-  size?: 'md' | 'lg' | 'xl';
+  size?: 'md' | 'lg' | 'xl' | 'confirm';
   className?: string;
 }
 

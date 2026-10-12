@@ -15,6 +15,8 @@ import { Bookmark, BookmarkPlus, Trash2, Users, ChevronDown, Check } from 'lucid
 import type { SavedView, SavedViewPage } from '../../types';
 import { useStore } from '../../store';
 import { FEATURES } from '../../config/features';
+import { confirmSheet } from '../../lib/confirmSheet';
+import { deleteSavedViewRequest } from '../../lib/confirmCopy';
 
 const PRIVATE_FILTER_KEYS = new Set(['search', 'q', 'description', 'memberId', 'memberIds', 'txnId', 'transactionId']);
 
@@ -87,7 +89,7 @@ function SavedViewsBarInner({ page, filters, onApply }: SavedViewsBarProps) {
   };
 
   const del = async (v: SavedView) => {
-    if (!confirm(`Delete saved view "${v.name}"?`)) return;
+    if (!(await confirmSheet(deleteSavedViewRequest({ name: v.name })))) return;
     try { await removeView(v.id); toast('View deleted', 'success'); }
     catch (err) { toast(`Delete failed: ${(err as Error).message}`, 'error'); }
   };

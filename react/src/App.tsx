@@ -8,6 +8,8 @@ import { isOnboardingEnabled } from './config/features';
 import { shouldOnboard, migrateExistingHousehold } from './lib/onboardingState';
 import Layout from './components/layout/Layout';
 import ToastHost from './components/ui/ToastHost';
+import ConfirmHost from './components/ui/ConfirmHostLazy';
+import DeferredFlush from './components/layout/DeferredFlush';
 import FaultsPanel from './components/dev/FaultsPanel';
 import AuthGate from './components/auth/AuthGate';
 import UpdateBanner from './components/layout/UpdateBanner';
@@ -67,6 +69,10 @@ export default function App() {
         <NavigationBridge />
         <AppShell />
         <ToastHost />
+        {/* Aurora 4.0 G4 — the app's confirmation sheet (no window.confirm/prompt), and the
+            commit-on-navigate for actions held for Undo. */}
+        <ConfirmHost />
+        <DeferredFlush />
         {/* SyncHealthIndicator removed (v10.20.4, product decision).
             It surfaced a "Some changes may not have synced" banner with a
             Refresh action on every dead-lettered write. Two problems made it

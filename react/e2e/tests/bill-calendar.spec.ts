@@ -82,9 +82,10 @@ test('BILL-FC-002 - approving the due occurrence posts it once and moves the sch
 test('BILL-FC-003 - skipping once moves the schedule on without posting anything', async ({ page }) => {
   await page.goto('/recurring');
   const calendar = page.getByRole('region', { name: 'Bill calendar', exact: true });
-  page.once('dialog', dialog => dialog.accept());
+  // Aurora 4.0 CF8 — no question: it skips at once and the toast offers Undo.
   await calendar.getByRole('button', { name: 'Skip once', exact: true }).click();
-  await expect(page.getByText('Skipped once').first()).toBeVisible();
+  await expect(page.getByText(/skipped for /).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
   await expect.poll(() => cleanerPointer(page)).toBe('2026-05-23');
   expect(await cleanerPosted(page)).toEqual([]);
   await expect(calendar.getByText('overdue', { exact: false })).toHaveCount(0);

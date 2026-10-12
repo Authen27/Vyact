@@ -14,7 +14,7 @@ import { Pencil, Trash2, ChevronDown, ChevronUp, CreditCard, Undo2, CheckCircle2
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, today, nowMonthKey } from '../lib/format';
+import { fmt, formatDate, today, nowMonthKey } from '../lib/format';
 import { debtToIncomePct, pctLabel } from '../lib/ratios';
 import Money from '../components/ui/Money';
 import EstimatedTag from '../components/ui/EstimatedTag';
@@ -26,6 +26,8 @@ import { DEBT_TYPES } from '../constants';
 import type { Debt, PayoffStrategy } from '../types';
 import SegRail from '../components/ui/SegRail';
 import PageHead from '../components/ui/PageHead';
+import { askSheet, confirmSheet } from '../lib/confirmSheet';
+import { deleteLoanRequest, markPaidOffRequest, undoLoanPaymentRequest } from '../lib/confirmCopy';
 
 export default function Debts() {
   const { t } = useTranslation();
@@ -107,18 +109,40 @@ export default function Debts() {
   async function undoLast(d: Debt) {
     const latest = latestLoanPayment(d.id, transactions);
     if (!latest) return;
-    if (!confirm(`Undo the latest payment on ${d.name} (${money(latest.amount)}${latest.date ? ` on ${latest.date}` : ''})? Its entries are removed and the loan goes back to how it was.`)) return;
+    // Aurora 4.0 CF9 — a sheet listing the entries that go and what the loan goes back to.
+    const legs = transactions.filter(t => t.emiSplit?.operation_id === latest.operationId);
+    const interest = legs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const principal = legs.filter(t => t.type === 'transfer').reduce((s, t) => s + t.amount, 0);
+    const view = views.get(d.id);
+    const ok = await confirmSheet(undoLoanPaymentRequest({
+      date: latest.date ? formatDate(latest.date, profile.dateFormat) : 'latest',
+      amount: money(latest.amount),
+      interest: interest > 0 && principal > 0 ? money(interest) : undefined,
+      principal: interest > 0 && principal > 0 ? money(principal) : undefined,
+      loan: d.name,
+      owedAfter: view && principal > 0 ? money(view.outstanding + principal) : undefined,
+    }));
+    if (!ok) return;
     try { await reverseLoanPayment(d.id, latest.operationId); toast('Payment undone', 'info'); } catch (e) { fail(e); }
   }
 
   async function closeLoan(d: Debt, view: LoanView) {
-    const note = prompt(`Mark ${d.name} paid off? ${view.outstanding > 0 ? `The ${money(view.outstanding)} still showing is written off the loan (a reconcile, not a payment).` : ''} Note (optional):`, 'Closed with the bank');
-    if (note === null) return;
+    // Aurora 4.0 CF10 — the write-off spelled out, with an optional note.
+    const { ok, value: note } = await askSheet(markPaidOffRequest({ name: d.name, writeOff: view.outstanding > 0 ? money(view.outstanding) : undefined }));
+    if (!ok) return;
     try { await markLoanPaidOff(d.id, note || undefined); toast(`${d.name} marked paid off`, 'success'); } catch (e) { fail(e); }
   }
 
   async function del(d: Debt) {
-    if (!confirm(`Delete ${d.name}? Its payments stay in your history.`)) return;
+    // Aurora 4.0 CF11 — a cleared loan is pointed to Mark paid off, which keeps it in Net Worth history.
+    const view = views.get(d.id);
+    const payments = new Set(transactions.filter(t => t.debtId === d.id && t.emiSplit?.operation_id).map(t => t.emiSplit!.operation_id)).size;
+    const answer = await askSheet(deleteLoanRequest({ name: d.name, payments, paidUp: !!view && view.outstanding <= 0 && !d.paidOffAt }));
+    if (!answer.ok) return;
+    if (answer.choice === 'paidoff' && view) {
+      try { await markLoanPaidOff(d.id, undefined); toast(`${d.name} marked paid off`, 'success'); } catch (e) { fail(e); }
+      return;
+    }
     try { await deleteDebt(d.id); toast('Removed', 'info'); } catch (e) { fail(e); }
   }
 

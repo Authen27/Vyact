@@ -11,6 +11,7 @@ import { fmt, formatDate, today } from '../../lib/format';
 import { getCat } from '../../constants';
 import InfoNote from '../ui/InfoNote';
 import SegRail from '../ui/SegRail';
+import { offerUndo } from '../../lib/undoable';
 
 const HORIZONS = [7, 30, 60] as const;
 type Horizon = typeof HORIZONS[number];
@@ -40,6 +41,7 @@ export default function BillCalendar() {
   const rates = useStore(s => s.rates);
   const approveRecurring = useStore(s => s.approveRecurring);
   const skipRecurring = useStore(s => s.skipRecurring);
+  const unskipRecurring = useStore(s => s.unskipRecurring);
   const toast = useStore(s => s.toast);
   const [horizon, setHorizon] = useState<Horizon>(30);
   const [busy, setBusy] = useState<string | null>(null);
@@ -66,11 +68,12 @@ export default function BillCalendar() {
   async function skip(item: BillOccurrence) {
     const schedule = schedules.find(row => row.id === item.scheduleId);
     if (!schedule || schedule.nextDueDate !== item.date) return;
-    if (!confirm(`Skip ${item.description || 'this bill'} on ${formatDate(item.date, dateFormat)}? It will not be posted.`)) return;
+    // Aurora 4.0 CF8 — skipping is reversible, so it happens at once with an 8-second Undo.
     setBusy(keyOf(item));
     try {
       const skipped = await skipRecurring(schedule.id, item.date);
-      toast(skipped ? 'Skipped once' : 'Already handled', 'info');
+      if (!skipped) toast('Already handled', 'info');
+      else offerUndo(toast, `${item.description || 'Bill'} skipped for ${formatDate(item.date, dateFormat)}`, () => unskipRecurring(schedule));
     } catch (error) {
       toast(`Could not skip: ${(error as Error).message}`, 'error');
     } finally {

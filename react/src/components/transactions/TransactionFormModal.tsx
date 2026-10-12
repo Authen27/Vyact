@@ -13,8 +13,11 @@ import {
   INCOME_CATEGORIES,
   CATEGORIES_BY_TYPE,
   CURRENCIES,
+  getCat,
 } from '../../constants';
-import { buildAccounts, buildAccountsFromStore, resolveAccount, editSeedAccount, ACCOUNT_REQUIRED_TYPES, notInvestment } from '../../lib/accounts';
+import { buildAccounts, buildAccountsFromStore, resolveAccount, editSeedAccount, ACCOUNT_REQUIRED_TYPES, notInvestment, txnAccountLabel } from '../../lib/accounts';
+import { confirmSheet } from '../../lib/confirmSheet';
+import { deleteTransactionRequest } from '../../lib/confirmCopy';
 import TimeDial from '../ui/TimeDial';
 import { getMoneyMapMode } from '../../lib/featureFlags';
 import { FEATURES } from '../../config/features';
@@ -494,7 +497,14 @@ export default function TransactionFormModal(props: Props) {
 
   async function del() {
     if (!initial) return;
-    if (!confirm('Delete this transaction?')) return;
+    // Aurora 4.0 CF3 — a sheet naming the entry and where it comes off.
+    const st = useStore.getState();
+    const category = initial.category && initial.type !== 'transfer' && initial.type !== 'investment' ? getCat(initial.category).label : null;
+    const where = [category, txnAccountLabel(initial, st.accounts, st.assets, st.debts)].filter(Boolean).join(' and ');
+    const ok = await confirmSheet(deleteTransactionRequest({
+      name: initial.description?.trim() ?? '', amount: fmt(Math.abs(initial.amount), initial.currency), where,
+    }));
+    if (!ok) return;
     try {
       await removeTransaction(initial.id);
       toast('Transaction deleted', 'info');

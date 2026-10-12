@@ -19,6 +19,8 @@ import { ASSET_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
 import InfoNote from '../components/ui/InfoNote';
 import PageHead from '../components/ui/PageHead';
+import { confirmSheet } from '../lib/confirmSheet';
+import { deleteAssetRequest } from '../lib/confirmCopy';
 
 const KIND_ICON: Record<AccountKind, string> = {
   bank: '🏦', cash: '💵', credit_card: '💳', investment: '📈', loan: '🏛️',
@@ -130,8 +132,11 @@ export default function NetWorth() {
   function openAdd() { openAddAsset(); }
   function openEdit(a: Asset) { openEditAsset(a); }
 
+  // Aurora 4.0 CF12 — names the asset and its effect on net worth.
   async function del(id: string) {
-    if (!confirm('Delete this asset?')) return;
+    const row = liveRows.find(r => r.id === id);
+    const asset = assets.find(a => a.id === id);
+    if (!(await confirmSheet(deleteAssetRequest({ name: asset?.name ?? row?.name ?? '', value: row && row.value > 0 ? fmt(row.value, c) : undefined })))) return;
     // v10.26.0 (R4) — the store refuses an investment with buys recorded against
     // it; that refusal must reach the user, not vanish as an unhandled rejection.
     try {

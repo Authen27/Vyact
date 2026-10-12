@@ -20,6 +20,8 @@ import { scheduleDatesAfterSave, ruleOf, isLoanEmiSchedule } from '../lib/recurr
 import { formatRRule, describeRRule, type RRule, type ShortMonthPolicy } from '../lib/rrule';
 import { runExclusive } from '../lib/exclusive';
 import PageHead from '../components/ui/PageHead';
+import { confirmSheet } from '../lib/confirmSheet';
+import { deleteScheduleRequest } from '../lib/confirmCopy';
 
 type SchedType = 'expense' | 'income' | 'investment';
 type MonthlyMode = 'dom' | 'nth';
@@ -351,7 +353,8 @@ export default function Recurring() {
                       error to go on. Await it, and only claim success when the
                       write actually succeeded. */}
                   <button onClick={async () => {
-                    if (!confirm('Delete this schedule?')) return;
+                    const made = useStore.getState().transactions.filter(t => t.recurringScheduleId === s.id).length;
+                    if (!(await confirmSheet(deleteScheduleRequest({ name: s.transactionTemplate.description || cat.label, made })))) return;
                     try {
                       await remove(s.id);
                       toast('Schedule deleted', 'info');

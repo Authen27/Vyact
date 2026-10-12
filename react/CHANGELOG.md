@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.86.0`** (consumer)
+> **Current production version: `v10.87.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.87.0 — Aurora 4.0 A3: confirmations and undo *(2026-10-12)*
+
+PR A3 of the Aurora 4.0 redesign. No figure, calculation or schema changes. The money model is untouched:
+every delete, close or reversal runs through the same store action as before.
+
+- **No more browser boxes (X6).** All 29 `confirm()` / `prompt()` calls are gone. Their place is one
+  confirmation sheet: a half-sheet on phones and a 460px dialog on desktop, with Cancel and the action
+  on the right (MD1). Each sheet names the item, says in 1–3 lines what happens and what stays, and has
+  one action named after the verb, red when it destroys (CF2).
+- **Each sheet says what it means (CF3–CF20).**
+  - **Transactions:** delete names the entry and where it comes off.
+  - **Splits:** delete names who loses a share, and a shared split offers "Close it instead". Close says
+    who is told and that unpaid shares stay owed.
+  - **Budgets and schedules:** delete says the spending stays. A schedule's sheet says past entries stay
+    and future ones stop.
+  - **Loans:**
+    - Undo payment lists the interest and principal that go, and what the loan goes back to.
+    - Mark paid off spells out the write-off, with an optional note.
+    - Deleting a cleared loan offers "Mark it paid off instead".
+  - **Assets:** delete says how much net worth drops.
+  - **Households:**
+    - Remove member and Leave household say what is lost and what stays.
+    - Deleting a household needs its name typed in.
+    - Renaming uses a proper field.
+  - **Account:** the emailed code has a real 6-digit field with Resend. Erase data, Deactivate and Delete
+    account explain themselves. Unlinking WhatsApp says what stops working.
+- **Undo instead of asking (CF1).**
+  - **Skip a bill (CF8):** skips at once, and the 8-second Undo puts the schedule back (`unskipRecurring`).
+  - **Revoke an invitation (CF16):** the invitation disappears at once and is revoked after 8 seconds or
+    when you leave the page; Undo keeps it.
+  - **Sign out (CF19):** no longer asks. An Undo toast now stays 8 seconds.
+- **Budget over its total (FB1).** The form shows an amber note the moment the allocations pass the total,
+  with "Raise total" and "Trim allocations". Trimming keeps each line's share and lands exactly on the
+  total. Save no longer stops to ask "Save anyway?".
 
 ---
 

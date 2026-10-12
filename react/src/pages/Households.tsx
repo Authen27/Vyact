@@ -30,6 +30,9 @@ import {
   formatActivity, ACTIVITY_TYPE_FILTERS, type ActivityRow as ActivityRowData,
 } from '../lib/activityFormat';
 import PageHead from '../components/ui/PageHead';
+import { askSheet, confirmSheet } from '../lib/confirmSheet';
+import { deleteHouseholdRequest, leaveHouseholdRequest, removeMemberRequest, renameHouseholdRequest } from '../lib/confirmCopy';
+import { deferCommit } from '../lib/undoable';
 
 interface Membership {
   id: string;
@@ -95,7 +98,7 @@ export default function Households() {
   // W7a (audit INT-HH-13): leaving the household that is open moves the app to one the person is
   // still in (it used to stay on the old one, whose reads now fail). Both Leave buttons use this.
   async function leaveActive(h: { id: string; name: string }) {
-    if (!confirm(`Leave ${h.name}?`)) return;
+    if (!(await confirmSheet(leaveHouseholdRequest({ household: h.name })))) return;
     try {
       await leaveHousehold(h.id);
       await refreshHouseholds();
@@ -171,9 +174,9 @@ export default function Households() {
                 <label className="mono-label mb-1.5 block">Name</label>
                 <div className="flex gap-2">
                   <Input value={active.name} readOnly className="flex-1" />
-                  <Button variant="ghost" onClick={() => {
-                    const next = prompt('New name:', active.name);
-                    if (!next || next === active.name) return;
+                  <Button variant="ghost" onClick={async () => {
+                    const { ok, value: next } = await askSheet(renameHouseholdRequest({ household: active.name }));
+                    if (!ok || !next || next === active.name) return;
                     renameHousehold(active.id, next).then(() => toast('Renamed', 'success'));
                   }}>Rename</Button>
                 </div>
@@ -377,8 +380,8 @@ export default function Households() {
                   </div>
                   <Button variant="ghost" disabled={!can(myRole, 'edit_household_settings')}
                     onClick={async () => {
-                      const next = prompt('New name:', active.name);
-                      if (!next || next === active.name) return;
+                      const { ok, value: next } = await askSheet(renameHouseholdRequest({ household: active.name }));
+                      if (!ok || !next || next === active.name) return;
                       try { await renameHousehold(active.id, next); toast('Renamed', 'success'); }
                       catch (e) { toast((e as Error).message, 'error'); }
                     }}>
@@ -402,7 +405,7 @@ export default function Households() {
                   </div>
                   <Button variant="danger" disabled={!can(myRole, 'delete_household')}
                     onClick={async () => {
-                      if (!confirm(`Permanently delete ${active.name}? This cannot be undone.`)) return;
+                      if (!(await confirmSheet(deleteHouseholdRequest({ household: active.name })))) return;
                       try {
                         await deleteHousehold(active.id);
                         toast(`Deleted ${active.name}`, 'warning');
@@ -461,6 +464,7 @@ function MembersList({
 }) {
   const ROLE_OPTIONS: AppRole[] = ['admin','member','viewer'];
   const toast = useStore(s => s.toast);
+  const householdName = useStore(s => s.households.find(h => h.id === s.currentHouseholdId)?.name ?? 'this household');
   return (
     <div className="divide-y divide-line">
       {members.map(m => {
@@ -499,7 +503,7 @@ function MembersList({
                 </button>
               ) : canRemoveRow ? (
                 <button onClick={async () => {
-                  if (!confirm(`Remove ${m.display_name}?`)) return;
+                  if (!(await confirmSheet(removeMemberRequest({ name: m.display_name || 'this member', household: householdName })))) return;
                   try { await removeMembership(m.id); onChanged(); toast('Removed', 'info'); }
                   catch (err) { toast((err as Error).message, 'error'); }
                 }} className="p-1.5 text-ink-mid hover:text-terra" title="Remove">
@@ -519,9 +523,13 @@ function InvitesList({ invites, canRevoke, onRevoked }: {
 }) {
   const toast = useStore(s => s.toast);
   const [copied, setCopied] = useState<string | null>(null);
+  // Aurora 4.0 CF16 — revoking hides the invitation at once; the revoke is written after the 8-second
+  // Undo (or on navigation). A revoked link cannot be restored, so nothing is written before then.
+  const [revoking, setRevoking] = useState<Set<string>>(new Set());
+  const hide = (id: string, on: boolean) => setRevoking(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next; });
   return (
     <div className="divide-y divide-line">
-      {invites.map(inv => {
+      {invites.filter(inv => !revoking.has(inv.id)).map(inv => {
         const url = `${window.location.origin}/invite/${encodeURIComponent(inv.token)}`;
         const expiry = new Date(inv.expires_at);
         const expired = expiry < new Date();
@@ -551,11 +559,13 @@ function InvitesList({ invites, canRevoke, onRevoked }: {
                 {copied === inv.id ? <Check size={14} className="text-sage" /> : <Copy size={14} />}
               </button>
               {canRevoke && (
-                <button onClick={async () => {
-                  if (!confirm('Revoke this invitation?')) return;
-                  try { await revokeInvitation(inv.id); onRevoked(); toast('Revoked', 'info'); }
-                  catch (err) { toast((err as Error).message, 'error'); }
-                }} className="p-1.5 text-ink-mid hover:text-terra" title="Revoke">
+                <button onClick={() => {
+                  hide(inv.id, true);
+                  deferCommit(toast, isLinkOnly ? 'Invitation link revoked' : `Invitation to ${inv.invited_email} revoked`, async () => {
+                    try { await revokeInvitation(inv.id); onRevoked(); }
+                    catch (err) { hide(inv.id, false); toast((err as Error).message, 'error'); }
+                  }, () => hide(inv.id, false));
+                }} className="p-1.5 text-ink-mid hover:text-terra" title="Revoke" aria-label="Revoke invitation">
                   <Trash2 size={14} />
                 </button>
               )}

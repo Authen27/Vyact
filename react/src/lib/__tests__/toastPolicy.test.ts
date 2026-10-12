@@ -10,7 +10,7 @@ describe('toasts a screen reader hears (W6, audit FE-UIS-08)', () => {
     expect(toastLifetimeMs('error', false)).toBe(10_000);
     expect(toastLifetimeMs('warning', true)).toBe(10_000);
     expect(toastLifetimeMs('success', false)).toBe(3_200);
-    expect(toastLifetimeMs('info', true)).toBe(6_000);           // an Undo can still be reached
+    expect(toastLifetimeMs('info', true)).toBe(8_000);           // an Undo can still be reached (Aurora 4.0 CF1: 8 s)
     expect(toastRole('error')).toBe('alert');
     expect(toastRole('warning')).toBe('alert');
     expect(toastRole('success')).toBe('status');
