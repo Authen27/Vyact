@@ -12,6 +12,7 @@
 
 
 
+
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
 | Frontend | 0 | 10 | 37 | 34 | 0 |
@@ -113,7 +114,7 @@ Two developers did the work:
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
 | #194 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
-| (PR in review) | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
+| #195 | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
 
 ### 0.3 New issues found during this review (not in the audit)
 
