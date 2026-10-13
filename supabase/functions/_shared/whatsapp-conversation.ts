@@ -17,7 +17,8 @@ export const UNDO_MINUTES = 15;
 /** A second entry of the same amount and category this soon is asked about first. */
 export const DUPLICATE_WINDOW_MINUTES = 120;
 
-export type PendingKind = 'missing_amount' | 'duplicate_check' | 'chips' | 'reads_offer' | 'name_entries' | 'balance_update';
+export type PendingKind = 'missing_amount' | 'duplicate_check' | 'chips' | 'reads_offer' | 'name_entries' | 'balance_update'
+  | 'emi_loan_choice';
 
 export function isUndo(text: string): boolean {
   return /^(undo|undo that|undo it|delete (that|it|last)|remove (that|it|last))[.!]*$/i.test((text ?? '').trim());
@@ -44,10 +45,18 @@ export function bareAmount(text: string): number | null {
  * category id. Null when the message is not a correction or names no category.
  */
 export function parseCorrection(text: string): string | null {
+  const said = correctionWords(text);
+  return said ? matchCategory(normalise(said)) ?? null : null;
+}
+
+/**
+ * The words after "no, that was …" (null when the message is not a correction). The webhook reads EMI
+ * wording in them itself ("no, that was car emi"): the parser's longest-keyword rule would read "car".
+ */
+export function correctionWords(text: string): string | null {
   const m = /^(?:no[,.!]?\s+)?(?:that was|it was|that's|thats|change (?:it |that )?to|make (?:it|that)|should be|actually)\s+(.+)$/i
     .exec((text ?? '').trim());
-  if (!m) return null;
-  return matchCategory(normalise(m[1])) ?? null;
+  return m ? m[1] : null;
 }
 
 /** The category belongs to the entry's type (categories are type-scoped). */

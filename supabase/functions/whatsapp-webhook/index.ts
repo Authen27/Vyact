@@ -24,7 +24,7 @@ import {
 } from '../_shared/whatsapp-receptionist.ts';
 import { parseWhatsAppMessage, clarifyReply, PAYMENT_MODE_LABEL, type AccountLite, type ParsedTx } from '../_shared/whatsapp-parser.ts';
 import {
-  isUndo, yesNo, bareAmount, parseCorrection, categoryFitsType, worthAskingAmount, duplicateQuestion, undoReply,
+  isUndo, yesNo, bareAmount, parseCorrection, correctionWords, categoryFitsType, worthAskingAmount, duplicateQuestion, undoReply,
   ASK_AMOUNT, SKIPPED, EXPIRED, UNDO_HINT, DUPLICATE_WINDOW_MINUTES, PENDING_MINUTES, type PendingKind,
 } from '../_shared/whatsapp-conversation.ts';
 import {
@@ -575,7 +575,14 @@ async function processInboundTurn(
     const what = r.amount != null ? `${moneyOf(r.amount, r.currency ?? '')}${r.category_id ? ` · ${CAT_LABEL[r.category_id] ?? r.category_id}` : ''}` : undefined;
     return { status: 'done', note: await reply(fromPhone, blockedReply(r.status) ?? undoReply(r.status ?? '', what)) };
   }
+  // 13 Oct 2026 (BE-WA-08, INT-TXN-07): "no, that was car emi" turns the entry into a payment on the loan,
+  // never a Loan / EMI relabel (that booked the whole EMI as spending and left the loan untouched). The
+  // EMI wording is read here: the parser's longest-keyword rule would read "car".
+  const correctionSaid = correctionWords(text);
   const corrected = parseCorrection(text);
+  if (correctionSaid && (EMI_WORDS.test(correctionSaid) || corrected === 'loan_emi')) {
+    return correctToLoan(supabase, message, fromPhone, profile, correctionSaid, priorAttempts);
+  }
   if (corrected) return correctLast(supabase, message, fromPhone, profile, corrected, priorAttempts);
 
   // An open question (a missing amount, a possible duplicate) takes the answer.
@@ -608,8 +615,13 @@ async function processInboundTurn(
       const outcome = await continueUpdate(supabase, message, fromPhone, profile, pending, text, expired, priorAttempts);
       if (outcome) return outcome;
     }
+    // 13 Oct 2026 — "Which loan was that EMI for?" takes a number or a loan's name.
+    if (pending.kind === 'emi_loan_choice') {
+      const outcome = await continueEmiChoice(supabase, message, fromPhone, profile, pending, text, expired, priorAttempts);
+      if (outcome) return outcome;
+    }
     // A chips list takes only its numbers; anything else is a new message.
-    const answer = pending.kind === 'chips' || pending.kind === 'reads_offer'
+    const answer = pending.kind === 'chips' || pending.kind === 'reads_offer' || pending.kind === 'emi_loan_choice'
       || pending.kind === 'name_entries' || pending.kind === 'balance_update' ? null
       : pending.kind === 'missing_amount' ? bareAmount(text) : yesNo(text);
     if (answer !== null && expired) return { status: 'done', note: await reply(fromPhone, EXPIRED) };
@@ -888,19 +900,69 @@ async function approveFromReply(
  */
 const EMI_WORDS = /\b(emi|loan\s+payment|loan\s+instal+ment)\b/i;
 
+interface OpenLoan { id: string; name: string }
+type LoanPaymentReply = {
+  status?: string; reason?: string; figure?: string | null; interest?: number; principal?: number; instalment_no?: number;
+  closes_instalment?: boolean; paid_off?: boolean; outstanding_after?: number; next_due_date?: string | null;
+  amount?: number; currency?: string;
+};
+
+/** The household's open loans (receivables and paid-off loans are not loans to pay). */
+async function openLoans(supabase: SupabaseClient, householdId: string): Promise<{ loans: OpenLoan[]; error?: string }> {
+  const { data: rows, error } = await supabase.from('debts').select('id, name, direction')
+    .eq('household_id', householdId).is('deleted_at', null).is('paid_off_at', null);
+  if (error) return { loans: [], error: error.message };
+  return { loans: ((rows ?? []) as { id: string; name: string; direction: string | null }[])
+    .filter(l => (l.direction ?? 'owed_by_me') === 'owed_by_me').map(l => ({ id: l.id, name: l.name })) };
+}
+
+/** The loan the words name, else the only loan there is; undefined when it can't be told. */
+function pickLoan(loans: OpenLoan[], words: string): OpenLoan | undefined {
+  const said = ` ${String(words ?? '').toLowerCase()} `;
+  const named = loans.filter(l => l.name.toLowerCase().split(/\s+/).some(w => w.length > 2 && w !== 'loan' && w !== 'emi' && said.includes(w)));
+  return named.length === 1 ? named[0] : loans.length === 1 ? loans[0] : undefined;
+}
+
+/** What a loan payment from chat says back: logged ("paid … EMI") or changed (a correction). */
+function loanPaymentReply(loan: OpenLoan, r: LoanPaymentReply, amount: number, cur: string, mode: 'log' | 'correct'): string {
+  const amountText = moneyText(amount, cur);
+  const correcting = mode === 'correct';
+  if (r.status === 'success') {
+    if (r.paid_off) return correcting ? `Changed to a loan payment: ${loan.name} is paid off. 🎉` : `Logged: ${loan.name} is paid off. 🎉`;
+    if (r.closes_instalment) {
+      return `${correcting ? 'Changed to a loan payment. EMI' : 'Logged EMI'} #${r.instalment_no} for ${loan.name}: ${moneyText(Number(r.interest), cur)} interest, ${moneyText(Number(r.principal), cur)} off the loan. ${moneyText(Number(r.outstanding_after), cur)} left${r.next_due_date ? `; next EMI due ${dueDayText(r.next_due_date)}` : ''}.`;
+    }
+    return `${correcting ? 'Changed to a loan payment: ' : 'Logged '}${amountText} toward EMI #${r.instalment_no} for ${loan.name}. The rest of this EMI is still due.`;
+  }
+  if (r.status === 'refused') {
+    const figure = r.figure != null && r.figure !== '' ? moneyText(Number(r.figure), cur) : '';
+    const why: Record<string, string> = correcting ? {
+      more_than_due: `This EMI for ${loan.name} is ${figure}, so I've left the entry as it was. Reply UNDO, then "paid ${loan.name} EMI ${r.figure}", and record anything extra as a prepayment in the app: ${APP_URL}/debts`,
+      instalment_open: `The current EMI for ${loan.name} is part-paid, so I've left the entry as it was. Finish it in the app: ${APP_URL}/debts?pay=${loan.id}`,
+      loan_paid_off: `${loan.name} is already paid off, so I've left the entry as it was.`,
+      funding_account_invalid: `That entry has no account I can pay ${loan.name} from, so I've left it. You can pay the EMI in the app: ${APP_URL}/debts?pay=${loan.id}`,
+      no_emi: `${loan.name} has no EMI set, so I've left the entry as it was. Add it in the app: ${APP_URL}/debts`,
+    } : {
+      more_than_due: `This EMI for ${loan.name} is ${figure}, so I haven't logged ${amountText}. Reply "paid ${loan.name} EMI ${r.figure}", and record anything extra as a prepayment in the app: ${APP_URL}/debts`,
+      loan_paid_off: `${loan.name} is already paid off.`,
+      funding_account_invalid: `Which account was it paid from? e.g. "paid ${loan.name} EMI ${amount} hdfc".`,
+      no_emi: `${loan.name} has no EMI set. Add it in the app: ${APP_URL}/debts`,
+    };
+    return why[r.reason ?? ''] ?? `I couldn't record that EMI. You can pay it in the app: ${APP_URL}/debts?pay=${loan.id}`;
+  }
+  if (r.reason === 'not_a_member' || r.reason === 'read_only_member') {
+    return 'This number is no longer able to log to that household. Relink it in Settings → WhatsApp, or ask the household owner about your access.';
+  }
+  return `I couldn't record that EMI. You can pay it in the app: ${APP_URL}/debts?pay=${loan.id}`;
+}
+
 async function payLoanFromChat(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, tx: ParsedTx, priorAttempts: number,
 ): Promise<InboundOutcome> {
   const householdId = profile.whatsapp_household_id!;
-  const { data: rows, error: loanError } = await supabase.from('debts').select('id, name, direction')
-    .eq('household_id', householdId).is('deleted_at', null).is('paid_off_at', null);
-  if (loanError) return retryOrGiveUp(fromPhone, priorAttempts, `loans: ${loanError.message}`);
-  const loans = ((rows ?? []) as { id: string; name: string; direction: string | null }[])
-    .filter(l => (l.direction ?? 'owed_by_me') === 'owed_by_me');
-  const said = ` ${String(tx.description ?? '').toLowerCase()} `;
-  const named = loans.filter(l => l.name.toLowerCase().split(/\s+/).some(w => w.length > 2 && w !== 'loan' && w !== 'emi' && said.includes(w)));
-  const loan = named.length === 1 ? named[0] : loans.length === 1 ? loans[0] : undefined;
-  const amountText = moneyText(tx.amount, tx.currency);
+  const { loans, error: loanError } = await openLoans(supabase, householdId);
+  if (loanError) return retryOrGiveUp(fromPhone, priorAttempts, `loans: ${loanError}`);
+  const loan = pickLoan(loans, tx.description ?? '');
   if (!loan) {
     const body = loans.length
       ? `Which loan is this EMI for? Reply with its name, e.g. "paid ${loans[0].name} EMI ${tx.amount}".`
@@ -917,34 +979,9 @@ async function payLoanFromChat(
     p_account_alias: tx.account_alias || null,
   });
   if (error) return retryOrGiveUp(fromPhone, priorAttempts, `pay loan: ${error.message}`);
-  const r = (data ?? {}) as {
-    status?: string; reason?: string; figure?: string | null; interest?: number; principal?: number; instalment_no?: number;
-    closes_instalment?: boolean; paid_off?: boolean; outstanding_after?: number; next_due_date?: string | null;
-  };
-  const cur = tx.currency;
-  let body: string | undefined;
+  const r = (data ?? {}) as LoanPaymentReply;
   if (r.status === 'duplicate') return { status: 'done' };
-  if (r.status === 'success') {
-    body = r.paid_off
-      ? `Logged: ${loan.name} is paid off. 🎉`
-      : r.closes_instalment
-        ? `Logged EMI #${r.instalment_no} for ${loan.name}: ${moneyText(Number(r.interest), cur)} interest, ${moneyText(Number(r.principal), cur)} off the loan. ${moneyText(Number(r.outstanding_after), cur)} left${r.next_due_date ? `; next EMI due ${dueDayText(r.next_due_date)}` : ''}.`
-        : `Logged ${amountText} toward EMI #${r.instalment_no} for ${loan.name}. The rest of this EMI is still due.`;
-  } else if (r.status === 'refused') {
-    const figure = r.figure != null && r.figure !== '' ? moneyText(Number(r.figure), cur) : '';
-    const why: Record<string, string> = {
-      more_than_due: `This EMI for ${loan.name} is ${figure}, so I haven't logged ${amountText}. Reply "paid ${loan.name} EMI ${r.figure}", and record anything extra as a prepayment in the app: ${APP_URL}/debts`,
-      loan_paid_off: `${loan.name} is already paid off.`,
-      funding_account_invalid: `Which account was it paid from? e.g. "paid ${loan.name} EMI ${tx.amount} hdfc".`,
-      no_emi: `${loan.name} has no EMI set. Add it in the app: ${APP_URL}/debts`,
-    };
-    body = why[r.reason ?? ''] ?? `I couldn't record that EMI. You can pay it in the app: ${APP_URL}/debts?pay=${loan.id}`;
-  } else if (r.reason === 'not_a_member' || r.reason === 'read_only_member') {
-    body = 'This number is no longer able to log to that household. Relink it in Settings → WhatsApp, or ask the household owner about your access.';
-  } else {
-    body = `I couldn't record that EMI. You can pay it in the app: ${APP_URL}/debts?pay=${loan.id}`;
-  }
-  return { status: 'done', note: await reply(fromPhone, body) };
+  return { status: 'done', note: await reply(fromPhone, loanPaymentReply(loan, r, tx.amount, tx.currency, 'log')) };
 }
 
 async function retryOrGiveUp(fromPhone: string, priorAttempts: number, error: string): Promise<InboundOutcome> {
@@ -1000,11 +1037,20 @@ async function correctLast(
   supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, category: string, priorAttempts: number,
 ): Promise<InboundOutcome> {
   const householdId = profile.whatsapp_household_id!;
-  // The entry's type decides which categories fit (categories are type-scoped).
-  const { data: last } = await supabase.from('whatsapp_inbound_messages').select('payload')
-    .eq('direction', 'inbound').eq('profile_id', profile.id).neq('wa_message_id', message.id)
-    .order('processed_at', { ascending: false }).limit(1).maybeSingle();
-  const type = String((last as { payload?: { parsed?: { type?: string } } } | null)?.payload?.parsed?.type ?? '');
+  // The entry's type decides which categories fit (categories are type-scoped). 13 Oct 2026 (INT-TXN-12):
+  // read from the ENTRY being corrected — the one whatsapp_correct_last will change — not from the last
+  // message received, which may be a question or a reply and carry another type, or none.
+  const { data: lastRows, error: lastError } = await supabase.rpc('whatsapp_last_logged', {
+    p_profile_id: profile.id, p_household_id: householdId, p_exclude: message.id,
+  });
+  if (lastError) return retryOrGiveUp(fromPhone, priorAttempts, `last logged: ${lastError.message}`);
+  const entryId = Array.isArray(lastRows) ? (lastRows[0] as { txn_id?: string | null } | undefined)?.txn_id : undefined;
+  let type = '';
+  if (entryId) {
+    const { data: entry, error: entryError } = await supabase.from('transactions').select('type').eq('id', entryId).maybeSingle();
+    if (entryError) return retryOrGiveUp(fromPhone, priorAttempts, `entry type: ${entryError.message}`);
+    type = String((entry as { type?: string } | null)?.type ?? '');
+  }
   if (type && !categoryFitsType(category, type)) {
     const label = CAT_LABEL[category] ?? category;
     return { status: 'done', note: await reply(fromPhone, `${label} isn't a category for ${type === 'income' ? 'income' : 'a spend'}, so I've left it. You can change it in the app.`) };
@@ -1020,9 +1066,72 @@ async function correctLast(
     no_category: 'That entry is a transfer, so it has no category to change.',
     too_late: "That's past the 15 minutes, so I've left it. You can change it in the app.",
     edited: "That entry has been changed in the app since, so I've left it.",
+    use_loan_payment: 'An EMI pays a loan, so it is recorded on the loan, not as a category. Reply "no, that was <loan> emi".',
   };
   const body = blockedReply(r.status) ?? REASON[r.status ?? ''] ?? "There's nothing I logged in the last 15 minutes to change.";
   return { status: 'done', note: await reply(fromPhone, body) };
+}
+
+/** How many loans "Which loan?" lists (a reply is one digit). */
+const LOAN_CHOICES = 9;
+
+/**
+ * 13 Oct 2026 (BE-WA-08, INT-TXN-07; owner decision) — "no, that was car emi": the entry WhatsApp just
+ * logged becomes a payment on the loan, through `whatsapp_correct_to_loan` (loan_payment_core's split;
+ * the plain expense is removed in the same transaction). The loan is the one the words name, else the only
+ * one; with several and no name, Pip asks "Which loan?" and the answer (`emi_loan_choice`) finishes it.
+ */
+async function correctToLoan(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, said: string, priorAttempts: number,
+  chosen?: OpenLoan,
+): Promise<InboundOutcome> {
+  const householdId = profile.whatsapp_household_id!;
+  let loan = chosen;
+  if (!loan) {
+    const { loans, error: loanError } = await openLoans(supabase, householdId);
+    if (loanError) return retryOrGiveUp(fromPhone, priorAttempts, `loans: ${loanError}`);
+    if (!loans.length) {
+      return { status: 'done', note: await reply(fromPhone, `You have no loans in Vyact yet, so I've left the entry as it was. Add the loan in the app first: ${APP_URL}/debts`) };
+    }
+    loan = pickLoan(loans, said);
+    if (!loan) {
+      const listed = loans.slice(0, LOAN_CHOICES);
+      try { await askPending(supabase, profile.id, householdId, 'emi_loan_choice', { loans: listed }); }
+      catch (e) { return retryOrGiveUp(fromPhone, priorAttempts, `ask loan: ${(e as Error)?.message ?? String(e)}`); }
+      const lines = listed.map((l, i) => `${i + 1}. ${l.name}`).join('\n');
+      return { status: 'done', note: await reply(fromPhone, `Which loan was that EMI for? Reply with its number:\n${lines}`) };
+    }
+  }
+  const { data, error } = await supabase.rpc('whatsapp_correct_to_loan', {
+    p_profile_id: profile.id, p_household_id: householdId, p_debt_id: loan.id, p_wa_message_id: message.id,
+  });
+  if (error) return retryOrGiveUp(fromPhone, priorAttempts, `correct to loan: ${error.message}`);
+  const r = (data ?? {}) as LoanPaymentReply;
+  if (r.status === 'duplicate') return { status: 'done' };
+  const REASON: Record<string, string> = {
+    too_late: `That's past the 15 minutes, so I've left it. You can pay the EMI in the app: ${APP_URL}/debts?pay=${loan.id}`,
+    edited: "That entry has been changed in the app since, so I've left it.",
+    nothing: "There's nothing I logged in the last 15 minutes to change.",
+    not_an_expense: "That entry isn't a spend, so it can't be an EMI. I've left it.",
+  };
+  const body = blockedReply(r.status) ?? REASON[r.status ?? '']
+    ?? loanPaymentReply(loan, r, Number(r.amount ?? 0), r.currency ?? profile.baseCurrency ?? 'INR', 'correct');
+  return { status: 'done', note: await reply(fromPhone, body) };
+}
+
+/** The answer to "Which loan was that EMI for?": a listed number or a loan's name; null when it is neither. */
+async function continueEmiChoice(
+  supabase: SupabaseClient, message: any, fromPhone: string, profile: Profile, pending: PendingTurn, text: string,
+  expired: boolean, priorAttempts: number,
+): Promise<InboundOutcome | null> {
+  const loans = (Array.isArray(pending.payload?.loans) ? pending.payload.loans : []) as OpenLoan[];
+  const t = (text ?? '').trim().toLowerCase().replace(/[.!]+$/, '');
+  const pick = /^([1-9])$/.exec(t)?.[1];
+  const byName = t.length > 2 ? loans.filter(l => l.name.toLowerCase().includes(t)) : [];
+  const loan = pick ? loans[Number(pick) - 1] : byName.length === 1 ? byName[0] : undefined;
+  if (!loan) return null;
+  if (expired) return { status: 'done', note: await reply(fromPhone, EXPIRED) };
+  return correctToLoan(supabase, message, fromPhone, profile, '', priorAttempts, loan);
 }
 
 // ── v10.47.0 (W6) — follow-up conversations ────────────────────────────────

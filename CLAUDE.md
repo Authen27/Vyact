@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.88.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.89.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -479,6 +479,12 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   NEVER a transaction; a card is asked what it OWES. Never compute a reconcile in `_shared/` by hand.
   "Name them here" changes ONLY the category of an expense still in Other, never to Loan / EMI (a
   system split), never someone else's private entry.
+  **v10.89.0 (13 Oct 2026; BE-WA-08): a correction to an EMI pays the LOAN.** "no, that was car emi"
+  turns the entry WhatsApp just logged into a loan payment through `whatsapp_correct_to_loan`
+  (loan_payment_core's split; the plain expense is soft-deleted in the same transaction; op id = the
+  entry, so never twice). `whatsapp_correct_last` refuses `loan_emi`. The loan is the one the words
+  name, else the only one, else Pip asks (`emi_loan_choice`). A category correction is checked against
+  the stored type of the ENTRY it changes (`whatsapp_last_logged`), never the last message's parse.
 - **Push notifications are REAL Web Push (v10.48.0, TD-22)** — before this the "Browser push" switch only
   popped a notification from an OPEN tab; nothing reached a lock screen. Now a device subscribes with its
   push service (`lib/webPush.ts`, `public/push-sw.js` imported into the Workbox worker) and is registered

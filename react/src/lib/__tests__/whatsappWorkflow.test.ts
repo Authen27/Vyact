@@ -683,24 +683,26 @@ describe('WhatsApp capture conversation (W3)', () => {
       if (table === 'assets') return queryResult([]);
       if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
       if (table === 'profiles') return queryResult({ display_name: 'Rohan' });
-      if (table === 'transactions') return queryResult(opts.twin ? [{ created_at: new Date(Date.now() - 20 * 60_000).toISOString() }] : []);
+      if (table === 'transactions') {
+        const q = queryResult(opts.twin ? [{ created_at: new Date(Date.now() - 20 * 60_000).toISOString() }] : []);
+        // 13 Oct 2026 (INT-TXN-12): a correction checks the type of the ENTRY it changes (not the last message).
+        q.maybeSingle.mockReturnValue(queryResult({ type: opts.lastType ?? 'expense' }));
+        return q;
+      }
       if (table === 'whatsapp_pending_turns') {
         const q = queryResult(open);
         q.insert.mockImplementation((row: Record<string, unknown>) => { open = { id: 'p-1', ...row }; return q; });
         q.update.mockImplementation(() => { open = null; return q; });
         return q;
       }
-      if (table === 'whatsapp_inbound_messages') {
-        const q = queryResult([{ wa_message_id: 'm-1', attempts: 0 }]);
-        q.maybeSingle.mockReturnValue(queryResult({ payload: { parsed: { type: opts.lastType ?? 'expense' } } }));
-        return q;
-      }
+      if (table === 'whatsapp_inbound_messages') return queryResult([{ wa_message_id: 'm-1', attempts: 0 }]);
       throw new Error(`Unexpected table ${table}`);
     });
     api.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => ({ error: null, data:
       name === 'whatsapp_log_transaction'
         ? { status: 'success', amount: args.p_amount, currency: 'INR', type: 'expense', category_id: args.p_category_id, account_name: 'HDFC' }
         : name === 'whatsapp_undo_last' ? { status: 'undone', amount: 450, currency: 'INR', category_id: 'groceries' }
+        : name === 'whatsapp_last_logged' ? [{ inbox_id: 'm-0', txn_id: 't-1', reason: null }]
         : { status: 'corrected', amount: 450, currency: 'INR' } }));
     return { open: () => open };
   }
@@ -1120,6 +1122,71 @@ describe('WhatsApp EMI (W4g)', () => {
     await post(handler, 'paid emi 9000');
     expect(api.rpc).toHaveBeenCalledWith('whatsapp_pay_loan', expect.objectContaining({ p_debt_id: 'car', p_amount: 9000 }));
     expect(sentTexts()[0]).toMatch(/^This EMI for Car loan is ₹8,884\.88, so I haven't logged ₹9,000\./);
+  });
+
+  // ── 13 Oct 2026 (BE-WA-08, INT-TXN-07, INT-TXN-12; owner decision) — corrections ──────────────
+  /** Like loanTables, with an open question and the type of the entry being corrected. */
+  function correctionTables(loans: { id: string; name: string }[], opts: { pending?: unknown; entryType?: string } = {}) {
+    const turns: ReturnType<typeof queryResult>[] = [];
+    api.from.mockImplementation((table: string) => {
+      if (table === 'memberships') return queryResult({ id: 'membership' });
+      if (table === 'accounts') return queryResult([{ name: 'HDFC', kind: 'bank', currency: 'INR' }]);
+      if (table === 'assets') return queryResult([]);
+      if (table === 'whatsapp_identities') return queryResult({ profile_id: 'alice', household_id: 'alice-house' });
+      if (table === 'whatsapp_pending_turns') { const q = queryResult(opts.pending ?? null); turns.push(q); return q; }
+      if (table === 'transactions') return queryResult(opts.entryType ? { type: opts.entryType } : null);
+      if (table === 'debts') return queryResult(loans.map(l => ({ direction: 'owed_by_me', ...l })));
+      // The last message received was an INCOME reply; the entry being corrected is an expense.
+      if (table === 'whatsapp_inbound_messages') return queryResult([{ wa_message_id: 'm-1', attempts: 0, payload: { parsed: { type: 'income' } } }]);
+      throw new Error(`Unexpected table ${table}`);
+    });
+    return { asked: () => turns.flatMap(q => q.insert.mock.calls.map(([row]) => row as Record<string, unknown>)) };
+  }
+  const rpcBy = (results: Record<string, unknown>) => api.rpc.mockImplementation(async (fn: string) =>
+    (fn in results ? { data: results[fn], error: null } : { data: null, error: { message: `unexpected rpc ${fn}` } }));
+
+  it('WA-EMI-H1 · "no, that was car emi" turns the entry into a payment on the loan — never a Loan / EMI relabel', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    correctionTables([{ id: 'car', name: 'Car loan' }, { id: 'home', name: 'Home loan' }]);
+    rpcBy({ whatsapp_correct_to_loan: { status: 'success', interest: 1000, principal: 7884.88, instalment_no: 1, closes_instalment: true,
+      paid_off: false, outstanding_after: 92115.12, next_due_date: '2026-10-24', amount: 8884.88, currency: 'INR' } });
+    await post(handler, 'no, that was car emi');
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_correct_to_loan', { p_profile_id: 'alice', p_household_id: 'alice-house', p_debt_id: 'car', p_wa_message_id: 'm-1' });
+    expect(api.rpc.mock.calls.map(c => c[0])).not.toContain('whatsapp_correct_last');
+    expect(sentTexts()[0]).toBe('Changed to a loan payment. EMI #1 for Car loan: ₹1,000 interest, ₹7,884.88 off the loan. ₹92,115.12 left; next EMI due 24 Oct.');
+  });
+
+  it('WA-EMI-H2 · several loans and no name: Pip asks which, and the number replied finishes it', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    const { asked } = correctionTables([{ id: 'car', name: 'Car loan' }, { id: 'home', name: 'Home loan' }]);
+    rpcBy({});
+    await post(handler, 'no, that was emi');
+    expect(api.rpc).not.toHaveBeenCalled();
+    expect(asked()).toEqual([expect.objectContaining({ kind: 'emi_loan_choice', payload: { loans: [{ id: 'car', name: 'Car loan' }, { id: 'home', name: 'Home loan' }] } })]);
+    expect(sentTexts()[0]).toBe('Which loan was that EMI for? Reply with its number:\n1. Car loan\n2. Home loan');
+
+    vi.mocked(fetch).mockClear();
+    correctionTables([{ id: 'car', name: 'Car loan' }, { id: 'home', name: 'Home loan' }], { pending: { id: 'turn-1', kind: 'emi_loan_choice',
+      payload: { loans: [{ id: 'car', name: 'Car loan' }, { id: 'home', name: 'Home loan' }] }, expires_at: '2999-01-01T00:00:00Z' } });
+    rpcBy({ whatsapp_correct_to_loan: { status: 'refused', reason: 'more_than_due', figure: '8884.88', amount: 20000, currency: 'INR' } });
+    await post(handler, '2');
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_correct_to_loan', expect.objectContaining({ p_debt_id: 'home' }));
+    expect(sentTexts()[0]).toMatch(/^This EMI for Home loan is ₹8,884\.88, so I've left the entry as it was\. Reply UNDO/);
+  });
+
+  it('WA-EMI-H3 · a category correction is checked against the ENTRY being corrected, not the last message', async () => {
+    const handler = await captureHandler(() => import('../../../../supabase/functions/whatsapp-webhook/index'));
+    correctionTables([], { entryType: 'expense' });
+    rpcBy({ whatsapp_last_logged: [{ inbox_id: 'm-0', txn_id: 't-1', reason: null }],
+      whatsapp_correct_last: { status: 'corrected', amount: 300, currency: 'INR' } });
+    await post(handler, 'no, that was salary');
+    expect(api.rpc.mock.calls.map(c => c[0])).not.toContain('whatsapp_correct_last');
+    expect(sentTexts()[0]).toBe("Salary isn't a category for a spend, so I've left it. You can change it in the app.");
+
+    vi.mocked(fetch).mockClear();
+    await post(handler, 'no, that was groceries');
+    expect(api.rpc).toHaveBeenCalledWith('whatsapp_correct_last', expect.objectContaining({ p_category: 'groceries' }));
+    expect(sentTexts()[0]).toBe('Changed. ₹300 is now under Groceries.');
   });
 });
 

@@ -6,7 +6,9 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 13 Oct 2026):** 106 of 212 resolved, including all 3 critical and 21 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 13 Oct 2026):** 108 of 212 resolved, including all 3 critical and 22 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+
+
 
 
 
@@ -27,9 +29,10 @@
 > - **Since then:** three Aurora 4.0 design PRs merged (#190–#192; consumer v10.87.0 is live). Each says "no figure, calculation or schema change". Where they touch a finding (FE-UIS-07/08/09/12, invite revoke), that is noted.
 > - **Per finding:** the status is in **§11** (new *Status* and *PRs* columns). What is left on each unresolved finding is in **Appendix C**.
 
-> **Updated 13 Oct 2026 (v10.88.0):**
+> **Updated 13 Oct 2026 (v10.88.0 and v10.89.0):**
 > - R1 is fixed;
 > - the erase now covers every household table (XC-PRV-08 except the data export; DB-SEC-08 closed);
+> - a WhatsApp correction to an EMI now pays the loan (v10.89.0: BE-WA-08 and INT-TXN-07 closed; the correction half of INT-TXN-12 fixed);
 > - INT-TXN-01 is corrected to Closed (the delete paths already removed the shared split, so the review's "partly" was wrong);
 > - your 13 Oct decisions are recorded in §0.6, step 3.
 >
@@ -55,17 +58,17 @@ Two developers did the work:
 | Severity | Total | Closed | Closed by decision | Partly | Open | Owner decision | On hold (dev question) | Backlog |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
-| High | 29 | 16 | 5 | 5 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 34 | 2 | 21 | 15 | 9 | 7 | 12 |
+| High | 29 | 17 | 5 | 4 | 0 | 0 | 3 | 0 |
+| Medium | 100 | 35 | 2 | 21 | 14 | 9 | 7 | 12 |
 | Low | 75 | 43 | 1 | 12 | 10 | 6 | 0 | 3 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **97** | **9** | **39** | **26** | **16** | **10** | **15** |
+| **Total** | **212** | **99** | **9** | **38** | **25** | **16** | **10** | **15** |
 
-**106 of 212 are resolved (50%): all 3 critical and 21 of 29 high.** The other 106 fall into four groups:
+**108 of 212 are resolved (51%): all 3 critical and 22 of 29 high.** The other 104 fall into four groups:
 
-| What the 106 need | Count |
+| What the 104 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 55 |
+| Nothing but work: no decision, no blocker | 53 |
 | An owner decision (16 waiting only on it; 5 partly done, with the rest waiting on it) | 21 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 18 |
@@ -96,9 +99,9 @@ Two developers did the work:
 | #175 | v10.71.0 | W4b app stops posting | INT-TXN-06 | — |
 | #176 | v10.72.0 | W4c split edit | FE-PIP-03, INT-TXN-01, FE-UIC-09 | — |
 | #177 | v10.73.0 | W4d bell + signs | FE-UIS-04, FE-UIC-04 | — |
-| #178 | v10.74.0 | W4e loan schema | FE-UIC-06 | FE-MNY-04, INT-TXN-07, FE-UIC-12, OPS-08 |
-| #179 | v10.75.0 | W4f loan app | FE-UIC-06, FE-UIC-09 | FE-MNY-04, INT-TXN-07, FE-UIC-12 |
-| #180 | v10.76.0 | W4g loan automation | FE-UIC-09 | INT-TXN-07 |
+| #178 | v10.74.0 | W4e loan schema | INT-TXN-07, FE-UIC-06 | FE-MNY-04, FE-UIC-12, OPS-08 |
+| #179 | v10.75.0 | W4f loan app | INT-TXN-07, FE-UIC-06, FE-UIC-09 | FE-MNY-04, FE-UIC-12 |
+| #180 | v10.76.0 | W4g loan automation | INT-TXN-07, FE-UIC-09 | — |
 | #181 | v10.77.0 | W4h budget suggest | — | FE-MNY-16 |
 | #182 | v10.78.0 | W5 Pip correctness | FE-PIP-01, FE-PIP-03, FE-PIP-04, FE-PIP-02, FE-PIP-05, FE-PIP-08, FE-PIP-12 | FE-PIP-06 |
 | #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-11, FE-UIS-13, FE-MNY-11, FE-PUB-11 | FE-UIS-10, FE-UIS-12, INT-HH-08 |
@@ -109,14 +112,15 @@ Two developers did the work:
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
-| v10.88.0 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
+| #194 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
+| (PR in review) | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
 
 ### 0.3 New issues found during this review (not in the audit)
 
 | # | Severity | What | Caused by | Status |
 |---|---|---|---|---|
 | **R1** | **High** | **"Erase all data" fails for any household with an unpaid loan.** `erase_household_data` deletes debts (`20261010120000_w1b_account_purge.sql:27`) before accounts (`:29`). W4e's guard `debts_refuse_unpaid_delete` (`20261016120000_w4e_loan_model.sql:612-625`) still sees the loan account, finds money owed and raises `debt_not_paid_off`, so the whole erase rolls back. It is DB-INT-05 again, by a new route. | #178 (W4e) against #167 (W1b) | **Fixed in v10.88.0** (13 Oct): the erase removes the loan accounts and zeroes the cached balance before deleting debts; PGlite test against the real guard. |
-| **R2** | Medium | **A WhatsApp correction can relabel a plain expense as Loan / EMI**, so the loan never moves. Developer 1's PRs cited BE-WA-08 for the "paid … EMI" path. The defect the finding actually describes, in the correction path, was never touched. | Gap in #178–#180 | Open (BE-WA-08, INT-TXN-07). XS |
+| **R2** | Medium | **A WhatsApp correction can relabel a plain expense as Loan / EMI**, so the loan never moves. Developer 1's PRs cited BE-WA-08 for the "paid … EMI" path. The defect the finding actually describes, in the correction path, was never touched. | Gap in #178–#180 | **Fixed in v10.89.0** (13 Oct): the correction turns the entry into a loan payment (owner decision); a plain correction refuses Loan / EMI. |
 | **R3** | Medium | **Two calculators for one schedule on the budget form.** Suggest reads the RRULE (D27, #181). The recurring forecast still steps by frequency (#186), against D13's rule that every calculator goes through `ruleOf`. The two give different monthly figures. | #181 against #186 | Open (FE-MNY-16). S |
 | **R4** | Low | **A revoked invitation can stay live.** Aurora A3 holds a revoke for 8 s so it can be undone. If the tab closes or the phone kills the app inside that window, the revoke may never be sent, although the screen already said "revoked". `lib/undoable.ts` and `DeferredFlush.tsx` flush on `pagehide` only, with no `keepalive` and no `visibilitychange`. | #192 | Open. XS |
 | R5 | — | #185's `ignoreCommand` exited 128, which Vercel treats as an error, so every admin production deploy failed on 8–9 Oct. W8c went live only with #189. | #185 | Fixed by #189. Live-verified: admin v1.4.4. |
@@ -164,7 +168,7 @@ Two developers did the work:
 
 ### 0.5 Open items by severity and impact
 
-**High (8). Each one is a money, privacy or release-safety risk.**
+**High (7). Each one is a money, privacy or release-safety risk.**
 
 | ID | Status | What is left | Next step |
 |---|---|---|---|
@@ -172,15 +176,14 @@ Two developers did the work:
 | FE-PUB-01 | Partly | Make the 'only the people you invite' claim true or qualify it. Either (a) remove `or is_admin('roles')` from activity_log_read, or stop the admin Audit page reading `changes` (redact or serve through an RPC), or (b) add one sentence on staff/operator access to Privacy.tsx and qualify about.js:31, for.js:165, landingCopy.ts:135 and llms.js:30. | Step 1 (S) |
 | BE-FN-07 | Partly | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | Step 1 (M) |
 | DB-SEC-03 | On hold (dev question) | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | Answer D4/D5 |
-| INT-TXN-07 | Partly | Recurring EMIs moved onto their loans, and WhatsApp "paid … EMI" pays the loan. A WhatsApp correction ("no, that was loan emi") can still relabel a plain expense as loan_emi: neither the webhook correctLast nor whatsapp_correct_last refuses it. Same fix as BE-WA-08. | Step 1 (XS) |
 | OPS-01 | On hold (dev question) | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | Answer D8 |
 | OPS-06 | On hold (dev question) | Production error reporting and alerting. | Answer D9 |
 | XC-PRV-03 | Partly | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screens… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). |
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (64)**
-- *Ready to do (no decision):* FE-MNY-06, FE-PIP-06, FE-PIP-07, FE-PIP-09, FE-PIP-11, FE-UIC-10, FE-UIS-03, FE-UIS-07, FE-UIS-10, ADM-03, BE-FN-09, BE-WA-06, BE-WA-08, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
+**Medium (63)**
+- *Ready to do (no decision):* FE-MNY-06, FE-PIP-06, FE-PIP-07, FE-PIP-09, FE-PIP-11, FE-UIC-10, FE-UIS-03, FE-UIS-07, FE-UIS-10, ADM-03, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 - *Batch B, sync robustness:* FE-SYN-04, FE-SYN-05, FE-SYN-06, FE-SYN-07, FE-SYN-08, DB-OPS-10, INT-TXN-10, INT-TXN-11.
 - *Owner decision:* FE-MNY-08, FE-MNY-10, FE-PLT-04, FE-UIC-08, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
@@ -200,7 +203,7 @@ Plus **R1** (high, new): see §0.3.
    - FE-PIP-11: the guard must not wave through "12 lakh" or "Rs 9";
    - FE-PIP-06: a "data, never instructions" line plus an egress sentinel test;
    - FE-PIP-09: stop writing client turn rows;
-   - BE-WA-08 / INT-TXN-07: the WhatsApp correction refuses Loan / EMI and checks the type allowlist.
+   - ~~BE-WA-08 / INT-TXN-07~~ **done in v10.89.0**: the WhatsApp correction to an EMI becomes a loan payment (owner decision), and a category correction is checked against the entry it changes.
    All XS, with an engine rebuild.
 3. **Money correctness:**
    - INT-TXN-01: deleting a split closes the shared split;
@@ -755,7 +758,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | INT-TXN-04 | HIGH | Integration | computeNextDueDate overflows month-end: schedules on the 29th–31st skip whole months | confirmed (adversarial: confirmed) |  | Closed | #173 |
 | INT-TXN-05 | HIGH | Integration | 'Daily' schedules violate both DB CHECKs: never sync, post device-only money every day | confirmed (adversarial: confirmed) | TD-31 (related: the multi-leg recurring event is not atomic) | Closed | #172, #173 |
 | INT-TXN-06 | HIGH | Integration | Recurring engine runs on stale cache and writes last-write-wins: reposts deleted bills, reverts edits | confirmed (adversarial: confirmed) |  | Closed | #174, #175 |
-| INT-TXN-07 | HIGH | Integration | loan_emi stored as a plain full-amount expense by recurring, WhatsApp log and WhatsApp correct | confirmed (adversarial: confirmed) | 2026-09 audit F2 (fixed for the form; still open for these writers) | Partly | #178, #179, #180 |
+| INT-TXN-07 | HIGH | Integration | loan_emi stored as a plain full-amount expense by recurring, WhatsApp log and WhatsApp correct | confirmed (adversarial: confirmed) | 2026-09 audit F2 (fixed for the form; still open for these writers) | Closed | #178, #179, #180, v10.89.0 |
 | INT-TZC-02 | HIGH | Integration | Base-currency change relabels account opening balances and offsets without converting them | confirmed (adversarial: confirmed) | 2026-09 audit F4 (account-balance units are not explicit) — still open; R1 formalised the relabel instead of fixing it | Closed (decision) | #170 |
 | INT-TZC-03 | HIGH | Integration | Client 'today' and 'this month' are UTC, so entries, bills and month boundaries use the wrong local day | confirmed (adversarial: confirmed) |  | Closed | #169 |
 | OPS-01 | HIGH | Platform & Ops | Production release is ungated: Vercel ships the app regardless of CI, migrations or Edge deploy | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 (still open); TD-33 (marked resolved, regressed when the consumer job was removed) | On hold (dev question) | — |
@@ -812,7 +815,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | BE-WA-04 | MEDIUM | Backend | Webhook returns 200 to Meta even when the inbox row was not stored, so the message is lost | confirmed (adversarial: confirmed) |  | Closed | #187 |
 | BE-WA-06 | MEDIUM | Backend | OTP attempt limit is bypassable by parallel requests and resets on every resend | confirmed (adversarial: confirmed) |  | Partly | #187 |
 | BE-WA-07 | MEDIUM | Backend | whatsapp-notify lets any member send any template, with arbitrary text and button payloads, from Vyact's number | confirmed (adversarial: confirmed) |  | Backlog | — |
-| BE-WA-08 | MEDIUM | Backend | "No, that was X" can give an entry the wrong category type, and allows Loan/EMI | confirmed (adversarial: confirmed) |  | Open | — |
+| BE-WA-08 | MEDIUM | Backend | "No, that was X" can give an entry the wrong category type, and allows Loan/EMI | confirmed (adversarial: confirmed) |  | Closed | v10.89.0 |
 | BE-WA-09 | MEDIUM | Backend | STOP and other consent/state writes ignore Supabase errors yet reply "Done" | confirmed (adversarial: confirmed) |  | Partly | #187 |
 | DB-INT-09 | MEDIUM | Database | Account and asset tombstones are not enforced: in-use and cash accounts can be deleted, and live rows land on deleted ones | confirmed (adversarial: confirmed) |  | Backlog | — |
 | DB-INT-11 | MEDIUM | Database | No unique (household_id, user_id) on memberships; invite accept and member limit race | confirmed (adversarial: confirmed) |  | Backlog | — |
@@ -837,7 +840,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | INT-TXN-08 | MEDIUM | Integration | Rejected writes are retried as transient, then dead-lettered while the optimistic row stays forever | confirmed-with-caveats (adversarial: partial) | TD-10 (retry cap resolved; terminal-error handling and rollback still open) | Closed | #171 |
 | INT-TXN-10 | MEDIUM | Integration | Delta sync still not guaranteed current: pulls overwrite pending local writes; commit-order cursor gap | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F8 (pagination and composite cursor fixed; 'overlay pending local writes' still open; commit-order gap new) | Open | — |
 | INT-TXN-11 | MEDIUM | Integration | Split sharing is a separate online write that races the queued transaction and is never retried | confirmed (adversarial: confirmed) | 2026-09 audit 8.5 (still open) | Open | — |
-| INT-TXN-12 | MEDIUM | Integration | WhatsApp correction checks category fit against the wrong message; alias by kind picks arbitrary account | confirmed (adversarial: confirmed) |  | Owner decision | — |
+| INT-TXN-12 | MEDIUM | Integration | WhatsApp correction checks category fit against the wrong message; alias by kind picks arbitrary account | confirmed (adversarial: confirmed) |  | Owner decision | v10.89.0 |
 | INT-TZC-04 | MEDIUM | Integration | WhatsApp: untagged entries use the database's UTC current_date while 'yesterday' uses IST; dispatch hard-codes IST | confirmed (adversarial: confirmed) |  | Closed | #169 |
 | INT-TZC-05 | MEDIUM | Integration | Due-day P1 pushes raised at 05:30 IST land in the default quiet hours and are then marked sent | confirmed (adversarial: confirmed) | TD-22 (resolved v10.48.0) — this is a new defect in its implementation | Closed | #169 |
 | INT-TZC-07 | MEDIUM | Integration | FX uses a hard-coded, undated 2024 rate table and revalues historical foreign rows at today's rate | confirmed (adversarial: confirmed) | 2026-09 audit F4 ('Decide whether historical reporting uses transaction-date FX or current valuation FX'; 'Reject unknown currency/rate data') — still open; the ad hoc FX math in Transactions/aiSummary is fixed | Closed (decision) | #170 |
@@ -1236,16 +1239,15 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 13 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.89.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (106)
+### C.1 Unresolved (104)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
 | FE-MNY-04 | high | Partly | #178, #179 | (1) Loan accounts whose debt was soft-deleted BEFORE v10.74.0 still count as a liability in net worth and Pip. They now appear in the Net Worth list, but nothing on Debts shows them and nothing removes them. This needs a production query and a one-off fix (archive them, or reconcile them to zero). (2) There is no way to correct a loan's outstanding to a lender statement without a payment. D19 says 'changing outstand… | — | S |
 | FE-PUB-01 | high | Partly | #165, #166 | Make the 'only the people you invite' claim true or qualify it. Either (a) remove `or is_admin('roles')` from activity_log_read, or stop the admin Audit page reading `changes` (redact or serve through an RPC), or (b) add one sentence on staff/operator access to Privacy.tsx and qualify about.js:31, for.js:165, landingCopy.ts:135 and llms.js:30. | — | S |
 | BE-FN-07 | high | Partly | #165 | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | — | M |
-| INT-TXN-07 | high | Partly | #178, #179, #180 | Recurring EMIs moved onto their loans, and WhatsApp "paid … EMI" pays the loan. A WhatsApp correction ("no, that was loan emi") can still relabel a plain expense as loan_emi: neither the webhook correctLast nor whatsapp_correct_last refuses it. Same fix as BE-WA-08. | — | XS |
 | XC-PRV-03 | high | Partly | #165, #189 | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screenshot are off (owner action from PR #165).… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). | M |
 | DB-SEC-03 | high | On hold (dev question) | — | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | D4/D5 | S |
 | OPS-01 | high | On hold (dev question) | — | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | D8 | S |
@@ -1279,7 +1281,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-SYN-07 | medium | Open | — | Batch B: delta paging (only one 500-row page is read). | — | M |
 | FE-SYN-08 | medium | Open | — | Batch B: "Synced" must reflect a real cloud pull. | — | S |
 | FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
-| BE-WA-08 | medium | Open | — | Validate inside whatsapp_correct_last: check p_category against the transaction type's allowlist (parity with constants.ts) and refuse loan_emi with approve_in_app. Have the webhook read the type from the RPC or whatsapp_last_logged instead of the latest inbox row. Add the audit's two tests. | — | S |
 | DB-OPS-10 | medium | Open | — | Batch B: a commit-order-safe delta cursor (with INT-TXN-10). | — | M |
 | INT-TXN-10 | medium | Open | — | Batch B: a commit-order-safe cursor (with DB-OPS-10), and pulls must not overwrite pending writes. | — | M |
 | INT-TXN-11 | medium | Open | — | Batch B: queue and retry split sharing with the transaction. | — | S |
@@ -1291,7 +1292,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-UIC-08 | medium | Owner decision | — | Decide one budget-progress basis: does unallocated spend count against the total, and annual lines are measured over their own period everywhere. Then write one lib function used by Budgets, the Dashboard pace and panel, Reports and Pip, with a fixture test asserting identical figures. This also finishes FE-MNY-06. | Owner decision: one 'budget left/over' basis (W8 plan section 4) | M |
 | FE-UIC-12 | medium | Owner decision | #178, #179 | Remove (or redirect to Add account) the cash, checking and savings asset types, and define 'free to spend' once: the Accounts summary should read the same projection as Net Worth and Pip, stating whether archived accounts count. Add a fixture test: Accounts spendable == Net Worth/Pip free-to-spend. | Owner decision W8 plan section 3: remove the cash/checking/savings asset types? | S |
 | DB-INT-13 | medium | Owner decision | — | A WhatsApp alias matches by kind with "limit 1". Pick the default account, or ask? (W8 §3) | Owner: alias with two accounts | S |
-| INT-TXN-12 | medium | Owner decision | — | A WhatsApp alias with two matching accounts: pick the default, or ask? (W8 §3). Also, the correction checks category fit against the last inbound message, not the entry being corrected (webhook correctLast). | Owner: alias with two accounts | S |
+| INT-TXN-12 | medium | Owner decision | v10.89.0 | Correction half fixed in v10.89.0: the category fit is checked against the entry being corrected (whatsapp_last_logged), not the last message. Left: a WhatsApp alias with two matching accounts — pick the default, or ask? (W8 §3) | Owner: alias with two accounts | S |
 | XC-ARC-05 | medium | Owner decision | — | Restructure CLAUDE.md and freeze old docs? (W8 §3) | Owner: docs restructure | S |
 | XC-PRV-10 | medium | Owner decision | — | (1) In router.ts, always send provider: { data_collection: 'deny', allow_fallbacks: false } for base_url openrouter.ai, plus a router unit test. (2) Record the OpenRouter account privacy/ZDR setting. (3) Name OpenRouter and its upstream providers and regions in Privacy §5/§11, and amend 'exactly two things' to mention account and asset names (v10.39 egress). | W8 plan §3 owner decision: whether and how the Privacy page names OpenRouter (bundled with XC-PRV-11's legal entity and grievance officer).… | XS |
 | XC-PRV-11 | medium | Owner decision | #165, #166, #167 | Owner to supply the legal entity, address and grievance officer. Then: add a DPDP section (rights, nomination, Board complaint route); add a complete processor table with regions; offer in-app withdrawal for optional processing; add a breach/incident runbook (72-hour GDPR, DPDP Board) to SECURITY.md; handle children (guardian attestation and date of birth for a 'Child' invite, or stop offering it, and rewrite §12);… | W8 plan §3 owner decision: legal entity and grievance officer/DPO identity to publish, and policy on minors (age 16 vs DPDP 18, parental co… | M |
@@ -1369,7 +1370,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (22)
+### C.3 Resolved, with a residual note (24)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1380,11 +1381,13 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | ADM-02 | high | Closed (decision) | #165 | The session-limit half has no decision: there is no admin inactivity sign-out and no short refresh-token lifetime. Ask the owner whether to add one as a cheap compensating control, since MFA is not used. |
 | INT-PAR-01 | high | Closed (decision) | #170 | Dead code: serverEngine.ts:78-80 still builds a rates map with a stale comment calling it 'the store's rule'. Remove it with the rest of the inert rate plumbing (TD-45, TECH_DEBT.md:110). |
 | INT-TXN-01 | high | Closed | #176 | Corrected 13 Oct: both delete paths for a split row (SplitFormModal.tsx:381, Splits.tsx:107) also delete its shared split (deleteSharedSplitForTxn), and since #176 a split row never reaches the plain form. |
+| INT-TXN-07 | high | Closed | #178, #179, #180, v10.89.0 | Recurring EMIs moved onto their loans (#180); WhatsApp "paid … EMI" pays the loan (#180); a WhatsApp correction to an EMI now pays the loan too (v10.89.0). |
 | FE-PIP-08 | medium | Closed | #182 | The model no longer receives the `vars` headline (#182); its facts carry total_assets, liquid_savings and liquid_by_source separately. Cosmetic: the unused headline still says "across your accounts". |
 | FE-UIC-04 | medium | Closed | #177 | Nothing from the cited list. One uncited instance remains: AccountFormModal.tsx:284 'Available now' uses fmt, so a card over its limit shows a positive available figure. The suggested lint/grep gate against fmt( on balance or net values was not added. |
 | FE-UIC-05 | medium | Closed | #186 | Cosmetic only: move_account_and_delete (still the 20260910150000 definition) does not rewrite extras.paymentMethod. This is harmless now that the form reads the FK first. |
 | BE-FN-06 | medium | Closed | #168 | Optional, not required by D28: (1) cap shares per split (the audit suggested 20); (2) the sender display name in subject and heading still comes from user_metadata.full_name (send-split-email/index.ts:189-191, emailTemplates.ts:130,154), stripped of control characters but still spoofable, e.g. 'Vyact Security'. |
 | BE-WA-03 | medium | Closed | #187 | Residual edge only: the reopen runs only on a returned 'retry'. If the worker dies after resolvePending (a stale claim is replayed), or an exception escapes processInboundTurn, the question stays closed. The audit's stronger design (resolve the pending turn inside the action's RPC transaction, or keep it on the inbox… |
+| BE-WA-08 | medium | Closed | v10.89.0 | v10.89.0: a WhatsApp correction to an EMI turns the entry into a loan payment (whatsapp_correct_to_loan: server split, expense removed, never twice); whatsapp_correct_last refuses loan_emi. |
 | DB-SEC-08 | medium | Closed | #167, v10.88.0 | Server-side recency check (#167); the erase now also removes notifications, WhatsApp questions, agent conversations, relay messages and loan history (v10.88.0). |
 | INT-HH-12 | medium | Closed (decision) | #166 | Cleanup: a later migration should drop 'child' from the role CHECKs and the trigger once old clients age out (the W1a migration kept them 'for one release'). |
 | FE-MNY-11 | low | Closed | #183 | Optional, part of the recommendation but not the defect: no UTF-8 BOM is emitted (downloadCsv at :40-45), so non-ASCII descriptions may garble in Excel. |
