@@ -167,6 +167,36 @@ export function splitSettledEmail(d: {
   return { subject: 'A split share was settled', html: page, text };
 }
 
+/**
+ * H1 · You're invited to a household (v10.94.0; owner decision 13 Oct 2026; copy from
+ * docs/EMAIL_TEMPLATES.md §4). Who sent it (name and email), the household, the access given, and
+ * one button to the invitation link. Signed in with this address, the invitee also finds it in the bell.
+ */
+export interface HouseholdInviteData {
+  inviterName: string;
+  inviterEmail?: string;
+  household: string;
+  roleLabel: string;
+  inviteUrl: string;
+  /** YYYY-MM-DD */
+  expiresOn: string;
+}
+
+export function householdInviteEmail(d: HouseholdInviteData): EmailContent {
+  const owner = label(d.inviterName);
+  const household = label(d.household);
+  const sender = d.inviterEmail ? `${owner} (${label(d.inviterEmail, 254)})` : owner;
+  const { html: page, text } = renderEmail({
+    heading: `Join ${household} on Vyact`,
+    lines: [
+      html`${sender} invited you to share their household on Vyact, the family budget app. You'll see the same budgets, bills and totals, and they've given you <strong>${label(d.roleLabel, 40)}</strong> access.`,
+    ],
+    cta: { label: 'Accept the invitation', url: d.inviteUrl },
+    footer: `The invitation expires on ${label(d.expiresOn, 10)}. Not expecting it? Ignore this email.`,
+  });
+  return { subject: `${owner} invited you to "${household}" on Vyact`, html: page, text };
+}
+
 /** Member-facing — the owner closed the split. */
 export function splitClosedEmail(d: {
   ownerName: string; description: string; appUrl: string;

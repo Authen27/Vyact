@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.93.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.94.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -657,6 +657,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     plain form has no shares; saving a split there erased it.
   - A participant who had paid keeps the day they paid (`paidOnFor`).
 - **Split sharing rules (v10.59.0):** cloud splits are shared by email only, never your own email. Each new person is confirmed before saving (by name if they have an account, as an invitation if not; `lib/splitParticipants.ts`). The invitation names the sender's name and email.
+- **A household invitation can be addressed to a person (v10.94.0; owner decisions 13 Oct 2026; #9).**
+  - `invitations.invited_email` is the LABEL the inviter typed (a legacy name). The invitee's address is
+    `recipient_email` (lower-case, checked), or null for a link-only invitation.
+  - The invitee reads and answers it only through `my_pending_invitations` / `accept_invitation_by_id` /
+    `decline_invitation`, matched on their CONFIRMED email (`my_verified_email`, not `my_email`), never by token.
+  - `send-invite-email` emails it: only an owner or admin may send, only to the stored address, never your own,
+    and once per invitation (`claim_invite_email`, with a daily cap per sender). A revoked invitation keeps its
+    log row, so revoking and re-inviting does not reset the cap.
+  - The email transport is `_shared/emailTransport.ts`, shared with split email. Add a sender there; never copy it.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

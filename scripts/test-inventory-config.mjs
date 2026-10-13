@@ -47,6 +47,8 @@ export const groups = [
   group('Ask gateway', 'conditional', 'handler-integration', ['gatewayWorkflow'], 'ask-vyact/index.ts'),
   group('Account deletion handler', 'conditional', 'handler-integration', ['accountDeletionHandler'], 'delete-account/index.ts (re-auth, purge_account, auth delete last; mocked client)'),
   group('Split email guard SQL', 'conditional', 'sql-integration', ['splitEmailGuardSql'], 'W1c migration: one email per share per event, daily cap per sender, existing shares count as mailed (focused PGlite fixture)'),
+  group('Invitation inbox SQL', 'conditional', 'sql-integration', ['invitationInboxSql'], 'my_pending_invitations / accept_invitation_by_id / decline_invitation on the confirmed email, HOUSEHOLD_FULL, recipient_email check, link accept without a label, claim_invite_email once + daily cap, purge_account (#9, owner decisions 13 Oct 2026; PGlite)'),
+  group('Invite email handler', 'conditional', 'handler-integration', ['inviteEmailHandler'], 'send-invite-email + householdInviteEmail (escaping, owner/admin first, stored address only, claimed once, inert unconfigured; mocked client and provider)'),
   group('Split email handler', 'conditional', 'handler-integration', ['splitEmailHandler'], 'send-split-email/index.ts + emailTemplates.ts (escaping, authorise first, claimed shares only; mocked client and provider)'),
   group('AI usage metering SQL', 'conditional', 'sql-integration', ['aiUsageSourceSql'], 'W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture)'),
   group('Time zone (local today)', 'available', 'unit', ['timeZoneDay'], 'W3a: device-local today in the app, household-zone today in the engine, WhatsApp day and scheduler slots'),

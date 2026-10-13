@@ -20,16 +20,15 @@
 // The 'shared' event branches per recipient: members WITH a Vyact account get
 // the full-info email; members WITHOUT one get a "sign up to view" invite.
 //
-// Transport (pick ONE via secrets, checked in this order): MailerSend (MailerLite
-// transactional API) → SMTP (any provider) → Resend. Supabase's own email is
-// auth-only, so a transport is required. Inert (email_not_configured) until set.
+// Transport: ../_shared/emailTransport.ts (MailerSend → SMTP → Resend), shared with
+// send-invite-email since v10.94.0. Inert (email_not_configured) until one is set.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import {
   splitSharedEmail, splitInviteEmail, splitSettledEmail, splitClosedEmail,
   type SplitEmailData,
 } from '../_shared/emailTemplates.ts';
+import { env, emailConfigured, parseDailyCap, deliver as send } from '../_shared/emailTransport.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,83 +37,17 @@ const corsHeaders = {
 };
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-const env = (k: string) => Deno.env.get(k) ?? '';
 
 type Event = 'shared' | 'settled' | 'closed';
 
 /** Emails one person may cause in 24 hours. A malformed setting keeps the default, never "off". */
 export const DEFAULT_DAILY_CAP = 50;
 export function dailyCap(raw: string): number {
-  return /^\d{1,5}$/.test(raw.trim()) ? Number(raw.trim()) : DEFAULT_DAILY_CAP;
+  return parseDailyCap(raw, DEFAULT_DAILY_CAP);
 }
 
-// Configured if ANY transport has its secrets set (MailerSend preferred).
-const emailConfigured = () => Boolean(env('MAILERSEND_API_KEY') || env('SMTP_HOST') || env('RESEND_API_KEY'));
-
-function parseFrom(raw: string): { email: string; name?: string } {
-  const m = raw.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
-  if (m) return { email: m[2].trim(), name: m[1] || undefined };
-  return { email: raw.trim() };
-}
-
-// v10.60.0 — every email comes from vyact.app (docs/EMAIL_TEMPLATES.md §0); replies go to support.
-const DEFAULT_FROM = 'Vyact <hello@vyact.app>';
-const replyTo = () => env('EMAIL_REPLY_TO') || 'support@vyact.app';
-
-/** A provider refusal, logged by status only — never the address or the body. */
-async function refused(provider: string, res: Response): Promise<false> {
-  let code = '';
-  try { code = String(((await res.json()) as { name?: string; message?: string })?.name ?? ''); } catch { /* not json */ }
-  console.error(JSON.stringify({ fn: 'send-split-email', provider, status: res.status, code }));
-  return false;
-}
-
-async function sendViaMailerSend(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
-  const res = await fetch('https://api.mailersend.com/v1/email', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env('MAILERSEND_API_KEY')}`,
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-    },
-    body: JSON.stringify({ from: parseFrom(from), to: [{ email: to }], reply_to: { email: replyTo() }, subject, html, text }),
-  });
-  return res.ok || refused('mailersend', res);
-}
-
-async function sendViaResend(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, reply_to: replyTo(), subject, html, text }),
-  });
-  return res.ok || refused('resend', res);
-}
-
-async function sendViaSmtp(from: string, to: string, subject: string, html: string, text: string): Promise<boolean> {
-  const port = Number(env('SMTP_PORT') || '465');
-  const client = new SMTPClient({
-    connection: { hostname: env('SMTP_HOST'), port, tls: port === 465, auth: { username: env('SMTP_USER'), password: env('SMTP_PASS') } },
-  });
-  try {
-    await client.send({ from, to, subject, content: text, html });
-    return true;
-  } catch (e) {
-    console.error(JSON.stringify({ fn: 'send-split-email', provider: 'smtp', error: String((e as Error)?.name ?? 'error') }));
-    return false;
-  } finally {
-    try { await client.close(); } catch { /* ignore */ }
-  }
-}
-
-// Deliver a pre-rendered email via the first configured transport.
-async function deliver(to: string, subject: string, html: string, text: string): Promise<boolean> {
-  const from = env('SPLIT_EMAIL_FROM') || DEFAULT_FROM;
-  if (env('MAILERSEND_API_KEY')) return sendViaMailerSend(from, to, subject, html, text);
-  if (env('SMTP_HOST')) return sendViaSmtp(from, to, subject, html, text);
-  if (env('RESEND_API_KEY')) return sendViaResend(from, to, subject, html, text);
-  return false;
-}
+const deliver = (to: string, subject: string, html: string, text: string) =>
+  send('send-split-email', to, subject, html, text);
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });

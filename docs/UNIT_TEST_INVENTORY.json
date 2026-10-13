@@ -1349,6 +1349,44 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/invitationInboxSql.test.ts",
+      "feature": "Invitation inbox SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "my_pending_invitations / accept_invitation_by_id / decline_invitation on the confirmed email, HOUSEHOLD_FULL, recipient_email check, link accept without a label, claim_invite_email once + daily cap, purge_account (#9, owner decisions 13 Oct 2026; PGlite)",
+      "count": 10,
+      "tests": [
+        "invitation inbox (#9 step 1) INV-001 · the invitee sees invitations addressed to their confirmed email: who, which household, what access, never the token",
+        "invitation inbox (#9 step 1) INV-002 · an unconfirmed address sees nothing and can do nothing; signed-out callers cannot run any of it",
+        "invitation inbox (#9 step 1) INV-003 · accepting joins with the invitation's access, once; someone else's invitation is \"not found\" and stays",
+        "invitation inbox (#9 step 1) INV-004 · a full household refuses the join (HOUSEHOLD_FULL) and the invitation stays open",
+        "invitation inbox (#9 step 1) INV-005 · an invitation to a household you are already in closes without a second membership",
+        "invitation inbox (#9 step 1) INV-006 · declining removes only your own open invitation",
+        "invitation inbox (#9 step 1) INV-007 · the address is stored lower-case and email-shaped; a link-only invitation has none",
+        "invitation inbox (#9 step 1) INV-008 · the link accept now joins when the invitation has no relationship label (it used to fail)",
+        "invitation inbox (#9 step 1) INV-009 · one email per invitation, ever; a daily cap per sender that revoking does not reset",
+        "invitation inbox (#9 step 1) INV-010 · deleting an account removes invitations addressed to it, and no one else's"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/inviteEmailHandler.test.ts",
+      "feature": "Invite email handler",
+      "availability": "conditional",
+      "layer": "handler-integration",
+      "owner": "send-invite-email + householdInviteEmail (escaping, owner/admin first, stored address only, claimed once, inert unconfigured; mocked client and provider)",
+      "count": 6,
+      "tests": [
+        "household invitation email (#9) INV-E-001 · every value is escaped and the subject cannot fold",
+        "household invitation email (#9) INV-E-002 · authorised before any work: signed out, bad id, unknown, not an owner or admin, no address, closed, own email",
+        "household invitation email (#9) INV-E-003 · with no email provider set it sends nothing and claims nothing",
+        "household invitation email (#9) INV-E-004 · a claimed invitation is emailed once, to its stored address, with its own link",
+        "household invitation email (#9) INV-E-005 · already sent or over the cap sends nothing; a failed delivery gives its claim back",
+        "household invitation email (#9) INV-E-006 · the cap setting: default 20, and a malformed value can never mean \"no cap\""
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/learnJsonLd.test.ts",
       "feature": "Formatting and structured content",
       "availability": "available",
