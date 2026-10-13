@@ -1073,7 +1073,7 @@
       "feature": "Household erase SQL",
       "availability": "conditional",
       "layer": "sql-integration",
-      "owner": "erase_household_data migration (focused PGlite fixture)",
+      "owner": "erase_household_data: unpaid-loan erase against the real W4e guard, shared splits deleted, every household table erased or kept (focused PGlite fixture)",
       "count": 8,
       "tests": [
         "erase_household_data CON-UNIT-W0-001 - the old audit action is exactly what the activity_log CHECK rejects",
@@ -2882,6 +2882,23 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/whatsappCorrectToLoanSql.test.ts",
+      "feature": "WhatsApp EMI correction SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "whatsapp_correct_to_loan: the entry becomes a loan payment (server split, expense removed, never twice, refusals change nothing); whatsapp_correct_last refuses loan_emi (real W3 + W4e functions, PGlite)",
+      "count": 6,
+      "tests": [
+        "WhatsApp \"that was loan emi\" (13 Oct 2026) WA-EMI-001 · a refusal changes nothing: more than the instalment due leaves the entry as it was",
+        "WhatsApp \"that was loan emi\" (13 Oct 2026) WA-EMI-002 · the entry becomes the loan payment — the server’s split, its account and date — and the expense goes",
+        "WhatsApp \"that was loan emi\" (13 Oct 2026) WA-EMI-003 · never twice: a replay is a duplicate, and a second correction finds nothing to change",
+        "WhatsApp \"that was loan emi\" (13 Oct 2026) WA-EMI-004 · only within 15 minutes, and only for someone who may write",
+        "WhatsApp \"that was loan emi\" (13 Oct 2026) WA-EMI-005 · a plain correction never relabels an expense as Loan / EMI; other categories still change",
+        "WhatsApp \"that was loan emi\" (13 Oct 2026) WA-EMI-006 · \"Which loan?\" is a question kind the table accepts"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/whatsappDispatch.test.ts",
       "feature": "WhatsApp dispatch",
       "availability": "conditional",
@@ -3050,7 +3067,7 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "whatsapp-webhook / whatsapp-verify-otp",
-      "count": 62,
+      "count": 65,
       "tests": [
         "W6b template replies in the webhook CON-UNIT-W6B-012 · recurring Undo within 15 minutes removes that entry; Pause pauses its schedule; a late Undo is refused",
         "W6b template replies in the webhook CON-UNIT-W6B-013 · \"1200 dinner shared\" logs it, then prompts the logger; Split 50/50 writes the app's split for the usual partner",
@@ -3072,6 +3089,9 @@
         "WhatsApp \"paid X\" (W2b) W3-D13-011 · \"paid rent\" on the LAST occurrence (COUNT reached) closes the schedule and says so",
         "WhatsApp EMI (W4g) W4-D19-018 · \"paid car EMI\" pays the named loan through whatsapp_pay_loan — never logged as one expense",
         "WhatsApp EMI (W4g) W4-D19-019 · two loans and no name: asks which; more than due is refused with the amount due",
+        "WhatsApp EMI (W4g) WA-EMI-H1 · \"no, that was car emi\" turns the entry into a payment on the loan — never a Loan / EMI relabel",
+        "WhatsApp EMI (W4g) WA-EMI-H2 · several loans and no name: Pip asks which, and the number replied finishes it",
+        "WhatsApp EMI (W4g) WA-EMI-H3 · a category correction is checked against the ENTRY being corrected, not the last message",
         "WhatsApp answers (W4) CON-UNIT-W4-007 · with answers OFF, a question is offered answers here (no link) and reads nothing",
         "WhatsApp answers (W4) CON-UNIT-W4-008 · with answers ON, Ask Vyact answers from this household; \"1\" asks the follow-up with the stated figures",
         "WhatsApp answers (W4) CON-UNIT-W4-009 · the menu’s Check rows ask Ask Vyact when answers are on; a failed read says so plainly",

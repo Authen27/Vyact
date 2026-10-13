@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.88.0`** (consumer)
+> **Current production version: `v10.89.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,44 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.89.0 — WhatsApp: "that was loan emi" becomes a real loan payment *(2026-10-13)*
+
+Migration `20261019120000_whatsapp_correct_to_loan` plus the `whatsapp-webhook` Edge Function; no app change.
+Findings: BE-WA-08, INT-TXN-07 (the remaining part), and the correction half of INT-TXN-12. Owner decisions,
+13 Oct 2026.
+
+- **What was wrong.** "no, that was loan emi" re-labelled the entry WhatsApp had just logged as Loan / EMI.
+  The whole amount stayed spending, and the loan never moved, so Debts, the loan's schedule and the budget
+  disagreed with what was paid.
+- **Now the entry becomes a payment on the loan.**
+  - The server splits it: interest first, then principal, under the instalment's rules. The next due date
+    and months left update.
+  - The plain expense is removed in the same transaction, and it can never happen twice.
+  - The reply says what happened, e.g. "Changed to a loan payment. EMI #1 for Car loan: ₹1,000 interest,
+    ₹7,884.88 off the loan. ₹92,115.12 left; next EMI due 24 Oct."
+  - A refusal (more than the instalment due, a part-paid instalment, a paid-off loan) leaves the entry as
+    it was and says why.
+- **Which loan.** The one the message names; else the only open loan; else Pip asks "Which loan was that
+  EMI for?" with a numbered list, and the number replied finishes it.
+- **A plain correction never relabels an expense as Loan / EMI** (the database refuses it too).
+- **The right entry is checked.** A category correction is checked against the type of the entry being
+  changed. It used to read the last message received, so an income category could land on a spend, or a
+  valid correction was refused.
+
+Tests:
+- whatsappCorrectToLoanSql.test.ts (6, PGlite with the real W3 and W4e functions):
+  - the conversion and its legs;
+  - never twice;
+  - a refusal changes nothing;
+  - the 15-minute window and the viewer rule;
+  - loan_emi refused;
+  - the new question kind.
+- whatsappWorkflow.test.ts: 3 handler cases:
+  - one loan named;
+  - several loans: ask, then the reply finishes it;
+  - the fit check against the entry.
+- The W3 correction fixture now models the entry being corrected (deliberately).
 
 ## v10.88.0 — "Erase all data" works with a loan, and erases everything *(2026-10-13)*
 
