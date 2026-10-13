@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.87.0`** (consumer)
+> **Current production version: `v10.88.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,37 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.88.0 — "Erase all data" works with a loan, and erases everything *(2026-10-13)*
+
+Database only (migration `20261018120000_erase_household_complete`); no app change. Findings: R1 (from the
+12 Oct status review), XC-PRV-08, DB-SEC-08. Owner decisions, 13 Oct 2026.
+
+- **R1: erase with an unpaid loan.** The erase deleted debts while the loan account still existed. The loan
+  guard (v10.74.0) then saw money owed and refused, so the whole erase rolled back and nothing was erased.
+  Now the erase removes the loan accounts and zeroes the cached balance first, then deletes the debts. The
+  guard still refuses every other delete of a loan with money owed.
+- **Erase scope.** The erase now also removes:
+  - notifications;
+  - open WhatsApp questions and scheduling state;
+  - Pip agent conversations and relay messages;
+  - loan payment history;
+  - the household's shared splits, deleted for everyone in them (owner's choice).
+
+  Kept: the household and its memberships, invitations, subscriptions, WhatsApp links and preferences, push
+  subscriptions, and usage metering without text.
+- **No table missed again.** A test lists every household table and fails until each new one is either
+  erased or explicitly kept.
+- **Audit report:** status updated (106 of 212 resolved). INT-TXN-01 is corrected to Closed, and the
+  13 Oct decisions are recorded.
+
+Tests:
+- eraseHouseholdSql.test.ts (8): the unpaid-loan erase runs against the REAL W4e guard, read from its
+  migration. The same fixture fails with `debt_not_paid_off` against the old erase.
+- The guard still refuses a direct delete.
+- Shared splits are gone; other households are untouched.
+- The re-authentication check still applies.
+- The household-table coverage test.
 
 ## v10.87.0 — Aurora 4.0 A3: confirmations and undo *(2026-10-12)*
 

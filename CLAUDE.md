@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.87.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.88.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -549,6 +549,14 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - Erase and delete need a sign-in within 10 minutes, checked on the SERVER (`recently_reauthenticated()` / the JWT `amr`), not only in the browser.
   - FKs to users never block deletion: shared history stays and stops naming the person (`ON DELETE SET NULL`). Never add a NO ACTION FK to `auth.users`.
   - WhatsApp messages are kept 90 days (`purge_old_whatsapp_messages`, pg_cron `whatsapp-retention`), and go with the person, the household, and an unlink.
+  - **"Erase all data" erases every household table that holds the household's money or words (v10.88.0;
+    owner decisions 13 Oct 2026).**
+    - The household's shared splits are DELETED, for everyone in them.
+    - Loans go first: the loan accounts, then the cached balance is zeroed, then the debts. The W4e guard
+      `debts_refuse_unpaid_delete` stays for every other delete path. An erase that deleted debts first
+      rolled back for any household with an unpaid loan (R1).
+    - A new table with a `household_id` must be added to the erase or to the KEEP list in
+      `eraseHouseholdSql.test.ts`, or the gate fails.
 - **Abuse limits (v10.64.0, audit W1c; owner decision D28).**
   - Pip's prompts are the SERVER's. The app sends `op` (`classify` | `phrase`) + text (+ rejected figures on a phrase retry); `ask-vyact` builds the messages with `systemPromptFor` (`_shared/agent/prompts.ts`). Never let a client send a system prompt, and add a new op (not a free-text prompt) when a feature needs one. The legacy `messages` form is accepted for one release only when it is exactly a server prompt — remove `fromLegacyMessages` next release.
   - `ai_usage` metering comes from the server only: a client row is `source='client'` with its cost/tokens/provider/model cleared by trigger, and `reserve_ai_usage` counts `source='gateway'` rows only. The daily cap is `parseDailyCallCap` (only `off` disables it).

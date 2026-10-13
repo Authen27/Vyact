@@ -6,7 +6,9 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (12 Oct 2026):** 104 of 212 resolved, including all 3 critical and 20 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 13 Oct 2026):** 106 of 212 resolved, including all 3 critical and 21 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+
+
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -24,6 +26,14 @@
 >
 > - **Since then:** three Aurora 4.0 design PRs merged (#190–#192; consumer v10.87.0 is live). Each says "no figure, calculation or schema change". Where they touch a finding (FE-UIS-07/08/09/12, invite revoke), that is noted.
 > - **Per finding:** the status is in **§11** (new *Status* and *PRs* columns). What is left on each unresolved finding is in **Appendix C**.
+
+> **Updated 13 Oct 2026 (v10.88.0):**
+> - R1 is fixed;
+> - the erase now covers every household table (XC-PRV-08 except the data export; DB-SEC-08 closed);
+> - INT-TXN-01 is corrected to Closed (the delete paths already removed the shared split, so the review's "partly" was wrong);
+> - your 13 Oct decisions are recorded in §0.6, step 3.
+>
+> All counts below are regenerated from the per-finding data.
 
 **How the status was checked.** Each finding was matched against:
 - the 25 remediation PRs (#165–#189) and both changelogs;
@@ -45,20 +55,20 @@ Two developers did the work:
 | Severity | Total | Closed | Closed by decision | Partly | Open | Owner decision | On hold (dev question) | Backlog |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
-| High | 29 | 15 | 5 | 6 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 33 | 2 | 22 | 15 | 9 | 7 | 12 |
-| Low | 75 | 43 | 1 | 12 | 10 | 7 | 0 | 2 |
+| High | 29 | 16 | 5 | 5 | 0 | 0 | 3 | 0 |
+| Medium | 100 | 34 | 2 | 21 | 15 | 9 | 7 | 12 |
+| Low | 75 | 43 | 1 | 12 | 10 | 6 | 0 | 3 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **95** | **9** | **41** | **26** | **17** | **10** | **14** |
+| **Total** | **212** | **97** | **9** | **39** | **26** | **16** | **10** | **15** |
 
-**104 of 212 are resolved (49%): all 3 critical and 20 of 29 high.** The other 108 fall into four groups:
+**106 of 212 are resolved (50%): all 3 critical and 21 of 29 high.** The other 106 fall into four groups:
 
-| What the 108 need | Count |
+| What the 106 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 57 |
-| An owner decision (17 waiting only on it; 5 partly done, with the rest waiting on it) | 22 |
+| Nothing but work: no decision, no blocker | 55 |
+| An owner decision (16 waiting only on it; 5 partly done, with the rest waiting on it) | 21 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
-| Backlog: owner said "not now" (plan backlog, batch E, W8e) | 17 |
+| Backlog: owner said "not now" (plan backlog, batch E, W8e) | 18 |
 
 **Status words.**
 - **Closed:** fixed in code on main, checked at file:line.
@@ -75,7 +85,7 @@ Two developers did the work:
 |---|---|---|---|---|
 | #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-UIS-02, ADM-01, ADM-02, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, FE-PUB-03 | FE-PUB-01, BE-FN-07, XC-PRV-03, XC-PRV-08, XC-PRV-11, BE-FN-11 |
 | #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, BE-WA-01, INT-HH-12, INT-CON-04 | FE-PUB-01, ADM-03, XC-PRV-11, INT-HH-06 |
-| #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, XC-PRV-04, XC-PRV-07 | DB-SEC-08, XC-PRV-08, XC-PRV-11 |
+| #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07 | XC-PRV-08, XC-PRV-11 |
 | #168 | v10.64.0 | W1c abuse limits | BE-FN-06, BE-PIP-02, BE-PIP-03, FE-PIP-18 | FE-PIP-09, BE-FN-09, OPS-11 |
 | #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05 | INT-PAR-11 |
 | #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-PIP-14, INT-TZC-08 | FE-UIS-03, FE-MNY-16, INT-PAR-11 |
@@ -84,7 +94,7 @@ Two developers did the work:
 | #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02 | XC-ARC-06, INT-PAR-11 |
 | #174 | v10.70.0 | W4a server posts bills | INT-TXN-06 | — |
 | #175 | v10.71.0 | W4b app stops posting | INT-TXN-06 | — |
-| #176 | v10.72.0 | W4c split edit | FE-PIP-03, FE-UIC-09 | INT-TXN-01 |
+| #176 | v10.72.0 | W4c split edit | FE-PIP-03, INT-TXN-01, FE-UIC-09 | — |
 | #177 | v10.73.0 | W4d bell + signs | FE-UIS-04, FE-UIC-04 | — |
 | #178 | v10.74.0 | W4e loan schema | FE-UIC-06 | FE-MNY-04, INT-TXN-07, FE-UIC-12, OPS-08 |
 | #179 | v10.75.0 | W4f loan app | FE-UIC-06, FE-UIC-09 | FE-MNY-04, INT-TXN-07, FE-UIC-12 |
@@ -99,12 +109,13 @@ Two developers did the work:
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
+| v10.88.0 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
 
 ### 0.3 New issues found during this review (not in the audit)
 
 | # | Severity | What | Caused by | Status |
 |---|---|---|---|---|
-| **R1** | **High** | **"Erase all data" fails for any household with an unpaid loan.** `erase_household_data` deletes debts (`20261010120000_w1b_account_purge.sql:27`) before accounts (`:29`). W4e's guard `debts_refuse_unpaid_delete` (`20261016120000_w4e_loan_model.sql:612-625`) still sees the loan account, finds money owed and raises `debt_not_paid_off`, so the whole erase rolls back. It is DB-INT-05 again, by a new route. | #178 (W4e) against #167 (W1b) | Open. XS: delete the loan accounts first (or bypass the guard inside the erase), plus a PGlite test. |
+| **R1** | **High** | **"Erase all data" fails for any household with an unpaid loan.** `erase_household_data` deletes debts (`20261010120000_w1b_account_purge.sql:27`) before accounts (`:29`). W4e's guard `debts_refuse_unpaid_delete` (`20261016120000_w4e_loan_model.sql:612-625`) still sees the loan account, finds money owed and raises `debt_not_paid_off`, so the whole erase rolls back. It is DB-INT-05 again, by a new route. | #178 (W4e) against #167 (W1b) | **Fixed in v10.88.0** (13 Oct): the erase removes the loan accounts and zeroes the cached balance before deleting debts; PGlite test against the real guard. |
 | **R2** | Medium | **A WhatsApp correction can relabel a plain expense as Loan / EMI**, so the loan never moves. Developer 1's PRs cited BE-WA-08 for the "paid … EMI" path. The defect the finding actually describes, in the correction path, was never touched. | Gap in #178–#180 | Open (BE-WA-08, INT-TXN-07). XS |
 | **R3** | Medium | **Two calculators for one schedule on the budget form.** Suggest reads the RRULE (D27, #181). The recurring forecast still steps by frequency (#186), against D13's rule that every calculator goes through `ruleOf`. The two give different monthly figures. | #181 against #186 | Open (FE-MNY-16). S |
 | **R4** | Low | **A revoked invitation can stay live.** Aurora A3 holds a revoke for 8 s so it can be undone. If the tab closes or the phone kills the app inside that window, the revoke may never be sent, although the screen already said "revoked". `lib/undoable.ts` and `DeferredFlush.tsx` flush on `pagehide` only, with no `keepalive` and no `visibilitychange`. | #192 | Open. XS |
@@ -153,7 +164,7 @@ Two developers did the work:
 
 ### 0.5 Open items by severity and impact
 
-**High (9). Each one is a money, privacy or release-safety risk.**
+**High (8). Each one is a money, privacy or release-safety risk.**
 
 | ID | Status | What is left | Next step |
 |---|---|---|---|
@@ -161,7 +172,6 @@ Two developers did the work:
 | FE-PUB-01 | Partly | Make the 'only the people you invite' claim true or qualify it. Either (a) remove `or is_admin('roles')` from activity_log_read, or stop the admin Audit page reading `changes` (redact or serve through an RPC), or (b) add one sentence on staff/operator access to Privacy.tsx and qualify about.js:31, for.js:165, landingCopy.ts:135 and llms.js:30. | Step 1 (S) |
 | BE-FN-07 | Partly | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | Step 1 (M) |
 | DB-SEC-03 | On hold (dev question) | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | Answer D4/D5 |
-| INT-TXN-01 | Partly | Editing keeps the split (#176). Deleting a split row still soft-deletes only the transaction: the shared split and its shares stay open (no closeSharedSplit on the delete path). Aurora A3 (#192) offers "Close it instead" on the Splits page, but Delete still leaves the shared split live. | Step 1 (S) |
 | INT-TXN-07 | Partly | Recurring EMIs moved onto their loans, and WhatsApp "paid … EMI" pays the loan. A WhatsApp correction ("no, that was loan emi") can still relabel a plain expense as loan_emi: neither the webhook correctLast nor whatsapp_correct_last refuses it. Same fix as BE-WA-08. | Step 1 (XS) |
 | OPS-01 | On hold (dev question) | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | Answer D8 |
 | OPS-06 | On hold (dev question) | Production error reporting and alerting. | Answer D9 |
@@ -169,22 +179,22 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (65)**
-- *Ready to do (no decision):* FE-PIP-06, FE-PIP-07, FE-PIP-09, FE-PIP-11, BE-WA-08, BE-WA-06, BE-WA-09, BE-FN-09, FE-MNY-06 (half), FE-UIC-10, FE-UIS-03, FE-UIS-07, FE-UIS-10, ADM-03, DB-SEC-08, XC-PRV-08, XC-PRV-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11.
-- *Batch B, sync robustness:* FE-SYN-04, FE-SYN-05, FE-SYN-06, FE-SYN-07, FE-SYN-08, INT-TXN-10, INT-TXN-11, DB-OPS-10.
-- *Owner decision:* FE-MNY-08, FE-MNY-10, FE-UIC-08, FE-UIC-12, DB-INT-13, INT-TXN-12, XC-ARC-05, XC-PRV-10, XC-PRV-11, FE-PLT-04, FE-UIS-09, OPS-05.
-- *Developer questions:* DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, XC-ARC-13, OPS-08 (rest), FE-UIS-12 (reporting).
-- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-INT-11, DB-SEC-06, DB-SEC-09, INT-HH-07, INT-HH-08, INT-HH-09, XC-PRV-12, OPS-11 (global ceiling).
+**Medium (64)**
+- *Ready to do (no decision):* FE-MNY-06, FE-PIP-06, FE-PIP-07, FE-PIP-09, FE-PIP-11, FE-UIC-10, FE-UIS-03, FE-UIS-07, FE-UIS-10, ADM-03, BE-FN-09, BE-WA-06, BE-WA-08, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
+- *Batch B, sync robustness:* FE-SYN-04, FE-SYN-05, FE-SYN-06, FE-SYN-07, FE-SYN-08, DB-OPS-10, INT-TXN-10, INT-TXN-11.
+- *Owner decision:* FE-MNY-08, FE-MNY-10, FE-PLT-04, FE-UIC-08, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
+- *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
+- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-INT-11, DB-SEC-06, DB-SEC-09, INT-HH-07, INT-HH-08, INT-HH-09, OPS-11, XC-PRV-12.
 
-**Low (31) and info (3)**
-- *Ready to do:* FE-MNY-16, ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, BE-WA-12, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, GATE-04, XC-ARC-10, XC-ARC-12, XC-ARC-14 (process), XC-PRV-14, DB-OPS-16, INT-PAR-11.
-- *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, BE-PIP-06, DB-INT-15, XC-ARC-07, XC-ARC-15, BE-FN-12, OPS-07.
-- *Backlog:* FE-PUB-08, INT-CON-07, INT-HH-06.
+**Low and info (34)**
+- *Ready to do (no decision):* FE-MNY-16, ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, BE-WA-12, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, GATE-04, XC-ARC-10, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16, INT-PAR-11.
+- *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, DB-INT-15, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
+- *Backlog:* FE-PUB-08, BE-PIP-06, INT-CON-07, INT-HH-06.
 
 ### 0.6 Action plan
 
 **Step 1. Now: no decision needed, small, highest value.** One PR per group, with the usual gates.
-1. **R1, the erase regression** (high, XS, migration plus PGlite test). Ships before anything else.
+1. ~~**R1, the erase regression**~~ **Done in v10.88.0**, together with the erase scope (XC-PRV-08 except the export, DB-SEC-08).
 2. **Pip leftovers** (Pip is the current priority):
    - FE-PIP-07: validate capture category ids;
    - FE-PIP-11: the guard must not wave through "12 lakh" or "Rs 9";
@@ -224,7 +234,6 @@ Plus **R1** (high, new): see §0.3.
   - "in credit" cards (FE-MNY-13);
   - WhatsApp alias with two accounts (DB-INT-13, INT-TXN-12);
   - local data on sign-in (FE-SYN-13);
-  - retire the Pip relay (BE-PIP-06);
   - email confirmation (DB-INT-15);
   - GA4 consent (XC-PRV-03 rest);
   - Privacy: legal entity and grievance officer (XC-PRV-11);
@@ -234,7 +243,7 @@ Plus **R1** (high, new): see §0.3.
   - lock-screen amounts (BE-FN-12);
   - docs restructure (XC-ARC-05), the dormant SMS pipeline (XC-ARC-07), binaries out of the repo (XC-ARC-15);
   - XC-PRV-04: `amr` vs the emailed-code nonce (§0.4b).
-- *Questions raised in PRs that are still unanswered:* #181, whether the Loan / EMI budget line should be the full EMI or the expected interest.
+- *Decided 13 Oct:* #181 keeps the full EMI on the Loan / EMI budget line; the Pip relay (BE-PIP-06) stays for now (backlog); "Erase all data" deletes the household's shared splits; admins see who/when/what only (ADM-03). Also decided: the full EMI will count as spending everywhere (a reporting rule, reversing part of D19) and each loan's EMI will be mirrored in Recurring, as their own track after the current batch.
 
 **Step 4. Larger scheduled work.**
 - **Batch B, sync robustness** (8 findings, M–L): FE-SYN-04..08, INT-TXN-10/11, DB-OPS-10, as one PR train.
@@ -718,7 +727,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 
 ## 11. Findings index
 
-| ID | Severity | Area | Title | Verification | Known | Status (12 Oct) | PRs |
+| ID | Severity | Area | Title | Verification | Known | Status (13 Oct) | PRs |
 |---|:---:|---|---|---|---|---|---|
 | DB-SEC-01 | CRITICAL | Database | replace_* bulk RPCs let any member, even a viewer or child, take over or wipe a household | confirmed (adversarial: confirmed) | TD-42 | Closed | #166 |
 | DB-SEC-02 | CRITICAL | Database | transfer_ownership's owner check passes for non-members (NULL <> 'owner'), letting anyone promote members | confirmed (adversarial: confirmed) | 2026-09 audit S2 | Closed | #166 |
@@ -742,7 +751,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | DB-SEC-03 | HIGH | Database | upsert_budget/replace_budgets ON CONFLICT (id) DO UPDATE has no household guard: cross-household budget overwrite and read | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
 | INT-HH-03 | HIGH | Integration | Account deletion erases data, then fails on auth-user foreign keys and cannot be retried | confirmed (adversarial: confirmed) |  | Closed | #167 |
 | INT-PAR-01 | HIGH | Integration | Server engine replaces the default FX rates with saved ones; the app merges them, so foreign rows convert at 1 | confirmed (adversarial: confirmed) |  | Closed (decision) | #170 |
-| INT-TXN-01 | HIGH | Integration | Editing a split from Transactions/Dashboard erases the split; deleting it there leaves the shared split live | confirmed (adversarial: confirmed) |  | Partly | #176 |
+| INT-TXN-01 | HIGH | Integration | Editing a split from Transactions/Dashboard erases the split; deleting it there leaves the shared split live | confirmed (adversarial: confirmed) |  | Closed | #176 |
 | INT-TXN-04 | HIGH | Integration | computeNextDueDate overflows month-end: schedules on the 29th–31st skip whole months | confirmed (adversarial: confirmed) |  | Closed | #173 |
 | INT-TXN-05 | HIGH | Integration | 'Daily' schedules violate both DB CHECKs: never sync, post device-only money every day | confirmed (adversarial: confirmed) | TD-31 (related: the multi-leg recurring event is not atomic) | Closed | #172, #173 |
 | INT-TXN-06 | HIGH | Integration | Recurring engine runs on stale cache and writes last-write-wins: reposts deleted bills, reverts edits | confirmed (adversarial: confirmed) |  | Closed | #174, #175 |
@@ -813,7 +822,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | DB-OPS-10 | MEDIUM | Database | Delta-sync cursor relies on updated_at = now(), so out-of-order commits are skipped forever | confirmed (adversarial: confirmed) | 2026-09 audit F8 | Open | — |
 | DB-OPS-12 | MEDIUM | Database | Documented pg_dump --no-privileges restore strips every REVOKE the security model depends on | confirmed-with-caveats (adversarial: partial) | TD-16 | Closed | #189 |
 | DB-SEC-06 | MEDIUM | Database | Any member, even a viewer, can insert P1 notifications that web-push sends to every member's lock screen | confirmed (adversarial: confirmed) |  | Backlog | — |
-| DB-SEC-08 | MEDIUM | Database | erase_household_data: email-code gate is client-only, and the erase misses message text and notifications | confirmed (adversarial: confirmed) | 2026-09 audit S6 | Partly | #167 |
+| DB-SEC-08 | MEDIUM | Database | erase_household_data: email-code gate is client-only, and the erase misses message text and notifications | confirmed (adversarial: confirmed) | 2026-09 audit S6 | Closed | #167, v10.88.0 |
 | DB-SEC-09 | MEDIUM | Database | Tenant-consistency triggers (S3) skip asset_id, initiated_by, schedule and account links | confirmed (adversarial: confirmed) | 2026-09 audit S3 | Backlog | — |
 | DB-SEC-10 | MEDIUM | Database | No database authorization test suite: RLS and RPC role/tenant matrix untested | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
 | INT-HH-07 | MEDIUM | Integration | Owners and admins can add any user to a household without consent and read their profile | confirmed (adversarial: confirmed) | 2026-09 audit S2 ('whether user identity and household linkage can change' still open) | Backlog | — |
@@ -847,7 +856,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | XC-PRV-02 | MEDIUM | Cross-cutting | Recipient email and household-invite bearer tokens sent to GA4/Contentsquare via page URLs | confirmed-with-caveats (adversarial: partial) |  | Closed | #165 |
 | XC-PRV-04 | MEDIUM | Cross-cutting | Email-code re-auth for erase/delete is client-side only; any session can wipe data immediately | confirmed (adversarial: confirmed) |  | Closed | #167 |
 | XC-PRV-07 | MEDIUM | Cross-cutting | WhatsApp message content and phone numbers are retained forever and survive unlink, erase and deletion | confirmed (adversarial: confirmed) |  | Closed | #167 |
-| XC-PRV-08 | MEDIUM | Cross-cutting | 'Erase household data' and the data export cover only the core ledger tables | confirmed (adversarial: confirmed) | 2026-09 audit S6 (household erasure) — onboarding bug fixed; table coverage still incomplete | Partly | #165, #167, #184 |
+| XC-PRV-08 | MEDIUM | Cross-cutting | 'Erase household data' and the data export cover only the core ledger tables | confirmed (adversarial: confirmed) | 2026-09 audit S6 (household erasure) — onboarding bug fixed; table coverage still incomplete | Partly | #165, #167, #184, v10.88.0 |
 | XC-PRV-09 | MEDIUM | Cross-cutting | Consent record is unreliable: wrong version stored, errors swallowed, Google sign-in skips it | confirmed (adversarial: confirmed) |  | Partly | #186 |
 | XC-PRV-10 | MEDIUM | Cross-cutting | Pip questions and figures routed through OpenRouter with no provider data policy enforced | confirmed-with-caveats (adversarial: partial) |  | Owner decision | — |
 | XC-PRV-11 | MEDIUM | Cross-cutting | Privacy notice lacks DPDP/GDPR basics: controller, grievance contact, breach process, child accounts | confirmed-with-caveats (adversarial: partial) |  | Owner decision | #165, #166, #167 |
@@ -896,7 +905,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | BE-FN-11 | LOW | Backend | Deployment and auth config for these functions is not codified; cron hardcodes the prod URL | not independently verified (low/info) | 2026-09 audit §10.1 (Edge Functions missing from the deploy manifest). Still open. | Partly | #165 |
 | BE-PIP-04 | LOW | Backend | Untrusted learned recipes are written without confirmation, and one user can promote a global recipe | confirmed-with-caveats (adversarial: partial) |  | Partly | #187 |
 | BE-PIP-05 | LOW | Backend | key_env_var denylist misses MAILERSEND_API_KEY; base_url host checks are bypassable | not independently verified (low/info) |  | Closed | #187 |
-| BE-PIP-06 | LOW | Backend | TEMPORARY Claude Code relay is still live, with no retention bound and an unauthenticated status endpoint | not independently verified (low/info) | TD-44 | Owner decision | — |
+| BE-PIP-06 | LOW | Backend | TEMPORARY Claude Code relay is still live, with no retention bound and an unauthenticated status endpoint | not independently verified (low/info) | TD-44 | Backlog | — |
 | BE-PIP-07 | LOW | Backend | Gateway failures are silent in logs but over-share config details with end users | not independently verified (low/info) | TD-43 | Closed | #187 |
 | BE-WA-11 | LOW | Backend | A failed Meta send permanently uses up the dedupe slot; the daily cap check is racy | not independently verified (low/info) |  | Closed | #187 |
 | BE-WA-12 | LOW | Backend | Replay relies on unrelated traffic, and stale claims replay without limit | not independently verified (low/info) | TD-35 (webhook inbox recovery marked resolved in v10.40.0; the scheduler and stale-claim cap are still missing) | Partly | #187 |
@@ -1225,18 +1234,17 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 | Secrets, PII and privacy compliance (XC-PRV) | Cross-cutting | 62 | 14 | 14 |
 | Architecture, maintainability and AI-assisted development risk (XC-ARC) | Cross-cutting | 58 | 15 | 15 |
 
-## Appendix C — Remediation status by finding (12 Oct 2026)
+## Appendix C — Remediation status by finding (updated 13 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4). See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (108)
+### C.1 Unresolved (106)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
 | FE-MNY-04 | high | Partly | #178, #179 | (1) Loan accounts whose debt was soft-deleted BEFORE v10.74.0 still count as a liability in net worth and Pip. They now appear in the Net Worth list, but nothing on Debts shows them and nothing removes them. This needs a production query and a one-off fix (archive them, or reconcile them to zero). (2) There is no way to correct a loan's outstanding to a lender statement without a payment. D19 says 'changing outstand… | — | S |
 | FE-PUB-01 | high | Partly | #165, #166 | Make the 'only the people you invite' claim true or qualify it. Either (a) remove `or is_admin('roles')` from activity_log_read, or stop the admin Audit page reading `changes` (redact or serve through an RPC), or (b) add one sentence on staff/operator access to Privacy.tsx and qualify about.js:31, for.js:165, landingCopy.ts:135 and llms.js:30. | — | S |
 | BE-FN-07 | high | Partly | #165 | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | — | M |
-| INT-TXN-01 | high | Partly | #176 | Editing keeps the split (#176). Deleting a split row still soft-deletes only the transaction: the shared split and its shares stay open (no closeSharedSplit on the delete path). Aurora A3 (#192) offers "Close it instead" on the Splits page, but Delete still leaves the shared split live. | — | S |
 | INT-TXN-07 | high | Partly | #178, #179, #180 | Recurring EMIs moved onto their loans, and WhatsApp "paid … EMI" pays the loan. A WhatsApp correction ("no, that was loan emi") can still relabel a plain expense as loan_emi: neither the webhook correctLast nor whatsapp_correct_last refuses it. Same fix as BE-WA-08. | — | XS |
 | XC-PRV-03 | high | Partly | #165, #189 | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screenshot are off (owner action from PR #165).… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). | M |
 | DB-SEC-03 | high | On hold (dev question) | — | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | D4/D5 | S |
@@ -1255,14 +1263,13 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4). See §0 for the meth
 | BE-FN-09 | medium | Partly | #168 | Surface the 'settled' and 'closed' send results through readSplitEmailResult/splitEmailNotice, as the create and edit paths do. | — | XS |
 | BE-WA-06 | medium | Partly | #187 | Make the lockout persist: count failures per phone_number across resends, e.g. lock for 24 h after 10, rather than deleting the row on too_many_attempts. Add a per-phone send limit across all profiles. Today the effective rate is about 5 guesses per resend cycle, per account. | — | S |
 | BE-WA-09 | medium | Partly | #187 | Check the error on the drainInbox done/failed updates and on guardedSend's 'sent' and failure updates. If needed, also make a failed Meta opt-out write return non-2xx so Meta redelivers. | — | XS |
-| DB-SEC-08 | medium | Partly | #167 | Recency is checked on the server (recently_reauthenticated, #167). The erase still leaves notifications and WhatsApp message text; tracked with XC-PRV-08. | — | S |
 | INT-HH-08 | medium | Partly | #183 | Decide whether admins may edit household settings, then align RLS or permissions.ts and the Households rename/type controls. Gate the Debts payoff toggle with a catch. Split language into a per-user write so members can change their own language. Surface onboarding sync failures. | Backlog batch E (owner: not now); also needs an owner decision on admin vs owner-only household settings | S |
 | INT-PAR-05 | medium | Partly | #186 | Have the WhatsApp nudge count via the bundled staleAccounts (or match its fallback and boundary exactly). Add the audit's test that the three surfaces return the same count for one fixture. | — | XS |
 | OPS-05 | medium | Partly | #189 | A consumer preview fails closed on the production URL, with a postbuild gate (#189). Left: the admin-preview half (scope the production Supabase env to Production in Vercel; ADM-09 is backlog). | Owner: Vercel env scoping | XS |
 | OPS-08 | medium | Partly | #178 | INV-7 atomicity is now tested for loan payments (#178, reverse_loan_payment). The RLS isolation matrix is still on hold for D10. | D10 | M |
 | OPS-11 | medium | Partly | #168 | The per-user cap now fails closed (parseDailyCallCap: only "off" disables it). A global LLM spend ceiling is backlog (owner: not now). | Backlog: global ceiling | S |
 | XC-ARC-06 | medium | Partly | #173 | The recurring hand port is deleted (#173). The money and budget-alert hand ports in _shared/ are still duplicated (W8 §4). | — | M |
-| XC-PRV-08 | medium | Partly | #165, #167, #184 | (1) Extend erase to every household-keyed table, and close or delete the owner's shared_splits. (2) Add a schema test that fails when a table with a household_id column is missing from the erase list. (3) Add a server-side export_my_data() covering the user-keyed tables. (4) Fix the new interaction below, then add a PGlite/DO-block test of erase on a household that has an unpaid loan. | — | M |
+| XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
 | XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
 | FE-PIP-07 | medium | Open | — | Capture still seeds the model's raw category word (askVyactBackend.ts:833 capture, :887 split). Resolve it through resolveCategoryId + the type allowlist, else fall back to matchCategory / other. | — | XS |
 | FE-PIP-11 | medium | Open | — | HARMLESS still exempts small numbers whatever follows them (askVyactLlm.ts:342): "12 lakh" and "Rs 9 left" pass the guard. | — | XS |
@@ -1332,11 +1339,11 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4). See §0 for the meth
 | FE-MNY-12 | low | Owner decision | — | Either refuse to archive an account with a non-zero balance (offer move or transfer first), or count archived balances the same way on every surface and label them. Add the test from the finding. | Owner decision W8 plan section 3: archiving an account with a balance, refuse it or count it everywhere? | S |
 | FE-MNY-13 | low | Owner decision | — | Add an explicit 'in credit' toggle on card reconcile that passes a positive balance through. Keep INV-11 for the default 'owed' case. Test: 'in credit 2,000' gives balance +2,000, outstanding 0, liquidity 'short'. | Owner decision W8 plan section 3: add an 'in credit' option to card reconcile? | S |
 | FE-SYN-13 | low | Owner decision | — | On sign-in, discard local-only data (and delete the dead import), or import it? (W8 §3) | Owner: local data on sign-in | S |
-| BE-PIP-06 | low | Owner decision | — | Retire the test-only Claude Code relay (TD-44) now? (W8 plan §3) | Owner: retire the relay | S |
 | DB-INT-15 | low | Owner decision | — | Is email confirmation on in production auth? If yes, split sharing should require email_confirmed_at. (W8 §3) | Owner: confirm auth setting | XS |
 | XC-ARC-07 | low | Owner decision | — | Park or delete the dormant SMS/agent pipeline? (W8 §3) | Owner: dormant pipeline | M |
 | XC-ARC-15 | low | Owner decision | — | Move tracked binaries and duplicate handoffs out of the repo? (W8 §3) | Owner: repo hygiene | S |
 | FE-PUB-08 | low | Backlog | — | Revoke table SELECT from anon and grant column-level SELECT on the columns the public pages read (LESSON_COLS, react/api/learn.js:24). Check it against the Learn, sitemap and llms queries. | — | XS |
+| BE-PIP-06 | low | Backlog | — | Owner, 13 Oct: keep the Claude Code relay for now (TD-44). | Owner: keep for now | S |
 | INT-CON-07 | low | Backlog | — | Rewrite leave_household with the NULL-safe idiom (select role into v_role; return if null). | W8e (owner 8 Oct: not now) | XS |
 | INT-PAR-11 | info | Partly | #169, #170, #173 | Add vitest projects (or separate runs) with env TZ=UTC, Asia/Kolkata, Europe/London and America/New_York for the device-local and recurrence suites. Add a Deno smoke test that imports engine.generated.js and the _shared modules as the Edge runtime loads them. | — | M |
 | DB-OPS-16 | info | Open | — | Needs one production query (dependent indexes), then drop pg_trgm or move it. Not planned. | — | XS |
@@ -1362,7 +1369,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4). See §0 for the meth
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (20)
+### C.3 Resolved, with a residual note (22)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1372,11 +1379,13 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4). See §0 for the meth
 | ADM-01 | high | Closed | #165 | Defence in depth only. content_items.category and slug still have no CHECK (only source_url has one). The source_url CHECK is NOT VALID, so existing rows were never validated. The vyact.app CSP is Report-Only and allows 'unsafe-inline' scripts (react/vercel.json:105), so it would not block an injected inline script. E… |
 | ADM-02 | high | Closed (decision) | #165 | The session-limit half has no decision: there is no admin inactivity sign-out and no short refresh-token lifetime. Ask the owner whether to add one as a cheap compensating control, since MFA is not used. |
 | INT-PAR-01 | high | Closed (decision) | #170 | Dead code: serverEngine.ts:78-80 still builds a rates map with a stale comment calling it 'the store's rule'. Remove it with the rest of the inert rate plumbing (TD-45, TECH_DEBT.md:110). |
+| INT-TXN-01 | high | Closed | #176 | Corrected 13 Oct: both delete paths for a split row (SplitFormModal.tsx:381, Splits.tsx:107) also delete its shared split (deleteSharedSplitForTxn), and since #176 a split row never reaches the plain form. |
 | FE-PIP-08 | medium | Closed | #182 | The model no longer receives the `vars` headline (#182); its facts carry total_assets, liquid_savings and liquid_by_source separately. Cosmetic: the unused headline still says "across your accounts". |
 | FE-UIC-04 | medium | Closed | #177 | Nothing from the cited list. One uncited instance remains: AccountFormModal.tsx:284 'Available now' uses fmt, so a card over its limit shows a positive available figure. The suggested lint/grep gate against fmt( on balance or net values was not added. |
 | FE-UIC-05 | medium | Closed | #186 | Cosmetic only: move_account_and_delete (still the 20260910150000 definition) does not rewrite extras.paymentMethod. This is harmless now that the form reads the FK first. |
 | BE-FN-06 | medium | Closed | #168 | Optional, not required by D28: (1) cap shares per split (the audit suggested 20); (2) the sender display name in subject and heading still comes from user_metadata.full_name (send-split-email/index.ts:189-191, emailTemplates.ts:130,154), stripped of control characters but still spoofable, e.g. 'Vyact Security'. |
 | BE-WA-03 | medium | Closed | #187 | Residual edge only: the reopen runs only on a returned 'retry'. If the worker dies after resolvePending (a stale claim is replayed), or an exception escapes processInboundTurn, the question stays closed. The audit's stronger design (resolve the pending turn inside the action's RPC transaction, or keep it on the inbox… |
+| DB-SEC-08 | medium | Closed | #167, v10.88.0 | Server-side recency check (#167); the erase now also removes notifications, WhatsApp questions, agent conversations, relay messages and loan history (v10.88.0). |
 | INT-HH-12 | medium | Closed (decision) | #166 | Cleanup: a later migration should drop 'child' from the role CHECKs and the trigger once old clients age out (the W1a migration kept them 'for one release'). |
 | FE-MNY-11 | low | Closed | #183 | Optional, part of the recommendation but not the defect: no UTF-8 BOM is emitted (downloadCsv at :40-45), so non-ASCII descriptions may garble in Excel. |
 | FE-MNY-15 | low | Closed | #184 | Nothing for the export. There is still no restore (the owner-only 'Restore from backup' is in the plan's backlog), so the round-trip test from the recommendation has nothing to run against. |
