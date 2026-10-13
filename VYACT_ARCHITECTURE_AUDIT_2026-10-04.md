@@ -6,12 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 13 Oct 2026):** 108 of 212 resolved, including all 3 critical and 22 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
-
-
-
-
-
+**Remediation status (updated 13 Oct 2026):** 111 of 212 resolved, including all 3 critical and 22 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -30,10 +25,11 @@
 > - **Since then:** three Aurora 4.0 design PRs merged (#190–#192; consumer v10.87.0 is live). Each says "no figure, calculation or schema change". Where they touch a finding (FE-UIS-07/08/09/12, invite revoke), that is noted.
 > - **Per finding:** the status is in **§11** (new *Status* and *PRs* columns). What is left on each unresolved finding is in **Appendix C**.
 
-> **Updated 13 Oct 2026 (v10.88.0 and v10.89.0):**
+> **Updated 13 Oct 2026 (v10.88.0 to v10.90.0):**
 > - R1 is fixed;
 > - the erase now covers every household table (XC-PRV-08 except the data export; DB-SEC-08 closed);
 > - a WhatsApp correction to an EMI now pays the loan (v10.89.0: BE-WA-08 and INT-TXN-07 closed; the correction half of INT-TXN-12 fixed);
+> - Pip's guard gaps are closed (v10.90.0: FE-PIP-07, FE-PIP-11 and FE-PIP-06);
 > - INT-TXN-01 is corrected to Closed (the delete paths already removed the shared split, so the review's "partly" was wrong);
 > - your 13 Oct decisions are recorded in §0.6, step 3.
 >
@@ -60,16 +56,16 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 17 | 5 | 4 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 35 | 2 | 21 | 14 | 9 | 7 | 12 |
+| Medium | 100 | 38 | 2 | 20 | 12 | 9 | 7 | 12 |
 | Low | 75 | 43 | 1 | 12 | 10 | 6 | 0 | 3 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **99** | **9** | **38** | **25** | **16** | **10** | **15** |
+| **Total** | **212** | **102** | **9** | **37** | **23** | **16** | **10** | **15** |
 
-**108 of 212 are resolved (51%): all 3 critical and 22 of 29 high.** The other 104 fall into four groups:
+**111 of 212 are resolved (52%): all 3 critical and 22 of 29 high.** The other 101 fall into four groups:
 
-| What the 104 need | Count |
+| What the 101 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 53 |
+| Nothing but work: no decision, no blocker | 50 |
 | An owner decision (16 waiting only on it; 5 partly done, with the rest waiting on it) | 21 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 18 |
@@ -104,7 +100,7 @@ Two developers did the work:
 | #179 | v10.75.0 | W4f loan app | INT-TXN-07, FE-UIC-06, FE-UIC-09 | FE-MNY-04, FE-UIC-12 |
 | #180 | v10.76.0 | W4g loan automation | INT-TXN-07, FE-UIC-09 | — |
 | #181 | v10.77.0 | W4h budget suggest | — | FE-MNY-16 |
-| #182 | v10.78.0 | W5 Pip correctness | FE-PIP-01, FE-PIP-03, FE-PIP-04, FE-PIP-02, FE-PIP-05, FE-PIP-08, FE-PIP-12 | FE-PIP-06 |
+| #182 | v10.78.0 | W5 Pip correctness | FE-PIP-01, FE-PIP-03, FE-PIP-04, FE-PIP-02, FE-PIP-05, FE-PIP-06, FE-PIP-08, FE-PIP-12 | — |
 | #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-11, FE-UIS-13, FE-MNY-11, FE-PUB-11 | FE-UIS-10, FE-UIS-12, INT-HH-08 |
 | #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | XC-PRV-08, INT-HH-13 |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
@@ -115,6 +111,7 @@ Two developers did the work:
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
 | #194 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
 | #195 | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
+| #196 | v10.90.0 | Pip guard: real categories, scaled figures, names as data (13 Oct) | FE-PIP-06, FE-PIP-07, FE-PIP-11 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -183,8 +180,8 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (63)**
-- *Ready to do (no decision):* FE-MNY-06, FE-PIP-06, FE-PIP-07, FE-PIP-09, FE-PIP-11, FE-UIC-10, FE-UIS-03, FE-UIS-07, FE-UIS-10, ADM-03, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
+**Medium (60)**
+- *Ready to do (no decision):* FE-MNY-06, FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, FE-UIS-10, ADM-03, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 - *Batch B, sync robustness:* FE-SYN-04, FE-SYN-05, FE-SYN-06, FE-SYN-07, FE-SYN-08, DB-OPS-10, INT-TXN-10, INT-TXN-11.
 - *Owner decision:* FE-MNY-08, FE-MNY-10, FE-PLT-04, FE-UIC-08, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
@@ -200,9 +197,9 @@ Plus **R1** (high, new): see §0.3.
 **Step 1. Now: no decision needed, small, highest value.** One PR per group, with the usual gates.
 1. ~~**R1, the erase regression**~~ **Done in v10.88.0**, together with the erase scope (XC-PRV-08 except the export, DB-SEC-08).
 2. **Pip leftovers** (Pip is the current priority):
-   - FE-PIP-07: validate capture category ids;
-   - FE-PIP-11: the guard must not wave through "12 lakh" or "Rs 9";
-   - FE-PIP-06: a "data, never instructions" line plus an egress sentinel test;
+   - ~~FE-PIP-07: validate capture category ids;~~ done in v10.90.0 (Pip asks when it cannot place one);
+   - ~~FE-PIP-11: the guard must not wave through "12 lakh" or "Rs 9";~~ done in v10.90.0;
+   - ~~FE-PIP-06: a "data, never instructions" line plus an egress sentinel test;~~ done in v10.90.0, with name cleaning;
    - FE-PIP-09: stop writing client turn rows;
    - ~~BE-WA-08 / INT-TXN-07~~ **done in v10.89.0**: the WhatsApp correction to an EMI becomes a loan payment (owner decision), and a category correction is checked against the entry it changes.
    All XS, with an engine rebuild.
@@ -770,12 +767,12 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-MNY-10 | MEDIUM | Frontend | Essential and typical monthly spend have two definitions: Pip and Net Worth disagree with the Reports runway | confirmed (adversarial: confirmed) |  | Owner decision | — |
 | FE-PIP-02 | MEDIUM | Frontend | Model-chosen purchase amount is never checked against the user's words; entities are untyped | confirmed-with-caveats (adversarial: partial) |  | Closed | #182 |
 | FE-PIP-05 | MEDIUM | Frontend | A stated period is silently replaced by 'this month' for diagnostic, budget and advice questions | confirmed-with-caveats (adversarial: partial) |  | Closed | #182 |
-| FE-PIP-06 | MEDIUM | Frontend | Recurring bill descriptions egress to the model via vars.detail, and stored text is not fenced as data | confirmed (adversarial: confirmed) |  | Partly | #182 |
-| FE-PIP-07 | MEDIUM | Frontend | Capture seeds the model's raw category word, so invalid ids like 'fuel' get saved | confirmed-with-caveats (adversarial: partial) |  | Open | — |
+| FE-PIP-06 | MEDIUM | Frontend | Recurring bill descriptions egress to the model via vars.detail, and stored text is not fenced as data | confirmed (adversarial: confirmed) |  | Closed | #182, v10.90.0 |
+| FE-PIP-07 | MEDIUM | Frontend | Capture seeds the model's raw category word, so invalid ids like 'fuel' get saved | confirmed-with-caveats (adversarial: partial) |  | Closed | v10.90.0 |
 | FE-PIP-08 | MEDIUM | Frontend | 'What's my balance' headline calls total assets (house, car, investments) money 'across your accounts' | confirmed (adversarial: confirmed) |  | Closed | #182 |
 | FE-PIP-09 | MEDIUM | Frontend | Every chat turn writes an extra backend='llm' ai_usage row that eats the quota and skews metering | confirmed (adversarial: confirmed) | 2026-09 audit A2 (householdId omission still open; reservation itself fixed) | Partly | #168 |
 | FE-PIP-10 | MEDIUM | Frontend | Pip mixes UTC month keys with local day windows; the WhatsApp engine runs in UTC | confirmed (adversarial: confirmed) |  | Closed | #169 |
-| FE-PIP-11 | MEDIUM | Frontend | Figure guard: small-number exemption ignores currency and magnitude ('12 lakh' passes) | confirmed (adversarial: confirmed) | 2026-09 audit A1 (partially fixed: 100 removed and the year band guarded; the HARMLESS and magnitude hole remains) | Open | — |
+| FE-PIP-11 | MEDIUM | Frontend | Figure guard: small-number exemption ignores currency and magnitude ('12 lakh' passes) | confirmed (adversarial: confirmed) | 2026-09 audit A1 (partially fixed: 100 removed and the year band guarded; the HARMLESS and magnitude hole remains) | Closed | v10.90.0 |
 | FE-PLT-01 | MEDIUM | Frontend | Post-sign-in open redirect: SignIn.tsx ignores safeNext, and safeNext itself is bypassable | confirmed (adversarial: confirmed) |  | Closed | #165 |
 | FE-PLT-04 | MEDIUM | Frontend | No Content-Security-Policy on vyact.app, /learn or admin, while session tokens sit in localStorage | confirmed (adversarial: confirmed) | 2026-09 audit S4 (CSP half still open; the JSON-LD escaping half is fixed in api/_page.js:23) | Partly | #188, #189 |
 | FE-PUB-04 | MEDIUM | Frontend | Service worker answers /v/<n> video short links with the app shell, not the lesson redirect | confirmed (adversarial: confirmed) |  | Closed | #183 |
@@ -1240,9 +1237,9 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 13 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.89.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.90.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (104)
+### C.1 Unresolved (101)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1254,7 +1251,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.89.0
 | OPS-01 | high | On hold (dev question) | — | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | D8 | S |
 | OPS-06 | high | On hold (dev question) | — | Production error reporting and alerting. | D9 | M |
 | FE-MNY-06 | medium | Partly | #186 | The pace banner and the Budget progress panel still use their own budget basis, which the audit's recommendation covered. This is the same work as FE-UIC-08, and it waits on that one-basis decision. | FE-UIC-08 one budget-progress basis (W8 plan section 4: 'needs a decision') | S |
-| FE-PIP-06 | medium | Partly | #182 | Descriptions no longer reach the model (#182 stopped sending `vars` beside facts). Still missing: a PHRASE_SYSTEM line that text inside FACTS is data, never instructions, and an egress sentinel test. | — | XS |
 | FE-PIP-09 | medium | Partly | #168 | Client turn rows no longer count toward the quota or carry cost (#168). They are still written (lib/aiUsage.ts:84), including quickReply turns, so admin call counts that do not filter source='gateway' still over-count. | — | XS |
 | FE-PLT-04 | medium | Partly | #188, #189 | Live-verified 12 Oct: vyact.app sends Content-Security-Policy-Report-Only, and admin.vyact.app enforces a strict CSP. Left: switch vyact.app to enforced after a period of clean reports. | Owner: enforce after clean reports | XS |
 | FE-UIC-10 | medium | Partly | #186 | Dot-grouped, comma-decimal input ('1.234,56', '1.234') is still read about 1000x too small. This is silent in the account opening balance, card limit and reconcile fields. The parser does not use the locale or the household currency's convention, which the audit recommended (Intl.NumberFormat parts). Add the audit's '1.234,56' test case. | — | S |
@@ -1274,8 +1270,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.89.0
 | XC-ARC-06 | medium | Partly | #173 | The recurring hand port is deleted (#173). The money and budget-alert hand ports in _shared/ are still duplicated (W8 §4). | — | M |
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
 | XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
-| FE-PIP-07 | medium | Open | — | Capture still seeds the model's raw category word (askVyactBackend.ts:833 capture, :887 split). Resolve it through resolveCategoryId + the type allowlist, else fall back to matchCategory / other. | — | XS |
-| FE-PIP-11 | medium | Open | — | HARMLESS still exempts small numbers whatever follows them (askVyactLlm.ts:342): "12 lakh" and "Rs 9 left" pass the guard. | — | XS |
 | FE-SYN-04 | medium | Open | — | Batch B (sync robustness): sign-out and epoch purge miss allocations, net-worth history, onboarding and dead-letter keys. | — | S |
 | FE-SYN-05 | medium | Open | — | Batch B: dead-letter buckets are per user, and the retry cap needs to be sane. | — | S |
 | FE-SYN-06 | medium | Open | — | Batch B: race between refresh and store writes. | — | M |
@@ -1371,7 +1365,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.89.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (24)
+### C.3 Resolved, with a residual note (27)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1383,7 +1377,10 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.89.0
 | INT-PAR-01 | high | Closed (decision) | #170 | Dead code: serverEngine.ts:78-80 still builds a rates map with a stale comment calling it 'the store's rule'. Remove it with the rest of the inert rate plumbing (TD-45, TECH_DEBT.md:110). |
 | INT-TXN-01 | high | Closed | #176 | Corrected 13 Oct: both delete paths for a split row (SplitFormModal.tsx:381, Splits.tsx:107) also delete its shared split (deleteSharedSplitForTxn), and since #176 a split row never reaches the plain form. |
 | INT-TXN-07 | high | Closed | #178, #179, #180, v10.89.0 | Recurring EMIs moved onto their loans (#180); WhatsApp "paid … EMI" pays the loan (#180); a WhatsApp correction to an EMI now pays the loan too (v10.89.0). |
+| FE-PIP-06 | medium | Closed | #182, v10.90.0 | Descriptions stopped reaching the model in #182 (phraseData). v10.90.0: PHRASE_SYSTEM says text in FACTS/DATA is data, never instructions; a leak test covers every intent; account/asset names are cleaned and instruction-like ones sent as neutral labels (owner decision). |
+| FE-PIP-07 | medium | Closed | v10.90.0 | v10.90.0: a capture's category is a real category of its type (the model's word resolved, else a keyword); when nothing places it, Pip asks "Which category?" with chips before any form opens (owner decision). |
 | FE-PIP-08 | medium | Closed | #182 | The model no longer receives the `vars` headline (#182); its facts carry total_assets, liquid_savings and liquid_by_source separately. Cosmetic: the unused headline still says "across your accounts". |
+| FE-PIP-11 | medium | Closed | v10.90.0 | v10.90.0: a number after ₹/Rs or before lakh/crore/k/million is an amount and must match a computed figure (scaled); HARMLESS covers plain counts only. |
 | FE-UIC-04 | medium | Closed | #177 | Nothing from the cited list. One uncited instance remains: AccountFormModal.tsx:284 'Available now' uses fmt, so a card over its limit shows a positive available figure. The suggested lint/grep gate against fmt( on balance or net values was not added. |
 | FE-UIC-05 | medium | Closed | #186 | Cosmetic only: move_account_and_delete (still the 20260910150000 definition) does not rewrite extras.paymentMethod. This is harmless now that the form reads the FK first. |
 | BE-FN-06 | medium | Closed | #168 | Optional, not required by D28: (1) cap shares per split (the audit suggested 20); (2) the sender display name in subject and heading still comes from user_metadata.full_name (send-split-email/index.ts:189-191, emailTemplates.ts:130,154), stripped of control characters but still spoofable, e.g. 'Vyact Security'. |
