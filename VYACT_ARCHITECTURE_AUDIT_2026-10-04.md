@@ -8,12 +8,6 @@
 
 **Remediation status (updated 13 Oct 2026):** 111 of 212 resolved, including all 3 critical and 22 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
-
-
-
-
-
-
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
 | Frontend | 0 | 10 | 37 | 34 | 0 |
@@ -117,7 +111,7 @@ Two developers did the work:
 | #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
 | #194 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
 | #195 | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
-| (PR in review) | v10.90.0 | Pip guard: real categories, scaled figures, names as data (13 Oct) | FE-PIP-06, FE-PIP-07, FE-PIP-11 | — |
+| #196 | v10.90.0 | Pip guard: real categories, scaled figures, names as data (13 Oct) | FE-PIP-06, FE-PIP-07, FE-PIP-11 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
