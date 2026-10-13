@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.93.0`** (consumer)
+> **Current production version: `v10.94.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,53 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.94.0 — Invitations can be addressed to a person, step 1 of 2 *(2026-10-13)*
+
+Database and Edge Functions; the app follows in step 2. Owner decisions, 13 Oct 2026 (#9): an
+invitation can carry the invitee's email; Vyact emails it; the invitee answers in the bell.
+
+- **Why a schema change.** Invitations were shareable links only. `invited_email` never held an email: it
+  holds the label the inviter typed ("Partner") or "(shareable link)". So nothing could reach the invitee.
+- **`invitations.recipient_email`:** the invitee's address, lower-case and email-shaped, or null for a
+  link-only invitation. Existing invitations are unchanged.
+- **For the invitee:**
+  - `my_pending_invitations()` lists their open invitations: the household's name, who invited them, the
+    access and the expiry, never the token. It matches the caller's CONFIRMED email only, so someone who
+    signs up with another person's address without confirming it sees nothing.
+  - `accept_invitation_by_id(id)` joins under the link accept's rules, including the household size limit,
+    and joins once even on a double tap.
+  - `decline_invitation(id)` removes it.
+- **`send-invite-email` (new Edge Function):**
+  - only an owner or admin of the household may send, only to the stored address, never their own;
+  - one email per invitation, ever, and at most 20 per sender a day (`claim_invite_email`);
+  - a failed delivery gives its claim back.
+  - Like split email, it sends nothing until an email provider is configured (docs/EMAIL_TEMPLATES.md §0).
+    The copy is H1 from that doc.
+- **One email transport.** The MailerSend / SMTP / Resend code moved from send-split-email into
+  `_shared/emailTransport.ts`, so both functions share it. Split email behaves as before.
+- **Fixed (R7):** a link invitation with no relationship label could not be accepted, because the fallback
+  label `member` is not one the database allows. The app always sends a label, so nobody hit it.
+- **Account deletion** also removes pending invitations addressed to the deleted person's email.
+
+Tests:
+- invitationInboxSql.test.ts (10, PGlite):
+  - the inbox matches the confirmed email only, with no token;
+  - an unconfirmed address can do nothing;
+  - accepting joins once, and a full household is refused;
+  - declining removes only your own invitation;
+  - the address check;
+  - the link accept without a label;
+  - one email per invitation, and a cap that revoking does not reset;
+  - account deletion.
+- inviteEmailHandler.test.ts (6):
+  - escaping;
+  - every refusal comes before any work;
+  - nothing is sent while unconfigured;
+  - one email, to the stored address, with its own link;
+  - already-sent and over-the-cap send nothing, and a failed delivery gives its claim back;
+  - the cap setting.
+- CON-UNIT-SPL-006 now reads the sender address and reply-to from the shared transport.
 
 ## v10.93.0 — Admins see who, what and when, never the values (step 2 of 2) *(2026-10-13)*
 

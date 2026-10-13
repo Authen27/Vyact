@@ -17,11 +17,14 @@ describe('split email outcome', () => {
 
   it('CON-UNIT-SPL-006 · the function sends from vyact.app with replies to support, and logs every outcome without addresses', () => {
     const fn = readFileSync(resolve(__dirname, '../../../../supabase/functions/send-split-email/index.ts'), 'utf8');
-    expect(fn).toContain("const DEFAULT_FROM = 'Vyact <hello@vyact.app>';");
-    expect(fn).not.toContain('onboarding@resend.dev');
-    expect(fn).toContain("|| 'support@vyact.app'");
+    // v10.94.0: the transport moved to _shared/emailTransport.ts (send-invite-email uses it too).
+    const transport = readFileSync(resolve(__dirname, '../../../../supabase/functions/_shared/emailTransport.ts'), 'utf8');
+    expect(fn).toMatch(/from '\.\.\/_shared\/emailTransport\.ts';/);
+    expect(transport).toContain("const DEFAULT_FROM = 'Vyact <hello@vyact.app>';");
+    expect(fn + transport).not.toContain('onboarding@resend.dev');
+    expect(transport).toContain("|| 'support@vyact.app'");
     expect(fn).toMatch(/outcome: 'email_not_configured'/);
     expect(fn).toMatch(/console\.log\(JSON\.stringify\(\{ fn: 'send-split-email', event, recipients, sent, limited \}\)\)/);
-    expect(fn).toMatch(/return res\.ok \|\| refused\('resend', res\)/);
+    expect(transport).toMatch(/return res\.ok \|\| refused\(fn, 'resend', res\)/);
   });
 });

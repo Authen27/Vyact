@@ -115,6 +115,7 @@ Two developers did the work:
 | #197 | v10.91.0 | Budget forecast counts real dates; single-key shortcuts removed (13 Oct) | FE-UIS-10, FE-MNY-16 | — |
 | #198 | v10.92.0 | Admin activity feed without values, step 1 of 2 (13 Oct) | FE-PUB-01, ADM-03 | — |
 | #199 | v10.93.0 (admin v1.4.5) | Admin audit without values, step 2 of 2; Privacy sentence (13 Oct) | FE-PUB-01, ADM-03 | — |
+| #200 | v10.94.0 | Invitations addressed to a person: inbox functions and the invite email, step 1 of 2 (#9; R7 fixed) | — | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -126,6 +127,7 @@ Two developers did the work:
 | **R4** | Low | **A revoked invitation can stay live.** Aurora A3 holds a revoke for 8 s so it can be undone. If the tab closes or the phone kills the app inside that window, the revoke may never be sent, although the screen already said "revoked". `lib/undoable.ts` and `DeferredFlush.tsx` flush on `pagehide` only, with no `keepalive` and no `visibilitychange`. | #192 | Open. XS |
 | R5 | — | #185's `ignoreCommand` exited 128, which Vercel treats as an error, so every admin production deploy failed on 8–9 Oct. W8c went live only with #189. | #185 | Fixed by #189. Live-verified: admin v1.4.4. |
 | R6 | Low | Database advisor warnings after #178: `search_path` on 7 `loan_*` functions, and EXECUTE on 2 trigger functions (W8 plan, W8e). | #178 | Open. The owner deferred W8e on 8 Oct. |
+| R7 | Low | **A link invitation with no relationship label could not be accepted.** `accept_invitation_link` fell back to `household_role = 'member'`, which the memberships check refuses. The app always sends a label (default Partner), so nobody hit it. Found while building #9. | 20260601153000 | **Fixed in v10.94.0** (13 Oct, owner): a missing label is stored as empty. PGlite test. |
 
 ### 0.4 Conflicting approaches, and how each was resolved
 
@@ -1239,7 +1241,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 13 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.93.0 (admin v1.4.5). See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.94.0. See §0 for the method, the summary, the conflicts and the action plan.
 
 ### C.1 Unresolved (97)
 

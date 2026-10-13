@@ -54,7 +54,7 @@ WhatsApp in public or marketing copy. No figures that the app didn't compute.
 | S3 | Your share was settled | Splits | Participant settles | Split owner | Transactional | Built (`splitSettledEmail`), not delivered |
 | S4 | A split was closed | Splits | Owner closes the split | Participants | Transactional | Built (`splitClosedEmail`), not delivered |
 | S5 | Reminder: a share is still open | Splits | 7 days after S1/S2, share unpaid | Participant | Transactional | **To build** (once per share) |
-| H1 | You're invited to a household | Households | Owner invites by email | Invitee | Transactional | **To build** (invites are link-only today) |
+| H1 | You're invited to a household | Households | Owner or admin invites by email (v10.94.0) | Invitee | Transactional | Built (`householdInviteEmail`, `send-invite-email`, v10.94.0); delivered once §0 is set up |
 | H2 | A new member joined | Households | Invite accepted | Owner | Transactional | **To build** |
 | L1–L5 | Welcome and first-week series | Lifecycle | Sign-up | New user | Lifecycle (service) | **To build** |
 | L6 | Invite your partner | Lifecycle | Day 5, Couple/Family, no other member | Owner | Lifecycle (service) | **To build** |
@@ -160,7 +160,7 @@ Supabase variables: `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`, `{
 
 ---
 
-## 4. Households (to build; invites are link-only today)
+## 4. Households (H1 built in v10.94.0: an invitation may carry the invitee's email; H2 to build)
 
 ### H1 · You're invited to a household
 - **Subject:** *{Owner} invited you to "{household}" on Vyact* · **Preview:** Share budgets, bills and spending in one place.
