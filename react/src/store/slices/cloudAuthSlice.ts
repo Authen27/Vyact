@@ -31,6 +31,7 @@ export const SIGNED_OUT_STATE = {
   debts: [], assets: [], accounts: [], savedViews: [], myRole: undefined,
   budgetAllocations: [], recurringSchedules: [], notifications: [],
   sharedSplitsOwned: [], sharedSplitsWithMe: [],
+  myInvitations: [], householdInvitations: [],
 } satisfies Partial<Store>;
 
 export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> = (set, get) => ({
@@ -122,6 +123,7 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
     const hasSession = Boolean(supabase && get().session?.user);
     if (!cloudEnabled || !hasSession) {
       set({ myRole: resolveMyRole({ cloudEnabled, hasSession }) });
+      void get().refreshInvitations();
       return;
     }
     try {
@@ -137,6 +139,8 @@ export const createCloudAuthSlice: StateCreator<Store, [], [], CloudAuthSlice> =
       // W3a — the server reads "today" in the household's zone; the owner's device supplies it once.
       if (myRole === 'owner') void stampHouseholdTimezone(currentHouseholdId);
     } catch { /* offline — keep last known */ }
+    // v10.95.0 (#9) — the bell's invitation cards follow the household list and the role in it.
+    void get().refreshInvitations();
     void highestRole; // suppress unused
   },
 });

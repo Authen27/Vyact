@@ -4,14 +4,20 @@
 // decisions. Actions that resolve in place (approve / skip / dismiss) flip the
 // row to read and keep the sheet open; navigation actions apply context and
 // leave. Replaces the old anchored popover.
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import PullDownSheet from '../ui/PullDownSheet';
 import PhonePushPrompt from './PhonePushPrompt';
 import { Pip } from './Brand';
 import { NOTIF_META, needsYou, notificationOccurrence } from '../../lib/notifications';
-import type { Notification, NotifActionSpec } from '../../types';
+import { useInvitationNotifs } from './useInvitationNotifs';
+import { confirmSheet } from '../../lib/confirmSheet';
+import { declineInvitationRequest, joinInvitationRequest, revokeInvitationRequest } from '../../lib/confirmCopy';
+import { invitationWho } from '../../lib/invitations';
+import { inviteAcceptMessage } from '../../lib/householdTypes';
+import { roleLabel } from '../../lib/permissions';
+import type { AppRole, Notification, NotifActionSpec } from '../../types';
 
 const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
 
@@ -38,13 +44,23 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
   const skipRecurring = useStore(s => s.skipRecurring);
   const debts = useStore(s => s.debts);
   const toast = useStore(s => s.toast);
+  // v10.95.0 (#9) — invitation cards: built from live lists, never saved; refreshed when the bell opens.
+  const invitationCards = useInvitationNotifs();
+  const myInvitations = useStore(s => s.myInvitations);
+  const householdInvitations = useStore(s => s.householdInvitations);
+  const refreshInvitations = useStore(s => s.refreshInvitations);
+  const joinInvitation = useStore(s => s.joinInvitation);
+  const declineMyInvitation = useStore(s => s.declineMyInvitation);
+  const revokeHouseholdInvitation = useStore(s => s.revokeHouseholdInvitation);
+  const switchHousehold = useStore(s => s.switchHousehold);
+  useEffect(() => { if (open) void refreshInvitations(); }, [open, refreshInvitations]);
 
   const householdName = households.find(h => h.id === currentHouseholdId)?.name || 'This household';
 
   // NT1 — "Needs you" sits above Today and Earlier and keeps each card until it is handled; a bill to
   // approve no longer looks like any other update, or drops into "Earlier" once a day passes.
   const { pending, today, earlier, unread } = useMemo(() => {
-    const active = notifications
+    const active = [...notifications, ...invitationCards]
       .filter(n => n.status !== 'dismissed' && (!n.householdId || n.householdId === currentHouseholdId))
       // P1 (action-required) pinned first, then newest first.
       .sort((a, b) => {
@@ -58,10 +74,58 @@ export default function NotificationSheet({ open, onClose }: { open: boolean; on
       earlier: rest.filter(n => !isToday(n.createdAt)),
       unread: active.filter(n => n.status === 'unread').length,
     };
-  }, [notifications, currentHouseholdId]);
+  }, [notifications, invitationCards, currentHouseholdId]);
+
+  // v10.95.0 (#9; owner decisions 13 Oct 2026) — an invitation card acts only after the person confirms:
+  // Join asks the invitation link's question (FE-PLT-07), Decline and Revoke ask because they affect the
+  // other person. Each answers "Already handled" when the invitation is gone, never a success it did not have.
+  async function joinFromCard(n: Notification) {
+    const inv = myInvitations.find(i => i.id === n.invitationId);
+    if (!inv) { toast('Already handled', 'info'); void refreshInvitations(); return; }
+    if (!(await confirmSheet(joinInvitationRequest({
+      household: inv.householdName, role: roleLabel(inv.role as AppRole), inviter: inv.invitedByName,
+    })))) return;
+    try {
+      const householdId = await joinInvitation(inv.id);
+      onClose();
+      await switchHousehold(householdId);
+      toast(`Welcome to ${inv.householdName}`, 'success');
+      navigate('/dashboard');
+    } catch (e) {
+      toast(inviteAcceptMessage(e), 'error');
+      void refreshInvitations();
+    }
+  }
+
+  async function declineFromCard(n: Notification) {
+    const inv = myInvitations.find(i => i.id === n.invitationId);
+    if (!inv) { toast('Already handled', 'info'); void refreshInvitations(); return; }
+    if (!(await confirmSheet(declineInvitationRequest({ household: inv.householdName, inviter: inv.invitedByName })))) return;
+    try {
+      const declined = await declineMyInvitation(inv.id);
+      toast(declined ? 'Invitation declined' : 'Already handled', 'info');
+    } catch {
+      toast('Could not decline the invitation. Please retry.', 'error');
+    }
+  }
+
+  async function revokeFromCard(n: Notification) {
+    const inv = householdInvitations.find(i => i.id === n.invitationId);
+    if (!inv) { toast('Already handled', 'info'); void refreshInvitations(); return; }
+    if (!(await confirmSheet(revokeInvitationRequest({ who: invitationWho(inv) })))) return;
+    try {
+      const revoked = await revokeHouseholdInvitation(inv.id);
+      toast(revoked ? 'Invitation revoked' : 'Already handled', revoked ? 'success' : 'info');
+    } catch {
+      toast('Could not revoke the invitation. Please retry.', 'error');
+    }
+  }
 
   function runAction(n: Notification, actionId: string) {
     switch (actionId) {
+      case 'join': void joinFromCard(n); return;
+      case 'decline': void declineFromCard(n); return;
+      case 'revoke': void revokeFromCard(n); return;
       // W4d (audit FE-UIS-04) — both act on THE CARD'S occurrence only, and only while it is the one
       // due. A card for a bill already handled elsewhere says so, instead of skipping next month's bill
       // or claiming a post that never happened.

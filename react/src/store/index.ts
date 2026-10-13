@@ -15,11 +15,12 @@ import { createSyncSlice, type SyncSlice } from './slices/syncSlice';
 import { createDataSlice, type DataSlice } from './slices/dataSlice';
 import { createCrudSlice, type CrudSlice } from './slices/crudSlice';
 import { createSharedSplitsSlice, type SharedSplitsSlice } from './slices/sharedSplitsSlice';
+import { createInvitationsSlice, type InvitationsSlice } from './slices/invitationsSlice';
 import { exposeStoreForE2E } from './testHooks';
 
 export interface Store extends
   ModalSlice, ReconcileSlice, NotifySlice, RecurringSlice,
-  CloudAuthSlice, SyncSlice, DataSlice, CrudSlice, SharedSplitsSlice {}
+  CloudAuthSlice, SyncSlice, DataSlice, CrudSlice, SharedSplitsSlice, InvitationsSlice {}
 
 export const useStore = create<Store>((set, get, api) => ({
   ...createModalSlice(set, get, api),
@@ -31,6 +32,7 @@ export const useStore = create<Store>((set, get, api) => ({
   ...createDataSlice(set, get, api),
   ...createCrudSlice(set, get, api),
   ...createSharedSplitsSlice(set, get, api),
+  ...createInvitationsSlice(set, get, api),
 }));
 
 // Expose the store to E2E tests in non-production builds (read-only access).

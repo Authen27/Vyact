@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.94.0`** (consumer)
+> **Current production version: `v10.95.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.95.0 — Invitations in the bell; invite by email, step 2 of 2 *(2026-10-13)*
+
+App only (uses v10.94.0's functions). Owner decisions, 13 Oct 2026 (#9). Closes R4.
+
+- **Invite by email.** The invite form has an optional "Their email" field:
+  - when it's filled in, the invitation is addressed to that person and Vyact emails it;
+  - the app says how the email went: sent; not set up yet, so share the link; today's limit reached;
+    or couldn't be sent;
+  - the link still works either way.
+
+  Your own address and a malformed one are refused before anything is saved.
+- **The invitee's bell.** "Asha invited you to Sharma family", in Needs you, with **Join** and **Decline**:
+  - it shows whichever household is open;
+  - Join asks the invitation link's question ("Join Sharma family as Member?"), then opens that household;
+  - Decline asks first, because the inviter would have to invite again;
+  - a full household or a closed invitation is explained in words.
+- **The inviter's bell.** Owners and admins see each open invitation of the household with **Revoke**.
+- **Revoke asks, then revokes at once**, in the bell and on Households (R4). It used to hide the row and
+  write the revoke after an 8-second Undo, so a tab closed inside that window left the link working while the
+  screen said "revoked". If the invitation was already accepted or revoked, the app says "Already handled".
+- **Invitation cards are never saved.** Every member of a household can read its saved notifications, and
+  an invitee's card would show them which other household invited the person. Cards are built from live
+  lists, refreshed with the household list and whenever the bell opens, and gone once handled. As a result,
+  invitations get no lock-screen push.
+- Households lists an invitation by the address it went to (or its label, or "Shareable link").
+
+Tests:
+- invitationsInBell.test.ts (8):
+  - both kinds of card (expired ones dropped, the type switch respected);
+  - the email check;
+  - the email outcome and its notices;
+  - the confirm copy;
+  - the store slice, with a mocked client;
+  - the wiring.
+- A3-CF1-001 updated deliberately: invites are no longer held for Undo.
 
 ## v10.94.0 — Invitations can be addressed to a person, step 1 of 2 *(2026-10-13)*
 

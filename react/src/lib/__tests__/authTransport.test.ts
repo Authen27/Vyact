@@ -23,8 +23,12 @@ it('creates an attributed shareable invite and accepts the exact opaque token', 
   const query = queryResult({ id: 'invite', token: 'opaque/with+symbols==' });
   api.from.mockReturnValue(query);
   const invitation = await createInviteLink('household', 'member', 'partner');
+  // v10.95.0 (#9): a link-only invitation carries no recipient address.
   expect(query.insert).toHaveBeenCalledWith({ household_id: 'household', invited_email: '(shareable link)',
-    invited_by: 'alice', role: 'member', household_role: 'partner' });
+    recipient_email: null, invited_by: 'alice', role: 'member', household_role: 'partner' });
+  await createInviteLink('household', 'viewer', 'elder', 'Mom', 'mom@example.com');
+  expect(query.insert).toHaveBeenLastCalledWith({ household_id: 'household', invited_email: 'Mom',
+    recipient_email: 'mom@example.com', invited_by: 'alice', role: 'viewer', household_role: 'elder' });
   api.rpc.mockResolvedValue({ data: { household_id: 'household', membership_id: 'membership', role: 'member' }, error: null });
   expect(await acceptInvitation(invitation.token)).toEqual({ household_id: 'household', membership_id: 'membership', role: 'member' });
   expect(api.rpc).toHaveBeenCalledWith('accept_invitation_link', { invite_token: 'opaque/with+symbols==' });

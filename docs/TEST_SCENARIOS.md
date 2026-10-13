@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1668 passing deterministic cases in 143 files. Zero failed, skipped or TODO cases at generation.**
+**1676 passing deterministic cases in 144 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -39,7 +39,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 12 |
-| react | unit | available | 390 |
+| react | unit | available | 398 |
 | react | unit | conditional | 192 |
 | react | unit | infrastructure | 601 |
 
@@ -111,6 +111,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/householdTimezoneSql.test.ts](../react/src/lib/__tests__/householdTimezoneSql.test.ts) | Household time zone SQL | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/householdTypes.test.ts](../react/src/lib/__tests__/householdTypes.test.ts) | Household types | unit | available | 5 |
 | [react/src/lib/__tests__/invitationInboxSql.test.ts](../react/src/lib/__tests__/invitationInboxSql.test.ts) | Invitation inbox SQL | sql-integration | conditional | 10 |
+| [react/src/lib/__tests__/invitationsInBell.test.ts](../react/src/lib/__tests__/invitationsInBell.test.ts) | Invitations in the bell | unit | available | 8 |
 | [react/src/lib/__tests__/inviteEmailHandler.test.ts](../react/src/lib/__tests__/inviteEmailHandler.test.ts) | Invite email handler | handler-integration | conditional | 6 |
 | [react/src/lib/__tests__/learnJsonLd.test.ts](../react/src/lib/__tests__/learnJsonLd.test.ts) | Formatting and structured content | unit | available | 2 |
 | [react/src/lib/__tests__/ledgerWorkflow.test.ts](../react/src/lib/__tests__/ledgerWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 40 |

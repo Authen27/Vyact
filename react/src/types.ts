@@ -495,7 +495,10 @@ export type NotifType =
   // participant-facing (a split was shared with your email); split_settled is
   // owner-facing (a participant self-settled); split_closed is participant-
   // facing (the owner closed the split).
-  | 'split_received' | 'split_settled' | 'split_closed';
+  | 'split_received' | 'split_settled' | 'split_closed'
+  // v10.95.0 (#9) — an invitation of the open household is waiting (owner/admin-facing, with Revoke).
+  // It and invite_received are built on the device from live data and never saved (lib/notifications.ts).
+  | 'invite_pending';
 
 export type NotifPriority = 'P1' | 'P2';
 
@@ -535,6 +538,8 @@ export interface Notification {
   inviteToken?: string;
   /** v10.14 — the `shared_splits.id` a split_settled/split_closed row refers to. */
   splitId?: string;
+  /** v10.95.0 — the `invitations.id` an invite_received / invite_pending card acts on. */
+  invitationId?: string;
   /** Stable key so a given occurrence is only generated once. */
   dedupeKey?: string;
 }

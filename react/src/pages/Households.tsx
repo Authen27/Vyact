@@ -31,8 +31,8 @@ import {
 } from '../lib/activityFormat';
 import PageHead from '../components/ui/PageHead';
 import { askSheet, confirmSheet } from '../lib/confirmSheet';
-import { deleteHouseholdRequest, leaveHouseholdRequest, removeMemberRequest, renameHouseholdRequest } from '../lib/confirmCopy';
-import { deferCommit } from '../lib/undoable';
+import { deleteHouseholdRequest, leaveHouseholdRequest, removeMemberRequest, renameHouseholdRequest, revokeInvitationRequest } from '../lib/confirmCopy';
+import { checkInviteEmail, inviteEmailNotice, invitationWho, sendInviteEmail } from '../lib/invitations';
 
 interface Membership {
   id: string;
@@ -44,7 +44,10 @@ interface Membership {
 }
 interface Invitation {
   id: string;
+  /** The label the inviter typed, or the "(shareable link)" sentinel (a legacy column name). */
   invited_email: string;
+  /** v10.95.0 (#9) — the invitee's address, when the invitation is addressed to a person. */
+  recipient_email?: string | null;
   role: AppRole;
   token: string;
   expires_at: string;
@@ -522,28 +525,38 @@ function InvitesList({ invites, canRevoke, onRevoked }: {
   invites: Invitation[]; canRevoke: boolean; onRevoked: () => void;
 }) {
   const toast = useStore(s => s.toast);
+  const refreshInvitations = useStore(s => s.refreshInvitations);
   const [copied, setCopied] = useState<string | null>(null);
-  // Aurora 4.0 CF16 — revoking hides the invitation at once; the revoke is written after the 8-second
-  // Undo (or on navigation). A revoked link cannot be restored, so nothing is written before then.
-  const [revoking, setRevoking] = useState<Set<string>>(new Set());
-  const hide = (id: string, on: boolean) => setRevoking(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next; });
+  // v10.95.0 (#9, owner decision 13 Oct 2026; closes R4) — Revoke asks, then revokes at once. It used to
+  // hide the row and write the revoke after an 8-second Undo, so a tab closed inside that window left a
+  // live link behind a screen that said "revoked".
+  async function revoke(inv: Invitation) {
+    if (!(await confirmSheet(revokeInvitationRequest({ who: invitationWho({ recipientEmail: inv.recipient_email, label: inv.invited_email }) })))) return;
+    try {
+      const revoked = await revokeInvitation(inv.id);
+      toast(revoked ? 'Invitation revoked' : 'Already handled', revoked ? 'success' : 'info');
+      onRevoked();
+      void refreshInvitations();
+    } catch (err) { toast((err as Error).message, 'error'); }
+  }
   return (
     <div className="divide-y divide-line">
-      {invites.filter(inv => !revoking.has(inv.id)).map(inv => {
+      {invites.map(inv => {
         const url = `${window.location.origin}/invite/${encodeURIComponent(inv.token)}`;
         const expiry = new Date(inv.expires_at);
         const expired = expiry < new Date();
         const isLinkOnly = inv.invited_email === INVITE_LABEL_SENTINEL;
-        const displayLabel = isLinkOnly ? 'Shareable link' : inv.invited_email;
+        const displayLabel = inv.recipient_email || (isLinkOnly ? 'Shareable link' : inv.invited_email);
+        const labelNote = inv.recipient_email && !isLinkOnly ? `${inv.invited_email} · ` : '';
         return (
           <div key={inv.id} className="px-4 py-3 flex flex-wrap items-start gap-3 sm:flex-nowrap sm:items-center">
-            {isLinkOnly
+            {isLinkOnly && !inv.recipient_email
               ? <LinkIcon size={14} className="text-coral flex-shrink-0" />
               : <Mail size={14} className="text-ink-dim flex-shrink-0" />}
             <div className="flex-1 min-w-0">
               <div className="text-[0.86rem] font-semibold text-ink truncate">{displayLabel}</div>
               <div className="font-mono text-[0.62rem] text-ink-dim mt-0.5">
-                {roleLabel(inv.role)} · {expired ? 'expired' : `expires ${expiry.toLocaleDateString()}`}
+                {labelNote}{roleLabel(inv.role)} · {expired ? 'expired' : `expires ${expiry.toLocaleDateString()}`}
               </div>
             </div>
             <div className="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto sm:flex-shrink-0">
@@ -559,13 +572,7 @@ function InvitesList({ invites, canRevoke, onRevoked }: {
                 {copied === inv.id ? <Check size={14} className="text-sage" /> : <Copy size={14} />}
               </button>
               {canRevoke && (
-                <button onClick={() => {
-                  hide(inv.id, true);
-                  deferCommit(toast, isLinkOnly ? 'Invitation link revoked' : `Invitation to ${inv.invited_email} revoked`, async () => {
-                    try { await revokeInvitation(inv.id); onRevoked(); }
-                    catch (err) { hide(inv.id, false); toast((err as Error).message, 'error'); }
-                  }, () => hide(inv.id, false));
-                }} className="p-1.5 text-ink-mid hover:text-terra" title="Revoke" aria-label="Revoke invitation">
+                <button onClick={() => { void revoke(inv); }} className="p-1.5 text-ink-mid hover:text-terra" title="Revoke" aria-label="Revoke invitation">
                   <Trash2 size={14} />
                 </button>
               )}
@@ -627,15 +634,21 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
   onClose: () => void; onSent: () => void;
 }) {
   const [label, setLabel] = useState('');
+  // v10.95.0 (#9; owner decision 13 Oct 2026) — optional: the invitee's address. Vyact emails the
+  // invitation, and they find it in their bell once signed in with it. Empty = a link-only invitation.
+  const [email, setEmail] = useState('');
+  const [emailedTo, setEmailedTo] = useState<string | null>(null);
   const [role, setRole] = useState<'admin'|'member'|'viewer'>('member');
   const [householdRole, setHouseholdRole] = useState('partner');
   const [submitting, setSubmitting] = useState(false);
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const toast = useStore(s => s.toast);
+  const myEmail = useStore(s => s.session?.user?.email);
+  const refreshInvitations = useStore(s => s.refreshInvitations);
 
   function reset() {
-    setLink(null); setLabel(''); setRole('member');
+    setLink(null); setLabel(''); setEmail(''); setEmailedTo(null); setRole('member');
     setHouseholdRole('partner'); setCopied(false);
   }
 
@@ -672,9 +685,12 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
             <div className="mx-auto mb-3 h-14 w-14 rounded-full bg-coral/15 text-coral flex items-center justify-center">
               <LinkIcon size={26} />
             </div>
-            <p className="text-ink mb-1 font-semibold">Invite link ready</p>
+            <p className="text-ink mb-1 font-semibold">{emailedTo ? 'Invitation sent' : 'Invite link ready'}</p>
             <p className="text-ink-mid text-[0.84rem]">
-              Share it however you like — message, email, in person. Anyone with the link can join as <strong>{roleLabel(role)}</strong>.
+              {emailedTo
+                ? <>We emailed it to <strong>{emailedTo}</strong>. They'll also find it in their notifications when they sign in with that address. </>
+                : 'Share it however you like — message, email, in person. '}
+              Anyone with the link can join as <strong>{roleLabel(role)}</strong>.
             </p>
           </div>
 
@@ -705,25 +721,50 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
       ) : (
         <form onSubmit={async e => {
           e.preventDefault();
+          const check = checkInviteEmail(email, myEmail);
+          if (!check.ok) {
+            toast(check.reason === 'own'
+              ? "That's your own email. Enter the address of the person you're inviting."
+              : 'Enter a valid email address, or leave it empty to share a link.', 'error');
+            return;
+          }
           setSubmitting(true);
           try {
-            const inv = await createInviteLink(householdId, role, householdRole, label.trim() || undefined);
+            const inv = await createInviteLink(householdId, role, householdRole, label.trim() || undefined, check.email);
             track('member_invited', { invite_role: role });
             const url = `${window.location.origin}/invite/${encodeURIComponent((inv as { token: string }).token)}`;
             setLink(url);
             void copyLink(url);
             onSent();
+            void refreshInvitations();
+            if (check.email) {
+              // The invitation is saved either way; the email is on top of it, and its outcome is said.
+              const result = await sendInviteEmail((inv as { id: string }).id);
+              const notice = inviteEmailNotice(result, check.email);
+              toast(notice.message, notice.tone);
+              if (result.ok) setEmailedTo(check.email);
+            }
           } catch (err) {
             toast(householdLimitMessage(err) ?? (err as Error).message, 'error');
           } finally { setSubmitting(false); }
         }}>
           <p className="text-ink-mid text-[0.84rem] mb-4">
-            Create a shareable link for this household. No email is sent — copy the link and share it offline.
+            Add their email and Vyact emails them the invitation; they'll also find it in their notifications when
+            they sign in with that address. Or leave it empty and share the link yourself.
           </p>
+
+          <Field label="Their email" hint="optional">
+            <Input
+              autoFocus type="email" inputMode="email" autoComplete="off" autoCapitalize="none" spellCheck={false}
+              value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              maxLength={254}
+            />
+          </Field>
 
           <Field label="Label" hint="optional, for your reference">
             <Input
-              autoFocus value={label} onChange={e => setLabel(e.target.value)}
+              value={label} onChange={e => setLabel(e.target.value)}
               placeholder="e.g. Partner, Mom, Accountant"
               maxLength={80}
             />
@@ -750,7 +791,7 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
           <div className="flex gap-2 mt-5 pt-4 border-t border-line">
             <Button variant="ghost" onClick={onClose} full>Cancel</Button>
             <Button type="submit" disabled={submitting} full>
-              {submitting ? 'Creating…' : <><LinkIcon size={14} /> Create invite link</>}
+              {submitting ? 'Creating…' : email.trim() ? <><Mail size={14} /> Send invitation</> : <><LinkIcon size={14} /> Create invite link</>}
             </Button>
           </div>
         </form>

@@ -4859,6 +4859,11 @@ const NOTIF_META = {
 		icon: "🤝",
 		tint: "var(--ff-ink-3)",
 		priority: "P2"
+	},
+	invite_pending: {
+		icon: "⌂",
+		tint: "var(--info)",
+		priority: "P1"
 	}
 };
 /** `sync_conflict` can never be silenced (spec §4). */

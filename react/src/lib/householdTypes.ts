@@ -79,5 +79,8 @@ export function inviteAcceptMessage(err: unknown): string {
   if (msg.includes('HOUSEHOLD_FULL')) {
     return 'This household is already full. Ask the person who invited you to change its type to Family, then send you a new invite.';
   }
+  // v10.95.0 (#9) — accept_invitation_by_id's refusals, in words.
+  if (msg.includes('invitation_not_found')) return 'This invitation is no longer open. It may have been revoked or declined, or it expired.';
+  if (msg.includes('not_signed_in')) return 'Confirm your email address first, then try again.';
   return msg || 'Could not accept the invitation.';
 }
