@@ -128,6 +128,38 @@ export function leaveHouseholdRequest(p: { household: string }): ConfirmRequest 
   };
 }
 
+/**
+ * v10.95.0 (#9, owner decision 13 Oct 2026; closes R4) — revoke an invitation: it asks, then revokes at
+ * once. It used to be held for an 8-second Undo, and a tab closed inside that window left the link live
+ * while the screen said "revoked". `who`: the address it went to, else its label; none for a bare link.
+ */
+export function revokeInvitationRequest(p: { who?: string | null }): ConfirmRequest {
+  return {
+    title: p.who ? `Revoke the invitation to ${p.who}?` : 'Revoke this invitation link?',
+    lines: ['The link stops working at once, and nobody can join with it.', 'You can invite them again later.'],
+    action: 'Revoke',
+  };
+}
+
+/** v10.95.0 (#9) — join a household from the bell; the same question the invitation link asks (FE-PLT-07). */
+export function joinInvitationRequest(p: { household: string; role: string; inviter: string }): ConfirmRequest {
+  return {
+    title: `Join ${p.household} as ${p.role}?`,
+    lines: [`${p.inviter} invited you.`, 'Joining shares its money picture with you, and yours with its members.'],
+    action: 'Join household',
+    tone: 'primary',
+  };
+}
+
+/** v10.95.0 (#9) — decline an invitation: it is removed, and only the inviter can send a new one. */
+export function declineInvitationRequest(p: { household: string; inviter: string }): ConfirmRequest {
+  return {
+    title: `Decline the invitation to ${p.household}?`,
+    lines: ['The invitation is removed.', `${p.inviter} can invite you again later.`],
+    action: 'Decline',
+  };
+}
+
 /** CF15 — delete a household: type its name to confirm. */
 export function deleteHouseholdRequest(p: { household: string }): ConfirmRequest {
   return {

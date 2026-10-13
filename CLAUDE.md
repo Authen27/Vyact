@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.94.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.95.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -647,6 +647,8 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     what happens and what stays, one action named after the verb. A reversible action does not ask:
     it acts and offers Undo for 8 s (`lib/undoable.ts`: `offerUndo` when it has an exact reversal,
     `deferCommit` when it does not — held, then written after 8 s or on navigation, never on Undo).
+    Revoking an invitation is the exception (v10.95.0, owner, R4): a held revoke left the link live if the
+    tab closed, so it asks (`revokeInvitationRequest`) and then revokes at once.
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)
@@ -666,6 +668,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     and once per invitation (`claim_invite_email`, with a daily cap per sender). A revoked invitation keeps its
     log row, so revoking and re-inviting does not reset the cap.
   - The email transport is `_shared/emailTransport.ts`, shared with split email. Add a sender there; never copy it.
+  - In the app (v10.95.0), the invite form's optional "Their email" field (`checkInviteEmail`) addresses the
+    invitation, and the app emails it after saving and says how that went (`inviteEmailNotice`).
+  - The bell shows invitations as cards: `invite_received` (Join / Decline, in any household) and
+    `invite_pending` (Revoke, for an owner or admin of the open household). These cards are built from the
+    store's live lists (`invitationsSlice`) and are NEVER saved to `notifications`, because every member
+    can read that table and an invitee's card would show them another household.
+  - Join, Decline and Revoke each ask first and answer "Already handled" when the invitation is gone.
 - **Cross-household split sharing** (v10.14) — `shared_splits`/`shared_split_shares`
   key participants by **verified email** (`my_email()`, never a client-supplied
   value) so a household can't be spoofed into another's split. The owner has

@@ -5,15 +5,18 @@ import { useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useStore } from '../../store';
 import NotificationSheet from './NotificationSheet';
+import { useInvitationNotifs } from './useInvitationNotifs';
 
 export default function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const notifications = useStore(s => s.notifications);
   const currentHouseholdId = useStore(s => s.currentHouseholdId);
+  // v10.95.0 (#9) — invitation cards wait on the person, so they count toward the badge.
+  const invitationCards = useInvitationNotifs();
 
   const unread = notifications.filter(
     n => n.status === 'unread' && (!n.householdId || n.householdId === currentHouseholdId),
-  ).length;
+  ).length + invitationCards.length;
 
   return (
     <>

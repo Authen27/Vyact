@@ -6,21 +6,24 @@
 //   recurring_due_confirm · recurring_reminder · budget_threshold ·
 //   debt_payment_due · stale_balance · income_landed.
 // The remaining types (recurring_posted, insight_fresh, trend_alert,
-// member_activity, sync_conflict, invite_received, milestone) keep their type +
+// member_activity, sync_conflict, milestone) keep their type +
 // NOTIF_META + settings toggle so the sheet renders them, but their producers
 // are follow-ups (need a query/engine not available in this synchronous pass —
-// e.g. trend detection, activity-log subscription, invite lookup). sync_conflict
-// already has its persistent banner.
+// e.g. trend detection, activity-log subscription). sync_conflict
+// already has its persistent banner. invite_received and invite_pending (v10.95.0) are built from
+// live invitation lists and never saved (see "Household invitations" below).
 
 import type {
   Notification, NotifType, NotifPriority, NotifActionSpec, NotificationPrefs,
-  RecurringSchedule, Transaction, Budget, BudgetAllocation, Debt, Account, ExchangeRates, SharedSplit,
+  RecurringSchedule, Transaction, Budget, BudgetAllocation, Debt, Account, ExchangeRates, SharedSplit, AppRole,
 } from '../types';
 import { uid, today, getMonthKey, fmt, convert } from './format';
 import { upcomingSchedules } from './recurring';
 import { spendByCategoryInRange } from './calculations';
 import { getCat } from '../constants';
 import { staleAccounts } from './accountsView';
+import { roleLabel } from './permissions';
+import type { MyInvitation, HouseholdInvitation } from './invitations';
 
 // ── Per-type render metadata (icon glyph + default tint + priority) ──────────
 export interface NotifMeta { icon: string; tint: string; priority: NotifPriority }
@@ -41,6 +44,7 @@ export const NOTIF_META: Record<NotifType, NotifMeta> = {
   split_received:        { icon: '🤝', tint: 'var(--accent)', priority: 'P1' },
   split_settled:         { icon: '🤝', tint: 'var(--good)', priority: 'P2' },
   split_closed:          { icon: '🤝', tint: 'var(--ff-ink-3)', priority: 'P2' },
+  invite_pending:        { icon: '⌂', tint: 'var(--info)', priority: 'P1' },
 };
 
 /** Settings grouping (Settings ▸ Notifications). */
@@ -48,7 +52,7 @@ export const NOTIF_GROUPS: { label: string; types: NotifType[] }[] = [
   { label: 'Money movement', types: ['recurring_due_confirm', 'recurring_reminder', 'recurring_posted', 'income_landed'] },
   { label: 'Budgets & debts', types: ['budget_threshold', 'debt_payment_due'] },
   { label: 'Insights',        types: ['insight_fresh', 'trend_alert', 'milestone'] },
-  { label: 'Household',       types: ['invite_received', 'member_activity'] },
+  { label: 'Household',       types: ['invite_received', 'invite_pending', 'member_activity'] },
   { label: 'Splits',          types: ['split_received', 'split_settled', 'split_closed'] },
   { label: 'System',          types: ['stale_balance', 'sync_conflict'] },
 ];
@@ -70,6 +74,7 @@ export const NOTIF_TYPE_LABEL: Record<NotifType, string> = {
   split_received:        'Split shared with you',
   split_settled:         'Split settled',
   split_closed:          'Split closed',
+  invite_pending:        'Invitation waiting',
 };
 
 /** `sync_conflict` can never be silenced (spec §4). */
@@ -399,6 +404,53 @@ export function splitClosedNotifs(withMe: SharedSplit[], prefs: NotificationPref
     });
   }
   return out;
+}
+
+// ── Household invitations (v10.95.0, #9; owner decisions 13 Oct 2026) ─────────
+// Built on the device from live invitation lists on every render and NEVER saved: the notifications
+// table is readable by every member of the open household, and an invitee's card would tell them which
+// other household invited this person. A card disappears as soon as its invitation is answered, revoked
+// or expires, so there is nothing to dedupe or resolve. (No lock-screen push: that reads the table.)
+
+const expiryDay = (iso: string) => iso.slice(0, 10);
+
+/** invite_received (P1, invitee-facing) — Join / Decline, whichever household is open. */
+export function invitationReceivedNotifs(invites: MyInvitation[], prefs: NotificationPrefs, now = Date.now()): Notification[] {
+  if (!typeEnabled(prefs, 'invite_received')) return [];
+  return invites
+    .filter(i => new Date(i.expiresAt).getTime() > now)
+    .map(i => ({
+      id: `invite_received:${i.id}`,
+      type: 'invite_received' as const,
+      priority: NOTIF_META.invite_received.priority,
+      status: 'unread' as const,
+      createdAt: i.createdAt,
+      dedupeKey: `invite_received:${i.id}`,
+      invitationId: i.id,
+      title: `${i.invitedByName} invited you to ${i.householdName}`,
+      body: `Join as ${roleLabel(i.role as AppRole)}. The invitation expires on ${expiryDay(i.expiresAt)}.`,
+      actions: [A('join', 'Join', 'primary'), A('decline', 'Decline', 'ghost')],
+    }));
+}
+
+/** invite_pending (P1, owner/admin-facing) — each open invitation of the open household, with Revoke. */
+export function invitationPendingNotifs(invites: HouseholdInvitation[], prefs: NotificationPrefs, householdId: string, now = Date.now()): Notification[] {
+  if (!typeEnabled(prefs, 'invite_pending')) return [];
+  return invites
+    .filter(i => i.householdId === householdId && new Date(i.expiresAt).getTime() > now)
+    .map(i => ({
+      id: `invite_pending:${i.id}`,
+      type: 'invite_pending' as const,
+      priority: NOTIF_META.invite_pending.priority,
+      status: 'unread' as const,
+      createdAt: i.createdAt,
+      householdId,
+      dedupeKey: `invite_pending:${i.id}`,
+      invitationId: i.id,
+      title: i.recipientEmail ? `Invitation to ${i.recipientEmail} is waiting` : 'An invitation link is waiting',
+      body: `${roleLabel(i.role as AppRole)} access. Expires on ${expiryDay(i.expiresAt)}.`,
+      actions: [A('revoke', 'Revoke', 'ghost')],
+    }));
 }
 
 // ── Web Push (unchanged) ─────────────────────────────────────────────────────

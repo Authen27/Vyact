@@ -112,13 +112,15 @@ describe('A3 · confirmations and undo', () => {
     for (const [f, re] of uses) expect(read(f), f).toMatch(re);
   });
 
-  it('A3-CF1-001 · reversible actions do not ask: skip a bill (Undo restores it), revoke an invite (held 8 s), sign out', () => {
+  it('A3-CF1-001 · reversible actions do not ask: skip a bill (Undo restores it), sign out', () => {
     const cal = read('components/recurring/BillCalendar.tsx');
     expect(cal).toMatch(/offerUndo\(toast, `\$\{item\.description \|\| 'Bill'\} skipped for \$\{formatDate\(item\.date, dateFormat\)\}`, \(\) => unskipRecurring\(schedule\)\)/);
     const slice = read('store/slices/recurringSlice.ts');
     expect(slice).toMatch(/if \(!current \|\| current\.nextDueDate !== advanceSchedule\(before\)\.nextDueDate\) return false;/);
     expect(slice).toMatch(/upsertRecurring\(\{ \.\.\.before, updated_at: current\.updated_at \}\)/);
-    expect(read('pages/Households.tsx')).toMatch(/deferCommit\(toast, isLinkOnly \? 'Invitation link revoked'/);
+    // v10.95.0 (owner decision 13 Oct 2026; R4): revoking an invite is no longer held for Undo. It asks,
+    // then revokes at once (invitationsInBell.test.ts INV-B-008).
+    expect(read('pages/Households.tsx')).toMatch(/confirmSheet\(revokeInvitationRequest\(/);
     expect(read('components/layout/AccountMenu.tsx')).toMatch(/CF19[^\n]*\n\s*try \{ await authSignOut\(\); \}/);
   });
 

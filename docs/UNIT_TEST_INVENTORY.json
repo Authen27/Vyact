@@ -155,7 +155,7 @@
       "tests": [
         "A3 · confirmations and undo A3-CF-COPY · every sheet names its item and says what happens and what stays (board copy)",
         "A3 · confirmations and undo A3-CF-SITES · each page asks through the sheet with its own copy",
-        "A3 · confirmations and undo A3-CF1-001 · reversible actions do not ask: skip a bill (Undo restores it), revoke an invite (held 8 s), sign out",
+        "A3 · confirmations and undo A3-CF1-001 · reversible actions do not ask: skip a bill (Undo restores it), sign out",
         "A3 · confirmations and undo A3-CF1-002 · an Undo toast stays 8 s; a held action commits after 8 s, on navigation, never on Undo",
         "A3 · confirmations and undo A3-CF2-001 · the sheet resolves with the answer; a second request cancels the first",
         "A3 · confirmations and undo A3-CF2-002 · inputs gate the action: a 6-digit code, the typed household name, an optional note",
@@ -1366,6 +1366,25 @@
         "invitation inbox (#9 step 1) INV-008 · the link accept now joins when the invitation has no relationship label (it used to fail)",
         "invitation inbox (#9 step 1) INV-009 · one email per invitation, ever; a daily cap per sender that revoking does not reset",
         "invitation inbox (#9 step 1) INV-010 · deleting an account removes invitations addressed to it, and no one else's"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/invitationsInBell.test.ts",
+      "feature": "Invitations in the bell",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "invite_received / invite_pending cards (never saved), the \"Their email\" check, the email outcome, the confirm copy, the invitations slice, Revoke asks then revokes (#9, R4; owner decisions 13 Oct 2026)",
+      "count": 8,
+      "tests": [
+        "invitations in the bell (#9 step 2) INV-B-001 · the invitee's card: Join / Decline, waiting on them, in whichever household is open",
+        "invitations in the bell (#9 step 2) INV-B-002 · the inviter's cards: the open household's open invitations, each with Revoke",
+        "invitations in the bell (#9 step 2) INV-B-003 · the \"Their email\" field: optional, normalised, email-shaped, never your own",
+        "invitations in the bell (#9 step 2) INV-B-004 · the email's outcome is told, never swallowed",
+        "invitations in the bell (#9 step 2) INV-B-005 · the questions name the invitation and say what happens",
+        "the invitations slice INV-B-006 · refresh: an owner gets both lists, a member only theirs, a signed-out device none",
+        "the invitations slice INV-B-007 · join, decline and revoke each remove the card and report what happened",
+        "the invitations slice INV-B-008 · wiring: cards are never saved; Revoke asks then revokes at once; the form sends the email after saving"
       ]
     },
     {

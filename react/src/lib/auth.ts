@@ -6,6 +6,7 @@ import { sb, APP_URL } from './supabase';
 import { POLICY_VERSION } from './policyVersion';
 import { disablePush } from './webPush';
 import { deviceTimeZone } from './householdTimezone';
+import type { MyInvitation } from './invitations';
 import type { Session, User } from '@supabase/supabase-js';
 
 export interface SignUpInput {
@@ -98,18 +99,45 @@ export async function createInviteLink(
   role: 'admin' | 'member' | 'viewer',
   householdRole?: string,
   label?: string,
+  // v10.95.0 (#9) — the invitee's address, already checked (lib/invitations.ts checkInviteEmail).
+  recipientEmail?: string | null,
 ) {
   const { data: { user } } = await sb().auth.getUser();
   if (!user) throw new Error('Not signed in');
   const { data, error } = await sb().from('invitations').insert({
     household_id: householdId,
     invited_email: (label && label.trim()) || INVITE_LABEL_SENTINEL,
+    recipient_email: recipientEmail || null,
     invited_by: user.id,
     role,
     household_role: householdRole || null,
   }).select().single();
   if (error) throw error;
   return data;
+}
+
+// ── v10.95.0 (#9) — invitations addressed to me (matched on my confirmed email) ──
+export async function listMyInvitations(): Promise<MyInvitation[]> {
+  const { data, error } = await sb().rpc('my_pending_invitations');
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map(r => ({
+    id: String(r.id), householdId: String(r.household_id), householdName: String(r.household_name ?? ''),
+    householdType: r.household_type as string | undefined, invitedByName: String(r.invited_by_name ?? 'Someone'),
+    role: String(r.role), householdRole: (r.household_role as string | null) ?? null,
+    expiresAt: String(r.expires_at), createdAt: String(r.created_at),
+  }));
+}
+
+export async function acceptInvitationById(invitationId: string) {
+  const { data, error } = await sb().rpc('accept_invitation_by_id', { p_id: invitationId });
+  if (error) throw error;
+  return data as { household_id: string; membership_id?: string; role?: string; already_member?: boolean };
+}
+
+export async function declineInvitation(invitationId: string): Promise<boolean> {
+  const { data, error } = await sb().rpc('decline_invitation', { p_id: invitationId });
+  if (error) throw error;
+  return data === true;
 }
 
 export async function listInvitations(householdId: string) {
@@ -126,9 +154,12 @@ export async function acceptInvitation(token: string) {
   return data as { household_id: string; membership_id?: string; role?: string; already_member?: boolean };
 }
 
-export async function revokeInvitation(invitationId: string) {
-  const { error } = await sb().from('invitations').delete().eq('id', invitationId);
+/** v10.95.0 — true when an invitation was revoked; false when there was none left to revoke (it was
+ *  accepted or revoked elsewhere). A delete RLS refuses also matches no row, so it reads as false. */
+export async function revokeInvitation(invitationId: string): Promise<boolean> {
+  const { data, error } = await sb().from('invitations').delete().eq('id', invitationId).select('id');
   if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 // ── Membership management ───────────────────────────────────

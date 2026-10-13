@@ -116,6 +116,7 @@ Two developers did the work:
 | #198 | v10.92.0 | Admin activity feed without values, step 1 of 2 (13 Oct) | FE-PUB-01, ADM-03 | — |
 | #199 | v10.93.0 (admin v1.4.5) | Admin audit without values, step 2 of 2; Privacy sentence (13 Oct) | FE-PUB-01, ADM-03 | — |
 | #200 | v10.94.0 | Invitations addressed to a person: inbox functions and the invite email, step 1 of 2 (#9; R7 fixed) | — | — |
+| (PR in review) | v10.95.0 | Invitations in the bell: Join / Decline / Revoke, invite by email, step 2 of 2 (#9; R4 fixed) | — | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -124,7 +125,7 @@ Two developers did the work:
 | **R1** | **High** | **"Erase all data" fails for any household with an unpaid loan.** `erase_household_data` deletes debts (`20261010120000_w1b_account_purge.sql:27`) before accounts (`:29`). W4e's guard `debts_refuse_unpaid_delete` (`20261016120000_w4e_loan_model.sql:612-625`) still sees the loan account, finds money owed and raises `debt_not_paid_off`, so the whole erase rolls back. It is DB-INT-05 again, by a new route. | #178 (W4e) against #167 (W1b) | **Fixed in v10.88.0** (13 Oct): the erase removes the loan accounts and zeroes the cached balance before deleting debts; PGlite test against the real guard. |
 | **R2** | Medium | **A WhatsApp correction can relabel a plain expense as Loan / EMI**, so the loan never moves. Developer 1's PRs cited BE-WA-08 for the "paid … EMI" path. The defect the finding actually describes, in the correction path, was never touched. | Gap in #178–#180 | **Fixed in v10.89.0** (13 Oct): the correction turns the entry into a loan payment (owner decision); a plain correction refuses Loan / EMI. |
 | **R3** | Medium | **Two calculators for one schedule on the budget form.** Suggest reads the RRULE (D27, #181). The recurring forecast still steps by frequency (#186), against D13's rule that every calculator goes through `ruleOf`. The two give different monthly figures. | #181 against #186 | **Fixed in v10.91.0** (13 Oct): the forecast counts each bill's real dates through `ruleOf`, as the bill calendar does (owner decision). Suggest still proposes a monthly average, by design. |
-| **R4** | Low | **A revoked invitation can stay live.** Aurora A3 holds a revoke for 8 s so it can be undone. If the tab closes or the phone kills the app inside that window, the revoke may never be sent, although the screen already said "revoked". `lib/undoable.ts` and `DeferredFlush.tsx` flush on `pagehide` only, with no `keepalive` and no `visibilitychange`. | #192 | Open. XS |
+| **R4** | Low | **A revoked invitation can stay live.** Aurora A3 holds a revoke for 8 s so it can be undone. If the tab closes or the phone kills the app inside that window, the revoke may never be sent, although the screen already said "revoked". `lib/undoable.ts` and `DeferredFlush.tsx` flush on `pagehide` only, with no `keepalive` and no `visibilitychange`. | #192 | **Fixed in v10.95.0** (13 Oct, owner): Revoke asks, then revokes at once, on Households and in the bell. |
 | R5 | — | #185's `ignoreCommand` exited 128, which Vercel treats as an error, so every admin production deploy failed on 8–9 Oct. W8c went live only with #189. | #185 | Fixed by #189. Live-verified: admin v1.4.4. |
 | R6 | Low | Database advisor warnings after #178: `search_path` on 7 `loan_*` functions, and EXECUTE on 2 trigger functions (W8 plan, W8e). | #178 | Open. The owner deferred W8e on 8 Oct. |
 | R7 | Low | **A link invitation with no relationship label could not be accepted.** `accept_invitation_link` fell back to `household_role = 'member'`, which the memberships check refuses. The app always sends a label (default Partner), so nobody hit it. Found while building #9. | 20260601153000 | **Fixed in v10.94.0** (13 Oct, owner): a missing label is stored as empty. PGlite test. |
@@ -218,7 +219,7 @@ Plus **R1** (high, new): see §0.3.
    - ~~ADM-03 rest (+ FE-PUB-01): roles-tier admins stop reading `activity_log.changes`;~~ done: the server feed in v10.92.0, then the Audit page switch, the members-only policy and the Privacy sentence in v10.93.0 (admin v1.4.5);
    - ~~XC-PRV-08 / DB-SEC-08: erase covers every household table;~~ done in v10.88.0 (the export half of XC-PRV-08 remains);
    - BE-WA-06 / BE-WA-09 rest;
-   - R4: send the invite revoke on `visibilitychange` with `keepalive`, or revoke first and re-create on Undo;
+   - ~~R4: send the invite revoke on `visibilitychange` with `keepalive`, or revoke first and re-create on Undo;~~ done in v10.95.0: confirm, then revoke at once (owner);
    - XC-PRV-10: `data_collection: deny`.
 5. **Accessibility:** FE-UIS-07 (put the four hand-rolled dialogs on `AccessibleDialog`, M) and ~~FE-UIS-10 (a shortcuts off switch, XS)~~, done in v10.91.0 by removing the single-key shortcuts (owner decision).
 
@@ -1241,7 +1242,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 13 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.94.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.95.0. See §0 for the method, the summary, the conflicts and the action plan.
 
 ### C.1 Unresolved (97)
 
