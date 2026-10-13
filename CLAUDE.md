@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.91.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.92.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -561,6 +561,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - Role checks in SQL use `is distinct from` / `coalesce`, never `<>` on a value that is NULL for a non-member (`NULL <> 'owner'` let anyone through).
   - A WhatsApp link ends with the membership (trigger), and the webhook / `guardedSend` re-check membership (`isLiveMember`).
   - Platform admins read household ledgers only through SECURITY DEFINER aggregate RPCs, never row by row.
+  - Admins see who did what and when in a household's activity log, never the values (owner decision
+    13 Oct 2026; ADM-03). `admin_activity_feed` (v10.92.0) returns the time, household, actor, action and
+    entity, never `activity_log.changes`. Never add `changes`, or a `select *`, to it. Step 2 moves the
+    admin Audit page onto it and narrows `activity_log_read` to members.
 - **Account lifecycle (v10.63.0, audit W1b; owner decisions).**
   - Deleting an account is **immediate and one database transaction**: `purge_account(user)` (service role only), called by `delete-account`, which deletes the login last. No 30-day schedule — it was never executed and is gone.
   - An owner whose household has other members and no other owner gets `transfer_required`; never delete a household out from under its members.

@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1642 passing deterministic cases in 139 files. Zero failed, skipped or TODO cases at generation.**
+**1647 passing deterministic cases in 140 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 61 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 90 |
-| react | sql-integration | conditional | 58 |
+| react | sql-integration | conditional | 63 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 12 |
@@ -59,6 +59,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/accountPatchSafety.test.ts](../react/src/lib/__tests__/accountPatchSafety.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/accountPurgeSql.test.ts](../react/src/lib/__tests__/accountPurgeSql.test.ts) | Account purge and retention SQL | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/accountsView.test.ts](../react/src/lib/__tests__/accountsView.test.ts) | Accounts | unit | available | 21 |
+| [react/src/lib/__tests__/adminActivityFeedSql.test.ts](../react/src/lib/__tests__/adminActivityFeedSql.test.ts) | Admin activity feed SQL | sql-integration | conditional | 5 |
 | [react/src/lib/__tests__/affordabilityBudgetFirst.test.ts](../react/src/lib/__tests__/affordabilityBudgetFirst.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/agentAmbiguity.test.ts](../react/src/lib/__tests__/agentAmbiguity.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 31 |
 | [react/src/lib/__tests__/agentClassify.test.ts](../react/src/lib/__tests__/agentClassify.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |

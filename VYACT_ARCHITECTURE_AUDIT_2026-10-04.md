@@ -113,6 +113,7 @@ Two developers did the work:
 | #195 | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
 | #196 | v10.90.0 | Pip guard: real categories, scaled figures, names as data (13 Oct) | FE-PIP-06, FE-PIP-07, FE-PIP-11 | — |
 | #197 | v10.91.0 | Budget forecast counts real dates; single-key shortcuts removed (13 Oct) | FE-UIS-10, FE-MNY-16 | — |
+| (PR in review) | v10.92.0 | Admin activity feed without values, step 1 of 2 (13 Oct) | — | FE-PUB-01, ADM-03 |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -172,7 +173,7 @@ Two developers did the work:
 | ID | Status | What is left | Next step |
 |---|---|---|---|
 | FE-MNY-04 | Partly | (1) Loan accounts whose debt was soft-deleted BEFORE v10.74.0 still count as a liability in net worth and Pip. They now appear in the Net Worth list, but nothing on Debts shows them and nothing removes them. This needs a production query and a one-off fix (archive them, or reconcile them to zero). (2) There is no way to correct a loan's outstanding to a lender statement withou… | Step 1 (S) |
-| FE-PUB-01 | Partly | Make the 'only the people you invite' claim true or qualify it. Either (a) remove `or is_admin('roles')` from activity_log_read, or stop the admin Audit page reading `changes` (redact or serve through an RPC), or (b) add one sentence on staff/operator access to Privacy.tsx and qualify about.js:31, for.js:165, landingCopy.ts:135 and llms.js:30. | Step 1 (S) |
+| FE-PUB-01 | Partly | Step 1 of the access fix shipped in v10.92.0 (a server feed without values). Left, step 2 (owner decision 13 Oct): the admin page stops reading `changes`, activity_log_read narrows to members, and Privacy gets one sentence: staff can see that an action happened, never amounts, names or descriptions. | Step 1 (S) |
 | BE-FN-07 | Partly | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | Step 1 (M) |
 | DB-SEC-03 | On hold (dev question) | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | Answer D4/D5 |
 | OPS-01 | On hold (dev question) | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | Answer D8 |
@@ -212,7 +213,7 @@ Plus **R1** (high, new): see §0.3.
    - FE-MNY-04: a reconcile action on Debts.
    Each S.
 4. **Privacy and security:**
-   - ADM-03 rest (+ FE-PUB-01): roles-tier admins stop reading `activity_log.changes`;
+   - ADM-03 rest (+ FE-PUB-01): roles-tier admins stop reading `activity_log.changes`. Step 1, the server feed, is done in v10.92.0; step 2 (the Audit page switch, the narrowed policy and the Privacy sentence) is next;
    - ~~XC-PRV-08 / DB-SEC-08: erase covers every household table;~~ done in v10.88.0 (the export half of XC-PRV-08 remains);
    - BE-WA-06 / BE-WA-09 rest;
    - R4: send the invite revoke on `visibilitychange` with `keepalive`, or revoke first and re-create on Undo;
@@ -739,7 +740,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-PIP-01 | HIGH | Frontend | Pip compares annual budget limits with ONE month's spend (affordability verdict, lookup, status) | confirmed (adversarial: confirmed) |  | Closed | #182 |
 | FE-PIP-03 | HIGH | Frontend | 'Split' capture opens the plain transaction form, which drops the split: full bill booked as spend | confirmed (adversarial: confirmed) |  | Closed | #176, #182 |
 | FE-PIP-04 | HIGH | Frontend | Facts that can be negative still go through money(), which drops the sign (net worth, headroom) | confirmed (adversarial: confirmed) |  | Closed | #182 |
-| FE-PUB-01 | HIGH | Frontend | Public privacy claims contradict the real access model ("Private" entries and platform-admin reads) | confirmed (adversarial: confirmed) | 2026-09 audit S3 (privacy-model clarification: excluded flag is not row-level privacy; roles admins read household tables) — still open, and now contradicted by public copy | Partly | #165, #166 |
+| FE-PUB-01 | HIGH | Frontend | Public privacy claims contradict the real access model ("Private" entries and platform-admin reads) | confirmed (adversarial: confirmed) | 2026-09 audit S3 (privacy-model clarification: excluded flag is not row-level privacy; roles admins read household tables) — still open, and now contradicted by public copy | Partly | #165, #166, v10.92.0 |
 | FE-SYN-01 | HIGH | Frontend | Cache restamps updated_at with the client clock, so later edits fail with false conflicts and get dead-lettered | confirmed (adversarial: confirmed) | 2026-09 audit F7 (partially fixed: fold-back + ack injection; still open via delta restamp and store copy) | Closed | #171 |
 | FE-SYN-03 | HIGH | Frontend | Offline writes after the token expires are stamped ownerUid=null and are never flushed | confirmed-with-caveats (adversarial: partial) | TD-35 | Closed | #171 |
 | FE-UIS-02 | HIGH | Frontend | Two-factor auth is decorative: no AAL2 step at sign-in, TOTP secret sent to Google Charts | confirmed (adversarial: confirmed) | TD-15 | Closed (decision) | #165 |
@@ -800,7 +801,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-UIS-11 | MEDIUM | Frontend | Onboarding's estimated cash balance shows as confirmed; hardcoded '35% confirmed'; nudge sells bank sync | confirmed (adversarial: confirmed) |  | Closed | #183 |
 | FE-UIS-12 | MEDIUM | Frontend | One root ErrorBoundary: no reporting, 'Try Again' re-throws, no chunk-load recovery; e2e route live | confirmed (adversarial: confirmed) | TD-05 | Partly | #183, #190 |
 | FE-UIS-13 | MEDIUM | Frontend | Password change needs no re-auth (Settings, /auth/reset), unlike Danger Zone; instant delete keeps session | confirmed (adversarial: confirmed) |  | Closed | #183, #184 |
-| ADM-03 | MEDIUM | Admin | 'roles' admins hold raw SELECT on every household's ledger; no admin page needs it | confirmed (adversarial: confirmed) | 2026-09 audit S3 privacy note and 7.1 'least-privilege RPCs instead of broad financial-table access' — still open | Partly | #166 |
+| ADM-03 | MEDIUM | Admin | 'roles' admins hold raw SELECT on every household's ledger; no admin page needs it | confirmed (adversarial: confirmed) | 2026-09 audit S3 privacy note and 7.1 'least-privilege RPCs instead of broad financial-table access' — still open | Partly | #166, v10.92.0 |
 | ADM-04 | MEDIUM | Admin | No audit trail of admin actions; 'Audit Log' is a deletable household changelog the Help page misdescribes | confirmed (adversarial: confirmed) | 2026-09 audit 7.1 ('Audited sensitive reads', 'Access review and revocation procedures') — still open | Backlog | — |
 | ADM-06 | MEDIUM | Admin | Content-tier admins see every Pip user's email and per-user sentiment profile | confirmed (adversarial: confirmed) |  | Backlog | — |
 | ADM-07 | MEDIUM | Admin | Client role matrix contradicts server gates; tests cover only the client, never RLS/RPC | confirmed (adversarial: confirmed) | 2026-09 audit 7.5 — partially addressed (client gating tests added); server-side authorization tests still missing | Backlog | — |
@@ -1238,14 +1239,14 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 13 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.91.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.92.0. See §0 for the method, the summary, the conflicts and the action plan.
 
 ### C.1 Unresolved (99)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
 | FE-MNY-04 | high | Partly | #178, #179 | (1) Loan accounts whose debt was soft-deleted BEFORE v10.74.0 still count as a liability in net worth and Pip. They now appear in the Net Worth list, but nothing on Debts shows them and nothing removes them. This needs a production query and a one-off fix (archive them, or reconcile them to zero). (2) There is no way to correct a loan's outstanding to a lender statement without a payment. D19 says 'changing outstand… | — | S |
-| FE-PUB-01 | high | Partly | #165, #166 | Make the 'only the people you invite' claim true or qualify it. Either (a) remove `or is_admin('roles')` from activity_log_read, or stop the admin Audit page reading `changes` (redact or serve through an RPC), or (b) add one sentence on staff/operator access to Privacy.tsx and qualify about.js:31, for.js:165, landingCopy.ts:135 and llms.js:30. | — | S |
+| FE-PUB-01 | high | Partly | #165, #166, v10.92.0 | Step 1 of the access fix shipped in v10.92.0 (a server feed without values). Left, step 2 (owner decision 13 Oct): the admin page stops reading `changes`, activity_log_read narrows to members, and Privacy gets one sentence: staff can see that an action happened, never amounts, names or descriptions. | — | S |
 | BE-FN-07 | high | Partly | #165 | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | — | M |
 | XC-PRV-03 | high | Partly | #165, #189 | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screenshot are off (owner action from PR #165).… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). | M |
 | DB-SEC-03 | high | On hold (dev question) | — | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | D4/D5 | S |
@@ -1258,7 +1259,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.91.0
 | FE-UIS-03 | medium | Partly | #170 | The currency part is fixed (a re-run keeps the household currency). A re-run can still duplicate bill schedules, and the wiring is neither idempotent nor atomic. | — | S |
 | FE-UIS-09 | medium | Partly | #190 | Aurora A1 (#190, after the review baseline) gave light-theme status text darker shades (MIST1). Not re-measured; the secondary-text contrast decision is still open (W8 §3); no contrast test. | Owner: accept darker secondary text | S |
 | FE-UIS-12 | medium | Partly | #183, #190 | Chunk-load recovery and the e2e route are fixed (#183); the crash screen was redesigned (#190). Left: reporting crashes anywhere, on hold for D9. | D9 (error reporting) | S |
-| ADM-03 | medium | Partly | #166 | Close the indirect read. Drop `or is_admin('roles')` from activity_log_read, or return action/entity/actor without `changes` through a SECURITY DEFINER RPC, and remove `changes` from the Audit page view and CSV. Then add a SQL test that a roles admin who is not a member gets 0 rows. | — | S |
+| ADM-03 | medium | Partly | #166, v10.92.0 | Step 1 done in v10.92.0: admin_activity_feed returns who, when and what (no `changes`) to roles-tier admins and refuses everyone else (owner decision 13 Oct). Left, step 2: the Audit page and its CSV switch to it, activity_log_read narrows to members, and a SQL test that a non-member admin reads 0 rows from the table. | — | S |
 | BE-FN-09 | medium | Partly | #168 | Surface the 'settled' and 'closed' send results through readSplitEmailResult/splitEmailNotice, as the create and edit paths do. | — | XS |
 | BE-WA-06 | medium | Partly | #187 | Make the lockout persist: count failures per phone_number across resends, e.g. lock for 24 h after 10, rather than deleting the row on too_many_attempts. Add a per-phone send limit across all profiles. Today the effective rate is about 5 guesses per resend cycle, per account. | — | S |
 | BE-WA-09 | medium | Partly | #187 | Check the error on the drainInbox done/failed updates and on guardedSend's 'sent' and failure updates. If needed, also make a failed Meta opt-out write return non-2xx so Meta redelivers. | — | XS |

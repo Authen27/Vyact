@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.91.0`** (consumer)
+> **Current production version: `v10.92.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,30 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.92.0 — Admin activity feed without values, step 1 of 2 *(2026-10-13)*
+
+Database only (one new function); no change to the app or the admin app yet. Findings: ADM-03, FE-PUB-01.
+Owner decision, 13 Oct 2026: admins see who did what and when, never the values.
+
+- **Why.** The admin Audit page reads `activity_log` directly, and a roles-tier admin may read every
+  household's rows, including `changes`: the row images with amounts, payees, descriptions and names.
+- **New: `admin_activity_feed(p_limit, p_before)`.**
+  - It returns the time, household, actor, action, entity type and entity id, newest first, and never
+    `changes`.
+  - Roles-tier and super admins only. Anyone else gets `42501`, and signed-out callers cannot run it.
+  - `p_before` pages back. The limit is kept between 1 and 1,000 (default 200).
+- **Nothing else changes yet**, so the Audit page keeps working in between. Step 2 moves the Audit page and its
+  CSV onto this function, narrows `activity_log_read` to household members, and adds one sentence to Privacy.
+  It ships after this migration is live.
+
+Tests:
+- adminActivityFeedSql.test.ts (5), on PGlite:
+  - a roles or super admin gets the right columns, newest first, and none of the values;
+  - members, content admins and signed-out callers are refused;
+  - paging and the 1–1,000 limit;
+  - members still read their own household's log, and the migration touches no policy or table;
+  - the function names its columns and never reads `changes`.
 
 ## v10.91.0 — Budget forecast counts real dates; single-key shortcuts removed *(2026-10-13)*
 

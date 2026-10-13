@@ -234,6 +234,22 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/adminActivityFeedSql.test.ts",
+      "feature": "Admin activity feed SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "admin_activity_feed: roles-tier admins get who / what / when, never changes; members, content admins and anon are refused; paging and limits; no policy changed in step 1 (ADM-03, owner decision 13 Oct 2026; PGlite)",
+      "count": 5,
+      "tests": [
+        "admin activity feed (ADM-03 step 1) ADM03-001 · an admin of the roles tier sees who, what and when, newest first, and never the values",
+        "admin activity feed (ADM-03 step 1) ADM03-002 · anyone else is refused: a member, a content admin, a signed-out caller",
+        "admin activity feed (ADM-03 step 1) ADM03-003 · it pages back with p_before and keeps the limit between 1 and 1000",
+        "admin activity feed (ADM-03 step 1) ADM03-004 · step 1 changes no access: members still read their own household's log",
+        "admin activity feed (ADM-03 step 1) ADM03-005 · the function names its columns and never reads `changes`"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/affordabilityBudgetFirst.test.ts",
       "feature": "Ask Vyact",
       "availability": "conditional",
