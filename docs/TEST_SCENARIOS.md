@@ -25,17 +25,17 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1647 passing deterministic cases in 140 files. Zero failed, skipped or TODO cases at generation.**
+**1652 passing deterministic cases in 141 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
-| admin | unit | available | 6 |
+| admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 61 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 90 |
-| react | sql-integration | conditional | 63 |
+| react | sql-integration | conditional | 65 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 12 |
@@ -47,6 +47,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 | File | Feature | Layer | Availability | Cases |
 |---|---|---|---|---:|
+| [admin/src/lib/__tests__/adm03AuditFeed.test.ts](../admin/src/lib/__tests__/adm03AuditFeed.test.ts) | Admin audit without values | unit | available | 3 |
 | [admin/src/lib/__tests__/contentApi.test.ts](../admin/src/lib/__tests__/contentApi.test.ts) | Admin content and permissions | unit | conditional | 11 |
 | [admin/src/lib/__tests__/contentWorkflow.test.ts](../admin/src/lib/__tests__/contentWorkflow.test.ts) | Admin publication | contract-unit | conditional | 5 |
 | [admin/src/lib/__tests__/roleGating.test.ts](../admin/src/lib/__tests__/roleGating.test.ts) | Admin content and permissions | unit | conditional | 4 |
@@ -59,7 +60,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/accountPatchSafety.test.ts](../react/src/lib/__tests__/accountPatchSafety.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/accountPurgeSql.test.ts](../react/src/lib/__tests__/accountPurgeSql.test.ts) | Account purge and retention SQL | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/accountsView.test.ts](../react/src/lib/__tests__/accountsView.test.ts) | Accounts | unit | available | 21 |
-| [react/src/lib/__tests__/adminActivityFeedSql.test.ts](../react/src/lib/__tests__/adminActivityFeedSql.test.ts) | Admin activity feed SQL | sql-integration | conditional | 5 |
+| [react/src/lib/__tests__/adminActivityFeedSql.test.ts](../react/src/lib/__tests__/adminActivityFeedSql.test.ts) | Admin activity feed SQL | sql-integration | conditional | 7 |
 | [react/src/lib/__tests__/affordabilityBudgetFirst.test.ts](../react/src/lib/__tests__/affordabilityBudgetFirst.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/agentAmbiguity.test.ts](../react/src/lib/__tests__/agentAmbiguity.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 31 |
 | [react/src/lib/__tests__/agentClassify.test.ts](../react/src/lib/__tests__/agentClassify.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |

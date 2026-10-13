@@ -2,12 +2,14 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-// ADM-03 / FE-PUB-01, step 1 (v10.92.0; owner decision 13 Oct 2026) — admins see who did what and
-// when in the activity log, never the values. Runs the real migration over a fixture shaped like the
-// baseline: the activity_log table with today's read policy, and the real tiered is_admin.
+// ADM-03 / FE-PUB-01 (owner decision 13 Oct 2026) — admins see who did what and when in the activity
+// log, never the values. Step 1 (v10.92.0) adds the feed; step 2 (v10.93.0) makes the table's read
+// policy members only. Runs both real migrations over a fixture shaped like the baseline: the
+// activity_log table with its pre-W1 read policies, and the real tiered is_admin.
 
 const db = new PGlite();
 const MIGRATION = '20261020120000_admin_activity_feed.sql';
+const STEP2 = '20261021120000_activity_log_members_only.sql';
 const H = '20000000-0000-4000-8000-000000000001';
 const H2 = '20000000-0000-4000-8000-000000000002';
 const member = '10000000-0000-4000-8000-00000000000a';
@@ -16,6 +18,7 @@ const superAdmin = '10000000-0000-4000-8000-00000000000c';
 const contentAdmin = '10000000-0000-4000-8000-00000000000d';
 const COLUMNS = ['id', 'created_at', 'household_id', 'actor_id', 'action', 'entity_type', 'entity_id'];
 const migrationSql = readFileSync(new URL(`../../../../supabase/migrations/${MIGRATION}`, import.meta.url), 'utf8');
+const step2Sql = readFileSync(new URL(`../../../../supabase/migrations/${STEP2}`, import.meta.url), 'utf8');
 
 beforeAll(async () => {
   await db.exec(`
@@ -51,9 +54,12 @@ beforeAll(async () => {
     alter table activity_log enable row level security;
     create policy "activity_log_read" on activity_log for select to authenticated
       using (is_member(household_id) or is_admin('roles'));
+    -- A second admin read under another name, as production may hold (no migration names it here).
+    create policy "prod only admin read" on activity_log for select using (is_admin('super'));
     grant select on activity_log to authenticated;
   `);
   await db.exec(migrationSql);
+  await db.exec(step2Sql);
 }, 60000);
 afterAll(async () => { await db.close(); });
 
@@ -133,5 +139,31 @@ describe('admin activity feed (ADM-03 step 1)', () => {
     expect(code).not.toMatch(/\bchanges\b/);
     expect(code).not.toMatch(/select\s+\*|a\.\*/i);
     expect(code).toMatch(/security definer set search_path = public, pg_temp/);
+  });
+});
+
+describe('activity_log is members only (ADM-03 step 2)', () => {
+  it('ADM03-006 · an admin who is not a member reads no rows from the table; the feed still serves them', async () => {
+    for (const admin of [rolesAdmin, superAdmin]) {
+      expect((await asUser(admin, 'select id from activity_log')).rows, admin).toEqual([]);
+      expect((await asUser(admin, 'select * from admin_activity_feed()')).rows, admin).toHaveLength(3);
+    }
+    // A member reads their own household's log, values included, and nobody else's.
+    const own = await asUser<{ household_id: string }>(member, 'select household_id from activity_log');
+    expect(own.rows.map(r => r.household_id)).toEqual([H, H]);
+    // An admin who is also a member reads that household like any member.
+    await db.exec(`insert into memberships values ('${H2}', '${rolesAdmin}', 'member')`);
+    const asMember = await asUser<{ household_id: string }>(rolesAdmin, 'select household_id from activity_log');
+    expect(asMember.rows.map(r => r.household_id)).toEqual([H2]);
+  });
+
+  it('ADM03-007 · one read policy is left, members only; every admin read was swept, whatever its name', async () => {
+    const policies = await db.query<{ policyname: string; cmd: string; roles: string[] | string; qual: string }>(
+      `select policyname, cmd, roles, qual from pg_policies where tablename = 'activity_log'`);
+    expect(policies.rows.map(p => [p.policyname, p.cmd])).toEqual([['activity_log_read', 'SELECT']]);
+    expect(String(policies.rows[0].roles)).toMatch(/authenticated/);
+    expect(policies.rows[0].qual).toMatch(/is_member\(household_id\)/);
+    expect(policies.rows[0].qual).not.toMatch(/is_admin/);
+    expect(step2Sql).toMatch(/qual ilike '%is_admin%'/);
   });
 });

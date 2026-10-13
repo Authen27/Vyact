@@ -11,11 +11,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.92.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.93.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.4**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.5**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -563,8 +563,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - Platform admins read household ledgers only through SECURITY DEFINER aggregate RPCs, never row by row.
   - Admins see who did what and when in a household's activity log, never the values (owner decision
     13 Oct 2026; ADM-03). `admin_activity_feed` (v10.92.0) returns the time, household, actor, action and
-    entity, never `activity_log.changes`. Never add `changes`, or a `select *`, to it. Step 2 moves the
-    admin Audit page onto it and narrows `activity_log_read` to members.
+    entity, never `activity_log.changes`. Never add `changes`, or a `select *`, to it. The admin Audit
+    page and its CSV read only this feed (admin v1.4.5), and `activity_log_read` is members only
+    (v10.93.0). Never give admins a read policy on `activity_log` again. Privacy states what staff see.
 - **Account lifecycle (v10.63.0, audit W1b; owner decisions).**
   - Deleting an account is **immediate and one database transaction**: `purge_account(user)` (service role only), called by `delete-account`, which deletes the login last. No 30-day schedule — it was never executed and is gone.
   - An owner whose household has other members and no other owner gets `transfer_required`; never delete a household out from under its members.

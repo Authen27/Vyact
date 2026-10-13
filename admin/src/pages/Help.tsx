@@ -28,7 +28,7 @@ const SECTIONS: Section[] = [
   { q: 'How do I monitor product health?', audience: ['super'],
     a: 'The Dashboard shows the NorthStar metric (Active Households per Week) plus 12 KPIs and three trend charts (signups, MRR, NPS). Numbers are green/red based on target thresholds defined per the v7 PRD §08. Single-user households count as 0.5 toward AHpW.' },
   { q: 'How do I read the Audit Log?', audience: ['super','roles'],
-    a: 'Every admin action — role grants, content edits, household changes — appears in the Audit Log with actor, IP, action, and a JSON diff of the change. Filter by actor or action. The log is append-only and cannot be edited from the UI.' },
+    a: 'The Audit Log is household activity, newest first: who acted (a user id), when, what they did (created, updated, deleted, invited…) and the kind of record. It never shows amounts, names or descriptions. Search by action, record type or actor id, or export the list as CSV. It records what households did, not what admins did.' },
 
   // ─── Roles admin ─────────────────────────────────────────────
   { q: 'How do I help a user who can\'t sign in?', audience: ['super','roles'],
@@ -54,7 +54,7 @@ const SECTIONS: Section[] = [
   { q: 'Where is the production deployment?', audience: ['super','roles','content'],
     a: 'Consumer at https://vyact.app · Admin at https://admin.vyact.app. Both apps read their public URL from a committed VITE_APP_URL in react/.env.production / admin/.env.production, not a GitHub Actions secret. Both deploy on push to main via .github/workflows/deploy.yml.' },
   { q: 'How do I check what an admin did?', audience: ['super','roles'],
-    a: 'Audit Log filters by actor email and action type. The diff column shows the before/after JSON for any row mutation. The IP column logs the originating address. Logs are retained for the lifetime of the project.' },
+    a: 'The console has no record of admin actions yet. The Audit Log shows household activity only, without values. Role grants are made in SQL against public.admin_roles.' },
   { q: 'What if I see an error or unexpected behavior?', audience: ['super','roles','content'],
     a: 'Open the browser console (F12) and capture the error. For data anomalies, check Supabase logs (api/auth/postgres). Report to engineering with the deployment ID from the footer and a screenshot.' },
 ];

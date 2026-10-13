@@ -3,6 +3,20 @@
   "files": [
     {
       "app": "admin",
+      "file": "admin/src/lib/__tests__/adm03AuditFeed.test.ts",
+      "feature": "Admin audit without values",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "ADM-03 step 2: the Audit page reads admin_activity_feed, never the table; no values in the page, CSV or Help; Privacy says what staff see (owner decision 13 Oct 2026)",
+      "count": 3,
+      "tests": [
+        "ADM-03 · the Audit page without values ADM03-A-001 · the page reads the server feed, never the table",
+        "ADM-03 · the Audit page without values ADM03-A-002 · neither the page nor its CSV shows a value, and Help no longer promises a diff",
+        "ADM-03 · the Audit page without values ADM03-A-003 · Privacy says what staff can see, under a new policy version"
+      ]
+    },
+    {
+      "app": "admin",
       "file": "admin/src/lib/__tests__/contentApi.test.ts",
       "feature": "Admin content and permissions",
       "availability": "conditional",
@@ -238,9 +252,11 @@
       "feature": "Admin activity feed SQL",
       "availability": "conditional",
       "layer": "sql-integration",
-      "owner": "admin_activity_feed: roles-tier admins get who / what / when, never changes; members, content admins and anon are refused; paging and limits; no policy changed in step 1 (ADM-03, owner decision 13 Oct 2026; PGlite)",
-      "count": 5,
+      "owner": "admin_activity_feed: roles-tier admins get who / what / when, never changes; members, content admins and anon are refused; paging and limits; step 2 makes activity_log members only and sweeps every admin read (ADM-03, owner decision 13 Oct 2026; PGlite)",
+      "count": 7,
       "tests": [
+        "activity_log is members only (ADM-03 step 2) ADM03-006 · an admin who is not a member reads no rows from the table; the feed still serves them",
+        "activity_log is members only (ADM-03 step 2) ADM03-007 · one read policy is left, members only; every admin read was swept, whatever its name",
         "admin activity feed (ADM-03 step 1) ADM03-001 · an admin of the roles tier sees who, what and when, newest first, and never the values",
         "admin activity feed (ADM-03 step 1) ADM03-002 · anyone else is refused: a member, a content admin, a signed-out caller",
         "admin activity feed (ADM-03 step 1) ADM03-003 · it pages back with p_before and keeps the limit between 1 and 1000",

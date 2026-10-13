@@ -4,10 +4,29 @@
 >
 > The admin app is a **standalone product**, separate from the consumer app at `react/`. It shares no code with the v1.0–v5.0 vanilla shell at the repo root (which is the *consumer* legacy app). Admin's version line starts at **v1.0.0**.
 >
-> **Current production version: `v1.4.4`**
+> **Current production version: `v1.4.5`**
 > **Live URL:** https://admin.vyact.app
 
 ---
+
+## v1.4.5 — Audit Log without values (ADM-03) *(2026-10-13)*
+
+Owner decision, 13 Oct 2026: admins see who did what and when in a household, never the values. Ships with
+consumer v10.93.0, which makes the activity_log table members only.
+
+- **The Audit page reads `admin_activity_feed`** (consumer v10.92.0) instead of the activity_log table.
+  The feed returns the time, household, actor, action and entity, never `changes` (the row images with
+  amounts, payees, descriptions and names).
+- **The diff column is gone**, and the CSV export no longer has a `changes` column.
+- **The labels say what is true:** "household activity · who, what and when, never the values". The
+  "append-only" label and "admins read-all via RLS policy" are gone, because neither was true.
+- **Help:** the two answers that promised a JSON diff and an IP column now describe the page as it is. They
+  also say the console has no record of admin actions yet (ADM-04).
+
+Tests: adm03AuditFeed.test.ts (3):
+- the page calls the feed and never a table;
+- no values in the page, the CSV or Help;
+- the Privacy sentence and the new policy version.
 
 ## v1.4.4 — W8c: admin fixes from the audit *(2026-10-09)*
 

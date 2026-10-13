@@ -178,6 +178,7 @@ export default function Privacy() {
 
       <Section title="10. Security" id="security">
         <p>We use industry-standard safeguards including encryption in transit (TLS) and at rest, row-level access controls scoped per household, and least-privilege service credentials. No method of transmission or storage is 100% secure; we continuously work to protect your data but cannot guarantee absolute security.</p>
+        <p>In the admin console, Vyact staff can see that an action happened in a household (its time and kind), never the amounts, names or descriptions it changed.</p>
       </Section>
 
       <Section title="11. International transfers" id="transfers">
