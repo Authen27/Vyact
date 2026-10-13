@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.90.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.91.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -403,7 +403,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
 - **One recurrence rule per schedule (v10.69.0, W3e, owner decision D13).**
   - The schedule's RRULE is the single source of its dates. Every calculator reads it through
     `ruleOf(schedule)` + `policyOf(schedule)` (`lib/recurring.ts`): the engine's `advanceSchedule`,
-    the form's `scheduleDatesAfterSave`, `billCalendar`, `scheduleFiresOnDate` and the server.
+    the form's `scheduleDatesAfterSave`, `billCalendar`, `scheduleFiresOnDate`, the budget form's forecast
+    (`recurringForecastByCategory`, v10.91.0: each bill's real dates in the period, so a quarterly bill
+    counts only in its own months) and the server.
     A row without an RRULE derives one from its columns exactly as SQL `recurrence_rrule_from_legacy`
     does. Never add a calculator that steps dates from `frequency` on its own.
   - The month-end rule is the schedule's (`short_month_policy`): `last_day` (default) or
@@ -609,6 +611,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - `/__e2e_error` is routed only outside production builds; Lane A builds in `test` mode.
   - A save button that creates a row runs through `runExclusive` (a React `saving` flag alone does not
     stop a same-tick double tap). Toast timing and roles come from `lib/toastPolicy.ts`.
+  - There are no single-letter shortcuts (v10.91.0; owner decision 13 Oct 2026; WCAG 2.1.4). Adding starts
+    from the page's button, the floating + or ⌘K. Transactions' `/` (focus only) is the one left;
+    W6-UIS10-004 fails if another is registered.
 - **More frontend guards (v10.80.0, W7a).**
   - `Button` defaults to `type="button"`; a form's submit button says `type="submit"`.
   - Totals on the Transactions page (filtered net, month nets, calendar days) go through

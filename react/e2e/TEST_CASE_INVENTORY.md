@@ -902,10 +902,11 @@ amount unchanged.
 
 # §24 · Keyboard Shortcuts & Accessibility (A11Y-FC)
 
-### ✅ A11Y-FC-001 — `N` opens Add Transaction and `Esc` closes the active modal
-- **Checkpoint note**: The help text still mentions `G` / `D` / `A` / `/`,
-  but the current shipped shortcut wiring only registers `n` / `N` on the
-  Transactions page plus modal-level `Escape` close.
+### ✅ A11Y-FC-001 — a single letter opens nothing, `/` focuses search, `Esc` closes the form
+- **v10.91.0 (audit FE-UIS-10, WCAG 2.1.4; owner decision 13 Oct 2026)**: the
+  single-key `n` / `b` / `d` / `a` add shortcuts are removed. The test used to
+  assert that `N` opened Add Transaction; it now asserts that the letters open
+  nothing. `/` on Transactions (focus only), `⌘K` and `Esc` stay.
 ### 🟡 A11Y-FC-002 — Modal focus trap returns focus to the trigger on close
 - **Checkpoint note**: Current modals expose `role="dialog"` and `Escape`
   close, but they do not yet implement a true focus trap or trigger-focus

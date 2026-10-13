@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 13 Oct 2026):** 111 of 212 resolved, including all 3 critical and 22 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 13 Oct 2026):** 113 of 212 resolved, including all 3 critical and 22 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -56,16 +56,16 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 17 | 5 | 4 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 38 | 2 | 20 | 12 | 9 | 7 | 12 |
-| Low | 75 | 43 | 1 | 12 | 10 | 6 | 0 | 3 |
+| Medium | 100 | 39 | 2 | 19 | 12 | 9 | 7 | 12 |
+| Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **102** | **9** | **37** | **23** | **16** | **10** | **15** |
+| **Total** | **212** | **104** | **9** | **35** | **23** | **16** | **10** | **15** |
 
-**111 of 212 are resolved (52%): all 3 critical and 22 of 29 high.** The other 101 fall into four groups:
+**113 of 212 are resolved (53%): all 3 critical and 22 of 29 high.** The other 99 fall into four groups:
 
-| What the 101 need | Count |
+| What the 99 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 50 |
+| Nothing but work: no decision, no blocker | 48 |
 | An owner decision (16 waiting only on it; 5 partly done, with the rest waiting on it) | 21 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 18 |
@@ -88,7 +88,7 @@ Two developers did the work:
 | #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, DB-SEC-08, XC-PRV-04, XC-PRV-07 | XC-PRV-08, XC-PRV-11 |
 | #168 | v10.64.0 | W1c abuse limits | BE-FN-06, BE-PIP-02, BE-PIP-03, FE-PIP-18 | FE-PIP-09, BE-FN-09, OPS-11 |
 | #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05 | INT-PAR-11 |
-| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-PIP-14, INT-TZC-08 | FE-UIS-03, FE-MNY-16, INT-PAR-11 |
+| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-MNY-16, FE-PIP-14, INT-TZC-08 | FE-UIS-03, INT-PAR-11 |
 | #171 | v10.67.0 | W3c lost edits | FE-SYN-01, FE-SYN-03, INT-TXN-08 | — |
 | #172 | v10.68.0 | W3d recurrence schema | FE-MNY-01, INT-TXN-05 | — |
 | #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02 | XC-ARC-06, INT-PAR-11 |
@@ -99,12 +99,12 @@ Two developers did the work:
 | #178 | v10.74.0 | W4e loan schema | INT-TXN-07, FE-UIC-06 | FE-MNY-04, FE-UIC-12, OPS-08 |
 | #179 | v10.75.0 | W4f loan app | INT-TXN-07, FE-UIC-06, FE-UIC-09 | FE-MNY-04, FE-UIC-12 |
 | #180 | v10.76.0 | W4g loan automation | INT-TXN-07, FE-UIC-09 | — |
-| #181 | v10.77.0 | W4h budget suggest | — | FE-MNY-16 |
+| #181 | v10.77.0 | W4h budget suggest | FE-MNY-16 | — |
 | #182 | v10.78.0 | W5 Pip correctness | FE-PIP-01, FE-PIP-03, FE-PIP-04, FE-PIP-02, FE-PIP-05, FE-PIP-06, FE-PIP-08, FE-PIP-12 | — |
-| #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-11, FE-UIS-13, FE-MNY-11, FE-PUB-11 | FE-UIS-10, FE-UIS-12, INT-HH-08 |
+| #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-10, FE-UIS-11, FE-UIS-13, FE-MNY-11, FE-PUB-11 | FE-UIS-12, INT-HH-08 |
 | #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | XC-PRV-08, INT-HH-13 |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
-| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-UIC-05, FE-UIC-09, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-MNY-06, FE-UIC-10, INT-HH-09, INT-PAR-05, XC-PRV-09, FE-MNY-16 |
+| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-UIC-05, FE-UIC-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-MNY-06, FE-UIC-10, INT-HH-09, INT-PAR-05, XC-PRV-09 |
 | #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-13, INT-PAR-10 | BE-WA-06, BE-WA-09, BE-PIP-04, BE-WA-12 |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
@@ -112,6 +112,7 @@ Two developers did the work:
 | #194 | v10.88.0 | Erase all data works and is complete (13 Oct) | DB-SEC-08 | XC-PRV-08 |
 | #195 | v10.89.0 | WhatsApp EMI correction pays the loan (13 Oct) | INT-TXN-07, BE-WA-08 | INT-TXN-12 |
 | #196 | v10.90.0 | Pip guard: real categories, scaled figures, names as data (13 Oct) | FE-PIP-06, FE-PIP-07, FE-PIP-11 | — |
+| #197 | v10.91.0 | Budget forecast counts real dates; single-key shortcuts removed (13 Oct) | FE-UIS-10, FE-MNY-16 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -119,7 +120,7 @@ Two developers did the work:
 |---|---|---|---|---|
 | **R1** | **High** | **"Erase all data" fails for any household with an unpaid loan.** `erase_household_data` deletes debts (`20261010120000_w1b_account_purge.sql:27`) before accounts (`:29`). W4e's guard `debts_refuse_unpaid_delete` (`20261016120000_w4e_loan_model.sql:612-625`) still sees the loan account, finds money owed and raises `debt_not_paid_off`, so the whole erase rolls back. It is DB-INT-05 again, by a new route. | #178 (W4e) against #167 (W1b) | **Fixed in v10.88.0** (13 Oct): the erase removes the loan accounts and zeroes the cached balance before deleting debts; PGlite test against the real guard. |
 | **R2** | Medium | **A WhatsApp correction can relabel a plain expense as Loan / EMI**, so the loan never moves. Developer 1's PRs cited BE-WA-08 for the "paid … EMI" path. The defect the finding actually describes, in the correction path, was never touched. | Gap in #178–#180 | **Fixed in v10.89.0** (13 Oct): the correction turns the entry into a loan payment (owner decision); a plain correction refuses Loan / EMI. |
-| **R3** | Medium | **Two calculators for one schedule on the budget form.** Suggest reads the RRULE (D27, #181). The recurring forecast still steps by frequency (#186), against D13's rule that every calculator goes through `ruleOf`. The two give different monthly figures. | #181 against #186 | Open (FE-MNY-16). S |
+| **R3** | Medium | **Two calculators for one schedule on the budget form.** Suggest reads the RRULE (D27, #181). The recurring forecast still steps by frequency (#186), against D13's rule that every calculator goes through `ruleOf`. The two give different monthly figures. | #181 against #186 | **Fixed in v10.91.0** (13 Oct): the forecast counts each bill's real dates through `ruleOf`, as the bill calendar does (owner decision). Suggest still proposes a monthly average, by design. |
 | **R4** | Low | **A revoked invitation can stay live.** Aurora A3 holds a revoke for 8 s so it can be undone. If the tab closes or the phone kills the app inside that window, the revoke may never be sent, although the screen already said "revoked". `lib/undoable.ts` and `DeferredFlush.tsx` flush on `pagehide` only, with no `keepalive` and no `visibilitychange`. | #192 | Open. XS |
 | R5 | — | #185's `ignoreCommand` exited 128, which Vercel treats as an error, so every admin production deploy failed on 8–9 Oct. W8c went live only with #189. | #185 | Fixed by #189. Live-verified: admin v1.4.4. |
 | R6 | Low | Database advisor warnings after #178: `search_path` on 7 `loan_*` functions, and EXECUTE on 2 trigger functions (W8 plan, W8e). | #178 | Open. The owner deferred W8e on 8 Oct. |
@@ -148,7 +149,7 @@ Two developers did the work:
 - **BE-WA-01 (D6):** the trigger fires on delete only, not on role change. This is harmless, because a demoted member is still a member.
 
 **(c) Developer 1 and developer 2 touched the same rule.**
-- **FE-MNY-16:** see R3.
+- **FE-MNY-16:** see R3 (fixed in v10.91.0).
 - **FE-MNY-06 vs FE-UIC-08:** the Dashboard chip (developer 2) now leaves annual lines out. The Budget progress panel and the pace banner beside it do not. One screen can give two answers until the budget-basis decision is made.
 - **FE-UIC-06:** each developer fixed half. Developer 1's Debts total is loans plus card dues; developer 2's Net Worth list is read from the projection. They agree for live loans and differ only for loan accounts orphaned before W4e (FE-MNY-04).
 - **FE-MNY-13 vs FE-UIC-14:** developer 2 made a negative card figure mean "owed". That rules out a signed value for an "in credit" card; only an explicit toggle remains.
@@ -180,15 +181,15 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (60)**
-- *Ready to do (no decision):* FE-MNY-06, FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, FE-UIS-10, ADM-03, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
+**Medium (59)**
+- *Ready to do (no decision):* FE-MNY-06, FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, ADM-03, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 - *Batch B, sync robustness:* FE-SYN-04, FE-SYN-05, FE-SYN-06, FE-SYN-07, FE-SYN-08, DB-OPS-10, INT-TXN-10, INT-TXN-11.
 - *Owner decision:* FE-MNY-08, FE-MNY-10, FE-PLT-04, FE-UIC-08, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
 - *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-INT-11, DB-SEC-06, DB-SEC-09, INT-HH-07, INT-HH-08, INT-HH-09, OPS-11, XC-PRV-12.
 
-**Low and info (34)**
-- *Ready to do (no decision):* FE-MNY-16, ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, BE-WA-12, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, GATE-04, XC-ARC-10, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16, INT-PAR-11.
+**Low and info (33)**
+- *Ready to do (no decision):* ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, BE-WA-12, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, GATE-04, XC-ARC-10, XC-ARC-12, XC-ARC-14, XC-PRV-14, DB-OPS-16, INT-PAR-11.
 - *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, DB-INT-15, OPS-07, XC-ARC-07, XC-ARC-15, BE-FN-12.
 - *Backlog:* FE-PUB-08, BE-PIP-06, INT-CON-07, INT-HH-06.
 
@@ -204,19 +205,19 @@ Plus **R1** (high, new): see §0.3.
    - ~~BE-WA-08 / INT-TXN-07~~ **done in v10.89.0**: the WhatsApp correction to an EMI becomes a loan payment (owner decision), and a category correction is checked against the entry it changes.
    All XS, with an engine rebuild.
 3. **Money correctness:**
-   - INT-TXN-01: deleting a split closes the shared split;
-   - FE-MNY-16 / R3: the forecast goes through `ruleOf`;
+   - ~~INT-TXN-01: deleting a split closes the shared split;~~ already closed (both delete paths call `deleteSharedSplitForTxn`; status corrected in v10.88.0);
+   - ~~FE-MNY-16 / R3: the forecast goes through `ruleOf`;~~ done in v10.91.0 (real dates);
    - FE-UIS-03: an onboarding re-run is idempotent;
    - FE-UIC-10: dot-grouped decimals;
    - FE-MNY-04: a reconcile action on Debts.
    Each S.
 4. **Privacy and security:**
    - ADM-03 rest (+ FE-PUB-01): roles-tier admins stop reading `activity_log.changes`;
-   - XC-PRV-08 / DB-SEC-08: erase covers every household table;
+   - ~~XC-PRV-08 / DB-SEC-08: erase covers every household table;~~ done in v10.88.0 (the export half of XC-PRV-08 remains);
    - BE-WA-06 / BE-WA-09 rest;
    - R4: send the invite revoke on `visibilitychange` with `keepalive`, or revoke first and re-create on Undo;
    - XC-PRV-10: `data_collection: deny`.
-5. **Accessibility:** FE-UIS-07 (put the four hand-rolled dialogs on `AccessibleDialog`, M) and FE-UIS-10 (a shortcuts off switch, XS).
+5. **Accessibility:** FE-UIS-07 (put the four hand-rolled dialogs on `AccessibleDialog`, M) and ~~FE-UIS-10 (a shortcuts off switch, XS)~~, done in v10.91.0 by removing the single-key shortcuts (owner decision).
 
 **Step 2. Production checks, for the owner (read-only, about 30 minutes).** See §0.7. The JWT `amr` check comes first: without `amr` timestamps, every erase and delete is refused.
 
@@ -795,7 +796,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-UIS-07 | MEDIUM | Frontend | Notifications, household switcher, account menu and ⌘K are modal dialogs without focus trap or focus return | confirmed (adversarial: confirmed) |  | Open | — |
 | FE-UIS-08 | MEDIUM | Frontend | Toasts are silent to screen readers and vanish in 3.2s; bottom banners cover the tab bar and Save | confirmed (adversarial: confirmed) |  | Closed | #183, #184 |
 | FE-UIS-09 | MEDIUM | Frontend | Aurora secondary text and status colours fail WCAG AA contrast, most in light theme | confirmed (adversarial: confirmed) |  | Partly | #190 |
-| FE-UIS-10 | MEDIUM | Frontend | Single-key shortcuts n/b/d/a ignore modifiers (hijack Cmd+A, Ctrl+D) and cannot be turned off | confirmed (adversarial: confirmed) |  | Partly | #183 |
+| FE-UIS-10 | MEDIUM | Frontend | Single-key shortcuts n/b/d/a ignore modifiers (hijack Cmd+A, Ctrl+D) and cannot be turned off | confirmed (adversarial: confirmed) |  | Closed | #183, v10.91.0 |
 | FE-UIS-11 | MEDIUM | Frontend | Onboarding's estimated cash balance shows as confirmed; hardcoded '35% confirmed'; nudge sells bank sync | confirmed (adversarial: confirmed) |  | Closed | #183 |
 | FE-UIS-12 | MEDIUM | Frontend | One root ErrorBoundary: no reporting, 'Try Again' re-throws, no chunk-load recovery; e2e route live | confirmed (adversarial: confirmed) | TD-05 | Partly | #183, #190 |
 | FE-UIS-13 | MEDIUM | Frontend | Password change needs no re-auth (Settings, /auth/reset), unlike Danger Zone; instant delete keeps session | confirmed (adversarial: confirmed) |  | Closed | #183, #184 |
@@ -867,7 +868,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-MNY-13 | LOW | Frontend | Card reconcile forces every stated value negative, so an overpaid (credit) card cannot be recorded | not independently verified (low/info) |  | Owner decision | — |
 | FE-MNY-14 | LOW | Frontend | Planner 'income varies' rule includes the partial current month and flags stable earners early each month | not independently verified (low/info) |  | Closed | #184 |
 | FE-MNY-15 | LOW | Frontend | 'Full backup' omits accounts, allocations and recurring schedules, so balances cannot be rebuilt from it | not independently verified (low/info) | TD-16 (exports, different aspect) | Closed | #184 |
-| FE-MNY-16 | LOW | Frontend | Budget suggestion and forecast sum mixed currencies, inactive schedules and receivables | not independently verified (low/info) |  | Partly | #170, #181, #186 |
+| FE-MNY-16 | LOW | Frontend | Budget suggestion and forecast sum mixed currencies, inactive schedules and receivables | not independently verified (low/info) |  | Closed | #170, #181, #186, v10.91.0 |
 | FE-PIP-12 | LOW | Frontend | Category 'usual month' includes the current partial month and later months for past-period lookups | not independently verified (low/info) |  | Closed | #182 |
 | FE-PIP-13 | LOW | Frontend | No-history runway and cover use sentinel figures (burn = EMI + 1; 0.0 months 'thin cushion') | not independently verified (low/info) |  | Closed | #186 |
 | FE-PIP-14 | LOW | Frontend | Per-bill amounts in Pip ignore the schedule's currency | not independently verified (low/info) |  | Closed (decision) | #170 |
@@ -1237,9 +1238,9 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 ## Appendix C — Remediation status by finding (updated 13 Oct 2026)
 
-Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.90.0. See §0 for the method, the summary, the conflicts and the action plan.
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.91.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (101)
+### C.1 Unresolved (99)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1256,7 +1257,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.90.0
 | FE-UIC-10 | medium | Partly | #186 | Dot-grouped, comma-decimal input ('1.234,56', '1.234') is still read about 1000x too small. This is silent in the account opening balance, card limit and reconcile fields. The parser does not use the locale or the household currency's convention, which the audit recommended (Intl.NumberFormat parts). Add the audit's '1.234,56' test case. | — | S |
 | FE-UIS-03 | medium | Partly | #170 | The currency part is fixed (a re-run keeps the household currency). A re-run can still duplicate bill schedules, and the wiring is neither idempotent nor atomic. | — | S |
 | FE-UIS-09 | medium | Partly | #190 | Aurora A1 (#190, after the review baseline) gave light-theme status text darker shades (MIST1). Not re-measured; the secondary-text contrast decision is still open (W8 §3); no contrast test. | Owner: accept darker secondary text | S |
-| FE-UIS-10 | medium | Partly | #183 | Shortcuts now ignore modifiers, editable fields and open dialogs. There is no "Keyboard shortcuts" off switch, which WCAG 2.1.4 requires. | — | XS |
 | FE-UIS-12 | medium | Partly | #183, #190 | Chunk-load recovery and the e2e route are fixed (#183); the crash screen was redesigned (#190). Left: reporting crashes anywhere, on hold for D9. | D9 (error reporting) | S |
 | ADM-03 | medium | Partly | #166 | Close the indirect read. Drop `or is_admin('roles')` from activity_log_read, or return action/entity/actor without `changes` through a SECURITY DEFINER RPC, and remove `changes` from the Audit page view and CSV. Then add a SQL test that a roles admin who is not a member gets 0 rows. | — | S |
 | BE-FN-09 | medium | Partly | #168 | Surface the 'settled' and 'closed' send results through readSplitEmailResult/splitEmailNotice, as the create and edit paths do. | — | XS |
@@ -1310,7 +1310,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.90.0
 | INT-HH-07 | medium | Backlog | — | Restrict client membership INSERT to user_id = auth.uid() (or remove it). Add WITH CHECK forbidding user_id/household_id changes on UPDATE. Null and then drop the deprecated profiles phone columns. Add an RLS test. | Backlog batch E (owner: not now) | S |
 | INT-HH-09 | medium | Backlog | #186 | Lock the invitation and household rows in accept_invitation_link and make the accept single-use (row_count check). Add the memberships unique index after a duplicate check. Don't burn the token for existing members. Clear pending_invite_token. Filter expired invites. Drop both legacy accept_invitation overloads. Add a concurrency test. | Backlog batch E (owner: not now) | S |
 | XC-PRV-12 | medium | Backlog | — | Cap p_emails at about 10 and add a per-uid rate limit. Optionally return names only for emails already on the caller's own splits or households. Add an SQL test (an 11-element call raises; the 21st call in a minute raises). | Backlog batch E (owner: not now) | S |
-| FE-MNY-16 | low | Partly | #170, #181, #186 | recurringForecastByCategory, used by BudgetFormModal.tsx:122, should count the rule's real occurrences in the period (expandRRule/ruleOf). Today a quarterly schedule (FREQ=MONTHLY;INTERVAL=3) is forecast three times over, and a Mon-Fri weekly schedule five times under. | — | S |
 | ADM-10 | low | Partly | #188 | Set allowed_mime_types = ['image/png','image/jpeg','image/webp'] and a file_size_limit on the bucket (a migration or a dashboard setting). | — | XS |
 | ADM-11 | low | Partly | #188 | Run a one-off backfill, e.g. author_name = 'Vyact' where author_name contains '@', and restore re-dated published_at values if the old dates are known. Limiting anon columns is FE-PUB-08 (backlog). | — | XS |
 | ADM-14 | low | Partly | #188 | Fix the Dashboard KPI. Either return per-currency MRR (active and trialing) from admin_dashboard_kpis (migration), or replace the tile with the per-currency helper and drop the 'USD' and '$' labels. | — | S |
@@ -1365,7 +1364,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.90.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (27)
+### C.3 Resolved, with a residual note (29)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1383,6 +1382,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.90.0
 | FE-PIP-11 | medium | Closed | v10.90.0 | v10.90.0: a number after ₹/Rs or before lakh/crore/k/million is an amount and must match a computed figure (scaled); HARMLESS covers plain counts only. |
 | FE-UIC-04 | medium | Closed | #177 | Nothing from the cited list. One uncited instance remains: AccountFormModal.tsx:284 'Available now' uses fmt, so a card over its limit shows a positive available figure. The suggested lint/grep gate against fmt( on balance or net values was not added. |
 | FE-UIC-05 | medium | Closed | #186 | Cosmetic only: move_account_and_delete (still the 20260910150000 definition) does not rewrite extras.paymentMethod. This is harmless now that the form reads the FK first. |
+| FE-UIS-10 | medium | Closed | #183, v10.91.0 | v10.91.0: the single-key n/b/d/a shortcuts are removed (owner decision), so there is nothing to switch off. Transactions' "/" (focus only) and Cmd/Ctrl+K stay. |
 | BE-FN-06 | medium | Closed | #168 | Optional, not required by D28: (1) cap shares per split (the audit suggested 20); (2) the sender display name in subject and heading still comes from user_metadata.full_name (send-split-email/index.ts:189-191, emailTemplates.ts:130,154), stripped of control characters but still spoofable, e.g. 'Vyact Security'. |
 | BE-WA-03 | medium | Closed | #187 | Residual edge only: the reopen runs only on a returned 'retry'. If the worker dies after resolvePending (a stale claim is replayed), or an exception escapes processInboundTurn, the question stays closed. The audit's stronger design (resolve the pending turn inside the action's RPC transaction, or keep it on the inbox… |
 | BE-WA-08 | medium | Closed | v10.89.0 | v10.89.0: a WhatsApp correction to an EMI turns the entry into a loan payment (whatsapp_correct_to_loan: server split, expense removed, never twice); whatsapp_correct_last refuses loan_emi. |
@@ -1390,6 +1390,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.90.0
 | INT-HH-12 | medium | Closed (decision) | #166 | Cleanup: a later migration should drop 'child' from the role CHECKs and the trigger once old clients age out (the W1a migration kept them 'for one release'). |
 | FE-MNY-11 | low | Closed | #183 | Optional, part of the recommendation but not the defect: no UTF-8 BOM is emitted (downloadCsv at :40-45), so non-ASCII descriptions may garble in Excel. |
 | FE-MNY-15 | low | Closed | #184 | Nothing for the export. There is still no restore (the owner-only 'Restore from backup' is in the plan's backlog), so the round-trip test from the recommendation has nothing to run against. |
+| FE-MNY-16 | low | Closed | #170, #181, #186, v10.91.0 | v10.91.0: the forecast counts each bill's real dates in the period through ruleOf/expandRRule, as the bill calendar does (owner decision); the unused _shared port is deleted. Suggest still proposes a monthly average, by design. |
 | FE-PIP-14 | low | Closed (decision) | #170 | Moot under D14: one currency per household, nothing converted. |
 | FE-UIS-15 | low | Closed | #184, #186 | Owner decision: non-English options are labelled "Preview: navigation only". |
 | FE-UIS-16 | low | Closed | #184 | Expired invitations no longer count toward the member limit (migration 20261007120000:62). The recommendation's optional dirty-form confirm was not added. |

@@ -85,8 +85,8 @@ export default function Transactions() {
     if (type === 'transfer' || type === 'investment') setCat('all');
   }, [type]);
 
-  // `/` focuses the search box. The `n` add-transaction shortcut is now
-  // registered app-wide in Layout (v7.4.4) so it works on every page.
+  // `/` focuses the search box; it only moves focus. (The single-key add shortcuts were removed in
+  // v10.91.0, audit FE-UIS-10.)
   useShortcuts({
     '/': () => searchRef.current?.focus(),
   });

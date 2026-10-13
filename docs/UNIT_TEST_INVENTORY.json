@@ -858,6 +858,24 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/budgetForecast.test.ts",
+      "feature": "Budget forecast",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "calculations.recurringForecastByCategory counts each bill's real dates through its rule (quarterly, Mon + Thu, start / COUNT / UNTIL, month-end rule, rule-less rows), as the bill calendar does (FE-MNY-16, 13 Oct 2026)",
+      "count": 7,
+      "tests": [
+        "budget forecast counts real dates (FE-MNY-16) MNY16-F-001 · a quarterly bill counts only in the months it falls in",
+        "budget forecast counts real dates (FE-MNY-16) MNY16-F-002 · a Mon + Thu bill counts each of those days",
+        "budget forecast counts real dates (FE-MNY-16) MNY16-F-003 · nothing before the start date, and nothing after COUNT or UNTIL runs out",
+        "budget forecast counts real dates (FE-MNY-16) MNY16-F-004 · the schedule's month-end rule decides which month a 31st lands in",
+        "budget forecast counts real dates (FE-MNY-16) MNY16-F-005 · a row with no stored rule uses the rule derived from its columns",
+        "budget forecast counts real dates (FE-MNY-16) MNY16-F-006 · bills in one category add up; skipped rows and an empty period add nothing",
+        "budget forecast counts real dates (FE-MNY-16) MNY16-F-007 · the forecast reads dates exactly as the bill calendar does, and the server copy is gone"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/budgetOrdering.test.ts",
       "feature": "Recurring and budgets",
       "availability": "available",
@@ -1650,7 +1668,7 @@
         "parity — budget period helpers budgetLines flattens containers + legacy budgets identically",
         "parity — budget period helpers budgetWindow agrees for every period at fixed anchor dates",
         "parity — budget period helpers periodMonths agrees",
-        "parity — budget period helpers recurringForecastByCategory agrees (income/transfer/zero rows skipped)",
+        "parity — budget period helpers recurringForecastByCategory is gone from the port (FE-MNY-16)",
         "parity — budget period helpers resolveBudgetPeriod agrees (incl. leap February and December rollover)",
         "parity — cumulativeSpendSeries empty · empty set · EUR",
         "parity — cumulativeSpendSeries empty · empty set · INR",
@@ -2524,11 +2542,12 @@
       "availability": "available",
       "layer": "unit",
       "owner": "audit 2026-10-04 W6: one Recurring save at a time, shortcut rule, stale-chunk reload once, toast timing and roles, reset-link-only password step, owner-only household fields",
-      "count": 3,
+      "count": 4,
       "tests": [
         "single-key shortcuts (W6, audit FE-UIS-10) W6-UIS10-001 · a bare key (or Shift) acts; Ctrl, Cmd, Alt and IME composition never do",
         "single-key shortcuts (W6, audit FE-UIS-10) W6-UIS10-002 · never in a form field, an editable element, or while a dialog is open",
-        "single-key shortcuts (W6, audit FE-UIS-10) W6-UIS10-003 · useShortcuts consults the rule and adds its listener once"
+        "single-key shortcuts (W6, audit FE-UIS-10) W6-UIS10-003 · useShortcuts consults the rule and adds its listener once",
+        "single-key shortcuts (W6, audit FE-UIS-10) W6-UIS10-004 · no single-letter shortcut is registered anywhere; only Transactions' \"/\" remains (v10.91.0)"
       ]
     },
     {
@@ -2792,7 +2811,7 @@
       "count": 12,
       "tests": [
         "W8a · app fixes W8a-MNY06-001 · Dashboard chips read this month's budget lines and the net-worth projection (FE-MNY-06)",
-        "W8a · app fixes W8a-MNY16-001 · the budget forecast skips paused schedules and loan EMIs, client and server alike (FE-MNY-16)",
+        "W8a · app fixes W8a-MNY16-001 · the budget forecast skips paused schedules and loan EMIs (FE-MNY-16)",
         "W8a · app fixes W8a-PAR05-001 · one stale-balance rule: a new account is fresh; push and Reply UPDATE agree (INT-PAR-05)",
         "W8a · app fixes W8a-PIP16-003 · the chat gives each turn an abort signal; Stop, New chat and unmount abort it (FE-PIP-16)",
         "W8a · app fixes W8a-PLT07-001 · a signed-in visit to an invite link asks before joining (FE-PLT-07)",

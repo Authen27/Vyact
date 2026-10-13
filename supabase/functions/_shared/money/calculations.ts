@@ -498,35 +498,9 @@ export function periodMonths(period: BudgetPeriod | undefined): number {
   }
 }
 
-/** Read-only recurring EXPENSE forecast over [periodStart, periodEnd], bucketed
- *  by category, in the target currency. Approximate (period-length × per-period
- *  rate); informs a budget, writes nothing. Transfers/investments/income are
- *  excluded from spend forecast by construction. */
-export function recurringForecastByCategory(
-  schedules: { transactionTemplate: { type?: string; amount?: number; currency?: string; category?: string; debtId?: string; linkedDebtId?: string }; frequency: string; active?: boolean }[],
-  periodStart: string, periodEnd: string,
-  baseCurrency: string, rates: ExchangeRates,
-): Record<string, number> {
-  const start = new Date(periodStart + 'T00:00:00Z').getTime();
-  const end = new Date(periodEnd + 'T00:00:00Z').getTime();
-  const days = Math.max(0, (end - start) / 86_400_000 + 1);
-  const out: Record<string, number> = {};
-  for (const s of schedules) {
-    const t = s.transactionTemplate;
-    if (!t || t.type !== 'expense' || !t.amount || !t.category) continue;
-    // W8a (audit FE-MNY-16): a paused schedule posts nothing, and a loan EMI is the loan's payment, not
-    // category spend (the same rule as lib/recurring.ts isLoanEmiSchedule) — neither belongs in the forecast.
-    if (s.active === false || t.category === 'loan_emi' || t.debtId || t.linkedDebtId) continue;
-    const perPeriod =
-      s.frequency === 'daily' ? t.amount * days :
-      s.frequency === 'weekly' ? t.amount * (days / 7) :
-      s.frequency === 'yearly' ? t.amount * (days / 365) :
-      /* monthly / custom_day */ t.amount * (days / 30.4375);
-    const inBase = convert(perPeriod, t.currency || baseCurrency, baseCurrency, rates);
-    out[t.category] = (out[t.category] || 0) + Math.round(inBase * 100) / 100;
-  }
-  return out;
-}
+// recurringForecastByCategory is not ported (FE-MNY-16, v10.91.0): only the app's budget form reads it,
+// and it counts each bill's real dates through the recurrence rule, which is never hand-ported into
+// _shared/ (CLAUDE.md, W3e). A server reader would use the bundled engine.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BALANCE SHEET — net worth components

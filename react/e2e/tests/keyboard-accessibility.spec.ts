@@ -1,17 +1,26 @@
 import { expect, test } from '../fixtures/app';
 
 test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
-  test('A11Y-FC-001 · N opens Add Transaction and Esc closes the active modal', async ({
+  // v10.91.0 (audit FE-UIS-10, WCAG 2.1.4; owner decision 13 Oct 2026) — the single-key n / b / d / a
+  // add shortcuts are removed. This used to assert that N opened the form; it now asserts that a letter
+  // opens nothing. "/" still focuses the search box (focus only), and Esc still closes the form.
+  test('A11Y-FC-001 · a single letter opens nothing, "/" focuses search, and Esc closes the form', async ({
     page, transactions, txnModal,
   }) => {
     await transactions.goto();
-    // The shortcut listener mounts with the page; pressing N before it renders is lost
-    // (flaky under parallel workers).
+    // The "/" listener mounts with the page; a key pressed before it renders is lost.
     await expect(page.getByRole('heading', { level: 1, name: 'Transactions' })).toBeVisible();
+    const before = page.url();
 
-    await page.keyboard.press('N');
-    await expect(txnModal.dialog).toBeVisible();
+    for (const key of ['n', 'N', 'b', 'd', 'a']) await page.keyboard.press(key);
+    // "/" runs through the same listener after the letters, so once it has acted they were handled.
+    await page.keyboard.press('/');
+    await expect(page.getByRole('textbox', { name: 'Search transactions' })).toBeFocused();
+    await expect(txnModal.dialog).toBeHidden();
+    expect(page.url()).toBe(before);
 
+    await transactions.openAdd();
+    await txnModal.waitOpen();
     await page.keyboard.press('Escape');
     await expect(txnModal.dialog).toBeHidden();
   });

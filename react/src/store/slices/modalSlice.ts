@@ -8,7 +8,7 @@
 // are no longer modals. Each is a routed, full-screen page (lib/formRoutes.ts,
 // pages/FormPages.tsx), so their `{entity}ModalOpen` / `editing{Entity}` /
 // `close{Entity}Modal` slots are gone. The openAdd* / openEdit* actions keep
-// their names and signatures, so every caller (the FAB, the N/B/D/A shortcuts,
+// their names and signatures, so every caller (the FAB, the page add buttons,
 // the command palette, Ask Vyact and notification seeds) opens the page as it
 // used to open the modal.
 import type { StateCreator } from 'zustand';
