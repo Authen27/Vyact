@@ -183,6 +183,9 @@ export async function fetchAllSubscriptions(): Promise<AdminSubscriptionRow[]> {
 }
 
 // ── Activity log (audit) ───────────────────────────────────────────
+// ADM-03 (v1.4.5; owner decision 13 Oct 2026): who did what and when, never the values. The page reads
+// the server feed `admin_activity_feed`, which never returns `activity_log.changes` (the row images:
+// amounts, payees, descriptions, names). Admins can no longer read the table itself (members only).
 export interface AdminActivityRow {
   id: string;
   actor_id: string | null;
@@ -190,15 +193,10 @@ export interface AdminActivityRow {
   action: string;
   entity_type: string | null;
   entity_id: string | null;
-  changes: unknown;
   created_at: string;
 }
-export async function fetchActivityLog(limit = 200): Promise<AdminActivityRow[]> {
-  const { data, error } = await sb()
-    .from('activity_log')
-    .select('id,actor_id,household_id,action,entity_type,entity_id,changes,created_at')
-    .order('created_at', { ascending: false })
-    .limit(limit);
+export async function fetchActivityLog(limit = 200, before?: string): Promise<AdminActivityRow[]> {
+  const { data, error } = await sb().rpc('admin_activity_feed', { p_limit: limit, p_before: before ?? null });
   if (error) throw error;
   return (data as AdminActivityRow[]) || [];
 }

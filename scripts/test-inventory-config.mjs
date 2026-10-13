@@ -36,7 +36,7 @@ export const groups = [
   group('Ledger and recurring workflows', 'available', 'store-integration', ['ledgerWorkflow', 'recurringApproval', 'loanPaymentWorkflow'], 'useStore / LocalStorageAdapter / IndexedDB'),
   group('Session transitions', 'conditional', 'store-integration', ['sessionWorkflow'], 'cloudAuthSlice / cacheInvalidation / outbox'),
   group('Loan automation SQL', 'conditional', 'sql-integration', ['loanAutomationSql'], 'W4g: whatsapp_pay_loan (server split, claimed once, refusals), auto_record_due_emis (on its date, catch-up, never twice), EMI schedules moved onto their loan, record_loan_payment dropped (focused PGlite fixture)'),
-  group('Admin activity feed SQL', 'conditional', 'sql-integration', ['adminActivityFeedSql'], 'admin_activity_feed: roles-tier admins get who / what / when, never changes; members, content admins and anon are refused; paging and limits; no policy changed in step 1 (ADM-03, owner decision 13 Oct 2026; PGlite)'),
+  group('Admin activity feed SQL', 'conditional', 'sql-integration', ['adminActivityFeedSql'], 'admin_activity_feed: roles-tier admins get who / what / when, never changes; members, content admins and anon are refused; paging and limits; step 2 makes activity_log members only and sweeps every admin read (ADM-03, owner decision 13 Oct 2026; PGlite)'),
   group('Household erase SQL', 'conditional', 'sql-integration', ['eraseHouseholdSql'], 'erase_household_data: unpaid-loan erase against the real W4e guard, shared splits deleted, every household table erased or kept (focused PGlite fixture)'),
   group('WhatsApp EMI correction SQL', 'conditional', 'sql-integration', ['whatsappCorrectToLoanSql'], 'whatsapp_correct_to_loan: the entry becomes a loan payment (server split, expense removed, never twice, refusals change nothing); whatsapp_correct_last refuses loan_emi (real W3 + W4e functions, PGlite)'),
   group('Account purge and retention SQL', 'conditional', 'sql-integration', ['accountPurgeSql'], 'W1b migrations: one-transaction account purge, server re-auth for erase, 90-day WhatsApp retention (focused PGlite fixture)'),
@@ -83,6 +83,7 @@ export const groups = [
   { feature: 'Estimate provenance', availability: 'available', layer: 'unit', owner: 'estimatedTagCopy', files: ['react/src/components/ui/__tests__/estimatedTag.test.ts'] },
   { feature: 'Admin content and permissions', availability: 'conditional', layer: 'unit', owner: 'rowToArticle / slugify / canAccessPage', files: ['contentApi', 'roleGating'].map(file => `${admin}${file}.test.ts`) },
   { feature: 'Admin publication', availability: 'conditional', layer: 'contract-unit', owner: 'contentApi', files: [`${admin}contentWorkflow.test.ts`] },
+  { feature: 'Admin audit without values', availability: 'available', layer: 'unit', owner: 'ADM-03 step 2: the Audit page reads admin_activity_feed, never the table; no values in the page, CSV or Help; Privacy says what staff see (owner decision 13 Oct 2026)', files: [`${admin}adm03AuditFeed.test.ts`] },
   { feature: 'Admin fixes (W8c)', availability: 'available', layer: 'unit', owner: 'audit W8c: household types = consumer, publish date kept + byline, infographic after save, live DB status + build version, MRR per currency, admin CSP + no source maps', files: [`${admin}w8cAdminFixes.test.ts`] },
 ];
 

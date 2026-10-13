@@ -14,4 +14,6 @@
 // an owner must hand over a shared household first, and WhatsApp messages are kept 90 days.
 // W8a (audit XC-PRV-09): moved here from pages/Privacy.tsx so lib/auth.ts records THIS version — sign-ups
 // were stamped '2026-07-01' while the pages showed '2026-10-07'.
-export const POLICY_VERSION = '2026-10-07';
+// 2026-10-13: ADM-03 (owner decision) — Security says what staff can see in the admin console: that an
+// action happened (its time and kind), never the amounts, names or descriptions.
+export const POLICY_VERSION = '2026-10-13';

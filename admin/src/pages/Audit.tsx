@@ -1,7 +1,9 @@
-// Vyact Admin v8 — Audit Log (live public.activity_log)
+// Vyact Admin v8 — Audit Log: household activity, newest first.
+// ADM-03 (v1.4.5; owner decision 13 Oct 2026): who did what and when, never the values. Rows come from
+// `admin_activity_feed`, which has no `changes`; neither the page nor the CSV shows any.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Shield, Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 import { useAdminStore } from '../store';
 import { fetchActivityLog, type AdminActivityRow } from '../lib/adminApi';
 
@@ -35,12 +37,12 @@ export default function Audit() {
   }, [rows, query]);
 
   function exportCsv() {
-    const headers = ['created_at', 'actor_id', 'household_id', 'action', 'entity_type', 'entity_id', 'changes'];
+    const headers = ['created_at', 'actor_id', 'household_id', 'action', 'entity_type', 'entity_id'];
     const lines = [headers.join(',')];
     for (const r of filtered) {
       const cells = [
         r.created_at, r.actor_id ?? '', r.household_id ?? '', r.action,
-        r.entity_type ?? '', r.entity_id ?? '', JSON.stringify(r.changes ?? null),
+        r.entity_type ?? '', r.entity_id ?? '',
       ].map(c => `"${String(c).replace(/"/g, '""')}"`);
       lines.push(cells.join(','));
     }
@@ -57,7 +59,7 @@ export default function Audit() {
         <div>
           <h1 className="display-serif text-3xl text-ink mb-1">Audit Log</h1>
           <p className="text-ink-mid text-[0.92rem]">
-            {rows.length} entries · live from <code className="font-mono">public.activity_log</code> · append-only
+            {rows.length} entries · household activity · who, what and when, never the values
           </p>
         </div>
         <div className="flex gap-2">
@@ -75,8 +77,8 @@ export default function Audit() {
       {error && <div className="panel p-4 mb-4 border-danger/30 text-danger text-sm">{error}</div>}
 
       <div className="panel overflow-hidden">
-        <div className="grid grid-cols-[140px_1fr_1fr_1fr_60px] gap-3 px-4 py-2.5 bg-elev border-b border-line2 mono-label">
-          <div>When</div><div>Action</div><div>Entity</div><div>Actor</div><div></div>
+        <div className="grid grid-cols-[140px_1fr_1fr_1fr] gap-3 px-4 py-2.5 bg-elev border-b border-line2 mono-label">
+          <div>When</div><div>Action</div><div>Entity</div><div>Actor</div>
         </div>
         <div className="divide-y divide-line">
           {loading && <div className="px-4 py-6 text-center text-ink-mid text-sm">Loading…</div>}
@@ -86,7 +88,7 @@ export default function Audit() {
             </div>
           )}
           {filtered.map(r => (
-            <div key={r.id} className="grid grid-cols-[140px_1fr_1fr_1fr_60px] gap-3 px-4 py-3 row-hover items-start">
+            <div key={r.id} className="grid grid-cols-[140px_1fr_1fr_1fr] gap-3 px-4 py-3 row-hover items-start">
               <div className="font-mono text-[0.7rem] text-ink-mid">
                 {new Date(r.created_at).toISOString().replace('T', ' ').slice(0, 19)}
               </div>
@@ -100,25 +102,13 @@ export default function Audit() {
               <div className="font-mono text-[0.7rem] text-ink-mid truncate">
                 {r.actor_id ? r.actor_id.slice(0, 8) + '…' : 'system'}
               </div>
-              <div className="text-right">
-                {r.changes != null && (
-                  <details>
-                    <summary className="cursor-pointer text-ink-dim hover:text-claude" title="Show diff">
-                      <Shield size={12} className="inline" />
-                    </summary>
-                    <pre className="mt-2 text-[0.65rem] font-mono bg-elev rounded p-2 overflow-auto max-h-40 text-left absolute z-10">
-                      {JSON.stringify(r.changes, null, 2)}
-                    </pre>
-                  </details>
-                )}
-              </div>
             </div>
           ))}
         </div>
       </div>
 
       <p className="mt-3 text-[0.7rem] text-ink-dim font-mono">
-        Source: <code>public.activity_log</code> · last 200 entries · admins read-all via RLS policy
+        Source: <code>admin_activity_feed()</code> · last 200 entries · amounts, names and descriptions are never shown
       </p>
     </div>
   );
