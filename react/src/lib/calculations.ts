@@ -2,8 +2,10 @@
 // All pulse-score / aggregation / loan / split logic.
 // No React, no DOM. Easy to unit-test.
 
-import type { Transaction, Budget, BudgetAllocation, Goal, Debt, Asset, Profile, ExchangeRates, BudgetPeriod } from '../types';
+import type { Transaction, Budget, BudgetAllocation, Goal, Debt, Asset, Profile, ExchangeRates, BudgetPeriod, RecurringSchedule } from '../types';
 import { convert, getMonthKey, nowMonthKey, clamp } from './format';
+import { ruleOf, policyOf } from './recurring';
+import { expandRRule } from './rrule';
 import { toDinero, fromDinero, convertViaUsdRates, sumDinero, dineroZero, addDinero } from './money';
 import type { Dinero } from 'dinero.js';
 
@@ -188,18 +190,25 @@ export function resolveBudgetPeriod(
   return { periodStart: iso(start), periodEnd: iso(end) };
 }
 
-// v9.1 §4.2 — read-only recurring FORECAST: sum each recurring EXPENSE schedule
-// over [periodStart, periodEnd], bucketed by category, in the target currency.
-// Approximate (period-length × per-period rate); informs the budget, writes nothing
-// (money-model A8). Transfers/investments/income are excluded from spend forecast.
+/** A schedule as the forecast reads it: its rule's columns, its month-end rule, and its template. */
+export type ForecastSchedule = Pick<RecurringSchedule, 'frequency' | 'startDate'>
+  & Partial<Pick<RecurringSchedule, 'rrule' | 'dayOfMonth' | 'weekday' | 'shortMonthPolicy' | 'active'>>
+  & { transactionTemplate: { type?: string; amount?: number; currency?: string; category?: string; debtId?: string; linkedDebtId?: string } };
+
+// v9.1 §4.2 — read-only recurring FORECAST: what each recurring EXPENSE schedule will cost over
+// [periodStart, periodEnd], bucketed by category. Informs the budget, writes nothing (money-model A8).
+// Transfers/investments/income are excluded from spend forecast.
+// FE-MNY-16 (v10.91.0; owner decision 13 Oct 2026) — the cost is the schedule's amount × its REAL dates
+// in the period, read from its own rule (`ruleOf` + `policyOf` → `expandRRule`, from its start date,
+// COUNT and UNTIL included): the same rule the engine and the bill calendar read. The old
+// period-length × frequency estimate put a quarterly bill (FREQ=MONTHLY;INTERVAL=3) in every month at
+// its full amount, and counted a Mon + Thu bill once a week. A schedule with no date in the period adds
+// nothing, and its category is left out.
 export function recurringForecastByCategory(
-  schedules: { transactionTemplate: { type?: string; amount?: number; currency?: string; category?: string; debtId?: string; linkedDebtId?: string }; frequency: string; active?: boolean }[],
+  schedules: ForecastSchedule[],
   periodStart: string, periodEnd: string,
   baseCurrency: string, rates: ExchangeRates,
 ): Record<string, number> {
-  const start = new Date(periodStart + 'T00:00:00Z').getTime();
-  const end = new Date(periodEnd + 'T00:00:00Z').getTime();
-  const days = Math.max(0, (end - start) / 86_400_000 + 1);
   const out: Record<string, number> = {};
   for (const s of schedules) {
     const t = s.transactionTemplate;
@@ -207,13 +216,9 @@ export function recurringForecastByCategory(
     // W8a (audit FE-MNY-16): a paused schedule posts nothing, and a loan EMI is the loan's payment, not
     // category spend (the same rule as lib/recurring.ts isLoanEmiSchedule) — neither belongs in the forecast.
     if (s.active === false || t.category === 'loan_emi' || t.debtId || t.linkedDebtId) continue;
-    // W3e: 'daily' is a real frequency now (W3d); it used to fall through to "monthly".
-    const perPeriod =
-      s.frequency === 'daily'   ? t.amount * days :
-      s.frequency === 'weekly'  ? t.amount * (days / 7) :
-      s.frequency === 'yearly'  ? t.amount * (days / 365) :
-      /* monthly / custom_day */  t.amount * (days / 30.4375);
-    const inBase = convert(perPeriod, t.currency || baseCurrency, baseCurrency, rates);
+    const dates = expandRRule(ruleOf(s), s.startDate, periodStart, periodEnd, { shortMonthPolicy: policyOf(s) });
+    if (!dates.length) continue;
+    const inBase = convert(t.amount * dates.length, t.currency || baseCurrency, baseCurrency, rates);
     out[t.category] = (out[t.category] || 0) + Math.round(inBase * 100) / 100;
   }
   return out;

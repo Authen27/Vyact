@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.90.0`** (consumer)
+> **Current production version: `v10.91.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,43 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.91.0 — Budget forecast counts real dates; single-key shortcuts removed *(2026-10-13)*
+
+App only; no schema change. Findings: FE-MNY-16 (with R3), FE-UIS-10. Owner decisions, 13 Oct 2026.
+
+- **The budget form's recurring forecast counts each bill's real dates.** "Already committed via recurring
+  this period" and its "Use as allocations" used to multiply the period's length by a rate taken from the
+  frequency label:
+  - a ₹6,000 quarterly premium was forecast at close to ₹6,000 in every month;
+  - a bill paid on Mondays and Thursdays was counted once a week.
+
+  Now each bill's dates come from its own rule, the one the bill calendar and the recurring engine read,
+  including its start date, COUNT, UNTIL and month-end rule. The quarterly premium shows ₹6,000 in the
+  months it falls in and nothing in the others; the Mon + Thu bill counts each of those days. Suggest still
+  proposes a monthly average (₹2,000 a month for that premium), by design.
+- The server copy of the forecast is deleted. Nothing on the server read it, and recurrence maths is never
+  hand-ported into `_shared/`.
+- **The n / b / d / a keyboard shortcuts are removed.** A single key opened Add Transaction, Budget, Debt or
+  Asset from any page, so a speech or keyboard user could open a form by accident (WCAG 2.1.4). Adding
+  starts from each page's button, the floating + or ⌘K. ⌘K and `/` on Transactions (it only focuses the
+  search box) stay.
+
+Tests:
+- budgetForecast.test.ts (7):
+  - a quarterly bill counts only in its own months;
+  - a Mon + Thu bill counts all 9 days of October 2026;
+  - nothing before the start date, or after COUNT or UNTIL runs out;
+  - the schedule's month-end rule;
+  - rows with no stored rule;
+  - sums and skipped rows;
+  - the same date call as the bill calendar.
+- shortcuts.test.ts: no single-letter shortcut is registered anywhere.
+- Updated deliberately:
+  - v91: one June rent is exactly 1,000 (was about 986);
+  - W8a-MNY16-001;
+  - the money-port roster (the forecast is not ported);
+  - e2e A11Y-FC-001, which now checks that a letter opens nothing.
 
 ## v10.90.0 — Pip: real categories, stricter number check, names treated as data *(2026-10-13)*
 

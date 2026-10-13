@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1634 passing deterministic cases in 138 files. Zero failed, skipped or TODO cases at generation.**
+**1642 passing deterministic cases in 139 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -39,7 +39,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 12 |
-| react | unit | available | 382 |
+| react | unit | available | 390 |
 | react | unit | conditional | 192 |
 | react | unit | infrastructure | 601 |
 
@@ -81,6 +81,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/billCardsAndSigns.test.ts](../react/src/lib/__tests__/billCardsAndSigns.test.ts) | Bill cards and signed figures | store-integration | available | 3 |
+| [react/src/lib/__tests__/budgetForecast.test.ts](../react/src/lib/__tests__/budgetForecast.test.ts) | Budget forecast | unit | available | 7 |
 | [react/src/lib/__tests__/budgetOrdering.test.ts](../react/src/lib/__tests__/budgetOrdering.test.ts) | Recurring and budgets | unit | available | 13 |
 | [react/src/lib/__tests__/budgetSuggest.test.ts](../react/src/lib/__tests__/budgetSuggest.test.ts) | Budget suggestion | unit | available | 4 |
 | [react/src/lib/__tests__/budgetTrends.test.ts](../react/src/lib/__tests__/budgetTrends.test.ts) | Reports consultation | unit | available | 4 |
@@ -155,7 +156,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/sessionWorkflow.test.ts](../react/src/lib/__tests__/sessionWorkflow.test.ts) | Session transitions | store-integration | conditional | 4 |
 | [react/src/lib/__tests__/settingsHouseholdRow.test.ts](../react/src/lib/__tests__/settingsHouseholdRow.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/sharedSplitsWorkflow.test.ts](../react/src/lib/__tests__/sharedSplitsWorkflow.test.ts) | Shared splits | contract-unit | conditional | 3 |
-| [react/src/lib/__tests__/shortcuts.test.ts](../react/src/lib/__tests__/shortcuts.test.ts) | Frontend guards (W6) | unit | available | 3 |
+| [react/src/lib/__tests__/shortcuts.test.ts](../react/src/lib/__tests__/shortcuts.test.ts) | Frontend guards (W6) | unit | available | 4 |
 | [react/src/lib/__tests__/splitEdit.test.ts](../react/src/lib/__tests__/splitEdit.test.ts) | Split editing | store-integration | available | 4 |
 | [react/src/lib/__tests__/splitEmailGuardSql.test.ts](../react/src/lib/__tests__/splitEmailGuardSql.test.ts) | Split email guard SQL | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/splitEmailHandler.test.ts](../react/src/lib/__tests__/splitEmailHandler.test.ts) | Split email handler | handler-integration | conditional | 5 |

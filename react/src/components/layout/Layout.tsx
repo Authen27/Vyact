@@ -11,8 +11,6 @@ import AddFab from './AddFab';
 import SyncConflictBanner from './SyncConflictBanner';
 import OfflineStrip from './OfflineStrip';
 import { PageActionContext, type PageAction } from './pageAction';
-import { useShortcuts } from '../../hooks';
-import { useStore } from '../../store';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [palette, setPalette] = useState(false);
@@ -21,18 +19,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [pageAction, setPageAction] = useState<PageAction | null>(null);
   const pageActionCtx = useMemo(() => ({ action: pageAction, setAction: setPageAction }), [pageAction]);
 
-  // Add-entity shortcuts stay app-wide (v7.4.4). `useShortcuts` already
-  // ignores keystrokes while typing in form fields.
-  const openAddTxn    = useStore(s => s.openAddTxn);
-  const openAddBudget = useStore(s => s.openAddBudget);
-  const openAddDebt   = useStore(s => s.openAddDebt);
-  const openAddAsset  = useStore(s => s.openAddAsset);
-  useShortcuts({
-    n: () => openAddTxn(), N: () => openAddTxn(),
-    b: openAddBudget, B: openAddBudget,
-    d: openAddDebt,   D: openAddDebt,
-    a: openAddAsset,  A: openAddAsset,
-  });
+  // v10.91.0 (audit FE-UIS-10, WCAG 2.1.4; owner decision 13 Oct 2026) — no single-key add shortcuts.
+  // n / b / d / a opened a form from any page, so a speech or keyboard user could open one by
+  // accident. The add buttons, the floating + and ⌘K's Quick actions remain.
 
   // ⌘K / Ctrl-K — command palette (handoff §6.4).
   useEffect(() => {

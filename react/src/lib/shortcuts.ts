@@ -3,6 +3,8 @@
 // The global n/b/d/a shortcuts used to fire on any keydown whose key matched, so Cmd+A (select
 // all) opened Add Asset, Ctrl+D (bookmark) opened Add Debt, and a key pressed inside an open
 // dialog navigated the page underneath it. Pure, so it is unit-tested without a browser.
+// v10.91.0 (owner decision 13 Oct 2026): those four are removed; the rule now guards the
+// Transactions `/` (focus the search box), the one single-key shortcut left.
 
 export interface ShortcutKeyEvent {
   key: string;

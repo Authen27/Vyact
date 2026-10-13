@@ -169,19 +169,6 @@ const ALLOCATIONS: BudgetAllocation[] = [
   { id: 'al-2', budgetId: 'b-container', category: 'travel', amount: 150.5 },
 ];
 
-const SCHEDULES = [
-  { transactionTemplate: { type: 'expense', amount: 1200, currency: 'USD', category: 'rent_mortgage' }, frequency: 'monthly' },
-  { transactionTemplate: { type: 'expense', amount: 30, currency: 'EUR', category: 'entertainment' }, frequency: 'weekly' },
-  { transactionTemplate: { type: 'expense', amount: 900, currency: 'INR', category: 'insurance' }, frequency: 'yearly' },
-  { transactionTemplate: { type: 'income', amount: 5000, currency: 'USD', category: 'salary' }, frequency: 'monthly' },   // skipped
-  { transactionTemplate: { type: 'expense', amount: 0, currency: 'USD', category: 'other_expense' }, frequency: 'monthly' }, // skipped (falsy amount)
-  { transactionTemplate: { type: 'transfer', amount: 100, currency: 'USD' }, frequency: 'monthly' },                       // skipped
-  // W8a (FE-MNY-16): paused, and loan EMIs (by category or by debt link), are skipped on both sides.
-  { transactionTemplate: { type: 'expense', amount: 400, currency: 'USD', category: 'subscriptions' }, frequency: 'monthly', active: false },
-  { transactionTemplate: { type: 'expense', amount: 700, currency: 'USD', category: 'loan_emi' }, frequency: 'monthly' },
-  { transactionTemplate: { type: 'expense', amount: 650, currency: 'USD', category: 'other_expense', debtId: 'd1' }, frequency: 'monthly' },
-];
-
 const MONTH_KEYS = ['2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-11'];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,7 +181,7 @@ const MONTH_KEYS = ['2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026
 const PORTED = [
   'txnAmountInBase', 'effectiveAmount', 'reportableTxns', 'monthlyData', 'totalBalance',
   'spendByCategory', 'spendByCategoryInRange', 'cumulativeSpendSeries',
-  'budgetLines', 'resolveBudgetPeriod', 'budgetWindow', 'periodMonths', 'recurringForecastByCategory',
+  'budgetLines', 'resolveBudgetPeriod', 'budgetWindow', 'periodMonths',
   'totalAssets', 'totalLiabilities', 'totalReceivables', 'liquidAssets', 'totalMonthlyDebtPayment',
   'splitsOutstanding',
   'accountValueOf', 'debitAccountOf', 'creditAccountOf', 'computeAccountBalance',
@@ -221,6 +208,9 @@ const NOT_PORTED = [
   'reconcileAccount',
   // v10.26.0 (R4) — the same rule for an investment asset's "Update value".
   'reconcileAssetValue',
+  // FE-MNY-16 (v10.91.0) — the budget form's forecast counts each bill's real dates through the
+  // recurrence rule, which is never hand-ported into _shared/ (W3e). No server code read the port.
+  'recurringForecastByCategory',
 ];
 
 describe('parity roster — no client aggregate escapes classification', () => {
@@ -470,17 +460,8 @@ describe('parity — budget period helpers', () => {
     }
   });
 
-  it('recurringForecastByCategory agrees (income/transfer/zero rows skipped)', () => {
-    for (const [, rates] of RATE_SETS) {
-      for (const base of BASES) {
-        for (const [s, e] of [['2026-03-01', '2026-03-31'], ['2026-01-01', '2026-12-31'], ['2026-03-05', '2026-03-05'], ['2026-03-31', '2026-03-01']]) {
-          expect(port.recurringForecastByCategory(SCHEDULES, s, e, base, rates), `${base} ${s}..${e}`)
-            .toStrictEqual(clientCalc.recurringForecastByCategory(SCHEDULES, s, e, base, rates));
-        }
-        expect(port.recurringForecastByCategory([], '2026-03-01', '2026-03-31', base, rates))
-          .toStrictEqual(clientCalc.recurringForecastByCategory([], '2026-03-01', '2026-03-31', base, rates));
-      }
-    }
+  it('recurringForecastByCategory is gone from the port (FE-MNY-16)', () => {
+    expect((port as Record<string, unknown>).recurringForecastByCategory).toBeUndefined();
   });
 });
 

@@ -7,7 +7,8 @@ import { getCat } from '../../src/constants';
  * full-screen PAGE (`/transactions/new`, `/transactions/:id/edit`), opened by
  * the store's `openAddTxn` / `openEditTxn` — typically from the
  * "+ Add Transaction" button on the Transactions page, the AddFab, or the
- * `N` keyboard shortcut — and closed back to the screen that opened it.
+ * ⌘K palette — and closed back to the screen that opened it. (The `N`
+ * keyboard shortcut was removed in v10.91.0, audit FE-UIS-10.)
  *
  * v10.1 (Aurora forms doctrine): the form is an AMOUNT-FIRST half-sheet.
  * Dropdowns were replaced by chips and the amount is entered on an in-sheet

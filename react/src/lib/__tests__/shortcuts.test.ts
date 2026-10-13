@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { shortcutAllowed } from '../shortcuts';
 
 describe('single-key shortcuts (W6, audit FE-UIS-10)', () => {
@@ -29,5 +29,25 @@ describe('single-key shortcuts (W6, audit FE-UIS-10)', () => {
     expect(hook).toMatch(/shortcutAllowed\(e, focused, dialogOpen\)/);
     expect(hook).toMatch(/handlersRef\.current\[e\.key\]/);
     expect(hook).toMatch(/\}, \[\]\);/);
+  });
+
+  it('W6-UIS10-004 · no single-letter shortcut is registered anywhere; only Transactions\' "/" remains (v10.91.0)', () => {
+    // Owner decision 13 Oct 2026: n / b / d / a are removed (WCAG 2.1.4), not made optional.
+    const root = resolve(__dirname, '../..');
+    const callers: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { if (e.name !== '__tests__') walk(p); continue; }
+        if (!/\.tsx?$/.test(e.name)) continue;
+        if (/useShortcuts\(\{/.test(readFileSync(p, 'utf8'))) callers.push(relative(root, p).split(sep).join('/'));
+      }
+    };
+    walk(root);
+    expect(callers).toEqual(['pages/Transactions.tsx']);
+    const txns = readFileSync(join(root, 'pages/Transactions.tsx'), 'utf8');
+    const keys = txns.slice(txns.indexOf('useShortcuts({'), txns.indexOf('});', txns.indexOf('useShortcuts({')));
+    expect(keys.match(/^\s*'?[^\s:']+'?\s*:/gm)?.map(k => k.trim())).toEqual(["'/':"]);
+    expect(readFileSync(join(root, 'components/layout/Layout.tsx'), 'utf8')).not.toMatch(/useShortcuts|openAddBudget|openAddAsset/);
   });
 });
