@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1615 passing deterministic cases in 136 files. Zero failed, skipped or TODO cases at generation.**
+**1619 passing deterministic cases in 136 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 61 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 87 |
-| react | sql-integration | conditional | 48 |
+| react | sql-integration | conditional | 52 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 12 |
@@ -93,7 +93,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 9 |
 | [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 3 |
 | [react/src/lib/__tests__/demoSeed.test.ts](../react/src/lib/__tests__/demoSeed.test.ts) | First-run demo household | unit | available | 2 |
-| [react/src/lib/__tests__/eraseHouseholdSql.test.ts](../react/src/lib/__tests__/eraseHouseholdSql.test.ts) | Household erase SQL | sql-integration | conditional | 4 |
+| [react/src/lib/__tests__/eraseHouseholdSql.test.ts](../react/src/lib/__tests__/eraseHouseholdSql.test.ts) | Household erase SQL | sql-integration | conditional | 8 |
 | [react/src/lib/__tests__/essentialRunway.test.ts](../react/src/lib/__tests__/essentialRunway.test.ts) | Reports consultation | unit | available | 4 |
 | [react/src/lib/__tests__/exclusive.test.ts](../react/src/lib/__tests__/exclusive.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/faults.test.ts](../react/src/lib/__tests__/faults.test.ts) | Permissions and faults | unit | available | 3 |

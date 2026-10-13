@@ -1074,12 +1074,16 @@
       "availability": "conditional",
       "layer": "sql-integration",
       "owner": "erase_household_data migration (focused PGlite fixture)",
-      "count": 4,
+      "count": 8,
       "tests": [
-        "erase_household_data (W0 · DB-INT-05) CON-UNIT-W0-001 - the old audit action is exactly what the activity_log CHECK rejects",
-        "erase_household_data (W0 · DB-INT-05) CON-UNIT-W0-002 - an owner erase commits: every ledger table is emptied and one audit row remains",
-        "erase_household_data (W0 · DB-INT-05) CON-UNIT-W0-003 - another household is untouched",
-        "erase_household_data (W0 · DB-INT-05) CON-UNIT-W0-004 - a plain member is refused and nothing is erased"
+        "erase_household_data CON-UNIT-W0-001 - the old audit action is exactly what the activity_log CHECK rejects",
+        "erase_household_data CON-UNIT-W0-002 / R1-001 - an owner erase commits, even with an unpaid loan: every table emptied, one audit row",
+        "erase_household_data CON-UNIT-W0-003 - another household is untouched, its splits and loan included",
+        "erase_household_data CON-UNIT-W0-004 - a plain member is refused and nothing is erased",
+        "erase_household_data R1-002 - outside the erase, the loan guard still refuses to delete a debt with money owed",
+        "erase_household_data R1-003 - without a recent sign-in the erase is refused and nothing changes",
+        "erase_household_data XC-PRV-08-001 - the household's shared splits are deleted with their shares (owner decision)",
+        "erase_household_data XC-PRV-08-002 - every household table is either erased or explicitly kept"
       ]
     },
     {
