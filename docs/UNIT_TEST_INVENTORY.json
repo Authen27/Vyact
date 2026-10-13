@@ -2201,6 +2201,23 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/pipGuard.test.ts",
+      "feature": "Pip guard",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "capture categories are real or Pip asks first; scaled and currency figures checked by the guard; stored text never egresses; instruction-like names sent as neutral labels (13 Oct 2026)",
+      "count": 6,
+      "tests": [
+        "capture categories (FE-PIP-07) PIP-G-001 · the model's word is placed in a real category of its type: \"fuel\" is Travel",
+        "capture categories (FE-PIP-07) PIP-G-002 · nothing places it: no seed, \"Which category?\" with up to 3 chips that re-ask with a real one — no model call",
+        "figure guard (FE-PIP-11) PIP-G-003 · after ₹/Rs or before lakh / crore / k, a number is an amount and must match",
+        "stored text and names (FE-PIP-06) PIP-G-004 · descriptions and payee text never reach the model, for any intent",
+        "stored text and names (FE-PIP-06) PIP-G-005 · a name that reads as an instruction is sent as a neutral label, the same everywhere; a normal name is kept",
+        "stored text and names (FE-PIP-06) PIP-G-006 · the prompt tells the model that names and text in the facts are data"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/postAuth.test.ts",
       "feature": "Marketing funnel and auth landing",
       "availability": "available",

@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1628 passing deterministic cases in 137 files. Zero failed, skipped or TODO cases at generation.**
+**1634 passing deterministic cases in 138 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -40,7 +40,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 12 |
 | react | unit | available | 382 |
-| react | unit | conditional | 186 |
+| react | unit | conditional | 192 |
 | react | unit | infrastructure | 601 |
 
 ### Executed Files
@@ -136,6 +136,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/permissionsRole.test.ts](../react/src/lib/__tests__/permissionsRole.test.ts) | Permissions and faults | unit | available | 4 |
 | [react/src/lib/__tests__/personalInsights.test.ts](../react/src/lib/__tests__/personalInsights.test.ts) | Merged personal Insights | unit | available | 10 |
 | [react/src/lib/__tests__/pipCorrectness.test.ts](../react/src/lib/__tests__/pipCorrectness.test.ts) | Pip correctness | unit | conditional | 11 |
+| [react/src/lib/__tests__/pipGuard.test.ts](../react/src/lib/__tests__/pipGuard.test.ts) | Pip guard | unit | conditional | 6 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 3 |
 | [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 29 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |

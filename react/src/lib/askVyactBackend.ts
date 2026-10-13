@@ -24,7 +24,7 @@ import {
   resolvePeriod, resolveDayWindow, parseDateEntity, matchAccountId, matchCategory, resolveCategoryId,
   statedCurrency, amountLooksLikeIdentifier, amountIsStated, normalise, type ResolvedPeriod,
 } from './askVyactParser';
-import { getCat, NEEDS_WANTS_MAP, CURRENCIES, EXPENSE_CATEGORIES } from '../constants';
+import { getCat, NEEDS_WANTS_MAP, CURRENCIES, EXPENSE_CATEGORIES, CATEGORIES_BY_TYPE, LEGACY_CATEGORY_ALIASES } from '../constants';
 import { fmt, convert } from './format';
 import { nowMonthKey, getMonthKey, wallClock } from './format';
 import type { SafeSummary } from './aiSummary';
@@ -254,6 +254,64 @@ function purchaseCategory(e: { category?: unknown; text?: unknown }): string | u
   const named = resolveCategoryId(typeof e.category === 'string' ? e.category : undefined);
   const id = named ?? matchCategory(normalise(String(e.text ?? '')));
   return id && EXPENSE_IDS.has(id) && id !== 'loan_emi' ? id : undefined;
+}
+
+/**
+ * 13 Oct 2026 (audit FE-PIP-07; owner decision) — a capture's category, only ever a real category of its
+ * type: the model's word resolved ("fuel" → Travel), else a keyword in the merchant or the message, else
+ * undefined, and Pip asks "Which category?" before any form opens. The model's raw word used to be seeded
+ * as-is, so "fuel" was saved as a category nothing counts.
+ */
+function captureCategory(e: IntentResult['entities'], type: 'expense' | 'income'): string | undefined {
+  const allowed = new Set<string>(CATEGORIES_BY_TYPE[type].map(c => c.id));
+  const real = (id: string | undefined) => {
+    const current = id ? (LEGACY_CATEGORY_ALIASES[id] ?? id) : undefined;
+    return current && allowed.has(current) ? current : undefined;
+  };
+  return real(resolveCategoryId(typeof e.category === 'string' ? e.category : undefined))
+    ?? real(matchCategory(normalise(String(e.merchant ?? ''))))
+    ?? real(matchCategory(normalise(String(e.text ?? ''))));
+}
+
+/** Up to three category chips for "Which category?": the type's most used lately, else common ones. */
+function categoryChips(ctx: AssistantContext, type: 'expense' | 'income', text: string): AssistantChip[] {
+  const allowed = new Set<string>(CATEGORIES_BY_TYPE[type].map(c => c.id));
+  const since = isoDay(new Date(wallClock(ctx.tz).getTime() - 90 * 86_400_000));
+  const used = new Map<string, number>();
+  for (const t of ctx.transactions) {
+    const id = LEGACY_CATEGORY_ALIASES[t.category] ?? t.category;
+    if (t.type === type && t.date >= since && allowed.has(id) && id !== 'loan_emi') used.set(id, (used.get(id) ?? 0) + 1);
+  }
+  const ranked = [...used].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  const fallback = type === 'income' ? ['salary', 'freelance', 'other_income'] : ['food_dining', 'groceries', 'shopping'];
+  const ids = [...new Set([...ranked, ...fallback])].slice(0, 3);
+  return ids.map(id => ({ label: getCat(id).label, prompt: `${text} under ${getCat(id).label}` }));
+}
+
+/**
+ * 13 Oct 2026 (audit FE-PIP-06; owner decision) — an account or asset name as it may reach the model.
+ * Anyone in the household types these names, and the model reads all of its input, so a name written as
+ * an instruction could steer the wording. Control characters, line breaks, backticks and braces are
+ * stripped and the length capped; a name that reads as an instruction is sent as a neutral label, the
+ * same one wherever it appears in the answer. The stored name never changes.
+ */
+const INSTRUCTION_LIKE = /\b(ignore|disregard|instructions?|prompt|system|assistant|pretend|jailbreak)\b|\byou are\b|\bact as\b/i;
+const neutralNames = new WeakMap<AssistantContext, Map<string, string>>();
+function dataName(ctx: AssistantContext, raw: string, kind: 'account' | 'asset'): string {
+  const stripped = Array.from(String(raw ?? ''), ch => {
+    const code = ch.charCodeAt(0);
+    return code < 32 || code === 127 || '`{}<>'.includes(ch) ? ' ' : ch;
+  }).join('');
+  const cleaned = stripped.replace(/\s+/g, ' ').trim().slice(0, 40).trim();
+  if (cleaned && !INSTRUCTION_LIKE.test(cleaned)) return cleaned;
+  let labels = neutralNames.get(ctx);
+  if (!labels) { labels = new Map(); neutralNames.set(ctx, labels); }
+  const key = `${kind}:${raw}`;
+  if (!labels.has(key)) {
+    const n = [...labels.keys()].filter(k => k.startsWith(`${kind}:`)).length + 1;
+    labels.set(key, kind === 'asset' ? `Asset ${n}` : `Account ${n}`);
+  }
+  return labels.get(key)!;
 }
 
 const signedMoney = (n: number, ctx: AssistantContext, up = 'above', down = 'below'): string =>
@@ -525,7 +583,7 @@ function liquidBySource(ctx: AssistantContext) {
   return ctx.summary.holdings
     .filter(h => h.liquidity === 'liquid')
     .sort((a, b) => b.value - a.value)
-    .map(h => ({ held_in: h.name, amount: netMoney(h.value, ctx), kind: h.source }));
+    .map(h => ({ held_in: dataName(ctx, h.name, h.source), amount: netMoney(h.value, ctx), kind: h.source }));
 }
 
 /** Everything owned, grouped by how quickly it could be reached (v10.39, P4). */
@@ -534,7 +592,7 @@ function assetsByLiquidity(ctx: AssistantContext) {
   return ctx.summary.holdings
     .slice()
     .sort((a, b) => b.value - a.value)
-    .map(h => ({ holding: h.name, value: netMoney(h.value, ctx), how_soon: LABEL[h.liquidity] }));
+    .map(h => ({ holding: dataName(ctx, h.name, h.source), value: netMoney(h.value, ctx), how_soon: LABEL[h.liquidity] }));
 }
 
 /**
@@ -557,7 +615,7 @@ function spendByAccount(ctx: AssistantContext, monthKey: string) {
  * period total that did none of those. Two figures about the same money disagreed.
  */
 function spendByAccountWhere(ctx: AssistantContext, inWindow: (date: string) => boolean) {
-  const names = new Map((ctx.accounts ?? []).map(a => [a.id, a.name]));
+  const names = new Map((ctx.accounts ?? []).map(a => [a.id, dataName(ctx, a.name, 'account')]));
   const totals = new Map<string, number>();
   for (const t of reportableTxns(ctx.transactions)) {
     if (t.type !== 'expense' || !inWindow(t.date)) continue;
@@ -829,10 +887,14 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       // signal, and KEYWORD_MAP already knows the common ones (swiggy → food_dining).
       // Without this, a pasted card alert filed every spend under "other", so the
       // user's category totals silently drifted with every SMS they forwarded.
-      const category = transferClass ? ''
-        : (e.category
-          ?? (type === 'expense' ? matchCategory(String(e.merchant ?? '').toLowerCase()) : undefined)
-          ?? (type === 'income' ? 'salary' : 'other_expense'));
+      // 13 Oct 2026 (FE-PIP-07; owner decision): only a real category of the type; when nothing places it,
+      // Pip asks before any form opens (no seed), instead of saving the model's word or guessing Other.
+      const placed = transferClass ? '' : captureCategory(e, type as 'expense' | 'income');
+      if (placed === undefined) {
+        return { kind: 'capture', outcome: 'needs_category', vars: {},
+          chips: categoryChips(ctx, type as 'expense' | 'income', String(e.text ?? '')) };
+      }
+      const category = placed;
       // The date and the account the message stated. Both were extracted and then
       // dropped, so a bank paste still made the user retype the date and pick the card.
       const statedDate = parseDateEntity(typeof e.date === 'string' ? e.date : undefined, wallClock(ctx.tz));
@@ -874,6 +936,10 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       }
       // W5 (P4): the model's count is checked — 0 made the share Infinity, and a huge one built
       // a participants array that could hang the tab or the WhatsApp isolate.
+      const splitCategory = captureCategory(e, 'expense');
+      if (splitCategory === undefined) {
+        return { kind: 'capture', outcome: 'needs_category', vars: {}, chips: categoryChips(ctx, 'expense', String(e.text ?? '')) };
+      }
       const n = Number(e.participantCount);
       const ways = Number.isFinite(n) ? Math.min(20, Math.max(2, Math.trunc(n))) : 2;
       const share = Math.round((e.amount / ways) * 100) / 100;
@@ -884,7 +950,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         })),
       };
       const seed: Partial<Transaction> = {
-        type: 'expense', amount: e.amount, category: e.category ?? 'food_dining',
+        type: 'expense', amount: e.amount, category: splitCategory,
         description: e.merchant ? e.merchant.charAt(0).toUpperCase() + e.merchant.slice(1) : 'Split',
         split,
       };
@@ -1712,6 +1778,18 @@ export async function runAssistant(
       recurringSeed: result.recurringSeed,
       clarify: false,
       allowedFigures: figuresAllowedBy(result),
+    };
+  }
+  // 13 Oct 2026 (FE-PIP-07; owner decision) — a capture Pip can't place asks "Which category?" before any
+  // form opens. Written here, with no model call: there are no figures to explain.
+  if (result.kind === 'capture' && result.outcome === 'needs_category') {
+    return {
+      reply: 'Which category is this? Tap one, or tell me in your own words.',
+      bucket: effective.bucket,
+      intentId: effective.id,
+      chips: normaliseChips(result.chips),
+      clarify: true,
+      allowedFigures: [],
     };
   }
   // v10.39.1 (P17) — about the assistant: no household data, no phrase call.

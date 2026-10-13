@@ -42,6 +42,7 @@ export const groups = [
   group('Household authorization SQL', 'conditional', 'sql-integration', ['householdAuthzSql'], 'W1a migrations: replace_* dropped, ownership rules, child role retired, WhatsApp unlink, admin ledger reads (focused PGlite fixture)'),
   group('Ask Vyact', 'conditional', 'unit', ['askVyact', 'askVyactFacts', 'affordabilityBudgetFirst', 'askVyactContract', 'agentRouter', 'agentRelay'], 'runAssistant / resolve facts / router / Claude Code relay (test-only)'),
   group('Pip correctness', 'conditional', 'unit', ['pipCorrectness'], 'resolve: annual budgets point to Budgets, signed facts and no legacy vars beside facts, stated periods, stated amounts (W5, D29)'),
+  group('Pip guard', 'conditional', 'unit', ['pipGuard'], 'capture categories are real or Pip asks first; scaled and currency figures checked by the guard; stored text never egresses; instruction-like names sent as neutral labels (13 Oct 2026)'),
   group('Ask gateway', 'conditional', 'handler-integration', ['gatewayWorkflow'], 'ask-vyact/index.ts'),
   group('Account deletion handler', 'conditional', 'handler-integration', ['accountDeletionHandler'], 'delete-account/index.ts (re-auth, purge_account, auth delete last; mocked client)'),
   group('Split email guard SQL', 'conditional', 'sql-integration', ['splitEmailGuardSql'], 'W1c migration: one email per share per event, daily cap per sender, existing shares count as mailed (focused PGlite fixture)'),
