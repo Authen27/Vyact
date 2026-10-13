@@ -9,6 +9,8 @@
 > your own), add any constraints, and tell the owner. Nothing in these sections is being
 > worked on until then.
 >
+> **Status 2026-10-12: all four questions are still unanswered.** They hold 12 findings, three of them high: DB-SEC-03, OPS-01 and OPS-06. The current status of every finding, and the recommended order (D8 and D10 first), are in `VYACT_ARCHITECTURE_AUDIT_2026-10-04.md` §0.
+>
 > Opened 2026-10-06, after v10.61.0 (W0). Remediation stages that proceed meanwhile: W1
 > (authorization & data lifecycle), W3 (single sources of truth), W4 (functional money),
 > W5 (Pip), W6 (medium batches) — none of them depends on these answers except where listed.

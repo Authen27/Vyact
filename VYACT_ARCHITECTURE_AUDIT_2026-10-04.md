@@ -6,6 +6,8 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
+**Remediation status (12 Oct 2026):** 104 of 212 resolved, including all 3 critical and 20 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
 | Frontend | 0 | 10 | 37 | 34 | 0 |
@@ -15,6 +17,262 @@
 | Integration | 0 | 9 | 16 | 10 | 1 |
 | Platform & Ops | 0 | 2 | 6 | 5 | 2 |
 | Cross-cutting | 1 | 1 | 14 | 6 | 0 |
+
+## 0. Remediation status — 12 Oct 2026
+
+> **Read this first.** This section gives the status of every finding on `main` at **5dc208a**: consumer v10.84.0, admin v1.4.4, the last remediation PR.
+>
+> - **Since then:** three Aurora 4.0 design PRs merged (#190–#192; consumer v10.87.0 is live). Each says "no figure, calculation or schema change". Where they touch a finding (FE-UIS-07/08/09/12, invite revoke), that is noted.
+> - **Per finding:** the status is in **§11** (new *Status* and *PRs* columns). What is left on each unresolved finding is in **Appendix C**.
+
+**How the status was checked.** Each finding was matched against:
+- the 25 remediation PRs (#165–#189) and both changelogs;
+- the owner's remediation plan, with decisions D0a–D30;
+- the second developer's W8 plan (8 Oct).
+
+Its current state was then read in the code, at file:line:
+- **101 findings** were checked by review agents: money/UI, public site/admin, backend/WhatsApp, integration and privacy.
+- **111 findings** were checked by direct reading, with targeted code checks wherever a PR's claim was ambiguous. Three statuses changed this way: INT-TXN-01, INT-TXN-07 and FE-UIS-03 moved from "closed" to "partly".
+
+A planned second, adversarial pass over all 212 could not finish (usage limits), so each status rests on one code reading plus those targeted re-checks. The live read-only checks are in §0.7.
+
+Two developers did the work:
+- **Developer 1:** PRs #165–#182 (W0–W5), following the owner's plan.
+- **Developer 2, an agent:** PRs #183–#189 (W6, W7a/b, W8a–d), following the W8 plan.
+
+### 0.1 Summary
+
+| Severity | Total | Closed | Closed by decision | Partly | Open | Owner decision | On hold (dev question) | Backlog |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
+| High | 29 | 15 | 5 | 6 | 0 | 0 | 3 | 0 |
+| Medium | 100 | 33 | 2 | 22 | 15 | 9 | 7 | 12 |
+| Low | 75 | 43 | 1 | 12 | 10 | 7 | 0 | 2 |
+| Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
+| **Total** | **212** | **95** | **9** | **41** | **26** | **17** | **10** | **14** |
+
+**104 of 212 are resolved (49%): all 3 critical and 20 of 29 high.** The other 108 fall into four groups:
+
+| What the 108 need | Count |
+|---|---:|
+| Nothing but work: no decision, no blocker | 57 |
+| An owner decision (17 waiting only on it; 5 partly done, with the rest waiting on it) | 22 |
+| An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
+| Backlog: owner said "not now" (plan backlog, batch E, W8e) | 17 |
+
+**Status words.**
+- **Closed:** fixed in code on main, checked at file:line.
+- **Closed (decision):** settled by an owner decision instead of the audit's fix (a feature was removed, or the risk accepted), or made moot by another change.
+- **Partly:** part is fixed and checked; Appendix C says what is left.
+- **Open:** not fixed, and nothing blocks it.
+- **Owner decision:** needs a product decision that has not been made.
+- **On hold (dev question):** waits on `docs/DEVELOPER_INPUTS.md`.
+- **Backlog:** the owner explicitly said "not now".
+
+### 0.2 What each PR delivered
+
+| PR | Version | Wave | Closed | Partly |
+|---|---|---|---|---|
+| #165 | v10.61.0 (admin v1.4.3) | W0 containment | XC-PRV-01, FE-UIS-02, ADM-01, ADM-02, DB-INT-05, FE-PLT-01, OPS-04, XC-PRV-02, FE-PUB-03 | FE-PUB-01, BE-FN-07, XC-PRV-03, XC-PRV-08, XC-PRV-11, BE-FN-11 |
+| #166 | v10.62.0 | W1a authorization | DB-SEC-01, DB-SEC-02, BE-WA-01, INT-HH-12, INT-CON-04 | FE-PUB-01, ADM-03, XC-PRV-11, INT-HH-06 |
+| #167 | v10.63.0 | W1b data lifecycle | BE-FN-02, INT-HH-03, BE-FN-04, XC-PRV-04, XC-PRV-07 | DB-SEC-08, XC-PRV-08, XC-PRV-11 |
+| #168 | v10.64.0 | W1c abuse limits | BE-FN-06, BE-PIP-02, BE-PIP-03, FE-PIP-18 | FE-PIP-09, BE-FN-09, OPS-11 |
+| #169 | v10.65.0 | W3a local "today" | INT-TZC-03, FE-PIP-10, INT-PAR-04, INT-TZC-04, INT-TZC-05 | INT-PAR-11 |
+| #170 | v10.66.0 | W3b one currency | INT-PAR-01, INT-TZC-02, INT-PAR-06, INT-TZC-07, FE-PIP-14, INT-TZC-08 | FE-UIS-03, FE-MNY-16, INT-PAR-11 |
+| #171 | v10.67.0 | W3c lost edits | FE-SYN-01, FE-SYN-03, INT-TXN-08 | — |
+| #172 | v10.68.0 | W3d recurrence schema | FE-MNY-01, INT-TXN-05 | — |
+| #173 | v10.69.0 | W3e recurrence engine | FE-MNY-01, INT-TXN-04, INT-TXN-05, FE-UIC-13, INT-PAR-02 | XC-ARC-06, INT-PAR-11 |
+| #174 | v10.70.0 | W4a server posts bills | INT-TXN-06 | — |
+| #175 | v10.71.0 | W4b app stops posting | INT-TXN-06 | — |
+| #176 | v10.72.0 | W4c split edit | FE-PIP-03, FE-UIC-09 | INT-TXN-01 |
+| #177 | v10.73.0 | W4d bell + signs | FE-UIS-04, FE-UIC-04 | — |
+| #178 | v10.74.0 | W4e loan schema | FE-UIC-06 | FE-MNY-04, INT-TXN-07, FE-UIC-12, OPS-08 |
+| #179 | v10.75.0 | W4f loan app | FE-UIC-06, FE-UIC-09 | FE-MNY-04, INT-TXN-07, FE-UIC-12 |
+| #180 | v10.76.0 | W4g loan automation | FE-UIC-09 | INT-TXN-07 |
+| #181 | v10.77.0 | W4h budget suggest | — | FE-MNY-16 |
+| #182 | v10.78.0 | W5 Pip correctness | FE-PIP-01, FE-PIP-03, FE-PIP-04, FE-PIP-02, FE-PIP-05, FE-PIP-08, FE-PIP-12 | FE-PIP-06 |
+| #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-11, FE-UIS-13, FE-MNY-11, FE-PUB-11 | FE-UIS-10, FE-UIS-12, INT-HH-08 |
+| #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | XC-PRV-08, INT-HH-13 |
+| #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
+| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-UIC-05, FE-UIC-09, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-MNY-06, FE-UIC-10, INT-HH-09, INT-PAR-05, XC-PRV-09, FE-MNY-16 |
+| #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-13, INT-PAR-10 | BE-WA-06, BE-WA-09, BE-PIP-04, BE-WA-12 |
+| #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
+| #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
+| #190 | v10.85.0 | Aurora 4.0 A1 (design; after baseline) | — | FE-UIS-09, FE-UIS-12 |
+
+### 0.3 New issues found during this review (not in the audit)
+
+| # | Severity | What | Caused by | Status |
+|---|---|---|---|---|
+| **R1** | **High** | **"Erase all data" fails for any household with an unpaid loan.** `erase_household_data` deletes debts (`20261010120000_w1b_account_purge.sql:27`) before accounts (`:29`). W4e's guard `debts_refuse_unpaid_delete` (`20261016120000_w4e_loan_model.sql:612-625`) still sees the loan account, finds money owed and raises `debt_not_paid_off`, so the whole erase rolls back. It is DB-INT-05 again, by a new route. | #178 (W4e) against #167 (W1b) | Open. XS: delete the loan accounts first (or bypass the guard inside the erase), plus a PGlite test. |
+| **R2** | Medium | **A WhatsApp correction can relabel a plain expense as Loan / EMI**, so the loan never moves. Developer 1's PRs cited BE-WA-08 for the "paid … EMI" path. The defect the finding actually describes, in the correction path, was never touched. | Gap in #178–#180 | Open (BE-WA-08, INT-TXN-07). XS |
+| **R3** | Medium | **Two calculators for one schedule on the budget form.** Suggest reads the RRULE (D27, #181). The recurring forecast still steps by frequency (#186), against D13's rule that every calculator goes through `ruleOf`. The two give different monthly figures. | #181 against #186 | Open (FE-MNY-16). S |
+| **R4** | Low | **A revoked invitation can stay live.** Aurora A3 holds a revoke for 8 s so it can be undone. If the tab closes or the phone kills the app inside that window, the revoke may never be sent, although the screen already said "revoked". `lib/undoable.ts` and `DeferredFlush.tsx` flush on `pagehide` only, with no `keepalive` and no `visibilitychange`. | #192 | Open. XS |
+| R5 | — | #185's `ignoreCommand` exited 128, which Vercel treats as an error, so every admin production deploy failed on 8–9 Oct. W8c went live only with #189. | #185 | Fixed by #189. Live-verified: admin v1.4.4. |
+| R6 | Low | Database advisor warnings after #178: `search_path` on 7 `loan_*` functions, and EXECUTE on 2 trigger functions (W8 plan, W8e). | #178 | Open. The owner deferred W8e on 8 Oct. |
+
+### 0.4 Conflicting approaches, and how each was resolved
+
+**(a) The audit's recommendation was replaced by an owner decision.** These are resolved; do not "fix" them back.
+
+| Finding(s) | Audit recommended | Owner decided, and built |
+|---|---|---|
+| XC-PRV-01, XC-PRV-14 | Rewrite git history; prove it with gitleaks over full history | D1: key revoked, no history rewrite; a tip-only secret scan in CI (#165, #189) |
+| FE-UIS-02, ADM-02 | Real MFA (AAL2) | D23: no 2FA for consumer or admin; 2FA UI and the Google Charts QR removed (#165) |
+| BE-FN-02 | A daily purge job for scheduled deletion | D25: immediate deletion (#167) |
+| INT-PAR-01, INT-TZC-02, INT-TZC-07, FE-PIP-14, INT-PAR-06, INT-TZC-08 | Merge or store FX rates | D14: one currency per household, nothing converted (#170) |
+| INT-HH-12 | Relabel Child honestly, or scope its reads | D7: Child retired, children become Member (#166) |
+| XC-PRV-07 | Null payloads at 30 days, delete at 12 months | D26: delete whole rows at 90 days (#167) |
+| FE-PIP-01 | Measure an annual budget over its own window | D29 P1: no monthly verdict on an annual line; point to Budgets (#182) |
+| FE-UIS-15, ADM-11 | Translate the app; name authors | Owner, 8 Oct: label non-English "Preview: navigation only"; byline "Vyact" (#186, #188) |
+
+**(b) The decision and what was built differ.** Each needs a look.
+- **XC-PRV-04 (D25):** the plan said a single-use emailed-code nonce, checked on the server. What was built accepts any sign-in within 10 minutes (the JWT `amr`). The Privacy page says every Danger Zone action needs the emailed code, which is true only of the UI flow. *Choose:* accept the `amr` rule and reword Privacy, or add the nonce.
+- **ADM-02 + D24:** 2FA was dropped on the grounds that D24 would stop admins reading ledgers. D24 (#166) covered the ledger tables only. A roles-tier admin still reads `activity_log` row images (ADM-03), and ADM-04, the place to narrow it, is in the backlog. So the mitigation is narrower than the decision assumed, and the public claim (FE-PUB-01) is still not true. *Recommended:* finish ADM-03 now.
+- **FE-MNY-04 (D19):** the plan said "changing outstanding = reconcile". What was built makes the outstanding read-only, with no reconcile action on the Debts page.
+- **BE-FN-02 (D25):** the plan said remove `deletion_scheduled_for` and `reactivate_my_account`. Both are still there.
+- **INT-CON-07 (D3):** the W1a migration header claims it, but `leave_household` was not changed. It now sits in W8e (deferred).
+- **BE-WA-01 (D6):** the trigger fires on delete only, not on role change. This is harmless, because a demoted member is still a member.
+
+**(c) Developer 1 and developer 2 touched the same rule.**
+- **FE-MNY-16:** see R3.
+- **FE-MNY-06 vs FE-UIC-08:** the Dashboard chip (developer 2) now leaves annual lines out. The Budget progress panel and the pace banner beside it do not. One screen can give two answers until the budget-basis decision is made.
+- **FE-UIC-06:** each developer fixed half. Developer 1's Debts total is loans plus card dues; developer 2's Net Worth list is read from the projection. They agree for live loans and differ only for loan accounts orphaned before W4e (FE-MNY-04).
+- **FE-MNY-13 vs FE-UIC-14:** developer 2 made a negative card figure mean "owed". That rules out a signed value for an "in credit" card; only an explicit toggle remains.
+- **INT-PAR-05:** one `staleAccounts()` now serves push and Reply UPDATE. The WhatsApp nudge, the third surface, still counts its own way.
+- **ADM-14 vs ADM-08:** MRR is re-summed in the browser over an unpaginated list (the audit wanted SQL), so it inherits ADM-08's row cap.
+- **FE-UIC-07:** debt-to-income is now on this month's income on both screens, rather than the audit's completed-months basis. The screens agree, but read "—" early in the month.
+- **BE-WA-03:** a pending turn is closed and then reopened on a retry, instead of being resolved only after the action succeeds. A small window remains if the worker dies.
+
+**(d) The two plans disagree about the status of the same item.**
+- **FE-MNY-08, FE-MNY-10, FE-UIC-08:** the owner put these in W6 batch C (to fix). The W8 plan parked them in §4 as "needs a decision" but left them off the §3 list put to the owner, so no decision was ever asked for. They are now in §0.6, step 3.
+- **XC-PRV-10, XC-PRV-11:** owner-approved in batch G, then moved to "pending owner" by the W8 plan. XC-PRV-10's code change (`data_collection: deny` on OpenRouter calls) needs no decision.
+- **ADM-09 / the admin half of OPS-05:** three documents give three states: backlog batch E; W8 §3 "owner decision"; DEVELOPER_INPUTS D8. Note that admin production reads the committed `admin/.env.production` plus a production fallback in `supabase.ts`, so scoping env vars in Vercel would not be enough on its own.
+- **BE-FN-09:** in backlog batch E, but its main half was fixed in #168.
+- **INT-PAR-08:** TECH_DEBT TD-33 still says "resolved".
+
+### 0.5 Open items by severity and impact
+
+**High (9). Each one is a money, privacy or release-safety risk.**
+
+| ID | Status | What is left | Next step |
+|---|---|---|---|
+| FE-MNY-04 | Partly | (1) Loan accounts whose debt was soft-deleted BEFORE v10.74.0 still count as a liability in net worth and Pip. They now appear in the Net Worth list, but nothing on Debts shows them and nothing removes them. This needs a production query and a one-off fix (archive them, or reconcile them to zero). (2) There is no way to correct a loan's outstanding to a lender statement withou… | Step 1 (S) |
+| FE-PUB-01 | Partly | Make the 'only the people you invite' claim true or qualify it. Either (a) remove `or is_admin('roles')` from activity_log_read, or stop the admin Audit page reading `changes` (redact or serve through an RPC), or (b) add one sentence on staff/operator access to Privacy.tsx and qualify about.js:31, for.js:165, landingCopy.ts:135 and llms.js:30. | Step 1 (S) |
+| BE-FN-07 | Partly | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | Step 1 (M) |
+| DB-SEC-03 | On hold (dev question) | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | Answer D4/D5 |
+| INT-TXN-01 | Partly | Editing keeps the split (#176). Deleting a split row still soft-deletes only the transaction: the shared split and its shares stay open (no closeSharedSplit on the delete path). Aurora A3 (#192) offers "Close it instead" on the Splits page, but Delete still leaves the shared split live. | Step 1 (S) |
+| INT-TXN-07 | Partly | Recurring EMIs moved onto their loans, and WhatsApp "paid … EMI" pays the loan. A WhatsApp correction ("no, that was loan emi") can still relabel a plain expense as loan_emi: neither the webhook correctLast nor whatsapp_correct_last refuses it. Same fix as BE-WA-08. | Step 1 (XS) |
+| OPS-01 | On hold (dev question) | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | Answer D8 |
+| OPS-06 | On hold (dev question) | Production error reporting and alerting. | Answer D9 |
+| XC-PRV-03 | Partly | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screens… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). |
+
+Plus **R1** (high, new): see §0.3.
+
+**Medium (65)**
+- *Ready to do (no decision):* FE-PIP-06, FE-PIP-07, FE-PIP-09, FE-PIP-11, BE-WA-08, BE-WA-06, BE-WA-09, BE-FN-09, FE-MNY-06 (half), FE-UIC-10, FE-UIS-03, FE-UIS-07, FE-UIS-10, ADM-03, DB-SEC-08, XC-PRV-08, XC-PRV-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11.
+- *Batch B, sync robustness:* FE-SYN-04, FE-SYN-05, FE-SYN-06, FE-SYN-07, FE-SYN-08, INT-TXN-10, INT-TXN-11, DB-OPS-10.
+- *Owner decision:* FE-MNY-08, FE-MNY-10, FE-UIC-08, FE-UIC-12, DB-INT-13, INT-TXN-12, XC-ARC-05, XC-PRV-10, XC-PRV-11, FE-PLT-04, FE-UIS-09, OPS-05.
+- *Developer questions:* DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, XC-ARC-13, OPS-08 (rest), FE-UIS-12 (reporting).
+- *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-INT-11, DB-SEC-06, DB-SEC-09, INT-HH-07, INT-HH-08, INT-HH-09, XC-PRV-12, OPS-11 (global ceiling).
+
+**Low (31) and info (3)**
+- *Ready to do:* FE-MNY-16, ADM-05, ADM-08, ADM-10, ADM-11, ADM-14, BE-FN-11, BE-PIP-04, BE-WA-12, DB-INT-14, DB-OPS-07, DB-OPS-09, INT-HH-13, INT-HH-14, INT-TXN-14, GATE-04, XC-ARC-10, XC-ARC-12, XC-ARC-14 (process), XC-PRV-14, DB-OPS-16, INT-PAR-11.
+- *Owner decision:* FE-MNY-12, FE-MNY-13, FE-SYN-13, BE-PIP-06, DB-INT-15, XC-ARC-07, XC-ARC-15, BE-FN-12, OPS-07.
+- *Backlog:* FE-PUB-08, INT-CON-07, INT-HH-06.
+
+### 0.6 Action plan
+
+**Step 1. Now: no decision needed, small, highest value.** One PR per group, with the usual gates.
+1. **R1, the erase regression** (high, XS, migration plus PGlite test). Ships before anything else.
+2. **Pip leftovers** (Pip is the current priority):
+   - FE-PIP-07: validate capture category ids;
+   - FE-PIP-11: the guard must not wave through "12 lakh" or "Rs 9";
+   - FE-PIP-06: a "data, never instructions" line plus an egress sentinel test;
+   - FE-PIP-09: stop writing client turn rows;
+   - BE-WA-08 / INT-TXN-07: the WhatsApp correction refuses Loan / EMI and checks the type allowlist.
+   All XS, with an engine rebuild.
+3. **Money correctness:**
+   - INT-TXN-01: deleting a split closes the shared split;
+   - FE-MNY-16 / R3: the forecast goes through `ruleOf`;
+   - FE-UIS-03: an onboarding re-run is idempotent;
+   - FE-UIC-10: dot-grouped decimals;
+   - FE-MNY-04: a reconcile action on Debts.
+   Each S.
+4. **Privacy and security:**
+   - ADM-03 rest (+ FE-PUB-01): roles-tier admins stop reading `activity_log.changes`;
+   - XC-PRV-08 / DB-SEC-08: erase covers every household table;
+   - BE-WA-06 / BE-WA-09 rest;
+   - R4: send the invite revoke on `visibilitychange` with `keepalive`, or revoke first and re-create on Undo;
+   - XC-PRV-10: `data_collection: deny`.
+5. **Accessibility:** FE-UIS-07 (put the four hand-rolled dialogs on `AccessibleDialog`, M) and FE-UIS-10 (a shortcuts off switch, XS).
+
+**Step 2. Production checks, for the owner (read-only, about 30 minutes).** See §0.7. The JWT `amr` check comes first: without `amr` timestamps, every erase and delete is refused.
+
+**Step 3. Decisions.** Each unlocks XS–M work.
+- *Developer questions (blank since 6 Oct; 12 findings):*
+  - D8, the release gate (OPS-01, INT-PAR-08);
+  - D10, a migration dry run plus an RLS test matrix (OPS-02/03/08, DB-SEC-10, XC-ARC-13);
+  - D4/D5, the production-only `upsert_budget` (DB-SEC-03 high, DB-OPS-03);
+  - D9, error reporting (OPS-06 high, DB-OPS-08, FE-UIS-12).
+  *Recommended order:* D8 and D10 first. They decide whether any release can be stopped before it hurts.
+- *Owner (22 findings):*
+  - split money model (FE-MNY-08, L);
+  - one essential-spend baseline (FE-MNY-10);
+  - one budget-progress basis (FE-UIC-08, FE-MNY-06 rest);
+  - asset types vs accounts and "free to spend" (FE-UIC-12, FE-MNY-12);
+  - "in credit" cards (FE-MNY-13);
+  - WhatsApp alias with two accounts (DB-INT-13, INT-TXN-12);
+  - local data on sign-in (FE-SYN-13);
+  - retire the Pip relay (BE-PIP-06);
+  - email confirmation (DB-INT-15);
+  - GA4 consent (XC-PRV-03 rest);
+  - Privacy: legal entity and grievance officer (XC-PRV-11);
+  - darker secondary text (FE-UIS-09);
+  - enforce the CSP (FE-PLT-04);
+  - Vercel env scoping (OPS-05) and a separate vyact-test token (OPS-07);
+  - lock-screen amounts (BE-FN-12);
+  - docs restructure (XC-ARC-05), the dormant SMS pipeline (XC-ARC-07), binaries out of the repo (XC-ARC-15);
+  - XC-PRV-04: `amr` vs the emailed-code nonce (§0.4b).
+- *Questions raised in PRs that are still unanswered:* #181, whether the Loan / EMI budget line should be the full EMI or the expected interest.
+
+**Step 4. Larger scheduled work.**
+- **Batch B, sync robustness** (8 findings, M–L): FE-SYN-04..08, INT-TXN-10/11, DB-OPS-10, as one PR train.
+- **Engineering hygiene:** XC-ARC-06/08/09/11, GATE-04, XC-ARC-10.
+- **Admin:** ADM-05/08/10/11/14.
+- **Database hygiene (W8e):** R6, INT-CON-07, INT-HH-06/DB-INT-11, FE-PUB-08. The owner deferred these on 8 Oct; ask again, because R6 is advisor-flagged.
+
+**Step 5. Backlog (17).** Confirm it is still "not now". One exception: ADM-04 carries the rest of D24 (see §0.4b) and should move to Step 1 with ADM-03.
+
+### 0.7 Post-merge checks and open questions raised in PRs
+
+**Verified live on 12 Oct.** Read-only requests to the public sites:
+- vyact.app serves v10.87.0 and sends `Content-Security-Policy-Report-Only`;
+- no `.map` is served for the app or the admin entry chunk (GATE-03, ADM-13);
+- `https://vyact.app/learn/a/b` returns **404** (FE-PUB-06);
+- `https://demo.vyact.app/learn` returns **307** to vyact.app (FE-PUB-05);
+- admin.vyact.app serves **v1.4.4** with an enforced CSP (W8c is live).
+
+**Needs the owner's accounts** (not confirmed by anyone yet):
+
+| Check | From |
+|---|---|
+| The old `sb_secret_` key returns 401 | XC-PRV-01, #165 |
+| `rpc('replace_memberships')` returns "function not found" | DB-SEC-01, #166 |
+| Production JWTs carry `amr` timestamps (otherwise erase and delete are refused) | #167, XC-PRV-04, INT-HH-03 |
+| The `whatsapp-retention` cron runs | XC-PRV-07, #167 |
+| Count the rows whose currency label differs from the household's (they now count at face value) | #170, INT-TZC-02/07 |
+| The `whatsapp-dispatch` cron reads `0,30 * * * *` | #169, INT-TZC-04 |
+| Weekly or yearly schedules created before 7 Oct may fire on the wrong day until re-saved | FE-MNY-01 |
+| Loan accounts orphaned before W4e still count as debt | FE-MNY-04, FE-UIC-06 |
+| Deletion requests scheduled before v10.63.0 | BE-FN-02 |
+| The WhatsApp smoke test: "50 tea", then ANSWERS OFF, then "1" | #187 |
+| Sign in to admin; open Content and Settings; check the console for CSP violations | #188 |
+
+**Declined or deferred, as recorded:**
+- the XC-PRV-14 history purge (declined, D1);
+- switching the CSP to enforced (after clean reports);
+- a separate vyact-test token (OPS-07).
 
 ## 1. Verdict
 
@@ -460,220 +718,220 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 
 ## 11. Findings index
 
-| ID | Severity | Area | Title | Verification | Known |
-|---|:---:|---|---|---|---|
-| DB-SEC-01 | CRITICAL | Database | replace_* bulk RPCs let any member, even a viewer or child, take over or wipe a household | confirmed (adversarial: confirmed) | TD-42 |
-| DB-SEC-02 | CRITICAL | Database | transfer_ownership's owner check passes for non-members (NULL <> 'owner'), letting anyone promote members | confirmed (adversarial: confirmed) | 2026-09 audit S2 |
-| XC-PRV-01 | CRITICAL | Cross-cutting | Production Supabase secret API key committed in git history (setup.sh) while the repo was public | confirmed (adversarial: confirmed) |  |
-| FE-MNY-01 | HIGH | Frontend | Recurring engine ignores the schedule the user chose: weekday, yearly date, nth-weekday and COUNT never reach it | confirmed (adversarial: confirmed) |  |
-| FE-MNY-04 | HIGH | Frontend | Deleting or editing a debt leaves its loan account's liability in net worth, with no UI to correct it | confirmed (adversarial: confirmed) |  |
-| FE-PIP-01 | HIGH | Frontend | Pip compares annual budget limits with ONE month's spend (affordability verdict, lookup, status) | confirmed (adversarial: confirmed) |  |
-| FE-PIP-03 | HIGH | Frontend | 'Split' capture opens the plain transaction form, which drops the split: full bill booked as spend | confirmed (adversarial: confirmed) |  |
-| FE-PIP-04 | HIGH | Frontend | Facts that can be negative still go through money(), which drops the sign (net worth, headroom) | confirmed (adversarial: confirmed) |  |
-| FE-PUB-01 | HIGH | Frontend | Public privacy claims contradict the real access model ("Private" entries and platform-admin reads) | confirmed (adversarial: confirmed) | 2026-09 audit S3 (privacy-model clarification: excluded flag is not row-level privacy; roles admins read household tables) — still open, and now contradicted by public copy |
-| FE-SYN-01 | HIGH | Frontend | Cache restamps updated_at with the client clock, so later edits fail with false conflicts and get dead-lettered | confirmed (adversarial: confirmed) | 2026-09 audit F7 (partially fixed: fold-back + ack injection; still open via delta restamp and store copy) |
-| FE-SYN-03 | HIGH | Frontend | Offline writes after the token expires are stamped ownerUid=null and are never flushed | confirmed-with-caveats (adversarial: partial) | TD-35 |
-| FE-UIS-02 | HIGH | Frontend | Two-factor auth is decorative: no AAL2 step at sign-in, TOTP secret sent to Google Charts | confirmed (adversarial: confirmed) | TD-15 |
-| FE-UIS-04 | HIGH | Frontend | Bell 'Skip once' on a stale bill notification skips the NEXT occurrence; stale 'Approve' falsely toasts | confirmed (adversarial: confirmed) |  |
-| ADM-01 | HIGH | Admin | Stored XSS on vyact.app: CMS category/slug break out of the inline script on /learn/<slug> | confirmed (adversarial: confirmed) | 2026-09 audit S4 (partially fixed: JSON-LD boundary hardened; the inline-script and href sinks remain, and the CSP S4 asked for was never added) |
-| ADM-02 | HIGH | Admin | God-mode admin access has no MFA/AAL2 requirement and no session limit, client or server | confirmed (adversarial: confirmed) | 2026-09 audit 7.1 — still open as described |
-| BE-FN-02 | HIGH | Backend | Scheduled 30-day deletion never executes, and signing in after the deadline silently cancels it | confirmed (adversarial: confirmed) | 2026-09 audit S6 ('Scheduled deletion is not demonstrably automated'). Confirmed still open. The post-deadline cancellation is new. |
-| BE-FN-07 | HIGH | Backend | One failing push endpoint aborts the whole web-push dispatch, which also does not scale | confirmed (adversarial: confirmed) |  |
-| BE-WA-01 | HIGH | Backend | Removed members keep WhatsApp read access: Pip answers and scheduled pushes skip membership checks | confirmed (adversarial: confirmed) | 2026-09 audit S1 (partially resolved: write RPCs revalidate membership; WhatsApp reads and proactive sends still do not) |
-| DB-INT-05 | HIGH | Database | erase_household_data always rolls back: its own audit insert violates the activity_log CHECK | confirmed (adversarial: confirmed) | 2026-09 audit S6 (the onboarding cause is fixed; this second cause is still open) |
-| DB-SEC-03 | HIGH | Database | upsert_budget/replace_budgets ON CONFLICT (id) DO UPDATE has no household guard: cross-household budget overwrite and read | confirmed (adversarial: confirmed) |  |
-| INT-HH-03 | HIGH | Integration | Account deletion erases data, then fails on auth-user foreign keys and cannot be retried | confirmed (adversarial: confirmed) |  |
-| INT-PAR-01 | HIGH | Integration | Server engine replaces the default FX rates with saved ones; the app merges them, so foreign rows convert at 1 | confirmed (adversarial: confirmed) |  |
-| INT-TXN-01 | HIGH | Integration | Editing a split from Transactions/Dashboard erases the split; deleting it there leaves the shared split live | confirmed (adversarial: confirmed) |  |
-| INT-TXN-04 | HIGH | Integration | computeNextDueDate overflows month-end: schedules on the 29th–31st skip whole months | confirmed (adversarial: confirmed) |  |
-| INT-TXN-05 | HIGH | Integration | 'Daily' schedules violate both DB CHECKs: never sync, post device-only money every day | confirmed (adversarial: confirmed) | TD-31 (related: the multi-leg recurring event is not atomic) |
-| INT-TXN-06 | HIGH | Integration | Recurring engine runs on stale cache and writes last-write-wins: reposts deleted bills, reverts edits | confirmed (adversarial: confirmed) |  |
-| INT-TXN-07 | HIGH | Integration | loan_emi stored as a plain full-amount expense by recurring, WhatsApp log and WhatsApp correct | confirmed (adversarial: confirmed) | 2026-09 audit F2 (fixed for the form; still open for these writers) |
-| INT-TZC-02 | HIGH | Integration | Base-currency change relabels account opening balances and offsets without converting them | confirmed (adversarial: confirmed) | 2026-09 audit F4 (account-balance units are not explicit) — still open; R1 formalised the relabel instead of fixing it |
-| INT-TZC-03 | HIGH | Integration | Client 'today' and 'this month' are UTC, so entries, bills and month boundaries use the wrong local day | confirmed (adversarial: confirmed) |  |
-| OPS-01 | HIGH | Platform & Ops | Production release is ungated: Vercel ships the app regardless of CI, migrations or Edge deploy | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 (still open); TD-33 (marked resolved, regressed when the consumer job was removed) |
-| OPS-06 | HIGH | Platform & Ops | No production observability: faults go nowhere, cron/pg_net results unchecked, no alerting | confirmed (adversarial: confirmed) | 2026-09 audit 10.4 (still open, now worse: the in-app transport is gone); TD-43 |
-| XC-PRV-03 | HIGH | Cross-cutting | Session replay (Contentsquare) and Userback screenshots run on every finance screen, undisclosed, no consent | confirmed (adversarial: confirmed) |  |
-| FE-MNY-06 | MEDIUM | Frontend | Dashboard insight chips use the static asset/debt arrays and raw budgets, contradicting the net-worth card | confirmed (adversarial: confirmed) | 2026-09 audit F3/F5 (partially open: NW card fixed, insight chips not) |
-| FE-MNY-08 | MEDIUM | Frontend | Split expenses debit only 'your share' from the paying account, so bank balances and reconciliations drift | confirmed (adversarial: confirmed) |  |
-| FE-MNY-10 | MEDIUM | Frontend | Essential and typical monthly spend have two definitions: Pip and Net Worth disagree with the Reports runway | confirmed (adversarial: confirmed) |  |
-| FE-PIP-02 | MEDIUM | Frontend | Model-chosen purchase amount is never checked against the user's words; entities are untyped | confirmed-with-caveats (adversarial: partial) |  |
-| FE-PIP-05 | MEDIUM | Frontend | A stated period is silently replaced by 'this month' for diagnostic, budget and advice questions | confirmed-with-caveats (adversarial: partial) |  |
-| FE-PIP-06 | MEDIUM | Frontend | Recurring bill descriptions egress to the model via vars.detail, and stored text is not fenced as data | confirmed (adversarial: confirmed) |  |
-| FE-PIP-07 | MEDIUM | Frontend | Capture seeds the model's raw category word, so invalid ids like 'fuel' get saved | confirmed-with-caveats (adversarial: partial) |  |
-| FE-PIP-08 | MEDIUM | Frontend | 'What's my balance' headline calls total assets (house, car, investments) money 'across your accounts' | confirmed (adversarial: confirmed) |  |
-| FE-PIP-09 | MEDIUM | Frontend | Every chat turn writes an extra backend='llm' ai_usage row that eats the quota and skews metering | confirmed (adversarial: confirmed) | 2026-09 audit A2 (householdId omission still open; reservation itself fixed) |
-| FE-PIP-10 | MEDIUM | Frontend | Pip mixes UTC month keys with local day windows; the WhatsApp engine runs in UTC | confirmed (adversarial: confirmed) |  |
-| FE-PIP-11 | MEDIUM | Frontend | Figure guard: small-number exemption ignores currency and magnitude ('12 lakh' passes) | confirmed (adversarial: confirmed) | 2026-09 audit A1 (partially fixed: 100 removed and the year band guarded; the HARMLESS and magnitude hole remains) |
-| FE-PLT-01 | MEDIUM | Frontend | Post-sign-in open redirect: SignIn.tsx ignores safeNext, and safeNext itself is bypassable | confirmed (adversarial: confirmed) |  |
-| FE-PLT-04 | MEDIUM | Frontend | No Content-Security-Policy on vyact.app, /learn or admin, while session tokens sit in localStorage | confirmed (adversarial: confirmed) | 2026-09 audit S4 (CSP half still open; the JSON-LD escaping half is fixed in api/_page.js:23) |
-| FE-PUB-04 | MEDIUM | Frontend | Service worker answers /v/<n> video short links with the app shell, not the lesson redirect | confirmed (adversarial: confirmed) |  |
-| FE-SYN-04 | MEDIUM | Frontend | Sign-out and epoch purge miss allocations, net worth history, onboarding and dead-letter keys | confirmed (adversarial: confirmed) | 2026-09 audit S5 (partially addressed) |
-| FE-SYN-05 | MEDIUM | Frontend | Dead-letter buckets are device-wide and the retry cap is 30 seconds, so Dismiss can delete other users' writes | confirmed (adversarial: confirmed) | TD-10 |
-| FE-SYN-06 | MEDIUM | Frontend | refresh() and store writes race: a stale snapshot can erase a just-saved entry from the store | confirmed (adversarial: confirmed) |  |
-| FE-SYN-07 | MEDIUM | Frontend | Delta sync can miss rows for good and reports fresh after reading only one 500-row page | confirmed (adversarial: confirmed) | 2026-09 audit F8 (partially fixed: keyset cursor + drained full list; delta still single-page) |
-| FE-SYN-08 | MEDIUM | Frontend | "Synced · just now" is stamped on cache-only reads even when every cloud pull fails | confirmed (adversarial: confirmed) | 2026-09 audit F8 (lastSyncedAt item still open as described) |
-| FE-UIC-04 | MEDIUM | Frontend | fmt() drops the sign: overdrafts, negative nets and negative net worth render as positive | confirmed (adversarial: confirmed) |  |
-| FE-UIC-05 | MEDIUM | Frontend | Transaction edit picks the account from stale extras.paymentMethod and clears the FK | confirmed (adversarial: confirmed) |  |
-| FE-UIC-06 | MEDIUM | Frontend | Debts page and Net Worth liabilities list bypass the canonical projection | confirmed (adversarial: confirmed) | 2026-09 audit F3 (fixed for Dashboard/Ask; still open on Debts page and the Net Worth liabilities list) |
-| FE-UIC-07 | MEDIUM | Frontend | DTI and 'Kept this month' ratios use all-time income and a fake 1 when income is zero | confirmed (adversarial: confirmed) |  |
-| FE-UIC-08 | MEDIUM | Frontend | Three screens compute 'budget left/over' on different bases | confirmed (adversarial: confirmed) | 2026-09 audit F5 (related; allocation consistency) |
-| FE-UIC-09 | MEDIUM | Frontend | Edit forms rebuild rows from form fields, erasing loan tenure, payment log and links | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F7 (still open for Debt/Split/Asset forms; transactions now carry updated_at) |
-| FE-UIC-10 | MEDIUM | Frontend | Amount inputs strip the decimal comma: '12,50' is saved as 1250 | confirmed (adversarial: confirmed) |  |
-| FE-UIC-12 | MEDIUM | Frontend | Net Worth and Debts forms invite re-entering Accounts money; spendable figures diverge | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F3 (structural remainder) |
-| FE-UIC-13 | MEDIUM | Frontend | Recurring Save has no in-flight guard or error handling; a double tap duplicates schedules | confirmed (adversarial: confirmed) |  |
-| FE-UIS-03 | MEDIUM | Frontend | Re-running onboarding relabels household currency, duplicates bill schedules, and half-commits on error | confirmed-with-caveats (adversarial: partial) |  |
-| FE-UIS-06 | MEDIUM | Frontend | Settings saves household settings optimistically for non-owners; values revert, profile email is never saved | confirmed (adversarial: confirmed) |  |
-| FE-UIS-07 | MEDIUM | Frontend | Notifications, household switcher, account menu and ⌘K are modal dialogs without focus trap or focus return | confirmed (adversarial: confirmed) |  |
-| FE-UIS-08 | MEDIUM | Frontend | Toasts are silent to screen readers and vanish in 3.2s; bottom banners cover the tab bar and Save | confirmed (adversarial: confirmed) |  |
-| FE-UIS-09 | MEDIUM | Frontend | Aurora secondary text and status colours fail WCAG AA contrast, most in light theme | confirmed (adversarial: confirmed) |  |
-| FE-UIS-10 | MEDIUM | Frontend | Single-key shortcuts n/b/d/a ignore modifiers (hijack Cmd+A, Ctrl+D) and cannot be turned off | confirmed (adversarial: confirmed) |  |
-| FE-UIS-11 | MEDIUM | Frontend | Onboarding's estimated cash balance shows as confirmed; hardcoded '35% confirmed'; nudge sells bank sync | confirmed (adversarial: confirmed) |  |
-| FE-UIS-12 | MEDIUM | Frontend | One root ErrorBoundary: no reporting, 'Try Again' re-throws, no chunk-load recovery; e2e route live | confirmed (adversarial: confirmed) | TD-05 |
-| FE-UIS-13 | MEDIUM | Frontend | Password change needs no re-auth (Settings, /auth/reset), unlike Danger Zone; instant delete keeps session | confirmed (adversarial: confirmed) |  |
-| ADM-03 | MEDIUM | Admin | 'roles' admins hold raw SELECT on every household's ledger; no admin page needs it | confirmed (adversarial: confirmed) | 2026-09 audit S3 privacy note and 7.1 'least-privilege RPCs instead of broad financial-table access' — still open |
-| ADM-04 | MEDIUM | Admin | No audit trail of admin actions; 'Audit Log' is a deletable household changelog the Help page misdescribes | confirmed (adversarial: confirmed) | 2026-09 audit 7.1 ('Audited sensitive reads', 'Access review and revocation procedures') — still open |
-| ADM-06 | MEDIUM | Admin | Content-tier admins see every Pip user's email and per-user sentiment profile | confirmed (adversarial: confirmed) |  |
-| ADM-07 | MEDIUM | Admin | Client role matrix contradicts server gates; tests cover only the client, never RLS/RPC | confirmed (adversarial: confirmed) | 2026-09 audit 7.5 — partially addressed (client gating tests added); server-side authorization tests still missing |
-| ADM-09 | MEDIUM | Admin | Admin builds always target production, so every branch preview runs unreviewed code on prod | confirmed (adversarial: confirmed) |  |
-| BE-FN-04 | MEDIUM | Backend | Owner deletion destroys co-members' households through a non-atomic sequence of deletes | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S6 (items 3 'shared-household rules' and 4 'transactional purge'). Still open. |
-| BE-FN-06 | MEDIUM | Backend | send-split-email is an open spam/phishing relay from hello@vyact.app, with HTML injection via currency | confirmed-with-caveats (adversarial: partial) | 2026-09 audit §8.5 (spam and rate limits). Still open. The HTML injection and the brand-domain sender are new. |
-| BE-FN-09 | MEDIUM | Backend | People added to a split while editing are promised an invite that is never sent | confirmed (adversarial: confirmed) |  |
-| BE-PIP-02 | MEDIUM | Backend | ask-vyact is a general LLM proxy: client-built system prompts, per-user cap is the only spend control | confirmed (adversarial: confirmed) | 2026-09 audit A3 |
-| BE-PIP-03 | MEDIUM | Backend | ai_usage spend gate is client-writable, and client rows eat the gateway quota | confirmed (adversarial: confirmed) | 2026-09 audit A2 |
-| BE-WA-03 | MEDIUM | Backend | Replies to pending questions are re-parsed as new ledger entries after a retry or a lost pending turn | confirmed (adversarial: confirmed) |  |
-| BE-WA-04 | MEDIUM | Backend | Webhook returns 200 to Meta even when the inbox row was not stored, so the message is lost | confirmed (adversarial: confirmed) |  |
-| BE-WA-06 | MEDIUM | Backend | OTP attempt limit is bypassable by parallel requests and resets on every resend | confirmed (adversarial: confirmed) |  |
-| BE-WA-07 | MEDIUM | Backend | whatsapp-notify lets any member send any template, with arbitrary text and button payloads, from Vyact's number | confirmed (adversarial: confirmed) |  |
-| BE-WA-08 | MEDIUM | Backend | "No, that was X" can give an entry the wrong category type, and allows Loan/EMI | confirmed (adversarial: confirmed) |  |
-| BE-WA-09 | MEDIUM | Backend | STOP and other consent/state writes ignore Supabase errors yet reply "Done" | confirmed (adversarial: confirmed) |  |
-| DB-INT-09 | MEDIUM | Database | Account and asset tombstones are not enforced: in-use and cash accounts can be deleted, and live rows land on deleted ones | confirmed (adversarial: confirmed) |  |
-| DB-INT-11 | MEDIUM | Database | No unique (household_id, user_id) on memberships; invite accept and member limit race | confirmed (adversarial: confirmed) |  |
-| DB-INT-13 | MEDIUM | Database | WhatsApp account alias matches by kind with 'limit 1', booking money to an arbitrary account | confirmed (adversarial: confirmed) |  |
-| DB-OPS-03 | MEDIUM | Database | Repo no longer reproduces prod: budget owner/admin guard and other objects exist only in prod | confirmed (adversarial: confirmed) | TD-20 |
-| DB-OPS-08 | MEDIUM | Database | Scheduler runs are unobservable, and web-push re-reads every subscribed ledger every 15 minutes | confirmed-with-caveats (adversarial: partial) |  |
-| DB-OPS-10 | MEDIUM | Database | Delta-sync cursor relies on updated_at = now(), so out-of-order commits are skipped forever | confirmed (adversarial: confirmed) | 2026-09 audit F8 |
-| DB-OPS-12 | MEDIUM | Database | Documented pg_dump --no-privileges restore strips every REVOKE the security model depends on | confirmed-with-caveats (adversarial: partial) | TD-16 |
-| DB-SEC-06 | MEDIUM | Database | Any member, even a viewer, can insert P1 notifications that web-push sends to every member's lock screen | confirmed (adversarial: confirmed) |  |
-| DB-SEC-08 | MEDIUM | Database | erase_household_data: email-code gate is client-only, and the erase misses message text and notifications | confirmed (adversarial: confirmed) | 2026-09 audit S6 |
-| DB-SEC-09 | MEDIUM | Database | Tenant-consistency triggers (S3) skip asset_id, initiated_by, schedule and account links | confirmed (adversarial: confirmed) | 2026-09 audit S3 |
-| DB-SEC-10 | MEDIUM | Database | No database authorization test suite: RLS and RPC role/tenant matrix untested | confirmed (adversarial: confirmed) |  |
-| INT-HH-07 | MEDIUM | Integration | Owners and admins can add any user to a household without consent and read their profile | confirmed (adversarial: confirmed) | 2026-09 audit S2 ('whether user identity and household linkage can change' still open) |
-| INT-HH-08 | MEDIUM | Integration | Household settings permissions disagree with RLS; partial writes and unhandled errors | confirmed-with-caveats (adversarial: partial) |  |
-| INT-HH-09 | MEDIUM | Integration | Invite acceptance is not atomic or single-use; stale tokens and legacy RPCs linger | confirmed (adversarial: confirmed) |  |
-| INT-HH-12 | MEDIUM | Integration | 'Child (own data only)' invite role can read the whole household's finances | confirmed (adversarial: confirmed) |  |
-| INT-PAR-02 | MEDIUM | Integration | Client computeNextDueDate uses local-time setters; wrong in DST and negative-offset zones, unlike the UTC server port | confirmed (adversarial: confirmed) |  |
-| INT-PAR-04 | MEDIUM | Integration | Three clocks: UTC today(), host-local getters (UTC on Deno) and IST localDay produce different days | confirmed (adversarial: confirmed) |  |
-| INT-PAR-05 | MEDIUM | Integration | stale_balance push rule flags never-stamped accounts as stale and ignores last_reconciled_at | confirmed (adversarial: confirmed) |  |
-| INT-PAR-06 | MEDIUM | Integration | WhatsApp currency detection diverges from the app: 'dollars', 'euros', 'quid' are logged in base currency | confirmed (adversarial: confirmed) |  |
-| INT-PAR-08 | MEDIUM | Integration | Deployed engine bundle can drift from the app: Edge deploy is neither gated on CI nor checks the bundle | confirmed (adversarial: confirmed) | TD-33 |
-| INT-TXN-08 | MEDIUM | Integration | Rejected writes are retried as transient, then dead-lettered while the optimistic row stays forever | confirmed-with-caveats (adversarial: partial) | TD-10 (retry cap resolved; terminal-error handling and rollback still open) |
-| INT-TXN-10 | MEDIUM | Integration | Delta sync still not guaranteed current: pulls overwrite pending local writes; commit-order cursor gap | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F8 (pagination and composite cursor fixed; 'overlay pending local writes' still open; commit-order gap new) |
-| INT-TXN-11 | MEDIUM | Integration | Split sharing is a separate online write that races the queued transaction and is never retried | confirmed (adversarial: confirmed) | 2026-09 audit 8.5 (still open) |
-| INT-TXN-12 | MEDIUM | Integration | WhatsApp correction checks category fit against the wrong message; alias by kind picks arbitrary account | confirmed (adversarial: confirmed) |  |
-| INT-TZC-04 | MEDIUM | Integration | WhatsApp: untagged entries use the database's UTC current_date while 'yesterday' uses IST; dispatch hard-codes IST | confirmed (adversarial: confirmed) |  |
-| INT-TZC-05 | MEDIUM | Integration | Due-day P1 pushes raised at 05:30 IST land in the default quiet hours and are then marked sent | confirmed (adversarial: confirmed) | TD-22 (resolved v10.48.0) — this is a new defect in its implementation |
-| INT-TZC-07 | MEDIUM | Integration | FX uses a hard-coded, undated 2024 rate table and revalues historical foreign rows at today's rate | confirmed (adversarial: confirmed) | 2026-09 audit F4 ('Decide whether historical reporting uses transaction-date FX or current valuation FX'; 'Reject unknown currency/rate data') — still open; the ad hoc FX math in Transactions/aiSummary is fixed |
-| OPS-02 | MEDIUM | Platform & Ops | Migrations first run against production: no CI apply, no dry run, no automatic backup | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 / 10.2 (database migration validation); TD-02 (integration layer open) |
-| OPS-03 | MEDIUM | Platform & Ops | `db push --include-all` applies out-of-order migrations, so 'last filename wins' can be false in prod | confirmed (adversarial: confirmed) |  |
-| OPS-04 | MEDIUM | Platform & Ops | send-split-email and delete-account are never deployed by the pipeline; v10.59/v10.60 fixes not shipped | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 (Edge manifest omission, still open) |
-| OPS-05 | MEDIUM | Platform & Ops | Preview guard is skipped when VITE_SUPABASE_URL is 'All Environments'; admin previews use prod | confirmed-with-caveats (adversarial: partial) |  |
-| OPS-08 | MEDIUM | Platform & Ops | RLS isolation covers 3 of ~40 tables, PR-only, against a hand-synced schema; INV-7 still untested | confirmed-with-caveats (adversarial: partial) | TD-19 (Lane B partially delivered); TD-31 (open); 2026-09 audit 10.2 |
-| OPS-11 | MEDIUM | Platform & Ops | LLM spend guard is per-user only and fails open if the cap env is unset or invalid | confirmed-with-caveats (adversarial: partial) | 2026-09 audit A2 (atomicity fixed; global ceiling and fail-closed config not addressed) |
-| XC-ARC-05 | MEDIUM | Cross-cutting | Binding docs contradict themselves and send AI sessions to stale documents | confirmed (adversarial: confirmed) | TD-28 (marked resolved 2026-06-17; regressed), TD-41 (open) |
-| XC-ARC-06 | MEDIUM | Cross-cutting | Bundled engine left hand ports live: server money, recurring and budget alerts are duplicated | confirmed-with-caveats (adversarial: partial) |  |
-| XC-ARC-08 | MEDIUM | Cross-cutting | 'Retired' Money Map flag still picks the transaction account picker; e2e tests the legacy path | confirmed-with-caveats (adversarial: partial) |  |
-| XC-ARC-09 | MEDIUM | Cross-cutting | Edge Functions (12k lines of Deno TS) are never type-checked or linted | confirmed (adversarial: confirmed) | TD-32 / TD-30 (partially; the missing Deno type-check is not recorded) |
-| XC-ARC-11 | MEDIUM | Cross-cutting | The 'never a silent write-loss catch {}' rule has no enforcement: 110 empty catches, 7 on writes | confirmed-with-caveats (adversarial: partial) | TD-24 (marked resolved; rule not enforced) |
-| XC-ARC-13 | MEDIUM | Cross-cutting | Test effort sits away from risk: 1,390 unit cases, 5 SQL tests, 10 optional cloud tests | confirmed (adversarial: confirmed) | TD-31, TD-19, TD-32 (open) |
-| XC-PRV-02 | MEDIUM | Cross-cutting | Recipient email and household-invite bearer tokens sent to GA4/Contentsquare via page URLs | confirmed-with-caveats (adversarial: partial) |  |
-| XC-PRV-04 | MEDIUM | Cross-cutting | Email-code re-auth for erase/delete is client-side only; any session can wipe data immediately | confirmed (adversarial: confirmed) |  |
-| XC-PRV-07 | MEDIUM | Cross-cutting | WhatsApp message content and phone numbers are retained forever and survive unlink, erase and deletion | confirmed (adversarial: confirmed) |  |
-| XC-PRV-08 | MEDIUM | Cross-cutting | 'Erase household data' and the data export cover only the core ledger tables | confirmed (adversarial: confirmed) | 2026-09 audit S6 (household erasure) — onboarding bug fixed; table coverage still incomplete |
-| XC-PRV-09 | MEDIUM | Cross-cutting | Consent record is unreliable: wrong version stored, errors swallowed, Google sign-in skips it | confirmed (adversarial: confirmed) |  |
-| XC-PRV-10 | MEDIUM | Cross-cutting | Pip questions and figures routed through OpenRouter with no provider data policy enforced | confirmed-with-caveats (adversarial: partial) |  |
-| XC-PRV-11 | MEDIUM | Cross-cutting | Privacy notice lacks DPDP/GDPR basics: controller, grievance contact, breach process, child accounts | confirmed-with-caveats (adversarial: partial) |  |
-| XC-PRV-12 | MEDIUM | Cross-cutting | resolve_participant_names lets any signed-up user bulk-test emails and learn real names | confirmed (adversarial: confirmed) |  |
-| FE-MNY-11 | LOW | Frontend | CSV export writes user and WhatsApp-sourced text without neutralising formulas (CSV injection) | confirmed (adversarial: confirmed) |  |
-| FE-MNY-12 | LOW | Frontend | Archived accounts with a balance count in net worth and Pip's liquid figure but drop out of 'Spendable now' | not independently verified (low/info) |  |
-| FE-MNY-13 | LOW | Frontend | Card reconcile forces every stated value negative, so an overpaid (credit) card cannot be recorded | not independently verified (low/info) |  |
-| FE-MNY-14 | LOW | Frontend | Planner 'income varies' rule includes the partial current month and flags stable earners early each month | not independently verified (low/info) |  |
-| FE-MNY-15 | LOW | Frontend | 'Full backup' omits accounts, allocations and recurring schedules, so balances cannot be rebuilt from it | not independently verified (low/info) | TD-16 (exports, different aspect) |
-| FE-MNY-16 | LOW | Frontend | Budget suggestion and forecast sum mixed currencies, inactive schedules and receivables | not independently verified (low/info) |  |
-| FE-PIP-12 | LOW | Frontend | Category 'usual month' includes the current partial month and later months for past-period lookups | not independently verified (low/info) |  |
-| FE-PIP-13 | LOW | Frontend | No-history runway and cover use sentinel figures (burn = EMI + 1; 0.0 months 'thin cushion') | not independently verified (low/info) |  |
-| FE-PIP-14 | LOW | Frontend | Per-bill amounts in Pip ignore the schedule's currency | not independently verified (low/info) |  |
-| FE-PIP-15 | LOW | Frontend | Account matching falls back to the first card of any bank when the stated tail doesn't match | not independently verified (low/info) |  |
-| FE-PIP-16 | LOW | Frontend | No client abort or timeout: Stop and New chat leave model calls and 5-minute relay polling running | not independently verified (low/info) | TD-44 (relay part) |
-| FE-PIP-17 | LOW | Frontend | Switching household while /chat is mounted writes the old transcript under the new household | not independently verified (low/info) | 2026-09 audit S5 (household-scoped transcript, partially fixed) |
-| FE-PIP-18 | LOW | Frontend | Browser authors the system prompts; dead FEATURES.askVyact.backend 'rules' config misdescribes Pip | not independently verified (low/info) | 2026-09 audit A3 (still open) |
-| FE-PLT-07 | LOW | Frontend | Signed-in visit to an invite link joins the household instantly with no confirmation | not independently verified (low/info) |  |
-| FE-PLT-08 | LOW | Frontend | Passive sign-out (expired or revoked session) leaves push registered to the previous user | not independently verified (low/info) |  |
-| FE-PLT-11 | LOW | Frontend | Platform config hygiene: stale root vercel.json, self-dependency, dead deps and a test route in prod | not independently verified (low/info) | TD-38 (dependency advisories untriaged; still open) |
-| FE-PUB-03 | LOW | Frontend | Learn handler: no upstream timeout, empty library cached a day, bad source_url 503s a lesson | confirmed-with-caveats (adversarial: partial) |  |
-| FE-PUB-05 | LOW | Frontend | Guest demo's other address serves indexable public pages and reads the production DB | not independently verified (low/info) |  |
-| FE-PUB-06 | LOW | Frontend | Soft-200 app shell still served for multi-segment /learn/*, /for/* and any dotted path | not independently verified (low/info) |  |
-| FE-PUB-07 | LOW | Frontend | Vercel ignoreCommand diffs only HEAD^..HEAD, so a push ending in a docs-only commit skips deploy | not independently verified (low/info) |  |
-| FE-PUB-08 | LOW | Frontend | Anon content policy exposes every column of published rows, including author_id user UUIDs | not independently verified (low/info) |  |
-| FE-PUB-10 | LOW | Frontend | Landing pre-render decides cloud mode from env alone and uses $-sensitive String.replace | not independently verified (low/info) |  |
-| FE-PUB-11 | LOW | Frontend | Learn topic pill uses raw var(--coral) on an HSL triplet token (binding Aurora rule) | not independently verified (low/info) |  |
-| FE-SYN-10 | LOW | Frontend | Switching user without signing out keeps the previous user's ledger loaded and never purges | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S5 ('Switching users on the same browser' not handled) |
-| FE-SYN-11 | LOW | Frontend | Outbox flush polls every 100 ms while an entity's first op waits out a backoff | not independently verified (low/info) |  |
-| FE-SYN-12 | LOW | Frontend | A failed cache read becomes [] and the next write saves it back, truncating the cache | not independently verified (low/info) |  |
-| FE-SYN-13 | LOW | Frontend | Anonymous to cloud import is dead: the sign-in purge deletes the local data it would import | not independently verified (low/info) |  |
-| FE-UIC-14 | LOW | Frontend | Reconcile sheet announces adjustments the reconcile engine silently changes | not independently verified (low/info) |  |
-| FE-UIC-15 | LOW | Frontend | Account ledger running balance ignores when reconcile offsets were applied | not independently verified (low/info) |  |
-| FE-UIC-16 | LOW | Frontend | Transaction rows label first-class accounts 'Linked account' or 'Credit card' | not independently verified (low/info) |  |
-| FE-UIC-17 | LOW | Frontend | List and calendar aggregates bypass the reportable/effective-amount rules | not independently verified (low/info) | 2026-09 audit F4 (FX part fixed for list nets; still open in TxnCalendar) |
-| FE-UIS-14 | LOW | Frontend | Unlabelled form controls and missing autocomplete in households, onboarding, MFA and auth | not independently verified (low/info) |  |
-| FE-UIS-15 | LOW | Frontend | Language setting offers 6 languages but translates ~10 nav strings and never sets <html lang> | not independently verified (low/info) |  |
-| FE-UIS-16 | LOW | Frontend | Hygiene: dead modules, typeless Buttons in forms, raw HOUSEHOLD_FULL text, expired invites block | not independently verified (low/info) |  |
-| ADM-05 | LOW | Admin | Content-tier admins can rewrite global needs/wants classification, changing every family's floor | confirmed-with-caveats (adversarial: partial) |  |
-| ADM-08 | LOW | Admin | Admin lists load whole tables unpaginated; PostgREST max-rows silently truncates counts | confirmed-with-caveats (adversarial: partial) | 2026-09 audit 7.2 — still open as described |
-| ADM-10 | LOW | Admin | Infographic deleted from storage before the content save is validated or committed | not independently verified (low/info) |  |
-| ADM-11 | LOW | Admin | Every edit of a published item resets published_at and writes the editor's email as author | not independently verified (low/info) |  |
-| ADM-12 | LOW | Admin | Settings shows state it does not check: DB 'connected', GA4 'connected', stale versions | not independently verified (low/info) | 2026-09 audit 7.4 — partially fixed (security rows relabelled 'planned'); the database, GA4 and version assertions remain |
-| ADM-13 | LOW | Admin | Admin host has no CSP and publishes full source maps while holding god-mode JWT | not independently verified (low/info) |  |
-| ADM-14 | LOW | Admin | Revenue KPIs mix currencies and statuses: MRR summed across currencies, labelled USD | not independently verified (low/info) |  |
-| BE-FN-11 | LOW | Backend | Deployment and auth config for these functions is not codified; cron hardcodes the prod URL | not independently verified (low/info) | 2026-09 audit §10.1 (Edge Functions missing from the deploy manifest). Still open. |
-| BE-PIP-04 | LOW | Backend | Untrusted learned recipes are written without confirmation, and one user can promote a global recipe | confirmed-with-caveats (adversarial: partial) |  |
-| BE-PIP-05 | LOW | Backend | key_env_var denylist misses MAILERSEND_API_KEY; base_url host checks are bypassable | not independently verified (low/info) |  |
-| BE-PIP-06 | LOW | Backend | TEMPORARY Claude Code relay is still live, with no retention bound and an unauthenticated status endpoint | not independently verified (low/info) | TD-44 |
-| BE-PIP-07 | LOW | Backend | Gateway failures are silent in logs but over-share config details with end users | not independently verified (low/info) | TD-43 |
-| BE-WA-11 | LOW | Backend | A failed Meta send permanently uses up the dedupe slot; the daily cap check is racy | not independently verified (low/info) |  |
-| BE-WA-12 | LOW | Backend | Replay relies on unrelated traffic, and stale claims replay without limit | not independently verified (low/info) | TD-35 (webhook inbox recovery marked resolved in v10.40.0; the scheduler and stale-claim cap are still missing) |
-| BE-WA-13 | LOW | Backend | Numbered follow-ups still answer after ANSWERS OFF | not independently verified (low/info) |  |
-| DB-INT-14 | LOW | Database | Money CHECKs have NULL and allowlist gaps (budget scope, allocations, categories) | not independently verified (low/info) |  |
-| DB-INT-15 | LOW | Database | Split sharing matches on auth.users.email without requiring email_confirmed_at | not independently verified (low/info) |  |
-| DB-OPS-07 | LOW | Database | Every pg_cron job hard-codes the production URL; auto-generated secrets make test DBs call prod | confirmed-with-caveats (adversarial: partial) |  |
-| DB-OPS-09 | LOW | Database | RLS evaluates SECURITY DEFINER helpers per row; hot lookups lack indexes and some indexes are duplicated | confirmed (adversarial: confirmed) | TD-21 |
-| DB-OPS-14 | LOW | Database | Twin v91 migrations and stale process docs contradict the actual apply path | not independently verified (low/info) | TD-41 |
-| INT-CON-04 | LOW | Integration | replace_<entity> RPCs are schema-stale: cloud bulk-replace drops money-model columns / violates CK_txn_accounts_by_type | confirmed-with-caveats (adversarial: partial) | TD-09 |
-| INT-CON-05 | LOW | Integration | Category parity test covers only expense ids; income category drift is silent and unchecked | confirmed-with-caveats (adversarial: partial) |  |
-| INT-CON-06 | LOW | Integration | Admin app household-type enum omits 'couple' and keeps retired multi_biz/shared | not independently verified (low/info) |  |
-| INT-CON-07 | LOW | Integration | leave_household shares the same NULL-role guard idiom as transfer_ownership | not independently verified (low/info) |  |
-| INT-HH-06 | LOW | Integration | Owner continuity not enforced: households can be left with no owner | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S2 (owner continuity still open) |
-| INT-HH-13 | LOW | Integration | After leaving or deleting a household, the app stays on a household the user is no longer in | not independently verified (low/info) |  |
-| INT-HH-14 | LOW | Integration | Admin Households page has a stale type list and member counts that cap at 1,000 rows | not independently verified (low/info) |  |
-| INT-PAR-10 | LOW | Integration | Same event, different figures across channels: split large-spend alert and budget percentage rounding | not independently verified (low/info) |  |
-| INT-TXN-14 | LOW | Integration | Audit trail loses the actor for server-side writers and records every delete as 'updated' | not independently verified (low/info) | TD-08 (resolved as 'populated'; actor/delete semantics gap new) |
-| INT-TZC-08 | LOW | Integration | WhatsApp currency detection checks only the first three-letter word, so 'tea 50 aed' logs ₹50 | not independently verified (low/info) |  |
-| GATE-03 | LOW | Platform & Ops | Public production build ships full source maps (87 maps, 8.3 MB) of the private codebase | observed (gate executed) |  |
-| GATE-04 | LOW | Platform & Ops | Unit tests do not type-check: ~43 errors incl. money-suite fixtures that no longer match types | observed (gate executed) | TD-30 (still open; now quantified at ~43 errors in 7 files) |
-| OPS-07 | LOW | Platform & Ops | Prod Supabase token reachable from non-main branches; no permissions block; actions pinned by tag | confirmed-with-caveats (adversarial: partial) |  |
-| OPS-09 | LOW | Platform & Ops | DEPLOY.md and OPERATIONS.md misdescribe the live pipeline and verify against an orphaned host | confirmed-with-caveats (adversarial: partial) | TD-41 (same class; these two docs not listed) |
-| OPS-13 | LOW | Platform & Ops | Build and CI hygiene: npm install on Vercel, unpinned Node, cancelled main runs, HEAD^-only skip | not independently verified (low/info) |  |
-| XC-ARC-07 | LOW | Cross-cutting | About 4,000 lines of dormant agent pipeline and retired feature paths still shipped and tested | confirmed-with-caveats (adversarial: partial) | TD-36 (partial; still open) |
-| XC-ARC-10 | LOW | Cross-cutting | Store actions write pre-await snapshots back to state, without a household guard | confirmed-with-caveats (adversarial: partial) | 2026-09 audit section 9 (code-style priorities 2 and 3; still open) |
-| XC-ARC-12 | LOW | Cross-cutting | Money model lives in CHECKs and prose; domain types and adapter generics do not encode it | confirmed-with-caveats (adversarial: partial) | 2026-09 audit sections 8.3/8.4 (still open) |
-| XC-ARC-14 | LOW | Cross-cutting | Release cadence outpaces stabilisation: 40 minor releases in 27 days, AI-heavy, one maintainer | confirmed-with-caveats (adversarial: partial) | TD-25 (resolved; regressed), TD-28 |
-| XC-ARC-15 | LOW | Cross-cutting | Repo carries 82 tracked binaries, duplicated handoffs and a 9.7k-line migration concat | not independently verified (low/info) | TD-41 (related) |
-| XC-PRV-14 | LOW | Cross-cutting | Personal data in tracked docs and screenshots; sensitive untracked files not gitignored | not independently verified (low/info) |  |
-| BE-FN-12 | INFO | Backend | Lock-screen pushes show payee names and amounts, with no option to hide them | not independently verified (low/info) |  |
-| DB-OPS-16 | INFO | Database | pg_trgm sits in public but nothing uses it; TD-34's stated blocker does not exist in the repo | not independently verified (low/info) | TD-34 |
-| INT-PAR-11 | INFO | Integration | Parity tests prove two copies agree in one process, not that server and browser agree in production | not independently verified (low/info) | TD-32 |
-| GATE-05 | INFO | Platform & Ops | npm audit: 22 (react) + 11 (admin) advisories still untriaged; all highs dev-only | observed (gate executed) | TD-38 (still open; count now 22 react / 11 admin) |
-| GATE-06 | INFO | Platform & Ops | Main entry chunk 615 KB (180 KB gz) exceeds Vite's 500 KB warning | observed (gate executed) |  |
+| ID | Severity | Area | Title | Verification | Known | Status (12 Oct) | PRs |
+|---|:---:|---|---|---|---|---|---|
+| DB-SEC-01 | CRITICAL | Database | replace_* bulk RPCs let any member, even a viewer or child, take over or wipe a household | confirmed (adversarial: confirmed) | TD-42 | Closed | #166 |
+| DB-SEC-02 | CRITICAL | Database | transfer_ownership's owner check passes for non-members (NULL <> 'owner'), letting anyone promote members | confirmed (adversarial: confirmed) | 2026-09 audit S2 | Closed | #166 |
+| XC-PRV-01 | CRITICAL | Cross-cutting | Production Supabase secret API key committed in git history (setup.sh) while the repo was public | confirmed (adversarial: confirmed) |  | Closed (decision) | #165 |
+| FE-MNY-01 | HIGH | Frontend | Recurring engine ignores the schedule the user chose: weekday, yearly date, nth-weekday and COUNT never reach it | confirmed (adversarial: confirmed) |  | Closed | #172, #173 |
+| FE-MNY-04 | HIGH | Frontend | Deleting or editing a debt leaves its loan account's liability in net worth, with no UI to correct it | confirmed (adversarial: confirmed) |  | Partly | #178, #179 |
+| FE-PIP-01 | HIGH | Frontend | Pip compares annual budget limits with ONE month's spend (affordability verdict, lookup, status) | confirmed (adversarial: confirmed) |  | Closed | #182 |
+| FE-PIP-03 | HIGH | Frontend | 'Split' capture opens the plain transaction form, which drops the split: full bill booked as spend | confirmed (adversarial: confirmed) |  | Closed | #176, #182 |
+| FE-PIP-04 | HIGH | Frontend | Facts that can be negative still go through money(), which drops the sign (net worth, headroom) | confirmed (adversarial: confirmed) |  | Closed | #182 |
+| FE-PUB-01 | HIGH | Frontend | Public privacy claims contradict the real access model ("Private" entries and platform-admin reads) | confirmed (adversarial: confirmed) | 2026-09 audit S3 (privacy-model clarification: excluded flag is not row-level privacy; roles admins read household tables) — still open, and now contradicted by public copy | Partly | #165, #166 |
+| FE-SYN-01 | HIGH | Frontend | Cache restamps updated_at with the client clock, so later edits fail with false conflicts and get dead-lettered | confirmed (adversarial: confirmed) | 2026-09 audit F7 (partially fixed: fold-back + ack injection; still open via delta restamp and store copy) | Closed | #171 |
+| FE-SYN-03 | HIGH | Frontend | Offline writes after the token expires are stamped ownerUid=null and are never flushed | confirmed-with-caveats (adversarial: partial) | TD-35 | Closed | #171 |
+| FE-UIS-02 | HIGH | Frontend | Two-factor auth is decorative: no AAL2 step at sign-in, TOTP secret sent to Google Charts | confirmed (adversarial: confirmed) | TD-15 | Closed (decision) | #165 |
+| FE-UIS-04 | HIGH | Frontend | Bell 'Skip once' on a stale bill notification skips the NEXT occurrence; stale 'Approve' falsely toasts | confirmed (adversarial: confirmed) |  | Closed | #177 |
+| ADM-01 | HIGH | Admin | Stored XSS on vyact.app: CMS category/slug break out of the inline script on /learn/<slug> | confirmed (adversarial: confirmed) | 2026-09 audit S4 (partially fixed: JSON-LD boundary hardened; the inline-script and href sinks remain, and the CSP S4 asked for was never added) | Closed | #165 |
+| ADM-02 | HIGH | Admin | God-mode admin access has no MFA/AAL2 requirement and no session limit, client or server | confirmed (adversarial: confirmed) | 2026-09 audit 7.1 — still open as described | Closed (decision) | #165 |
+| BE-FN-02 | HIGH | Backend | Scheduled 30-day deletion never executes, and signing in after the deadline silently cancels it | confirmed (adversarial: confirmed) | 2026-09 audit S6 ('Scheduled deletion is not demonstrably automated'). Confirmed still open. The post-deadline cancellation is new. | Closed (decision) | #167 |
+| BE-FN-07 | HIGH | Backend | One failing push endpoint aborts the whole web-push dispatch, which also does not scale | confirmed (adversarial: confirmed) |  | Partly | #165 |
+| BE-WA-01 | HIGH | Backend | Removed members keep WhatsApp read access: Pip answers and scheduled pushes skip membership checks | confirmed (adversarial: confirmed) | 2026-09 audit S1 (partially resolved: write RPCs revalidate membership; WhatsApp reads and proactive sends still do not) | Closed | #166 |
+| DB-INT-05 | HIGH | Database | erase_household_data always rolls back: its own audit insert violates the activity_log CHECK | confirmed (adversarial: confirmed) | 2026-09 audit S6 (the onboarding cause is fixed; this second cause is still open) | Closed | #165 |
+| DB-SEC-03 | HIGH | Database | upsert_budget/replace_budgets ON CONFLICT (id) DO UPDATE has no household guard: cross-household budget overwrite and read | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
+| INT-HH-03 | HIGH | Integration | Account deletion erases data, then fails on auth-user foreign keys and cannot be retried | confirmed (adversarial: confirmed) |  | Closed | #167 |
+| INT-PAR-01 | HIGH | Integration | Server engine replaces the default FX rates with saved ones; the app merges them, so foreign rows convert at 1 | confirmed (adversarial: confirmed) |  | Closed (decision) | #170 |
+| INT-TXN-01 | HIGH | Integration | Editing a split from Transactions/Dashboard erases the split; deleting it there leaves the shared split live | confirmed (adversarial: confirmed) |  | Partly | #176 |
+| INT-TXN-04 | HIGH | Integration | computeNextDueDate overflows month-end: schedules on the 29th–31st skip whole months | confirmed (adversarial: confirmed) |  | Closed | #173 |
+| INT-TXN-05 | HIGH | Integration | 'Daily' schedules violate both DB CHECKs: never sync, post device-only money every day | confirmed (adversarial: confirmed) | TD-31 (related: the multi-leg recurring event is not atomic) | Closed | #172, #173 |
+| INT-TXN-06 | HIGH | Integration | Recurring engine runs on stale cache and writes last-write-wins: reposts deleted bills, reverts edits | confirmed (adversarial: confirmed) |  | Closed | #174, #175 |
+| INT-TXN-07 | HIGH | Integration | loan_emi stored as a plain full-amount expense by recurring, WhatsApp log and WhatsApp correct | confirmed (adversarial: confirmed) | 2026-09 audit F2 (fixed for the form; still open for these writers) | Partly | #178, #179, #180 |
+| INT-TZC-02 | HIGH | Integration | Base-currency change relabels account opening balances and offsets without converting them | confirmed (adversarial: confirmed) | 2026-09 audit F4 (account-balance units are not explicit) — still open; R1 formalised the relabel instead of fixing it | Closed (decision) | #170 |
+| INT-TZC-03 | HIGH | Integration | Client 'today' and 'this month' are UTC, so entries, bills and month boundaries use the wrong local day | confirmed (adversarial: confirmed) |  | Closed | #169 |
+| OPS-01 | HIGH | Platform & Ops | Production release is ungated: Vercel ships the app regardless of CI, migrations or Edge deploy | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 (still open); TD-33 (marked resolved, regressed when the consumer job was removed) | On hold (dev question) | — |
+| OPS-06 | HIGH | Platform & Ops | No production observability: faults go nowhere, cron/pg_net results unchecked, no alerting | confirmed (adversarial: confirmed) | 2026-09 audit 10.4 (still open, now worse: the in-app transport is gone); TD-43 | On hold (dev question) | — |
+| XC-PRV-03 | HIGH | Cross-cutting | Session replay (Contentsquare) and Userback screenshots run on every finance screen, undisclosed, no consent | confirmed (adversarial: confirmed) |  | Partly | #165, #189 |
+| FE-MNY-06 | MEDIUM | Frontend | Dashboard insight chips use the static asset/debt arrays and raw budgets, contradicting the net-worth card | confirmed (adversarial: confirmed) | 2026-09 audit F3/F5 (partially open: NW card fixed, insight chips not) | Partly | #186 |
+| FE-MNY-08 | MEDIUM | Frontend | Split expenses debit only 'your share' from the paying account, so bank balances and reconciliations drift | confirmed (adversarial: confirmed) |  | Owner decision | — |
+| FE-MNY-10 | MEDIUM | Frontend | Essential and typical monthly spend have two definitions: Pip and Net Worth disagree with the Reports runway | confirmed (adversarial: confirmed) |  | Owner decision | — |
+| FE-PIP-02 | MEDIUM | Frontend | Model-chosen purchase amount is never checked against the user's words; entities are untyped | confirmed-with-caveats (adversarial: partial) |  | Closed | #182 |
+| FE-PIP-05 | MEDIUM | Frontend | A stated period is silently replaced by 'this month' for diagnostic, budget and advice questions | confirmed-with-caveats (adversarial: partial) |  | Closed | #182 |
+| FE-PIP-06 | MEDIUM | Frontend | Recurring bill descriptions egress to the model via vars.detail, and stored text is not fenced as data | confirmed (adversarial: confirmed) |  | Partly | #182 |
+| FE-PIP-07 | MEDIUM | Frontend | Capture seeds the model's raw category word, so invalid ids like 'fuel' get saved | confirmed-with-caveats (adversarial: partial) |  | Open | — |
+| FE-PIP-08 | MEDIUM | Frontend | 'What's my balance' headline calls total assets (house, car, investments) money 'across your accounts' | confirmed (adversarial: confirmed) |  | Closed | #182 |
+| FE-PIP-09 | MEDIUM | Frontend | Every chat turn writes an extra backend='llm' ai_usage row that eats the quota and skews metering | confirmed (adversarial: confirmed) | 2026-09 audit A2 (householdId omission still open; reservation itself fixed) | Partly | #168 |
+| FE-PIP-10 | MEDIUM | Frontend | Pip mixes UTC month keys with local day windows; the WhatsApp engine runs in UTC | confirmed (adversarial: confirmed) |  | Closed | #169 |
+| FE-PIP-11 | MEDIUM | Frontend | Figure guard: small-number exemption ignores currency and magnitude ('12 lakh' passes) | confirmed (adversarial: confirmed) | 2026-09 audit A1 (partially fixed: 100 removed and the year band guarded; the HARMLESS and magnitude hole remains) | Open | — |
+| FE-PLT-01 | MEDIUM | Frontend | Post-sign-in open redirect: SignIn.tsx ignores safeNext, and safeNext itself is bypassable | confirmed (adversarial: confirmed) |  | Closed | #165 |
+| FE-PLT-04 | MEDIUM | Frontend | No Content-Security-Policy on vyact.app, /learn or admin, while session tokens sit in localStorage | confirmed (adversarial: confirmed) | 2026-09 audit S4 (CSP half still open; the JSON-LD escaping half is fixed in api/_page.js:23) | Partly | #188, #189 |
+| FE-PUB-04 | MEDIUM | Frontend | Service worker answers /v/<n> video short links with the app shell, not the lesson redirect | confirmed (adversarial: confirmed) |  | Closed | #183 |
+| FE-SYN-04 | MEDIUM | Frontend | Sign-out and epoch purge miss allocations, net worth history, onboarding and dead-letter keys | confirmed (adversarial: confirmed) | 2026-09 audit S5 (partially addressed) | Open | — |
+| FE-SYN-05 | MEDIUM | Frontend | Dead-letter buckets are device-wide and the retry cap is 30 seconds, so Dismiss can delete other users' writes | confirmed (adversarial: confirmed) | TD-10 | Open | — |
+| FE-SYN-06 | MEDIUM | Frontend | refresh() and store writes race: a stale snapshot can erase a just-saved entry from the store | confirmed (adversarial: confirmed) |  | Open | — |
+| FE-SYN-07 | MEDIUM | Frontend | Delta sync can miss rows for good and reports fresh after reading only one 500-row page | confirmed (adversarial: confirmed) | 2026-09 audit F8 (partially fixed: keyset cursor + drained full list; delta still single-page) | Open | — |
+| FE-SYN-08 | MEDIUM | Frontend | "Synced · just now" is stamped on cache-only reads even when every cloud pull fails | confirmed (adversarial: confirmed) | 2026-09 audit F8 (lastSyncedAt item still open as described) | Open | — |
+| FE-UIC-04 | MEDIUM | Frontend | fmt() drops the sign: overdrafts, negative nets and negative net worth render as positive | confirmed (adversarial: confirmed) |  | Closed | #177 |
+| FE-UIC-05 | MEDIUM | Frontend | Transaction edit picks the account from stale extras.paymentMethod and clears the FK | confirmed (adversarial: confirmed) |  | Closed | #186 |
+| FE-UIC-06 | MEDIUM | Frontend | Debts page and Net Worth liabilities list bypass the canonical projection | confirmed (adversarial: confirmed) | 2026-09 audit F3 (fixed for Dashboard/Ask; still open on Debts page and the Net Worth liabilities list) | Closed | #178, #179, #183 |
+| FE-UIC-07 | MEDIUM | Frontend | DTI and 'Kept this month' ratios use all-time income and a fake 1 when income is zero | confirmed (adversarial: confirmed) |  | Closed | #183 |
+| FE-UIC-08 | MEDIUM | Frontend | Three screens compute 'budget left/over' on different bases | confirmed (adversarial: confirmed) | 2026-09 audit F5 (related; allocation consistency) | Owner decision | — |
+| FE-UIC-09 | MEDIUM | Frontend | Edit forms rebuild rows from form fields, erasing loan tenure, payment log and links | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F7 (still open for Debt/Split/Asset forms; transactions now carry updated_at) | Closed | #176, #179, #180, #186 |
+| FE-UIC-10 | MEDIUM | Frontend | Amount inputs strip the decimal comma: '12,50' is saved as 1250 | confirmed (adversarial: confirmed) |  | Partly | #186 |
+| FE-UIC-12 | MEDIUM | Frontend | Net Worth and Debts forms invite re-entering Accounts money; spendable figures diverge | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F3 (structural remainder) | Owner decision | #178, #179 |
+| FE-UIC-13 | MEDIUM | Frontend | Recurring Save has no in-flight guard or error handling; a double tap duplicates schedules | confirmed (adversarial: confirmed) |  | Closed | #173, #183 |
+| FE-UIS-03 | MEDIUM | Frontend | Re-running onboarding relabels household currency, duplicates bill schedules, and half-commits on error | confirmed-with-caveats (adversarial: partial) |  | Partly | #170 |
+| FE-UIS-06 | MEDIUM | Frontend | Settings saves household settings optimistically for non-owners; values revert, profile email is never saved | confirmed (adversarial: confirmed) |  | Closed | #183, #184 |
+| FE-UIS-07 | MEDIUM | Frontend | Notifications, household switcher, account menu and ⌘K are modal dialogs without focus trap or focus return | confirmed (adversarial: confirmed) |  | Open | — |
+| FE-UIS-08 | MEDIUM | Frontend | Toasts are silent to screen readers and vanish in 3.2s; bottom banners cover the tab bar and Save | confirmed (adversarial: confirmed) |  | Closed | #183, #184 |
+| FE-UIS-09 | MEDIUM | Frontend | Aurora secondary text and status colours fail WCAG AA contrast, most in light theme | confirmed (adversarial: confirmed) |  | Partly | #190 |
+| FE-UIS-10 | MEDIUM | Frontend | Single-key shortcuts n/b/d/a ignore modifiers (hijack Cmd+A, Ctrl+D) and cannot be turned off | confirmed (adversarial: confirmed) |  | Partly | #183 |
+| FE-UIS-11 | MEDIUM | Frontend | Onboarding's estimated cash balance shows as confirmed; hardcoded '35% confirmed'; nudge sells bank sync | confirmed (adversarial: confirmed) |  | Closed | #183 |
+| FE-UIS-12 | MEDIUM | Frontend | One root ErrorBoundary: no reporting, 'Try Again' re-throws, no chunk-load recovery; e2e route live | confirmed (adversarial: confirmed) | TD-05 | Partly | #183, #190 |
+| FE-UIS-13 | MEDIUM | Frontend | Password change needs no re-auth (Settings, /auth/reset), unlike Danger Zone; instant delete keeps session | confirmed (adversarial: confirmed) |  | Closed | #183, #184 |
+| ADM-03 | MEDIUM | Admin | 'roles' admins hold raw SELECT on every household's ledger; no admin page needs it | confirmed (adversarial: confirmed) | 2026-09 audit S3 privacy note and 7.1 'least-privilege RPCs instead of broad financial-table access' — still open | Partly | #166 |
+| ADM-04 | MEDIUM | Admin | No audit trail of admin actions; 'Audit Log' is a deletable household changelog the Help page misdescribes | confirmed (adversarial: confirmed) | 2026-09 audit 7.1 ('Audited sensitive reads', 'Access review and revocation procedures') — still open | Backlog | — |
+| ADM-06 | MEDIUM | Admin | Content-tier admins see every Pip user's email and per-user sentiment profile | confirmed (adversarial: confirmed) |  | Backlog | — |
+| ADM-07 | MEDIUM | Admin | Client role matrix contradicts server gates; tests cover only the client, never RLS/RPC | confirmed (adversarial: confirmed) | 2026-09 audit 7.5 — partially addressed (client gating tests added); server-side authorization tests still missing | Backlog | — |
+| ADM-09 | MEDIUM | Admin | Admin builds always target production, so every branch preview runs unreviewed code on prod | confirmed (adversarial: confirmed) |  | Backlog | — |
+| BE-FN-04 | MEDIUM | Backend | Owner deletion destroys co-members' households through a non-atomic sequence of deletes | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S6 (items 3 'shared-household rules' and 4 'transactional purge'). Still open. | Closed | #167 |
+| BE-FN-06 | MEDIUM | Backend | send-split-email is an open spam/phishing relay from hello@vyact.app, with HTML injection via currency | confirmed-with-caveats (adversarial: partial) | 2026-09 audit §8.5 (spam and rate limits). Still open. The HTML injection and the brand-domain sender are new. | Closed | #168 |
+| BE-FN-09 | MEDIUM | Backend | People added to a split while editing are promised an invite that is never sent | confirmed (adversarial: confirmed) |  | Partly | #168 |
+| BE-PIP-02 | MEDIUM | Backend | ask-vyact is a general LLM proxy: client-built system prompts, per-user cap is the only spend control | confirmed (adversarial: confirmed) | 2026-09 audit A3 | Closed | #168 |
+| BE-PIP-03 | MEDIUM | Backend | ai_usage spend gate is client-writable, and client rows eat the gateway quota | confirmed (adversarial: confirmed) | 2026-09 audit A2 | Closed | #168 |
+| BE-WA-03 | MEDIUM | Backend | Replies to pending questions are re-parsed as new ledger entries after a retry or a lost pending turn | confirmed (adversarial: confirmed) |  | Closed | #187 |
+| BE-WA-04 | MEDIUM | Backend | Webhook returns 200 to Meta even when the inbox row was not stored, so the message is lost | confirmed (adversarial: confirmed) |  | Closed | #187 |
+| BE-WA-06 | MEDIUM | Backend | OTP attempt limit is bypassable by parallel requests and resets on every resend | confirmed (adversarial: confirmed) |  | Partly | #187 |
+| BE-WA-07 | MEDIUM | Backend | whatsapp-notify lets any member send any template, with arbitrary text and button payloads, from Vyact's number | confirmed (adversarial: confirmed) |  | Backlog | — |
+| BE-WA-08 | MEDIUM | Backend | "No, that was X" can give an entry the wrong category type, and allows Loan/EMI | confirmed (adversarial: confirmed) |  | Open | — |
+| BE-WA-09 | MEDIUM | Backend | STOP and other consent/state writes ignore Supabase errors yet reply "Done" | confirmed (adversarial: confirmed) |  | Partly | #187 |
+| DB-INT-09 | MEDIUM | Database | Account and asset tombstones are not enforced: in-use and cash accounts can be deleted, and live rows land on deleted ones | confirmed (adversarial: confirmed) |  | Backlog | — |
+| DB-INT-11 | MEDIUM | Database | No unique (household_id, user_id) on memberships; invite accept and member limit race | confirmed (adversarial: confirmed) |  | Backlog | — |
+| DB-INT-13 | MEDIUM | Database | WhatsApp account alias matches by kind with 'limit 1', booking money to an arbitrary account | confirmed (adversarial: confirmed) |  | Owner decision | — |
+| DB-OPS-03 | MEDIUM | Database | Repo no longer reproduces prod: budget owner/admin guard and other objects exist only in prod | confirmed (adversarial: confirmed) | TD-20 | On hold (dev question) | — |
+| DB-OPS-08 | MEDIUM | Database | Scheduler runs are unobservable, and web-push re-reads every subscribed ledger every 15 minutes | confirmed-with-caveats (adversarial: partial) |  | On hold (dev question) | — |
+| DB-OPS-10 | MEDIUM | Database | Delta-sync cursor relies on updated_at = now(), so out-of-order commits are skipped forever | confirmed (adversarial: confirmed) | 2026-09 audit F8 | Open | — |
+| DB-OPS-12 | MEDIUM | Database | Documented pg_dump --no-privileges restore strips every REVOKE the security model depends on | confirmed-with-caveats (adversarial: partial) | TD-16 | Closed | #189 |
+| DB-SEC-06 | MEDIUM | Database | Any member, even a viewer, can insert P1 notifications that web-push sends to every member's lock screen | confirmed (adversarial: confirmed) |  | Backlog | — |
+| DB-SEC-08 | MEDIUM | Database | erase_household_data: email-code gate is client-only, and the erase misses message text and notifications | confirmed (adversarial: confirmed) | 2026-09 audit S6 | Partly | #167 |
+| DB-SEC-09 | MEDIUM | Database | Tenant-consistency triggers (S3) skip asset_id, initiated_by, schedule and account links | confirmed (adversarial: confirmed) | 2026-09 audit S3 | Backlog | — |
+| DB-SEC-10 | MEDIUM | Database | No database authorization test suite: RLS and RPC role/tenant matrix untested | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
+| INT-HH-07 | MEDIUM | Integration | Owners and admins can add any user to a household without consent and read their profile | confirmed (adversarial: confirmed) | 2026-09 audit S2 ('whether user identity and household linkage can change' still open) | Backlog | — |
+| INT-HH-08 | MEDIUM | Integration | Household settings permissions disagree with RLS; partial writes and unhandled errors | confirmed-with-caveats (adversarial: partial) |  | Partly | #183 |
+| INT-HH-09 | MEDIUM | Integration | Invite acceptance is not atomic or single-use; stale tokens and legacy RPCs linger | confirmed (adversarial: confirmed) |  | Backlog | #186 |
+| INT-HH-12 | MEDIUM | Integration | 'Child (own data only)' invite role can read the whole household's finances | confirmed (adversarial: confirmed) |  | Closed (decision) | #166 |
+| INT-PAR-02 | MEDIUM | Integration | Client computeNextDueDate uses local-time setters; wrong in DST and negative-offset zones, unlike the UTC server port | confirmed (adversarial: confirmed) |  | Closed | #173 |
+| INT-PAR-04 | MEDIUM | Integration | Three clocks: UTC today(), host-local getters (UTC on Deno) and IST localDay produce different days | confirmed (adversarial: confirmed) |  | Closed | #169 |
+| INT-PAR-05 | MEDIUM | Integration | stale_balance push rule flags never-stamped accounts as stale and ignores last_reconciled_at | confirmed (adversarial: confirmed) |  | Partly | #186 |
+| INT-PAR-06 | MEDIUM | Integration | WhatsApp currency detection diverges from the app: 'dollars', 'euros', 'quid' are logged in base currency | confirmed (adversarial: confirmed) |  | Closed | #170 |
+| INT-PAR-08 | MEDIUM | Integration | Deployed engine bundle can drift from the app: Edge deploy is neither gated on CI nor checks the bundle | confirmed (adversarial: confirmed) | TD-33 | On hold (dev question) | — |
+| INT-TXN-08 | MEDIUM | Integration | Rejected writes are retried as transient, then dead-lettered while the optimistic row stays forever | confirmed-with-caveats (adversarial: partial) | TD-10 (retry cap resolved; terminal-error handling and rollback still open) | Closed | #171 |
+| INT-TXN-10 | MEDIUM | Integration | Delta sync still not guaranteed current: pulls overwrite pending local writes; commit-order cursor gap | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F8 (pagination and composite cursor fixed; 'overlay pending local writes' still open; commit-order gap new) | Open | — |
+| INT-TXN-11 | MEDIUM | Integration | Split sharing is a separate online write that races the queued transaction and is never retried | confirmed (adversarial: confirmed) | 2026-09 audit 8.5 (still open) | Open | — |
+| INT-TXN-12 | MEDIUM | Integration | WhatsApp correction checks category fit against the wrong message; alias by kind picks arbitrary account | confirmed (adversarial: confirmed) |  | Owner decision | — |
+| INT-TZC-04 | MEDIUM | Integration | WhatsApp: untagged entries use the database's UTC current_date while 'yesterday' uses IST; dispatch hard-codes IST | confirmed (adversarial: confirmed) |  | Closed | #169 |
+| INT-TZC-05 | MEDIUM | Integration | Due-day P1 pushes raised at 05:30 IST land in the default quiet hours and are then marked sent | confirmed (adversarial: confirmed) | TD-22 (resolved v10.48.0) — this is a new defect in its implementation | Closed | #169 |
+| INT-TZC-07 | MEDIUM | Integration | FX uses a hard-coded, undated 2024 rate table and revalues historical foreign rows at today's rate | confirmed (adversarial: confirmed) | 2026-09 audit F4 ('Decide whether historical reporting uses transaction-date FX or current valuation FX'; 'Reject unknown currency/rate data') — still open; the ad hoc FX math in Transactions/aiSummary is fixed | Closed (decision) | #170 |
+| OPS-02 | MEDIUM | Platform & Ops | Migrations first run against production: no CI apply, no dry run, no automatic backup | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 / 10.2 (database migration validation); TD-02 (integration layer open) | On hold (dev question) | — |
+| OPS-03 | MEDIUM | Platform & Ops | `db push --include-all` applies out-of-order migrations, so 'last filename wins' can be false in prod | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
+| OPS-04 | MEDIUM | Platform & Ops | send-split-email and delete-account are never deployed by the pipeline; v10.59/v10.60 fixes not shipped | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 (Edge manifest omission, still open) | Closed | #165 |
+| OPS-05 | MEDIUM | Platform & Ops | Preview guard is skipped when VITE_SUPABASE_URL is 'All Environments'; admin previews use prod | confirmed-with-caveats (adversarial: partial) |  | Partly | #189 |
+| OPS-08 | MEDIUM | Platform & Ops | RLS isolation covers 3 of ~40 tables, PR-only, against a hand-synced schema; INV-7 still untested | confirmed-with-caveats (adversarial: partial) | TD-19 (Lane B partially delivered); TD-31 (open); 2026-09 audit 10.2 | Partly | #178 |
+| OPS-11 | MEDIUM | Platform & Ops | LLM spend guard is per-user only and fails open if the cap env is unset or invalid | confirmed-with-caveats (adversarial: partial) | 2026-09 audit A2 (atomicity fixed; global ceiling and fail-closed config not addressed) | Partly | #168 |
+| XC-ARC-05 | MEDIUM | Cross-cutting | Binding docs contradict themselves and send AI sessions to stale documents | confirmed (adversarial: confirmed) | TD-28 (marked resolved 2026-06-17; regressed), TD-41 (open) | Owner decision | — |
+| XC-ARC-06 | MEDIUM | Cross-cutting | Bundled engine left hand ports live: server money, recurring and budget alerts are duplicated | confirmed-with-caveats (adversarial: partial) |  | Partly | #173 |
+| XC-ARC-08 | MEDIUM | Cross-cutting | 'Retired' Money Map flag still picks the transaction account picker; e2e tests the legacy path | confirmed-with-caveats (adversarial: partial) |  | Open | — |
+| XC-ARC-09 | MEDIUM | Cross-cutting | Edge Functions (12k lines of Deno TS) are never type-checked or linted | confirmed (adversarial: confirmed) | TD-32 / TD-30 (partially; the missing Deno type-check is not recorded) | Open | — |
+| XC-ARC-11 | MEDIUM | Cross-cutting | The 'never a silent write-loss catch {}' rule has no enforcement: 110 empty catches, 7 on writes | confirmed-with-caveats (adversarial: partial) | TD-24 (marked resolved; rule not enforced) | Open | — |
+| XC-ARC-13 | MEDIUM | Cross-cutting | Test effort sits away from risk: 1,390 unit cases, 5 SQL tests, 10 optional cloud tests | confirmed (adversarial: confirmed) | TD-31, TD-19, TD-32 (open) | On hold (dev question) | — |
+| XC-PRV-02 | MEDIUM | Cross-cutting | Recipient email and household-invite bearer tokens sent to GA4/Contentsquare via page URLs | confirmed-with-caveats (adversarial: partial) |  | Closed | #165 |
+| XC-PRV-04 | MEDIUM | Cross-cutting | Email-code re-auth for erase/delete is client-side only; any session can wipe data immediately | confirmed (adversarial: confirmed) |  | Closed | #167 |
+| XC-PRV-07 | MEDIUM | Cross-cutting | WhatsApp message content and phone numbers are retained forever and survive unlink, erase and deletion | confirmed (adversarial: confirmed) |  | Closed | #167 |
+| XC-PRV-08 | MEDIUM | Cross-cutting | 'Erase household data' and the data export cover only the core ledger tables | confirmed (adversarial: confirmed) | 2026-09 audit S6 (household erasure) — onboarding bug fixed; table coverage still incomplete | Partly | #165, #167, #184 |
+| XC-PRV-09 | MEDIUM | Cross-cutting | Consent record is unreliable: wrong version stored, errors swallowed, Google sign-in skips it | confirmed (adversarial: confirmed) |  | Partly | #186 |
+| XC-PRV-10 | MEDIUM | Cross-cutting | Pip questions and figures routed through OpenRouter with no provider data policy enforced | confirmed-with-caveats (adversarial: partial) |  | Owner decision | — |
+| XC-PRV-11 | MEDIUM | Cross-cutting | Privacy notice lacks DPDP/GDPR basics: controller, grievance contact, breach process, child accounts | confirmed-with-caveats (adversarial: partial) |  | Owner decision | #165, #166, #167 |
+| XC-PRV-12 | MEDIUM | Cross-cutting | resolve_participant_names lets any signed-up user bulk-test emails and learn real names | confirmed (adversarial: confirmed) |  | Backlog | — |
+| FE-MNY-11 | LOW | Frontend | CSV export writes user and WhatsApp-sourced text without neutralising formulas (CSV injection) | confirmed (adversarial: confirmed) |  | Closed | #183 |
+| FE-MNY-12 | LOW | Frontend | Archived accounts with a balance count in net worth and Pip's liquid figure but drop out of 'Spendable now' | not independently verified (low/info) |  | Owner decision | — |
+| FE-MNY-13 | LOW | Frontend | Card reconcile forces every stated value negative, so an overpaid (credit) card cannot be recorded | not independently verified (low/info) |  | Owner decision | — |
+| FE-MNY-14 | LOW | Frontend | Planner 'income varies' rule includes the partial current month and flags stable earners early each month | not independently verified (low/info) |  | Closed | #184 |
+| FE-MNY-15 | LOW | Frontend | 'Full backup' omits accounts, allocations and recurring schedules, so balances cannot be rebuilt from it | not independently verified (low/info) | TD-16 (exports, different aspect) | Closed | #184 |
+| FE-MNY-16 | LOW | Frontend | Budget suggestion and forecast sum mixed currencies, inactive schedules and receivables | not independently verified (low/info) |  | Partly | #170, #181, #186 |
+| FE-PIP-12 | LOW | Frontend | Category 'usual month' includes the current partial month and later months for past-period lookups | not independently verified (low/info) |  | Closed | #182 |
+| FE-PIP-13 | LOW | Frontend | No-history runway and cover use sentinel figures (burn = EMI + 1; 0.0 months 'thin cushion') | not independently verified (low/info) |  | Closed | #186 |
+| FE-PIP-14 | LOW | Frontend | Per-bill amounts in Pip ignore the schedule's currency | not independently verified (low/info) |  | Closed (decision) | #170 |
+| FE-PIP-15 | LOW | Frontend | Account matching falls back to the first card of any bank when the stated tail doesn't match | not independently verified (low/info) |  | Closed | #186 |
+| FE-PIP-16 | LOW | Frontend | No client abort or timeout: Stop and New chat leave model calls and 5-minute relay polling running | not independently verified (low/info) | TD-44 (relay part) | Closed | #186 |
+| FE-PIP-17 | LOW | Frontend | Switching household while /chat is mounted writes the old transcript under the new household | not independently verified (low/info) | 2026-09 audit S5 (household-scoped transcript, partially fixed) | Closed | #184 |
+| FE-PIP-18 | LOW | Frontend | Browser authors the system prompts; dead FEATURES.askVyact.backend 'rules' config misdescribes Pip | not independently verified (low/info) | 2026-09 audit A3 (still open) | Closed | #168, #184 |
+| FE-PLT-07 | LOW | Frontend | Signed-in visit to an invite link joins the household instantly with no confirmation | not independently verified (low/info) |  | Closed | #186 |
+| FE-PLT-08 | LOW | Frontend | Passive sign-out (expired or revoked session) leaves push registered to the previous user | not independently verified (low/info) |  | Closed | #184 |
+| FE-PLT-11 | LOW | Frontend | Platform config hygiene: stale root vercel.json, self-dependency, dead deps and a test route in prod | not independently verified (low/info) | TD-38 (dependency advisories untriaged; still open) | Closed | #185 |
+| FE-PUB-03 | LOW | Frontend | Learn handler: no upstream timeout, empty library cached a day, bad source_url 503s a lesson | confirmed-with-caveats (adversarial: partial) |  | Closed | #185, #165 |
+| FE-PUB-05 | LOW | Frontend | Guest demo's other address serves indexable public pages and reads the production DB | not independently verified (low/info) |  | Closed | #189 |
+| FE-PUB-06 | LOW | Frontend | Soft-200 app shell still served for multi-segment /learn/*, /for/* and any dotted path | not independently verified (low/info) |  | Closed | #189 |
+| FE-PUB-07 | LOW | Frontend | Vercel ignoreCommand diffs only HEAD^..HEAD, so a push ending in a docs-only commit skips deploy | not independently verified (low/info) |  | Closed | #185, #189 |
+| FE-PUB-08 | LOW | Frontend | Anon content policy exposes every column of published rows, including author_id user UUIDs | not independently verified (low/info) |  | Backlog | — |
+| FE-PUB-10 | LOW | Frontend | Landing pre-render decides cloud mode from env alone and uses $-sensitive String.replace | not independently verified (low/info) |  | Closed | #185, #189 |
+| FE-PUB-11 | LOW | Frontend | Learn topic pill uses raw var(--coral) on an HSL triplet token (binding Aurora rule) | not independently verified (low/info) |  | Closed | #183 |
+| FE-SYN-10 | LOW | Frontend | Switching user without signing out keeps the previous user's ledger loaded and never purges | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S5 ('Switching users on the same browser' not handled) | Closed | #186 |
+| FE-SYN-11 | LOW | Frontend | Outbox flush polls every 100 ms while an entity's first op waits out a backoff | not independently verified (low/info) |  | Closed | #186 |
+| FE-SYN-12 | LOW | Frontend | A failed cache read becomes [] and the next write saves it back, truncating the cache | not independently verified (low/info) |  | Closed | #186 |
+| FE-SYN-13 | LOW | Frontend | Anonymous to cloud import is dead: the sign-in purge deletes the local data it would import | not independently verified (low/info) |  | Owner decision | — |
+| FE-UIC-14 | LOW | Frontend | Reconcile sheet announces adjustments the reconcile engine silently changes | not independently verified (low/info) |  | Closed | #184 |
+| FE-UIC-15 | LOW | Frontend | Account ledger running balance ignores when reconcile offsets were applied | not independently verified (low/info) |  | Closed | #186 |
+| FE-UIC-16 | LOW | Frontend | Transaction rows label first-class accounts 'Linked account' or 'Credit card' | not independently verified (low/info) |  | Closed | #184 |
+| FE-UIC-17 | LOW | Frontend | List and calendar aggregates bypass the reportable/effective-amount rules | not independently verified (low/info) | 2026-09 audit F4 (FX part fixed for list nets; still open in TxnCalendar) | Closed | #184 |
+| FE-UIS-14 | LOW | Frontend | Unlabelled form controls and missing autocomplete in households, onboarding, MFA and auth | not independently verified (low/info) |  | Closed | #184 |
+| FE-UIS-15 | LOW | Frontend | Language setting offers 6 languages but translates ~10 nav strings and never sets <html lang> | not independently verified (low/info) |  | Closed | #184, #186 |
+| FE-UIS-16 | LOW | Frontend | Hygiene: dead modules, typeless Buttons in forms, raw HOUSEHOLD_FULL text, expired invites block | not independently verified (low/info) |  | Closed | #184 |
+| ADM-05 | LOW | Admin | Content-tier admins can rewrite global needs/wants classification, changing every family's floor | confirmed-with-caveats (adversarial: partial) |  | Open | — |
+| ADM-08 | LOW | Admin | Admin lists load whole tables unpaginated; PostgREST max-rows silently truncates counts | confirmed-with-caveats (adversarial: partial) | 2026-09 audit 7.2 — still open as described | Open | — |
+| ADM-10 | LOW | Admin | Infographic deleted from storage before the content save is validated or committed | not independently verified (low/info) |  | Partly | #188 |
+| ADM-11 | LOW | Admin | Every edit of a published item resets published_at and writes the editor's email as author | not independently verified (low/info) |  | Partly | #188 |
+| ADM-12 | LOW | Admin | Settings shows state it does not check: DB 'connected', GA4 'connected', stale versions | not independently verified (low/info) | 2026-09 audit 7.4 — partially fixed (security rows relabelled 'planned'); the database, GA4 and version assertions remain | Closed | #188 |
+| ADM-13 | LOW | Admin | Admin host has no CSP and publishes full source maps while holding god-mode JWT | not independently verified (low/info) |  | Closed | #188, #189 |
+| ADM-14 | LOW | Admin | Revenue KPIs mix currencies and statuses: MRR summed across currencies, labelled USD | not independently verified (low/info) |  | Partly | #188 |
+| BE-FN-11 | LOW | Backend | Deployment and auth config for these functions is not codified; cron hardcodes the prod URL | not independently verified (low/info) | 2026-09 audit §10.1 (Edge Functions missing from the deploy manifest). Still open. | Partly | #165 |
+| BE-PIP-04 | LOW | Backend | Untrusted learned recipes are written without confirmation, and one user can promote a global recipe | confirmed-with-caveats (adversarial: partial) |  | Partly | #187 |
+| BE-PIP-05 | LOW | Backend | key_env_var denylist misses MAILERSEND_API_KEY; base_url host checks are bypassable | not independently verified (low/info) |  | Closed | #187 |
+| BE-PIP-06 | LOW | Backend | TEMPORARY Claude Code relay is still live, with no retention bound and an unauthenticated status endpoint | not independently verified (low/info) | TD-44 | Owner decision | — |
+| BE-PIP-07 | LOW | Backend | Gateway failures are silent in logs but over-share config details with end users | not independently verified (low/info) | TD-43 | Closed | #187 |
+| BE-WA-11 | LOW | Backend | A failed Meta send permanently uses up the dedupe slot; the daily cap check is racy | not independently verified (low/info) |  | Closed | #187 |
+| BE-WA-12 | LOW | Backend | Replay relies on unrelated traffic, and stale claims replay without limit | not independently verified (low/info) | TD-35 (webhook inbox recovery marked resolved in v10.40.0; the scheduler and stale-claim cap are still missing) | Partly | #187 |
+| BE-WA-13 | LOW | Backend | Numbered follow-ups still answer after ANSWERS OFF | not independently verified (low/info) |  | Closed | #187 |
+| DB-INT-14 | LOW | Database | Money CHECKs have NULL and allowlist gaps (budget scope, allocations, categories) | not independently verified (low/info) |  | Open | — |
+| DB-INT-15 | LOW | Database | Split sharing matches on auth.users.email without requiring email_confirmed_at | not independently verified (low/info) |  | Owner decision | — |
+| DB-OPS-07 | LOW | Database | Every pg_cron job hard-codes the production URL; auto-generated secrets make test DBs call prod | confirmed-with-caveats (adversarial: partial) |  | Open | — |
+| DB-OPS-09 | LOW | Database | RLS evaluates SECURITY DEFINER helpers per row; hot lookups lack indexes and some indexes are duplicated | confirmed (adversarial: confirmed) | TD-21 | Open | — |
+| DB-OPS-14 | LOW | Database | Twin v91 migrations and stale process docs contradict the actual apply path | not independently verified (low/info) | TD-41 | Closed | #189 |
+| INT-CON-04 | LOW | Integration | replace_<entity> RPCs are schema-stale: cloud bulk-replace drops money-model columns / violates CK_txn_accounts_by_type | confirmed-with-caveats (adversarial: partial) | TD-09 | Closed | #166 |
+| INT-CON-05 | LOW | Integration | Category parity test covers only expense ids; income category drift is silent and unchecked | confirmed-with-caveats (adversarial: partial) |  | Closed | #184 |
+| INT-CON-06 | LOW | Integration | Admin app household-type enum omits 'couple' and keeps retired multi_biz/shared | not independently verified (low/info) |  | Closed | #188 |
+| INT-CON-07 | LOW | Integration | leave_household shares the same NULL-role guard idiom as transfer_ownership | not independently verified (low/info) |  | Backlog | — |
+| INT-HH-06 | LOW | Integration | Owner continuity not enforced: households can be left with no owner | confirmed-with-caveats (adversarial: partial) | 2026-09 audit S2 (owner continuity still open) | Partly | #166 |
+| INT-HH-13 | LOW | Integration | After leaving or deleting a household, the app stays on a household the user is no longer in | not independently verified (low/info) |  | Partly | #184 |
+| INT-HH-14 | LOW | Integration | Admin Households page has a stale type list and member counts that cap at 1,000 rows | not independently verified (low/info) |  | Partly | #188 |
+| INT-PAR-10 | LOW | Integration | Same event, different figures across channels: split large-spend alert and budget percentage rounding | not independently verified (low/info) |  | Closed | #187 |
+| INT-TXN-14 | LOW | Integration | Audit trail loses the actor for server-side writers and records every delete as 'updated' | not independently verified (low/info) | TD-08 (resolved as 'populated'; actor/delete semantics gap new) | Open | — |
+| INT-TZC-08 | LOW | Integration | WhatsApp currency detection checks only the first three-letter word, so 'tea 50 aed' logs ₹50 | not independently verified (low/info) |  | Closed | #170 |
+| GATE-03 | LOW | Platform & Ops | Public production build ships full source maps (87 maps, 8.3 MB) of the private codebase | observed (gate executed) |  | Closed | #185, #188 |
+| GATE-04 | LOW | Platform & Ops | Unit tests do not type-check: ~43 errors incl. money-suite fixtures that no longer match types | observed (gate executed) | TD-30 (still open; now quantified at ~43 errors in 7 files) | Open | — |
+| OPS-07 | LOW | Platform & Ops | Prod Supabase token reachable from non-main branches; no permissions block; actions pinned by tag | confirmed-with-caveats (adversarial: partial) |  | Partly | #189 |
+| OPS-09 | LOW | Platform & Ops | DEPLOY.md and OPERATIONS.md misdescribe the live pipeline and verify against an orphaned host | confirmed-with-caveats (adversarial: partial) | TD-41 (same class; these two docs not listed) | Closed | #189 |
+| OPS-13 | LOW | Platform & Ops | Build and CI hygiene: npm install on Vercel, unpinned Node, cancelled main runs, HEAD^-only skip | not independently verified (low/info) |  | Closed | #185, #189 |
+| XC-ARC-07 | LOW | Cross-cutting | About 4,000 lines of dormant agent pipeline and retired feature paths still shipped and tested | confirmed-with-caveats (adversarial: partial) | TD-36 (partial; still open) | Owner decision | — |
+| XC-ARC-10 | LOW | Cross-cutting | Store actions write pre-await snapshots back to state, without a household guard | confirmed-with-caveats (adversarial: partial) | 2026-09 audit section 9 (code-style priorities 2 and 3; still open) | Open | — |
+| XC-ARC-12 | LOW | Cross-cutting | Money model lives in CHECKs and prose; domain types and adapter generics do not encode it | confirmed-with-caveats (adversarial: partial) | 2026-09 audit sections 8.3/8.4 (still open) | Open | — |
+| XC-ARC-14 | LOW | Cross-cutting | Release cadence outpaces stabilisation: 40 minor releases in 27 days, AI-heavy, one maintainer | confirmed-with-caveats (adversarial: partial) | TD-25 (resolved; regressed), TD-28 | Open | — |
+| XC-ARC-15 | LOW | Cross-cutting | Repo carries 82 tracked binaries, duplicated handoffs and a 9.7k-line migration concat | not independently verified (low/info) | TD-41 (related) | Owner decision | — |
+| XC-PRV-14 | LOW | Cross-cutting | Personal data in tracked docs and screenshots; sensitive untracked files not gitignored | not independently verified (low/info) |  | Partly | #189 |
+| BE-FN-12 | INFO | Backend | Lock-screen pushes show payee names and amounts, with no option to hide them | not independently verified (low/info) |  | Owner decision | — |
+| DB-OPS-16 | INFO | Database | pg_trgm sits in public but nothing uses it; TD-34's stated blocker does not exist in the repo | not independently verified (low/info) | TD-34 | Open | — |
+| INT-PAR-11 | INFO | Integration | Parity tests prove two copies agree in one process, not that server and browser agree in production | not independently verified (low/info) | TD-32 | Partly | #169, #170, #173 |
+| GATE-05 | INFO | Platform & Ops | npm audit: 22 (react) + 11 (admin) advisories still untriaged; all highs dev-only | observed (gate executed) | TD-38 (still open; count now 22 react / 11 admin) | Closed | #189 |
+| GATE-06 | INFO | Platform & Ops | Main entry chunk 615 KB (180 KB gz) exceeds Vite's 500 KB warning | observed (gate executed) |  | Closed | #189 |
 
 ## 12. Findings in detail
 
@@ -966,3 +1224,165 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 | CI/CD, release, environments, observability, test strategy (OPS) | Platform & Ops | 48 | 13 | 13 |
 | Secrets, PII and privacy compliance (XC-PRV) | Cross-cutting | 62 | 14 | 14 |
 | Architecture, maintainability and AI-assisted development risk (XC-ARC) | Cross-cutting | 58 | 15 | 15 |
+
+## Appendix C — Remediation status by finding (12 Oct 2026)
+
+Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4). See §0 for the method, the summary, the conflicts and the action plan.
+
+### C.1 Unresolved (108)
+
+| ID | Sev | Status | PRs | What is left | Blocker | Effort |
+|---|---|---|---|---|---|---|
+| FE-MNY-04 | high | Partly | #178, #179 | (1) Loan accounts whose debt was soft-deleted BEFORE v10.74.0 still count as a liability in net worth and Pip. They now appear in the Net Worth list, but nothing on Debts shows them and nothing removes them. This needs a production query and a one-off fix (archive them, or reconcile them to zero). (2) There is no way to correct a loan's outstanding to a lender statement without a payment. D19 says 'changing outstand… | — | S |
+| FE-PUB-01 | high | Partly | #165, #166 | Make the 'only the people you invite' claim true or qualify it. Either (a) remove `or is_admin('roles')` from activity_log_read, or stop the admin Audit page reading `changes` (redact or serve through an RPC), or (b) add one sentence on staff/operator access to Privacy.tsx and qualify about.js:31, for.js:165, landingCopy.ts:135 and llms.js:30. | — | S |
+| BE-FN-07 | high | Partly | #165 | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | — | M |
+| INT-TXN-01 | high | Partly | #176 | Editing keeps the split (#176). Deleting a split row still soft-deletes only the transaction: the shared split and its shares stay open (no closeSharedSplit on the delete path). Aurora A3 (#192) offers "Close it instead" on the Splits page, but Delete still leaves the shared split live. | — | S |
+| INT-TXN-07 | high | Partly | #178, #179, #180 | Recurring EMIs moved onto their loans, and WhatsApp "paid … EMI" pays the loan. A WhatsApp correction ("no, that was loan emi") can still relabel a plain expense as loan_emi: neither the webhook correctLast nor whatsapp_correct_last refuses it. Same fix as BE-WA-08. | — | XS |
+| XC-PRV-03 | high | Partly | #165, #189 | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screenshot are off (owner action from PR #165).… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). | M |
+| DB-SEC-03 | high | On hold (dev question) | — | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | D4/D5 | S |
+| OPS-01 | high | On hold (dev question) | — | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | D8 | S |
+| OPS-06 | high | On hold (dev question) | — | Production error reporting and alerting. | D9 | M |
+| FE-MNY-06 | medium | Partly | #186 | The pace banner and the Budget progress panel still use their own budget basis, which the audit's recommendation covered. This is the same work as FE-UIC-08, and it waits on that one-basis decision. | FE-UIC-08 one budget-progress basis (W8 plan section 4: 'needs a decision') | S |
+| FE-PIP-06 | medium | Partly | #182 | Descriptions no longer reach the model (#182 stopped sending `vars` beside facts). Still missing: a PHRASE_SYSTEM line that text inside FACTS is data, never instructions, and an egress sentinel test. | — | XS |
+| FE-PIP-09 | medium | Partly | #168 | Client turn rows no longer count toward the quota or carry cost (#168). They are still written (lib/aiUsage.ts:84), including quickReply turns, so admin call counts that do not filter source='gateway' still over-count. | — | XS |
+| FE-PLT-04 | medium | Partly | #188, #189 | Live-verified 12 Oct: vyact.app sends Content-Security-Policy-Report-Only, and admin.vyact.app enforces a strict CSP. Left: switch vyact.app to enforced after a period of clean reports. | Owner: enforce after clean reports | XS |
+| FE-UIC-10 | medium | Partly | #186 | Dot-grouped, comma-decimal input ('1.234,56', '1.234') is still read about 1000x too small. This is silent in the account opening balance, card limit and reconcile fields. The parser does not use the locale or the household currency's convention, which the audit recommended (Intl.NumberFormat parts). Add the audit's '1.234,56' test case. | — | S |
+| FE-UIS-03 | medium | Partly | #170 | The currency part is fixed (a re-run keeps the household currency). A re-run can still duplicate bill schedules, and the wiring is neither idempotent nor atomic. | — | S |
+| FE-UIS-09 | medium | Partly | #190 | Aurora A1 (#190, after the review baseline) gave light-theme status text darker shades (MIST1). Not re-measured; the secondary-text contrast decision is still open (W8 §3); no contrast test. | Owner: accept darker secondary text | S |
+| FE-UIS-10 | medium | Partly | #183 | Shortcuts now ignore modifiers, editable fields and open dialogs. There is no "Keyboard shortcuts" off switch, which WCAG 2.1.4 requires. | — | XS |
+| FE-UIS-12 | medium | Partly | #183, #190 | Chunk-load recovery and the e2e route are fixed (#183); the crash screen was redesigned (#190). Left: reporting crashes anywhere, on hold for D9. | D9 (error reporting) | S |
+| ADM-03 | medium | Partly | #166 | Close the indirect read. Drop `or is_admin('roles')` from activity_log_read, or return action/entity/actor without `changes` through a SECURITY DEFINER RPC, and remove `changes` from the Audit page view and CSV. Then add a SQL test that a roles admin who is not a member gets 0 rows. | — | S |
+| BE-FN-09 | medium | Partly | #168 | Surface the 'settled' and 'closed' send results through readSplitEmailResult/splitEmailNotice, as the create and edit paths do. | — | XS |
+| BE-WA-06 | medium | Partly | #187 | Make the lockout persist: count failures per phone_number across resends, e.g. lock for 24 h after 10, rather than deleting the row on too_many_attempts. Add a per-phone send limit across all profiles. Today the effective rate is about 5 guesses per resend cycle, per account. | — | S |
+| BE-WA-09 | medium | Partly | #187 | Check the error on the drainInbox done/failed updates and on guardedSend's 'sent' and failure updates. If needed, also make a failed Meta opt-out write return non-2xx so Meta redelivers. | — | XS |
+| DB-SEC-08 | medium | Partly | #167 | Recency is checked on the server (recently_reauthenticated, #167). The erase still leaves notifications and WhatsApp message text; tracked with XC-PRV-08. | — | S |
+| INT-HH-08 | medium | Partly | #183 | Decide whether admins may edit household settings, then align RLS or permissions.ts and the Households rename/type controls. Gate the Debts payoff toggle with a catch. Split language into a per-user write so members can change their own language. Surface onboarding sync failures. | Backlog batch E (owner: not now); also needs an owner decision on admin vs owner-only household settings | S |
+| INT-PAR-05 | medium | Partly | #186 | Have the WhatsApp nudge count via the bundled staleAccounts (or match its fallback and boundary exactly). Add the audit's test that the three surfaces return the same count for one fixture. | — | XS |
+| OPS-05 | medium | Partly | #189 | A consumer preview fails closed on the production URL, with a postbuild gate (#189). Left: the admin-preview half (scope the production Supabase env to Production in Vercel; ADM-09 is backlog). | Owner: Vercel env scoping | XS |
+| OPS-08 | medium | Partly | #178 | INV-7 atomicity is now tested for loan payments (#178, reverse_loan_payment). The RLS isolation matrix is still on hold for D10. | D10 | M |
+| OPS-11 | medium | Partly | #168 | The per-user cap now fails closed (parseDailyCallCap: only "off" disables it). A global LLM spend ceiling is backlog (owner: not now). | Backlog: global ceiling | S |
+| XC-ARC-06 | medium | Partly | #173 | The recurring hand port is deleted (#173). The money and budget-alert hand ports in _shared/ are still duplicated (W8 §4). | — | M |
+| XC-PRV-08 | medium | Partly | #165, #167, #184 | (1) Extend erase to every household-keyed table, and close or delete the owner's shared_splits. (2) Add a schema test that fails when a table with a household_id column is missing from the erase list. (3) Add a server-side export_my_data() covering the user-keyed tables. (4) Fix the new interaction below, then add a PGlite/DO-block test of erase on a household that has an unpaid loan. | — | M |
+| XC-PRV-09 | medium | Partly | #186 | (1) The pending flag is still in sessionStorage (SignUp.tsx:43, GoogleButton.tsx:35). On the confirmation-required path (Path C) it is lost when the verification link opens a new tab, and nothing records acceptance server-side; the audit suggested a handle_new_user trigger reading the policy version from signup/OAuth metadata. (2) There is no re-consent screen when POLICY_VERSION changes. It changed twice after the… | — | S |
+| FE-PIP-07 | medium | Open | — | Capture still seeds the model's raw category word (askVyactBackend.ts:833 capture, :887 split). Resolve it through resolveCategoryId + the type allowlist, else fall back to matchCategory / other. | — | XS |
+| FE-PIP-11 | medium | Open | — | HARMLESS still exempts small numbers whatever follows them (askVyactLlm.ts:342): "12 lakh" and "Rs 9 left" pass the guard. | — | XS |
+| FE-SYN-04 | medium | Open | — | Batch B (sync robustness): sign-out and epoch purge miss allocations, net-worth history, onboarding and dead-letter keys. | — | S |
+| FE-SYN-05 | medium | Open | — | Batch B: dead-letter buckets are per user, and the retry cap needs to be sane. | — | S |
+| FE-SYN-06 | medium | Open | — | Batch B: race between refresh and store writes. | — | M |
+| FE-SYN-07 | medium | Open | — | Batch B: delta paging (only one 500-row page is read). | — | M |
+| FE-SYN-08 | medium | Open | — | Batch B: "Synced" must reflect a real cloud pull. | — | S |
+| FE-UIS-07 | medium | Open | — | NotificationSheet, HouseholdSheet, AccountMenu and CommandPalette still have no focus trap or focus return. They do not use AccessibleDialog (Radix), even after Aurora #190–#192. | — | M |
+| BE-WA-08 | medium | Open | — | Validate inside whatsapp_correct_last: check p_category against the transaction type's allowlist (parity with constants.ts) and refuse loan_emi with approve_in_app. Have the webhook read the type from the RPC or whatsapp_last_logged instead of the latest inbox row. Add the audit's two tests. | — | S |
+| DB-OPS-10 | medium | Open | — | Batch B: a commit-order-safe delta cursor (with INT-TXN-10). | — | M |
+| INT-TXN-10 | medium | Open | — | Batch B: a commit-order-safe cursor (with DB-OPS-10), and pulls must not overwrite pending writes. | — | M |
+| INT-TXN-11 | medium | Open | — | Batch B: queue and retry split sharing with the transaction. | — | S |
+| XC-ARC-08 | medium | Open | — | The retired Money Map flag still chooses the account pickers (TransactionFormModal.tsx:181, SplitFormModal.tsx:139 getMoneyMapMode). | — | S |
+| XC-ARC-09 | medium | Open | — | `deno check` / lint for Edge Functions in CI (W8 §4). | — | S |
+| XC-ARC-11 | medium | Open | — | A lint rule against empty catches on write paths (W8 §4). | — | S |
+| FE-MNY-08 | medium | Owner decision | — | Decide the split money model: (a) the paying account drops by the full bill; (b) the others' shares become a receivable, and the owner chooses where it shows (Net Worth, Pip, free-to-spend); (c) settling moves money back into a named account. Then implement it with a money-model invariant (an account drops by the full amount; settling restores the share) and update the golden file deliberately. | Owner decision: split money model (full debit + receivable). Not raised in the W8 plan's section 3. | L |
+| FE-MNY-10 | medium | Owner decision | — | Pick the one baseline: how many completed months, only months that have spending, the live classification map, and whether unmapped categories are essential. Then make spendBasis and essentialRunway share it, rebuild the engine bundle (spendBasis reaches Pip), and add an askVyactFacts case asserting that the Reports runway equals Pip's for a database override. | Owner decision: the one essential-spend baseline (W8 plan section 4) | M |
+| FE-UIC-08 | medium | Owner decision | — | Decide one budget-progress basis: does unallocated spend count against the total, and annual lines are measured over their own period everywhere. Then write one lib function used by Budgets, the Dashboard pace and panel, Reports and Pip, with a fixture test asserting identical figures. This also finishes FE-MNY-06. | Owner decision: one 'budget left/over' basis (W8 plan section 4) | M |
+| FE-UIC-12 | medium | Owner decision | #178, #179 | Remove (or redirect to Add account) the cash, checking and savings asset types, and define 'free to spend' once: the Accounts summary should read the same projection as Net Worth and Pip, stating whether archived accounts count. Add a fixture test: Accounts spendable == Net Worth/Pip free-to-spend. | Owner decision W8 plan section 3: remove the cash/checking/savings asset types? | S |
+| DB-INT-13 | medium | Owner decision | — | A WhatsApp alias matches by kind with "limit 1". Pick the default account, or ask? (W8 §3) | Owner: alias with two accounts | S |
+| INT-TXN-12 | medium | Owner decision | — | A WhatsApp alias with two matching accounts: pick the default, or ask? (W8 §3). Also, the correction checks category fit against the last inbound message, not the entry being corrected (webhook correctLast). | Owner: alias with two accounts | S |
+| XC-ARC-05 | medium | Owner decision | — | Restructure CLAUDE.md and freeze old docs? (W8 §3) | Owner: docs restructure | S |
+| XC-PRV-10 | medium | Owner decision | — | (1) In router.ts, always send provider: { data_collection: 'deny', allow_fallbacks: false } for base_url openrouter.ai, plus a router unit test. (2) Record the OpenRouter account privacy/ZDR setting. (3) Name OpenRouter and its upstream providers and regions in Privacy §5/§11, and amend 'exactly two things' to mention account and asset names (v10.39 egress). | W8 plan §3 owner decision: whether and how the Privacy page names OpenRouter (bundled with XC-PRV-11's legal entity and grievance officer).… | XS |
+| XC-PRV-11 | medium | Owner decision | #165, #166, #167 | Owner to supply the legal entity, address and grievance officer. Then: add a DPDP section (rights, nomination, Board complaint route); add a complete processor table with regions; offer in-app withdrawal for optional processing; add a breach/incident runbook (72-hour GDPR, DPDP Board) to SECURITY.md; handle children (guardian attestation and date of birth for a 'Child' invite, or stop offering it, and rewrite §12);… | W8 plan §3 owner decision: legal entity and grievance officer/DPO identity to publish, and policy on minors (age 16 vs DPDP 18, parental co… | M |
+| DB-OPS-03 | medium | On hold (dev question) | — | Capture production-only objects (the upsert_budget guard, RLS on migration_issues, _backup_v9_*) as a migration. | D4 | S |
+| DB-OPS-08 | medium | On hold (dev question) | — | Scheduler observability (cron / pg_net results). | D9 | M |
+| DB-SEC-10 | medium | On hold (dev question) | — | RLS/RPC role × tenant test matrix. Interim: a PGlite test for each new SQL function. | D10 | M |
+| INT-PAR-08 | medium | On hold (dev question) | — | Run the bundle --check (npm ci + build-agent-engine --check) before any functions deploy, or gate the deploy on CI. Stamp the git SHA into the bundle header and expose it. Add a post-deploy version comparison. Reopen or update TD-33. | D8 (DEVELOPER_INPUTS.md Q2, decision blank) | S |
+| OPS-02 | medium | On hold (dev question) | — | Migration dry run before production. | D10 | M |
+| OPS-03 | medium | On hold (dev question) | — | `db push --include-all` ordering. | D10 | S |
+| XC-ARC-13 | medium | On hold (dev question) | — | Shift tests toward risk: an SQL/RLS matrix. | D10 | M |
+| ADM-04 | medium | Backlog | — | Everything. An append-only admin_audit table with triggers on admin_roles, content_items, category_classifications and ai_model_configs; grant_admin_role and revoke_admin_role RPCs. Independently, an XS copy fix: correct Help.tsx:27/31/39/57 and the 'append-only' label now, since they mislead during an incident. | — | M |
+| ADM-06 | medium | Backlog | — | Remove email and userId from segments for non-super callers, or move segments to an is_admin('super') function. Remove `or is_admin('content')` from ai_usage_select. Add a SQL test as a content admin. | — | S |
+| ADM-07 | medium | Backlog | — | Keep one page-to-minimum-role table for permissions.ts and Layout.tsx, aligned with the RPC gates. Add a SQL matrix test for each tier (super, roles, content, non-admin) against every admin RPC and every is_admin policy. | D10 (the server-side authz matrix half overlaps XC-ARC-13 / DB-SEC-10, which DEVELOPER_INPUTS.md:141-142 holds for D10) | M |
+| ADM-09 | medium | Backlog | — | Add a preview guard to admin/vite.config.ts (fail or blank the config for VERCEL_ENV=preview outside staging/develop). Remove the PROD fallback constants and stop relying on the committed .env.production. Point previews at vyact-test. Add a PUB-026-style test. Correct ENVIRONMENTS.md:32 now. | D8 (DEVELOPER_INPUTS.md:93-94 puts OPS-05's admin-preview part on hold for D8) | S |
+| BE-WA-07 | medium | Backlog | — | Allow members only a short event allowlist (e.g. partner_split_prompt); compute values server-side from ids; ignore the client dedupeKey for templates whose payload drives a write (bill_*, recurring_auto_logged); require reads consent for affordability_reply. | Owner backlog (plan 'decided not now') | S |
+| DB-INT-09 | medium | Backlog | — | Batch E (owner: not now). | — | S |
+| DB-INT-11 | medium | Backlog | — | Batch E / W8e (owner: not now): a unique index on memberships(household_id, user_id), after a duplicate check in production. | — | XS |
+| DB-SEC-06 | medium | Backlog | — | Batch E (owner: not now). | — | S |
+| DB-SEC-09 | medium | Backlog | — | Batch E (owner: not now). | — | S |
+| INT-HH-07 | medium | Backlog | — | Restrict client membership INSERT to user_id = auth.uid() (or remove it). Add WITH CHECK forbidding user_id/household_id changes on UPDATE. Null and then drop the deprecated profiles phone columns. Add an RLS test. | Backlog batch E (owner: not now) | S |
+| INT-HH-09 | medium | Backlog | #186 | Lock the invitation and household rows in accept_invitation_link and make the accept single-use (row_count check). Add the memberships unique index after a duplicate check. Don't burn the token for existing members. Clear pending_invite_token. Filter expired invites. Drop both legacy accept_invitation overloads. Add a concurrency test. | Backlog batch E (owner: not now) | S |
+| XC-PRV-12 | medium | Backlog | — | Cap p_emails at about 10 and add a per-uid rate limit. Optionally return names only for emails already on the caller's own splits or households. Add an SQL test (an 11-element call raises; the 21st call in a minute raises). | Backlog batch E (owner: not now) | S |
+| FE-MNY-16 | low | Partly | #170, #181, #186 | recurringForecastByCategory, used by BudgetFormModal.tsx:122, should count the rule's real occurrences in the period (expandRRule/ruleOf). Today a quarterly schedule (FREQ=MONTHLY;INTERVAL=3) is forecast three times over, and a Mon-Fri weekly schedule five times under. | — | S |
+| ADM-10 | low | Partly | #188 | Set allowed_mime_types = ['image/png','image/jpeg','image/webp'] and a file_size_limit on the bucket (a migration or a dashboard setting). | — | XS |
+| ADM-11 | low | Partly | #188 | Run a one-off backfill, e.g. author_name = 'Vyact' where author_name contains '@', and restore re-dated published_at values if the old dates are known. Limiting anon columns is FE-PUB-08 (backlog). | — | XS |
+| ADM-14 | low | Partly | #188 | Fix the Dashboard KPI. Either return per-currency MRR (active and trialing) from admin_dashboard_kpis (migration), or replace the tile with the per-currency helper and drop the 'USD' and '$' labels. | — | S |
+| BE-FN-11 | low | Partly | #165 | Codify the auth config (an [auth] section, or a checked-in auth snapshot verified by a script). Build the cron URLs from a Vault project_url secret instead of the literal prod host. | — | S |
+| BE-PIP-04 | low | Partly | #187 | A learned recipe is deterministic only when trusted (#187). No confirmation or promotion flow was built; the pipeline is not connected to any entrypoint, so nothing is exposed today. | — | S |
+| BE-WA-12 | low | Partly | #187 | Add a migration that schedules mode=sweep every 5 minutes with a Vault-held service secret (same pattern as the dispatch secret). Send a final 'please resend' notice when a stale claim exhausts its attempts. | — | S |
+| INT-HH-06 | low | Partly | #166 | Add a unique index on memberships(household_id,user_id) after a production query confirms there are no duplicates. Separately, check production once for households that were already ownerless before the trigger (PR #166 note). | W8e (owner 8 Oct: not now) | XS |
+| INT-HH-13 | low | Partly | #184 | Purge the exited household's cache entries and delta cursors. Route to Households/create when no household remains after a leave. | — | XS |
+| INT-HH-14 | low | Partly | #188 | Count members server-side (a group-by RPC, or select('id, memberships(count)')) and paginate the households list. | W8 plan §4 (larger items, not planned) | S |
+| OPS-07 | low | Partly | #189 | `permissions: contents: read` is on every workflow. Left: a separate Supabase token or environment for vyact-test deploys (owner). | Owner: separate token | XS |
+| XC-PRV-14 | low | Partly | #189 | Replace the remaining work email in CHANGELOG.md:3962 and the migration comment, and regenerate schema.sql. Editing an applied migration's comment is harmless, but check the migrations gate. Add home.html to .gitignore. Widen the test regex to any non-placeholder domain. The history purge is declined by the owner. | — | XS |
+| ADM-05 | low | Open | — | Restrict writes to is_admin('super'). Add a CHECK or FK that ties category to the expense ids. Add a parity test of category_classifications rows against NEEDS_WANTS_MAP. Log changes once an admin audit exists. | — | S |
+| ADM-08 | low | Open | — | Add admin_list_households(p_limit, p_offset, p_query) with a GROUP BY member_count, a paginated admin_list_users with server-side search, and totals from count='exact' or the RPC. | — | M |
+| DB-INT-14 | low | Open | — | CHECK gaps (budget scope, allocations, categories); needs a migration (W8 §4). | — | S |
+| DB-OPS-07 | low | Open | — | Every pg_cron job hard-codes the production URL; build it from a Vault project_url instead (W8 §4). | — | S |
+| DB-OPS-09 | low | Open | — | RLS helper and index tuning (W8 §4). | — | M |
+| INT-TXN-14 | low | Open | — | Audit trail: keep the actor for server-side writers, and record deletes as deletes (needs a migration; W8 §4). | — | S |
+| GATE-04 | low | Open | — | Type-check the unit tests (W8 §4). | — | M |
+| XC-ARC-10 | low | Open | — | A store helper that commits post-await writes with a household guard (W8 §4). | — | M |
+| XC-ARC-12 | low | Open | — | Structural: encode the money model in domain types. Not planned. | — | L |
+| XC-ARC-14 | low | Open | — | Process: release cadence versus stabilisation. Not a code item. | — | — |
+| FE-MNY-12 | low | Owner decision | — | Either refuse to archive an account with a non-zero balance (offer move or transfer first), or count archived balances the same way on every surface and label them. Add the test from the finding. | Owner decision W8 plan section 3: archiving an account with a balance, refuse it or count it everywhere? | S |
+| FE-MNY-13 | low | Owner decision | — | Add an explicit 'in credit' toggle on card reconcile that passes a positive balance through. Keep INV-11 for the default 'owed' case. Test: 'in credit 2,000' gives balance +2,000, outstanding 0, liquidity 'short'. | Owner decision W8 plan section 3: add an 'in credit' option to card reconcile? | S |
+| FE-SYN-13 | low | Owner decision | — | On sign-in, discard local-only data (and delete the dead import), or import it? (W8 §3) | Owner: local data on sign-in | S |
+| BE-PIP-06 | low | Owner decision | — | Retire the test-only Claude Code relay (TD-44) now? (W8 plan §3) | Owner: retire the relay | S |
+| DB-INT-15 | low | Owner decision | — | Is email confirmation on in production auth? If yes, split sharing should require email_confirmed_at. (W8 §3) | Owner: confirm auth setting | XS |
+| XC-ARC-07 | low | Owner decision | — | Park or delete the dormant SMS/agent pipeline? (W8 §3) | Owner: dormant pipeline | M |
+| XC-ARC-15 | low | Owner decision | — | Move tracked binaries and duplicate handoffs out of the repo? (W8 §3) | Owner: repo hygiene | S |
+| FE-PUB-08 | low | Backlog | — | Revoke table SELECT from anon and grant column-level SELECT on the columns the public pages read (LESSON_COLS, react/api/learn.js:24). Check it against the Learn, sitemap and llms queries. | — | XS |
+| INT-CON-07 | low | Backlog | — | Rewrite leave_household with the NULL-safe idiom (select role into v_role; return if null). | W8e (owner 8 Oct: not now) | XS |
+| INT-PAR-11 | info | Partly | #169, #170, #173 | Add vitest projects (or separate runs) with env TZ=UTC, Asia/Kolkata, Europe/London and America/New_York for the device-local and recurrence suites. Add a Deno smoke test that imports engine.generated.js and the _shared modules as the Edge runtime loads them. | — | M |
+| DB-OPS-16 | info | Open | — | Needs one production query (dependent indexes), then drop pg_trgm or move it. Not planned. | — | XS |
+| BE-FN-12 | info | Owner decision | — | The owner must decide whether to add a 'Hide amounts on the lock screen' preference and whether it defaults to on. Then send a generic title and body when it is on. | Owner decision: W8 plan §3 'BE-FN-12 hide amounts on lock-screen pushes by default?' | S |
+
+### C.2 Resolved, but to be confirmed in production (15)
+
+| ID | Sev | Status | PRs | Check |
+|---|---|---|---|---|
+| XC-PRV-01 | critical | Closed (decision) | #165 | (1) Confirm in production that the old key returns 401. The repo cannot prove revocation. (2) Rotate the Google OAuth client secret: vyact-master-todo.md:131 (untracked) still lists item #2 as Open. (3) No review of Supabase API/auth logs since 2026-05-10 is recorded anywhere. (4) Optional: a pre-commit hook. The scanner reads tracked files at the tip only,… |
+| FE-MNY-01 | high | Closed | #172, #173 | Data follow-up only. Before v10.69.0, the form's weekday, annual date, nth weekday and COUNT were never stored. The W3d backfill derived each old schedule's rule from its columns (start date = creation day). So a weekly or yearly schedule created before 7 Oct 2026 still fires on the wrong day until the user re-saves it. A production query (weekly/yearly or… |
+| BE-FN-02 | high | Closed (decision) | #167 | Requests scheduled before v10.63.0 were never executed. If one of those users signs in, the request is still silently erased ('Welcome back'). Do this in production: list them (select id, deletion_requested_at, deletion_scheduled_for from profiles where deletion_requested_at is not null) and run purge_account plus the auth delete after the owner confirms (P… |
+| INT-HH-03 | high | Closed | #167 | Operational only (PR #167 owner checks): confirm production JWTs carry amr timestamps, otherwise every delete and erase is refused as reauth_required. Process the pre-v10.63 users who chose the old 30-day 'scheduled deletion'; nothing deletes them automatically. |
+| INT-TZC-02 | high | Closed (decision) | #170 | Before release, count rows in production whose currency label differs from their household's (PR #170 owner check). They now count at face value. |
+| FE-UIC-06 | medium | Closed | #178, #179, #183 | Production check, shared with FE-MNY-04: a household with a loan account orphaned before v10.74.0 would see the Net Worth total exceed the Debts total, because Debts lists live debts only. |
+| INT-TZC-04 | medium | Closed | #169 | Production check (PR #169): cron.job shows '0,30 * * * *' for the whatsapp-dispatch jobs. Remove the unused VYACT_TZ_OFFSET_MINUTES secret. |
+| INT-TZC-07 | medium | Closed (decision) | #170 | Count legacy foreign-labelled rows in production; they now count at face value (USD 120 becomes ₹120), per the #170 owner check. Remove the inert rate plumbing (TD-45) and later drop the exchange_rates table (plan backlog item 'drop the rates table'). |
+| XC-PRV-02 | medium | Closed | #165 | (1) Production check in GA4 DebugView: confirm that enhanced-measurement history-change page_views keep the redacted value. The concrete case is /invite/<token> followed by a click to /auth/sign-in?next=%2Finvite%2F<token>, an SPA navigation from AcceptInvite.tsx:79-91. If they do not keep it, turn off 'page changes based on browser history events' or redac… |
+| XC-PRV-04 | medium | Closed | #167 | Confirm that production JWTs carry amr with timestamps. PR #167 asked the owner to check this before merging. If they do not, every erase and delete is refused. |
+| XC-PRV-07 | medium | Closed | #167 | Confirm that the 'whatsapp-retention' job exists and runs in production (cron.job / cron.job_run_details). |
+| FE-PUB-05 | low | Closed | #189 | see PR |
+| FE-PUB-06 | low | Closed | #189 | Possible small residual: the recommendation text in the report is cut off ('Use the build time (or the copy's last-cha…'). If it meant sitemap lastmod, /about, /for/* and /private still report the request date (react/api/sitemap.js:21-26). |
+| FE-PUB-07 | low | Closed | #185, #189 | see PR |
+| ADM-13 | low | Closed | #188, #189 | see PR |
+
+### C.3 Resolved, with a residual note (20)
+
+| ID | Sev | Status | PRs | Note |
+|---|---|---|---|---|
+| DB-SEC-01 | critical | Closed | #166 | Production check: rpc("replace_memberships") should return "function not found". |
+| FE-PIP-01 | high | Closed | #182 | Owner decision P1: an annual line gets no monthly verdict and Pip points to Budgets (the audit had recommended measuring it over its own window). The Dashboard panel half is tracked under FE-MNY-06 / FE-UIC-08. |
+| FE-UIS-02 | high | Closed (decision) | #165 | D23: two-factor auth was removed for consumer and admin (accepted risk, partly mitigated by D24). |
+| ADM-01 | high | Closed | #165 | Defence in depth only. content_items.category and slug still have no CHECK (only source_url has one). The source_url CHECK is NOT VALID, so existing rows were never validated. The vyact.app CSP is Report-Only and allows 'unsafe-inline' scripts (react/vercel.json:105), so it would not block an injected inline script. E… |
+| ADM-02 | high | Closed (decision) | #165 | The session-limit half has no decision: there is no admin inactivity sign-out and no short refresh-token lifetime. Ask the owner whether to add one as a cheap compensating control, since MFA is not used. |
+| INT-PAR-01 | high | Closed (decision) | #170 | Dead code: serverEngine.ts:78-80 still builds a rates map with a stale comment calling it 'the store's rule'. Remove it with the rest of the inert rate plumbing (TD-45, TECH_DEBT.md:110). |
+| FE-PIP-08 | medium | Closed | #182 | The model no longer receives the `vars` headline (#182); its facts carry total_assets, liquid_savings and liquid_by_source separately. Cosmetic: the unused headline still says "across your accounts". |
+| FE-UIC-04 | medium | Closed | #177 | Nothing from the cited list. One uncited instance remains: AccountFormModal.tsx:284 'Available now' uses fmt, so a card over its limit shows a positive available figure. The suggested lint/grep gate against fmt( on balance or net values was not added. |
+| FE-UIC-05 | medium | Closed | #186 | Cosmetic only: move_account_and_delete (still the 20260910150000 definition) does not rewrite extras.paymentMethod. This is harmless now that the form reads the FK first. |
+| BE-FN-06 | medium | Closed | #168 | Optional, not required by D28: (1) cap shares per split (the audit suggested 20); (2) the sender display name in subject and heading still comes from user_metadata.full_name (send-split-email/index.ts:189-191, emailTemplates.ts:130,154), stripped of control characters but still spoofable, e.g. 'Vyact Security'. |
+| BE-WA-03 | medium | Closed | #187 | Residual edge only: the reopen runs only on a returned 'retry'. If the worker dies after resolvePending (a stale claim is replayed), or an exception escapes processInboundTurn, the question stays closed. The audit's stronger design (resolve the pending turn inside the action's RPC transaction, or keep it on the inbox… |
+| INT-HH-12 | medium | Closed (decision) | #166 | Cleanup: a later migration should drop 'child' from the role CHECKs and the trigger once old clients age out (the W1a migration kept them 'for one release'). |
+| FE-MNY-11 | low | Closed | #183 | Optional, part of the recommendation but not the defect: no UTF-8 BOM is emitted (downloadCsv at :40-45), so non-ASCII descriptions may garble in Excel. |
+| FE-MNY-15 | low | Closed | #184 | Nothing for the export. There is still no restore (the owner-only 'Restore from backup' is in the plan's backlog), so the round-trip test from the recommendation has nothing to run against. |
+| FE-PIP-14 | low | Closed (decision) | #170 | Moot under D14: one currency per household, nothing converted. |
+| FE-UIS-15 | low | Closed | #184, #186 | Owner decision: non-English options are labelled "Preview: navigation only". |
+| FE-UIS-16 | low | Closed | #184 | Expired invitations no longer count toward the member limit (migration 20261007120000:62). The recommendation's optional dirty-form confirm was not added. |
+| GATE-03 | low | Closed | #185, #188 | Live-verified 12 Oct: no .map is served for the vyact.app or admin entry chunks. |
+| OPS-13 | low | Closed | #185, #189 | The ignoreCommand regression introduced in #185 was fixed in #189. |
+| GATE-05 | info | Closed | #189 | Triaged (docs/SECURITY_AUDIT_TRIAGE.md), with a CI npm-audit gate. The moderate React Router advisory is mitigated by safeNext; its full fix is v7. |
