@@ -749,56 +749,79 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
 
     // Local-only household: pay_loan's own rules, applied here. The legs are written in sequence (there
     // is no server to make them one transaction); each keeps what it changed, so it can be undone.
+    // Track E, E7 (spec INV-7, TD-31): the payment is ONE event. If a later write fails, the earlier ones
+    // are undone (`undoLocalPayment`) and the error is raised, so a payment never half-applies.
     const view = loanView(debt, accounts, get().transactions, currency, date);
     const plan = planLoanPayment(view, {
       kind: input.kind, amount: input.amount, date, choice: input.choice,
       bankInterest: input.bankInterest, bankPrincipal: input.bankPrincipal,
     }, currency);
     let loanAccount = loanAccountOf(debt, accounts);
+    let createdAccount: Account | undefined;
     if (!loanAccount && plan.principal > 0) {
-      loanAccount = await get().upsertAccount({
+      loanAccount = createdAccount = await get().upsertAccount({
         id: uid(), kind: 'loan', name: debt.name, currency, openingBalance: -debt.currentBalance,
         debtId: debt.id, isDefault: false, isArchived: false,
       });
     }
-    const description = input.description?.trim()
-      || `${debt.name}${input.kind === 'prepayment' ? ' prepayment' : input.kind === 'payoff' ? ' payoff' : ' EMI'}`;
-    const emiSplit: NonNullable<Transaction['emiSplit']> = {
-      interest: plan.interest, principal: plan.principal, debt_id: debt.id, kind: input.kind,
-      instalment_no: plan.instalmentNo, operation_id: operationId,
-      partPaymentChoice: input.kind === 'prepayment' ? (input.choice ?? 'reduce_tenure') : undefined,
-      before: { emi: debt.minimumPayment, due: debt.dueDate ?? null, closes: plan.closes, paidOff: !!debt.paidOffAt, balance: debt.currentBalance },
-    };
     const written: Transaction[] = [];
-    let expenseId: string | undefined;
-    if (plan.interest > 0) {
-      const expense = {
-        id: uid(), type: 'expense', amount: plan.interest, currency, date, description, category: 'loan_emi',
-        memberId: input.memberId, accountId: funding.id, debtId: debt.id, linkedDebtId: debt.id, emiSplit,
-      } as Transaction;
-      written.push(await adapter.upsert('transactions', currentHouseholdId, expense) as Transaction);
-      expenseId = expense.id;
-    }
-    if (plan.principal > 0 && loanAccount) {
-      const transfer = {
-        id: uid(), type: 'transfer', amount: plan.principal, currency, date, description: `${description} - principal`,
-        category: '', memberId: input.memberId, accountId: funding.id, toAccountId: loanAccount.id,
-        debtId: debt.id, linkedDebtId: debt.id, linkedTxnId: expenseId, emiSplit,
-      } as Transaction;
-      written.push(await adapter.upsert('transactions', currentHouseholdId, transfer) as Transaction);
-    }
-    set({ transactions: [...get().transactions, ...written] });
-    const saved = await get().upsertDebt({
-      ...debt, currentBalance: plan.outstandingAfter, minimumPayment: plan.emiAfter,
-      instalmentsPaid: (debt.instalmentsPaid ?? 0) + (plan.closes ? 1 : 0), dueDate: plan.dueAfter ?? undefined,
-      paidOffAt: plan.paidOff ? new Date().toISOString() : debt.paidOffAt,
-    });
-    void get().refreshNotifications();
-    return {
-      status: 'success', operationId, interest: plan.interest, principal: plan.principal, instalmentNo: plan.instalmentNo,
-      closesInstalment: plan.closes, paidOff: plan.paidOff, outstandingAfter: plan.outstandingAfter,
-      nextDueDate: plan.dueAfter, emiAfter: plan.emiAfter, debt: saved, loanAccount: loanAccount ?? null, transactions: written,
+    /** Undo what this payment wrote, newest first. A step that cannot be undone is reported, never swallowed. */
+    const undoLocalPayment = async () => {
+      for (const row of [...written].reverse()) {
+        try {
+          await adapter.remove('transactions', currentHouseholdId, row.id);
+          set({ transactions: get().transactions.filter(t => t.id !== row.id) });
+        } catch (e) { unexpected(e, `payLoan:rollback transaction ${row.id}`); }
+      }
+      if (createdAccount) {
+        try {
+          await adapter.remove('accounts', currentHouseholdId, createdAccount.id);
+          set({ accounts: get().accounts.filter(a => a.id !== createdAccount!.id) });
+        } catch (e) { unexpected(e, `payLoan:rollback account ${createdAccount.id}`); }
+      }
     };
+    try {
+      const description = input.description?.trim()
+        || `${debt.name}${input.kind === 'prepayment' ? ' prepayment' : input.kind === 'payoff' ? ' payoff' : ' EMI'}`;
+      const emiSplit: NonNullable<Transaction['emiSplit']> = {
+        interest: plan.interest, principal: plan.principal, debt_id: debt.id, kind: input.kind,
+        instalment_no: plan.instalmentNo, operation_id: operationId,
+        partPaymentChoice: input.kind === 'prepayment' ? (input.choice ?? 'reduce_tenure') : undefined,
+        before: { emi: debt.minimumPayment, due: debt.dueDate ?? null, closes: plan.closes, paidOff: !!debt.paidOffAt, balance: debt.currentBalance },
+      };
+      let expenseId: string | undefined;
+      if (plan.interest > 0) {
+        const expense = {
+          id: uid(), type: 'expense', amount: plan.interest, currency, date, description, category: 'loan_emi',
+          memberId: input.memberId, accountId: funding.id, debtId: debt.id, linkedDebtId: debt.id, emiSplit,
+        } as Transaction;
+        written.push(await adapter.upsert('transactions', currentHouseholdId, expense) as Transaction);
+        expenseId = expense.id;
+      }
+      if (plan.principal > 0 && loanAccount) {
+        const transfer = {
+          id: uid(), type: 'transfer', amount: plan.principal, currency, date, description: `${description} - principal`,
+          category: '', memberId: input.memberId, accountId: funding.id, toAccountId: loanAccount.id,
+          debtId: debt.id, linkedDebtId: debt.id, linkedTxnId: expenseId, emiSplit,
+        } as Transaction;
+        written.push(await adapter.upsert('transactions', currentHouseholdId, transfer) as Transaction);
+      }
+      set({ transactions: [...get().transactions, ...written] });
+      const saved = await get().upsertDebt({
+        ...debt, currentBalance: plan.outstandingAfter, minimumPayment: plan.emiAfter,
+        instalmentsPaid: (debt.instalmentsPaid ?? 0) + (plan.closes ? 1 : 0), dueDate: plan.dueAfter ?? undefined,
+        paidOffAt: plan.paidOff ? new Date().toISOString() : debt.paidOffAt,
+      });
+      void get().refreshNotifications();
+      return {
+        status: 'success', operationId, interest: plan.interest, principal: plan.principal, instalmentNo: plan.instalmentNo,
+        closesInstalment: plan.closes, paidOff: plan.paidOff, outstandingAfter: plan.outstandingAfter,
+        nextDueDate: plan.dueAfter, emiAfter: plan.emiAfter, debt: saved, loanAccount: loanAccount ?? null, transactions: written,
+      };
+    } catch (e) {
+      await undoLocalPayment();
+      throw e;
+    }
   },
 
   loanDue: async (debtId) => {

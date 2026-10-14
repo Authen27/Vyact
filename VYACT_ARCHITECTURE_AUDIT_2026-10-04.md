@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 13 Oct 2026):** 118 of 212 resolved, including all 3 critical and 23 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 13 Oct 2026):** 119 of 212 resolved, including all 3 critical and 24 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -55,17 +55,17 @@ Two developers did the work:
 | Severity | Total | Closed | Closed by decision | Partly | Open | Owner decision | On hold (dev question) | Backlog |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
-| High | 29 | 18 | 5 | 3 | 0 | 0 | 3 | 0 |
+| High | 29 | 19 | 5 | 2 | 0 | 0 | 3 | 0 |
 | Medium | 100 | 43 | 2 | 17 | 12 | 7 | 7 | 12 |
 | Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **109** | **9** | **32** | **23** | **14** | **10** | **15** |
+| **Total** | **212** | **110** | **9** | **31** | **23** | **14** | **10** | **15** |
 
-**118 of 212 are resolved (56%): all 3 critical and 23 of 29 high.** The other 94 fall into four groups:
+**119 of 212 are resolved (56%): all 3 critical and 24 of 29 high.** The other 93 fall into four groups:
 
-| What the 94 need | Count |
+| What the 93 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 45 |
+| Nothing but work: no decision, no blocker | 44 |
 | An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 18 |
@@ -96,8 +96,8 @@ Two developers did the work:
 | #175 | v10.71.0 | W4b app stops posting | INT-TXN-06 | — |
 | #176 | v10.72.0 | W4c split edit | FE-PIP-03, INT-TXN-01, FE-UIC-09 | — |
 | #177 | v10.73.0 | W4d bell + signs | FE-UIS-04, FE-UIC-04 | — |
-| #178 | v10.74.0 | W4e loan schema | INT-TXN-07, FE-UIC-06 | FE-MNY-04, FE-UIC-12, OPS-08 |
-| #179 | v10.75.0 | W4f loan app | INT-TXN-07, FE-UIC-06, FE-UIC-09 | FE-MNY-04, FE-UIC-12 |
+| #178 | v10.74.0 | W4e loan schema | FE-MNY-04, INT-TXN-07, FE-UIC-06 | FE-UIC-12, OPS-08 |
+| #179 | v10.75.0 | W4f loan app | FE-MNY-04, INT-TXN-07, FE-UIC-06, FE-UIC-09 | FE-UIC-12 |
 | #180 | v10.76.0 | W4g loan automation | INT-TXN-07, FE-UIC-09 | — |
 | #181 | v10.77.0 | W4h budget suggest | FE-MNY-16 | — |
 | #182 | v10.78.0 | W5 Pip correctness | FE-PIP-01, FE-PIP-03, FE-PIP-04, FE-PIP-02, FE-PIP-05, FE-PIP-06, FE-PIP-08, FE-PIP-12 | — |
@@ -122,7 +122,8 @@ Two developers did the work:
 | (PR in review) | v10.98.0 | Track E · E4: one spending baseline; two labelled cover figures (owner, 14 Oct) | FE-MNY-10 | — |
 | (PR in review) | v10.99.0 | Track E · E5: one budget-progress basis; not-planned spending (owner, 14 Oct) | FE-MNY-06, FE-UIC-08 | — |
 | (PR in review) | v10.100.0 | Track E · E6a: loan EMIs in Recurring; old EMI schedules hidden; EMIs in the budget forecast (owner, 13–14 Oct) | — | — |
-| #207 | v10.101.0 | Track E · E6b: the leftover EMI schedules soft-deleted (migration; owner E-3, E-11) | — | — |
+| (PR in review) | v10.101.0 | Track E · E6b: the leftover EMI schedules soft-deleted (migration; owner E-3, E-11) | — | — |
+| (PR in review) | v10.102.0 | Track E · E7: orphan loan accounts cleared; a local loan payment is one event (INV-7) | FE-MNY-04 | OPS-08 |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -178,11 +179,10 @@ Two developers did the work:
 
 ### 0.5 Open items by severity and impact
 
-**High (6). Each one is a money, privacy or release-safety risk.**
+**High (5). Each one is a money, privacy or release-safety risk.**
 
 | ID | Status | What is left | Next step |
 |---|---|---|---|
-| FE-MNY-04 | Partly | (1) Loan accounts whose debt was soft-deleted BEFORE v10.74.0 still count as a liability in net worth and Pip. They now appear in the Net Worth list, but nothing on Debts shows them and nothing removes them. This needs a production query and a one-off fix (archive them, or reconcile them to zero). (2) There is no way to correct a loan's outstanding to a lender statement withou… | Step 1 (S) |
 | BE-FN-07 | Partly | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | Step 1 (M) |
 | DB-SEC-03 | On hold (dev question) | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | Answer D4/D5 |
 | OPS-01 | On hold (dev question) | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | Answer D8 |
@@ -745,7 +745,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | DB-SEC-02 | CRITICAL | Database | transfer_ownership's owner check passes for non-members (NULL <> 'owner'), letting anyone promote members | confirmed (adversarial: confirmed) | 2026-09 audit S2 | Closed | #166 |
 | XC-PRV-01 | CRITICAL | Cross-cutting | Production Supabase secret API key committed in git history (setup.sh) while the repo was public | confirmed (adversarial: confirmed) |  | Closed (decision) | #165 |
 | FE-MNY-01 | HIGH | Frontend | Recurring engine ignores the schedule the user chose: weekday, yearly date, nth-weekday and COUNT never reach it | confirmed (adversarial: confirmed) |  | Closed | #172, #173 |
-| FE-MNY-04 | HIGH | Frontend | Deleting or editing a debt leaves its loan account's liability in net worth, with no UI to correct it | confirmed (adversarial: confirmed) |  | Partly | #178, #179 |
+| FE-MNY-04 | HIGH | Frontend | Deleting or editing a debt leaves its loan account's liability in net worth, with no UI to correct it | confirmed (adversarial: confirmed) |  | Closed | #178, #179, v10.102.0 |
 | FE-PIP-01 | HIGH | Frontend | Pip compares annual budget limits with ONE month's spend (affordability verdict, lookup, status) | confirmed (adversarial: confirmed) |  | Closed | #182 |
 | FE-PIP-03 | HIGH | Frontend | 'Split' capture opens the plain transaction form, which drops the split: full bill booked as spend | confirmed (adversarial: confirmed) |  | Closed | #176, #182 |
 | FE-PIP-04 | HIGH | Frontend | Facts that can be negative still go through money(), which drops the sign (net worth, headroom) | confirmed (adversarial: confirmed) |  | Closed | #182 |
@@ -857,7 +857,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | OPS-03 | MEDIUM | Platform & Ops | `db push --include-all` applies out-of-order migrations, so 'last filename wins' can be false in prod | confirmed (adversarial: confirmed) |  | On hold (dev question) | — |
 | OPS-04 | MEDIUM | Platform & Ops | send-split-email and delete-account are never deployed by the pipeline; v10.59/v10.60 fixes not shipped | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 (Edge manifest omission, still open) | Closed | #165 |
 | OPS-05 | MEDIUM | Platform & Ops | Preview guard is skipped when VITE_SUPABASE_URL is 'All Environments'; admin previews use prod | confirmed-with-caveats (adversarial: partial) |  | Partly | #189 |
-| OPS-08 | MEDIUM | Platform & Ops | RLS isolation covers 3 of ~40 tables, PR-only, against a hand-synced schema; INV-7 still untested | confirmed-with-caveats (adversarial: partial) | TD-19 (Lane B partially delivered); TD-31 (open); 2026-09 audit 10.2 | Partly | #178 |
+| OPS-08 | MEDIUM | Platform & Ops | RLS isolation covers 3 of ~40 tables, PR-only, against a hand-synced schema; INV-7 still untested | confirmed-with-caveats (adversarial: partial) | TD-19 (Lane B partially delivered); TD-31 (open); 2026-09 audit 10.2 | Partly | #178, v10.102.0 |
 | OPS-11 | MEDIUM | Platform & Ops | LLM spend guard is per-user only and fails open if the cap env is unset or invalid | confirmed-with-caveats (adversarial: partial) | 2026-09 audit A2 (atomicity fixed; global ceiling and fail-closed config not addressed) | Partly | #168 |
 | XC-ARC-05 | MEDIUM | Cross-cutting | Binding docs contradict themselves and send AI sessions to stale documents | confirmed (adversarial: confirmed) | TD-28 (marked resolved 2026-06-17; regressed), TD-41 (open) | Owner decision | — |
 | XC-ARC-06 | MEDIUM | Cross-cutting | Bundled engine left hand ports live: server money, recurring and budget alerts are duplicated | confirmed-with-caveats (adversarial: partial) |  | Partly | #173, v10.96.0 |
@@ -1250,11 +1250,10 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (94)
+### C.1 Unresolved (93)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
-| FE-MNY-04 | high | Partly | #178, #179 | (1) Loan accounts whose debt was soft-deleted BEFORE v10.74.0 still count as a liability in net worth and Pip. They now appear in the Net Worth list, but nothing on Debts shows them and nothing removes them. This needs a production query and a one-off fix (archive them, or reconcile them to zero). (2) There is no way to correct a loan's outstanding to a lender statement without a payment. D19 says 'changing outstand… | — | S |
 | BE-FN-07 | high | Partly | #165 | From the audit's hardening list: restrict the *.notify.windows.com and *.push.apple.com wildcards (or resolve the host before registering); cap subscriptions at about 10 per user; batch or paginate households instead of one serial run; truncate the payload instead of counting payload_too_large against the device. | — | M |
 | XC-PRV-03 | high | Partly | #165, #189 | (1) GA4 consent: a consent banner plus Consent Mode v2 defaulting to denied, or a recorded owner acceptance of the risk. (2) Name GA4 and Speed Insights in Privacy §5 and the Cookie table, and correct Cookies §4/§5. (3) Enforce the CSP after a clean report period (tracked as FE-PLT-04). (4) Confirm in the Userback dashboard that session replay, console capture and auto-screenshot are off (owner action from PR #165).… | GA4 consent not decided: D20 covered only Contentsquare (remove) and Userback (keep and disclose). | M |
 | DB-SEC-03 | high | On hold (dev question) | — | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | D4/D5 | S |
@@ -1272,7 +1271,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | INT-HH-08 | medium | Partly | #183 | Decide whether admins may edit household settings, then align RLS or permissions.ts and the Households rename/type controls. Gate the Debts payoff toggle with a catch. Split language into a per-user write so members can change their own language. Surface onboarding sync failures. | Backlog batch E (owner: not now); also needs an owner decision on admin vs owner-only household settings | S |
 | INT-PAR-05 | medium | Partly | #186 | Have the WhatsApp nudge count via the bundled staleAccounts (or match its fallback and boundary exactly). Add the audit's test that the three surfaces return the same count for one fixture. | — | XS |
 | OPS-05 | medium | Partly | #189 | A consumer preview fails closed on the production URL, with a postbuild gate (#189). Left: the admin-preview half (scope the production Supabase env to Production in Vercel; ADM-09 is backlog). | Owner: Vercel env scoping | XS |
-| OPS-08 | medium | Partly | #178 | INV-7 atomicity is now tested for loan payments (#178, reverse_loan_payment). The RLS isolation matrix is still on hold for D10. | D10 | M |
+| OPS-08 | medium | Partly | #178, v10.102.0 | INV-7 atomicity is tested for loan payments in Postgres (#178: pay_loan with a force-failed leg, reverse_loan_payment) and, since v10.102.0, for a local-only household (payLoan undoes its earlier writes when a later one fails; TE7-001..003). The RLS isolation matrix is still on hold for D10. | D10 | M |
 | OPS-11 | medium | Partly | #168 | The per-user cap now fails closed (parseDailyCallCap: only "off" disables it). A global LLM spend ceiling is backlog (owner: not now). | Backlog: global ceiling | S |
 | XC-ARC-06 | medium | Partly | #173, v10.96.0 | The recurring hand port is deleted (#173), and the money hand port is deleted in v10.96.0 (Track E, E2): WhatsApp's alerts and digests read spending through the bundled engine (the app's row mapping and spendRows). Left: the WhatsApp budget alert keeps its own 80% rule beside the app's budget_threshold generator (it reads the app's spending). | — | M |
 | XC-PRV-08 | medium | Partly | #165, #167, #184, v10.88.0 | Done in v10.88.0: the erase covers every household table (a test forces each new one to be classified) and deletes the household's shared splits; the unpaid-loan erase works. Left: a server-side export_my_data() covering the user-keyed tables. | — | M |
@@ -1370,11 +1369,12 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (33)
+### C.3 Resolved, with a residual note (34)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
 | DB-SEC-01 | critical | Closed | #166 | Production check: rpc("replace_memberships") should return "function not found". |
+| FE-MNY-04 | high | Closed | #178, #179, v10.102.0 | v10.102.0 (Track E, E7; owner decisions E-8 and 14 Oct 2026): (1) migration 20261024120000 clears every live loan account LINKED to a deleted loan as mark_loan_paid_off does (offset + dated log, kind loan, never a transaction) and archives it; net worth loses the phantom debt. A loan account with NO link is left alone… |
 | FE-PIP-01 | high | Closed | #182 | Owner decision P1: an annual line gets no monthly verdict and Pip points to Budgets (the audit had recommended measuring it over its own window). The Dashboard panel half is tracked under FE-MNY-06 / FE-UIC-08. |
 | FE-PUB-01 | high | Closed | #165, #166, v10.92.0, v10.93.0 | Done: the Private toggle copy (#165, D21); admins no longer read household values (#166 for the ledger, v10.92.0 + v10.93.0 for activity_log); Privacy says staff can see that an action happened, never its amounts, names or descriptions (v10.93.0, owner decision 13 Oct). The public FAQ lines (about.js, for.js, llms.js)… |
 | FE-UIS-02 | high | Closed (decision) | #165 | D23: two-factor auth was removed for consumer and admin (accepted risk, partly mitigated by D24). |

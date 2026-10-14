@@ -1553,8 +1553,11 @@
       "availability": "available",
       "layer": "store-integration",
       "owner": "useStore / LocalStorageAdapter / IndexedDB",
-      "count": 11,
+      "count": 14,
       "tests": [
+        "INV-7 locally — a loan payment is one event (Track E, E7) TE7-001 · the principal leg fails: the interest leg and the loan account it opened are undone; nothing moved",
+        "INV-7 locally — a loan payment is one event (Track E, E7) TE7-002 · the loan update fails after both legs: both legs and the loan account are undone; the loan is as it was",
+        "INV-7 locally — a loan payment is one event (Track E, E7) TE7-003 · an undo step that fails is reported as an unexpected fault, never swallowed, and the payment still fails",
         "loan payment workflow CON-UNIT-900 - first principal payment preserves net worth and leaves the real outstanding balance",
         "loan payment workflow CON-UNIT-901 - a second payment and metadata edit retain the opening liability",
         "loan payment workflow CON-UNIT-906 - cloud mode never falls back to sequential local loan writes",
@@ -2503,6 +2506,20 @@
         "Loan EMIs in Recurring (Track E, E6a) TE6-005 · E-4: the budget forecast counts each loan's EMIs on their real dates in the period",
         "Loan EMIs in Recurring (Track E, E6a) TE6-006 · the Recurring switch is the LOAN's autoRecord; a missing account or date opens the loan form; EMI schedules are not listed",
         "Loan EMIs in Recurring (Track E, E6a) TE6-007 · the budget form adds the loans' EMIs to its recurring forecast, under Loan / EMI"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/trackEOrphanLoanSql.test.ts",
+      "feature": "Track E orphan loan accounts SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "E7 migration: a live loan account linked to a deleted loan is reconciled to zero (offset + dated log, never a transaction) and archived, as mark_loan_paid_off does; live, unlinked, bank and already-cleared accounts untouched; idempotent (focused PGlite fixture with W4e's loan_ledger_balance; owner decision E-8)",
+      "count": 3,
+      "tests": [
+        "E7 — loan accounts whose loan was deleted are cleared and archived TE7-SQL-001 · an orphan goes to zero through its offset with a dated log, never a transaction, and is archived",
+        "E7 — loan accounts whose loan was deleted are cleared and archived TE7-SQL-002 · a live loan, a loan account with no link, a bank account and an already-cleared one are untouched",
+        "E7 — loan accounts whose loan was deleted are cleared and archived TE7-SQL-003 · idempotent: a second run changes nothing"
       ]
     },
     {

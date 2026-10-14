@@ -18,7 +18,7 @@
 //   spec INV-4  emi_split             → INV-5   ✅
 //   spec INV-5  account_balance       → INV-6   ✅
 //   spec INV-6  networth_recon        → INV-7   ✅  (+ INV-7b live-account de-dupe)
-//   spec INV-7  atomicity             →  —      ❌  NOT COVERED — see below
+//   spec INV-7  atomicity             →  —      ✅  covered OUTSIDE this file — see below
 //   spec INV-8  category_scope        → INV-9   ✅
 //   spec INV-9  migration_recon       →  —      one-time v9 migration check, not a
 //                                               standing invariant
@@ -27,12 +27,15 @@
 // CHANGELOG and in source comments, and silently reassigning them would make
 // that history point at the wrong guarantee.
 //
-// ❌ The one real gap is spec INV-7 (atomicity): "force-fail any leg of an EMI
-// or transfer — the ENTIRE event rolls back, zero state change". Nothing here
-// asserts it, because the store has no transactional boundary to assert against
-// yet; it is tracked as the "atomic reversal" release blocker. Do not add a
-// placeholder for it — the inventory gate rejects skipped and TODO cases, and a
-// green placeholder would be worse than an acknowledged gap.
+// ✅ Spec INV-7 (atomicity): "force-fail any leg of an EMI or transfer — the
+// ENTIRE event rolls back, zero state change". It is asserted where the boundary
+// lives, not here (v10.102.0; TD-31 closed):
+//   • cloud — W4-D19-006 (loanModelSql.test.ts): pay_loan is one Postgres
+//     transaction; a force-failed principal leg leaves no interest entry, no event,
+//     nothing moved. reverse_loan_payment undoes atomically.
+//   • local-only — TE7-001..003 (loanPaymentWorkflow.test.ts): payLoan undoes its
+//     earlier writes when a later one fails; an undo step that fails is reported.
+//   • a transfer is ONE row (since v7.2), atomic by construction.
 
 import { describe, it, expect } from 'vitest';
 import { computeAccountBalance, reconcileAccount, liveAssetRows, liveTotalAssets, computeAssetValue, reconcileAssetValue } from '../accountBalance';
