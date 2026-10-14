@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.95.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.96.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -357,9 +357,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   fine-tuning**; **(6) providers are OpenAI-compatible** so a model swap is a DB
   row, and the feature's **off state must be provably byte-identical to today**;
   **(7) only `SafeSummary`-shaped data may egress, and only with consent.**
-  Money computation the agent calls must live **server-side** (`_shared/` ports +
-  Postgres RPCs) — WhatsApp has no browser — guarded by **parity tests** against
-  the client TS originals. **`ai_usage` metering is the spec's LLM-spend gate**
+  Money computation the agent calls must live **server-side** (the bundled app engine +
+  Postgres RPCs, never a hand port into `_shared/`; the last one, `_shared/money`, was deleted
+  in v10.96.0) — WhatsApp has no browser — with Postgres parity-tested against the client TS originals. **`ai_usage` metering is the spec's LLM-spend gate**
   (§8/§10): measure adoption/cost before authorising spend.
 - **Motion is one system** — framer-motion via `lib/motion.ts` tokens; global
   `<MotionConfig reducedMotion="user">`. Money animates via `<AnimatedMoney>`,
@@ -458,7 +458,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   **v10.42.0 (W2a): every proactive send goes through `guardedSend` (`_shared/whatsapp-send.ts`)** —
   notify and the `whatsapp-dispatch` scheduler alike. Consent lives in `whatsapp_preferences`
   (marketing and insights OFF until given in the app; `START` in chat never grants it). Bills and
-  large-spend alerts cannot be muted. Scheduler figures come from the money port only, and a rule
+  large-spend alerts cannot be muted. Scheduler figures come from the APP's engine (v10.96.0, Track E:
+  `txnsFromRows` maps rows with the app's adapter, `spendRows` is what counts as spending; the
+  `_shared/money` hand port is deleted, never bring one back), and a rule
   SKIPS a household it cannot state truly (₹ templates for non-INR households; since v10.66.0
   a row's own currency label no longer matters — face value). **v10.43.0 (W2b): "paid X" approves a reminded bill ONLY through
   `whatsapp_approve_recurring`**, which posts the app's own row (deterministic id; since v10.69.0 the

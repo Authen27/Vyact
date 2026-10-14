@@ -41,7 +41,9 @@ import { loadHouseholdRows } from '../_shared/agent/householdLoader.ts';
 import { runwaySnapshot } from '../_shared/agent/engine.ts';
 
 const WINDOW_MS = 30 * 60_000;
-const TXN_COLUMNS = 'id, household_id, created_by, type, amount, currency, date, description, category, account_id, to_account_id, asset_id, recurring_schedule_id, extras, created_at';
+// Track E (v10.96.0): the columns the APP's row mapper reads (member and debt links included), so the
+// scheduler's rows become the same Transactions the app holds.
+const TXN_COLUMNS = 'id, household_id, created_by, member_id, type, amount, currency, date, description, category, account_id, to_account_id, asset_id, debt_id, recurring_schedule_id, extras, created_at';
 
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
