@@ -583,7 +583,28 @@ body::before {
     background: color-mix(in srgb, var(--accent) 10%, var(--canvas));
   }
   .seg-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Aurora 4.0 EM1 — the in-panel empty state's action: an accent text link with a 44px target. */
+  .empty-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 .25rem;
+    font: 600 .84375rem/1.2 var(--ff-sans);
+    color: var(--accent-text);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+  .empty-link:hover { text-decoration: underline; }
+
+  /* Aurora 4.0 LD1 — skeleton blocks: grey shapes in the page's own layout while a household loads. */
+  .sk { display: block; border-radius: 8px; background: var(--sunken); }
+  @media (prefers-reduced-motion: no-preference) {
+    .sk { animation: vy-sk 1.4s ease-in-out infinite; }
+  }
 }
+@keyframes vy-sk { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
 /* Graph/chart entrance animations (board vy-grow/vy-ringfill) — bars and rings
    across Dashboard/Budgets/Debts/NetWorth/Reports render their final value

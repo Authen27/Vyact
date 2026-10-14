@@ -166,6 +166,24 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/a4AuroraStates.test.tsx",
+      "feature": "Aurora 4.0 states and first run (A4)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Aurora 4.0 A4: EmptyState (tile, title, sentence, action, hint), page-shaped skeletons, setup checklist from household data, setup estimate hero, empty Dashboard panels with one action, phone What to look at, View all copy, onboarding I'll add bills later",
+      "count": 7,
+      "tests": [
+        "A4 · states and first run A4-D1-D2-001 · phones get \"What to look at\" (top two insights, See all); every panel says \"View all\"",
+        "A4 · states and first run A4-EM1-001 · an empty state explains: icon tile, heading, one sentence, one action, a Pip hint",
+        "A4 · states and first run A4-FR1-001 · the setup checklist: five steps worked out from the household",
+        "A4 · states and first run A4-FR2-001 · the estimate hero: pay less fixed bills less what was logged that is not a bill, tagged estimated",
+        "A4 · states and first run A4-FR3-001 · empty Dashboard panels say what is missing and offer one action",
+        "A4 · states and first run A4-LD1-001 · loading shows the page's own shape, not a \"Loading…\" word",
+        "A4 · states and first run A4-ON3-001 · \"I'll add bills later\" passes the bills step; the reveal shows pay only"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/accountDeletionHandler.test.ts",
       "feature": "Account deletion handler",
       "availability": "conditional",

@@ -8,6 +8,7 @@ import { splitsOutstanding, type SplitOutstanding } from '../lib/calculations';
 import type { Transaction, SplitParticipant, Debt } from '../types';
 import { splitCounts } from '../lib/splitParticipants';
 import PageHead from '../components/ui/PageHead';
+import EmptyState from '../components/ui/EmptyState';
 import { askSheet, confirmSheet } from '../lib/confirmSheet';
 import { closeSplitRequest, deleteSplitRequest } from '../lib/confirmCopy';
 
@@ -472,16 +473,9 @@ export default function Splits() {
       {/* Split list */}
       {splitTxns.length === 0 ? (
         <Panel>
-          <div className="px-6 py-14 text-center max-w-md mx-auto">
-            <div className="text-4xl mb-3 opacity-60">🤝</div>
-            <p className="text-ink-mid mb-2">No splits yet.</p>
-            <p className="text-[0.84rem] text-ink-dim leading-relaxed mb-4">
-              Tap <span className="text-ink font-semibold">+ Add Split</span> to split a shared bill
-              (expense) or a shared payout (income) — enter the total, add people and their shares,
-              and only your share counts toward your money. Others' shares are tracked as IOUs here.
-            </p>
-            <button className="btn-primary text-sm py-2 px-4" onClick={() => openAddSplit()}>+ Add Split</button>
-          </div>
+          <EmptyState icon="🤝" title="No splits yet"
+            message="Split a shared bill or payout: only your share counts toward your money, and the others' shares are tracked here as IOUs."
+            action={{ label: '+ Add a split', onClick: () => openAddSplit() }} />
         </Panel>
       ) : (
         <div className="space-y-3">

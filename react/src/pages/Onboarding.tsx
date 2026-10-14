@@ -86,6 +86,9 @@ export default function Onboarding() {
   const [concerns, setConcerns] = useState<string[]>([]);
   const [income, setIncome] = useState<string>('');
   const [incomeSteady, setIncomeSteady] = useState<boolean>(true);
+  // Aurora 4.0 ON3 — "I'll add bills later": the bills step can be passed without amounts; the reveal
+  // then shows pay only, and the Dashboard's setup checklist keeps "Add your fixed bills" open.
+  const [billsLater, setBillsLater] = useState(false);
   const [billAmounts, setBillAmounts] = useState<Record<string, string>>({});
   const [currency, setCurrency] = useState<string>(() => onboardedCurrency
     ?? (navigator.language?.includes('IN') ? 'INR' : navigator.language?.includes('GB') ? 'GBP' : 'USD'));
@@ -139,11 +142,13 @@ export default function Onboarding() {
         incomeType: incomeSteady ? 'steady' : 'variable',
       };
 
-      // Reference baseline (StartingBaselineBand) — a complementary UI overlay.
+      // Reference baseline — the Dashboard's estimate hero (components/dashboard/EstimateHero).
       const baseline: OnboardingBaseline = {
         cash: incomeAmt, debt: 0, monthlyIncome: incomeAmt,
-        fixedCosts: bills.map(b => ({ key: b.key, label: b.label })),
+        fixedCosts: billsLater ? [] : bills.map(b => ({ key: b.key, label: b.label })),
         currency, segment, primaryConcern, capturedAt: new Date().toISOString(),
+        fixedTotal: billsLater ? 0 : fixedTotal,
+        billsLater,
       };
       setBaseline(householdId, baseline);
 
@@ -158,7 +163,7 @@ export default function Onboarding() {
       const primaryMember = st.members[0]?.id;
       await wireOnboardingToMoney({
         monthlyIncome: incomeAmt,
-        bills,
+        bills: billsLater ? [] : bills,
         currency,
         memberId: primaryMember,
         fns: {
@@ -360,7 +365,13 @@ export default function Onboarding() {
               <span className="text-[0.82rem] text-ink-mid">Fixed costs so far</span>
               <span className="num font-bold text-[1rem] text-ink">{fmt(fixedTotal, currency)}<span className="text-ink-dim font-medium text-[0.72rem]"> /mo</span></span>
             </div>
-            <FootNav onBack={() => setStep(3)} onNext={() => advance(5)} nextDisabled={false} nextLabel="See my picture" />
+            <FootNav onBack={() => setStep(3)} onNext={() => { setBillsLater(false); advance(5); }} nextDisabled={false} nextLabel="See my picture" />
+            <div className="text-center mt-1">
+              <button type="button" onClick={() => { setBillsLater(true); advance(5); }}
+                className="min-h-[44px] px-2 text-[0.84rem] font-medium" style={{ color: 'var(--accent-text)' }}>
+                I&apos;ll add bills later
+              </button>
+            </div>
           </div>
         )}
 
@@ -369,13 +380,19 @@ export default function Onboarding() {
           <div>
             <div className="mono-label text-sage mb-2">Your starting picture</div>
             <h1 className="display-italic text-[1.7rem] text-ink mb-6">Here's your month{name.trim() ? `, ${name.trim()}` : ''}.</h1>
+            {billsLater ? (
+              <div className="grid grid-cols-1 gap-3 mb-4">
+                <RevealStat label="Monthly pay" value={fmt(incomeAmt, currency)} hint="add your fixed bills in Recurring when you're ready" tone="hsl(var(--sage))" />
+              </div>
+            ) : (
             <div className="grid grid-cols-2 gap-3 mb-4">
               <RevealStat label="Room left this month" value={fmt(roomLeft, currency)} hint="after fixed bills, before daily spend" tone="hsl(var(--sage))" />
               {/* v10.54.0 (owner) — was "First Pulse": Pulse is hidden in the app
                   (FEATURES.dashboard), so a score here meant nothing to a new user. */}
               <RevealStat label="Fixed bills" value={fmt(fixedTotal, currency)} hint="a month, ready to review in Recurring" tone="hsl(var(--honey))" />
             </div>
-            {biggestBill && (
+            )}
+            {biggestBill && !billsLater && (
               <div className="flex items-center gap-3 rounded-r3 p-4 mb-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
                 <span className="w-10 h-10 rounded-r2 flex items-center justify-center text-[17px] shrink-0" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>{CHIP_EMOJI[biggestBill.key] ?? '💸'}</span>
                 <div className="flex-1 min-w-0">

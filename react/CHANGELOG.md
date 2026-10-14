@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.102.0`** (consumer)
+> **Current production version: `v10.103.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,37 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.103.0 — Aurora 4.0 A4: empty states, loading and the first Dashboard *(2026-10-15)*
+
+PR A4 of the Aurora 4.0 redesign. No figure, calculation or schema changes. The setup estimate is a
+reference with an "estimated" tag, never part of Cash Flow.
+
+- **Empty states that explain (EM1).** One `EmptyState` replaces the faint ◇ and mono caps line: an icon
+  tile, a short heading, one sentence on what will appear, one action and, where it helps, a Pip hint.
+  Budgets, Splits, Debts, Net Worth, Transactions, Recurring and Reports use it.
+- **Skeletons (LD1).** While a household loads, and while a page's code arrives, the screen shows grey
+  blocks in that page's own shape (heroes, panels, rows) instead of "Loading…" on a blank page.
+- **The first Dashboard (FR1, FR2, FR3).**
+  - **"Finish setting up"** appears after a real onboarding, with up to five steps worked out from the
+    household itself:
+    1. income and fixed bills;
+    2. the bills waiting for a yes;
+    3. the accounts you pay from;
+    4. a week of logged spending;
+    5. inviting your partner or family.
+
+    It goes once all are done or you hide it.
+  - **"Room left this month"** is now the first hero, with an "estimated" tag: the pay and fixed bills
+    from setup, less what you have logged this month (a posted bill isn't counted twice). Real cash flow
+    replaces it after five entries. It replaces the "Your starting estimate" band.
+  - **Empty panels say what is missing**, and offer "Set a budget" or "+ Add your first expense".
+- **Insights on phones (D1).** A "What to look at" panel shows the top two insights with "See all".
+- **"View all" (D2)** reads the same on every panel: sentence case, no arrow.
+- **"I'll add bills later" (ON3).** The bills step in onboarding can be skipped. The reveal then shows
+  your pay only, and the checklist keeps "Add your fixed bills" open.
 
 ---
 
