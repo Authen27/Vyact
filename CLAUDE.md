@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.99.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.100.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -102,6 +102,16 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     itself because the parser's longest-keyword rule turns "paid … emi" into salary/other. The bill
     calendar shows each loan's EMIs from `loanView` (Pay, never Approve), and the EMI-day reminder offers
     only View when Vyact records it. EMI recurring schedules were moved onto their loans.
+  - **Recurring mirrors each loan (v10.100.0, Track E E6a; owner decisions 13 Oct 2026, E-3, E-4).**
+    - The "Loan EMIs" section on Recurring is one row per live loan, read from the loan's own schedule
+      (`lib/loanRecurring.ts` `loanEmiRows` → `loanView`). It is never a schedule, so an EMI can never be
+      scheduled twice.
+    - Its "Record automatically" switch writes the loan's `autoRecord`. Turning it on without a paying
+      account or a next EMI date opens the loan form instead.
+    - A leftover EMI schedule (`isLoanEmiSchedule`) is retired. It is never listed in Recurring, the bill
+      calendar or the bell, and a bell card already raised for one is settled.
+    - The budget form's "already committed" forecast adds each live loan's EMIs on their real dates in the
+      period (`loanEmiForecast`), under Loan / EMI.
   - **The app (v10.75.0, W4f):** `payLoan` / `loanDue` / `reverseLoanPayment` / `markLoanPaidOff` /
     `deleteDebt` in the store call those functions (cloud, online only) or run the same rules locally
     (`lib/loanSchedule.ts`, parity-tested against Postgres in loanScheduleParity.test.ts — interest uses

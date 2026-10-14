@@ -24,7 +24,7 @@
 import type { Account, Debt, ExchangeRates, RecurringSchedule, Transaction } from '../types';
 import { loanView } from './loanSchedule';
 import { convert, today } from './format';
-import { addDaysISO, isStaleOccurrence, recurringInstanceId, ruleOf, policyOf } from './recurring';
+import { addDaysISO, isLoanEmiSchedule, isStaleOccurrence, recurringInstanceId, ruleOf, policyOf } from './recurring';
 import { expandRRule } from './rrule';
 
 export type BillStatus = 'posted' | 'awaiting-approval' | 'auto' | 'approval-when-due';
@@ -89,6 +89,9 @@ export function billCalendar(input: {
 
   for (const schedule of input.schedules) {
     if (schedule.active === false || !schedule.nextDueDate) continue;
+    // Track E, E6a (owner, E-3) — a leftover EMI schedule never posts (the loan pays its EMI); the loan's
+    // own EMI is listed below, so the schedule would show the same EMI twice.
+    if (isLoanEmiSchedule(schedule)) continue;
     const pointer = schedule.nextDueDate;
     if (isStaleOccurrence(pointer, now)) continue;
     const template = schedule.transactionTemplate;

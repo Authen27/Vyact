@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Repeat, Trash2, Pencil } from 'lucide-react';
 import { useStore } from '../store';
@@ -19,6 +19,8 @@ import type { RecurringSeed } from '../lib/askVyactResponses';
 import { scheduleDatesAfterSave, ruleOf, isLoanEmiSchedule } from '../lib/recurring';
 import { formatRRule, describeRRule, type RRule, type ShortMonthPolicy } from '../lib/rrule';
 import { runExclusive } from '../lib/exclusive';
+import { loanEmiRows, type LoanEmiRow } from '../lib/loanRecurring';
+import { clearsLabel } from '../lib/loanSchedule';
 import PageHead from '../components/ui/PageHead';
 import { confirmSheet } from '../lib/confirmSheet';
 import { deleteScheduleRequest } from '../lib/confirmCopy';
@@ -63,6 +65,35 @@ export default function Recurring() {
   const baseCur = useStore(s => s.profile.baseCurrency);
   const dateFormat = useStore(s => s.profile.dateFormat);
   const toast = useStore(s => s.toast);
+  // Track E, E6a (owner, 13 Oct 2026) — each live loan's EMI, mirrored from the loan (lib/loanRecurring).
+  const debts = useStore(s => s.debts);
+  const transactions = useStore(s => s.transactions);
+  const upsertDebt = useStore(s => s.upsertDebt);
+  const openEditDebt = useStore(s => s.openEditDebt);
+  const loanRows = useMemo(() => loanEmiRows(debts, accounts, transactions, baseCur), [debts, accounts, transactions, baseCur]);
+  // E-3: the leftover EMI schedules are retired — never listed beside the loan's own EMI.
+  const listed = useMemo(() => schedules.filter(s => !isLoanEmiSchedule(s)), [schedules]);
+  const switchSlot = useRef(false);
+
+  /** "Record automatically" is the LOAN's switch; turning it on needs the paying account and the next EMI date. */
+  async function toggleAutoRecord(row: LoanEmiRow) {
+    if (!row.autoRecord && row.needs.length) {
+      toast(row.needs.includes('account')
+        ? 'Choose the account the EMI is paid from, then turn on Record each EMI automatically'
+        : 'Add the next EMI date, then turn on Record each EMI automatically', 'info');
+      openEditDebt(row.debt);
+      return;
+    }
+    await runExclusive(switchSlot, async () => {
+      try {
+        // A patch over the loan as held; its version guards against a change made elsewhere meanwhile.
+        await upsertDebt({ ...row.debt, autoRecord: !row.autoRecord });
+        toast(row.autoRecord ? `${row.debt.name}: you pay each EMI from Debts` : `${row.debt.name}: Vyact records each EMI on its date`, 'success');
+      } catch (e) {
+        toast(`Could not change it: ${(e as Error).message}`, 'error');
+      }
+    });
+  }
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<RecurringSchedule | null>(null);
@@ -314,10 +345,56 @@ export default function Recurring() {
       {/* v10.32.0 — the approval-aware bill calendar replaces the 7-day strip. */}
       <BillCalendar />
 
+      {/* Track E, E6a (owner, 13 Oct 2026) — each live loan's EMI, mirrored from the loan: never a
+          schedule, so it can never be scheduled twice. The switch is the loan's own autoRecord. */}
+      {loanRows.length > 0 && (
+        <Panel title="Loan EMIs" sub="From your loans · paid by the loan, never by a schedule">
+          {loanRows.map(row => {
+            const cat = getCat('loan_emi');
+            const clears = clearsLabel(row.clearsOn);
+            return (
+              <div key={row.debt.id} data-testid="loan-emi-row"
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 border-b border-line last:border-b-0">
+                <div className="w-9 h-9 rounded-md flex items-center justify-center text-base flex-shrink-0" style={{ background: cat.color + '22' }}>
+                  {cat.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-ink truncate">{row.debt.name} EMI</div>
+                  <div className="font-mono text-[0.62rem] text-ink-dim mt-px truncate">
+                    {row.date ? `EMI #${row.no} · next ${formatDate(row.date, dateFormat)}` : 'No next EMI date yet'}
+                    {row.fundingAccount ? ` · from ${row.fundingAccount.name}` : ''}
+                    {clears ? ` · clears ${clears}` : ''}
+                  </div>
+                </div>
+                <div className="text-[0.86rem] font-medium text-terra">
+                  <Money amount={row.amount} currency={baseCur} className="font-medium" />
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <span className="text-[10.5px] text-ink-dim">{row.autoRecord ? 'Records on its date' : 'You pay it'}</span>
+                  <button type="button" role="switch" aria-checked={row.autoRecord}
+                    aria-label={`Record each ${row.debt.name} EMI automatically`}
+                    title={row.needs.length && !row.autoRecord ? 'Needs the paying account and the next EMI date — opens the loan' : 'Record each EMI automatically'}
+                    onClick={() => toggleAutoRecord(row)}
+                    className="relative w-[44px] h-[26px] rounded-pill border-none cursor-pointer flex-shrink-0"
+                    style={{ background: row.autoRecord ? 'color-mix(in srgb, hsl(var(--sage)) 40%, var(--sunken))' : 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+                    <i aria-hidden className="absolute top-[3px] w-5 h-5 rounded-full transition-[left] duration-150"
+                      style={{ left: row.autoRecord ? 21 : 3, background: row.autoRecord ? 'hsl(var(--sage))' : 'var(--ff-ink-3)', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }} />
+                  </button>
+                  <button type="button" className="btn-secondary text-sm min-h-[36px] px-3" onClick={() => navigate(`/debts?pay=${row.debt.id}`)}>Pay</button>
+                  <button type="button" onClick={() => openEditDebt(row.debt)} className="row-action" aria-label={`Edit ${row.debt.name}`} title="Edit loan">
+                    <Pencil size={14} strokeWidth={1.6} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </Panel>
+      )}
+
       <Panel title="Active Schedules">
-        {schedules.length === 0
+        {listed.length === 0
           ? <EmptyState icon={<Repeat size={36} />} message="No recurring schedules yet — set up rent, salary, subscriptions" />
-          : schedules.map(s => {
+          : listed.map(s => {
               const cat = getCat(s.transactionTemplate.category);
               return (
                 <div key={s.id} data-testid="schedule-row"
@@ -336,9 +413,6 @@ export default function Recurring() {
                         catch { return s.frequency; }
                       })()} · next {formatDate(s.nextDueDate, dateFormat)} · {s.autoConfirm ? 'auto' : 'pending confirm'}
                     </div>
-                    {isLoanEmiSchedule(s) && (
-                      <div className="text-[0.66rem] text-honey mt-0.5">EMIs are paid from the loan now — this schedule no longer posts. Pay it on Debts.</div>
-                    )}
                   </div>
                   <div className={`text-[0.86rem] font-medium ${s.transactionTemplate.type === 'income' ? 'text-sage' : 'text-terra'}`}>
                     <Money amount={s.transactionTemplate.amount} currency={baseCur} className="font-medium" signed={s.transactionTemplate.type === 'income'} />

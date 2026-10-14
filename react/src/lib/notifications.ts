@@ -18,7 +18,7 @@ import type {
   RecurringSchedule, Transaction, Budget, BudgetAllocation, Debt, Account, ExchangeRates, SharedSplit, AppRole,
 } from '../types';
 import { uid, today, getMonthKey, fmt, convert } from './format';
-import { upcomingSchedules } from './recurring';
+import { upcomingSchedules, isLoanEmiSchedule } from './recurring';
 import { spendByCategoryInRange } from './calculations';
 import { getCat } from '../constants';
 import { staleAccounts } from './accountsView';
@@ -138,6 +138,9 @@ export function recurringDueNotifs(schedules: RecurringSchedule[], prefs: Notifi
   const out: Notification[] = [];
   for (const s of schedules) {
     if (!s.active || s.autoConfirm || s.nextDueDate > now) continue;
+    // Track E, E6a (owner, E-3): a leftover EMI schedule cannot be approved (the loan pays its EMI, and
+    // the loan's own EMI-day reminder asks for it).
+    if (isLoanEmiSchedule(s)) continue;
     const key = `recurring_due_confirm:${s.id}:${s.nextDueDate}`;
     if (existing.some(n => n.dedupeKey === key)) continue;
     const amt = s.transactionTemplate.amount ?? 0;
@@ -184,7 +187,8 @@ export function resolvedBillCards(notifications: Notification[], schedules: Recu
     .filter(n => {
       const s = byId.get(n.scheduleId!);
       const occurrence = notificationOccurrence(n);
-      return !!s && (s.active === false || (!!occurrence && s.nextDueDate > occurrence));
+      // E6a: a card for a leftover EMI schedule is settled too — that schedule is retired (E-3).
+      return !!s && (s.active === false || isLoanEmiSchedule(s) || (!!occurrence && s.nextDueDate > occurrence));
     })
     .map(n => n.id);
 }
@@ -194,6 +198,7 @@ export function recurringReminderNotifs(schedules: RecurringSchedule[], prefs: N
   if (!typeEnabled(prefs, 'recurring_reminder')) return [];
   const out: Notification[] = [];
   for (const s of schedules) {
+    if (isLoanEmiSchedule(s)) continue;   // E6a: the loan reminds about its own EMI
     const lead = s.reminderLeadDays ?? prefs.defaultLeadDays;
     if (!upcomingSchedules([s], lead, today(ctx.tz)).length) continue;
     const key = `recurring_reminder:${s.id}:${s.nextDueDate}`;

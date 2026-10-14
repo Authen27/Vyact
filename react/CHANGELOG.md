@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.99.0`** (consumer)
+> **Current production version: `v10.100.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,39 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.100.0 — Track E, step 5: loan EMIs in Recurring *(2026-10-14)*
+
+App and the bundled engine. No money figure moves except the budget form's "already committed" line (owner
+decisions 13 Oct 2026: "each loan's EMI shown in Recurring, mirrored from the loan", E-3 "retire the old EMI
+schedules", E-4 "include EMIs in the budget forecast").
+
+- **Loan EMIs in Recurring.** A new section lists every live loan's EMI, read from the loan's own schedule.
+  Each row shows:
+  - the instalment number, its date and what is left of it;
+  - the paying account, and when the loan clears;
+  - **Record automatically**, which is the loan's own switch (a missing paying account or next EMI date
+    opens the loan form instead);
+  - **Pay** (the loan's Pay sheet) and **Edit loan**.
+
+  It is a mirror, never a schedule, so an EMI can never be scheduled twice. The bill calendar already shows
+  each loan's EMIs (W4g), and its totals count them.
+- **Old EMI schedules are retired.** The EMI schedules W4g could not move onto a loan (they no longer post) are
+  hidden from Recurring, the bill calendar and the bell. A bell card already raised for one is settled. Before,
+  such a schedule could show the same EMI twice in the calendar and in its "outgoing" total. A migration
+  soft-deletes them next (E6b).
+- **The budget form's forecast** ("already committed via recurring bills and loan EMIs this period") adds each
+  live loan's EMIs on their real dates in the period, under Loan / EMI: the instalments already due at the EMI,
+  and the rest from the loan's schedule. "Use as allocations" carries them.
+
+Tests: trackELoanEmis.test.ts (new, 7):
+- one row per live loan, and what auto-record needs;
+- a part-paid instalment;
+- the calendar shows an EMI once;
+- the bell skips and settles old EMI schedules;
+- the forecast's month and year figures;
+- the switch is the loan's;
+- the form adds the EMIs.
 
 ## v10.99.0 — Track E, step 4: one budget-progress basis; spending nothing was planned for *(2026-10-14)*
 
