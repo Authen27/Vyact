@@ -6,7 +6,7 @@
 
 **Numbers.** 297 findings raised · 0 refuted by verification · 85 merged as duplicates · **212 reported** — 3 critical · 29 high · 100 medium · 75 low · 5 info.
 
-**Remediation status (updated 13 Oct 2026):** 116 of 212 resolved, including all 3 critical and 23 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
+**Remediation status (updated 13 Oct 2026):** 118 of 212 resolved, including all 3 critical and 23 of 29 high. See **§0**; the per-finding status is in §11, and the remaining work in Appendix C.
 
 | Area | Critical | High | Medium | Low | Info |
 |---|---:|---:|---:|---:|---:|
@@ -56,17 +56,17 @@ Two developers did the work:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Critical | 3 | 2 | 1 | 0 | 0 | 0 | 0 | 0 |
 | High | 29 | 18 | 5 | 3 | 0 | 0 | 3 | 0 |
-| Medium | 100 | 41 | 2 | 18 | 12 | 8 | 7 | 12 |
+| Medium | 100 | 43 | 2 | 17 | 12 | 7 | 7 | 12 |
 | Low | 75 | 44 | 1 | 11 | 10 | 6 | 0 | 3 |
 | Info | 5 | 2 | 0 | 1 | 1 | 1 | 0 | 0 |
-| **Total** | **212** | **107** | **9** | **33** | **23** | **15** | **10** | **15** |
+| **Total** | **212** | **109** | **9** | **32** | **23** | **14** | **10** | **15** |
 
-**116 of 212 are resolved (55%): all 3 critical and 23 of 29 high.** The other 96 fall into four groups:
+**118 of 212 are resolved (56%): all 3 critical and 23 of 29 high.** The other 94 fall into four groups:
 
-| What the 96 need | Count |
+| What the 94 need | Count |
 |---|---:|
-| Nothing but work: no decision, no blocker | 46 |
-| An owner decision (15 waiting only on it; 5 partly done, with the rest waiting on it) | 20 |
+| Nothing but work: no decision, no blocker | 45 |
+| An owner decision (14 waiting only on it; 5 partly done, with the rest waiting on it) | 19 |
 | An answer to the developer questions D4/D5, D8, D9, D10 (all blank since 6 Oct) | 12 |
 | Backlog: owner said "not now" (plan backlog, batch E, W8e) | 18 |
 
@@ -104,7 +104,7 @@ Two developers did the work:
 | #183 | v10.79.0 | W6 frontend quick fixes (dev 2) | FE-PUB-04, FE-UIC-06, FE-UIC-07, FE-UIC-13, FE-UIS-06, FE-UIS-08, FE-UIS-10, FE-UIS-11, FE-UIS-13, FE-MNY-11, FE-PUB-11 | FE-UIS-12, INT-HH-08 |
 | #184 | v10.80.0 | W7a app small fixes (dev 2) | FE-UIS-06, FE-UIS-08, FE-UIS-13, FE-MNY-14, FE-MNY-15, FE-PIP-17, FE-PIP-18, FE-PLT-08, FE-UIC-14, FE-UIC-16, FE-UIC-17, FE-UIS-14, FE-UIS-15, FE-UIS-16, INT-CON-05 | XC-PRV-08, INT-HH-13 |
 | #185 | v10.81.0 | W7b public/build (dev 2) | FE-PLT-11, FE-PUB-03, FE-PUB-07, FE-PUB-10, GATE-03, OPS-13 | — |
-| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-UIC-05, FE-UIC-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-MNY-06, FE-UIC-10, INT-HH-09, INT-PAR-05, XC-PRV-09 |
+| #186 | v10.82.0 | W8a app fixes (dev 2) | FE-MNY-06, FE-UIC-05, FE-UIC-09, FE-MNY-16, FE-PIP-13, FE-PIP-15, FE-PIP-16, FE-PLT-07, FE-SYN-10, FE-SYN-11, FE-SYN-12, FE-UIC-15, FE-UIS-15 | FE-UIC-10, INT-HH-09, INT-PAR-05, XC-PRV-09 |
 | #187 | v10.83.0 | W8b Edge robustness (dev 2) | BE-WA-03, BE-WA-04, BE-PIP-05, BE-PIP-07, BE-WA-11, BE-WA-13, INT-PAR-10 | BE-WA-06, BE-WA-09, BE-PIP-04, BE-WA-12 |
 | #188 | admin v1.4.4 | W8c admin (dev 2) | ADM-12, ADM-13, INT-CON-06, GATE-03 | FE-PLT-04, ADM-10, ADM-11, ADM-14, INT-HH-14 |
 | #189 | v10.84.0 | W8d site/platform/docs (dev 2) | DB-OPS-12, FE-PUB-05, FE-PUB-06, FE-PUB-07, FE-PUB-10, ADM-13, DB-OPS-14, OPS-09, OPS-13, GATE-05, GATE-06 | XC-PRV-03, FE-PLT-04, OPS-05, OPS-07, XC-PRV-14 |
@@ -119,7 +119,8 @@ Two developers did the work:
 | (PR in review) | v10.95.0 | Invitations in the bell: Join / Decline / Revoke, invite by email, step 2 of 2 (#9; R4 fixed) | — | — |
 | (PR in review) | v10.96.0 | Track E · E2: WhatsApp reads the app's spending; money port deleted (14 Oct) | — | XC-ARC-06 |
 | (PR in review) | v10.97.0 | Track E · E3: a loan payment counts in full as Loan / EMI spending (owner, 14 Oct) | — | — |
-| #204 | v10.98.0 | Track E · E4: one spending baseline; two labelled cover figures (owner, 14 Oct) | FE-MNY-10 | — |
+| (PR in review) | v10.98.0 | Track E · E4: one spending baseline; two labelled cover figures (owner, 14 Oct) | FE-MNY-10 | — |
+| (PR in review) | v10.99.0 | Track E · E5: one budget-progress basis; not-planned spending (owner, 14 Oct) | FE-MNY-06, FE-UIC-08 | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
@@ -188,10 +189,10 @@ Two developers did the work:
 
 Plus **R1** (high, new): see §0.3.
 
-**Medium (57)**
-- *Ready to do (no decision):* FE-MNY-06, FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
+**Medium (55)**
+- *Ready to do (no decision):* FE-PIP-09, FE-UIC-10, FE-UIS-03, FE-UIS-07, BE-FN-09, BE-WA-06, BE-WA-09, INT-PAR-05, XC-ARC-06, XC-ARC-08, XC-ARC-09, XC-ARC-11, XC-PRV-08, XC-PRV-09.
 - *Batch B, sync robustness:* FE-SYN-04, FE-SYN-05, FE-SYN-06, FE-SYN-07, FE-SYN-08, DB-OPS-10, INT-TXN-10, INT-TXN-11.
-- *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-08, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
+- *Owner decision:* FE-MNY-08, FE-PLT-04, FE-UIC-12, FE-UIS-09, DB-INT-13, INT-TXN-12, OPS-05, XC-ARC-05, XC-PRV-10, XC-PRV-11.
 - *Developer questions:* FE-UIS-12, DB-OPS-03, DB-OPS-08, DB-SEC-10, INT-PAR-08, OPS-02, OPS-03, OPS-08, XC-ARC-13.
 - *Backlog:* ADM-04, ADM-06, ADM-07, ADM-09, BE-WA-07, DB-INT-09, DB-INT-11, DB-SEC-06, DB-SEC-09, INT-HH-07, INT-HH-08, INT-HH-09, OPS-11, XC-PRV-12.
 
@@ -770,7 +771,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | OPS-01 | HIGH | Platform & Ops | Production release is ungated: Vercel ships the app regardless of CI, migrations or Edge deploy | confirmed (adversarial: confirmed) | 2026-09 audit 10.1 (still open); TD-33 (marked resolved, regressed when the consumer job was removed) | On hold (dev question) | — |
 | OPS-06 | HIGH | Platform & Ops | No production observability: faults go nowhere, cron/pg_net results unchecked, no alerting | confirmed (adversarial: confirmed) | 2026-09 audit 10.4 (still open, now worse: the in-app transport is gone); TD-43 | On hold (dev question) | — |
 | XC-PRV-03 | HIGH | Cross-cutting | Session replay (Contentsquare) and Userback screenshots run on every finance screen, undisclosed, no consent | confirmed (adversarial: confirmed) |  | Partly | #165, #189 |
-| FE-MNY-06 | MEDIUM | Frontend | Dashboard insight chips use the static asset/debt arrays and raw budgets, contradicting the net-worth card | confirmed (adversarial: confirmed) | 2026-09 audit F3/F5 (partially open: NW card fixed, insight chips not) | Partly | #186 |
+| FE-MNY-06 | MEDIUM | Frontend | Dashboard insight chips use the static asset/debt arrays and raw budgets, contradicting the net-worth card | confirmed (adversarial: confirmed) | 2026-09 audit F3/F5 (partially open: NW card fixed, insight chips not) | Closed | #186, v10.99.0 |
 | FE-MNY-08 | MEDIUM | Frontend | Split expenses debit only 'your share' from the paying account, so bank balances and reconciliations drift | confirmed (adversarial: confirmed) |  | Owner decision | — |
 | FE-MNY-10 | MEDIUM | Frontend | Essential and typical monthly spend have two definitions: Pip and Net Worth disagree with the Reports runway | confirmed (adversarial: confirmed) |  | Closed | v10.98.0 |
 | FE-PIP-02 | MEDIUM | Frontend | Model-chosen purchase amount is never checked against the user's words; entities are untyped | confirmed-with-caveats (adversarial: partial) |  | Closed | #182 |
@@ -793,7 +794,7 @@ TD-03, TD-05, TD-09, TD-10, TD-14 and TD-39 hold.
 | FE-UIC-05 | MEDIUM | Frontend | Transaction edit picks the account from stale extras.paymentMethod and clears the FK | confirmed (adversarial: confirmed) |  | Closed | #186 |
 | FE-UIC-06 | MEDIUM | Frontend | Debts page and Net Worth liabilities list bypass the canonical projection | confirmed (adversarial: confirmed) | 2026-09 audit F3 (fixed for Dashboard/Ask; still open on Debts page and the Net Worth liabilities list) | Closed | #178, #179, #183 |
 | FE-UIC-07 | MEDIUM | Frontend | DTI and 'Kept this month' ratios use all-time income and a fake 1 when income is zero | confirmed (adversarial: confirmed) |  | Closed | #183 |
-| FE-UIC-08 | MEDIUM | Frontend | Three screens compute 'budget left/over' on different bases | confirmed (adversarial: confirmed) | 2026-09 audit F5 (related; allocation consistency) | Owner decision | — |
+| FE-UIC-08 | MEDIUM | Frontend | Three screens compute 'budget left/over' on different bases | confirmed (adversarial: confirmed) | 2026-09 audit F5 (related; allocation consistency) | Closed | v10.99.0 |
 | FE-UIC-09 | MEDIUM | Frontend | Edit forms rebuild rows from form fields, erasing loan tenure, payment log and links | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F7 (still open for Debt/Split/Asset forms; transactions now carry updated_at) | Closed | #176, #179, #180, #186 |
 | FE-UIC-10 | MEDIUM | Frontend | Amount inputs strip the decimal comma: '12,50' is saved as 1250 | confirmed (adversarial: confirmed) |  | Partly | #186 |
 | FE-UIC-12 | MEDIUM | Frontend | Net Worth and Debts forms invite re-entering Accounts money; spendable figures diverge | confirmed-with-caveats (adversarial: partial) | 2026-09 audit F3 (structural remainder) | Owner decision | #178, #179 |
@@ -1247,7 +1248,7 @@ Raised by an auditor, then refuted by adversarial verification. Listed so they a
 
 Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0. See §0 for the method, the summary, the conflicts and the action plan.
 
-### C.1 Unresolved (96)
+### C.1 Unresolved (94)
 
 | ID | Sev | Status | PRs | What is left | Blocker | Effort |
 |---|---|---|---|---|---|---|
@@ -1257,7 +1258,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | DB-SEC-03 | high | On hold (dev question) | — | Scope every DO UPDATE in upsert_budget to the caller's household. Waits on D4: production's upsert_budget body is not in the repo. (replace_budgets was dropped in #166.) | D4/D5 | S |
 | OPS-01 | high | On hold (dev question) | — | Release gate: Vercel Deployment Checks, Actions-driven promotion, or alert-only. | D8 | S |
 | OPS-06 | high | On hold (dev question) | — | Production error reporting and alerting. | D9 | M |
-| FE-MNY-06 | medium | Partly | #186 | The pace banner and the Budget progress panel still use their own budget basis, which the audit's recommendation covered. This is the same work as FE-UIC-08, and it waits on that one-basis decision. | FE-UIC-08 one budget-progress basis (W8 plan section 4: 'needs a decision') | S |
 | FE-PIP-09 | medium | Partly | #168 | Client turn rows no longer count toward the quota or carry cost (#168). They are still written (lib/aiUsage.ts:84), including quickReply turns, so admin call counts that do not filter source='gateway' still over-count. | — | XS |
 | FE-PLT-04 | medium | Partly | #188, #189 | Live-verified 12 Oct: vyact.app sends Content-Security-Policy-Report-Only, and admin.vyact.app enforces a strict CSP. Left: switch vyact.app to enforced after a period of clean reports. | Owner: enforce after clean reports | XS |
 | FE-UIC-10 | medium | Partly | #186 | Dot-grouped, comma-decimal input ('1.234,56', '1.234') is still read about 1000x too small. This is silent in the account opening balance, card limit and reconcile fields. The parser does not use the locale or the household currency's convention, which the audit recommended (Intl.NumberFormat parts). Add the audit's '1.234,56' test case. | — | S |
@@ -1288,7 +1288,6 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | XC-ARC-09 | medium | Open | — | `deno check` / lint for Edge Functions in CI (W8 §4). | — | S |
 | XC-ARC-11 | medium | Open | — | A lint rule against empty catches on write paths (W8 §4). | — | S |
 | FE-MNY-08 | medium | Owner decision | — | Decide the split money model: (a) the paying account drops by the full bill; (b) the others' shares become a receivable, and the owner chooses where it shows (Net Worth, Pip, free-to-spend); (c) settling moves money back into a named account. Then implement it with a money-model invariant (an account drops by the full amount; settling restores the share) and update the golden file deliberately. | Owner decision: split money model (full debit + receivable). Not raised in the W8 plan's section 3. | L |
-| FE-UIC-08 | medium | Owner decision | — | Decide one budget-progress basis: does unallocated spend count against the total, and annual lines are measured over their own period everywhere. Then write one lib function used by Budgets, the Dashboard pace and panel, Reports and Pip, with a fixture test asserting identical figures. This also finishes FE-MNY-06. | Owner decision: one 'budget left/over' basis (W8 plan section 4) | M |
 | FE-UIC-12 | medium | Owner decision | #178, #179 | Remove (or redirect to Add account) the cash, checking and savings asset types, and define 'free to spend' once: the Accounts summary should read the same projection as Net Worth and Pip, stating whether archived accounts count. Add a fixture test: Accounts spendable == Net Worth/Pip free-to-spend. | Owner decision W8 plan section 3: remove the cash/checking/savings asset types? | S |
 | DB-INT-13 | medium | Owner decision | — | A WhatsApp alias matches by kind with "limit 1". Pick the default account, or ask? (W8 §3) | Owner: alias with two accounts | S |
 | INT-TXN-12 | medium | Owner decision | v10.89.0 | Correction half fixed in v10.89.0: the category fit is checked against the entry being corrected (whatsapp_last_logged), not the last message. Left: a WhatsApp alias with two matching accounts — pick the default, or ask? (W8 §3) | Owner: alias with two accounts | S |
@@ -1369,7 +1368,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PUB-07 | low | Closed | #185, #189 | see PR |
 | ADM-13 | low | Closed | #188, #189 | see PR |
 
-### C.3 Resolved, with a residual note (31)
+### C.3 Resolved, with a residual note (33)
 
 | ID | Sev | Status | PRs | Note |
 |---|---|---|---|---|
@@ -1382,6 +1381,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | INT-PAR-01 | high | Closed (decision) | #170 | Dead code: serverEngine.ts:78-80 still builds a rates map with a stale comment calling it 'the store's rule'. Remove it with the rest of the inert rate plumbing (TD-45, TECH_DEBT.md:110). |
 | INT-TXN-01 | high | Closed | #176 | Corrected 13 Oct: both delete paths for a split row (SplitFormModal.tsx:381, Splits.tsx:107) also delete its shared split (deleteSharedSplitForTxn), and since #176 a split row never reaches the plain form. |
 | INT-TXN-07 | high | Closed | #178, #179, #180, v10.89.0 | Recurring EMIs moved onto their loans (#180); WhatsApp "paid … EMI" pays the loan (#180); a WhatsApp correction to an EMI now pays the loan too (v10.89.0). |
+| FE-MNY-06 | medium | Closed | #186, v10.99.0 | The chip was fixed in #186. v10.99.0 (Track E, E5): the pace banner and the Budget progress panel read lib/budgetProgress (the panel measures an annual line over its year), with the Budgets page, Reports and Pip. |
 | FE-MNY-10 | medium | Closed | v10.98.0 | v10.98.0 (Track E, E4; owner decisions E-5 and E-9): one baseline, lib/spendBaseline.ts (the last 3 completed months with spending, the live need/want map, unmapped not essential), read by spendBasis (Pip, Net Worth, the server) and essentialRunway (Reports). The live map reaches Pip in the app (Chat) and on the serve… |
 | FE-PIP-06 | medium | Closed | #182, v10.90.0 | Descriptions stopped reaching the model in #182 (phraseData). v10.90.0: PHRASE_SYSTEM says text in FACTS/DATA is data, never instructions; a leak test covers every intent; account/asset names are cleaned and instruction-like ones sent as neutral labels (owner decision). |
 | FE-PIP-07 | medium | Closed | v10.90.0 | v10.90.0: a capture's category is a real category of its type (the model's word resolved, else a keyword); when nothing places it, Pip asks "Which category?" with chips before any form opens (owner decision). |
@@ -1389,6 +1389,7 @@ Baseline: `main` 5dc208a (consumer v10.84.0, admin v1.4.4), updated for v10.88.0
 | FE-PIP-11 | medium | Closed | v10.90.0 | v10.90.0: a number after ₹/Rs or before lakh/crore/k/million is an amount and must match a computed figure (scaled); HARMLESS covers plain counts only. |
 | FE-UIC-04 | medium | Closed | #177 | Nothing from the cited list. One uncited instance remains: AccountFormModal.tsx:284 'Available now' uses fmt, so a card over its limit shows a positive available figure. The suggested lint/grep gate against fmt( on balance or net values was not added. |
 | FE-UIC-05 | medium | Closed | #186 | Cosmetic only: move_account_and_delete (still the 20260910150000 definition) does not rewrite extras.paymentMethod. This is harmless now that the form reads the FK first. |
+| FE-UIC-08 | medium | Closed | v10.99.0 | v10.99.0 (Track E, E5; owner decisions E-6 and 14 Oct 2026): one budget-progress function, lib/budgetProgress.ts, read by the Budgets page (hero, pace chart and cards), the Dashboard (pace banner and Budget progress panel), Reports' budget vs actual and Pip. A total counts all spending in its own period (an annual tot… |
 | FE-UIS-10 | medium | Closed | #183, v10.91.0 | v10.91.0: the single-key n/b/d/a shortcuts are removed (owner decision), so there is nothing to switch off. Transactions' "/" (focus only) and Cmd/Ctrl+K stay. |
 | BE-FN-06 | medium | Closed | #168 | Optional, not required by D28: (1) cap shares per split (the audit suggested 20); (2) the sender display name in subject and heading still comes from user_metadata.full_name (send-split-email/index.ts:189-191, emailTemplates.ts:130,154), stripped of control characters but still spoofable, e.g. 'Vyact Security'. |
 | BE-WA-03 | medium | Closed | #187 | Residual edge only: the reopen runs only on a returned 'retry'. If the worker dies after resolvePending (a stale claim is replayed), or an exception escapes processInboundTurn, the question stays closed. The audit's stronger design (resolve the pending turn inside the action's RPC transaction, or keep it on the inbox… |

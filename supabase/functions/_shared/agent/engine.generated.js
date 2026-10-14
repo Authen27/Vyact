@@ -26,6 +26,8 @@
 //   react/src/lib/askVyactModelCall.ts
 //   react/src/lib/askVyactParser.ts
 //   react/src/lib/askVyactResponses.ts
+//   react/src/lib/budgetOrdering.ts
+//   react/src/lib/budgetProgress.ts
 //   react/src/lib/calculations.ts
 //   react/src/lib/format.ts
 //   react/src/lib/householdTypes.ts
@@ -1970,6 +1972,170 @@ function profileFromRows(prof, hh, email) {
 	};
 }
 //#endregion
+//#region react/src/lib/budgetOrdering.ts
+/** spent ÷ limit, NOT clamped at 100%. A zero limit with any spend is the most
+*  over a line can be; a zero limit with no spend is unused. */
+function utilisation(spent, limit) {
+	if (limit > 0) return spent / limit;
+	return spent > 0 ? Number.POSITIVE_INFINITY : 0;
+}
+/** Most utilised first. Ties: the larger spend first, then the label A→Z, then
+*  the original order — so the result never depends on the input's order for
+*  distinguishable lines. Returns a new array. */
+function sortByUtilisation(items, pick) {
+	return items.map((item, index) => {
+		const { spent, limit, label } = pick(item);
+		return {
+			item,
+			index,
+			spent,
+			label,
+			use: utilisation(spent, limit)
+		};
+	}).sort((a, b) => {
+		if (a.use !== b.use) return a.use < b.use ? 1 : -1;
+		if (a.spent !== b.spent) return b.spent - a.spent;
+		return a.label.localeCompare(b.label) || a.index - b.index;
+	}).map((entry) => entry.item);
+}
+const pad$1 = (n) => String(n).padStart(2, "0");
+const lastDay = (year, month) => new Date(year, month, 0).getDate();
+/** The inclusive YYYY-MM-DD window a budget covers, or null for a legacy rolling
+*  budget (a category + limit with no period), which applies to every month. */
+function budgetPeriodWindow(b) {
+	if (b.scope === "month" && b.periodYear && b.periodMonth) return {
+		start: `${b.periodYear}-${pad$1(b.periodMonth)}-01`,
+		end: `${b.periodYear}-${pad$1(b.periodMonth)}-${pad$1(lastDay(b.periodYear, b.periodMonth))}`
+	};
+	if (b.scope === "annual" && b.periodYear) return {
+		start: `${b.periodYear}-01-01`,
+		end: `${b.periodYear}-12-31`
+	};
+	if (b.periodStart && b.periodEnd) return {
+		start: b.periodStart,
+		end: b.periodEnd
+	};
+	return null;
+}
+//#endregion
+//#region react/src/lib/budgetProgress.ts
+const round2$3 = (n) => Math.round(n * 100) / 100;
+const pad = (n) => String(n).padStart(2, "0");
+/** The current calendar month of `now` as a window (a legacy rolling budget applies to every month). */
+function monthWindow(now) {
+	const [y, m] = now.split("-").map(Number);
+	return {
+		start: `${y}-${pad(m)}-01`,
+		end: `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`
+	};
+}
+/**
+* A per-category budget: a category and a limit, no allocations (the pre-container shape, whatever its
+* scope). It is a single line, not a container — as `budgetLines` has always read it.
+*/
+const isLegacyCategoryBudget = (b, own) => !!b.category && own.length === 0;
+function budgetProgress(budget, allocations, transactions, opts) {
+	const cur = opts.baseCurrency;
+	const period = budgetPeriodWindow(budget) ?? monthWindow(opts.now ?? today());
+	const own = allocations.filter((a) => a.budgetId === budget.id);
+	const spend = spendByCategoryInRange(transactions, period.start, period.end, cur, opts.rates);
+	const limit = round2$3(convert(budget.limit, budget.currency, cur, opts.rates));
+	const legacy = isLegacyCategoryBudget(budget, own);
+	const plannedRows = legacy ? [{
+		category: budget.category,
+		amount: limit
+	}] : own.map((a) => ({
+		category: a.category,
+		amount: round2$3(convert(a.amount, budget.currency, cur, opts.rates))
+	}));
+	const planned = /* @__PURE__ */ new Set();
+	const lines = [];
+	for (const row of plannedRows) {
+		if (!(row.amount > 0) || planned.has(row.category)) continue;
+		planned.add(row.category);
+		const spent = round2$3(spend[row.category] ?? 0);
+		lines.push({
+			category: row.category,
+			limit: row.amount,
+			spent,
+			planned: true,
+			pct: spent / row.amount * 100,
+			left: round2$3(row.amount - spent)
+		});
+	}
+	const notPlanned = legacy ? [] : Object.entries(spend).filter(([category, amount]) => amount > 0 && !planned.has(category)).map(([category, amount]) => ({
+		category,
+		limit: 0,
+		spent: round2$3(amount),
+		planned: false,
+		pct: null,
+		left: round2$3(-amount)
+	})).sort((a, b) => b.spent - a.spent || a.category.localeCompare(b.category));
+	const spent = legacy ? lines[0]?.spent ?? 0 : round2$3(Object.values(spend).reduce((s, n) => s + n, 0));
+	const plannedSum = lines.reduce((s, l) => s + l.limit, 0);
+	const annual = budget.scope ? budget.scope === "annual" : period.start.slice(0, 7) !== period.end.slice(0, 7);
+	return {
+		budget,
+		start: period.start,
+		end: period.end,
+		annual,
+		limit,
+		spent,
+		left: round2$3(limit - spent),
+		pct: limit > 0 ? spent / limit * 100 : 0,
+		lines: sortByUtilisation(lines, (l) => ({
+			spent: l.spent,
+			limit: l.limit,
+			label: getCat(l.category).label
+		})),
+		notPlanned,
+		unallocated: round2$3(limit - plannedSum)
+	};
+}
+/**
+* The budgets that apply to a month (YYYY-MM): that month's own budget, the annual budget of its year,
+* and any legacy budget whose window covers it (a legacy category budget with no window applies to every
+* month). The month's own budget comes first, then the annual one, then legacy ones.
+*/
+function budgetsForMonth(budgets, monthKey) {
+	const [y, m] = monthKey.split("-").map(Number);
+	const rank = (b) => b.scope === "month" ? 0 : b.scope === "annual" ? 1 : 2;
+	return budgets.filter((b) => {
+		if (b.scope === "annual") return b.periodYear === y;
+		if (b.periodYear != null && b.periodMonth != null) return b.periodYear === y && b.periodMonth === m;
+		if (b.periodStart && b.periodEnd) return b.periodStart <= `${monthKey}-31` && b.periodEnd >= `${monthKey}-01`;
+		return !!b.category;
+	}).sort((a, b) => rank(a) - rank(b));
+}
+/** The budgets as they stand in a month: what the Dashboard panel, the pace banner and Pip read. */
+function budgetLinesNow(budgets, allocations, transactions, opts) {
+	const now = opts.now ?? today();
+	const progress = budgetsForMonth(budgets, now.slice(0, 7)).map((b) => budgetProgress(b, allocations, transactions, {
+		...opts,
+		now
+	}));
+	const month = progress.find((p) => p.budget.scope === "month");
+	const year = progress.find((p) => p.budget.scope === "annual");
+	const tag = (p) => (l) => ({
+		...l,
+		budgetId: p.budget.id,
+		annual: p.annual
+	});
+	const lines = sortByUtilisation(progress.flatMap((p) => p.lines.map(tag(p))), (l) => ({
+		spent: l.spent,
+		limit: l.limit,
+		label: getCat(l.category).label
+	}));
+	const source = month ?? year;
+	return {
+		progress,
+		month,
+		year,
+		lines,
+		notPlanned: source ? source.notPlanned.map(tag(source)) : []
+	};
+}
+//#endregion
 //#region react/src/lib/netWorth.ts
 const LIABILITY_KINDS = /* @__PURE__ */ new Set(["credit_card", "loan"]);
 /** Liability-side rows: liability accounts at their live balances, plus any
@@ -2167,18 +2333,17 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 			expense: round2(md.expense)
 		};
 	});
-	const safeBudgets = budgetLinesForMonth(budgets, allocations, mk).map((b) => {
-		const limitBase = convert(b.limit, b.currency, cur, rates);
-		const annual = coversMoreThanAMonth(b);
-		const year = b.periodYear ?? Number(mk.slice(0, 4));
-		const spent = annual ? spendByCategoryInRange(txns, b.periodStart ?? `${year}-01-01`, b.periodEnd ?? `${year}-12-31`, cur, rates)[b.category ?? ""] || 0 : spend[b.category ?? ""] || 0;
-		return {
-			category: b.category ?? "",
-			limit: round2(limitBase),
-			spentPct: limitBase > 0 ? round2(spent / limitBase * 100) : 0,
-			...annual ? { annual: true } : {}
-		};
+	const budgetNow = budgetLinesNow(budgets, allocations, txns, {
+		baseCurrency: cur,
+		rates,
+		now: today(tz)
 	});
+	const safeBudgets = budgetNow.lines.map((l) => ({
+		category: l.category,
+		limit: l.limit,
+		spentPct: round2(l.pct ?? 0),
+		...l.annual ? { annual: true } : {}
+	}));
 	const safeGoals = goals.map((g) => {
 		const tgt = convert(g.target, g.currency, cur, rates);
 		const pct = tgt > 0 ? convert(g.current, g.currency, cur, rates) / tgt * 100 : 0;
@@ -2230,6 +2395,16 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 		})),
 		dataQuality: { cashBalanceNegative: accounts.some((a) => a.kind === "cash" && !a.isArchived && computeAccountBalance(a, txns, cur, rates) < 0) },
 		budgets: safeBudgets,
+		...budgetNow.month ? { monthBudget: {
+			limit: budgetNow.month.limit,
+			spent: budgetNow.month.spent,
+			left: budgetNow.month.left
+		} } : {},
+		budgetsNotPlanned: budgetNow.notPlanned.map((l) => ({
+			category: l.category,
+			spent: l.spent,
+			...l.annual ? { annual: true } : {}
+		})),
 		goals: safeGoals,
 		debts: safeDebts
 	};
@@ -4294,8 +4469,10 @@ function resolveCore(intent, ctx) {
 			const annualLines = ctx.summary.budgets.filter((b) => b.annual);
 			const over = monthLines.filter((b) => b.spentPct > 100);
 			const near = monthLines.filter((b) => b.spentPct > 80 && b.spentPct <= 100);
-			const detail = over.length ? `${over.length} over: ${over.map((b) => getCat(b.category).label).join(", ")}.` : near.length ? `${near.length} close to the limit: ${near.map((b) => getCat(b.category).label).join(", ")}.` : monthLines.length ? `all ${monthLines.length} budgets are on track.` : annualLines.length ? "your budgets are annual — see Budgets for what is left this year." : `you have no budgets yet.`;
-			const worstBudget = over[0] ?? near[0];
+			const monthTotal = ctx.summary.monthBudget;
+			const notPlanned = (ctx.summary.budgetsNotPlanned ?? []).filter((b) => !b.annual);
+			const detail = over.length ? `${over.length} over: ${over.map((b) => getCat(b.category).label).join(", ")}.` : notPlanned.length ? `spending in ${notPlanned.length} ${notPlanned.length === 1 ? "category" : "categories"} with no budget: ${notPlanned.map((b) => getCat(b.category).label).join(", ")}.` : near.length ? `${near.length} close to the limit: ${near.map((b) => getCat(b.category).label).join(", ")}.` : monthLines.length ? `all ${monthLines.length} budgets are on track.` : annualLines.length ? "your budgets are annual — see Budgets for what is left this year." : `you have no budgets yet.`;
+			const worstBudget = over[0] ?? notPlanned[0] ?? near[0];
 			const count = monthLines.length;
 			const now = wallClock(ctx.tz);
 			const monthGone = now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() * 100;
@@ -4304,6 +4481,17 @@ function resolveCore(intent, ctx) {
 				kind: "interpret",
 				outcome: "ok",
 				facts: {
+					...monthTotal ? { month_budget: {
+						total: money(monthTotal.limit, ctx),
+						spent_on_everything: money(monthTotal.spent, ctx),
+						left: signedMoney(monthTotal.left, ctx, "left", "over"),
+						counts: "all spending this month, in every category, planned or not"
+					} } : {},
+					...notPlanned.length ? { not_planned_this_month: notPlanned.map((b) => ({
+						category: getCat(b.category).label,
+						spent: money(b.spent, ctx),
+						status: "over: nothing was budgeted for this category this month"
+					})) } : {},
 					...annualLines.length ? { annual_budgets: annualLines.map((b) => annualBudgetNote(getCat(b.category).label)) } : {},
 					budgets_most_used_first: [...monthLines].sort((a, b) => b.spentPct - a.spentPct).map((b) => ({
 						category: getCat(b.category).label,
@@ -4319,9 +4507,13 @@ function resolveCore(intent, ctx) {
 						month_gone: `${Math.round(monthGone)}%`
 					} : {}
 				},
-				analysis: [`Checked ${count} ${count === 1 ? "budget" : "budgets"} against spending`, over.length ? `${over.length} over budget` : near.length ? `${near.length} close to the limit` : "All on track"],
+				analysis: [
+					`Checked ${count} ${count === 1 ? "budget" : "budgets"} against spending`,
+					over.length ? `${over.length} over budget` : near.length ? `${near.length} close to the limit` : "All on track",
+					...notPlanned.length ? [`Found spending in ${notPlanned.length} ${notPlanned.length === 1 ? "category" : "categories"} with no budget`] : []
+				],
 				vars: {
-					headline: over.length ? "Some budgets need attention." : near.length ? "A couple of budgets are getting close." : "Budgets look healthy.",
+					headline: over.length || notPlanned.length ? "Some budgets need attention." : near.length ? "A couple of budgets are getting close." : "Budgets look healthy.",
 					detail
 				},
 				chips: worstBudget ? [{

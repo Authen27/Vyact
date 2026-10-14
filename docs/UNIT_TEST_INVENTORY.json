@@ -954,10 +954,10 @@
       "owner": "reportRange / budgetTrends / essentialRunway (range, scope-matched budgets, stated-baseline runway)",
       "count": 4,
       "tests": [
-        "Budget vs actual by matching scope (v10.31.0) compares a monthly budget over its own month, only in its allocated categories, at face value",
-        "Budget vs actual by matching scope (v10.31.0) includes only budgets overlapping the range, and skips budgets with no allocations",
-        "Budget vs actual by matching scope (v10.31.0) keeps annual budgets in their own series over the full year",
-        "Budget vs actual by matching scope (v10.31.0) marks over, and never calls the current period over or under"
+        "Budget vs actual by matching scope (v10.31.0; E5 basis) compares a monthly budget's total with ALL its month's spending, at face value",
+        "Budget vs actual by matching scope (v10.31.0; E5 basis) includes only budgets overlapping the range, and compares a budget with no allocations on its total",
+        "Budget vs actual by matching scope (v10.31.0; E5 basis) keeps annual budgets in their own series over the full year",
+        "Budget vs actual by matching scope (v10.31.0; E5 basis) marks over, and never calls the current period over or under"
       ]
     },
     {
@@ -2452,6 +2452,25 @@
         "two labelled figures, one per surface (Track E, E4; owner E-9) TE4-005 · Pip names which figure it states, and the months it rests on",
         "two labelled figures, one per surface (Track E, E4; owner E-9) TE4-006 · the server builds the same summary as the app, with the live map read from the database",
         "two labelled figures, one per surface (Track E, E4; owner E-9) TE4-007 · the server loader reads the live map, and the app's Pip passes it"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/trackEBudgets.test.ts",
+      "feature": "Track E budget progress",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "one budget-progress basis (lib/budgetProgress) read by the Budgets page, the Dashboard pace and panel, Reports and Pip: a total against all spending in its period (an annual total the aggregation of its months), each line over its own period, not-planned spending listed and never alerted or scored (Track E, owner decisions E-6 and 14 Oct 2026)",
+      "count": 8,
+      "tests": [
+        "one budget-progress basis (Track E, E5; owner E-6) TE5-001 · a month total counts ALL its spending; lines are its allocations; nothing-allocated spending is \"not planned\"",
+        "one budget-progress basis (Track E, E5; owner E-6) TE5-002 · an annual total is the aggregation of its months; its line is measured over the year; the same rule lists not-planned spending",
+        "one budget-progress basis (Track E, E5; owner E-6) TE5-003 · Reports' budget vs actual is the Budgets page's figure (total against all spending), every budget with a total compared",
+        "one budget-progress basis (Track E, E5; owner E-6) TE5-004 · the Dashboard: lines over their own period (the annual Travel line over the year), not-planned after them, pace on all spending",
+        "one budget-progress basis (Track E, E5; owner E-6) TE5-005 · Pip states the month total, its lines and the not-planned spending, from the same figures",
+        "one budget-progress basis (Track E, E5; owner E-6) TE5-006 · a loan payment counts in full in the total and in the Loan / EMI line (Track E)",
+        "one budget-progress basis (Track E, E5; owner E-6) TE5-007 · a legacy category budget stays one line; not-planned spending raises no alert and leaves Pulse unchanged (owner)",
+        "one budget-progress basis (Track E, E5; owner E-6) TE5-008 · every surface reads lib/budgetProgress, and the Budgets hero no longer sums allocated spending"
       ]
     },
     {

@@ -1243,15 +1243,21 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       const annualLines = ctx.summary.budgets.filter(b => b.annual);
       const over = monthLines.filter(b => b.spentPct > 100);
       const near = monthLines.filter(b => b.spentPct > 80 && b.spentPct <= 100);
+      // Track E, E5 (owner, E-6 and 14 Oct 2026): the month's TOTAL against all its spending, and the
+      // spending nothing was allocated to — the Budgets page's figures (lib/budgetProgress).
+      const monthTotal = ctx.summary.monthBudget;
+      const notPlanned = (ctx.summary.budgetsNotPlanned ?? []).filter(b => !b.annual);
       const detail = over.length
         ? `${over.length} over: ${over.map(b => getCat(b.category).label).join(', ')}.`
+        : notPlanned.length
+          ? `spending in ${notPlanned.length} ${notPlanned.length === 1 ? 'category' : 'categories'} with no budget: ${notPlanned.map(b => getCat(b.category).label).join(', ')}.`
         : near.length
           ? `${near.length} close to the limit: ${near.map(b => getCat(b.category).label).join(', ')}.`
           : monthLines.length ? `all ${monthLines.length} budgets are on track.`
           : annualLines.length ? 'your budgets are annual — see Budgets for what is left this year.' : `you have no budgets yet.`;
       // Chips only when there is something to chase — "Budgets look healthy"
       // needs no follow-up, and an offer of one implies a problem there isn't.
-      const worstBudget = over[0] ?? near[0];
+      const worstBudget: { category: string } | undefined = over[0] ?? notPlanned[0] ?? near[0];
       const count = monthLines.length;
       // v10.46.0 (#66) — pace: a budget used faster than the month has gone is
       // "ahead of pace" even while under its limit. 60% used with 40% of the month
@@ -1261,6 +1267,18 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       const onPace = monthLines.filter(b => b.spentPct <= monthGone).length;
       return { kind: 'interpret', outcome: 'ok',
         facts: {
+          ...(monthTotal ? { month_budget: {
+            total: money(monthTotal.limit, ctx),
+            spent_on_everything: money(monthTotal.spent, ctx),
+            // Crosses zero: `money()` would print an overspend as money left.
+            left: signedMoney(monthTotal.left, ctx, 'left', 'over'),
+            counts: 'all spending this month, in every category, planned or not',
+          } } : {}),
+          ...(notPlanned.length ? { not_planned_this_month: notPlanned.map(b => ({
+            category: getCat(b.category).label,
+            spent: money(b.spent, ctx),
+            status: 'over: nothing was budgeted for this category this month',
+          })) } : {}),
           ...(annualLines.length ? { annual_budgets: annualLines.map(b => annualBudgetNote(getCat(b.category).label)) } : {}),
           budgets_most_used_first: [...monthLines].sort((a, b) => b.spentPct - a.spentPct).map(b => ({
             category: getCat(b.category).label,
@@ -1276,9 +1294,10 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         analysis: [
           `Checked ${count} ${count === 1 ? 'budget' : 'budgets'} against spending`,
           over.length ? `${over.length} over budget` : near.length ? `${near.length} close to the limit` : 'All on track',
+          ...(notPlanned.length ? [`Found spending in ${notPlanned.length} ${notPlanned.length === 1 ? 'category' : 'categories'} with no budget`] : []),
         ],
         vars: {
-        headline: over.length ? 'Some budgets need attention.' : near.length ? 'A couple of budgets are getting close.' : 'Budgets look healthy.',
+        headline: over.length || notPlanned.length ? 'Some budgets need attention.' : near.length ? 'A couple of budgets are getting close.' : 'Budgets look healthy.',
         detail,
       }, chips: worstBudget ? [
         { label: `Why is ${getCat(worstBudget.category).label} over?`, prompt: `why is my ${getCat(worstBudget.category).label.toLowerCase()} spending so high` },

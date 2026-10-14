@@ -463,10 +463,9 @@ export default function Reports() {
                 </table>
               </div>
               <p className="px-4 py-3 text-xs text-ink-dim leading-relaxed">
-                Monthly budgets are compared per month and annual budgets per year, in their allocated categories only.
+                Each budget&apos;s total is compared with all spending in its own period: a month for a monthly budget, the year for an annual one. These are the figures the Budgets page shows.
                 {` Completed: ${trends.completedOver} over, ${trends.completedUnder} under.`}
                 {' '}The current period is in progress, so it is not counted as over or under.
-                {trends.unallocated > 0 ? ` ${trends.unallocated} budget${trends.unallocated === 1 ? '' : 's'} without category allocations ${trends.unallocated === 1 ? 'is' : 'are'} not compared.` : ''}
               </p>
             </>
           )}

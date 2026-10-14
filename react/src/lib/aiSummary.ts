@@ -9,8 +9,9 @@ import type {
 } from '../types';
 import {
   monthlyData, computePulseScore,
-  spendByCategory, reportableTxns, budgetLinesForMonth, coversMoreThanAMonth, spendByCategoryInRange,
+  spendByCategory, reportableTxns,
 } from './calculations';
+import { budgetLinesNow } from './budgetProgress';
 import { computeNetWorth, cardDues } from './netWorth';
 import { computeAccountBalance } from './accountBalance';
 import { monthsOfCover, spendBaseline, type ClassificationMap } from './spendBaseline';
@@ -167,6 +168,16 @@ export interface SafeSummary {
    * no monthly verdict on it: it points to Budgets (owner decision).
    */
   budgets: { category: string; limit: number; spentPct: number; annual?: true }[];
+  /**
+   * Track E, E5 (owner, E-6) — this month's budget TOTAL against ALL its spending (lib/budgetProgress,
+   * the Budgets page's figures); absent without a month budget.
+   */
+  monthBudget?: { limit: number; spent: number; left: number };
+  /**
+   * Track E, E5 (owner, 14 Oct 2026) — spending in a category with nothing allocated: from this month's
+   * budget, else from the annual one (`annual`, over its year). Always over; never counted by Pulse.
+   */
+  budgetsNotPlanned: { category: string; spent: number; annual?: true }[];
   goals:   { type: string; targetPct: number; daysToDeadline: number | null }[];
   debts:   { type: string; balance: number; aprPct: number; monthsRemaining?: number }[];
 }
@@ -227,20 +238,14 @@ export function buildSafeSummary(
   // was the INVERSE ratio and skipped unknown rates silently.
   // W5 (P1; audit FE-PIP-01): an annual line was divided by THIS month's spend, so a Travel
   // budget 97% used by September read as 0% in October. It is measured over its own period.
-  const safeBudgets = budgetLinesForMonth(budgets, allocations, mk).map(b => {
-    const limitBase = convert(b.limit, b.currency, cur, rates);
-    const annual = coversMoreThanAMonth(b);
-    const year = b.periodYear ?? Number(mk.slice(0, 4));
-    const spent = annual
-      ? spendByCategoryInRange(txns, b.periodStart ?? `${year}-01-01`, b.periodEnd ?? `${year}-12-31`, cur, rates)[b.category ?? ''] || 0
-      : spend[b.category ?? ''] || 0;
-    return {
-      category: b.category ?? '',
-      limit: round2(limitBase),
-      spentPct: limitBase > 0 ? round2(spent / limitBase * 100) : 0,
-      ...(annual ? { annual: true as const } : {}),
-    };
-  });
+  // Track E, E5 (owner, E-6): the ONE budget-progress basis (lib/budgetProgress), the Budgets page's.
+  const budgetNow = budgetLinesNow(budgets, allocations, txns, { baseCurrency: cur, rates, now: today(tz) });
+  const safeBudgets = budgetNow.lines.map(l => ({
+    category: l.category,
+    limit: l.limit,
+    spentPct: round2(l.pct ?? 0),
+    ...(l.annual ? { annual: true as const } : {}),
+  }));
 
   // Goals with progress only (audit F4: central conversion).
   const safeGoals = goals.map(g => {
@@ -309,6 +314,8 @@ export function buildSafeSummary(
         && computeAccountBalance(a, txns, cur, rates) < 0),
     },
     budgets: safeBudgets,
+    ...(budgetNow.month ? { monthBudget: { limit: budgetNow.month.limit, spent: budgetNow.month.spent, left: budgetNow.month.left } } : {}),
+    budgetsNotPlanned: budgetNow.notPlanned.map(l => ({ category: l.category, spent: l.spent, ...(l.annual ? { annual: true as const } : {}) })),
     goals: safeGoals,
     debts: safeDebts,
   };

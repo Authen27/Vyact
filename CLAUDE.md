@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.98.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.99.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -405,8 +405,8 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `from`, which is the savings banner). Don't add a panel with its own window or an
   unlabelled all-time total; the household position and "this month" are the only
   current-by-design figures. Budget vs actual compares each budget over its OWN
-  period by scope (`lib/budgetTrends.ts`; the current period is "in progress", never
-  over/under). The runway's baseline is completed months only and is stated on
+  period by scope (`lib/budgetTrends.ts` on the `lib/budgetProgress.ts` basis; the current period is
+  "in progress", never over/under). The runway's baseline is completed months only and is stated on
   screen (`lib/essentialRunway.ts`); it is the baseline Pip and Net Worth read (`lib/spendBaseline.ts`).
 - **The bill calendar speaks the recurring engine's terms (v10.32.0)** —
   `lib/billCalendar.ts` is a read-only projection: dates from the RRULE
@@ -616,6 +616,19 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   loans, not again for an EMI schedule), and the last three completed months where higher. Applying a
   proposal sets the total to its sum; the total stays editable and the remainder is the "Unallocated" line.
   The form never saves a row it does not show.
+- **One budget-progress basis (v10.99.0, Track E; owner decisions E-6 and 14 Oct 2026).** `lib/budgetProgress.ts`
+  is the only place a budget's progress is computed. The Budgets page, the Dashboard pace banner and panel,
+  Reports' budget vs actual and Pip all read it.
+  - A budget's TOTAL counts ALL spending in its own period: unallocated categories, and loan payments in full.
+    An annual total is the aggregation of its months, so an expense counts once in its month and once in its
+    year. The annual limit is the typed figure.
+  - Each LINE (an allocation) is measured over its own budget's period: an annual line over the year, never
+    one month.
+  - Spending in a category with nothing allocated (no row, or 0) is a NOT-PLANNED line, always over. It shows
+    on the budget cards, the Dashboard panel and in Pip (`budgetsNotPlanned`). Bell and WhatsApp alerts and
+    Pulse never read it.
+  - A category budget with no allocations (the pre-container shape) stays one line.
+  - Never sum allocated spending for a total, and never measure a line against another period.
 - **A bill card acts only on its own occurrence (v10.73.0, W4d; audit FE-UIS-04).** Approve and Skip
   (bell and bill calendar) go through `approveRecurring` / `skipRecurring`, which refuse anything but the
   due pointer and return whether they acted; the UI says "Already handled" otherwise, never a success

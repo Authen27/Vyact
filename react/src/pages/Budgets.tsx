@@ -10,13 +10,14 @@ import { useStore } from '../store';
 import { can } from '../lib/permissions';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { convert, fmt, fmtShort, today } from '../lib/format';
-import { spendByCategoryInRange, cumulativeSpendSeries } from '../lib/calculations';
+import { fmt, fmtShort, today } from '../lib/format';
+import { cumulativeSpendSeries } from '../lib/calculations';
+import { budgetProgress } from '../lib/budgetProgress';
 
 import { getCat } from '../constants';
 import Money from '../components/ui/Money';
 import BudgetPaceChart from '../components/budgets/BudgetPaceChart';
-import { sortBudgetsForDisplay, sortByUtilisation } from '../lib/budgetOrdering';
+import { sortBudgetsForDisplay } from '../lib/budgetOrdering';
 import PageHead from '../components/ui/PageHead';
 import { confirmSheet } from '../lib/confirmSheet';
 import { deleteBudgetRequest } from '../lib/confirmCopy';
@@ -62,24 +63,17 @@ export default function Budgets() {
   // per-budget resolved view: total, allocations with spend, overall spend.
   // v10.27.2 — budgets run current month → oldest (lib/budgetOrdering), and the
   // categories inside each run most-utilised first. Display order only.
-  const rows = useMemo(() => sortBudgetsForDisplay(budgets, new Date()).map(b => {
-    const start = b.periodStart || '';
-    const end = b.periodEnd || '';
-    const spendMap = start && end ? spendByCategoryInRange(transactions, start, end, cur, rates) : {};
-    const allocs = sortByUtilisation(
-      allocations.filter(a => a.budgetId === b.id).map(a => ({
-        ...a,
-        limitBase: convert(a.amount, b.currency, cur, rates),
-        spent: spendMap[a.category] || 0,
-      })),
-      a => ({ spent: a.spent, limit: a.limitBase, label: getCat(a.category).label }),
-    );
-    const totalBase = convert(b.limit, b.currency, cur, rates);
-    const spent = allocs.reduce((s, a) => s + a.spent, 0);
-    return { b, allocs, totalBase, spent };
+  // Track E, E5 (owner, E-6): the ONE budget-progress basis (lib/budgetProgress.ts). The total counts ALL
+  // spending in the budget's period (it used to subtract only allocated spending from the full total), each
+  // line is measured over the budget's own period, and spending nothing was allocated to is listed as
+  // "not planned".
+  const rows = useMemo(() => sortBudgetsForDisplay(budgets, new Date()).map(b => ({
+    b,
+    p: budgetProgress(b, allocations, transactions, { baseCurrency: cur, rates }),
+    allocationCount: allocations.filter(a => a.budgetId === b.id).length,
     // nowKey re-sorts when the month rolls over while the page is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [budgets, allocations, transactions, cur, rates, nowKey]);
+  })), [budgets, allocations, transactions, cur, rates, nowKey]);
   const hasCurrentMonth = budgets.some(b => b.scope === 'month'
     && b.periodYear === now.getFullYear() && b.periodMonth === now.getMonth() + 1);
   // Board C — the current-month budget drives the pace hero.
@@ -92,8 +86,8 @@ export default function Budgets() {
     if (!row) return;
     const ok = await confirmSheet(deleteBudgetRequest({
       label: budgetTitle(row.b),
-      allocations: row.allocs.length,
-      spent: row.spent > 0 ? fmt(row.spent, cur) : undefined,
+      allocations: row.allocationCount,
+      spent: row.p.spent > 0 ? fmt(row.p.spent, cur) : undefined,
       period: row.b.scope === 'annual' ? `${row.b.periodYear} spending` : `${budgetTitle(row.b)} spending`,
     }));
     if (!ok) return;
@@ -128,19 +122,18 @@ export default function Budgets() {
           over a left accent spine, with a plain-language daily allowance and
           the overall-usage trough beneath. */}
       {currentMonthRow && (() => {
-        const { b, allocs, totalBase, spent } = currentMonthRow;
-        const overall = pct(spent, totalBase);
+        const { b, p } = currentMonthRow;
+        const totalBase = p.limit;
+        const spent = p.spent;
+        const overall = p.pct;
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         const daysLeft = Math.max(1, daysInMonth - now.getDate() + 1);
-        const remaining = totalBase - spent;
+        const remaining = p.left;
         const perDay = remaining / daysLeft;
-        // Cumulative series across the budget's allocated categories, day 1 → today.
-        const catSet = new Set(allocs.map(a => a.category));
+        // Cumulative series of ALL spending (the total's basis, E5), day 1 → today.
         const todayStr = today();
-        const upto = b.periodEnd && todayStr > b.periodEnd ? b.periodEnd : todayStr;
-        const series = (b.periodStart && catSet.size)
-          ? cumulativeSpendSeries(transactions, catSet, b.periodStart, upto, cur, rates)
-          : [];
+        const upto = todayStr > p.end ? p.end : todayStr;
+        const series = cumulativeSpendSeries(transactions, null, p.start, upto, cur, rates);
         const dayNum = series.length || now.getDate();
         const lastCum = series.length ? series[series.length - 1].cumulative : spent;
         const projectedEnd = dayNum ? (lastCum / dayNum) * daysInMonth : 0;
@@ -198,8 +191,9 @@ export default function Budgets() {
         </Panel>
       ) : (
         <div className="grid sm:grid-cols-2 gap-3 mt-3">
-          {rows.map(({ b, allocs, totalBase, spent }) => {
-            const overall = pct(spent, totalBase);
+          {rows.map(({ b, p }) => {
+            const { limit: totalBase, spent, lines: allocs, notPlanned } = p;
+            const overall = p.pct;
             return (
               <div key={b.id} data-testid="budget-card" className="rounded-r3 p-4 min-w-0" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
                 <div className="flex items-start justify-between mb-2 gap-2">
@@ -227,24 +221,44 @@ export default function Budgets() {
                   <div className={`h-full rounded-full chart-grow transition-all ${barCls(overall)}`} style={{ width: `${barPct(overall)}%` }} />
                 </div>
                 {/* allocations */}
-                {allocs.length === 0 ? (
-                  <p className="text-[0.74rem] text-ink-dim">No category allocations — edit to add some.</p>
-                ) : (
+                {allocs.length === 0 && (
+                  <p className="text-[0.74rem] text-ink-dim mb-1.5">No category allocations — edit to add some.</p>
+                )}
+                {(allocs.length > 0 || notPlanned.length > 0) && (
                   <div className="space-y-1.5">
                     {allocs.map((a, ai) => {
-                      const ap = pct(a.spent, a.limitBase);
+                      const ap = pct(a.spent, a.limit);
                       const c = getCat(a.category);
                       return (
-                        <button key={a.id} onClick={() => navigate(`/transactions?budgetId=${b.id}&cat=${a.category}`)}
+                        <button key={a.category} onClick={() => navigate(`/transactions?budgetId=${b.id}&cat=${a.category}`)}
                           className="w-full text-left group">
                           <div className="flex justify-between items-center text-[0.74rem] mb-0.5">
                             <span className="text-ink-mid group-hover:text-coral truncate">{c.icon} {c.label}</span>
                             <span className="text-ink-dim flex-shrink-0">
-                              <Money amount={a.spent} currency={cur} maxChars={7} /> / <Money amount={a.limitBase} currency={cur} maxChars={7} />
+                              <Money amount={a.spent} currency={cur} maxChars={7} /> / <Money amount={a.limit} currency={cur} maxChars={7} />
                             </span>
                           </div>
                           <div className="h-1.5 bg-bg3 rounded-full overflow-hidden">
                             <div className={`h-full rounded-full chart-grow ${barCls(ap)}`} style={{ width: `${barPct(ap)}%`, animationDelay: `${ai * 60}ms` }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {/* E5 (owner): spending in a category with nothing allocated — always over, after the plan. */}
+                    {notPlanned.map(a => {
+                      const c = getCat(a.category);
+                      return (
+                        <button key={`np-${a.category}`} data-testid="budget-not-planned"
+                          onClick={() => navigate(`/transactions?budgetId=${b.id}&cat=${a.category}`)}
+                          className="w-full text-left group">
+                          <div className="flex justify-between items-center text-[0.74rem] mb-0.5 gap-2">
+                            <span className="text-ink-mid group-hover:text-coral truncate">{c.icon} {c.label}</span>
+                            <span className="text-terra flex-shrink-0">
+                              <Money amount={a.spent} currency={cur} maxChars={7} /> over · not planned
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-bg3 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full chart-grow bg-terra" style={{ width: '100%' }} />
                           </div>
                         </button>
                       );
