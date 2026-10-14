@@ -60,6 +60,14 @@ export function reportableTxns(transactions: Transaction[]): Transaction[] {
   );
 }
 
+/**
+ * Track E (v10.96.0) — the rows that count as SPENDING: reportable expenses. The one rule every
+ * spending total reads, and, through the bundled engine, every WhatsApp spending alert and digest.
+ */
+export function spendRows(transactions: Transaction[]): Transaction[] {
+  return reportableTxns(transactions).filter(t => t.type === 'expense');
+}
+
 export interface MonthData { income: number; expense: number; net: number; }
 
 export function monthlyData(transactions: Transaction[], monthKey: string, baseCurrency: string, rates: ExchangeRates): MonthData {

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.95.0`** (consumer)
+> **Current production version: `v10.96.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,35 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.96.0 — Track E, step 1: WhatsApp reads the app's spending *(2026-10-14)*
+
+Edge Functions and the bundled engine; no figure changes. Track E (owner decisions 13–14 Oct 2026),
+first PR (E2). Audit XC-ARC-06, the money half.
+
+- **Why.** WhatsApp's spending alerts and digests read a hand-copied port of the app's money code
+  (`_shared/money/calculations.ts`), with its own row mapping that dropped a loan payment's details
+  (`emi_split`). Track E changes what counts as spending (E3: a loan payment's principal counts), and
+  through the copy that change would never have reached WhatsApp.
+- **Now** the large-spend alert, budget alerts, the weekly summary, the evening digest and the month-close
+  summary all read spending the same way:
+  - rows are mapped by the app's adapter (`txnsFromRows`);
+  - `spendRows` decides what counts as spending, the app's one rule (new in `calculations.ts`);
+  - both come from the bundled engine.
+
+  The scheduler also loads the member and loan columns the mapper reads.
+- **The copy is deleted**, with its parity test. No server code may import a money port again (a test
+  walks every function).
+- **Legacy rows:** an old balance-adjustment or paired-transfer row typed as an expense no longer counts in
+  the large-spend alert or the digest, as it already didn't in the app.
+
+Tests:
+- trackESpending.test.ts (3):
+  - a scheduler row keeps the loan-payment details, the split and privacy;
+  - every spending rule counts exactly the app's spending rows;
+  - there is no port anywhere, and the scheduler loads the columns.
+- Every existing WhatsApp suite passes unchanged.
+- MNY16-F-007 now asserts the whole port is gone.
 
 ## v10.95.0 — Invitations in the bell; invite by email, step 2 of 2 *(2026-10-13)*
 

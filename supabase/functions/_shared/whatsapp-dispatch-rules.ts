@@ -4,17 +4,17 @@
 // rule returns the sends it wants; `whatsapp-dispatch` hands every one to
 // `guardedSend`, which applies consent, mutes, approval, the cap and dedupe.
 //
-// MONEY: every figure here comes from the server money port
-// (`_shared/money/calculations.ts`, parity-tested against the client), or is a
-// plain sum/count of rows the port calls reportable. And a rule SKIPS rather than
-// guesses:
+// MONEY: every spending figure here is the APP's own (Track E, v10.96.0; audit XC-ARC-06): rows are
+// mapped by the app's adapter (`txnsFromRows`), and what counts as spending is the app's `spendRows`,
+// both from the bundled engine (`./agent/engine.ts`). The hand-copied money port (`_shared/money`,
+// with its own row mapping) is gone. And a rule SKIPS rather than guesses:
 //   • W3b (v10.66.0; owner decision D14): a household has ONE currency and nothing is
 //     converted — a row still labelled with an older currency counts at face value, so it
 //     no longer silences a rule (it used to skip the whole household);
 //   • templates with "₹" in the approved text go only to INR households;
 //   • a private (excluded) transaction is never announced to anyone.
 
-import { spendByCategoryInRange, reportableTxns, effectiveAmount, type Transaction } from './money/calculations.ts';
+import { txnsFromRows, spendRows, spendByCategoryInRange, effectiveAmount, type EngineTxn } from './agent/engine.ts';
 import { zoneParts } from './localTime.ts';
 
 /** MUST mirror react/src/constants.ts EXPENSE_CATEGORIES labels (parity test: WA-D-001). */
@@ -39,18 +39,14 @@ export interface TxnRow {
   id: string; household_id: string; created_by: string | null; type: string; amount: number | string;
   currency: string; date: string; description?: string | null; category: string | null;
   account_id?: string | null; to_account_id?: string | null; asset_id?: string | null;
-  recurring_schedule_id?: string | null; extras?: { excluded?: boolean; split?: unknown } | null;
+  member_id?: string | null; debt_id?: string | null;
+  recurring_schedule_id?: string | null; extras?: { excluded?: boolean; split?: unknown; emi_split?: unknown } | null;
   created_at?: string;
 }
 
-/** A database row as the money port's Transaction (the client's supabaseAdapter mapping). */
-export function rowToTxn(r: TxnRow): Transaction {
-  return {
-    id: r.id, type: r.type as Transaction['type'], amount: Number(r.amount), currency: String(r.currency).trim(),
-    date: r.date, description: r.description ?? '', category: r.category ?? '',
-    excluded: r.extras?.excluded, accountId: r.account_id ?? undefined, toAccountId: r.to_account_id ?? undefined,
-    assetId: r.asset_id ?? undefined, split: r.extras?.split as Transaction['split'],
-  };
+/** A database row as the app's Transaction: the app's own adapter mapping, through the engine. */
+export function rowToTxn(r: TxnRow): EngineTxn {
+  return txnsFromRows([r])[0];
 }
 
 /** "18,000" / "1,540.50" — en-IN grouping, no symbol (for templates with ₹ in the text). */
@@ -116,19 +112,20 @@ export function largeSpendAlerts(input: {
   const { household } = input;
   if (household.base_currency.trim() !== 'INR') return [];
   const out: PlannedSend[] = [];
-  for (const r of input.txns) {
-    if (r.type !== 'expense' || r.recurring_schedule_id || r.extras?.excluded) continue;
-    const account = r.account_id ? input.accountNames[r.account_id] : undefined;
+  // Track E: the rows the app counts as spending (reportable, not private).
+  for (const t of spendRows(txnsFromRows(input.txns))) {
+    if (t.recurringScheduleId) continue;
+    const account = t.accountId ? input.accountNames[t.accountId] : undefined;
     if (!account) continue;
     // W8b (audit INT-PAR-10): the household's share, as every app total reads it — a split bill is
     // announced (and compared with the threshold) at the share this household paid, not the whole bill.
-    const amount = effectiveAmount(rowToTxn(r), household.base_currency.trim(), {});
+    const amount = effectiveAmount(t, household.base_currency.trim(), {});
     for (const m of input.members) {
-      if (m.profile_id === r.created_by) continue;
+      if (m.profile_id === t.created_by) continue;
       if (amount < (input.thresholds[m.profile_id] ?? 10000)) continue;
       out.push({
         template: 'large_transaction_alert', householdId: household.id, toProfileId: m.profile_id,
-        values: [amountText(amount), account], dedupeKey: `txn:${r.id}`,
+        values: [amountText(amount), account], dedupeKey: `txn:${t.id}`,
       });
     }
   }
@@ -154,7 +151,7 @@ export function budgetAlerts(input: {
 }): PlannedSend[] {
   const base = input.household.base_currency.trim();
   if (base !== 'INR') return [];
-  const txns = input.txns.map(rowToTxn);
+  const txns = txnsFromRows(input.txns);
   const out: PlannedSend[] = [];
   for (const b of input.budgets) {
     if (!b.period_start || !b.period_end || b.period_start > input.today || b.period_end < input.today) continue;
@@ -212,9 +209,9 @@ export function weeklySummary(input: {
 }): PlannedSend | null {
   const base = input.household.base_currency.trim();
   const start = new Date(Date.parse(`${input.today}T00:00:00Z`) - 6 * 86_400_000).toISOString().slice(0, 10);
-  const txns = input.txns.map(rowToTxn);
+  const txns = txnsFromRows(input.txns);
   const spend = spendByCategoryInRange(txns, start, input.today, base, {});
-  const entries = reportableTxns(txns).filter((t) => t.type === 'expense' && t.date >= start && t.date <= input.today).length;
+  const entries = spendRows(txns).filter((t) => t.date >= start && t.date <= input.today).length;
   const cats = Object.entries(spend).filter(([id]) => EXPENSE_LABEL[id]).sort((a, b) => b[1] - a[1]);
   if (!entries || !cats.length) return null;
   const total = Math.round(Object.values(spend).reduce((s, v) => s + v, 0) * 100) / 100;
@@ -451,16 +448,6 @@ function addMonths(ym: string, n: number): string {
 
 function isInr(c: string | null | undefined): boolean { return String(c ?? '').trim() === 'INR'; }
 
-/** A row the household's totals count: reportable and not private. */
-function counted(r: TxnRow): boolean {
-  return !r.extras?.excluded && reportableTxns([rowToTxn(r)]).length === 1;
-}
-
-/** What the row adds to spending: the person's share for a split, else the amount. */
-function spendOf(r: TxnRow): number {
-  return effectiveAmount(rowToTxn(r), String(r.currency).trim(), {});
-}
-
 // ── split_shared_with_you: a split someone shared with you (alerts job) ──────────
 export interface ShareRecipientRow {
   share_id: string; share: number | string; split_id: string; description: string; currency: string;
@@ -570,13 +557,14 @@ export function dailyDigest(input: {
   nothingTemplateLive?: boolean;
 }): PlannedSend[] {
   if (input.memberCount < 1) return [];
-  const todays = input.txns.filter((r) => r.date === input.today && r.type === 'expense');
-  if (!todays.length) return nothingLogged(input);
+  const todays = txnsFromRows(input.txns.filter((r) => r.date === input.today));
+  // "Logged anything today" counts private entries too (a private day is not "nothing logged").
+  if (!spendRows(todays.map((t) => ({ ...t, excluded: false }))).length) return nothingLogged(input);
   if (!isInr(input.household.base_currency)) return [];
-  const rows = todays.filter(counted);
+  const rows = spendRows(todays);
   if (!rows.length) return [];
   const byPerson = new Map<string, number>();
-  for (const r of rows) byPerson.set(r.created_by ?? '', (byPerson.get(r.created_by ?? '') ?? 0) + spendOf(r));
+  for (const t of rows) byPerson.set(t.created_by ?? '', (byPerson.get(t.created_by ?? '') ?? 0) + effectiveAmount(t, 'INR', {}));
   const total = Math.round([...byPerson.values()].reduce((a, b) => a + b, 0) * 100) / 100;
   const out: PlannedSend[] = [];
   for (const m of input.members) {
@@ -610,9 +598,10 @@ export function monthClose(input: { household: Household; today: string; txns: T
   const month = addMonths(input.today.slice(0, 7), -1);
   const prior = addMonths(month, -1);
   const inMonth = (ym: string) => input.txns.filter((r) => r.date.slice(0, 7) === ym);
-  const spendRows = (ym: string) => inMonth(ym).filter((r) => r.type === 'expense' && counted(r));
-  if ([...spendRows(month), ...spendRows(prior)].some((r) => !isInr(r.currency))) return [];
-  const range = (ym: string) => spendByCategoryInRange(spendRows(ym).map(rowToTxn), `${ym}-01`, `${ym}-${String(daysInMonth(ym)).padStart(2, '0')}`, 'INR', {});
+  const spend = spendRows(txnsFromRows(input.txns));
+  const spendIn = (ym: string) => spend.filter((t) => t.date.slice(0, 7) === ym);
+  if ([...spendIn(month), ...spendIn(prior)].some((t) => !isInr(t.currency))) return [];
+  const range = (ym: string) => spendByCategoryInRange(spendIn(ym), `${ym}-01`, `${ym}-${String(daysInMonth(ym)).padStart(2, '0')}`, 'INR', {});
   const cats = range(month);
   const total = Math.round(Object.values(cats).reduce((a, b) => a + b, 0) * 100) / 100;
   if (!(total > 0)) return [];

@@ -4,7 +4,7 @@
 // rate from the frequency label: a quarterly bill was forecast at about its full amount in every month,
 // and a Mon + Thu bill once a week.
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { recurringForecastByCategory, resolveBudgetPeriod, type ForecastSchedule } from '../calculations';
 
@@ -95,7 +95,8 @@ describe('budget forecast counts real dates (FE-MNY-16)', () => {
     expect(src('lib/billCalendar.ts')).toMatch(call);
     const calc = src('lib/calculations.ts');
     expect(calc.slice(calc.indexOf('export function recurringForecastByCategory'))).toMatch(call);
-    expect(src('../../supabase/functions/_shared/money/calculations.ts')).not.toMatch(/export function recurringForecastByCategory/);
+    // Track E (v10.96.0): the whole hand-copied money port is gone, not just this function.
+    expect(existsSync(resolve(__dirname, '../../../../supabase/functions/_shared/money/calculations.ts'))).toBe(false);
     expect(src('components/budgets/BudgetFormModal.tsx'))
       .toMatch(/recurringForecastByCategory\(recurring, period\.periodStart, period\.periodEnd, form\.currency, rates\)/);
   });

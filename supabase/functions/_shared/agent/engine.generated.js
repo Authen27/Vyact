@@ -1393,6 +1393,13 @@ function effectiveAmount(t, baseCurrency, rates) {
 function reportableTxns(transactions) {
 	return transactions.filter((t) => !t.excluded && (t.type === "income" || t.type === "expense") && t.category !== "transfer" && t.category !== "balance_adjustment");
 }
+/**
+* Track E (v10.96.0) — the rows that count as SPENDING: reportable expenses. The one rule every
+* spending total reads, and, through the bundled engine, every WhatsApp spending alert and digest.
+*/
+function spendRows(transactions) {
+	return reportableTxns(transactions).filter((t) => t.type === "expense");
+}
 function monthlyData(transactions, monthKey, baseCurrency, rates) {
 	const txns = reportableTxns(transactions).filter((t) => getMonthKey(t.date) === monthKey);
 	const incomeD = sumDinero(txns.filter((t) => t.type === "income"), (t) => effectiveDinero(t, baseCurrency, rates), baseCurrency);
@@ -5126,6 +5133,10 @@ function toInsertRow(n) {
 }
 //#endregion
 //#region react/src/lib/serverEngine.ts
+/** `transactions` rows → the app's Transactions, with the adapter's own mapper. */
+function txnsFromRows(rows) {
+	return rows.map((r) => mapCloudRow("transactions", r));
+}
 /**
 * W3a (v10.65.0) — the household's zone. The server's clock is UTC, so every calendar "today" and
 * "this month" the engine computes for a household is read in this zone (the DB default is India's).
@@ -5385,4 +5396,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, cleanOffending, contextFromRows, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, systemPromptFor };
+export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, cleanOffending, contextFromRows, effectiveAmount, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendRows, systemPromptFor, txnsFromRows };

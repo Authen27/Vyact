@@ -78,6 +78,22 @@ export const recurringPostPlan = generated.recurringPostPlan as (
   scheduleRow: unknown, householdId: string, today: string,
 ) => PostingPlan | null;
 
+// ── Spending for the WhatsApp scheduler (Track E, v10.96.0; XC-ARC-06) ───────
+/** A transaction as the app holds it (the fields the scheduler reads). */
+export interface EngineTxn {
+  id: string; type: string; amount: number; currency: string; date: string; category: string;
+  accountId?: string; recurringScheduleId?: string; created_by?: string; excluded?: boolean;
+}
+/** `transactions` rows → the app's own Transactions (the adapter's mapper: `emi_split`, splits, privacy). */
+export const txnsFromRows = generated.txnsFromRows as (rows: readonly unknown[]) => EngineTxn[];
+/** The rows that count as spending: the app's one rule. */
+export const spendRows = generated.spendRows as (txns: readonly EngineTxn[]) => EngineTxn[];
+export const spendByCategoryInRange = generated.spendByCategoryInRange as (
+  txns: readonly EngineTxn[], start: string, end: string, baseCurrency: string, rates: Record<string, number>,
+) => Record<string, number>;
+/** What a row adds to spending: the household's share for a split, else the amount. */
+export const effectiveAmount = generated.effectiveAmount as (t: EngineTxn, baseCurrency: string, rates: Record<string, number>) => number;
+
 // ── Runway (W6b, v10.47.0) ───────────────────────────────────────────────────
 export interface RunwaySnapshot { months: number | null; quieterCategory: string | null }
 export const runwaySnapshot = generated.runwaySnapshot as (rows: HouseholdRows, now: Date) => RunwaySnapshot;
