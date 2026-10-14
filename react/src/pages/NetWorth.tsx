@@ -12,6 +12,7 @@ import { liabilityList as liabilityRowsOwed, liabilityRowLabel } from '../lib/li
 // v10.38.1 — the one spend baseline, shared with Ask Vyact so the two screens
 // cannot quote different months of cover for the same household.
 import { spendBasis } from '../lib/aiSummary';
+import { baselineLabel, monthsOfCover as coverMonths } from '../lib/spendBaseline';
 import { netWorthHistory, monthLabel, type NetWorthSnapshot } from '../lib/netWorthSnapshots';
 import { NetWorthHistoryChart } from '../components/charts/ReportCharts';
 import type { LiveAssetRow } from '../lib/accountBalance';
@@ -106,18 +107,22 @@ export default function NetWorth() {
   // The assistant moved onto `spendBasis` (up to six COMPLETED months) in v10.38 for
   // exactly that reason, so this page was about to quote a different number for the
   // same household. Both now read the one baseline; `askVyactFacts` pins them equal.
+  //
+  // Track E, E4 (owner, E-9): this tile is the "at your usual spending" figure (all spending), on the
+  // shared baseline (lib/spendBaseline.ts: 3 completed months with spending), rounded by the same
+  // `monthsOfCover` Pip uses. The Reports runway shows the other one, "on essentials only".
   const basis = useMemo(
     () => spendBasis(transactions, c, rates),
     [transactions, c, rates],
   );
   const typicalMonthly   = basis.averageMonthly;
-  const monthsOfCover    = typicalMonthly > 0 ? la / typicalMonthly : 0;
+  const monthsOfCover    = coverMonths(la, typicalMonthly) ?? 0;
   const debtToAsset      = ta > 0 ? tl / ta * 100 : 0;
   // W6 (audit FE-UIC-07): with no income yet this month it said "−499,900%"; now it says "—".
   const savingsRatio     = keptThisMonthPct(income, expense);
   const coverBasisLabel  = basis.partialMonthOnly
-    ? 'based on this month so far'
-    : `based on your usual ${fmt(Math.round(typicalMonthly), c)} a month`;
+    ? 'at your spending so far this month'
+    : `at your usual spending of ${fmt(Math.round(typicalMonthly), c)} a month (${baselineLabel(basis.baselineMonths)})`;
 
   // Board C — liquidity stacked bar totals (presentation of existing values).
   const liqMix = { liquid: 0, short: 0, long: 0 };

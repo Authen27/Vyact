@@ -37,6 +37,7 @@
 //   react/src/lib/recurring.ts
 //   react/src/lib/rrule.ts
 //   react/src/lib/serverEngine.ts
+//   react/src/lib/spendBaseline.ts
 //   react/src/lib/supabaseAdapter.ts
 // @ts-nocheck
 //#region react/src/constants.ts
@@ -1994,7 +1995,7 @@ function liveLiabilityRows(debts, accounts, txns, baseCurrency, rates) {
 	}));
 	return [...accountRows, ...debtRows];
 }
-const round2$1 = (n) => Math.round(n * 100) / 100;
+const round2$2 = (n) => Math.round(n * 100) / 100;
 /**
 * v10.39.1 (P19) — what the household's credit cards currently OWE, in base currency.
 *
@@ -2006,7 +2007,7 @@ const round2$1 = (n) => Math.round(n * 100) / 100;
 * today's cash in one go.
 */
 function cardDues(projection) {
-	return round2$1(projection.liabilityRows.filter((r) => r.source === "account" && r.account?.kind === "credit_card").reduce((s, r) => s + r.value, 0));
+	return round2$2(projection.liabilityRows.filter((r) => r.source === "account" && r.account?.kind === "credit_card").reduce((s, r) => s + r.value, 0));
 }
 /**
 * The ONE net-worth projection. Reads only store state; writes nothing.
@@ -2036,48 +2037,104 @@ function computeNetWorth(state, baseCurrency, rates) {
 	}
 	const liabilityRows = liveLiabilityRows(debts, accounts, transactions, baseCurrency, rates);
 	const totalAssets = liveTotalAssets(assetRows);
-	const totalLiabilities = round2$1(liabilityRows.reduce((s, r) => s + r.value, 0));
-	const liquidAssets = round2$1(assetRows.filter((r) => r.liquidity === "liquid").reduce((s, r) => s + r.value, 0));
+	const totalLiabilities = round2$2(liabilityRows.reduce((s, r) => s + r.value, 0));
+	const liquidAssets = round2$2(assetRows.filter((r) => r.liquidity === "liquid").reduce((s, r) => s + r.value, 0));
 	return {
 		baseCurrency,
 		assetRows,
 		liabilityRows,
 		totalAssets,
 		totalLiabilities,
-		netWorth: round2$1(totalAssets - totalLiabilities),
+		netWorth: round2$2(totalAssets - totalLiabilities),
 		liquidAssets
 	};
+}
+/** The live need/want map: NEEDS_WANTS_MAP with the `category_classifications` rows over it. */
+function classificationMap(rows) {
+	const map = { ...NEEDS_WANTS_MAP };
+	for (const row of rows ?? []) if (row.classification === "need" || row.classification === "want") map[row.category] = row.classification;
+	return map;
+}
+const round2$1 = (n) => Math.round(n * 100) / 100;
+function spendBaseline(transactions, input) {
+	const classifications = input.classifications ?? NEEDS_WANTS_MAP;
+	const current = (input.now ?? today()).slice(0, 7);
+	const monthTotals = /* @__PURE__ */ new Map();
+	for (const t of spendRows(transactions)) {
+		const month = getMonthKey(t.date);
+		if (month < current) monthTotals.set(month, (monthTotals.get(month) ?? 0) + effectiveAmount(t, input.baseCurrency, input.rates));
+	}
+	const months = [...monthTotals.entries()].filter(([, total]) => total > 0).map(([m]) => m).sort().slice(-(input.size ?? 3));
+	const keys = months.length > 0 ? months : [current];
+	let total = 0, essential = 0;
+	for (const month of keys) for (const [category, amount] of Object.entries(spendByCategory(transactions, month, input.baseCurrency, input.rates))) {
+		total += amount;
+		if (classifications[category] === "need") essential += amount;
+	}
+	const n = keys.length;
+	return {
+		months,
+		partialMonthOnly: months.length === 0,
+		averageMonthly: round2$1(total / n),
+		averageEssential: round2$1(essential / n),
+		averageDiscretionary: round2$1((total - essential) / n)
+	};
+}
+/**
+* Months a liquid balance covers at a monthly spend, one decimal. Null when there is no spend to
+* divide by; 0 when the balance is not positive. The ONE rounding, so a screen and Pip agree.
+*/
+function monthsOfCover(liquid, monthly) {
+	if (!(monthly > 0)) return null;
+	const balance = round2$1(liquid);
+	return balance <= 0 ? 0 : Math.round(balance / monthly * 10) / 10;
+}
+const MONTH_NAMES$2 = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec"
+];
+/** "Aug 2026", "Jun–Aug 2026" or "Nov 2025–Jan 2026". */
+function baselineLabel(months) {
+	if (!months.length) return "";
+	const name = (month) => MONTH_NAMES$2[Number(month.slice(5, 7)) - 1];
+	const first = months[0];
+	const last = months[months.length - 1];
+	if (first === last) return `${name(first)} ${first.slice(0, 4)}`;
+	return first.slice(0, 4) === last.slice(0, 4) ? `${name(first)}–${name(last)} ${last.slice(0, 4)}` : `${name(first)} ${first.slice(0, 4)}–${name(last)} ${last.slice(0, 4)}`;
 }
 //#endregion
 //#region react/src/lib/aiSummary.ts
 /**
-* Average monthly spend over up to `maxMonths` completed months.
-*
-* Uses `spendByCategory` (already currency-converted) so the needs/wants split and
-* the total cannot drift apart, and excludes the current month because a partial
-* month understates every average. A household with no completed month at all
-* falls back to the current month with `partialMonthOnly: true`.
+* Average monthly spend over the shared baseline (`spendBaseline`). A household with no
+* completed month falls back to the current month with `partialMonthOnly: true`.
 */
-function spendBasis(txns, baseCurrency, rates, maxMonths = 6, tz) {
-	const current = nowMonthKey(tz);
-	const months = [...new Set(txns.map((t) => getMonthKey(t.date)))].filter((mk) => mk < current).sort().slice(-maxMonths);
-	const keys = months.length > 0 ? months : [current];
-	let total = 0, essential = 0, discretionary = 0;
-	for (const mk of keys) for (const [category, amount] of Object.entries(spendByCategory(txns, mk, baseCurrency, rates))) {
-		total += amount;
-		if (NEEDS_WANTS_MAP[category] === "want") discretionary += amount;
-		else essential += amount;
-	}
-	const n = keys.length;
+function spendBasis(txns, baseCurrency, rates, opts = {}) {
+	const b = spendBaseline(txns, {
+		classifications: opts.classifications,
+		baseCurrency,
+		rates,
+		now: today(opts.tz)
+	});
 	return {
-		monthsConsidered: months.length,
-		partialMonthOnly: months.length === 0,
-		averageMonthly: round2(total / n),
-		averageEssential: round2(essential / n),
-		averageDiscretionary: round2(discretionary / n)
+		monthsConsidered: b.months.length,
+		baselineMonths: b.months,
+		partialMonthOnly: b.partialMonthOnly,
+		averageMonthly: b.averageMonthly,
+		averageEssential: b.averageEssential,
+		averageDiscretionary: b.averageDiscretionary
 	};
 }
-function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, accounts = [], allocations = [], tz) {
+function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, accounts = [], allocations = [], tz, classifications) {
 	const cur = profile.baseCurrency;
 	const mk = nowMonthKey(tz);
 	const month = monthlyData(txns, mk, cur, rates);
@@ -2090,8 +2147,12 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 	const ta = nwProjection.totalAssets;
 	const tl = nwProjection.totalLiabilities;
 	const liquid = nwProjection.liquidAssets;
-	const basis = spendBasis(txns, cur, rates, 6, tz);
-	const liquidityMonths = basis.averageMonthly > 0 ? liquid / basis.averageMonthly : 0;
+	const basis = spendBasis(txns, cur, rates, {
+		classifications,
+		tz
+	});
+	const liquidityMonths = monthsOfCover(liquid, basis.averageMonthly) ?? 0;
+	const essentialMonths = monthsOfCover(liquid, basis.averageEssential);
 	const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations, tz);
 	const spend = spendByCategory(txns, mk, cur, rates);
 	const topCategories = Object.entries(spend).sort(([, a], [, b]) => b - a).slice(0, 5).map(([category, amount]) => ({
@@ -2155,7 +2216,8 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 			totalLiabilities: round2(tl),
 			netWorth: round2(ta - tl),
 			liquidAssets: round2(liquid),
-			liquidityMonths: round2(liquidityMonths),
+			liquidityMonths,
+			essentialMonths,
 			debtToAssetPct: ta > 0 ? round2(tl / ta * 100) : 0,
 			cardDues: cardDues(nwProjection)
 		},
@@ -3326,7 +3388,25 @@ const basisOf = (ctx) => ctx.summary.spendBasis;
 function basisLabel(ctx) {
 	const b = basisOf(ctx);
 	if (b.partialMonthOnly) return "this month only — no completed month of history yet";
-	return `${b.monthsConsidered} ${b.monthsConsidered === 1 ? "completed month" : "completed months"} of history`;
+	const span = baselineLabel(b.baselineMonths ?? []);
+	return `${b.monthsConsidered} ${b.monthsConsidered === 1 ? "completed month" : "completed months"} with spending${span ? ` (${span})` : ""}`;
+}
+/**
+* Track E, E4 (owner, E-9) — the two labelled cover figures, from the summary (rounded once, by
+* `monthsOfCover`, the helper Net Worth and Reports use). Pip states either and names which.
+*/
+function coverFacts(ctx) {
+	const s = ctx.summary;
+	const b = basisOf(ctx);
+	if (!(b.averageMonthly > 0)) return {
+		months_of_cover_at_usual_spending: "not enough spending history yet",
+		months_of_cover_on_essentials_only: "not enough spending history yet"
+	};
+	return {
+		months_of_cover_at_usual_spending: s.netWorth.liquidityMonths.toFixed(1),
+		months_of_cover_on_essentials_only: s.netWorth.essentialMonths != null ? s.netWorth.essentialMonths.toFixed(1) : "no essential spending recorded in these months",
+		cover_basis: `liquid savings divided by typical monthly spending of ${money(b.averageMonthly, ctx)} (all spending) or ${money(b.averageEssential, ctx)} (essentials only: categories classified as needs), averaged over ${basisLabel(ctx)}`
+	};
 }
 /**
 * Emergency-fund floor: three months of typical ESSENTIAL spending.
@@ -3358,10 +3438,9 @@ function positionFacts(ctx) {
 		liquid_by_source: liquidBySource(ctx),
 		card_dues_to_pay: money(s.netWorth.cardDues, ctx),
 		free_to_spend_after_card_dues: signedMoney(s.netWorth.liquidAssets - s.netWorth.cardDues, ctx, "free", "short"),
-		months_of_liquid_cover: basisOf(ctx).averageMonthly > 0 ? s.netWorth.liquidityMonths.toFixed(1) : "not enough spending history yet",
+		...coverFacts(ctx),
 		pulse_measures: "budgets, this month's savings rate, spending trend and debt — not how long your savings would last",
-		...basisOf(ctx).averageMonthly > 0 && s.netWorth.liquidityMonths < 3 ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months of typical spending, under the usual three-month cushion, whatever the Pulse score says` } : {},
-		cover_basis: `typical monthly spending of ${money(basisOf(ctx).averageMonthly, ctx)}, averaged over ${basisLabel(ctx)}`,
+		...basisOf(ctx).averageMonthly > 0 && s.netWorth.liquidityMonths < 3 ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months at your usual spending, under the usual three-month cushion, whatever the Pulse score says` } : {},
 		income_this_month: money(s.thisMonth.income, ctx),
 		spending_this_month: money(s.thisMonth.expense, ctx),
 		savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
@@ -4114,7 +4193,7 @@ function resolveCore(intent, ctx) {
 				analysis,
 				vars: {
 					headline: `Your net worth is ${netMoney(s.netWorth.netWorth, ctx, "you owe more than you own")}.`,
-					detail: `That's ${money(s.netWorth.totalAssets, ctx)} in assets minus ${money(s.netWorth.totalLiabilities, ctx)} of debt, with about ${s.netWorth.liquidityMonths.toFixed(1)} months of liquid cover.`
+					detail: `That's ${money(s.netWorth.totalAssets, ctx)} in assets minus ${money(s.netWorth.totalLiabilities, ctx)} of debt, with about ${s.netWorth.liquidityMonths.toFixed(1)} months of liquid cover at your usual spending.`
 				}
 			};
 			if (/balance/.test(e.text)) return {
@@ -4124,7 +4203,7 @@ function resolveCore(intent, ctx) {
 				analysis,
 				vars: {
 					headline: `You've got about ${money(s.netWorth.totalAssets, ctx)} across your accounts.`,
-					detail: `Roughly ${s.netWorth.liquidityMonths.toFixed(1)} months of expenses in liquid savings.`
+					detail: `Roughly ${s.netWorth.liquidityMonths.toFixed(1)} months of your usual spending in liquid savings.`
 				}
 			};
 			const total = s.pulseScore.total ?? 0;
@@ -4136,7 +4215,7 @@ function resolveCore(intent, ctx) {
 				analysis,
 				vars: {
 					headline: `Your Pulse Score is ${total}/100.`,
-					detail: thinCushion ? `Your monthly habits score well, but your cushion is thin — about ${s.netWorth.liquidityMonths.toFixed(1)} months of cover.` : total >= 80 ? "Strong — keep doing what you are doing." : total >= 65 ? "Solid, with a little room to push." : "There is room to improve — Insights lists your next steps."
+					detail: thinCushion ? `Your monthly habits score well, but your cushion is thin — about ${s.netWorth.liquidityMonths.toFixed(1)} months at your usual spending.` : total >= 80 ? "Strong — keep doing what you are doing." : total >= 65 ? "Solid, with a little room to push." : "There is room to improve — Insights lists your next steps."
 				}
 			};
 		}
@@ -4485,12 +4564,15 @@ function resolveCore(intent, ctx) {
 				}]
 			};
 			const burn = basis.averageMonthly;
-			const months = liquid / burn;
+			const months = ctx.summary.netWorth.liquidityMonths;
+			const essentialMonths = ctx.summary.netWorth.essentialMonths;
 			return {
 				kind: "forecast",
 				outcome: "ok",
 				facts: {
 					months_money_would_last: months.toFixed(1),
+					which_figure: "months_money_would_last is at your usual spending (all spending); months_on_essentials_only assumes only essential spending continued",
+					months_on_essentials_only: essentialMonths != null ? essentialMonths.toFixed(1) : "no essential spending recorded in these months",
 					liquid_savings: netMoney(liquid, ctx),
 					typical_monthly_spending: money(burn, ctx),
 					typical_essential_monthly: money(basis.averageEssential, ctx),
@@ -5203,7 +5285,7 @@ function shapesFromRows(rows) {
 function contextFromRows(rows) {
 	const { transactions, budgets, budgetAllocations, goals, debts, assets, accounts, recurring, profile, rates } = shapesFromRows(rows);
 	const tz = householdTz(rows);
-	const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, tz);
+	const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, tz, classificationMap(rows.classifications));
 	summary.household.members = rows.memberCount;
 	return {
 		summary,

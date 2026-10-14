@@ -2438,6 +2438,24 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/trackEBaseline.test.ts",
+      "feature": "Track E spending baseline",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "one spending baseline (3 completed months with spending, the live need/want map, unmapped not essential) read by Pip, Net Worth, the Reports runway and the server; two labelled cover figures (usual spending, essentials only) identical on every surface (Track E, owner decisions E-5 and E-9, 14 Oct 2026)",
+      "count": 7,
+      "tests": [
+        "one spending baseline (Track E, E4; owner E-5) TE4-001 · 3 completed months WITH spending; the current month, income-only months and older months never count",
+        "one spending baseline (Track E, E4; owner E-5) TE4-002 · the LIVE map applies: a database row overrides the built-in need/want default",
+        "two labelled figures, one per surface (Track E, E4; owner E-9) TE4-003 · the Reports runway equals Pip's \"on essentials only\", with the database override in force",
+        "two labelled figures, one per surface (Track E, E4; owner E-9) TE4-004 · Net Worth's tile equals Pip's \"at your usual spending\" (status, runway and the WhatsApp runway key)",
+        "two labelled figures, one per surface (Track E, E4; owner E-9) TE4-005 · Pip names which figure it states, and the months it rests on",
+        "two labelled figures, one per surface (Track E, E4; owner E-9) TE4-006 · the server builds the same summary as the app, with the live map read from the database",
+        "two labelled figures, one per surface (Track E, E4; owner E-9) TE4-007 · the server loader reads the live map, and the app's Pip passes it"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/trackESpending.test.ts",
       "feature": "Track E spending",
       "availability": "available",

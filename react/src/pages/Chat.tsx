@@ -13,6 +13,7 @@ import { logAiUsage, classifyIntent } from '../lib/aiUsage';
 import { saveFeedback } from '../lib/aiFeedback';
 import { track } from '../lib/analytics';
 import { isCloudEnabled } from '../lib/supabase';
+import { useCategoryClassifications } from '../lib/categorization';
 import WhatsAppIcon from '../components/whatsapp/WhatsAppIcon';
 import WhatsAppConnectSheet from '../components/whatsapp/WhatsAppConnectSheet';
 import ls from '../lib/localStorageCompat';
@@ -73,6 +74,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
   const rates   = useStore(s => s.rates);
   const members = useStore(s => s.members);
   const recurring = useStore(s => s.recurringSchedules);
+  const classifications = useCategoryClassifications();
   const householdId = useStore(s => s.currentHouseholdId);
   const openAddTxn    = useStore(s => s.openAddTxn);
   const openAddBudget = useStore(s => s.openAddBudget);
@@ -146,10 +148,11 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
   const summary = useMemo(() => {
     // Audit F3/F5 — the assistant sees the same account-aware net worth and
     // allocation-derived budget lines the UI renders.
-    const s = buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations);
+    // Track E, E4 — the live need/want map, as Reports reads it, so Pip's essential spend is Reports'.
+    const s = buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, undefined, classifications);
     s.household.members = members.length;
     return s;
-  }, [txns, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, members.length]);
+  }, [txns, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, members.length, classifications]);
 
   useEffect(() => {
     // Audit S5 — persist under the household-scoped key (matches the init).

@@ -240,7 +240,7 @@ export default function Reports() {
           {runway.status === 'ready' ? (
             <p className="text-sm text-ink-mid [overflow-wrap:anywhere]">
               <span className="num text-lg text-ink">{(runway.months ?? 0).toFixed(1)} months</span>{' '}
-              of essential spending covered by liquid assets ({runway.liquidAssets < 0 ? fmtSigned(runway.liquidAssets, baseCur) : fmt(runway.liquidAssets, baseCur)} against {fmt(runway.averageEssential ?? 0, baseCur)} a month).
+              on essentials only: liquid assets ({runway.liquidAssets < 0 ? fmtSigned(runway.liquidAssets, baseCur) : fmt(runway.liquidAssets, baseCur)}) against {fmt(runway.averageEssential ?? 0, baseCur)} a month of essential spending.
             </p>
           ) : runway.status === 'no-baseline' ? (
             <p className="text-sm text-ink-mid">Needs at least one completed month of recorded spending.</p>
@@ -254,7 +254,8 @@ export default function Reports() {
               <li>{runway.baselineMonths.length
                 ? `Based on ${runway.baselineMonths.length} completed month${runway.baselineMonths.length === 1 ? '' : 's'} with recorded spending: ${baselineLabel(runway.baselineMonths)}.`
                 : `Uses up to ${RUNWAY_BASELINE_MONTHS} completed months with recorded spending.`} The current month is never included.</li>
-              <li>Essential spending is reportable spending in categories classified as needs. Wants, transfers, investments and private entries are excluded, and so are bills or minimum payments that are not recorded as expenses.</li>
+              <li>Essential spending is reportable spending in categories classified as needs. Wants, categories with no classification, transfers, investments and private entries are excluded, and so are bills or minimum payments that are not recorded. A loan payment counts in full as Loan / EMI.</li>
+              <li>Net Worth shows the other figure, at your usual spending (all spending), from the same months. Pip uses both and says which.</li>
               <li>Liquid assets are cash, bank accounts and liquid assets from the household position; credit limits and investments are not counted.</li>
             </ul>
           </details>

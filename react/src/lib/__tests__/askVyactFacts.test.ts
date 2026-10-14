@@ -17,6 +17,7 @@ import {
   parseAmount, statedCurrency, amountLooksLikeIdentifier,
 } from '../askVyactParser';
 import { buildSafeSummary, spendBasis } from '../aiSummary';
+import { monthsOfCover } from '../spendBaseline';
 import { computeNetWorth, cardDues } from '../netWorth';
 import { assertNoInventedFigures, InventedFigureError, INTENT_IDS, CLASSIFY_SYSTEM, type ModelCall } from '../askVyactLlm';
 import type { IntentResult } from '../askVyactIntents';
@@ -87,7 +88,9 @@ describe('cross-seam agreement (F2, F10)', () => {
     expect(afford.liquid_savings).toBe(status.liquid_savings);
     expect(runway.liquid_savings).toBe(status.liquid_savings);
     // Cover and runway divide the same numerator by the same denominator.
-    expect(runway.months_money_would_last).toBe(status.months_of_liquid_cover);
+    // Track E, E4: both labelled figures.
+    expect(runway.months_money_would_last).toBe(status.months_of_cover_at_usual_spending);
+    expect(runway.months_on_essentials_only).toBe(status.months_of_cover_on_essentials_only);
     // And the figure includes the bank balance, not just the assets array —
     // the whole point of F2: the old path saw ₹24,000 and reported 1.2 months.
     expect(status.liquid_savings).not.toBe('₹24,000');
@@ -124,8 +127,8 @@ describe('one household, one cover figure (P1, P1b)', () => {
       { assets: ctx.assets, accounts: ctx.accounts as Account[], debts: ctx.debts, transactions: ctx.transactions },
       'INR', rates);
     const basis = spendBasis(ctx.transactions, 'INR', rates);
-    const screenCover = basis.averageMonthly > 0 ? projection.liquidAssets / basis.averageMonthly : 0;
-    expect(screenCover.toFixed(1)).toBe(facts.months_of_liquid_cover);
+    const screenCover = monthsOfCover(projection.liquidAssets, basis.averageMonthly) ?? 0;
+    expect(screenCover.toFixed(1)).toBe(facts.months_of_cover_at_usual_spending);
     expect(projection.liquidAssets).toBe(ctx.summary.netWorth.liquidAssets);
   });
 
@@ -366,7 +369,7 @@ describe('advice facts (F4)', () => {
     const facts = resolve(intent('forecast.prescriptive'), makeCtx()).facts as Record<string, unknown>;
     expect(facts.income_this_month).toBeTruthy();
     expect(facts.savings_rate_this_month).toBeTruthy();
-    expect(facts.months_of_liquid_cover).toBeTruthy();
+    expect(facts.months_of_cover_at_usual_spending).toBeTruthy();
     expect(facts.debts_highest_rate_first).toBeTruthy();
     // The mortgage rate must be visible — it is the biggest lever in the fixture.
     expect(JSON.stringify(facts.debts_highest_rate_first)).toContain('8.75%');
@@ -788,7 +791,8 @@ describe('no spending history (W8a, FE-PIP-13)', () => {
     expect(facts.months_money_would_last).toMatch(/not enough spending history/);
     expect(Object.values(facts).join(' ')).not.toMatch(/\d+\.\d months/);
     const status = resolve(intent('interpret.status'), ctx).facts as Record<string, string>;
-    expect(status.months_of_liquid_cover).toMatch(/not enough spending history/);
+    expect(status.months_of_cover_at_usual_spending).toMatch(/not enough spending history/);
+    expect(status.months_of_cover_on_essentials_only).toMatch(/not enough spending history/);
     expect(status).not.toHaveProperty('cushion_note');
     // With history the figure is still stated, and both seams still agree.
     const withHistory = makeCtx();
