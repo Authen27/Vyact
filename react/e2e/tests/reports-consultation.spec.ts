@@ -92,7 +92,8 @@ test('RPTC-FC-003 - the essential-spend runway states its completed-month baseli
   await page.goto('/reports');
   const runway = page.getByRole('region', { name: 'Essential-spend runway', exact: true });
   await expect(runway).toContainText('3.8 months');
-  await expect(runway).toContainText('($1,500 against $400 a month)');
+  // Track E (v10.98.0): the cover figure now says what it is ("liquid assets ($1,500) against …").
+  await expect(runway).toContainText('liquid assets ($1,500) against $400 a month');
   await runway.getByText('Calculation basis').click();
   await expect(runway).toContainText('Based on 3 completed months with recorded spending: Feb–Apr 2026.');
   await expect(runway).toContainText('The current month is never included.');
