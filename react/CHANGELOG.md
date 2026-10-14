@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.97.0`** (consumer)
+> **Current production version: `v10.98.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,47 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.98.0 — Track E, step 3: one spending baseline, two labelled cover figures *(2026-10-14)*
+
+App and the bundled engine. **Figures change** (owner decisions 13–14 Oct 2026: E-5 "the Reports rule",
+E-9 "two labelled figures"). Audit FE-MNY-10.
+
+- **One baseline.** Pip, Net Worth, the Reports runway and the server read one "typical month"
+  (`lib/spendBaseline.ts`). Before, Pip and Net Worth used one definition and the Reports runway another:
+  - Pip and Net Worth averaged up to 6 months that held ANY row, an income-only month counted as a
+    zero-spend month, they used the built-in need/want map, and an unmapped category counted as essential;
+  - the Reports runway averaged 3 months with spending, with the live map.
+
+  Now every surface uses the Reports rule:
+  - the last **3** completed months that contain spending;
+  - the **live** need/want map, so a database override applies in Pip and on WhatsApp too;
+  - an unmapped category is **not** essential.
+- **What moves:**
+  - typical monthly spending, typical essential spending and the 3-month safety floor;
+  - Pip's months of cover and runway;
+  - the Net Worth "How long it would last" tile;
+  - WhatsApp's runway alert, which reads Pip's runway.
+- **Two labelled figures, everywhere** (E-9). Both are rounded once, by one helper (`monthsOfCover`):
+  - "at your usual spending" (savings ÷ all typical spending): the Net Worth tile;
+  - "on essentials only" (savings ÷ essential spending): the Reports runway.
+
+  Pip has both, labelled, and names which it states; its answers name the months they rest on
+  ("3 completed months with spending (Jul–Sep 2026)").
+- **One rounding.** The summary stored the cover to two decimals and Pip printed one, so 3.448 months read
+  as "3.5". Every surface now shows the same one-decimal figure, and a non-positive balance covers 0 months.
+
+Tests: trackEBaseline.test.ts (new, 7):
+- the 3-month rule, including income-only and current months;
+- a database override applies;
+- the Reports runway equals Pip's "on essentials only";
+- the Net Worth tile equals Pip's "at your usual spending";
+- Pip names the figure and the months;
+- the server's summary equals the app's;
+- the loader reads the live map.
+
+askVyactFacts was updated for the labelled keys. The golden file was updated deliberately: the cover is now
+one decimal, plus the new `essentialMonths`.
 
 ## v10.97.0 — Track E, step 2: a loan payment counts in full as Loan / EMI spending *(2026-10-14)*
 

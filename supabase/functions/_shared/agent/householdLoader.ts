@@ -38,12 +38,16 @@ export async function loadHouseholdRows(admin: SupabaseClient, profileId: string
     drain(admin, 'recurring_schedules', householdId),
   ]);
   // W3b (D14): exchange rates are no longer read — one currency per household, never converted.
-  const [{ count: memberCount }, { data: profile }, { data: household }] = await Promise.all([
+  // Track E, E4: the live need/want map (a small global table) — the app's essential spend reads it.
+  const [{ count: memberCount }, { data: profile }, { data: household }, classified] = await Promise.all([
     admin.from('memberships').select('id', { count: 'exact', head: true }).eq('household_id', householdId),
     admin.from('profiles').select('display_name, default_currency, language, date_format, education_progress').eq('id', profileId).maybeSingle(),
     admin.from('households').select('type, base_currency, language, payoff_strategy, extra_payment, timezone').eq('id', householdId).maybeSingle(),
+    admin.from('category_classifications').select('category, classification'),
   ]);
   if (!household) throw new Error('household not found');
+  // A failed read falls back to the built-in map, exactly as the app does (lib/categorization.ts).
+  if (classified.error) console.warn('category_classifications:', classified.error.message);
   return {
     transactions, budgets, budgetAllocations, goals, debts, assets, accounts, recurring,
     memberCount: memberCount ?? 1,
@@ -51,5 +55,6 @@ export async function loadHouseholdRows(admin: SupabaseClient, profileId: string
     profile: (profile ?? {}) as HouseholdRows['profile'],
     household: household as HouseholdRows['household'],
     email: '',
+    classifications: (classified.data ?? []) as NonNullable<HouseholdRows['classifications']>,
   };
 }

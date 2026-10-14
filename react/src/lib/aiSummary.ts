@@ -13,7 +13,7 @@ import {
 } from './calculations';
 import { computeNetWorth, cardDues } from './netWorth';
 import { computeAccountBalance } from './accountBalance';
-import { NEEDS_WANTS_MAP } from '../constants';
+import { monthsOfCover, spendBaseline, type ClassificationMap } from './spendBaseline';
 import { convert } from './format';
 import { nowMonthKey, getMonthKey, today } from './format';
 // Type-only, and one-directional: askVyactResponses does not import this module,
@@ -28,15 +28,20 @@ import type { AssistantChip } from './askVyactResponses';
  * WHY IT EXISTS. "Months of cover" and the emergency floor were each computed
  * from a different denominator: the status seam divided by THIS month's expense
  * (so cover looked huge on the 2nd and shrank all month), while affordability and
- * runway used a 6-month mean. One definition, stated to the user: the average over
- * up to six COMPLETED months, fewer when that is all the history there is, and
- * `monthsConsidered` says which — an answer may never imply more history than the
- * household has. The needs/wants split comes from `NEEDS_WANTS_MAP`, so an answer
- * can separate the part of spending that is genuinely flexible.
+ * runway used a 6-month mean. One definition, stated to the user, and
+ * `monthsConsidered` says how much history it rests on — an answer may never imply
+ * more history than the household has.
+ *
+ * Track E, E4 (v10.98.0; owner, E-5): the definition is `lib/spendBaseline.ts`, the one the
+ * Reports runway reads: the last 3 COMPLETED months that contain spending, the LIVE need/want
+ * map, and an unmapped category is not essential. Pass the live map (`classifications`);
+ * without it the built-in NEEDS_WANTS_MAP applies.
  */
 export interface SpendBasis {
   /** Completed months the averages rest on; 0 when only the current month exists. */
   monthsConsidered: number;
+  /** Those months, ascending ('YYYY-MM'), so an answer can name them. */
+  baselineMonths: string[];
   /** True when the figures come from the current, still-incomplete month. */
   partialMonthOnly: boolean;
   averageMonthly: number;
@@ -45,37 +50,21 @@ export interface SpendBasis {
 }
 
 /**
- * Average monthly spend over up to `maxMonths` completed months.
- *
- * Uses `spendByCategory` (already currency-converted) so the needs/wants split and
- * the total cannot drift apart, and excludes the current month because a partial
- * month understates every average. A household with no completed month at all
- * falls back to the current month with `partialMonthOnly: true`.
+ * Average monthly spend over the shared baseline (`spendBaseline`). A household with no
+ * completed month falls back to the current month with `partialMonthOnly: true`.
  */
 export function spendBasis(
-  txns: Transaction[], baseCurrency: string, rates: ExchangeRates, maxMonths = 6, tz?: string | null,
+  txns: Transaction[], baseCurrency: string, rates: ExchangeRates,
+  opts: { classifications?: ClassificationMap; tz?: string | null } = {},
 ): SpendBasis {
-  const current = nowMonthKey(tz);
-  const months = [...new Set(txns.map(t => getMonthKey(t.date)))]
-    .filter(mk => mk < current)
-    .sort()
-    .slice(-maxMonths);
-  const keys = months.length > 0 ? months : [current];
-  let total = 0, essential = 0, discretionary = 0;
-  for (const mk of keys) {
-    for (const [category, amount] of Object.entries(spendByCategory(txns, mk, baseCurrency, rates))) {
-      total += amount;
-      if (NEEDS_WANTS_MAP[category] === 'want') discretionary += amount;
-      else essential += amount;   // 'need' and anything unmapped count as essential
-    }
-  }
-  const n = keys.length;
+  const b = spendBaseline(txns, { classifications: opts.classifications, baseCurrency, rates, now: today(opts.tz) });
   return {
-    monthsConsidered: months.length,
-    partialMonthOnly: months.length === 0,
-    averageMonthly: round2(total / n),
-    averageEssential: round2(essential / n),
-    averageDiscretionary: round2(discretionary / n),
+    monthsConsidered: b.months.length,
+    baselineMonths: b.months,
+    partialMonthOnly: b.partialMonthOnly,
+    averageMonthly: b.averageMonthly,
+    averageEssential: b.averageEssential,
+    averageDiscretionary: b.averageDiscretionary,
   };
 }
 
@@ -119,7 +108,14 @@ export interface SafeSummary {
      * reads this field now; `askVyactFacts.test.ts` fails if one diverges again.
      */
     liquidAssets: number;
-    liquidityMonths: number;             // liquidAssets / spendBasis.averageMonthly
+    /**
+     * Track E, E4 (E-9) — TWO labelled cover figures, each `monthsOfCover` (one decimal):
+     * "at your usual spending" (÷ spendBasis.averageMonthly; 0 with no spending basis) and
+     * "on essentials only" (÷ spendBasis.averageEssential; null with no essential spending).
+     * Net Worth shows the first, the Reports runway the second, and Pip names which it states.
+     */
+    liquidityMonths: number;
+    essentialMonths: number | null;
     debtToAssetPct: number;
     /**
      * v10.39.1 (P19) — credit-card outstanding, from the same liability rows
@@ -187,6 +183,8 @@ export function buildSafeSummary(
   accounts: Account[] = [], allocations: BudgetAllocation[] = [],
   /** W3a — whose calendar month this is: the device's when absent, the household's on the server. */
   tz?: string | null,
+  /** Track E, E4 — the live need/want map (`useCategoryClassifications` / the server's rows). */
+  classifications?: ClassificationMap,
 ): SafeSummary {
   const cur = profile.baseCurrency;
   const mk = nowMonthKey(tz);
@@ -202,8 +200,10 @@ export function buildSafeSummary(
   // v10.38 — cover divides by the TYPICAL month (see SpendBasis), not by this
   // month's partial expense, which made cover look enormous early in a month and
   // disagreed with the floor every other seam used.
-  const basis = spendBasis(txns, cur, rates, 6, tz);
-  const liquidityMonths = basis.averageMonthly > 0 ? liquid / basis.averageMonthly : 0;
+  // Track E, E4 (E-9) — both labelled figures, rounded once, by the helper every screen uses.
+  const basis = spendBasis(txns, cur, rates, { classifications, tz });
+  const liquidityMonths = monthsOfCover(liquid, basis.averageMonthly) ?? 0;
+  const essentialMonths = monthsOfCover(liquid, basis.averageEssential);
   // Audit F5 — Pulse sees the allocation-derived budget lines.
   const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations, tz);
 
@@ -289,7 +289,8 @@ export function buildSafeSummary(
       totalLiabilities: round2(tl),
       netWorth: round2(ta - tl),
       liquidAssets: round2(liquid),
-      liquidityMonths: round2(liquidityMonths),
+      liquidityMonths,
+      essentialMonths,
       debtToAssetPct: ta > 0 ? round2(tl / ta * 100) : 0,
       cardDues: cardDues(nwProjection),
     },

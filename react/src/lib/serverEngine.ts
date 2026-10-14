@@ -26,6 +26,7 @@ import { DEFAULT_RATES } from '../constants';
 import { mapCloudRow, profileFromRows, txnToRow, type ProfileRowCols, type HouseholdRowCols } from './supabaseAdapter';
 import { generateTransaction, advanceSchedule, isStaleOccurrence, serverPostsSchedule } from './recurring';
 import { buildSafeSummary } from './aiSummary';
+import { classificationMap } from './spendBaseline';
 import { runAssistant, LlmBackend, type AssistantContext, type AssistantTurn } from './askVyactBackend';
 import type { ModelCall } from './askVyactLlm';
 import { normaliseChips, renderChipsAsNumberedList } from './askVyactResponses';
@@ -71,6 +72,11 @@ export interface HouseholdRows {
   profile: ProfileRowCols;
   household: HouseholdRowCols;
   email: string;
+  /**
+   * Track E, E4 — the `category_classifications` rows (a small global table), so the server's
+   * essential spend uses the same live need/want map as the app. Absent = the built-in map.
+   */
+  classifications?: { category: string; classification: string }[];
 }
 
 /**
@@ -106,7 +112,8 @@ export function contextFromRows(rows: HouseholdRows): AssistantContext {
   const { transactions, budgets, budgetAllocations, goals, debts, assets, accounts, recurring, profile, rates } = shapesFromRows(rows);
 
   const tz = householdTz(rows);
-  const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, tz);
+  const summary = buildSafeSummary(transactions, budgets, goals, debts, assets, profile, rates, accounts, budgetAllocations, tz,
+    classificationMap(rows.classifications));
   summary.household.members = rows.memberCount;
   return {
     summary, transactions, budgets, budgetAllocations, goals, debts, assets, recurring,

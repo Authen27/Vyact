@@ -29,6 +29,7 @@ import { getCat, NEEDS_WANTS_MAP, CURRENCIES, EXPENSE_CATEGORIES, CATEGORIES_BY_
 import { fmt, convert } from './format';
 import { nowMonthKey, getMonthKey, wallClock } from './format';
 import type { SafeSummary } from './aiSummary';
+import { baselineLabel } from './spendBaseline';
 import type { IntentResult, AssistantBucket } from './askVyactIntents';
 import { normaliseChips, type AssistantChip, type ResolveResult, type RecurringSeed } from './askVyactResponses';
 import {
@@ -328,7 +329,32 @@ const basisOf = (ctx: AssistantContext) => ctx.summary.spendBasis;
 function basisLabel(ctx: AssistantContext): string {
   const b = basisOf(ctx);
   if (b.partialMonthOnly) return 'this month only — no completed month of history yet';
-  return `${b.monthsConsidered} ${b.monthsConsidered === 1 ? 'completed month' : 'completed months'} of history`;
+  // Track E, E4 — the months themselves, as the Reports runway names them.
+  const span = baselineLabel(b.baselineMonths ?? []);
+  return `${b.monthsConsidered} ${b.monthsConsidered === 1 ? 'completed month' : 'completed months'} with spending${span ? ` (${span})` : ''}`;
+}
+
+/**
+ * Track E, E4 (owner, E-9) — the two labelled cover figures, from the summary (rounded once, by
+ * `monthsOfCover`, the helper Net Worth and Reports use). Pip states either and names which.
+ */
+function coverFacts(ctx: AssistantContext) {
+  const s = ctx.summary;
+  const b = basisOf(ctx);
+  if (!(b.averageMonthly > 0)) {
+    return {
+      months_of_cover_at_usual_spending: 'not enough spending history yet',
+      months_of_cover_on_essentials_only: 'not enough spending history yet',
+    };
+  }
+  return {
+    months_of_cover_at_usual_spending: s.netWorth.liquidityMonths.toFixed(1),
+    months_of_cover_on_essentials_only: s.netWorth.essentialMonths != null
+      ? s.netWorth.essentialMonths.toFixed(1)
+      : 'no essential spending recorded in these months',
+    cover_basis: `liquid savings divided by typical monthly spending of ${money(b.averageMonthly, ctx)} (all spending) `
+      + `or ${money(b.averageEssential, ctx)} (essentials only: categories classified as needs), averaged over ${basisLabel(ctx)}`,
+  };
 }
 
 /**
@@ -368,16 +394,15 @@ function positionFacts(ctx: AssistantContext) {
     card_dues_to_pay: money(s.netWorth.cardDues, ctx),
     free_to_spend_after_card_dues: signedMoney(s.netWorth.liquidAssets - s.netWorth.cardDues, ctx, 'free', 'short'),
     // W8a (audit FE-PIP-13): with no spending history there is no "typical month" to divide by — say so
-    // rather than "0.0 months, a thin cushion".
-    months_of_liquid_cover: basisOf(ctx).averageMonthly > 0 ? s.netWorth.liquidityMonths.toFixed(1) : 'not enough spending history yet',
+    // rather than "0.0 months, a thin cushion". Track E, E4: two labelled figures (coverFacts).
+    ...coverFacts(ctx),
     // v10.39.1 (P7) — Pulse scores this month's habits (budgets, savings RATE, trend,
     // debt). It says nothing about how long savings would last, so a 100/100 beside a
     // thin cushion is not a contradiction — but an answer must not read it as one.
     pulse_measures: "budgets, this month's savings rate, spending trend and debt — not how long your savings would last",
     ...(basisOf(ctx).averageMonthly > 0 && s.netWorth.liquidityMonths < 3
-      ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months of typical spending, under the usual three-month cushion, whatever the Pulse score says` }
+      ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months at your usual spending, under the usual three-month cushion, whatever the Pulse score says` }
       : {}),
-    cover_basis: `typical monthly spending of ${money(basisOf(ctx).averageMonthly, ctx)}, averaged over ${basisLabel(ctx)}`,
     income_this_month: money(s.thisMonth.income, ctx),
     spending_this_month: money(s.thisMonth.expense, ctx),
     savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
@@ -1130,13 +1155,13 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       if (/net ?worth|wealth/.test(e.text)) {
         return { kind: 'interpret', outcome: 'ok', facts, analysis, vars: {
           headline: `Your net worth is ${netMoney(s.netWorth.netWorth, ctx, 'you owe more than you own')}.`,
-          detail: `That's ${money(s.netWorth.totalAssets, ctx)} in assets minus ${money(s.netWorth.totalLiabilities, ctx)} of debt, with about ${s.netWorth.liquidityMonths.toFixed(1)} months of liquid cover.`,
+          detail: `That's ${money(s.netWorth.totalAssets, ctx)} in assets minus ${money(s.netWorth.totalLiabilities, ctx)} of debt, with about ${s.netWorth.liquidityMonths.toFixed(1)} months of liquid cover at your usual spending.`,
         } };
       }
       if (/balance/.test(e.text)) {
         return { kind: 'interpret', outcome: 'ok', facts, analysis, vars: {
           headline: `You've got about ${money(s.netWorth.totalAssets, ctx)} across your accounts.`,
-          detail: `Roughly ${s.netWorth.liquidityMonths.toFixed(1)} months of expenses in liquid savings.`,
+          detail: `Roughly ${s.netWorth.liquidityMonths.toFixed(1)} months of your usual spending in liquid savings.`,
         } };
       }
       const total = s.pulseScore.total ?? 0;
@@ -1147,7 +1172,7 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
       return { kind: 'interpret', outcome: 'ok', facts, analysis, vars: {
         headline: `Your Pulse Score is ${total}/100.`,
         detail: thinCushion
-          ? `Your monthly habits score well, but your cushion is thin — about ${s.netWorth.liquidityMonths.toFixed(1)} months of cover.`
+          ? `Your monthly habits score well, but your cushion is thin — about ${s.netWorth.liquidityMonths.toFixed(1)} months at your usual spending.`
           : total >= 80 ? 'Strong — keep doing what you are doing.'
           : total >= 65 ? 'Solid, with a little room to push.'
           : 'There is room to improve — Insights lists your next steps.',
@@ -1475,11 +1500,15 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
           { label: 'What is my net worth?', prompt: 'what is my net worth' },
         ] };
       }
+      // Track E, E4 (E-9): the summary's two labelled figures, the ones Net Worth and Reports show.
       const burn = basis.averageMonthly;
-      const months = liquid / burn;
+      const months = ctx.summary.netWorth.liquidityMonths;
+      const essentialMonths = ctx.summary.netWorth.essentialMonths;
       return { kind: 'forecast', outcome: 'ok',
         facts: {
           months_money_would_last: months.toFixed(1),
+          which_figure: 'months_money_would_last is at your usual spending (all spending); months_on_essentials_only assumes only essential spending continued',
+          months_on_essentials_only: essentialMonths != null ? essentialMonths.toFixed(1) : 'no essential spending recorded in these months',
           liquid_savings: netMoney(liquid, ctx),
           typical_monthly_spending: money(burn, ctx),
           typical_essential_monthly: money(basis.averageEssential, ctx),

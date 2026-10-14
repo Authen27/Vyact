@@ -16,6 +16,8 @@ export interface HouseholdRows {
   profile: { display_name?: string | null; default_currency?: string | null; language?: string | null; date_format?: string | null; education_progress?: unknown };
   household: { type?: string | null; base_currency?: string | null; language?: string | null; payoff_strategy?: string | null; extra_payment?: number | string | null; timezone?: string | null };
   email: string;
+  /** Track E, E4 — `category_classifications` rows (the live need/want map). */
+  classifications?: { category: string; classification: string }[];
 }
 
 /** Opaque here: built and read only by the engine. */

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.97.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.98.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -284,9 +284,17 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `SafeSummary.netWorth.liquidAssets` (the canonical `computeNetWorth` projection,
   live account balances included) and the debt total is `netWorth.totalLiabilities`
   — never `calculations.liquidAssets(assets)` and never a re-sum of `ctx.debts`.
-  Every cover/floor figure divides by `summary.spendBasis` (up to 6 COMPLETED
-  months, fewer when that is all there is, `monthsConsidered` stated in the facts);
-  the emergency floor is 3× typical **essential** spend. Two seams disagreeing about
+  Every cover/floor figure divides by `summary.spendBasis`, which is `lib/spendBaseline.ts`
+  (Track E, v10.98.0; owner decision E-5), the one baseline the Reports runway reads too:
+  - the last 3 COMPLETED months that contain spending (`monthsConsidered` and the months are stated in
+    the facts);
+  - the LIVE need/want map (`category_classifications` over NEEDS_WANTS_MAP): Chat passes
+    `useCategoryClassifications()`, and the server loader reads the rows;
+  - an unmapped category is NOT essential.
+  Cover is TWO labelled figures (owner decision E-9), each rounded once by `monthsOfCover`:
+  "at your usual spending" (`netWorth.liquidityMonths`, the Net Worth tile) and "on essentials
+  only" (`netWorth.essentialMonths`, the Reports runway). Pip names which it states.
+  The emergency floor is 3× typical **essential** spend. Two seams disagreeing about
   the same household is the v10.37 bug class: 1.2 vs 68.6 months of cover, and a
   ₹724 debt gap. `askVyactFacts.test.ts` fails if they diverge.
   **A fact that can cross zero goes through `signedMoney()`** — `money()` formats via
@@ -399,7 +407,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   current-by-design figures. Budget vs actual compares each budget over its OWN
   period by scope (`lib/budgetTrends.ts`; the current period is "in progress", never
   over/under). The runway's baseline is completed months only and is stated on
-  screen (`lib/essentialRunway.ts`).
+  screen (`lib/essentialRunway.ts`); it is the baseline Pip and Net Worth read (`lib/spendBaseline.ts`).
 - **The bill calendar speaks the recurring engine's terms (v10.32.0)** —
   `lib/billCalendar.ts` is a read-only projection: dates from the RRULE
   (`expandRRule`), never anything before `nextDueDate`, and a status per occurrence

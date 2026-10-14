@@ -26,8 +26,9 @@ exports[`Money-Model regression — aggregation golden file (C4.1) > CON-UNIT-MM
     "netWorth": {
       "cardDues": 0,
       "debtToAssetPct": 38.1,
+      "essentialMonths": 40,
       "liquidAssets": 6000,
-      "liquidityMonths": 3.45,
+      "liquidityMonths": 3.4,
       "netWorth": 13000,
       "totalAssets": 21000,
       "totalLiabilities": 8000,
