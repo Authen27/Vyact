@@ -100,7 +100,12 @@ test.describe('§2/§3 TXN-EDIT-FC · Transaction edit and delete', () => {
       await budgets.goto();
       const foodCard = budgets.card('Food & Dining');
       await expect(foodCard).toBeVisible();
-      await expect(foodCard).toContainText('117%');   // $350 of $300
+      // Track E (E5, v10.99.0): the card reads each planned line as spent / planned. The seeded
+      // grocery entry is stored under the legacy id 'food', which budgets now count as Food & Dining:
+      // the Dinner ($350) and the grocery ($350) together are $700 against the $300 allocation, listed
+      // once — never again as "not planned".
+      await expect(foodCard).toContainText('$700 / $300');
+      await expect(foodCard).not.toContainText('not planned');
 
       await transactions.goto();
       await transactions.openEdit('TXN-DEL-FC-002 Dinner');
@@ -109,9 +114,11 @@ test.describe('§2/§3 TXN-EDIT-FC · Transaction edit and delete', () => {
 
       await expect(transactions.row('TXN-DEL-FC-002 Dinner')).toHaveCount(0);
 
+      // Deleting the Dinner recomputes the line: only the grocery ($350) is left, still over the $300.
       await budgets.goto();
-      await expect(foodCard).toContainText('0%');
-      await expect(foodCard).not.toContainText(/\bover\b/i);
+      await expect(foodCard).toContainText('$350 / $300');
+      await expect(foodCard).not.toContainText('$700');
+      await expect(foodCard).not.toContainText('not planned');
     });
   });
 });
