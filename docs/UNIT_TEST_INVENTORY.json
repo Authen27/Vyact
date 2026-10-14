@@ -2442,12 +2442,19 @@
       "feature": "Track E spending",
       "availability": "available",
       "layer": "unit",
-      "owner": "one definition of spending (spendRows) read by the app and, through the bundled engine, by every WhatsApp spending alert and digest; no server money port (Track E, owner decisions 13-14 Oct 2026)",
-      "count": 3,
+      "owner": "one definition of spending (spendRows) read by the app and, through the bundled engine, by every WhatsApp spending alert and digest; no server money port; a loan payment counts in full as Loan / EMI spending, one entry per payment, ledger and net worth untouched (Track E, owner decisions 13-14 Oct 2026)",
+      "count": 10,
       "tests": [
         "Track E · E2: WhatsApp reads the app's spending TE2-001 · a scheduler row becomes the app's own Transaction: loan-payment details, splits and privacy survive",
         "Track E · E2: WhatsApp reads the app's spending TE2-002 · every spending rule counts exactly the app's spending rows",
-        "Track E · E2: WhatsApp reads the app's spending TE2-003 · no server code keeps its own money port; the scheduler loads the columns the app maps"
+        "Track E · E2: WhatsApp reads the app's spending TE2-003 · no server code keeps its own money port; the scheduler loads the columns the app maps",
+        "Track E · E3: a loan payment counts in full as Loan / EMI spending TE3-001 · every loan payment counts: EMI interest + principal, and a prepayment (E-1)",
+        "Track E · E3: a loan payment counts in full as Loan / EMI spending TE3-002 · the ledger is untouched: balances, the loan's outstanding and net worth are what they were",
+        "Track E · E3: a loan payment counts in full as Loan / EMI spending TE3-003 · a loan payment is ONE entry, though its interest and principal are two rows",
+        "Track E · E3: a loan payment counts in full as Loan / EMI spending TE3-004 · the Loan / EMI budget line compares like with like, and still alerts at 100% (E-2)",
+        "Track E · E3: a loan payment counts in full as Loan / EMI spending TE3-005 · Pip says the same: Loan / EMI spending in full, one entry per payment",
+        "Track E · E3: a loan payment counts in full as Loan / EMI spending TE3-006 · WhatsApp says the same: one large-spend alert per payment at its full amount (E-10); the digest counts it once",
+        "Track E · E3: a loan payment counts in full as Loan / EMI spending TE3-007 · Transactions: \"Expense\" and \"Loan / EMI\" list the principal row, and the list total matches"
       ]
     },
     {

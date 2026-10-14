@@ -157,7 +157,8 @@ export interface Transaction extends WithProvenance {
   accountSplits?: AccountSplit[];
   split?: SplitInfo;
   /** v9 §2.3/§6.3 — system-written EMI split for category=loan_emi rows.
-   *  Read-only to the user; only the interest portion counts as spend.
+   *  Read-only to the user. Since v10.97.0 (Track E) BOTH legs count as Loan / EMI spending: the
+   *  interest row is an expense, and the principal transfer reads as spending in `reportableTxns`.
    *  v9.4.2 — partPaymentChoice threads the user's re-amortisation strategy
    *  from the form into the store's loan_emi save path. */
   /** A loan payment's leg: the split the server computed (W4f: with the payment's kind, the instalment

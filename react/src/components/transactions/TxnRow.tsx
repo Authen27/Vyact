@@ -4,6 +4,7 @@ import { useStore } from '../../store';
 import { getCat } from '../../constants';
 import { formatDate, formatTime } from '../../lib/format';
 import { txnAccountLabel } from '../../lib/accounts';
+import { isLoanPrincipalRow } from '../../lib/calculations';
 import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
 import Badge from '../ui/Badge';
 import Money from '../ui/Money';
@@ -35,6 +36,8 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
   const isInv   = t.type === 'investment';
   const isXfer  = t.type === 'transfer';
   const isSplit = t.split?.isSplit;
+  // Track E (v10.97.0) — a loan payment's principal stays a transfer, but counts as Loan / EMI spending.
+  const loanSpend = isLoanPrincipalRow(t);
 
   const sign  = t.type === 'income' ? '+' : isInv ? '↗' : isXfer ? '⇄' : '−';
   const amtCls= t.type === 'income'  ? 'text-olive'
@@ -87,7 +90,7 @@ export default function TxnRow({ txn: t, showActions = false, onEdit }: Props) {
           {t.recurring && <span aria-label={`Recurring ${t.recurring}`} title={`Recurring · ${t.recurring}`} className="ml-1.5 text-ink-dim text-[0.72rem]">↻</span>}
         </div>
         <div className="font-mono text-[0.59rem] text-ink-dim mt-px truncate">
-          {(isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{acctLabel ? ` · ${acctLabel}` : ''}{t.paymentMode ? ` · ${PAYMENT_MODE_LABEL[t.paymentMode]}` : ''}{t.note ? ' · ' + t.note : ''}
+          {loanSpend ? 'Loan principal · counted in Loan / EMI spending' : (isXfer || isInv) ? (isXfer ? 'Transfer' : 'Investment') : cat.label} · {formatDate(t.date, dateFormat)}{t.time ? ` · ${formatTime(t.time)}` : ''}{acctLabel ? ` · ${acctLabel}` : ''}{t.paymentMode ? ` · ${PAYMENT_MODE_LABEL[t.paymentMode]}` : ''}{t.note ? ' · ' + t.note : ''}
           {/* v10.55.0 (#69) — who added it, on phones too (the badge column is sm+ only). */}
           {member && members.length > 1 && <span className="sm:hidden" data-testid="txn-added-by"> · {member.name}</span>}
         </div>

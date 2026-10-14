@@ -1391,14 +1391,45 @@ function effectiveAmount(t, baseCurrency, rates) {
 	return fromDinero(effectiveDinero(t, baseCurrency, rates));
 }
 function reportableTxns(transactions) {
-	return transactions.filter((t) => !t.excluded && (t.type === "income" || t.type === "expense") && t.category !== "transfer" && t.category !== "balance_adjustment");
+	const out = [];
+	for (const t of transactions) {
+		if (t.excluded) continue;
+		if (isLoanPrincipalRow(t)) {
+			out.push({
+				...t,
+				type: "expense",
+				category: "loan_emi"
+			});
+			continue;
+		}
+		if ((t.type === "income" || t.type === "expense") && t.category !== "transfer" && t.category !== "balance_adjustment") out.push(t);
+	}
+	return out;
+}
+/** Track E — a loan payment's principal row: a transfer carrying the payment's `emiSplit`. */
+function isLoanPrincipalRow(t) {
+	return t.type === "transfer" && !!t.emiSplit;
 }
 /**
-* Track E (v10.96.0) — the rows that count as SPENDING: reportable expenses. The one rule every
-* spending total reads, and, through the bundled engine, every WhatsApp spending alert and digest.
+* Track E (v10.96.0) — the rows that count as SPENDING: reportable expenses (since v10.97.0 a loan
+* payment's principal too). The one rule every spending total reads, and, through the bundled engine,
+* every WhatsApp spending alert and digest.
 */
 function spendRows(transactions) {
 	return reportableTxns(transactions).filter((t) => t.type === "expense");
+}
+/**
+* Track E — which ENTRY a spending row belongs to. A loan payment is one entry made of two rows (its
+* interest and its principal), so both carry the payment's key: its operation id, else (older rows) the
+* interest row's id, which the principal links to. Every other row is its own entry.
+*/
+function spendEntryKey(t) {
+	if (!t.emiSplit) return t.id;
+	return t.emiSplit.operation_id ?? (t.type === "transfer" && t.linkedTxnId ? t.linkedTxnId : t.id);
+}
+/** How many entries these spending rows are (a loan payment counts once). */
+function countSpendEntries(rows) {
+	return new Set(rows.map(spendEntryKey)).size;
 }
 function monthlyData(transactions, monthKey, baseCurrency, rates) {
 	const txns = reportableTxns(transactions).filter((t) => getMonthKey(t.date) === monthKey);
@@ -3601,7 +3632,12 @@ function categoryBreakdown(ctx, monthKey = nowMonthKey(ctx.tz)) {
 	const spend = spendByCategory(ctx.transactions, monthKey, cur(ctx), ctx.rates);
 	const total = Object.values(spend).reduce((a, b) => a + b, 0);
 	const entries = /* @__PURE__ */ new Map();
-	for (const t of reportableTxns(ctx.transactions)) if (t.type === "expense" && getMonthKey(t.date) === monthKey) entries.set(t.category, (entries.get(t.category) ?? 0) + 1);
+	for (const t of spendRows(ctx.transactions)) {
+		if (getMonthKey(t.date) !== monthKey) continue;
+		const keys = entries.get(t.category) ?? /* @__PURE__ */ new Set();
+		keys.add(spendEntryKey(t));
+		entries.set(t.category, keys);
+	}
 	return Object.entries(spend).sort(([, a], [, b]) => b - a).map(([c, amt]) => {
 		const usual = categoryRollingAvg(ctx, c, 3, monthKey);
 		const gap = amt - usual;
@@ -3609,7 +3645,7 @@ function categoryBreakdown(ctx, monthKey = nowMonthKey(ctx.tz)) {
 		return {
 			category: getCat(c).label,
 			spent: money(amt, ctx),
-			entries: String(entries.get(c) ?? 0),
+			entries: String(entries.get(c)?.size ?? 0),
 			share_of_period: total > 0 ? `${Math.round(amt / total * 100)}%` : "0%",
 			usual_month: usual > 0 ? money(usual, ctx) : "no history yet",
 			compared_with_usual: usual > 0 ? gap >= 0 ? `${money(gap, ctx)} above` : `${money(-gap, ctx)} below` : "no history yet",
@@ -3659,9 +3695,10 @@ function lookupWindow(ctx, span, rawCategory) {
 	const spend = spendByCategoryInRange(ctx.transactions, span.start, span.end, cur(ctx), ctx.rates);
 	const total = Object.values(spend).reduce((a, b) => a + b, 0);
 	const inWindow = (d) => d >= span.start && d <= span.end;
+	const windowRows = spendRows(ctx.transactions).filter((t) => inWindow(t.date));
 	const counts = /* @__PURE__ */ new Map();
-	for (const t of reportableTxns(ctx.transactions)) if (t.type === "expense" && inWindow(t.date)) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
-	const entryCount = [...counts.values()].reduce((a, b) => a + b, 0);
+	for (const c of new Set(windowRows.map((t) => t.category))) counts.set(c, countSpendEntries(windowRows.filter((t) => t.category === c)));
+	const entryCount = countSpendEntries(windowRows);
 	const rows = Object.entries(spend).sort(([, a], [, b]) => b - a).map(([c, amt]) => ({
 		category: getCat(c).label,
 		spent: money(amt, ctx),
@@ -5396,4 +5433,4 @@ function renderForWhatsApp(turn, appUrl) {
 	};
 }
 //#endregion
-export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, cleanOffending, contextFromRows, effectiveAmount, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendRows, systemPromptFor, txnsFromRows };
+export { DEFAULT_HOUSEHOLD_TZ, STALE_AFTER_DAYS, WHATSAPP_MAX_CHARS, answerOnServer, approveOccurrenceOnServer, balancesToCheck, cleanOffending, contextFromRows, countSpendEntries, effectiveAmount, notificationsOnServer, reconcileOnServer, recurringPostPlan, renderForWhatsApp, runwaySnapshot, spendByCategoryInRange, spendEntryKey, spendRows, systemPromptFor, txnsFromRows };

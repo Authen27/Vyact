@@ -4,7 +4,21 @@
 // (your share of a split bill). They used to sum raw amounts, so a split dinner counted in full and a
 // paired transfer or a reconciliation correction moved the month's net.
 import type { Transaction } from '../types';
-import { effectiveAmount, reportableTxns, totalBalance } from './calculations';
+import { effectiveAmount, isLoanPrincipalRow, reportableTxns, totalBalance } from './calculations';
+
+/**
+ * Track E (v10.97.0) — the list's type filter. "Expense" also lists a loan payment's principal row,
+ * which counts as Loan / EMI spending, so the rows shown and their total agree with Reports. The row
+ * is still a transfer: "Transfer" lists it too.
+ */
+export function matchesType(t: Transaction, type: string): boolean {
+  return t.type === type || (type === 'expense' && isLoanPrincipalRow(t));
+}
+
+/** Track E — the list's category filter: "Loan / EMI" lists the principal rows as well. */
+export function matchesCategory(t: Transaction, category: string): boolean {
+  return t.category === category || (category === 'loan_emi' && isLoanPrincipalRow(t));
+}
 
 /** Income − expense over the given rows, counted like the dashboard. */
 export function listNet(txns: Transaction[], baseCurrency: string): number {

@@ -49,7 +49,7 @@ export { systemPromptFor, cleanOffending } from './askVyactLlm';
 // Track E (v10.96.0; audit XC-ARC-06) — WhatsApp's alerts and digests read spending through the APP's
 // rules over the APP's row mapping. They used to read a hand-copied port (`_shared/money`) with its own
 // row mapping, which dropped `emi_split`; a change to what counts as spending now reaches them at once.
-export { spendRows, spendByCategoryInRange, effectiveAmount } from './calculations';
+export { spendRows, spendByCategoryInRange, effectiveAmount, spendEntryKey, countSpendEntries } from './calculations';
 
 /** `transactions` rows → the app's Transactions, with the adapter's own mapper. */
 export function txnsFromRows(rows: readonly unknown[]): Transaction[] {

@@ -93,6 +93,10 @@ export const spendByCategoryInRange = generated.spendByCategoryInRange as (
 ) => Record<string, number>;
 /** What a row adds to spending: the household's share for a split, else the amount. */
 export const effectiveAmount = generated.effectiveAmount as (t: EngineTxn, baseCurrency: string, rates: Record<string, number>) => number;
+/** The entry a spending row belongs to (a loan payment's interest and principal share one key; v10.97.0). */
+export const spendEntryKey = generated.spendEntryKey as (t: EngineTxn) => string;
+/** How many entries these spending rows are (a loan payment counts once). */
+export const countSpendEntries = generated.countSpendEntries as (rows: readonly EngineTxn[]) => number;
 
 // ── Runway (W6b, v10.47.0) ───────────────────────────────────────────────────
 export interface RunwaySnapshot { months: number | null; quieterCategory: string | null }

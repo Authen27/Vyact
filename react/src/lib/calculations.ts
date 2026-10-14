@@ -48,24 +48,55 @@ export function effectiveAmount(t: Transaction, baseCurrency: string, rates: Exc
 // Money Map (v7.2) keeps both filters live throughout the dual-encoding
 // window so a household viewing a row written by either client gets
 // identical totals.
+//
+// Track E (v10.97.0; owner decisions 13 Oct 2026, E-1) — "full EMI = spend, everywhere". A loan payment
+// is two ledger rows: the interest (an expense, Loan / EMI) and the PRINCIPAL (a transfer into the loan
+// account), both carrying `emiSplit`. For every SPENDING figure the principal row reads as Loan / EMI
+// spending too, for every kind of payment (EMI, prepayment, payoff, bank figures). This is a reporting
+// rule only: the ledger row stays a transfer, and balances, the loan's outstanding and net worth never
+// read reportableTxns. The stand-in shares the row's id; nothing edits a reportable row.
 export function reportableTxns(transactions: Transaction[]): Transaction[] {
-  return transactions.filter(t =>
-    !t.excluded
-    && (t.type === 'income' || t.type === 'expense')
-    && t.category !== 'transfer'
-    // Money-Model B1.3 — reconciliation Balance Adjustments move an account but
-    // are corrections, not spend/earn; they must never count in income/expense
-    // or category totals (mirrors the transfer exclusion).
-    && t.category !== 'balance_adjustment'
-  );
+  const out: Transaction[] = [];
+  for (const t of transactions) {
+    if (t.excluded) continue;
+    if (isLoanPrincipalRow(t)) { out.push({ ...t, type: 'expense', category: 'loan_emi' }); continue; }
+    if ((t.type === 'income' || t.type === 'expense')
+      && t.category !== 'transfer'
+      // Money-Model B1.3 — reconciliation Balance Adjustments move an account but
+      // are corrections, not spend/earn; they must never count in income/expense
+      // or category totals (mirrors the transfer exclusion).
+      && t.category !== 'balance_adjustment') out.push(t);
+  }
+  return out;
+}
+
+/** Track E — a loan payment's principal row: a transfer carrying the payment's `emiSplit`. */
+export function isLoanPrincipalRow(t: Pick<Transaction, 'type' | 'emiSplit'>): boolean {
+  return t.type === 'transfer' && !!t.emiSplit;
 }
 
 /**
- * Track E (v10.96.0) — the rows that count as SPENDING: reportable expenses. The one rule every
- * spending total reads, and, through the bundled engine, every WhatsApp spending alert and digest.
+ * Track E (v10.96.0) — the rows that count as SPENDING: reportable expenses (since v10.97.0 a loan
+ * payment's principal too). The one rule every spending total reads, and, through the bundled engine,
+ * every WhatsApp spending alert and digest.
  */
 export function spendRows(transactions: Transaction[]): Transaction[] {
   return reportableTxns(transactions).filter(t => t.type === 'expense');
+}
+
+/**
+ * Track E — which ENTRY a spending row belongs to. A loan payment is one entry made of two rows (its
+ * interest and its principal), so both carry the payment's key: its operation id, else (older rows) the
+ * interest row's id, which the principal links to. Every other row is its own entry.
+ */
+export function spendEntryKey(t: Pick<Transaction, 'id' | 'emiSplit' | 'linkedTxnId' | 'type'>): string {
+  if (!t.emiSplit) return t.id;
+  return t.emiSplit.operation_id ?? (t.type === 'transfer' && t.linkedTxnId ? t.linkedTxnId : t.id);
+}
+
+/** How many entries these spending rows are (a loan payment counts once). */
+export function countSpendEntries(rows: Transaction[]): number {
+  return new Set(rows.map(spendEntryKey)).size;
 }
 
 export interface MonthData { income: number; expense: number; net: number; }

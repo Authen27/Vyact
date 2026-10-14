@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1307 passing deterministic cases in 144 files. Zero failed, skipped or TODO cases at generation.**
+**1314 passing deterministic cases in 144 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -39,7 +39,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 12 |
-| react | unit | available | 401 |
+| react | unit | available | 408 |
 | react | unit | conditional | 192 |
 | react | unit | infrastructure | 229 |
 
@@ -172,7 +172,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/syncRevisions.test.ts](../react/src/lib/__tests__/syncRevisions.test.ts) | Sync revisions and rollback | store-integration | conditional | 8 |
 | [react/src/lib/__tests__/timeZoneDay.test.ts](../react/src/lib/__tests__/timeZoneDay.test.ts) | Time zone (local today) | unit | available | 4 |
 | [react/src/lib/__tests__/toastPolicy.test.ts](../react/src/lib/__tests__/toastPolicy.test.ts) | Frontend guards (W6) | unit | available | 2 |
-| [react/src/lib/__tests__/trackESpending.test.ts](../react/src/lib/__tests__/trackESpending.test.ts) | Track E spending | unit | available | 3 |
+| [react/src/lib/__tests__/trackESpending.test.ts](../react/src/lib/__tests__/trackESpending.test.ts) | Track E spending | unit | available | 10 |
 | [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 3 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/w7aAppFixes.test.ts](../react/src/lib/__tests__/w7aAppFixes.test.ts) | Small app fixes (W7a) | unit | available | 13 |

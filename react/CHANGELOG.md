@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.96.0`** (consumer)
+> **Current production version: `v10.97.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,45 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.97.0 — Track E, step 2: a loan payment counts in full as Loan / EMI spending *(2026-10-14)*
+
+App and the bundled engine. **Figures change** (owner decisions 13–14 Oct 2026: E-1 "every loan
+payment", E-2 "keep the budget alerts", E-10 "large-spend alerts on loan payments too").
+
+- **What counts as spending.** A loan payment is two ledger rows: the interest (an expense) and the
+  principal (a transfer into the loan account). Until now only the interest counted as spending. Now the
+  principal counts too, as Loan / EMI, for every kind of payment: an EMI, a prepayment, the payoff, or bank
+  figures. Past payments are included: this is a rule applied when figures are read, and no row is
+  rewritten.
+- **What moves:**
+  - monthly spending and cash flow (by the principal paid that month);
+  - the savings rate;
+  - Reports and budget history, past months included;
+  - Pip's spending answers;
+  - the essential-spend average and the 3-month safety floor (Loan / EMI is a "need");
+  - the runway and months of cover;
+  - the Loan / EMI budget line, which now compares the full EMI with its full-EMI limit, and so raises its
+    100% alert in an EMI month (E-2);
+  - WhatsApp's digest, weekly summary, month close and large-spend alert. A loan payment is one alert at
+    its full amount (E-10).
+- **What does not move:** account balances, the loan's outstanding and net worth. The principal row is
+  still a transfer in the ledger.
+- **A payment is one entry.** Its two rows count once in Pip's "how many entries", the WhatsApp digest and
+  the weekly summary.
+- **Transactions:**
+  - the principal row reads "Loan principal · counted in Loan / EMI spending";
+  - the Expense and Loan / EMI filters list it, so the rows shown and their total match Reports;
+  - the Help note on debt payments says so.
+
+Tests: trackESpending.test.ts (+7):
+- every kind of payment counts;
+- balances, the outstanding and net worth are identical with and without the rule;
+- one payment is one entry, for older rows too;
+- the Loan / EMI budget line reaches 100% and alerts;
+- Pip's figures and entry counts;
+- WhatsApp's alert and digest;
+- the Transactions filters and their total.
 
 ## v10.96.0 — Track E, step 1: WhatsApp reads the app's spending *(2026-10-14)*
 

@@ -17,7 +17,7 @@ import SavedViewsBar from '../components/savedViews/SavedViewsBar';
 import { ALL_CATEGORIES, getCat } from '../constants';
 import { getMonthKey, monthName, formatDate, nowMonthKey, today, compareTxnRecency, fmt, fmtSigned } from '../lib/format';
 import { monthlyData } from '../lib/calculations';
-import { listNet } from '../lib/txnListTotals';
+import { listNet, matchesCategory, matchesType } from '../lib/txnListTotals';
 import { projectRecurringTransactionsForDate } from '../lib/recurring';
 import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
 import type { Transaction, TxnType } from '../types';
@@ -155,8 +155,8 @@ export default function Transactions() {
   const filtered = useMemo<TransactionListItem[]>(() => {
     let f = [...txns];
     if (selectedDate)       f = f.filter(t => t.date === selectedDate);
-    if (type !== 'all')     f = f.filter(t => t.type === type);
-    if (cat !== 'all')      f = f.filter(t => t.category === cat);
+    if (type !== 'all')     f = f.filter(t => matchesType(t, type));
+    if (cat !== 'all')      f = f.filter(t => matchesCategory(t, cat));
     if (!selectedDate && month !== 'all') f = f.filter(t => getMonthKey(t.date) === month);
     if (memberId !== 'all') f = f.filter(t => t.memberId === memberId);
     // §8 deep-link context
@@ -184,8 +184,8 @@ export default function Transactions() {
           txn,
           projected: true,
         }))
-        .filter(({ txn }) => (type === 'all' ? true : txn.type === type))
-        .filter(({ txn }) => (cat === 'all' ? true : txn.category === cat))
+        .filter(({ txn }) => (type === 'all' ? true : matchesType(txn, type)))
+        .filter(({ txn }) => (cat === 'all' ? true : matchesCategory(txn, cat)))
         .filter(({ txn }) => (memberId === 'all' ? true : txn.memberId === memberId))
         .filter(({ txn }) => {
           if (!search) return true;
