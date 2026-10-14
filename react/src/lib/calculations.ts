@@ -321,10 +321,11 @@ export function spendByCategoryInRange(
  *  `reportableTxns`/`effectiveDinero` machinery as `spendByCategoryInRange`,
  *  so the final entry's `cumulative` equals that function's total over the
  *  same window — the chart never contradicts the tracked spend. Returns one
- *  entry per day (inclusive). */
+ *  entry per day (inclusive). `null` categories = ALL spending (Track E, E5: a
+ *  budget's total is measured against every category, lib/budgetProgress.ts). */
 export function cumulativeSpendSeries(
   transactions: Transaction[],
-  categories: Set<string>,
+  categories: Set<string> | null,
   start: string,
   upto: string,
   baseCurrency: string,
@@ -334,7 +335,7 @@ export function cumulativeSpendSeries(
   // per-day exact spend within the category set (dinero space)
   const perDay = new Map<string, Dinero<number>>();
   for (const t of reportableTxns(transactions)) {
-    if (t.type !== 'expense' || !categories.has(t.category)) continue;
+    if (t.type !== 'expense' || (categories && !categories.has(t.category))) continue;
     if (t.date < start || t.date > upto) continue;
     const d = effectiveDinero(t, baseCurrency, rates);
     const prev = perDay.get(t.date);

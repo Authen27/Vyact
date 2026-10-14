@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.98.0`** (consumer)
+> **Current production version: `v10.99.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,47 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.99.0 — Track E, step 4: one budget-progress basis; spending nothing was planned for *(2026-10-14)*
+
+App and the bundled engine. **Budget figures change** (owner decisions 13–14 Oct 2026: E-6 and its follow-ups).
+Audit FE-UIC-08 and the rest of FE-MNY-06.
+
+- **One basis.** `lib/budgetProgress.ts` is read by the Budgets page (hero, pace chart, cards), the Dashboard
+  (pace banner, Budget progress panel), Reports' budget vs actual and Pip. Before, one budget had three "left"
+  figures:
+  - the Budgets hero subtracted only allocated spending from the full total;
+  - the Dashboard pace used all spending;
+  - Reports compared the sum of the allocations with allocated spending.
+
+  The Dashboard panel also measured an annual line against one month.
+- **A total counts ALL spending in its period**, unallocated categories included. An annual total is the
+  aggregation of its months: an expense counts once in its month and once in its year. Its limit stays the
+  typed figure.
+- **Each line is measured over its own budget's period.** An annual line is measured over the year; the
+  Dashboard panel marks it "this year".
+- **Not planned.** A category with spending and nothing allocated (no row, or 0) shows as "₹X over · not
+  planned", after the planned lines:
+  - on every budget card, monthly and annual;
+  - in the Dashboard panel, up to 3 plus "+N more";
+  - in Pip's budget answer (`not_planned_this_month`, with the month's total, spent and left).
+
+  Bell and WhatsApp alerts and the Pulse score are unchanged.
+- **Reports** compares every budget with a total, including one with no allocations. It counts the period's
+  recorded spending, as the Budgets page does.
+
+Tests: trackEBudgets.test.ts (new, 8):
+- the month and annual totals;
+- lines over their own period;
+- not-planned lines;
+- Reports = Budgets;
+- the Dashboard lines and pace;
+- Pip's facts;
+- a loan payment in full;
+- a category budget stays one line;
+- no alerts and no Pulse change from not-planned spending.
+
+budgetTrends.test.ts was updated deliberately for the new basis.
 
 ## v10.98.0 — Track E, step 3: one spending baseline, two labelled cover figures *(2026-10-14)*
 

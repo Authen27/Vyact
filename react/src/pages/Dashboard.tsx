@@ -17,10 +17,10 @@ import {
   selectSpendByCategory, selectRecentTxns, selectNetWorth,
   selectMonthlyDebtPayment,
 } from '../lib/selectors';
-import { fmtShort, monthName, nowMonthKey, convert, today, formatDate } from '../lib/format';
-import { budgetLinesForMonth, monthlyData } from '../lib/calculations';
+import { fmtShort, monthName, nowMonthKey, today, formatDate } from '../lib/format';
+import { monthlyData } from '../lib/calculations';
+import { budgetLinesNow, budgetPace } from '../lib/budgetProgress';
 import { debtToIncomePct, pctLabel } from '../lib/ratios';
-import { sortByUtilisation } from '../lib/budgetOrdering';
 import Money from '../components/ui/Money';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
 import StartingBaselineBand from '../components/dashboard/StartingBaselineBand';
@@ -64,7 +64,7 @@ export default function Dashboard() {
   const openEditTxn = useStore(s => s.openEditTxn);
   const openAddTxn = useStore(s => s.openAddTxn);
   // `rates` stays a live subscription: the selectors return derived values, not
-  // raw collections, and the per-row `convert()` calls in the budget list need it.
+  // raw collections, and the budget progress (lib/budgetProgress) reads it.
   const rates = useStore(s => s.rates);
 
   const mk = nowMonthKey();
@@ -91,9 +91,14 @@ export default function Dashboard() {
   // budget the household has ever had and then slice(0, 5), so the month you saw
   // was whichever one happened to sort first in the array — in September it
   // showed August. See budgetLinesForMonth.
-  const budgetView = useMemo(
-    () => budgetLinesForMonth(budgets, budgetAllocations, mk),
-    [budgets, budgetAllocations, mk],
+  // Track E, E5 (owner, E-6): the ONE budget-progress basis (lib/budgetProgress.ts) — each line over its
+  // own budget's period (an annual line over the year, not this month), then this month's not-planned
+  // spending; the pace banner reads the month budget's total against ALL its spending.
+  const budgetNow = useMemo(
+    () => budgetLinesNow(budgets, budgetAllocations, transactions, { baseCurrency: baseCur, rates }),
+    // mk re-reads when the month rolls over while the page is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [budgets, budgetAllocations, transactions, baseCur, rates, mk],
   );
 
   // A6 — inline 6-month net trend for the Cash Flow hero. Presentation only:
@@ -113,17 +118,9 @@ export default function Dashboard() {
   // pro-rated by day. Pure arithmetic over the existing aggregates; hidden when
   // no current-month budget exists (never fabricate a pace).
   const pace = useMemo(() => {
-    const now = new Date();
-    const row = budgets.find(b => b.scope === 'month'
-      && b.periodYear === now.getFullYear() && b.periodMonth === now.getMonth() + 1);
-    if (!row) return null;
-    const limitBase = convert(row.limit, row.currency, baseCur, rates);
-    if (limitBase <= 0) return null;
-    const daysIn = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const expected = limitBase * (now.getDate() / daysIn);
-    const diff = expected - month.expense;
-    return { under: diff >= 0, amt: Math.abs(diff) };
-  }, [budgets, baseCur, rates, month.expense]);
+    const p = budgetPace(budgetNow.month);
+    return p ? { under: p.under, amt: p.amount } : null;
+  }, [budgetNow]);
 
   const advice = pulseAdvice(pulse);
 
@@ -262,29 +259,23 @@ export default function Dashboard() {
           title={t('budget-progress')}
           action={<Link to="/budgets" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">{t('view-all')}</Link>}
         >
-          {budgetView.length === 0 ? (
-            <EmptyState icon="◎" message="No budgets yet" />
+          {budgetNow.lines.length === 0 && budgetNow.notPlanned.length === 0 ? (
+            <EmptyState icon="◎" message={budgetNow.progress.length ? 'No category allocations this month' : 'No budgets yet'} />
           ) : (
             <div className="px-4 pt-2.5 pb-1.5">
               {/* v10.27.2 — the five most-utilised categories, highest first
-                  (lib/budgetOrdering), not the first five the store returned. */}
-              {sortByUtilisation(
-                budgetView.map(line => ({
-                  b: line,
-                  limitBase: convert(line.limit, line.currency, baseCur, rates),
-                  spent: spend[line.category ?? ''] || 0,
-                })),
-                row => ({ spent: row.spent, limit: row.limitBase, label: getCat(row.b.category ?? '').label }),
-              ).slice(0, 5).map(({ b, limitBase, spent }) => {
-                const cat = getCat(b.category ?? '');
-                const pct = limitBase > 0 ? Math.min(100, Math.round(spent / limitBase * 100)) : 0;
+                  (lib/budgetOrdering), not the first five the store returned. E5: each over its own
+                  budget's period (an annual line says so), then this month's not-planned spending. */}
+              {budgetNow.lines.slice(0, 5).map(line => {
+                const cat = getCat(line.category);
+                const pct = Math.min(100, Math.round(line.pct ?? 0));
                 // Board trough bands: <80 good · 80–99 warn · 100 crit.
                 const color = pct >= 100 ? 'hsl(var(--terra))' : pct >= 80 ? 'hsl(var(--honey))' : 'hsl(var(--sage))';
                 return (
-                  <div key={b.id} className="mb-3 last:mb-1.5">
-                    <div className="flex justify-between items-center mb-1.5 text-[12.5px]">
-                      <span className="text-ink">{cat.icon} {cat.label}</span>
-                      <span className="num text-ink-mid">{fmtShort(spent, baseCur)} / {fmtShort(limitBase, baseCur)}</span>
+                  <div key={`${line.budgetId}:${line.category}`} className="mb-3 last:mb-1.5">
+                    <div className="flex justify-between items-center mb-1.5 text-[12.5px] gap-2">
+                      <span className="text-ink truncate">{cat.icon} {cat.label}{line.annual ? <span className="text-ink-dim"> · this year</span> : null}</span>
+                      <span className="num text-ink-mid flex-shrink-0">{fmtShort(line.spent, baseCur)} / {fmtShort(line.limit, baseCur)}</span>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
                       <div className="h-full rounded-full chart-grow transition-[width] duration-500" style={{ width: `${pct}%`, background: color }} />
@@ -292,6 +283,25 @@ export default function Dashboard() {
                   </div>
                 );
               })}
+              {budgetNow.notPlanned.slice(0, 3).map(line => {
+                const cat = getCat(line.category);
+                return (
+                  <div key={`np:${line.category}`} data-testid="dashboard-not-planned" className="mb-3 last:mb-1.5">
+                    <div className="flex justify-between items-center mb-1.5 text-[12.5px] gap-2">
+                      <span className="text-ink truncate">{cat.icon} {cat.label}</span>
+                      <span className="num text-terra flex-shrink-0">{fmtShort(line.spent, baseCur)} over · not planned</span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+                      <div className="h-full rounded-full chart-grow transition-[width] duration-500" style={{ width: '100%', background: 'hsl(var(--terra))' }} />
+                    </div>
+                  </div>
+                );
+              })}
+              {budgetNow.notPlanned.length > 3 && (
+                <p className="text-[11.5px] text-ink-dim mb-1.5">
+                  +{budgetNow.notPlanned.length - 3} more not planned · <Link to="/budgets" className="text-coral">see Budgets</Link>
+                </p>
+              )}
             </div>
           )}
         </Panel>
