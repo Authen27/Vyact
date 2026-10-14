@@ -121,7 +121,7 @@ Two developers did the work:
 | (PR in review) | v10.97.0 | Track E · E3: a loan payment counts in full as Loan / EMI spending (owner, 14 Oct) | — | — |
 | (PR in review) | v10.98.0 | Track E · E4: one spending baseline; two labelled cover figures (owner, 14 Oct) | FE-MNY-10 | — |
 | (PR in review) | v10.99.0 | Track E · E5: one budget-progress basis; not-planned spending (owner, 14 Oct) | FE-MNY-06, FE-UIC-08 | — |
-| (PR in review) | v10.100.0 | Track E · E6a: loan EMIs in Recurring; old EMI schedules hidden; EMIs in the budget forecast (owner, 13–14 Oct) | — | — |
+| #206 | v10.100.0 | Track E · E6a: loan EMIs in Recurring; old EMI schedules hidden; EMIs in the budget forecast (owner, 13–14 Oct) | — | — |
 
 ### 0.3 New issues found during this review (not in the audit)
 
