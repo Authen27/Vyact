@@ -5254,6 +5254,7 @@ function recurringDueNotifs(schedules, prefs, existing, ctx) {
 	const out = [];
 	for (const s of schedules) {
 		if (!s.active || s.autoConfirm || s.nextDueDate > now) continue;
+		if (isLoanEmiSchedule(s)) continue;
 		const key = `recurring_due_confirm:${s.id}:${s.nextDueDate}`;
 		if (existing.some((n) => n.dedupeKey === key)) continue;
 		const amt = s.transactionTemplate.amount ?? 0;
@@ -5279,6 +5280,7 @@ function recurringReminderNotifs(schedules, prefs, existing, ctx) {
 	if (!typeEnabled(prefs, "recurring_reminder")) return [];
 	const out = [];
 	for (const s of schedules) {
+		if (isLoanEmiSchedule(s)) continue;
 		const lead = s.reminderLeadDays ?? prefs.defaultLeadDays;
 		if (!upcomingSchedules([s], lead, today(ctx.tz)).length) continue;
 		const key = `recurring_reminder:${s.id}:${s.nextDueDate}`;

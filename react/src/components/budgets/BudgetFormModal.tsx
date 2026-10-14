@@ -17,6 +17,7 @@ import { useStore } from '../../store';
 import { fmt } from '../../lib/format';
 import { resolveBudgetPeriod, recurringForecastByCategory } from '../../lib/calculations';
 import { suggestBudget, budgetCategoryOf } from '../../lib/budgetIntel';
+import { loanEmiForecast } from '../../lib/loanRecurring';
 import { EXPENSE_CATEGORIES, getCat, deterministicColor, CURRENCIES as CURRENCY_MAP } from '../../constants';
 import type { Budget, BudgetScope, BudgetAllocation } from '../../types';
 import { confirmSheet } from '../../lib/confirmSheet';
@@ -57,6 +58,7 @@ export default function BudgetFormModal(props: Props) {
   const budgets      = useStore(s => s.budgets);
   const transactions = useStore(s => s.transactions);
   const debts        = useStore(s => s.debts);
+  const accounts     = useStore(s => s.accounts);
   const saveBudgetWithAllocations = useStore(s => s.saveBudgetWithAllocations);
   const removeBudget = useStore(s => s.removeBudget);
   const manualRefresh = useStore(s => s.manualRefresh);
@@ -120,10 +122,14 @@ export default function BudgetFormModal(props: Props) {
   const remaining = total - allocSum;
 
   // §4.2 — read-only recurring forecast: committed-by-recurring per category.
+  // Track E, E6a (owner, E-4): each live loan's EMIs on their real dates in the period join it, under
+  // Loan / EMI, now that Recurring shows them (lib/loanRecurring; a loan is never a schedule).
   const forecast = useMemo(() => {
     if (!period.periodStart || !period.periodEnd) return {} as Record<string, number>;
-    return recurringForecastByCategory(recurring, period.periodStart, period.periodEnd, form.currency, rates);
-  }, [recurring, period.periodStart, period.periodEnd, form.currency, rates]);
+    const byCategory = recurringForecastByCategory(recurring, period.periodStart, period.periodEnd, form.currency, rates);
+    const emis = loanEmiForecast(debts, accounts, transactions, period.periodStart, period.periodEnd, form.currency);
+    return emis > 0 ? { ...byCategory, loan_emi: Math.round(((byCategory.loan_emi ?? 0) + emis) * 100) / 100 } : byCategory;
+  }, [recurring, debts, accounts, transactions, period.periodStart, period.periodEnd, form.currency, rates]);
   const forecastTotal = Object.values(forecast).reduce((s, n) => s + n, 0);
 
   // Defect 3 — every expense category is present, always. The old model made
@@ -390,7 +396,7 @@ export default function BudgetFormModal(props: Props) {
         <div className="mt-2 rounded-md border border-line bg-bg2 px-3 py-2">
           <div className="flex items-center justify-between">
             <span className="text-[0.78rem] text-ink-mid">
-              {fmt(Math.round(forecastTotal), form.currency)} already committed via recurring this period
+              {fmt(Math.round(forecastTotal), form.currency)} already committed via recurring bills and loan EMIs this period
             </span>
             <button type="button" onClick={prefillFromForecast} className="text-coral text-[0.7rem] hover:underline">Use as allocations</button>
           </div>

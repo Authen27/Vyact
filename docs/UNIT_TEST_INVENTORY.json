@@ -2476,6 +2476,24 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/trackELoanEmis.test.ts",
+      "feature": "Track E loan EMIs in Recurring",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "each live loan's EMI mirrored in Recurring from the loan (lib/loanRecurring), its switch the loan's autoRecord; leftover EMI schedules hidden from Recurring, the bill calendar and the bell; the budget forecast counts EMIs on their real dates (Track E, owner decisions 13 Oct 2026, E-3, E-4)",
+      "count": 7,
+      "tests": [
+        "Loan EMIs in Recurring (Track E, E6a) TE6-001 · one row per live loan, from the loan's own schedule; receivables, paid-off loans and cards are not loans to mirror",
+        "Loan EMIs in Recurring (Track E, E6a) TE6-002 · a part-paid instalment shows what is left of it",
+        "Loan EMIs in Recurring (Track E, E6a) TE6-003 · the bill calendar shows a loan's EMI ONCE: a leftover EMI schedule is not listed beside it",
+        "Loan EMIs in Recurring (Track E, E6a) TE6-004 · the bell raises no due or reminder card for a leftover EMI schedule, and settles one already raised",
+        "Loan EMIs in Recurring (Track E, E6a) TE6-005 · E-4: the budget forecast counts each loan's EMIs on their real dates in the period",
+        "Loan EMIs in Recurring (Track E, E6a) TE6-006 · the Recurring switch is the LOAN's autoRecord; a missing account or date opens the loan form; EMI schedules are not listed",
+        "Loan EMIs in Recurring (Track E, E6a) TE6-007 · the budget form adds the loans' EMIs to its recurring forecast, under Loan / EMI"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/trackESpending.test.ts",
       "feature": "Track E spending",
       "availability": "available",
