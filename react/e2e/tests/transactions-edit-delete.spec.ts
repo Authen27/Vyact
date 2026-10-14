@@ -104,8 +104,11 @@ test.describe('§2/§3 TXN-EDIT-FC · Transaction edit and delete', () => {
       // grocery entry is stored under the legacy id 'food', which budgets now count as Food & Dining:
       // the Dinner ($350) and the grocery ($350) together are $700 against the $300 allocation, listed
       // once — never again as "not planned".
+      // The card also lists housing as "not planned" (spending with no allocation); the check here is that
+      // Food & Dining itself appears once, planned, and never as a second "not planned" row.
+      const foodLines = async () => ((await foodCard.innerText()).match(/Food & Dining/g) ?? []).length;
       await expect(foodCard).toContainText('$700 / $300');
-      await expect(foodCard).not.toContainText('not planned');
+      expect(await foodLines()).toBe(1);
 
       await transactions.goto();
       await transactions.openEdit('TXN-DEL-FC-002 Dinner');
@@ -118,7 +121,7 @@ test.describe('§2/§3 TXN-EDIT-FC · Transaction edit and delete', () => {
       await budgets.goto();
       await expect(foodCard).toContainText('$350 / $300');
       await expect(foodCard).not.toContainText('$700');
-      await expect(foodCard).not.toContainText('not planned');
+      expect(await foodLines()).toBe(1);
     });
   });
 });

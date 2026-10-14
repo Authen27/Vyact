@@ -26,6 +26,7 @@
 //   react/src/lib/askVyactModelCall.ts
 //   react/src/lib/askVyactParser.ts
 //   react/src/lib/askVyactResponses.ts
+//   react/src/lib/budgetIntel.ts
 //   react/src/lib/budgetOrdering.ts
 //   react/src/lib/budgetProgress.ts
 //   react/src/lib/calculations.ts
@@ -1972,6 +1973,20 @@ function profileFromRows(prof, hh, email) {
 	};
 }
 //#endregion
+//#region react/src/lib/budgetIntel.ts
+const EXPENSE_IDS$1 = new Set(EXPENSE_CATEGORIES.map((c) => c.id));
+/**
+* W4h (v10.77.0; owner decision D27) — the category a budget line can carry: the CURRENT expense id
+* (a legacy id like `rent` or `transport` resolved through LEGACY_CATEGORY_ALIASES), or null for
+* anything the budget form does not show (`savings` from the retired Goals, income ids, unknown ids).
+* A line the form cannot show was still counted and saved: the "huge total, tiny split" report.
+*/
+function budgetCategoryOf(id) {
+	if (!id) return null;
+	const current = LEGACY_CATEGORY_ALIASES[id] ?? id;
+	return EXPENSE_IDS$1.has(current) ? current : null;
+}
+//#endregion
 //#region react/src/lib/budgetOrdering.ts
 /** spent ÷ limit, NOT clamped at 100%. A zero limit with any spend is the most
 *  over a line can be; a zero limit with no spend is unused. */
@@ -2038,14 +2053,19 @@ function budgetProgress(budget, allocations, transactions, opts) {
 	const cur = opts.baseCurrency;
 	const period = budgetPeriodWindow(budget) ?? monthWindow(opts.now ?? today());
 	const own = allocations.filter((a) => a.budgetId === budget.id);
-	const spend = spendByCategoryInRange(transactions, period.start, period.end, cur, opts.rates);
+	const spend = {};
+	for (const [category, amount] of Object.entries(spendByCategoryInRange(transactions, period.start, period.end, cur, opts.rates))) {
+		const current = budgetCategoryOf(category) ?? category;
+		spend[current] = round2$3((spend[current] ?? 0) + amount);
+	}
 	const limit = round2$3(convert(budget.limit, budget.currency, cur, opts.rates));
 	const legacy = isLegacyCategoryBudget(budget, own);
+	const currentIdOf = (category) => budgetCategoryOf(category) ?? category;
 	const plannedRows = legacy ? [{
-		category: budget.category,
+		category: currentIdOf(budget.category),
 		amount: limit
 	}] : own.map((a) => ({
-		category: a.category,
+		category: currentIdOf(a.category),
 		amount: round2$3(convert(a.amount, budget.currency, cur, opts.rates))
 	}));
 	const planned = /* @__PURE__ */ new Set();
