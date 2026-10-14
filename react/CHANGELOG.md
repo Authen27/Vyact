@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.101.0`** (consumer)
+> **Current production version: `v10.102.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,47 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.102.0 — Track E, step 7: loan housekeeping; a loan payment is one event *(2026-10-14)*
+
+Track E's last step. Owner decisions:
+- E-8: "only the orphan fix";
+- 14 Oct 2026: "reconcile to zero + archive".
+
+Audit FE-MNY-04, OPS-08 (INV-7) and TD-31.
+
+- **Orphan loan accounts are cleared** (migration `20261024120000_clear_orphan_loan_accounts.sql`).
+  - **The problem.** Before v10.74.0 a loan could be deleted while its loan account stayed live with a
+    balance. Net worth counts every liability account, archived or not, so each such account kept a debt
+    no loan explained.
+  - **The fix.** Every live loan account LINKED to a deleted loan is reconciled to zero, exactly as "Mark
+    paid off" does: its offset, with a dated log entry ("Loan deleted before v10.74: balance cleared"),
+    never a transaction. It is then archived.
+  - **What moves.** Net worth rises by each orphan's leftover. Transactions and history stay.
+  - **Left alone.** A loan account with no link at all, since it may be the only record of a real loan.
+  - The migration is idempotent.
+- **A loan payment is one event, locally too** (spec INV-7). A local-only household has no server to make
+  a payment one transaction, so `payLoan` writes the interest leg, the principal leg and the loan in turn.
+  - Until now, a failed later write left a half-recorded payment: an interest expense with no principal,
+    or a payment the loan never heard of.
+  - Now the earlier writes are undone (the legs, and a loan account the payment opened), and the error is
+    raised.
+  - An undo step that itself fails is reported as an `unexpected` fault, never swallowed.
+  - In the cloud, `pay_loan` was already one Postgres transaction (W4-D19-006).
+- **Docs.** CLAUDE.md, the invariants file header and TECH_DEBT no longer say INV-7 is untested. TD-31 is
+  resolved.
+
+Tests:
+- loanPaymentWorkflow.test.ts TE7-001..003 (+3):
+  - the principal leg fails;
+  - the loan update fails;
+  - a failed undo is reported.
+
+  Each was proven to fail without the undo.
+- trackEOrphanLoanSql.test.ts (new, 3, PGlite, using W4e's own `loan_ledger_balance`):
+  - an orphan is cleared by offset + log and archived, and one at zero is archived;
+  - a live loan, an unlinked loan account, a bank account and an already-cleared account are untouched;
+  - the migration is idempotent.
 
 ## v10.101.0 — Track E, step 6: the old EMI schedules are retired in the database *(2026-10-14)*
 

@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1340 passing deterministic cases in 148 files. Zero failed, skipped or TODO cases at generation.**
+**1346 passing deterministic cases in 149 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,9 +35,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 61 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 96 |
-| react | sql-integration | conditional | 78 |
+| react | sql-integration | conditional | 81 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 61 |
+| react | store-integration | available | 64 |
 | react | store-integration | conditional | 12 |
 | react | unit | available | 431 |
 | react | unit | conditional | 192 |
@@ -120,7 +120,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/loanCalendar.test.ts](../react/src/lib/__tests__/loanCalendar.test.ts) | Loan calendar and reminders | unit | available | 3 |
 | [react/src/lib/__tests__/loanModelSql.test.ts](../react/src/lib/__tests__/loanModelSql.test.ts) | Loan model SQL | sql-integration | conditional | 9 |
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
-| [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 11 |
+| [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 14 |
 | [react/src/lib/__tests__/loanScheduleParity.test.ts](../react/src/lib/__tests__/loanScheduleParity.test.ts) | Loan arithmetic parity | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/money.test.ts](../react/src/lib/__tests__/money.test.ts) | Money model | unit | available | 8 |
 | [react/src/lib/__tests__/moneyModel.engines.test.ts](../react/src/lib/__tests__/moneyModel.engines.test.ts) | Money model | unit | available | 9 |
@@ -176,6 +176,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/trackEBudgets.test.ts](../react/src/lib/__tests__/trackEBudgets.test.ts) | Track E budget progress | unit | available | 9 |
 | [react/src/lib/__tests__/trackEEmiRetireSql.test.ts](../react/src/lib/__tests__/trackEEmiRetireSql.test.ts) | Track E EMI schedules retired SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/trackELoanEmis.test.ts](../react/src/lib/__tests__/trackELoanEmis.test.ts) | Track E loan EMIs in Recurring | unit | available | 7 |
+| [react/src/lib/__tests__/trackEOrphanLoanSql.test.ts](../react/src/lib/__tests__/trackEOrphanLoanSql.test.ts) | Track E orphan loan accounts SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/trackESpending.test.ts](../react/src/lib/__tests__/trackESpending.test.ts) | Track E spending | unit | available | 10 |
 | [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 3 |
 | [react/src/lib/__tests__/v91.test.ts](../react/src/lib/__tests__/v91.test.ts) | Recurring and budgets | unit | available | 5 |

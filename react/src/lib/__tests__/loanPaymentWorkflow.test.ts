@@ -5,6 +5,7 @@ import { LocalStorageAdapter } from '../dataAdapter';
 import { computeNetWorth } from '../netWorth';
 import { computeAccountBalance } from '../accountBalance';
 import { LoanPaymentRefused, loanOutstanding } from '../loanSchedule';
+import { clearFaults, getFaults } from '../faults';
 import type { Debt } from '../../types';
 
 // The loan-payment workflow through the store (W4f, v10.75.0; owner decision D19). Cloud: pay_loan
@@ -190,5 +191,55 @@ describe('loan payment workflow', () => {
       date: '2026-09-09', description: 'EMI', category: 'loan_emi', linkedDebtId: s.debts[0].id, accountId: s.accounts[0].id });
     expect(leg).toMatchObject({ type: 'expense', amount: 80, category: 'loan_emi' });
     expect(useStore.getState().transactions.map(t => [t.type, t.amount])).toEqual([['expense', 80], ['transfer', 420]]);
+  });
+});
+
+// Track E, E7 (v10.102.0) — spec INV-7 (TD-31) for a local-only household: "force-fail any leg of an EMI —
+// the ENTIRE event rolls back, zero state change". In the cloud, pay_loan is one Postgres transaction
+// (W4-D19-006, loanModelSql). Locally the legs are written in sequence, so a later failure undoes them.
+describe('INV-7 locally — a loan payment is one event (Track E, E7)', () => {
+  /** Make the adapter's own writes fail for the rows `fails` picks; everything else goes through. */
+  function failWrites(fails: (entity: string, row: { type?: string }) => boolean) {
+    const adapter = useStore.getState().adapter;
+    const real = adapter.upsert.bind(adapter);
+    vi.spyOn(adapter, 'upsert').mockImplementation(((entity: string, hid: string, row: { type?: string }, at?: string) =>
+      fails(entity, row) ? Promise.reject(new Error('storage write failed')) : real(entity as never, hid, row, at)) as typeof adapter.upsert);
+  }
+  const snapshot = async () => {
+    const s = useStore.getState();
+    return {
+      transactions: s.transactions, accounts: s.accounts, debt: s.debts[0],
+      stored: await s.adapter.list('transactions', s.currentHouseholdId),
+      storedLoanAccounts: (await s.adapter.list<{ kind: string }>('accounts', s.currentHouseholdId)).filter(a => a.kind === 'loan'),
+      netWorth: computeNetWorth(s, 'USD', { USD: 1 }).netWorth,
+    };
+  };
+
+  it('TE7-001 · the principal leg fails: the interest leg and the loan account it opened are undone; nothing moved', async () => {
+    useStore.setState({ debts: [loan({ interestRate: 12 })] });           // interest 80 + principal 420
+    const before = await snapshot();
+    failWrites((entity, row) => entity === 'transactions' && row.type === 'transfer');
+    await expect(pay('emi', 500)).rejects.toThrow('storage write failed');
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it('TE7-002 · the loan update fails after both legs: both legs and the loan account are undone; the loan is as it was', async () => {
+    useStore.setState({ debts: [loan({ interestRate: 12 })] });
+    const before = await snapshot();
+    failWrites(entity => entity === 'debts');
+    await expect(pay('emi', 500)).rejects.toThrow('storage write failed');
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it('TE7-003 · an undo step that fails is reported as an unexpected fault, never swallowed, and the payment still fails', async () => {
+    clearFaults();
+    useStore.setState({ debts: [loan({ interestRate: 12 })] });
+    failWrites((entity, row) => entity === 'transactions' && row.type === 'transfer');
+    vi.spyOn(useStore.getState().adapter, 'remove').mockRejectedValue(new Error('remove failed'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(pay('emi', 500)).rejects.toThrow('storage write failed');
+    expect(getFaults().map(f => [f.kind, f.context.split(' ')[0]])).toEqual([
+      ['unexpected', 'payLoan:rollback'], ['unexpected', 'payLoan:rollback'],    // the interest leg, then the account
+    ]);
   });
 });

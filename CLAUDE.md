@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.101.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.102.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -70,9 +70,15 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   file — keep green, update the snapshot deliberately. **It is not "INV-1..9".**
   The test labels run off-by-one from the spec past INV-4 (the mapping is in the
   invariants file's header), so the gaps at 4 and 8 are a labelling artefact, not
-  missing coverage. What IS missing is spec **INV-7 (atomicity)** — force-fail a
-  leg of an EMI or transfer and the whole event must roll back. Nothing asserts
-  that; it is the open "atomic reversal" blocker.
+  missing coverage. Spec **INV-7 (atomicity)** — force-fail a leg of an EMI or
+  transfer and the whole event must roll back — is covered outside that file
+  (v10.102.0, TD-31 closed):
+  - in the cloud, W4-D19-006 (`loanModelSql.test.ts`) force-fails `pay_loan`'s principal leg in Postgres;
+  - locally, TE7-001..003 (`loanPaymentWorkflow.test.ts`): `payLoan` undoes its earlier writes when a
+    later one fails, and an undo step that fails is an `unexpected` fault, never swallowed;
+  - a transfer is one row.
+
+  A new multi-write money event must be one Postgres function in the cloud and undo itself locally.
 - **The loan model (v10.74.0 schema, W4e; owner decisions D19, D17, D30).**
   - A loan's OUTSTANDING is its loan account's ledger, only (`loan_outstanding` / `loan_ledger_balance`).
     `debts.current_balance` is a cache the loan functions keep equal to it, for older apps. Never compute
@@ -114,6 +120,11 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
       schedule again: a loan's EMI is the loan's.
     - The budget form's "already committed" forecast adds each live loan's EMIs on their real dates in the
       period (`loanEmiForecast`), under Loan / EMI.
+  - **A loan account whose loan was deleted is cleared (v10.102.0, E7; owner, E-8).** Migration
+    20261024120000 reconciled every live loan account LINKED to a deleted loan to zero, as
+    `mark_loan_paid_off` does (offset + dated log, never a transaction), and archived it.
+    - Net worth counts every liability account, archived or not, so archiving alone never removes a debt.
+    - A loan account with no link is left alone.
   - **The app (v10.75.0, W4f):** `payLoan` / `loanDue` / `reverseLoanPayment` / `markLoanPaidOff` /
     `deleteDebt` in the store call those functions (cloud, online only) or run the same rules locally
     (`lib/loanSchedule.ts`, parity-tested against Postgres in loanScheduleParity.test.ts — interest uses

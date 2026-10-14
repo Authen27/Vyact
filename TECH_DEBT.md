@@ -12,13 +12,13 @@
 
 ## Status at a glance (revalidated 2026-09-13 against production)
 
-**45 items total — 26 ✅ resolved · 3 ⚠ partial · 16 ⬜ open.**
+**45 items total — 27 ✅ resolved · 3 ⚠ partial · 15 ⬜ open.**
 
 | Bucket | IDs |
 |---|---|
-| ✅ **Resolved** (26) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, **TD-22**, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, TD-33, **TD-39** |
+| ✅ **Resolved** (27) | TD-01, TD-03, TD-04, TD-05, TD-06, TD-07, TD-08, TD-09, TD-10, TD-11, TD-12, TD-13, TD-14, TD-17, TD-18, TD-20, TD-21, **TD-22**, TD-23, TD-24, TD-25, TD-26, TD-27, TD-28, **TD-31**, TD-33, **TD-39** |
 | ⚠ **Partial** (3) | TD-02 (unit + Lane-A done; integration layer open) · TD-19 (Lane B green — 10 specs incl. RLS isolation; Lane A green since v10.49.1) · **TD-29** (Lane A 0 failures v10.49.1; required-check in branch protection is the owner's) |
-| ⬜ **Open** (16) | TD-15 ⚠**REOPENED**, TD-16, TD-30, TD-31, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44**, **TD-45** |
+| ⬜ **Open** (15) | TD-15 ⚠**REOPENED**, TD-16, TD-30, TD-32, TD-34, TD-35, TD-36, **TD-37**, **TD-38**, **TD-40**, **TD-41**, **TD-42**, **TD-43**, **TD-44**, **TD-45** |
 
 > ### 🔻 Paydown is DEPRIORITIZED (2026-09-13)
 > The current priority is **completing Ask Vyact** — see
@@ -93,7 +93,7 @@
 | TD-28 | ✅ Doc-architecture *(resolved 2026-06-17)*: CI version-drift guard + CLAUDE.md trimmed (dated narrative → `docs/HISTORY.md`, replaced by a binding-conventions section) + README docs-map | Technical / Process / Docs | Low | S |
 | TD-29 | ⚠ Lane A: 53 e2e failures across 14 spec files — triage-first, not a selector sweep *(failures cleared v10.49.1; required-check pending)* | Technical / QA | High | M |
 | TD-30 | Vitest does not type-check `src/**/*.test.ts` — unit tests can reference removed code unseen | Technical / QA | Medium | S |
-| TD-31 | Spec INV-7 (atomicity) has no test — a failed leg of an EMI or transfer is not proven to roll back | Technical / Correctness | High | M |
+| TD-31 | ✅ **Resolved v10.102.0** — INV-7 is tested in the cloud (pay_loan in Postgres, W4-D19-006) and locally (payLoan undoes its writes, TE7-001..003) | Technical / Correctness | High | M |
 | TD-32 | Test-fidelity gaps: edge handlers run on npm `supabase-js` not the esm.sh build Deno loads; no cloud-mode unit coverage | Technical / QA | Medium | M |
 | TD-33 | ✅ Consumer deploy raced the Edge Functions deploy *(resolved 2026-09-10: `consumer` job now `needs: deploy-edge-functions`)* | Technical / Release | Medium | XS |
 | TD-34 | `pg_trgm` installed in the `public` schema | Security / Hygiene | Low | S |
@@ -1038,6 +1038,16 @@ where 68 type errors had accumulated behind 30-second timeouts.
 ---
 
 ## TD-31 — Spec INV-7 (atomicity) has no test
+
+✅ **Resolved v10.102.0 (Track E, E7).** Both halves of the acceptance are met:
+- **Cloud.** A loan payment is one Postgres function. `pay_loan` (W4e, v10.74.0) writes the interest leg,
+  the principal leg, the event and the loan in one transaction. W4-D19-006 (`loanModelSql.test.ts`)
+  force-fails the principal leg and asserts nothing moved, and `reverse_loan_payment` undoes atomically.
+- **Local-only.** The household has no server, so `payLoan` writes its legs in sequence. When a later
+  write fails, it undoes the earlier ones (the legs, and a loan account it opened) and raises the error.
+  An undo step that fails is an `unexpected` fault, never swallowed. TE7-001..003
+  (`loanPaymentWorkflow.test.ts`) prove this.
+- **Transfers.** A transfer is one row (since v7.2), atomic by construction.
 
 **Description.** `vyact-txn-redesign-architect-spec_1.md` §7 INV-7: force-fail any leg of an EMI or
 transfer and the ENTIRE event must roll back with zero state change. Nothing asserts it, because the
