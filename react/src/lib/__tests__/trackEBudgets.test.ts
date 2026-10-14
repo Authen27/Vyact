@@ -157,3 +157,18 @@ describe('one budget-progress basis (Track E, E5; owner E-6)', () => {
     expect(read('react/src/lib/aiSummary.ts')).toMatch(/budgetLinesNow\(budgets, allocations, txns,/);
   });
 });
+
+// TE5-009 — a stored legacy category id (e.g. 'food') spends against its current category (food_dining),
+// the rule the budget form uses to save an allocation. It is one planned line, never a second "not planned"
+// row under the same name.
+describe('TE5-009 · legacy category ids fold into their current budget line', () => {
+  it('counts the legacy and the current id against one planned line', () => {
+    const p = budgetProgress(OCT, [alloc('oct', 'food_dining', 10_000)], [
+      txn('2026-10-05', 'food_dining', 9_000),
+      txn('2026-10-06', 'food', 1_000),
+    ], opts);
+    expect(p.lines).toHaveLength(1);
+    expect(p.lines[0]).toMatchObject({ category: 'food_dining', spent: 10_000, limit: 10_000 });
+    expect(p.notPlanned).toHaveLength(0);
+  });
+});

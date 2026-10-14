@@ -21,6 +21,7 @@
 import type { Budget, BudgetAllocation, ExchangeRates, Transaction } from '../types';
 import { getCat } from '../constants';
 import { spendByCategoryInRange } from './calculations';
+import { budgetCategoryOf } from './budgetIntel';
 import { convert, today } from './format';
 import { budgetPeriodWindow, sortByUtilisation } from './budgetOrdering';
 
@@ -82,13 +83,22 @@ export function budgetProgress(
   const cur = opts.baseCurrency;
   const period = budgetPeriodWindow(budget) ?? monthWindow(opts.now ?? today());
   const own = allocations.filter(a => a.budgetId === budget.id);
-  const spend = spendByCategoryInRange(transactions, period.start, period.end, cur, opts.rates);
+  // A stored legacy id (e.g. 'food') spends against its current category, the same rule the budget form
+  // uses to save an allocation (budgetCategoryOf). Without this the old row was listed twice: once
+  // planned, once as "not planned" under the same name.
+  const spend: Record<string, number> = {};
+  for (const [category, amount] of Object.entries(spendByCategoryInRange(transactions, period.start, period.end, cur, opts.rates))) {
+    const current = budgetCategoryOf(category) ?? category;
+    spend[current] = round2((spend[current] ?? 0) + amount);
+  }
   const limit = round2(convert(budget.limit, budget.currency, cur, opts.rates));
   const legacy = isLegacyCategoryBudget(budget, own);
 
+  // The planned line is keyed by the same current id as the spend it is measured against.
+  const currentIdOf = (category: string) => budgetCategoryOf(category) ?? category;
   const plannedRows = legacy
-    ? [{ category: budget.category!, amount: limit }]
-    : own.map(a => ({ category: a.category, amount: round2(convert(a.amount, budget.currency, cur, opts.rates)) }));
+    ? [{ category: currentIdOf(budget.category!), amount: limit }]
+    : own.map(a => ({ category: currentIdOf(a.category), amount: round2(convert(a.amount, budget.currency, cur, opts.rates)) }));
   const planned = new Set<string>();
   const lines: BudgetLineProgress[] = [];
   for (const row of plannedRows) {

@@ -5,7 +5,7 @@ exports[`Money-Model regression — aggregation golden file (C4.1) > CON-UNIT-MM
   "aiSummary": {
     "budgets": [
       {
-        "category": "food",
+        "category": "food_dining",
         "limit": 400,
         "spentPct": 75,
       },

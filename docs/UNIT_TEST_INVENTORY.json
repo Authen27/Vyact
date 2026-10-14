@@ -2461,8 +2461,9 @@
       "availability": "available",
       "layer": "unit",
       "owner": "one budget-progress basis (lib/budgetProgress) read by the Budgets page, the Dashboard pace and panel, Reports and Pip: a total against all spending in its period (an annual total the aggregation of its months), each line over its own period, not-planned spending listed and never alerted or scored (Track E, owner decisions E-6 and 14 Oct 2026)",
-      "count": 8,
+      "count": 9,
       "tests": [
+        "TE5-009 · legacy category ids fold into their current budget line counts the legacy and the current id against one planned line",
         "one budget-progress basis (Track E, E5; owner E-6) TE5-001 · a month total counts ALL its spending; lines are its allocations; nothing-allocated spending is \"not planned\"",
         "one budget-progress basis (Track E, E5; owner E-6) TE5-002 · an annual total is the aggregation of its months; its line is measured over the year; the same rule lists not-planned spending",
         "one budget-progress basis (Track E, E5; owner E-6) TE5-003 · Reports' budget vs actual is the Budgets page's figure (total against all spending), every budget with a total compared",
