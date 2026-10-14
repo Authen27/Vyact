@@ -2475,6 +2475,20 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/trackEEmiRetireSql.test.ts",
+      "feature": "Track E EMI schedules retired SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "E6b migration: the leftover EMI schedules (exactly the app's isLoanEmiSchedule set) are soft-deleted in every household, bills untouched, their transactions kept, idempotent (focused PGlite fixture; owner decisions E-3, E-11)",
+      "count": 3,
+      "tests": [
+        "E6b — the leftover EMI schedules are retired (soft delete) TE6B-001 · exactly the app's isLoanEmiSchedule set is retired, in every household; bills are untouched",
+        "E6b — the leftover EMI schedules are retired (soft delete) TE6B-002 · a schedule W4g already retired keeps its own deletion; the transactions a schedule made keep their history",
+        "E6b — the leftover EMI schedules are retired (soft delete) TE6B-003 · idempotent: a second run changes nothing"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/trackELoanEmis.test.ts",
       "feature": "Track E loan EMIs in Recurring",
       "availability": "available",

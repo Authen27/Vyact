@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.100.0`** (consumer)
+> **Current production version: `v10.101.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,29 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.101.0 — Track E, step 6: the old EMI schedules are retired in the database *(2026-10-14)*
+
+Database only (migration `20261023120000_retire_emi_schedules.sql`). No figure moves. Owner decisions:
+- E-3: "retire them";
+- E-11: "soft-delete them now, without a count first".
+
+- **Which schedules.** The EMI schedules W4g could not move onto a loan: no loan link, a deleted loan, or a
+  receivable. They no longer posted, and since v10.100.0 the app lists them nowhere. Every one still live is
+  now soft-deleted (`deleted_at` set and `active = false`) in every household.
+- **The set** is exactly the app's `isLoanEmiSchedule`: a template in Loan / EMI, or one carrying a loan link.
+  Bills are untouched, including one with an empty loan link.
+- **The transactions they made keep their history.** Nothing is recreated from other rows.
+- **Devices drop their cached copies** through the delta sync, because `updated_at` moves. No cache reset is
+  needed.
+- A second run changes nothing.
+
+Ships after v10.100.0, because removals go after the app stops using the rows.
+
+Tests: trackEEmiRetireSql.test.ts (new, 3, PGlite):
+- exactly the app's set is retired, in every household;
+- a row already retired keeps its own deletion, and the transactions are kept;
+- the migration is idempotent.
 
 ## v10.100.0 — Track E, step 5: loan EMIs in Recurring *(2026-10-14)*
 
