@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1345 passing deterministic cases in 149 files. Zero failed, skipped or TODO cases at generation.**
+**1346 passing deterministic cases in 149 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -39,7 +39,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 12 |
-| react | unit | available | 430 |
+| react | unit | available | 431 |
 | react | unit | conditional | 192 |
 | react | unit | infrastructure | 229 |
 
@@ -173,7 +173,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/timeZoneDay.test.ts](../react/src/lib/__tests__/timeZoneDay.test.ts) | Time zone (local today) | unit | available | 4 |
 | [react/src/lib/__tests__/toastPolicy.test.ts](../react/src/lib/__tests__/toastPolicy.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/trackEBaseline.test.ts](../react/src/lib/__tests__/trackEBaseline.test.ts) | Track E spending baseline | unit | available | 7 |
-| [react/src/lib/__tests__/trackEBudgets.test.ts](../react/src/lib/__tests__/trackEBudgets.test.ts) | Track E budget progress | unit | available | 8 |
+| [react/src/lib/__tests__/trackEBudgets.test.ts](../react/src/lib/__tests__/trackEBudgets.test.ts) | Track E budget progress | unit | available | 9 |
 | [react/src/lib/__tests__/trackEEmiRetireSql.test.ts](../react/src/lib/__tests__/trackEEmiRetireSql.test.ts) | Track E EMI schedules retired SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/trackELoanEmis.test.ts](../react/src/lib/__tests__/trackELoanEmis.test.ts) | Track E loan EMIs in Recurring | unit | available | 7 |
 | [react/src/lib/__tests__/trackEOrphanLoanSql.test.ts](../react/src/lib/__tests__/trackEOrphanLoanSql.test.ts) | Track E orphan loan accounts SQL | sql-integration | conditional | 3 |
