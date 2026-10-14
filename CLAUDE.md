@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.100.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.101.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -109,7 +109,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     - Its "Record automatically" switch writes the loan's `autoRecord`. Turning it on without a paying
       account or a next EMI date opens the loan form instead.
     - A leftover EMI schedule (`isLoanEmiSchedule`) is retired. It is never listed in Recurring, the bill
-      calendar or the bell, and a bell card already raised for one is settled.
+      calendar or the bell, and a bell card already raised for one is settled. Since v10.101.0 (E6b,
+      migration 20261023120000) every such row is soft-deleted in the database too. Never create an EMI
+      schedule again: a loan's EMI is the loan's.
     - The budget form's "already committed" forecast adds each live loan's EMIs on their real dates in the
       period (`loanEmiForecast`), under Loan / EMI.
   - **The app (v10.75.0, W4f):** `payLoan` / `loanDue` / `reverseLoanPayment` / `markLoanPaidOff` /

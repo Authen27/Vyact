@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1337 passing deterministic cases in 147 files. Zero failed, skipped or TODO cases at generation.**
+**1340 passing deterministic cases in 148 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,7 +35,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 61 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 96 |
-| react | sql-integration | conditional | 75 |
+| react | sql-integration | conditional | 78 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 61 |
 | react | store-integration | conditional | 12 |
@@ -174,6 +174,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/toastPolicy.test.ts](../react/src/lib/__tests__/toastPolicy.test.ts) | Frontend guards (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/trackEBaseline.test.ts](../react/src/lib/__tests__/trackEBaseline.test.ts) | Track E spending baseline | unit | available | 7 |
 | [react/src/lib/__tests__/trackEBudgets.test.ts](../react/src/lib/__tests__/trackEBudgets.test.ts) | Track E budget progress | unit | available | 9 |
+| [react/src/lib/__tests__/trackEEmiRetireSql.test.ts](../react/src/lib/__tests__/trackEEmiRetireSql.test.ts) | Track E EMI schedules retired SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/trackELoanEmis.test.ts](../react/src/lib/__tests__/trackELoanEmis.test.ts) | Track E loan EMIs in Recurring | unit | available | 7 |
 | [react/src/lib/__tests__/trackESpending.test.ts](../react/src/lib/__tests__/trackESpending.test.ts) | Track E spending | unit | available | 10 |
 | [react/src/lib/__tests__/transactionsCsv.test.ts](../react/src/lib/__tests__/transactionsCsv.test.ts) | Transactions CSV export | unit | available | 3 |
