@@ -14,7 +14,9 @@
 //   • templates with "₹" in the approved text go only to INR households;
 //   • a private (excluded) transaction is never announced to anyone.
 
-import { txnsFromRows, spendRows, spendByCategoryInRange, effectiveAmount, type EngineTxn } from './agent/engine.ts';
+import {
+  txnsFromRows, spendRows, spendByCategoryInRange, effectiveAmount, spendEntryKey, countSpendEntries, type EngineTxn,
+} from './agent/engine.ts';
 import { zoneParts } from './localTime.ts';
 
 /** MUST mirror react/src/constants.ts EXPENSE_CATEGORIES labels (parity test: WA-D-001). */
@@ -112,20 +114,28 @@ export function largeSpendAlerts(input: {
   const { household } = input;
   if (household.base_currency.trim() !== 'INR') return [];
   const out: PlannedSend[] = [];
-  // Track E: the rows the app counts as spending (reportable, not private).
+  // Track E: the rows the app counts as spending (reportable, not private), one alert per ENTRY: a loan
+  // payment's interest and principal are one payment (owner decision E-10: it alerts like any big spend).
+  const entries = new Map<string, { first: EngineTxn; amount: number }>();
   for (const t of spendRows(txnsFromRows(input.txns))) {
     if (t.recurringScheduleId) continue;
-    const account = t.accountId ? input.accountNames[t.accountId] : undefined;
-    if (!account) continue;
     // W8b (audit INT-PAR-10): the household's share, as every app total reads it — a split bill is
     // announced (and compared with the threshold) at the share this household paid, not the whole bill.
     const amount = effectiveAmount(t, household.base_currency.trim(), {});
+    const key = spendEntryKey(t);
+    const seen = entries.get(key);
+    if (seen) seen.amount = Math.round((seen.amount + amount) * 100) / 100;
+    else entries.set(key, { first: t, amount });
+  }
+  for (const [key, { first: t, amount }] of entries) {
+    const account = t.accountId ? input.accountNames[t.accountId] : undefined;
+    if (!account) continue;
     for (const m of input.members) {
       if (m.profile_id === t.created_by) continue;
       if (amount < (input.thresholds[m.profile_id] ?? 10000)) continue;
       out.push({
         template: 'large_transaction_alert', householdId: household.id, toProfileId: m.profile_id,
-        values: [amountText(amount), account], dedupeKey: `txn:${t.id}`,
+        values: [amountText(amount), account], dedupeKey: `txn:${key}`,
       });
     }
   }
@@ -211,7 +221,7 @@ export function weeklySummary(input: {
   const start = new Date(Date.parse(`${input.today}T00:00:00Z`) - 6 * 86_400_000).toISOString().slice(0, 10);
   const txns = txnsFromRows(input.txns);
   const spend = spendByCategoryInRange(txns, start, input.today, base, {});
-  const entries = spendRows(txns).filter((t) => t.date >= start && t.date <= input.today).length;
+  const entries = countSpendEntries(spendRows(txns).filter((t) => t.date >= start && t.date <= input.today));
   const cats = Object.entries(spend).filter(([id]) => EXPENSE_LABEL[id]).sort((a, b) => b[1] - a[1]);
   if (!entries || !cats.length) return null;
   const total = Math.round(Object.values(spend).reduce((s, v) => s + v, 0) * 100) / 100;
@@ -575,7 +585,7 @@ export function dailyDigest(input: {
     const line = shown.join(' · ') + (ranked.length > 4 ? ` · +${ranked.length - 4} others` : '');
     out.push({
       template: 'household_daily_digest', householdId: input.household.id, toProfileId: m.profile_id,
-      values: [m.first_name, amountText(total), String(rows.length), line], dedupeKey: `digest:${input.today}`,
+      values: [m.first_name, amountText(total), String(countSpendEntries(rows)), line], dedupeKey: `digest:${input.today}`,
     });
   }
   return out;

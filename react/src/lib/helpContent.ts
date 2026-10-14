@@ -166,7 +166,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     question: 'How do I track a loan and record a payment?',
     answer: 'Add a debt with its current balance and the terms you know. Use its payment action when you make a payment, so the selected loan and paying account are connected.',
     steps: ['Open Debts and add the debt, current balance, interest rate and minimum monthly payment.', 'Choose the debt payment action and check the amount, paying account and linked loan.', 'Review the interest and principal portions before saving the payment.'],
-    note: 'Interest is an expense; principal reduces the loan balance. Avalanche prioritises higher interest rates; Snowball prioritises smaller balances. Payoff projections depend on your recorded terms and payments, not a lender guarantee.',
+    note: 'The whole payment counts as Loan / EMI spending in your totals and budgets; its principal also reduces the loan balance. Avalanche prioritises higher interest rates; Snowball prioritises smaller balances. Payoff projections depend on your recorded terms and payments, not a lender guarantee.',
     keywords: ['debt', 'loan', 'EMI', 'principal', 'interest', 'avalanche', 'snowball', 'payoff'],
     link: { to: '/debts', label: 'Open Debts' },
     image: screenshot('debt', 'Add Debt records the current balance and loan terms'),

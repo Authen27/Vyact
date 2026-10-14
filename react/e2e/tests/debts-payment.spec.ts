@@ -114,7 +114,9 @@ test.describe('§7 DEBT-FC · Loan payments', () => {
       // loan_emi is a system split: the interest is a visible Loan / EMI expense; the principal moves
       // money into the loan account.
       await expect(transactions.row('E2E Personal Loan EMI - principal')).toBeVisible();
-      await expect(page.getByRole('button', { name: /E2E Personal Loan EMI.*Loan \/ EMI/ })).toBeVisible();
+      // Track E (v10.97.0): the principal leg now also reads "counted in Loan / EMI spending", so match
+      // the interest expense by its own category icon, not by the text both rows now share.
+      await expect(page.getByRole('button', { name: /^💳 E2E Personal Loan EMI/ })).toBeVisible();
 
       const linked = (await storeState(page)).transactions.filter(t => t.linkedDebtId === sampleLoanDebt.id);
       expect(linked).toHaveLength(2);

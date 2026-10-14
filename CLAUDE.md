@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.96.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.97.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -57,7 +57,14 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   be deleted. Reconciliation is an account **offset + dated log, never a
   transaction** (and bridges the stated value to the linked Asset/Debt).
   `loan_emi` is a SYSTEM_SPLIT (visible interest expense + system principal
-  transfer into a `kind='loan'` account). Categories are **type-scoped**
+  transfer into a `kind='loan'` account). **The one exception to "transfers are neutral" (Track E,
+  v10.97.0; owner, "full EMI = spend, everywhere"):** a loan payment's principal row (a transfer
+  carrying `emiSplit`, `isLoanPrincipalRow`) READS as Loan / EMI spending in every spending figure,
+  for every kind of payment (EMI, prepayment, payoff, bank figures). `reportableTxns` maps it; the
+  ledger row stays a transfer, and balances, the loan's outstanding and net worth never read
+  reportableTxns. A loan payment is ONE entry (`spendEntryKey` / `countSpendEntries`). Every spending
+  reader (the app, Pip, WhatsApp through the bundled engine's `spendRows`) gets this from that one
+  place; never filter `type === 'expense'` for a spending total. Categories are **type-scoped**
   (`CATEGORIES_BY_TYPE`). **The gate is the test suite:**
   `lib/__tests__/moneyModel.{invariants,regression,engines}.test.ts` + the golden
   file — keep green, update the snapshot deliberately. **It is not "INV-1..9".**
@@ -77,6 +84,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     is a prepayment); a prepayment is all principal and refused while an instalment is part-paid; payoff
     is exactly outstanding + the open instalment's unpaid interest (owner). One payment = an interest
     expense (`loan_emi`) + a principal transfer into the loan account, one transaction, idempotent.
+    Both legs count as Loan / EMI spending (Track E, v10.97.0); only the ledger keeps them apart.
   - `reverse_loan_payment` undoes the LATEST payment only (owner); it is the INV-7 atomicity test's
     subject too. `mark_loan_paid_off` reconciles the loan account to zero (offset + dated log, kind
     'loan'), never a transaction. A loan with money owed cannot be deleted (`delete_debt` and the

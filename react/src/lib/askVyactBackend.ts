@@ -16,6 +16,7 @@ import type {
 } from '../types';
 import {
   spendByCategory, spendByCategoryInRange, reportableTxns, effectiveAmount, monthlyData,
+  spendRows, spendEntryKey, countSpendEntries,
   budgetLinesForMonth, coversMoreThanAMonth,
 } from './calculations';
 // v10.38 — period/date/account resolution lives in the parser, next to the entity
@@ -665,9 +666,13 @@ function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey(ctx.tz)
   const total = Object.values(spend).reduce((a, b) => a + b, 0);
   // v10.46.0 — how many entries and what share of the period each category is, so
   // "most of it went on food" can be said with its number rather than guessed.
-  const entries = new Map<string, number>();
-  for (const t of reportableTxns(ctx.transactions)) {
-    if (t.type === 'expense' && getMonthKey(t.date) === monthKey) entries.set(t.category, (entries.get(t.category) ?? 0) + 1);
+  // Track E (v10.97.0): a loan payment is ONE entry, though its interest and principal are two rows.
+  const entries = new Map<string, Set<string>>();
+  for (const t of spendRows(ctx.transactions)) {
+    if (getMonthKey(t.date) !== monthKey) continue;
+    const keys = entries.get(t.category) ?? new Set<string>();
+    keys.add(spendEntryKey(t));
+    entries.set(t.category, keys);
   }
   return Object.entries(spend)
     .sort(([, a], [, b]) => b - a)
@@ -680,7 +685,7 @@ function categoryBreakdown(ctx: AssistantContext, monthKey = nowMonthKey(ctx.tz)
       return {
         category: getCat(c).label,
         spent: money(amt, ctx),
-        entries: String(entries.get(c) ?? 0),
+        entries: String(entries.get(c)?.size ?? 0),
         share_of_period: total > 0 ? `${Math.round((amt / total) * 100)}%` : '0%',
         usual_month: usual > 0 ? money(usual, ctx) : 'no history yet',
         compared_with_usual: usual > 0
@@ -735,11 +740,13 @@ function lookupWindow(ctx: AssistantContext, span: { start: string; end: string;
   const spend = spendByCategoryInRange(ctx.transactions, span.start, span.end, cur(ctx), ctx.rates);
   const total = Object.values(spend).reduce((a, b) => a + b, 0);
   const inWindow = (d: string) => d >= span.start && d <= span.end;
+  // Track E (v10.97.0): a loan payment is ONE entry, though its interest and principal are two rows.
+  const windowRows = spendRows(ctx.transactions).filter(t => inWindow(t.date));
   const counts = new Map<string, number>();
-  for (const t of reportableTxns(ctx.transactions)) {
-    if (t.type === 'expense' && inWindow(t.date)) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+  for (const c of new Set(windowRows.map(t => t.category))) {
+    counts.set(c, countSpendEntries(windowRows.filter(t => t.category === c)));
   }
-  const entryCount = [...counts.values()].reduce((a, b) => a + b, 0);
+  const entryCount = countSpendEntries(windowRows);
   const rows = Object.entries(spend).sort(([, a], [, b]) => b - a).map(([c, amt]) => ({
     category: getCat(c).label,
     spent: money(amt, ctx),
