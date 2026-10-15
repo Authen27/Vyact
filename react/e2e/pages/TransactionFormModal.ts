@@ -145,9 +145,11 @@ export class TransactionFormModal {
   async setDate(date: string) { await this.dateInput.fill(date); }
   async setDescription(text: string) { await this.descriptionInput.fill(text); }
 
-  /** Reveal the "All details ▾" section (currency / member / time / note / split). */
+  /** Open the "More details" row (member, exclude from totals) — Aurora 4.0 FRM2. A no-op when it is
+   *  already open (the row stays as a toggle, so a second click would close it). */
   async openAllDetails() {
-    if (await this.allDetailsToggle.count() > 0 && await this.allDetailsToggle.isVisible()) {
+    if (await this.allDetailsToggle.count() > 0 && await this.allDetailsToggle.isVisible()
+      && await this.allDetailsToggle.getAttribute('aria-expanded') !== 'true') {
       await this.allDetailsToggle.click();
     }
   }
@@ -164,8 +166,9 @@ export class TransactionFormModal {
     await this.dialog.getByTestId(`txn-cur-${code}`).click();
   }
 
-  /** Select a member by NAME (chip lives under "All details"). */
+  /** Select a member by NAME (under "More details"). */
   async setMember(name: string) {
+    await this.openAllDetails();
     const option = await this.dialog.getByTestId('txn-member').locator('option').evaluateAll((options, memberName) =>
       options.find(option => option.textContent === memberName || option.textContent === `${memberName} (You)`)?.getAttribute('value'), name);
     if (!option) throw new Error(`Member option not found: ${name}`);
