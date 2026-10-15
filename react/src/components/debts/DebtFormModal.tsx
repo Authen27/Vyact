@@ -15,6 +15,7 @@ import FormPage from '../ui/FormPage';
 import Button from '../ui/Button';
 import SegmentedControl from '../ui/SegmentedControl';
 import EstimatedTag from '../ui/EstimatedTag';
+import FormSection from '../ui/FormSection';
 import { Input, Select, Field, FieldRow } from '../ui/Input';
 import { useStore } from '../../store';
 import { uid, fmt, today } from '../../lib/format';
@@ -219,7 +220,7 @@ export default function DebtFormModal(props: Props) {
   const footer = (
     <div className="flex items-center justify-between gap-2">
       {initial ? (
-        <button type="button" onClick={del} className="font-mono text-[0.62rem] tracking-wider uppercase text-terra hover:underline">Delete</button>
+        <button type="button" onClick={del} className="ui-action text-terra hover:underline min-h-[44px]">Delete</button>
       ) : <span />}
       <div className="flex gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
@@ -229,7 +230,7 @@ export default function DebtFormModal(props: Props) {
   );
 
   return (
-    <FormPage open={open} title={initial ? (isLoan ? 'Edit Loan' : 'Edit') : 'Add Loan'} onClose={onClose} footer={footer} helpTopicId="debt">
+    <FormPage open={open} title={initial ? (isLoan ? 'Edit Loan' : 'Edit') : 'Add Loan'} onClose={onClose} footer={footer} helpTopicId="debt" className="ui-pilot">
       {!initial && (
         <SegmentedControl label="This is" value={form.direction}
           onChange={direction => setForm(f => ({ ...f, direction }))}
@@ -249,11 +250,13 @@ export default function DebtFormModal(props: Props) {
       ) : (
         <>
           {initial?.termsConfirmed === false && (
-            <div className="rounded-r2 p-3 mb-3 text-[0.78rem] text-ink-mid flex items-start gap-2" style={{ background: 'var(--sunken)' }}>
+            <div className="well p-3 mb-3 text-[0.78rem] text-ink-mid flex items-start gap-2">
               <EstimatedTag confidence="estimated" />
               <span>These terms were worked out from what this loan recorded. Check them against your loan letter and save to confirm.</span>
             </div>
           )}
+          {/* Aurora 4.0 FL1 — thirteen fields in three short groups: The loan · Repayment · Paying it. */}
+          <FormSection title="The loan">
           <FieldRow>
             <Field label="Type">
               <Select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
@@ -262,7 +265,7 @@ export default function DebtFormModal(props: Props) {
             </Field>
             <Field label="Lender" hint="optional"><Input value={form.lender} onChange={e => setForm(f => ({ ...f, lender: e.target.value }))} placeholder="Bank name" /></Field>
           </FieldRow>
-          <p className="text-[0.7rem] text-ink-dim -mt-1 mb-3">A credit card is an account — add it in Accounts.</p>
+          <p className="text-[12px] text-ink-dim -mt-1 mb-3">A credit card is an account — add it in Accounts.</p>
 
           <FieldRow>
             <Field label="Name"><Input autoFocus value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Car loan" /></Field>
@@ -281,7 +284,9 @@ export default function DebtFormModal(props: Props) {
               </Field>
             )}
           </FieldRow>
+          </FormSection>
 
+          <FormSection title="Repayment">
           <FieldRow>
             <Field label="Interest rate" hint="% a year"><Input type="number" min="0" step="0.01" value={form.interestRate} onChange={e => setForm(f => ({ ...f, interestRate: e.target.value }))} /></Field>
             <Field label="Tenure" hint="months"><Input type="number" min="1" value={form.tenureMonths} onChange={e => setForm(f => ({ ...f, tenureMonths: e.target.value }))} placeholder="60" /></Field>
@@ -292,16 +297,14 @@ export default function DebtFormModal(props: Props) {
             </Field>
           )}
 
-          <FieldRow>
-            <Field label="EMI" hint={suggested != null ? `standard: ${money(suggested)}` : 'from your loan letter'}>
-              <Input type="number" min="0" step="0.01" value={form.emi} onChange={e => setForm(f => ({ ...f, emi: e.target.value }))} />
-            </Field>
-            {suggested != null && Number(form.emi) !== suggested && (
-              <div className="flex items-end pb-2">
-                <button type="button" className="underline text-[0.75rem] text-ink-mid" onClick={() => setForm(f => ({ ...f, emi: String(suggested) }))}>Use {money(suggested)}</button>
-              </div>
-            )}
-          </FieldRow>
+          <Field label="EMI" hint={suggested == null ? 'From your loan letter.'
+            : Number(form.emi) === suggested ? 'The standard EMI for these terms.'
+            : <>The standard EMI for these terms is {money(suggested)}.{' '}
+                <button type="button" className="font-medium underline underline-offset-2 min-h-[44px] align-middle"
+                  style={{ color: 'var(--accent-text)' }}
+                  onClick={() => setForm(f => ({ ...f, emi: String(suggested) }))}>Use {money(suggested)}</button></>}>
+            <Input type="number" min="0" step="0.01" value={form.emi} onChange={e => setForm(f => ({ ...f, emi: e.target.value }))} />
+          </Field>
 
           <FieldRow>
             <Field label="First EMI date"><Input type="date" value={form.firstEmiDate} onChange={e => setForm(f => ({ ...f, firstEmiDate: e.target.value }))} /></Field>
@@ -310,11 +313,13 @@ export default function DebtFormModal(props: Props) {
                 onChange={e => setForm(f => ({ ...f, nextEmiDate: e.target.value }))} />
             </Field>
           </FieldRow>
+          </FormSection>
 
+          <FormSection title="Paying it">
           {/* W4g (D19) — the server records the EMI on its date (interest + principal, split by it). */}
           <div className="flex items-center gap-2.5 py-2.5">
             <span className="font-display font-semibold text-[13px] text-ink">Record each EMI automatically</span>
-            <span className="text-[10.5px] text-ink-dim">{form.autoRecord ? 'on its date' : 'you pay it here'}</span>
+            <span className="text-[12px] text-ink-dim">{form.autoRecord ? 'on its date' : 'you pay it here'}</span>
             <button type="button" role="switch" aria-checked={form.autoRecord} aria-label="Record each EMI automatically"
               onClick={() => setForm(f => ({ ...f, autoRecord: !f.autoRecord }))}
               className="ml-auto relative w-[44px] h-[26px] rounded-pill border-none cursor-pointer flex-shrink-0"
@@ -331,6 +336,7 @@ export default function DebtFormModal(props: Props) {
               </Select>
             </Field>
           )}
+          </FormSection>
         </>
       )}
     </FormPage>
