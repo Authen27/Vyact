@@ -3,17 +3,17 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Download, FileText, Clipboard, ShieldAlert, Cloud, Trash2, PauseCircle, XOctagon } from 'lucide-react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
-import { Panel } from '../components/ui/Card';
 import { fmt, today } from '../lib/format';
 import { CURRENCIES, LOCALES } from '../constants';
 import { FULLY_TRANSLATED, languageOptionLabel } from '../lib/i18n';
-import { sb } from '../lib/supabase';
+import { sb, isCloudEnabled } from '../lib/supabase';
 import {
   updatePassword,
   eraseHouseholdData, deactivateAccount, executeAccountDeletion, AccountDeletionError, signOut,
   sendAccountActionCode, verifyAccountActionCode,
 } from '../lib/auth';
 import WhatsAppLink from '../components/settings/WhatsAppLink';
+import WhatsAppIcon from '../components/whatsapp/WhatsAppIcon';
 import { transactionsCsv, downloadCsv } from '../lib/transactionsCsv';
 import { buildBackup } from '../lib/backup';
 import PushNotifications from '../components/settings/PushNotifications';
@@ -70,7 +70,7 @@ function SettingRow({ icon, label, value, open, onToggle, children, id }: {
           {icon}
         </span>
         <span className="flex-1 text-[0.86rem] text-ink font-medium truncate">{label}</span>
-        {value && <span className="text-[0.76rem] text-ink-dim whitespace-nowrap">{value}</span>}
+        {value && <span className="text-[12px] text-ink-dim whitespace-nowrap truncate max-w-[45%]">{value}</span>}
         <span
           className="text-ink-dim text-lg leading-none flex-shrink-0"
           style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s ease' }}
@@ -80,6 +80,32 @@ function SettingRow({ icon, label, value, open, onToggle, children, id }: {
         </span>
       </button>
       {open && <div className="pb-1">{children}</div>}
+    </div>
+  );
+}
+
+/** Aurora 4.0 ST1 — a row that goes somewhere instead of opening in place (same look as SettingRow). */
+function SettingLinkRow({ icon, label, value, to }: { icon: ReactNode; label: string; value?: string; to: string }) {
+  return (
+    <Link to={to} className="w-full flex items-center gap-3 px-3.5 py-3 text-left">
+      <span className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] flex-shrink-0"
+        style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>{icon}</span>
+      <span className="flex-1 text-[0.86rem] text-ink font-medium truncate">{label}</span>
+      {value && <span className="text-[12px] text-ink-dim whitespace-nowrap">{value}</span>}
+      <span className="text-ink-dim text-lg leading-none flex-shrink-0" aria-hidden>›</span>
+    </Link>
+  );
+}
+
+/** Aurora 4.0 MIST3 — a tiny version of the theme itself: its own tokens, scoped by data-theme. */
+function ThemePreview({ theme }: { theme: 'dark' | 'warm' }) {
+  return (
+    <div data-theme={theme} className="h-full w-full p-2" style={{ background: 'hsl(var(--bg))' }}>
+      <div className="rounded-[7px] p-1.5 h-full flex flex-col gap-1" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+        <span className="h-1.5 w-[55%] rounded-full" style={{ background: 'hsl(var(--ink))' }} />
+        <span className="h-1 w-[80%] rounded-full" style={{ background: 'hsl(var(--ink-dim))' }} />
+        <span className="mt-auto h-2 w-[40%] rounded-full" style={{ background: 'var(--accent)' }} />
+      </div>
     </div>
   );
 }
@@ -321,23 +347,61 @@ export default function Settings() {
   }
 
   return (
-    <div>
+    <div className="ui-pilot">
       <PageHead title={t('settings')} />
 
       <div className="space-y-4">
 
-        {/* ── Profile ─────────────────────────────────────── */}
-        <Panel title="Profile">
-          <div className="p-5 grid sm:grid-cols-2 gap-4">
-            <div>
+        {/* ── Profile (Aurora 4.0 ST1): a group of rows like the rest of the page, each with its editor ── */}
+        <SettingsGroup caption="Profile">
+          <SettingRow icon="👤" label="Display name" value={profile.name || undefined}
+            open={openRow === 'name'} onToggle={() => toggleRow('name')}>
+            <div className="px-3.5 pb-3">
               <label htmlFor="settings-display-name" className="mono-label mb-1.5 block">Display Name</label>
-              <input id="settings-display-name" className="input w-full" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
+              <div className="flex gap-2">
+                <input id="settings-display-name" className="input flex-1 min-w-0" value={name} onChange={e => setName(e.target.value)} placeholder="Your name"
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveProfile(); } }} />
+                <button className="btn-primary" onClick={saveProfile} disabled={saving || !name.trim() || name.trim() === profile.name}>
+                  {saving ? 'Saving…' : 'Save name'}
+                </button>
+              </div>
             </div>
-            <div>
-              <span className="mono-label mb-1.5 block">Email</span>
-              <p id="settings-email" className="text-[0.9rem] text-ink break-all py-2">{userEmail || '—'}</p>
+          </SettingRow>
+
+          <SettingRow icon="✉️" label="Email"
+            value={userEmail ? (cloudEnabled && session ? `${userEmail} · ${emailVerified ? 'verified' : 'not verified'}` : userEmail) : '—'}
+            open={openRow === 'email'} onToggle={() => toggleRow('email')}>
+            <div className="px-3.5 pb-3 space-y-2">
+              <p id="settings-email" className="text-[0.9rem] text-ink break-all">{userEmail || '—'}</p>
+              <p className="text-[12px] text-ink-dim">Your sign-in address. It is shown here, not changed here.</p>
+              {cloudEnabled && session && (
+                <div className="flex items-center justify-between gap-3 well px-4 py-3">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-[12px] font-medium px-2 py-0.5 rounded-full"
+                      style={emailVerified
+                        ? { background: 'color-mix(in srgb, hsl(var(--sage)) 14%, transparent)', color: 'var(--good-text)' }
+                        : { background: 'color-mix(in srgb, hsl(var(--honey)) 14%, transparent)', color: 'var(--warn-text)' }}>
+                      {emailVerified ? 'Email verified' : 'Verification pending'}
+                    </span>
+                    <span className="text-[0.78rem] text-ink-mid">
+                      {emailVerified
+                        ? 'Password recovery is enabled.'
+                        : 'You have full access — verifying enables password recovery.'}
+                    </span>
+                  </div>
+                  {!emailVerified && (
+                    <button className="btn-ghost" onClick={resendVerification}>
+                      Resend
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            <div>
+          </SettingRow>
+
+          <SettingRow icon="📅" label="Date format" value={DATE_FORMATS.find(df => df.key === profile.dateFormat)?.example}
+            open={openRow === 'date'} onToggle={() => toggleRow('date')}>
+            <div className="px-3.5 pb-3">
               <label htmlFor="settings-date-format" className="mono-label mb-1.5 block">Date Format</label>
               <Select id="settings-date-format" value={profile.dateFormat}
                 onChange={e => updateProfile({ dateFormat: e.target.value as Profile['dateFormat'] })}>
@@ -346,46 +410,20 @@ export default function Settings() {
                 ))}
               </Select>
             </div>
-            {cloudEnabled && session && (
-              <div className="sm:col-span-2 flex items-center justify-between gap-3 well px-4 py-3">
-                <div className="flex items-center gap-2.5">
-                  <span className={`font-mono text-[0.6rem] tracking-widest uppercase px-2 py-0.5 rounded-full ${
-                    emailVerified
-                      ? 'bg-sage/10 border border-sage/30 text-sage'
-                      : 'bg-honey/10 border border-honey/40 text-honey'
-                  }`}>
-                    {emailVerified ? 'Email verified' : 'Verification pending'}
-                  </span>
-                  <span className="text-[0.78rem] text-ink-mid">
-                    {emailVerified
-                      ? 'Password recovery is enabled.'
-                      : 'You have full access — verifying enables password recovery.'}
-                  </span>
-                </div>
-                {!emailVerified && (
-                  <button className="btn-ghost text-xs py-1 px-2.5" onClick={resendVerification}>
-                    Resend
-                  </button>
-                )}
-              </div>
-            )}
+          </SettingRow>
 
-            <div className="sm:col-span-2 flex items-center justify-between gap-3">
-              <Link
-                to="/onboarding"
-                className="text-[0.8rem] text-coral hover:underline font-medium"
-              >
-                {profile.onboardedAt ? 'Re-run onboarding wizard' : 'Run onboarding wizard'} →
-              </Link>
-              <button className="btn-primary" onClick={saveProfile} disabled={saving}>
-                {saving ? 'Saving…' : 'Save Profile'}
-              </button>
-            </div>
-          </div>
-        </Panel>
+          <SettingLinkRow icon="🧭" label={profile.onboardedAt ? 'Re-run the setup wizard' : 'Run the setup wizard'} to="/onboarding" />
+        </SettingsGroup>
 
-        {/* ── WhatsApp link (cloud-only; renders nothing in local mode) ── */}
-        <WhatsAppLink />
+        {/* ── Connections (Aurora 4.0 ST2): WhatsApp is a row, not a standalone panel. Cloud only. ── */}
+        {isCloudEnabled() && (
+          <SettingsGroup caption="Connections">
+            <SettingRow icon={<WhatsAppIcon size={14} className="text-[#25D366]" />} label="WhatsApp" id="whatsapp"
+              open={openRow === 'whatsapp'} onToggle={() => toggleRow('whatsapp')}>
+              <WhatsAppLink embedded />
+            </SettingRow>
+          </SettingsGroup>
+        )}
 
         {/* ── Preferences (board E · .set-group grouped list) ── */}
         <SettingsGroup caption="Preferences">
@@ -398,15 +436,14 @@ export default function Settings() {
                   <button key={th.key} onClick={() => setTheme(th.key)}
                     className="rounded-r3 p-3.5 text-left border-none cursor-pointer transition-shadow"
                     style={{ background: 'var(--canvas)', boxShadow: on ? 'var(--neu-sm), 0 0 0 2px var(--accent)' : 'var(--neu-sm)' }}>
-                    <div className="flex flex-col gap-1 mb-2" aria-hidden>
-                      {[0, 1, 2].map(i => (
-                        <span key={i} className="h-1.5 rounded-full"
-                          style={{ background: i === 0 ? 'var(--accent)' : 'var(--ff-line-2)', width: `${90 - i * 18}%` }} />
-                      ))}
+                    <div className="h-[64px] rounded-r2 overflow-hidden mb-2.5 flex" aria-hidden data-testid={`theme-preview-${th.key}`}>
+                      {th.key === 'system'
+                        ? <><div className="w-1/2"><ThemePreview theme="dark" /></div><div className="w-1/2"><ThemePreview theme="warm" /></div></>
+                        : <ThemePreview theme={th.key === 'warm' ? 'warm' : 'dark'} />}
                     </div>
                     <div className="text-[0.86rem] font-display font-semibold text-ink mb-0.5">{th.label}</div>
-                    <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{th.desc}</div>
-                    {on && <div className="mt-2 text-[0.65rem] font-mono uppercase tracking-widest" style={{ color: 'var(--accent-text)' }}>Active</div>}
+                    <div className="text-[12px] text-ink-dim">{th.desc}</div>
+                    {on && <div className="mt-2 text-[12px] font-medium" style={{ color: 'var(--accent-text)' }}>Active</div>}
                   </button>
                 );
               })}
@@ -586,19 +623,19 @@ export default function Settings() {
               <div className="grid sm:grid-cols-3 gap-3">
                 <button className="btn-secondary flex flex-col items-center justify-center gap-2 py-5 h-auto" onClick={downloadBackup}>
                   <Download size={20} strokeWidth={1.6} />
-                  <span className="font-mono text-[11px] tracking-[0.08em] uppercase">Download Backup</span>
-                  <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">JSON snapshot</span>
+                  <span className="text-[13px] font-medium">Download Backup</span>
+                  <span className="text-[12px] text-ink-dim">JSON snapshot</span>
                 </button>
                 <button className="btn-secondary flex flex-col items-center justify-center gap-2 py-5 h-auto" onClick={exportCSV}>
                   <FileText size={20} strokeWidth={1.6} />
-                  <span className="font-mono text-[11px] tracking-[0.08em] uppercase">Export CSV</span>
-                  <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">Transactions</span>
+                  <span className="text-[13px] font-medium">Export CSV</span>
+                  <span className="text-[12px] text-ink-dim">Transactions</span>
                 </button>
                 <button className="btn-secondary flex flex-col items-center justify-center gap-2 py-5 h-auto"
                   onClick={() => void copyBackup()}>
                   <Clipboard size={20} strokeWidth={1.6} />
-                  <span className="font-mono text-[11px] tracking-[0.08em] uppercase">Copy to Clipboard</span>
-                  <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-ink-dim normal-case">Full backup</span>
+                  <span className="text-[13px] font-medium">Copy to Clipboard</span>
+                  <span className="text-[12px] text-ink-dim">Full backup</span>
                 </button>
               </div>
             </div>
@@ -675,7 +712,7 @@ export default function Settings() {
               ].map(s => (
                 <div key={s.label} className="well p-3 text-center">
                   <div className="text-2xl font-semibold text-coral">{s.value}</div>
-                  <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim uppercase mt-0.5">{s.label}</div>
+                  <div className="text-[12px] text-ink-dim mt-0.5">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -689,15 +726,15 @@ export default function Settings() {
             <div className="px-3.5 pb-3 grid sm:grid-cols-3 gap-3">
               <Link to="/privacy" className="tile px-4 py-4 hover:shadow-neu-hover transition-shadow">
                 <div className="text-sm font-semibold text-ink mb-1">Privacy Policy</div>
-                <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
+                <div className="text-[12px] text-ink-dim">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
               </Link>
               <Link to="/terms" className="tile px-4 py-4 hover:shadow-neu-hover transition-shadow">
                 <div className="text-sm font-semibold text-ink mb-1">Terms of Service</div>
-                <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
+                <div className="text-[12px] text-ink-dim">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
               </Link>
               <Link to="/cookies" className="tile px-4 py-4 hover:shadow-neu-hover transition-shadow">
                 <div className="text-sm font-semibold text-ink mb-1">Cookie Policy</div>
-                <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
+                <div className="text-[12px] text-ink-dim">Last updated {formatPolicyDate(POLICY_VERSION)}</div>
               </Link>
             </div>
           </SettingRow>

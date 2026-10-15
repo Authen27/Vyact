@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  MessageCircle, Mic, PencilLine, List, ArrowUpRight, ArrowUp, Square, Plus, Copy, Check, ThumbsUp, ThumbsDown,
+  MessageCircle, Mic, List, ArrowUpRight, ArrowUp, Square, Plus, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
@@ -27,6 +27,19 @@ import {
   runAssistant, proactiveInsight, selectAssistantBackend, type AssistantContext,
 } from '../lib/askVyactBackend';
 import PageHead from '../components/ui/PageHead';
+import CaptureCard from '../components/chat/CaptureCard';
+import type { Transaction } from '../types';
+
+/** A transcript row, plus what A7 keeps per turn on this device: the entry Pip understood (PIP2) and
+ *  a failed turn's question (PIP1). Kept local so the shared ChatMessage type is untouched. */
+type ChatRow = ChatMessage & {
+  capture?: { seed: Partial<Transaction>; saved?: boolean };
+  failedQuestion?: string;
+};
+
+/** Aurora 4.0 P2 / PIP3 — the standard raised chip (the examples and the follow-ups look alike). */
+const CHIP_CLASS = 'inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[40px] px-3.5 rounded-pill text-[13px] font-medium max-w-full transition-[box-shadow,color] disabled:opacity-50 disabled:cursor-not-allowed';
+const CHIP_STYLE = { background: 'var(--canvas)', color: 'hsl(var(--ink))', boxShadow: 'var(--neu-sm)' } as const;
 
 // Minimal Web Speech API shapes (lib.dom doesn't ship these in all TS configs).
 interface SpeechRecognitionEventLike {
@@ -84,18 +97,18 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
   const myRole        = useStore(s => s.myRole);
   const toast         = useStore(s => s.toast);
 
-  const [history, setHistory] = useState<ChatMessage[]>(() => {
+  const [history, setHistory] = useState<ChatRow[]>(() => {
     // Audit S5 — the transcript is household-scoped. One global 'chat_history'
     // key used to share a conversation across every household (and, on a shared
     // device, across users until the cache epoch purge). One-time: the legacy
     // global key seeds THIS household's transcript, then is removed.
     const key = `chat_history_${householdId}`;
     try {
-      const scoped = ls.readJson<ChatMessage[]>(key);
+      const scoped = ls.readJson<ChatRow[]>(key);
       // A turn interrupted mid-flight (tab closed, reload) was persisted with
       // `pending: true`; drop it so it never renders as permanently thinking.
       if (scoped) return scoped.filter(m => !m.pending);
-      const legacy = ls.readJson<ChatMessage[]>('chat_history');
+      const legacy = ls.readJson<ChatRow[]>('chat_history');
       if (legacy) {
         try { ls.setJson(key, legacy); } catch { /* noop */ }
         try { localStorage.removeItem('vt_chat_history'); localStorage.removeItem('chat_history'); } catch { /* noop */ }
@@ -238,7 +251,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
     // answered and the outcome. Still privacy-safe: intent + sentiment + length
     // + call metadata only, never the message text.
     const startedAt = Date.now();
-    const patchTurn = (patch: Partial<ChatMessage>) =>
+    const patchTurn = (patch: Partial<ChatRow>) =>
       setHistory(h => h.map(m => (m.turnId === turnId ? { ...m, ...patch } : m)));
     const addStep = (step: string) =>
       setHistory(h => h.map(m => (m.turnId === turnId ? { ...m, steps: [...(m.steps ?? []), step] } : m)));
@@ -293,7 +306,12 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
         // the form before the user could read what had been understood, so the
         // confirmation they expected first arrived last or not at all.
         // W4c (D18): a split capture carries a split, and the store opens the Split form for it.
-        if (turn.seed) openAddTxn(turn.seed);
+        // Aurora 4.0 PIP2 — any other capture is confirmed IN the chat: a card with Save and Edit in
+        // form (CaptureCard), so the form replaces the chat only when asked.
+        if (turn.seed) {
+          if (turn.seed.split) openAddTxn(turn.seed);
+          else patchTurn({ capture: { seed: turn.seed } });
+        }
         // v10.39.1 (P21) — a recurring draft opens the Recurring section's own sheet,
         // the only place a schedule is authored; the user picks the account and saves.
         if (turn.recurringSeed) appNavigate('/recurring', { state: { recurringSeed: turn.recurringSeed } });
@@ -314,7 +332,11 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
         householdId, text: question, surface: 'chat',
         outcome: 'error', latencyMs: Date.now() - startedAt,
       });
-      patchTurn({ content: `Error: ${(e as Error).message}`, pending: false });
+      // Aurora 4.0 PIP1 — never the raw error ("Error: Failed to fetch"): say nothing was saved, offer
+      // Try again, and keep the question in the box. The technical detail goes to the console only.
+      console.warn('Pip turn failed', e);
+      patchTurn({ content: 'I couldn’t answer that just now, and nothing was saved. Check your connection and try again.', pending: false, failedQuestion: question });
+      setInput(cur => cur || question);
     } finally {
       // The stream path clears activeTurn itself after the reply settles; the
       // off / error paths never started a stream, so clear any pending marker.
@@ -447,6 +469,15 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
   // v10.54.0 (owner) — "New chat" replaces "Clear history": no confirmation, no
   // delete wording. It leaves the current conversation (an answer still being
   // written is stopped) and starts a fresh one.
+  /** PIP1 — ask the failed question again (its two rows are replaced by the new turn). */
+  function retry(i: number) {
+    const question = history[i]?.failedQuestion;
+    if (!question || thinking) return;
+    setHistory(h => h.filter((_, idx) => idx !== i && idx !== i - 1));
+    setInput('');
+    void send(question);
+  }
+
   function newChat() {
     activeTurn?.cancel();
     setActiveTurn(null);
@@ -507,19 +538,19 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
     <div className="flex items-center gap-1.5">
       {isCloudEnabled() && (
         <button type="button" onClick={openWhatsApp} aria-label="Chat with Pip on WhatsApp" title="Chat with Pip on WhatsApp"
-          className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-pill border border-line text-[0.78rem] text-ink-mid hover:text-ink hover:border-line2">
+          className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 rounded-pill border border-line text-[12.5px] text-ink-mid hover:text-ink hover:border-line2">
           <WhatsAppIcon size={15} className="text-[#25D366]" /> WhatsApp
         </button>
       )}
       <button type="button" onClick={newChat} disabled={history.length === 0 && !thinking} aria-label="New chat" title="New chat"
-        className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-pill border border-line text-[0.78rem] text-ink-mid hover:text-ink hover:border-line2 disabled:opacity-40 disabled:cursor-not-allowed">
+        className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 rounded-pill border border-line text-[12.5px] text-ink-mid hover:text-ink hover:border-line2 disabled:opacity-40 disabled:cursor-not-allowed">
         <Plus size={15} aria-hidden /> New chat
       </button>
     </div>
   );
 
   return (
-    <div className={`ui-pilot reading-surface ${embedded ? 'flex flex-col flex-1 min-h-0' : ''}`}>
+    <div className={`ui-pilot reading-surface ${embedded ? 'flex flex-col flex-1 min-h-0' : 'lg:flex lg:flex-col lg:h-[calc(100dvh-8.5rem)] lg:min-h-[32rem]'}`}>
       {/* FIT3 — on phones the heading is hidden (the mobile header says "Pip") and WhatsApp and
           New chat sit right-aligned in one row. */}
       {!embedded && (
@@ -535,8 +566,8 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
       {/* v10.52.0 (owner) — the green "Vyact does the maths…" banner above the
           chat was removed. The honest caveat now sits under the composer, where
           it's read at the moment of asking: Pip is AI-based and can be wrong. */}
-      <Panel className={embedded ? 'flex-1 min-h-0 flex flex-col' : ''}>
-        <div ref={scrollRef} className={`px-4 py-4 space-y-3 overflow-y-auto overflow-x-hidden ${embedded ? 'flex-1 min-h-0' : 'max-h-[28rem] min-h-[20rem]'}`}>
+      <Panel className={embedded ? 'flex-1 min-h-0 flex flex-col' : 'lg:flex-1 lg:min-h-0 lg:flex lg:flex-col'}>
+        <div ref={scrollRef} data-testid="ask-scroll" className={`px-4 py-4 space-y-3 overflow-y-auto overflow-x-hidden ${embedded ? 'flex-1 min-h-0' : 'max-h-[28rem] min-h-[20rem] lg:max-h-none lg:min-h-0 lg:flex-1'}`}>
           {history.length === 0 && proactive && (
             <div className="mb-4 bg-coral-tint border border-coral/30 rounded-md p-3 flex items-start gap-3">
               <div className="flex-1 text-[0.84rem] text-ink leading-snug">{proactive.text}</div>
@@ -544,12 +575,12 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                 {proactive.chipPrompt && (
                   <button
                     onClick={() => { const p = proactive.chipPrompt!; setProactive(null); prepareQuestion(p); }}
-                    className="text-[0.72rem] font-semibold text-coral hover:underline"
+                    className="text-[12px] font-semibold text-coral hover:underline min-h-[44px]"
                   >
                     Use question
                   </button>
                 )}
-                <button onClick={() => setProactive(null)} className="text-ink-dim hover:text-ink text-[0.72rem]">
+                <button onClick={() => setProactive(null)} className="text-ink-dim hover:text-ink text-[12px] min-h-[44px]">
                   Dismiss
                 </button>
               </div>
@@ -565,7 +596,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                   three that are not chat commands (budget, debt, asset) were
                   rows with no button at all; they're now real buttons that open
                   their form ('Set up with a form'). */}
-              <p className="text-xs text-ink-dim mb-3 leading-relaxed">
+              <p className="text-[12px] text-ink-dim mb-3 leading-relaxed">
                 Tap an example to put it in the box, change the details, then Send. Check any proposed entry before you save it.
               </p>
               <div className="space-y-3">
@@ -574,7 +605,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                   if (!items.length) return null;
                   return (
                     <section key={b} aria-label={BUCKET_LABEL[b]}>
-                      <h3 className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-ink-dim mb-1.5">{BUCKET_LABEL[b]}</h3>
+                      <h3 className="ui-label mb-1.5">{BUCKET_LABEL[b]}</h3>
                       <div className="flex flex-wrap gap-1.5">
                         {items.map(intent => {
                           const example = intentExample(intent)!;
@@ -582,7 +613,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                             <button key={intent.id} type="button" data-testid={`ask-intent-${intent.id}`}
                               aria-label={`Use example: ${intent.label}`} title={example}
                               onClick={() => prepareQuestion(example)} disabled={thinking}
-                              className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 rounded-pill border border-line text-[0.8rem] text-ink hover:border-coral hover:text-coral disabled:opacity-50 disabled:cursor-not-allowed max-w-full">
+                              className={CHIP_CLASS} style={CHIP_STYLE}>
                               <span aria-hidden>{intent.icon}</span>
                               <span className="truncate">{intent.label}</span>
                             </button>
@@ -594,13 +625,12 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                 })}
                 {setupIntents.length > 0 && (
                   <section aria-label={BUCKET_LABEL.setup}>
-                    <h3 className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-ink-dim mb-1.5">{BUCKET_LABEL.setup}</h3>
+                    <h3 className="ui-label mb-1.5">{BUCKET_LABEL.setup}</h3>
                     <div className="flex flex-wrap gap-1.5">
                       {setupIntents.map(intent => (
                         <button key={intent.id} type="button" data-testid={`ask-intent-${intent.id}`}
                           title={intent.inputHint} onClick={() => openSetup(intent)}
-                          className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 rounded-pill text-[0.8rem] font-medium max-w-full"
-                          style={{ background: 'var(--sunken)', color: 'hsl(var(--ink))' }}>
+                          className={CHIP_CLASS} style={CHIP_STYLE}>
                           <span aria-hidden>{intent.icon}</span>
                           <span className="truncate">{intent.label}</span>
                           <ArrowUpRight size={13} aria-hidden className="text-ink-dim shrink-0" />
@@ -640,10 +670,21 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                   </div>
                 </div>
               )}
+              {m.capture && !streaming && (
+                <CaptureCard seed={m.capture.seed} saved={!!m.capture.saved}
+                  onSaved={() => setHistory(h => h.map((row, idx) => (idx === i && row.capture ? { ...row, capture: { ...row.capture, saved: true } } : row)))}
+                  onEdit={() => { const seed = m.capture!.seed; if (embedded) closeAsk(); openAddTxn(seed); }} />
+              )}
+              {m.failedQuestion && i === history.length - 1 && !thinking && (
+                <button type="button" onClick={() => retry(i)} data-testid="ask-retry"
+                  className="btn-ghost mt-2 inline-flex items-center gap-1.5">
+                  <RotateCcw size={14} aria-hidden /> Try again
+                </button>
+              )}
               {/* v10.54.0 (owner) — under every finished answer: copy, 👍, 👎. Ratings
                   go to GA (ask_feedback) and the admin console (ai_feedback); never
                   the question or the answer itself. */}
-              {answered && (
+              {answered && !m.failedQuestion && (
                 <div className="flex items-center gap-0.5 mt-1 ml-1" data-testid="ask-answer-actions">
                   <button type="button" onClick={() => void copyAnswer(i)} aria-label="Copy answer" title="Copy"
                     className="w-8 h-8 inline-flex items-center justify-center rounded-full text-ink-dim hover:text-ink hover:bg-bg3">
@@ -666,14 +707,17 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                   of what was said) but stop being tappable, so scrolling back
                   cannot silently re-ask something from ten turns ago. */}
               {m.role === 'assistant' && m.chips && m.chips.length > 0 && i === history.length - 1 && !thinking && (
-                <div className="flex flex-col gap-2 mt-2 min-w-0" data-testid="ask-vyact-chips">
-                  {m.chips.map((c, ci) => (
-                    <Button key={ci} variant="ghost" onClick={() => prepareQuestion(c.prompt)} data-testid={`ask-vyact-chip-${ci}`}
-                      className="w-full text-left justify-start" aria-label={`Use question: ${c.prompt}`}>
-                      <PencilLine size={14} className="shrink-0" aria-hidden />
-                      <span className="min-w-0 [overflow-wrap:anywhere]"><span className="block">{c.prompt}</span><span className="block text-xs text-ink-dim mt-1">Use question</span></span>
-                    </Button>
-                  ))}
+                <div className="mt-2.5 min-w-0" data-testid="ask-vyact-chips">
+                  <div className="ui-label mb-1.5">Ask next</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {m.chips.map((c, ci) => (
+                      <button key={ci} type="button" onClick={() => prepareQuestion(c.prompt)} data-testid={`ask-vyact-chip-${ci}`}
+                        title={c.prompt} aria-label={`Use question: ${c.prompt}`}
+                        className={`${CHIP_CLASS} text-left whitespace-normal [overflow-wrap:anywhere]`} style={CHIP_STYLE}>
+                        {c.label || c.prompt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -688,6 +732,14 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
           {/* v10.54.0 (owner design) — one rounded field: the question on top, the
               mic and send beneath it. While Pip answers, send becomes stop; the
               field never says "thinking". */}
+          {listening && (
+            <div className="flex items-center gap-2.5 mb-2 px-3 py-2 rounded-r2 well" data-testid="ask-listening" role="status" aria-live="polite">
+              <span aria-hidden className="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse" style={{ background: 'hsl(var(--terra))' }} />
+              <span className="flex-1 min-w-0 text-[13px] text-ink truncate">{interimText || 'Listening… say what you spent or ask a question'}</span>
+              <button type="button" onClick={stopVoice} className="min-h-[44px] sm:min-h-[36px] px-3 rounded-pill text-[12.5px] font-medium"
+                style={{ color: 'var(--crit-text)' }}>Stop</button>
+            </div>
+          )}
           <div className="ask-composer px-3.5 pt-2.5 pb-2" data-testid="ask-composer">
             <label htmlFor={embedded ? 'ask-drawer-input' : 'ask-page-input'} className="sr-only">Your question or entry</label>
             {/* Enter sends; Shift+Enter inserts a new line. `isComposing` stops an
@@ -697,7 +749,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(input); } }}
-              placeholder={listening ? (interimText || 'Listening…') : 'Ask me anything…'}
+              placeholder="Ask me anything…"
               className="block w-full min-h-[2rem] max-h-48 py-1 overflow-x-hidden text-[0.92rem] leading-snug text-ink placeholder:text-ink-dim"
             />
             <div className="flex items-center justify-end gap-1.5 mt-1">
@@ -725,7 +777,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
             </div>
           </div>
           {/* v10.52.0 (owner) — replaces the "Vyact does the maths" banner. */}
-          <p className="mt-2 px-1 text-[0.7rem] leading-snug text-ink-dim" data-testid="ask-ai-disclaimer">
+          <p className="mt-2 px-1 text-[11.5px] leading-snug text-ink-dim" data-testid="ask-ai-disclaimer">
             Pip is AI-based and can make mistakes. Please double-check its responses.
           </p>
         </div>

@@ -41,7 +41,7 @@ describe('A1 · Aurora 4.0 foundations', () => {
   });
 
   it('A1-X8-001 · text on coral is the dark accent ink, never white', () => {
-    for (const f of tsxFiles().filter(f => f !== 'pages/LandingView.tsx')) {   // Landing: LP2 in A8
+    for (const f of tsxFiles()) {   // Landing included since A8 (LP2)
       expect(read(f), f).not.toMatch(/bg-coral text-white/);
     }
     expect(read('pages/Reports.tsx')).not.toMatch(/text-white/);   // CON2: the Needs segment

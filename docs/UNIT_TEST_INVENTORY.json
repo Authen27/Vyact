@@ -230,6 +230,50 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/a7AuroraInsightsPip.test.tsx",
+      "feature": "Aurora 4.0 Insights, Pip, Households, Settings (A7)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Aurora 4.0 A7: one build-and-check for the transaction form and Pip (txnBuild: refusals, loan payment, account matrix, patch, member, undo), Pip confirms in the chat, human error with Try again, Ask next chips, listening strip, full-height chat, one action per insight, suggested lessons, Learn chips in one row, activity chips, household name field, Profile as rows, WhatsApp under Connections, real theme previews, sans labels and an 11px floor",
+      "count": 15,
+      "tests": [
+        "A7 · Insights, Households, Settings A7-HH1-HH2-001 · activity filters are chips; the name is a field in Household settings",
+        "A7 · Insights, Households, Settings A7-INS2-LN-001 · one action per insight; suggested lessons; one row of 40px chips on phones",
+        "A7 · Insights, Households, Settings A7-ST1-ST2-MIST3-001 · Profile as rows, WhatsApp under Connections, real theme previews",
+        "A7 · Insights, Households, Settings A7-X1-X9-001 · these pages use sans labels and no text under 11px",
+        "A7 · PIP2 — one build-and-check for the form and Pip A7-PIP2-001 · a plain expense is built as the form built it",
+        "A7 · PIP2 — one build-and-check for the form and Pip A7-PIP2-002 · it refuses what the form refuses, in the form's order and words",
+        "A7 · PIP2 — one build-and-check for the form and Pip A7-PIP2-003 · a new Loan / EMI entry is a loan payment (payLoan), never a plain upsert",
+        "A7 · PIP2 — one build-and-check for the form and Pip A7-PIP2-004 · transfers and investments keep their account matrix; an edit is a patch",
+        "A7 · PIP2 — one build-and-check for the form and Pip A7-PIP2-005 · the member and the Undo rule are the form's",
+        "A7 · PIP2 — one build-and-check for the form and Pip A7-PIP2-006 · the form and Pip's card both build through txnBuild; Pip confirms in the chat",
+        "A7 · Pip page A7-P1-P2-PIP3-PIP4-001 · full-height on desktop, raised chips, Ask next, a listening strip",
+        "A7 · Pip page A7-PIP1-001 · a failed turn says nothing was saved, offers Try again and keeps the question",
+        "A7 · owner follow-ups (16 Oct 2026) A7-LEARN-001 · the Dashboard shelf picks for the household: loan, over budget, then saving, rotating weekly",
+        "A7 · owner follow-ups (16 Oct 2026) A7-LEARN-002 · the shelf is the last Dashboard section, loaded lazily, opening lessons in place",
+        "A7 · owner follow-ups (16 Oct 2026) A7-MENU-001 · the ⋯ menu is drawn in a portal at a fixed position, so a clipping card cannot hide it"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/a8AuroraPublic.test.tsx",
+      "feature": "Aurora 4.0 public pages (A8)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Aurora 4.0 A8: landing phone header without Learn, dark ink on the coral Pip band, Shorts as a phone swipe row, raised 18px cards, Forgot? on the password label, magic link as a ghost button, Show password, 18px auth card on phones, sans labels",
+      "count": 7,
+      "tests": [
+        "A8 · landing A8-LA1-X1-001 · landing cards are the raised 18px card; no old tiles, no mono caps, nothing under 11px",
+        "A8 · landing A8-LP1-001 · phones show Sign in and Open app; Learn stays in the footer and the lessons section",
+        "A8 · landing A8-LP2-001 · the coral Pip band uses dark ink, never white text",
+        "A8 · landing A8-LP3-001 · the Shorts are a swipe row of 150px tiles on phones, three across from sm",
+        "A8 · sign in A8-AU1-001 · Forgot? on the password label, the magic link as a ghost button, only Create account below",
+        "A8 · sign in A8-AU2-001 · a Show toggle inside the password field, labelled for the field Field names",
+        "A8 · sign in A8-LA2-001 · the auth card is 18px on phones, 26px from sm; auth screens use sans labels"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/accountDeletionHandler.test.ts",
       "feature": "Account deletion handler",
       "availability": "conditional",

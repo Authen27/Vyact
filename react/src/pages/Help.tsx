@@ -30,7 +30,7 @@ export default function Help() {
   // v10.59.0 (owner) — the same type and layout as Households, the app's default page style:
   // display-italic title with no caption, display-italic section headings, content in Panels.
   return (
-    <div>
+    <div className="ui-pilot">
       <PageHead title="Help & Guide" />
 
       <h2 id="help-start" className="display-italic text-2xl text-ink mb-3">Your next step</h2>
@@ -54,14 +54,14 @@ export default function Help() {
           <Input type="search" value={query} placeholder="Try cash, split, investment or sync" aria-label="Search Help & Guide"
             onChange={event => setQuery(event.target.value)} autoComplete="off" />
           <div className="flex items-center justify-between gap-3 min-h-[44px] mt-1">
-            <p role="status" className="font-mono text-[0.62rem] tracking-wider text-ink-dim flex items-center gap-2"><Search size={12} aria-hidden />
+            <p role="status" className="text-[12px] text-ink-dim flex items-center gap-2"><Search size={12} aria-hidden />
               {searching ? `${filtered.length} matching ${filtered.length === 1 ? 'answer' : 'answers'}` : `${HELP_TOPICS.length} answers`}
             </p>
             {searching && <Button variant="ghost" onClick={() => setQuery('')}><X size={14} aria-hidden /> Clear search</Button>}
           </div>
           {!searching && <nav aria-label="Help topics" className="flex flex-wrap gap-x-5 gap-y-1">
             {GROUPS.map(group => <a key={group} href={`#help-${group.toLowerCase().replace(/ /g, '-')}`}
-              className="font-mono text-[0.62rem] tracking-wider uppercase text-coral inline-flex items-center min-h-[44px]">{group}</a>)}
+              className="text-[13px] font-medium text-coral inline-flex items-center min-h-[44px]">{group}</a>)}
           </nav>}
         </div>
       </Panel>
@@ -107,11 +107,11 @@ export default function Help() {
             </form>
             <p className="text-[0.75rem] text-ink-dim mt-3 leading-relaxed">Opens your email app; nothing is sent until you send it there. You can also email <a className="text-coral underline break-all" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.</p>
             {emailAttempted && <p role="status" className="text-[0.85rem] text-ink-mid mt-3">If no draft opened, use the email address above. No support ticket has been submitted here.</p>}
-            <div className="flex flex-wrap gap-5 mt-4 font-mono text-[0.62rem] tracking-wider uppercase"><Link to="/privacy" className="text-coral">Privacy</Link><Link to="/terms" className="text-coral">Terms</Link></div>
+            <div className="flex flex-wrap gap-5 mt-4 text-[13px] font-medium"><Link to="/privacy" className="text-coral">Privacy</Link><Link to="/terms" className="text-coral">Terms</Link></div>
           </div>
         </Panel>
       </section>
-      <p className="font-mono text-[0.62rem] text-ink-dim">Vyact Consumer v{__APP_VERSION__}</p>
+      <p className="text-[12px] text-ink-dim">Vyact Consumer v{__APP_VERSION__}</p>
     </div>
   );
 }

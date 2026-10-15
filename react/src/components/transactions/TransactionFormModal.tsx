@@ -8,7 +8,7 @@ import CategoryPicker from '../ui/CategoryPicker';
 import { AmountField } from '../ui/NumericKeypad';
 import { parseAmount } from '../../lib/amountInput';
 import { useStore } from '../../store';
-import { normalizeTimeInput, nowTime, uid, today, addDaysISO, fmt } from '../../lib/format';
+import { nowTime, uid, today, addDaysISO, fmt } from '../../lib/format';
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
@@ -21,12 +21,11 @@ import { confirmSheet } from '../../lib/confirmSheet';
 import { deleteTransactionRequest } from '../../lib/confirmCopy';
 import TimeDial from '../ui/TimeDial';
 import { getMoneyMapMode } from '../../lib/featureFlags';
-import { FEATURES } from '../../config/features';
 import { accountValueOf } from '../../lib/accountBalance';
 import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
-import { editPatch } from '../../lib/txnEdit';
 import { LoanPaymentRefused, loanErrorMessage } from '../../lib/loanSchedule';
 import { recentCategories, suggestCategory, type CategorySuggestion } from '../../lib/categorySuggest';
+import { buildTxn, undoableNewTxn } from '../../lib/txnBuild';
 import type { Transaction, TxnType, Recurrence, PaymentMode, LoanDue } from '../../types';
 
 interface Props {
@@ -392,120 +391,27 @@ export default function TransactionFormModal(props: Props) {
   // builds — including the transfer/investment swap matrix and split model —
   // is identical and unchanged from the pre-Aurora form.
   async function persist(addAnother: boolean) {
-    const amount = parseAmount(form.amount);
-    if (isNaN(amount) || amount <= 0) {
-      toast('Enter a valid amount greater than 0', 'error');
+    // Aurora 4.0 PIP2 — the build-and-check lives in lib/txnBuild.ts (moved unchanged), so Pip's inline
+    // Save card refuses and builds exactly what this form does.
+    const built = buildTxn(form, { initial, payingModes, newId: uid });
+    if (!built.ok) {
+      if (built.field === 'category') setCatMissing(true);
+      toast(built.error, 'error');
       return;
     }
-    // v9 F-VALIDATION — block save only on missing REQUIRED-primary fields.
-    // Description and member are 'More details' fields, never required.
-    if (!FEATURES.txnRedesign.enabled && !isTransfer && !form.description.trim()) {
-      toast('Description is required', 'error');
-      return;
-    }
-    const normalizedTime = normalizeTimeInput(form.time);
-    if (!normalizedTime) {
-      toast('Pick a time for this transaction', 'error');
-      return;
-    }
-    if (!FEATURES.txnRedesign.enabled && !isTransfer && !form.memberId) {
-      toast('Choose a member for this transaction', 'error');
-      return;
-    }
-    // CAT1 — an expense or income needs a category: a pick or an accepted suggestion.
-    if (!isTransfer && !isInvestment && !form.category) {
-      setCatMissing(true);
-      toast('Choose a category', 'error');
-      return;
-    }
-    // v9 §4.1 — loan_emi requires the linked loan (the system split needs it).
-    if (FEATURES.txnRedesign.enabled && form.type === 'expense'
-        && form.category === 'loan_emi' && !form.linkedDebtId) {
-      toast('Choose which loan this EMI pays', 'error');
-      return;
-    }
-    // ── Account required for money that moves in/out of an account ──
-    if (accountRequired && !form.paymentMethod) {
-      toast('Choose an Account (cash, bank or card) for this transaction', 'error');
-      return;
-    }
-    // v7.0.3 — transfer + investment require a destination account too.
-    if (needsToAccount && !form.paymentMethodTo) {
-      toast(isTransfer ? 'Choose a destination Account' : 'Choose an Investment Vehicle', 'error');
-      return;
-    }
-    if (needsToAccount && form.paymentMethod && form.paymentMethodTo === form.paymentMethod) {
-      toast('Source and destination must be different accounts', 'error');
-      return;
-    }
+    const { txn, loan } = built;
 
-    // Splits are authored in the standalone Split form (v10.16); a plain
-    // transaction never carries a `split`.
     setSaving(true);
     try {
-      // v9 §4.3 — investment direction maps the account matrix:
-      //   'added'    → from = cash side (paymentMethod), to = investment account
-      //   'withdrew' → from = investment account,        to = cash side
-      const swap = isInvestment && form.direction === 'withdrew';
-      const fromEncoded = swap ? form.paymentMethodTo : form.paymentMethod;
-      const toEncoded   = swap ? form.paymentMethod   : form.paymentMethodTo;
-      // W4c (D18) — an edit is a patch over the opened row: what this form does not show (the
-      // schedule or loan it came from, its provenance) is kept, never silently dropped.
-      const txn: Transaction = editPatch(initial, {
-        id: initial?.id ?? uid(),
-        type: form.type,
-        amount,
-        currency: form.currency,
-        date: form.date,
-        time: normalizedTime,
-        description: form.description.trim(),
-        // transfer-class rows carry no category ('' → null at the adapter).
-        category: (isTransfer || isInvestment) ? '' : form.category,
-        note: form.note.trim() || undefined,
-        memberId: form.memberId,
-        // v10.26.0 (R4) — an investment names the asset plus ONE account: the
-        // paying account for a buy, the receiving account for a withdrawal.
-        paymentMethod: isInvestment ? (isWithdraw ? undefined : form.paymentMethod || undefined) : (fromEncoded || undefined),
-        ...(isInvestment ? {
-          assetId: form.paymentMethodTo || undefined,
-          accountId: undefined,
-          toAccountId: isWithdraw ? form.paymentMethod || undefined : undefined,
-        } : {}),
-        // v10.25.0 — undefined when the account's modes are unknown, so an edit
-        // never erases a stored mode it could not display.
-        // An investment only ever CLEARS a mode it already had — sending null on
-        // every investment would name a column a lagging schema does not have yet.
-        paymentMode: isInvestment ? (initial?.paymentMode ? null : undefined)
-          : payingModes.length ? (form.paymentMode || null) : undefined,
-        recurring: form.recurring || undefined,
-        excluded: form.excluded || undefined,
-        linkedToAssetId: isInvestment ? undefined : needsToAccount ? toEncoded || undefined : initial?.linkedToAssetId,
-        linkedDebtId: (form.category === 'loan_emi' ? form.linkedDebtId : undefined) ?? initial?.linkedDebtId,
-        linkedTxnId:   initial?.linkedTxnId,
-        // Audit F7 — carry the read version through the edit so the store can
-        // pass it as the optimistic-concurrency precondition. Without this the
-        // edit fell back to last-write-wins.
-        updated_at:    initial?.updated_at,
-      } as Transaction);
-
       // Audit F2 — a NEW loan EMI is an explicit financial command, not a
       // generic upsert. W4f (D19): the SERVER computes the split (pay_loan: interest first, then
       // principal, for the instalment due). An amount above what is due is refused — the extra is a
       // prepayment, recorded from the loan (owner). Edits of an existing EMI leg are refused by the
       // store: a payment is undone from the loan, as a whole.
-      if (!initial && form.category === 'loan_emi' && form.linkedDebtId) {
+      if (loan) {
         loanOperation.current ??= uid();
         try {
-          const res = await payLoan({
-            operationId: loanOperation.current,
-            debtId: form.linkedDebtId,
-            kind: 'emi',
-            fundingAccountId: fromEncoded || undefined,
-            amount,
-            date: form.date,
-            description: form.description.trim() || undefined,
-            memberId: form.memberId,
-          });
+          const res = await payLoan({ operationId: loanOperation.current, kind: 'emi', ...loan });
           toast(res.closesInstalment
             ? `EMI #${res.instalmentNo} recorded — ${fmt(res.interest, form.currency)} interest, ${fmt(res.principal, form.currency)} off the loan`
             : `Part of EMI #${res.instalmentNo} recorded. The rest is still due.`, 'success');
@@ -528,9 +434,7 @@ export default function TransactionFormModal(props: Props) {
       // Offer Undo only for a freshly-added PLAIN expense/income row — those
       // delete cleanly. System-split rows (loan_emi, transfer, investment)
       // create linked legs, so we never one-tap-undo them.
-      const undoable = !initial
-        && (form.type === 'expense' || form.type === 'income')
-        && form.category !== 'loan_emi';
+      const undoable = undoableNewTxn(initial, form.type, form.category);
       const createdId = txn.id;
       toast(
         initial ? 'Transaction updated' : 'Transaction added',

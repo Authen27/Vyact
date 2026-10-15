@@ -265,7 +265,7 @@ export default function ResetPassword() {
                   />
                 ))}
               </div>
-              <div className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-ink-dim">
+              <div className="text-[12px] text-ink-dim">
                 Strength: <span className="text-ink-mid">{strength.label}</span>
               </div>
             </div>
@@ -319,7 +319,7 @@ export default function ResetPassword() {
 
       <div className="my-4 flex items-center gap-3">
         <div className="flex-1 h-px bg-line" />
-        <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">or</span>
+        <span className="text-[12px] text-ink-dim">or</span>
         <div className="flex-1 h-px bg-line" />
       </div>
 

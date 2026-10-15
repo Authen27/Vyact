@@ -5,7 +5,7 @@
 // metric tiles + insight spine-cards → 3-col panels. Every number reuses the
 // SAME aggregates as before (monthlyData/pulse/spendByCategory) — this pass
 // changes presentation only.
-import { useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
@@ -34,6 +34,10 @@ import { FEATURES } from '../config/features';
 import type { PulseScore } from '../lib/calculations';
 import type { Transaction } from '../types';
 import PageHead from '../components/ui/PageHead';
+
+// The "Learn in a minute" shelf carries the lesson library (a large JSON): loaded after the Dashboard
+// renders, never in its first paint.
+const LearnShelf = lazy(() => import('../components/dashboard/LearnShelf'));
 
 /** #7 — one actionable line under the Pulse: point at the weakest applicable
  *  component so the user always knows what to do next. */
@@ -105,6 +109,12 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [budgets, budgetAllocations, transactions, baseCur, rates, mk],
   );
+  // What the Learn shelf picks for: a loan being repaid, a budget over, or no budget yet.
+  const learnSituation = useMemo(() => ({
+    hasDebt: debts.some(d => (d.direction ?? 'owed_by_me') === 'owed_by_me' && !d.paidOffAt),
+    overBudget: budgetNow.lines.some(l => (l.pct ?? 0) >= 100) || budgetNow.notPlanned.length > 0,
+    hasBudget: budgets.length > 0,
+  }), [debts, budgetNow, budgets.length]);
 
   // A6 — inline 6-month net trend for the Cash Flow hero. Presentation only:
   // each point reuses the SAME `monthlyData` aggregate the dashboard already
@@ -383,6 +393,12 @@ export default function Dashboard() {
           )}
         </Panel>
       </div>}
+
+      {/* Owner, 16 Oct 2026 — two or three lessons for what the household is dealing with, readable in
+          place, with a shortcut to the library. */}
+      <Suspense fallback={null}>
+        <LearnShelf situation={learnSituation} todayISO={today()} />
+      </Suspense>
     </div>
   );
 }

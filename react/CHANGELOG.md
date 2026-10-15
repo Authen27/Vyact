@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.105.0`** (consumer)
+> **Current production version: `v10.106.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,56 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.106.0 — Aurora 4.0 A7 + A8: Insights, Pip, Households, Settings and the public pages *(2026-10-16)*
+
+The last two PRs of the Aurora 4.0 redesign, shipped together. No figure, calculation or schema changes.
+One new way to save: Pip confirms an entry in the chat (PIP2), through the transaction form's own checks.
+
+**A7 — Insights, Pip, Households, Settings**
+- **Insights (INS2, LN1, LN3):** one link per insight (its action, or the lesson when there is none); the
+  lesson and the calculation basis move into ⋯. Learn opens with "Suggested for you": up to two lessons your
+  review points to, with the reason. On phones the lesson filters are one swipeable row of 40px chips.
+- **Pip (P1, P2, PIP1–PIP4):** an expense or income Pip understood is a card in the chat with the account
+  (picked there), Save and Edit in form; Save uses the form's own build-and-check (`lib/txnBuild.ts`, moved
+  out of the transaction form unchanged) and a Loan / EMI entry is paid through `payLoan`. A split still opens
+  the Split form; a transfer or investment the full form. A failed turn says nothing was saved, offers Try
+  again and keeps the question in the box (it printed "Error: Failed to fetch"). Follow-ups are short chips
+  under "Ask next"; examples are raised chips; a strip shows the live words and Stop while listening; on
+  desktop the conversation fills the height with the composer at the bottom.
+- **Households (HH1, HH2):** activity filters are standard chips; the household name is a field in Household
+  settings (Rename left the Danger Zone, and asks nothing).
+- **Settings (ST1, ST2, MIST3):** Profile is a group of rows (Display name, Email, Date format, the setup
+  wizard), each opening its own editor; WhatsApp is a row under "Connections"; each theme card shows a tiny
+  version of itself, and System shows dark and light side by side.
+- **X1 / X9:** Insights, Pip, Households, Settings and Help use sans labels and nothing under 11px.
+
+**Owner follow-ups (16 Oct 2026)**
+- **Fixed: the ⋯ More menu on a loan could not be used.** The Debts loan card clips its contents
+  (`overflow-hidden`), so the menu opened inside the card and was cut off. The menu is now drawn in a
+  portal at a fixed position beside its button, above it when there is no room below (the tab bar and the
+  floating + sit there on phones); a tap outside, Escape, a scroll or a resize closes it, and the arrow
+  keys move between items. Every ⋯ menu (Debts, Splits, Insights) gets this.
+- **New: "Learn in a minute" at the bottom of the Dashboard.** Three lessons picked for the household — a
+  loan being repaid, a budget over (or no budget yet), then saving and household habits — each with its
+  reason and reading time, rotating weekly. A card opens the lesson in place, in Learn's reader; "Explore
+  lessons" opens the library. Loaded after the Dashboard renders (the library is a large file), never in
+  its first paint; no one-country or tax lessons here.
+
+**A8 — public pages**
+- **Landing (LP1–LP3, LA1):** phones show Sign in and Open app (Learn stays in the footer and the lessons
+  section); the coral Pip band uses dark ink (#2A1712) instead of white (about 2.5:1); on phones the lesson
+  Shorts are a swipe row of 150px tiles; every card is the app's raised 18px card; no mono caps.
+- **Sign in (AU1, AU2, LA2):** "Forgot?" sits on the password label, the magic link is a ghost button under
+  Sign in and the footer keeps only Create account; a Show toggle inside the password field (sign in and
+  sign up); the auth card is 18px on phones; auth screens use sans labels.
+
+- New: `lib/txnBuild.ts`, `components/chat/CaptureCard.tsx`, `components/ui/PasswordInput.tsx`,
+  `lib/learnPicks.ts`, `components/dashboard/LearnShelf.tsx`. Tests:
+  `a7AuroraInsightsPip.test.tsx` (the shared builder's behaviour included) and `a8AuroraPublic.test.tsx`;
+  e2e follow the new controls (insight ⋯, Profile rows, Save name).
 
 ---
 

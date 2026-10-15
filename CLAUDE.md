@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.105.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.106.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -685,7 +685,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - A transaction's account label is `txnAccountLabel` (the `accounts` FK first, the legacy
     `paymentMethod` resolver last). A new store collection joins the backup in `lib/backup.ts`.
   - Bottom-fixed surfaces use `.bottom-above-tabbar`, not `bottom-4`.
-- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3, v10.103.0 A4, v10.104.0 A5, v10.105.0 A6; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
+- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3, v10.103.0 A4, v10.104.0 A5, v10.105.0 A6, v10.106.0 A7 + A8; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
   - Surfaces are three tiers only: `.card-raised` (heroes, KPIs, 18px), the panel (lists), and `.well`
     (stats and inputs inside a card, 12px). Never bring back the bg3 + 1px border + 8px tile. Corners
     are 12 / 18 / 26px (26 only for the auth card).
@@ -726,6 +726,18 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     one row that shows their values and opens in place (the transaction form's "More details").
   - Onboarding amounts are grouped as typed with commas only (`lib/groupDigits.ts`: lakhs for INR,
     thousands otherwise), never the currency's own locale, where "1.450" would read back as 1.45.
+  - **A transaction is built and checked in ONE place: `lib/txnBuild.ts` (`buildTxn`).** The transaction
+    form and Pip's inline Save card (`components/chat/CaptureCard`, Aurora 4.0 PIP2) both call it: amount,
+    time, category (CAT1), the loan an EMI pays, accounts, the investment matrix, payment modes, and an
+    edit as a patch. A NEW Loan / EMI entry comes back as `loan` and is paid through `payLoan`. Never add
+    a second save path that builds a transaction itself. Pip confirms an expense or income in the chat;
+    a split opens the Split form, and a transfer or investment the full form.
+  - A popup that must escape a clipping card (`overflow-hidden`) is drawn in a portal at a fixed position,
+    as `OverflowMenu` is (v10.106.0); never an absolutely placed menu inside such a card.
+  - The Dashboard ends with "Learn in a minute" (`components/dashboard/LearnShelf`, lazy so the lesson JSON
+    never joins the first paint; picks from `lib/learnPicks.ts`), opening lessons in Learn's reader.
+  - Public pages (landing, sign-in) use the same cards (`tile` at 18px) and dark ink on coral
+    (`--accent-ink`); a password field is `components/ui/PasswordInput` (Show / Hide inside the field).
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)

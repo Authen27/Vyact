@@ -25,14 +25,14 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1377 passing deterministic cases in 152 files. Zero failed, skipped or TODO cases at generation.**
+**1399 passing deterministic cases in 154 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 92 |
+| react | contract-unit | available | 114 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 96 |
 | react | sql-integration | conditional | 81 |
@@ -59,6 +59,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/a4AuroraStates.test.tsx](../react/src/lib/__tests__/a4AuroraStates.test.tsx) | Aurora 4.0 states and first run (A4) | contract-unit | available | 7 |
 | [react/src/lib/__tests__/a5AuroraPages.test.tsx](../react/src/lib/__tests__/a5AuroraPages.test.tsx) | Aurora 4.0 Plan and Track pages (A5) | contract-unit | available | 11 |
 | [react/src/lib/__tests__/a6AuroraForms.test.tsx](../react/src/lib/__tests__/a6AuroraForms.test.tsx) | Aurora 4.0 forms and onboarding (A6) | contract-unit | available | 13 |
+| [react/src/lib/__tests__/a7AuroraInsightsPip.test.tsx](../react/src/lib/__tests__/a7AuroraInsightsPip.test.tsx) | Aurora 4.0 Insights, Pip, Households, Settings (A7) | contract-unit | available | 15 |
+| [react/src/lib/__tests__/a8AuroraPublic.test.tsx](../react/src/lib/__tests__/a8AuroraPublic.test.tsx) | Aurora 4.0 public pages (A8) | contract-unit | available | 7 |
 | [react/src/lib/__tests__/accountDeletionHandler.test.ts](../react/src/lib/__tests__/accountDeletionHandler.test.ts) | Account deletion handler | handler-integration | conditional | 5 |
 | [react/src/lib/__tests__/accountPatchSafety.test.ts](../react/src/lib/__tests__/accountPatchSafety.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/accountPurgeSql.test.ts](../react/src/lib/__tests__/accountPurgeSql.test.ts) | Account purge and retention SQL | sql-integration | conditional | 6 |

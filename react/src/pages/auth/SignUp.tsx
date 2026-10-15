@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Mail } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Input, Field } from '../../components/ui/Input';
+import PasswordInput from '../../components/ui/PasswordInput';
 import { signUp, signIn, acceptPolicies } from '../../lib/auth';
 import GoogleButton from '../../components/auth/GoogleButton';
 import { AuthShell } from './SignIn';
@@ -126,7 +127,7 @@ export default function SignUp() {
           <Input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com" />
         </Field>
         <Field label="Password" hint="min 8 chars">
-          <Input type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={8} />
+          <PasswordInput autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={8} />
         </Field>
         {error && <div role="alert" className="text-terra text-[0.84rem] mb-3">{error}</div>}
         <Button full type="submit" disabled={submitting || !agreed}>
