@@ -732,6 +732,10 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     edit as a patch. A NEW Loan / EMI entry comes back as `loan` and is paid through `payLoan`. Never add
     a second save path that builds a transaction itself. Pip confirms an expense or income in the chat;
     a split opens the Split form, and a transfer or investment the full form.
+  - A popup that must escape a clipping card (`overflow-hidden`) is drawn in a portal at a fixed position,
+    as `OverflowMenu` is (v10.106.0); never an absolutely placed menu inside such a card.
+  - The Dashboard ends with "Learn in a minute" (`components/dashboard/LearnShelf`, lazy so the lesson JSON
+    never joins the first paint; picks from `lib/learnPicks.ts`), opening lessons in Learn's reader.
   - Public pages (landing, sign-in) use the same cards (`tile` at 18px) and dark ink on coral
     (`--accent-ink`); a password field is `components/ui/PasswordInput` (Show / Hide inside the field).
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**

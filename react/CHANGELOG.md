@@ -48,6 +48,18 @@ One new way to save: Pip confirms an entry in the chat (PIP2), through the trans
   version of itself, and System shows dark and light side by side.
 - **X1 / X9:** Insights, Pip, Households, Settings and Help use sans labels and nothing under 11px.
 
+**Owner follow-ups (16 Oct 2026)**
+- **Fixed: the ⋯ More menu on a loan could not be used.** The Debts loan card clips its contents
+  (`overflow-hidden`), so the menu opened inside the card and was cut off. The menu is now drawn in a
+  portal at a fixed position beside its button, above it when there is no room below (the tab bar and the
+  floating + sit there on phones); a tap outside, Escape, a scroll or a resize closes it, and the arrow
+  keys move between items. Every ⋯ menu (Debts, Splits, Insights) gets this.
+- **New: "Learn in a minute" at the bottom of the Dashboard.** Three lessons picked for the household — a
+  loan being repaid, a budget over (or no budget yet), then saving and household habits — each with its
+  reason and reading time, rotating weekly. A card opens the lesson in place, in Learn's reader; "Explore
+  lessons" opens the library. Loaded after the Dashboard renders (the library is a large file), never in
+  its first paint; no one-country or tax lessons here.
+
 **A8 — public pages**
 - **Landing (LP1–LP3, LA1):** phones show Sign in and Open app (Learn stays in the footer and the lessons
   section); the coral Pip band uses dark ink (#2A1712) instead of white (about 2.5:1); on phones the lesson
@@ -56,7 +68,8 @@ One new way to save: Pip confirms an entry in the chat (PIP2), through the trans
   Sign in and the footer keeps only Create account; a Show toggle inside the password field (sign in and
   sign up); the auth card is 18px on phones; auth screens use sans labels.
 
-- New: `lib/txnBuild.ts`, `components/chat/CaptureCard.tsx`, `components/ui/PasswordInput.tsx`. Tests:
+- New: `lib/txnBuild.ts`, `components/chat/CaptureCard.tsx`, `components/ui/PasswordInput.tsx`,
+  `lib/learnPicks.ts`, `components/dashboard/LearnShelf.tsx`. Tests:
   `a7AuroraInsightsPip.test.tsx` (the shared builder's behaviour included) and `a8AuroraPublic.test.tsx`;
   e2e follow the new controls (insight ⋯, Profile rows, Save name).
 

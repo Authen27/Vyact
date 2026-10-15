@@ -235,7 +235,7 @@
       "availability": "available",
       "layer": "contract-unit",
       "owner": "Aurora 4.0 A7: one build-and-check for the transaction form and Pip (txnBuild: refusals, loan payment, account matrix, patch, member, undo), Pip confirms in the chat, human error with Try again, Ask next chips, listening strip, full-height chat, one action per insight, suggested lessons, Learn chips in one row, activity chips, household name field, Profile as rows, WhatsApp under Connections, real theme previews, sans labels and an 11px floor",
-      "count": 12,
+      "count": 15,
       "tests": [
         "A7 · Insights, Households, Settings A7-HH1-HH2-001 · activity filters are chips; the name is a field in Household settings",
         "A7 · Insights, Households, Settings A7-INS2-LN-001 · one action per insight; suggested lessons; one row of 40px chips on phones",
@@ -248,7 +248,10 @@
         "A7 · PIP2 — one build-and-check for the form and Pip A7-PIP2-005 · the member and the Undo rule are the form's",
         "A7 · PIP2 — one build-and-check for the form and Pip A7-PIP2-006 · the form and Pip's card both build through txnBuild; Pip confirms in the chat",
         "A7 · Pip page A7-P1-P2-PIP3-PIP4-001 · full-height on desktop, raised chips, Ask next, a listening strip",
-        "A7 · Pip page A7-PIP1-001 · a failed turn says nothing was saved, offers Try again and keeps the question"
+        "A7 · Pip page A7-PIP1-001 · a failed turn says nothing was saved, offers Try again and keeps the question",
+        "A7 · owner follow-ups (16 Oct 2026) A7-LEARN-001 · the Dashboard shelf picks for the household: loan, over budget, then saving, rotating weekly",
+        "A7 · owner follow-ups (16 Oct 2026) A7-LEARN-002 · the shelf is the last Dashboard section, loaded lazily, opening lessons in place",
+        "A7 · owner follow-ups (16 Oct 2026) A7-MENU-001 · the ⋯ menu is drawn in a portal at a fixed position, so a clipping card cannot hide it"
       ]
     },
     {

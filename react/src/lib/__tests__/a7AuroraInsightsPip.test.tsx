@@ -144,3 +144,44 @@ describe('A7 · Insights, Households, Settings', () => {
     }
   });
 });
+
+describe('A7 · owner follow-ups (16 Oct 2026)', () => {
+  it('A7-MENU-001 · the ⋯ menu is drawn in a portal at a fixed position, so a clipping card cannot hide it', () => {
+    const s = read('components/ui/OverflowMenu.tsx');
+    expect(s).toMatch(/createPortal\(/);
+    expect(s).toMatch(/className="glass-panel fixed z-\[300\]/);
+    expect(s).toMatch(/const flip = below < height \+ GAP \+ 96 && r\.top > height \+ GAP;/);
+    expect(s).toMatch(/!trigger\.current\?\.contains\(t\) && !menu\.current\?\.contains\(t\)/);   // a tap in the menu is not "outside"
+    expect(read('pages/Debts.tsx')).toMatch(/className=\{`rounded-r3 overflow-hidden/);       // the card that clipped it
+  });
+
+  it('A7-LEARN-001 · the Dashboard shelf picks for the household: loan, over budget, then saving, rotating weekly', async () => {
+    const { dashboardLessons, lessonPreview } = await import('../learnPicks');
+    const card = (id: string, tags: string[], category = 'Saving') =>
+      ({ id, title: id, category, tags, body_md: 'One. Two.', reading_seconds: 60 }) as never;
+    const lib = [card('d1', ['debt'], 'Debt'), card('d2', ['debt'], 'Debt'), card('b1', ['budgeting'], 'Budgeting'),
+      card('s1', ['saving']), card('h1', ['household']), card('in', ['debt'], 'India'), card('t1', ['debt', 'tax'], 'Debt')];
+    const ids = (p: { card: { id: string } }[]) => p.map(x => x.card.id);
+    const all = { hasDebt: true, overBudget: true, hasBudget: true };
+    expect(ids(dashboardLessons(all, '2026-10-12', 3, lib))).toEqual(['d1', 'b1', 's1']);          // week 40: even
+    expect(ids(dashboardLessons(all, '2026-10-19', 3, lib))).toEqual(['d2', 'b1', 's1']);          // the next week rotates
+    expect(dashboardLessons(all, '2026-10-12', 3, lib).map(p => p.reason)).toEqual([
+      'Because you’re repaying a loan', 'Because a budget is over this month', 'For building a safety cushion']);
+    expect(ids(dashboardLessons({ hasDebt: false, overBudget: false, hasBudget: false }, '2026-10-12', 3, lib))).toEqual(['b1', 's1', 'h1']);
+    // Never a one-country lesson or a tax one (owner positioning rule).
+    expect(ids(dashboardLessons(all, '2026-10-12', 7, lib))).not.toEqual(expect.arrayContaining(['in']));
+    expect(ids(dashboardLessons(all, '2026-10-12', 7, lib))).not.toEqual(expect.arrayContaining(['t1']));
+    expect(lessonPreview('**Save** a little. Then more.')).toBe('Save a little.');
+    expect(lessonPreview('word '.repeat(60), 40).endsWith('…')).toBe(true);
+    expect(lessonPreview('See [the guide](https://x.y) now')).toBe('See the guide now');
+  });
+
+  it('A7-LEARN-002 · the shelf is the last Dashboard section, loaded lazily, opening lessons in place', () => {
+    const dash = read('pages/Dashboard.tsx');
+    expect(dash).toMatch(/const LearnShelf = lazy\(\(\) => import\('\.\.\/components\/dashboard\/LearnShelf'\)\);/);
+    expect(dash).toMatch(/<LearnShelf situation=\{learnSituation\} todayISO=\{today\(\)\} \/>\n\s*<\/Suspense>\n\s*<\/div>\n\s*\);\n\}/);
+    const shelf = read('components/dashboard/LearnShelf.tsx');
+    expect(shelf).toMatch(/<EvergreenReel cards=\{picks\.map\(p => p\.card\)\} startIndex=\{open\}/);
+    expect(shelf).toMatch(/to="\/insights\?tab=learn"/);
+  });
+});
