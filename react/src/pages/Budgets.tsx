@@ -97,7 +97,7 @@ export default function Budgets() {
   }
 
   return (
-    <div>
+    <div className="ui-pilot">
       <PageHead
         title={t('budgets')}
         subtitle="Month and annual plans · per-category allocations"
@@ -143,7 +143,7 @@ export default function Budgets() {
           : overall >= 80 ? { label: 'watch', tone: 'honey' }
           : { label: 'on pace', tone: 'sage' };
         return (
-          <div className="relative rounded-r3 p-5 mb-4 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+          <div className="card-raised p-5 mb-4 overflow-hidden" data-testid="budget-hero">
             <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full" style={{ background: 'var(--accent)' }} />
             <div className="flex justify-between items-start gap-3">
               <div className="min-w-0">
@@ -156,7 +156,10 @@ export default function Budgets() {
                   {status.label}
                 </span>
                 {canManage && (
-                  <button onClick={() => openEditBudget(b)} className="block ml-auto mt-2 font-mono text-[8.5px] tracking-wider uppercase text-ink-dim hover:text-coral">edit ▸</button>
+                  <div className="flex justify-end gap-1 mt-1.5">
+                    <button onClick={() => openEditBudget(b)} className="row-action" aria-label={`Edit the ${budgetTitle(b)} budget`} title="Edit"><Pencil size={14} strokeWidth={1.6} /></button>
+                    <button onClick={() => del(b.id)} className="row-action danger" aria-label={`Delete the ${budgetTitle(b)} budget`} title="Delete"><Trash2 size={14} strokeWidth={1.6} /></button>
+                  </div>
                 )}
               </div>
             </div>
@@ -168,14 +171,14 @@ export default function Budgets() {
               {' '}· {daysLeft} day{daysLeft === 1 ? '' : 's'} to go
             </div>
             <BudgetPaceChart series={series} limit={totalBase} daysInMonth={daysInMonth} currency={cur} />
-            <div className="flex justify-between font-mono text-[8px] tracking-[0.08em] uppercase text-ink-dim mt-1 mb-2">
+            <div className="flex justify-between gap-2 text-[11px] text-ink-dim mt-1 mb-2">
               <span>{MONTHS[now.getMonth()]} 1</span>
               <span className={projUnder >= 0 ? 'text-sage' : 'text-terra'}>
                 projected · lands {fmtShort(Math.abs(projUnder), cur)} {projUnder >= 0 ? 'under' : 'over'}
               </span>
               <span>{MONTHS[now.getMonth()]} {daysInMonth}</span>
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }}>
+            <div className="trough h-1.5">
               <div className={`h-full rounded-full chart-grow ${barCls(overall)}`} style={{ width: `${barPct(overall)}%` }} />
             </div>
           </div>
@@ -195,7 +198,7 @@ export default function Budgets() {
             const { limit: totalBase, spent, lines: allocs, notPlanned } = p;
             const overall = p.pct;
             return (
-              <div key={b.id} data-testid="budget-card" className="rounded-r3 p-4 min-w-0" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+              <div key={b.id} data-testid="budget-card" className="tile !rounded-r3 p-4 min-w-0">
                 <div className="flex items-start justify-between mb-2 gap-2">
                   <button onClick={() => navigate(`/transactions?budgetId=${b.id}`)}
                     className="font-semibold text-ink text-[0.95rem] truncate hover:text-coral text-left" title="View transactions">
@@ -217,7 +220,7 @@ export default function Budgets() {
                   </span>
                   <span className={overall >= 100 ? 'text-terra font-medium' : 'text-ink-dim'}>{Math.round(overall)}%</span>
                 </div>
-                <div className="h-2 bg-bg3 rounded-full mb-3 overflow-hidden">
+                <div className="trough h-2 mb-3">
                   <div className={`h-full rounded-full chart-grow transition-all ${barCls(overall)}`} style={{ width: `${barPct(overall)}%` }} />
                 </div>
                 {/* allocations */}
@@ -238,7 +241,7 @@ export default function Budgets() {
                               <Money amount={a.spent} currency={cur} maxChars={7} /> / <Money amount={a.limit} currency={cur} maxChars={7} />
                             </span>
                           </div>
-                          <div className="h-1.5 bg-bg3 rounded-full overflow-hidden">
+                          <div className="trough h-1.5">
                             <div className={`h-full rounded-full chart-grow ${barCls(ap)}`} style={{ width: `${barPct(ap)}%`, animationDelay: `${ai * 60}ms` }} />
                           </div>
                         </button>
@@ -257,7 +260,7 @@ export default function Budgets() {
                               <Money amount={a.spent} currency={cur} maxChars={7} /> over · not planned
                             </span>
                           </div>
-                          <div className="h-1.5 bg-bg3 rounded-full overflow-hidden">
+                          <div className="trough h-1.5">
                             <div className="h-full rounded-full chart-grow bg-terra" style={{ width: '100%' }} />
                           </div>
                         </button>
