@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.103.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.104.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -175,9 +175,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   changes the symbol. There are no exchange rates in the app; never reintroduce one. One default account per household
   (`uq_account_default_per_household`); marking a new default clears the old one
   in the same statement.
-- **The Accounts screen holds spendable accounts only (v10.24.0)** — Cash in Hand
-  has a standalone summary with direct reconciliation; Bank and Credit Card are
-  separate groups. Cash remains in aggregate spendable totals and retains its
+- **The Accounts screen holds spendable accounts only (v10.24.0)** — Cash, Bank and
+  Credit Card are separate groups of the same account card (Aurora 4.0 AC1, v10.104.0);
+  Cash in Hand's card keeps direct Reconcile and Ledger buttons and its region name. Cash remains in aggregate spendable totals and retains its
   existing bank-compatible history-move rules. Loans live in Debts, investments in Net Worth.
   **A card stores its limit and cycle days, never its outstanding** — outstanding,
   available and utilisation are derived from the limit and the ledger balance
@@ -680,7 +680,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - A transaction's account label is `txnAccountLabel` (the `accounts` FK first, the legacy
     `paymentMethod` resolver last). A new store collection joins the backup in `lib/backup.ts`.
   - Bottom-fixed surfaces use `.bottom-above-tabbar`, not `bottom-4`.
-- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3, v10.103.0 A4; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
+- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3, v10.103.0 A4, v10.104.0 A5; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
   - Surfaces are three tiers only: `.card-raised` (heroes, KPIs, 18px), the panel (lists), and `.well`
     (stats and inputs inside a card, 12px). Never bring back the bg3 + 1px border + 8px tile. Corners
     are 12 / 18 / 26px (26 only for the auth card).
@@ -711,6 +711,11 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     and, until real activity replaces it, the estimate from setup as the first hero
     (`EstimateHero`: pay − fixed bills − this month's logged spending that is not a posted bill, always
     `EstimatedTag`, never mixed into Cash Flow).
+  - A card keeps one primary action (and at most one common secondary) in view; rarer actions go in
+    `components/ui/OverflowMenu` (the ⋯ More menu: `menu` / `menuitem`, 44px items, Escape closes).
+    A list row's category icon is `components/ui/CategoryTile` (34px raised, tinted with the colour).
+  - "Available cash" is the Accounts figure (`accountsSummary`); Net Worth and Reports call their wider
+    `liquidAssets` total "Liquid assets". Two names because they are two calculations.
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)
