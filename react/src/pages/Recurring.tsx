@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Repeat, Trash2, Pencil } from 'lucide-react';
+import { Repeat, Trash2, Pencil, ChevronRight } from 'lucide-react';
+import CategoryTile from '../components/ui/CategoryTile';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
 import EmptyState from '../components/ui/EmptyState';
@@ -63,6 +64,19 @@ export default function Recurring() {
   const investmentAssets = useStore(s => s.assets).filter(a => a.type === 'investment');
   const upsert = useStore(s => s.upsertRecurring);
   const remove = useStore(s => s.removeRecurring);
+  // CF7 — one delete for the row (desktop) and the editor (FIT2: on phones the editor holds it).
+  async function deleteSchedule(s: RecurringSchedule): Promise<boolean> {
+    const made = useStore.getState().transactions.filter(t => t.recurringScheduleId === s.id).length;
+    if (!(await confirmSheet(deleteScheduleRequest({ name: s.transactionTemplate.description || getCat(s.transactionTemplate.category).label, made })))) return false;
+    try {
+      await remove(s.id);
+      toast('Schedule deleted', 'info');
+      return true;
+    } catch (e) {
+      toast(`Could not delete: ${(e as Error).message}`, 'error');
+      return false;
+    }
+  }
   const baseCur = useStore(s => s.profile.baseCurrency);
   const dateFormat = useStore(s => s.profile.dateFormat);
   const toast = useStore(s => s.toast);
@@ -340,7 +354,7 @@ export default function Recurring() {
   ];
 
   return (
-    <div>
+    <div className="ui-pilot">
       <PageHead
         title="Recurring"
         action={{ label: '+ Add Schedule', entity: 'schedule', onClick: () => { resetForm(); setEditing(null); setOpen(true); } }}
@@ -364,7 +378,7 @@ export default function Recurring() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-ink truncate">{row.debt.name} EMI</div>
-                  <div className="font-mono text-[0.62rem] text-ink-dim mt-px truncate">
+                  <div className="text-[12px] text-ink-dim mt-px truncate">
                     {row.date ? `EMI #${row.no} · next ${formatDate(row.date, dateFormat)}` : 'No next EMI date yet'}
                     {row.fundingAccount ? ` · from ${row.fundingAccount.name}` : ''}
                     {clears ? ` · clears ${clears}` : ''}
@@ -374,7 +388,7 @@ export default function Recurring() {
                   <Money amount={row.amount} currency={baseCur} className="font-medium" />
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <span className="text-[10.5px] text-ink-dim">{row.autoRecord ? 'Records on its date' : 'You pay it'}</span>
+                  <span className="text-[11.5px] text-ink-dim">{row.autoRecord ? 'Records on its date' : 'You pay it'}</span>
                   <button type="button" role="switch" aria-checked={row.autoRecord}
                     aria-label={`Record each ${row.debt.name} EMI automatically`}
                     title={row.needs.length && !row.autoRecord ? 'Needs the paying account and the next EMI date — opens the loan' : 'Record each EMI automatically'}
@@ -404,16 +418,19 @@ export default function Recurring() {
               const cat = getCat(s.transactionTemplate.category);
               return (
                 <div key={s.id} data-testid="schedule-row"
-                  className="flex items-center gap-3 px-4 py-3 border-b border-line last:border-b-0">
-                  <div className="w-9 h-9 rounded-md flex items-center justify-center text-base flex-shrink-0" style={{ background: cat.color + '22' }}>
-                    {cat.icon}
-                  </div>
+                  className="relative flex items-center gap-3 px-4 py-3 border-b border-line last:border-b-0">
+                  {/* FIT2 — on phones the whole row opens the editor (delete lives there); a chevron replaces
+                      the two icons that squeezed the name and cut the schedule line. */}
+                  <button type="button" className="sm:hidden absolute inset-0 z-[1]" aria-label={`Edit ${s.transactionTemplate.description || cat.label}`}
+                    onClick={() => { populateFromSchedule(s); setOpen(true); }} />
+                  {/* R2 — the shared 34px raised category tile. */}
+                  <CategoryTile icon={cat.icon} color={cat.color} />
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-ink truncate">{s.transactionTemplate.description}</div>
                     {/* Board B — schedules read as human sentences ("Monthly on
                         the 16th"), not raw frequency codes. Legacy rows without
                         an rrule fall back to the frequency word. */}
-                    <div className="font-mono text-[0.62rem] text-ink-dim mt-px truncate">
+                    <div className="text-[12px] text-ink-dim mt-px truncate">
                       {(() => {
                         try { return describeRRule(ruleOf(s)); }
                         catch { return s.frequency; }
@@ -432,21 +449,15 @@ export default function Recurring() {
                       That is why this read as "deletion doesn't work" with no
                       error to go on. Await it, and only claim success when the
                       write actually succeeded. */}
-                  <button onClick={async () => {
-                    const made = useStore.getState().transactions.filter(t => t.recurringScheduleId === s.id).length;
-                    if (!(await confirmSheet(deleteScheduleRequest({ name: s.transactionTemplate.description || cat.label, made })))) return;
-                    try {
-                      await remove(s.id);
-                      toast('Schedule deleted', 'info');
-                    } catch (e) {
-                      toast(`Could not delete: ${(e as Error).message}`, 'error');
-                    }
-                  }} className="row-action danger" aria-label="Delete schedule" title="Delete">
-                    <Trash2 size={14} strokeWidth={1.6} />
-                  </button>
-                  <button onClick={() => { populateFromSchedule(s); setOpen(true); }} className="row-action" aria-label="Edit schedule" title="Edit">
-                    <Pencil size={14} strokeWidth={1.6} />
-                  </button>
+                  <div className="hidden sm:flex gap-1 flex-shrink-0">
+                    <button onClick={() => { populateFromSchedule(s); setOpen(true); }} className="row-action" aria-label="Edit schedule" title="Edit">
+                      <Pencil size={14} strokeWidth={1.6} />
+                    </button>
+                    <button onClick={() => { void deleteSchedule(s); }} className="row-action danger" aria-label="Delete schedule" title="Delete">
+                      <Trash2 size={14} strokeWidth={1.6} />
+                    </button>
+                  </div>
+                  <ChevronRight size={15} aria-hidden className="sm:hidden text-ink-dim flex-shrink-0" />
                 </div>
               );
             })
@@ -460,11 +471,17 @@ export default function Recurring() {
               className="btn-primary w-full h-[50px] text-[15.5px] rounded-r3 disabled:opacity-60">
               {saving ? 'Saving…' : editing ? 'Update schedule' : 'Save schedule'}
             </button>
-            <div className="text-center mt-2">
+            <div className="flex justify-center gap-6 mt-1">
               <button type="button" onClick={() => { setOpen(false); setEditing(null); }}
-                className="font-mono text-[9px] tracking-[0.15em] uppercase text-ink-dim hover:text-ink">
+                className="min-h-[44px] px-2 text-[13.5px] font-medium text-ink-mid hover:text-ink">
                 Cancel
               </button>
+              {editing && (
+                <button type="button" onClick={async () => { if (await deleteSchedule(editing)) { setOpen(false); setEditing(null); } }}
+                  className="min-h-[44px] px-2 text-[13.5px] font-medium" style={{ color: 'var(--crit-text)' }}>
+                  Delete schedule
+                </button>
+              )}
             </div>
           </div>
         }
@@ -676,7 +693,7 @@ export default function Recurring() {
         <div className="mt-3">
           <div className="flex items-center gap-2.5 py-2.5">
             <span className="font-display font-semibold text-[13px] text-ink">Auto-approve</span>
-            <span className="text-[10.5px] text-ink-dim">
+            <span className="text-[11.5px] text-ink-dim">
               {autoConfirm ? 'posts automatically' : 'you confirm each time'}
             </span>
             <button
