@@ -26,6 +26,7 @@ import { DEBT_TYPES } from '../constants';
 import type { Debt, PayoffStrategy } from '../types';
 import SegRail from '../components/ui/SegRail';
 import PageHead from '../components/ui/PageHead';
+import OverflowMenu from '../components/ui/OverflowMenu';
 import EmptyState from '../components/ui/EmptyState';
 import { askSheet, confirmSheet } from '../lib/confirmSheet';
 import { deleteLoanRequest, markPaidOffRequest, undoLoanPaymentRequest } from '../lib/confirmCopy';
@@ -150,21 +151,21 @@ export default function Debts() {
   const paying = debts.find(d => d.id === payingId) ?? null;
 
   return (
-    <div>
+    <div className="ui-pilot">
       <PageHead title={t('debts')} action={{ label: '+ Add Loan', entity: 'debt', onClick: openAddDebt }} />
 
       {(active.length > 0 || cardsOwe > 0) && (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1.5" data-testid="debts-summary">
             {[
-              { label: 'Total Debt',     node: <Money amount={totalDebt} currency={c} maxChars={11} className="text-ink" />, cls: 'text-ink' },
-              { label: 'EMIs a month',   node: <Money amount={totalEmi} currency={c} maxChars={11} className="text-honey" />, cls: 'text-honey' },
-              { label: 'Debt-to-Income', node: <span title={dti == null ? 'No income recorded this month' : undefined}>{pctLabel(dti, 1)}</span>,
-                cls: dti == null ? 'text-ink-dim' : dti > 36 ? 'text-terra' : dti > 25 ? 'text-honey' : 'text-sage' },
+              { label: 'Total debt',     node: <Money amount={totalDebt} currency={c} maxChars={16} className="text-ink" />, cls: 'text-ink', wide: true },
+              { label: 'EMIs a month',   node: <Money amount={totalEmi} currency={c} maxChars={11} className="text-honey" />, cls: 'text-honey', wide: false },
+              { label: 'Debt-to-income', node: <span title={dti == null ? 'No income recorded this month' : undefined}>{pctLabel(dti, 1)}</span>,
+                cls: dti == null ? 'text-ink-dim' : dti > 36 ? 'text-terra' : dti > 25 ? 'text-honey' : 'text-sage', wide: false },
             ].map(s => (
-              <div key={s.label} className="rounded-r3 p-4 text-center min-w-0" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
-                <div className={`num text-xl font-semibold ${s.cls}`}>{s.node}</div>
-                <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase mt-0.5">{s.label}</div>
+              <div key={s.label} className={`card-raised p-4 text-left min-w-0 ${s.wide ? 'col-span-2 sm:col-span-1' : ''}`}>
+                <div className="ui-label">{s.label}</div>
+                <div className={`num text-xl font-semibold mt-0.5 ${s.cls}`}>{s.node}</div>
               </div>
             ))}
           </div>
@@ -184,7 +185,7 @@ export default function Debts() {
             options={[{ value: 'avalanche', label: 'Avalanche' }, { value: 'snowball', label: 'Snowball' }]}
           />
           {strategyTradeoff && (
-            <span className="text-[10.5px]">
+            <span className="text-[12px]">
               {strategyTradeoff.delta > 1
                 ? <span className="text-sage">saves you {money(Math.round(strategyTradeoff.delta))} in interest</span>
                 : strategyTradeoff.delta < -1
@@ -237,7 +238,7 @@ export default function Debts() {
                     <span className="text-base flex-shrink-0" aria-hidden>{meta.icon}</span>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-[13.5px] text-ink truncate">{d.name}</div>
-                      <div className="num text-[10px] text-ink-dim">{d.interestRate}% APR{pct > 0 ? ` · ${pct.toFixed(0)}% paid` : ''}</div>
+                      <div className="num text-[11.5px] text-ink-dim">{d.interestRate}% APR{pct > 0 ? ` · ${pct.toFixed(0)}% paid` : ''}</div>
                     </div>
                     <Money amount={v.outstanding} currency={c} maxChars={10} className="num font-semibold text-ink flex-shrink-0" />
                   </button>
@@ -320,21 +321,21 @@ function LoanCard({ view: v, priority, strategy, money, currency, expanded, show
       style={{ background: 'var(--canvas)', boxShadow: priority ? 'var(--neu), 0 0 0 1.5px color-mix(in srgb, var(--accent) 40%, transparent)' : 'var(--neu-sm)' }}>
       {priority && (
         <div className="px-4 py-1.5" style={{ background: 'var(--accent)' }}>
-          <span className="font-mono text-[0.6rem] tracking-widest uppercase" style={{ color: 'var(--accent-ink)' }}>
+          <span className="text-[13px] font-medium" style={{ color: 'var(--accent-ink)' }}>
             {strategy === 'avalanche' ? '⚡ Highest APR — pay this first' : '🎯 Smallest balance — pay this first'}
           </span>
         </div>
       )}
       <div className="p-5">
         <div className="flex items-center gap-4 mb-3">
-          <PayoffRing pct={pct} clears={clears} />
+          <PayoffRing pct={pct} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span aria-hidden>{meta.icon}</span>
               <span className="font-semibold text-ink truncate">{d.name}</span>
               {v.estimated && <EstimatedTag confidence="estimated" title="These terms were worked out from what this loan recorded. Confirm them in Edit." />}
             </div>
-            {d.lender && <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">{d.lender}{d.account ? ` · ${d.account}` : ''}</div>}
+            {d.lender && <div className="text-[12px] text-ink-dim">{d.lender}{d.account ? ` · ${d.account}` : ''}</div>}
             <div className="text-lg font-semibold text-ink"><Money amount={v.outstanding} currency={currency} maxChars={12} /></div>
             <div className="text-[0.72rem] text-ink-dim">
               {d.interestRate}% APR · {money(v.cleared)} cleared{d.principal ? ` of ${money(d.principal)}` : ''}
@@ -354,7 +355,7 @@ function LoanCard({ view: v, priority, strategy, money, currency, expanded, show
           ] as [string, string, string][]).map(([label, value, cls]) => (
             <div key={label} className="well p-2 text-center">
               <div className={`num text-sm font-semibold ${cls}`}>{value}</div>
-              <div className="font-mono text-[0.58rem] tracking-wider text-ink-dim uppercase">{label}</div>
+              <div className="text-[11.5px] text-ink-dim">{label}</div>
             </div>
           ))}
         </div>
@@ -386,15 +387,17 @@ function LoanCard({ view: v, priority, strategy, money, currency, expanded, show
         )}
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          <button className="btn-primary btn-sm" onClick={onPay}><CreditCard size={13} strokeWidth={1.8} /> Pay</button>
-          <button className="btn-ghost btn-sm" onClick={onToggle}>
+          <button className="btn-primary" onClick={onPay}><CreditCard size={13} strokeWidth={1.8} /> Pay</button>
+          <button className="btn-ghost" onClick={onToggle}>
             {expanded ? <><ChevronUp size={13} strokeWidth={1.8} /> Hide schedule</> : <><ChevronDown size={13} strokeWidth={1.8} /> Schedule</>}
           </button>
-          <button className="btn-ghost btn-sm" onClick={onPayments}>Payments</button>
-          {canUndo && <button className="btn-ghost btn-sm" onClick={onUndo}><Undo2 size={13} /> Undo last</button>}
-          <div className="ml-auto flex gap-1">
-            <button className="row-action" onClick={onEdit} aria-label={`Edit ${d.name}`} title="Edit"><Pencil size={14} strokeWidth={1.6} /></button>
-            <button className="row-action" onClick={onClose} aria-label={`Mark ${d.name} paid off`} title="Mark paid off"><CheckCircle2 size={14} strokeWidth={1.6} /></button>
+          <div className="ml-auto">
+            <OverflowMenu ariaLabel={`More actions for ${d.name}`} items={[
+              { label: 'Payments', onSelect: onPayments },
+              ...(canUndo ? [{ label: 'Undo last payment', icon: <Undo2 size={14} />, onSelect: onUndo }] : []),
+              { label: 'Edit loan', icon: <Pencil size={14} strokeWidth={1.6} />, onSelect: onEdit },
+              { label: 'Mark paid off', icon: <CheckCircle2 size={14} strokeWidth={1.6} />, onSelect: onClose },
+            ]} />
           </div>
         </div>
       </div>
@@ -402,8 +405,9 @@ function LoanCard({ view: v, priority, strategy, money, currency, expanded, show
   );
 }
 
-/** Board C — the payoff-journey ring: % of the sanctioned amount cleared, and the month it clears. */
-function PayoffRing({ pct, clears }: { pct: number; clears: string | null }) {
+/** Board C — the payoff-journey ring: % of the sanctioned amount already paid. Aurora 4.0 DBT3: captioned
+ *  "paid off" — "29% by Aug 2027" read as "29% by August 2027"; the clear date is in the stats row. */
+function PayoffRing({ pct }: { pct: number }) {
   const r = 30, circ = 2 * Math.PI * r;
   const off = circ * (1 - Math.max(0, Math.min(100, pct)) / 100);
   return (
@@ -415,7 +419,7 @@ function PayoffRing({ pct, clears }: { pct: number; clears: string | null }) {
           className="ring-grow" style={{ '--ring-from': circ } as CSSProperties} />
         <text x="38" y="43" textAnchor="middle" fontSize="16" fontWeight="700" fill="var(--ff-ink)" className="num">{Math.round(pct)}%</text>
       </svg>
-      {clears && <div className="mono-label">by {clears}</div>}
+      <div className="text-[12px] text-ink-mid">paid off</div>
     </div>
   );
 }

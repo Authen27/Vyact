@@ -191,7 +191,7 @@ describe('onboardingNudges — progressive capture (spec §6)', () => {
     const onboarding = readFileSync(resolve(__dirname, '../../pages/Onboarding.tsx'), 'utf8');
     expect(onboarding).not.toMatch(/35%|confirmed_pct/);            // the fabricated "picture confirmed" figure
     const accounts = readFileSync(resolve(__dirname, '../../pages/Accounts.tsx'), 'utf8');
-    expect(accounts.match(/isEstimate\((account|acc)\) && <EstimatedTag/g)?.length).toBe(2);   // cash summary + rows
+    expect(accounts.match(/isEstimate\((account|acc)\) && <EstimatedTag/g)?.length).toBe(1);   // every account card, Cash included (A5 AC1)
   });
 
   it('CON-UNIT-ONB-016 · active nudging tapers after the 21-day window', async () => {

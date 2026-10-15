@@ -188,8 +188,8 @@ test.describe('§4/§8 NWRT-FC and ASSET-FC', () => {
     page, networth,
   }) => {
     await networth.goto();
-    // The liquidity card is 'Money you can reach' since v10.38.1; a long-term asset must not move it.
-    const before = await networth.readAmount(networth.moneyYouCanReach());
+    // The liquidity card is 'Liquid assets' (Aurora 4.0 TERM1); a long-term asset must not move it.
+    const before = await networth.readAmount(networth.liquidAssets());
     expect(before).toBeGreaterThan(0);
 
     await networth.openAddAsset();
@@ -203,6 +203,6 @@ test.describe('§4/§8 NWRT-FC and ASSET-FC', () => {
     await expect(dialog).toBeHidden();
 
     await expect(page.getByText('ASSET-FC-004 Long Asset').filter({ visible: true }).first()).toBeVisible();
-    await expect.poll(() => networth.readAmount(networth.moneyYouCanReach())).toBe(before);
+    await expect.poll(() => networth.readAmount(networth.liquidAssets())).toBe(before);
   });
 });

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.103.0`** (consumer)
+> **Current production version: `v10.104.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,42 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.104.0 — Aurora 4.0 A5: the Plan and Track pages *(2026-10-15)*
+
+PR A5 of the Aurora 4.0 redesign. No figure, calculation or schema changes; two labels change (TERM1).
+
+- **New shared pieces:** `OverflowMenu` (the ⋯ More menu, S2/DB2) and `CategoryTile` (the 34px raised
+  category tile, R2).
+- **Transactions (T1, T2):** the separate count/net strip is gone (each month pill carries both); the pill
+  has 12px corners, "N entries" and a sans net. "Load previous" is 44px tall.
+- **Splits (S1–S3, SP4, FIT1):** the hero is a raised card with a sage spine; "See who owes what →"
+  replaces the bare ▾ marks; each split shows date · people and what is owed under its name with the
+  amount alone on the right; Settle all is the one primary, Edit / Close split / Delete move into ⋯,
+  Mark paid is a ghost button.
+- **Budgets (BG1, BG2):** every bar is the inset trough; the hero has the same Edit and Delete buttons as
+  the cards (was an 8.5px "edit ▸").
+- **Recurring (R1, R2, FIT2):** the shared category tile; Edit before Delete; on phones the whole row opens
+  the editor, which now has "Delete schedule". (REC4 is moot: loan EMI schedules were retired in Track E.)
+- **Debts (DB1, DB2, DBT3):** summary tiles are left-aligned with the label above the value, and on phones
+  the total debt spans the width with its exact figure; Pay and Schedule stay on each loan, Payments /
+  Undo last payment / Edit loan / Mark paid off move into ⋯; the ring is captioned "paid off".
+- **Accounts (AC1, AC2, ACM1):** Cash in Hand is an account card in a Cash group (Reconcile and Ledger on
+  the card; still never deleted or archived); the desktop aside holds "Needs your attention" only (the
+  currency lives in Settings); on phones each card shows a full-width usage bar and "N% of limit used ·
+  due D" (the percentage is not capped).
+- **Net Worth (NW1–NW3):** on phones the waterfall labels sit under their bars and wrap; asset and liability
+  rows are raised small cards with no border; ratio sub-lines are sentence case at 12px.
+- **Reports (RP2):** the household position is one row — net worth, liquid assets, the essential-spend
+  runway (calculation basis kept) and a link to Net Worth. Assets, liabilities and this month's figures
+  live on Net Worth and the Dashboard.
+- **TERM1:** the Accounts figure is "Available cash"; Net Worth's "Money you can reach" is "Liquid assets",
+  as on Reports.
+- **X1 / X9:** the eight pages use sans labels; nothing under 11px; small actions are 44px.
+- Tests: `a5AuroraPages.test.tsx`; e2e page objects follow the new labels (`NetWorthPage.liquidAssets`,
+  the Reports position check).
 
 ---
 

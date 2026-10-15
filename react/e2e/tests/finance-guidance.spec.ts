@@ -44,7 +44,9 @@ test('FIN-FC-001 - Reports keeps full Needs and Wants amounts inside narrow cont
     for (const value of geometry.values) expect(value.scroll).toBeLessThanOrEqual(value.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await expect(report.getByRole('heading', { name: 'Household position', exact: true })).toBeVisible();
-    await expect(report.getByText('Tracked minimum debt payments / month', { exact: true })).toBeVisible();
+    // Aurora 4.0 RP2 — the position is one row: net worth, liquid assets, the runway and a link to Net Worth.
+    await expect(report.getByRole('region', { name: 'Essential-spend runway', exact: true })).toBeVisible();
+    await expect(report.getByRole('link', { name: 'Net Worth →', exact: true })).toBeVisible();
     await expect(report.getByText('Chart window:', { exact: false })).toBeVisible();
     await expect(report.getByText('By member', { exact: true })).toBeVisible();
     await expect(report.getByText('By account', { exact: true })).toBeVisible();

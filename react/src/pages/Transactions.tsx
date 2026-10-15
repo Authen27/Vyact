@@ -457,28 +457,14 @@ export default function Transactions() {
               ))}
               <button
                 onClick={resetAllFilters}
-                className="text-[0.7rem] text-ink-dim hover:text-coral underline-offset-2 hover:underline ml-1"
+                className="text-[12px] min-h-[44px] text-ink-dim hover:text-coral underline-offset-2 hover:underline ml-1"
               >
                 Clear all
               </button>
             </div>
           )}
 
-          {/* Result count + filtered net — instant feedback on what the
-              filter actually returns. Hidden when the list is empty so it
-              doesn't compete with the empty state. */}
-          {filtered.length > 0 && (
-            <div className="mt-2 flex items-center justify-between text-[0.7rem] font-mono text-ink-dim">
-              <span>
-                {filtered.length} {filtered.length === 1 ? 'transaction' : 'transactions'}
-              </span>
-              {(type === 'all' || type === 'income' || type === 'expense') && (
-                <span className={filteredNet >= 0 ? 'text-sage' : 'text-terra'}>
-                  Net {fmtSigned(filteredNet, profile.baseCurrency)}
-                </span>
-              )}
-            </div>
-          )}
+          {/* Aurora 4.0 T1 — no separate count/net strip: each month pill carries its count and net. */}
         </div>
 
         {filtered.length === 0 ? (
@@ -508,14 +494,14 @@ export default function Transactions() {
                       so it stays visible while its rows scroll past; the
                       collapse toggle is a small circular button on the right. */}
                   <div
-                    className="sticky top-0 z-10 flex items-center gap-2.5 px-3.5 py-2.5 rounded-r3"
+                    className="sticky top-0 z-10 flex items-center gap-2.5 px-3.5 py-2.5 rounded-r2"
                     style={{ background: 'var(--glass)', backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)', border: '1px solid var(--glass-line)' }}
                   >
-                    <span className="font-display font-bold text-ink text-[0.86rem]">{group.label}</span>
-                    <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
-                      {group.items.length} {group.items.length === 1 ? 'txn' : 'txns'}
+                    <span className="font-display font-medium text-ink text-[0.9rem]">{group.label}</span>
+                    <span className="text-[12px] text-ink-dim">
+                      {group.items.length} {group.items.length === 1 ? 'entry' : 'entries'}
                     </span>
-                    <span className={`ml-auto font-mono text-[0.72rem] font-bold ${group.net >= 0 ? 'text-sage' : 'text-terra'}`}>
+                    <span className={`ml-auto num text-[0.8rem] font-semibold ${group.net >= 0 ? 'text-sage' : 'text-terra'}`}>
                       {fmtSigned(group.net, profile.baseCurrency)}
                     </span>
                     <button
@@ -554,12 +540,12 @@ export default function Transactions() {
               <div className="py-2.5 flex flex-col items-center gap-1.5">
                 <button
                   onClick={() => setVisibleMonths(c => c + MONTHS_PER_PAGE)}
-                  className="h-[32px] px-4 rounded-pill border-none cursor-pointer font-display font-semibold text-[11.5px]"
+                  className="min-h-[44px] px-4 rounded-pill border-none cursor-pointer font-display font-semibold text-[12.5px]"
                   style={{ color: 'var(--ff-ink-3)', background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}
                 >
                   Load previous {MONTHS_PER_PAGE} months
                 </button>
-                <span className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
+                <span className="text-[12px] text-ink-dim">
                   Showing {visibleGroups.length} of {monthGroups.length} months
                 </span>
               </div>

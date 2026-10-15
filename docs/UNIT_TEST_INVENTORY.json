@@ -184,6 +184,28 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/a5AuroraPages.test.tsx",
+      "feature": "Aurora 4.0 Plan and Track pages (A5)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Aurora 4.0 A5: ⋯ More menu and shared category tile; Transactions month pills, Splits hero and one primary, Budgets troughs and hero actions, Recurring row opens the editor, Debts summary and ⋯, Accounts Cash card and phone card usage, Net Worth phone waterfall and borderless rows, Reports position in one row, Available cash / Liquid assets, sans labels and an 11px floor",
+      "count": 11,
+      "tests": [
+        "A5 · Plan and Track pages A5-AC1-AC2-ACM1-001 · Accounts: Cash is a card in its own group, the aside is attention only, phones show card usage",
+        "A5 · Plan and Track pages A5-BG1-BG2-001 · Budgets: every bar is the inset trough; the hero has Edit and Delete like the cards",
+        "A5 · Plan and Track pages A5-DB1-DB2-DBT3-001 · Debts: left-aligned summary, Pay and Schedule in view, the rest in ⋯, ring says paid off",
+        "A5 · Plan and Track pages A5-NW1-NW3-001 · Net Worth: waterfall labels under the bars on phones, borderless rows, sentence-case ratios",
+        "A5 · Plan and Track pages A5-R1-R2-FIT2-001 · Recurring: shared category tile, Edit before Delete, phones open the editor with Delete",
+        "A5 · Plan and Track pages A5-RP2-001 · Reports: the household position is one row with a link to Net Worth",
+        "A5 · Plan and Track pages A5-S1-S3-001 · Splits: raised hero, Settle all is the one primary, the rest in ⋯, Mark paid is a ghost",
+        "A5 · Plan and Track pages A5-S2-001 · the ⋯ More menu: a labelled menu button, closed until pressed",
+        "A5 · Plan and Track pages A5-T1-T2-001 · Transactions: no separate count/net strip; the month pill is 12px with entries",
+        "A5 · Plan and Track pages A5-TERM1-001 · \"Available cash\" is the Accounts figure; Net Worth and Reports say \"Liquid assets\"",
+        "A5 · Plan and Track pages A5-X1-X9-001 · the eight pages use sans labels and no text under 11px"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/accountDeletionHandler.test.ts",
       "feature": "Account deletion handler",
       "availability": "conditional",

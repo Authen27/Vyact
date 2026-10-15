@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
-import { fmt, convert, uid, today } from '../lib/format';
+import { fmt, convert, uid, today, formatDate } from '../lib/format';
+import { ChevronDown } from 'lucide-react';
+import OverflowMenu from '../components/ui/OverflowMenu';
 import Money from '../components/ui/Money';
 import { splitsOutstanding, type SplitOutstanding } from '../lib/calculations';
 import type { Transaction, SplitParticipant, Debt } from '../types';
@@ -81,7 +83,7 @@ export default function Splits() {
   const counts = splitCounts(transactions);
   // v10.59.0 (owner, item 6) — created vs open vs settled, a quiet line under the two sides.
   const countsLine = counts.created > 0 && (
-    <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim mt-3" data-testid="split-counts">
+    <div className="text-[12px] text-ink-dim mt-3" data-testid="split-counts">
       {counts.created} split{counts.created === 1 ? '' : 's'} created · {counts.open} open · {counts.settled} settled
     </div>
   );
@@ -220,7 +222,7 @@ export default function Splits() {
       <div className="flex items-center justify-between gap-3 well px-3 py-2">
         <div className="min-w-0">
           {showName && <div className="text-[0.82rem] font-semibold text-ink truncate">{p.name}</div>}
-          <div className={`font-mono text-[0.62rem] tracking-wider truncate ${showName ? 'text-ink-dim' : 'text-ink font-semibold'}`}>
+          <div className={`text-[12px] truncate ${showName ? 'text-ink-dim' : 'text-ink font-semibold'}`}>
             {p.email || p.name}
           </div>
         </div>
@@ -262,44 +264,36 @@ export default function Splits() {
 
     return (
       <div className="rounded-r3 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-        <button className="w-full px-5 py-4 flex items-center justify-between text-left hover:brightness-105 transition-[filter]"
-          onClick={() => setExpanded(e => !e)}>
-          <div>
-            <div className="font-semibold text-ink">{txn.description}</div>
-            <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">{txn.date} · {split.participants.length} participants</div>
+        <button className="w-full px-5 py-4 flex items-center justify-between gap-3 text-left hover:brightness-105 transition-[filter]"
+          onClick={() => setExpanded(e => !e)} aria-expanded={expanded}>
+          <div className="min-w-0">
+            <div className="font-semibold text-ink truncate">{txn.description}</div>
+            <div className="text-[12px] text-ink-dim">{formatDate(txn.date, profile.dateFormat)} · {split.participants.length} {split.participants.length === 1 ? 'person' : 'people'}</div>
+            {owedHere > 0 && <div className="text-[12px] text-sage">+{fmt(owedHere, c)} owed to you</div>}
+            {youOweHere > 0 && <div className="text-[12px] text-terra">−{fmt(youOweHere, c)} you owe</div>}
+            {linkedDebtId && <div className="text-[12px] text-ink-dim">linked to a debt</div>}
           </div>
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="text-right min-w-0">
-              <Money amount={totalInBase} currency={c} maxChars={11} className="font-semibold text-ink" />
-              {owedHere > 0 && <div className="font-mono text-[0.6rem] tracking-wider text-sage">+{fmt(owedHere, c)} owed to you</div>}
-              {youOweHere > 0 && <div className="font-mono text-[0.6rem] tracking-wider text-terra">−{fmt(youOweHere, c)} you owe</div>}
-              {linkedDebtId && <div className="font-mono text-[0.58rem] tracking-wider text-ink-dim">linked to a debt</div>}
-            </div>
-            <span className="text-ink-dim text-sm flex-shrink-0">{expanded ? '▴' : '▾'}</span>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <Money amount={totalInBase} currency={c} maxChars={11} className="font-semibold text-ink" />
+            <ChevronDown size={15} aria-hidden className={`text-ink-dim transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </div>
         </button>
 
         {expanded && (
           <div className="border-t border-line px-5 py-4 space-y-2">
-            <div className="flex justify-between items-center mb-3">
-              <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase">Participants</div>
-              <div className="flex gap-2">
-                <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => openEditSplit(txn)}>
-                  Edit
-                </button>
+            <div className="flex justify-between items-center gap-2 mb-3">
+              <div className="ui-label">Participants</div>
+              <div className="flex items-center gap-2">
                 {unsettled.length > 0 && (
-                  <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => markAllPaid(txn.id)}>
+                  <button className="btn-primary" onClick={() => markAllPaid(txn.id)}>
                     Settle all
                   </button>
                 )}
-                {ownedShared && !ownedShared.closedAt && (
-                  <button className="btn-ghost text-xs py-1 px-2.5" onClick={() => closeSplit(ownedShared.id)}>
-                    Close split
-                  </button>
-                )}
-                <button className="btn-ghost text-xs py-1 px-2.5 text-terra" onClick={() => deleteSplit(txn.id)}>
-                  Delete
-                </button>
+                <OverflowMenu ariaLabel={`More actions for ${txn.description || 'this split'}`} items={[
+                  { label: 'Edit', onSelect: () => openEditSplit(txn) },
+                  ...(ownedShared && !ownedShared.closedAt ? [{ label: 'Close split', onSelect: () => closeSplit(ownedShared.id) }] : []),
+                  { label: 'Delete', danger: true, onSelect: () => deleteSplit(txn.id) },
+                ]} />
               </div>
             </div>
             {split.participants.map((p: SplitParticipant) => {
@@ -311,22 +305,22 @@ export default function Splits() {
                     <div className="min-w-0">
                       <div className="text-[0.84rem] font-semibold text-ink truncate">{p.isYou ? 'You' : p.name}</div>
                       {!p.isYou && p.email && (
-                        <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim truncate">{p.email}</div>
+                        <div className="text-[12px] text-ink-dim truncate">{p.email}</div>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
                     {p.paid && p.paidOn && (
-                      <span className="font-mono text-[0.58rem] tracking-wider text-sage whitespace-nowrap">Settled {p.paidOn}</span>
+                      <span className="text-[12px] text-sage whitespace-nowrap">Settled {formatDate(p.paidOn, profile.dateFormat)}</span>
                     )}
                     <Money amount={shareBase} currency={c} maxChars={10} className={`font-semibold text-[0.9rem] ${p.paid ? 'text-sage' : 'text-ink'}`} />
                     {!p.paid && !p.isYou && ((!isIncome && split.paidBy === 'me') || (isIncome && split.paidBy === 'me')) && (
-                      <button className="btn-secondary text-xs py-1 px-2.5" onClick={() => markPaid(txn.id, p.name)}>
+                      <button className="btn-ghost" onClick={() => markPaid(txn.id, p.name)}>
                         Mark paid
                       </button>
                     )}
                     {!p.paid && p.isYou && ((!isIncome && split.paidBy === 'external') || (isIncome && split.paidBy === 'external')) && (
-                      <button className="btn-primary text-xs py-1 px-2.5" onClick={() => markPaid(txn.id, p.name)}>
+                      <button className="btn-primary" onClick={() => markPaid(txn.id, p.name)}>
                         Settle
                       </button>
                     )}
@@ -339,7 +333,7 @@ export default function Splits() {
                       (isIncome && split.paidBy === 'me' && !p.isYou)
                     ) && (
                       <button
-                        className="btn-ghost text-xs py-1 px-2.5"
+                        className="btn-ghost"
                         title="Track this obligation as a Debt"
                         onClick={() => convertSplitToDebt(txn.id, p.isYou ? 'You' : p.name)}
                       >
@@ -358,38 +352,38 @@ export default function Splits() {
   }
 
   return (
-    <div>
+    <div className="ui-pilot">
       <PageHead title={t('splits')} action={{ label: '+ Add Split', entity: 'split', onClick: () => openAddSplit() }} />
 
       {/* Board M4 — who-owes-who hero: your net position + the two sides.
           v10.17 (items 7/8/9) — every tile is a toggle that expands a per-person
           (email-keyed) breakdown. The breakdown sums reconcile with the tile. */}
       {(owedToYou > 0 || youOwe > 0) && (
-        <div className="rounded-r3 p-5 mb-5" style={{ background: 'var(--elevated)', boxShadow: 'var(--neu)' }}>
-          <button type="button" onClick={() => setHeroView(v => v === 'net' ? null : 'net')}
-            className="w-full text-left" aria-expanded={heroView === 'net'}>
-            <div className="mono-label mb-1.5 flex items-center gap-1.5">
-              Your net position <span className="text-ink-dim">{heroView === 'net' ? '▴' : '▾'}</span>
-            </div>
-            <Money amount={owedToYou - youOwe} currency={c} maxChars={12}
-              className={`num text-3xl font-semibold ${owedToYou - youOwe >= 0 ? 'text-sage' : 'text-terra'}`} />
-          </button>
+        <div className="card-raised p-5 mb-5 overflow-hidden" data-testid="splits-hero">
+          <span aria-hidden className="absolute left-0 top-[14px] bottom-[14px] w-[3px] rounded" style={{ background: 'hsl(var(--sage))' }} />
+          <div className="mono-label mb-1.5">Your net position</div>
+          <Money amount={owedToYou - youOwe} currency={c} maxChars={12}
+            className={`num text-3xl font-semibold ${owedToYou - youOwe >= 0 ? 'text-sage' : 'text-terra'}`} />
           <div className="grid grid-cols-2 gap-3 mt-4">
             <button type="button" onClick={() => setHeroView(v => v === 'owed' ? null : 'owed')}
               className="rounded-r3 px-4 py-3 min-w-0 text-left" aria-expanded={heroView === 'owed'}
               style={{ background: 'var(--sunken)', boxShadow: heroView === 'owed' ? 'var(--neu-inset), 0 0 0 1.5px hsl(var(--sage))' : 'var(--neu-inset)' }}>
-              <div className="mono-label mb-1 flex items-center gap-1.5">Owed to you <span className="text-ink-dim">{heroView === 'owed' ? '▴' : '▾'}</span></div>
+              <div className="mono-label mb-1">Owed to you</div>
               <Money amount={owedToYou} currency={c} maxChars={11} className="num text-xl font-semibold text-sage" />
               <div className="mono-label mt-0.5">{owedByPerson.length} {owedByPerson.length === 1 ? 'person' : 'people'}</div>
             </button>
             <button type="button" onClick={() => setHeroView(v => v === 'owe' ? null : 'owe')}
               className="rounded-r3 px-4 py-3 min-w-0 text-left" aria-expanded={heroView === 'owe'}
               style={{ background: 'var(--sunken)', boxShadow: heroView === 'owe' ? 'var(--neu-inset), 0 0 0 1.5px hsl(var(--terra))' : 'var(--neu-inset)' }}>
-              <div className="mono-label mb-1 flex items-center gap-1.5">You owe <span className="text-ink-dim">{heroView === 'owe' ? '▴' : '▾'}</span></div>
+              <div className="mono-label mb-1">You owe</div>
               <Money amount={youOwe} currency={c} maxChars={11} className="num text-xl font-semibold text-terra" />
               <div className="mono-label mt-0.5">{youOweByPerson.length} {youOweByPerson.length === 1 ? 'person' : 'people'}</div>
             </button>
           </div>
+          <button type="button" onClick={() => setHeroView(v => v === 'net' ? null : 'net')} aria-expanded={heroView === 'net'}
+            className="empty-link mt-1 -ml-1">
+            {heroView === 'net' ? 'Hide who owes what' : 'See who owes what →'}
+          </button>
           {countsLine}
 
           {/* Per-person breakdown for the selected tile. */}
@@ -434,9 +428,7 @@ export default function Splits() {
           the transaction card below); their owner controls now live on that card. */}
       {cloudActive && sharedSplitsWithMe.length > 0 && (
         <div className="space-y-3 mb-5">
-          <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase px-1">
-            Shared with you
-          </div>
+          <div className="ui-label px-1">Shared with you</div>
 
           {sharedSplitsWithMe.map(sp => {
             const myShare = sp.shares.find(sh => sh.email === myEmail);
@@ -446,8 +438,8 @@ export default function Splits() {
                 style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
                 <div>
                   <div className="font-semibold text-ink">{sp.description || 'Shared split'}</div>
-                  <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim">
-                    {sp.date} · shared with you{sp.closedAt ? ' · closed' : ''}
+                  <div className="text-[12px] text-ink-dim">
+                    {formatDate(sp.date, profile.dateFormat)} · shared with you{sp.closedAt ? ' · closed' : ''}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
@@ -456,7 +448,7 @@ export default function Splits() {
                   {myShare.paid ? (
                     <span className="text-sage text-base">✓</span>
                   ) : sp.closedAt ? (
-                    <span className="font-mono text-[0.6rem] tracking-wider text-ink-dim uppercase">Closed</span>
+                    <span className="text-[12px] text-ink-dim">Closed</span>
                   ) : (
                     <button className="btn-primary text-xs py-1 px-2.5" onClick={() => settleMySplitShare(myShare.id)}>
                       Settle my share
@@ -479,7 +471,7 @@ export default function Splits() {
         </Panel>
       ) : (
         <div className="space-y-3">
-          <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase px-1 mb-2">
+          <div className="ui-label px-1 mb-2">
             {splitTxns.length} split transaction{splitTxns.length !== 1 ? 's' : ''}
           </div>
           {splitTxns.map(txn => <SplitRow key={txn.id} txn={txn} />)}
