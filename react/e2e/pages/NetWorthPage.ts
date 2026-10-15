@@ -69,9 +69,9 @@ export class NetWorthPage {
     return this.readAmount(this.totalLiabilitiesRow);
   }
 
-  /** The "Money you can reach" ratio card (formerly "Liquidity Ratio", v10.38.1). */
-  moneyYouCanReach(): Locator {
-    return this.page.getByText('Money you can reach', { exact: true }).locator('..');
+  /** The "Liquid assets" ratio card ("Money you can reach" v10.38.1–v10.103; Aurora 4.0 TERM1). */
+  liquidAssets(): Locator {
+    return this.page.getByText('Liquid assets', { exact: true }).locator('..');
   }
 }
 

@@ -122,8 +122,8 @@ export default function NetWorth() {
   // W6 (audit FE-UIC-07): with no income yet this month it said "−499,900%"; now it says "—".
   const savingsRatio     = keptThisMonthPct(income, expense);
   const coverBasisLabel  = basis.partialMonthOnly
-    ? 'at your spending so far this month'
-    : `at your usual spending of ${fmt(Math.round(typicalMonthly), c)} a month (${baselineLabel(basis.baselineMonths)})`;
+    ? 'At your spending so far this month'
+    : `At your usual spending of ${fmt(Math.round(typicalMonthly), c)} a month (${baselineLabel(basis.baselineMonths)})`;
 
   // Board C — liquidity stacked bar totals (presentation of existing values).
   const liqMix = { liquid: 0, short: 0, long: 0 };
@@ -169,7 +169,7 @@ export default function NetWorth() {
   };
 
   return (
-    <div>
+    <div className="ui-pilot">
       <PageHead title={t('networth')} action={{ label: '+ Add Asset', entity: 'asset', onClick: openAdd }} />
 
       {/* Board D3 desktop — the waterfall hero and the four ratios sit side by
@@ -185,20 +185,20 @@ export default function NetWorth() {
         const libPct = gross > 0 ? Math.min(100, (tl / gross) * 100) : 0;
         const nwPct  = gross > 0 ? Math.max(0, Math.min(100, (nw / gross) * 100)) : 0;
         const barRow = (barWidth: string, barStyle: CSSProperties, alignEnd: boolean, label: ReactNode) => (
-          <div className="flex items-center gap-2">
-            <div className={`flex-[0_0_56%] flex ${alignEnd ? 'justify-end' : ''}`}>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+            <div className={`w-full sm:w-auto sm:flex-[0_0_56%] flex ${alignEnd ? 'justify-end' : ''}`}>
               <div className="h-[15px] rounded-[5px] chart-grow" style={{ width: barWidth, ...barStyle }} />
             </div>
-            <span className="text-[10.5px] text-ink-mid whitespace-nowrap">{label}</span>
+            <span className="text-[12px] text-ink-mid sm:whitespace-nowrap">{label}</span>
           </div>
         );
         return (
-          <div className="relative rounded-r3 p-5 mb-4 overflow-hidden" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+          <div className="card-raised p-5 mb-4 overflow-hidden" data-testid="networth-hero">
             <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full" style={{ background: 'hsl(var(--denim))' }} />
             <div className="mono-label mb-1">Net worth · today</div>
             <Money amount={nw} currency={c} maxChars={12}
               className={`num text-[30px] font-bold leading-tight ${nw >= 0 ? 'text-ink' : 'text-terra'}`} />
-            <div className="flex flex-col gap-1.5 mt-3">
+            <div className="flex flex-col gap-2.5 sm:gap-1.5 mt-3">
               {barRow('100%', { background: 'hsl(var(--sage))', boxShadow: 'var(--neu-sm)' }, false,
                 <>Assets <span className="text-ink-dim">(what you own)</span> <b className="num text-ink-mid">{fmt(gross, c)}</b></>)}
               {barRow(`${libPct}%`, { background: 'var(--sunken)', boxShadow: 'var(--neu-inset), inset 0 0 0 1px hsl(var(--line2))' }, true,
@@ -212,7 +212,7 @@ export default function NetWorth() {
 
       {/* Board C — liquidity stacked bar. */}
       {ta > 0 && (
-        <div className="rounded-r3 p-4 mb-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
+        <div className="tile !rounded-r3 p-4 mb-4">
           <div className="mono-label mb-2">Liquidity mix</div>
           <div className="flex h-3.5 rounded-lg overflow-hidden" style={{ background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' }} aria-hidden>
             <div className="chart-grow" style={{ width: pct(liqMix.liquid), background: 'hsl(var(--sage))' }} />
@@ -238,9 +238,9 @@ export default function NetWorth() {
           // ratio" and "Savings Ratio" are analyst vocabulary; a household app
           // should say what it means. Thresholds are unchanged.
           {
-            label: 'Money you can reach',
+            label: 'Liquid assets',
             value: fmtNet(Math.round(la), c),
-            sub: dues <= 0 ? 'cash and savings you could use today'
+            sub: dues <= 0 ? 'Cash and savings you could use today'
               : la >= dues
                 ? `${fmt(Math.round(la - dues), c)} free after ${fmt(Math.round(dues), c)} card dues`
                 : `${fmt(Math.round(dues - la), c)} short of ${fmt(Math.round(dues), c)} card dues`,
@@ -257,25 +257,25 @@ export default function NetWorth() {
           {
             label: 'What you owe vs own',
             value: `${debtToAsset.toFixed(1)}%`,
-            sub: 'of everything you own is borrowed',
+            sub: 'Share of what you own that is borrowed',
             good: debtToAsset < 30,
             warn: debtToAsset < 50,
           },
           {
             label: 'Kept this month',
             value: pctLabel(savingsRatio, 1),
-            sub: savingsRatio == null ? 'no income recorded this month' : 'of what came in this month',
+            sub: savingsRatio == null ? 'No income recorded this month' : 'Share of this month’s income kept',
             good: savingsRatio != null && savingsRatio >= 20,
             warn: savingsRatio != null && savingsRatio >= 10,
             muted: savingsRatio == null,
           },
         ].map((r: { label: string; value: string; sub: string; good: boolean; warn: boolean; muted?: boolean }) => (
-          <div key={r.label} className="rounded-r3 p-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
+          <div key={r.label} className="card-raised p-4 min-w-0">
             <div className={`num text-xl font-semibold mb-0.5 ${r.muted ? 'text-ink-dim' : r.good ? 'text-sage' : r.warn ? 'text-honey' : 'text-terra'}`}>
               {r.value}
             </div>
             <div className="text-[0.78rem] font-semibold text-ink mb-0.5">{r.label}</div>
-            <div className="font-mono text-[0.58rem] tracking-wider text-ink-dim uppercase">{r.sub}</div>
+            <div className="text-[12px] leading-snug text-ink-dim">{r.sub}</div>
           </div>
         ))}
       </div>
@@ -312,7 +312,7 @@ export default function NetWorth() {
                 const groupTotal = group.reduce((s, r) => s + r.value, 0);
                 return (
                   <div key={liq.key}>
-                    <div className="font-mono text-[0.6rem] tracking-widest text-ink-dim uppercase px-1 mb-1.5">
+                    <div className="ui-label px-1 mb-1.5">
                       {liq.label} · {fmtNet(groupTotal, c)}
                     </div>
                     {group.map(row => {
@@ -322,12 +322,12 @@ export default function NetWorth() {
                       if (row.source === 'account' && row.account) {
                         const acc = row.account;
                         return (
-                          <div key={row.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+                          <div key={row.id} className="tile px-4 py-3 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5 min-w-0">
                               <span>{KIND_ICON[acc.kind] ?? '💵'}</span>
                               <div className="min-w-0">
                                 <div className="text-[0.84rem] font-semibold text-ink truncate">{acc.name}</div>
-                                <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{liq.label.toLowerCase()}</div>
+                                <div className="text-[12px] text-ink-dim">{liq.label}</div>
                               </div>
                             </div>
                             <Money amount={row.value} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem] flex-shrink-0" />
@@ -337,20 +337,20 @@ export default function NetWorth() {
                       const a = row.asset!;
                       const meta = ASSET_TYPES[a.type] || ASSET_TYPES.cash;
                       return (
-                        <div key={a.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
+                        <div key={a.id} className="tile px-4 py-3 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <span>{meta.icon}</span>
-                            <div>
-                              <div className="text-[0.84rem] font-semibold text-ink">{a.name}</div>
-                              {a.note && <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{a.note}</div>}
+                            <div className="min-w-0">
+                              <div className="text-[0.84rem] font-semibold text-ink truncate">{a.name}</div>
+                              {a.note && <div className="text-[12px] text-ink-dim truncate">{a.note}</div>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2.5 min-w-0">
                             {isStale(row) && (
                               <button type="button" onClick={() => openEdit(a)} title="This balance is over 30 days old — update it"
-                                className="font-mono text-[8.5px] tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-md flex-shrink-0"
+                                className="text-[11.5px] font-medium px-2 py-1 rounded-r2 flex-shrink-0"
                                 style={{ border: '1px dashed color-mix(in srgb, hsl(var(--honey)) 55%, transparent)', color: 'var(--warn-text)' }}>
-                                update?
+                                Update?
                               </button>
                             )}
                             <div className="text-right min-w-0">
@@ -397,12 +397,12 @@ export default function NetWorth() {
               {liabilityList.map(r => {
                 const { icon, sub } = liabilityRowLabel(r, debts);
                 return (
-                  <div key={r.id} className="bg-bg border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+                  <div key={r.id} className="tile px-4 py-3 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span>{icon}</span>
                       <div className="min-w-0">
                         <div className="text-[0.84rem] font-semibold text-ink truncate">{r.name}</div>
-                        <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim">{sub}</div>
+                        <div className="text-[12px] text-ink-dim">{sub}</div>
                       </div>
                     </div>
                     <div className="text-right min-w-0">

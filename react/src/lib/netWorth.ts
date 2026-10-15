@@ -96,7 +96,7 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
  * v10.39.1 (P19) — what the household's credit cards currently OWE, in base currency.
  *
  * Read from the projection's own liability rows, so it can never disagree with the
- * debt total those rows sum to. "Money you can reach" is not money you are free to
+ * debt total those rows sum to. "Liquid assets" is not money you are free to
  * spend while a card bill is waiting to be paid from it: the owner asked how much was
  * free to spend and got the gross figure, with ₹24,000 of card dues still to come out
  * of it. Loans are excluded on purpose — they are repaid by instalment, not from
