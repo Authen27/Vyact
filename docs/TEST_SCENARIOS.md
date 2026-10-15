@@ -25,14 +25,14 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1346 passing deterministic cases in 149 files. Zero failed, skipped or TODO cases at generation.**
+**1353 passing deterministic cases in 150 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 61 |
+| react | contract-unit | available | 68 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 96 |
 | react | sql-integration | conditional | 81 |
@@ -56,6 +56,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/a1AuroraFoundations.test.ts](../react/src/lib/__tests__/a1AuroraFoundations.test.ts) | Aurora 4.0 foundations (A1) | contract-unit | available | 13 |
 | [react/src/lib/__tests__/a2AuroraShell.test.tsx](../react/src/lib/__tests__/a2AuroraShell.test.tsx) | Aurora 4.0 app shell (A2) | contract-unit | available | 8 |
 | [react/src/lib/__tests__/a3AuroraConfirmations.test.ts](../react/src/lib/__tests__/a3AuroraConfirmations.test.ts) | Aurora 4.0 confirmations and undo (A3) | contract-unit | available | 9 |
+| [react/src/lib/__tests__/a4AuroraStates.test.tsx](../react/src/lib/__tests__/a4AuroraStates.test.tsx) | Aurora 4.0 states and first run (A4) | contract-unit | available | 7 |
 | [react/src/lib/__tests__/accountDeletionHandler.test.ts](../react/src/lib/__tests__/accountDeletionHandler.test.ts) | Account deletion handler | handler-integration | conditional | 5 |
 | [react/src/lib/__tests__/accountPatchSafety.test.ts](../react/src/lib/__tests__/accountPatchSafety.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/accountPurgeSql.test.ts](../react/src/lib/__tests__/accountPurgeSql.test.ts) | Account purge and retention SQL | sql-integration | conditional | 6 |

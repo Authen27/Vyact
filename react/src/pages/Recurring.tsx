@@ -22,6 +22,7 @@ import { runExclusive } from '../lib/exclusive';
 import { loanEmiRows, type LoanEmiRow } from '../lib/loanRecurring';
 import { clearsLabel } from '../lib/loanSchedule';
 import PageHead from '../components/ui/PageHead';
+import { writeSetupFlag } from '../lib/setupChecklist';
 import { confirmSheet } from '../lib/confirmSheet';
 import { deleteScheduleRequest } from '../lib/confirmCopy';
 
@@ -65,6 +66,9 @@ export default function Recurring() {
   const baseCur = useStore(s => s.profile.baseCurrency);
   const dateFormat = useStore(s => s.profile.dateFormat);
   const toast = useStore(s => s.toast);
+  // Aurora 4.0 FR1 — opening Recurring counts as reviewing the bills setup created (the checklist step).
+  const householdId = useStore(s => s.currentHouseholdId);
+  useEffect(() => { writeSetupFlag(householdId, 'reviewedBills'); }, [householdId]);
   // Track E, E6a (owner, 13 Oct 2026) — each live loan's EMI, mirrored from the loan (lib/loanRecurring).
   const debts = useStore(s => s.debts);
   const transactions = useStore(s => s.transactions);
@@ -393,7 +397,9 @@ export default function Recurring() {
 
       <Panel title="Active Schedules">
         {listed.length === 0
-          ? <EmptyState icon={<Repeat size={36} />} message="No recurring schedules yet — set up rent, salary, subscriptions" />
+          ? <EmptyState icon={<Repeat size={22} />} title="No recurring schedules yet"
+              message="Set up rent, salary and subscriptions once, and each one is posted or asked for on its date."
+              action={{ label: '+ Add a schedule', onClick: () => { resetForm(); setEditing(null); setOpen(true); } }} />
           : listed.map(s => {
               const cat = getCat(s.transactionTemplate.category);
               return (

@@ -26,6 +26,7 @@ import { DEBT_TYPES } from '../constants';
 import type { Debt, PayoffStrategy } from '../types';
 import SegRail from '../components/ui/SegRail';
 import PageHead from '../components/ui/PageHead';
+import EmptyState from '../components/ui/EmptyState';
 import { askSheet, confirmSheet } from '../lib/confirmSheet';
 import { deleteLoanRequest, markPaidOffRequest, undoLoanPaymentRequest } from '../lib/confirmCopy';
 
@@ -196,11 +197,9 @@ export default function Debts() {
 
       {active.length === 0 ? (
         <Panel>
-          <div className="px-6 py-14 text-center">
-            <div className="text-4xl mb-3 opacity-60">🏦</div>
-            <p className="text-ink-mid mb-4">No loans being repaid. Add one to see when it clears.</p>
-            <button className="btn-primary" onClick={openAddDebt}>Add a loan</button>
-          </div>
+          <EmptyState icon="🏦" title="No loans being repaid"
+            message="Add a loan with its EMI and you see what is left, the interest still to pay and when it clears."
+            action={{ label: 'Add a loan', onClick: openAddDebt }} />
         </Panel>
       ) : (
         <>

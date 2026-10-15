@@ -19,6 +19,7 @@ import Money from '../components/ui/Money';
 import BudgetPaceChart from '../components/budgets/BudgetPaceChart';
 import { sortBudgetsForDisplay } from '../lib/budgetOrdering';
 import PageHead from '../components/ui/PageHead';
+import EmptyState from '../components/ui/EmptyState';
 import { confirmSheet } from '../lib/confirmSheet';
 import { deleteBudgetRequest } from '../lib/confirmCopy';
 import { budgetTitle } from '../lib/budgetForm';
@@ -183,11 +184,10 @@ export default function Budgets() {
 
       {rows.length === 0 ? (
         <Panel>
-          <div className="px-6 py-14 text-center">
-            <div className="text-4xl mb-3 opacity-60">◎</div>
-            <p className="text-ink-mid mb-4">{canManage ? 'No budgets yet. Add one to start tracking your spending.' : 'No budgets yet. The household owner or admin can add one.'}</p>
-            {canManage && <button className="btn-primary" onClick={openAddBudget}>Add First Budget</button>}
-          </div>
+          <EmptyState icon="🎯" title="No budgets yet"
+            message={canManage ? 'Set one for this month and each category shows what is left as you spend.' : 'The household owner or an admin can set one; it shows here when they do.'}
+            action={canManage ? { label: 'Set a budget', onClick: openAddBudget } : undefined}
+            hint={canManage ? 'or ask Pip: "suggest a budget from last month"' : undefined} />
         </Panel>
       ) : (
         <div className="grid sm:grid-cols-2 gap-3 mt-3">

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.102.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.103.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -680,7 +680,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - A transaction's account label is `txnAccountLabel` (the `accounts` FK first, the legacy
     `paymentMethod` resolver last). A new store collection joins the backup in `lib/backup.ts`.
   - Bottom-fixed surfaces use `.bottom-above-tabbar`, not `bottom-4`.
-- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
+- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3, v10.103.0 A4; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
   - Surfaces are three tiers only: `.card-raised` (heroes, KPIs, 18px), the panel (lists), and `.well`
     (stats and inputs inside a card, 12px). Never bring back the bg3 + 1px border + 8px tile. Corners
     are 12 / 18 / 26px (26 only for the auth card).
@@ -703,6 +703,14 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     `deferCommit` when it does not — held, then written after 8 s or on navigation, never on Undo).
     Revoking an invitation is the exception (v10.95.0, owner, R4): a held revoke left the link live if the
     tab closed, so it asks (`revokeInvitationRequest`) and then revokes at once.
+  - An empty list is `components/ui/EmptyState` (icon tile, short title, one sentence, one action,
+    optional Pip hint; `compact` inside a panel). Loading draws the page's own shape
+    (`components/ui/Skeleton`), never a "Loading…" word.
+  - The first Dashboard after a real onboarding shows "Finish setting up" (`lib/setupChecklist.ts`:
+    steps from the household's own data; hidden / bills-reviewed are per-person flags on the device)
+    and, until real activity replaces it, the estimate from setup as the first hero
+    (`EstimateHero`: pay − fixed bills − this month's logged spending that is not a posted bill, always
+    `EstimatedTag`, never mixed into Cash Flow).
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)

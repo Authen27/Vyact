@@ -20,6 +20,7 @@ import { ASSET_TYPES } from '../constants';
 import type { Asset, AccountKind } from '../types';
 import InfoNote from '../components/ui/InfoNote';
 import PageHead from '../components/ui/PageHead';
+import EmptyState from '../components/ui/EmptyState';
 import { confirmSheet } from '../lib/confirmSheet';
 import { deleteAssetRequest } from '../lib/confirmCopy';
 
@@ -299,10 +300,9 @@ export default function NetWorth() {
           <p className="text-[0.8rem] text-ink-dim mb-3">What you own: cash, savings, investments and property</p>
           {liveRows.length === 0 ? (
             <Panel>
-              <div className="px-6 py-10 text-center">
-                <p className="text-ink-mid text-sm mb-3">No assets added yet.</p>
-                <button className="btn-primary text-sm" onClick={openAdd}>Add Asset</button>
-              </div>
+              <EmptyState icon="🏠" title="No assets added yet"
+                message="Add what you own outside your accounts (property, gold, investments) and it counts toward your net worth."
+                action={{ label: 'Add an asset', onClick: openAdd }} />
             </Panel>
           ) : (
             <div className="space-y-2">

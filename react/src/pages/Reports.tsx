@@ -341,7 +341,7 @@ export default function Reports() {
 
       <Panel title="Income vs Expenses Trend" sub={PERIOD_TITLE[period]} className="mb-3.5 min-w-0">
         {data.length === 0 || data.every(d => d.income === 0 && d.expense === 0)
-          ? <EmptyState icon="📊" message="No data for this period" />
+          ? <EmptyState icon="📊" title="No data for this period" message="Pick a longer range, or add entries for these dates." />
           : <IncomeExpenseArea data={data} currency={baseCur} />
         }
       </Panel>

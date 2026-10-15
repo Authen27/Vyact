@@ -291,7 +291,7 @@ export const LOCALES: Record<string, { name: string; strings: Record<string, str
     'add-transaction':'Add Transaction',
     'total-balance':'Total Balance','monthly-income':'Monthly Income','monthly-expenses':'Monthly Expenses','savings-rate':'Savings Rate',
     'this-month':'This month','of-income-saved':'of income saved',
-    'view-all':'View all →','income':'Income','expense':'Expense',
+    'view-all':'View all','income':'Income','expense':'Expense',
     'budget-progress':'Budget Progress','recent-transactions':'Recent Transactions',
     'active-goals':'Active Goals','spending-by-category':'Spending by Category',
     'net-worth-snapshot':'Net Worth Snapshot','debt-overview':'Debt Overview',

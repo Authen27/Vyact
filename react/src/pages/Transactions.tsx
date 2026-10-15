@@ -491,7 +491,10 @@ export default function Transactions() {
               </button>
             </div>
           ) : (
-            <EmptyState icon="📝" message="No transactions yet — add your first one to get started." />
+            <EmptyState icon="🧾" title="No entries yet"
+              message="Add what you spend and earn, and this becomes your household's history."
+              action={{ label: '+ Add your first expense', onClick: () => openAddTxn({ type: 'expense' }) }}
+              hint={<>or tell Pip: &ldquo;spent 450 on auto&rdquo;</>} />
           )
         ) : (
           <div className="p-2.5 space-y-2.5">

@@ -25,6 +25,7 @@ import Landing from './pages/Landing';
 
 
 import React, { Suspense } from 'react';
+import { AppSkeleton, PageSkeleton, shapeForPath } from './components/ui/Skeleton';
 // v10.28.0 — the entity forms are routed pages (pages/FormPages.tsx), not root modals.
 const FormPages    = React.lazy(() => import('./pages/FormPages'));
 const Dashboard    = React.lazy(() => import('./pages/Dashboard'));
@@ -238,16 +239,9 @@ function AppShell() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="display-italic text-3xl text-coral mb-2">Vyact</div>
-          <div className="mono-label">Loading…</div>
-        </div>
-      </div>
-    );
-  }
+  // Aurora 4.0 LD1 — while the household loads, the screen shows its own shape in grey blocks
+  // (header bar, heroes, panels, rows) instead of a "Loading…" word on a blank page.
+  if (loading) return <AppSkeleton pathname={location.pathname} />;
 
   // Per-household onboarding (spec §2): a fresh household with the flag on is
   // routed into the flow on first entry. Existing households (data present /
@@ -283,7 +277,7 @@ function AppShell() {
 
   return (
     <Layout>
-      <Suspense fallback={<LoadingFallback />}>
+      <Suspense fallback={<PageSkeleton shape={shapeForPath(location.pathname)} />}>
         <Routes>
           <Route path="/dashboard"    element={<Dashboard />} />
           <Route path="/transactions" element={<Transactions />} />

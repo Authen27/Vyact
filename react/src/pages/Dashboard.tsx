@@ -23,8 +23,9 @@ import { budgetLinesNow, budgetPace } from '../lib/budgetProgress';
 import { debtToIncomePct, pctLabel } from '../lib/ratios';
 import Money from '../components/ui/Money';
 import AnimatedMoney from '../components/ui/AnimatedMoney';
-import StartingBaselineBand from '../components/dashboard/StartingBaselineBand';
-import { Pip } from '../components/layout/Brand';
+import EstimateHero, { useStartingBaseline } from '../components/dashboard/EstimateHero';
+import SetupChecklist from '../components/dashboard/SetupChecklist';
+import { can } from '../lib/permissions';
 import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem } from '../lib/motion';
 import { getCat } from '../constants';
@@ -63,6 +64,10 @@ export default function Dashboard() {
   const baseCur = profile.baseCurrency;
   const openEditTxn = useStore(s => s.openEditTxn);
   const openAddTxn = useStore(s => s.openAddTxn);
+  const openAddBudget = useStore(s => s.openAddBudget);
+  const myRole = useStore(s => s.myRole);
+  // FR2 — the estimate from setup leads the heroes until real activity replaces it.
+  const [baseline, dismissBaseline] = useStartingBaseline();
   // `rates` stays a live subscription: the selectors return derived values, not
   // raw collections, and the budget progress (lib/budgetProgress) reads it.
   const rates = useStore(s => s.rates);
@@ -169,8 +174,6 @@ export default function Dashboard() {
         action={{ label: 'Add transaction', icon: true, entity: 'transaction', headerPlus: false, onClick: () => openAddTxn() }}
       />
 
-      {/* v9.7 — estimated starting picture from onboarding; clears as real data lands. */}
-      <StartingBaselineBand />
 
       {/* Board M1 — mobile status banner (desktop carries this in the insight
           cards). Budget-pace nudge when a current-month budget exists, else a
@@ -194,12 +197,40 @@ export default function Dashboard() {
           a 2-col grid at sm. */}
       <div data-testid="dashboard-heroes" className="flex sm:grid sm:grid-cols-2 gap-section-content overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
         <div className="snap-start shrink-0 basis-[86%] sm:basis-auto sm:shrink">
-          <CashFlowHero series={netSeries} month={month} rate={rate} baseCur={baseCur} mk={mk} />
+          {baseline
+            ? <EstimateHero baseline={baseline} onDismiss={dismissBaseline} />
+            : <CashFlowHero series={netSeries} month={month} rate={rate} baseCur={baseCur} mk={mk} />}
         </div>
         <div className="snap-start shrink-0 basis-[86%] sm:basis-auto sm:shrink">
           <NetWorthHero ta={ta} tl={tl} baseCur={baseCur} />
         </div>
       </div>
+
+      {/* Aurora 4.0 FR1 — "Finish setting up", after a real onboarding only. */}
+      <SetupChecklist />
+
+      {/* Aurora 4.0 D1 — phones: the insight cards are desktop-only below, so phones get the top two
+          here as "What to look at", with See all. */}
+      {insights.length > 0 && (
+        <div className="sm:hidden" data-testid="dashboard-look-at">
+          <Panel title="What to look at" action={<Link to="/insights" className="text-[13px] font-medium text-coral hover:opacity-70">See all</Link>}>
+            {insights.slice(0, 2).map((c, i) => {
+              const tone = c.cls === 'chip-good' ? 'hsl(var(--sage))'
+                         : c.cls === 'chip-warn' ? 'hsl(var(--honey))'
+                         : c.cls === 'chip-alert' ? 'hsl(var(--terra))'
+                         :                          'hsl(var(--denim))';
+              const body = (
+                <div className={`relative py-3 pr-4 pl-[18px] ${i ? 'border-t border-line' : ''}`}>
+                  <span aria-hidden className="absolute left-0 top-[12px] bottom-[12px] w-[3px] rounded-r" style={{ background: tone }} />
+                  <div className="text-[13.5px] font-medium text-ink leading-snug">{c.icon} {c.text}</div>
+                  {c.detail && <div className="text-[13px] text-ink-mid mt-1 leading-relaxed">{c.detail}</div>}
+                </div>
+              );
+              return c.to ? <Link key={i} to={c.to} className="block">{body}</Link> : <div key={i}>{body}</div>;
+            })}
+          </Panel>
+        </div>
+      )}
 
       {/* Pulse + desktop metric tiles / insight spine-cards (board D1). */}
       <div data-testid="dashboard-metrics" className={FEATURES.dashboard.showPulse ? 'grid sm:grid-cols-[230px_1fr] gap-section-content' : 'hidden sm:block'}>
@@ -257,10 +288,15 @@ export default function Dashboard() {
       <div data-testid="dashboard-details" className="grid lg:grid-cols-3 gap-x-section-content gap-y-section">
         <Panel
           title={t('budget-progress')}
-          action={<Link to="/budgets" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">{t('view-all')}</Link>}
+          action={<Link to="/budgets" className="text-[13px] font-medium text-coral hover:opacity-70">{t('view-all')}</Link>}
         >
           {budgetNow.lines.length === 0 && budgetNow.notPlanned.length === 0 ? (
-            <EmptyState icon="◎" message={budgetNow.progress.length ? 'No category allocations this month' : 'No budgets yet'} />
+            // Aurora 4.0 FR3 — say what is missing and offer the one action.
+            <EmptyState compact
+              message={budgetNow.progress.length ? 'This month\'s budget has no category lines yet.' : 'No budget yet.'}
+              action={can(myRole, 'manage_budgets')
+                ? (budgetNow.progress.length ? { label: 'Add category lines', to: '/budgets' } : { label: 'Set a budget', onClick: openAddBudget })
+                : undefined} />
           ) : (
             <div className="px-4 pt-2.5 pb-1.5">
               {/* v10.27.2 — the five most-utilised categories, highest first
@@ -308,19 +344,19 @@ export default function Dashboard() {
 
         <Panel
           title={t('recent-transactions')}
-          action={<Link to="/transactions" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">{t('view-all')}</Link>}
+          action={<Link to="/transactions" className="text-[13px] font-medium text-coral hover:opacity-70">{t('view-all')}</Link>}
         >
           {recent.length === 0 ? (
-            <EmptyState icon={<Pip size={44} />} message="No transactions yet" />
+            <EmptyState compact message="Nothing logged yet." action={{ label: '+ Add your first expense', onClick: () => openAddTxn({ type: 'expense' }) }} />
           ) : (
             recent.map(txn => <RecentRow key={txn.id} txn={txn} onEdit={openEditTxn} />)
           )}
         </Panel>
 
         <Panel title={t('spending-by-category')} sub={t('this-month')}
-          action={<Link to="/reports" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">View All →</Link>}>
+          action={<Link to="/reports" className="text-[13px] font-medium text-coral hover:opacity-70">{t('view-all')}</Link>}>
           {donutData.length === 0
-            ? <EmptyState icon="🥯" message="No expenses this month" />
+            ? <EmptyState compact message="No spending recorded this month." />
             : <CategoryDonut data={donutData} currency={baseCur} monthKey={mk} />
           }
         </Panel>
@@ -330,10 +366,10 @@ export default function Dashboard() {
       {FEATURES.dashboard.showDebtSummary && <div data-testid="dashboard-debt-summary">
         <Panel
           title={t('debt-overview')}
-          action={<Link to="/debts" className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70">View →</Link>}
+          action={<Link to="/debts" className="text-[13px] font-medium text-coral hover:opacity-70">{t('view-all')}</Link>}
         >
           {debts.length === 0 ? (
-            <EmptyState icon={<Pip size={44} />} message="Debt-free — nothing owed" />
+            <EmptyState compact message="Debt-free — nothing owed." />
           ) : (
             <div className="px-4 py-3 space-y-2">
               <Row label={`Total · ${debts.length} accounts`} value={<Money amount={tl} currency={baseCur} maxChars={11} />} valueClass="text-terra" />
