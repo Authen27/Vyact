@@ -35,9 +35,12 @@ function badgeIcon(Icon: Icon) {
   );
 }
 
+/** Aurora 4.0 LA1 — the app's raised small card at 18px. */
+const CARD = 'tile !rounded-r3';
+
 function PainCard({ icon, title, children }: { icon: Icon; title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-bg3 border border-line rounded-xl p-5">
+    <div className={`${CARD} p-5`}>
       {badgeIcon(icon)}
       <h3 className="text-[15px] font-semibold text-ink mb-1.5">{title}</h3>
       <p className="text-[0.9rem] leading-6 text-ink-mid">{children}</p>
@@ -47,7 +50,7 @@ function PainCard({ icon, title, children }: { icon: Icon; title: string; childr
 
 function FeatureCard({ icon, title, children }: { icon: Icon; title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-bg3 border border-line rounded-xl p-5 flex gap-3.5 items-start">
+    <div className={`${CARD} p-5 flex gap-3.5 items-start`}>
       {badgeIcon(icon)}
       <div className="pt-0.5">
         <h3 className="text-[15px] font-semibold text-ink mb-1">{title}</h3>
@@ -84,11 +87,11 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             <Pip size={30} />
             <div>
               <div className="display-italic text-lg text-ink leading-none">Vyact</div>
-              <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-coral">Family budget app</div>
+              <div className="text-[11px] font-medium text-coral">Family budget app</div>
             </div>
           </Link>
-          <nav className="flex items-center gap-4" aria-label="Main">
-            <a href="/learn" className="text-[0.85rem] font-medium text-ink-mid hover:text-ink">Learn</a>
+          <nav className="flex items-center gap-3 sm:gap-4" aria-label="Main">
+            <a href="/learn" className="hidden sm:inline text-[0.85rem] font-medium text-ink-mid hover:text-ink">Learn</a>
             {cloudMode && !signedIn && (
               <Link to="/auth/sign-in" className="text-[0.85rem] font-medium text-ink-mid hover:text-ink">Sign in</Link>
             )}
@@ -102,7 +105,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
       <main className="max-w-5xl mx-auto px-5">
         {/* Hero */}
         <section className="pt-16 pb-16 md:pt-20 md:pb-20 max-w-2xl">
-          <p className="font-mono text-[0.7rem] tracking-[0.12em] uppercase text-coral mb-3">{HERO.kicker}</p>
+          <p className="text-[0.8rem] font-semibold text-coral mb-3">{HERO.kicker}</p>
           <h1 className="display-italic text-4xl md:text-5xl text-ink mb-5 leading-[1.1]">{HERO.title}</h1>
           <p className="text-[1.05rem] leading-7 text-ink-mid mb-8">{HERO.lede}</p>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
@@ -146,21 +149,21 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             <span
               aria-hidden
               className="absolute -right-2 -bottom-4 font-display font-bold text-[7rem] md:text-[9rem] leading-none select-none"
-              style={{ color: 'color-mix(in srgb, white 18%, transparent)' }}
+              style={{ color: 'color-mix(in srgb, var(--accent-ink) 12%, transparent)' }}
             >
               ?
             </span>
-            <div className="relative max-w-lg">
-              <h2 className="display-italic text-2xl md:text-3xl text-white mb-3">{PIP.title}</h2>
-              <p className="text-[0.95rem] leading-6" style={{ color: 'color-mix(in srgb, white 88%, transparent)' }}>{PIP.body}</p>
-              <p className="font-mono text-[0.6rem] tracking-[0.1em] uppercase mt-4" style={{ color: 'color-mix(in srgb, white 65%, transparent)' }}>
+            <div className="relative max-w-lg" style={{ color: 'var(--accent-ink)' }} data-testid="landing-pip-band">
+              <h2 className="display-italic text-2xl md:text-3xl mb-3" style={{ color: 'var(--accent-ink)' }}>{PIP.title}</h2>
+              <p className="text-[0.95rem] leading-6">{PIP.body}</p>
+              <p className="text-[12px] font-medium mt-4" style={{ color: 'color-mix(in srgb, var(--accent-ink) 78%, transparent)' }}>
                 {PIP.caption}
               </p>
             </div>
             <ul className="relative space-y-2 w-full md:w-auto md:min-w-[16rem]">
               {PIP.examples.map(q => (
-                <li key={q} className="rounded-lg px-4 py-2.5 text-[0.85rem] text-white"
-                  style={{ background: 'color-mix(in srgb, white 16%, transparent)' }}>“{q}”</li>
+                <li key={q} className="rounded-r2 px-4 py-2.5 text-[0.85rem] font-medium"
+                  style={{ background: 'color-mix(in srgb, white 30%, transparent)', color: 'var(--accent-ink)' }}>“{q}”</li>
               ))}
             </ul>
           </div>
@@ -174,9 +177,9 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
           </div>
           <div className="space-y-3">
             {INSIGHTS.examples.map(t => (
-              <div key={t} className="bg-bg3 border border-line rounded-lg px-4 py-3 text-[0.85rem] text-ink">{t}</div>
+              <div key={t} className={`${CARD} px-4 py-3 text-[0.85rem] text-ink`}>{t}</div>
             ))}
-            <p className="font-mono text-[0.6rem] tracking-[0.1em] uppercase text-ink-dim">{INSIGHTS.caption}</p>
+            <p className="text-[12px] text-ink-dim">{INSIGHTS.caption}</p>
           </div>
         </section>
 
@@ -220,18 +223,19 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
             <a href="/learn" className="text-[0.9rem] font-semibold text-coral hover:underline">Browse the library →</a>
           </div>
           {/* v10.57.0 (B18) — three one-minute Shorts. Plain links + lazy thumbnails: no player loads. */}
-          <div className="grid grid-cols-3 gap-3 mb-4" data-testid="landing-shorts">
+          <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-px-5 -mx-5 px-5 pb-1 mb-4 sm:scroll-px-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none' }} data-testid="landing-shorts">
             {SHORTS.map(s => (
-              <div key={s.id} className="min-w-0">
+              <div key={s.id} className="w-[150px] flex-shrink-0 snap-start sm:w-auto min-w-0">
                 <a href={`https://www.youtube.com/shorts/${s.id}`} target="_blank" rel="noopener" data-cta={`short_${s.slug.slice(3, 6)}`} onClick={cta(`short_${s.slug.slice(3, 6)}`)}
                   className="relative block rounded-xl overflow-hidden border border-line bg-black" style={{ aspectRatio: '9 / 16' }}
                   aria-label={`Watch on YouTube: ${s.title}`}>
                   <img src={`https://i.ytimg.com/vi/${s.id}/hqdefault.jpg`} alt="" loading="lazy" width={480} height={360}
                     className="absolute inset-0 w-full h-full object-cover opacity-85" />
-                  <span className="absolute inset-x-0 bottom-0 p-2.5 text-[0.75rem] sm:text-[0.85rem] font-semibold text-white leading-snug"
+                  <span className="absolute inset-x-0 bottom-0 p-2.5 text-[0.8rem] sm:text-[0.85rem] font-semibold text-white leading-snug"
                     style={{ background: 'linear-gradient(transparent, rgba(0,0,0,.8))' }}>▶ {s.title}</span>
                 </a>
-                <a href={`/learn/${s.slug}`} className="block mt-1.5 text-[0.75rem] sm:text-[0.8rem] font-medium text-coral hover:underline">Read the lesson →</a>
+                <a href={`/learn/${s.slug}`} className="block mt-1.5 text-[0.8rem] font-medium text-coral hover:underline min-h-[44px] sm:min-h-0">Read the lesson →</a>
               </div>
             ))}
           </div>
@@ -240,8 +244,8 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {LESSONS.map(l => (
-              <a key={l.slug} href={`/learn/${l.slug}`} className="bg-bg3 border border-line rounded-xl p-4 hover:border-coral transition-colors">
-                <div className="flex items-center gap-1.5 font-mono text-[0.58rem] tracking-[0.12em] uppercase text-coral mb-1.5">
+              <a key={l.slug} href={`/learn/${l.slug}`} className={`${CARD} p-4`}>
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold text-coral mb-1.5">
                   <BookOpen size={12} aria-hidden /> {l.topic}
                 </div>
                 <div className="text-[0.92rem] font-semibold text-ink leading-snug">{l.title}</div>
@@ -255,7 +259,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
           <h2 id="faq" className="display-italic text-2xl md:text-3xl text-ink mb-6 text-center">Questions, answered.</h2>
           <div className="space-y-2.5">
             {FAQ.map(([q, a]) => (
-              <details key={q} className="bg-bg3 border border-line rounded-xl px-5 py-4 group">
+              <details key={q} className={`${CARD} px-5 py-4 group`}>
                 <summary className="text-[0.95rem] font-semibold text-ink cursor-pointer">{q}</summary>
                 <p className="text-[0.9rem] leading-6 text-ink-mid mt-2">{a}</p>
               </details>
@@ -279,7 +283,7 @@ export default function LandingView({ cloudMode, signedIn, onCta }: LandingViewP
               <Pip size={22} />
               <div>
                 <div className="display-italic text-base text-ink leading-none">Vyact</div>
-                <div className="font-mono text-[0.5rem] tracking-[0.14em] uppercase text-coral">Family budget app</div>
+                <div className="text-[11px] font-medium text-coral">Family budget app</div>
               </div>
             </div>
             <p className="text-[0.8rem] text-ink-dim">Your household’s money, understood together.</p>
