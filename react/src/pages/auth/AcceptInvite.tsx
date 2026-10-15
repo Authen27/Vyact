@@ -104,7 +104,7 @@ export default function AcceptInvite() {
           <CheckCircle size={48} className="mx-auto text-sage mb-4" />
           <p className="text-ink-mid mb-2">Invitation accepted.</p>
           <p className="text-ink-dim text-sm">Switching to your new household…</p>
-          {householdId && <code className="block mt-3 font-mono text-[0.62rem] text-ink-dim">{householdId}</code>}
+          {householdId && <code className="block mt-3 font-mono text-[11px] text-ink-dim">{householdId}</code>}
         </div>
       </AuthShell>
     );
