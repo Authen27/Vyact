@@ -23,7 +23,8 @@ test('CAT-FC-001 - Accounts stays reachable under Plan on mobile and desktop', a
     await cash.getByRole('button', { name: 'Reconcile', exact: true }).click();
     const reconcile = page.getByRole('main', { name: 'Cash in Hand', exact: true });
     await expect(reconcile.getByRole('textbox', { name: 'Cash counted', exact: true })).toBeVisible();
-    await reconcile.getByRole('button', { name: 'Confirm', exact: true }).click();
+    await expect(reconcile.getByText('✓ Balances match', { exact: true })).toBeVisible();   // Aurora 4.0 RC2
+    await reconcile.getByRole('button', { name: 'Mark reconciled', exact: true }).click();
     await expect(reconcile).toHaveCount(0);
     await expect(page.getByText('Cash balance confirmed', { exact: true }).first()).toBeVisible();
     await expect(cash.locator('.num')).toHaveText(balanceBefore);
