@@ -206,6 +206,30 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/a6AuroraForms.test.tsx",
+      "feature": "Aurora 4.0 forms and onboarding (A6)",
+      "availability": "available",
+      "layer": "contract-unit",
+      "owner": "Aurora 4.0 A6: amount first, no silent expense category, description suggests the category (own type, never Loan / EMI), Recently used first, date/time grid, More details, Save & add another as a button, split Equally / By amount, loan and recurring forms in headed groups, standard EMI Use link, liquidity from the asset type, card cycle as dates, reconcile side by side with a matched state, recurring summary line and Post automatically / Ask me first, onboarding currency chips, Pip on neu, digits grouped as typed, pinned step buttons",
+      "count": 13,
+      "tests": [
+        "A6 · forms and onboarding A6-AF1-001 · a card's cycle as dates: spend window, statement, due",
+        "A6 · forms and onboarding A6-CAT1-CAT2-001 · the transaction form starts an expense on \"Choose category\" and asks for a pick",
+        "A6 · forms and onboarding A6-CAT2-001 · the description suggests a category of the entry's own type, never Loan / EMI",
+        "A6 · forms and onboarding A6-CAT3-001 · the household's most used categories come first, in a Recently used group",
+        "A6 · forms and onboarding A6-F1-F2-FRM-001 · amount first, Save & add another beside Save, date/time grid, More details",
+        "A6 · forms and onboarding A6-FA1-001 · liquidity follows the asset type, with Change for the exception",
+        "A6 · forms and onboarding A6-FL1-FL2-001 · the loan form in three groups; the standard EMI is a sentence with Use",
+        "A6 · forms and onboarding A6-FS1-FS2-001 · splits: Equally by default with shares as text; description, category, date as Add transaction",
+        "A6 · forms and onboarding A6-OB-ON2-001 · currency chips on phones, Pip on neu, the step buttons pinned",
+        "A6 · forms and onboarding A6-ON1-001 · onboarding groups digits as you type: lakhs for INR, thousands otherwise, commas only",
+        "A6 · forms and onboarding A6-RC1-RC2-001 · reconcile: both balances in one card, a matched state that marks it reconciled",
+        "A6 · forms and onboarding A6-RE1-001 · the recurring editor says what the schedule will do",
+        "A6 · forms and onboarding A6-RE2-RE3-001 · Post automatically / Ask me first, in What · When · How groups"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/accountDeletionHandler.test.ts",
       "feature": "Account deletion handler",
       "availability": "conditional",

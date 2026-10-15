@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.104.0`** (consumer)
+> **Current production version: `v10.105.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,40 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.105.0 — Aurora 4.0 A6: the forms and onboarding *(2026-10-15)*
+
+PR A6 of the Aurora 4.0 redesign. No figure, calculation or schema changes. One behaviour change: a new
+expense needs a category (CAT1).
+
+- **Add / edit transaction (F1, F2, CAT1–CAT3, FRM1, FRM2):** the amount comes first, then the type,
+  then the description and the category it suggests ("Suggested from “Swiggy” · change it if that's
+  wrong", from Pip's keyword list; the entry's own type only, never Loan / EMI). A new expense starts on
+  "Choose category" and asks for one before saving (every expense used to start on Food & Dining). The
+  household's five most used categories lead the list under "Recently used". Today / Yesterday sit on
+  their own row above two equal 44px date and time fields. Member and "Exclude from totals" are behind one
+  "More details" row that shows their values. "Save & add another" is a button beside Save.
+- **Add split (FS1, FS2):** Equally / By amount — equal shares show as text, amounts become fields only
+  when they differ (the "Even (auto)" link is gone); description, suggested category and the date row as
+  on Add transaction.
+- **Add loan (FL1, FL2):** three groups, The loan · Repayment · Paying it; the standard EMI is a sentence
+  with a "Use ₹…" link.
+- **Add asset (FA1):** liquidity follows the type and is shown as a sentence, with Change for an exception.
+- **Card account (AF1):** the cycle as dates — a spend window → statement → due timeline and one sentence.
+- **Reconcile (RC1, RC2):** "In Vyact" and "On your statement" side by side in one card with the gap
+  underneath; when they match, "✓ Balances match" and the button reads "Mark reconciled".
+- **Recurring editor (RE1–RE3):** a live line on what the schedule will do ("₹28,000 Rent, every month
+  on the 2nd, from HDFC · posts by itself · next on 2 Nov"); "Post automatically" / "Ask me first" replace
+  the Auto-approve switch; What · When · How groups. List rows say "posts automatically" / "asks first".
+- **Onboarding (OB1, OB2, ON1, ON2):** currency chips on phones (INR, USD, GBP, EUR and More…); Pip's
+  bubble is a raised neu surface; pay and bill amounts are grouped as you type (lakhs for INR, thousands
+  otherwise, commas only); Back / Continue stay pinned to the bottom with a fade, "I'll add bills later"
+  with them.
+- New: `lib/categorySuggest.ts`, `lib/groupDigits.ts`, `lib/cardCycle.ts`, `lib/scheduleSummary.ts`,
+  `components/ui/FormSection.tsx`. Tests: `a6AuroraForms.test.tsx`; e2e follow the new controls
+  (keyboard order, More details, Equally, Change liquidity, Mark reconciled, Ask me first, currency chips).
 
 ---
 

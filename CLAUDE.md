@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.104.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.105.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -207,6 +207,11 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   or editable category inputs. Filters may include All categories;
   transfers/investments have no category picker. Budget allocation amount rows
   and chart legends retain icon + label display, not selection controls.
+  **No silent default (Aurora 4.0 CAT1–CAT3, v10.105.0):** a new expense (and a shared bill) starts on
+  "Choose category" and cannot save without a pick or an accepted suggestion; income keeps Salary. The
+  description comes first and suggests the category (`lib/categorySuggest.ts` over Pip's `matchCategory`:
+  the entry's own type only, never Loan / EMI), saying where it came from; the household's five most used
+  categories (last 90 days) lead in a "Recently used" optgroup. Never reintroduce a default expense category.
 - **Fixed-choice dropdowns (v10.27.1)** — all consumer fixed-choice dropdowns use `Select` from `components/ui/Input.tsx`.
   No typed custom values or separate editable combobox. Short mode/period choices
   may remain segmented; names, notes, amounts and invite emails are input fields.
@@ -680,7 +685,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - A transaction's account label is `txnAccountLabel` (the `accounts` FK first, the legacy
     `paymentMethod` resolver last). A new store collection joins the backup in `lib/backup.ts`.
   - Bottom-fixed surfaces use `.bottom-above-tabbar`, not `bottom-4`.
-- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3, v10.103.0 A4, v10.104.0 A5; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
+- **Aurora 4.0 shared UI (v10.85.0 A1, v10.86.0 A2, v10.87.0 A3, v10.103.0 A4, v10.104.0 A5, v10.105.0 A6; `Vyact Redesign/Design 4.0/DESIGN_CHANGES.md`).**
   - Surfaces are three tiers only: `.card-raised` (heroes, KPIs, 18px), the panel (lists), and `.well`
     (stats and inputs inside a card, 12px). Never bring back the bg3 + 1px border + 8px tile. Corners
     are 12 / 18 / 26px (26 only for the auth card).
@@ -716,6 +721,11 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     A list row's category icon is `components/ui/CategoryTile` (34px raised, tinted with the colour).
   - "Available cash" is the Accounts figure (`accountsSummary`); Net Worth and Reports call their wider
     `liquidAssets` total "Liquid assets". Two names because they are two calculations.
+  - A long form is split into short headed groups with `components/ui/FormSection` (the loan form: The
+    loan · Repayment · Paying it; the recurring editor: What · When · How). Rarely changed fields sit behind
+    one row that shows their values and opens in place (the transaction form's "More details").
+  - Onboarding amounts are grouped as typed with commas only (`lib/groupDigits.ts`: lakhs for INR,
+    thousands otherwise), never the currency's own locale, where "1.450" would read back as 1.45.
 - **An edit is a patch over the row it opened (v10.72.0, W4c, owner decision D18).**
   - A form owns only its own fields: `editPatch(initial, built)` (`lib/txnEdit.ts`) keeps everything
     else on the row (the split, the schedule or loan link, provenance, the `updated_at` precondition)
