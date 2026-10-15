@@ -15,6 +15,7 @@ import Modal from '../components/ui/Modal';
 import HalfSheet from '../components/ui/HalfSheet';
 import { Input, Select, Field, FieldRow } from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
+import Chip from '../components/ui/Chip';
 import { PROFILE_TYPES, CURRENCIES, deterministicColor } from '../constants';
 import { HOUSEHOLD_TYPE_ORDER, normalizeHouseholdType, typeFits, inviteBlockedReason, householdLimitMessage, nextHouseholdAfterExit } from '../lib/householdTypes';
 import {
@@ -30,8 +31,8 @@ import {
   formatActivity, ACTIVITY_TYPE_FILTERS, type ActivityRow as ActivityRowData,
 } from '../lib/activityFormat';
 import PageHead from '../components/ui/PageHead';
-import { askSheet, confirmSheet } from '../lib/confirmSheet';
-import { deleteHouseholdRequest, leaveHouseholdRequest, removeMemberRequest, renameHouseholdRequest, revokeInvitationRequest } from '../lib/confirmCopy';
+import { confirmSheet } from '../lib/confirmSheet';
+import { deleteHouseholdRequest, leaveHouseholdRequest, removeMemberRequest, revokeInvitationRequest } from '../lib/confirmCopy';
 import { checkInviteEmail, inviteEmailNotice, invitationWho, sendInviteEmail } from '../lib/invitations';
 
 interface Membership {
@@ -76,7 +77,7 @@ function RoleChip({ role }: { role: AppRole }) {
     : { background: 'var(--sunken)', boxShadow: 'var(--neu-inset)' };
   return (
     <span
-      className={`font-mono text-[0.62rem] tracking-wider uppercase px-2.5 py-1 rounded-pill flex-shrink-0 whitespace-nowrap ${role === 'owner' || role === 'admin' ? '' : 'text-ink-mid'}`}
+      className={`text-[12px] font-medium px-2.5 py-1 rounded-pill flex-shrink-0 whitespace-nowrap ${role === 'owner' || role === 'admin' ? '' : 'text-ink-mid'}`}
       style={style}
     >
       {roleLabel(role)}
@@ -165,7 +166,7 @@ export default function Households() {
   // Local-only mode banner
   if (!cloudEnabled) {
     return (
-      <div>
+      <div className="ui-pilot">
         <PageHead title="Households" subtitle="Local-only mode — set Supabase env vars to enable cloud" />
 
         {/* Basic household identity (name/type) still lives on this device even
@@ -173,17 +174,8 @@ export default function Households() {
         {active && (
           <Panel title="Household Settings" sub={active.name}>
             <div className="p-5 grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="mono-label mb-1.5 block">Name</label>
-                <div className="flex gap-2">
-                  <Input value={active.name} readOnly className="flex-1" />
-                  <Button variant="ghost" onClick={async () => {
-                    const { ok, value: next } = await askSheet(renameHouseholdRequest({ household: active.name }));
-                    if (!ok || !next || next === active.name) return;
-                    renameHousehold(active.id, next).then(() => toast('Renamed', 'success'));
-                  }}>Rename</Button>
-                </div>
-              </div>
+              <HouseholdNameField name={active.name}
+                onSave={async next => { await renameHousehold(active.id, next); toast('Renamed', 'success'); }} />
               <div>
                 <label htmlFor="households-type" className="mono-label mb-1.5 block">Household Type</label>
                 <Select id="households-type" value={normalizeHouseholdType(active.type)}
@@ -219,7 +211,7 @@ export default function Households() {
   }
 
   return (
-    <div>
+    <div className="ui-pilot">
       {/* HH4 — on phones the header + creates a household (the page button is desktop-only). */}
       <PageHead
         title="Households"
@@ -272,10 +264,10 @@ export default function Households() {
                   : null}
               </div>
               <div className="font-semibold text-ink mb-0.5">{h.name}</div>
-              <div className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim mb-3">
+              <div className="text-[12px] text-ink-dim mb-3">
                 {meta.label} · {h.baseCurrency}
               </div>
-              <div className="font-mono text-[0.62rem] text-ink-dim">
+              <div className="text-[12px] text-ink-dim">
                 Created {new Date(h.createdAt).toLocaleDateString()}
               </div>
             </button>
@@ -298,8 +290,8 @@ export default function Households() {
                       const blocked = inviteBlockedReason(active.type, members.length, invites.length);
                       if (blocked) toast(blocked, 'info'); else setInviteOpen(true);
                     }}
-                    className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:opacity-70 flex items-center gap-1">
-                    <Plus size={12} /> Invite
+                    className="text-[13px] font-medium text-coral hover:opacity-70 flex items-center gap-1 min-h-[44px] px-1">
+                    <Plus size={14} /> Invite
                   </button>
                 : null}
             >
@@ -348,7 +340,13 @@ export default function Households() {
               the user's profile, so it's edited here rather than in Settings. */}
           <div className="mt-3.5">
             <Panel title="Household Settings">
-              <div className="p-4 max-w-md">
+              <div className="p-4 max-w-md space-y-4">
+                <HouseholdNameField name={active.name} disabled={!can(myRole, 'edit_household_settings')}
+                  onSave={async next => {
+                    try { await renameHousehold(active.id, next); toast('Renamed', 'success'); }
+                    catch (e) { toast((e as Error).message, 'error'); throw e; }
+                  }} />
+                <div>
                 <label htmlFor="households-type" className="mono-label mb-1.5 block">Household Type</label>
                 <Select id="households-type" value={normalizeHouseholdType(active.type)}
                   disabled={!can(myRole, 'edit_household_settings')}
@@ -368,29 +366,15 @@ export default function Households() {
                   ))}
                 </Select>
                 <p className="text-[0.78rem] text-ink-mid mt-1.5">{PROFILE_TYPES[normalizeHouseholdType(active.type)].detail}</p>
+                </div>
               </div>
             </Panel>
           </div>
 
-          {/* Danger zone */}
+          {/* Danger zone — only what cannot be undone easily: leave and delete (HH2). */}
           <div className="mt-6">
             <Panel title="Danger Zone">
               <div className="p-4 space-y-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div>
-                    <div className="font-semibold text-ink">Rename household</div>
-                    <div className="text-[0.78rem] text-ink-mid">Visible to all members.</div>
-                  </div>
-                  <Button variant="ghost" disabled={!can(myRole, 'edit_household_settings')}
-                    onClick={async () => {
-                      const { ok, value: next } = await askSheet(renameHouseholdRequest({ household: active.name }));
-                      if (!ok || !next || next === active.name) return;
-                      try { await renameHousehold(active.id, next); toast('Renamed', 'success'); }
-                      catch (e) { toast((e as Error).message, 'error'); }
-                    }}>
-                    Rename
-                  </Button>
-                </div>
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
                     <div className="font-semibold text-ink">Leave this household</div>
@@ -484,7 +468,7 @@ function MembersList({
                 {m.display_name}
                 {isMe && <Badge tone="info">YOU</Badge>}
               </div>
-              <div className="font-mono text-[0.62rem] text-ink-dim mt-0.5">
+              <div className="text-[12px] text-ink-dim mt-0.5">
                 {m.household_role || '—'} · joined {new Date(m.joined_at).toLocaleDateString()}
               </div>
             </div>
@@ -555,7 +539,7 @@ function InvitesList({ invites, canRevoke, onRevoked }: {
               : <Mail size={14} className="text-ink-dim flex-shrink-0" />}
             <div className="flex-1 min-w-0">
               <div className="text-[0.86rem] font-semibold text-ink truncate">{displayLabel}</div>
-              <div className="font-mono text-[0.62rem] text-ink-dim mt-0.5">
+              <div className="text-[12px] text-ink-dim mt-0.5">
                 {labelNote}{roleLabel(inv.role)} · {expired ? 'expired' : `expires ${expiry.toLocaleDateString()}`}
               </div>
             </div>
@@ -862,24 +846,16 @@ function ActivityPanel({
     >
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-line">
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Activity type">
           {ACTIVITY_TYPE_FILTERS.map(f => (
-            <button
-              key={f.value}
-              onClick={() => setActivityType(f.value)}
-              className={`font-mono text-[0.62rem] tracking-wider uppercase px-2.5 py-1 rounded ${
-                activityType === f.value
-                  ? 'bg-coral text-[color:var(--accent-ink)]'
-                  : 'bg-bg3 text-ink-mid hover:text-ink'
-              }`}
-            >
+            <Chip key={f.value} on={activityType === f.value} onClick={() => setActivityType(f.value)}>
               {f.label}
-            </button>
+            </Chip>
           ))}
         </div>
         {memberships.length > 1 && (
           <div className="ml-auto flex items-center gap-2">
-            <label htmlFor="activity-actor" className="font-mono text-[0.6rem] tracking-wider uppercase text-ink-dim">
+            <label htmlFor="activity-actor" className="ui-label">
               Member
             </label>
             <Select
@@ -917,17 +893,17 @@ function ActivityPanel({
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="font-mono text-[0.62rem] tracking-wider uppercase text-coral hover:bg-bg3 px-2.5 py-1 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                className="text-[13px] font-medium text-coral hover:bg-bg3 px-3 min-h-[44px] rounded-r2 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 ← Previous
               </button>
-              <span className="font-mono text-[0.58rem] tracking-wider uppercase text-ink-dim">
+              <span className="text-[12px] text-ink-dim">
                 Page {page} of {totalPages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="font-mono text-[0.62rem] tracking-wider uppercase text-coral hover:bg-bg3 px-2.5 py-1 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                className="text-[13px] font-medium text-coral hover:bg-bg3 px-3 min-h-[44px] rounded-r2 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Next →
               </button>
@@ -936,5 +912,36 @@ function ActivityPanel({
         </>
       )}
     </Panel>
+  );
+}
+
+/** Aurora 4.0 HH2 — the household's name is a field in Household settings (it sat as "Rename" next to
+ *  Leave and Delete). Save is offered only when the name changed; nothing is asked first. */
+function HouseholdNameField({ name, disabled = false, onSave }: {
+  name: string; disabled?: boolean; onSave: (next: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState(name);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setDraft(name); }, [name]);
+  const next = draft.trim();
+  const changed = next.length > 0 && next !== name;
+  async function save() {
+    if (!changed) return;
+    setBusy(true);
+    try { await onSave(next); } catch { setDraft(name); } finally { setBusy(false); }
+  }
+  return (
+    <div>
+      <label htmlFor="household-name" className="mono-label mb-1.5 block">Household name</label>
+      <div className="flex gap-2">
+        <Input id="household-name" value={draft} maxLength={80} disabled={disabled} className="flex-1"
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void save(); } }} />
+        <Button variant="ghost" disabled={disabled || !changed || busy} onClick={() => void save()}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+      <p className="text-[12px] text-ink-dim mt-1.5">Visible to all members.</p>
+    </div>
   );
 }

@@ -51,14 +51,17 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
     await page.waitForURL('**/settings');
 
     await expect(page.getByRole('textbox', { name: 'Email' })).toHaveCount(0);
+    // Aurora 4.0 ST1 — Profile is a group of rows; each opens its own editor.
+    await openSettingsRow(page, 'Display name');
     await page.getByLabel('Display Name').fill('PROFILE-FC-001 User');
-    await page.getByRole('button', { name: 'Save Profile' }).click();
+    await page.getByRole('button', { name: 'Save name' }).click();
 
     await expect(page.getByText('Profile saved')).toBeVisible();
     await expect.poll(() => storeState(page, 'profile')).toMatchObject({ name: 'PROFILE-FC-001 User' });
 
     await page.reload();
     await page.waitForURL('**/settings');
+    await openSettingsRow(page, 'Display name');
     await expect(page.getByLabel('Display Name')).toHaveValue('PROFILE-FC-001 User');
   });
 
@@ -115,12 +118,14 @@ test.describe('§15 PROFILE-FC · Settings profile behavior', () => {
 
     await page.goto('/settings');
     await page.waitForURL('**/settings');
+    await openSettingsRow(page, 'Date format');
     await page.getByLabel('Date Format').selectOption('eu');
     await transactions.goto();
     await expect(txnRow).toContainText('10 May 2026');
 
     await page.goto('/settings');
     await page.waitForURL('**/settings');
+    await openSettingsRow(page, 'Date format');
     await page.getByLabel('Date Format').selectOption('iso');
     await transactions.goto();
     await expect(txnRow).toContainText('2026-05-10');

@@ -124,6 +124,7 @@ test('CAT-FC-004 - transaction filters offer All categories through the same con
 
 test('CAT-FC-005 - Settings dropdowns are labelled fixed-choice selects', async ({ page }) => {
   await page.goto('/settings');
+  await page.getByRole('button', { name: /^📅 ?Date format/ }).click();   // Aurora 4.0 ST1 — Profile rows
   const date = page.getByRole('combobox', { name: 'Date Format', exact: true });
   await expect(date).toBeVisible();
   const reference = await date.evaluate(element => {

@@ -105,7 +105,8 @@ describe('A3 · confirmations and undo', () => {
       ['components/debts/DebtFormModal.tsx', /deleteLoanRequest\(/],
       ['pages/NetWorth.tsx', /deleteAssetRequest\(/],
       ['components/assets/AssetFormModal.tsx', /deleteAssetRequest\(/],
-      ['pages/Households.tsx', /leaveHouseholdRequest\([^]*renameHouseholdRequest\([^]*deleteHouseholdRequest\([^]*removeMemberRequest\(/],
+      // A7 HH2 — the name is a field in Household settings now (Save, no sheet), so rename asks nothing.
+      ['pages/Households.tsx', /leaveHouseholdRequest\([^]*deleteHouseholdRequest\([^]*removeMemberRequest\(/],
       ['pages/Settings.tsx', /verificationCodeRequest\([^]*eraseDataRequest\(\)[^]*deactivateRequest\(\)[^]*deleteAccountRequest\(\)/],
       ['components/whatsapp/useWhatsAppLink.ts', /unlinkWhatsAppRequest\(/],
     ];

@@ -31,7 +31,9 @@ describe('A6 · forms and onboarding', () => {
   it('A6-CAT1-CAT2-001 · the transaction form starts an expense on "Choose category" and asks for a pick', () => {
     const s = read('components/transactions/TransactionFormModal.tsx');
     expect(s).toMatch(/const DEFAULT_CAT_BY_TYPE: Record<TxnType, string> = \{\n\s*expense:\s*'',\n\s*income:\s*'salary',/);
-    expect(s).toMatch(/if \(!isTransfer && !isInvestment && !form\.category\) \{\n\s*setCatMissing\(true\);\n\s*toast\('Choose a category', 'error'\);/);
+    // A7 PIP2 moved the check into the shared builder; the form marks the field when it refuses.
+    expect(read('lib/txnBuild.ts')).toMatch(/if \(!isTransfer && !isInvestment && !form\.category\) return \{ ok: false, error: 'Choose a category', field: 'category' \};/);
+    expect(s).toMatch(/if \(built\.field === 'category'\) setCatMissing\(true\);/);
     expect(s).toMatch(/Suggested from “\$\{suggestion\.word\}” · change it if that’s wrong/);
     // The orphan reset never turns "Choose category" into the first option.
     expect(s).toMatch(/if \(form\.category && !cats\.find\(c => c\.id === form\.category\)\)/);

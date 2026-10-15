@@ -25,6 +25,7 @@ import { buildPersonalInsights, type PersonalInsight } from '../lib/personalInsi
 import { allEvergreenCards, evergreenByTag } from '../lib/evergreen';
 import SegRail from '../components/ui/SegRail';
 import PageHead from '../components/ui/PageHead';
+import OverflowMenu from '../components/ui/OverflowMenu';
 
 type Tab = 'for-you' | 'learn';
 
@@ -80,6 +81,21 @@ export default function Insights() {
     const lesson = evergreenByTag(review.items.some(item => item.issue.startsWith('debt')) ? ['debt', 'payoff'] : ['budgeting', 'saving']);
     if (lesson && !/tax/i.test(lesson.category)) relatedLessons.push(lesson);
   }
+
+  // Aurora 4.0 LN1 — up to two lessons tied to this household's review, each with its reason.
+  const suggested = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { id: string; reason: string }[] = [];
+    for (const item of review.items) {
+      if (!item.learnId || seen.has(item.learnId)) continue;
+      const lesson = allEvergreenCards().find(l => l.id === item.learnId);
+      if (!lesson || /tax/i.test(lesson.category)) continue;
+      seen.add(item.learnId);
+      out.push({ id: item.learnId, reason: `Because of “${item.title}”` });
+      if (out.length === 2) break;
+    }
+    return out;
+  }, [review.items]);
 
   // v10.52.0 — same page frame as Net Worth and Reports: full content width (the
   // shell caps it at 1320px), title + mono subtitle on the left, controls on the
@@ -147,8 +163,8 @@ export default function Insights() {
             </div>
             <section aria-labelledby="insights-related" className="panel overflow-hidden min-w-0">
               <div className="flex justify-between items-center px-4 py-3 border-b border-line gap-3 flex-wrap">
-                <h2 id="insights-related" className="font-mono text-[0.62rem] font-medium tracking-[0.16em] uppercase text-ink">Learn about this</h2>
-                <button type="button" onClick={() => setTab('learn')} className="inline-flex items-center gap-1.5 text-xs text-coral min-h-[32px]">Browse lessons <ArrowRight size={13} aria-hidden /></button>
+                <h2 id="insights-related" className="ui-label text-ink">Learn about this</h2>
+                <button type="button" onClick={() => setTab('learn')} className="inline-flex items-center gap-1.5 text-[12.5px] text-coral min-h-[44px]">Browse lessons <ArrowRight size={13} aria-hidden /></button>
               </div>
               {relatedLessons.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2">
@@ -161,7 +177,7 @@ export default function Insights() {
           </>}
         </div>
       )}
-      {tab === 'learn' && <div role="tabpanel" id="insights-panel-learn" aria-labelledby="insights-tab-learn"><EvergreenLearn openId={learnOpenId} onConsumedOpen={() => setLearnOpenId(null)} /></div>}
+      {tab === 'learn' && <div role="tabpanel" id="insights-panel-learn" aria-labelledby="insights-tab-learn"><EvergreenLearn openId={learnOpenId} onConsumedOpen={() => setLearnOpenId(null)} suggested={suggested} /></div>}
 
       {reelStart !== null && review.highlights.length > 0 && (
         <ForYouReel cards={review.highlights} startIndex={reelStart} onClose={closeHighlights} onOpenLearn={openLearn} />
@@ -177,8 +193,8 @@ function ReviewPanel({ title, items, onLearn, columns = false }: { title: string
   return (
     <section aria-label={title} className="panel overflow-hidden min-w-0">
       <div className="flex justify-between items-center px-4 py-3 border-b border-line gap-3">
-        <h2 className="font-mono text-[0.62rem] font-medium tracking-[0.16em] uppercase text-ink">{title}</h2>
-        <span className="font-mono text-[0.6rem] text-ink-dim tracking-wider">{items.length}</span>
+        <h2 className="ui-label text-ink">{title}</h2>
+        <span className="num text-[12px] text-ink-dim">{items.length}</span>
       </div>
       <div className={columns ? 'grid grid-cols-1 lg:grid-cols-2' : ''}>
         {items.map(item => <InsightRow key={item.id} item={item} onLearn={onLearn} />)}
@@ -188,13 +204,21 @@ function ReviewPanel({ title, items, onLearn, columns = false }: { title: string
 }
 
 function InsightRow({ item, onLearn }: { item: PersonalInsight; onLearn: (id: string) => void }) {
+  // Aurora 4.0 INS2 — one primary link: the action, or the lesson when there is none. The lesson (when
+  // the action took the slot) and the calculation basis move into ⋯; the basis opens under the row.
+  const [showBasis, setShowBasis] = useState(false);
+  const lessonIsPrimary = !item.action && !!item.learnId;
+  const more = [
+    ...(item.learnId && !lessonIsPrimary ? [{ label: 'Related lesson', icon: <BookOpen size={14} aria-hidden />, onSelect: () => onLearn(item.learnId!) }] : []),
+    ...(item.basis.length ? [{ label: showBasis ? 'Hide calculation basis' : 'Calculation basis', onSelect: () => setShowBasis(v => !v) }] : []),
+  ];
   return (
     <article data-insight-id={item.id} className="px-4 py-3 border-b border-line min-w-0">
       <div className="flex items-start gap-2.5 min-w-0">
         <span aria-hidden className="text-base leading-6 shrink-0">{item.emoji}</span>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-medium text-ink leading-snug [overflow-wrap:anywhere]">{item.title}</h3>
-          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[0.7rem] text-ink-dim mt-0.5">
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[12px] text-ink-dim mt-0.5">
             <span>{item.period}</span>
             {item.severity && <span className={item.severity === 'critical' ? 'text-terra font-medium' : 'text-ink-dim'}>· {item.severity === 'critical' ? 'Priority' : item.severity === 'watch' ? 'Review' : 'Consider'}</span>}
             {item.estimated && <EstimatedTag confidence="estimated" title="Projection or unconfirmed inputs. Review the calculation basis." />}
@@ -205,14 +229,20 @@ function InsightRow({ item, onLearn }: { item: PersonalInsight; onLearn: (id: st
               {item.evidence.map(text => <li key={text}>{text}</li>)}
             </ul>
           )}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-0 mt-1">
-            {item.action && <Link to={item.action.route} className="inline-flex items-center gap-1.5 text-[0.8rem] font-medium text-coral min-h-[44px] sm:min-h-[32px]">{item.action.label}<ArrowRight size={14} aria-hidden /></Link>}
-            {item.learnId && <button type="button" onClick={() => onLearn(item.learnId!)} className="inline-flex items-center gap-1.5 text-[0.8rem] text-coral min-h-[44px] sm:min-h-[32px]"><BookOpen size={14} aria-hidden /> Related lesson</button>}
-            <details className="text-[0.72rem] text-ink-dim [&[open]]:basis-full">
-              <summary className="cursor-pointer min-h-[44px] sm:min-h-[28px] inline-flex items-center">Calculation basis</summary>
-              <ul className="list-disc pl-4 space-y-1 leading-relaxed pb-1">{item.basis.map(basis => <li key={basis}>{basis}</li>)}</ul>
-            </details>
+          <div className="flex items-center justify-between gap-3 mt-1">
+            {item.action
+              ? <Link to={item.action.route} className="inline-flex items-center gap-1.5 text-[0.8rem] font-medium text-coral min-h-[44px]">{item.action.label}<ArrowRight size={14} aria-hidden /></Link>
+              : lessonIsPrimary
+                ? <button type="button" onClick={() => onLearn(item.learnId!)} className="inline-flex items-center gap-1.5 text-[0.8rem] font-medium text-coral min-h-[44px]"><BookOpen size={14} aria-hidden /> Read the lesson</button>
+                : <span />}
+            {more.length > 0 && <OverflowMenu ariaLabel={`More for ${item.title}`} items={more} />}
           </div>
+          {showBasis && (
+            <div className="well px-3 py-2 mt-1 text-[12px] text-ink-mid" data-testid="insight-basis">
+              <div className="ui-label mb-1">Calculation basis</div>
+              <ul className="list-disc pl-4 space-y-1 leading-relaxed">{item.basis.map(basis => <li key={basis}>{basis}</li>)}</ul>
+            </div>
+          )}
         </div>
       </div>
     </article>

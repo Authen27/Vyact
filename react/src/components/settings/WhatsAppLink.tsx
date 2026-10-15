@@ -151,7 +151,8 @@ function WhatsAppMessages() {
   );
 }
 
-export default function WhatsAppLink() {
+/** `embedded` — rendered inside the Settings "Connections" row (Aurora 4.0 ST2), so no Panel of its own. */
+export default function WhatsAppLink({ embedded = false }: { embedded?: boolean } = {}) {
   const households = useStore(s => s.households);
   // v10.54.0 — the link flow lives in useWhatsAppLink, shared with Pip's connect drawer.
   const {
@@ -163,9 +164,8 @@ export default function WhatsAppLink() {
 
   const householdName = (id: string) => households.find(h => h.id === id)?.name ?? id;
 
-  return (
-    <Panel title="WhatsApp">
-      <div className="p-4 space-y-3">
+  const body = (
+      <div className={embedded ? 'px-3.5 pb-3 space-y-3' : 'p-4 space-y-3'}>
         <p className="text-[0.82rem] text-ink-mid">
           Link a WhatsApp number to a household, then log money by texting Vyact,
           no app needed. Entries you send are read on our server without AI. Pip answers
@@ -180,7 +180,7 @@ export default function WhatsAppLink() {
               ✅ Linked <strong>+{linkedPhone}</strong> → {householdName(linkedHouseholdId)}
             </span>
             <button onClick={unlink} disabled={busy}
-              className="font-mono text-[0.6rem] tracking-wider uppercase text-terra hover:underline disabled:opacity-50">
+              className="text-[12.5px] font-medium text-terra hover:underline disabled:opacity-50 min-h-[44px] px-1">
               Unlink
             </button>
           </div>
@@ -188,7 +188,7 @@ export default function WhatsAppLink() {
 
         {phase === 'linked' && (
           <div className="well px-3 py-2.5 text-[0.78rem] text-ink-mid leading-relaxed">
-            <div className="font-mono text-[0.58rem] tracking-widest uppercase text-ink-dim mb-1.5">Text Vyact to log</div>
+            <div className="ui-label mb-1.5">Text Vyact to log</div>
             <div className="space-y-0.5 font-mono text-[0.72rem]">
               <div><span className="text-ink">850 groceries hdfc</span> — an expense</div>
               <div><span className="text-ink">+50000 salary</span> — income</div>
@@ -234,6 +234,6 @@ export default function WhatsAppLink() {
           </>
         )}
       </div>
-    </Panel>
   );
+  return embedded ? body : <Panel title="WhatsApp">{body}</Panel>;
 }

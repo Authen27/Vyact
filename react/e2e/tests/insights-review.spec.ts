@@ -53,7 +53,10 @@ test.describe('Insights with recorded activity', () => {
       expect(steps).toBeLessThanOrEqual(3);
       await expect(next.getByRole('article').first().getByRole('link').first()).toBeVisible();
       await expect(next.getByText('2026-05').first()).toBeVisible();
-      await expect(page.getByText('Calculation basis').first()).toBeVisible();
+      // Aurora 4.0 INS2 — one primary link per row; the lesson and the basis are under ⋯.
+      await next.getByRole('article').first().getByRole('button', { name: /^More for / }).click();
+      await expect(page.getByRole('menuitem', { name: 'Calculation basis', exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
       await expect(page.getByRole('heading', { name: 'Learn about this', exact: true })).toBeVisible();
 
       await expect(page.getByText(/Pulse/)).toHaveCount(0);
