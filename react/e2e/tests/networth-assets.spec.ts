@@ -12,7 +12,12 @@ async function fillAssetModal(page: import('@playwright/test').Page, input: {
   const dialog = page.getByRole('main', { name: /add asset|edit asset/i });
   await expect(dialog).toBeVisible();
   if (input.type !== undefined) await dialog.getByLabel('Type').selectOption(input.type);
-  if (input.liquidity !== undefined) await dialog.getByLabel('Liquidity').selectOption(input.liquidity);
+  if (input.liquidity !== undefined) {
+    // Aurora 4.0 FA1 — liquidity follows the type; "Change" opens the select for an exception.
+    const change = dialog.getByRole('button', { name: 'Change liquidity', exact: true });
+    if (await change.isVisible()) await change.click();
+    await dialog.getByLabel('Liquidity').selectOption(input.liquidity);
+  }
   if (input.name !== undefined) await dialog.getByLabel('Name').fill(input.name);
   // An investment asset's field reads "Value today" (v10.26.0); every other type, "Current value".
   if (input.value !== undefined) await dialog.getByLabel(/^(Current value|Value today)$/).fill(String(input.value));
