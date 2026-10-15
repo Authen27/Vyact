@@ -33,9 +33,10 @@ import { CURRENCIES } from '../../constants';
 import { computeAccountBalance } from '../../lib/accountBalance';
 import {
   PAYMENT_MODES_BY_KIND, PAYMENT_MODE_LABEL, cardFigures, openingBalanceForCard,
-  parseAmountInput, statementWindow,
+  parseAmountInput,
 } from '../../lib/accountsView';
 import type { Account, AccountKind, PaymentMode } from '../../types';
+import { cardCycle, type CardCycle } from '../../lib/cardCycle';
 
 interface Props {
   open?: boolean;
@@ -127,7 +128,8 @@ export default function AccountFormModal(props: Props) {
   const figures = isCard && limit
     ? cardFigures(limit, isEdit ? liveBalance : (available !== null ? openingBalanceForCard(limit, available) : 0))
     : null;
-  const window = isCard && cycleDay ? statementWindow(cycleDay, new Date()) : null;
+  // Aurora 4.0 AF1 — the cycle as dates: spend window, statement date, due date.
+  const cycle = isCard && cycleDay && dueDay ? cardCycle(cycleDay, dueDay, new Date()) : null;
 
   function switchKind(kind: 'bank' | 'credit_card') {
     if (isEdit) return;
@@ -300,9 +302,9 @@ export default function AccountFormModal(props: Props) {
             onChange={v => setForm(f => ({ ...f, cycleDay: v }))} />
           <DayField id="card-due" label="Payment due" value={form.dueDay} warn
             onChange={v => setForm(f => ({ ...f, dueDay: v }))} />
-          {isEdit && window && (
+          {cycle && (
             <div className="col-span-2">
-              <Calc label="Statement window · calculated" value={`${fmtDay(window.start)} – ${fmtDay(window.end)}`} />
+              <CycleTimeline cycle={cycle} />
             </div>
           )}
         </div>
@@ -421,15 +423,42 @@ function Calc({ label, value, valueColor, aside }: { label: string; value: strin
       <div className="ui-label mb-related">{label}</div>
       <div className="flex items-baseline gap-3">
         <span className="num font-semibold text-[15px] text-ink" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
-        {aside && <span className="font-mono text-[12px] text-ink-dim">{aside}</span>}
+        {aside && <span className="text-[12px] text-ink-dim">{aside}</span>}
       </div>
+    </div>
+  );
+}
+
+/** Aurora 4.0 AF1 — three points on a line (spend window → statement → due) and one sentence. */
+function CycleTimeline({ cycle }: { cycle: CardCycle }) {
+  const points = [
+    { label: 'Spend', value: `${fmtDay(cycle.spendFrom)} – ${fmtDay(cycle.spendTo)}`, dot: 'hsl(var(--denim))' },
+    { label: 'Statement', value: fmtDay(cycle.statement), dot: 'var(--ff-ink-3)' },
+    { label: 'Due', value: fmtDay(cycle.due), dot: 'hsl(var(--honey))' },
+  ];
+  return (
+    <div className="well px-3.5 py-3 mt-1" data-testid="card-cycle-timeline" aria-live="polite">
+      <ol className="grid grid-cols-3 gap-2 relative" aria-label="This statement">
+        <span aria-hidden className="absolute left-[6px] right-[6px] top-[5px] h-px" style={{ background: 'hsl(var(--line2))' }} />
+        {points.map(p => (
+          <li key={p.label} className="relative min-w-0 last:text-right [&:nth-child(3)]:text-center">
+            <span aria-hidden className="relative inline-block w-[11px] h-[11px] rounded-full" style={{ background: p.dot }} />
+            <span className="block text-[11.5px] text-ink-dim mt-1">{p.label}</span>
+            <span className="block num text-[12.5px] text-ink">{p.value}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="text-[12px] text-ink-mid leading-snug mt-2.5">
+        Spends from {fmtDay(cycle.spendFrom)} to {fmtDay(cycle.spendTo)} go on the statement dated {fmtDay(cycle.statement)};
+        pay it by {fmtDay(cycle.due)}.
+      </p>
     </div>
   );
 }
 
 function Advice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-r2 px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
+    <p className="rounded-r2 px-[13px] py-[11px] text-[12px] leading-relaxed text-ink-mid"
       style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 14%, transparent)' }}>
       {children}
     </p>

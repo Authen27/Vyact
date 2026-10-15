@@ -17,12 +17,14 @@ import { useEffect, useMemo, useState } from 'react';
 import FormPage from '../ui/FormPage';
 import Chip from '../ui/Chip';
 import CategoryPicker from '../ui/CategoryPicker';
+import SegmentedControl from '../ui/SegmentedControl';
 import { Field, Select } from '../ui/Input';
 import { AmountField } from '../ui/NumericKeypad';
 import { parseAmount } from '../../lib/amountInput';
 import Button from '../ui/Button';
 import { useStore } from '../../store';
-import { uid, today, nowTime, fmt } from '../../lib/format';
+import { uid, today, nowTime, fmt, addDaysISO } from '../../lib/format';
+import { recentCategories, suggestCategory, type CategorySuggestion } from '../../lib/categorySuggest';
 import { confirmSheet } from '../../lib/confirmSheet';
 import { deleteSplitRequest } from '../../lib/confirmCopy';
 import { CURRENCIES } from '../../constants';
@@ -68,7 +70,8 @@ interface FormState {
 const acctEmoji = (kind?: string) =>
   kind === 'card' ? '💳' : kind === 'bank' ? '🏦' : kind === 'investment' ? '📈' : '💵';
 
-const defaultCat = (type: SplitType) => (type === 'income' ? 'salary' : 'food_dining');
+// Aurora 4.0 FS2 — the transaction form's rules (CAT1): a shared bill starts on "Choose category".
+const defaultCat = (type: SplitType) => (type === 'income' ? 'salary' : '');
 
 const defaultParticipants = (): PForm[] => ([
   { name: 'You', share: '', isYou: true, paid: true },
@@ -136,6 +139,10 @@ export default function SplitFormModal(props: Props) {
   // v10.59.0 (owner) — the people to confirm before saving, and the answers given.
   const [confirmItems, setConfirmItems] = useState<ConfirmItem[] | null>(null);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
+  // FS2 — the description suggests the category (CAT2), until a category is picked.
+  const [suggestion, setSuggestion] = useState<CategorySuggestion | null>(null);
+  const [catPicked, setCatPicked] = useState(false);
+  const [catMissing, setCatMissing] = useState(false);
   const ownEmail = session?.user?.email ?? null;
 
   const useFirstClass = getMoneyMapMode() !== 'off' && accountsState.length > 0;
@@ -165,6 +172,9 @@ export default function SplitFormModal(props: Props) {
   useEffect(() => {
     if (!open) return;
     setResolvedNames({});
+    setSuggestion(null);
+    setCatMissing(false);
+    setCatPicked(Boolean(initial?.split?.isSplit || seed?.category));
     const sp = initial?.split;
     if (initial && sp?.isSplit) {
       const matched = sharedSplitsOwned.find(s => s.txnId === initial.id);
@@ -238,8 +248,25 @@ export default function SplitFormModal(props: Props) {
 
   function setType(type: SplitType) {
     if (splitLocked) return;
-    setForm(f => ({ ...f, type, category: defaultCat(type) }));
+    const next = suggestCategory(form.description, type);
+    setCatPicked(false);
+    setSuggestion(next);
+    setForm(f => ({ ...f, type, category: next?.category ?? defaultCat(type) }));
   }
+  function setDescription(description: string) {
+    if (catPicked) { setForm(f => ({ ...f, description })); return; }
+    const next = suggestCategory(description, form.type);
+    setSuggestion(next);
+    if (next) setCatMissing(false);
+    setForm(f => ({ ...f, description, category: next?.category ?? defaultCat(f.type) }));
+  }
+  function pickCategory(category: string) {
+    setCatPicked(true);
+    setSuggestion(null);
+    setCatMissing(false);
+    setForm(f => ({ ...f, category }));
+  }
+  const recent = useMemo(() => recentCategories(transactions, form.type, today()), [transactions, form.type]);
   function updateName(i: number, name: string) {
     setForm(f => ({ ...f, participants: f.participants.map((x, j) => j === i ? { ...x, name } : x) }));
   }
@@ -267,6 +294,7 @@ export default function SplitFormModal(props: Props) {
   async function save(confirmed = false) {
     const amount = parseAmount(form.amount);
     if (isNaN(amount) || amount <= 0) { toast('Enter a valid total greater than 0', 'error'); return; }
+    if (!form.category) { setCatMissing(true); toast('Choose a category', 'error'); return; }
     if (accountRequired && !form.paymentMethod) {
       toast(`Choose an account this was ${isIncome ? 'paid into' : 'paid with'}`, 'error'); return;
     }
@@ -391,7 +419,7 @@ export default function SplitFormModal(props: Props) {
     <div className="flex items-center justify-between gap-2">
       {editing ? (
         <button type="button" onClick={del}
-          className="font-mono text-[0.62rem] tracking-wider uppercase text-terra hover:underline">
+          className="ui-action text-terra hover:underline min-h-[44px]">
           Delete
         </button>
       ) : <span />}
@@ -407,9 +435,9 @@ export default function SplitFormModal(props: Props) {
   const sharesOk = Math.abs(sharesSum - bill) < 0.01 && bill > 0;
 
   return (
-    <FormPage open={open} onClose={onClose} title={editing ? 'Edit Split' : 'Add Split'} footer={footer} helpTopicId="split">
+    <FormPage open={open} onClose={onClose} title={editing ? 'Edit Split' : 'Add Split'} footer={footer} helpTopicId="split" className="ui-pilot">
       {splitLocked && (
-        <div className="mb-3 rounded-md px-3 py-2 text-[0.72rem] leading-snug border border-line text-ink-mid" style={{ background: 'var(--sunken)' }}>
+        <div className="well mb-3 px-3 py-2 text-[12px] leading-snug text-ink-mid">
           A member has already settled, so the total, type and settled rows are locked. You can still edit unpaid members.
         </div>
       )}
@@ -431,28 +459,33 @@ export default function SplitFormModal(props: Props) {
       </div>
       <div className="text-center mono-label mb-2">Total {isIncome ? 'payout' : 'bill'} — only your share counts toward you</div>
 
-      {/* Category (for the backing transaction). */}
-      <div className="mt-3">
-        <CategoryPicker type={form.type} value={form.category} onChange={category => setForm(f => ({ ...f, category }))} />
-      </div>
-
-      {/* Description. */}
+      {/* Aurora 4.0 FS2 — the transaction form's order: Description, then the category it suggests. */}
       <div className="mt-4">
         <div className="mono-label mb-1.5">Description</div>
         <input className="input w-full" value={form.description} aria-label="Description"
-          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+          onChange={e => setDescription(e.target.value)}
           placeholder={isIncome ? 'e.g. Group gig payout' : 'e.g. Dinner at Olive'} />
       </div>
 
-      {/* Date + account it was paid with/into. */}
+      {/* Category (for the backing transaction). */}
+      <div className="mt-3">
+        <CategoryPicker type={form.type} value={form.category} onChange={pickCategory} recent={recent}
+          error={catMissing ? 'Choose a category for this split' : undefined}
+          hint={suggestion && form.category === suggestion.category
+            ? `Suggested from “${suggestion.word}” · change it if that’s wrong` : undefined} />
+      </div>
+
+      {/* FS2 / FRM1 — Today / Yesterday, then the date as a 44px field; then the account. */}
       <div className="mt-4">
-        <div className="mono-label mb-1.5">
-          Date · {isIncome ? 'paid into' : 'paid with'} {accountRequired ? <span className="text-terra">·required</span> : null}
+        <div className="mono-label mb-1.5">Date</div>
+        <div className="flex gap-1.5 items-center mb-2">
+          <Chip on={form.date === today()} onClick={() => setForm(f => ({ ...f, date: today() }))}>Today</Chip>
+          <Chip on={form.date === addDaysISO(today(), -1)} onClick={() => setForm(f => ({ ...f, date: addDaysISO(today(), -1) }))}>Yesterday</Chip>
         </div>
-        <div className="flex gap-1.5 items-center flex-wrap">
+        <div className="grid grid-cols-2 gap-2">
           <input type="date" value={form.date}
             onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-            className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[140px]" aria-label="Pick a date" />
+            className="input h-[44px] py-0 px-3 w-full min-w-0" aria-label="Pick a date" />
         </div>
         <Field label={isIncome ? 'Paid into' : 'Paid with'}>
           <Select value={form.paymentMethod} required={accountRequired}
@@ -463,28 +496,27 @@ export default function SplitFormModal(props: Props) {
         </Field>
       </div>
 
-      {/* Participants + shares. */}
+      {/* Participants + shares. Aurora 4.0 FS1 — split equally by default: each share is shown as text,
+          and "By amount" turns them into fields (the even-split link under the list is gone). */}
       <div className="mt-4">
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="mono-label">{cloudActive ? `Who's in · tag by email & share (${form.currency})` : `People & shares (${form.currency})`}</label>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="mono-label">{cloudActive ? 'Who’s in · tag by email' : 'People'}</div>
           {cloudActive && (
             <datalist id="split-email-suggestions">
               {emailSuggestions.map(e => <option key={e} value={e} />)}
             </datalist>
           )}
-          <div className="flex gap-2">
-            {!splitLocked && (
-              <button type="button" onClick={() => setForm(f => ({ ...f, auto: true }))}
-                className={`font-mono text-[0.6rem] tracking-wider uppercase hover:underline ${form.auto ? 'text-sage' : 'text-ink-dim'}`}>
-                {form.auto ? '⚖ Even (auto)' : '⚖ Even split'}
-              </button>
-            )}
-            {!splitLocked && (
-              <button type="button" onClick={addParticipant}
-                className="font-mono text-[0.6rem] tracking-wider uppercase text-coral hover:underline">+ Add person</button>
-            )}
-          </div>
+          {!splitLocked && (
+            <button type="button" onClick={addParticipant} className="empty-link">+ Add person</button>
+          )}
         </div>
+        {!splitLocked && (
+          <div className="mb-2.5">
+            <SegmentedControl label="How to split" value={form.auto ? 'equal' : 'amount'}
+              onChange={how => setForm(f => ({ ...f, auto: how === 'equal' }))}
+              options={[{ value: 'equal', label: 'Equally', testId: 'split-equally' }, { value: 'amount', label: 'By amount', testId: 'split-by-amount' }]} />
+          </div>
+        )}
         <div className="space-y-1.5">
           {form.participants.map((p, i) => {
             const emailKey = (p.email ?? '').trim().toLowerCase();
@@ -511,35 +543,44 @@ export default function SplitFormModal(props: Props) {
                     <input className="input flex-1 py-1.5" value={p.name} placeholder="Name" disabled={rowLocked}
                       onChange={e => updateName(i, e.target.value)} />
                   )}
-                  <input className="input w-24 py-1.5 text-right" type="number" min="0" step="0.01" value={p.share}
-                    placeholder="0.00" disabled={rowLocked || (splitLocked && !p.isYou)}
-                    onChange={e => editShare(i, e.target.value)} />
+                  {form.auto ? (
+                    <span className="num w-24 text-right text-ink flex-shrink-0" aria-label={`${p.isYou ? 'Your' : `${p.name || p.email || 'Their'}`} share`}>
+                      {p.share ? fmt(parseFloat(p.share) || 0, form.currency) : '—'}
+                    </span>
+                  ) : (
+                    <input className="input w-24 py-1.5 text-right" type="number" min="0" step="0.01" value={p.share}
+                      placeholder="0.00" aria-label={p.isYou ? 'Your share' : 'Share'}
+                      disabled={rowLocked || (splitLocked && !p.isYou)}
+                      onChange={e => editShare(i, e.target.value)} />
+                  )}
                   {!p.isYou && !rowLocked ? (
                     <button type="button" onClick={() => removeParticipant(i)}
-                      className="text-ink-dim hover:text-terra w-7 flex-shrink-0 text-center" aria-label="Remove participant">✕</button>
-                  ) : <span className="w-7 flex-shrink-0" />}
+                      className="text-ink-dim hover:text-terra w-11 h-11 flex-shrink-0 flex items-center justify-center" aria-label="Remove participant">✕</button>
+                  ) : <span className="w-11 flex-shrink-0" />}
                 </div>
                 {rowLocked && (
-                  <div className="font-mono text-[0.6rem] tracking-wider text-sage pl-1">✓ settled — locked</div>
+                  <div className="text-[12px] text-sage pl-1">✓ Settled, so this row is locked</div>
                 )}
                 {!p.isYou && !rowLocked && cloudActive && emailKey
                   && participantEmailProblem(emailKey, ownEmail) && (
-                  <div className="font-mono text-[0.6rem] tracking-wider text-terra pl-1">{participantEmailProblem(emailKey, ownEmail)}</div>
+                  <div className="text-[12px] text-terra pl-1">{participantEmailProblem(emailKey, ownEmail)}</div>
                 )}
                 {!p.isYou && !rowLocked && cloudActive && emailKey && !participantEmailProblem(emailKey, ownEmail) && (
                   resolved
-                    ? <div className="font-mono text-[0.6rem] tracking-wider text-sage pl-1">✓ {resolved}</div>
+                    ? <div className="text-[12px] text-sage pl-1">✓ {resolved}</div>
                     : resolved === ''
-                      ? <div className="font-mono text-[0.6rem] tracking-wider text-ink-dim pl-1">Not on Vyact yet — they'll get an invite email</div>
+                      ? <div className="text-[12px] text-ink-dim pl-1">Not on Vyact yet — they’ll get an invite email</div>
                       : null
                 )}
               </div>
             );
           })}
         </div>
-        <div className={`mt-2 font-mono text-[0.62rem] tracking-wider ${sharesOk ? 'text-sage' : 'text-honey'}`}>
-          Shares total {sharesSum.toFixed(2)} / total {bill.toFixed(2)} {sharesOk ? '✓' : '— must match'}
-        </div>
+        {!form.auto && (
+          <div className="mt-2 text-[12px]" style={{ color: sharesOk ? 'var(--good-text)' : 'var(--warn-text)' }}>
+            Shares add up to {fmt(sharesSum, form.currency)} of {fmt(bill, form.currency)}{sharesOk ? ' ✓' : ' — they must match'}
+          </div>
+        )}
       </div>
 
       {/* v10.59.0 (owner, item 3) — confirm each new person before the split is saved. */}

@@ -73,6 +73,8 @@ export default function AssetFormModal(props: Props) {
 
   const [form, setForm]     = useState<FormState>(blank(profile.baseCurrency));
   const [saving, setSaving] = useState(false);
+  // Aurora 4.0 FA1 — liquidity follows the type; the select appears only for the rare exception.
+  const [changeLiquidity, setChangeLiquidity] = useState(false);
 
   // Money has moved through this asset — it folds, and its denomination is fixed.
   const hasActivity = useMemo(
@@ -84,6 +86,8 @@ export default function AssetFormModal(props: Props) {
 
   useEffect(() => {
     if (!open) return;
+    // An asset saved with a liquidity its type would not give opens with the choice visible.
+    setChangeLiquidity(!!initial && ASSET_TYPES[initial.type]?.liquidity !== initial.liquidity);
     if (initial) {
       setForm({
         type: initial.type,
@@ -170,7 +174,7 @@ export default function AssetFormModal(props: Props) {
         <button
           type="button"
           onClick={del}
-          className="font-mono text-[0.62rem] tracking-wider uppercase text-terra hover:underline"
+          className="ui-action text-terra hover:underline min-h-[44px]"
         >
           Delete
         </button>
@@ -185,20 +189,30 @@ export default function AssetFormModal(props: Props) {
   );
 
   return (
-    <FormPage open={open} title={initial ? 'Edit Asset' : 'Add Asset'} onClose={onClose} footer={footer} helpTopicId="assets">
-      <FieldRow>
-        <Field label="Type">
-          <Select value={form.type} disabled={hasActivity}
-            onChange={e => {
-              const type = e.target.value;
-              setForm(f => ({ ...f, type, liquidity: ASSET_TYPES[type]?.liquidity ?? f.liquidity }));
-            }}>
-            {Object.entries(ASSET_TYPES).map(([k, v]) => (
-              <option key={k} value={k}>{v.icon} {v.label}</option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Liquidity">
+    <FormPage open={open} title={initial ? 'Edit Asset' : 'Add Asset'} onClose={onClose} footer={footer} helpTopicId="assets" className="ui-pilot">
+      {/* Aurora 4.0 FA1 — every type already has a liquidity (ASSET_TYPES), so it is filled from the type
+          and shown as a sentence, with Change for the rare exception (were two selects side by side). */}
+      <Field label="Type" hint={!changeLiquidity ? (() => {
+        const liq = LIQUIDITIES.find(l => l.key === form.liquidity);
+        return <>
+          Counts as <span className="text-ink font-medium">{liq?.label.toLowerCase() ?? form.liquidity}</span> ({liq?.desc.toLowerCase()}).{' '}
+          <button type="button" className="font-medium underline underline-offset-2 min-h-[44px] align-middle"
+            style={{ color: 'var(--accent-text)' }} aria-label="Change liquidity"
+            onClick={() => setChangeLiquidity(true)}>Change</button>
+        </>;
+      })() : undefined}>
+        <Select value={form.type} disabled={hasActivity}
+          onChange={e => {
+            const type = e.target.value;
+            setForm(f => ({ ...f, type, liquidity: ASSET_TYPES[type]?.liquidity ?? f.liquidity }));
+          }}>
+          {Object.entries(ASSET_TYPES).map(([k, v]) => (
+            <option key={k} value={k}>{v.icon} {v.label}</option>
+          ))}
+        </Select>
+      </Field>
+      {changeLiquidity && (
+        <Field label="Liquidity" hint="How quickly this could become cash. Net Worth groups assets by it.">
           <Select
             value={form.liquidity}
             onChange={e => setForm(f => ({ ...f, liquidity: e.target.value as Asset['liquidity'] }))}
@@ -208,7 +222,7 @@ export default function AssetFormModal(props: Props) {
             ))}
           </Select>
         </Field>
-      </FieldRow>
+      )}
 
       <Field label="Name">
         <Input
@@ -233,7 +247,7 @@ export default function AssetFormModal(props: Props) {
       </FieldRow>
 
       {(form.type === 'investment' || folds) && (
-        <p className="text-[0.74rem] text-ink-dim leading-snug -mt-1 mb-3">
+        <p className="text-[12px] text-ink-dim leading-snug -mt-1 mb-3">
           {initial && folds
             ? 'Buys and withdrawals move this value on their own. Changing it records a dated value update — it never becomes a transaction and never touches your spending.'
             : 'Record buys and withdrawals as Investment transactions — each one moves this value and the account it came from by the same amount.'}

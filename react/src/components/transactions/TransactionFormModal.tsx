@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import FormPage from '../ui/FormPage';
 import Chip from '../ui/Chip';
 import { Field, Select } from '../ui/Input';
@@ -25,6 +26,7 @@ import { accountValueOf } from '../../lib/accountBalance';
 import { PAYMENT_MODE_LABEL } from '../../lib/accountsView';
 import { editPatch } from '../../lib/txnEdit';
 import { LoanPaymentRefused, loanErrorMessage } from '../../lib/loanSchedule';
+import { recentCategories, suggestCategory, type CategorySuggestion } from '../../lib/categorySuggest';
 import type { Transaction, TxnType, Recurrence, PaymentMode, LoanDue } from '../../types';
 
 interface Props {
@@ -68,8 +70,11 @@ interface FormState {
 
 // v9 txn-redesign §3 — type-scoped defaults. Transfers and investments carry NO
 // category (CK_txn_category_by_type); '' is the client-side sentinel for null.
+// Aurora 4.0 CAT1 — an expense has NO default: it starts on "Choose category" and needs a pick (or an
+// accepted suggestion). Every new expense used to start on Food & Dining, so a forgotten pick filed
+// rent or fuel as dining. Income keeps Salary (most income is pay).
 const DEFAULT_CAT_BY_TYPE: Record<TxnType, string> = {
-  expense:    'food_dining',
+  expense:    '',
   income:     'salary',
   investment: '',
   transfer:   '',
@@ -137,6 +142,7 @@ export default function TransactionFormModal(props: Props) {
   const assets            = useStore(s => s.assets);
   const debts             = useStore(s => s.debts);
   const accountsState     = useStore(s => s.accounts);
+  const transactions      = useStore(s => s.transactions);
   const upsertTransaction = useStore(s => s.upsertTransaction);
   const payLoan           = useStore(s => s.payLoan);
   const loanDue           = useStore(s => s.loanDue);
@@ -166,6 +172,12 @@ export default function TransactionFormModal(props: Props) {
   const [saving, setSaving] = useState(false);
   const loanOperation = useRef<string | null>(null);
   const [showTimeDial, setShowTimeDial] = useState(false); // v10.17 — circular 24h picker panel
+  // Aurora 4.0 FRM2 — member and the exclude switch sit behind one "More details" row.
+  const [showDetails, setShowDetails] = useState(false);
+  // CAT2 — the suggestion from the description, until the person picks a category themselves.
+  const [suggestion, setSuggestion] = useState<CategorySuggestion | null>(null);
+  const [catPicked, setCatPicked] = useState(false);
+  const [catMissing, setCatMissing] = useState(false);
   // W4f (D19) — the loans an EMI can pay (not receivables, not closed), and what the chosen one has due.
   const payableLoans = useMemo(() => debts.filter(d => (d.direction ?? 'owed_by_me') === 'owed_by_me' && !d.paidOffAt), [debts]);
   const [emiDue, setEmiDue] = useState<LoanDue | null>(null);
@@ -258,6 +270,11 @@ export default function TransactionFormModal(props: Props) {
     if (!open) return;
     loanOperation.current = null;
     setShowTimeDial(false);
+    setShowDetails(false);
+    setSuggestion(null);
+    setCatMissing(false);
+    // An opened row or a seed that names a category keeps it: only a blank pick takes suggestions.
+    setCatPicked(Boolean(initial || seedProp?.category));
     if (initial) {
       const initialTime = deriveInitialTime(initial);
       setForm({
@@ -308,6 +325,10 @@ export default function TransactionFormModal(props: Props) {
         paymentMethod: seed?.accountId ?? base.paymentMethod,
         linkedDebtId: seed?.linkedDebtId ?? seed?.debtId ?? base.linkedDebtId,
       };
+      // CAT2 — a seeded description with no category gets the same suggestion typing would.
+      const seeded = seed?.category ? null : suggestCategory(blankForm.description, initialType);
+      if (seeded) blankForm.category = seeded.category;
+      setSuggestion(seeded);
       setForm(blankForm);
     }
     // Audit 6.4 — hydrate ONLY on the open event / the row being edited. The
@@ -320,15 +341,39 @@ export default function TransactionFormModal(props: Props) {
   }, [open, initial?.id, seedProp]);
 
   function setType(type: TxnType) {
-    setForm(f => ({ ...f, type, category: DEFAULT_CAT_BY_TYPE[type] }));
+    // A type change re-reads the description for the new type (CAT2); a pick made for the old type
+    // does not carry over.
+    const next = suggestCategory(form.description, type);
+    setCatPicked(false);
+    setCatMissing(false);
+    setSuggestion(next);
+    setForm(f => ({ ...f, type, category: next?.category ?? DEFAULT_CAT_BY_TYPE[type] }));
+  }
+
+  // CAT2 — typing a description fills the category with its suggestion, until the person picks one.
+  function setDescription(description: string) {
+    if (catPicked || isTransfer || isInvestment) { setForm(f => ({ ...f, description })); return; }
+    const next = suggestCategory(description, form.type);
+    setSuggestion(next);
+    if (next) setCatMissing(false);
+    setForm(f => ({ ...f, description, category: next?.category ?? DEFAULT_CAT_BY_TYPE[f.type] }));
+  }
+
+  function pickCategory(category: string) {
+    setCatPicked(true);
+    setSuggestion(null);
+    setCatMissing(false);
+    setForm(f => ({ ...f, category }));
   }
 
   const cats = categoriesFor(form.type);
+  // CAT3 — the household's most used categories of this type, listed first.
+  const recent = useMemo(() => recentCategories(transactions, form.type, today()), [transactions, form.type]);
 
-  // Reset category to a valid one if type change orphans it
+  // Reset category to a valid one if type change orphans it ('' is "Choose category", never orphaned).
   useEffect(() => {
-    if (!cats.find(c => c.id === form.category)) {
-      setForm(f => ({ ...f, category: cats[0]?.id ?? f.category }));
+    if (form.category && !cats.find(c => c.id === form.category)) {
+      setForm(f => ({ ...f, category: DEFAULT_CAT_BY_TYPE[f.type] }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.type]);
@@ -336,6 +381,9 @@ export default function TransactionFormModal(props: Props) {
   // Reset for a rapid "Save & add another" — keep the track, currency, member,
   // date and account so the next entry only needs an amount.
   function resetForNext() {
+    setCatPicked(false);
+    setSuggestion(null);
+    setCatMissing(false);
     setForm(f => ({ ...blank(f.currency, f.memberId, f.type), date: f.date, paymentMethod: f.paymentMethod }));
   }
 
@@ -362,6 +410,12 @@ export default function TransactionFormModal(props: Props) {
     }
     if (!FEATURES.txnRedesign.enabled && !isTransfer && !form.memberId) {
       toast('Choose a member for this transaction', 'error');
+      return;
+    }
+    // CAT1 — an expense or income needs a category: a pick or an accepted suggestion.
+    if (!isTransfer && !isInvestment && !form.category) {
+      setCatMissing(true);
+      toast('Choose a category', 'error');
       return;
     }
     // v9 §4.1 — loan_emi requires the linked loan (the system split needs it).
@@ -524,50 +578,70 @@ export default function TransactionFormModal(props: Props) {
   const yStr = yesterdayStr();
 
 
-  /* Board M4 footer — one full-width primary "Save {type}", with
-     "Save & add another" (create) or Delete (edit) as a quiet cap link below. */
+  /* Aurora 4.0 F2 — "Save {type}" with "Save & add another" as a secondary button beside it (was a
+     plain-text link under it). An edit keeps Delete as the quiet link below. */
   const footer = (
     <div>
-      <button type="button" onClick={() => persist(false)} disabled={saving}
-        className="btn-primary w-full disabled:opacity-60">
-        {saving ? 'Saving…' : initial ? `Update ${form.type}` : `Save ${form.type}`}
-      </button>
-      <div className="text-center mt-2">
-        {initial ? (
-          <button type="button" onClick={del}
-            className="ui-action text-terra hover:underline">
-            Delete
-          </button>
-        ) : (
+      <div className="flex gap-2">
+        <button type="button" onClick={() => persist(false)} disabled={saving}
+          className="btn-primary flex-1 disabled:opacity-60">
+          {saving ? 'Saving…' : initial ? `Update ${form.type}` : `Save ${form.type}`}
+        </button>
+        {!initial && (
           <button type="button" onClick={() => persist(true)} disabled={saving}
-            className="ui-action text-ink-mid hover:text-ink disabled:opacity-60">
+            className="btn-secondary flex-1 disabled:opacity-60">
             Save &amp; add another
           </button>
         )}
       </div>
+      {initial && (
+        <div className="text-center mt-2">
+          <button type="button" onClick={del}
+            className="ui-action text-terra hover:underline min-h-[44px]">
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   );
+  const member = members.find(m => m.id === form.memberId);
+  const detailsLine = [
+    member ? (member.id === defaultMemberId ? 'You' : member.name) : 'No member',
+    form.excluded ? 'not in totals' : 'counted in totals',
+  ].join(' · ');
 
   return (
     <FormPage open={open} onClose={onClose} title={modalTitle} footer={footer} className="ui-pilot" helpTopicId={helpTopicId}>
       <div className="ui-form-stack">
-      {/* Track chips — centered row per board M4. */}
-      <SegmentedControl label="Transaction type" value={form.type} onChange={setType}
-        options={TYPE_CHIPS.map(item => ({ value: item.type, label: item.label,
-          disabled: !!initial && item.type !== form.type, testId: `txn-type-${item.type}` }))} />
-
-      {/* Amount hero — bare on the sheet per board M4 (no field chrome). */}
+      {/* Aurora 4.0 F1 — the amount first: most entries never change the type. */}
       <div className="py-1 mb-1">
         <AmountField value={form.amount} currencySymbol={currencySymbol}
           onChange={v => setForm(f => ({ ...f, amount: v }))} />
       </div>
 
-      {/* Category tiles (expense/income) — board M4: a WRAPPED grid of the 7
-          most recent + a "⌕ More" tile, not a horizontal scroller. The selected
-          category is always kept visible in the collapsed set. */}
+      <SegmentedControl label="Transaction type" value={form.type} onChange={setType}
+        options={TYPE_CHIPS.map(item => ({ value: item.type, label: item.label,
+          disabled: !!initial && item.type !== form.type, testId: `txn-type-${item.type}` }))} />
+
+      {/* CAT2 (B′) — the description comes before the category and suggests it. */}
+      <div className="mt-4">
+        <div className="mono-label mb-1.5">Description {isTransfer ? <span className="text-ink-dim">·optional</span> : null}</div>
+        <input
+          className="input w-full"
+          value={form.description}
+          aria-label="Description"
+          onChange={e => setDescription(e.target.value)}
+          placeholder={isTransfer ? 'e.g. Move savings to brokerage' : isIncome ? 'e.g. July salary' : 'e.g. Tesco grocery run'}
+        />
+      </div>
+
+      {/* CAT1/CAT2/CAT3 — one select: "Choose category" until picked or suggested, the most used first. */}
       {!isTransfer && !isInvestment && (
-        <CategoryPicker type={form.type} testId="txn-category" value={form.category}
-          onChange={category => setForm(f => ({ ...f, category }))} />
+        <CategoryPicker type={form.type} testId="txn-category" value={form.category} onChange={pickCategory}
+          recent={recent}
+          error={catMissing ? 'Choose a category for this entry' : undefined}
+          hint={suggestion && form.category === suggestion.category
+            ? `Suggested from “${suggestion.word}” · change it if that’s wrong` : undefined} />
       )}
 
       {/* v9 §4.1 — loan_emi loan picker (required) */}
@@ -603,19 +677,6 @@ export default function TransactionFormModal(props: Props) {
           options={[{ value: 'added', label: 'Added money' }, { value: 'withdrew', label: 'Took money out' }]} />
       )}
 
-      {/* Description — a plain open field (v10.17 item 1: the recent-value
-          dropdown was removed per request). */}
-      <div className="mt-4">
-        <div className="mono-label mb-1.5">Description {isTransfer ? <span className="text-ink-dim">·optional</span> : null}</div>
-        <input
-          className="input w-full"
-          value={form.description}
-          aria-label="Description"
-          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-          placeholder={isTransfer ? 'e.g. Move savings to brokerage' : isIncome ? 'e.g. July salary' : 'e.g. Tesco grocery run'}
-        />
-      </div>
-
       {/* Board M4 "Date · paid with" — date/time pickers and the source
           account share ONE labeled row. The time chip opens the circular 24h
           TimeDial (v10.17 item 14); the board's 📅 Pick chip IS the date input.
@@ -624,21 +685,21 @@ export default function TransactionFormModal(props: Props) {
           bank/cash source here (bound to `paymentMethod`, investment walled). */}
       <div className="mt-4">
         <div className="mono-label mb-related">Date and time</div>
-        <div className="flex gap-1.5 items-center flex-wrap">
+        {/* Aurora 4.0 FRM1 — the shortcuts on their own row, then date and time as two equal 44px fields
+            (they shared one wrapping row, and the time dropped to its own line on phones). */}
+        <div className="flex gap-1.5 items-center mb-2">
           <Chip on={form.date === todayStr} onClick={() => setForm(f => ({ ...f, date: todayStr }))}>Today</Chip>
           <Chip on={form.date === yStr} onClick={() => setForm(f => ({ ...f, date: yStr }))}>Yesterday</Chip>
-          {/* Inner non-wrapping group — the date input and the time chip always
-              stay side by side even when the chip row wraps on narrow sheets. */}
-          <div className="flex gap-1.5 items-center">
-            <input type="date" value={form.date}
-              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[132px]" aria-label="Pick a date" />
-            <button type="button" onClick={() => setShowTimeDial(v => !v)}
-              className="input h-[34px] py-0 px-2.5 text-[12.5px] w-[96px] flex items-center justify-center gap-1 font-mono"
-              aria-label="Pick a time" aria-expanded={showTimeDial}>
-              <span aria-hidden>🕑</span>{form.time || '--:--'}
-            </button>
-          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input type="date" value={form.date}
+            onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+            className="input h-[44px] py-0 px-3 w-full min-w-0" aria-label="Pick a date" />
+          <button type="button" onClick={() => setShowTimeDial(v => !v)}
+            className="input h-[44px] py-0 px-3 w-full min-w-0 flex items-center justify-center gap-1.5 num"
+            aria-label="Pick a time" aria-expanded={showTimeDial}>
+            <span aria-hidden>🕑</span>{form.time || '--:--'}
+          </button>
         </div>
         {showTimeDial && (
           <div className="mt-3 flex justify-center rounded-r3 border border-line py-4"
@@ -685,28 +746,43 @@ export default function TransactionFormModal(props: Props) {
       {isInvestment && investmentAssets.length === 0 &&
         <button type="button" onClick={() => openAddAsset()} className="btn-ghost">Add an investment</button>}
 
-      {/* Board M4 — member row lives on the MAIN sheet (initials chips,
-          "MR · You" for yourself), not behind the disclosure. */}
-      <Field label="Member" hint={isTransfer ? 'Optional' : undefined}>
-        <Select data-testid="txn-member" value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}>
-          <option value="">{isTransfer ? 'None' : 'Choose member'}</option>
-          {members.map(member => <option key={member.id} value={member.id}>{member.name}{member.id === defaultMemberId ? ' (You)' : ''}</option>)}
-        </Select>
-      </Field>
-
-      {/* W3b (v10.66.0; owner decision D14) — every transaction is in the household's currency; an
-          edited legacy row is saved in it too (it already counted at face value). Nothing converts. */}
+      {/* Aurora 4.0 FRM2 — the member (almost always you) and the exclude switch are rarely changed:
+          one "More details" row shows their current values and opens in place. */}
       <div className="mt-4">
-        <label className="flex items-center gap-2 text-[0.84rem] text-ink-mid cursor-pointer select-none">
-          <input type="checkbox" checked={form.excluded}
-            onChange={e => setForm(f => ({ ...f, excluded: e.target.checked }))} />
-          <span>Exclude from household totals and charts</span>
-        </label>
-        {/* W0 (FE-PUB-01) — this used to say "🔒 Private", but the entry stays visible to
-            every member; only the totals leave it out. Say exactly that. */}
-        <p className="mt-1 ml-6 text-[0.72rem] text-ink-dim leading-snug">
-          Everyone in the household can still see this entry.
-        </p>
+        <button type="button" data-testid="txn-all-details" aria-expanded={showDetails}
+          onClick={() => setShowDetails(v => !v)}
+          className="well w-full min-h-[48px] px-3.5 py-2 flex items-center justify-between gap-3 text-left">
+          <span className="min-w-0">
+            <span className="block text-[13.5px] font-medium text-ink">More details</span>
+            <span className="block text-[12px] text-ink-dim truncate">{detailsLine}</span>
+          </span>
+          <ChevronDown size={16} aria-hidden className={`text-ink-dim flex-shrink-0 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
+        </button>
+        {showDetails && (
+          <div className="mt-3">
+            <Field label="Member" hint={isTransfer ? 'Optional' : undefined}>
+              <Select data-testid="txn-member" value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}>
+                <option value="">{isTransfer ? 'None' : 'Choose member'}</option>
+                {members.map(member => <option key={member.id} value={member.id}>{member.name}{member.id === defaultMemberId ? ' (You)' : ''}</option>)}
+              </Select>
+            </Field>
+
+            {/* W3b (v10.66.0; owner decision D14) — every transaction is in the household's currency; an
+                edited legacy row is saved in it too (it already counted at face value). Nothing converts. */}
+            <div className="mt-4">
+              <label className="flex items-center gap-2 text-[0.84rem] text-ink-mid cursor-pointer select-none min-h-[44px]">
+                <input type="checkbox" checked={form.excluded}
+                  onChange={e => setForm(f => ({ ...f, excluded: e.target.checked }))} />
+                <span>Exclude from household totals and charts</span>
+              </label>
+              {/* W0 (FE-PUB-01) — this used to say "🔒 Private", but the entry stays visible to
+                  every member; only the totals leave it out. Say exactly that. */}
+              <p className="ml-6 text-[12px] text-ink-dim leading-snug">
+                Everyone in the household can still see this entry.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       </div>

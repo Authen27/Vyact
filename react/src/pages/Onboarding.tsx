@@ -36,6 +36,7 @@ import {
 import type { TemplateKey } from '../lib/templates';
 import { track } from '../lib/analytics';
 import { wireOnboardingToMoney } from '../lib/onboardingWiring';
+import { groupDigits, groupedValue } from '../lib/groupDigits';
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -60,6 +61,10 @@ const CHIP_EMOJI: Record<string, string> = {
 
 // Step-2 "what matters" — salaried-person wording; `concern` maps to the
 // profile.primaryConcern space (spending / debt / savings).
+// Aurora 4.0 OB1 — the common currencies as chips on phones (the chosen one always among them),
+// with More… for the full list.
+const COMMON_CURRENCIES = ['INR', 'USD', 'GBP', 'EUR'];
+
 const CONCERNS: { key: string; concern: 'spending' | 'debt' | 'savings'; emoji: string; label: string }[] = [
   { key: 'see',       concern: 'spending', emoji: '🔍', label: 'See where my money actually goes' },
   { key: 'save',      concern: 'savings',  emoji: '💰', label: 'Save a bit more each month' },
@@ -93,6 +98,7 @@ export default function Onboarding() {
   const [currency, setCurrency] = useState<string>(() => onboardedCurrency
     ?? (navigator.language?.includes('IN') ? 'INR' : navigator.language?.includes('GB') ? 'GBP' : 'USD'));
   const [submitting, setSubmitting] = useState(false);
+  const [moreCurrencies, setMoreCurrencies] = useState(false);
 
   useEffect(() => {
     if (!isOnboardingEnabled()) {
@@ -104,7 +110,8 @@ export default function Onboarding() {
   }, [householdId, navigate]);
 
   const tpl = segment ? SEGMENTS[segment] : null;
-  const incomeAmt = Number(income) || 0;
+  // ON1 — the fields hold grouped text ("1,45,000"); the figures read through groupedValue.
+  const incomeAmt = groupedValue(income);
   const curSym = CURRENCIES[currency]?.symbol ?? '';
 
   // Bills with a parsed amount (>0) or a name-only inclusion via the amount map key.
@@ -112,7 +119,7 @@ export default function Onboarding() {
     if (!tpl) return [] as { key: string; label: string; amount: number }[];
     return tpl.fixedCostChips
       .filter(c => c.key in billAmounts)
-      .map(c => ({ key: c.key, label: c.label, amount: Number(billAmounts[c.key]) || 0 }));
+      .map(c => ({ key: c.key, label: c.label, amount: groupedValue(billAmounts[c.key]) }));
   }, [tpl, billAmounts]);
 
   const fixedTotal = bills.reduce((s, b) => s + b.amount, 0);
@@ -196,7 +203,7 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="fixed inset-0 z-[150] bg-bg overflow-y-auto">
+    <div className="ui-pilot fixed inset-0 z-[150] bg-bg overflow-y-auto">
       <div className="max-w-xl mx-auto px-6 py-8">
 
         {/* pip header + coral progress ribbon (steps ≥1). */}
@@ -204,7 +211,8 @@ export default function Onboarding() {
           <>
             <div className="flex items-center gap-3 mb-4">
               <Pip size={38} />
-              <div className="flex-1 min-w-0 rounded-r3 px-4 py-2.5 glass-panel">
+              <div className="flex-1 min-w-0 rounded-r3 px-4 py-2.5" data-testid="pip-bubble"
+                style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
                 <div className="text-[0.86rem] text-ink leading-snug">{pipLine(step, name)}</div>
               </div>
             </div>
@@ -239,11 +247,27 @@ export default function Onboarding() {
               </div>
             </div>
             <div className="w-full mb-3 text-left">
-              <Field label="Currency">
-              <Select value={currency} onChange={e => setCurrency(e.target.value)}>
-                {Object.entries(CURRENCIES).map(([code, c]) => <option key={code} value={code}>{c.symbol} {code} — {c.name}</option>)}
-              </Select>
-              </Field>
+              {/* OB1 — phones: four chips and More…; the select is the desktop control and the More… list. */}
+              {!moreCurrencies && (
+                <div className="sm:hidden">
+                  <div id="ob-currency" className="ui-label mb-related">Currency</div>
+                  <div role="group" aria-labelledby="ob-currency" className="flex flex-wrap gap-1.5">
+                    {(COMMON_CURRENCIES.includes(currency) ? COMMON_CURRENCIES : [currency, ...COMMON_CURRENCIES.slice(0, 3)]).map(code => (
+                      <Chip key={code} on={currency === code} onClick={() => setCurrency(code)}>
+                        {CURRENCIES[code]?.symbol} {code}
+                      </Chip>
+                    ))}
+                    <Chip onClick={() => setMoreCurrencies(true)}>More…</Chip>
+                  </div>
+                </div>
+              )}
+              <div className={moreCurrencies ? '' : 'hidden sm:block'}>
+                <Field label="Currency">
+                <Select value={currency} onChange={e => setCurrency(e.target.value)}>
+                  {Object.entries(CURRENCIES).map(([code, c]) => <option key={code} value={code}>{c.symbol} {code} — {c.name}</option>)}
+                </Select>
+                </Field>
+              </div>
             </div>
             <Button onClick={() => advance(1)} full>Let's go <ArrowRight size={15} /></Button>
             <Link to="/auth/sign-in" className="mono-label mt-4 hover:text-ink">
@@ -311,8 +335,8 @@ export default function Onboarding() {
             <label htmlFor="ob-income" className="mono-label mb-1.5 block">Monthly take-home pay</label>
             <div className="flex items-baseline gap-2 rounded-r2 px-4 min-h-[64px] mb-2" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
               <span className="num text-ink-dim text-[1.1rem]">{curSym}</span>
-              <input id="ob-income" autoFocus inputMode="decimal" type="number" min="0" value={income}
-                onChange={e => setIncome(e.target.value)} placeholder="0"
+              <input id="ob-income" autoFocus inputMode="decimal" type="text" value={income}
+                onChange={e => setIncome(groupDigits(e.target.value, currency))} placeholder="0"
                 className="flex-1 bg-transparent border-none num font-bold text-[1.7rem] text-ink outline-none min-w-0" />
             </div>
             <div className="text-[0.78rem] text-ink-dim mb-6">What actually lands in your account after tax. This becomes your starting cash and your monthly paycheck.</div>
@@ -349,13 +373,13 @@ export default function Onboarding() {
                     {on ? (
                       <div className="flex items-baseline gap-1 rounded-lg px-2.5 py-1.5" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
                         <span className="num text-[0.72rem] text-ink-dim">{curSym}</span>
-                        <input aria-label={`${chip.label} amount per month`} autoFocus inputMode="decimal" type="number" min="0" value={billAmounts[chip.key]}
-                          onChange={e => setBillAmounts(m => ({ ...m, [chip.key]: e.target.value }))}
+                        <input aria-label={`${chip.label} amount per month`} autoFocus inputMode="decimal" type="text" value={billAmounts[chip.key]}
+                          onChange={e => setBillAmounts(m => ({ ...m, [chip.key]: groupDigits(e.target.value, currency) }))}
                           placeholder="0"
-                          className="w-[76px] bg-transparent border-none num font-semibold text-[0.9rem] text-ink outline-none text-right" />
+                          className="w-[92px] bg-transparent border-none num font-semibold text-[0.9rem] text-ink outline-none text-right" />
                       </div>
                     ) : (
-                      <button onClick={() => toggleBill(chip.key)} className="mono-label border-none bg-transparent cursor-pointer" style={{ color: 'var(--accent-text)' }}>＋ add</button>
+                      <button onClick={() => toggleBill(chip.key)} className="min-h-[44px] px-1 text-[13px] font-medium border-none bg-transparent cursor-pointer" style={{ color: 'var(--accent-text)' }}>＋ Add</button>
                     )}
                   </div>
                 );
@@ -365,13 +389,15 @@ export default function Onboarding() {
               <span className="text-[0.82rem] text-ink-mid">Fixed costs so far</span>
               <span className="num font-bold text-[1rem] text-ink">{fmt(fixedTotal, currency)}<span className="text-ink-dim font-medium text-[0.72rem]"> /mo</span></span>
             </div>
-            <FootNav onBack={() => setStep(3)} onNext={() => { setBillsLater(false); advance(5); }} nextDisabled={false} nextLabel="See my picture" />
-            <div className="text-center mt-1">
-              <button type="button" onClick={() => { setBillsLater(true); advance(5); }}
-                className="min-h-[44px] px-2 text-[0.84rem] font-medium" style={{ color: 'var(--accent-text)' }}>
-                I&apos;ll add bills later
-              </button>
-            </div>
+            <FootNav onBack={() => setStep(3)} onNext={() => { setBillsLater(false); advance(5); }} nextDisabled={false} nextLabel="See my picture"
+              below={
+                <div className="text-center mt-1">
+                  <button type="button" onClick={() => { setBillsLater(true); advance(5); }}
+                    className="min-h-[44px] px-2 text-[0.84rem] font-medium" style={{ color: 'var(--accent-text)' }}>
+                    I&apos;ll add bills later
+                  </button>
+                </div>
+              } />
           </div>
         )}
 
@@ -429,13 +455,19 @@ function pipLine(step: Step, name: string): string {
   }
 }
 
-function FootNav({ onBack, onNext, nextDisabled, nextLabel }: {
-  onBack: () => void; onNext: () => void; nextDisabled: boolean; nextLabel: string;
+/** Aurora 4.0 ON2 — Back / Continue stay pinned to the bottom with a soft fade above them, so the bills
+ *  list scrolls underneath (on a 390×844 phone the six rows pushed them below the fold). */
+function FootNav({ onBack, onNext, nextDisabled, nextLabel, below }: {
+  onBack: () => void; onNext: () => void; nextDisabled: boolean; nextLabel: string; below?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <Button variant="ghost" onClick={onBack}>Back</Button>
-      <Button onClick={onNext} disabled={nextDisabled} full>{nextLabel} <ArrowRight size={14} /></Button>
+    <div className="sticky bottom-0 z-[1] -mx-6 px-6 pt-8 pb-[max(16px,env(safe-area-inset-bottom))]" data-testid="onboarding-footnav"
+      style={{ background: 'linear-gradient(to top, hsl(var(--bg)) 62%, transparent)' }}>
+      <div className="flex items-center gap-2.5">
+        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button onClick={onNext} disabled={nextDisabled} full>{nextLabel} <ArrowRight size={14} /></Button>
+      </div>
+      {below}
     </div>
   );
 }
@@ -445,7 +477,7 @@ function RevealStat({ label, value, hint, tone }: { label: string; value: string
     <div className="rounded-r3 p-4" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
       <div className="mono-label mb-1.5">{label}</div>
       <div className="num font-bold text-[1.5rem]" style={{ color: tone }}>{value}</div>
-      {hint && <div className="text-[0.68rem] text-ink-dim mt-1 leading-snug">{hint}</div>}
+      {hint && <div className="text-[12px] text-ink-dim mt-1 leading-snug">{hint}</div>}
     </div>
   );
 }

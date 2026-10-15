@@ -104,7 +104,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
     }
   }
 
-  const cta = !hasDrift ? 'Confirm'
+  const cta = !hasDrift ? 'Mark reconciled'
     : choice === 'adjust' ? `Post ${fmt(Math.abs(drift), baseCurrency)} adjustment`
     : isCard ? "Show this cycle's transactions" : 'Show its transactions';
 
@@ -118,56 +118,54 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
   );
 
   return (
-    <FormPage open={open} onClose={onClose} title={account.name} footer={footer} helpTopicId="cash-reconcile">
-      <p className="text-[0.84rem] text-ink-dim -mt-1 mb-4">{isCash ? 'Reconcile cash on hand' : 'Reconcile against your statement'}</p>
+    <FormPage open={open} onClose={onClose} title={account.name} footer={footer} helpTopicId="cash-reconcile" className="ui-pilot">
+      <p className="text-[0.84rem] text-ink-dim -mt-1 mb-4">
+        {isCash ? 'Reconcile cash on hand' : 'Reconcile against your statement'} ·{' '}
+        {sinceDays === null ? 'never reconciled' : sinceDays === 0 ? 'last reconciled today' : `last reconciled ${sinceDays} day${sinceDays === 1 ? '' : 's'} ago`}
+      </p>
 
-      <label className="block font-mono text-[8.5px] tracking-[0.14em] uppercase text-ink-dim mb-1.5" htmlFor="recon-stated">
-        {isCash ? 'Cash counted' : `${statementNoun} says`}
-      </label>
-      <div className="flex items-center gap-2 min-h-[54px] px-4 rounded-r2 mb-4"
-        style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
-        <span className="font-mono text-[16px] text-ink-dim" aria-hidden>{symbol}</span>
-        <input id="recon-stated" autoFocus inputMode="decimal" value={stated}
-          onChange={e => setStated(e.target.value)}
-          className="num font-bold text-[22px] bg-transparent border-none outline-none text-ink w-full min-w-0" />
-      </div>
-
-      {/* The drift block: both figures side by side, and the gap in words. */}
-      <div className="rounded-r3 px-[17px] py-4 mb-4" style={{
-        background: 'var(--canvas)',
+      {/* Aurora 4.0 RC1 — one card: "In Vyact" and "On your statement" side by side (the statement side
+          is the field you type in), the gap underneath. Was three blocks: a balance card, the field, a gap row. */}
+      <div className="card-raised px-4 py-4 mb-4" data-testid="reconcile-compare" style={{
         boxShadow: `var(--neu), 0 0 0 1.5px color-mix(in srgb, hsl(var(${hasDrift ? '--honey' : '--sage'})) ${hasDrift ? 45 : 40}%, transparent)`,
       }}>
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className="font-mono text-[8.5px] tracking-[0.11em] uppercase px-2 py-[3px] rounded-md" style={{
-            background: `color-mix(in srgb, hsl(var(${hasDrift ? '--honey' : '--sage'})) 18%, transparent)`,
-            color: `hsl(var(${hasDrift ? '--honey' : '--sage'}))`,
-          }}>{hasDrift ? 'Drift found' : 'Matches'}</span>
-          <span className="text-[0.78rem] text-ink-dim">
-            {sinceDays === null ? 'never reconciled' : sinceDays === 0 ? 'last reconciled today' : `last reconciled ${sinceDays} day${sinceDays === 1 ? '' : 's'} ago`}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-r2 p-3" style={{ background: 'var(--canvas)', boxShadow: 'var(--neu-sm)' }}>
-            <div className="font-mono text-[8px] tracking-[0.13em] uppercase text-ink-dim mb-1">Vyact says</div>
-            <div className="num font-semibold text-[15px] text-ink">{signed(vyactSays)}</div>
+        <div className="grid grid-cols-2 gap-3 items-start">
+          <div className="min-w-0">
+            <div className="ui-label mb-1.5">In Vyact</div>
+            <div className="num font-semibold text-[20px] text-ink min-h-[44px] flex items-center">{signed(vyactSays)}</div>
           </div>
-          <div className="rounded-r2 p-3" style={{ background: 'var(--well-bg)', boxShadow: 'var(--well-shadow)', border: '1px solid var(--well-border)' }}>
-            <div className="font-mono text-[8px] tracking-[0.13em] uppercase text-ink-dim mb-1">{isCash ? 'Cash counted' : 'Statement says'}</div>
-            <div className="num font-semibold text-[15px]" style={{ color: 'var(--accent-text)' }}>
-              {statedValue === null ? '—' : signed(statedValue)}
+          <div className="min-w-0">
+            <label className="block ui-label mb-1.5" htmlFor="recon-stated">
+              {isCash ? 'Cash counted' : 'On your statement'}
+            </label>
+            <div className="well flex items-center gap-1.5 min-h-[44px] px-3">
+              <span className="text-[15px] text-ink-dim" aria-hidden>{symbol}</span>
+              <input id="recon-stated" autoFocus inputMode="decimal" value={stated}
+                aria-describedby="recon-gap"
+                onChange={e => setStated(e.target.value)}
+                className="num font-bold text-[20px] bg-transparent border-none outline-none text-ink w-full min-w-0" />
             </div>
+            {!isCash && <div className="text-[11.5px] text-ink-dim mt-1">the {statementNoun}</div>}
           </div>
         </div>
-        <p className="text-[0.8rem] text-ink-mid mt-3 leading-snug">
-          {!hasDrift
-            ? 'Nothing to correct. Confirming records that you checked it today.'
-            : <>A <strong className="num">{fmt(Math.abs(drift), baseCurrency)}</strong> gap — {drift > 0 === isCard ? 'most likely a spend that never got logged.' : 'most likely income or a refund that never got logged.'}</>}
-        </p>
+        {/* RC2 — a state for when they match: say so, and what confirming does. */}
+        <div id="recon-gap" className="mt-3 pt-3 border-t border-line text-[13px] leading-snug" aria-live="polite">
+          {!hasDrift ? (
+            <>
+              <div className="font-semibold" style={{ color: 'var(--good-text)' }}>✓ Balances match</div>
+              <div className="text-ink-mid mt-0.5">Nothing to correct. Marking it reconciled records that you checked it today.</div>
+            </>
+          ) : (
+            <span className="text-ink-mid">
+              A <strong className="num" style={{ color: 'var(--warn-text)' }}>{fmt(Math.abs(drift), baseCurrency)}</strong> gap — {drift > 0 === isCard ? 'most likely a spend that never got logged.' : 'most likely income or a refund that never got logged.'}
+            </span>
+          )}
+        </div>
       </div>
 
       {hasDrift && (
         <>
-          <div className="font-mono text-[8.5px] tracking-[0.14em] uppercase text-ink-dim mb-2">How should I close it?</div>
+          <div className="ui-label mb-2">How should I close it?</div>
           <div className="flex flex-col gap-2.5 mb-4" role="radiogroup" aria-label="How to close the gap">
             <Pick on={choice === 'adjust'} onSelect={() => setChoice('adjust')} title="Post an adjustment">
               A visible reconcile adjustment of {fmt(Math.abs(drift), baseCurrency)}, dated today. It corrects the
@@ -181,7 +179,7 @@ export default function ReconcileSheet({ account, open = true, onClose }: Props)
         </>
       )}
 
-      <p className="rounded-r2 px-[13px] py-[11px] text-[0.74rem] leading-relaxed text-ink-mid"
+      <p className="rounded-r2 px-[13px] py-[11px] text-[12px] leading-relaxed text-ink-mid"
         style={{ background: 'color-mix(in srgb, hsl(var(--denim)) 14%, transparent)' }}>
         {isCash
           ? 'Confirm the cash you counted. Any adjustment is recorded in the cash ledger, not as spending or income.'
@@ -210,7 +208,7 @@ export function Pick({ on, onSelect, title, badge, disabled, children }: {
         <span className="flex items-center gap-2 flex-wrap">
           <span className="font-semibold text-[0.88rem] text-ink">{title}</span>
           {badge && (
-            <span className="font-mono text-[8px] tracking-wider px-1.5 py-0.5 rounded-md"
+            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-md"
               style={{ background: 'color-mix(in srgb, hsl(var(--sage)) 18%, transparent)', color: 'var(--good-text)' }}>{badge}</span>
           )}
         </span>

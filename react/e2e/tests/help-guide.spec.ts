@@ -97,7 +97,7 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
   await split.getByRole('textbox', { name: 'Description', exact: true }).fill('Dinner with friends');
   await split.getByRole('combobox', { name: 'Paid with', exact: true }).selectOption('cash');
   await split.getByRole('textbox', { name: 'Name', exact: true }).fill('Sam');
-  await split.getByRole('button', { name: /Even \(auto\)/ }).click();
+  await expect(split.getByRole('radio', { name: 'Equally', exact: true })).toBeChecked();   // Aurora 4.0 FS1
   await capture('split', split);
   await split.getByRole('button', { name: 'Cancel', exact: true }).click();
 
@@ -138,7 +138,8 @@ test('HELP-FC-001 - current task screens provide reproducible fictional guide im
   await recurring.getByRole('textbox', { name: 'Description', exact: true }).fill('Monthly rent');
   await recurring.getByRole('combobox', { name: 'Pay from', exact: true }).selectOption({ label: 'Everyday account' });
   await expect(recurring.getByText(/Pick an account/)).toHaveCount(0);
-  await recurring.getByRole('switch', { name: 'Auto-approve this schedule', exact: true }).click();
+  await recurring.getByRole('radio', { name: 'Ask me first', exact: true }).check();   // Aurora 4.0 RE2
+  await expect(recurring.getByTestId('schedule-summary')).toContainText('asks you first');
   await capture('recurring', recurring);
   if (process.env.UPDATE_HELP_MEDIA === '1') {
     await writeFile(fileURLToPath(new URL('../../src/lib/helpMedia.json', import.meta.url)), `${JSON.stringify(dimensions, null, 2)}\n`);

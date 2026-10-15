@@ -12,8 +12,11 @@ import { Field, Select } from '../components/ui/Input';
 import { AmountField } from '../components/ui/NumericKeypad';
 import { parseAmount } from '../lib/amountInput';
 import HalfSheet from '../components/ui/HalfSheet';
+import FormSection from '../components/ui/FormSection';
+import SegmentedControl from '../components/ui/SegmentedControl';
+import { scheduleSummary } from '../lib/scheduleSummary';
 import BillCalendar from '../components/recurring/BillCalendar';
-import { formatDate, today, addDaysISO } from '../lib/format';
+import { formatDate, today, addDaysISO, fmt } from '../lib/format';
 import { getCat, CURRENCIES } from '../constants';
 import type { RecurrenceFreq, RecurringSchedule } from '../types';
 import type { RecurringSeed } from '../lib/askVyactResponses';
@@ -286,6 +289,28 @@ export default function Recurring() {
     toast(editing ? 'Recurring schedule updated' : 'Recurring schedule created', 'success');
   }
 
+  /** Aurora 4.0 RE1 — what the schedule will do, from the rule the form describes (as save() builds it). */
+  function liveSummary(): string {
+    try {
+      const rule = buildRule();
+      const policy: ShortMonthPolicy = needsMonthEndRule ? shortMonthPolicy : 'last_day';
+      const n = parseAmount(amount);
+      return scheduleSummary({
+        amount: n > 0 ? fmt(n, baseCur) : '',
+        what: name.trim() || (type === 'investment' ? 'investment' : getCat(category).label),
+        rule,
+        type,
+        account: accounts.find(a => a.id === accountId)?.name,
+        into: type === 'investment' ? investmentAssets.find(a => a.id === toAccountId)?.name : undefined,
+        autoConfirm,
+        nextDue: scheduleDatesAfterSave(rule, policy, editing)?.nextDueDate ?? null,
+        todayISO: today(),
+      });
+    } catch {
+      return '';
+    }
+  }
+
   function populateFromSchedule(s: RecurringSchedule) {
     setEditing(s);
     setType((['expense','income','investment'] as const).includes(s.transactionTemplate.type as SchedType) ? s.transactionTemplate.type as SchedType : 'expense');
@@ -434,7 +459,7 @@ export default function Recurring() {
                       {(() => {
                         try { return describeRRule(ruleOf(s)); }
                         catch { return s.frequency; }
-                      })()} · next {formatDate(s.nextDueDate, dateFormat)} · {s.autoConfirm ? 'auto' : 'pending confirm'}
+                      })()} · next {formatDate(s.nextDueDate, dateFormat)} · {s.autoConfirm ? 'posts automatically' : 'asks first'}
                     </div>
                   </div>
                   <div className={`text-[0.86rem] font-medium ${s.transactionTemplate.type === 'income' ? 'text-sage' : 'text-terra'}`}>
@@ -486,6 +511,15 @@ export default function Recurring() {
           </div>
         }
       >
+        {/* Aurora 4.0 RE1 — one live line on what this schedule will do, above ten-plus controls. */}
+        {open && (
+          <p className="well px-3.5 py-2.5 text-[13px] leading-snug text-ink mb-3" data-testid="schedule-summary" aria-live="polite">
+            {liveSummary() || 'Fill in the amount and when it repeats.'}
+          </p>
+        )}
+
+        {/* RE3 — three short headed groups, as on the loan form: What · When · How. */}
+        <FormSection title="What">
         {/* Track chips — centered, matches Add Transaction's board M4 row. */}
         <div className="flex gap-1.5 flex-wrap justify-center mb-3">
           {(['expense', 'income', 'investment'] as const).map(t => (
@@ -501,7 +535,7 @@ export default function Recurring() {
         </div>
 
         <div className="mt-4">
-          <div className="mono-label mb-1.5">Description</div>
+          <div className="ui-label mb-1.5">Description</div>
           <input className="input w-full" value={name} onChange={e => setName(e.target.value)}
             placeholder="e.g. Rent · Salary · SIP" aria-label="Description" />
         </div>
@@ -530,7 +564,7 @@ export default function Recurring() {
           </Select>
           </Field>
           {!accountId && (
-            <div className="mt-1.5 text-[0.7rem] text-terra">
+            <div className="mt-1.5 text-[12px] text-terra">
               Pick an account — without one this schedule&apos;s transactions cannot sync.
             </div>
           )}
@@ -561,10 +595,12 @@ export default function Recurring() {
           </Select>
           </Field>
         </div>
+        </FormSection>
 
+        <FormSection title="When">
         {/* Recurrence frequency */}
-        <div className="mt-4">
-          <div className="mono-label mb-1.5">Recurrence</div>
+        <div>
+          <div className="ui-label mb-1.5">Repeats</div>
           <div className="flex gap-1.5 flex-wrap">
             {FREQ_TABS.map(({ key, label }) => (
               <Chip key={key} on={freq === key} onClick={() => setFreq(key)}>{label}</Chip>
@@ -575,7 +611,7 @@ export default function Recurring() {
         {/* Weekly — day-of-week chips */}
         {freq === 'weekly' && (
           <div className="mt-4">
-            <div className="mono-label mb-1.5">Repeat on</div>
+            <div className="ui-label mb-1.5">Repeat on</div>
             <div className="flex gap-1.5 flex-wrap">
               <Chip on={weekDays.length === WORK_WEEK.length && WORK_WEEK.every(d => weekDays.includes(d))}
                 onClick={() => setWeekDays([...WORK_WEEK])}>Weekdays</Chip>
@@ -589,7 +625,7 @@ export default function Recurring() {
         {/* Monthly — DOM or Nth weekday */}
         {(freq === 'monthly' || freq === 'custom_day') && (
           <div className="mt-4">
-            <div className="mono-label mb-1.5">Repeat on</div>
+            <div className="ui-label mb-1.5">Repeat on</div>
             <div className="flex gap-1.5 mb-2">
               <Chip on={monthlyMode === 'dom'} onClick={() => setMonthlyMode('dom')}>Day of month</Chip>
               <Chip on={monthlyMode === 'nth'} onClick={() => setMonthlyMode('nth')}>Nth weekday</Chip>
@@ -600,7 +636,7 @@ export default function Recurring() {
                 <input type="number" min={1} max={31} value={domText}
                   onChange={e => setDomText(e.target.value)}
                   onBlur={() => setDomText(String(clampDom(parseInt(domText, 10))))}
-                  className="input h-[34px] py-0 px-2.5 text-[12.5px] w-20" aria-label="Day of month" />
+                  className="input h-[44px] py-0 px-2.5 w-20" aria-label="Day of month" />
                 <span className="text-[0.84rem] text-ink-mid">of each month</span>
               </div>
             ) : (
@@ -623,7 +659,7 @@ export default function Recurring() {
         {/* Annual — month + day */}
         {freq === 'yearly' && (
           <div className="mt-4">
-            <div className="mono-label mb-1.5">Repeat on</div>
+            <div className="ui-label mb-1.5">Repeat on</div>
             <div className="flex gap-1.5 flex-wrap mb-2">
               {MONTH_NAMES.map((m, i) => (
                 <Chip key={i} on={annualMonth === i + 1}
@@ -634,7 +670,7 @@ export default function Recurring() {
               <span className="text-[0.84rem] text-ink-mid">Day</span>
               <input type="number" min={1} max={MONTH_MAX_DAY[annualMonth - 1]} value={annualDay}
                 onChange={e => setAnnualDay(annualDayFor(annualMonth, parseInt(e.target.value) || 1))}
-                className="input h-[34px] py-0 px-2.5 text-[12.5px] w-20" aria-label="Day of month" />
+                className="input h-[44px] py-0 px-2.5 w-20" aria-label="Day of month" />
             </div>
           </div>
         )}
@@ -650,7 +686,7 @@ export default function Recurring() {
               </Select>
             </Field>
             {freq !== 'yearly' && shortMonthPolicy === 'next_month_first' && (
-              <div className="mt-1.5 text-[0.7rem] text-terra">
+              <div className="mt-1.5 text-[12px] text-terra">
                 Some months will have two: the {dayOfMonth}th of a shorter month moves to the 1st of the next, which still has its own {dayOfMonth}th.
               </div>
             )}
@@ -659,7 +695,7 @@ export default function Recurring() {
 
         {/* Ends */}
         <div className="mt-4">
-          <div className="mono-label mb-1.5">Ends</div>
+          <div className="ui-label mb-1.5">Ends</div>
           <div className="flex gap-1.5 flex-wrap items-center">
             <Chip on={endsKind === 'never'} onClick={() => setEndsKind('never')}>Never</Chip>
             <Chip on={endsKind === 'count'} onClick={() => setEndsKind('count')}>After N times</Chip>
@@ -667,21 +703,33 @@ export default function Recurring() {
             {endsKind === 'count' && (
               <input type="number" min={1} value={endsCount} onChange={e => setEndsCount(e.target.value)}
                 placeholder="12" aria-label="Number of occurrences"
-                className="input h-[34px] py-0 px-2.5 text-[12.5px] w-20" />
+                className="input h-[44px] py-0 px-2.5 w-20" />
             )}
             {endsKind === 'until' && (
               <input type="date" min={today()} value={endsUntil} onChange={e => setEndsUntil(e.target.value)}
-                aria-label="Last date" className="input h-[34px] py-0 px-2.5 text-[12.5px]" />
+                aria-label="Last date" className="input h-[44px] py-0 px-2.5" />
             )}
           </div>
           {endsKind === 'count' && editing && (
-            <div className="mt-1.5 text-[0.7rem] text-ink-dim">Counted from the next one.</div>
+            <div className="mt-1.5 text-[12px] text-ink-dim">Counted from the next one.</div>
           )}
         </div>
+        </FormSection>
+
+        <FormSection title="How">
+        {/* Aurora 4.0 RE2 — two named options in the bill calendar's words (was an "Auto-approve" switch,
+            which did not say what happens when it is off). */}
+        <SegmentedControl label="When it’s due" value={autoConfirm ? 'auto' : 'ask'}
+          onChange={v => setAutoConfirm(v === 'auto')}
+          options={[{ value: 'auto', label: 'Post automatically', testId: 'schedule-post-auto' },
+            { value: 'ask', label: 'Ask me first', testId: 'schedule-ask-first' }]} />
+        <p className="text-[12px] text-ink-dim leading-snug mt-1.5">
+          {autoConfirm ? 'Vyact records it on its date.' : 'It waits in the bill calendar and the bell until you approve it.'}
+        </p>
 
         {/* Reminder lead time */}
         <div className="mt-4">
-          <div className="mono-label mb-1.5">Remind me</div>
+          <div className="ui-label mb-1.5">Remind me</div>
           <div className="flex gap-1.5 flex-wrap">
             {([1, 3, 7] as const).map(n => (
               <Chip key={n} on={reminderLead === n} onClick={() => setReminderLead(n)}>{n} day{n > 1 ? 's' : ''} before</Chip>
@@ -689,31 +737,7 @@ export default function Recurring() {
           </div>
         </div>
 
-        {/* Auto-approve — same inline switch as Add Transaction's split toggle. */}
-        <div className="mt-3">
-          <div className="flex items-center gap-2.5 py-2.5">
-            <span className="font-display font-semibold text-[13px] text-ink">Auto-approve</span>
-            <span className="text-[11.5px] text-ink-dim">
-              {autoConfirm ? 'posts automatically' : 'you confirm each time'}
-            </span>
-            <button
-              type="button" role="switch" aria-checked={autoConfirm} aria-label="Auto-approve this schedule"
-              onClick={() => setAutoConfirm(a => !a)}
-              className="ml-auto relative w-[44px] h-[26px] rounded-pill border-none cursor-pointer flex-shrink-0"
-              style={{
-                background: autoConfirm ? 'color-mix(in srgb, hsl(var(--sage)) 40%, var(--sunken))' : 'var(--sunken)',
-                boxShadow: 'var(--neu-inset)',
-              }}
-            >
-              <i aria-hidden className="absolute top-[3px] w-5 h-5 rounded-full transition-[left] duration-150"
-                style={{
-                  left: autoConfirm ? 21 : 3,
-                  background: autoConfirm ? 'hsl(var(--sage))' : 'var(--ff-ink-3)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,.3)',
-                }} />
-            </button>
-          </div>
-        </div>
+        </FormSection>
       </HalfSheet>
     </div>
   );

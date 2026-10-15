@@ -57,29 +57,29 @@ test.describe('§24 A11Y-FC · shipped keyboard shortcut contract', () => {
     // auto-focuses, so opening the form doesn't pop the OS keyboard uninvited).
     await expect(txnModal.dialog.getByRole('heading', { level: 1 })).toBeFocused();
 
-    // Waypoint 1: the first category chip. Walk forward without assuming how
-    // many stops precede it (the header help icon, the transaction-type
-    // radiogroup, Amount) — those are an implementation detail, not the
+    // Aurora 4.0 F1 / CAT2: Amount, then the type, then Description, then the
+    // category it suggests. Waypoint 1: Description. Walk forward without
+    // assuming how many stops precede it (the header help icon, Amount, the
+    // transaction-type radiogroup) — those are an implementation detail, not the
     // ordering this test pins.
-    const categoryPicker = txnModal.dialog.getByTestId('txn-category');
+    const description = txnModal.descriptionInput;
     let headGuard = 0;
-    while (!(await categoryPicker.evaluate(el => el === document.activeElement)) && headGuard < 20) {
+    while (!(await description.evaluate(el => el === document.activeElement)) && headGuard < 20) {
       await page.keyboard.press('Tab');
       headGuard++;
     }
-    await expect(categoryPicker, 'Category picker must be reachable by Tab from the heading').toBeFocused();
+    await expect(description, 'Description must be reachable by Tab from the heading').toBeFocused();
 
-    // Waypoint 2: Description comes after the whole category row. Walk forward
-    // until it has focus rather than assuming the chip count.
-    const description = txnModal.descriptionInput;
+    // Waypoint 2: the category select follows Description.
+    const categoryPicker = txnModal.dialog.getByTestId('txn-category');
     let guard = 0;
-    while (!(await description.evaluate(el => el === document.activeElement)) && guard < 20) {
+    while (!(await categoryPicker.evaluate(el => el === document.activeElement)) && guard < 20) {
       await page.keyboard.press('Tab');
       guard++;
     }
-    await expect(description, 'Description must be reachable from the category row').toBeFocused();
+    await expect(categoryPicker, 'Category picker must follow Description').toBeFocused();
 
-    // Waypoint 3: the date control follows Description (via its Today/Yesterday
+    // Waypoint 3: the date control follows the category (via its Today/Yesterday
     // shortcut buttons), and focus is still on the form page.
     const dateInput = txnModal.dialog.locator('input[type=date]');
     guard = 0;
