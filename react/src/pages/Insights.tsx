@@ -94,8 +94,16 @@ export default function Insights() {
       out.push({ id: item.learnId, reason: `Because of “${item.title}”` });
       if (out.length === 2) break;
     }
+    // Nothing in the review names a lesson: the same fallback "Learn about this" uses, with its reason.
+    if (out.length < 2 && review.hasActivity) {
+      const debt = review.items.some(item => item.issue.startsWith('debt'));
+      const lesson = evergreenByTag(debt ? ['debt', 'payoff'] : ['budgeting', 'saving']);
+      if (lesson && !seen.has(lesson.id) && !/tax/i.test(lesson.category)) {
+        out.push({ id: lesson.id, reason: debt ? 'Because your review includes a loan' : 'A good next step for your monthly plan' });
+      }
+    }
     return out;
-  }, [review.items]);
+  }, [review.items, review.hasActivity]);
 
   // v10.52.0 — same page frame as Net Worth and Reports: full content width (the
   // shell caps it at 1320px), title + mono subtitle on the left, controls on the
