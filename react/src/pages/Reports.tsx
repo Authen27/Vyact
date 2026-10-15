@@ -10,9 +10,7 @@ import { CategoryDonut } from '../components/charts/DonutCharts';
 import {
   IncomeExpenseArea, NetBarChart, CategoryBars, BudgetActualBars,
 } from '../components/charts/ReportCharts';
-import {
-  reportableTxns, effectiveAmount, monthlyData, totalMonthlyDebtPayment,
-} from '../lib/calculations';
+import { reportableTxns, effectiveAmount } from '../lib/calculations';
 import { fmt, fmtSigned, getMonthKey, nowMonthKey, today } from '../lib/format';
 import { useCategoryClassifications } from '../lib/categorization';
 import { computeNetWorth } from '../lib/netWorth';
@@ -76,8 +74,6 @@ export default function Reports() {
     [txns, baseCur, rates, currentMk]);
   const savingsRate = savingsIncome > 0 ? Math.round((savingsIncome - savingsExpense) / savingsIncome * 100) : 0;
   const position = useMemo(() => computeNetWorth({ assets, accounts, debts, transactions: txns }, baseCur, rates), [assets, accounts, debts, txns, baseCur, rates]);
-  const month = useMemo(() => monthlyData(txns, currentMk, baseCur, rates), [txns, currentMk, baseCur, rates]);
-  const minimumPayments = totalMonthlyDebtPayment(debts, baseCur, rates);
   const runway = useMemo(() => essentialRunway({
     transactions: txns, classifications, liquidAssets: position.liquidAssets, baseCurrency: baseCur, rates,
   }), [txns, classifications, position.liquidAssets, baseCur, rates]);
@@ -207,49 +203,37 @@ export default function Reports() {
         )}
       />
 
-      <section aria-label="Household position" className="mb-section border-y border-line py-5">
-        <h2 className="text-xl font-display font-medium text-ink mb-4">Household position</h2>
-        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          {[
-            { label: 'Net worth', value: position.netWorth },
-            { label: 'Assets', value: position.totalAssets },
-            { label: 'Liabilities', value: position.totalLiabilities },
-            { label: 'Liquid assets', value: position.liquidAssets },
-          ].map(item => <div key={item.label} className="min-w-0"><dt className="text-sm text-ink-dim">{item.label}</dt><dd className="num text-lg text-ink mt-1 [overflow-wrap:anywhere]">{item.value < 0 ? fmtSigned(item.value, baseCur) : fmt(item.value, baseCur)}</dd></div>)}
-        </dl>
-        <InfoNote className="mt-3" line="Current ledger position, not a historical valuation." label="About the household position">
-          <p>Liquid assets are not automatically spare cash.</p>
-        </InfoNote>
-        <h3 className="text-base font-medium text-ink mt-5 mb-3">This month · {currentMk}</h3>
-        <dl className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          <div className="min-w-0"><dt className="text-sm text-ink-dim">Income</dt><dd className="num [overflow-wrap:anywhere]">{fmt(month.income, baseCur)}</dd></div>
-          <div className="min-w-0"><dt className="text-sm text-ink-dim">Spending</dt><dd className="num [overflow-wrap:anywhere]">{fmt(month.expense, baseCur)}</dd></div>
-          <div className="min-w-0"><dt className="text-sm text-ink-dim">Income retained</dt><dd className="num">{month.income > 0 ? `${savingsRate}%` : 'Not available'}</dd></div>
-          <div className="min-w-0"><dt className="text-sm text-ink-dim">Tracked minimum debt payments / month</dt><dd className="num [overflow-wrap:anywhere]">{fmt(minimumPayments, baseCur)}</dd></div>
-        </dl>
-        <InfoNote className="mt-3" line="Month still in progress." label="About this month">
-          <p>Payment commitments use recorded debt terms; untracked bills and card payments are not included.</p>
-        </InfoNote>
+      {/* Aurora 4.0 RP2 — one row: net worth, liquid assets, the runway and a link to Net Worth. The section
+          is the card: no div may wrap the dl (FIN-FC-004 reads the one div that holds "Net worth"). */}
+      <section aria-label="Household position"
+        className="card-raised mb-section p-4 sm:p-5 grid grid-cols-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_auto] gap-x-5 gap-y-4 sm:items-start">
+          <h2 className="ui-label col-span-2 sm:col-span-3 -mb-2">Household position</h2>
+          <dl className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-5 min-w-0">
+            {[
+              { label: 'Net worth', value: position.netWorth },
+              { label: 'Liquid assets', value: position.liquidAssets },
+            ].map(item => <div key={item.label} className="min-w-0"><dt className="text-[12px] text-ink-dim">{item.label}</dt><dd className="num text-lg font-semibold text-ink mt-0.5 [overflow-wrap:anywhere]">{item.value < 0 ? fmtSigned(item.value, baseCur) : fmt(item.value, baseCur)}</dd></div>)}
+          </dl>
 
-        {/* v10.31.0 — essential-spend runway with a STATED completed-month baseline (lib/essentialRunway.ts). */}
-        <section aria-label="Essential-spend runway" className="mt-5 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <h3 className="text-base font-medium text-ink">Essential-spend runway</h3>
-            <EstimatedTag confidence="estimated" title="An estimate from recorded spending. Review the calculation basis." />
-          </div>
-          {runway.status === 'ready' ? (
-            <p className="text-sm text-ink-mid [overflow-wrap:anywhere]">
-              <span className="num text-lg text-ink">{(runway.months ?? 0).toFixed(1)} months</span>{' '}
-              on essentials only: liquid assets ({runway.liquidAssets < 0 ? fmtSigned(runway.liquidAssets, baseCur) : fmt(runway.liquidAssets, baseCur)}) against {fmt(runway.averageEssential ?? 0, baseCur)} a month of essential spending.
+          {/* v10.31.0 — essential-spend runway with a STATED completed-month baseline (lib/essentialRunway.ts). */}
+          <section aria-label="Essential-spend runway" className="col-span-2 sm:col-span-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-[12px] font-normal text-ink-dim">Runway on essentials</h3>
+              <EstimatedTag confidence="estimated" title="An estimate from recorded spending. Review the calculation basis." />
+            </div>
+            <div className="num text-lg font-semibold text-ink mt-0.5">
+              {runway.status === 'ready' ? `${(runway.months ?? 0).toFixed(1)} months` : 'Not available'}
+            </div>
+            <p className="text-[12px] text-ink-dim leading-snug [overflow-wrap:anywhere]">
+              {runway.status === 'ready'
+                ? <>liquid assets ({runway.liquidAssets < 0 ? fmtSigned(runway.liquidAssets, baseCur) : fmt(runway.liquidAssets, baseCur)}) against {fmt(runway.averageEssential ?? 0, baseCur)} a month of essential spending</>
+                : runway.status === 'no-baseline'
+                  ? 'Needs at least one completed month of recorded spending.'
+                  : `No essential spending was recorded in ${baselineLabel(runway.baselineMonths)}.`}
             </p>
-          ) : runway.status === 'no-baseline' ? (
-            <p className="text-sm text-ink-mid">Needs at least one completed month of recorded spending.</p>
-          ) : (
-            <p className="text-sm text-ink-mid">Not available: no essential spending was recorded in {baselineLabel(runway.baselineMonths)}.</p>
-          )}
-          <details className="mt-1 text-xs text-ink-dim">
-            <summary className="cursor-pointer min-h-[44px] flex items-center">Calculation basis</summary>
-            <ul className="list-disc pl-4 space-y-1.5 leading-relaxed">
+            <details className="mt-1 text-xs text-ink-dim">
+              <summary className="cursor-pointer min-h-[44px] flex items-center">Calculation basis</summary>
+              <ul className="list-disc pl-4 space-y-1.5 leading-relaxed">
               <li>If income stopped and only essential spending continued. An estimate, not advice or a financial-health score.</li>
               <li>{runway.baselineMonths.length
                 ? `Based on ${runway.baselineMonths.length} completed month${runway.baselineMonths.length === 1 ? '' : 's'} with recorded spending: ${baselineLabel(runway.baselineMonths)}.`
@@ -257,13 +241,14 @@ export default function Reports() {
               <li>Essential spending is reportable spending in categories classified as needs. Wants, categories with no classification, transfers, investments and private entries are excluded, and so are bills or minimum payments that are not recorded. A loan payment counts in full as Loan / EMI.</li>
               <li>Net Worth shows the other figure, at your usual spending (all spending), from the same months. Pip uses both and says which.</li>
               <li>Liquid assets are cash, bank accounts and liquid assets from the household position; credit limits and investments are not counted.</li>
-            </ul>
-          </details>
-        </section>
+              </ul>
+            </details>
+          </section>
 
-        <nav aria-label="Household planning details" className="flex flex-wrap gap-x-5 gap-y-2 mt-3 text-sm text-coral">
-          <Link to="/budgets" className="py-2">Budgets</Link><Link to="/recurring" className="py-2">Upcoming bills</Link><Link to="/debts" className="py-2">Debt payoff</Link><Link to="/networth" className="py-2">Assets and liabilities</Link>
-        </nav>
+          <Link to="/networth" className="empty-link col-span-2 sm:col-span-1 sm:self-center whitespace-nowrap">Net Worth →</Link>
+          <InfoNote className="col-span-2 sm:col-span-3 -mt-2" line="Current ledger position, not a historical valuation." label="About the household position">
+            <p>Liquid assets are not automatically spare cash.</p>
+          </InfoNote>
       </section>
 
       <div className="mb-3 flex justify-end">
@@ -290,7 +275,7 @@ export default function Reports() {
             {savingsIncome > 0
               ? `Income minus spending: ${fmtSigned(savingsIncome - savingsExpense, baseCur)} from ${fmt(savingsIncome, baseCur)} income this month.`
               : 'No income recorded this month.'}
-            <div className="font-mono text-[0.62rem] tracking-wider text-ink-dim mt-1">
+            <div className="text-[12px] text-ink-dim mt-1">
               Formula: (Income − Expenses) ÷ Income × 100
             </div>
           </div>
@@ -306,7 +291,7 @@ export default function Reports() {
       <p className="text-sm text-ink-dim mb-3">
         Chart window: {rangeLabel(range)}. Grouped by {PERIOD_LABELS[period].toLowerCase()}
         {coarsened ? ` (a ${PERIOD_LABELS[requestedGrouping].toLowerCase()} view would draw more than 60 bars)` : ''}; the first and last intervals may be partial.
-        Every panel below uses this range; the household position and this month above stay current.
+        Every panel below uses this range; the household position above stays current.
       </p>
 
       {/* Board D M1 §.stat — neu stat tiles with a delta subline, scrolling as a
@@ -332,7 +317,7 @@ export default function Reports() {
                 style={{ background: 'var(--canvas)', boxShadow: 'var(--neu)' }}>
                 <div className="mono-label mb-[7px]">{t.lbl}</div>
                 {t.value}
-                <div className="text-[10px] text-ink-dim mt-[5px]">{t.delta}</div>
+                <div className="text-[11.5px] text-ink-dim mt-[5px]">{t.delta}</div>
               </div>
             ))}
           </div>
@@ -402,7 +387,7 @@ export default function Reports() {
             ? <EmptyState icon="📊" message="No data" />
             : (
               <div>
-                <div className="grid grid-cols-4 gap-2 px-4 py-2.5 bg-bg3 border-b border-line2 font-mono text-[0.56rem] tracking-[0.1em] uppercase text-ink-dim">
+                <div className="grid grid-cols-4 gap-2 px-4 py-2.5 bg-bg3 border-b border-line2 text-[11.5px] font-medium text-ink-dim">
                   <div>Period</div><div className="text-right">Income</div><div className="text-right">Expense</div><div className="text-right">Net</div>
                 </div>
                 {[...data].reverse().map((d, i) => (
@@ -438,7 +423,7 @@ export default function Reports() {
                 {/* Phones: Status folds under Difference so all figures stay in view. */}
                 <table className="w-full text-[0.8rem]">
                   <thead>
-                    <tr className="bg-bg3 border-b border-line2 font-mono text-[0.56rem] tracking-[0.1em] uppercase text-ink-dim">
+                    <tr className="bg-bg3 border-b border-line2 text-[11.5px] font-medium text-ink-dim">
                       <th scope="col" className="text-left font-normal px-3 sm:px-4 py-2.5">Period</th>
                       <th scope="col" className="text-right font-normal px-3 sm:px-4 py-2.5">Budgeted</th>
                       <th scope="col" className="text-right font-normal px-3 sm:px-4 py-2.5">Actual</th>
@@ -497,7 +482,7 @@ function BreakoutTable(props: {
   }
   return (
     <div>
-      <div className="grid grid-cols-4 gap-2 px-4 py-2.5 bg-bg3 border-b border-line2 font-mono text-[0.56rem] tracking-[0.1em] uppercase text-ink-dim">
+      <div className="grid grid-cols-4 gap-2 px-4 py-2.5 bg-bg3 border-b border-line2 text-[11.5px] font-medium text-ink-dim">
         <div>Name</div><div className="text-right">Income</div><div className="text-right">Expense</div><div className="text-right">Net</div>
       </div>
       {rows.map(r => (
