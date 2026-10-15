@@ -43,7 +43,8 @@ test.describe('§20 ONB-FC · onboarding', () => {
     await expect(page.getByText(/Built for your whole household\./)).toBeVisible();
     await expect(page.getByText(/No bank login/)).toHaveCount(0);
     await expect(page.getByText(/Nothing is locked in\./)).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Currency' })).toBeVisible();
+    // Aurora 4.0 OB1 — phones pick the currency from chips (More… opens the full list); desktop keeps the select.
+    await expect(page.getByRole('combobox', { name: 'Currency' }).or(page.getByRole('group', { name: 'Currency' }))).toBeVisible();
     await expect(page.getByRole('button', { name: "Let's go" })).toBeEnabled();
   });
 });
