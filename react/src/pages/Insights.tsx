@@ -185,7 +185,7 @@ export default function Insights() {
           </>}
         </div>
       )}
-      {tab === 'learn' && <div role="tabpanel" id="insights-panel-learn" aria-labelledby="insights-tab-learn"><EvergreenLearn openId={learnOpenId} onConsumedOpen={() => setLearnOpenId(null)} suggested={suggested} /></div>}
+      {tab === 'learn' && <div role="tabpanel" id="insights-panel-learn" aria-labelledby="insights-tab-learn"><EvergreenLearn openId={learnOpenId} onConsumedOpen={() => setLearnOpenId(null)} suggested={suggested} initialQuery={params.get('q') ?? undefined} /></div>}
 
       {reelStart !== null && review.highlights.length > 0 && (
         <ForYouReel cards={review.highlights} startIndex={reelStart} onClose={closeHighlights} onOpenLearn={openLearn} />

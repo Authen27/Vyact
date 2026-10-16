@@ -215,7 +215,10 @@ export function parseDailyCallCap(raw: string | undefined | null): number | null
 }
 
 export const MAX_MESSAGES = 40;
-export const MAX_MESSAGE_CHARS = 8_000;
+// v10.107.0: 12,000 (was 8,000). Pip's own phrase prompt grew to ~8,000 characters, so the figure-guard
+// retry (prompt + the rejected figures) was cut off and lost its instruction. MAX_TOTAL_INPUT_CHARS still
+// bounds the whole request; pipPlanner.test.ts keeps every server prompt under this cap.
+export const MAX_MESSAGE_CHARS = 12_000;
 export const MAX_TOTAL_INPUT_CHARS = 24_000;
 export const MAX_REPLY_CHARS = 8_000;
 export const MAX_TOOL_CALLS = 8;

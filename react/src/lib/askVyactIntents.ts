@@ -76,6 +76,11 @@ export const INTENTS: Intent[] = [
   { id: 'debts',           bucket: 'plan',    icon: '⬇️', label: 'Debt strategy',    action: { kind: 'ask', prompt: 'Tell me about my debts and the best payoff strategy.' } },
   { id: 'affordability', bucket: 'plan', icon: '🛒', label: 'Can I afford it?', action: { kind: 'ask', prompt: 'Can I afford a 1200 purchase?' } },
   { id: 'cut-back', bucket: 'plan', icon: '✂️', label: 'Find room to save', action: { kind: 'ask', prompt: 'Where can I cut back on spending?' } },
+  // v10.107.0 — the planner skills.
+  { id: 'month-review', bucket: 'plan', icon: '🗓️', label: 'Review last month', action: { kind: 'ask', prompt: 'Give me a review of last month.' } },
+  { id: 'emergency-fund', bucket: 'plan', icon: '🧰', label: 'Emergency fund plan', action: { kind: 'ask', prompt: 'How do I build my emergency fund?' } },
+  { id: 'surplus', bucket: 'plan', icon: '🧭', label: 'Where should spare money go?', action: { kind: 'ask', prompt: 'Where should my spare money go each month?' } },
+  { id: 'subscriptions', bucket: 'plan', icon: '🧾', label: 'Review bills and subscriptions', action: { kind: 'ask', prompt: 'Review my bills and subscriptions.' } },
 
   // ── Set up (forms, not chat) ───────────────────────────────
   { id: 'add-budget', bucket: 'setup', icon: '🎯', label: 'Add budget', requires: 'manage_budgets', inputHint: 'Opens the budget form. Budgets are set up in the form, not in chat.', action: { kind: 'open-modal', modal: 'addBudget' } },
@@ -124,6 +129,15 @@ export type AssistantIntentId =
   | 'capture.recurring'
   /** v10.39.1 (P22) — a request the app cannot carry out; answered with what it can. */
   | 'unsupported'
+  /** v10.107.0 — Pip as the household's planner: a month in review, the bills and subscriptions
+   *  review, the emergency-fund plan, where the monthly surplus goes, and how long a purchase takes
+   *  to save for. Every figure is computed in resolve(); the model only explains it. */
+  | 'interpret.review' | 'interpret.subscriptions'
+  | 'forecast.emergency_fund' | 'forecast.surplus' | 'forecast.save_for'
+  /** v10.107.0 — a general money concept ("what is an SIP?"): answered from Learn, not the model. */
+  | 'learn.concept'
+  /** v10.107.0 — not about money at all. Declined in one line, with no phrase call. */
+  | 'off_topic'
   | 'fallback';
 
 export interface IntentResult {
@@ -146,6 +160,10 @@ const BUCKET_OF: Record<AssistantIntentId, AssistantBucket | 'none'> = {
   'meta.assistant': 'none',
   'capture.recurring': 'capture',
   'unsupported': 'none',
+  'interpret.review': 'interpret', 'interpret.subscriptions': 'interpret',
+  'forecast.emergency_fund': 'forecast', 'forecast.surplus': 'forecast', 'forecast.save_for': 'forecast',
+  'learn.concept': 'none',
+  'off_topic': 'none',
   fallback: 'none',
 };
 

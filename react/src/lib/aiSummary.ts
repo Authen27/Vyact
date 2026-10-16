@@ -383,4 +383,6 @@ export interface ChatMessage {
   /** v10.54.0 — the person's 👍 (1) / 👎 (-1) on this answer, if any. Kept with the
    *  transcript so the buttons show it after a reload; stored in ai_feedback too. */
   feedback?: 1 | -1;
+  /** v10.107.0 — an in-app page this reply points to (Learn's lessons on a concept). Rendered as a button. */
+  link?: { label: string; to: string };
 }

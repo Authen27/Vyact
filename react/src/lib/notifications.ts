@@ -5,11 +5,11 @@
 // This pass WIRES the types whose producing data already exists synchronously:
 //   recurring_due_confirm · recurring_reminder · budget_threshold ·
 //   debt_payment_due · stale_balance · income_landed.
-// The remaining types (recurring_posted, insight_fresh, trend_alert,
-// member_activity, sync_conflict, milestone) keep their type +
+// The remaining types (recurring_posted, member_activity, sync_conflict, milestone) keep their type +
 // NOTIF_META + settings toggle so the sheet renders them, but their producers
 // are follow-ups (need a query/engine not available in this synchronous pass —
-// e.g. trend detection, activity-log subscription). sync_conflict
+// e.g. an activity-log subscription). v10.107.0: trend_alert and insight_fresh are Pip's nudges
+// (pipNudgeNotifs). sync_conflict
 // already has its persistent banner. invite_received and invite_pending (v10.95.0) are built from
 // live invitation lists and never saved (see "Household invitations" below).
 
@@ -19,7 +19,7 @@ import type {
 } from '../types';
 import { uid, today, getMonthKey, fmt, convert } from './format';
 import { upcomingSchedules, isLoanEmiSchedule } from './recurring';
-import { spendByCategoryInRange } from './calculations';
+import { spendByCategoryInRange, spendByCategory } from './calculations';
 import { getCat } from '../constants';
 import { staleAccounts } from './accountsView';
 import { roleLabel } from './permissions';
@@ -339,6 +339,95 @@ export function staleBalanceNotifs(accounts: Account[], prefs: NotificationPrefs
     deepLink: '/accounts',
     actions: [A('update', 'Update balances', 'primary'), A('dismiss', 'Dismiss', 'ghost')],
   }];
+}
+
+// ── v10.107.0 — Pip's proactive nudges ──────────────────────────────────────
+//
+// Pip speaks first only when something is worth knowing, and rarely: at most PIP_NUDGE_DAILY_CAP a
+// day and PIP_NUDGE_WEEKLY_CAP a week across every kind, P2 (in the bell, never pushed), each with
+// its own switch in Settings › Notifications ("fewer like this" is turning that kind off). A nudge
+// opens Pip with its question in the field (/chat?ask=…); nothing is asked or sent for the person.
+// Every figure is computed here from the ledger, the same way the Transactions page totals it.
+
+export const PIP_NUDGE_DAILY_CAP = 1;
+export const PIP_NUDGE_WEEKLY_CAP = 3;
+/** A category nudge needs it to be this much above a WHOLE usual month already, and at least 2 months of history. */
+export const TREND_NUDGE_RATIO = 1.25;
+const PIP_NUDGE_PREFIX = 'pip:';
+
+const askPip = (question: string) => `/chat?ask=${encodeURIComponent(question)}`;
+
+/** How many more Pip nudges may be raised now (0 when the day's or the week's are used). */
+export function pipNudgeRoom(existing: Notification[], nowMs = Date.now()): number {
+  const pip = existing.filter(n => n.dedupeKey?.startsWith(PIP_NUDGE_PREFIX));
+  const startOfDay = new Date(nowMs); startOfDay.setHours(0, 0, 0, 0);
+  const today_ = pip.filter(n => Date.parse(n.createdAt) >= startOfDay.getTime()).length;
+  const week = pip.filter(n => Date.parse(n.createdAt) >= nowMs - 7 * 86_400_000).length;
+  return Math.max(0, Math.min(PIP_NUDGE_DAILY_CAP - today_, PIP_NUDGE_WEEKLY_CAP - week));
+}
+
+/**
+ * trend_alert — a category that has ALREADY gone past a whole usual month, this month. Compared with a
+ * whole month (not a pro-rated one), so the sentence is true whatever day it is: nothing is projected.
+ * The largest such gap only; once per category per month.
+ */
+function categoryTrendNudge(txns: Transaction[], existing: Notification[], ctx: Ctx, now: string): Notification | null {
+  const month = getMonthKey(now);
+  const history = [...new Set(txns.map(t => getMonthKey(t.date)))].filter(m => m < month).sort().slice(-3);
+  if (history.length < 2) return null;
+  const nowSpend = spendByCategory(txns, month, ctx.baseCurrency, ctx.rates);
+  const past = history.map(m => spendByCategory(txns, m, ctx.baseCurrency, ctx.rates));
+  let best: { category: string; spent: number; usual: number } | null = null;
+  for (const [category, spent] of Object.entries(nowSpend)) {
+    // Loan payments run on their own schedule; a prepayment is a decision, not a trend.
+    if (category === 'loan_emi') continue;
+    const usual = past.reduce((s, p) => s + (p[category] || 0), 0) / history.length;
+    if (!(usual > 0) || spent < usual * TREND_NUDGE_RATIO) continue;
+    if (existing.some(n => n.dedupeKey === `${PIP_NUDGE_PREFIX}trend:${category}:${month}`)) continue;
+    if (!best || spent - usual > best.spent - best.usual) best = { category, spent, usual };
+  }
+  if (!best) return null;
+  const label = getCat(best.category).label;
+  return {
+    ...base('trend_alert', `${PIP_NUDGE_PREFIX}trend:${best.category}:${month}`, ctx),
+    title: `${label} is already above a usual month`,
+    body: `${fmt(Math.round(best.spent), ctx.baseCurrency)} so far, against ${fmt(Math.round(best.usual), ctx.baseCurrency)} in a usual month`,
+    amountRef: Math.round(best.spent),
+    deepLink: askPip(`Why is my ${label.toLowerCase()} spending so high?`),
+    actions: [A('ask_pip', 'Ask Pip why', 'primary')],
+  };
+}
+
+/** insight_fresh — in the first five days of a month, last month's review is ready (once per month). */
+function monthReviewNudge(txns: Transaction[], existing: Notification[], ctx: Ctx, now: string): Notification | null {
+  if (Number(now.slice(8, 10)) > 5) return null;
+  const [y, m] = getMonthKey(now).split('-').map(Number);
+  const prev = new Date(Date.UTC(y, m - 2, 1));
+  const prevKey = `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}`;
+  const key = `${PIP_NUDGE_PREFIX}review:${prevKey}`;
+  if (existing.some(n => n.dedupeKey === key)) return null;
+  if (!txns.some(t => getMonthKey(t.date) === prevKey)) return null;
+  return {
+    ...base('insight_fresh', key, ctx),
+    title: `Your ${MONTH_NAMES[prev.getUTCMonth()]} review is ready`,
+    body: 'What came in, what went out and what moved',
+    deepLink: askPip('Give me a review of last month.'),
+    actions: [A('ask_pip', 'Ask Pip', 'primary')],
+  };
+}
+
+/** Pip's nudges for this refresh, most useful first, within the day's and the week's allowance. */
+export function pipNudgeNotifs(
+  txns: Transaction[], prefs: NotificationPrefs, existing: Notification[], ctx: Ctx,
+  now: string = today(ctx.tz), nowMs = Date.now(),
+): Notification[] {
+  const room = pipNudgeRoom(existing, nowMs);
+  if (room <= 0) return [];
+  const candidates = [
+    typeEnabled(prefs, 'trend_alert') ? categoryTrendNudge(txns, existing, ctx, now) : null,
+    typeEnabled(prefs, 'insight_fresh') ? monthReviewNudge(txns, existing, ctx, now) : null,
+  ].filter((n): n is Notification => n !== null);
+  return candidates.slice(0, room);
 }
 
 /** 14 · split_settled (P2, owner-facing) — a participant self-settled their

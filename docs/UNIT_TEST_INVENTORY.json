@@ -2121,6 +2121,31 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/pipPlanner.test.ts",
+      "feature": "Ask Vyact",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
+      "count": 14,
+      "tests": [
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-010 · month review: last completed month by default; this month is \"so far\" against the same point",
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-011 · bills review: 12-month cost from each schedule; loan EMIs are left out",
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-012 · emergency fund: the target is three months of essentials, with the gap and how long it takes",
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-013 · spare money: a fixed five-step order with no products, and the first open step named",
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-014 · saving for something: a price is required; a small one is ready now; a large one is planned or has no surplus",
+        "Pip scope (v10.107.0) PIP-PLAN-001 · off-topic is declined in one line with chips, and the phrase model is never called",
+        "Pip scope (v10.107.0) PIP-PLAN-002 · a classification the model was unsure of asks which job was meant; no phrase call",
+        "Pip scope (v10.107.0) PIP-PLAN-003 · a general concept points to Learn, searched for the topic; an unsafe topic is dropped; WhatsApp gets no link",
+        "Pip scope (v10.107.0) PIP-PLAN-004 · code, a web address or an over-long reply is rejected; prose (even in a bare fence) is accepted",
+        "Pip scope (v10.107.0) PIP-PLAN-005 · an off-scope phrase reply is never shown: the turn is unavailable",
+        "Pip scope (v10.107.0) PIP-PLAN-006 · every server prompt fits the router per-message cap, retry included, so none is ever cut off",
+        "Pip's nudges (v10.107.0) PIP-PLAN-020 · at most one a day and three a week",
+        "Pip's nudges (v10.107.0) PIP-PLAN-021 · the month review nudge comes in the first five days only, once, and follows the settings switch",
+        "Pip's nudges (v10.107.0) PIP-PLAN-022 · a category already past a whole usual month raises a trend nudge; loan EMIs never do"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/postAuth.test.ts",
       "feature": "Marketing funnel and auth landing",
       "availability": "available",

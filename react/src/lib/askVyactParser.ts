@@ -72,6 +72,8 @@ export interface ExtractedEntities {
   frequency?: string;
   /** v10.39.1 (P21) — the day of the month a recurring bill falls on (1–31). */
   dayOfMonth?: number;
+  /** v10.107.0 — the money concept a `learn.concept` question asks about ("SIP"). Model-extracted. */
+  topic?: string;
   /** Raw normalised text, for downstream classification. */
   text: string;
 }

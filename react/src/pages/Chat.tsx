@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  MessageCircle, Mic, List, ArrowUpRight, ArrowUp, Square, Plus, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw,
+  MessageCircle, Mic, List, ArrowUpRight, ArrowUp, Square, Plus, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw, BookOpen,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { Panel } from '../components/ui/Card';
@@ -192,6 +192,20 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // v10.107.0 — a Pip nudge opens /chat?ask=… with its question in the field, ready to send. It is
+  // never sent for the person: asking is their choice (and a model call).
+  useEffect(() => {
+    if (embedded || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const ask = (params.get('ask') ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (!ask) return;
+    setInput(ask);
+    params.delete('ask');
+    const rest = params.toString();
+    appNavigate(`${window.location.pathname}${rest ? `?${rest}` : ''}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // v10.36 — the composer is a multi-line textarea that grows with its content
   // up to max-h-48 (192px), then scrolls. Keyed on `input`, so it also resizes
   // when text is set programmatically (an example prefill) or cleared on send.
@@ -307,6 +321,8 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
         patchTurn({ pending: false, thinkingMs: Date.now() - startedAt });
         await streamReply(turnId, turn.reply, turn.chips, turn.allowedFigures);
         if (cancelledTurns.current.has(turnId)) return;
+        // v10.107.0 — a concept question points to Learn's lessons with a button.
+        if (turn.link) patchTurn({ link: turn.link });
         // v10.38 — capture seeds the EXISTING TransactionFormModal, and only AFTER
         // the acknowledgement is on screen. Navigating first replaced the chat with
         // the form before the user could read what had been understood, so the
@@ -704,6 +720,14 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
                     className={`w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-bg3 ${m.feedback === -1 ? 'text-coral' : 'text-ink-dim hover:text-ink'}`}>
                     <ThumbsDown size={14} aria-hidden fill={m.feedback === -1 ? 'currentColor' : 'none'} />
                   </button>
+                </div>
+              )}
+              {m.role === 'assistant' && m.link && !m.pending && (
+                <div className="mt-2.5">
+                  <Button variant="ghost" data-testid="ask-vyact-link"
+                    onClick={() => { const to = m.link!.to; if (embedded) closeAsk(); appNavigate(to); }}>
+                    <BookOpen size={14} aria-hidden /> {m.link.label}
+                  </Button>
                 </div>
               )}
               {/* Follow-up chips (#62) — the deck's response anatomy part 4.
