@@ -16,7 +16,7 @@ export const groups = [
   group('Page titles', 'available', 'unit', ['pageTitle'], 'pageTitle (per-route document titles)'),
   group('Transactions CSV export', 'available', 'unit', ['transactionsCsv'], 'transactionsCsv (columns, escaping; Settings + Transactions page)'),
   group('Accounts', 'available', 'unit', ['accountsView'], 'accountsView (card figures · cycles · staleness · summary · delete guard)'),
-  group('Net worth history', 'available', 'unit', ['netWorthSnapshots'], 'netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed)'),
+  group('Net worth history', 'available', 'unit', ['netWorthSnapshots', 'assetStaleness'], 'netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed); assetStaleness / the stale-value chip rule and date label'),
   group('Formatting and structured content', 'available', 'unit', ['format', 'learnJsonLd', 'publicPages'], 'format / learnJsonLd'),
   group('Recurring and budgets', 'available', 'unit', ['recurring', 'rrule', 'v91', 'budgetOrdering', 'billCalendar', 'recurrenceEngine'], 'recurring / rrule / calculations / budgetOrdering / billCalendar (W3e: one rule per schedule)'),
   group('Onboarding', 'available', 'unit', ['onboarding', 'onboardingWiring', 'onboardingWorkflow'], 'onboarding / wireOnboardingToMoney'),
