@@ -37,8 +37,19 @@
 // no crash, no 20-second hang, no retry storm. Everything else that fails to
 // connect is classified the same way.
 //
-// PURE-ISH: no imports. The only ambient global touched is `Deno.env`, behind a
-// feature test, so this file also typechecks and runs under plain tsc/vitest.
+// PURE-ISH: the only import is the sibling Bedrock module (itself import-free). The only ambient
+// global touched is `Deno.env`, behind a feature test, so this file also typechecks and runs under
+// plain tsc/vitest.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// AMAZON BEDROCK (owner, 16 Oct 2026: Nova Lite powers Pip)
+// A row with `provider = 'bedrock'` is the one exception to "OpenAI-compatible": it is called through
+// Bedrock's Converse API (bedrock.ts) with a Bedrock API key or SigV4-signed IAM keys. Everything else
+// is shared — the OFF state, the caps, the timeout, the never-throw contract and the metering row.
+import {
+  BEDROCK_SIGV4_KEY_ENV, bedrockEndpoint, bedrockErrorHint, isBedrockKeyEnv, isBedrockProvider,
+  parseConverse, signSigV4, toConverseBody,
+} from './bedrock.ts';
 
 // ── Deno env access, feature-tested so this module compiles without Deno types ─
 interface EnvLike { get(name: string): string | undefined }
@@ -334,6 +345,7 @@ export function checkConfig(config: ModelConfigRow | null | undefined): ConfigCh
   if (!isSeam(config.seam)) {
     return { ok: false, code: 'invalid_config', message: 'Config row has an unknown seam.' };
   }
+  if (isBedrockProvider(config.provider)) return checkBedrockConfig(config);
   let url: URL;
   try {
     url = new URL(String(config.base_url).replace(/\/+$/, '') + '/v1/chat/completions');
@@ -375,6 +387,30 @@ export function checkConfig(config: ModelConfigRow | null | undefined): ConfigCh
     }
   }
   return { ok: true, endpoint: url.toString() };
+}
+
+/** A Bedrock row: an https bedrock-runtime host only, a Bedrock model id, and an AWS credential name. */
+function checkBedrockConfig(config: ModelConfigRow): ConfigCheck {
+  const ep = bedrockEndpoint(config.base_url, config.model);
+  if (!ep.ok) return { ok: false, code: 'invalid_config', message: ep.message };
+  const keyName = (config.key_env_var ?? '').trim();
+  if (!keyName) {
+    return {
+      ok: false, code: 'invalid_config', message: 'A Bedrock row needs key_env_var.',
+      hint: 'Use AWS_BEARER_TOKEN_BEDROCK (a Bedrock API key) or AWS_ACCESS_KEY_ID (IAM keys, signed with SigV4).',
+    };
+  }
+  if (!KEY_ENV_NAME.test(keyName)) {
+    return { ok: false, code: 'invalid_config', message: 'key_env_var is not a valid env var name.' };
+  }
+  if (!isBedrockKeyEnv(keyName) || FORBIDDEN_KEY_ENV.some(rx => rx.test(keyName))) {
+    return {
+      ok: false, code: 'forbidden_key',
+      message: 'key_env_var is not an AWS Bedrock credential name and will not be read.',
+      hint: 'Use AWS_BEARER_TOKEN_BEDROCK, LLM_BEDROCK_KEY or AWS_ACCESS_KEY_ID.',
+    };
+  }
+  return { ok: true, endpoint: ep.url.toString() };
 }
 
 export interface SanitisedMessages {
@@ -477,6 +513,10 @@ export async function chatCompletion(
   // 2. Caller input.
   const clean = sanitiseMessages(messages);
   if (!clean.ok) return fail('invalid_request', clean.reason ?? 'Unusable messages.');
+
+  if (isBedrockProvider(config.provider)) {
+    return bedrockCompletion(config, check.endpoint, clean.messages, opts, fail, now, started);
+  }
 
   // 3. Resolve the key BY NAME. The value never leaves this function.
   const readEnv = opts.readEnv ?? readSecret;
@@ -591,6 +631,119 @@ export async function chatCompletion(
     toolCalls: parsed.toolCalls,
     provider,
     model: parsed.model || model,
+    usage: parsed.usage,
+    costUsd: estimateCostUsd(parsed.usage, config.params),
+    latencyMs: Math.max(0, now() - started),
+    finishReason: parsed.finishReason,
+  };
+}
+
+// ── Amazon Bedrock (Converse) ────────────────────────────────────────────────
+
+/**
+ * One Bedrock Converse call, with the same guarantees as the OpenAI path: never throws, bounded by the
+ * same timeout and token caps, the credential is read by NAME and never leaves this function, and the
+ * provider's error body is never surfaced (only a hint chosen from it).
+ */
+async function bedrockCompletion(
+  config: ModelConfigRow,
+  endpoint: string,
+  messages: ChatMessage[],
+  opts: ChatCompletionOptions,
+  fail: (code: RouterFailureCode, message: string, extra?: Partial<ChatCompletionFailure>) => ChatCompletionFailure,
+  now: () => number,
+  started: number,
+): Promise<ChatCompletionResult> {
+  if (Array.isArray(opts.tools) && opts.tools.length > 0) {
+    return fail('invalid_request', 'Tool calls are not wired for the Bedrock path.');
+  }
+  const url = new URL(endpoint);
+  const region = /^bedrock-runtime(?:-fips)?\.([a-z0-9-]+)\.amazonaws\.com$/.exec(url.hostname)?.[1] ?? '';
+
+  // Credentials, by NAME. A bearer key, or IAM keys for SigV4.
+  const readEnv = opts.readEnv ?? readSecret;
+  const keyName = (config.key_env_var ?? '').trim();
+  let bearer = '';
+  let iam: { id: string; secret: string; token: string } | null = null;
+  if (keyName === BEDROCK_SIGV4_KEY_ENV) {
+    const id = (readEnv('AWS_ACCESS_KEY_ID') ?? '').trim();
+    const secret = (readEnv('AWS_SECRET_ACCESS_KEY') ?? '').trim();
+    if (!id || !secret) {
+      return fail('missing_key', 'Secrets AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must both be set for this project.',
+        { hint: 'Run: supabase secrets set AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=…' });
+    }
+    iam = { id, secret, token: (readEnv('AWS_SESSION_TOKEN') ?? '').trim() };
+  } else {
+    bearer = (readEnv(keyName) ?? '').trim();
+    if (!bearer) {
+      return fail('missing_key', `Secret ${keyName} is not set for this project.`, { hint: `Run: supabase secrets set ${keyName}=…` });
+    }
+  }
+
+  const params = config.params ?? {};
+  const body = toConverseBody(messages, {
+    maxTokens: clamp(Math.floor(opts.maxOutputTokens ?? params.max_tokens ?? DEFAULT_MAX_OUTPUT_TOKENS), 1, HARD_MAX_OUTPUT_TOKENS),
+    temperature: typeof params.temperature === 'number' ? clamp(params.temperature, 0, 1) : undefined,
+    topP: typeof params.top_p === 'number' ? clamp(params.top_p, 0, 1) : undefined,
+    stop: params.extra?.stop,
+  });
+  if (!body) return fail('invalid_request', 'No user message to send.');
+  const payload = JSON.stringify(body);
+
+  let headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json' };
+  if (iam) {
+    try {
+      headers = await signSigV4({
+        method: 'POST', url, headers, body: payload, region, service: 'bedrock',
+        accessKeyId: iam.id, secretAccessKey: iam.secret, sessionToken: iam.token || undefined, date: new Date(now()),
+      });
+    } catch {
+      return fail('invalid_config', 'The request could not be signed (Web Crypto unavailable).');
+    }
+  } else {
+    headers.authorization = `Bearer ${bearer}`;
+  }
+
+  const timeoutMs = clamp(Math.floor(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS), MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
+  const onAbort = () => controller.abort();
+  if (opts.signal) {
+    if (opts.signal.aborted) controller.abort();
+    else opts.signal.addEventListener('abort', onAbort, { once: true });
+  }
+  const doFetch = opts.fetchImpl ?? fetch;
+  let res: Response;
+  try {
+    res = await doFetch(url.toString(), { method: 'POST', headers, body: payload, signal: controller.signal });
+  } catch {
+    if (timedOut) return fail('timeout', `Provider did not answer within ${timeoutMs}ms.`);
+    if (opts.signal?.aborted) return fail('timeout', 'Request cancelled before the provider answered.');
+    return fail('unreachable', 'Could not reach Amazon Bedrock.', { hint: 'Check the base_url region and that Bedrock runtime is reachable.' });
+  } finally {
+    clearTimeout(timer);
+    opts.signal?.removeEventListener('abort', onAbort);
+  }
+
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.text()).slice(0, 400); } catch { /* best effort */ }
+    return fail('http_error', `Provider returned HTTP ${res.status}.`, { status: res.status, hint: bedrockErrorHint(res.status, detail) });
+  }
+  let data: unknown;
+  try { data = await res.json(); } catch {
+    return fail('bad_response', 'Provider returned a body that is not JSON.', { status: res.status });
+  }
+  const parsed = parseConverse(data, MAX_REPLY_CHARS);
+  if (!parsed) return fail('bad_response', 'Provider returned an unrecognised Converse shape.', { status: res.status });
+  if (!parsed.text) return fail('empty_response', 'Provider returned no text.', { status: res.status });
+  return {
+    ok: true,
+    text: parsed.text,
+    toolCalls: [],
+    provider: config.provider,
+    model: config.model,
     usage: parsed.usage,
     costUsd: estimateCostUsd(parsed.usage, config.params),
     latencyMs: Math.max(0, now() - started),
