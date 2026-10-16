@@ -17,7 +17,7 @@
 // or leaking data while the feature is supposed to be off*.
 import { describe, it, expect, vi } from 'vitest';
 import {
-  selectModelConfig, chatCompletion, checkConfig, buildUsageRow,
+  selectModelConfig, chatCompletion, checkConfig, buildUsageRow, createConfigRowsCache,
   type ModelConfigRow,
 } from '../../../../supabase/functions/_shared/agent/router';
 
@@ -72,6 +72,52 @@ describe('selectModelConfig — nothing enabled means OFF', () => {
     expect(selectModelConfig(rows, 'assistant')?.id).toBe('a');
     // Same input, same answer, every time.
     expect(selectModelConfig([...rows].reverse(), 'assistant')?.id).toBe('a');
+  });
+});
+
+// v10.106.3 — the gateway keeps the enabled rows in the isolate for a short time.
+describe('createConfigRowsCache — short-lived, never caches a failure', () => {
+  it('serves fresh rows from the cache and reads again once the TTL has passed', async () => {
+    let clock = 0;
+    const cache = createConfigRowsCache(30_000, () => clock);
+    const load = vi.fn(async () => ({ ok: true as const, rows: [row()] }));
+    expect(await cache.rows('assistant', load)).toMatchObject({ ok: true, rows: [row()] });
+    clock = 29_999;
+    expect(await cache.rows('assistant', load)).toMatchObject({ ok: true, cached: true });
+    expect(load).toHaveBeenCalledTimes(1);
+    clock = 30_000;
+    await cache.rows('assistant', load);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps each seam apart', async () => {
+    const cache = createConfigRowsCache(30_000, () => 0);
+    await cache.rows('assistant', async () => ({ ok: true, rows: [row()] }));
+    const chat = vi.fn(async () => ({ ok: true as const, rows: [] }));
+    expect(await cache.rows('chat', chat)).toMatchObject({ ok: true, rows: [] });
+    expect(chat).toHaveBeenCalledOnce();
+  });
+
+  it('never caches a failed or thrown read', async () => {
+    const cache = createConfigRowsCache(30_000, () => 0);
+    expect(await cache.rows('assistant', async () => ({ ok: false }))).toEqual({ ok: false });
+    expect(await cache.rows('assistant', async () => { throw new Error('socket hang up'); })).toEqual({ ok: false });
+    const load = vi.fn(async () => ({ ok: true as const, rows: [row()] }));
+    await cache.rows('assistant', load);
+    expect(load).toHaveBeenCalledOnce();
+  });
+
+  it('concurrent cold requests share one read', async () => {
+    const cache = createConfigRowsCache(30_000, () => 0);
+    let finish!: () => void;
+    const load = vi.fn(() => new Promise<{ ok: true; rows: ModelConfigRow[] }>(resolve => {
+      finish = () => resolve({ ok: true, rows: [row()] });
+    }));
+    const both = Promise.all([cache.rows('assistant', load), cache.rows('assistant', load)]);
+    finish();
+    const [a, b] = await both;
+    expect(a).toEqual(b);
+    expect(load).toHaveBeenCalledOnce();
   });
 });
 

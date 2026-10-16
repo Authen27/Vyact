@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1413 passing deterministic cases in 156 files. Zero failed, skipped or TODO cases at generation.**
+**1434 passing deterministic cases in 157 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -34,13 +34,13 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | admin | unit | conditional | 15 |
 | react | contract-unit | available | 114 |
 | react | contract-unit | conditional | 123 |
-| react | handler-integration | conditional | 96 |
-| react | sql-integration | conditional | 81 |
+| react | handler-integration | conditional | 104 |
+| react | sql-integration | conditional | 83 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 12 |
 | react | unit | available | 435 |
-| react | unit | conditional | 202 |
+| react | unit | conditional | 213 |
 | react | unit | infrastructure | 229 |
 
 ### Executed Files
@@ -77,10 +77,10 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/agentRecipeStore.test.ts](../react/src/lib/__tests__/agentRecipeStore.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |
 | [react/src/lib/__tests__/agentRelay.test.ts](../react/src/lib/__tests__/agentRelay.test.ts) | Ask Vyact | unit | conditional | 8 |
 | [react/src/lib/__tests__/agentResolver.test.ts](../react/src/lib/__tests__/agentResolver.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 36 |
-| [react/src/lib/__tests__/agentRouter.test.ts](../react/src/lib/__tests__/agentRouter.test.ts) | Ask Vyact | unit | conditional | 11 |
+| [react/src/lib/__tests__/agentRouter.test.ts](../react/src/lib/__tests__/agentRouter.test.ts) | Ask Vyact | unit | conditional | 15 |
 | [react/src/lib/__tests__/agentValidator.test.ts](../react/src/lib/__tests__/agentValidator.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 22 |
 | [react/src/lib/__tests__/aiFeedback.test.ts](../react/src/lib/__tests__/aiFeedback.test.ts) | Pip answer feedback | unit | available | 3 |
-| [react/src/lib/__tests__/aiUsageSourceSql.test.ts](../react/src/lib/__tests__/aiUsageSourceSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 2 |
+| [react/src/lib/__tests__/aiUsageSourceSql.test.ts](../react/src/lib/__tests__/aiUsageSourceSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 4 |
 | [react/src/lib/__tests__/askVyact.test.ts](../react/src/lib/__tests__/askVyact.test.ts) | Ask Vyact | unit | conditional | 30 |
 | [react/src/lib/__tests__/askVyactContract.test.ts](../react/src/lib/__tests__/askVyactContract.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
@@ -112,7 +112,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/formRoutes.test.ts](../react/src/lib/__tests__/formRoutes.test.ts) | Navigation and category selection | unit | available | 3 |
 | [react/src/lib/__tests__/funnelAnalytics.test.ts](../react/src/lib/__tests__/funnelAnalytics.test.ts) | Marketing funnel and auth landing | unit | available | 4 |
 | [react/src/lib/__tests__/fxCentralization.test.ts](../react/src/lib/__tests__/fxCentralization.test.ts) | Money model | unit | available | 2 |
-| [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 13 |
+| [react/src/lib/__tests__/gatewayWorkflow.test.ts](../react/src/lib/__tests__/gatewayWorkflow.test.ts) | Ask gateway | handler-integration | conditional | 21 |
 | [react/src/lib/__tests__/helpContent.test.ts](../react/src/lib/__tests__/helpContent.test.ts) | Help and adoption guidance | contract-unit | available | 5 |
 | [react/src/lib/__tests__/householdAuthzSql.test.ts](../react/src/lib/__tests__/householdAuthzSql.test.ts) | Household authorization SQL | sql-integration | conditional | 8 |
 | [react/src/lib/__tests__/householdTimezoneSql.test.ts](../react/src/lib/__tests__/householdTimezoneSql.test.ts) | Household time zone SQL | sql-integration | conditional | 2 |
@@ -149,6 +149,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/personalInsights.test.ts](../react/src/lib/__tests__/personalInsights.test.ts) | Merged personal Insights | unit | available | 10 |
 | [react/src/lib/__tests__/pipCorrectness.test.ts](../react/src/lib/__tests__/pipCorrectness.test.ts) | Pip correctness | unit | conditional | 11 |
 | [react/src/lib/__tests__/pipGuard.test.ts](../react/src/lib/__tests__/pipGuard.test.ts) | Pip guard | unit | conditional | 6 |
+| [react/src/lib/__tests__/pipLatency.test.ts](../react/src/lib/__tests__/pipLatency.test.ts) | Pip answer timings | unit | conditional | 7 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 3 |
 | [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 29 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
