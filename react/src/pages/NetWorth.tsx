@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from '../hooks';
 import { Panel } from '../components/ui/Card';
@@ -17,6 +17,7 @@ import { netWorthHistory, monthLabel, type NetWorthSnapshot } from '../lib/netWo
 import { NetWorthHistoryChart } from '../components/charts/ReportCharts';
 import type { LiveAssetRow } from '../lib/accountBalance';
 import { ASSET_TYPES } from '../constants';
+import { isAssetValueStale, valueDateLabel } from '../lib/assetStaleness';
 import type { Asset, AccountKind } from '../types';
 import InfoNote from '../components/ui/InfoNote';
 import PageHead from '../components/ui/PageHead';
@@ -62,26 +63,6 @@ export default function NetWorth() {
     [assets, accountsState, debts, transactions, c, rates],
   );
   const liveRows = projection.assetRows;
-
-  // Remind once per mount if any legacy (account-less) asset is stale (>30
-  // days). Account-sourced rows are computed live from the ledger on every
-  // render, so they can't go stale the way a hand-typed asset value can.
-  useEffect(() => {
-    const now = Date.now();
-    const stale = assets.some(a => {
-      if (liveRows.find(r => r.id === a.id)?.source !== 'asset') return false;
-      const kind = ASSET_TYPES[a.type]?.liquidity;
-      if (kind !== 'liquid' && kind !== 'short') return false;
-      if (!a.lastUpdated) return true;
-      const days = (now - new Date(a.lastUpdated).getTime()) / (1000 * 60 * 60 * 24);
-      return days > 30;
-    });
-    if (stale) {
-      toast('Some bank or card balances haven’t been updated in over 30 days — review your accounts for accuracy.', 'warning');
-    }
-    // Run once on mount; re-running on every asset edit would spam the toast.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const ta  = projection.totalAssets;
   const tl  = projection.totalLiabilities;
@@ -157,16 +138,11 @@ export default function NetWorth() {
     liveRows.filter(r => r.liquidity === liq);
 
   // Board M4 — a liquid/short LEGACY asset (no live account behind it) not
-  // touched in 30+ days rides an inline dashed-honey "update?" chip (same
-  // rule as the mount-time stale toast). Account-sourced rows never qualify.
-  const isStale = (row: LiveAssetRow) => {
-    if (row.source !== 'asset' || !row.asset) return false;
-    const a = row.asset;
-    const kind = ASSET_TYPES[a.type]?.liquidity;
-    if (kind !== 'liquid' && kind !== 'short') return false;
-    if (!a.lastUpdated) return true;
-    return (Date.now() - new Date(a.lastUpdated).getTime()) / (1000 * 60 * 60 * 24) > 30;
-  };
+  // touched in 30+ days rides an inline dashed-honey chip that says how old its value is
+  // ("14 Jun · Update"). Account-sourced rows never qualify. This chip is the ONLY stale
+  // notice: the mount-time toast was removed (owner, 16 Oct 2026; see lib/assetStaleness.ts).
+  const isStale = (row: LiveAssetRow) =>
+    row.source === 'asset' && !!row.asset && isAssetValueStale(row.asset);
 
   return (
     <div className="ui-pilot">
@@ -289,7 +265,7 @@ export default function NetWorth() {
           each a neu card.
           `grid-cols-1` is load-bearing: without an explicit track the implicit
           column sizes to max-content, and an asset row's right group (the
-          `update?` badge is flex-shrink-0, plus the edit/delete buttons) can't
+          amount and the edit/delete buttons, flex-shrink-0) can't
           shrink — so the column outgrows the viewport and the page scrolls
           sideways on phones. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -343,17 +319,27 @@ export default function NetWorth() {
                             <div className="min-w-0">
                               <div className="text-[0.84rem] font-semibold text-ink truncate">{a.name}</div>
                               {a.note && <div className="text-[12px] text-ink-dim truncate">{a.note}</div>}
+                              {/* 16 Oct 2026 — the stale chip sits under the name, not beside the amount:
+                                  with the value date in it, it no longer fits next to the figure and the
+                                  row actions on a phone, and the amount ended up under the edit button. */}
+                              {isStale(row) && (() => {
+                                const since = a.lastUpdated ? valueDateLabel(a.lastUpdated) : null;
+                                const hint = since
+                                  ? `Value last updated ${since}. Tap to update it`
+                                  : 'This value has no date. Tap to update it';
+                                return (
+                                  <button type="button" onClick={() => openEdit(a)} title={hint} aria-label={`${a.name}: ${hint}`}
+                                    data-testid="asset-stale-chip"
+                                    className="mt-1 text-[11.5px] font-medium px-2 py-0.5 rounded-r2 whitespace-nowrap"
+                                    style={{ border: '1px dashed color-mix(in srgb, hsl(var(--honey)) 55%, transparent)', color: 'var(--warn-text)' }}>
+                                    {since ? `${since} · Update` : 'Update?'}
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {isStale(row) && (
-                              <button type="button" onClick={() => openEdit(a)} title="This balance is over 30 days old — update it"
-                                className="text-[11.5px] font-medium px-2 py-1 rounded-r2 flex-shrink-0"
-                                style={{ border: '1px dashed color-mix(in srgb, hsl(var(--honey)) 55%, transparent)', color: 'var(--warn-text)' }}>
-                                Update?
-                              </button>
-                            )}
-                            <div className="text-right min-w-0">
+                          <div className="flex items-center gap-2.5 flex-shrink-0">
+                            <div className="text-right">
                               <Money amount={row.value} currency={c} maxChars={11} className="font-semibold text-sage text-[0.9rem]" />
                             </div>
                             <div className="flex gap-1">

@@ -962,6 +962,21 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/assetStaleness.test.ts",
+      "feature": "Net worth history",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed); assetStaleness / the stale-value chip rule and date label",
+      "count": 4,
+      "tests": [
+        "Net Worth stale-value chip (v10.106.2) ASSET-STALE-001: flags a cash-like or short-term value older than 30 days, or never dated",
+        "Net Worth stale-value chip (v10.106.2) ASSET-STALE-002: never flags long-term holdings, however old",
+        "Net Worth stale-value chip (v10.106.2) ASSET-STALE-003: the chip label is the stored local day, with the year only when it differs",
+        "Net Worth stale-value chip (v10.106.2) ASSET-STALE-004: the page no longer raises a stale toast; the chip shows the value date"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/assistantCore.test.ts",
       "feature": "Ask Vyact on the server",
       "availability": "conditional",
@@ -1836,7 +1851,7 @@
       "feature": "Net worth history",
       "availability": "available",
       "layer": "unit",
-      "owner": "netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed)",
+      "owner": "netWorthSnapshots / local + cloud adapter contract (recorded snapshots, never reconstructed); assetStaleness / the stale-value chip rule and date label",
       "count": 7,
       "tests": [
         "Recorded Net Worth snapshots (v10.30.0) cloud adapter: lists the household rows by month and surfaces a read error",

@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.106.1`** (consumer)
+> **Current production version: `v10.106.2`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,21 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.106.2 — Net Worth: no more stale-balance toast; the row chip shows the value date *(2026-10-16)*
+
+Owner report: "Some bank or card balances haven't been updated in over 30 days" appeared on every visit to Net Worth.
+
+- **The toast is gone.** It fired on every visit, named the wrong things (bank and card balances come from the
+  ledger and can never go stale; only hand-valued assets can), and had nothing to act on.
+- **The row chip says how old the value is:** `14 Jun · Update` (the year is added when it differs; an undated
+  value still reads `Update?`). Same rule as before: a cash-like or short-term asset without a live account,
+  valued more than 30 days ago. Long-term holdings are never flagged.
+- **Phone layout:** the chip moved under the asset name. Beside the amount it pushed the figure under the edit
+  button on a 390px screen (this already happened with the shorter chip).
+- The rule and the date label live in `lib/assetStaleness.ts`; tests: `assetStaleness.test.ts` (4 cases).
 
 ---
 
