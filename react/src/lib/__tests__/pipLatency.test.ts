@@ -1,4 +1,4 @@
-// v10.106.2 — Pip answers faster, and a slow one can be traced. The app's ai_usage row splits the turn
+// v10.106.3 — Pip answers faster, and a slow one can be traced. The app's ai_usage row splits the turn
 // into stages (classify and phrase round trips, before / between / after), as numbers only; the
 // gateway side (lookups together, cached config) is pinned in gatewayWorkflow / agentRouter.
 import { readFileSync } from 'node:fs';
@@ -27,7 +27,7 @@ beforeEach(() => {
   db.cloud = true;
 });
 
-describe('Pip turn timings (v10.106.2)', () => {
+describe('Pip turn timings (v10.106.3)', () => {
   it('PIP-LAT-010 · a turn is split into before, classify, between, phrase (with its retry) and after', async () => {
     const c = clock(1000);
     const timer = createTurnTimer(c.now);

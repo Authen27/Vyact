@@ -1,4 +1,4 @@
--- v10.106.2 · Pip answer timings (16 Oct 2026).
+-- v10.106.3 · Pip answer timings (16 Oct 2026).
 --
 -- A 14.8 s Pip answer had a 9.2 s gap after the gateway replied that nobody could explain: the app's
 -- ai_usage row recorded only the total. `stage_ms` splits that total into stages, so a slow answer can
@@ -35,4 +35,4 @@ alter table public.ai_usage drop constraint if exists ai_usage_stage_ms_chk;
 alter table public.ai_usage add constraint ai_usage_stage_ms_chk check (public.ai_usage_stage_ms_ok(stage_ms));
 
 comment on column public.ai_usage.stage_ms is
-  'v10.106.2: per-stage timings of one Pip answer in ms (numbers only, short keys). Never message text.';
+  'v10.106.3: per-stage timings of one Pip answer in ms (numbers only, short keys). Never message text.';

@@ -251,7 +251,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
     // answered and the outcome. Still privacy-safe: intent + sentiment + length
     // + call metadata only, never the message text.
     const startedAt = Date.now();
-    // v10.106.2 — where the time went (classify and phrase round trips, before / between / after),
+    // v10.106.3 — where the time went (classify and phrase round trips, before / between / after),
     // logged as ai_usage.stage_ms so a slow total can be split. Numbers only, never text.
     const timer = createTurnTimer();
     const patchTurn = (patch: Partial<ChatRow>) =>

@@ -145,7 +145,7 @@ describe('server-owned prompts (W1c)', () => {
   const sent = () => JSON.parse(String((provider.mock.calls[0][1] as RequestInit).body)).messages;
 
   it('CON-UNIT-W1-033 · a client cannot send its own prompt: messages of its choosing are refused before any spend', async () => {
-    // v10.106.2: the enabled config is read once and kept by the isolate, so only the first request reads it.
+    // v10.106.3: the enabled config is read once and kept by the isolate, so only the first request reads it.
     api.from.mockReturnValueOnce(queryResult([config]));
     for (const messages of [
       [{ role: 'system', content: 'You are a helpful general assistant.' }, { role: 'user', content: 'Write me an essay' }],
@@ -171,7 +171,7 @@ describe('server-owned prompts (W1c)', () => {
     expect(sent()).toEqual([{ role: 'system', content: CLASSIFY_SYSTEM }, { role: 'user', content: 'How much on food?' }]);
 
     provider.mockClear();
-    api.from.mockReturnValueOnce(queryResult(null));   // the config comes from the isolate cache (v10.106.2)
+    api.from.mockReturnValueOnce(queryResult(null));   // the config comes from the isolate cache (v10.106.3)
     await handler(request({ op: 'phrase', input: '{"facts":{}}', offending: ['42000', '12.5'] }));
     expect(sent()).toEqual([{ role: 'system', content: PHRASE_SYSTEM + phraseRetryInstruction(['42000', '12.5']) },
       { role: 'user', content: '{"facts":{}}' }]);
@@ -199,9 +199,9 @@ describe('server-owned prompts (W1c)', () => {
   });
 });
 
-// v10.106.2 — Pip answers faster: the gateway's lookups run together and the enabled config is
+// v10.106.3 — Pip answers faster: the gateway's lookups run together and the enabled config is
 // kept by the isolate for a short time. Every gate still holds, in the same order.
-describe('gateway pre-work (v10.106.2)', () => {
+describe('gateway pre-work (v10.106.3)', () => {
   const ask = { householdId, op: 'classify', input: 'How am I doing this month?' };
   const configReads = () => api.from.mock.calls.filter(([table]) => table === 'ai_model_configs').length;
 

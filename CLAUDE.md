@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.106.2**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.106.3**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -406,7 +406,7 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   names are readable ONLY by a bedrock row whose base_url is `https://bedrock-runtime.<region>.amazonaws.com`;
   the keys live in Edge Function secrets, never in an app `.env` or the browser. Every other guarantee
   (OFF state, caps, timeout, never-throw, metering) is the shared router's.
-  **Since v10.106.2 the gateway keeps the enabled `ai_model_configs` rows in each isolate for 30 s**
+  **Since v10.106.3 the gateway keeps the enabled `ai_model_configs` rows in each isolate for 30 s**
   (`CONFIG_CACHE_TTL_MS`; a failed read is never cached), so a row switched on or off (the rollback
   included) takes up to 30 s to reach every request;
   **(7) only `SafeSummary`-shaped data may egress, and only with consent.**

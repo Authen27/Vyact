@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1430 passing deterministic cases in 156 files. Zero failed, skipped or TODO cases at generation.**
+**1434 passing deterministic cases in 157 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -39,7 +39,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 12 |
-| react | unit | available | 431 |
+| react | unit | available | 435 |
 | react | unit | conditional | 213 |
 | react | unit | infrastructure | 229 |
 
@@ -85,6 +85,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/askVyactContract.test.ts](../react/src/lib/__tests__/askVyactContract.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
 | [react/src/lib/__tests__/askVyactFacts.test.ts](../react/src/lib/__tests__/askVyactFacts.test.ts) | Ask Vyact | unit | conditional | 67 |
+| [react/src/lib/__tests__/assetStaleness.test.ts](../react/src/lib/__tests__/assetStaleness.test.ts) | Net worth history | unit | available | 4 |
 | [react/src/lib/__tests__/assistantCore.test.ts](../react/src/lib/__tests__/assistantCore.test.ts) | Ask Vyact on the server | unit | conditional | 2 |
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |

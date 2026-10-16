@@ -301,7 +301,7 @@ export function selectModelConfig(
   return usable[0];
 }
 
-// ── Enabled-config cache (v10.106.2) ─────────────────────────────────────────
+// ── Enabled-config cache (v10.106.3) ─────────────────────────────────────────
 //
 // Each Pip question makes two gateway requests (classify, then phrase), and each
 // one re-read `ai_model_configs`. Prod logs (16 Oct 2026) showed that SELECT

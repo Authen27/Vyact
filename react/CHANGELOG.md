@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.106.2`** (consumer)
+> **Current production version: `v10.106.3`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -25,7 +25,7 @@ The numbering history has some non-monotonic stretches that we keep documented h
 
 ---
 
-## v10.106.2 — Pip answers faster, and a slow answer can be traced *(2026-10-16)*
+## v10.106.3 — Pip answers faster, and a slow answer can be traced *(2026-10-16)*
 
 Pip on Nova Lite took 7.3 s per answer on average, although each model call takes about 1.4 s. Each
 question makes two gateway requests (classify, then phrase), and each request spent 0.8–1.3 s on lookups
@@ -52,6 +52,21 @@ run one after another before the model was called (prod logs, 16 Oct 2026; the c
   without the timings.
 - Tests: `gatewayWorkflow` PIP-LAT-001..008, `agentRouter` (the config cache), `aiUsageSourceSql`
   PIP-LAT-020/021, `pipLatency` PIP-LAT-010..016.
+
+---
+
+## v10.106.2 — Net Worth: no more stale-balance toast; the row chip shows the value date *(2026-10-16)*
+
+Owner report: "Some bank or card balances haven't been updated in over 30 days" appeared on every visit to Net Worth.
+
+- **The toast is gone.** It fired on every visit, named the wrong things (bank and card balances come from the
+  ledger and can never go stale; only hand-valued assets can), and had nothing to act on.
+- **The row chip says how old the value is:** `14 Jun · Update` (the year is added when it differs; an undated
+  value still reads `Update?`). Same rule as before: a cash-like or short-term asset without a live account,
+  valued more than 30 days ago. Long-term holdings are never flagged.
+- **Phone layout:** the chip moved under the asset name. Beside the amount it pushed the figure under the edit
+  button on a 390px screen (this already happened with the shorter chip).
+- The rule and the date label live in `lib/assetStaleness.ts`; tests: `assetStaleness.test.ts` (4 cases).
 
 ---
 

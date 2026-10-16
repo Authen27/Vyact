@@ -75,7 +75,7 @@ describe('selectModelConfig — nothing enabled means OFF', () => {
   });
 });
 
-// v10.106.2 — the gateway keeps the enabled rows in the isolate for a short time.
+// v10.106.3 — the gateway keeps the enabled rows in the isolate for a short time.
 describe('createConfigRowsCache — short-lived, never caches a failure', () => {
   it('serves fresh rows from the cache and reads again once the TTL has passed', async () => {
     let clock = 0;

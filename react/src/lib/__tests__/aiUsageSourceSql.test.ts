@@ -87,8 +87,8 @@ describe('ai_usage is metered by the server (W1c)', () => {
   });
 });
 
-// v10.106.2 — Pip answer timings: the app row carries per-stage numbers, and nothing that could be text.
-describe('ai_usage.stage_ms holds timings only (v10.106.2)', () => {
+// v10.106.3 — Pip answer timings: the app row carries per-stage numbers, and nothing that could be text.
+describe('ai_usage.stage_ms holds timings only (v10.106.3)', () => {
   it('PIP-LAT-020 · a client row keeps its stage timings beside the W1c analytics', async () => {
     await asClient(() => db.exec(`insert into ai_usage (household_id, backend, outcome, intent, message_len, latency_ms, stage_ms)
       values ('${HOME}', 'llm', 'ok', 'lookup', 12, 4200, '{"classify": 1500, "phrase": 2100, "phraseCalls": 1, "after": 40}')`));

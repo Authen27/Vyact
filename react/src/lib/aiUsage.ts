@@ -65,11 +65,11 @@ export interface AiUsageTelemetry {
   /** §10 gate: thumbs up/down. Leave undefined until the user actually rates. */
   helpful?: boolean;
   tapDepth?: number;
-  /** v10.106.2: where the turn's time went (`createTurnTimer().stages()`). Numbers only. */
+  /** v10.106.3: where the turn's time went (`createTurnTimer().stages()`). Numbers only. */
   stageMs?: StageMs;
 }
 
-// v10.106.2 — per-stage timings of one Pip turn, stored in `ai_usage.stage_ms`.
+// v10.106.3 — per-stage timings of one Pip turn, stored in `ai_usage.stage_ms`.
 //
 // A 14.8 s answer had a 9.2 s gap after the gateway replied that nobody could explain, because only
 // the total was recorded. These split it: the time before the first model call, each op's round trips
@@ -166,7 +166,7 @@ export async function logAiUsage(opts: {
       // user_id defaults to auth.uid() on the server.
     };
     const { error } = await supabase.from('ai_usage').insert(row);
-    // v10.106.2: a database without the stage_ms column yet (the deploy race, Lane B) keeps the row.
+    // v10.106.3: a database without the stage_ms column yet (the deploy race, Lane B) keeps the row.
     if (error && row.stage_ms && /stage_ms/.test(error.message ?? '')) {
       const { stage_ms: _timings, ...withoutTimings } = row;
       await supabase.from('ai_usage').insert(withoutTimings);

@@ -8,7 +8,7 @@
 //
 // With no enabled row in `ai_model_configs` for the requested seam this function
 // performs only READS: it verifies the user, reads the config table (cached in the
-// isolate for up to CONFIG_CACHE_TTL_MS, v10.106.2) and, when the request names a
+// isolate for up to CONFIG_CACHE_TTL_MS, v10.106.3) and, when the request names a
 // household, looks up the caller's membership alongside those two. No provider is
 // called. No token is spent. No `ai_usage` row is written.
 // No existing table is touched. It answers 200 `{ ok: true, enabled: false }`
@@ -214,7 +214,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const SURFACES = new Set(['chat', 'whatsapp', 'sms_share', 'receipt']);
 const MAX_BODY_BYTES = 64 * 1024;
 
-// v10.106.2: the enabled config rows, kept in this isolate for CONFIG_CACHE_TTL_MS (router.ts).
+// v10.106.3: the enabled config rows, kept in this isolate for CONFIG_CACHE_TTL_MS (router.ts).
 const configCache = createConfigRowsCache();
 
 async function loadEnabledConfigRows(admin: SupabaseClient, seam: Seam): Promise<ConfigRowsLoad> {
@@ -246,7 +246,7 @@ function parseBody(rawBody: string): BodyParse {
 Deno.serve(async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const requestId = crypto.randomUUID();
-  // v10.106.2: per-stage timings, logged once per model call (metadata only, never text).
+  // v10.106.3: per-stage timings, logged once per model call (metadata only, never text).
   const startedAt = performance.now();
   const sinceStart = () => Math.round(performance.now() - startedAt);
 
@@ -309,7 +309,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ? body.householdId : null;
   const sub = String(claims.sub);
 
-  // ── 3a. Verify the user, read the config and check the household TOGETHER (v10.106.2). ──
+  // ── 3a. Verify the user, read the config and check the household TOGETHER (v10.106.3). ──
   // They were three sequential round trips (0.8–1.3 s per request in prod, 16 Oct 2026).
   // None depends on another's answer: the membership lookup uses the token's `sub`, and its
   // result is used only after getUser() has verified that same token for that same user id.
@@ -550,7 +550,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : undefined,
     signal: req.signal,
   });
-  // v10.106.2: one line per model call, so a slow answer can be split into the gateway's own work
+  // v10.106.3: one line per model call, so a slow answer can be split into the gateway's own work
   // (auth/config/membership finish times, the reservation, all of it before the model) and the model.
   // Metadata only: never the question, the reply or the facts.
   console.log('[ask-vyact] timing', {
