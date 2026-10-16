@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.106.1`** (consumer)
+> **Current production version: `v10.106.2`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,36 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.106.2 — Pip answers faster, and a slow answer can be traced *(2026-10-16)*
+
+Pip on Nova Lite took 7.3 s per answer on average, although each model call takes about 1.4 s. Each
+question makes two gateway requests (classify, then phrase), and each request spent 0.8–1.3 s on lookups
+run one after another before the model was called (prod logs, 16 Oct 2026; the config read alone took
+647 ms once). No figure, prompt or answer changes.
+
+- **The gateway's lookups run together** (`ask-vyact`): verifying the user, reading the enabled model
+  config and checking the household membership now start at the same time instead of one after
+  another. The membership lookup uses the token's user id, and its result is used only after the user
+  is verified as that same id. The gates still apply in the old order (user, then config and the OFF
+  state, then membership), and all of them before the quota reservation and the model call. A lookup
+  that fails outright now fails closed (401 / 403) instead of throwing.
+- **The enabled config is kept in the isolate for 30 s** (`createConfigRowsCache`, `_shared/agent/router.ts`).
+  The phrase request reuses what classify read. A failed read is never cached. A row switched on or off
+  (the Bedrock rollback included) reaches every request within 30 s.
+- **Every model call logs one `[ask-vyact] timing` line**: when the user check, config read and
+  membership check finished, the reservation, everything before the model, and the model's own time.
+  Metadata only.
+- **The app records where each answer's time went** (`ai_usage.stage_ms`, migration
+  `20261027120000_ai_usage_stage_ms.sql`): the time before the first model call, the classify and
+  phrase round trips (and how many: a figure-guard retry is a second phrase call), the time between
+  them, and the time after the last reply. It holds numbers only: a CHECK refuses text, nesting and
+  long keys, and the app sends only what passes. A database without the column yet still gets the row,
+  without the timings.
+- Tests: `gatewayWorkflow` PIP-LAT-001..008, `agentRouter` (the config cache), `aiUsageSourceSql`
+  PIP-LAT-020/021, `pipLatency` PIP-LAT-010..016.
 
 ---
 
