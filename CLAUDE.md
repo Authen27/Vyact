@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.107.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.107.1**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -425,7 +425,11 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   (OFF state, caps, timeout, never-throw, metering) is the shared router's.
   **Since v10.106.3 the gateway keeps the enabled `ai_model_configs` rows in each isolate for 30 s**
   (`CONFIG_CACHE_TTL_MS`; a failed read is never cached), so a row switched on or off (the rollback
-  included) takes up to 30 s to reach every request;
+  included) takes up to 30 s to reach every request. **Since v10.107.1 membership and the quota
+  reservation are one RPC, `prepare_ai_call()`, run with the caller's own JWT (`auth.uid()`, never a
+  user id parameter) alongside `getUser()` and the config read**; a reservation the request does not
+  use is deleted, and without the function or the anon key the gateway falls back to the membership
+  read + `reserve_ai_usage()` (still service-only, still the WhatsApp path);
   **(7) only `SafeSummary`-shaped data may egress, and only with consent.**
   Money computation the agent calls must live **server-side** (the bundled app engine +
   Postgres RPCs, never a hand port into `_shared/`; the last one, `_shared/money`, was deleted

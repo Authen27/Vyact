@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.107.0`** (consumer)
+> **Current production version: `v10.107.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,30 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.107.1 — Pip's gateway: one database round trip before the model *(2026-10-17)*
+
+Measured on v10.107.0 (`[ask-vyact] timing`, 16 Oct 2026): before each model call the gateway ran
+getUser ‖ config read ‖ membership read (together), then `reserve_ai_usage()` as a fourth, sequential
+round trip (140–430 ms). Each Pip answer makes two such requests. No figure, prompt or answer changes.
+
+- **`prepare_ai_call()`** (migration `20261028120000_prepare_ai_call.sql`): the membership check and the
+  quota reservation in one call, made alongside getUser() and the config read, so nothing waits after
+  them. It runs with the **caller's own JWT** (PostgREST verifies it; `auth.uid()` in SQL), so it can
+  only check that user's membership and reserve against that user's cap. It has no user id parameter,
+  clamps the cap at 1,000, and reserves only when an enabled model row applies to the caller (the
+  gateway's own row rule), so the OFF state still writes nothing.
+- **The gateway answers in the same order as before** (session, config/OFF, membership, quota), and a
+  reservation it did not use (session refused, no model after all) is deleted.
+- **Fallback:** without the function (a database not yet migrated, Lane B) or the anon key, the
+  gateway keeps the v10.106.3 path: the membership read alongside, then `reserve_ai_usage()`, which
+  stays service-only and is still what the WhatsApp assistant uses.
+- The timing log line now reports `prepareMs` in place of `membershipMs` and `reserveMs`.
+- Tests: `pipGatewayOneTrip` PIP-GW-001..008 (the handler), `prepareAiCallSql` PIP-GW-020..025 (the
+  function on PGlite: own reservation, not a member, the cap, OFF writes nothing, no reserve without a
+  cap or above 1,000, signed-in only).
 
 ---
 

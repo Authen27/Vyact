@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1448 passing deterministic cases in 158 files. Zero failed, skipped or TODO cases at generation.**
+**1462 passing deterministic cases in 160 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,12 +35,12 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 114 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 104 |
-| react | sql-integration | conditional | 83 |
+| react | sql-integration | conditional | 89 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 12 |
 | react | unit | available | 435 |
-| react | unit | conditional | 227 |
+| react | unit | conditional | 235 |
 | react | unit | infrastructure | 229 |
 
 ### Executed Files
@@ -148,10 +148,12 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/permissionsRole.test.ts](../react/src/lib/__tests__/permissionsRole.test.ts) | Permissions and faults | unit | available | 4 |
 | [react/src/lib/__tests__/personalInsights.test.ts](../react/src/lib/__tests__/personalInsights.test.ts) | Merged personal Insights | unit | available | 10 |
 | [react/src/lib/__tests__/pipCorrectness.test.ts](../react/src/lib/__tests__/pipCorrectness.test.ts) | Pip correctness | unit | conditional | 11 |
+| [react/src/lib/__tests__/pipGatewayOneTrip.test.ts](../react/src/lib/__tests__/pipGatewayOneTrip.test.ts) | Pip answer timings | unit | conditional | 8 |
 | [react/src/lib/__tests__/pipGuard.test.ts](../react/src/lib/__tests__/pipGuard.test.ts) | Pip guard | unit | conditional | 6 |
 | [react/src/lib/__tests__/pipLatency.test.ts](../react/src/lib/__tests__/pipLatency.test.ts) | Pip answer timings | unit | conditional | 7 |
 | [react/src/lib/__tests__/pipPlanner.test.ts](../react/src/lib/__tests__/pipPlanner.test.ts) | Ask Vyact | unit | conditional | 14 |
 | [react/src/lib/__tests__/postAuth.test.ts](../react/src/lib/__tests__/postAuth.test.ts) | Marketing funnel and auth landing | unit | available | 3 |
+| [react/src/lib/__tests__/prepareAiCallSql.test.ts](../react/src/lib/__tests__/prepareAiCallSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 29 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
 | [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |

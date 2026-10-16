@@ -2086,6 +2086,25 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/pipGatewayOneTrip.test.ts",
+      "feature": "Pip answer timings",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "createTurnTimer stages (classify / phrase round trips, before / between / after) / ai_usage.stage_ms row: numbers only, kept when the column is missing / Chat wiring (v10.106.2)",
+      "count": 8,
+      "tests": [
+        "gateway pre-work in one round trip (v10.107.1) PIP-GW-001 · user check, config read and prepare_ai_call start together; the reservation it made is the one finalised",
+        "gateway pre-work in one round trip (v10.107.1) PIP-GW-002 · over the daily cap is answered 429 and the model is never called",
+        "gateway pre-work in one round trip (v10.107.1) PIP-GW-003 · a household the caller is not in is refused 403, before any reservation or model",
+        "gateway pre-work in one round trip (v10.107.1) PIP-GW-004 · a session getUser() rejects is refused 401 and its reservation is deleted",
+        "gateway pre-work in one round trip (v10.107.1) PIP-GW-005 · OFF stays inert: no model applies, so any reservation is deleted and nothing is called",
+        "gateway pre-work in one round trip (v10.107.1) PIP-GW-006 · without prepare_ai_call (a database not migrated yet) it falls back to the membership read and reserve_ai_usage()",
+        "gateway pre-work in one round trip (v10.107.1) PIP-GW-007 · a request that cannot be sent asks for no reservation, and probes and relay polls never prepare",
+        "gateway pre-work in one round trip (v10.107.1) PIP-GW-008 · without the anon key the gateway keeps the v10.106.3 path"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/pipGuard.test.ts",
       "feature": "Pip guard",
       "availability": "conditional",
@@ -2156,6 +2175,23 @@
         "post-auth landing CON-UNIT-PA-001 · only in-app paths: other origins, protocol-relative, javascript: and auth loops are dropped",
         "post-auth landing CON-UNIT-PA-002 · a `next` remembered before the Google redirect is used once; an invite wins; else the dashboard",
         "post-auth landing CON-UNIT-PA-003 · W0: parser tricks that become another host are dropped (FE-PLT-01)"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/prepareAiCallSql.test.ts",
+      "feature": "AI usage metering SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture)",
+      "count": 6,
+      "tests": [
+        "prepare_ai_call() (v10.107.1) PIP-GW-020 · a member under the cap gets one gateway reservation, for themselves",
+        "prepare_ai_call() (v10.107.1) PIP-GW-021 · a household the caller is not in: member false, nothing reserved",
+        "prepare_ai_call() (v10.107.1) PIP-GW-022 · at the cap: exceeded, nothing reserved; the same count as reserve_ai_usage (gateway rows of 24 h)",
+        "prepare_ai_call() (v10.107.1) PIP-GW-023 · OFF writes nothing: no enabled row, a row piloted on someone else, or a relay without the caller",
+        "prepare_ai_call() (v10.107.1) PIP-GW-024 · nothing is reserved when not asked, with no cap, or with a cap above 1,000",
+        "prepare_ai_call() (v10.107.1) PIP-GW-025 · only a signed-in caller, only real surfaces; anon cannot run it"
       ]
     },
     {
