@@ -52,6 +52,7 @@ beforeAll(async () => {
     insert into ai_usage (user_id, household_id, backend, outcome, intent, message_len, ts) values ('${ME}', '${HOME}', 'llm', 'ok', 'lookup', 20, now() - interval '2 days');
   `);
   await db.exec(readFileSync(new URL('../../../../supabase/migrations/20261011120100_w1c_ai_usage_source.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../../../../supabase/migrations/20261027120000_ai_usage_stage_ms.sql', import.meta.url), 'utf8'));
 }, 60000);
 afterAll(async () => { await db.close(); });
 beforeEach(async () => { await db.exec(`reset role; delete from ai_usage where ts > now() - interval '1 day';`); });
@@ -83,5 +84,24 @@ describe('ai_usage is metered by the server (W1c)', () => {
     await expect(reserve(2)).rejects.toThrow(/quota_exceeded/);
     const reserved = await db.query<{ source: string }>(`select source from ai_usage where outcome = 'reserved' and ts > now() - interval '1 day'`);
     expect(reserved.rows).toEqual([{ source: 'gateway' }, { source: 'gateway' }]);
+  });
+});
+
+// v10.106.2 — Pip answer timings: the app row carries per-stage numbers, and nothing that could be text.
+describe('ai_usage.stage_ms holds timings only (v10.106.2)', () => {
+  it('PIP-LAT-020 · a client row keeps its stage timings beside the W1c analytics', async () => {
+    await asClient(() => db.exec(`insert into ai_usage (household_id, backend, outcome, intent, message_len, latency_ms, stage_ms)
+      values ('${HOME}', 'llm', 'ok', 'lookup', 12, 4200, '{"classify": 1500, "phrase": 2100, "phraseCalls": 1, "after": 40}')`));
+    const row = (await db.query<{ source: string; stage_ms: unknown }>(`select source, stage_ms from ai_usage where ts > now() - interval '1 day'`)).rows[0];
+    expect(row).toEqual({ source: 'client', stage_ms: { classify: 1500, phrase: 2100, phraseCalls: 1, after: 40 } });
+  });
+
+  it('PIP-LAT-021 · text, nesting, odd keys and oversized objects are refused, so no message can be stored there', async () => {
+    const many = JSON.stringify(Object.fromEntries(Array.from({ length: 17 }, (_, i) => [`k${String.fromCharCode(97 + i)}`, i])));
+    for (const bad of ['{"classify": "how much did I spend on food"}', '{"classify": {"ms": 1}}', '{"how much on food": 1}',
+      '[1, 2]', '"text"', many]) {
+      await expect(asClient(() => db.exec(`insert into ai_usage (household_id, backend, stage_ms) values ('${HOME}', 'llm', '${bad}')`)), bad)
+        .rejects.toThrow(/ai_usage_stage_ms_chk/);
+    }
   });
 });

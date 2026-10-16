@@ -121,7 +121,8 @@ describe('W8a · app fixes', () => {
     const chat = src('pages/Chat.tsx');
     expect(chat).toMatch(/useEffect\(\(\) => \(\) => \{ turnAbort\.current\?\.abort\(\); \}, \[\]\);/);
     expect(chat).toMatch(/cancel: \(\) => \{ cancelledTurns\.current\.add\(turnId\); abort\.abort\(\); \}/);
-    expect(chat).toMatch(/selectAssistantBackend\(householdId, abort\.signal\)/);
+    // v10.106.2: the backend is built from the model call (timed per stage); the signal still reaches it.
+    expect(chat).toMatch(/selectModelCall\(householdId, abort\.signal\)/);
   });
 
   it('W8a-SYN12-001 · a failed device-storage read is not "empty": strict reads throw, writes are refused (FE-SYN-12)', async () => {
