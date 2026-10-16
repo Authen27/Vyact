@@ -77,6 +77,39 @@ preferences.
 
 ---
 
+## v10.106.2 — Net Worth: no more stale-balance toast; the row chip shows the value date *(2026-10-16)*
+
+Owner report: "Some bank or card balances haven't been updated in over 30 days" appeared on every visit to Net Worth.
+
+- **The toast is gone.** It fired on every visit, named the wrong things (bank and card balances come from the
+  ledger and can never go stale; only hand-valued assets can), and had nothing to act on.
+- **The row chip says how old the value is:** `14 Jun · Update` (the year is added when it differs; an undated
+  value still reads `Update?`). Same rule as before: a cash-like or short-term asset without a live account,
+  valued more than 30 days ago. Long-term holdings are never flagged.
+- **Phone layout:** the chip moved under the asset name. Beside the amount it pushed the figure under the edit
+  button on a 390px screen (this already happened with the shorter chip).
+- The rule and the date label live in `lib/assetStaleness.ts`; tests: `assetStaleness.test.ts` (4 cases).
+
+---
+
+## v10.106.1 — Pip can run on Amazon Nova Lite (Bedrock) *(2026-10-16)*
+
+Owner decision: Amazon Nova Lite on Bedrock powers Pip. Server-side only; the app is unchanged.
+
+- **The router gains a Bedrock path** (`supabase/functions/_shared/agent/bedrock.ts`): a model row with
+  `provider = 'bedrock'` is called through Bedrock's Converse API instead of the OpenAI dialect, so Pip in
+  the app and on WhatsApp can both use it. Authentication is AWS Signature Version 4 with IAM keys
+  (`AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`) or a Bedrock API key
+  (`AWS_BEARER_TOKEN_BEDROCK`). The signer is checked against AWS's published SigV4 example.
+- **Guardrails:** AWS credential names are readable only by a bedrock row pointing at
+  `https://bedrock-runtime.<region>.amazonaws.com`; an OpenAI-compatible row can never read them, and a bedrock
+  row can never point them elsewhere. The keys stay in Edge Function secrets, never in the browser.
+- **Migration `20261026120000_bedrock_nova_lite.sql`:** one Nova Lite row (Sydney, ap-southeast-2,
+  `amazon.nova-lite-v1:0`, priority 120), **disabled**. It goes live with one UPDATE after the secrets are set.
+- Tests: `agentBedrock.test.ts` (signing, config guardrails, the OFF state, the Converse call and its errors).
+
+---
+
 ## v10.106.0 — Aurora 4.0 A7 + A8: Insights, Pip, Households, Settings and the public pages *(2026-10-16)*
 
 The last two PRs of the Aurora 4.0 redesign, shipped together. No figure, calculation or schema changes.

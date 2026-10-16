@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1399 passing deterministic cases in 154 files. Zero failed, skipped or TODO cases at generation.**
+**1413 passing deterministic cases in 156 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -39,8 +39,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 12 |
-| react | unit | available | 431 |
-| react | unit | conditional | 192 |
+| react | unit | available | 435 |
+| react | unit | conditional | 202 |
 | react | unit | infrastructure | 229 |
 
 ### Executed Files
@@ -68,6 +68,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/adminActivityFeedSql.test.ts](../react/src/lib/__tests__/adminActivityFeedSql.test.ts) | Admin activity feed SQL | sql-integration | conditional | 7 |
 | [react/src/lib/__tests__/affordabilityBudgetFirst.test.ts](../react/src/lib/__tests__/affordabilityBudgetFirst.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/agentAmbiguity.test.ts](../react/src/lib/__tests__/agentAmbiguity.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 31 |
+| [react/src/lib/__tests__/agentBedrock.test.ts](../react/src/lib/__tests__/agentBedrock.test.ts) | Ask Vyact | unit | conditional | 10 |
 | [react/src/lib/__tests__/agentClassify.test.ts](../react/src/lib/__tests__/agentClassify.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 13 |
 | [react/src/lib/__tests__/agentDedupe.test.ts](../react/src/lib/__tests__/agentDedupe.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 36 |
 | [react/src/lib/__tests__/agentGrammar.test.ts](../react/src/lib/__tests__/agentGrammar.test.ts) | Learned ingestion (not connected to entrypoints) | unit | infrastructure | 24 |
@@ -84,6 +85,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/askVyactContract.test.ts](../react/src/lib/__tests__/askVyactContract.test.ts) | Ask Vyact | unit | conditional | 9 |
 | [react/src/lib/__tests__/askVyactExamples.test.ts](../react/src/lib/__tests__/askVyactExamples.test.ts) | Reports and Ask guidance | unit | available | 3 |
 | [react/src/lib/__tests__/askVyactFacts.test.ts](../react/src/lib/__tests__/askVyactFacts.test.ts) | Ask Vyact | unit | conditional | 67 |
+| [react/src/lib/__tests__/assetStaleness.test.ts](../react/src/lib/__tests__/assetStaleness.test.ts) | Net worth history | unit | available | 4 |
 | [react/src/lib/__tests__/assistantCore.test.ts](../react/src/lib/__tests__/assistantCore.test.ts) | Ask Vyact on the server | unit | conditional | 2 |
 | [react/src/lib/__tests__/authTransport.test.ts](../react/src/lib/__tests__/authTransport.test.ts) | Authentication and invitations | contract-unit | conditional | 3 |
 | [react/src/lib/__tests__/billCalendar.test.ts](../react/src/lib/__tests__/billCalendar.test.ts) | Recurring and budgets | unit | available | 5 |
