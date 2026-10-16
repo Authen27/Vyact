@@ -436,6 +436,27 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/agentBedrock.test.ts",
+      "feature": "Ask Vyact",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
+      "count": 10,
+      "tests": [
+        "Bedrock call — Converse in, the router's result out BEDROCK-CALL-001 · IAM keys: a SigV4-signed Converse call; system prompt, turns and caps mapped; usage and cost metered",
+        "Bedrock call — Converse in, the router's result out BEDROCK-CALL-002 · a Bedrock API key is sent as a bearer token",
+        "Bedrock call — Converse in, the router's result out BEDROCK-CALL-003 · a missing secret fails before any call, naming the variable, never a value",
+        "Bedrock call — Converse in, the router's result out BEDROCK-CALL-004 · Bedrock errors come back as values with a useful hint, never the body",
+        "Bedrock config — only a Bedrock host, only AWS credential names BEDROCK-CFG-001 · a Nova Lite row resolves to the Converse endpoint for its region",
+        "Bedrock config — only a Bedrock host, only AWS credential names BEDROCK-CFG-002 · AWS credentials can never be pointed at another host or another provider",
+        "Bedrock config — only a Bedrock host, only AWS credential names BEDROCK-CFG-003 · a disabled Bedrock row is the OFF state: no secret read, no call, no metering",
+        "Converse mapping BEDROCK-MAP-001 · starts on a user turn, alternates, caps stops; parses text and usage",
+        "SigV4 — matches AWS's published example BEDROCK-SIG-001 · the IAM ListUsers example signs to AWS's documented signature",
+        "SigV4 — matches AWS's published example BEDROCK-SIG-002 · a session token is sent and signed"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/agentClassify.test.ts",
       "feature": "Learned ingestion (not connected to entrypoints)",
       "availability": "infrastructure",
