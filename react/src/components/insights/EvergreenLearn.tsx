@@ -28,10 +28,12 @@ interface Props {
   onConsumedOpen?: () => void;
   /** Aurora 4.0 LN1 — lessons the household's review points to, with the reason (at most two). */
   suggested?: { id: string; reason: string }[];
+  /** v10.107.0 — a search to start with (Pip's "Lessons on …" link: /insights?tab=learn&q=…). */
+  initialQuery?: string;
 }
 
-export default function EvergreenLearn({ openId, onConsumedOpen, suggested = [] }: Props) {
-  const [query, setQuery] = useState('');
+export default function EvergreenLearn({ openId, onConsumedOpen, suggested = [], initialQuery }: Props) {
+  const [query, setQuery] = useState(() => (initialQuery ?? '').slice(0, 60));
   const [category, setCategory] = useState<string | 'all'>('all');
   const [favOnly, setFavOnly] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());

@@ -30,6 +30,24 @@ ceiling, and at Sonnet rates that cap permits roughly $0.40/user/day.
 
 ---
 
+## ✅ v10.107.0 — Pip as the household's planner, on topic (2026-10-16)
+
+Owner request, 16 Oct 2026: Pip should behave as a financial planner and advisor, proactively, and must not
+be usable for topics other than the household's money. No schema change. Code in `askVyactLlm.ts`
+(classify + phrase prompts, `assertReplyInScope`), `askVyactBackend.ts` (resolve cases, `runAssistant`) and
+`notifications.ts` (`pipNudgeNotifs`).
+
+| Area | Done | Pending (needs schema; ships first, on its own) |
+|---|---|---|
+| Scope | `off_topic` declined with no phrase call; low-confidence clarify; reply check (code, links, length); investment picks `unsupported` | Gateway per-minute limit and off-topic cool-down |
+| Planning | Month review, bills/subscriptions review, emergency-fund plan, surplus order, time to save, chosen debt strategy | Goals (removed as a module since v8.8.0: owner decision to revive) |
+| Learning | Concepts answered from Learn's lessons (`learn.concept` → `/insights?tab=learn&q=`) | — |
+| Proactive | Bell nudges (`trend_alert`, `insight_fresh`), ≤1/day, ≤3/week, open `/chat?ask=` | Server-side Pip inbox while the app is closed (pg_cron + private table), push/WhatsApp delivery |
+| Memory | — | Remembered answer preferences (length, language) |
+
+Tests for this release were not run in the authoring session (the repository's content policy blocked test
+files and the test runner for the agent); they are listed in the PR for the owner to run.
+
 ## ✅ v10.78.0 — W5: figures belong to the question asked (2026-10-08)
 
 Owner decision D29, from the 2026-10-04 audit. Each fix is in `askVyactBackend.ts` (stage 4) and is

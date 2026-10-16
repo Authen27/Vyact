@@ -13,7 +13,7 @@ import type { Notification, NotificationPrefs } from '../../types';
 import type { Store } from '../../store';
 import {
   recurringDueNotifs, recurringReminderNotifs, budgetThresholdNotifs,
-  debtDueNotifs, incomeLandedNotifs, staleBalanceNotifs,
+  debtDueNotifs, incomeLandedNotifs, staleBalanceNotifs, pipNudgeNotifs,
   splitReceivedNotifs, splitSettledNotifs, splitClosedNotifs,
   DEFAULT_PREFS, isInQuietHours, showWebPush, resolvedBillCards,
 } from '../../lib/notifications';
@@ -75,6 +75,8 @@ export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set,
       ...debtDueNotifs(debts, notificationPrefs, existing, ctx),
       ...incomeLandedNotifs(transactions, notificationPrefs, existing, ctx),
       ...staleBalanceNotifs(accounts, notificationPrefs, existing, ctx),
+      // v10.107.0 — Pip's nudges (capped: one a day, three a week; bell only).
+      ...pipNudgeNotifs(transactions, notificationPrefs, existing, ctx),
       ...splitReceivedNotifs(sharedSplitsWithMe, myEmail, notificationPrefs, existing, ctx),
       ...splitSettledNotifs(sharedSplitsOwned, notificationPrefs, existing, ctx),
       ...splitClosedNotifs(sharedSplitsWithMe, notificationPrefs, existing, ctx),

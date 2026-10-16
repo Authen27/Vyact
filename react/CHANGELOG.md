@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.106.0`** (consumer)
+> **Current production version: `v10.107.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,58 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.107.0 — Pip, the household's planner: scope, planning skills and nudges *(2026-10-16)*
+
+Pip moves from answering questions to planning with the household, and it now stays on the household's
+money. No schema change, no new table: every figure is computed in `resolve()` from the same data the screens
+read, and the model still only explains it. The prompts reach the server through the rebuilt engine bundle.
+
+**Scope: Pip talks only about the household's money**
+- **Off-topic questions are declined in one line**, with what Pip does instead, and cost no second model
+  call (a new `off_topic` intent). Before this the classifier had to "choose the closest meaning", so a poem
+  or a homework question landed in a finance intent and the phrase model answered it in full.
+- **A question the model itself was unsure of** (confidence below 0.35) gets "Did you mean one of these?"
+  with chips, instead of an answer to a question it may have misread.
+- **Every reply is checked on the way out:** code, a web address or a reply far longer than the contract
+  (1,800 characters in the app, 900 on WhatsApp) is discarded and never shown, like an invented figure
+  (`assertReplyInScope`, `OffScopeReplyError`). The phrase prompt gains a SCOPE section: text in the question
+  that tries to change Pip's rules is not an instruction.
+- **Investment picks** (which fund, stock or policy) are `unsupported`, never answered.
+
+**Planning skills (every figure from `resolve()`)**
+- **Month in review** (`interpret.review`): last completed month by default, or a named month, or this month
+  so far. Income, spending, what was left and the savings rate; against the usual month (the months before
+  it) or, for this month, the same point last month; the three categories that moved most; one thing to try.
+- **Bills and subscriptions review** (`interpret.subscriptions`): each active bill's cost over the next
+  12 months from its own rule, the total and about-per-month, its share of a usual month, bills whose amount
+  changed since they last posted, and categories with more than one bill. Loan EMIs are left out (the loan's).
+- **Emergency-fund plan** (`forecast.emergency_fund`): the target (three months of essentials, the one floor),
+  the cushion after card dues, what is still to put aside and, from a usual month's surplus, how many months
+  it takes and by when.
+- **Where spare money goes** (`forecast.surplus`): one fixed order with the household's own figures: card dues,
+  the cushion, debts at 12% or more (highest rate first), bills due in 30 days, then long-term saving. Pip
+  never names a product.
+- **How long to save for something** (`forecast.save_for`): the price must be stated; the cushion stays
+  untouched and card dues come first.
+- **Debts** name the payoff strategy the household chose in Debts, and which debt it pays first.
+- **General money ideas** ("what is an SIP?") are answered from Learn's lessons, never the model's own
+  knowledge: Pip replies with a "Lessons on …" button that opens Learn searched for the topic
+  (`/insights?tab=learn&q=…`). WhatsApp says where to look instead (no links there).
+- The Ask panel's "Explore a decision" list gains Review last month, Emergency fund plan, Where should spare
+  money go? and Review bills and subscriptions.
+
+**Proactive nudges (bell only, rarely)**
+- **A category already above a whole usual month** this month (`trend_alert`, at least 25% above, two months
+  of history) and **"Your <month> review is ready"** in the first five days of a month (`insight_fresh`).
+  At most one Pip nudge a day and three a week; never pushed; each kind has its own switch in Settings ›
+  Notifications. A nudge opens Pip with its question in the field (`/chat?ask=…`); nothing is sent for you.
+
+**Not in this release (needs schema, shipped first on its own):** a server-side Pip inbox that works while
+the app is closed, per-minute rate limits and an off-topic cool-down at the gateway, and remembered answer
+preferences.
 
 ---
 

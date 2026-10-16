@@ -29,12 +29,14 @@ import { getCat, NEEDS_WANTS_MAP, CURRENCIES, EXPENSE_CATEGORIES, CATEGORIES_BY_
 import { fmt, convert } from './format';
 import { nowMonthKey, getMonthKey, wallClock } from './format';
 import type { SafeSummary } from './aiSummary';
-import { baselineLabel } from './spendBaseline';
+import { baselineLabel, spendBaseline } from './spendBaseline';
+import { expandRRule } from './rrule';
+import { ruleOf, policyOf, isLoanEmiSchedule } from './recurring';
 import type { IntentResult, AssistantBucket } from './askVyactIntents';
 import { normaliseChips, type AssistantChip, type ResolveResult, type RecurringSeed } from './askVyactResponses';
 import {
   classifyIntentViaModel, phraseViaModel, phraseData,
-  InventedFigureError, ModelUnavailableError, type ModelCall,
+  InventedFigureError, ModelUnavailableError, OffScopeReplyError, LOW_CONFIDENCE, type ModelCall,
 } from './askVyactLlm';
 import { resolveConfiguredModelCall } from './askVyactModelCall';
 import { isAskVyactBucketEnabled, FEATURES } from '../config/features';
@@ -132,6 +134,11 @@ export interface AssistantTurn {
    * card; the app ignores it.
    */
   resolved?: { outcome: string; amounts?: Record<string, number> };
+  /**
+   * v10.107.0 — an in-app page this turn points to (Learn's lessons on a concept). The app renders it
+   * as a button; WhatsApp never gets one (no links there, so the reply names where to look).
+   */
+  link?: { label: string; to: string };
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -478,7 +485,7 @@ const QUICK_CHIPS: AssistantChip[] = [
 function capabilitySummary(): string {
   return 'Record — a spend, income, a transfer, a split, or a bill that repeats.\n'
     + 'Check — what you spent, where it went, your budgets, what is due.\n'
-    + 'Plan — whether a purchase fits, how long savings last, where to cut back.';
+    + 'Plan — a monthly review, your emergency fund, where spare money should go, whether a purchase fits and how long to save for it.';
 }
 
 /** A quick reply: the text, and the chips to offer after it (none on a close). */
@@ -596,6 +603,38 @@ function aboutMeReply(text: string): string {
       + 'I lead with the figure you asked for and keep the rest short.';
   }
   return `I'm Pip. Here's what I do:\n${capabilitySummary()}`;
+}
+
+// ── v10.107.0 — scope: replies that need no model ─────────────────────────────
+
+/** Not about money: one line, and what Pip does instead (the chips). Never a lecture. */
+const OFF_TOPIC_REPLY = "I only help with your household's money, so I'll leave that one. "
+  + 'I can tell you what you spent, check your budgets and bills, or plan your cushion and savings.';
+
+/** Intents the low-confidence check does not apply to: each already answers "I'm not sure" itself. */
+const NO_CONFIDENCE_GATE = new Set<string>(['fallback', 'meta.assistant', 'unsupported']);
+
+/**
+ * A general money concept is answered from Learn's lessons, which are written and checked, never from
+ * the model's own knowledge. The app links to a search of them; WhatsApp has no links, so the reply
+ * says where to look.
+ */
+function learnTurn(topic: string | undefined, ctx: AssistantContext): AssistantTurn {
+  const what = topic ?? 'money basics';
+  const whatsapp = ctx.channel === 'whatsapp';
+  return {
+    reply: whatsapp
+      ? `That's a general money idea rather than your own figures. Vyact's Learn section has short lessons on it: open the app, go to Insights, then Learn, and search "${what}".`
+      : `That's a general money idea rather than your own figures, so I'll point you to Learn: it has short lessons on ${what}.`,
+    bucket: 'none',
+    intentId: 'learn.concept',
+    ...(whatsapp ? {} : {
+      link: { label: `Lessons on ${what}`, to: `/insights?tab=learn${topic ? `&q=${encodeURIComponent(topic)}` : ''}` },
+    }),
+    chips: normaliseChips(QUICK_CHIPS),
+    clarify: false,
+    allowedFigures: [],
+  };
 }
 
 /**
@@ -805,6 +844,156 @@ function lookupWindow(ctx: AssistantContext, span: { start: string; end: string;
     vars: { amount: money(total, ctx), period: span.label } };
 }
 
+// ── v10.107.0 — the planner (Pip as the household's financial planner) ─────────
+//
+// Pure reads over the data the screens use. Every amount reaches the model through money(),
+// signedMoney() or netMoney(), so the figure guard admits exactly what is said, and every
+// "usual month" rests on the ONE spending baseline (summary.spendBasis).
+
+/** At or above this interest rate a debt counts as expensive in the surplus plan (cards, personal loans). */
+export const EXPENSIVE_DEBT_APR = 12;
+
+const MONTH_LONG = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+/** "September 2026" for '2026-09'. */
+function monthLabel(monthKey: string): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  return MONTH_LONG.format(new Date(Date.UTC(y, m - 1, 1)));
+}
+
+/** The month key `n` months after `monthKey` (negative: before). */
+function addMonths(monthKey: string, n: number): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Income recorded in a month: reportable income rows at their effective amount. */
+function incomeInMonth(ctx: AssistantContext, monthKey: string): number {
+  let total = 0;
+  for (const t of reportableTxns(ctx.transactions)) {
+    if (t.type === 'income' && getMonthKey(t.date) === monthKey) total += effectiveAmount(t, cur(ctx), ctx.rates);
+  }
+  return total;
+}
+
+/**
+ * The household's usual month: income and spending averaged over the SAME completed months as the
+ * spending baseline, each rounded once, so "usually left over" is exactly income − spending as stated.
+ * Null with no completed month (a part month is not a usual month).
+ */
+function typicalMonth(ctx: AssistantContext): { income: number; spending: number; surplus: number } | null {
+  const b = basisOf(ctx);
+  const months = b.baselineMonths ?? [];
+  if (b.partialMonthOnly || !months.length || !(b.averageMonthly > 0)) return null;
+  const income = Math.round(months.reduce((s, m) => s + incomeInMonth(ctx, m), 0) / months.length);
+  const spending = Math.round(b.averageMonthly);
+  return { income, spending, surplus: income - spending };
+}
+
+/**
+ * Where the cushion stands: liquid savings less what the cards owe (borrowing is never savings, and
+ * the card bill is paid from this money first), against the floor of three months of essentials.
+ */
+function cushionPosition(ctx: AssistantContext) {
+  const liquid = Math.round(ctx.summary.netWorth.liquidAssets);
+  const dues = Math.round(ctx.summary.netWorth.cardDues);
+  const free = liquid - dues;
+  const target = Math.round(emergencyFloor(ctx));
+  return { liquid, dues, free, target, gap: Math.max(0, target - free) };
+}
+
+/** Months to put `amount` aside at `perMonth`, and the month it is reached. Null when it never is. */
+function monthsToSave(ctx: AssistantContext, amount: number, perMonth: number): { months: number; by: string } | null {
+  if (!(amount > 0)) return { months: 0, by: monthLabel(nowMonthKey(ctx.tz)) };
+  if (!(perMonth > 0)) return null;
+  const months = Math.ceil(amount / perMonth);
+  return { months, by: monthLabel(addMonths(nowMonthKey(ctx.tz), months)) };
+}
+
+const monthsWord = (n: number) => `${n} ${n === 1 ? 'month' : 'months'}`;
+
+/** A month's review (a completed month, or the current one so far). Every figure is that month's own. */
+function monthReview(ctx: AssistantContext, monthKey: string) {
+  const income = Math.round(incomeInMonth(ctx, monthKey));
+  const spend = spendByCategory(ctx.transactions, monthKey, cur(ctx), ctx.rates);
+  const spending = Math.round(Object.values(spend).reduce((a, b) => a + b, 0));
+  // "Usual" = the baseline months BEFORE the month reviewed, so a month is never compared with itself.
+  const before = spendBaseline(ctx.transactions, { baseCurrency: cur(ctx), rates: ctx.rates, now: `${monthKey}-01` });
+  const usual = before.partialMonthOnly ? null : Math.round(before.averageMonthly);
+  // The three categories that moved most against their own usual month, either way.
+  const changes = Object.entries(spend)
+    .map(([c, amt]) => ({ c, amt, usual: categoryRollingAvg(ctx, c, 3, monthKey) }))
+    .filter(x => x.usual > 0)
+    .map(x => ({ ...x, gap: Math.round(x.amt) - Math.round(x.usual) }))
+    .filter(x => x.gap !== 0)
+    .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))
+    .slice(0, 3)
+    .map(x => ({
+      category: getCat(x.c).label,
+      spent: money(x.amt, ctx),
+      usual_month: money(x.usual, ctx),
+      compared_with_usual: signedMoney(x.gap, ctx, 'above', 'below'),
+    }));
+  // The easiest trim: the discretionary category furthest above its usual.
+  const trim = Object.entries(spend)
+    .filter(([c]) => NEEDS_WANTS_MAP[c] === 'want')
+    .map(([c, amt]) => ({ c, over: Math.round(amt) - Math.round(categoryRollingAvg(ctx, c, 3, monthKey)) }))
+    .filter(x => x.over > 0)
+    .sort((a, b) => b.over - a.over)[0];
+  return { income, spending, net: income - spending, usual, usualMonths: before.months, changes, trim };
+}
+
+/**
+ * Every active bill and subscription with what it costs over the next 12 months, read from its own
+ * rule (the same expansion the budget forecast and the bill calendar use). Loan EMIs are the loan's,
+ * never a bill (isLoanEmiSchedule). Category labels only: a bill's description is user text.
+ */
+function billReview(ctx: AssistantContext) {
+  const now = wallClock(ctx.tz);
+  const from = isoDay(now);
+  const to = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 364));
+  const rows = (ctx.recurring ?? [])
+    .filter(r => r.active !== false && (r.transactionTemplate.type ?? 'expense') === 'expense'
+      && !isLoanEmiSchedule(r) && (r.transactionTemplate.amount || 0) > 0)
+    .map(r => {
+      const times = expandRRule(ruleOf(r), r.startDate, from, to, { shortMonthPolicy: policyOf(r) }).length;
+      const amount = Math.round(r.transactionTemplate.amount);
+      // The amount it last posted at, when that differs from the amount it will post next.
+      const last = ctx.transactions
+        .filter(t => t.recurringScheduleId === r.id)
+        .sort((a, b) => b.date.localeCompare(a.date))[0];
+      const lastAmount = last ? Math.round(last.amount) : null;
+      return { r, times, amount, yearly: amount * times, lastAmount };
+    })
+    .filter(x => x.times > 0)
+    .sort((a, b) => b.yearly - a.yearly);
+  const yearly = rows.reduce((s, x) => s + x.yearly, 0);
+  const byCategory = new Map<string, number>();
+  for (const x of rows) byCategory.set(x.r.transactionTemplate.category, (byCategory.get(x.r.transactionTemplate.category) ?? 0) + 1);
+  return { rows, yearly, byCategory };
+}
+
+/** What active bills will cost in the next `days` days (loan EMIs are the loan's, not bills). */
+function billsDueWithin(ctx: AssistantContext, days: number): number {
+  const now = wallClock(ctx.tz);
+  const from = isoDay(now);
+  const to = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days - 1));
+  let total = 0;
+  for (const r of ctx.recurring ?? []) {
+    if (r.active === false || (r.transactionTemplate.type ?? 'expense') !== 'expense' || isLoanEmiSchedule(r)) continue;
+    const times = expandRRule(ruleOf(r), r.startDate, from, to, { shortMonthPolicy: policyOf(r) }).length;
+    total += Math.round(r.transactionTemplate.amount || 0) * times;
+  }
+  return total;
+}
+
+/** The concept a learn.concept question names, safe to show and to put in a search: 2–40 plain characters. */
+function learnTopic(e: IntentResult['entities']): string | undefined {
+  const raw = typeof e.topic === 'string' ? e.topic.replace(/\s+/g, ' ').trim() : '';
+  return /^[\p{L}\p{N} &'’-]{2,40}$/u.test(raw) ? raw : undefined;
+}
+
 const ordinal = (n: number): string => {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
@@ -840,6 +1029,7 @@ function recurringSeedFrom(e: IntentResult['entities']): RecurringSeed {
 const AMOUNT_INTENTS = new Set([
   'capture.expense', 'capture.income', 'capture.transfer', 'capture.investment',
   'capture.split', 'capture.recurring', 'forecast.affordability', 'forecast.prescriptive',
+  'forecast.save_for',
 ]);
 
 // ── Stage 4 — resolve (the ONLY place money is computed) ────────────────────────
@@ -1322,6 +1512,12 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
           debts_highest_rate_first: debtFacts(ctx),
           avalanche_pays_first: `${debtLabel(top)} (highest interest rate, saves the most interest)`,
           snowball_pays_first: `${debtLabel(smallest)} (smallest balance, quickest to clear)`,
+          // v10.107.0 — the strategy the household chose in Debts, so the answer starts from it.
+          ...(ctx.profile?.payoffStrategy ? {
+            your_chosen_strategy: ctx.profile.payoffStrategy === 'snowball'
+              ? 'snowball (smallest balance first)' : 'avalanche (highest interest rate first)',
+            your_strategy_pays_first: debtLabel(ctx.profile.payoffStrategy === 'snowball' ? smallest : top),
+          } : {}),
         },
         analysis: [
           `Reviewed ${d.length} ${d.length === 1 ? 'debt' : 'debts'}`,
@@ -1617,6 +1813,257 @@ function resolveCore(intent: IntentResult, ctx: AssistantContext): ResolveResult
         } };
     }
 
+    // ── v10.107.0 — the planner ────────────────────────────────────────────────────
+    case 'interpret.review': {
+      // The month named; with none, the LAST COMPLETED month (a review of this month is "so far").
+      const stated = statedPeriod(e);
+      const period = stated ? resolvePeriod(stated, wallClock(ctx.tz)) : null;
+      if (stated && !period) return needsPeriod('interpret', stated, 'a named past month, or this month so far');
+      const mk = period ? period.monthKey : addMonths(nowMonthKey(ctx.tz), -1);
+      const isCurrent = mk === nowMonthKey(ctx.tz);
+      const label = isCurrent ? `${monthLabel(mk)} so far` : monthLabel(mk);
+      const r = monthReview(ctx, mk);
+      if (r.income === 0 && r.spending === 0) {
+        return { kind: 'interpret', outcome: 'no_activity',
+          facts: { review_month: label, note: `nothing recorded in ${monthLabel(mk)}` },
+          analysis: [`Looked for activity in ${monthLabel(mk)} — none recorded`], vars: {},
+          chips: [{ label: 'How am I doing?', prompt: 'How am I doing financially?' }] };
+      }
+      const comparison = isCurrent
+        // A part month is compared with the same days of last month, never with a whole usual month.
+        ? samePointFacts(ctx, r.spending)
+        : r.usual != null ? {
+          usual_month_spending: money(r.usual, ctx),
+          usual_is: `the average of ${baselineLabel(r.usualMonths)}`,
+          spending_compared_with_usual: signedMoney(r.spending - r.usual, ctx, 'above', 'below'),
+        } : { usual_month_spending: 'no earlier month to compare with yet' };
+      return { kind: 'interpret', outcome: 'ok',
+        facts: {
+          review_month: label,
+          ...(isCurrent ? { month_in_progress: 'yes: these are the figures so far' } : {}),
+          income: money(r.income, ctx),
+          spending: money(r.spending, ctx),
+          left_over: signedMoney(r.net, ctx, 'saved', 'overspent'),
+          savings_rate: r.income > 0 ? `${Math.round((r.net / r.income) * 100)}%` : 'no income recorded',
+          ...comparison,
+          biggest_changes_against_usual: r.changes,
+          ...(r.trim ? {
+            easiest_trim: getCat(r.trim.c).label,
+            easiest_trim_figure: money(r.trim.over, ctx),
+            easiest_trim_figure_means: 'how much this discretionary category was above its usual month',
+          } : {}),
+          ...(isCurrent ? {
+            budgets_over_limit: ctx.summary.budgets.filter(b => !b.annual && b.spentPct > 100).map(b => getCat(b.category).label),
+          } : {}),
+        },
+        analysis: [
+          `Totalled income and spending for ${label}`,
+          isCurrent ? 'Compared it with the same point last month' : 'Compared it with your usual month',
+          'Found the categories that moved most',
+        ],
+        vars: {},
+        chips: [
+          { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+          { label: 'Where should spare money go?', prompt: 'Where should my spare money go each month?' },
+        ] };
+    }
+
+    case 'interpret.subscriptions': {
+      const { rows, yearly, byCategory } = billReview(ctx);
+      if (!rows.length) {
+        return { kind: 'interpret', outcome: 'none',
+          facts: { bills: [], note: 'no active bills or subscriptions are set up as recurring schedules' },
+          analysis: ['Looked for active bills and subscriptions — none set up'], vars: {},
+          chips: [{ label: 'Spend this month', prompt: 'How much did I spend this month?' }] };
+      }
+      const basis = basisOf(ctx);
+      const monthly = Math.round(yearly / 12);
+      const repeats = [...byCategory.entries()].filter(([, n]) => n > 1)
+        .map(([c, n]) => ({ category: getCat(c).label, bills: String(n) }));
+      const changed = rows.filter(x => x.lastAmount != null && x.lastAmount !== x.amount);
+      return { kind: 'interpret', outcome: 'ok',
+        facts: {
+          bills_by_cost_over_next_12_months: rows.slice(0, 8).map(x => ({
+            category: getCat(x.r.transactionTemplate.category).label,
+            amount_each_time: money(x.amount, ctx),
+            times_in_next_12_months: String(x.times),
+            cost_over_next_12_months: money(x.yearly, ctx),
+            posts: x.r.autoConfirm ? 'automatically' : 'after you approve it',
+            ...(x.lastAmount != null && x.lastAmount !== x.amount ? {
+              last_posted_at: money(x.lastAmount, ctx),
+              next_amount_compared_with_last: signedMoney(x.amount - x.lastAmount, ctx, 'higher', 'lower'),
+            } : {}),
+          })),
+          bills_counted: String(rows.length),
+          total_over_next_12_months: money(yearly, ctx),
+          about_per_month: money(monthly, ctx),
+          ...(basis.averageMonthly > 0 && !basis.partialMonthOnly
+            ? { share_of_usual_monthly_spending: `${Math.round((monthly / basis.averageMonthly) * 100)}%` } : {}),
+          ...(repeats.length ? { categories_with_more_than_one_bill: repeats } : {}),
+          ...(changed.length ? { bills_whose_amount_changed: String(changed.length) } : {}),
+          left_out: 'loan EMIs: they are paid through the loan, not as bills',
+        },
+        analysis: [
+          `Found ${rows.length} active ${rows.length === 1 ? 'bill' : 'bills'}`,
+          'Worked out what each costs over the next 12 months from its own schedule',
+          ...(changed.length ? ['Checked each against the amount it last posted at'] : []),
+        ],
+        vars: {},
+        chips: [
+          { label: 'Upcoming bills', prompt: 'What are my upcoming bills?' },
+          { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+        ] };
+    }
+
+    case 'forecast.emergency_fund': {
+      const basis = basisOf(ctx);
+      const c = cushionPosition(ctx);
+      if (!(basis.averageEssential > 0)) {
+        return { kind: 'forecast', outcome: 'no_history',
+          facts: {
+            target: 'not enough essential spending recorded yet to measure',
+            what_is_needed: 'a month or two of recorded spending in essential categories (rent, groceries, bills), so three months of essentials can be measured',
+            liquid_savings: netMoney(c.liquid, ctx),
+          },
+          analysis: ['Looked for a typical month of essential spending — not enough recorded yet'], vars: {},
+          chips: [{ label: 'Add an expense', prompt: 'log an expense' }] };
+      }
+      const tm = typicalMonth(ctx);
+      const plan = c.gap > 0 && tm ? monthsToSave(ctx, c.gap, tm.surplus) : null;
+      return { kind: 'forecast', outcome: c.gap > 0 ? 'building' : 'reached',
+        facts: {
+          target: money(c.target, ctx),
+          target_is: `three months of your typical essential spending, ${money(basis.averageEssential, ctx)} a month, averaged over ${basisLabel(ctx)}`,
+          liquid_savings: netMoney(c.liquid, ctx),
+          card_dues_to_pay: money(c.dues, ctx),
+          cushion_after_card_dues: signedMoney(c.free, ctx, 'available', 'short'),
+          months_of_cover_on_essentials_only: coverFacts(ctx).months_of_cover_on_essentials_only,
+          ...(c.gap > 0
+            ? { still_to_put_aside: money(c.gap, ctx) }
+            : { status: 'the cushion is already at or above three months of essentials', above_target_by: money(c.free - c.target, ctx) }),
+          ...(tm ? {
+            usual_monthly_income: money(tm.income, ctx),
+            usual_monthly_spending: money(tm.spending, ctx),
+            usually_left_over_each_month: signedMoney(tm.surplus, ctx, 'left over', 'short'),
+          } : { usually_left_over_each_month: 'not enough completed months to measure yet' }),
+          ...(c.gap > 0 && tm ? (plan
+            ? { months_to_reach_target: monthsWord(plan.months), reached_by: plan.by,
+              assumes: 'everything usually left over each month goes to the cushion' }
+            : { months_to_reach_target: 'not at the current pattern: a usual month leaves nothing over' }) : {}),
+        },
+        analysis: [
+          `Measured three months of essential spending over ${basisLabel(ctx)}`,
+          'Totalled your liquid savings, after card dues',
+          ...(tm ? ['Worked out what a usual month leaves over'] : []),
+        ],
+        vars: {},
+        chips: [
+          { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+          { label: 'Where should spare money go?', prompt: 'Where should my spare money go each month?' },
+        ] };
+    }
+
+    case 'forecast.surplus': {
+      // A fixed order, the same for every household; the figures are the household's own. No products.
+      const tm = typicalMonth(ctx);
+      const c = cushionPosition(ctx);
+      const expensive = [...ctx.summary.debts]
+        .filter(d => d.aprPct >= EXPENSIVE_DEBT_APR && d.balance > 0)
+        .sort((a, b) => b.aprPct - a.aprPct);
+      const bills30 = billsDueWithin(ctx, 30);
+      const steps = [
+        { step: '1', what: 'pay credit card dues in full',
+          status: c.dues > 0 ? 'to do' : 'done: no card dues', ...(c.dues > 0 ? { amount: money(c.dues, ctx) } : {}) },
+        { step: '2', what: 'build the cushion to three months of essential spending',
+          status: c.gap > 0 ? 'to do' : 'done', target: money(c.target, ctx),
+          ...(c.gap > 0 ? { still_to_put_aside: money(c.gap, ctx) } : {}) },
+        { step: '3', what: `clear debts charging ${EXPENSIVE_DEBT_APR}% interest or more, highest rate first`,
+          status: expensive.length ? 'to do' : 'done: none',
+          ...(expensive.length ? { debts: expensive.map(d => ({ debt: getCat(d.type).label || d.type, balance: money(d.balance, ctx), interest_rate: `${d.aprPct}%` })) } : {}) },
+        { step: '4', what: 'keep enough aside for bills due in the next 30 days',
+          status: bills30 > 0 ? 'to do' : 'done: no bills due', ...(bills30 > 0 ? { amount: money(bills30, ctx) } : {}) },
+        { step: '5', what: 'long-term saving or investing for goals you choose — I do not pick funds, stocks or policies',
+          status: 'after the steps above' },
+      ];
+      const next = steps.find(s => s.status === 'to do') ?? steps[4];
+      return { kind: 'forecast', outcome: 'plan',
+        facts: {
+          ...(tm ? {
+            usual_monthly_income: money(tm.income, ctx),
+            usual_monthly_spending: money(tm.spending, ctx),
+            usually_left_over_each_month: signedMoney(tm.surplus, ctx, 'left over', 'short'),
+            months_considered: basisLabel(ctx),
+          } : { usually_left_over_each_month: 'not enough completed months to measure yet' }),
+          plan_in_order: steps,
+          next_step: next.what,
+          rule: 'this order is general good practice, the same for every household; the figures are yours',
+        },
+        analysis: [
+          ...(tm ? ['Worked out what a usual month leaves over'] : []),
+          'Checked card dues, your cushion, expensive debts and bills due in 30 days',
+          'Put them in the usual order of priority',
+        ],
+        vars: {},
+        chips: [
+          { label: 'Emergency fund plan', prompt: 'How do I build my emergency fund?' },
+          { label: 'Debt strategy', prompt: 'Tell me about my debts and the best payoff strategy.' },
+        ] };
+    }
+
+    case 'forecast.save_for': {
+      if (e.amount == null) {
+        return { kind: 'forecast', outcome: 'missing_amount', vars: {},
+          facts: { needs: 'the price of what you are saving for' },
+          analysis: ['Need the price to work out how long it takes'] };
+      }
+      const c = cushionPosition(ctx);
+      const tm = typicalMonth(ctx);
+      const category = purchaseCategory(e);
+      const price = Math.round(e.amount);
+      const aboveCushion = Math.max(0, c.free - c.target);
+      const stillToSave = Math.max(0, price - aboveCushion);
+      const plan = stillToSave > 0 && tm ? monthsToSave(ctx, stillToSave, tm.surplus) : null;
+      const outcome = stillToSave === 0 ? 'ready' : plan ? 'plan' : 'no_surplus';
+      return { kind: 'forecast', outcome,
+        facts: {
+          price: money(price, ctx),
+          ...(category ? { what_it_is_for: getCat(category).label } : {}),
+          cushion_target: money(c.target, ctx),
+          cushion_after_card_dues: signedMoney(c.free, ctx, 'available', 'short'),
+          already_above_cushion: money(aboveCushion, ctx),
+          still_to_save: money(stillToSave, ctx),
+          ...(tm ? {
+            usually_left_over_each_month: signedMoney(tm.surplus, ctx, 'left over', 'short'),
+            months_considered: basisLabel(ctx),
+          } : { usually_left_over_each_month: 'not enough completed months to measure yet' }),
+          ...(stillToSave === 0
+            ? { months_to_save: 'none: it can be paid from money above your cushion today' }
+            : plan ? { months_to_save: monthsWord(plan.months), ready_by: plan.by }
+            : { months_to_save: tm ? 'not at the current pattern: a usual month leaves nothing over' : 'not enough history to estimate' }),
+          assumes: 'card dues are paid first, the three-month essentials cushion stays untouched, and everything usually left over goes to this',
+        },
+        analysis: [
+          'Set aside card dues and a three-month essentials cushion',
+          ...(tm ? ['Worked out what a usual month leaves over'] : []),
+          'Worked out how long the rest takes',
+        ],
+        vars: {},
+        chips: [
+          { label: 'Where can I cut back?', prompt: 'where can I cut back' },
+          { label: 'Can I afford it now?', prompt: `Can I afford a ${price} purchase?` },
+        ] };
+    }
+
+    // v10.107.0 — a general concept: no household data read; Learn's lessons answer it (runAssistant).
+    case 'learn.concept':
+      return { kind: 'fallback', outcome: 'learn',
+        facts: { topic: learnTopic(e) ?? 'money basics' },
+        analysis: ['A general money idea, not your own figures — pointing to Learn'], vars: {} };
+    // v10.107.0 — not about money at all. No household data read; declined in runAssistant.
+    case 'off_topic':
+      return { kind: 'fallback', outcome: 'off_topic', facts: { ...CAPABILITIES },
+        analysis: ['Not about your money — declined'], vars: {} };
+
     default:
       return fallback();
   }
@@ -1661,6 +2108,13 @@ export const CAPABILITIES = {
     'whether a purchase fits above your safety floor',
     'how long your savings would last without income',
     'where you could cut back',
+    // v10.107.0 — the planner.
+    'a review of last month, or a month you name: income, spending, what was left and what moved',
+    'your bills and subscriptions, with what each costs over the next 12 months',
+    'an emergency-fund plan: the target, where you stand and how long it takes',
+    'where money left over each month should go, in order',
+    'how long it would take to save for something',
+    'general money ideas, such as what an SIP or compound interest is: I point you to the lessons in Learn',
     'recording an expense, income, transfer, investment or split (you confirm the form)',
     'setting up a recurring bill, subscription or salary (you choose the account and save)',
   ],
@@ -1673,6 +2127,9 @@ export const CAPABILITIES = {
     'what changed over a period and why (net worth attribution)',
     'whether allocations cover a future dated commitment such as an annual premium',
     'anything about a future month: seasonal or festival planning',
+    // v10.107.0 — the scope line.
+    'anything that is not about your household money: writing, code, trivia, homework or news',
+    'which fund, stock or insurance policy to buy',
   ],
 } as const;
 
@@ -1750,6 +2207,11 @@ const INTENT_LABEL: Record<string, string> = {
   'meta.assistant': 'answering about me, not your money',
   'capture.recurring': 'setting up a recurring bill',
   'unsupported': "something I can't do from here",
+  'interpret.review': 'reviewing the month',
+  'interpret.subscriptions': 'reviewing your bills and subscriptions',
+  'forecast.emergency_fund': 'planning your emergency fund',
+  'forecast.surplus': 'planning where spare money goes',
+  'forecast.save_for': 'working out how long to save',
 };
 
 export async function runAssistant(
@@ -1793,6 +2255,25 @@ export async function runAssistant(
   } catch (err) {
     if (err instanceof ModelUnavailableError) return unavailableTurn('unreachable');
     throw err;
+  }
+
+  // v10.107.0 — Pip's scope. Answered here, with no phrase call and no household data:
+  //   · not about money → declined in one line, with what Pip does instead;
+  //   · a general money concept → pointed to Learn's lessons (never the model's own knowledge);
+  //   · a classification the model itself was unsure of → which of these did you mean?
+  if (intent.id === 'off_topic') {
+    return {
+      reply: OFF_TOPIC_REPLY, bucket: 'none', intentId: 'off_topic',
+      chips: normaliseChips(QUICK_CHIPS), clarify: false, allowedFigures: [],
+    };
+  }
+  if (intent.id === 'learn.concept') return learnTurn(learnTopic(intent.entities), ctx);
+  if (intent.confidence < LOW_CONFIDENCE && !NO_CONFIDENCE_GATE.has(intent.id)) {
+    return {
+      reply: "I want to answer the right question. Did you mean one of these? Or ask it another way.",
+      bucket: 'none', intentId: 'fallback',
+      chips: normaliseChips(QUICK_CHIPS), clarify: true, allowedFigures: [],
+    };
   }
 
   // Per-bucket gate: a disabled bucket degrades to a clarifying fallback (§2).
@@ -1865,6 +2346,9 @@ export async function runAssistant(
     // whole reply: showing an invented number in a finance app is the one
     // failure this system exists to prevent.
     if (err instanceof InventedFigureError) return unavailableTurn('unverified_figures');
+    // v10.107.0 — a reply that is not a money answer (code, a web address, far too long) is
+    // discarded the same way: the scope rule is enforced on the way out, not trusted to the prompt.
+    if (err instanceof OffScopeReplyError) return unavailableTurn('off_scope');
     throw err;
   }
 
@@ -1886,12 +2370,13 @@ export async function runAssistant(
 
 /** Reason codes are distinct so telemetry can tell "never set up" from
  *  "set up but broken" from "the model misbehaved" — three different fixes. */
-export type UnavailableReason = 'not_configured' | 'unreachable' | 'unverified_figures';
+export type UnavailableReason = 'not_configured' | 'unreachable' | 'unverified_figures' | 'off_scope';
 
 const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
   not_configured: "Pip isn't set up yet.",
   unreachable: "I can't reach the assistant right now. Your data is untouched — please try again shortly.",
   unverified_figures: "I couldn't verify the numbers in that answer, so I haven't shown it. Please ask again.",
+  off_scope: "That answer wasn't about your money, so I haven't shown it. Ask me about your spending, budgets, bills or plans.",
 };
 
 function unavailableTurn(reason: UnavailableReason): AssistantTurn {
