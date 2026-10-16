@@ -9,7 +9,7 @@ import {
   buildSafeSummary, type ChatMessage,
 } from '../lib/aiSummary';
 import type { AssistantChip } from '../lib/askVyactResponses';
-import { logAiUsage, classifyIntent } from '../lib/aiUsage';
+import { logAiUsage, classifyIntent, createTurnTimer } from '../lib/aiUsage';
 import { saveFeedback } from '../lib/aiFeedback';
 import { track } from '../lib/analytics';
 import { isCloudEnabled } from '../lib/supabase';
@@ -24,7 +24,7 @@ import {
 import { can } from '../lib/permissions';
 import { isAskVyactEnabled, FEATURES } from '../config/features';
 import {
-  runAssistant, proactiveInsight, selectAssistantBackend, type AssistantContext,
+  runAssistant, proactiveInsight, selectModelCall, LlmBackend, type AssistantContext,
 } from '../lib/askVyactBackend';
 import PageHead from '../components/ui/PageHead';
 import CaptureCard from '../components/chat/CaptureCard';
@@ -265,6 +265,9 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
     // answered and the outcome. Still privacy-safe: intent + sentiment + length
     // + call metadata only, never the message text.
     const startedAt = Date.now();
+    // v10.106.3 — where the time went (classify and phrase round trips, before / between / after),
+    // logged as ai_usage.stage_ms so a slow total can be split. Numbers only, never text.
+    const timer = createTurnTimer();
     const patchTurn = (patch: Partial<ChatRow>) =>
       setHistory(h => h.map(m => (m.turnId === turnId ? { ...m, ...patch } : m)));
     const addStep = (step: string) =>
@@ -274,7 +277,9 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
       // Ask Vyact assistant (spec §3). When the flag is OFF this whole branch is
       // skipped and the launcher behaves exactly as it did in v7.4.5.
       if (isAskVyactEnabled()) {
-        const assistantBackend = selectAssistantBackend(householdId, abort.signal);
+        // The same backend selectAssistantBackend builds, with each model call timed.
+        const modelCall = selectModelCall(householdId, abort.signal);
+        const assistantBackend = modelCall ? new LlmBackend(timer.wrap(modelCall)) : null;
         const ctx: AssistantContext = {
           summary, transactions: txns, budgets, budgetAllocations, goals, debts, assets, recurring,
           profile, rates, baseCurrency: profile.baseCurrency,
@@ -305,6 +310,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
             : turn.clarify ? 'clarify'
             : turn.intentId === 'fallback' ? 'fallback' : 'ok',
           latencyMs: Date.now() - startedAt,
+          stageMs: timer.stages(),
         });
         if (stopped) return;
         // The analysis is finished: freeze its duration, then stream the answer
@@ -346,7 +352,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
     } catch (e) {
       void logAiUsage({
         householdId, text: question, surface: 'chat',
-        outcome: 'error', latencyMs: Date.now() - startedAt,
+        outcome: 'error', latencyMs: Date.now() - startedAt, stageMs: timer.stages(),
       });
       // Aurora 4.0 PIP1 — never the raw error ("Error: Failed to fetch"): say nothing was saved, offer
       // Try again, and keep the question in the box. The technical detail goes to the console only.

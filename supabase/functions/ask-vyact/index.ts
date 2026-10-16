@@ -7,8 +7,10 @@
 // 🔴 OFF IS THE DEFAULT AND OFF IS INERT.
 //
 // With no enabled row in `ai_model_configs` for the requested seam this function
-// performs, in total: one authenticated SELECT of the config table, and nothing
-// else. No provider is called. No token is spent. No `ai_usage` row is written.
+// performs only READS: it verifies the user, reads the config table (cached in the
+// isolate for up to CONFIG_CACHE_TTL_MS, v10.106.3) and, when the request names a
+// household, looks up the caller's membership alongside those two. No provider is
+// called. No token is spent. No `ai_usage` row is written.
 // No existing table is touched. It answers 200 `{ ok: true, enabled: false }`
 // and the caller falls back to the deterministic on-device path exactly as it
 // does today — binding rule §2.7b, "the off state is provably byte-identical to
@@ -107,10 +109,12 @@ import {
   buildUsageRow,
   chatCompletion,
   checkConfig,
+  createConfigRowsCache,
   isSeam,
   parseDailyCallCap,
   sanitiseMessages,
   selectModelConfig,
+  type ConfigRowsLoad,
   type ModelConfigRow,
   type Seam,
 } from '../_shared/agent/router.ts';
@@ -210,9 +214,41 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const SURFACES = new Set(['chat', 'whatsapp', 'sms_share', 'receipt']);
 const MAX_BODY_BYTES = 64 * 1024;
 
+// v10.106.3: the enabled config rows, kept in this isolate for CONFIG_CACHE_TTL_MS (router.ts).
+const configCache = createConfigRowsCache();
+
+async function loadEnabledConfigRows(admin: SupabaseClient, seam: Seam): Promise<ConfigRowsLoad> {
+  const { data, error } = await admin
+    .from('ai_model_configs')
+    .select('id, seam, provider, model, base_url, key_env_var, params, enabled, priority')
+    .eq('seam', seam)
+    .eq('enabled', true);
+  return error ? { ok: false } : { ok: true, rows: (data ?? []) as ModelConfigRow[] };
+}
+
+type BodyParse =
+  | { ok: true; body: RequestBody }
+  | { ok: false; status: number; error: string; message: string };
+
+function parseBody(rawBody: string): BodyParse {
+  if (rawBody.length > MAX_BODY_BYTES) {
+    return { ok: false, status: 413, error: 'payload_too_large', message: 'Request body is too large.' };
+  }
+  try {
+    const parsed: unknown = rawBody ? JSON.parse(rawBody) : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('shape');
+    return { ok: true, body: parsed as RequestBody };
+  } catch {
+    return { ok: false, status: 400, error: 'invalid_request', message: 'Body must be a JSON object.' };
+  }
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   const origin = req.headers.get('origin');
   const requestId = crypto.randomUUID();
+  // v10.106.3: per-stage timings, logged once per model call (metadata only, never text).
+  const startedAt = performance.now();
+  const sinceStart = () => Math.round(performance.now() - startedAt);
 
   // ── 1. CORS preflight + origin pinning ────────────────────────────────────
   if (req.method === 'OPTIONS') {
@@ -261,35 +297,59 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Cryptographic verification (signature + expiry) happens here, not above.
-  const { data: userData, error: authErr } = await admin.auth.getUser(jwt);
-  const user = userData?.user;
-  if (authErr || !user?.id) {
-    return respond({ ok: false, error: 'unauthorized', message: 'Invalid or expired session.', requestId }, 401, origin);
-  }
-
-  // ── 3. Body ───────────────────────────────────────────────────────────────
-  const rawBody = await req.text().catch(() => '');
-  if (rawBody.length > MAX_BODY_BYTES) {
-    return respond({ ok: false, error: 'payload_too_large', message: 'Request body is too large.', requestId }, 413, origin);
-  }
-  let body: RequestBody;
-  try {
-    const parsed: unknown = rawBody ? JSON.parse(rawBody) : {};
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('shape');
-    body = parsed as RequestBody;
-  } catch {
-    return respond({ ok: false, error: 'invalid_request', message: 'Body must be a JSON object.', requestId }, 400, origin);
-  }
-
+  // ── 3. Body — read first (no network) so the lookups below can start together.
+  // Its errors are still answered only after the caller is verified.
+  const parsedBody = parseBody(await req.text().catch(() => ''));
+  const body: RequestBody = parsedBody.ok ? parsedBody.body : {};
   const seam: Seam = isSeam(body.seam) ? body.seam : 'assistant';
   const isProbe = body.probe === true;
+  const isRelayPoll = typeof body.relayPoll === 'string';
   const surface = typeof body.surface === 'string' && SURFACES.has(body.surface) ? body.surface : 'chat';
+  const requestedHousehold = typeof body.householdId === 'string' && UUID_RE.test(body.householdId)
+    ? body.householdId : null;
+  const sub = String(claims.sub);
+
+  // ── 3a. Verify the user, read the config and check the household TOGETHER (v10.106.3). ──
+  // They were three sequential round trips (0.8–1.3 s per request in prod, 16 Oct 2026).
+  // None depends on another's answer: the membership lookup uses the token's `sub`, and its
+  // result is used only after getUser() has verified that same token for that same user id.
+  // Every gate still runs in the old order below — verified user, then config (the OFF path),
+  // then membership — and all of them before the reservation and the model call.
+  // Each lookup settles to a value, so a rejected promise fails closed instead of throwing.
+  const stageMs: Record<string, number | boolean> = {};
+  const [authResult, configResult, membershipResult] = await Promise.all([
+    admin.auth.getUser(jwt)
+      .then(r => r, () => ({ data: { user: null }, error: new Error('auth lookup failed') }))
+      .finally(() => { stageMs.authMs = sinceStart(); }),
+    parsedBody.ok && !isRelayPoll
+      ? configCache.rows(seam, () => loadEnabledConfigRows(admin, seam))
+        .finally(() => { stageMs.configMs = sinceStart(); })
+      : Promise.resolve(null),
+    parsedBody.ok && !isRelayPoll && !isProbe && requestedHousehold
+      ? Promise.resolve(admin.from('memberships')
+        .select('household_id')
+        .eq('user_id', sub)
+        .eq('household_id', requestedHousehold)
+        .maybeSingle())
+        .then(r => r, () => ({ data: null, error: new Error('membership lookup failed') }))
+        .finally(() => { stageMs.membershipMs = sinceStart(); })
+      : Promise.resolve(null),
+  ]);
+  if (configResult?.cached) stageMs.configCached = true;
+
+  // Cryptographic verification (signature + expiry) happens in getUser(), not above.
+  const user = authResult.data?.user;
+  if (authResult.error || !user?.id || user.id !== sub) {
+    return respond({ ok: false, error: 'unauthorized', message: 'Invalid or expired session.', requestId }, 401, origin);
+  }
+  if (!parsedBody.ok) {
+    return respond({ ok: false, error: parsedBody.error, message: parsedBody.message, requestId }, parsedBody.status, origin);
+  }
 
   // ── 3b. Claude Code relay poll (v10.37, TEST-ONLY). ───────────────────────
   // Returns a queued call's answer once the relay session has written it. Scoped
   // to the caller's own rows, so an id guessed from elsewhere reveals nothing.
-  if (typeof body.relayPoll === 'string') {
+  if (isRelayPoll && typeof body.relayPoll === 'string') {
     if (!UUID_RE.test(body.relayPoll)) {
       return respond({ ok: false, error: 'invalid_request', message: 'relayPoll must be an id.', requestId }, 400, origin);
     }
@@ -348,13 +408,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // describe a capability the server never granted.
 
   // ── 4. Resolve configuration. THE OFF PATH ENDS HERE. ─────────────────────
-  const { data: configRows, error: configErr } = await admin
-    .from('ai_model_configs')
-    .select('id, seam, provider, model, base_url, key_env_var, params, enabled, priority')
-    .eq('seam', seam)
-    .eq('enabled', true);
-
-  if (configErr) {
+  // Read in step 3a (cached per isolate for CONFIG_CACHE_TTL_MS; a failed read is never cached).
+  if (!configResult?.ok) {
     // Cannot tell enabled from disabled ⇒ behave as if disabled. Failing closed
     // is the only safe default for a spend decision.
     return respond({
@@ -367,7 +422,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // users — a relay, or a self-hosted model being piloted on one account before it
   // is promoted to the household. Everyone else resolves the next row by priority,
   // exactly as before. Remove the key to promote the row to all users, no deploy.
-  const eligibleRows = filterRowsForUser((configRows ?? []) as ModelConfigRow[], user.id);
+  const eligibleRows = filterRowsForUser(configResult.rows as ModelConfigRow[], user.id);
   const config = selectModelConfig(eligibleRows, seam);
   const relay = isRelayConfig(config);
 
@@ -412,21 +467,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ── 7. Household attribution — verified, never trusted from the body. ─────
+  // Looked up in step 3a for `sub`, which getUser() has confirmed is this user's id.
   let householdId: string | null = null;
-  if (typeof body.householdId === 'string' && UUID_RE.test(body.householdId)) {
-    const { data: membership } = await admin
-      .from('memberships')
-      .select('household_id')
-      .eq('user_id', user.id)
-      .eq('household_id', body.householdId)
-      .maybeSingle();
-    if (!membership) {
+  if (requestedHousehold) {
+    if (!membershipResult?.data) {
       return respond({
         ok: false, enabled: true, seam, error: 'forbidden',
         message: 'Not a member of that household.', requestId,
       }, 403, origin);
     }
-    householdId = body.householdId;
+    householdId = requestedHousehold;
   }
 
   // ── 8. Spend cap — ATOMIC reservation BEFORE the provider is called. ─────
@@ -439,12 +489,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const dailyCap = parseDailyCallCap(env('ASK_VYACT_DAILY_CALL_CAP'));
   let reservationId: string | null = null;
   if (dailyCap !== null) {
+    const reserveStart = sinceStart();
     const { data: resId, error: resErr } = await admin.rpc('reserve_ai_usage', {
       p_user_id: user.id,
       p_household_id: householdId,
       p_surface: surface,
       p_cap: dailyCap,
     });
+    stageMs.reserveMs = sinceStart() - reserveStart;
     if (resErr) {
       const over = resErr.code === '42901' || /quota_exceeded/i.test(resErr.message ?? '');
       return respond({
@@ -492,10 +544,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── 9. The call. Bounded, and it cannot throw. ────────────────────────────
   const timeoutMs = Number.parseInt(env('ASK_VYACT_TIMEOUT_MS', '20000'), 10);
+  stageMs.preModelMs = sinceStart();
   const result = await chatCompletion(clean.messages, {
     config,
     timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : undefined,
     signal: req.signal,
+  });
+  // v10.106.3: one line per model call, so a slow answer can be split into the gateway's own work
+  // (auth/config/membership finish times, the reservation, all of it before the model) and the model.
+  // Metadata only: never the question, the reply or the facts.
+  console.log('[ask-vyact] timing', {
+    requestId,
+    op: body.op === 'classify' || body.op === 'phrase' ? body.op : 'other',
+    ok: result.ok,
+    ...stageMs,
+    modelMs: result.latencyMs,
   });
 
   // ── 10. Finalise the reservation with the real outcome (§9 spend gate).

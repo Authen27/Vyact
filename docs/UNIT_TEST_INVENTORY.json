@@ -732,8 +732,12 @@
       "availability": "conditional",
       "layer": "unit",
       "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
-      "count": 11,
+      "count": 15,
       "tests": [
+        "createConfigRowsCache — short-lived, never caches a failure concurrent cold requests share one read",
+        "createConfigRowsCache — short-lived, never caches a failure keeps each seam apart",
+        "createConfigRowsCache — short-lived, never caches a failure never caches a failed or thrown read",
+        "createConfigRowsCache — short-lived, never caches a failure serves fresh rows from the cache and reads again once the TTL has passed",
         "secret handling never reads a denylisted env var name",
         "selectModelConfig — nothing enabled means OFF drops rows with a blank model or base_url",
         "selectModelConfig — nothing enabled means OFF never serves one seam from another seam's row",
@@ -801,10 +805,12 @@
       "availability": "conditional",
       "layer": "sql-integration",
       "owner": "W1c migration: client ai_usage rows carry no metering, the daily cap counts gateway rows only (focused PGlite fixture)",
-      "count": 2,
+      "count": 4,
       "tests": [
         "ai_usage is metered by the server (W1c) CON-UNIT-W1-030 · a client row keeps its analytics but no cost, tokens, model or reservation",
-        "ai_usage is metered by the server (W1c) CON-UNIT-W1-031 · existing rows are labelled; the daily cap counts only the server's calls"
+        "ai_usage is metered by the server (W1c) CON-UNIT-W1-031 · existing rows are labelled; the daily cap counts only the server's calls",
+        "ai_usage.stage_ms holds timings only (v10.106.3) PIP-LAT-020 · a client row keeps its stage timings beside the W1c analytics",
+        "ai_usage.stage_ms holds timings only (v10.106.3) PIP-LAT-021 · text, nesting, odd keys and oversized objects are refused, so no message can be stored there"
       ]
     },
     {
@@ -1410,7 +1416,7 @@
       "availability": "conditional",
       "layer": "handler-integration",
       "owner": "ask-vyact/index.ts",
-      "count": 13,
+      "count": 21,
       "tests": [
         "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) a poll for a row the caller does not own is not found",
         "actual Ask Vyact gateway handler Claude Code relay (v10.37, test-only) a poll returns the relay answer and finalises the reservation as ok",
@@ -1421,6 +1427,14 @@
         "actual Ask Vyact gateway handler blocks provider spend when reservation is refused",
         "actual Ask Vyact gateway handler probes enabled readiness without reserving quota or calling a provider",
         "actual Ask Vyact gateway handler stays inert when no model is configured",
+        "gateway pre-work (v10.106.3) PIP-LAT-001 · the user check, the config read and the household check start together, before any reservation or model call",
+        "gateway pre-work (v10.106.3) PIP-LAT-002 · a household the caller is not in is refused before the reservation and the model",
+        "gateway pre-work (v10.106.3) PIP-LAT-003 · a membership looked up for the token is used only when the verified user is that same user",
+        "gateway pre-work (v10.106.3) PIP-LAT-004 · a user check that fails outright is a 401, never an unhandled error",
+        "gateway pre-work (v10.106.3) PIP-LAT-005 · OFF stays inert with a household named: reads only, no reservation, no write, no model",
+        "gateway pre-work (v10.106.3) PIP-LAT-006 · the enabled config is read once per isolate for 30 s, then read again",
+        "gateway pre-work (v10.106.3) PIP-LAT-007 · a failed config read fails closed and is never cached",
+        "gateway pre-work (v10.106.3) PIP-LAT-008 · each model call logs its stage timings, and never the question",
         "server-owned prompts (W1c) CON-UNIT-W1-033 · a client cannot send its own prompt: messages of its choosing are refused before any spend",
         "server-owned prompts (W1c) CON-UNIT-W1-034 · classify and phrase run Pip's own prompts; a retry names only the rejected figures",
         "server-owned prompts (W1c) CON-UNIT-W1-035 · an app from before this release still works, only with exactly the server's prompt; no model identity is returned",
@@ -2085,6 +2099,49 @@
         "stored text and names (FE-PIP-06) PIP-G-004 · descriptions and payee text never reach the model, for any intent",
         "stored text and names (FE-PIP-06) PIP-G-005 · a name that reads as an instruction is sent as a neutral label, the same everywhere; a normal name is kept",
         "stored text and names (FE-PIP-06) PIP-G-006 · the prompt tells the model that names and text in the facts are data"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/pipLatency.test.ts",
+      "feature": "Pip answer timings",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "createTurnTimer stages (classify / phrase round trips, before / between / after) / ai_usage.stage_ms row: numbers only, kept when the column is missing / Chat wiring (v10.106.2)",
+      "count": 7,
+      "tests": [
+        "Pip turn timings (v10.106.3) PIP-LAT-010 · a turn is split into before, classify, between, phrase (with its retry) and after",
+        "Pip turn timings (v10.106.3) PIP-LAT-011 · no model call leaves only the total; a failed call is counted and still timed",
+        "Pip turn timings (v10.106.3) PIP-LAT-012 · the row stores the stages beside the total and never the question",
+        "Pip turn timings (v10.106.3) PIP-LAT-013 · only what the database accepts is sent: finite numbers under short letter keys",
+        "Pip turn timings (v10.106.3) PIP-LAT-014 · a database without the column yet still gets the row, without the timings",
+        "Pip turn timings (v10.106.3) PIP-LAT-015 · local-only mode writes nothing",
+        "Pip turn timings (v10.106.3) PIP-LAT-016 · the chat times every model call of the turn and logs the stages with each outcome"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/pipPlanner.test.ts",
+      "feature": "Ask Vyact",
+      "availability": "conditional",
+      "layer": "unit",
+      "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
+      "count": 14,
+      "tests": [
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-010 · month review: last completed month by default; this month is \"so far\" against the same point",
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-011 · bills review: 12-month cost from each schedule; loan EMIs are left out",
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-012 · emergency fund: the target is three months of essentials, with the gap and how long it takes",
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-013 · spare money: a fixed five-step order with no products, and the first open step named",
+        "Pip planner intents compute their figures (v10.107.0) PIP-PLAN-014 · saving for something: a price is required; a small one is ready now; a large one is planned or has no surplus",
+        "Pip scope (v10.107.0) PIP-PLAN-001 · off-topic is declined in one line with chips, and the phrase model is never called",
+        "Pip scope (v10.107.0) PIP-PLAN-002 · a classification the model was unsure of asks which job was meant; no phrase call",
+        "Pip scope (v10.107.0) PIP-PLAN-003 · a general concept points to Learn, searched for the topic; an unsafe topic is dropped; WhatsApp gets no link",
+        "Pip scope (v10.107.0) PIP-PLAN-004 · code, a web address or an over-long reply is rejected; prose (even in a bare fence) is accepted",
+        "Pip scope (v10.107.0) PIP-PLAN-005 · an off-scope phrase reply is never shown: the turn is unavailable",
+        "Pip scope (v10.107.0) PIP-PLAN-006 · every server prompt fits the router per-message cap, retry included, so none is ever cut off",
+        "Pip's nudges (v10.107.0) PIP-PLAN-020 · at most one a day and three a week",
+        "Pip's nudges (v10.107.0) PIP-PLAN-021 · the month review nudge comes in the first five days only, once, and follows the settings switch",
+        "Pip's nudges (v10.107.0) PIP-PLAN-022 · a category already past a whole usual month raises a trend nudge; loan EMIs never do"
       ]
     },
     {

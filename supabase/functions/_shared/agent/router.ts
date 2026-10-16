@@ -304,6 +304,59 @@ export function selectModelConfig(
   return usable[0];
 }
 
+// ── Enabled-config cache (v10.106.3) ─────────────────────────────────────────
+//
+// Each Pip question makes two gateway requests (classify, then phrase), and each
+// one re-read `ai_model_configs`. Prod logs (16 Oct 2026) showed that SELECT
+// costing up to 647 ms. The rows change only when an operator flips a switch, so
+// the gateway keeps them in the isolate for a short time.
+//
+// - The TTL is short, so a DB switch (a rollback, the OFF state) is in effect on
+//   every isolate within CONFIG_CACHE_TTL_MS.
+// - A FAILED read is never cached: this request fails closed exactly as before,
+//   and the next one reads again.
+// - Concurrent cold requests share one read.
+export const CONFIG_CACHE_TTL_MS = 30_000;
+
+export type ConfigRowsLoad = { ok: true; rows: readonly ModelConfigRow[] } | { ok: false };
+
+export interface ConfigRowsCache {
+  /** The enabled rows for `seam`: cached when fresh, else from `load` (kept only when it succeeded). */
+  rows(seam: Seam, load: () => Promise<ConfigRowsLoad>): Promise<ConfigRowsLoad & { cached?: boolean }>;
+}
+
+export function createConfigRowsCache(
+  ttlMs = CONFIG_CACHE_TTL_MS,
+  now: () => number = () => Date.now(),
+): ConfigRowsCache {
+  const fresh = new Map<Seam, { at: number; rows: readonly ModelConfigRow[] }>();
+  const inflight = new Map<Seam, Promise<ConfigRowsLoad>>();
+  return {
+    rows(seam, load) {
+      const hit = fresh.get(seam);
+      if (hit && now() - hit.at < ttlMs) return Promise.resolve({ ok: true, rows: hit.rows, cached: true });
+      let pending = inflight.get(seam);
+      if (!pending) {
+        pending = (async (): Promise<ConfigRowsLoad> => {
+          try {
+            const result = await load();
+            if (result.ok) fresh.set(seam, { at: now(), rows: result.rows });
+            else fresh.delete(seam);
+            return result;
+          } catch {
+            fresh.delete(seam);
+            return { ok: false };
+          } finally {
+            inflight.delete(seam);
+          }
+        })();
+        inflight.set(seam, pending);
+      }
+      return pending;
+    },
+  };
+}
+
 // ── Validation helpers ───────────────────────────────────────────────────────
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
