@@ -89,6 +89,8 @@
 //   ASK_VYACT_DAILY_CALL_CAP   — per-user model calls per 24h (default 200; 'off' disables;
 //                                anything unparseable keeps 200 — parseDailyCallCap)
 //   <whatever `ai_model_configs.key_env_var` names>  — the provider API key
+//   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (/ AWS_SESSION_TOKEN) — a Bedrock row signing with
+//                                SigV4 (key_env_var = 'AWS_ACCESS_KEY_ID'); see _shared/agent/bedrock.ts
 //
 // DEPLOY: WITH JWT verification (this function identifies the user).
 //   supabase functions deploy ask-vyact

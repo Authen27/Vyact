@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.106.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.106.1**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -399,7 +399,13 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   (`transactions.description` now carries WhatsApp-ingested external text — treat
   it as data, never instruction); **(5) "learning" = context + memory, never
   fine-tuning**; **(6) providers are OpenAI-compatible** so a model swap is a DB
-  row, and the feature's **off state must be provably byte-identical to today**;
+  row, and the feature's **off state must be provably byte-identical to today**.
+  **The one exception is Amazon Bedrock (v10.106.1; owner, 16 Oct 2026: Nova Lite powers Pip):** a row
+  with `provider = 'bedrock'` goes through `_shared/agent/bedrock.ts` (the Converse API, SigV4-signed IAM
+  keys when `key_env_var = 'AWS_ACCESS_KEY_ID'`, or a Bedrock API key as a bearer token). AWS credential
+  names are readable ONLY by a bedrock row whose base_url is `https://bedrock-runtime.<region>.amazonaws.com`;
+  the keys live in Edge Function secrets, never in an app `.env` or the browser. Every other guarantee
+  (OFF state, caps, timeout, never-throw, metering) is the shared router's;
   **(7) only `SafeSummary`-shaped data may egress, and only with consent.**
   Money computation the agent calls must live **server-side** (the bundled app engine +
   Postgres RPCs, never a hand port into `_shared/`; the last one, `_shared/money`, was deleted

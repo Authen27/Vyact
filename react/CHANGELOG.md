@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.106.0`** (consumer)
+> **Current production version: `v10.106.1`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -22,6 +22,24 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v4.1 | Two distinct meanings | (a) Internal adapter refactor on the vanilla shell; (b) the cloud / auth / multi-household ship that bound the React app to Supabase. Both kept under v4.1 because the second built directly on the first and nothing was deployed between them. |
 | v6.1 | **Never shipped** | Reserved for the 7-page port-out from v5 vanilla → React. The port-out actually landed split across v6.2 (the Friction-free signup release) and v6.3 (Content + module port-out completion). |
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
+
+---
+
+## v10.106.1 — Pip can run on Amazon Nova Lite (Bedrock) *(2026-10-16)*
+
+Owner decision: Amazon Nova Lite on Bedrock powers Pip. Server-side only; the app is unchanged.
+
+- **The router gains a Bedrock path** (`supabase/functions/_shared/agent/bedrock.ts`): a model row with
+  `provider = 'bedrock'` is called through Bedrock's Converse API instead of the OpenAI dialect, so Pip in
+  the app and on WhatsApp can both use it. Authentication is AWS Signature Version 4 with IAM keys
+  (`AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`) or a Bedrock API key
+  (`AWS_BEARER_TOKEN_BEDROCK`). The signer is checked against AWS's published SigV4 example.
+- **Guardrails:** AWS credential names are readable only by a bedrock row pointing at
+  `https://bedrock-runtime.<region>.amazonaws.com`; an OpenAI-compatible row can never read them, and a bedrock
+  row can never point them elsewhere. The keys stay in Edge Function secrets, never in the browser.
+- **Migration `20261026120000_bedrock_nova_lite.sql`:** one Nova Lite row (Sydney, ap-southeast-2,
+  `amazon.nova-lite-v1:0`, priority 120), **disabled**. It goes live with one UPDATE after the secrets are set.
+- Tests: `agentBedrock.test.ts` (signing, config guardrails, the OFF state, the Converse call and its errors).
 
 ---
 
