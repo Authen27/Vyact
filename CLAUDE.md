@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.107.1**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.108.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -600,6 +600,9 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   PRE-RENDERED at build time into `dist/landing.html` (`scripts/prerender-landing.mjs`) and served by
   `react/middleware.js` (a vercel.json rewrite cannot beat the static index.html). `LandingView` must stay
   pure (no store, no browser API) or the pre-render breaks, and `Landing` stays an EAGER import.
+  **Nothing third-party loads on `/` before a tap (v10.108.0):** the promo video is a CSS poster linking
+  to YouTube; the player mounts from `Landing` state (the app redraws `#root` on boot, so a pre-boot DOM
+  swap is lost — landing.html's boot script only marks `window.__vyPromo`). PUB-029 pins it.
   Positioning copy lives in ONE place, `src/content/landingCopy.ts` (the visible FAQ and its FAQPage
   JSON-LD come from it; `api/llms.js` DESCRIPTION must equal STANDARD_DESCRIPTION — PUB-013).
   **Lead with what Vyact does, for any household anywhere** — not with what it is not (no-bank / no-SMS)

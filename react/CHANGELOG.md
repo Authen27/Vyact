@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.107.1`** (consumer)
+> **Current production version: `v10.108.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,32 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.108.0 — The 15-second promo on the landing page *(2026-10-18)*
+
+The Play Store promo (YouTube `NTGKS3WBjUg`, @askvyact) sits right under the hero: "See Vyact in 15 seconds."
+
+- **Nothing from YouTube loads with the page.** The poster is a brand card drawn in CSS (Pip, "Family budget
+  app", play button, 0:15) in a 16:9 box, so there is no image to become the largest paint and nothing shifts.
+  YouTube's only frame for this upload is letterboxed and still shows the retired tagline, so it is used only
+  as the `VideoObject` thumbnail. The poster is a real link to the video, so it works with no script at all.
+- **One player, however early the tap.** A tap after the app is up mounts the `youtube-nocookie` player
+  from `Landing` state. A tap before (landing.html boots the app on first interaction) stays on the page:
+  the boot script counts the play, sets `window.__vyPromo`, pulses the button, and `Landing` mounts the
+  player once the app has redrawn `#root`. If the app has not come up after 5 s the script swaps the player in itself.
+- **Measured:** `landing_video_play` (`docs/measurement/events.yaml`, once per page view). The registry's
+  `landing_cta_click` placements now list `demo` and the three Shorts, which v10.57.0 added.
+- **`VideoObject`** in the landing JSON-LD (name, ISO duration `PT15S`, upload date, contentUrl, embedUrl,
+  publisher). PUB-029 pins the poster (no `<img>`, no iframe before the tap), the player and the schema.
+
+Also in this release, ahead of the Android app's production launch:
+- `FEATURES.playStore.packageId` is `com.vyact.app` (it still named the `com.vyact.consumer` prototype, so
+  every Play link would have opened the wrong listing). The Play features stay OFF (`live: false`) while
+  the app is in closed testing.
+- Household invite links come from `APP_URL`, not `window.location.origin` (in the Android app that origin
+  is `https://localhost`, so a shared invite was dead).
+- `APP_URL` drops a trailing slash: `.env.production` has `https://vyact.app/`, which made every auth
+  callback `https://vyact.app//auth/…`.
 
 ## v10.107.1 — Pip's gateway: one database round trip before the model *(2026-10-17)*
 

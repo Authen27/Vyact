@@ -245,7 +245,12 @@ privacy:
     description: A call to action on the landing page at "/" was clicked (sign-up links also carry ?ref=landing_<placement>).
     added_in: v10.50.0
     params:
-      placement: { type: enum, values: [nav, hero, footer, footer_link] }
+      placement: { type: enum, values: [nav, hero, demo, short_003, short_021, short_027, footer, footer_link] }
+      page: { type: string }
+  - name: landing_video_play
+    description: The 15-second promo under the landing hero was started (poster tapped). Before the app is up, landing.html's boot script sends it; afterwards Landing.tsx does — once per page view either way.
+    added_in: v10.108.0
+    params:
       page: { type: string }
   - name: learn_video_play
     description: A lesson's video was started on its public page.

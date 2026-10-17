@@ -2201,7 +2201,7 @@
       "availability": "available",
       "layer": "unit",
       "owner": "format / learnJsonLd",
-      "count": 29,
+      "count": 30,
       "tests": [
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-001 · reads the committed .env.production and sends the key as apikey ONLY (a publishable key as Bearer is a 401)",
         "#0 — the public key, without any Vercel env CON-UNIT-PUB-002 · a failed read is a 503 page (retry later), never a bare 500",
@@ -2231,7 +2231,8 @@
         "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-023 · /v/<n> redirects to lesson ev-<n> with YouTube utm tags, and to the library when the number is unknown",
         "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-024 · Start here: three 5-lesson paths of real lessons; a path lesson names its place and links the next; the index lists the paths with progress",
         "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-025 · the landing \"Learn money in 60 seconds\" strip: three Shorts, lazy thumbnails, each with its lesson",
-        "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-026 · the guest demo: local-only build, never production data, noindex on its own host, and linked from the landing and lessons"
+        "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-026 · the guest demo: local-only build, never production data, noindex on its own host, and linked from the landing and lessons",
+        "video short links, Start here paths, the Shorts strip and the guest demo CON-UNIT-PUB-029 · the landing promo: a CSS poster in a 16:9 box linking to the video, nothing from YouTube until tapped, then one no-cookie player; VideoObject matches"
       ]
     },
     {

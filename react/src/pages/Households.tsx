@@ -23,7 +23,7 @@ import {
   changeMemberRole, removeMembership, leaveHousehold, listActivity,
 } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { sb } from '../lib/supabase';
+import { sb, APP_URL } from '../lib/supabase';
 import { can, roleLabel, type Action } from '../lib/permissions';
 import type { ProfileTypeKey, AppRole } from '../types';
 import ActivityRow from '../components/households/ActivityRow';
@@ -526,7 +526,7 @@ function InvitesList({ invites, canRevoke, onRevoked }: {
   return (
     <div className="divide-y divide-line">
       {invites.map(inv => {
-        const url = `${window.location.origin}/invite/${encodeURIComponent(inv.token)}`;
+        const url = `${APP_URL}/invite/${encodeURIComponent(inv.token)}`;
         const expiry = new Date(inv.expires_at);
         const expired = expiry < new Date();
         const isLinkOnly = inv.invited_email === INVITE_LABEL_SENTINEL;
@@ -716,7 +716,7 @@ function InviteModal({ open, householdId, householdName, onClose, onSent }: {
           try {
             const inv = await createInviteLink(householdId, role, householdRole, label.trim() || undefined, check.email);
             track('member_invited', { invite_role: role });
-            const url = `${window.location.origin}/invite/${encodeURIComponent((inv as { token: string }).token)}`;
+            const url = `${APP_URL}/invite/${encodeURIComponent((inv as { token: string }).token)}`;
             setLink(url);
             void copyLink(url);
             onSent();

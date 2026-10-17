@@ -187,12 +187,12 @@ const INDEX_FIXTURE = `<!DOCTYPE html><html lang="en"><head>
 <link rel="stylesheet" crossorigin href="/assets/index-AbC123.css">
 </head><body><div id="root"></div><script type="module" src="/assets/index-XyZ.js"></script></body></html>`;
 
-async function renderedLanding(cloudMode = true) {
+async function renderedLanding(cloudMode = true, promoPlaying = false) {
   const React = await import('react');
   const { renderToString } = await import('react-dom/server');
   const { MemoryRouter } = await import('react-router-dom');
   const { default: LandingView } = await import('../../pages/LandingView');
-  return renderToString(React.createElement(MemoryRouter, null, React.createElement(LandingView, { cloudMode, signedIn: false })));
+  return renderToString(React.createElement(MemoryRouter, null, React.createElement(LandingView, { cloudMode, signedIn: false, promoPlaying })));
 }
 
 describe('the landing page (#9, #12, #19)', () => {
@@ -206,6 +206,9 @@ describe('the landing page (#9, #12, #19)', () => {
     expect(markup).toContain('Your household deserves to understand its money.');
     // The v10.49 content sits BELOW the brand sections, in the same theme.
     const at = (s: string) => markup.indexOf(s);
+    // v10.108.0 — the promo sits between the hero and "Sound familiar?".
+    expect(at('Your household deserves to understand its money.')).toBeLessThan(at(copy.PROMO.heading));
+    expect(at(copy.PROMO.heading)).toBeLessThan(at('Sound familiar?'));
     expect(at('Sound familiar?')).toBeLessThan(at('Made for the way households actually run.'));
     for (const s of ['Everything in one place.', 'Learn money in 60 seconds.', 'Questions, answered.']) expect(at(s)).toBeGreaterThan(at('Your money, explained back to you.'));
     for (const l of copy.LESSONS) expect(markup).toContain(`href="/learn/${l.slug}"`);
@@ -465,6 +468,12 @@ describe('first paint is not blocked by third parties', () => {
     expect(html).toMatch(/\/\^sb-\.\+-auth-token\$\//);
     expect(html).toContain("'landing_cta_click'");
     expect(html).toContain('if(window.__vyLandingLive)return;');
+    // v10.108.0 — a promo tap before boot stays on the page: counted, marked for Landing.tsx, and the
+    // player swapped in by the script only if the app has not come up after 5 s.
+    expect(html).toContain("t.closest('[data-promo]')");
+    expect(html).toContain("window.__vyPromo='play'");
+    expect(html).toContain("'landing_video_play'");
+    expect(html).toContain(`f.src=${JSON.stringify(copy.promoEmbedUrl(copy.PROMO.id))}`);
     // Every CTA the app tracks is marked for the boot script, with the same placement.
     // v10.57.0 — plus the guest demo link and the three Shorts.
     expect([...markup.matchAll(/data-cta="([a-z0-9_]+)"/g)].map(m => m[1])).toEqual(['nav', 'hero', 'demo', 'short_003', 'short_021', 'short_027', 'footer', 'footer_link']);
@@ -601,6 +610,36 @@ describe('video short links, Start here paths, the Shorts strip and the guest de
     expect((strip.match(/loading="lazy"/g) || []).length).toBe(3);
     expect(strip).not.toContain('<iframe');               // no YouTube player on the landing page
     expect(strip).toContain('@askvyact');
+  });
+
+  it('CON-UNIT-PUB-029 · the landing promo: a CSS poster in a 16:9 box linking to the video, nothing from YouTube until tapped, then one no-cookie player; VideoObject matches', async () => {
+    const copy = await import('../../content/landingCopy');
+    const { landingHtml } = await import('../../../scripts/landingHtml.mjs');
+    const markup = await renderedLanding();
+    const promo = /data-testid="landing-promo"[\s\S]*?<\/section>/.exec(markup)?.[0] ?? '';
+    expect(promo).toContain(copy.PROMO.heading);
+    expect(promo).toContain('aspect-ratio:16 / 9');                       // the box has its size before anything loads
+    expect(promo).toContain(`href="https://www.youtube.com/watch?v=${copy.PROMO.id}"`);  // works with no script at all
+    expect(promo).toContain(`data-promo="${copy.PROMO.id}"`);
+    expect(promo).toContain('Family budget app');                          // the brand card, never the retired tagline
+    expect(promo).not.toMatch(/family finance os/i);
+    expect(promo).not.toContain('<img');                                   // the poster is CSS: no image, no LCP candidate
+    expect(promo).not.toContain('ytimg.com');
+    expect(promo).not.toContain('<iframe');                                // nothing from YouTube loads with the page
+    expect(promo).not.toContain('data-cta');                               // a play is not a sign-up CTA
+
+    const playing = /data-testid="landing-promo"[\s\S]*?<\/section>/.exec(await renderedLanding(true, true))?.[0] ?? '';
+    expect((playing.match(/<iframe/g) || []).length).toBe(1);
+    expect(playing).toContain('src="https://www.youtube-nocookie.com/embed/NTGKS3WBjUg?autoplay=1&amp;rel=0&amp;playsinline=1"');
+    expect(playing).not.toContain('data-promo');
+
+    const video = jsonLdOf(landingHtml(INDEX_FIXTURE, markup, copy)).find(o => o['@type'] === 'VideoObject');
+    expect(video).toMatchObject({
+      name: copy.PROMO.name, duration: 'PT15S', uploadDate: copy.PROMO.uploadDate,
+      thumbnailUrl: [`https://i.ytimg.com/vi/${copy.PROMO.id}/sddefault.jpg`],
+      contentUrl: `https://www.youtube.com/watch?v=${copy.PROMO.id}`, embedUrl: `https://www.youtube.com/embed/${copy.PROMO.id}`,
+      publisher: { '@id': 'https://vyact.app/#organization' },
+    });
   });
 
   it('CON-UNIT-PUB-026 · the guest demo: local-only build, never production data, noindex on its own host, and linked from the landing and lessons', async () => {
