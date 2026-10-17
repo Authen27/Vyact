@@ -226,6 +226,21 @@ async function loadEnabledConfigRows(admin: SupabaseClient, seam: Seam): Promise
   return error ? { ok: false } : { ok: true, rows: (data ?? []) as ModelConfigRow[] };
 }
 
+/** prepare_ai_call()'s answer, or null when it failed (the gateway then takes the sequential path). */
+interface Prepared { member: boolean | null; reservationId: string | null; quota: 'ok' | 'exceeded' | 'skipped' }
+
+function readPrepared(r: { data: unknown; error: unknown }): Prepared | null {
+  if (r.error || !r.data || typeof r.data !== 'object') return null;
+  const d = r.data as Record<string, unknown>;
+  const quota = d.quota === 'ok' || d.quota === 'exceeded' || d.quota === 'skipped' ? d.quota : null;
+  if (!quota) return null;
+  return {
+    member: typeof d.member === 'boolean' ? d.member : null,
+    reservationId: typeof d.reservation_id === 'string' && UUID_RE.test(d.reservation_id) ? d.reservation_id : null,
+    quota,
+  };
+}
+
 type BodyParse =
   | { ok: true; body: RequestBody }
   | { ok: false; status: number; error: string; message: string };
@@ -309,15 +324,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ? body.householdId : null;
   const sub = String(claims.sub);
 
-  // ── 3a. Verify the user, read the config and check the household TOGETHER (v10.106.3). ──
-  // They were three sequential round trips (0.8–1.3 s per request in prod, 16 Oct 2026).
-  // None depends on another's answer: the membership lookup uses the token's `sub`, and its
-  // result is used only after getUser() has verified that same token for that same user id.
-  // Every gate still runs in the old order below — verified user, then config (the OFF path),
-  // then membership — and all of them before the reservation and the model call.
-  // Each lookup settles to a value, so a rejected promise fails closed instead of throwing.
+  // v10.107.1: the conversation is composed before any lookup (pure, no network), so the quota is
+  // reserved below only for a request that can actually be sent. Its errors are still answered in
+  // the old order (step 6).
+  const composedEarly = parsedBody.ok && !isRelayPoll && !isProbe ? composeAssistantMessages(body) : null;
+  const cleanEarly = composedEarly?.ok ? sanitiseMessages(composedEarly.messages) : null;
+  const dailyCap = parseDailyCallCap(env('ASK_VYACT_DAILY_CALL_CAP'));
+
+  // v10.107.1: prepare_ai_call() runs as the CALLER (their JWT, verified by PostgREST; auth.uid() in
+  // SQL), so it can only ever check this user's membership and reserve against this user's cap.
+  // Without the anon key the gateway falls back to the sequential path below.
+  const anonKey = env('SUPABASE_ANON_KEY');
+  const asCaller: SupabaseClient | null = anonKey
+    ? createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    : null;
+  const wantsPrepare = parsedBody.ok && !isRelayPoll && !isProbe && asCaller !== null;
+
+  // ── 3a. Verify the user, read the config and prepare the call TOGETHER (v10.106.3, v10.107.1). ──
+  // v10.106.3 ran getUser ‖ config ‖ membership, then reserve_ai_usage() as a fourth, sequential round
+  // trip (140–430 ms in prod). v10.107.1 folds membership AND the reservation into prepare_ai_call(),
+  // so nothing waits after these three. Every gate still answers in the old order below — verified
+  // user, then config (the OFF path), then membership, then the quota — and a reservation the request
+  // turns out not to need is deleted (releaseReservation). Each lookup settles to a value, so a
+  // rejected promise fails closed (or falls back to the sequential path) instead of throwing.
   const stageMs: Record<string, number | boolean> = {};
-  const [authResult, configResult, membershipResult] = await Promise.all([
+  const [authResult, configResult, prepared, membershipResult] = await Promise.all([
     admin.auth.getUser(jwt)
       .then(r => r, () => ({ data: { user: null }, error: new Error('auth lookup failed') }))
       .finally(() => { stageMs.authMs = sinceStart(); }),
@@ -325,7 +359,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ? configCache.rows(seam, () => loadEnabledConfigRows(admin, seam))
         .finally(() => { stageMs.configMs = sinceStart(); })
       : Promise.resolve(null),
-    parsedBody.ok && !isRelayPoll && !isProbe && requestedHousehold
+    wantsPrepare
+      ? Promise.resolve(asCaller!.rpc('prepare_ai_call', {
+        p_household_id: requestedHousehold,
+        p_seam: seam,
+        p_surface: surface,
+        p_cap: dailyCap,
+        p_reserve: dailyCap !== null && cleanEarly?.ok === true,
+      }))
+        .then(r => readPrepared(r), () => null)
+        .finally(() => { stageMs.prepareMs = sinceStart(); })
+      : Promise.resolve(null),
+    // The v10.106.3 path, when prepare_ai_call() is not used (no anon key): the membership read runs
+    // here too, for the token's `sub`; its answer is used only after getUser() verifies that id.
+    !wantsPrepare && parsedBody.ok && !isRelayPoll && !isProbe && requestedHousehold
       ? Promise.resolve(admin.from('memberships')
         .select('household_id')
         .eq('user_id', sub)
@@ -337,9 +384,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   ]);
   if (configResult?.cached) stageMs.configCached = true;
 
+  // A reservation made above that this request will not use is deleted, so a refused request
+  // spends nothing — the OFF state included. Never awaited on the answer's path.
+  const releaseReservation = () => {
+    const id = prepared?.reservationId;
+    if (!id) return;
+    const done = Promise.resolve(admin.from('ai_usage').delete().eq('id', id).eq('outcome', 'reserved'))
+      .then(() => undefined, () => undefined);
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(done);
+  };
+
   // Cryptographic verification (signature + expiry) happens in getUser(), not above.
   const user = authResult.data?.user;
   if (authResult.error || !user?.id || user.id !== sub) {
+    releaseReservation();
     return respond({ ok: false, error: 'unauthorized', message: 'Invalid or expired session.', requestId }, 401, origin);
   }
   if (!parsedBody.ok) {
@@ -412,6 +470,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!configResult?.ok) {
     // Cannot tell enabled from disabled ⇒ behave as if disabled. Failing closed
     // is the only safe default for a spend decision.
+    releaseReservation();
     return respond({
       ok: true, enabled: false, seam, reason: 'config_unavailable',
       message: 'Model configuration could not be read; the gateway stayed off.', requestId,
@@ -429,6 +488,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!config) {
     // 🔴 THE INERT DEFAULT. One read happened. Nothing was called, nothing was
     // written, nothing was spent. The caller falls back to the rules path.
+    // (prepare_ai_call() applies the same row rule, so it reserved nothing; if it ever did, it is undone.)
+    releaseReservation();
     return respond({
       ok: true, enabled: false, seam, reason: 'no_enabled_model_config',
       message: 'No model is enabled for this seam. Falling back to the deterministic path.',
@@ -452,13 +513,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ── 6. Compose the conversation from the server's own prompts (W1c). ───────
-  const composed = composeAssistantMessages(body);
+  const composed = composedEarly ?? composeAssistantMessages(body);
   if (!composed.ok) {
     return respond({
       ok: false, enabled: true, seam, error: 'invalid_request', message: composed.reason, requestId,
     }, 400, origin);
   }
-  const clean = sanitiseMessages(composed.messages);
+  const clean = cleanEarly ?? sanitiseMessages(composed.messages);
   if (!clean.ok) {
     return respond({
       ok: false, enabled: true, seam, error: 'invalid_request',
@@ -467,10 +528,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ── 7. Household attribution — verified, never trusted from the body. ─────
-  // Looked up in step 3a for `sub`, which getUser() has confirmed is this user's id.
+  // Answered in step 3a: by prepare_ai_call() for auth.uid(), or by the membership read for `sub`
+  // (which getUser() has confirmed is this user's id). If prepare_ai_call() failed, read it now.
   let householdId: string | null = null;
   if (requestedHousehold) {
-    if (!membershipResult?.data) {
+    const isMember = prepared
+      ? prepared.member === true
+      : !wantsPrepare
+      ? !!membershipResult?.data
+      : await Promise.resolve(admin.from('memberships')
+        .select('household_id')
+        .eq('user_id', user.id)
+        .eq('household_id', requestedHousehold)
+        .maybeSingle())
+        .then(r => !r.error && !!r.data, () => false);
+    if (!isMember) {
       return respond({
         ok: false, enabled: true, seam, error: 'forbidden',
         message: 'Not a member of that household.', requestId,
@@ -486,9 +558,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 'reserved' row in one locked step — concurrent requests serialise, and a
   // count failure aborts here (fail-CLOSED; the provider is never called).
   // W1c: read fail-closed — only an explicit 'off' skips the reservation.
-  const dailyCap = parseDailyCallCap(env('ASK_VYACT_DAILY_CALL_CAP'));
+  // v10.107.1: normally already decided in step 3a by prepare_ai_call(). The sequential call below is
+  // the fallback: no anon key, the function missing (a database not yet migrated), or a row-rule
+  // disagreement where it reserved nothing although a model applies.
   let reservationId: string | null = null;
-  if (dailyCap !== null) {
+  if (dailyCap !== null && prepared?.quota === 'exceeded') {
+    return respond({
+      ok: false, enabled: true, seam, error: 'quota_exceeded',
+      message: 'Daily assistant limit reached. Try again tomorrow.', requestId,
+    }, 429, origin);
+  }
+  if (dailyCap !== null && prepared?.reservationId) {
+    reservationId = prepared.reservationId;
+  } else if (dailyCap !== null) {
     const reserveStart = sinceStart();
     const { data: resId, error: resErr } = await admin.rpc('reserve_ai_usage', {
       p_user_id: user.id,
