@@ -3429,7 +3429,7 @@ function resolveConfiguredModelCall(householdId, turnSignal) {
 const FEATURES = {
 	playStore: {
 		live: false,
-		packageId: "com.vyact.consumer",
+		packageId: "com.vyact.app",
 		reviewAfterEntries: 10
 	},
 	dashboard: {
