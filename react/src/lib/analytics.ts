@@ -68,6 +68,8 @@ export type EventName =
   | 'learn_card_view'
   | 'learn_cta_click'
   | 'landing_cta_click'
+  // v10.108.0 — the landing promo video was started (tapped poster; before the app is up, landing.html sends it).
+  | 'landing_video_play'
   | 'pwa_install'
   | 'whatsapp_linked'
   // v10.54.0 — Pip: answer feedback, copy, new chat, and the WhatsApp entry point.
