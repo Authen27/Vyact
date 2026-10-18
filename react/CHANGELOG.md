@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.117.0`** (consumer)
+> **Current production version: `v10.118.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,52 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.118.0 — WhatsApp messages from Vyact are Vyact's, and none is left waiting *(2026-10-19)*
+
+One migration (`20261103120000_t2d_whatsapp_sweep_cron.sql`) and three Edge Functions (`whatsapp-notify`,
+`whatsapp-webhook`, and `_shared/whatsapp-send.ts`, which `whatsapp-dispatch` also uses); no app change.
+Track T2 (security hardening), part d: audit BE-WA-07, BE-WA-09 and BE-WA-12. Owner decisions, 18–19 Oct 2026:
+the sweep runs every 5 minutes, and the wording "Sorry, I couldn't process that. Please send it again."
+
+- **Only Vyact's own jobs can send a WhatsApp template.** Any household member could ask Vyact's server to
+  send any template, with any text and any button, from Vyact's number. That made a fake "call this number"
+  alert possible. So was a "bill overdue" message whose "Already paid" button approved a real bill under the
+  partner's name. The app never used this path. Now only the server can (the welcome after linking a
+  number is the one caller), and a member's request is refused.
+- **A message to Vyact is never left waiting for someone else's.** A message whose processing failed, or
+  whose worker stopped mid-way, was retried only when another WhatsApp message arrived. A quiet household
+  could wait for hours. Now a scheduled job retries every 5 minutes. It also picks up a message that was
+  stored but never started, which nothing retried before.
+- **"Please send it again", once.** When a message's worker stopped on every attempt, the sender was never
+  told, and thought it had been logged. They now get one "Sorry, I couldn't process that. Please send it
+  again." within 24 hours. A message that failed outright already said so.
+- **No write is assumed to have worked.** Some inbox writes ignored their errors, so a database blip went
+  unnoticed:
+  - **Inbox status writes** are now checked, retried once, and logged if still refused. The message then
+    stays where the retry job finds it, and one bad write no longer stops the rest of the batch.
+  - **A "sent" that wasn't stored** left the reminder unfindable by "paid X". It is retried too.
+  - **A marketing opt-out from Meta that couldn't be stored** was dropped. It is now answered with an error,
+    so Meta sends it again.
+
+**Changes you may notice:** none in the app. On WhatsApp, a message that had been stuck gets its reply
+within about 5 minutes.
+
+Tests (whatsappWorkflow.test.ts):
+- Updated on purpose: W0-007 (now no member of any role can send) and W0-012 (a forged service claim is now
+  refused as `service_only`).
+- New: T2D-001..008.
+- Each rule was broken in turn (20 changes), and every one made a test fail.
+- The changed Edge files were type-checked against `main` with TypeScript (Deno's globals stubbed): no new
+  errors.
+
+**Before merging (owner, optional, SQL editor):** what the first scheduled sweep will pick up. Rows still
+retryable today are replayed; a message whose entry already landed comes back as a duplicate, silently.
+```sql
+select status, count(*), min(created_at) as oldest from whatsapp_inbound_messages
+ where direction = 'inbound' and (status in ('pending', 'claimed') or (status = 'failed' and attempts < 3))
+ group by 1;
+```
 
 ## v10.117.0 — Money can't land on a deleted account, or in another household *(2026-10-18)*
 

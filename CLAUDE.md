@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.117.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.118.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -588,11 +588,29 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   blocked on Meta business verification (its template is rejected until then).
   **v10.40.0 (W0):** an inbound failure is RECORDED (`failed` + attempts + `last_error`) and
   replayed by the sweep. Never mark a row `done` to hide an error; replay is safe because the
-  RPC claims the message id first. `whatsapp-notify` takes a member JWT (write role) or the
-  service key, and every send goes through the same guards: linked recipient, no marketing
+  RPC claims the message id first. `whatsapp-notify` takes the service key ONLY (v10.118.0, T2d;
+  audit BE-WA-07): a member's JWT is refused (`service_only`), because it let any member send any
+  template with any text and button payload from Vyact's number. Never reopen it to members; a
+  member-triggered message would be a named event whose values the server reads from ids. Every
+  send goes through the same guards: linked recipient, no marketing
   without consent, a dedupe slot claimed before sending, and a daily cap. There are no in-code
   Meta ID fallbacks. The next-level plan (templates, nudges, conversation, Ask Vyact on
   WhatsApp) is W1–W5 in `docs/HANDOFF.md` §0.
+  **The inbox is replayed on its own, and every inbox write is checked (v10.118.0, T2d; audit
+  BE-WA-09, BE-WA-12; owner decisions 18–19 Oct 2026).**
+  - pg_cron `whatsapp-inbox-sweep` calls the webhook's `?mode=sweep` every 5 minutes, with
+    `x-cron-secret` from Vault (`whatsapp_sweep_cron_ok`, service role only). The service key still works.
+  - The sweep re-queues failed rows with attempts left and stale claims. It also claims messages left
+    `pending` for over 2 minutes (inside the 24-hour service window).
+  - A stale claim that runs out of attempts tells its sender once: "Sorry, I couldn't process that. Please
+    send it again." Only the sweep that moved the row sends it, and only within 24 hours. A message that
+    FAILED on its last attempt already says so itself.
+  - Every inbox, delivery and audit write reads its error:
+    - a status write is tried twice (`setInboxStatus` / `settleSlot`), then logged, and the row stays for
+      the sweep;
+    - a failed claim leaves its message pending;
+    - a marketing opt-out that can't be stored is answered 503, so Meta resends it.
+    Never `await` a write without reading its error here.
   **v10.41.0 (W1): `_shared/whatsapp-templates.ts` is the ONE record of every template**, and it must
   match what Meta approved field for field (`docs/WHATSAPP_TEMPLATES.md`; `templates-status.mjs`
   reports drift). Change Meta first, wait for approval, then the manifest. Never send an image

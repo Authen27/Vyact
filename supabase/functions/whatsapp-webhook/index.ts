@@ -12,7 +12,9 @@
 //
 // v10.40.0 — a failure is recorded as one: a ledger error marks the inbox row
 // 'failed' and it is replayed (up to 3 attempts) by the sweep — on every delivery,
-// and on demand via POST ?mode=sweep with the service key.
+// and on demand via POST ?mode=sweep with the service key. Since v10.118.0 (T2d)
+// pg_cron runs the sweep every 5 minutes (x-cron-secret from Vault), and it also
+// claims messages nobody claimed; every inbox write's error is checked.
 //
 // Deploy WITHOUT JWT (Meta has no Supabase JWT):
 //   supabase functions deploy whatsapp-webhook --no-verify-jwt
@@ -95,11 +97,11 @@ async function recordDeliveryStatus(supabase: SupabaseClient, status: any): Prom
     .select('wa_message_id, delivery_status').eq('provider_message_id', wamid).maybeSingle();
   if (!row || !advancesDelivery((row as { delivery_status?: string }).delivery_status, next)) return;
   const error = next === 'failed' ? String(status?.errors?.[0]?.title ?? status?.errors?.[0]?.code ?? 'failed') : undefined;
-  await supabase.from('whatsapp_inbound_messages').update({
+  must(await supabase.from('whatsapp_inbound_messages').update({
     delivery_status: next,
     delivery_updated_at: new Date().toISOString(),
     ...(error ? { last_error: `delivery: ${error}` } : {}),
-  }).eq('wa_message_id', (row as { wa_message_id: string }).wa_message_id);
+  }).eq('wa_message_id', (row as { wa_message_id: string }).wa_message_id), 'delivery status');
 }
 
 /** W8b (audit BE-WA-09): a consent or state write whose error was ignored let the chat say "Done" for a
@@ -161,10 +163,14 @@ Deno.serve(async (req: Request) => {
   // v10.40.0 — replay sweep. Called by a scheduler with the SERVICE key (never by
   // Meta, which signs its calls instead). Re-queues failed inbound rows that have
   // retries left, and claims abandoned by a worker that died mid-run.
+  // v10.118.0 (T2d, audit BE-WA-12): pg_cron calls it every 5 minutes with `x-cron-secret`, checked
+  // against Vault (`whatsapp_sweep_cron_ok`), so a replay no longer waits for someone else's message.
   if (url.searchParams.get('mode') === 'sweep') {
     const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-    if (!(await isServiceCaller(bearer))) return new Response('Forbidden', { status: 403 });
     const supabase = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
+    const given = req.headers.get('x-cron-secret') ?? '';
+    const { data: cronOk } = given ? await supabase.rpc('whatsapp_sweep_cron_ok', { p: given }) : { data: false };
+    if (cronOk !== true && !(await isServiceCaller(bearer))) return new Response('Forbidden', { status: 403 });
     const replayed = await sweepInbox(supabase);
     return new Response(JSON.stringify({ status: 'ok', replayed }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
@@ -194,6 +200,7 @@ Deno.serve(async (req: Request) => {
 
   // Collect (message, phone) pairs across ALL entries/changes/messages.
   const incoming: Array<{ message: any; phone: string }> = [];
+  let optOutFailed = false;
   for (const entry of (payload as any)?.entry ?? []) {
     for (const change of entry?.changes ?? []) {
       const value = change?.value;
@@ -205,11 +212,15 @@ Deno.serve(async (req: Request) => {
       // opt-out. Small writes, recorded before the ACK; a failure here must not
       // cost Meta a retry of the whole batch, so each is best-effort.
       for (const status of value?.statuses ?? []) {
-        try { await recordDeliveryStatus(supabase, status); } catch (_e) { /* recorded next status */ }
+        try { await recordDeliveryStatus(supabase, status); }
+        catch (e) { console.error('[whatsapp-webhook] delivery status not recorded; the next one moves it on', (e as Error)?.message); }
       }
+      // T2d (audit BE-WA-09): a marketing opt-out that could not be stored is answered 503 below, so Meta
+      // sends the batch again. It used to be answered 200, and the opt-out was lost. A redelivery is safe:
+      // stored messages dedupe on their id, and a claimed message is never processed twice.
       for (const pref of value?.user_preferences ?? []) {
         try { await recordMetaOptOut(supabase, pref); }
-        catch (e) { console.error('[whatsapp-webhook] meta opt-out not recorded', (e as Error)?.message); /* Meta also enforces it */ }
+        catch (e) { optOutFailed = true; console.error('[whatsapp-webhook] meta opt-out not recorded; asking Meta to resend', (e as Error)?.message); }
       }
     }
   }
@@ -246,8 +257,8 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  if (notStored) {
-    return new Response(JSON.stringify({ status: 'retry', recorded: recorded.length, notStored }), {
+  if (notStored || optOutFailed) {
+    return new Response(JSON.stringify({ status: 'retry', recorded: recorded.length, notStored, ...(optOutFailed ? { optOutFailed } : {}) }), {
       status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '30' },
     });
   }
@@ -260,6 +271,29 @@ Deno.serve(async (req: Request) => {
 const MAX_ATTEMPTS = 3;
 /** A claim older than this belonged to a worker that died; it is re-queued. */
 const STALE_CLAIM_MS = 10 * 60_000;
+/** T2d (BE-WA-12): a message still pending after this was never claimed (its worker never ran, or its
+ *  claim failed). The grace keeps the sweep from reaching for one the webhook is about to claim. */
+const UNCLAIMED_AFTER_MS = 2 * 60_000;
+/** WhatsApp's service window: a reply after it can't be sent as a session message, so the sweep doesn't
+ *  pick up an unclaimed message older than this, or tell its sender anything. */
+const SESSION_WINDOW_MS = 24 * 3600_000;
+/** T2d (BE-WA-12; owner, 18 Oct 2026): what a sender is told, once, when the worker for their message died
+ *  on every attempt. A message that FAILED on its last attempt already says so (processInbound). */
+export const RESEND_NOTICE = "Sorry, I couldn't process that. Please send it again.";
+
+/** T2d (BE-WA-09): an inbox status that could not be stored is tried once more, then logged. The row then
+ *  stays where it was (pending or claimed) and the sweep replays it; one bad write never stops the batch. */
+async function setInboxStatus(supabase: SupabaseClient, waMessageId: string, patch: Record<string, unknown>): Promise<boolean> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const { error } = await supabase.from('whatsapp_inbound_messages').update(patch).eq('wa_message_id', waMessageId);
+    if (!error) return true;
+    if (attempt === 2) {
+      console.error('[whatsapp-webhook] inbox status not stored; the sweep will replay it',
+        { id: waMessageId, status: patch.status, error: error.message });
+    }
+  }
+  return false;
+}
 
 /**
  * Claim-and-process each recorded message. The claim is atomic — status flips
@@ -275,12 +309,17 @@ async function drainInbox(
   for (const { message, phone } of incoming) {
     // Atomic claim. `attempts` comes back with it: v10.40.0 fixed the counter, which
     // read a field that never existed (`message.__attempts`) and so was always 1.
-    const { data: claimed } = await supabase
+    const { data: claimed, error: claimError } = await supabase
       .from('whatsapp_inbound_messages')
       .update({ status: 'claimed', claimed_at: new Date().toISOString() })
       .eq('wa_message_id', message.id)
       .eq('status', 'pending')
       .select('wa_message_id, attempts');
+    if (claimError) {
+      // T2d (BE-WA-09): left pending, so the sweep claims it later (it used to read as "already claimed").
+      console.error('[whatsapp-webhook] claim failed; left for the sweep', { id: message.id, error: claimError.message });
+      continue;
+    }
     if (!claimed || claimed.length === 0) continue;   // already claimed/processed
     const priorAttempts = Number((claimed as any[])[0]?.attempts ?? 0);
 
@@ -292,15 +331,11 @@ async function drainInbox(
       outcome = { status: 'retry', error: (e as Error)?.message ?? String(e) };
     }
     if (outcome.status === 'done') {
-      await supabase.from('whatsapp_inbound_messages')
-        .update({ status: 'done', processed_at: new Date().toISOString(), last_error: outcome.note ?? null })
-        .eq('wa_message_id', message.id);
+      await setInboxStatus(supabase, message.id, { status: 'done', processed_at: new Date().toISOString(), last_error: outcome.note ?? null });
     } else {
       // v10.40.0 — a failure is RECORDED as one. It used to be marked `done` (the
       // handler swallowed every error), so nothing could ever find it to replay.
-      await supabase.from('whatsapp_inbound_messages')
-        .update({ status: 'failed', attempts: priorAttempts + 1, last_error: outcome.error })
-        .eq('wa_message_id', message.id);
+      await setInboxStatus(supabase, message.id, { status: 'failed', attempts: priorAttempts + 1, last_error: outcome.error });
     }
   }
 }
@@ -322,34 +357,60 @@ async function sweepInbox(supabase: SupabaseClient, limit = 25): Promise<number>
     .limit(limit);
   const { data: stale } = await supabase
     .from('whatsapp_inbound_messages')
-    .select('wa_message_id, payload, attempts')
+    .select('wa_message_id, payload, attempts, created_at')
     .eq('direction', 'inbound')
     .eq('status', 'claimed')
     .lt('claimed_at', staleBefore)
     .limit(limit);
+  // T2d (BE-WA-12): a message nobody ever claimed, within the service window.
+  const { data: unclaimed } = await supabase
+    .from('whatsapp_inbound_messages')
+    .select('wa_message_id, payload')
+    .eq('direction', 'inbound')
+    .eq('status', 'pending')
+    .lt('created_at', new Date(Date.now() - UNCLAIMED_AFTER_MS).toISOString())
+    .gt('created_at', new Date(Date.now() - SESSION_WINDOW_MS).toISOString())
+    .order('created_at', { ascending: true })
+    .limit(limit);
   const requeued: Array<{ message: any; phone: string }> = [];
-  const requeue = async (row: any, fromStatus: 'failed' | 'claimed', patch: Record<string, unknown>) => {
+  const phoneOf = (message: any) => String(message?.from ?? '').replace(/[^\d]/g, '');
+  /** Moves a row on only if it is still in the state we read (another sweep may have won); true if it did. */
+  const requeue = async (row: any, fromStatus: 'failed' | 'claimed', patch: Record<string, unknown>): Promise<boolean> => {
     const message = row.payload;
-    if (!message?.id) return;
-    // Re-queue only if it is still in the state we read (another sweep may have won).
-    const { data: flipped } = await supabase
+    if (!message?.id) return false;
+    const { data: flipped, error } = await supabase
       .from('whatsapp_inbound_messages')
       .update(patch)
       .eq('wa_message_id', row.wa_message_id)
       .eq('status', fromStatus)
       .select('wa_message_id');
-    if (flipped && (flipped as any[]).length && patch.status === 'pending') {
-      requeued.push({ message, phone: String(message.from ?? '').replace(/[^\d]/g, '') });
+    if (error) {
+      console.error('[whatsapp-webhook] sweep could not move a row; the next sweep tries again', { id: row.wa_message_id, error: error.message });
+      return false;
     }
+    if (!flipped || !(flipped as any[]).length) return false;
+    if (patch.status === 'pending') requeued.push({ message, phone: phoneOf(message) });
+    return true;
   };
   for (const row of (failed as any[]) ?? []) await requeue(row, 'failed', { status: 'pending' });
   // W8b (audit BE-WA-12): a stale claim (its worker died mid-message) is an attempt too. It used to be
   // re-queued with its count unchanged, so a message that crashes the worker replayed without limit.
   for (const row of (stale as any[]) ?? []) {
     const attempts = Number(row.attempts ?? 0) + 1;
-    await requeue(row, 'claimed', attempts >= MAX_ATTEMPTS
+    const last = attempts >= MAX_ATTEMPTS;
+    const moved = await requeue(row, 'claimed', last
       ? { status: 'failed', attempts, last_error: 'stale claim: the worker stopped before finishing' }
       : { status: 'pending', attempts });
+    // T2d (BE-WA-12): its sender is told once (only this sweep moved the row) and only inside the service
+    // window. It used to stop in silence, so the sender thought the message had been logged.
+    if (moved && last && Date.now() - Date.parse(String(row.created_at ?? '')) < SESSION_WINDOW_MS) {
+      const failedNotice = await reply(phoneOf(row.payload), RESEND_NOTICE);
+      if (failedNotice) console.error('[whatsapp-webhook] resend notice not delivered', { id: row.wa_message_id, note: failedNotice });
+    }
+  }
+  // T2d (BE-WA-12): unclaimed messages are drained like re-queued ones (the claim inside is atomic).
+  for (const row of (unclaimed as any[]) ?? []) {
+    if (row.payload?.id) requeued.push({ message: row.payload, phone: phoneOf(row.payload) });
   }
   if (requeued.length) await drainInbox(supabase, requeued);
   return requeued.length;
