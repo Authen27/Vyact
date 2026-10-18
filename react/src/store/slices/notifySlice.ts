@@ -22,6 +22,8 @@ import {
 } from '../../lib/notificationsCloud';
 import { readLocalJson, setLocalJson } from '../localJson';
 import { deviceHasServerPush, syncPush } from '../../lib/webPush';
+import { normalizeAppRole } from '../../lib/permissions';
+import { expected } from '../../lib/faults';
 
 const KEY = (hid: string) => `notifications_${hid}`;
 const DAY = 86_400_000;
@@ -93,7 +95,12 @@ export const createNotifySlice: StateCreator<Store, [], [], NotifySlice> = (set,
 
     if (cloud) {
       try {
-        if (fresh.length) await insertNotifications(fresh);
+        // v10.115.0 (Track T2b-1, audit DB-SEC-06): a viewer reads the household's notifications but
+        // never writes them (from T2b-2 the database refuses it), and a refused write never stops the
+        // bell from loading: it used to skip the fetch below and leave the list as it was.
+        if (fresh.length && normalizeAppRole(get().myRole) !== 'viewer') {
+          try { await insertNotifications(fresh); } catch (e) { expected(e, 'notifications:insert'); }
+        }
         void purgeExpired(hid);
         const { list: all, resolved } = settle(purge(await fetchNotifications(hid)));
         set({ notifications: all });

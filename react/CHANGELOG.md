@@ -4,7 +4,7 @@
 >
 > The consumer React app at `react/` continues the version line that began with the v1.0–v5.0 vanilla-shell releases at the repo root. The vanilla shell is **frozen at v5.0** and superseded by **v6.0** (the React port). All v6+ versions are React-only.
 >
-> **Current production version: `v10.114.0`** (consumer)
+> **Current production version: `v10.115.0`** (consumer)
 > **Live URL:** https://vyact.app
 > **Money Map mode:** `'shadow'` by default on cloud builds — dual-writes
 > the new FK columns; reads still prefer the legacy `linkedAssetId` so v7.1
@@ -24,6 +24,20 @@ The numbering history has some non-monotonic stretches that we keep documented h
 | v7.0 / v7.5 | Shipped before v6.2 (chronologically) | The v7.x line was a **major-feature track** (Onboarding, EMI, Recurring, Notifications, Planner, Chat) that ran in parallel with the v6.x **integration & polish track**. Going forward we abandon the parallel-track scheme — every release is on a single increasing number from v6.4 onward. |
 
 ---
+
+## v10.115.0 — A viewer's device no longer writes the household's alerts *(2026-10-18)*
+
+App only. Track T2 (security hardening), part b-1: the app side of audit DB-SEC-06 (owner decision, 18 Oct 2026:
+the lock screen gets only what the server raised). It ships before T2b-2, whose database rules refuse a
+viewer's write, so no device is caught mid-refresh by them.
+
+- **A viewer's device reads the household's notifications but never writes them.** Every device used to
+  raise the household's cards (bills due, budgets passed) into the shared table, viewers' included.
+- **A refused write never stops the bell from loading.** A failed insert used to skip the read that follows,
+  so the bell kept showing an old list.
+
+Tests: notificationWrites.test.ts (new, 2): a viewer's device writes nothing and still reads; a member's
+writes; a refused write still loads the bell. Each was checked to fail with its fix undone.
 
 ## v10.114.0 — Joining a household only by invitation, once *(2026-10-18)*
 

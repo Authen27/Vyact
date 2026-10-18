@@ -1935,6 +1935,19 @@
     },
     {
       "app": "react",
+      "file": "react/src/lib/__tests__/notificationWrites.test.ts",
+      "feature": "Notification writes (T2b-1)",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "T2b-1: a viewer's device reads but never writes the household's notifications; a member's writes; a refused write never stops the bell from loading (store with the cloud calls mocked; audit DB-SEC-06, owner decision 18 Oct 2026)",
+      "count": 2,
+      "tests": [
+        "who writes the household's notifications (DB-SEC-06, app side) T2B-001 · a viewer's device raises nothing into the household; a member's does",
+        "who writes the household's notifications (DB-SEC-06, app side) T2B-002 · a refused write never stops the bell from loading"
+      ]
+    },
+    {
+      "app": "react",
       "file": "react/src/lib/__tests__/onboarding.test.ts",
       "feature": "Onboarding",
       "availability": "available",
