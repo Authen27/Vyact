@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1545 passing deterministic cases in 170 files. Zero failed, skipped or TODO cases at generation.**
+**1555 passing deterministic cases in 172 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -35,9 +35,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | contract-unit | available | 113 |
 | react | contract-unit | conditional | 125 |
 | react | handler-integration | conditional | 112 |
-| react | sql-integration | conditional | 119 |
+| react | sql-integration | conditional | 125 |
 | react | storage-integration | available | 28 |
-| react | store-integration | available | 64 |
+| react | store-integration | available | 68 |
 | react | store-integration | conditional | 42 |
 | react | unit | available | 449 |
 | react | unit | conditional | 235 |
@@ -129,6 +129,8 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/loanAutomationSql.test.ts](../react/src/lib/__tests__/loanAutomationSql.test.ts) | Loan automation SQL | sql-integration | conditional | 3 |
 | [react/src/lib/__tests__/loanCalendar.test.ts](../react/src/lib/__tests__/loanCalendar.test.ts) | Loan calendar and reminders | unit | available | 3 |
 | [react/src/lib/__tests__/loanModelSql.test.ts](../react/src/lib/__tests__/loanModelSql.test.ts) | Loan model SQL | sql-integration | conditional | 9 |
+| [react/src/lib/__tests__/loanPayingAccount.test.ts](../react/src/lib/__tests__/loanPayingAccount.test.ts) | Loan paying account (v10.119.0) | store-integration | available | 4 |
+| [react/src/lib/__tests__/loanPayingAccountSql.test.ts](../react/src/lib/__tests__/loanPayingAccountSql.test.ts) | Loan paying account SQL (v10.119.0) | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/loanPayment.test.ts](../react/src/lib/__tests__/loanPayment.test.ts) | Cloud adapter contracts | contract-unit | conditional | 6 |
 | [react/src/lib/__tests__/loanPaymentWorkflow.test.ts](../react/src/lib/__tests__/loanPaymentWorkflow.test.ts) | Ledger and recurring workflows | store-integration | available | 14 |
 | [react/src/lib/__tests__/loanScheduleParity.test.ts](../react/src/lib/__tests__/loanScheduleParity.test.ts) | Loan arithmetic parity | sql-integration | conditional | 2 |

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.118.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.119.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -221,6 +221,17 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
     - a schedule's owner, and its template's `accountId` / `toAccountId` / `assetId`.
     A template id that is not a UUID, or names no row, is left alone.
   - These rules apply to every writer: the server's jobs, WhatsApp and Pip are held to them too.
+  **A loan that records its EMIs automatically always has an account to pay from (v10.119.0; owner, 19 Oct
+  2026).** `loan_payment_core` refuses a paying account that is missing, deleted, archived, not bank/cash or
+  another household's, so such a loan used to stop recording without a word.
+  - `debts_funding_account_guard`: `auto_record` on a live loan needs a live, unarchived bank or cash account of
+    its own household. Any `funding_account_id` is the household's own.
+  - `account_dependencies` lists those loans (`loans`; `loansRecordingFrom` in the app).
+  - `delete_account` refuses while there are any. It clears a hand-paid loan's paying account (only a default).
+  - `move_account_and_delete` moves every live loan's paying account to the destination.
+  - From the app, archiving an account such a loan pays from is refused (`account_pays_a_loan`, in
+    `accounts_guard_lifecycle`; the store says which loan first).
+  - Never let a loan record automatically from an account the payment would refuse.
 - **Payment modes, like categories, exist in THREE places (v10.25.0)** —
   `PAYMENT_MODE_LABEL` in `lib/accountsView.ts` (the client source), and the
   Deno allowlists `PAYMENT_MODE_IDS` in `_shared/whatsapp-parser.ts` and
