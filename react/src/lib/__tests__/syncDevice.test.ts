@@ -74,7 +74,7 @@ describe('sign-out clears the device (FE-SYN-04)', () => {
 
   it('F1A-002 · every key the local adapter reads or writes is purgeable (a new cache cannot be missed)', () => {
     const src = read('react/src/lib/dataAdapter.ts');
-    const suffixes = [...src.matchAll(/this\.(?:read|readForWrite|write|removeBoth)(?:<[^>]*>)?\(\s*'([^']+)'/g)].map(m => m[1]);
+    const suffixes = [...src.matchAll(/this\.(?:read|readForWrite|write|removeBoth|updateList|exclusive)(?:<[^>]*>)?\(\s*'([^']+)'/g)].map(m => m[1]);
     expect(suffixes).toEqual(expect.arrayContaining(['profile', 'budgetAllocations', 'net_worth_snapshots']));
     // profiles_list is the local-only household list (no cloud copy), kept on purpose.
     for (const suffix of new Set(suffixes)) {

@@ -11,7 +11,7 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.110.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.111.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
@@ -250,6 +250,25 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   - **Set-aside writes belong to their owner.** Every count, clear, Dismiss and re-read in `lib/sync/deadLetter.ts` takes the cache owner. Ownerless legacy entries are adopted at the session boundary, as queued ops are. Dismiss re-reads the rows from the cloud, for failed writes as for conflicts.
   - **"Synced" is the cloud read behind the screen**: `cloudReadAt` is the oldest of the synced entities' cloud reads as of their cache read. Never stamp `lastSyncedAt` with `Date.now()` in cloud mode. Without a cloud read this session the badge says "Syncing…".
   - After `init` and `manualRefresh`, `settleFromCloud` waits for the background reads and refreshes once. It is one extra refresh, never a chain.
+  **Since v10.111.0 (F1b; owner decisions 18 Oct 2026). A save stays on screen until its write lands:**
+  - **A refresh is merged row by row** (`keepLocalChanges`, `lib/rowMerge.ts`). A row changed, added or
+    deleted on this device while the refresh was in flight keeps its on-screen state.
+    - This relies on the store replacing a row's object whenever it changes it. Never mutate a row in place.
+  - **Every store write lands in the CURRENT list:** `set(s => ({ x: withRow(s.x, saved) }))`.
+    - Never `set({ x: capturedList.map(…) })` with a list read before an await; it undoes whatever landed
+      meanwhile.
+  - **A cloud pull never replaces a row whose write is queued** (`overlayQueued` / `mergeCloudDelta` over
+    `outbox.queuedWrites`). A queued edit or new row keeps the device's version, and a queued delete stays
+    deleted.
+  - **One writer per cached list at a time.** `LocalStorageAdapter` serialises every read-modify-write of a
+    list (`exclusive` / `updateList`).
+    - `HybridAdapter.upsert` / `remove` write the row and queue its op inside that lock, so a pull sees both
+      or neither.
+    - Never read a list and `replaceAll` it as two steps; use `updateList`.
+  - **A delta pull starts 2 minutes before its cursor** (`overlapStart`; `updated_at` is when a transaction
+    STARTED) and reads every page until a short one. Only then is the entity fresh (`noteCloudApplied`).
+    - The cursor only moves forward.
+    - A write transaction longer than 2 minutes would still slip. Nothing in Vyact comes close.
 - **The local store is a CACHE, and the cloud is the truth (v10.20.7, corrected
   in v10.20.8).** `lib/cacheInvalidation.ts` drops it at the session boundary
   when it cannot be trusted — a different user, or an older `CACHE_EPOCH`.

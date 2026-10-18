@@ -195,6 +195,25 @@ export async function nextWakeAt(ownerUid: string): Promise<number | null> {
   return due.length ? Math.min(...due) : null;
 }
 
+/**
+ * F1b (v10.111.0; audit INT-TXN-10) — the rows of one household's entity that still have a write
+ * queued, each mapped to its latest write. A cloud pull leaves exactly these rows as the device has
+ * them (`overlayQueued`). Only the given owner's ops count: the cache belongs to them.
+ */
+export async function queuedWrites(ownerUid: string | null, householdId: string, entity: string): Promise<Map<string, 'upsert' | 'remove'>> {
+  const out = new Map<string, 'upsert' | 'remove'>();
+  if (!ownerUid) return out;
+  const rows = (await getDriver().getAll())
+    .filter(row => row.ownerUid === ownerUid && row.householdId === householdId && row.entity === entity
+      && (row.op === 'upsert' || row.op === 'remove'))
+    .sort((left, right) => left.seq - right.seq);
+  for (const row of rows) {
+    const id = (row.payload as { id?: string } | undefined)?.id ?? row.id;
+    if (id) out.set(id, row.op as 'upsert' | 'remove');
+  }
+  return out;
+}
+
 /** W3c — is another op for this ROW still queued? (The fold-back used to check the whole entity.) */
 export async function hasPendingRow(ownerUid: string, householdId: string, entity: string, id: string, exceptOpId: string): Promise<boolean> {
   return (await getDriver().getAll()).some(row => row.ownerUid === ownerUid && row.householdId === householdId

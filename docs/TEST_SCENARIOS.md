@@ -25,7 +25,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1487 passing deterministic cases in 163 files. Zero failed, skipped or TODO cases at generation.**
+**1498 passing deterministic cases in 164 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
@@ -38,7 +38,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | react | sql-integration | conditional | 91 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
-| react | store-integration | conditional | 24 |
+| react | store-integration | conditional | 35 |
 | react | unit | available | 447 |
 | react | unit | conditional | 235 |
 | react | unit | infrastructure | 229 |
@@ -183,6 +183,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/supabaseAdapter.test.ts](../react/src/lib/__tests__/supabaseAdapter.test.ts) | Cloud adapter contracts | contract-unit | conditional | 14 |
 | [react/src/lib/__tests__/sync.test.ts](../react/src/lib/__tests__/sync.test.ts) | Storage and synchronization | storage-integration | available | 6 |
 | [react/src/lib/__tests__/syncDevice.test.ts](../react/src/lib/__tests__/syncDevice.test.ts) | Sync on the device (F1a) | store-integration | conditional | 12 |
+| [react/src/lib/__tests__/syncMerge.test.ts](../react/src/lib/__tests__/syncMerge.test.ts) | Sync row merge and delta pull (F1b) | store-integration | conditional | 11 |
 | [react/src/lib/__tests__/syncRevisions.test.ts](../react/src/lib/__tests__/syncRevisions.test.ts) | Sync revisions and rollback | store-integration | conditional | 8 |
 | [react/src/lib/__tests__/timeZoneDay.test.ts](../react/src/lib/__tests__/timeZoneDay.test.ts) | Time zone (local today) | unit | available | 4 |
 | [react/src/lib/__tests__/toastPolicy.test.ts](../react/src/lib/__tests__/toastPolicy.test.ts) | Frontend guards (W6) | unit | available | 2 |

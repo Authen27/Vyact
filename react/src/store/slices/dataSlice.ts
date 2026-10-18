@@ -27,6 +27,7 @@ import {
 import { accountValueOf } from '../../lib/accountBalance';
 import { mergeProgress, writeLocalEducationProgress, readLocalEducationProgress } from '../../lib/educationProgress';
 import { expected, unexpected } from '../../lib/faults';
+import { keepLocalChanges, withRow, withoutRow } from '../../lib/rowMerge';
 import { computeNetWorth } from '../../lib/netWorth';
 import { nextHouseholdAfterExit } from '../../lib/householdTypes';
 import {
@@ -303,6 +304,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     const seq = ++refreshSeq;
     const seqHid = currentHouseholdId;
     const isStale = () => seq !== refreshSeq || get().currentHouseholdId !== seqHid;
+    // v10.111.0 (F1b, audit FE-SYN-06; owner: "row-level merge") — what the screen showed when this
+    // refresh began. Its reads can wait a network round trip (the profile is read from the cloud); a
+    // row saved, edited or deleted here meanwhile keeps its on-screen state when the refresh lands
+    // (`keepLocalChanges`), instead of the old list coming back and the save looking lost.
+    const started = get();
     const [transactions, budgets, goals, members, debts, assets, accounts, savedViews, recurringList, budgetAllocations, profile, rates, netWorthSnapshots] = await Promise.all([
       adapter.list<Transaction>('transactions', currentHouseholdId),
       adapter.list<Budget>('budgets',           currentHouseholdId),
@@ -365,12 +371,20 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
       ? { ...defaultProfile, ...profile, educationProgress: profile.educationProgress ?? readLocalEducationProgress() }
       : { ...defaultProfile, educationProgress: readLocalEducationProgress() };
     const mergedProfile = overlaidNs ? { ...baseProfile, numberSystem: overlaidNs } : baseProfile;
+    const now = get();
     set({
-      transactions, budgets: hydratedBudgets, goals, members, debts, assets, accounts, savedViews,
-      recurringSchedules: recurringList,
-      budgetAllocations,
+      transactions: keepLocalChanges(transactions, started.transactions, now.transactions),
+      budgets: keepLocalChanges(hydratedBudgets, started.budgets, now.budgets),
+      goals: keepLocalChanges(goals, started.goals, now.goals),
+      members: keepLocalChanges(members, started.members, now.members),
+      debts: keepLocalChanges(debts, started.debts, now.debts),
+      assets: keepLocalChanges(assets, started.assets, now.assets),
+      accounts: keepLocalChanges(accounts, started.accounts, now.accounts),
+      savedViews: keepLocalChanges(savedViews, started.savedViews, now.savedViews),
+      recurringSchedules: keepLocalChanges(recurringList, started.recurringSchedules, now.recurringSchedules),
+      budgetAllocations: keepLocalChanges(budgetAllocations, started.budgetAllocations, now.budgetAllocations),
       netWorthSnapshots,
-      profile: mergedProfile,
+      profile: now.profile !== started.profile ? now.profile : mergedProfile,
       rates,
       // v10.110.0 (F1a, audit FE-SYN-08; owner: "last cloud time only") — "Synced" names the cloud read
       // the rows just shown come from (the oldest across the synced entities). This refresh read the
@@ -629,8 +643,9 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
         });
       }
     }
-    const idx = transactions.findIndex(x => x.id === saved.id);
-    set({ transactions: idx >= 0 ? transactions.map(x => x.id === saved.id ? saved as Transaction : x) : [...transactions, saved as Transaction] });
+    // F1b (FE-SYN-06) — into the CURRENT list: one captured before the await would undo anything a
+    // refresh or another save changed meanwhile.
+    set(s => ({ transactions: withRow(s.transactions, saved as Transaction) }));
     // v10.48.0 — an expense can cross a budget line's 80% / 100%: raise it now,
     // not at the next reload (TD-39).
     if (saved.type === 'expense') void get().refreshNotifications();
@@ -647,11 +662,11 @@ export const createDataSlice: StateCreator<Store, [], [], DataSlice> = (set, get
     if (tag) {
       const pair = transactions.filter(x => x.note?.includes(tag));
       await Promise.all(pair.map(p => adapter.remove('transactions', currentHouseholdId, p.id)));
-      set({ transactions: transactions.filter(x => !x.note?.includes(tag)) });
+      set(s => ({ transactions: s.transactions.filter(x => !x.note?.includes(tag)) }));
       return;
     }
     await adapter.remove('transactions', currentHouseholdId, id);
-    set({ transactions: transactions.filter(x => x.id !== id) });
+    set(s => ({ transactions: withoutRow(s.transactions, id) }));
   },
   // Entity CRUD (budget/allocation/goal/member/debt/asset/account/savedView) lives
   // in CrudSlice (store/slices/crudSlice.ts, TD-25), composed via the spread above.
