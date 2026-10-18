@@ -362,6 +362,13 @@ export function renderForWhatsApp(turn: AssistantTurn, appUrl: string): WhatsApp
   if (turn.recurringSeed) {
     return { text: `Recurring bills are set up in the app, so you can check the schedule before it starts: ${appUrl}/recurring`, chipPrompts: [] };
   }
+  // v10.109.0 (R-1): an EMI is set up on its loan, in the app (Debts), with Record automatically on.
+  if (turn.loanSeed) {
+    return { text: turn.loanSeed.mode === 'new'
+      ? `A loan's EMI is set up on the loan, in the app: Debts › Add loan, with Record automatically on. Vyact then records each EMI on its date: ${appUrl}/debts`
+      : `Turn on Record automatically on the loan, in the app: Recurring › Loan EMIs. Vyact then records each EMI on its date: ${appUrl}/recurring`,
+      chipPrompts: [] };
+  }
   if (turn.seed) {
     return { text: 'To record it here, send it as one line, like 450 lunch hdfc.', chipPrompts: [] };
   }

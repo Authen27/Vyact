@@ -12,7 +12,7 @@ import {
 
 const INTENT_COLORS: Record<string, string> = {
   spending: '#4A6FA5', savings: '#85A88A', budget: '#E8A87C', debt: '#C2543F',
-  networth: '#6E4555', goals: '#3a9d6b', pulse: '#E26D5C', planning: '#b0823f',
+  networth: '#6E4555', goals: '#3a9d6b', status: '#E26D5C', pulse: '#E26D5C', planning: '#b0823f',
   help: '#6B7C53', other: '#9a9088',
 };
 const SENTIMENT_COLORS: Record<string, string> = {

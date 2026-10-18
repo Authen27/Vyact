@@ -92,6 +92,7 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
   const openAddTxn    = useStore(s => s.openAddTxn);
   const openAddBudget = useStore(s => s.openAddBudget);
   const openAddDebt   = useStore(s => s.openAddDebt);
+  const openEditDebt  = useStore(s => s.openEditDebt);
   const openAddAsset  = useStore(s => s.openAddAsset);
   const closeAsk      = useStore(s => s.closeAsk);
   const myRole        = useStore(s => s.myRole);
@@ -337,6 +338,17 @@ function ChatForHousehold({ embedded = false }: { embedded?: boolean } = {}) {
         // v10.39.1 (P21) — a recurring draft opens the Recurring section's own sheet,
         // the only place a schedule is authored; the user picks the account and saves.
         if (turn.recurringSeed) appNavigate('/recurring', { state: { recurringSeed: turn.recurringSeed } });
+        // v10.109.0 (owner, R-1) — an EMI is set up on its LOAN: Add loan pre-filled, or that loan, with
+        // Record automatically on. The drawer closes first, as for any form (openSetup).
+        if (turn.loanSeed) {
+          const loanSeed = turn.loanSeed;
+          if (embedded) closeAsk();
+          if (loanSeed.mode === 'new') openAddDebt(loanSeed);
+          else {
+            const loan = useStore.getState().debts.find(d => d.id === loanSeed.debtId);
+            if (loan) openEditDebt(loan, loanSeed);
+          }
+        }
         setActiveTurn(null);
         return;
       }

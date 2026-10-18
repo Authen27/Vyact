@@ -1,7 +1,7 @@
 // Vyact Admin v8 — NorthStar Dashboard (live Supabase)
 // Every number on this page is computed live by the admin_dashboard_kpis()
 // SQL function or the admin_weekly_trend(weeks) trend RPC. Where a metric
-// requires event tracking we don't have yet (D7/D90 retention, Pulse-improved%,
+// requires event tracking we don't have yet (D7/D90 retention,
 // NPS), the card shows "—" with a tooltip explaining what's needed.
 
 import { useEffect, useState } from 'react';
@@ -134,7 +134,6 @@ export default function Dashboard() {
         <KpiUnavailable label="Time-to-first-txn"     hint="median seconds from sign-up to 1st transaction" />
         <KpiUnavailable label="D7 retention %"        hint="users active 7 days after sign-up" />
         <KpiUnavailable label="D90 retention %"       hint="users active 90 days after sign-up" />
-        <KpiUnavailable label="Pulse improved 30d %"  hint="users whose Pulse Score rose vs 30d ago" />
         <KpiUnavailable label="Reminder confirmed %"  hint="recurring-transaction confirmations" />
         <KpiUnavailable label="Recs followed %"       hint="Planner recommendations actioned" />
         <KpiUnavailable label="Chat satisfaction"     hint="thumbs-up rate on AI chat answers" />

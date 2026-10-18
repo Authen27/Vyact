@@ -91,6 +91,7 @@ export default function Recurring() {
   const transactions = useStore(s => s.transactions);
   const upsertDebt = useStore(s => s.upsertDebt);
   const openEditDebt = useStore(s => s.openEditDebt);
+  const openAddDebt = useStore(s => s.openAddDebt);
   const loanRows = useMemo(() => loanEmiRows(debts, accounts, transactions, baseCur), [debts, accounts, transactions, baseCur]);
   // E-3: the leftover EMI schedules are retired — never listed beside the loan's own EMI.
   const listed = useMemo(() => schedules.filter(s => !isLoanEmiSchedule(s)), [schedules]);
@@ -102,7 +103,7 @@ export default function Recurring() {
       toast(row.needs.includes('account')
         ? 'Choose the account the EMI is paid from, then turn on Record each EMI automatically'
         : 'Add the next EMI date, then turn on Record each EMI automatically', 'info');
-      openEditDebt(row.debt);
+      openEditDebt(row.debt, { mode: 'edit', debtId: row.debt.id, autoRecord: true });
       return;
     }
     await runExclusive(switchSlot, async () => {
@@ -208,6 +209,15 @@ export default function Recurring() {
   }
 
   async function save() {
+    // v10.109.0 (owner, R-1) — an EMI is set up on its LOAN, never as a schedule (Recurring hides EMI
+    // schedules and they never post). The draft becomes Add loan, pre-filled, with Record automatically on.
+    if (type === 'expense' && category === 'loan_emi') {
+      const emi = parseAmount(amount);
+      setOpen(false); setEditing(null);
+      toast('An EMI is paid by its loan — add the loan, and its EMIs show here under Loan EMIs', 'info');
+      openAddDebt({ mode: 'new', name: name.trim() || 'Loan', ...(emi > 0 ? { emi } : {}), autoRecord: true });
+      return;
+    }
     if (!name || !amount) { toast('Enter a name and amount', 'error'); return; }
     // Refuse to save a schedule that cannot produce a storable transaction.
     // `ck_txn_accounts_by_type` rejects an account-less row with 23514, and the
@@ -390,8 +400,14 @@ export default function Recurring() {
 
       {/* Track E, E6a (owner, 13 Oct 2026) — each live loan's EMI, mirrored from the loan: never a
           schedule, so it can never be scheduled twice. The switch is the loan's own autoRecord. */}
-      {loanRows.length > 0 && (
-        <Panel title="Loan EMIs" sub="From your loans · paid by the loan, never by a schedule">
+      {/* v10.109.0 (owner, R-1) — always shown, with its own add: a loan's EMI starts on the loan. */}
+      {(
+        <Panel title="Loan EMIs" sub="From your loans · paid by the loan, never by a schedule"
+          action={<button type="button" className="btn-secondary text-sm min-h-[36px] px-3" data-testid="add-loan-emi"
+            onClick={() => openAddDebt({ mode: 'new', name: 'Loan', autoRecord: true })}>+ Add loan EMI</button>}>
+          {loanRows.length === 0 && (
+            <p className="px-4 py-3 text-[0.82rem] text-ink-mid">No loans yet. Add one, and its EMIs show here and in the bill calendar, recorded automatically if you choose.</p>
+          )}
           {loanRows.map(row => {
             const cat = getCat('loan_emi');
             const clears = clearsLabel(row.clearsOn);

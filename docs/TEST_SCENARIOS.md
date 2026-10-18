@@ -25,21 +25,21 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 
 ## 3. Coverage Summary
 
-**1463 passing deterministic cases in 160 files. Zero failed, skipped or TODO cases at generation.**
+**1475 passing deterministic cases in 162 files. Zero failed, skipped or TODO cases at generation.**
 
 | App | Layer | Availability | Cases |
 |---|---|---|---:|
 | admin | contract-unit | conditional | 5 |
 | admin | unit | available | 9 |
 | admin | unit | conditional | 15 |
-| react | contract-unit | available | 114 |
+| react | contract-unit | available | 113 |
 | react | contract-unit | conditional | 123 |
 | react | handler-integration | conditional | 104 |
-| react | sql-integration | conditional | 89 |
+| react | sql-integration | conditional | 91 |
 | react | storage-integration | available | 28 |
 | react | store-integration | available | 64 |
 | react | store-integration | conditional | 12 |
-| react | unit | available | 436 |
+| react | unit | available | 447 |
 | react | unit | conditional | 235 |
 | react | unit | infrastructure | 229 |
 
@@ -101,8 +101,9 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/categoryOptions.test.ts](../react/src/lib/__tests__/categoryOptions.test.ts) | Navigation and category selection | unit | available | 4 |
 | [react/src/lib/__tests__/chunkRecovery.test.ts](../react/src/lib/__tests__/chunkRecovery.test.ts) | Frontend guards (W6) | unit | available | 3 |
 | [react/src/lib/__tests__/cloudTransport.test.ts](../react/src/lib/__tests__/cloudTransport.test.ts) | Cloud adapter contracts | contract-unit | conditional | 9 |
-| [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 3 |
+| [react/src/lib/__tests__/dashboardPresentation.test.tsx](../react/src/lib/__tests__/dashboardPresentation.test.tsx) | Dashboard MVP presentation | contract-unit | available | 2 |
 | [react/src/lib/__tests__/demoSeed.test.ts](../react/src/lib/__tests__/demoSeed.test.ts) | First-run demo household | unit | available | 2 |
+| [react/src/lib/__tests__/emiHandoffPulse.test.ts](../react/src/lib/__tests__/emiHandoffPulse.test.ts) | EMI hand-off and Pulse archived | unit | available | 11 |
 | [react/src/lib/__tests__/eraseHouseholdSql.test.ts](../react/src/lib/__tests__/eraseHouseholdSql.test.ts) | Household erase SQL | sql-integration | conditional | 8 |
 | [react/src/lib/__tests__/essentialRunway.test.ts](../react/src/lib/__tests__/essentialRunway.test.ts) | Reports consultation | unit | available | 4 |
 | [react/src/lib/__tests__/exclusive.test.ts](../react/src/lib/__tests__/exclusive.test.ts) | Frontend guards (W6) | unit | available | 2 |
@@ -156,6 +157,7 @@ Browser and real-cloud execution are separate lanes and are NOT included in Vite
 | [react/src/lib/__tests__/prepareAiCallSql.test.ts](../react/src/lib/__tests__/prepareAiCallSql.test.ts) | AI usage metering SQL | sql-integration | conditional | 6 |
 | [react/src/lib/__tests__/publicPages.test.ts](../react/src/lib/__tests__/publicPages.test.ts) | Formatting and structured content | unit | available | 30 |
 | [react/src/lib/__tests__/pulseBudget.test.ts](../react/src/lib/__tests__/pulseBudget.test.ts) | Money model | unit | available | 3 |
+| [react/src/lib/__tests__/pulseContentSql.test.ts](../react/src/lib/__tests__/pulseContentSql.test.ts) | Pulse content unpublished SQL | sql-integration | conditional | 2 |
 | [react/src/lib/__tests__/ratios.test.ts](../react/src/lib/__tests__/ratios.test.ts) | Money screen ratios and liabilities (W6) | unit | available | 2 |
 | [react/src/lib/__tests__/recurrenceEngine.test.ts](../react/src/lib/__tests__/recurrenceEngine.test.ts) | Recurring and budgets | unit | available | 5 |
 | [react/src/lib/__tests__/recurrenceSchemaSql.test.ts](../react/src/lib/__tests__/recurrenceSchemaSql.test.ts) | Recurrence schema SQL | sql-integration | conditional | 3 |

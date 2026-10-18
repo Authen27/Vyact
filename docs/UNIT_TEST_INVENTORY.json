@@ -897,8 +897,8 @@
       "owner": "runAssistant / resolve facts / router / Claude Code relay (test-only)",
       "count": 67,
       "tests": [
-        "Pulse beside a thin cushion (P7) CON-UNIT-FACT-051 · a strong score with under three months of cover does not say \"Strong\"",
-        "Pulse beside a thin cushion (P7) CON-UNIT-FACT-052 · a healthy cushion carries no cushion note",
+        "a thin cushion is said (P7) CON-UNIT-FACT-051 · under three months of cover, \"how am I doing?\" says the cushion is thin — no score, no \"Strong\"",
+        "a thin cushion is said (P7) CON-UNIT-FACT-052 · a healthy cushion carries no cushion note",
         "account matching (W8a, FE-PIP-15) W8a-PIP15-001 · an unmatched bank or card number is no match; the kind word picks only a lone account",
         "advice facts (F4) CON-UNIT-FACT-012 · prescriptive carries income, savings rate, cover and debts",
         "capture seeding (F6, F7) CON-UNIT-FACT-013 · a merchant implies a category when the user named none",
@@ -1247,11 +1247,10 @@
       "availability": "available",
       "layer": "contract-unit",
       "owner": "Dashboard / feature flags (static rendering, not browser geometry)",
-      "count": 3,
+      "count": 2,
       "tests": [
-        "MVP omits Pulse and Debt summaries while keeping Net Worth liabilities",
-        "showDebtSummary can be enabled independently without changing the Net Worth figure",
-        "showPulse can be enabled independently without changing the Net Worth figure"
+        "MVP omits the Debt summary, and the archived Pulse Score is gone, while keeping Net Worth liabilities",
+        "showDebtSummary can be enabled without changing the Net Worth figure"
       ]
     },
     {
@@ -1265,6 +1264,28 @@
       "tests": [
         "first-run demo household CON-UNIT-DEMO-001 · nothing is dated after today, and every due date is a real future date (1st of the month, December)",
         "first-run demo household CON-UNIT-DEMO-002 · uses the current model: allocations within one month budget, accounts on every entry, who added it, money owed, an EMI"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/emiHandoffPulse.test.ts",
+      "feature": "EMI hand-off and Pulse archived",
+      "availability": "available",
+      "layer": "unit",
+      "owner": "an EMI request (Pip, Recurring) opens the loan form with Record automatically on, never a schedule; the Record-automatically chip answered without a model; the store passes only a real seed; Pulse gone from Pip, the summary, the Dashboard and admin; the demo budget plans its mortgage and EMIs (owner decisions 16 Oct 2026)",
+      "count": 11,
+      "tests": [
+        "Pulse is archived (owner, 16 Oct 2026) FU-009 · \"how am I doing?\" is answered from the position: no Pulse score in the facts, the headline or the summary",
+        "Pulse is archived (owner, 16 Oct 2026) FU-010 · metering labels the question \"status\", and no screen or prompt rule keeps the Pulse fields",
+        "R-1 — an EMI is set up on its loan, never as a schedule FU-001 · no loan yet: Pip opens Add loan pre-filled, Record automatically ON, with no phrase call",
+        "R-1 — an EMI is set up on its loan, never as a schedule FU-002 · a matching loan is named, with a \"Record automatically\" chip when that is off; none when it is on",
+        "R-1 — an EMI is set up on its loan, never as a schedule FU-003 · the chip opens that loan with the switch on, answered without any model",
+        "R-1 — an EMI is set up on its loan, never as a schedule FU-004 · two loans: a nameless request lists them; a named one picks it; an unknown name opens Add loan for it",
+        "R-1 — an EMI is set up on its loan, never as a schedule FU-005 · a non-EMI bill still drafts a schedule, and a model-supplied EMI amount is not used",
+        "R-1 — an EMI is set up on its loan, never as a schedule FU-006 · on WhatsApp the hand-off says where to do it in the app, with no chips",
+        "R-1 — an EMI is set up on its loan, never as a schedule FU-007 · the store sends only a real seed: a click event passed by a button opens a plain form",
+        "R-1 — an EMI is set up on its loan, never as a schedule FU-008 · Recurring hands an EMI to the loan; the loan form starts with Record automatically on",
+        "the demo plans its mortgage and EMIs (owner, 16 Oct 2026) FU-011 · the demo month has Rent / Mortgage and Loan / EMI lines, so the mortgage is never \"not planned\""
       ]
     },
     {
@@ -2247,6 +2268,19 @@
         "computePulseScore — budget component (audit F5) CON-UNIT-125 · a container budget is compliance-checked via its ALLOCATIONS (overspend now registers)",
         "computePulseScore — budget component (audit F5) CON-UNIT-126 · on/under budget scores FULL; exactly-100% is not zero",
         "computePulseScore — budget component (audit F5) CON-UNIT-127 · a legacy category budget (no scope) still applies every month"
+      ]
+    },
+    {
+      "app": "react",
+      "file": "react/src/lib/__tests__/pulseContentSql.test.ts",
+      "feature": "Pulse content unpublished SQL",
+      "availability": "conditional",
+      "layer": "sql-integration",
+      "owner": "v10.109.0 migration: published content naming Pulse (whole word) goes back to draft; impulse, HeartPulse and drafts untouched; idempotent (focused PGlite fixture; owner decision 16 Oct 2026)",
+      "count": 2,
+      "tests": [
+        "Pulse content is unpublished (v10.109.0) FU-SQL-001 · every published item that names Pulse goes back to draft; impulse, HeartPulse and drafts are untouched",
+        "Pulse content is unpublished (v10.109.0) FU-SQL-002 · idempotent: a second run changes nothing"
       ]
     },
     {

@@ -1010,7 +1010,6 @@ const uid = () => {
 		return (c === "x" ? r : r & 3 | 8).toString(16);
 	});
 };
-const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const getMonthKey = (d) => d.slice(0, 7);
 /** This month (YYYY-MM): the device's, or the given zone's (W3a — it used to be the UTC month). */
 const nowMonthKey = (tz) => today(tz).slice(0, 7);
@@ -1526,90 +1525,6 @@ function spendByCategoryInRange(transactions, start, end, baseCurrency, rates) {
 	const out = {};
 	for (const [k, d] of Object.entries(buckets)) out[k] = fromDinero(d);
 	return out;
-}
-const totalMonthlyDebtPayment = (debts, baseCurrency, rates) => fromDinero(sumDinero(debts.filter((d) => (d.direction || "owed_by_me") !== "owed_to_me" && !d.paidOffAt), (d) => convertViaUsdRates(toDinero(d.minimumPayment, d.currency), baseCurrency, rates), baseCurrency));
-function computePulseScore(transactions, budgets, _goals, debts, baseCurrency, rates, allocations = [], tz) {
-	const mk = nowMonthKey(tz);
-	const { income, expense } = monthlyData(transactions, mk, baseCurrency, rates);
-	const lines = budgetLinesForMonth(budgets, allocations, mk);
-	const budgetApplicable = lines.length > 0;
-	let budgetScore = 0;
-	if (budgetApplicable) {
-		const spend = spendByCategory(transactions, mk, baseCurrency, rates);
-		const compliance = lines.map((b) => {
-			const limitBase = convert(b.limit, b.currency, baseCurrency, rates);
-			const pct = limitBase > 0 ? (spend[b.category ?? ""] || 0) / limitBase * 100 : 0;
-			if (pct <= 100) return 100;
-			return clamp(200 - pct, 0, 100);
-		});
-		budgetScore = compliance.reduce((s, v) => s + v, 0) / compliance.length;
-	}
-	const savingsApplicable = income > 0;
-	const rate = savingsApplicable ? (income - expense) / income * 100 : 0;
-	const savingsScore = clamp(rate * 5, 0, 100);
-	const [y, m] = mk.split("-").map(Number);
-	const prevExp = monthlyData(transactions, m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`, baseCurrency, rates).expense;
-	const trendApplicable = prevExp > 0;
-	let trendScore = 0;
-	if (trendApplicable) {
-		const change = (expense - prevExp) / prevExp * 100;
-		if (change <= 0) trendScore = 100;
-		else if (change <= 10) trendScore = 80;
-		else if (change <= 20) trendScore = 60;
-		else if (change <= 40) trendScore = 40;
-		else trendScore = 20;
-	}
-	const debtApplicable = debts.length > 0;
-	let debtScore = 0;
-	if (debtApplicable) {
-		if (income === 0) debtScore = 40;
-		else {
-			const dti = totalMonthlyDebtPayment(debts, baseCurrency, rates) / income * 100;
-			if (dti <= 15) debtScore = 100;
-			else if (dti <= 25) debtScore = 85;
-			else if (dti <= 36) debtScore = 65;
-			else if (dti <= 50) debtScore = 35;
-			else debtScore = 10;
-		}
-	}
-	const parts = [
-		{
-			score: budgetScore,
-			weight: .25,
-			ok: budgetApplicable
-		},
-		{
-			score: savingsScore,
-			weight: .25,
-			ok: savingsApplicable
-		},
-		{
-			score: trendScore,
-			weight: .15,
-			ok: trendApplicable
-		},
-		{
-			score: debtScore,
-			weight: .2,
-			ok: debtApplicable
-		}
-	];
-	const totalWeight = parts.reduce((s, p) => s + (p.ok ? p.weight : 0), 0);
-	return {
-		total: totalWeight === 0 ? null : clamp(Math.round(parts.reduce((s, p) => s + (p.ok ? p.score * p.weight : 0), 0) / totalWeight), 0, 100),
-		components: {
-			budget: Math.round(budgetScore),
-			savings: Math.round(savingsScore),
-			trend: Math.round(trendScore),
-			debt: Math.round(debtScore)
-		},
-		applicable: {
-			budget: budgetApplicable,
-			savings: savingsApplicable,
-			trend: trendApplicable,
-			debt: debtApplicable
-		}
-	};
 }
 //#endregion
 //#region react/src/lib/accountBalance.ts
@@ -2339,7 +2254,6 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 	});
 	const liquidityMonths = monthsOfCover(liquid, basis.averageMonthly) ?? 0;
 	const essentialMonths = monthsOfCover(liquid, basis.averageEssential);
-	const pulse = computePulseScore(txns, budgets, goals, debts, cur, rates, allocations, tz);
 	const spend = spendByCategory(txns, mk, cur, rates);
 	const topCategories = Object.entries(spend).sort(([, a], [, b]) => b - a).slice(0, 5).map(([category, amount]) => ({
 		category,
@@ -2387,7 +2301,6 @@ function buildSafeSummary(txns, budgets, goals, debts, assets, profile, rates, a
 			type: profile.household,
 			members: 0
 		},
-		pulseScore: pulse,
 		thisMonth: {
 			monthKey: mk,
 			income: round2(month.income),
@@ -3135,7 +3048,7 @@ async function classifyIntentViaModel(utterance, _ctx, call) {
 * `100` was here and has been REMOVED. In a finance assistant it is the single
 * most likely figure for a model to confabulate — "100% of your budget" — and it
 * almost never needs the exemption, because a genuine 100 arrives inside a
-* computed value ("Your Pulse Score is 85/100") and is therefore already
+* computed value (a budget "used: 100%") and is therefore already
 * allowed. Exempting it bought nothing and cost the guard its most obvious case.
 */
 const HARMLESS = /* @__PURE__ */ new Set([
@@ -3295,8 +3208,9 @@ HOW TO ANSWER
   \`safety_floor_note\` says savings are below it (or would go below), say so LAST, in its
   own paragraph after a blank line, as a risk (for example, less of a cushion if income
   stopped) — never as the reason for the answer, and never turning a "yes" into a "no".
-- \`cushion_note\` outranks a good Pulse score: say the habits score well AND that the
-  cushion is thin. \`pulse_measures\` says what Pulse does and does not cover.
+- \`cushion_note\` outranks good news elsewhere: say what is going well AND that the cushion
+  is thin. There is no Pulse score: when \`pulse_score\` says it is retired, say so in one
+  short clause and answer with the position.
 - \`compared_with_same_point\` compares this month so far with the same days of last
   month (\`same_point_is\`): use it for "more or less than last month", never a full
   previous month against a part month.
@@ -3432,10 +3346,7 @@ const FEATURES = {
 		packageId: "com.vyact.app",
 		reviewAfterEntries: 10
 	},
-	dashboard: {
-		showPulse: false,
-		showDebtSummary: false
-	},
+	dashboard: { showDebtSummary: false },
 	onboarding: {
 		enabled: true,
 		perHousehold: true,
@@ -3704,12 +3615,10 @@ function positionFacts(ctx) {
 		card_dues_to_pay: money(s.netWorth.cardDues, ctx),
 		free_to_spend_after_card_dues: signedMoney(s.netWorth.liquidAssets - s.netWorth.cardDues, ctx, "free", "short"),
 		...coverFacts(ctx),
-		pulse_measures: "budgets, this month's savings rate, spending trend and debt — not how long your savings would last",
-		...basisOf(ctx).averageMonthly > 0 && s.netWorth.liquidityMonths < 3 ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months at your usual spending, under the usual three-month cushion, whatever the Pulse score says` } : {},
+		...basisOf(ctx).averageMonthly > 0 && s.netWorth.liquidityMonths < 3 ? { cushion_note: `liquid savings cover ${s.netWorth.liquidityMonths.toFixed(1)} months at your usual spending, under the usual three-month cushion` } : {},
 		income_this_month: money(s.thisMonth.income, ctx),
 		spending_this_month: money(s.thisMonth.expense, ctx),
 		savings_rate_this_month: `${Math.round(s.thisMonth.netSavingsRate * 100)}%`,
-		pulse_score: s.pulseScore.total == null ? "not enough data yet" : `${s.pulseScore.total}/100`,
 		budgets_over_limit: s.budgets.filter((b) => !b.annual && b.spentPct > 100).map((b) => getCat(b.category).label),
 		...s.dataQuality?.cashBalanceNegative ? { data_warning: "recorded cash is below zero — some cash received has not been entered" } : {},
 		largest_categories_this_month: s.thisMonth.topCategories.slice(0, 5).map((t) => ({
@@ -3872,6 +3781,21 @@ function quickReply(utterance, ctx) {
 	};
 	if (/^(log|add|record) (an |a )?(expense|spend)$/.test(t)) return { reply: "Tell me like you'd tell a friend. For example:\n450 lunch\n1200 groceries on hdfc\nspent 800 on fuel yesterday\nI'll fill in the form. Nothing is saved until you check it." };
 	if (/^add (an |a )?account$/.test(t)) return { reply: "Accounts live on the Accounts screen: Plan › Accounts › Add account. Add the bank or card you spend from most, with its balance today, and the rest follows." };
+	const auto = t.match(/^record (.+?) (?:loan )?emi automatically$/);
+	if (auto && ctx) {
+		const loans = loansNamedIn(auto[1], liveLoans(ctx));
+		if (loans.length === 1) {
+			const d = loans[0];
+			return d.autoRecord ? { reply: `${d.name}'s EMI is already recorded automatically on its date. It's in Recurring › Loan EMIs.` } : {
+				reply: `Opening ${d.name} with Record automatically on. Check the paying account and the next EMI date, then save.`,
+				loanSeed: {
+					mode: "edit",
+					debtId: d.id,
+					autoRecord: true
+				}
+			};
+		}
+	}
 	return null;
 }
 /**
@@ -4301,6 +4225,124 @@ const ordinal = (n) => {
 	const v = n % 100;
 	return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 };
+const EMI_WORDS = /\b(emi|emis|instal+ments?|loan (re)?payments?)\b/;
+const NAME_STOP = /* @__PURE__ */ new Set([
+	"loan",
+	"loans",
+	"emi",
+	"emis",
+	"the",
+	"my",
+	"our",
+	"for",
+	"and",
+	"account",
+	"monthly",
+	"set",
+	"setup",
+	"add",
+	"pay",
+	"paying",
+	"every",
+	"month",
+	"new",
+	"a",
+	"an",
+	"up"
+]);
+const MONTH_ABBR = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec"
+];
+const dayMonth = (iso) => `${Number(iso.slice(8, 10))} ${MONTH_ABBR[Number(iso.slice(5, 7)) - 1]}`;
+/** The household's live loans: owed by it, paid by EMI, not cleared. */
+function liveLoans(ctx) {
+	return (ctx.debts ?? []).filter((d) => (d.direction ?? "owed_by_me") !== "owed_to_me" && d.type !== "credit_card" && d.minimumPayment > 0 && !d.paidOffAt);
+}
+const nameWords = (name) => normalise(name).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !NAME_STOP.has(w));
+/** The loans whose names the words mention. */
+function loansNamedIn(text, loans) {
+	const words = new Set(normalise(text).split(/[^a-z0-9]+/));
+	return loans.filter((d) => nameWords(d.name).some((w) => words.has(w)));
+}
+/** "car" from "set up my car loan EMI" / "car emi" — the name a new loan would carry. */
+function loanNameFrom(text, merchant) {
+	const m = normalise(text).match(/\b([a-z]+)\s+loan\b/) ?? normalise(text).match(/\b([a-z]+)\s+emi\b/);
+	const word = m && !NAME_STOP.has(m[1]) ? m[1] : typeof merchant === "string" && merchant.trim() ? normalise(merchant).replace(/\b(loan|emi)\b/g, "").trim() : "";
+	return word ? `${word.charAt(0).toUpperCase()}${word.slice(1)} loan` : "Loan";
+}
+/** The next date on day `day` of a month, from today (a 31st → the month's last day). */
+function nextOnDay(now, day) {
+	const at = (y, m) => new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()));
+	const thisMonth = at(now.getFullYear(), now.getMonth());
+	return isoDay(thisMonth.getDate() >= now.getDate() ? thisMonth : at(now.getFullYear(), now.getMonth() + 1));
+}
+const recordChip = (d) => ({
+	label: `Record ${d.name} automatically`,
+	prompt: `record ${d.name} emi automatically`
+});
+const accountName = (ctx, id) => id ? ctx.accounts?.find((a) => a.id === id)?.name : void 0;
+/** What an EMI request becomes: the loan's own EMI, or Add loan pre-filled. */
+function emiHandoff(e, ctx) {
+	const loans = liveLoans(ctx);
+	const named = loansNamedIn(e.text, loans);
+	const nameless = nameWords(loanNameFrom(e.text, e.merchant)).length === 0;
+	const matches = named.length ? named : nameless && loans.length === 1 ? loans : [];
+	if (matches.length === 1) {
+		const d = matches[0];
+		const next = d.dueDate ? `, next on ${dayMonth(d.dueDate)}` : "";
+		const from = accountName(ctx, d.fundingAccountId);
+		return {
+			kind: "capture",
+			outcome: "loan_handoff",
+			vars: { message: d.autoRecord ? `Your ${d.name} EMI is already set up from the loan: Vyact records ${money(d.minimumPayment, ctx)} on its date${next}${from ? ` from ${from}` : ""}. It's in Recurring › Loan EMIs.` : `Your ${d.name} EMI (${money(d.minimumPayment, ctx)}${next}) is paid by the loan, so it's already in Recurring › Loan EMIs. Want Vyact to record it automatically on its date?` },
+			...d.autoRecord ? {} : { chips: [recordChip(d)] }
+		};
+	}
+	if (matches.length === 0 && loans.length > 1 && nameless) {
+		const list = loans.map((d) => `${d.name} ${money(d.minimumPayment, ctx)}`).join(", ");
+		const off = loans.filter((d) => !d.autoRecord);
+		return {
+			kind: "capture",
+			outcome: "loan_handoff",
+			vars: { message: `Your loans' EMIs are already in Recurring › Loan EMIs: ${list}.${off.length ? " Which one should Vyact record automatically?" : " Vyact records each of them on its date."}` },
+			...off.length ? { chips: off.slice(0, 3).map(recordChip) } : {}
+		};
+	}
+	if (matches.length > 1) return {
+		kind: "capture",
+		outcome: "loan_handoff",
+		vars: { message: `That could be ${matches.map((d) => d.name).join(" or ")}. Which loan?` },
+		chips: matches.filter((d) => !d.autoRecord).slice(0, 3).map(recordChip)
+	};
+	const emi = amountIsStated(e.text, e.amount) ? e.amount : void 0;
+	const fromText = e.text.match(/\b([1-9]|[12]\d|3[01])(st|nd|rd|th)\b/);
+	const day = typeof e.dayOfMonth === "number" ? Math.trunc(e.dayOfMonth) : fromText ? Number(fromText[1]) : void 0;
+	const nextEmiDate = day && day >= 1 && day <= 31 ? nextOnDay(wallClock(ctx.tz), day) : void 0;
+	const name = loanNameFrom(e.text, e.merchant);
+	return {
+		kind: "capture",
+		outcome: "loan_handoff",
+		vars: { message: `An EMI is paid by its loan, so I've opened Add loan for ${name} with ${emi != null ? `${money(emi, ctx)} a month${day ? ` on the ${ordinal(day)}` : ""}` : "your EMI"} and Record automatically on. Add what's owed and the rate, choose the paying account, and save. Nothing is set up until you do.` },
+		loanSeed: {
+			mode: "new",
+			name,
+			...emi != null ? { emi } : {},
+			...nextEmiDate ? { nextEmiDate } : {},
+			autoRecord: true
+		}
+	};
+}
 /** v10.39.1 (P21) — the recurring draft, from what the user actually said. */
 function recurringSeedFrom(e) {
 	const text = e.text;
@@ -4481,6 +4523,7 @@ function resolveCore(intent, ctx) {
 			};
 		}
 		case "capture.recurring": {
+			if (EMI_WORDS.test(normalise(e.text)) || resolveCategoryId(typeof e.category === "string" ? e.category : void 0) === "loan_emi") return emiHandoff(e, ctx);
 			if (e.amount == null) return {
 				kind: "capture",
 				outcome: "missing_amount",
@@ -4631,7 +4674,8 @@ function resolveCore(intent, ctx) {
 			const s = ctx.summary;
 			const facts = {
 				...positionFacts(ctx),
-				...loggingFacts(ctx)
+				...loggingFacts(ctx),
+				.../\bpulse\b/i.test(e.text) ? { pulse_score: "retired: Vyact no longer gives a Pulse score; this is your position instead" } : {}
 			};
 			const analysis = [
 				"Read your net worth, assets and debt",
@@ -4658,16 +4702,17 @@ function resolveCore(intent, ctx) {
 					detail: `Roughly ${s.netWorth.liquidityMonths.toFixed(1)} months of your usual spending in liquid savings.`
 				}
 			};
-			const total = s.pulseScore.total ?? 0;
-			const thinCushion = s.netWorth.liquidityMonths < 3 && total >= 65;
+			const kept = s.thisMonth.income - s.thisMonth.expense;
+			const thinCushion = basisOf(ctx).averageMonthly > 0 && s.netWorth.liquidityMonths < 3;
+			const overLines = s.budgets.filter((b) => !b.annual && b.spentPct > 100);
 			return {
 				kind: "interpret",
 				outcome: "ok",
 				facts,
 				analysis,
 				vars: {
-					headline: `Your Pulse Score is ${total}/100.`,
-					detail: thinCushion ? `Your monthly habits score well, but your cushion is thin — about ${s.netWorth.liquidityMonths.toFixed(1)} months at your usual spending.` : total >= 80 ? "Strong — keep doing what you are doing." : total >= 65 ? "Solid, with a little room to push." : "There is room to improve — Insights lists your next steps."
+					headline: s.thisMonth.income > 0 ? kept >= 0 ? `This month you've kept ${Math.round(s.thisMonth.netSavingsRate * 100)}% of what came in.` : `This month you've spent ${money(-kept, ctx)} more than came in.` : `Your net worth is ${netMoney(s.netWorth.netWorth, ctx, "you owe more than you own")}.`,
+					detail: thinCushion ? `Your cushion is thin — about ${s.netWorth.liquidityMonths.toFixed(1)} months at your usual spending.` : overLines.length ? `${overLines.length} ${overLines.length === 1 ? "budget is" : "budgets are"} over: ${overLines.map((b) => getCat(b.category).label).join(", ")}.` : `About ${s.netWorth.liquidityMonths.toFixed(1)} months of liquid cover at your usual spending.`
 				}
 			};
 		}
@@ -5581,7 +5626,8 @@ async function runAssistant(utterance, ctx, backend = selectAssistantBackend(), 
 		intentId: "meta.assistant",
 		chips: normaliseChips(quick.chips),
 		clarify: false,
-		allowedFigures: []
+		allowedFigures: [],
+		...quick.loanSeed ? { loanSeed: quick.loanSeed } : {}
 	};
 	if (!backend) return unavailableTurn("not_configured");
 	onProgress?.("Understanding your question");
@@ -5623,6 +5669,15 @@ async function runAssistant(utterance, ctx, backend = selectAssistantBackend(), 
 		bucket: effective.bucket,
 		intentId: effective.id,
 		seed: result.seed,
+		chips: normaliseChips(result.chips),
+		clarify: false,
+		allowedFigures: figuresAllowedBy(result)
+	};
+	if (result.kind === "capture" && result.outcome === "loan_handoff") return {
+		reply: String(result.vars.message),
+		bucket: effective.bucket,
+		intentId: effective.id,
+		...result.loanSeed ? { loanSeed: result.loanSeed } : {},
 		chips: normaliseChips(result.chips),
 		clarify: false,
 		allowedFigures: figuresAllowedBy(result)
@@ -6323,6 +6378,10 @@ const WHATSAPP_MAX_CHARS = 4096;
 function renderForWhatsApp(turn, appUrl) {
 	if (turn.recurringSeed) return {
 		text: `Recurring bills are set up in the app, so you can check the schedule before it starts: ${appUrl}/recurring`,
+		chipPrompts: []
+	};
+	if (turn.loanSeed) return {
+		text: turn.loanSeed.mode === "new" ? `A loan's EMI is set up on the loan, in the app: Debts › Add loan, with Record automatically on. Vyact then records each EMI on its date: ${appUrl}/debts` : `Turn on Record automatically on the loan, in the app: Recurring › Loan EMIs. Vyact then records each EMI on its date: ${appUrl}/recurring`,
 		chipPrompts: []
 	};
 	if (turn.seed) return {

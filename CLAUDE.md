@@ -11,11 +11,11 @@
 
 Three independently-versioned deliverables:
 - **Consumer (React)** — `react/`. Vite + React 18 + TS + Tailwind + Zustand + Recharts.
-  **v10.108.0**. Live: **https://vyact.app**. Cloud (Supabase) is
+  **v10.109.0**. Live: **https://vyact.app**. Cloud (Supabase) is
   opt-in — **without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` it runs
   localStorage-only** (single anon household, no auth). Both modes share the
   `DataAdapter` interface.
-- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.5**.
+- **Admin** — `admin/`. Separate Vite+React+TS app, Claude native theme. **v1.4.6**.
   Live: **https://admin.vyact.app**.
 - **Database (Supabase)** — `supabase/migrations/` is the source of truth,
   auto-applied by `deploy.yml` (`supabase db push`). Live project
@@ -120,6 +120,14 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
       schedule again: a loan's EMI is the loan's.
     - The budget form's "already committed" forecast adds each live loan's EMIs on their real dates in the
       period (`loanEmiForecast`), under Loan / EMI.
+    - **An EMI request opens the LOAN form, never a schedule (v10.109.0, owner, R-1).** This covers Pip's
+      "set up my car EMI", Recurring's "+ Add loan EMI", and a Loan / EMI draft saved in Recurring. Each
+      opens the loan form with Record automatically on, through `openAddDebt` / `openEditDebt` and a
+      `LoanSeed` (router state, read once by `FormPages`).
+      - Pip names an existing loan's EMI and offers a "Record … automatically" chip. The chip's prompt is
+        answered by `quickReply` with no model call.
+      - The store passes a seed only when it is one, because a button that hands the opener to onClick
+        passes the click event.
   - **A loan account whose loan was deleted is cleared (v10.102.0, E7; owner, E-8).** Migration
     20261024120000 reconciled every live loan account LINKED to a deleted loan to zero, as
     `mark_loan_paid_off` does (offset + dated log, never a transaction), and archived it.
@@ -439,8 +447,16 @@ for what is done vs pending there. Do not start TD work unless explicitly asked.
   `<MotionConfig reducedMotion="user">`. Money animates via `<AnimatedMoney>`,
   settles with `bounce:0`, tone calm.
 - **Goals & Tax are removed as modules** (since v8.8.0) — dormant type/slice kept,
-  never surfaced. Pulse Score is 4 components (Budget/Savings/Trend/Debt). The Dashboard
-  hides Pulse and its debt summary by default (`FEATURES.dashboard`, v10.27.0);
+  never surfaced. **The Pulse Score is archived too (v10.109.0, owner 16 Oct 2026).**
+  - No screen, Pip answer, summary or admin page shows a score. `computePulseScore` stays, unused, with
+    its unit tests.
+  - Pip answers "how am I doing?" from the position: this month's cash flow and savings rate, then the
+    cushion or the budgets over. Asked for "my pulse score", it says the score was retired.
+  - `SafeSummary` carries no `pulseScore`. The metering bucket is `status` (older rows keep `pulse`).
+  - Published content that named Pulse was unpublished (migration 20261029120000).
+  - Never bring a health score back without an owner decision.
+
+  The Dashboard hides its debt summary by default (`FEATURES.dashboard.showDebtSummary`, v10.27.0);
   Net Worth still subtracts every liability.
 - **Insights Hub** — on-device For You feed adds NO financial math; card visuals
   from a CLOSED code set (icon allowlist · stat · 6 diagram primitives), never
